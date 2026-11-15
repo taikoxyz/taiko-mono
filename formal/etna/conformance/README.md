@@ -115,3 +115,50 @@ so an unrelated precondition rejection does not substitute for that check.
 Compatible fork/EL history, proof validity and initialization/owner authority
 remain premises; actual cryptography and arbitrary contract executions are not
 covered by these selected traces.
+
+## C03: recovery lists and failed calls
+
+`export_recovery.py` executes the unchanged M08 module and exports its complete
+versioned PublicAttempt. Its Python layer parses TLC values and checks provenance
+and completeness; it contains no acceptance predicates. Verify the frozen18
+Held attempts with:
+
+```sh
+"$PYTHON" formal/etna/conformance/export_recovery.py \
+  --java "$JAVA" --jar "$TLA2TOOLS_JAR" --check
+```
+
+Stage `solidity/EtnaRecoveryReplay.t.sol` and `recovery_cases.json` like C02,
+preserving original manifested files and using the same compiler/cache. Run both
+`EtnaRecoveryReplayTest` and `EtnaRecoveryUnheldReplayTest`. The first method checks
+all18 original public attempts (nine curated kinds times two dependency classes);
+the second exercises a separate public-registration/displacement/unconfirmed-unheld
+variant, not an additional claimed exact M08 Displaced-profile replay.
+
+Mapping is explicit: new-network S=0, gridq to6q, principal unit to1000 ether
+(the fixture MIN_STAKE), fee unit to1 gwei, finite no-exit10000 to the actual
+uint48 sentinel. Model Unix timestamp t maps to1200*t for *every\* timestamp,
+including deadline, origins, queue and schedules; L1 blocks/nonces are unchanged.
+This satisfies the actual minimum maxAnchorAge1152 while retaining comparison
+order and inclusive equality. Symbolic keys map to real registered key fixtures;
+DefaultKey maps to the actual hash of zero consensus-key fields. This mapping
+covers the selected L1 transitions, not elapsed physical time or BFT membership.
+
+The Held setup uses actual paid registrations, top-up, initialization, FI enqueue,
+strict statement-bound landing and rule/stop scheduling. A second-forceExit
+failure is a separately labeled Vm dependency injection: the first real registry
+write is observed and complete selected raw state is compared after revert.
+Mocked fault deployment/reachability and abstract callbacks are not established.
+
+The literal confirmed95 Displaced fixture, Withdrawn profile and callback class
+are explicit GAPs. A switching-network initialization can give the original
+model's confirmation/start chronology a legitimate prehistory; this new-network
+adapter instead tests an actual unconfirmed/unheld variant. It never plants the
+missing confirmation or active snapshot in storage. Actual gas metering is paused
+for the aggregate fixture as in Registry8; no transaction/block gas feasibility
+or cost benchmark is implied. Proof cryptography remains mocked.
+
+For accepted model attempts the adapter also expects the selected Recovered event:
+indexed generation, Inbox emitter and complete checkpoint/L1 context/original
+array payloads. A wrong expected indexed generation fails actual replay. Other
+registry events and failed-call log payloads are outside this selected event check.

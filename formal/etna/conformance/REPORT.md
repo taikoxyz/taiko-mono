@@ -93,8 +93,12 @@ landing record and all three generation origins, exact checkpoint/generation/
 nonce, empty queue, recovery snapshot preservation, and full selected public
 before/after digest for failed/offchain calls. The final Solidity adapter SHA256
 is `d4bcc73ccf61d93bbc73f3a745e76b48787a5cecced885911ba95e974f56818e`;
-fixture SHA256
+executed fixture SHA256
 `eb15a28d24550ed8eb761e14996b9a872d4ff572c9a331220805638e2d214954`.
+The commit hook formats the published JSON; its raw SHA256 is
+`07d6b3f792b389e68ed0b5d6580a15e488e2ffd1f243073c0b52228cb513d982`.
+Independent parsed comparison confirms every field and the canonical content
+digest are identical to the executed fixture; only whitespace changes.
 The original564-file contract snapshot remains unchanged; the adapter/fixture
 are additional test overlays, compiled in the same isolated shared output/cache.
 
@@ -115,3 +119,61 @@ root independently regenerated the receipts and checked the fourth real mutation
 is still mocked, the histories are scripted/same-chain and FI/exclusions/rules
 are held fixed. This is finite real-code trace correspondence, not unbounded
 refinement, proof-guest validation or live deployment evidence.
+
+## C03 — actual recovery-list and failure replay
+
+Actual M08 actions produced18 complete PublicAttempt receipts: nine curated raw
+request kinds, each with None/SecondRegistry failure class. A real model Tick
+puts execution at block101/timestamp1001, including positive exact deadline
+equality. TLC exhausts164 generated/158 distinct states with queue0/depth19.
+Source/config/wrapper/jar provenance is bound to copied inputs and checked for
+drift. No Python acceptance rules substitute for M08 execution.
+
+The real new-network Held adapter replays all18 receipts. Selected comparisons
+include all three retained landings, two origins, checkpoint/generation/nonce/
+start, issued/slot/key/owner/effective/pending/ready/exit/confirmation fields,
+lifetime flags, principal custody, three FI records/head/tail/admission fees,
+active snapshot and rule/stop schedule. Failed calls compare the selected raw
+before/after projection including opaque commitments and checkpoint history;
+successful calls check mapped exact writes and unchanged raw metadata/balances.
+
+The separate unconfirmed/unheld method uses4096 real paid public registrations
+and a paid replacement. Exclusion of the funded issued/unheld bond preserves its
+already earlier exit, replacement slot/bond/root and custody. This is a declared
+concrete variant, not full confirmed95 Displaced-profile equivalence.
+
+SecondRegistry uses a reverting mock of the exact second forceExit calldata.
+The corresponding case observes a real registry write before the second call
+fails, then requires full selected abort equality. This is concrete EVM rollback
+under a labeled injected dependency, not a production fault reachability claim.
+The late-unissued/default case additionally requires exact UnknownBond rejection.
+
+The independent review found two related adapter omissions: DefaultKey used zero
+instead of the actual hash of zero key fields, and readable unissued top-up/
+confirmation defaults were not included in its complete-projection assertion.
+They were repaired in one coherent wave. An exact UnknownBond check had prevented
+the old key mismatch from hiding an unexpected successful unissued exclusion;
+nonetheless the repaired calldata now faithfully matches the model's default key.
+
+Final real Forge execution passed both methods, all18 model case identities and
+the concrete unheld scenario. A selected Recovered-event assertion additionally
+checks indexed generation, Inbox emitter and all checkpoint/context/original-list
+data for model-accepted calls. A wrong expected indexed generation is rejected by
+the actual event matcher. No all-events or gas-cost conformance is claimed.
+
+Seven exporter tests passed; root independently regenerated all18 exact receipts,
+verified every original564-file source entry, both actual real test identities,
+all18 case ids and restored final input hashes. Temporary mutations failed for
+wrong after-exit, repairing an originally invalid key, wrong dependency target,
+and a root-selected change to only the after-state FI timestamp. The latter
+failed actual timestamp1198800 versus expected1200000, then the exact fixture
+was restored. Independent source/adapter/artifact review passed after
+the narrow default-id repair. These are sensitivity tests of selected observers,
+not a completeness proof. Raw model
+and production sources are unchanged; only new test overlays are compiled.
+
+Principal scales by MIN_STAKE, fees by1gwei and every Unix timestamp by1200;
+L1 blocks remain unchanged. This materializes valid public setup/schedule calls,
+not physical-time, BFT or cryptographic correctness. Literal confirmed95, Withdrawn
+and callback-class correspondence remain GAPs. The wider M09 corrective-upgrade
+API is also separate; none is invented by this replay suite.

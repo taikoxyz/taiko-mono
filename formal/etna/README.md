@@ -405,3 +405,8 @@ derived authorization paths. Actual symbolic read/proof/cache/retry/payment
 outcomes are checked against independent observations. Three prepared workloads
 complete; the unrestricted runtime remains an archived incomplete product.
 No concrete corrective upgrade API or real migration conformance is asserted.
+
+The second five-increment batch is complete locally. Its final212-case regression,
+selected real-contract executions, repaired verification gaps and retrospective
+are recorded in [REPORT.md](REPORT.md). Further increments await the agreed
+retrospective; passing these workloads does not close the module worklist.

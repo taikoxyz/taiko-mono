@@ -82,8 +82,16 @@
 
 **Interfaces:** Consume frozen M08 canonical attempt projection; internal tentative actions map to one real atomic Recover call. Use real Inbox/registry/FI with exact original calldata/auth and distinguish any injected dependency.
 
-- [ ] Export valid mixed lists and invalid late id/key/index/order/failure cases from actual model execution.
-- [ ] Materialize valid issued/unheld fixture through real public APIs; compare mapped identities and full unchanged out-of-scope/canonical observations.
-- [ ] Run real calls and check before/after/revert/events and origin/cursor/fee/registry effects, with strict boundary labels for fault injection.
-- [ ] Independent source review and actual mutation sensitivity; investigate any source discrepancy before classifying it.
-- [ ] Run final accumulated TLC/adapter regression and reused relevant Lean/contract suites; record exact limits, commit/update worklist and stop after five.
+- [x] Export valid mixed lists and invalid late id/key/index/order/failure cases from actual model execution.
+- [x] Materialize valid issued/unheld fixture through real public APIs; compare mapped identities and full unchanged out-of-scope/canonical observations.
+- [x] Run real calls and check before/after/revert/events and origin/cursor/fee/registry effects, with strict boundary labels for fault injection.
+- [x] Independent source review and actual mutation sensitivity; investigate any source discrepancy before classifying it.
+- [x] Run final accumulated TLC/adapter regression and reused relevant Lean/contract suites; record exact limits, commit/update worklist and stop after five.
+
+## Batch boundary
+
+All five scoped gates complete; stop before a sixth increment. Full regression 212/212,
+55 Python tests and640 live rule references pass; migration purity skipped without a migration base.
+No actual protocol/implementation defect established. Model/adapter findings repaired,
+incomplete wider runtime and unmatched concrete profiles explicitly retained as limits.
+Results remain local/unpublished; see formal/etna/REPORT.md and worklist #22355.

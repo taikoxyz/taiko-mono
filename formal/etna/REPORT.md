@@ -917,4 +917,82 @@ failed corrective-upgrade atomicity and node reconciliation. Those remain GAPs;
 this module is normative-interface verification, not actual upgrade code replay.
 
 The earlier193 default cases remain unchanged;19 new cases bring the selection
-to212. A final accumulated run is in progress, separately reported at batch end.
+to212. The final accumulated run completed successfully, reported at batch end.
+
+## C03 — actual recovery attempts and public unheld identity
+
+Frozen M08 public actions generate18 complete Held receipts (158 distinct states,
+queue0), including positive exact deadline equality. The pinned real Inbox/
+Registry/FI adapter passes all18, plus a separate genuine public4096-registration/
+paid-replacement unconfirmed-unheld scenario. Recovered-event indexed generation,
+emitter and complete data are compared for model-accepted calls. It checks exact
+mapped canonical effects, full selected abort equality and preserved raw metadata.
+Second-call failure is labeled dependency injection; real first-call registry
+writes are observed before rollback. Actual UnknownBond validates the unissued
+case. The earlier exit12 remains12 when the unheld exclusion executes at13.
+
+Independent review repaired DefaultKey's zero-record hash mapping and readable
+unissued-default observations, then rechecked actual final tests and negative
+mutations. Root separately regenerated the18 receipts, verified564 original source
+files unchanged, actual case/test identities, final source/fixture hashes and its
+chosen FI-timestamp mutation. Seven exporter tests pass. [Detailed mappings and
+limits](conformance/README.md) document timestamp1200 scaling, token/fee units,
+proof mocks and unmatched confirmed95/Withdrawn/callback profiles. No production
+implementation issue was established; the model-to-code claims remain scoped.
+
+## Second five-increment batch: stop and retrospective (2026-11-15)
+
+All five authorized increments C01, M08-A, C02, M09-A and C03 have completed local
+review/verification gates. **Stop here; no sixth increment is started.** No new
+independently supported protocol/specification/production implementation defect
+was established on the pinned revisions. Model assertion omissions and test
+adapter defects were found, repaired and rechecked separately.
+
+| Increment | Completed evidence                                                                                 | Important boundary                                                                                                                              |
+| --------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| C01       | Existing current Lean targets built locally; two exact vector generations; original real Registry8 | Existing encoded theorems/seeded opening; explicit authority-only bridge; no new Solidity equivalence theorem or full independent-kernel replay |
+| M08-A     | 18 exact TLC outcomes; raw-request/revert/effect and callback-write sensitivity                    | Three normalized one-attempt fixtures; curated lists, not arbitrary histories                                                                   |
+| C02       | 8 real-model scripts/45 real-Inbox observations; strict original statement and mutation checks     | Same-chain proof mocks; empty FI/exclusions/rules0                                                                                              |
+| M09-A     | 19 exact TLC outcomes; current nonce, complete landing prefix, confirmations, cache/retry and cash | Imported prepared interfaces and normative upgrade; concrete corrective API/migration GAP; wider runtime incomplete                             |
+| C03       | 18 real Held recoveries plus genuine public unheld variant; selected event and failure sensitivity | Confirmed95 Displaced/Withdrawn/callback GAPs; labeled dependency injection; selected state projection                                          |
+
+Final accumulated `check.py` execution completed **212/212 exact expected
+outcomes** with frozen inputs:34 normal searches ended queue0;178 controls or
+negated-witness searches violated only their declared invariant. No timeout,
+parser/runtime error or input drift counted as success. Source/config hashes
+were independently recomputed against every result. All214 previously tracked
+formal code/configuration files from the prior batch remained byte-identical;
+production-package diff is empty.
+
+Final focused infrastructure checks:20 existing runner tests and35 conformance
+Python tests passed. Rule markers/index/assets/links checked640 live rules;
+migration purity was explicitly skipped because no migration-base argument was
+supplied. Real contract tests used Foundry1.4.2/Solc0.8.30/Osaka in one shared
+isolated output/cache, and existing Lean4.35.0 used one shared Lake output.
+Independent adversarial review and independently selected behavioral mutations
+completed at every gate. All local commands use pinned source/tool inputs.
+
+### What the green results do and do not tell us
+
+The controls demonstrate that selected errors produce observable failures. In
+particular, removing base landing invalidation initially remained green: the
+model's assertions observed only SignalService state. Adding raw full base
+records and prefix equality made that exact mutant fail; independent corruption
+of an older retained record also fails. This is direct evidence that checking
+more assertions found a prior verification blind spot.
+
+The current protocol conclusion is limited by the chosen interfaces/workloads.
+L1 has a canonical serialized state; actual RPC forks, client/CometBFT/EL restart
+interleavings and weighted consensus have not been replayed here. Settlement
+proofs are represented by validity/strict-statement mocks. New commitment values
+are not all independently recomputed from a separate hash implementation. The
+corrective rollback is still a normative interface without a concrete upgrade
+implementation under test. C03 explicitly leaves three unmatched profile classes.
+Those boundaries can hide real bugs even though every selected run is green.
+
+The broader M09 product remains INCONCLUSIVE;19 larger historical experiment
+configurations now exist (previous18 plus this one). Their smaller successful
+counterparts are not claimed equivalent. The next discussion should compare
+those uncovered boundaries with actual implementation risks and choose further
+scopes; this batch does not start them automatically. Artifacts/commits remain
+local and the GitHub worklist tracks their unpublished status.
