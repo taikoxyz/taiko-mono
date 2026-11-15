@@ -70,11 +70,11 @@
 
 **Interfaces:** Explicit unsound-verifier/upgrade boundary distinct from ordinary recovery; retained record/cursor/snapshot, current nonce/generation, confirmations, derived-authority and irreversible payment projections.
 
-- [ ] Prepare trusted1/bad2 history and same-block confirmations with opposing restored-snapshot outcomes; define explicit known limitations.
-- [ ] Implement restore/void/revalidate/revoke/reproof/fee-preservation and stranded-origin fence with actual independent observers.
-- [ ] Exercise historical-nonce resurrection, one-path-only revocation, confirmation filtering, namespace deletion, forgotten fee-paid and improper landing controls.
-- [ ] Independently verify normal/positive traces and oracles; explicitly record no concrete corrective-upgrade API as GAP when applicable.
-- [ ] Review/test/fix gate, local commit/worklist update; no production fix without confirmation.
+- [x] Prepare trusted1/bad2 history and same-block confirmations with opposing restored-snapshot outcomes; define explicit known limitations.
+- [x] Implement restore/void/revalidate/revoke/reproof/fee-preservation and stranded-origin fence with actual independent observers.
+- [x] Exercise historical-nonce resurrection, one-path-only revocation, confirmation filtering, namespace deletion, forgotten fee-paid and improper landing controls.
+- [x] Independently verify normal/positive traces and oracles; explicitly record no concrete corrective-upgrade API as GAP when applicable.
+- [x] Review/test/fix gate, local commit/worklist update; no production fix without confirmation.
 
 ## Task5 C03: real recovery list and failure replay
 

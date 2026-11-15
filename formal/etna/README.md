@@ -395,3 +395,13 @@ to real-code lane. C01 locally builds the current Lean package, regenerates its
 Registry8 vectors twice and replays the unchanged original Solidity fixture.
 Pins, actual command outcomes, metadata bridge and scope limits are recorded
 there; model checks and selected implementation traces remain separate evidence.
+
+## Verifier-failure rollback increment
+
+[`VERIFIER_ROLLBACK.md`](VERIFIER_ROLLBACK.md) describes M09-A's distinct atomic
+corrective-upgrade interface: trusted checkpoint/FI/snapshot restoration, current
+nonce/generation, complete retained landing records, exit confirmations and both
+derived authorization paths. Actual symbolic read/proof/cache/retry/payment
+outcomes are checked against independent observations. Three prepared workloads
+complete; the unrestricted runtime remains an archived incomplete product.
+No concrete corrective upgrade API or real migration conformance is asserted.

@@ -887,3 +887,34 @@ artifact review passed; a root-selected origin-time mutation independently
 confirmed the actual getter assertions and exact fixture restoration. No actual
 protocol/implementation discrepancy was found. [Detailed evidence and limits](conformance/REPORT.md)
 separately state same-chain scripted workloads, proof mocks and empty FI/exclusions.
+
+## M09-A — corrective rollback and derived authority
+
+Frozen module SHA256
+`9de72dfbc6149d07c0add856d11c71a9e113b3a80c26e1a0893cef2f3d48c832`
+passed19/19 focused exact outcomes in implementer and independent owner runs.
+Three normal graphs exhaust1314/4448/8858 distinct states with queues0;
+ten deliberate controls and six existential witnesses produce their exact named
+invariant violations. Actual checkpoint reads, accepted/rejected proof attempts,
+cached/retry authorization and value/fee/stake transfers are observed. Latest
+corrected start and already-paid external cash are imported interface premises.
+
+Independent root mutation found a model-oracle gap: retaining all later base
+landing records still passed the original normal profile. Repair adds actual
+full base-record pre/post observations, full prefix preservation, absence above
+the trusted target and the existing NoFutureLandingRecords invariant. The exact
+original root mutant now fails BaseLandingRollbackCorrect; an independent reviewer
+also corrupted only retained h0.parent and observed the same failure. Complete
+source/config/doc/archive review passed after that single coherent repair wave.
+This is a repaired **model assertion omission**, not a production defect.
+
+One wider unrestricted-runtime prototype timed out45s, with last progress34626
+states/19607 queued. Exact source/config/dependency and its older assertion set
+remain INCONCLUSIVE under experiments/m09-wide-runtime. The smaller prepared
+workloads do not establish that product. [Module mapping and limits](VERIFIER_ROLLBACK.md)
+explicitly exclude concrete proxy/storage migration, real bridge cryptography,
+failed corrective-upgrade atomicity and node reconciliation. Those remain GAPs;
+this module is normative-interface verification, not actual upgrade code replay.
+
+The earlier193 default cases remain unchanged;19 new cases bring the selection
+to212. A final accumulated run is in progress, separately reported at batch end.
