@@ -41,6 +41,8 @@ GATE_PATHS = ('formal/etna/scripts', ':(glob)formal/etna/tests/*.py', ':(glob)fo
               'formal/etna/rule-coverage.json', 'formal/etna/lakefile.toml',
               'formal/etna/lean-toolchain', 'formal/etna/lake-manifest.json',
               ':(glob).github/workflows/formal--etna*.yml')
+# Without a historical lock, source changes cannot be classified as proof-only.
+SURFACE_PATHS = (LOCK_PATH, ':(glob)formal/etna/*.lean', ':(glob)formal/etna/Etna*/**/*.lean')
 # H1-H4 carried to raw DAO upgrade histories under AuthorizedUpgrades. The README relies on them
 # (section 1 finality for deployments), so their statements are part of what the claims mean.
 DEPLOYED_HEADLINES = ('Etna.Design.Current.Headlines.deployed_claims',
@@ -165,21 +167,40 @@ def against(ref, repo=None, head=None):
     """Compare the committed lock and gate files with `ref`. Returns (status, markdown).
     Without `head`, compares the checkout in the current directory with `ref`. With `head`,
     compares the commit `head` with merge-base(ref, head), reading it as git objects only, so
-    CI can judge a pull request from the base branch's checkout without running its code."""
+    CI can judge a pull request from the base branch's checkout without running its code.
+    When only the merge base predates the lock, gate, lock and library-source changes need
+    acknowledgement; unrelated changes still pass."""
     if repo is None:
         top = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
         if top.returncode:
             raise ValueError('run --against inside the repository checkout')
         repo = Path(top.stdout.strip())
+    base_ref = ref
     if head is not None:
         merge_base = git(repo, 'merge-base', ref, head)
         if merge_base.returncode:
             raise ValueError('git merge-base failed: ' + merge_base.stderr)
         ref = merge_base.stdout.strip()
-    base = git(repo, 'show', f'{ref}:{LOCK_PATH}')
+    base = git(repo, 'show', f'{base_ref}:{LOCK_PATH}')
     if base.returncode:
-        return 0, (f'Review surface: `{ref}` has no `{LOCK_PATH}`; this change introduces the lock '
+        return 0, (f'Review surface: `{base_ref}` has no `{LOCK_PATH}`; this change introduces the lock '
                    '(bootstrap), so there is nothing to compare.')
+    if ref != base_ref:
+        base = git(repo, 'show', f'{ref}:{LOCK_PATH}')
+    paths = GATE_PATHS + (SURFACE_PATHS if base.returncode else ())
+    files = git(repo, 'diff', '--name-only', ref, *([head] if head else []), '--', *paths)
+    if files.returncode:
+        raise ValueError('git diff failed: ' + files.stderr)
+    gates = [f for f in files.stdout.split('\n') if f]
+    if base.returncode:
+        if not gates:
+            return 0, (f'Merge base `{ref}` predates the review-surface lock; the branch changes '
+                       'no gate files, lock or Lean library sources.')
+        return 3, '\n'.join([
+            f'Merge base `{ref}` predates the review-surface lock, but the current base has one. '
+            'The historical statement baseline is unavailable; a reviewer must read these changes '
+            'and apply the `formal-statement-change` label.', '',
+            'Gate files, lock or Lean library sources:', *(f'- `{f}`' for f in gates)])
     if head is None:
         current = (repo/LOCK_PATH).read_text()
     else:
@@ -188,10 +209,6 @@ def against(ref, repo=None, head=None):
             raise ValueError(f'`{head}` has no `{LOCK_PATH}`: ' + shown.stderr)
         current = shown.stdout
     changes = diff(json.loads(base.stdout), json.loads(current))
-    files = git(repo, 'diff', '--name-only', ref, *([head] if head else []), '--', *GATE_PATHS)
-    if files.returncode:
-        raise ValueError('git diff failed: ' + files.stderr)
-    gates = [f for f in files.stdout.split('\n') if f]
     if not changes and not gates:
         return 0, f'Review surface and gate files are unchanged from `{ref}`.'
     text = [f'Review surface or gate files differ from `{ref}`. A reviewer must read these changes '

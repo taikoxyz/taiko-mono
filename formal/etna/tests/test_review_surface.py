@@ -53,6 +53,41 @@ class ReviewSurfaceJudgeTests(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertIn('bootstrap', text)
 
+    def branch_before_lock(self):
+        self.git('branch', 'pr')
+        self.lock({'A': 'def:1'})
+        self.write('formal/etna/scripts/base_only.py', 'base gate\n')
+        self.commit('introduce the lock on main')
+        self.git('checkout', '-q', 'pr')
+
+    def test_pre_lock_branch_requires_review_for_a_new_gate_file(self):
+        self.branch_before_lock()
+        self.write('formal/etna/scripts/json.py', 'raise SystemExit(0)\n')
+        head = self.commit('add a gate file from a pre-lock branch')
+        # A new path merges cleanly even though the branch predates the lock.
+        self.git('merge-tree', '--write-tree', 'main', head)
+        status, text = JUDGE.against('main', self.repo, head)
+        self.assertEqual(status, 3)
+        self.assertIn('formal/etna/scripts/json.py', text)
+        self.assertNotIn('base_only.py', text)
+        self.assertNotIn('bootstrap', text)
+
+    def test_pre_lock_branch_requires_review_for_a_lean_source_change(self):
+        self.branch_before_lock()
+        self.write('formal/etna/EtnaModel/New.lean', 'namespace Etna\nend Etna\n')
+        head = self.commit('add model source from a pre-lock branch')
+        status, text = JUDGE.against('main', self.repo, head)
+        self.assertEqual(status, 3)
+        self.assertIn('formal/etna/EtnaModel/New.lean', text)
+        self.assertIn('formal-statement-change', text)
+
+    def test_pre_lock_docs_only_branch_passes(self):
+        self.branch_before_lock()
+        self.write('formal/etna/README.md', 'docs only\n')
+        head = self.commit('docs only from a pre-lock branch')
+        status, _ = JUDGE.against('main', self.repo, head)
+        self.assertEqual(status, 0)
+
     def test_head_is_measured_from_the_merge_base(self):
         self.lock({'A': 'def:1'})
         self.commit('lock on main')
