@@ -821,3 +821,33 @@ missing; conditional enabledness and existential witnesses imply no unconditiona
 liveness, proving throughput or settlement-latency guarantee. Actual-code replay,
 full interface composition, publication/CI and broader coverage remain separate
 worklist items.
+
+## M08-A — ordinary recovery transaction (2026-11-15)
+
+The second authorized batch adds a frozen public recovery-attempt projection.
+`EtnaRecoveryTransaction.tla` SHA256
+`4d33545dbeffa396b40864620788ab688ceb51c9d323d85b46acb29a75c046a2`
+and18 new configurations passed all exact expectations in both implementer and
+independent owner runs:3 exhaustive normal searches,9 deliberate mutant controls
+and6 existential boundary witnesses. Normal distinct-state counts are10010
+(held),3242 (displaced),3242 (withdrawn), all final queues0. Tool/budget are the
+same TLC1.7.4/Java17,45s,512MiB,one worker,seed1 as the earlier batch.
+
+Independent adversarial review read the complete source/config/doc and checked
+actual hashes/results. Owner behavior verification additionally supplied two
+**distinct issued ids in reverse order** directly to raw `Begin`; the real model
+rejected the call and kept its entire canonical projection unchanged. A separate
+temporary mutation reported a callback rejected while actually writing workspace
+state; `NestedCallsRejected` caught the write. Neither probe modified the frozen
+model. No actual protocol/implementation issue was established.
+
+List domain, single-attempt bound, normalized fixtures and private ordering limits
+are detailed in [RECOVERY_TRANSACTION.md](RECOVERY_TRANSACTION.md). In particular,
+private prevalidation is not the real per-call `forceExit` instruction order;
+public atomic acceptance/effects are the proposed correspondence boundary. The
+callback abstraction is one representative write class, not a concrete reentrancy
+proof. Actual-code correspondence is deferred to C03, separately reported.
+
+Earlier175 cases remain unchanged. This increment brings the default selection
+to193; its final accumulated run is pending M09 freeze, so18 focused passes are
+not presented as an already completed193-case run.

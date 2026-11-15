@@ -375,3 +375,17 @@ landing while paused and adopting a new finalized anchor in the next candidate.
 Ready-resource and missing-resource workloads are distinct; neither guarantees
 that data or proofs arrive. This model is not a formal product with the earlier
 modules and establishes no sustained throughput or settlement latency.
+
+## Recovery transaction and implementation-correspondence batch
+
+The next authorized batch comprises exactly C01, M08-A, C02, M09-A and C03.
+Model exploration and selected actual-contract replay proceed in parallel; stop
+on an independently supported actual issue, otherwise stop after five for a
+coverage retrospective. Model/oracle/adapter repairs are recorded separately.
+
+[`RECOVERY_TRANSACTION.md`](RECOVERY_TRANSACTION.md) describes M08-A's curated
+raw list inputs, private tentative workspace, complete modeled abort equality
+and exact public commit effects. It extends actual settlement actions, with
+single-attempt workload and explicitly different private validation order from
+the real contracts. Its versioned public-attempt interface feeds C03; internal
+microsteps must not be interpreted as public intermediate Solidity states.
