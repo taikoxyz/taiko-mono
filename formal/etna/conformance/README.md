@@ -78,3 +78,40 @@ Registry8 executes real registration, replacement and exit paths, using a mock
 active committee snapshot and valid deterministic PoP/key fixtures. It does not
 prove cryptography, reachability of every Lean seed state, committee selection,
 whole-contract refinement or live deployment behavior.
+
+## C02: settlement and authorization receipts
+
+`EtnaSettlementReplay.tla` extends the unchanged settlement model. Eight finite
+scripts execute its actual actions and use TLC `ENABLED` for success/rejection;
+Python does not duplicate the guards. Regenerate or verify the frozen receipts:
+
+```sh
+"$PYTHON" formal/etna/conformance/export_settlement.py \
+  --java "$JAVA" --jar "$TLA2TOOLS_JAR" --check
+```
+
+The exporter pins the TLC jar and exact copied source/config bytes, rejects
+input drift and requires every expected receipt. `settlement_cases.json` contains
+45 observations including8 initial states. The schema carries each action,
+actual outcome, scalar public state, five retained landing records and three
+generation origins. Fixtures and provenance are validated before replay.
+
+Stage `solidity/EtnaSettlementReplay.t.sol` as an additional file in the pinned
+contract snapshot's `test/layer1/etna/conformance/` directory, and the generated
+JSON in that directory's `vectors/`. Preserve every original manifested file.
+Use the C01 isolated compiler/dependency settings and the same out/cache;
+select `EtnaSettlementReplayTest.test_conformance_settlementReplay()`.
+The Solidity adapter also checks exact per-case receipt counts, so an omitted
+last step cannot silently shorten a successful run.
+
+The adapter scales normalized L2 grid heights by6. Model time maps monotonically
+to L1 block `11+time` and timestamp `1000+12*time`; it is not physical finality.
+Queue/exclusions stay empty and recovery rules remain0. Proof verification is a
+strict original-statement mock: preparing a proof captures its immutable calldata
+and full public statement. Submission sets that original expected statement;
+it never regenerates the expectation from the new recovery domain. Both old-domain
+proof scenarios additionally require the mock's exact `ProofRejected` selector,
+so an unrelated precondition rejection does not substitute for that check.
+Compatible fork/EL history, proof validity and initialization/owner authority
+remain premises; actual cryptography and arbitrary contract executions are not
+covered by these selected traces.

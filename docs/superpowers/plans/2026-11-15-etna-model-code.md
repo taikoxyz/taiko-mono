@@ -34,11 +34,11 @@
 
 **Interfaces:** Caller supplies pinned Lean/contract source roots, SDK/compiler paths and output root. Runner emits exact source/tool digests, generated/current vector comparison, actual command outcomes and explicit unavailable/failed states.
 
-- [ ] Stage and inspect exact sources/dependencies; size-check verified official SDK before extraction; preserve a build/disk reserve.
-- [ ] Add tests rejecting wrong source/vector hashes, any non-authority JSON difference, missing cases and false PASS from skipped/failed commands.
-- [ ] Build current Lean targets locally once; regenerate vectors through actual current CLI and compare both raw/semantic digests.
-- [ ] Replay real pinned Registry8 fixture; keep authority metadata bridge explicit and all expected behavior unchanged.
-- [ ] Independent review/verification, evidence/local commit/worklist update; setup-only or CI-only is not completion.
+- [x] Stage and inspect exact sources/dependencies; size-check verified official SDK before extraction; preserve a build/disk reserve.
+- [x] Add tests rejecting wrong source/vector hashes, any non-authority JSON difference, missing cases and false PASS from skipped/failed commands.
+- [x] Build current Lean targets locally once; regenerate vectors through actual current CLI and compare both raw/semantic digests.
+- [x] Replay real pinned Registry8 fixture; keep authority metadata bridge explicit and all expected behavior unchanged.
+- [x] Independent review/verification, evidence/local commit/worklist update; setup-only or CI-only is not completion.
 
 ## Task2 M08-A: recovery list validation and atomicity
 
@@ -46,11 +46,11 @@
 
 **Interfaces:** Reuse actual `EtnaSettlement` actions through wrappers; actual canonical pre/post receipt plus immutable original request. Complete public-attempt projection includes lists, id/key identity, queue state, outcome and canonical fields.
 
-- [ ] Pin exact recovery rules and finite sequence domains; write expected controls/witnesses first.
-- [ ] Implement private tentative workspace, validation/external failure and atomic commit/abort; no bypassed base actions.
-- [ ] Check sorted/unique ids/indices, issued-unheld id, matching keys, execution-time range, unchanged fees/metadata/confirmations and complete failed-call state equality independently.
-- [ ] Measure bounded full-action profiles; retain incomplete products with exact inputs; independently challenge oracles and positive mixed-list paths.
-- [ ] Review/test/fix gate, freeze export interface, local commit/worklist update; stop on real issue.
+- [x] Pin exact recovery rules and finite sequence domains; write expected controls/witnesses first.
+- [x] Implement private tentative workspace, validation/external failure and atomic commit/abort; no bypassed base actions.
+- [x] Check sorted/unique ids/indices, issued-unheld id, matching keys, execution-time range, unchanged fees/metadata/confirmations and complete failed-call state equality independently.
+- [x] Measure bounded full-action profiles; retain incomplete products with exact inputs; independently challenge oracles and positive mixed-list paths.
+- [x] Review/test/fix gate, freeze export interface, local commit/worklist update; stop on real issue.
 
 ## Task3 C02: real settlement and authorization replay
 
@@ -58,11 +58,11 @@
 
 **Interfaces:** Actual TLC base actions determine each outcome; versioned JSON records inputs and scalar/retained-record expected observations per step. Contract adapter maps grid q to6q and binds strict prepared statement hashes.
 
-- [ ] Inspect actual Inbox/test helper APIs and document mapped observables/mocked exclusions.
-- [ ] Export real model-executed overlap, stale checkpoint/nonce, inclusive deadline and old-domain proof scenarios; do not copy guards into Python expectations.
-- [ ] Validate schema/provenance and deterministic generation; mutation tests reject altered expectations, source pins and skipped steps.
-- [ ] Replay every public step on actual pinned contracts using one shared compiler output; compare getters/records/revert flags and required effects.
-- [ ] Independent review plus actual behavioral mutation check; freeze results/commit/worklist or stop on real source issue.
+- [x] Inspect actual Inbox/test helper APIs and document mapped observables/mocked exclusions.
+- [x] Export real model-executed overlap, stale checkpoint/nonce, inclusive deadline and old-domain proof scenarios; do not copy guards into Python expectations.
+- [x] Validate schema/provenance and deterministic generation; mutation tests reject altered expectations, source pins and skipped steps.
+- [x] Replay every public step on actual pinned contracts using one shared compiler output; compare getters/records/revert flags and required effects.
+- [x] Independent review plus actual behavioral mutation check; freeze results/commit/worklist or stop on real source issue.
 
 ## Task4 M09-A: rollback authority and nonce
 

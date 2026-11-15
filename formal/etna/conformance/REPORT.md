@@ -70,3 +70,48 @@ the actual real-contract fixture; root separately built/regenerated Lean, verifi
 all source/artifact hashes and inspected the actual contract result. No actual
 protocol/implementation bug was established. The next two replay increments are
 reported when their separate gates complete.
+
+## C02 — actual settlement/authorization replay
+
+The actual unchanged TLA settlement actions produced8 scripts and45 receipts
+(including8 initial observations),94 generated/90 distinct states, final queue0.
+Source and output fixture hashes are embedded in the versioned JSON. Actual
+`--check` regeneration was independently repeated and was identical.
+
+| Scenario                               | Public behavior checked                                                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Compatible overlap                     | Originally prepared range lands after another checkpoint; retained record parent is actual current checkpoint |
+| Stale checkpoint / nonce               | Captured original authorization is rejected after another landing or explicit invalidation                    |
+| Inclusive deadline and replay          | Exact-expiry execution succeeds; reuse is rejected                                                            |
+| Expired then fresh                     | Expired original fails; fresh authorization succeeds                                                          |
+| Old proof at genesis / retained origin | Original full statement fails against new recovery domain; exact `ProofRejected`, not another guard           |
+| Same-checkpoint recoveries             | Generation/nonce advance and each immutable origin remains correct                                            |
+
+Pinned real Inbox test `test_conformance_settlementReplay()` passed, with all8
+case identities and45 observations executed. It checks every bounded retained
+landing record and all three generation origins, exact checkpoint/generation/
+nonce, empty queue, recovery snapshot preservation, and full selected public
+before/after digest for failed/offchain calls. The final Solidity adapter SHA256
+is `d4bcc73ccf61d93bbc73f3a745e76b48787a5cecced885911ba95e974f56818e`;
+fixture SHA256
+`eb15a28d24550ed8eb761e14996b9a872d4ff572c9a331220805638e2d214954`.
+The original564-file contract snapshot remains unchanged; the adapter/fixture
+are additional test overlays, compiled in the same isolated shared output/cache.
+
+Seven exporter tests passed, including altered/rehashed observations, missing
+steps and source drift during TLC execution. Actual temporary Forge mutations
+failed as required: wrong retained parent, missing final receipt and wildcard
+proof binding. A root-selected fourth mutation changed only one expected
+recovery-origin observation: actual real-call replay failed with
+`retained origin L1 block: 12 != 13`. Exact frozen fixture/source hashes were
+restored; the unchanged final normal execution passed. These demonstrate
+sensitivity of selected comparisons, not complete oracle or protocol coverage.
+
+Adapter repairs included literal per-case length enforcement and snapshotting
+actual copied TLC source bytes before execution with drift rejection before
+stamping provenance. They are test-infrastructure findings, not production bugs.
+Independent full-source/fixture/argv review passed after the drift repair;
+root independently regenerated the receipts and checked the fourth real mutation. Strict proof verification
+is still mocked, the histories are scripted/same-chain and FI/exclusions/rules
+are held fixed. This is finite real-code trace correspondence, not unbounded
+refinement, proof-guest validation or live deployment evidence.

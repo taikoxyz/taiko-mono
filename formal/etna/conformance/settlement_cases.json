@@ -1,0 +1,1133 @@
+{
+  "schema": "etna-settlement-replay-1",
+  "grid": 6,
+  "provenance": {
+    "base_sha256": "3fd57284128ea5a19966c2684161f909155a4730310972fee87d50eed009b84a",
+    "replay_sha256": "404b721d0d293f4c1c46e1f2d9b3371a3645a1b83b917a11efc9c68be53057c9",
+    "config_sha256": "1096c721f04a75bab8eed869ba6b2b62ef574b4894eba500f7570c3cc4f34a20",
+    "tlc_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
+  },
+  "cases": [
+    {
+      "id": "compatible-overlap",
+      "steps": [
+        {
+          "op": 0,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [false, 0, 0, 0, 0],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 2,
+          "arg": 3,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [false, 0, 0, 0, 0],
+          "proof": [true, 0, 0, 3],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 4,
+          "arg": 1,
+          "accepted": true,
+          "checkpoint": 1,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [false, 0, 0, 0, 0],
+          "proof": [true, 0, 0, 3],
+          "landings": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 3,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 3,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [false, 0, 0, 0, 0],
+          "proof": [true, 0, 0, 3],
+          "landings": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0],
+            [true, 0, 1],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stale-checkpoint",
+      "steps": [
+        {
+          "op": 0,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [false, 0, 0, 0, 0],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 1,
+          "arg": 3,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 0, 0, 0, 3],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 4,
+          "arg": 1,
+          "accepted": true,
+          "checkpoint": 1,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 0, 0, 0, 3],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 5,
+          "arg": 0,
+          "accepted": false,
+          "checkpoint": 1,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 0, 0, 0, 3],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stale-nonce",
+      "steps": [
+        {
+          "op": 0,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [false, 0, 0, 0, 0],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 1,
+          "arg": 3,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 0, 0, 0, 3],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 6,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 1,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 0, 0, 0, 3],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 5,
+          "arg": 0,
+          "accepted": false,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 1,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 0, 0, 0, 3],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "inclusive-deadline-and-replay",
+      "steps": [
+        {
+          "op": 0,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [false, 0, 0, 0, 0],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 1,
+          "arg": 1,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 0, 0, 0, 1],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 7,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 1,
+          "authorization": [true, 0, 0, 0, 1],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 5,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 1,
+          "nonce": 1,
+          "origin": 0,
+          "now": 1,
+          "authorization": [true, 0, 0, 0, 1],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 0, 1],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 5,
+          "arg": 0,
+          "accepted": false,
+          "checkpoint": 0,
+          "generation": 1,
+          "nonce": 1,
+          "origin": 0,
+          "now": 1,
+          "authorization": [true, 0, 0, 0, 1],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 0, 1],
+            [false, 0, 0]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "expired-then-fresh",
+      "steps": [
+        {
+          "op": 0,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [false, 0, 0, 0, 0],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 1,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 0, 0, 0, 0],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 7,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 1,
+          "authorization": [true, 0, 0, 0, 0],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 5,
+          "arg": 0,
+          "accepted": false,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 1,
+          "authorization": [true, 0, 0, 0, 0],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 1,
+          "arg": 2,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 1,
+          "authorization": [true, 0, 0, 0, 2],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 5,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 1,
+          "nonce": 1,
+          "origin": 0,
+          "now": 1,
+          "authorization": [true, 0, 0, 0, 2],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 0, 1],
+            [false, 0, 0]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "old-proof-genesis-origin",
+      "steps": [
+        {
+          "op": 0,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [false, 0, 0, 0, 0],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 2,
+          "arg": 2,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [false, 0, 0, 0, 0],
+          "proof": [true, 0, 0, 2],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 1,
+          "arg": 3,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 0, 0, 0, 3],
+          "proof": [true, 0, 0, 2],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 5,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 1,
+          "nonce": 1,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 0, 0, 0, 3],
+          "proof": [true, 0, 0, 2],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 3,
+          "arg": 0,
+          "accepted": false,
+          "checkpoint": 0,
+          "generation": 1,
+          "nonce": 1,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 0, 0, 0, 3],
+          "proof": [true, 0, 0, 2],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 7,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 1,
+          "nonce": 1,
+          "origin": 0,
+          "now": 1,
+          "authorization": [true, 0, 0, 0, 3],
+          "proof": [true, 0, 0, 2],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 4,
+          "arg": 1,
+          "accepted": true,
+          "checkpoint": 1,
+          "generation": 1,
+          "nonce": 1,
+          "origin": 0,
+          "now": 1,
+          "authorization": [true, 0, 0, 0, 3],
+          "proof": [true, 0, 0, 2],
+          "landings": [
+            [true, 0, 0],
+            [true, 1, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "old-proof-retained-origin",
+      "steps": [
+        {
+          "op": 0,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [false, 0, 0, 0, 0],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 4,
+          "arg": 1,
+          "accepted": true,
+          "checkpoint": 1,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [false, 0, 0, 0, 0],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 2,
+          "arg": 3,
+          "accepted": true,
+          "checkpoint": 1,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [false, 0, 0, 0, 0],
+          "proof": [true, 0, 1, 3],
+          "landings": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 1,
+          "arg": 3,
+          "accepted": true,
+          "checkpoint": 1,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 0, 1, 0, 3],
+          "proof": [true, 0, 1, 3],
+          "landings": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 5,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 1,
+          "generation": 1,
+          "nonce": 1,
+          "origin": 1,
+          "now": 0,
+          "authorization": [true, 0, 1, 0, 3],
+          "proof": [true, 0, 1, 3],
+          "landings": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 1, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 3,
+          "arg": 0,
+          "accepted": false,
+          "checkpoint": 1,
+          "generation": 1,
+          "nonce": 1,
+          "origin": 1,
+          "now": 0,
+          "authorization": [true, 0, 1, 0, 3],
+          "proof": [true, 0, 1, 3],
+          "landings": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 1, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 7,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 1,
+          "generation": 1,
+          "nonce": 1,
+          "origin": 1,
+          "now": 1,
+          "authorization": [true, 0, 1, 0, 3],
+          "proof": [true, 0, 1, 3],
+          "landings": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 1, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 4,
+          "arg": 2,
+          "accepted": true,
+          "checkpoint": 2,
+          "generation": 1,
+          "nonce": 1,
+          "origin": 1,
+          "now": 1,
+          "authorization": [true, 0, 1, 0, 3],
+          "proof": [true, 0, 1, 3],
+          "landings": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [true, 1, 1],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 1, 0],
+            [false, 0, 0]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "two-recoveries-same-checkpoint",
+      "steps": [
+        {
+          "op": 0,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [false, 0, 0, 0, 0],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 1,
+          "arg": 3,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 0, 0, 0, 3],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 5,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 1,
+          "nonce": 1,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 0, 0, 0, 3],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 1,
+          "arg": 3,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 1,
+          "nonce": 1,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 1, 0, 1, 3],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [false, 0, 0]
+          ]
+        },
+        {
+          "op": 5,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 2,
+          "nonce": 2,
+          "origin": 0,
+          "now": 0,
+          "authorization": [true, 1, 0, 1, 3],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [true, 0, 0]
+          ]
+        },
+        {
+          "op": 7,
+          "arg": 0,
+          "accepted": true,
+          "checkpoint": 0,
+          "generation": 2,
+          "nonce": 2,
+          "origin": 0,
+          "now": 1,
+          "authorization": [true, 1, 0, 1, 3],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [true, 0, 0]
+          ]
+        },
+        {
+          "op": 4,
+          "arg": 1,
+          "accepted": true,
+          "checkpoint": 1,
+          "generation": 2,
+          "nonce": 2,
+          "origin": 0,
+          "now": 1,
+          "authorization": [true, 1, 0, 1, 3],
+          "proof": [false, 0, 0, 0],
+          "landings": [
+            [true, 0, 0],
+            [true, 2, 0],
+            [false, 0, 0],
+            [false, 0, 0],
+            [false, 0, 0]
+          ],
+          "origins": [
+            [true, 0, 0],
+            [true, 0, 0],
+            [true, 0, 0]
+          ]
+        }
+      ]
+    }
+  ],
+  "content_sha256": "ef95f81b18a34c7f4a8bccfdc9ca838dc33ed67345b0d5a9db7063267a3c085a"
+}
