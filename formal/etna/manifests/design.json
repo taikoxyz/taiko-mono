@@ -6111,7 +6111,7 @@
       ],
       "bridge_level": "spec-proved",
       "sources": ["LIVE_EN-4a56676c3ce76122"],
-      "scope": "Supporting RECOV-8-28 target rule as stated by the rollback duty Governance.RollbackAuthorized: two targets that both meet the duty in the same world are at the same height, so the duty leaves no choice of target. The duty itself (not this theorem) says the target is the last retained record below the first bad one, every record at or below it trusted (certified from the initial world or the pending start). Existence of a target after a verifier failure, the start-rewrite clause and generation counting are not shown."
+      "scope": "Supporting RECOV-8-28 target rule as stated by the rollback duty Governance.RollbackAuthorized: two targets that both meet the duty in the same world are at the same height, so the duty leaves no choice of target. The duty itself (not this theorem) says the target is the last retained record below the first bad actual landing. TrustedRecord requires a certified header or pending start, actual non-start landing provenance and certification of every matching retained event's complete statement, including snapshot and signal root. Existence of a target after a verifier failure, the start-rewrite clause and generation counting are not shown."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Governance.authorized_rollback_restores",
@@ -8140,6 +8140,18 @@
         "LIVE_EN-03cb21954a3b2213"
       ],
       "scope": "Derived conditional decoded property: H4, recoverability (reports/recoverability.md, The claim and The path). From every reachable, initialized state satisfying LiveAt, under RecoveryPremises, a RecoveryTrace (no rollback; one recovery with no exclusions and no FI blanking, plain when c is on the grid and otherwise structural with K = 1 as its only change) reaches a state where land accepts a landing; if anything had landed before, that landing ends above the starting checkpoint. The path is Recovery.prepare (L1 to the window block R, the start settled, the image and verifier set, one recovery at R, plain on the grid and otherwise structural with K = 1 in ruleset next+1, L1 to R+2) and Recovery.segment (the new generation's first K blocks on the hash-bound header of the current checkpoint c, anchored at R). The landing runs from c to c+K with reference block R+1, committee snapshot R, the terminal's hashes, state root and FI cursor, no leaves (no grid point lies strictly between c and c+K) and one to six blobs from PayloadLive. Its statement is certified at reference R+1 (archive root c's header, no prior headers; the generation's genesis cutoff stays below R because recover keeps it across upgrades), every block's ruleset is implemented by the registered image, and ProofComplete's verifier version accepts two proofs of it. Proof completeness (MODEL-1-1/1-2) is assumed through RecoveryPremises.proofComplete (ProofComplete), not shown. Recovery restoring progress (RECOV-8, LIMIT-12-2) is exercised; list validation, exclusions and blanking are not. Normal-operation liveness, adversarial scheduling and DAO transaction refinement are outside the claim."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Governance.trace_trusted_records",
+      "module": "EtnaProofs.CurrentLandingHistory",
+      "role": "property",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {registry : Etna.Design.Current.RegistryMachine.State}\n  {w : Etna.Design.Current.Protocol.World},\n  Etna.Design.Current.RegistryMachine.Genesis registry →\n    Etna.Design.Current.Protocol.Custody.Primitives env →\n      Etna.Design.Current.Protocol.VerifierSound env (Etna.Design.Current.Protocol.empty env registry) →\n        Etna.Design.Current.Protocol.Trace env (Etna.Design.Current.Protocol.empty env registry) w →\n          ∀ cp ∈ w.activeRecords,\n            Etna.Design.Current.Protocol.Governance.TrustedRecord env\n              (Etna.Design.Current.Protocol.empty env registry) w cp",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": [],
+      "scope": "Actual retained landing provenance and complete-statement certification under sound verifiers; used by H1 to reject all verifier-failure rollbacks. No standalone protocol clause credit or post-failure recovery theorem."
     }
   ]
 }

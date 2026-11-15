@@ -35,12 +35,10 @@ theorem rollback_target_unique {env : Environment} {initial w : World} {one othe
       RollbackAuthorized env initial w low lowSnapshot →
       RollbackAuthorized env initial w high highSnapshot → ¬ low.height < high.height := by
     intro low high lowSnapshot highSnapshot lowAuthorized highAuthorized lower
-    obtain ⟨_,_,_,bad,retained,_,uncertified,unpending,gap⟩ := lowAuthorized
+    obtain ⟨_,_,_,bad,retained,_,untrusted,gap⟩ := lowAuthorized
     obtain ⟨member,_,trusted,_⟩ := highAuthorized
     by_cases covered : bad.height ≤ high.height
-    · rcases trusted bad retained covered with certified | pending
-      · exact uncertified certified
-      · exact unpending pending
+    · exact untrusted (trusted bad retained covered)
     · have between := gap high member (Nat.lt_of_not_le covered)
       omega
   rcases Nat.lt_trichotomy one.height other.height with lower | same | higher
@@ -66,7 +64,7 @@ theorem authorized_rollback_restores {env : Environment} {initial w t : World}
     refine ⟨rfl,rfl,rfl,rfl,?_⟩
     intro cp kept
     obtain ⟨retained,below⟩ := List.mem_filter.mp kept
-    exact authorized.2.2.1 cp retained (of_decide_eq_true below)
+    exact (authorized.2.2.1 cp retained (of_decide_eq_true below)).1
   next => simp at normative
 
 /-- The only bridge from raw DAO histories to the admissible protocol machine uses

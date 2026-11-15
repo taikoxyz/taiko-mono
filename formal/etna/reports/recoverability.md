@@ -338,9 +338,10 @@ witness then runs a plain recovery at c = 0 and lands 0 → 3. The spec forbids 
 RECOV-8-28 fixes the target as the last trusted landing, here height 2, and RECOV-8-58 forbids
 rewinding the settled prefix. So the trap theorem excludes rollback as well as structural
 recovery. The target rule is an external duty of deployed histories
-(`Governance.RollbackAuthorized`), not a guard of `rollback`, because judging a record trusted
-quantifies over the traces that `rollback` builds; the witness runs the normative machine,
-which does not check it.
+(`Governance.RollbackAuthorized`), not a guard of `rollback`. `TrustedRecord` judges each
+actual retained landing's complete statement, including its saved snapshot and signal root;
+a matching certified checkpoint alone is insufficient. The witness runs the normative
+machine, which does not check this external duty.
 
 **What the witnesses show.** Their environment's verifier accepts every proof. That is the
 verifier-failure scenario that the rollback exists for, and that environment meets no premise

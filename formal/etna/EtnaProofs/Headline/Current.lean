@@ -8,6 +8,7 @@ import EtnaProofs.CurrentMetadata
 import EtnaProofs.CurrentQueueIntegrity
 import EtnaProofs.CurrentUnzen
 import EtnaProofs.CurrentGovernance
+import EtnaProofs.CurrentLandingHistory
 import EtnaProofs.CurrentCheckpointRisk
 import EtnaProofs.CurrentRecoveryLanding
 
@@ -25,17 +26,14 @@ theorem catalogue_bytes {env : Environment} {w : World} {archive : List Blocks.H
   rw [← same]
   rfl
 
-/-- While every retained record is certified or the pending start, no rollback meets its
-verifier-failure duty, which needs a bad retained record above its target. -/
+/-- No actual retained landing is bad when its complete statement is certified. -/
 private theorem no_rollback_authorized {env : Environment} {initial w : World}
     {trusted : Checkpoint} {snapshot : Nat}
-    (records : ∀ cp ∈ w.activeRecords, Custody.Certified env initial cp ∨ Custody.Pending env w cp) :
+    (records : ∀ cp ∈ w.activeRecords, Governance.TrustedRecord env initial w cp) :
     ¬ Governance.RollbackAuthorized env initial w trusted snapshot := by
   intro authorized
-  obtain ⟨_,_,_,bad,retained,_,uncertified,unpending,_⟩ := authorized
-  rcases records bad retained with certified | pending
-  · exact uncertified certified
-  · exact unpending pending
+  obtain ⟨_,_,_,bad,retained,_,untrusted,_⟩ := authorized
+  exact untrusted (records bad retained)
 
 theorem fund_safety : FundSafety := by
   intro env registry premises w trace
@@ -59,8 +57,8 @@ theorem fund_safety : FundSafety := by
   · intro later run
     exact run.retains premises.currentRegistryGenesis premises.currentPrimitives premises.currentVerifierSound trace
   · intro trusted snapshot
-    exact no_rollback_authorized (Custody.trace_invariant premises.currentRegistryGenesis
-      premises.currentPrimitives premises.currentVerifierSound trace).records
+    exact no_rollback_authorized (Governance.trace_trusted_records premises.currentRegistryGenesis
+      premises.currentPrimitives premises.currentVerifierSound trace)
 
 theorem accountable_finality : AccountableFinality := by
   intro env registry engine premises w trace initialized
@@ -156,9 +154,9 @@ theorem deployed_rollback_free {env : Environment} {registry : RegistryMachine.S
       have ordinary : CheckpointRisk.OrdinaryCall call := by
         cases call with
         | rollback caller trusted snapshot =>
-          have invariant := Custody.trace_invariant premises.currentRegistryGenesis premises.currentPrimitives
+          have records := Governance.trace_trusted_records premises.currentRegistryGenesis premises.currentPrimitives
             premises.currentVerifierSound (Governance.authorized_trace_refines prior duties.1)
-          exact no_rollback_authorized invariant.records duty
+          exact no_rollback_authorized records duty
         | _ => trivial
       have actual : Protocol.transact env before call = t := by
         simp only [Protocol.transact,Governance.execute_refines duty ok,Option.getD_some]

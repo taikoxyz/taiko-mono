@@ -40,7 +40,8 @@ def rawRollback (env : Environment) (w : World) (caller : Nat) (trusted : Checkp
         records := w.inbox.records.filter (fun r => r ∉ w.activeRecords ∨ r.height ≤ trusted.height)
         signals := w.inbox.signals.filter (fun s => s.height ≤ trusted.height) }
       activeRecords := w.activeRecords.filter (fun r => r.height ≤ trusted.height)
-      activeSnapshots := w.activeSnapshots.filter (fun x => x.1.height ≤ trusted.height) }
+      activeSnapshots := w.activeSnapshots.filter (fun x => x.1.height ≤ trusted.height)
+      activeLandings := w.activeLandings.filter (fun event => event.landing.input.lastHeight ≤ trusted.height) }
   else none
 
 def execute (env : Environment) (w : World) : Call → Option World
@@ -59,22 +60,31 @@ inductive DeployedTrace (env : Environment) : World → World → Type
   | node {first w : World} (prior : DeployedTrace env first w) (after : Node)
       (event : NodeEvent env w after) : DeployedTrace env first { w with node := after }
 
-/-- RECOV-8-24 to 8-28 as an external duty of a verifier-failure rollback. A retained
-record is trusted when some admissible history from `initial` certifies it (`Custody.Certified`)
-or it is the current start record (`Custody.Pending`); otherwise it was written by a bad
-landing. The duty holds when `trusted` is a retained record with the snapshot written with
-it, every retained record at or below it is trusted, and the first retained record above it
-is bad. So a verifier failure happened (RECOV-8-24), and `trusted` is the last trusted
-landing, the last landing before the first bad one, or the start record if no landing is
-trusted (RECOV-8-28). It cannot be a guard of `rollback` itself: `Certified` quantifies over
-`Trace`, which `rollback` builds. -/
+/-- The current start record, including a corrected start. A start write is not a landing. -/
+def StartRecord (w : World) (cp : Checkpoint) : Prop :=
+  ∃ start, w.start = some start ∧ cp.height = start.height ∧ cp.elHash = start.hash ∧
+    cp.cometHash = 0 ∧ cp.cursor = 0 ∧ cp.valStateHash = 0
+
+/-- A retained record is trusted only with actual landing provenance. Every matching retained
+landing must certify its complete actual statement. In particular a certified header/cut
+cannot hide a bad saved snapshot or SignalService state root. The start is the sole exception
+to landing-event existence, as RECOV-8-28 requires. -/
+def TrustedRecord (env : Environment) (initial w : World) (cp : Checkpoint) : Prop :=
+  (Custody.Certified env initial cp ∨ Custody.Pending env w cp) ∧
+  (StartRecord w cp ∨ ∃ event ∈ w.activeLandings,
+    event.checkpoint = cp ∧ event.Certified env initial) ∧
+  ∀ event ∈ w.activeLandings, event.checkpoint = cp → event.Certified env initial
+
+/-- RECOV-8-24 to 8-28: the target is the last retained record before the first bad actual
+landing, with its saved snapshot. Trust judges the actual landing's complete statement,
+including the snapshot and emitted root, not merely whether its checkpoint can be certified.
+This is a historical duty of the DAO upgrade, not a public runtime guard. -/
 def RollbackAuthorized (env : Environment) (initial w : World) (trusted : Checkpoint)
     (snapshot : Nat) : Prop :=
   trusted ∈ w.activeRecords ∧ (trusted,snapshot) ∈ w.activeSnapshots ∧
-  (∀ r ∈ w.activeRecords, r.height ≤ trusted.height →
-    Custody.Certified env initial r ∨ Custody.Pending env w r) ∧
+  (∀ r ∈ w.activeRecords, r.height ≤ trusted.height → TrustedRecord env initial w r) ∧
   ∃ bad ∈ w.activeRecords, trusted.height < bad.height ∧
-    ¬ Custody.Certified env initial bad ∧ ¬ Custody.Pending env w bad ∧
+    ¬ TrustedRecord env initial w bad ∧
     ∀ r ∈ w.activeRecords, r.height < bad.height → r.height ≤ trusted.height
 
 /-- These are external authorization duties over instrumented history, not runtime

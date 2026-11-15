@@ -132,7 +132,7 @@ forms (`Headlines.deployed_claims`, `deployed_rollback_free` and `deployed_recov
 eight joint-premise witness theorems (from the six profiles under Joint-premise realizations),
 the trap witness and its escape mean: their statements and every Etna definition they use, but
 no proof. `review-surface.lock.json` records a SHA-256 of the kernel terms of each of those
-constants (1,617 at this revision).
+constants (1,632 at this revision).
 `python3 scripts/review_surface.py --check` fails if the lock is stale; the `etna-formal` job
 runs it. Proof-only changes never touch the lock.
 
@@ -151,7 +151,9 @@ and it stays through later pushes. What blocks a merge is the repository ruleset
 review with last-push approval; `/formal/**` and `.github/workflows/*` have code owners. After
 applying the label, re-run `merge-gatekeeper`, which does not trigger on label events. The
 pull request that introduces the judge is not judged by it, because its base branch has no
-copy yet.
+copy yet. Bootstrap is determined from the current target branch, not the merge base. If an
+older branch predates the lock, its gate, lock or Lean source changes require acknowledgement;
+docs-only changes still pass, and target-branch-only changes are not attributed to the PR.
 
 ## Visual audit reader
 
@@ -301,20 +303,24 @@ endpoint claims through that explicit refinement, and `Headlines.deployed_recove
 derives H4 the same way. Owner identity alone is insufficient.
 
 A rollback's duty is `Governance.RollbackAuthorized` (RECOV-8-24 to 8-28). A retained record
-is **trusted** when some admissible history certifies it (`Custody.Certified`) or it is the
-current start record (`Custody.Pending`); otherwise a **bad** landing wrote it. The duty
-requires the target to be a retained record restored with the snapshot saved with it, every
-retained record at or below it to be trusted, and the first retained record above it to be
-bad. So a verifier failure happened, and the target is the last trusted landing, or the start
-record if no landing is trusted (RECOV-8-28). It cannot be a guard of `rollback` itself,
-because `Certified` quantifies over `Trace`, which `rollback` builds.
-`Governance.rollback_target_unique` shows that the duty leaves no choice of target height,
-and `Governance.authorized_rollback_restores` shows the effect: the checkpoint, FI head and
-snapshot become the target's, and only trusted records stay. `Headlines.deployed_rollback_free`
-shows that under H1's premises an authorized deployed history from a fresh deployment never
-executes a rollback, so H2's rollback-free results apply to it. Judging a landing by the record
-it wrote is a model choice: a bad landing whose record happens to be certified (its signal's
-state root is not judged) counts as trusted unless a bad record lies below it.
+is trusted only through `Governance.TrustedRecord`: it has a certified header or is the
+pending start, and every matching actual retained landing certifies its complete statement,
+including the saved committee snapshot and emitted SignalService state root. Every non-start
+record also needs an actual retained landing event. The ghost `activeLandings` journal stores
+each call's input and pre-call Inbox/history; start writes clear it and rollback removes only
+higher events. Matching a checkpoint certified in some other history cannot hide corruption
+of the actual landing's metadata.
+
+The duty requires the target and its saved snapshot to be retained, every record at or below
+it to be trusted, and the first record above it to be bad. The target is therefore the last
+landing before the first bad one, or the current start if none is trusted (RECOV-8-28).
+`Governance.rollback_target_unique` fixes its height, and `authorized_rollback_restores`
+shows that the checkpoint, FI head and snapshot become the target's and only lower records
+stay. The duty remains external to the DAO upgrade, not a public contract guard.
+`trace_trusted_records` derives actual-event provenance and complete certification from
+execution and verifier soundness. `Headlines.deployed_rollback_free` uses it to show that an
+authorized deployed history under H1's premises never rolls back. Metadata-only verifier
+failures are tested separately; this does not add a general post-failure restart theorem.
 
 The main profile starts with raw empty `RegistryMachine.Genesis`. It does not cover the
 existing-registry retarget opening in START-10-16a. Seeded identity/funding preservation

@@ -104,6 +104,27 @@ structure Environment where
   /-- Decode the Unzen proof boundary parent at the finalized proposal offset. -/
   unzenParent : Nat → Nat → Blocks.Header → Hash → Hash := fun _ _ _ _ => 0
 
+structure Proof where
+  backend : Backend
+  image : Hash
+  bytes : Hash
+  deriving DecidableEq, Repr
+
+structure Landing where
+  input : LandInput
+  leaves : List Leaf
+  blobs : List Hash
+  proofs : List Proof
+  deriving DecidableEq, Repr
+
+/-- Ghost provenance of one actual landing: its pre-call Inbox, closed L1 history and input.
+No later call rewrites these values. The source is reconstructed only for pure certification,
+never to re-run a public call. -/
+structure LandingRecord where
+  inbox : Etna.Design.State
+  history : List Snapshot
+  landing : Landing
+
 structure World where
   inbox : Etna.Design.State
   initialized : Bool
@@ -125,6 +146,8 @@ structure World where
   receipts : List RegistryPayments.Payment
   /-- Ghost provenance of the selection snapshot written with each retained record. -/
   activeSnapshots : List (Checkpoint × Nat) := []
+  /-- Actual retained landing events, newest first; start writes have no landing event. -/
+  activeLandings : List LandingRecord := []
 
 abbrev Header := Blocks.Header
 abbrev Block := Blocks.Block
@@ -151,7 +174,7 @@ def empty (env : Environment) (registry : RegistryMachine.State) : World :=
   ⟨install (bareInbox env.core) env.parameters env.configHash,false,none,⟨0,0,0,0,0⟩,
     ⟨registry,env.initialToken⟩,[],[],[],⟨env.unzenNextProposal,0,0,false,0,0,0⟩,none,[],0,
     ⟨{ env.initialSigner with ready := false },env.initialSigner.activeGeneration,none,[],false,false,false⟩,
-    0,[],[],false,[],[]⟩
+    0,[],[],false,[],[],[]⟩
 
 /-- An L1 reference commits only completed blocks at or before it, never later calls. -/
 def referencePrefix (w : World) (number : Nat) : List Snapshot := w.history.take (number+1)
@@ -189,7 +212,7 @@ def writeRecord (records : List Checkpoint) (cp : Checkpoint) : List Checkpoint 
 def writeStart (w : World) (height hash root block timestamp generation : Nat) : World :=
   let origin : Etna.Design.Origin := ⟨height,block,timestamp⟩
   let cp : Checkpoint := ⟨height,hash,0,0,generation,height,0⟩
-  { w with start := some ⟨height,hash,root⟩,     inbox := { w.inbox with generation := generation,origin := origin,       origins := w.inbox.origins ++ [(generation,origin)],checkpoint := cp,       records := writeRecord w.inbox.records cp },activeRecords := [cp],activeSnapshots := [(cp,w.inbox.snapshot)] }
+  { w with start := some ⟨height,hash,root⟩,     inbox := { w.inbox with generation := generation,origin := origin,       origins := w.inbox.origins ++ [(generation,origin)],checkpoint := cp,       records := writeRecord w.inbox.records cp },activeRecords := [cp],activeSnapshots := [(cp,w.inbox.snapshot)],activeLandings := [] }
 
 def initializeInbox (env : Environment) (w : World) (caller : Nat) : Option World :=
   if caller = env.core.owner ∧ w.initialized = false ∧ w.inbox.generation = 0 ∧ env.parameters.valid = true ∧
@@ -314,7 +337,7 @@ def rollback (env : Environment) (w : World) (caller : Nat) (trusted : Checkpoin
       w.inbox.recoveryNonce+1 < limit256 ∧ (trusted,snapshot) ∈ w.activeSnapshots then
     (RegistryMachine.execute w.registry.registry (registryView env w) w.number
       (.recheck w.registry.registry.config.inbox snapshot)).map fun registry =>
-    { w with registry := { w.registry with registry := registry },       inbox := { w.inbox with checkpoint := trusted,head := trusted.cursor,snapshot := snapshot,         recoveryNonce := w.inbox.recoveryNonce+1,         records := w.inbox.records.filter (fun r => r ∉ w.activeRecords ∨ r.height ≤ trusted.height),         signals := w.inbox.signals.filter (fun s => s.height ≤ trusted.height) },       activeRecords := w.activeRecords.filter (fun r => r.height ≤ trusted.height),activeSnapshots := w.activeSnapshots.filter (fun x => x.1.height ≤ trusted.height) }
+    { w with registry := { w.registry with registry := registry },       inbox := { w.inbox with checkpoint := trusted,head := trusted.cursor,snapshot := snapshot,         recoveryNonce := w.inbox.recoveryNonce+1,         records := w.inbox.records.filter (fun r => r ∉ w.activeRecords ∨ r.height ≤ trusted.height),         signals := w.inbox.signals.filter (fun s => s.height ≤ trusted.height) },       activeRecords := w.activeRecords.filter (fun r => r.height ≤ trusted.height),activeSnapshots := w.activeSnapshots.filter (fun x => x.1.height ≤ trusted.height),activeLandings := w.activeLandings.filter (fun event => event.landing.input.lastHeight ≤ trusted.height) }
   else none
 
 /-- Configuration actually applicable to this generation, never a later initializeInboxr. -/
@@ -392,18 +415,6 @@ def policy (env : Environment) (w : World) (archive : List Header) (reference : 
   historyAuthenticated := fun _ _ => true
   catalogue := env.catalogue
 
-structure Proof where
-  backend : Backend
-  image : Hash
-  bytes : Hash
-  deriving DecidableEq, Repr
-
-structure Landing where
-  input : LandInput
-  leaves : List Leaf
-  blobs : List Hash
-  proofs : List Proof
-  deriving DecidableEq, Repr
 
 def statement (env : Environment) (w : World) (a : Landing) : StatementData :=
   let origin := (recordAt w.inbox a.input.parentHeight).getD default
@@ -485,7 +496,7 @@ instance (env : Environment) (w : World) (a : Landing) : Decidable (LandingCheck
 def landed (w : World) (a : Landing) : World :=
   let cp : Checkpoint := ⟨a.input.lastHeight,a.input.lastBlockHash,a.input.lastCometHash,
     a.input.forcedInclusionHead,w.inbox.generation,w.inbox.checkpoint.height,a.input.lastValStateHash⟩
-  { w with inbox := { w.inbox with checkpoint := cp,records := writeRecord w.inbox.records cp,       head := a.input.forcedInclusionHead,snapshot := a.input.activeCommitteeSnapshot,       signals := w.inbox.signals ++ [⟨a.input.lastHeight,a.input.lastBlockHash,a.input.lastStateRoot⟩] },     activeRecords := cp :: w.activeRecords,activeSnapshots := (cp,a.input.activeCommitteeSnapshot) :: w.activeSnapshots,everLanded := true }
+  { w with inbox := { w.inbox with checkpoint := cp,records := writeRecord w.inbox.records cp,       head := a.input.forcedInclusionHead,snapshot := a.input.activeCommitteeSnapshot,       signals := w.inbox.signals ++ [⟨a.input.lastHeight,a.input.lastBlockHash,a.input.lastStateRoot⟩] },     activeRecords := cp :: w.activeRecords,activeSnapshots := (cp,a.input.activeCommitteeSnapshot) :: w.activeSnapshots,activeLandings := ⟨w.inbox,w.history,a⟩ :: w.activeLandings,everLanded := true }
 
 def land (env : Environment) (w : World) (a : Landing) : Option World :=
   if LandingChecks env w a then some (landed w a) else none
@@ -643,6 +654,21 @@ def BatchCertificate (env : Environment) (w : World) (d : StatementData)
 
 def Certifies (env : Environment) (w : World) (d : StatementData) : Prop :=
   ∃ archive p bs, BatchCertificate env w d archive p bs
+
+/-- The exact checkpoint the recorded call wrote, including its actual parent and generation. -/
+def LandingRecord.checkpoint (event : LandingRecord) : Checkpoint :=
+  ⟨event.landing.input.lastHeight,event.landing.input.lastBlockHash,event.landing.input.lastCometHash,
+    event.landing.input.forcedInclusionHead,event.inbox.generation,event.inbox.checkpoint.height,
+    event.landing.input.lastValStateHash⟩
+
+/-- Only Inbox storage and the closed prefix affect a statement and its pure certificate. -/
+def LandingRecord.source (initial : World) (event : LandingRecord) : World :=
+  { initial with inbox := event.inbox,history := event.history }
+
+/-- Certifies this actual call's complete statement, including its saved committee snapshot
+and SignalService state root, rather than a matching checkpoint from another history. -/
+def LandingRecord.Certified (env : Environment) (initial : World) (event : LandingRecord) : Prop :=
+  Certifies env (event.source initial) (statement env (event.source initial) event.landing)
 
 /-- Operational view derived from the immutable certificate and raw live storage. -/
 def LiveCertifies (env : Environment) (w : World) (d : StatementData) : Prop :=

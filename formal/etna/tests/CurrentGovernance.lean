@@ -53,9 +53,9 @@ example (initial w : World) (trusted : Checkpoint) (snapshot : Nat) :
     Governance.RollbackAuthorized env initial w trusted snapshot =
       (trusted ∈ w.activeRecords ∧ (trusted,snapshot) ∈ w.activeSnapshots ∧
         (∀ r ∈ w.activeRecords, r.height ≤ trusted.height →
-          Custody.Certified env initial r ∨ Custody.Pending env w r) ∧
+          Governance.TrustedRecord env initial w r) ∧
         ∃ bad ∈ w.activeRecords, trusted.height < bad.height ∧
-          ¬ Custody.Certified env initial bad ∧ ¬ Custody.Pending env w bad ∧
+          ¬ Governance.TrustedRecord env initial w bad ∧
           ∀ r ∈ w.activeRecords, r.height < bad.height → r.height ≤ trusted.height) := rfl
 
 example (initial w : World) (caller : Nat) (trusted : Checkpoint) (snapshot : Nat) :
@@ -171,13 +171,23 @@ theorem failure_rollback_authorized :
     Governance.RollbackAuthorized failEnv failInitial failed startRecord 1 := by
   obtain ⟨_,records,snapshot,low,high,_⟩ := bad_landing_accepted
   refine ⟨by rw [records]; exact List.mem_cons_of_mem _ List.mem_cons_self,snapshot,?_,
-    badRecord,by rw [records]; exact List.mem_cons_self,by omega,bad_uncertified,bad_unpending,?_⟩
+    badRecord,by rw [records]; exact List.mem_cons_self,by omega,
+    (fun trusted => trusted.1.elim bad_uncertified bad_unpending),?_⟩
   · intro r retained below
     rw [records] at retained
     rcases List.mem_cons.mp retained with rfl | retained
     · omega
     · rw [List.mem_singleton.mp retained]
-      exact Or.inl start_certified
+      refine ⟨Or.inl start_certified,.inl ?_,?_⟩
+      · exact ⟨⟨0,100,10⟩,rfl,rfl,rfl,rfl,rfl,rfl⟩
+      · intro event member same
+        have fixed : event = ⟨failSource.inbox,failSource.history,badLanding⟩ := by
+          change event ∈ [⟨failSource.inbox,failSource.history,badLanding⟩] at member
+          simpa using member
+        subst event
+        have height := congrArg Checkpoint.height same
+        change 1 = 0 at height
+        contradiction
   · intro r _ lower
     omega
 
@@ -223,7 +233,7 @@ example (target : Checkpoint) (snapshot : Nat)
 -- The bad record itself is never a rollback target.
 example : ¬ Governance.RollbackAuthorized failEnv failInitial failed badRecord 1 := by
   intro authorized
-  exact (authorized.2.2.1 badRecord authorized.1 (Nat.le_refl _)).elim bad_uncertified bad_unpending
+  exact (authorized.2.2.1 badRecord authorized.1 (Nat.le_refl _)).1.elim bad_uncertified bad_unpending
 
 -- A corrected switching origin retains the old physical mapping entry while
 -- replacing its ghost retained lineage. Physical existence does not authorize it.

@@ -5,6 +5,7 @@ import EtnaProofs.CurrentLookback
 import EtnaProofs.CurrentCertificate
 import EtnaProofs.CurrentUnzen
 import EtnaProofs.CurrentGovernance
+import EtnaProofs.CurrentLandingHistory
 import EtnaProofs.CurrentStakeRisk
 import EtnaProofs.CurrentCheckpointRisk
 import EtnaProofs.CurrentEncoding

@@ -448,11 +448,64 @@ theorem later_checks : LandingChecks env afterFirst laterLanding := by decide +k
 theorem later_accepted : Protocol.land env afterFirst laterLanding = some afterLater := by
   simp [Protocol.land,later_checks,afterLater]
 
+def firstPolicy := policy env (certificateWorld env source 1) [h1] 1
+instance : DecidablePred firstPolicy.signature := fun _ => inferInstanceAs (Decidable True)
+instance : Decidable (Blocks.HeaderValid firstPolicy genesis b1) :=
+  inferInstanceAs (Decidable (_ ∧ _))
+
+theorem first_block_valid : Blocks.Valid firstPolicy genesis b1 := by
+  constructor
+  all_goals first
+    | decide +kernel
+    | rfl
+    | (constructor <;> decide +kernel)
+    | (intro wit carried; cases carried)
+
+theorem first_certifies : Certifies env source (statement env source firstLanding) := by
+  refine ⟨[h1],genesis,[b1],?_,by decide +kernel,by decide +kernel⟩
+  refine ⟨?_,⟨⟨first_block_valid,True.intro⟩,rfl⟩,rfl,rfl,?_,?_,?_⟩
+  · decide +kernel
+  · intro b member
+    have same : b = b1 := by simpa using member
+    subst b
+    rfl
+  · intro impossible
+    exact (impossible rfl).elim
+  · refine ⟨genesis,[],rfl,rfl,rfl,rfl,rfl,?_,?_,?_,by decide,?_⟩
+    · simp [Archive.Linked,env,h1,genesis]
+    · intro h _; rfl
+    · intro b member
+      have same : b = b1 := by simpa using member
+      subst b
+      rfl
+    · intro h member
+      have same : h = h1 := by simpa using member
+      subst h
+      decide
+
 theorem first_certified : Custody.Certified env initial afterFirst.inbox.checkpoint := by
   unfold Custody.Certified
   refine ⟨h1,?_,rfl,first_path⟩
   unfold Custody.HeaderOf
   decide +kernel
+
+theorem first_trusted :
+    Governance.TrustedRecord env initial afterLater afterFirst.inbox.checkpoint := by
+  refine ⟨Or.inl first_certified,Or.inr ⟨⟨source.inbox,source.history,firstLanding⟩,?_,rfl,?_⟩,?_⟩
+  · change (⟨source.inbox,source.history,firstLanding⟩ : LandingRecord) ∈
+      [⟨afterFirst.inbox,afterFirst.history,laterLanding⟩,
+       ⟨source.inbox,source.history,firstLanding⟩]
+    exact List.mem_cons_of_mem _ List.mem_cons_self
+  · exact first_certifies
+  · intro event member matching
+    change event ∈ [⟨afterFirst.inbox,afterFirst.history,laterLanding⟩,
+      ⟨source.inbox,source.history,firstLanding⟩] at member
+    rcases List.mem_cons.mp member with rfl | earlier
+    · have impossible : (2 : Nat) = 1 := congrArg Checkpoint.height matching
+      omega
+    · have same : event = ⟨source.inbox,source.history,firstLanding⟩ := by simpa using earlier
+      subst event
+      exact first_certifies
 
 theorem rollback_over_certified_refused :
     source.inbox.checkpoint ∈ afterLater.activeRecords ∧
@@ -460,7 +513,7 @@ theorem rollback_over_certified_refused :
     (Governance.rawRollback env afterLater 7 source.inbox.checkpoint 0).isSome = true ∧
     ¬ Governance.RollbackAuthorized env initial afterLater source.inbox.checkpoint 0 := by
   refine ⟨by decide +kernel,by decide +kernel,by decide +kernel,fun authorized => ?_⟩
-  obtain ⟨_,_,_,bad,retained,above,uncertified,_,between⟩ := authorized
+  obtain ⟨_,_,_,bad,retained,above,untrusted,between⟩ := authorized
   have records : afterLater.activeRecords =
       [afterLater.inbox.checkpoint,afterFirst.inbox.checkpoint,source.inbox.checkpoint] := by
     decide +kernel
@@ -473,7 +526,7 @@ theorem rollback_over_certified_refused :
       (List.mem_cons_of_mem _ List.mem_cons_self) (by omega)
     omega
   rcases List.mem_cons.mp retained with rfl | retained
-  · exact uncertified first_certified
+  · exact untrusted first_trusted
   · rw [List.mem_singleton.mp retained] at above
     omega
 
