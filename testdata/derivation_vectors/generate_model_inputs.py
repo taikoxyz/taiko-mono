@@ -21,7 +21,7 @@ def build_inputs():
     for chain, fork in FORKS.items():
         for gas in [11000000, 31000000, 46000000]:
             for length in [1, 2, 4, 8]:
-                for mixed in [False, True]:
+                for mixed in [False] if length == 1 else [False, True]:
                     case = deepcopy(control)
                     case['name'] = f'model_sequence_{chain}_{gas}_{length}_{int(mixed)}'
                     case['category'] = 'sequence'

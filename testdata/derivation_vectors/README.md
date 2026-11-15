@@ -23,7 +23,7 @@ separately because it is proposal metadata, not part of the manifest payload.
 ## Lean-generated expected outputs
 
 The formal gate also produces `.lake/model_vectors/expected.json` under `packages/formal/derivation`.
-`generate_model_inputs.py` retains the 151 independent boundary inputs and adds 72 deterministic
+`generate_model_inputs.py` retains the 151 independent boundary inputs and adds 63 deterministic
 source/state combinations across Devnet, Mainnet and Hoodi, the minimum/middle/maximum parent
 gas limits, and sequences of 1, 2, 4 or 8 sources. The combinations include ordinary sources and
 forced-source prefixes, with distinct transaction candidates. It builds candidate inputs only;

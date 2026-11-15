@@ -134,8 +134,8 @@ fail CI until the model, claims, exclusions and pins are reviewed together.
 
 ## Evidence and trust boundary
 
-The formal gate additionally generates 223 model-based vectors from input-only cases: the
-151 independent boundary inputs plus 72 source/state combinations. The executable Lean model
+The formal gate additionally generates 214 model-based vectors from input-only cases: the
+151 independent boundary inputs plus 63 source/state combinations. The executable Lean model
 computes the expected extraction results, derived blocks, header plans and next parents. CI
 shares one generated artifact with both production client adapters, after their independent
 corpus checks. The independent fixtures remain unchanged and still check the model. See the
