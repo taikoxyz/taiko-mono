@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fix Etna double-sign evidence encoding for present all-zero BlockID hashes. Vote hashes now use
+  `bytes` of length 0 or 32, changing the `slashDoubleSign` ABI; clients must refresh it and the
+  schema-7 shared vectors.
+
 ## [3.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v3.0.0...taiko-alethia-protocol-v3.1.0) (2026-07-01)
 
 > Released from the `taiko-alethia-protocol-v3.0.0` branch (tag: [`taiko-alethia-protocol-v3.1.0`](https://github.com/taikoxyz/taiko-mono/releases/tag/taiko-alethia-protocol-v3.1.0)). This release consists of the security hardening and recovery changes made in response to the June 2026 mainnet incident.

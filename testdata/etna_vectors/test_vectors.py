@@ -210,6 +210,12 @@ VOTE_CASES = [
     "max_timestamp_seconds",
     "precommit_a_backdated",
     "precommit_b_backdated",
+    "precommit_zero_block_hash",
+    "precommit_zero_parts_hash",
+    "precommit_zero_both_hashes",
+    "zero_hashes_zero_total",
+    "zero_block_hash_only",
+    "zero_parts_hash_only",
 ]
 VOTE_FIELDS = [
     "voteType",
@@ -284,7 +290,7 @@ def decode_vote_sign_bytes(sign_bytes):
         assert set(message) <= allowed and all(message.values()), message
     for hash_bytes in (block_id.get(1), psh.get(2)):
         assert hash_bytes is None or len(hash_bytes) == 32
-    # A present block id is never all zero; a nil vote omits it.
+    # A present block id has at least one nonempty hash or nonzero total, even when its bytes are zero.
     assert 4 not in cv or block_id.get(1) or psh, cv[4]
     # Seconds are an int64 varint: the uvarint of the 64-bit two's-complement pattern.
     pattern = timestamp.get(1, 0)
@@ -293,9 +299,9 @@ def decode_vote_sign_bytes(sign_bytes):
         "voteType": cv.get(1, 0),
         "height": cv.get(2, 0),
         "round": cv.get(3, 0),
-        "blockHash": "0x" + block_id.get(1, bytes(32)).hex(),
+        "blockHash": "0x" + block_id.get(1, b"").hex(),
         "partsTotal": psh.get(1, 0),
-        "partsHash": "0x" + psh.get(2, bytes(32)).hex(),
+        "partsHash": "0x" + psh.get(2, b"").hex(),
         "timestampSeconds": pattern - 2**64 if pattern >= 2**63 else pattern,
         "timestampSecondsU64": pattern,
         "timestampNanos": timestamp.get(2, 0),
@@ -815,8 +821,8 @@ class VectorsTest(unittest.TestCase):
         origin = words("0x" + V["governance_abi"]["set_origin"]["calldata"][10:])
         self.assertEqual(words(written["data"]), origin[:2])
 
-    def test_schema_version_is_6(self):
-        self.assertEqual(V["schema_version"], "6")
+    def test_schema_version_is_7(self):
+        self.assertEqual(V["schema_version"], "7")
 
     def test_deployment(self):
         self.assertEqual(
@@ -1303,7 +1309,7 @@ class VectorsTest(unittest.TestCase):
 
     def test_vote_cases_present(self):
         votes = V["votes"]
-        self.assertEqual(list(votes), ["key", "chain_ids", "cases", "pairs"])
+        self.assertEqual(list(votes), ["key", "chain_ids", "cases", "pairs", "slash_abi"])
         key = V["keys"][0]
         self.assertEqual(key["name"], "a1")
         self.assertEqual(
@@ -1329,7 +1335,7 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual([c["name"] for c in cases], VOTE_CASES)
         a = ("0x" + "aa" * 32, "1", "0x" + "ab" * 32)
         b = ("0x" + "bb" * 32, "2", "0x" + "bc" * 32)
-        nil = (uint(0), "0", uint(0))
+        nil = ("0x", "0", "0x")
         # name: (type, round, block id, generation); height 1000 and timestamp (1700000000, 123)
         # unless `heights` or `timestamps` says otherwise.
         heights = {"precommit_b_h1001": "1001"}
@@ -1356,15 +1362,21 @@ class VectorsTest(unittest.TestCase):
             "gen2_precommit_a": ("2", "0", a, "2"),
             "gen2_precommit_b": ("2", "0", b, "2"),
             "other_inbox_precommit_b": ("2", "0", b, "0"),
-            "partial_block_id": ("2", "0", (uint(0), "1", "0x" + "ab" * 32), "0"),
+            "partial_block_id": ("2", "0", ("0x", "1", "0x" + "ab" * 32), "0"),
             "precommit_b_h1001": ("2", "0", b, "0"),
-            "hash_only_block_id": ("2", "0", ("0x" + "aa" * 32, "0", uint(0)), "0"),
+            "hash_only_block_id": ("2", "0", ("0x" + "aa" * 32, "0", "0x"), "0"),
             "zero_timestamp": ("2", "0", a, "0"),
             "negative_timestamp": ("2", "0", a, "0"),
             "min_timestamp": ("2", "0", a, "0"),
             "max_timestamp_seconds": ("2", "0", a, "0"),
             "precommit_a_backdated": ("2", "0", a, "0"),
             "precommit_b_backdated": ("2", "0", b, "0"),
+            "precommit_zero_block_hash": ("2", "0", (uint(0), "1", a[2]), "0"),
+            "precommit_zero_parts_hash": ("2", "0", (a[0], "1", uint(0)), "0"),
+            "precommit_zero_both_hashes": ("2", "0", (uint(0), "1", uint(0)), "0"),
+            "zero_hashes_zero_total": ("2", "0", (uint(0), "0", uint(0)), "0"),
+            "zero_block_hash_only": ("2", "0", (uint(0), "0", "0x"), "0"),
+            "zero_parts_hash_only": ("2", "0", ("0x", "0", uint(0)), "0"),
         }
         for case in cases:
             name, vote = case["name"], case["vote"]
@@ -1449,6 +1461,27 @@ class VectorsTest(unittest.TestCase):
         zero_timestamp = hexbytes(by_name(cases, "zero_timestamp")["sign_bytes"])
         self.assertIn(b"\x2a\x00\x32\x30", zero_timestamp)
 
+    def test_vote_encoder_preserves_present_zero_hashes(self):
+        import generate
+
+        original = by_name(V["votes"]["cases"], "precommit_a")
+        for block_hash in (uint(0), "0x", "0x" + "aa" * 32):
+            for parts_hash in (uint(0), "0x", "0x" + "ab" * 32):
+                for total in ("1", "0"):
+                    with self.subTest(block_hash=block_hash, parts_hash=parts_hash, total=total):
+                        vote = {**original["vote"], "blockHash": block_hash,
+                                "partsHash": parts_hash, "partsTotal": total}
+                        encoded = generate.vote_sign_bytes(vote, original["chain_id"])
+                        body = read_message(encoded[read_uvarint(encoded, 0)[1]:])
+                        if block_hash == parts_hash == "0x" and total == "0":
+                            self.assertNotIn(4, body)
+                            continue
+                        block_id = read_message(body[4])
+                        psh = read_message(block_id[2])
+                        self.assertEqual(block_id.get(1, b""), hexbytes(block_hash))
+                        self.assertEqual(psh.get(2, b""), hexbytes(parts_hash))
+                        self.assertEqual(psh.get(1, 0), int(total))
+
     def test_vote_timestamps_are_int64_in_cometbft_range(self):
         cases = V["votes"]["cases"]
         for case in cases:
@@ -1495,6 +1528,43 @@ class VectorsTest(unittest.TestCase):
             self.assertTrue(0 < s <= SECP_N // 2, case["name"])
         self.assertEqual(len({c["signature"] for c in cases}), len(cases))
         self.assertEqual({hexbytes(c["signature"])[64] for c in cases}, {0, 1})
+
+    def test_slash_vote_abi_preserves_dynamic_hash_fields(self):
+        abi = V["votes"]["slash_abi"]
+        vote_type = "(uint8,uint64,uint32,bytes,uint32,bytes,uint64,uint32,uint48,bytes)"
+        signature = "slashDoubleSign(uint256," + vote_type + "," + vote_type + ")"
+        self.assertEqual(abi["signature"], signature)
+        self.assertEqual(abi["selector"], "0x" + keccak256(signature.encode())[:4].hex())
+        calldata = hexbytes(abi["calldata"])
+        self.assertEqual(calldata[:4], hexbytes(abi["selector"]))
+        arguments = calldata[4:]
+
+        def integer(data, offset):
+            return int.from_bytes(data[offset:offset + 32], "big")
+
+        self.assertEqual(integer(arguments, 0), int(abi["bond_id"]))
+        cursor = 96
+        fields = ("voteType", "height", "round", "blockHash", "partsTotal", "partsHash",
+                  "timestampSecondsU64", "timestampNanos", "generation", "signature")
+        for index, label in enumerate(("a", "b"), start=1):
+            self.assertEqual(integer(arguments, index * 32), cursor)
+            case = by_name(V["votes"]["cases"], abi[label])
+            values = {**case["vote"], "signature": case["signature"]}
+            data, end = arguments[cursor:], 320
+            for number, field in enumerate(fields):
+                value = integer(data, number * 32)
+                if field in ("blockHash", "partsHash", "signature"):
+                    self.assertEqual(value, end)
+                    length = integer(data, value)
+                    actual = data[value + 32:value + 32 + length]
+                    self.assertEqual(actual, hexbytes(values[field]))
+                    padded = (length + 31) // 32 * 32
+                    self.assertEqual(data[value + 32 + length:value + 32 + padded], bytes(padded - length))
+                    end += 32 + padded
+                else:
+                    self.assertEqual(value, int(values[field]))
+            cursor += end
+        self.assertEqual(cursor, len(arguments))
 
     def test_pairs_cover_reasons(self):
         votes = V["votes"]

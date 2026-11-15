@@ -398,13 +398,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
     }
 
     /// @dev One registration of `register`'s burst.
-    function _registerOne(
-        uint256 _stakerSeed,
-        uint256 _keySeed,
-        uint256 _amountSeed
-    )
-        internal
-    {
+    function _registerOne(uint256 _stakerSeed, uint256 _keySeed, uint256 _amountSeed) internal {
         RegisterAttempt memory a;
         a.caller = _staker(_stakerSeed);
         a.defect = _mode(_keySeed, REGISTER_MODES);
@@ -1126,14 +1120,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         }
     }
 
-    function _withdraw(
-        uint256 _bondId,
-        address _caller,
-        address _to,
-        bool _locked
-    )
-        internal
-    {
+    function _withdraw(uint256 _bondId, address _caller, address _to, bool _locked) internal {
         Bond storage s = _bonds[_bondId];
         uint256 amount = s.entry.effStake + s.pendingTopUp;
         bytes memory expected;
@@ -1253,7 +1240,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         bytes memory chainId = _cometChainId(block.chainid, l2ChainId, address(inbox), generation);
         _a.voteA = EtnaTestKeys.signVote(_a.signerPk, _a.voteA, chainId);
         _a.voteB = EtnaTestKeys.signVote(_a.signerPk, _a.voteB, chainId);
-        if (_a.defect == SLASH_INVALID_VOTE && seed % 4 == 3) {
+        if (_a.defect == SLASH_INVALID_VOTE && seed % 6 == 3) {
             // A signature of another length is a range error, before any recovery.
             IEtnaStakingRegistry.Vote memory v = (seed >> 8) % 2 == 0 ? _a.voteA : _a.voteB;
             v.signature = (seed >> 9) % 2 == 0 ? new bytes(64) : new bytes(66);
@@ -1275,20 +1262,21 @@ contract EtnaStakingRegistryHandler is CommonBase {
         pure
     {
         bytes32 hashA = keccak256(abi.encode("block a", _seed));
-        _voteA.blockHash = hashA;
+        _voteA.blockHash = abi.encodePacked(hashA);
         _voteA.partsTotal = uint32(1 + (_seed >> 8) % 4);
-        _voteA.partsHash = keccak256(abi.encode(hashA));
+        _voteA.partsHash = abi.encodePacked(keccak256(abi.encode(hashA)));
         uint256 kind = _seed % 4;
         if (kind == 0) {
-            _voteB.blockHash = keccak256(abi.encode("block b", _seed));
+            _voteB.blockHash = abi.encodePacked(keccak256(abi.encode("block b", _seed)));
             _voteB.partsTotal = _voteA.partsTotal;
-            _voteB.partsHash = keccak256(abi.encode(_voteB.blockHash));
+            _voteB.partsHash = abi.encodePacked(keccak256(abi.encode(bytes32(_voteB.blockHash))));
         } else if (kind == 1) {
-            // Nil: the block id is all zero.
+            // Nil: both hashes are absent and the total is zero.
         } else {
-            _voteB.blockHash = hashA;
+            _voteB.blockHash = abi.encodePacked(hashA);
             _voteB.partsTotal = kind == 2 ? _voteA.partsTotal + 1 : _voteA.partsTotal;
-            _voteB.partsHash = kind == 2 ? _voteA.partsHash : keccak256("other parts");
+            _voteB.partsHash =
+                kind == 2 ? _voteA.partsHash : abi.encodePacked(keccak256("other parts"));
         }
         if ((_seed >> 16) % 2 == 0) {
             (_voteA.blockHash, _voteB.blockHash) = (_voteB.blockHash, _voteA.blockHash);
@@ -1297,11 +1285,11 @@ contract EtnaStakingRegistryHandler is CommonBase {
         }
     }
 
-    /// @dev Puts one field of one vote out of range: the type, the height or the round; the
-    /// fourth case (a signature length) is set after signing. Timestamps have no range to break.
+    /// @dev Puts one field of one vote out of range: type, height, round, or either hash length;
+    /// the signature-length case is set after signing. Timestamps have no range to break.
     function _breakRange(SlashAttempt memory _a, uint256 _seed) internal pure {
         IEtnaStakingRegistry.Vote memory v = (_seed >> 8) % 2 == 0 ? _a.voteA : _a.voteB;
-        uint256 kind = _seed % 4;
+        uint256 kind = _seed % 6;
         uint256 pick = _seed >> 16;
         if (kind == 0) {
             v.voteType = pick % 2 == 0 ? 0 : uint8(3 + pick % 253);
@@ -1309,6 +1297,10 @@ contract EtnaStakingRegistryHandler is CommonBase {
             v.height = pick % 2 == 0 ? 0 : HEIGHT_LIMIT + uint64(pick % HEIGHT_LIMIT);
         } else if (kind == 2) {
             v.round = ROUND_LIMIT + uint32(pick % ROUND_LIMIT);
+        } else if (kind == 4) {
+            v.blockHash = new bytes(pick % 2 == 0 ? 31 : 33);
+        } else if (kind == 5) {
+            v.partsHash = new bytes(pick % 2 == 0 ? 31 : 33);
         }
     }
 
@@ -1405,8 +1397,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
         }
         IEtnaStakingRegistry.Vote memory a = _a.voteA;
         IEtnaStakingRegistry.Vote memory b = _a.voteB;
-        bool sameBlockId = a.blockHash == b.blockHash && a.partsTotal == b.partsTotal
-            && a.partsHash == b.partsHash;
+        bool sameBlockId = keccak256(a.blockHash) == keccak256(b.blockHash)
+            && a.partsTotal == b.partsTotal && keccak256(a.partsHash) == keccak256(b.partsHash);
         if (
             a.voteType != b.voteType || a.height != b.height || a.round != b.round
                 || a.generation != b.generation || sameBlockId
@@ -1476,7 +1468,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
     /// timestamp is.
     function _inRange(IEtnaStakingRegistry.Vote memory _v) internal pure returns (bool) {
         return (_v.voteType == 1 || _v.voteType == 2) && _v.height != 0 && _v.height < HEIGHT_LIMIT
-            && _v.round < ROUND_LIMIT && _v.signature.length == 65;
+            && _v.round < ROUND_LIMIT && _v.signature.length == 65
+            && (_v.blockHash.length == 0 || _v.blockHash.length == 32)
+            && (_v.partsHash.length == 0 || _v.partsHash.length == 32);
     }
 
     // ---------------------------------------------------------------
@@ -1899,14 +1893,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // Helpers
     // ---------------------------------------------------------------
 
-    function _balances(
-        address _to,
-        address _reporter
-    )
-        internal
-        view
-        returns (Balances memory b_)
-    {
+    function _balances(address _to, address _reporter) internal view returns (Balances memory b_) {
         b_.registry = token.balanceOf(address(registry));
         if (_to != address(0)) b_.to = token.balanceOf(_to);
         if (_reporter != address(0)) b_.reporter = token.balanceOf(_reporter);

@@ -6,7 +6,7 @@ and the accept/reject cases of every boundary rule. Every implementation reads t
 instead of carrying its own copies of the literals. Section numbers below refer to the Etna
 specification; appendix A is the encodings and appendix B the L1 storage layout.
 
-Schema version is `"6"`. All integers are decimal strings, so values above 2^53 survive every
+Schema version is `"7"`. All integers are decimal strings, so values above 2^53 survive every
 JSON parser. Hex values are `0x`-prefixed. Clients must decode every input exactly: a decoder
 consumes all of its input and rejects trailing bytes, as the reject cases below require.
 
@@ -143,6 +143,21 @@ it differs from CometBFT at any height, and `test_vectors.py` replays every chai
   `legacy_gas_price_2_128`, `eip2930_gas_price_2_128`, `eip7702_fee_2_128`, `value_33_bytes`):
   it reads fees and value as unbounded integers. Implementations must check every fee field and
   the value explicitly instead of relying on an EL decoder.
+
+### Vote hash presence and ABI
+
+`Vote.blockHash` and `Vote.partsHash` are raw `bytes`, either empty (`"0x"`) or exactly 32
+bytes. A present all-zero hash is encoded unchanged. Only two empty hashes with total 0 make a
+nil BlockID. The zero-hash cases include complete non-nil BlockIDs and partial BlockIDs with
+total 0, including either or both hashes present. `votegen/` passes these raw fields to stock
+CometBFT without normalization; the independent Python encoder and Solidity tests compare the
+resulting sign bytes and signatures. The 23 earlier sign-byte strings and signatures are
+unchanged; their absent hash inputs now use `"0x"` explicitly.
+
+This changes the `slashDoubleSign` tuple and selector. `votes.slash_abi` pins the signature,
+selector and calldata of the zero-parts-hash conflict. Clients must refresh the registry ABI and
+read schema 7 before submitting evidence; the other vector sections and fixed storage slots
+are unchanged.
 
 ### Vote timestamps
 

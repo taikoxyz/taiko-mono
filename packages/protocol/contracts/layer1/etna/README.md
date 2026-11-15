@@ -9,6 +9,8 @@ encodings and appendix B its L1 storage layout.
 
 The current specification baseline is main at `d18357214fab30ea512ae9858a11699806d72ba1`
 ([#22348](https://github.com/taikoxyz/taiko-mono/pull/22348)).
+It also clarifies the distinction between empty and present zero-filled vote hashes in
+STAKE-4.1-31 and ENC-A-44/45, matching stock CometBFT's protobuf encoding.
 
 ## Contracts
 
@@ -120,6 +122,10 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
   `floor(principal * slashBountyBps / 10000)` and the sink receives the remainder. The owner or
   signer may self-report for the same bounty.
   Registry mutations revert while the Inbox holds its lock, except its authorized `forceExit`.
+- Vote hashes are `bytes` of length 0 or 32: an empty hash and a present all-zero hash have
+  different sign bytes and BlockIDs. This changes the `slashDoubleSign` ABI from the earlier
+  `bytes32` tuple; clients must refresh the registry ABI and schema-7 vectors before submitting
+  evidence. `votes.slash_abi` pins the new selector and calldata.
 - `topUp(bondId, amount)`: the active entry's owner deposits one positive pending amount, even
   with all slots occupied or before Inbox initialization. It has no voting power or checkpoint
   effect, but it raises the slot's admission value at once, so a newcomer must outbid the

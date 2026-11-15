@@ -123,9 +123,9 @@ abstract contract EtnaStakingRegistryGasBase is EtnaStakingRegistryTestBase {
         v_.voteType = 2;
         v_.height = 1000;
         v_.round = 3;
-        v_.blockHash = _blockHash;
+        v_.blockHash = abi.encodePacked(_blockHash);
         v_.partsTotal = 1;
-        v_.partsHash = keccak256(abi.encode(_blockHash));
+        v_.partsHash = abi.encodePacked(keccak256(abi.encode(_blockHash)));
         v_.timestampSeconds = 1_700_000_000;
         v_.timestampNanos = 123;
     }
@@ -157,13 +157,7 @@ abstract contract EtnaStakingRegistryGasBase is EtnaStakingRegistryTestBase {
     }
 
     /// @dev Measures `_owner`'s withdrawal of `_bondId` to itself as `_label`.
-    function _measureWithdraw(
-        string memory _label,
-        address _owner,
-        uint256 _bondId
-    )
-        internal
-    {
+    function _measureWithdraw(string memory _label, address _owner, uint256 _bondId) internal {
         EtnaStakingRegistry target = registry;
         vm.startPrank(_owner);
         vm.startSnapshotGas(_label);

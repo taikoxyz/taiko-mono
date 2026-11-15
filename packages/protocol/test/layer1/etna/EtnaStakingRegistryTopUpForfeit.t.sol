@@ -576,16 +576,16 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         a_.height = 1000;
         a_.round = 3;
         a_.timestampSeconds = 1_700_000_000;
-        a_.blockHash = keccak256("block A");
+        a_.blockHash = abi.encodePacked(keccak256("block A"));
         a_.partsTotal = 1;
-        a_.partsHash = keccak256("parts A");
+        a_.partsHash = abi.encodePacked(keccak256("parts A"));
         b_.voteType = 2;
         b_.height = 1000;
         b_.round = 3;
         b_.timestampSeconds = 1_700_000_000;
         b_.partsTotal = 1;
-        b_.partsHash = keccak256("parts A");
-        b_.blockHash = keccak256("block B");
+        b_.partsHash = abi.encodePacked(keccak256("parts A"));
+        b_.blockHash = abi.encodePacked(keccak256("block B"));
         bytes memory chainId = LibCometVote.chainId(
             LibCometVote.chainDomain(block.chainid, L2_CHAIN_ID, address(mockInbox), 0)
         );

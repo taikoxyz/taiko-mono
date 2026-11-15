@@ -95,12 +95,13 @@ interface IEtnaStakingRegistry {
         uint64 height;
         /// @notice The consensus round, below 2^31.
         uint32 round;
-        /// @notice The block id hash; the block id is all zero for a nil vote.
-        bytes32 blockHash;
+        /// @notice The block id hash: empty or exactly 32 bytes, including all-zero bytes.
+        /// @dev A nil vote has both hashes empty and partsTotal zero.
+        bytes blockHash;
         /// @notice The part set header total.
         uint32 partsTotal;
-        /// @notice The part set header hash.
-        bytes32 partsHash;
+        /// @notice The part set header hash: empty or exactly 32 bytes, including all-zero bytes.
+        bytes partsHash;
         /// @notice The seconds of the vote timestamp since the Unix epoch: a signed int64 carried
         /// as its 64-bit two's-complement pattern (e.g. -1 is 2^64 - 1). Every value is accepted,
         /// including seconds outside CometBFT's Timestamp range (0001-01-01T00:00:00Z up to
@@ -352,12 +353,7 @@ interface IEtnaStakingRegistry {
     /// @param _bondId The bond id.
     /// @param _voteA One vote.
     /// @param _voteB The conflicting vote.
-    function slashDoubleSign(
-        uint256 _bondId,
-        Vote calldata _voteA,
-        Vote calldata _voteB
-    )
-        external;
+    function slashDoubleSign(uint256 _bondId, Vote calldata _voteA, Vote calldata _voteB) external;
 
     /// @notice Moves a bond's exit to the recovery execution block during governance recovery
     /// (spec 8 step 2).

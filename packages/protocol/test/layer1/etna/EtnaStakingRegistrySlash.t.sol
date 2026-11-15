@@ -181,7 +181,7 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         vm.revertToState(snapshot);
 
         b = _vote(_BLOCK_A, 0);
-        b.partsHash = keccak256("other parts");
+        b.partsHash = abi.encodePacked(keccak256("other parts"));
         _slash(0, a, _signed(_CK_A, b));
         assertEq(registry.entryAt(0).effStake, 0, "other part set hash");
     }
@@ -398,14 +398,38 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
 
         string[] memory names = _caseNames(j);
         uint256 n = LibEtnaVectors.lengthAt(j, ".votes.pairs");
-        assertEq(n, 14, "pairs");
+        assertEq(n, 20, "pairs");
         uint256 slashed;
         for (uint256 i; i < n; ++i) {
             uint256 snapshot = vm.snapshotState();
             if (_checkVectorPair(j, names, vectorInbox, i)) ++slashed;
             vm.revertToState(snapshot);
         }
-        assertEq(slashed, 6, "double-sign pairs");
+        assertEq(slashed, 12, "double-sign pairs");
+    }
+
+    /// @dev The shared ABI fixture includes the dynamic hash fields and a stock-signed conflict
+    /// with a present zero parts hash, so external evidence builders agree with the contract.
+    function test_slashDoubleSign_MatchesSharedAbiFixture() external view {
+        string memory j = LibEtnaVectors.load();
+        string[] memory names = _caseNames(j);
+        IEtnaStakingRegistry.Vote memory a =
+            _vectorVote(j, names, LibEtnaVectors.stringAt(j, ".votes.slash_abi.a"));
+        IEtnaStakingRegistry.Vote memory b =
+            _vectorVote(j, names, LibEtnaVectors.stringAt(j, ".votes.slash_abi.b"));
+        uint256 bondId = LibEtnaVectors.uintAt(j, ".votes.slash_abi.bond_id");
+        bytes4 selector = bytes4(LibEtnaVectors.bytesAt(j, ".votes.slash_abi.selector"));
+        assertEq(IEtnaStakingRegistry.slashDoubleSign.selector, selector, "selector");
+        assertEq(
+            bytes4(keccak256(bytes(LibEtnaVectors.stringAt(j, ".votes.slash_abi.signature")))),
+            selector,
+            "signature"
+        );
+        assertEq(
+            abi.encodeCall(IEtnaStakingRegistry.slashDoubleSign, (bondId, a, b)),
+            LibEtnaVectors.bytesAt(j, ".votes.slash_abi.calldata"),
+            "calldata"
+        );
     }
 
     // ---------------------------------------------------------------
@@ -694,6 +718,26 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         }
     }
 
+    /// @dev Malformed hashes are rejected before checking signatures, whichever vote carries
+    /// the malformed field.
+    function test_slashDoubleSign_RevertWhen_HashLengthIsInvalid() external {
+        for (uint256 length = 31; length <= 33; length += 2) {
+            for (uint256 field; field < 2; ++field) {
+                (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) =
+                    _conflict(_CK_A);
+                if (field == 0) b.blockHash = new bytes(length);
+                else b.partsHash = new bytes(length);
+                _assertSlashReverts(
+                    0, a, b, IEtnaStakingRegistry.InvalidVote.selector, "second vote"
+                );
+                _assertSlashReverts(
+                    0, b, a, IEtnaStakingRegistry.InvalidVote.selector, "first vote"
+                );
+            }
+        }
+        assertEq(registry.bondAt(0).entry.effStake, MIN_STAKE);
+    }
+
     /// @dev The lock taken by `slashDoubleSign` stops a token that re-enters it from `transfer`.
     /// The slash is written before any stake moves, but cross-function confirmation callbacks
     /// also hit that lock and roll back the complete slash.
@@ -743,9 +787,9 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         v_.height = _HEIGHT;
         v_.round = _ROUND;
         if (_blockHash != 0) {
-            v_.blockHash = _blockHash;
+            v_.blockHash = abi.encodePacked(_blockHash);
             v_.partsTotal = 1;
-            v_.partsHash = keccak256(abi.encode(_blockHash));
+            v_.partsHash = abi.encodePacked(keccak256(abi.encode(_blockHash)));
         }
         v_.timestampSeconds = 1_700_000_000;
         v_.timestampNanos = 123;
@@ -800,12 +844,7 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
 
     /// @dev Bob reports a conflicting pair `_CK_A` signed under `_cometChainId` against bond 0 of
     /// the current registry, which must slash it.
-    function _assertForeignPairSlashes(
-        bytes memory _cometChainId,
-        string memory _label
-    )
-        private
-    {
+    function _assertForeignPairSlashes(bytes memory _cometChainId, string memory _label) private {
         _slash(
             0,
             EtnaTestKeys.signVote(_CK_A, _vote(_BLOCK_A, 0), _cometChainId),
@@ -895,13 +934,7 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         }
     }
 
-    function _assertWithdrawReverts(
-        address _caller,
-        bytes4 _error,
-        string memory _label
-    )
-        private
-    {
+    function _assertWithdrawReverts(address _caller, bytes4 _error, string memory _label) private {
         vm.prank(_caller);
         try registry.withdraw(0, _caller) {
             assertTrue(false, string.concat(_label, ": withdrew"));
@@ -1051,9 +1084,9 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         v_.voteType = uint8(LibEtnaVectors.uintAt(_j, string.concat(q, "voteType")));
         v_.height = uint64(LibEtnaVectors.uintAt(_j, string.concat(q, "height")));
         v_.round = uint32(LibEtnaVectors.uintAt(_j, string.concat(q, "round")));
-        v_.blockHash = LibEtnaVectors.bytes32At(_j, string.concat(q, "blockHash"));
+        v_.blockHash = LibEtnaVectors.bytesAt(_j, string.concat(q, "blockHash"));
         v_.partsTotal = uint32(LibEtnaVectors.uintAt(_j, string.concat(q, "partsTotal")));
-        v_.partsHash = LibEtnaVectors.bytes32At(_j, string.concat(q, "partsHash"));
+        v_.partsHash = LibEtnaVectors.bytesAt(_j, string.concat(q, "partsHash"));
         // The registry takes the int64 seconds as their two's-complement pattern.
         v_.timestampSeconds =
             uint64(LibEtnaVectors.uintAt(_j, string.concat(q, "timestampSecondsU64")));

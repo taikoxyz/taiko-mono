@@ -581,9 +581,9 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         v_.voteType = 2;
         v_.height = _HEIGHT;
         v_.round = _ROUND;
-        v_.blockHash = _blockHash;
+        v_.blockHash = abi.encodePacked(_blockHash);
         v_.partsTotal = 1;
-        v_.partsHash = keccak256(abi.encode(_blockHash));
+        v_.partsHash = abi.encodePacked(keccak256(abi.encode(_blockHash)));
         v_.timestampSeconds = 1_700_000_000;
         v_.timestampNanos = 123;
         v_.generation = _generation;

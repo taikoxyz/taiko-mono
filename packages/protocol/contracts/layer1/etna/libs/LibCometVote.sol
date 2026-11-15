@@ -62,8 +62,9 @@ library LibCometVote {
     }
 
     /// @dev Reverts with `InvalidVote` unless the vote type is 1 or 2, 1 <= height < 2^63,
-    /// round < 2^31 and the signature is 65 bytes. The timestamp is not checked: its seconds (an
-    /// int64) and nanos (an int32) may hold any value, including a timestamp stock CometBFT would
+    /// round < 2^31, each hash is empty or 32 bytes, and the signature is 65 bytes. The timestamp
+    /// is not checked: its seconds (an int64) and nanos (an int32) may hold any value, including
+    /// a timestamp stock CometBFT would
     /// not sign, such as one outside 0001-01-01T00:00:00Z up to 10000-01-01T00:00:00Z or with
     /// nanos outside [0, 10^9), since only the key holder can have signed it (appendix A). The
     /// signature's V and S ranges are left to `LibEtnaKeys.recoverSigner`.
@@ -73,17 +74,18 @@ library LibCometVote {
             (_vote.voteType != 1 && _vote.voteType != 2) || _vote.height == 0
                 || _vote.height >= _TWO_POW_63 || _vote.round >= _TWO_POW_31
                 || _vote.signature.length != _SIGNATURE_LENGTH
+                || (_vote.blockHash.length != 0 && _vote.blockHash.length != 32)
+                || (_vote.partsHash.length != 0 && _vote.partsHash.length != 32)
         ) {
             revert IEtnaStakingRegistry.InvalidVote();
         }
     }
 
-    /// @dev Whether the vote is nil: its block hash, part set total and part set hash are all
-    /// zero.
+    /// @dev Whether the vote is nil: both hashes are empty and the part set total is zero.
     /// @param _vote The vote.
     /// @return Whether the vote is nil.
     function isNil(IEtnaStakingRegistry.Vote memory _vote) internal pure returns (bool) {
-        return _vote.blockHash == 0 && _vote.partsTotal == 0 && _vote.partsHash == 0;
+        return _vote.blockHash.length == 0 && _vote.partsTotal == 0 && _vote.partsHash.length == 0;
     }
 
     /// @dev Whether two votes have the same block id: equal block hash, part set total and part
@@ -99,8 +101,8 @@ library LibCometVote {
         pure
         returns (bool)
     {
-        return _a.blockHash == _b.blockHash && _a.partsTotal == _b.partsTotal
-            && _a.partsHash == _b.partsHash;
+        return keccak256(_a.blockHash) == keccak256(_b.blockHash) && _a.partsTotal == _b.partsTotal
+            && keccak256(_a.partsHash) == keccak256(_b.partsHash);
     }
 
     /// @dev The CometBFT sign bytes of a vote, `uvarint(len(cv)) ‖ cv`, where `cv` is the
@@ -108,16 +110,17 @@ library LibCometVote {
     /// `[08 type] ‖ [11 int64_le(height)] ‖ [19 int64_le(round)] ‖ [22 len blockId] ‖
     /// 2a len timestamp ‖ 32 len chainId`, with `blockId = [0a 20 hash] ‖ 12 len psh`,
     /// `psh = [08 total] ‖ [12 20 partsHash]` and `timestamp = [08 seconds] ‖ [10 nanos]`.
-    /// A bracketed field is omitted when zero, and the block id when the vote is nil; a non-nil
-    /// block id always carries its part set header, possibly empty (`12 00`), and the timestamp
+    /// A bracketed numeric field is omitted when zero, a hash only when empty, and the block id
+    /// when the vote is nil. A non-nil block id always carries its part set header, possibly empty
+    /// (`12 00`), and the timestamp
     /// is always written, possibly empty (`2a 00`). Type, total, seconds, nanos and every `len`
     /// are uvarints. The seconds are an int64 and the nanos an int32, each carried as its
     /// two's-complement pattern; as protobuf does, each is written as the uvarint of its 64-bit
     /// two's complement, so a negative value takes ten bytes. Every int64 and int32 value is
     /// encoded this way, with no range check, including timestamps stock CometBFT itself would
-    /// not sign (appendix A, ENC-A-45). A zero hash or parts hash is absent (appendix A), so a
-    /// vote whose hash is genuinely 32 zero bytes encodes with that field omitted. For a vote
-    /// `checkRanges` accepts whose timestamp is inside CometBFT's range (seconds from
+    /// not sign (appendix A, ENC-A-45). A present hash of 32 zero bytes is encoded unchanged; it
+    /// is distinct from an empty hash. For a vote `checkRanges` accepts whose timestamp is inside
+    /// CometBFT's range (seconds from
     /// 0001-01-01T00:00:00Z up to 10000-01-01T00:00:00Z, nanos in [0, 10^9)), this is CometBFT's
     /// protobuf encoding; outside that range it is protobuf's encoding of the same
     /// `CanonicalVote`, which stock CometBFT never produces.
@@ -201,26 +204,19 @@ library LibCometVote {
         return bytes.concat(bytes1(_tag), bytes8(v));
     }
 
-    /// @dev `_tag ‖ 20 ‖ _hash`, or nothing when `_hash` is zero.
+    /// @dev `_tag ‖ len ‖ _hash`, or nothing when `_hash` is empty. Zero-filled hashes are present.
     /// @param _tag The field tag.
     /// @param _hash The hash.
     /// @return The encoded field.
-    function _hashField(uint8 _tag, bytes32 _hash) private pure returns (bytes memory) {
-        return _hash == 0 ? bytes("") : bytes.concat(bytes1(_tag), bytes1(0x20), _hash);
+    function _hashField(uint8 _tag, bytes memory _hash) private pure returns (bytes memory) {
+        return _hash.length == 0 ? bytes("") : _bytesField(_tag, _hash);
     }
 
     /// @dev `_tag ‖ uvarint(len(_payload)) ‖ _payload`, written even when `_payload` is empty.
     /// @param _tag The field tag.
     /// @param _payload The payload.
     /// @return The encoded field.
-    function _bytesField(
-        uint8 _tag,
-        bytes memory _payload
-    )
-        private
-        pure
-        returns (bytes memory)
-    {
+    function _bytesField(uint8 _tag, bytes memory _payload) private pure returns (bytes memory) {
         return bytes.concat(bytes1(_tag), _uvarint(_payload.length), _payload);
     }
 

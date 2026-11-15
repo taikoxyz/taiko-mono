@@ -59,7 +59,7 @@ contract LibCometVoteHarness {
 
 contract LibCometVoteTest is CommonTest, EtnaVectorReader {
     /// @dev The number of `votes.cases` items.
-    uint256 private constant _VOTE_CASES = 23;
+    uint256 private constant _VOTE_CASES = 29;
 
     /// @dev 2^63: heights are below it. Timestamp seconds have no bound: the uint64 field holds
     /// an int64 in two's complement, and every value is accepted (ENC-A-45).
@@ -183,7 +183,7 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
     }
 
     /// @dev A non-nil block id always writes its part set header, even an empty one (`12 00`),
-    /// and omits a zero hash; the timestamp is always written, even a zero one (`2a 00`).
+    /// and omits an absent hash; the timestamp is always written, even a zero one (`2a 00`).
     function test_signBytes_WritesEmptyPartSetHeaderAndZeroTimestamp() external view {
         string memory j = LibEtnaVectors.load();
 
@@ -317,8 +317,8 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
     }
 
     /// @dev Any vote with an in-range type, height and round, whatever its timestamp, under any
-    /// chain id decodes back to its fields, with zero fields omitted, fields in order and a nil
-    /// block id never written.
+    /// chain id decodes back to its fields, with empty byte strings and zero scalars omitted,
+    /// fields in order and a nil block id never written.
     function testFuzz_signBytes_DecodesBackToTheVote(
         IEtnaStakingRegistry.Vote memory _vote,
         bytes memory _chainId,
@@ -331,9 +331,13 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
         _vote.height = uint64(bound(_vote.height, 1, _TWO_POW_63 - 1));
         _vote.round = uint32(bound(_vote.round, 0, _TWO_POW_31 - 1));
         if (_zeroMask & 1 != 0) _vote.round = 0;
-        if (_zeroMask & 2 != 0) _vote.blockHash = 0;
+        _vote.blockHash = _zeroMask & 2 != 0
+            ? bytes("")
+            : abi.encodePacked(_zeroMask & 64 != 0 ? bytes32(0) : keccak256(_vote.blockHash));
         if (_zeroMask & 4 != 0) _vote.partsTotal = 0;
-        if (_zeroMask & 8 != 0) _vote.partsHash = 0;
+        _vote.partsHash = _zeroMask & 8 != 0
+            ? bytes("")
+            : abi.encodePacked(_zeroMask & 128 != 0 ? bytes32(0) : keccak256(_vote.partsHash));
         if (_zeroMask & 16 != 0) _vote.timestampSeconds = 0;
         if (_zeroMask & 32 != 0) _vote.timestampNanos = 0;
         // A chain id is never empty; the fuzzed tail varies its length across 127 bytes.
@@ -380,6 +384,19 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
         _assertInvalidVote(v, "signature empty");
     }
 
+    /// @dev A present hash has exactly 32 bytes; neither truncated nor overlong hashes can be
+    /// represented by a valid vote.
+    function test_checkRanges_RejectsInvalidHashLengths() external view {
+        for (uint256 length = 31; length <= 33; length += 2) {
+            IEtnaStakingRegistry.Vote memory v = _baseVote();
+            v.blockHash = new bytes(length);
+            _assertInvalidVote(v, "block hash length");
+            v = _baseVote();
+            v.partsHash = new bytes(length);
+            _assertInvalidVote(v, "parts hash length");
+        }
+    }
+
     /// @dev Every vector vote is in range, and so is each bound on its own and all of them at
     /// once: both vote types, height 1 and 2^63 - 1, round 2^31 - 1 and a nil block id. The
     /// timestamps here, seconds -62,135,596,800 and 253,402,300,799 (the ends of CometBFT's
@@ -413,9 +430,9 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
         v.timestampNanos = 1e9 - 1;
         comet.checkRanges(v);
         v = _baseVote();
-        v.blockHash = 0;
+        v.blockHash = "";
         v.partsTotal = 0;
-        v.partsHash = 0;
+        v.partsHash = "";
         v.timestampSeconds = 0;
         v.timestampNanos = 0;
         v.generation = type(uint48).max;
@@ -450,14 +467,15 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
     // isNil and sameBlockId
     // ---------------------------------------------------------------
 
-    /// @dev Of the eight combinations of zero and nonzero hash, total and parts hash, only the
-    /// all-zero one is nil, whatever the other fields hold.
-    function test_isNil_RequiresAllThreeFieldsZero() external view {
+    /// @dev Of the eight combinations of absent and present hash, zero and nonzero total and
+    /// absent and present parts hash, only both absent hashes with zero total are nil, whatever
+    /// the other fields hold.
+    function test_isNil_RequiresBothHashesAbsentAndTotalZero() external view {
         for (uint256 mask; mask < 8; ++mask) {
             IEtnaStakingRegistry.Vote memory v = _baseVote();
-            v.blockHash = mask & 1 == 0 ? bytes32(0) : bytes32(uint256(1));
+            v.blockHash = mask & 1 == 0 ? bytes("") : abi.encodePacked(bytes32(uint256(1)));
             v.partsTotal = mask & 2 == 0 ? 0 : 1;
-            v.partsHash = mask & 4 == 0 ? bytes32(0) : bytes32(uint256(1) << 255);
+            v.partsHash = mask & 4 == 0 ? bytes("") : abi.encodePacked(bytes32(uint256(1) << 255));
             assertEq(comet.isNil(v), mask == 0, vm.toString(mask));
         }
 
@@ -467,6 +485,34 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
         assertFalse(comet.isNil(_vectorVote(j, _caseNamed(j, "hash_only_block_id"))), "hash only");
     }
 
+    /// @dev A 32-byte zero hash is present, so it cannot turn a non-nil block id into nil.
+    function test_isNil_PresentZeroHashesAreNotNil() external view {
+        IEtnaStakingRegistry.Vote memory vote;
+        assertTrue(comet.isNil(vote));
+        vote.blockHash = new bytes(32);
+        assertFalse(comet.isNil(vote), "zero block hash is present");
+        vote.blockHash = "";
+        vote.partsHash = new bytes(32);
+        assertFalse(comet.isNil(vote), "zero parts hash is present");
+        vote.blockHash = new bytes(32);
+        assertFalse(comet.isNil(vote), "both zero hashes are present");
+    }
+
+    /// @dev Hash presence is part of a block id, including when every present byte is zero.
+    function test_sameBlockId_DistinguishesAbsentAndPresentZeroHashes() external view {
+        IEtnaStakingRegistry.Vote memory absent;
+        IEtnaStakingRegistry.Vote memory present;
+        present.blockHash = new bytes(32);
+        assertFalse(comet.sameBlockId(absent, present), "block hash presence");
+        assertFalse(comet.sameBlockId(present, absent), "block hash presence, reverse");
+        assertTrue(comet.sameBlockId(present, _copy(present)), "same zero block hash");
+        present.blockHash = "";
+        present.partsHash = new bytes(32);
+        assertFalse(comet.sameBlockId(absent, present), "parts hash presence");
+        assertFalse(comet.sameBlockId(present, absent), "parts hash presence, reverse");
+        assertTrue(comet.sameBlockId(present, _copy(present)), "same zero parts hash");
+    }
+
     /// @dev Two votes share a block id iff their hash, total and parts hash are all equal; the
     /// other fields do not matter, and nil differs from every non-nil block id.
     function test_sameBlockId_ComparesHashTotalAndPartsHash() external view {
@@ -474,13 +520,13 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
         assertTrue(comet.sameBlockId(a, _copy(a)), "identical");
 
         IEtnaStakingRegistry.Vote memory b = _copy(a);
-        b.blockHash = bytes32(uint256(a.blockHash) ^ 1);
+        b.blockHash = abi.encodePacked(bytes32(uint256(bytes32(a.blockHash)) ^ 1));
         assertFalse(comet.sameBlockId(a, b), "hash");
         b = _copy(a);
         b.partsTotal = a.partsTotal + 1;
         assertFalse(comet.sameBlockId(a, b), "total");
         b = _copy(a);
-        b.partsHash = bytes32(uint256(a.partsHash) ^ (uint256(1) << 255));
+        b.partsHash = abi.encodePacked(bytes32(uint256(bytes32(a.partsHash)) ^ (uint256(1) << 255)));
         assertFalse(comet.sameBlockId(a, b), "parts hash");
 
         b = _copy(a);
@@ -518,9 +564,9 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
         v_.voteType = uint8(_uint(_j, q, "voteType"));
         v_.height = uint64(_uint(_j, q, "height"));
         v_.round = uint32(_uint(_j, q, "round"));
-        v_.blockHash = _bytes32(_j, q, "blockHash");
+        v_.blockHash = _bytes(_j, q, "blockHash");
         v_.partsTotal = uint32(_uint(_j, q, "partsTotal"));
-        v_.partsHash = _bytes32(_j, q, "partsHash");
+        v_.partsHash = _bytes(_j, q, "partsHash");
         // The registry takes the int64 seconds as their two's-complement pattern.
         v_.timestampSeconds = uint64(_uint(_j, q, "timestampSecondsU64"));
         assertEq(
@@ -580,10 +626,7 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
     }
 
     /// @dev The JSON path prefix of the `votes.cases` item named `_name`.
-    function _caseNamed(
-        string memory _j,
-        string memory _name
-    )
+    function _caseNamed(string memory _j, string memory _name)
         private
         view
         returns (string memory)
@@ -605,9 +648,9 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
         v_.voteType = 2;
         v_.height = 1000;
         v_.round = 3;
-        v_.blockHash = keccak256("block");
+        v_.blockHash = abi.encodePacked(keccak256("block"));
         v_.partsTotal = 7;
-        v_.partsHash = keccak256("parts");
+        v_.partsHash = abi.encodePacked(keccak256("parts"));
         v_.timestampSeconds = 1_700_000_000;
         v_.timestampNanos = 123;
         v_.generation = 1;
@@ -786,20 +829,13 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
 
     /// @dev Decodes a `CanonicalBlockID` into `_d`: an optional 32-byte hash, then the always
     /// present part set header with an optional total and an optional 32-byte hash.
-    function _decodeBlockId(
-        bytes memory _b,
-        IEtnaStakingRegistry.Vote memory _d
-    )
-        private
-        pure
-    {
+    function _decodeBlockId(bytes memory _b, IEtnaStakingRegistry.Vote memory _d) private pure {
         uint256 o;
         if (o < _b.length && uint8(_b[o]) == 0x0a) {
             bytes memory hash;
             (hash, o) = _readBytes(_b, o + 1);
             assertEq(hash.length, 32, "hash length");
-            _d.blockHash = bytes32(hash);
-            assertNotEq(_d.blockHash, 0, "a written hash is nonzero");
+            _d.blockHash = hash;
         }
         assertEq(uint8(_b[o]), 0x12, "part set header always written");
         (bytes memory psh, uint256 end) = _readBytes(_b, o + 1);
@@ -817,12 +853,12 @@ contract LibCometVoteTest is CommonTest, EtnaVectorReader {
             bytes memory hash;
             (hash, o) = _readBytes(psh, o + 1);
             assertEq(hash.length, 32, "parts hash length");
-            _d.partsHash = bytes32(hash);
-            assertNotEq(_d.partsHash, 0, "a written parts hash is nonzero");
+            _d.partsHash = hash;
         }
         assertEq(o, psh.length, "part set header ends");
         assertFalse(
-            _d.blockHash == 0 && _d.partsTotal == 0 && _d.partsHash == 0, "nil block id written"
+            _d.blockHash.length == 0 && _d.partsTotal == 0 && _d.partsHash.length == 0,
+            "nil block id written"
         );
     }
 
