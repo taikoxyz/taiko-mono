@@ -525,3 +525,17 @@ must fail the independent publication audit. See
 [CHECKPOINT_IMPORT.md](CHECKPOINT_IMPORT.md#f01-correction-necessary-post-increment-priority-bounds).
 These are necessary local premises and selected reachability, not a full valid
 STF, committee history, authenticated window or concrete importer claim.
+
+### F01 final correction: joint per-height pairs
+
+The earlier independently bounded positive vectors are withdrawn as complete
+committed-pair premises. The final base/Raw11/Raw20 pairs now match selected
+actual fixed-genesis plus two-update stock executions, including changed powers,
+exact stored proposers and base next[2,-1] with nonzero sum. Genesis is wholly
+literal and decoupled from current First; affected negative targets stay
+meaningful. An independent actual-publication literal pair table and a bounded
+wrong-pair source fault distinguish coherence from per-set bounds. See
+[CHECKPOINT_IMPORT.md](CHECKPOINT_IMPORT.md#f01-final-correction-jointly-committed-validator-pairs).
+This is selected prefix arithmetic/header correspondence, not complete protocol
+STF/history, EL execution or valid signed commits. Earlier source/results remain
+historical;359 existing config bytes and operational Mutant=None actions remain.

@@ -13,11 +13,11 @@ Root(h) == <<"State", h>>
 KP(c) == <<c.keys, c.powers>>
 VHash(c) == <<"Validators", KP(c)>>
 Hash(x) == <<"Hash", x>>
-First == [keys |-> <<1, 2>>, powers |-> <<3, 2>>, priorities |-> <<-2, 2>>, proposer |-> 2]
-Second == [keys |-> <<2, 3>>, powers |-> <<2, 4>>, priorities |-> <<3, -3>>, proposer |-> 3]
+First == [keys |-> <<1, 2>>, powers |-> <<3, 2>>, priorities |-> <<-1, 1>>, proposer |-> 1]
+Second == [keys |-> <<2, 3>>, powers |-> <<2, 4>>, priorities |-> <<2, -1>>, proposer |-> 2]
 Preimage == [first |-> First, second |-> Second]
-GenesisPreimage == [first |-> [First EXCEPT !.proposer = 1],
-                    second |-> [First EXCEPT !.priorities = <<1, -1>>]]
+GenesisPreimage == [first |-> [keys |-> <<1, 2>>, powers |-> <<3, 2>>, priorities |-> <<-2, 2>>, proposer |-> 1],
+                    second |-> [keys |-> <<1, 2>>, powers |-> <<3, 2>>, priorities |-> <<1, -1>>, proposer |-> 2]]
 RequiredAncestors == Origin..ImportHeight
 RequiredEvidence == IF ImportHeight = Origin THEN {} ELSE {<<"Evidence", 3>>}
 Window == [ancestors |-> RequiredAncestors, evidence |-> RequiredEvidence,
@@ -48,7 +48,7 @@ Raw(i) == CASE
                 hdr == [Header EXCEPT !.data = Hash(env)]
             IN [Input EXCEPT !.peer.envelope = env, !.peer.header = hdr,
                               !.l1.comet = Hash(hdr)]
- [] i = 4 -> [Input EXCEPT !.peer.preimage.first.proposer = 1]
+ [] i = 4 -> [Input EXCEPT !.peer.preimage.first.proposer = 2]
  [] i = 5 -> LET pre == [Preimage EXCEPT !.first.powers = <<4, 2>>]
             IN [Input EXCEPT !.peer.preimage = pre, !.l1.val = Hash(pre)]
  [] i = 6 -> LET entries == <<<<First.keys, <<4, 2>>>>, KP(Second)>>
@@ -57,13 +57,18 @@ Raw(i) == CASE
  [] i = 8 -> [Input EXCEPT !.peer.ancestors = {ImportHeight}]
  [] i = 9 -> [Input EXCEPT !.peer.computedState = Root(99)]
  [] i = 10 -> [Input EXCEPT !.peer.evidence = {}]
- [] i = 11 -> LET pre == [Preimage EXCEPT !.first.priorities = <<-1, 1>>,
-                                       !.first.proposer = 1]
-             IN [Input EXCEPT !.peer.preimage = pre, !.l1.val = Hash(pre)]
+ [] i = 11 -> LET pre == [Preimage EXCEPT !.first.powers = <<3, 5>>,
+                                       !.first.priorities = <<4, -4>>, !.first.proposer = 2,
+                                       !.second.priorities = <<-1, 1>>]
+                 entries == <<KP(pre.first), KP(pre.second)>>
+                 hdr == [Header EXCEPT !.next = VHash(pre.first)]
+             IN [Input EXCEPT !.peer.preimage = pre, !.l1.val = Hash(pre),
+                   !.peer.entries = entries, !.l1.registry = Hash(entries),
+                   !.peer.header = hdr, !.l1.comet = Hash(hdr)]
  [] i = 12 -> LET env == [Envelope EXCEPT !.execution = EL(99)]
                  hdr == [Header EXCEPT !.data = Hash(env)]
              IN [Input EXCEPT !.peer.envelope = env, !.peer.header = hdr,
-                   !.l1.comet = Hash(hdr), !.peer.preimage.first.proposer = 1]
+                   !.l1.comet = Hash(hdr), !.peer.preimage.first.proposer = 2]
  [] i = 13 -> LET pre == [Preimage EXCEPT !.first.powers = <<4, 2>>]
              IN [Input EXCEPT !.peer.preimage = pre, !.l1.val = Hash(pre),
                                !.peer.ancestors = {ImportHeight}]
@@ -78,9 +83,11 @@ Raw(i) == CASE
  [] i = 18 -> [Input EXCEPT !.peer.entries = <<KP(Second), KP(First)>>]
  [] i = 19 -> [Input EXCEPT !.peer.window.validators = <<"WrongWindowValidators">>]
  \* Landed proposer/priority values are authoritative for both future sets.
- [] i = 20 -> LET pre == [Preimage EXCEPT !.second.priorities = <<-2, 2>>,
-                                       !.second.proposer = 2]
-             IN [Input EXCEPT !.peer.preimage = pre, !.l1.val = Hash(pre)]
+ [] i = 20 -> LET pre == [Preimage EXCEPT !.second.powers = <<3, 4>>,
+                                       !.second.priorities = <<2, -2>>]
+                 entries == <<KP(pre.first), KP(pre.second)>>
+             IN [Input EXCEPT !.peer.preimage = pre, !.l1.val = Hash(pre),
+                   !.peer.entries = entries, !.l1.registry = Hash(entries)]
  \* Match the derived entries to the changed preimage, isolating header.next.
  [] i = 21 -> LET pre == [Preimage EXCEPT !.first.powers = <<4, 2>>]
                  entries == <<KP(pre.first), KP(pre.second)>>
@@ -170,7 +177,7 @@ Written(k, x) ==
     IN CASE Mutant = "WrongELStore" /\ k = "el" -> [base.el EXCEPT !.hash = EL(99)]
        [] Mutant = "WrongPriority" /\ k = "comet" ->
             [base.comet EXCEPT !.validators.priorities = <<0, 0>>]
-       [] Mutant = "WrongProposer" /\ k = "comet" -> [base.comet EXCEPT !.next.proposer = 2]
+       [] Mutant = "WrongProposer" /\ k = "comet" -> [base.comet EXCEPT !.next.proposer = 3]
        [] Mutant = "WrongFI" /\ k = "app" -> [base.app EXCEPT !.fi = 0]
        [] Mutant = "WrongPending" /\ k = "app" -> [base.app EXCEPT !.pending = KP(First)]
        [] Mutant = "WrongOriginHeight" /\ k = "app" -> [base.app EXCEPT !.height = x.l1.height]
@@ -396,10 +403,20 @@ PositiveImportPremises == seen.publication.present =>
                /\ x.peer.header.time = 102 /\ x.peer.header.time > x.l1.originTime
                /\ c.height = 4 /\ c.time = x.peer.header.time
                /\ c.blockID = <<"Hash", x.peer.header>>
-               \* Necessary two-member post-increment bounds for these fixed powers.
-               \* Actual published fields only; not a sufficient history/STF audit.
-               /\ c.validators.powers = <<3, 2>> /\ c.next.powers = <<2, 4>>
-               /\ c.validators.priorities[1] - c.validators.priorities[2] \in (-6)..6
+               \* Actual committed pair from the selected two-update stock prefixes.
+               \* Literal publication table, independent of raw ids/fixture constructors.
+               /\ <<c.validators, c.next>> \in {
+                                                <<[keys |-> <<1, 2>>, powers |-> <<3, 2>>, priorities |-> <<-1, 1>>, proposer |-> 1],
+                                                  [keys |-> <<2, 3>>, powers |-> <<2, 4>>, priorities |-> <<2, -1>>, proposer |-> 2]>>,
+                                                <<[keys |-> <<1, 2>>, powers |-> <<3, 5>>, priorities |-> <<4, -4>>, proposer |-> 2],
+                                                  [keys |-> <<2, 3>>, powers |-> <<2, 4>>, priorities |-> <<-1, 1>>, proposer |-> 2]>>,
+                                                <<[keys |-> <<1, 2>>, powers |-> <<3, 2>>, priorities |-> <<-1, 1>>, proposer |-> 1],
+                                                  [keys |-> <<2, 3>>, powers |-> <<3, 4>>, priorities |-> <<2, -2>>, proposer |-> 2]>>}
+               /\ seen.publication.stores.app.recorded.first = c.validators
+               /\ seen.publication.stores.app.recorded.second = c.next
+               \* Necessary bounds remain power-sensitive; they do not imply pair coherence.
+               /\ c.validators.priorities[1] - c.validators.priorities[2] \in
+                    (IF c.validators.powers = <<3, 5>> THEN (-10)..10 ELSE (-6)..6)
                /\ c.next.priorities[1] - c.next.priorities[2] \in (-8)..8
 PositivePublicationNotReached == ~seen.publication.present
 =============================================================================

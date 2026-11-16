@@ -502,3 +502,63 @@ selectors, four unassessed entries and old conformance payloads/pins remain
 unchanged. This correction adds no config, protocol guard or history-validity
 claim. Previous F01/F02 source hashes/results remain historical for their exact
 inputs; fresh affected import and selected fault runs use the repaired source.
+
+## F01 final correction: jointly committed validator pairs
+
+The earlier independent-set alternatives and baseline are withdrawn as complete
+positive-pair premises. Necessary per-set priority bounds do not establish that
+current and next can occur together, or at the stated checkpoint after the fixed
+genesis. Final F01 wave2 uses actual `MakeGenesisState` followed by two actual
+pinned `updateState` calls through a single delegating bridge in a private source
+snapshot. No stock function was copied or replaced. Each selected current path
+starts at initialheight3/time100, constructs block3, then block4/time102.
+
+| Selected input         | Current keys/powers/priorities/proposer | Next keys/powers/priorities/proposer |
+| ---------------------- | --------------------------------------- | ------------------------------------ |
+| Raw0 base              | 1,2 / 3,2 / [-1,1] / 1                  | 2,3 / 2,4 / [2,-1] / 2               |
+| Raw11 first alternate  | 1,2 / 3,5 / [4,-4] / 2                  | 2,3 / 2,4 / [-1,1] / 2               |
+| Raw20 second alternate | 1,2 / 3,2 / [-1,1] / 1                  | 2,3 / 3,4 / [2,-2] / 2               |
+
+At block3 only the first-alternate path updates key2 to power5. At block4 all
+paths remove key1, add key3 at4 and set key2 to2 (base/first alternate) or3
+(second alternate). Current copies the preceding next set; new next applies
+these actual updates and increments. Compare fields by key identity, retaining
+stock power sorting and the disclosed address tie-break selecting key2 on the
+first-alternate path. Base next[2,-1] legitimately sums to1 because stock uses
+negative-floor centering. First-alternate next[-1,1] stores proposer2, although
+key3 has higher current priority. Neither field may be normalized or guessed.
+
+Fixed `GenesisPreimage` is now wholly literal, independently of current First:
+first powers3,2/priorities[-2,2]/proposer1; next powers3,2/[1,-1]/proposer2.
+Origin retains old header20 and installs this same genesis100 as before.
+Raw11 rebinds preimage, both derived entry arrays/registry, header.next and its
+L1 Comet commitment. Raw20 rebinds preimage and entries/registry, leaving
+header.next unchanged. Raw4/12 corrupt first proposer now target2, and the
+WrongProposer control targets next proposer3, preserving their discriminating
+failure behavior. Operational actions under Mutant=None and classifiers are
+unchanged. The existing opaque WindowValidators token remains opaque here;
+its selected native realization is the actual prefix LastValidators with
+powers3,2/priorities[1,-1]/stored proposer2.
+
+A private appended literal committed-pair invariant reproduced all three old
+published tuples as outside this table while old normal/trust controls stayed
+green. `PositiveImportPremises` now compares the actual published current/next
+pair to the independently written literal three-row table, with no raw-case ID
+verdict, constructor/preimage echo or store-observer oracle. Power-sensitive
+necessary bounds remain. A new exact source fault substitutes individually
+bounded base-next priorities into Raw11: old store alignment and both local
+bounds still agree, but the literal pair audit must fail after `Published`.
+The earlier origin/priority fault selectors are retargeted to the final fixture
+sites while retaining their identities and exact intended failure property.
+
+This is selected actual two-update-prefix arithmetic and header-field
+correspondence. It does not establish full Etna STF/EL execution, valid commits,
+L1 committee derivation or switch availability at these literal heights. The
+public-point probe uses unsigned timestamp records only to construct block4,
+a separately seeded opaque AppHash after stock updateState returns nil, and an
+explicit nonnil empty parameter response to exercise the unchanged-parameter
+marker5 path; these are disclosed inputs, not inferred normative app behavior.
+The actual source manifests remain1659 original entries plus exactly one
+private delegating bridge. Old F01 independent-set evidence remains historical,
+not a silently promoted coherent receipt. Existing359 config bytes and old
+payloads/pins remain unchanged; this final wave adds no operational guard.

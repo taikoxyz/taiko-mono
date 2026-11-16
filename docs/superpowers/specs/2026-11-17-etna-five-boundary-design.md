@@ -42,8 +42,8 @@ Keep origin2's old-generation retained header separate from new-generation genes
 
 The same premise audit checks stock genesis proposer initialization. With powers
 3/2, NewValidatorSet stores proposer1 with priorities[-2,2]; the next increment
-stores proposer2 with[1,-1]. Genesis must not inherit the landed First.proposer2.
-Preserve that landed value for non-origin import. Independently compare both
+stores proposer2 with[1,-1]. Genesis must not inherit a landed fixture's values.
+Independently compare both
 genesis sets, app recorded state and selected stores to these literal source facts.
 
 If confirmed, correct the non-origin fixture to102 and its independent literal
@@ -59,12 +59,37 @@ priority premise. Both committed future validator sets are post-increment. For
 two members, rescaling bounds the pre-step difference by2V and a priority step
 gives an absolute difference at most V+|power1-power2|. Raw11's[7,-7] at powers3/2
 violates6; Raw20's[6,-6] at2/4 violates8. Replace only these priority tuples with
-actual stock-generated alternatives[-1,1]/proposer1 and[-2,2]/proposer2. Extend
+individually stock-generated alternatives[-1,1]/proposer1 and[-2,2]/proposer2. Extend
 the independent publication audit with these selected necessary bounds and add
 two exact source faults restoring the invalid tuples. This is an explicit
 exception to old Raw11/20 byte preservation, with actual published counterexamples
 and source/Go evidence; all other raw cases and old config bytes remain unchanged.
 It is a repair within F01, not a sixth increment or a full prehistory proof.
+
+The final F01 fix wave checks the joint pair as well. Actual genesis plus two
+stock updateState calls show the current/next sets are coupled: Validators copies
+the prior NextValidators, while NextValidators applies the current updates and
+one increment to that same set. Independently reachable sets can still form an
+impossible pair. Use the selected actual two-block-prefix outputs below, indexed
+by their public symbolic key identities; do not recompute stored proposer by argmax.
+
+| Selected fixture | First powers; priorities; proposer | Second powers; priorities; proposer |
+| ---------------- | ---------------------------------- | ----------------------------------- |
+| Base             | 3,2; -1,1; 1                       | 2,4; 2,-1; 2                        |
+| First alternate  | 3,5; 4,-4; 2                       | 2,4; -1,1; 2                        |
+| Second alternate | 3,2; -1,1; 1                       | 3,4; 2,-2; 2                        |
+
+First keys are1,2 and second keys2,3. The prefix uses only explicit public B/-B/2B
+points and selected validator/parameter updates, with header3 time100 and header4
+time102. Preserve exact floor-centering output, including base second priorities
+whose sum is1. Decouple the fixed genesis literal, rebind positive raw commitments
+consistently and retarget negative fixtures/source faults that would become no-ops.
+Add a literal published-pair audit and a bounded-but-incoherent pair fault. This is
+an explicit exception to the previous raw fixture preservation rule. The selected
+prefix demonstrates validator-state correspondence; STF, execution, signatures,
+full authenticated window and archive validity remain premises. The existing opaque
+window token is retained and its selected concrete LastValidators mapping disclosed
+by F04. No operational import guard is added or weakened.
 
 ## F02 — discriminate chain and height authentication
 

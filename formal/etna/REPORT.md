@@ -1952,3 +1952,69 @@ Executed M10 SHA256:
 The scalar bound applies to these two-member positive-power fixtures; it does
 not prove complete STF/window validity, full importer correctness, generalized
 weighted consensus or unbounded protocol behavior. No protocol defect was found.
+
+## F01 final supplement — coherent committed pairs before export
+
+The preceding individual-set alternatives are withdrawn as complete positive
+pair premises. The remaining shared assumption was that independently reachable
+current and next sets could be combined. Actual pinned `updateState` copies the
+same previous NextValidators into current and into the updated/incremented next;
+the pair must agree with one chronological program. The old base pair cannot
+arise from those update rules, and its current set also disagrees with the
+specified fixed-genesis, two-block prefix.
+
+A private single delegating bridge exposed the original unexported function
+without copying or editing it. Actual genesis plus two updates produced the
+three pairs documented in
+[CHECKPOINT_IMPORT.md](CHECKPOINT_IMPORT.md#f01-final-correction-jointly-committed-validator-pairs).
+All1659 original source entries and exactly one added private bridge were
+verified before and after execution. An independent verifier reran the isolated
+public-only Go probe and compared the complete raw output, then audited fields
+by public-key identity. The source arithmetic and output agree, including base
+next priorities[2,-1] and first-alternate next's stored proposer2 despite key3's
+higher current priority. These values must not be renormalized or chosen by
+current-priority maximum.
+
+The final fixture repair couples both sets, powers and commitments, keeps fixed
+genesis entirely literal, and retargets corrupt proposer fixtures that would
+otherwise become no-ops. An independently literal actual-publication pair table
+detects a new individually bounded but incoherent pair fault. Existing opaque
+window tokens and all359 main config bytes remain unchanged. This is the second
+and final material F01 fix wave within the authorized five increments.
+
+These selected programs establish stock validator-state arithmetic and pair
+correspondence. They do not establish app-selected updates follow the L1
+committee schedule, signed/valid commits, complete authenticated history,
+EL/STF execution or proof soundness. Unsigned timestamp records construct the
+selected headers; post-commit AppHash is separately seeded after stock returns
+nil, and an explicit unchanged-parameter response selects marker5. Those inputs
+remain disclosed premises. A store accepting supplied state alone would not
+have exposed this pair-validity defect.
+
+The final affected gate passes all63 import configurations:20 exhausted normals
+and43 named controls/witnesses. All35 affected M10 source faults are KILLED at
+their intended invariant or temporal property, with successful original and
+actual-restored searches;38 workloads per phase produce114 checked raw logs.
+Existing20 sensitivity tests pass. The five selected singleton profiles also
+pass literal Comet/app-record audits and reach publication and trust separately.
+The bounded wrong-pair mutant still passes old store alignment and local bounds
+and reaches publication/trust when the new literal audit is omitted.
+
+Independent behavioral verification contributes40 accepted TLC executions over
+38 distinct checks, separately from the author's suite, plus the fresh actual
+Go replay described above. It includes bound-only controls, correct Raw4/12
+classifications, permanent WrongPriority/WrongProposer controls, byte-exact
+restoration and a real disabled-Publish temporal counterexample. Rejected setup
+and temporary harness/parser diagnostics are retained and excluded from credit.
+Independent source review finds the full six-file change compliant and of
+acceptable quality, with all359 config bytes, old pins and engines preserved.
+Root separately reclassifies all63 main and114 fault-phase raw logs and their
+hashes. Inventory is61 assessed IDs:56TLC/3Identity/2Rules; the full accumulated
+five-item gate is still pending, and unfinished F03 files remain excluded.
+
+Executed M10 SHA256:
+`4091cee2e355b553db60986d99ff8e29b7d4fe4285fd457c6a320dc5c0111258`.
+The35-fault campaign SHA256 is
+`ed5bcd5a12f74c1af12165653f6c0c87c29bcbf14c03a34f62b58cb485fde2b7`;
+the evidence-summary SHA256 is
+`62065d5ec958c2267bfb21d38ab73e505908d31a7da845f809c2667e48179d7c`.

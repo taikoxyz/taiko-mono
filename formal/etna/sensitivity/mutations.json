@@ -1011,8 +1011,8 @@
       "source": "formal",
       "path": "EtnaCheckpointImport.tla",
       "replace": {
-        "old": "GenesisPreimage == [first |-> [First EXCEPT !.proposer = 1],",
-        "new": "GenesisPreimage == [first |-> First,"
+        "old": "GenesisPreimage == [first |-> [keys |-> <<1, 2>>, powers |-> <<3, 2>>, priorities |-> <<-2, 2>>, proposer |-> 1],",
+        "new": "GenesisPreimage == [first |-> [keys |-> <<1, 2>>, powers |-> <<3, 2>>, priorities |-> <<-2, 2>>, proposer |-> 2],"
       },
       "workloads": ["configs/import-premise-origin.cfg"],
       "failure": {
@@ -1062,8 +1062,8 @@
       "source": "formal",
       "path": "EtnaCheckpointImport.tla",
       "replace": {
-        "old": " [] i = 11 -> LET pre == [Preimage EXCEPT !.first.priorities = <<-1, 1>>,",
-        "new": " [] i = 11 -> LET pre == [Preimage EXCEPT !.first.priorities = <<7, -7>>,"
+        "old": "!.first.priorities = <<4, -4>>",
+        "new": "!.first.priorities = <<7, -7>>"
       },
       "workloads": ["configs/import-premise-current.cfg"],
       "failure": {
@@ -1079,8 +1079,8 @@
       "source": "formal",
       "path": "EtnaCheckpointImport.tla",
       "replace": {
-        "old": " [] i = 20 -> LET pre == [Preimage EXCEPT !.second.priorities = <<-2, 2>>,",
-        "new": " [] i = 20 -> LET pre == [Preimage EXCEPT !.second.priorities = <<6, -6>>,"
+        "old": "!.second.priorities = <<2, -2>>",
+        "new": "!.second.priorities = <<6, -6>>"
       },
       "workloads": ["configs/import-premise-current.cfg"],
       "failure": {
@@ -1088,6 +1088,23 @@
         "name": "PositiveImportPremises"
       },
       "obligation": "Actual non-origin Raw20 publication must satisfy the necessary two-member post-increment priority-difference bound for its fixed powers. Restore only that raw constructor priority tuple to the old impossible value; the independent actual-store audit must fail at Published despite old store alignment sharing the same raw preimage. No full STF/history validity claim."
+    },
+    {
+      "id": "m10-positive-committed-pair",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "!.second.priorities = <<-1, 1>>",
+        "new": "!.second.priorities = <<2, -1>>"
+      },
+      "workloads": ["configs/import-premise-current.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "PositiveImportPremises"
+      },
+      "obligation": "Raw11 preserves individually bounded actual member fields but substitutes the base Next priority vector into the first-alternate pair. Coherent hashes/store alignment alone cannot identify this wrong pair. The independent literal actual-publication pair table must fail at Published; original and actual restoration must pass. This selected two-update-prefix correspondence does not establish full STF/committee history."
     }
   ]
 }

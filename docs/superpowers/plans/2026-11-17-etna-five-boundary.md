@@ -30,13 +30,14 @@
 ## F01 — positive import chronology and genesis
 
 **Files:** `formal/etna/EtnaCheckpointImport.tla`, new `configs/import-premise-*.cfg`, CHECKPOINT_IMPORT/README and sensitivity inventory/cohorts.
-**Interface:** selected non-origin header time102; origin retains old header but installs genesis100, first priorities[-2,2]/stored proposer1 and next[1,-1]/proposer2. Independent `PositiveImportPremises` checks actual publication without the shared constructor/helper. Non-origin landed First.proposer2 stays unchanged.
+**Interface:** selected non-origin header time102; origin retains old header but installs literal genesis100, first priorities[-2,2]/stored proposer1 and next[1,-1]/proposer2. Independent `PositiveImportPremises` checks actual publication without the shared constructor/helper. The three non-origin current/next pairs must match the selected actual stock two-block prefixes, including coupled power/priority changes; individual priority bounds alone are insufficient.
 
 - [x] Reproduce old non-origin publication40 against genesis100 using an independently appended invariant; record exact source/published trace.
 - [x] Repair fixture and literal observer, add origin/non-origin normals and required trust/publication witnesses; preserve350 config bytes.
 - [x] Add exact canonical-time and origin-first-proposer source faults to the existing TLC cohort; original/restored pass, each mutant fails PositiveImportPremises. Confirm stock genesis field derivation/readback independently.
-- [x] Repair the subsequently confirmed Raw11/20 priority-bound premise violations before F03 freezes: use stock-generated[-1,1]/proposer1 and[-2,2]/proposer2; independently audit bounds6/8 and detect exact old-tuple source faults. Preserve all other raw cases/configs and record the explicit exception.
-- [x] Independently review/verify and inspect full diff/hygiene; confirm readiness to commit the reviewed increment including the priority supplement (actual publication readback is recorded in the ledger).
+- [x] Repair the subsequently confirmed Raw11/20 individual priority-bound premise violations and detect the exact old-tuple source faults; these checks are necessary, and are not evidence of a coherent pair.
+- [x] Final fix wave: replace the three positive pairs with actual stock two-block-prefix results, decouple genesis literals, retarget negative fixtures/fault selectors that would become no-ops, and independently detect an individually bounded but incoherent pair. Preserve config bytes and record explicit fixture exceptions.
+- [x] Independently review/verify and inspect full diff/hygiene; confirm readiness to commit the reviewed increment including the paired-state supplement (actual publication readback is recorded in the ledger).
 
 ## F02 — chain/height input discrimination
 

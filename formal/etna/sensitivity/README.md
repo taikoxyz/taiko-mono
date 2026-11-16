@@ -36,7 +36,7 @@ inventory and is not a usable full gate with the current one-runtime Forge argv.
 
 | Cohort           | Required IDs | Engine | Exact selected Forge test                                          |
 | ---------------- | ------------ | ------ | ------------------------------------------------------------------ |
-| `tlc`            | 55           | TLC    | None                                                               |
+| `tlc`            | 56           | TLC    | None                                                               |
 | `forge-identity` | 3            | Forge  | `EtnaIdentityReplayTest::test_identity_publicHistoryPublication()` |
 | `forge-rules`    | 2            | Forge  | `EtnaRulesReplayTest::test_conformance_stopHandoffReplay()`        |
 
@@ -51,7 +51,7 @@ does not satisfy an item that declares only one.
 Full assessed-inventory evidence requires all three campaigns from the same
 frozen source/manifest/tools, separately compatible runtime selections and the
 same shared physical Foundry lock. Aggregate by obligation ID: verify the exact
-60-ID union without duplicates or omissions, all per-ID original/mutant/restored
+61-ID union without duplicates or omissions, all per-ID original/mutant/restored
 phases, source/tool hashes, input stability and each campaign's raw log hashes.
 Retain each cohort verdict separately. A full aggregate may report complete
 assessed coverage only after all these checks; unassessed protocol boundaries
@@ -262,3 +262,20 @@ another named invariant do not count as kills. Singleton corrected-alternate
 publication and trust probes require actual progress with exact stored values.
 These two-member necessary bounds are not a complete STF/history validator;
 no operational authentication guard, engine or new config is added.
+
+## F01 final joint-pair control
+
+`m10-positive-committed-pair` adds one required TLC selector: current counts are
+61 assessed IDs (56 TLC, three identity, two rules). The origin/genesis and two
+priority fault IDs retain their meanings but selectors follow the corrected
+literal genesis and coherent Raw11/20 constructor sites. Raw4/12 and permanent
+WrongProposer controls are retargeted to remain non-no-op corruptions.
+
+The new single-site fault replaces only Raw11 next priorities[-1,1] with bounded
+base next[2,-1]. Both per-set necessary bounds and the old shared store observer
+still agree. Exactly `PositiveImportPremises` must fail at actual publication
+because the independent literal table audits the whole current/next pair.
+Original and actual restored source must pass, with required positive witnesses.
+All affected M10 source-fault triples must be rechecked on the final source;
+prior independent-set results are historical and do not establish pair coherence.
+No new runner, main config or operational Mutant=None guard is introduced.
