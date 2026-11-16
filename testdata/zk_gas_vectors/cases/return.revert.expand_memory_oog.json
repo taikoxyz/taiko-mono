@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "return.revert.expand_memory_oog",
+  "layer": "harness",
+  "cells": ["return.revert.memory_oog_halt"],
+  "description": "return.revert.expand_exact_gas with 1 gas less: REVERT cannot pay its expansion and halts.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x60ab610100536102006010fd"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x41",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x192",
+    "status": "halt"
+  }
+}

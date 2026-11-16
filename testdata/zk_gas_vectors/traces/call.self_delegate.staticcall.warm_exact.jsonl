@@ -1,0 +1,13 @@
+{"e":"step","d":1,"pc":0,"op":96,"gas":"0xb02","static":false,"sl":0,"stack":[],"mem":"0x0","facts":{},"gas_after":"0xaff","spawn":false,"zk":"0x1b","ok":true,"charged":true}
+{"e":"step","d":1,"pc":2,"op":49,"gas":"0xaff","static":false,"sl":1,"stack":["0x42"],"mem":"0x0","facts":{"account_warm":false},"gas_after":"0xd7","spawn":false,"zk":"0x28a0","ok":true,"charged":true}
+{"e":"step","d":1,"pc":3,"op":80,"gas":"0xd7","static":false,"sl":1,"stack":["0x1"],"mem":"0x0","facts":{},"gas_after":"0xd5","spawn":false,"zk":"0x14","ok":true,"charged":true}
+{"e":"step","d":1,"pc":4,"op":95,"gas":"0xd5","static":false,"sl":0,"stack":[],"mem":"0x0","facts":{},"gas_after":"0xd3","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":5,"op":95,"gas":"0xd3","static":false,"sl":1,"stack":[],"mem":"0x0","facts":{},"gas_after":"0xd1","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":6,"op":95,"gas":"0xd1","static":false,"sl":2,"stack":[],"mem":"0x0","facts":{},"gas_after":"0xcf","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":7,"op":95,"gas":"0xcf","static":false,"sl":3,"stack":[],"mem":"0x0","facts":{},"gas_after":"0xcd","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":8,"op":96,"gas":"0xcd","static":false,"sl":4,"stack":[],"mem":"0x0","facts":{},"gas_after":"0xca","spawn":false,"zk":"0x1b","ok":true,"charged":true}
+{"e":"step","d":1,"pc":10,"op":95,"gas":"0xca","static":false,"sl":5,"stack":[],"mem":"0x0","facts":{},"gas_after":"0xc8","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":11,"op":250,"gas":"0xc8","static":false,"sl":6,"stack":["0x0","0x42","0x0","0x0","0x0","0x0"],"mem":"0x0","facts":{"account_warm":true,"account_empty":false,"delegate_warm":true,"delegate_is_target":true},"gas_after":"0x0","spawn":true,"zk":"0x13a74","ok":true,"charged":true}
+{"e":"step","d":2,"pc":0,"op":239,"gas":"0x0","static":true,"sl":0,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x0","spawn":false,"zk":"0x0","ok":true,"charged":true}
+{"e":"step","d":1,"pc":12,"op":0,"gas":"0x0","static":false,"sl":1,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x0","spawn":false,"zk":"0x0","ok":true,"charged":true}
+{"e":"frame_end","status":"success","frame_zk":"0x163e0"}

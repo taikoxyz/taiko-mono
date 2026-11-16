@@ -1,0 +1,3 @@
+{"e":"step","d":1,"pc":0,"op":103,"gas":"0x186a0","static":false,"sl":0,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x1869d","spawn":false,"zk":"0x2d","ok":true,"charged":true}
+{"e":"step","d":1,"pc":9,"op":81,"gas":"0x1869d","static":false,"sl":1,"stack":["0xffffffffffffffff"],"mem":"0x0","facts":{},"gas_after":"0x1869a","spawn":false,"zk":"0x36","ok":true,"charged":true}
+{"e":"frame_end","status":"halt","frame_zk":"0x63"}
