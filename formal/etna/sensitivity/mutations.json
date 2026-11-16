@@ -747,6 +747,72 @@
         }
       },
       "obligation": "Actual positive-stop handoff replay observes stop-event"
+    },
+    {
+      "id": "handoff-fresh-first-time",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "LET x == [timestamp |-> originRecord.timestamp,",
+        "new": "LET x == [timestamp |-> now + 1,"
+      },
+      "workloads": [
+        "configs/handoff-normal-handoffrecovery.cfg",
+        "configs/handoff-stop-normal-due.cfg",
+        "configs/handoff-stop-normal-future.cfg",
+        "configs/handoff-stop-normal-offgrid.cfg"
+      ],
+      "failure": {
+        "kind": "invariant",
+        "name": "FreshIdentity"
+      },
+      "obligation": "Recovery first candidate uses raw recovery/genesis time under retained-parent1/anchor3 premises."
+    },
+    {
+      "id": "handoff-fresh-parent-time",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "SeededParent == [height |-> 12, timestamp |-> 1]",
+        "new": "SeededParent == [height |-> 12, timestamp |-> 2]"
+      },
+      "workloads": [
+        "configs/handoff-normal-handoffrecovery.cfg",
+        "configs/handoff-stop-normal-due.cfg",
+        "configs/handoff-stop-normal-future.cfg",
+        "configs/handoff-stop-normal-offgrid.cfg"
+      ],
+      "failure": {
+        "kind": "invariant",
+        "name": "FreshIdentity"
+      },
+      "obligation": "Fresh continuation preserves retained checkpoint12 parent time1; wrong2 remains below candidate3 so the oracle must reject it."
+    },
+    {
+      "id": "handoff-fresh-parent-height",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "SeededParent == [height |-> 12, timestamp |-> 1]",
+        "new": "SeededParent == [height |-> 18, timestamp |-> 1]"
+      },
+      "workloads": [
+        "configs/handoff-normal-handoffrecovery.cfg",
+        "configs/handoff-stop-normal-due.cfg",
+        "configs/handoff-stop-normal-future.cfg",
+        "configs/handoff-stop-normal-offgrid.cfg"
+      ],
+      "failure": {
+        "kind": "invariant",
+        "name": "FreshIdentity"
+      },
+      "obligation": "Fresh first block extends the exact retained checkpoint12, not the discarded height18 suffix."
     }
   ]
 }

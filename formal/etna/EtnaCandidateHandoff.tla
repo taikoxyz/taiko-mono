@@ -2,14 +2,17 @@
 EXTENDS EtnaRulesSchedule
 \* Thin bounded interface composition, not a client/consensus/proof refinement.
 VARIABLES held, heldAudit, learnedFloor, trusted, appReply, retries, exposures,
-          supportAt, knowledgeAt, proofReceipt, freshReceipt
+          supportAt, knowledgeAt, proofReceipt, freshReceipt, freshAudit
 HandoffLocal == <<held, heldAudit, learnedFloor, trusted, appReply, retries,
-                  exposures, supportAt, knowledgeAt, proofReceipt, freshReceipt>>
+                  exposures, supportAt, knowledgeAt, proofReceipt, freshReceipt, freshAudit>>
 HandoffVars == <<RulesVars, HandoffLocal>>
 StopProfile == program \in StopHandoffPrograms
 HoldIndex == IF StopProfile THEN 2 ELSE 1
 FinalIndex == Len(Programs(program))
 RetryReady == phase = "Ready" /\ IF StopProfile THEN index >= HoldIndex ELSE index = FinalIndex
+\* Immutable input-header premise for the seeded retained checkpoint, not the
+\* held unlanded suffix and not the L1 recovery execution time.
+SeededParent == [height |-> 12, timestamp |-> 1]
 HandoffInit ==
     /\ RulesInit
     /\ held = [present |-> FALSE] /\ heldAudit = [present |-> FALSE]
@@ -18,6 +21,8 @@ HandoffInit ==
     /\ supportAt = [index |-> 0, floor |-> 0]
     /\ knowledgeAt = [present |-> FALSE, supported |-> FALSE, previousFloor |-> 0]
     /\ proofReceipt = [present |-> FALSE] /\ freshReceipt = [present |-> FALSE]
+    \* Independent raw premise capture; never read by operational construction.
+    /\ freshAudit = [present |-> FALSE, parent |-> [height |-> 12, timestamp |-> 1]]
 Hold ==
     /\ phase = "Ready" /\ index = HoldIndex /\ ~held.present
     /\ LET x == [timestamp |-> IF StopProfile THEN 3 ELSE 2,
@@ -41,7 +46,7 @@ Hold ==
     /\ UNCHANGED <<program, index, phase, schedule, history, historyAudit, originRecord,
                     call, receipt, supported, candidateReceipt, waitSeen, retrySeen>>
     /\ UNCHANGED <<learnedFloor, trusted, appReply, retries, exposures,
-                    supportAt, knowledgeAt, proofReceipt, freshReceipt>>
+                    supportAt, knowledgeAt, proofReceipt, freshReceipt, freshAudit>>
 CallStep ==
     /\ (index < HoldIndex \/ (held.present /\ (program # "HandoffRecovery" \/ pendingProof.present)))
     /\ PrepareCall /\ UNCHANGED HandoffLocal
@@ -52,19 +57,28 @@ InvokeStep ==
          ELSE IF held.present /\ Mutant = "RelabelAnchor"
          THEN [held EXCEPT !.candidate.anchor = Len(history'), !.anchor = history'[Len(history')]]
          ELSE held
+    \* Capture successful recovery's original inputs and independent history
+    \* audit entry, without consulting originRecord, SeededParent or Snapshot.
+    /\ freshAudit' = IF call.operation = "Recover" /\ receipt'.accepted
+         THEN [present |-> TRUE, parent |-> freshAudit.parent,
+               origin |-> [present |-> TRUE, height |-> call.args.expectedC,
+                            l1Block |-> 100 + call.at, timestamp |-> call.at],
+               generation |-> call.args.expectedGeneration + 1,
+               anchor |-> Len(historyAudit'), snapshot |-> historyAudit'[Len(historyAudit')]]
+         ELSE freshAudit
     /\ UNCHANGED <<heldAudit, learnedFloor, trusted, appReply, retries, exposures,
                     supportAt, knowledgeAt, proofReceipt, freshReceipt>>
 InstallSupport ==
     /\ UpgradeSupport
     /\ supportAt' = [index |-> index, floor |-> learnedFloor]
     /\ UNCHANGED <<held, heldAudit, learnedFloor, trusted, appReply, retries,
-                    exposures, knowledgeAt, proofReceipt, freshReceipt>>
+                    exposures, knowledgeAt, proofReceipt, freshReceipt, freshAudit>>
 AuthenticateRecovery ==
     /\ held.present /\ generation > learnedFloor
     /\ learnedFloor' = generation /\ trusted' = FALSE /\ appReply' = FALSE
     /\ knowledgeAt' = [present |-> TRUE, supported |-> 1 \in supported, previousFloor |-> learnedFloor]
     /\ UNCHANGED RulesVars
-    /\ UNCHANGED <<held, heldAudit, retries, exposures, supportAt, proofReceipt, freshReceipt>>
+    /\ UNCHANGED <<held, heldAudit, retries, exposures, supportAt, proofReceipt, freshReceipt, freshAudit>>
 HistoricalFresh(x) ==
     LET t == IF Mutant = "CurrentClock" THEN now ELSE x.timestamp
     IN history[x.anchor].timestamp <= t /\ t <= history[x.anchor].timestamp + M
@@ -78,7 +92,7 @@ RetryHeld ==
        IN /\ r \notin retries /\ retries' = retries \cup {r}
     /\ UNCHANGED RulesVars
     /\ UNCHANGED <<held, heldAudit, learnedFloor, trusted, appReply, exposures,
-                    supportAt, knowledgeAt, proofReceipt, freshReceipt>>
+                    supportAt, knowledgeAt, proofReceipt, freshReceipt, freshAudit>>
 \* Session stays generation zero. Authentication revokes trust; software support
 \* does not create a new authenticated signing session.
 LiveAuthorization == held.candidate.generation = 0 /\ trusted /\ appReply /\ learnedFloor <= 0
@@ -94,7 +108,7 @@ ExposeSignature ==
        IN /\ r \notin exposures /\ exposures' = exposures \cup {r}
     /\ UNCHANGED RulesVars
     /\ UNCHANGED <<held, heldAudit, learnedFloor, trusted, appReply, retries,
-                    supportAt, knowledgeAt, proofReceipt, freshReceipt>>
+                    supportAt, knowledgeAt, proofReceipt, freshReceipt, freshAudit>>
 QueueProof ==
     /\ program = "HandoffRecovery" /\ phase = "Ready" /\ index = 1
     /\ held.present /\ ~pendingProof.present /\ PrepareProof(2)
@@ -107,17 +121,18 @@ ObserveProof ==
                            enabled |-> ENABLED Land(pendingProof)]
     /\ UNCHANGED RulesVars
     /\ UNCHANGED <<held, heldAudit, learnedFloor, trusted, appReply, retries, exposures,
-                    supportAt, knowledgeAt, freshReceipt>>
+                    supportAt, knowledgeAt, freshReceipt, freshAudit>>
 ObserveFresh ==
     /\ phase = "Ready" /\ index = FinalIndex /\ generation = 1 /\ ~freshReceipt.present
-    /\ LET x == [timestamp |-> now + 1, parentHeight |-> H(startHeight), parentTime |-> now,
+    /\ LET x == [timestamp |-> originRecord.timestamp,
+                  parentHeight |-> SeededParent.height, parentTime |-> SeededParent.timestamp,
                   anchor |-> Len(history), generation |-> generation]
        IN /\ ValidCandidate(x) /\ Outcome(x) = "Accept"
           /\ freshReceipt' = [present |-> TRUE, candidate |-> x, anchor |-> history[x.anchor],
-                                result |-> Outcome(x)]
+                                origin |-> originRecord, result |-> Outcome(x)]
     /\ UNCHANGED RulesVars
     /\ UNCHANGED <<held, heldAudit, learnedFloor, trusted, appReply, retries, exposures,
-                    supportAt, knowledgeAt, proofReceipt>>
+                    supportAt, knowledgeAt, proofReceipt, freshAudit>>
 HandoffNext == (Setup /\ UNCHANGED HandoffLocal) \/ CallStep \/ InvokeStep \/ Hold \/
     InstallSupport \/ AuthenticateRecovery \/ RetryHeld \/ ExposeSignature \/ QueueProof \/
     ObserveProof \/ ObserveFresh
@@ -149,9 +164,24 @@ KnowledgeMonotone == knowledgeAt.present =>
     /\ learnedFloor >= knowledgeAt.previousFloor /\ learnedFloor = 1 /\ ~trusted /\ ~appReply
 ProofGenerationFence == proofReceipt.present =>
     (proofReceipt.proof.generation # proofReceipt.currentGeneration => ~proofReceipt.enabled)
-FreshIdentity == freshReceipt.present =>
-    /\ freshReceipt.candidate.generation = 1 /\ freshReceipt.anchor.generation = 1
-    /\ freshReceipt.anchor.timestamp >= 3 /\ freshReceipt.candidate.anchor # heldAudit.candidate.anchor
+\* This fixture's retained parent time1 and recovery anchor time3 make the EL
+\* max(parent+1, BFT genesis time, anchor time) equal the raw recovery time3.
+FirstRecoveryBlockUsesGenesisTime == freshReceipt.present =>
+    /\ freshAudit.present
+    /\ freshReceipt.candidate.timestamp = freshAudit.origin.timestamp
+    /\ freshAudit.parent.timestamp < freshAudit.origin.timestamp
+    /\ freshReceipt.anchor.timestamp = freshAudit.origin.timestamp
+FreshIdentity ==
+    /\ FirstRecoveryBlockUsesGenesisTime
+    /\ freshReceipt.present =>
+         /\ freshReceipt.candidate = [timestamp |-> freshAudit.origin.timestamp,
+              parentHeight |-> freshAudit.parent.height, parentTime |-> freshAudit.parent.timestamp,
+              anchor |-> freshAudit.anchor, generation |-> freshAudit.generation]
+         /\ freshAudit.parent.height = freshAudit.origin.height
+         /\ freshReceipt.origin = freshAudit.origin
+         /\ freshReceipt.anchor = freshAudit.snapshot
+         /\ freshReceipt.candidate.generation = 1 /\ freshReceipt.anchor.generation = 1
+         /\ freshReceipt.anchor.timestamp >= 3 /\ freshReceipt.candidate.anchor # heldAudit.candidate.anchor
 HoldBeforeCallNotReached == ~(held.present /\ index = 1 /\ phase = "Ready")
 RetryAfterCallNotReached == ~(held.present /\ index = 2 /\ retries # {})
 WaitAfterCallNotReached == ~(\E r \in retries : r.result = "Wait")

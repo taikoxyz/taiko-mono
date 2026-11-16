@@ -42,7 +42,10 @@
         "handoff-stop-current-cleared-stop",
         "handoff-stop-sign-stop-bypass",
         "handoff-stop-recovery-origin",
-        "handoff-stop-candidate-time"
+        "handoff-stop-candidate-time",
+        "handoff-fresh-first-time",
+        "handoff-fresh-parent-time",
+        "handoff-fresh-parent-height"
       ]
     },
     {

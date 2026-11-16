@@ -11,8 +11,8 @@ The normative baseline is SPEC commit
 `d18357214fab30ea512ae9858a11699806d72ba1`, blob
 `649548c58d6629dd85143b33efd3644a3bb71509`; contract baseline is
 `89f419915de4b73bb57c53bf970f6dea9e8e8c8c`. The source requirements are
-CONS-3.3-3a/4/5, CONS-3.4-4/5/8/11a/12, START-10.1-3e/f/14/14a/b/d,
-RECOV-8-14/15/16, RECOV-8.2-4/5, RECOV-8.4-2/7/12/13 and SYNC-9-10/11/13/14.
+CONS-3.2-3, CONS-3.3-3a/4/5, CONS-3.4-4/5/8/11a/12, START-10.1-3e/f/14/14a/b/d,
+RECOV-8-14/15/16, RECOV-8.2-4/5, RECOV-8.4-2/7/10/12/13 and SYNC-9-10/11/13/14.
 The existing M11 contract abstractions and environmental premises remain.
 
 Two finite programs execute inherited `Setup`, `PrepareCall`, and `Invoke`:
@@ -54,8 +54,41 @@ combinations are explored without fairness assumptions.
    generation check. It is an opaque queued-proof premise, not a proof generated
    from the held candidate. The observer does not execute a landing, so it does
    not disturb M11's current public-state receipt. `ObserveFresh` separately shows
-   acceptance of a new generation-1 candidate anchored at/after recovery; it
+   acceptance of the first generation-1 candidate using the recovery anchor; it
    neither relabels the old candidate nor authenticates a new signing session.
+
+### Exact fresh first-block fixture
+
+The four recovering programs retain checkpoint 12 with its original L2 header
+timestamp 1. `SeededParent` states that immutable bounded input premise explicitly;
+the inherited settlement interface does not execute or authenticate this header.
+Recovery at L1 time 3 does not change its L2 timestamp. The stop programs' held
+suffix parents 18/13 at time 2 are distinct discarded history above checkpoint 12.
+
+`ObserveFresh` extends that retained checkpoint, using parent height 12/time 1,
+candidate generation 1/time 3, and the recovery-invocation anchor at time 3. Under
+RECOV-8.4-7/10 the BFT genesis time is R.timestamp=3. The EL timestamp follows
+CONS-3.2-3: max(parent time 1 + 1, BFT time 3, anchor time 3)=3. This concrete
+coincidence does not assert that every possible first EL timestamp equals the
+BFT genesis time independently of its parent and anchor.
+
+An observation-only `freshAudit` captures the original parent premise separately
+as raw height 12/time 1 at initialization. On accepted recovery it records the
+original call's expected checkpoint, generation, time/block and exact independent
+`historyAudit` entry. It never reads operational `SeededParent`, `originRecord` or
+`Snapshot`, and operational actions never read it. `FreshIdentity`, enabled by
+all 43 handoff configs, compares the complete candidate, origin and anchor against
+these raw premises. Its `FirstRecoveryBlockUsesGenesisTime` clause independently
+checks the concrete first-block timing rule. All 339 existing config bytes stay
+unchanged.
+
+PR22387 feedback exposed that the prior fresh fixture instead accepted timestamp
+4/parent time 3. Those values describe neither this valid first block nor the
+retained parent's original timestamp. The stronger oracle rejects that old trace;
+three assessed source-only faults separately substitute candidate time 4, parent
+time 2 (still below candidate time 3) or parent height 18. Each must fail exactly
+`FreshIdentity` with successful original/restored normal runs in all four programs.
+This repairs a verification fixture and observer, not a production protocol defect.
 
 `OriginalCallPreserved`, `HistoryProvenance`, public call/state/event invariants
 remain enabled in every case. The held audit, history audit, receipt sets and
@@ -119,7 +152,7 @@ generation to 1: they require a signature after recovery and before learning it,
 then retention of that same permitted historical exposure after authentication.
 An exposure made before recovery cannot satisfy these two witnesses; it remains
 a valid earlier historical exposure under the separate at-exposure signing fence.
-Fresh generation-1 candidates are separate observations. No queued proof is
+The exact fresh generation-1 first candidate is a separate observation. No queued proof is
 created for these three programs; the original opaque-proof premise stays scoped
 to `HandoffRecovery` and is never a proof of a stopped candidate.
 

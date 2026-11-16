@@ -1497,3 +1497,75 @@ real STF/guest/proving, weighted consensus, initialization validity, structural 
 upgrades and unbounded refinement remain outside the result. Authenticated anchors,
 valid parent metadata, statement-bound verifier mocks and trusted normal continuation
 remain explicit premises. No deployment, merge, PR or Notion/worklist write occurred.
+
+## PR22387 feedback repair — fresh recovery fixture, 2026-11-16
+
+External review of baseline `4c8b96c93` exposed a concrete violation of an assumed
+fixture premise. The old `ObserveFresh` constructs parent12/time3 with candidate
+time4 after recovery origin12/time3. Independent reproduction on all four
+recovering normal profiles confirms that the old invariants pass and the actual
+fresh receipt is accepted; a separately supplied raw parent/first-block oracle
+rejects each profile with the intended invariant failure.
+
+**Correction to the earlier interpretation:** the prior314/339 numerical expected
+outcome counts remain historical execution facts, but their fresh-recovery witness
+does not establish a valid protocol continuation. That conclusion is withdrawn
+for the old fixture. L1 method replay does not execute CometBFT's first-block
+validation and cannot fill this gap. Calling complete block validity an environment
+premise cannot justify an input that contradicts that premise.
+
+The missing checks were concrete: FreshIdentity checked generation and anchor,
+but omitted first-block time and the retained parent's original timestamp;
+ValidCandidate checked parent-before-child and anchor age, but omitted this
+genesis boundary. The earlier fault inventory did not mutate these inputs.
+Independent review used the same abstraction boundary and missed the contradiction.
+Repeating those checks unchanged would still pass.
+
+Pinned RECOV-8.4-7/10 fixes the first block's BFT time to R.timestamp. CONS-3.2-3
+separately fixes EL time to max(parent+1, BFT time, anchor time). Under the explicit
+retained parent12/time1, recovery3 and anchor3 fixture, both times are3. Recovery
+must not retimestamp the retained parent. The repair constructs that exact bounded
+candidate and adds a separate raw-input audit binding parent, time, generation,
+origin and exact recovery anchor. Three source faults target candidate time4,
+parent time2 (still below the candidate time), and wrong parent18. Validation and
+publication evidence for the repaired source follows.
+
+### Repaired-source evidence
+
+- Author oracle-first RED rejects the unchanged old constructor in all four
+  recovering normals, exactly at FreshIdentity. After repair, all43 existing
+  handoff configs match their declared outcomes, including fresh positive
+  witnesses. All339 config files remain byte-identical to the reviewed baseline.
+- Root's fresh full regression: **339/339 exact expected outcomes**, with52
+  exhausted normal searches and287 named controls/existence witnesses. Every
+  recorded model/config hash matches the repaired files. Root's118 Python tests
+  and640 rule-reference checks pass; migration-purity remains explicitly skipped.
+- Complete compatible fault campaign: **44/44 assessed required faults KILLED**,
+  selected exactly once across39TLC/3Identity/2Rules cohorts. There are56 workloads
+  per phase: all originals/restorations pass and all mutants fail at their exact
+  declared semantic targets. All168 raw logs and source/tool/input hashes are
+  checked independently. Aggregate SHA256:
+  `c4bc74b554293388c5eefafdbf09601d9126343da0660d7e03266108992b7298`.
+- Independent behavior verification runs20 trials across the four recovering
+  profiles. All12 normal/restored trials exhaust and emit actual candidate3,
+  parent12/time1, generation1, origin12/time3 and the correct anchor. An external
+  checker uses raw recovery args/context and historyAudit, not freshAudit, to
+  check these values. All8 separate time/parent-time mutants fail FreshIdentity;
+  parentTime2 stays below candidate3, so the fault does not merely disable the
+  witness. A new independent reviewer additionally detects wrong generation,
+  copied origin block and copied anchor origin, and checks that disabling the
+  fresh action loses the required witness and is rejected by exact classification.
+- All32 existing conformance inputs and their actual replay/exporter code remain
+  byte-identical. The earlier13-test real-contract and38/9-call export evidence
+  is retained for those same inputs; those unchanged gates were not rerun or
+  relabeled as fresh executions. The fault cohorts still execute their selected
+  actual contract tests and verify all564 original contract entries before/after.
+
+Frozen repaired model SHA256:
+`6421a398dfa10efb2f6b9ee066c83e239bf44a42d22d18b7461047e21f0f3487`.
+The453-file execution manifest SHA256 is
+`4bb7afc0ddc612d5c67bdb4d888b2e3d8450d7873025c443114cf970efd8c853`;
+later REPORT integration is a reviewed prose-only delta. The original external
+feedback is addressed by this scoped repair; historical counts are not erased
+and no whole-protocol or actual-client proof is claimed. No production/SPEC,
+deployment or merge change is included. The PR stays draft for continued review.

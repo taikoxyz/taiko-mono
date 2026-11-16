@@ -36,7 +36,7 @@ inventory and is not a usable full gate with the current one-runtime Forge argv.
 
 | Cohort           | Required IDs | Engine | Exact selected Forge test                                          |
 | ---------------- | ------------ | ------ | ------------------------------------------------------------------ |
-| `tlc`            | 36           | TLC    | None                                                               |
+| `tlc`            | 39           | TLC    | None                                                               |
 | `forge-identity` | 3            | Forge  | `EtnaIdentityReplayTest::test_identity_publicHistoryPublication()` |
 | `forge-rules`    | 2            | Forge  | `EtnaRulesReplayTest::test_conformance_stopHandoffReplay()`        |
 
@@ -51,7 +51,7 @@ does not satisfy an item that declares only one.
 Full assessed-inventory evidence requires all three campaigns from the same
 frozen source/manifest/tools, separately compatible runtime selections and the
 same shared physical Foundry lock. Aggregate by obligation ID: verify the exact
-41-ID union without duplicates or omissions, all per-ID original/mutant/restored
+44-ID union without duplicates or omissions, all per-ID original/mutant/restored
 phases, source/tool hashes, input stability and each campaign's raw log hashes.
 Retain each cohort verdict separately. A full aggregate may report complete
 assessed coverage only after all these checks; unassessed protocol boundaries
@@ -149,3 +149,15 @@ exhaust without reaching either witness. The original weak current-global-state
 observers still reach under this fault and are retained as the diagnostic RED.
 This experiment records `WITNESS_REACHED` versus `EXHAUSTED_NO_WITNESS` explicitly;
 it is not an invariant-violation kill and is not classified by `sensitivity/run.py`.
+
+## Recovery first-candidate controls
+
+Three assessed `handoff-fresh-*` faults target the exact recovery first candidate
+in all four recovering handoff programs: candidate time `now+1`, retained-parent
+time 2 instead of 1, and parent height 18 instead of checkpoint 12. The wrong
+parent time remains below the valid candidate time 3, so the fault cannot pass
+silently by disabling `ObserveFresh`. Each fault must fail `FreshIdentity`, whose
+independent raw parent and recovery-call/anchor observations do not use the
+operational construction helpers. Successful original/restored runs are required.
+The 39/3/2 compatible cohorts cover all 44 assessed required IDs; earlier 41-item
+campaigns remain historical evidence for their original source head.
