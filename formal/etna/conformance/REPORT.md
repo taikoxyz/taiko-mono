@@ -177,3 +177,31 @@ L1 blocks remain unchanged. This materializes valid public setup/schedule calls,
 not physical-time, BFT or cryptographic correctness. Literal confirmed95, Withdrawn
 and callback-class correspondence remain GAPs. The wider M09 corrective-upgrade
 API is also separate; none is invented by this replay suite.
+
+## C06 — landing frontier and statement responsibilities
+
+The unchanged identity model exports20 scenarios/88 intermediate observations:
+EL/Comet/FI/Val × compatible overlap, conflicting frontier, substituted public
+origin, recovery-origin reuse/old proof and shared-frontier divergent suffix.
+`export_identity.py` retains actual action enabledness and selected raw records;
+no Python acceptance implementation supplies the expectations. The actual replay
+executes44 land calls (32 accepted,12 rejected) and4 recoveries, comparing full
+selected retained records, origins, counters, checkpoint, FI and failed-call equality.
+
+Two final isolated Forge tests pass, including concrete leaf-count/range/off-grid/
+missing-origin guards. Twelve exporter tests and fresh actual export comparison
+pass. Original564 source entries remain unchanged. Independent full-source and
+behavior review passed. Only locked runs after adapter fixes count; preliminary
+shared-cache overlap results were discarded. Fixture JSON/setup/assertion work
+is outside gas accounting, actual calls are metered, and figures are not a gas
+benchmark.
+
+Frontier negatives configure the proof mock to accept the candidate statement.
+A root-selected temporary single-source overlay removes only the frontier require;
+the replay then observes unexpected acceptance and fails exactly its frontier
+assertion. Restoring original source passes both tests. FI mismatch remains within
+actual tail bounds, so a later queue guard cannot conceal a missing frontier check.
+Separate strict-original-statement mocks test substituted-origin and old-generation
+binding. Retained public originVal is compared separately from exported fresh
+execution genesis; real guest/STF/cryptography is not executed. These are selected
+contract/integration observations, not proof-system or whole-protocol refinement.

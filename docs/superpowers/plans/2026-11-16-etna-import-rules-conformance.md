@@ -82,11 +82,11 @@
 
 **Interfaces:** Consume actual unchanged EtnaCheckpointIdentity outcomes and observations. Candidate-statement-accepting mock for contract-frontier tests; immutable-original-statement mock only for labeled binding tests.
 
-- [ ] Export finite overlap/divergent-suffix/frontier-component/origin scenarios with actual action enabledness and records; validate no skipped/mutated cases.
-- [ ] Map symbolic cut identities to concrete encoded cuts/real keccak statements, preserving old public originVal versus fresh genesis execution state.
-- [ ] Replay real Inbox calls; precise guard rejection and actual proof-binding errors must be distinguished; compare bounded retained records and abort equality.
-- [ ] Run selected actual methods and independent guard/mock-masking sensitivity mutant; investigate any mismatch before classifying source versus model premise.
-- [ ] Independent review/verification and local commit/report; final stable accumulated TLC/adapter/rule checks and stop after five.
+- [x] Export finite overlap/divergent-suffix/frontier-component/origin scenarios with actual action enabledness and records; validate no skipped/mutated cases.
+- [x] Map symbolic cut identities to concrete encoded cuts/real keccak statements, preserving old public originVal versus fresh genesis execution state.
+- [x] Replay real Inbox calls; precise guard rejection and actual proof-binding errors must be distinguished; compare bounded retained records and abort equality.
+- [x] Run selected actual methods and independent guard/mock-masking sensitivity mutant; investigate any mismatch before classifying source versus model premise.
+- [x] Independent review/verification and local commit/report; final stable accumulated TLC/adapter/rule checks and stop after five.
 
 ## Execution order and ownership
 

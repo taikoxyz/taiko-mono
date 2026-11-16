@@ -1082,3 +1082,29 @@ Only that redundant digest is corrected. A focused regression fails before the
 repair and passes after, checking both raw manifest pins, their SPEC SHA/blob and
 local SPEC bytes/blob. All17 baseline-helper tests pass; independent review and
 root564-entry source verification pass. No source repin or vector regeneration.
+
+### C06 — landing frontier and statement responsibilities
+
+Twenty actual frozen-model scenarios/88 observations replay44 real land attempts
+(32accepted/12rejected) and4recoveries. Full selected retained identities and
+failed-call equality pass. Two locked actual tests,12 exporter regressions and
+fresh model export comparison pass; original564 sources remain unchanged.
+Independent full-source/behavior review passed. The root-selected omission of
+only FrontierLeafMismatch's require makes the candidate-valid proof mock accept
+the bad frontier; the exact frontier assertion fails, and source restoration
+passes. Origin/old-generation proof binding is separately labeled under strict
+statement mocks. Historical originVal versus fresh execution-genesis distinction
+is preserved; real STF/guest/cryptography remains outside this replay. Detailed
+normalization, adapter resource repairs and exclusions are in conformance/README.md.
+
+### Stable accumulated model regression
+
+The final accumulated runner completed286/286 exact outcomes with no input drift:
+39 normal searches exhausted with empty queues;247 named controls/witnesses
+produced only their declared violations. Every current model/config hash was
+recomputed against the actual results. All255 baseline TLA/config files remain
+byte-identical, including the19 archived incomplete experiments. Original564
+contract entries and corrected SPEC digest/blob match. Production-package diff
+is empty. Twenty runner tests and640 live rule checks pass; migration purity
+is explicitly skipped without a migration-base argument. C05's final behavioral
+review still remains before the five-increment stopping boundary is reached.
