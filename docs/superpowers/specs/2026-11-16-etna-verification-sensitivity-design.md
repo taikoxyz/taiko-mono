@@ -49,7 +49,7 @@ under the user's delegation; the cost is finite coverage with explicit boundarie
 
 ## V01: repeatable fault campaign
 
-Create formal/etna/coverage/run.py, mutations.json, tests/test_run.py and README.md.
+Create formal/etna/sensitivity/run.py, mutations.json, tests/test_run.py and README.md.
 The manifest is a reviewed inventory, not an automatic claim to enumerate all
 possible bugs. Each obligation identifies its source/normal workload, exact unique
 source replacement and required semantic failure. Unassessed obligations need a

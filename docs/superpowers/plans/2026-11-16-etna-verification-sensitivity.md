@@ -26,17 +26,17 @@
 
 ### Task 1: V01 fault campaign and explicit inventory
 
-**Files:** Create coverage/run.py, coverage/mutations.json, coverage/tests/test_run.py, coverage/README.md under formal/etna.
+**Files:** Create sensitivity/run.py, sensitivity/mutations.json, sensitivity/tests/test_run.py, sensitivity/README.md under formal/etna.
 **Interfaces:** load_manifest/classify_tlc/classify_forge/run_campaign; CLI --manifest/--runtime/--only/--output-dir; evidence schema with KILLED/SURVIVED/INCONCLUSIVE/UNASSESSED and exact input/test identities. Runtime external to Git. Later authors return manifest fragments to root.
 
-- [ ] Write failing unit tests for false kills: parser error, wrong invariant/assertion, missing/duplicate targets, unsafe paths, empty Forge selection, drift/timeout and failed restoration.
-- [ ] Implement isolated temporary exact replacement and baseline/mutated/restored execution with locked Forge cache, clean environment and bounded subprocess cleanup; no shell strings/original writes.
-- [ ] Add reviewed obligations and actual source mutations for the three known gaps; execute real diagnostic campaign and require reported SURVIVED with non-ready exit, not fabricated success.
-- [ ] Independently review source/classifier and challenge wrong-failure/empty-test behavior; record limitations, local commit/root worklist update.
+- [x] Write failing unit tests for false kills: parser error, wrong invariant/assertion, missing/duplicate targets, unsafe paths, empty Forge selection, drift/timeout and failed restoration.
+- [x] Implement isolated temporary exact replacement and baseline/mutated/restored execution with locked Forge cache, clean environment and bounded subprocess cleanup; no shell strings/original writes.
+- [x] Add reviewed obligations and actual source mutations for the three known gaps; execute real diagnostic campaign and require reported SURVIVED with non-ready exit, not fabricated success.
+- [x] Independently review source/classifier and challenge wrong-failure/empty-test behavior; record limitations, local commit/root worklist update.
 
 ### Task 2: V02 discriminatory import inputs
 
-**Files:** Modify EtnaCheckpointImport.tla and CHECKPOINT_IMPORT.md; add configs/import-input-\*.cfg; add coverage/input_obligations.json if useful. No old config rewrite.
+**Files:** Modify EtnaCheckpointImport.tla and CHECKPOINT_IMPORT.md; add configs/import-input-\*.cfg; add sensitivity/input_obligations.json if useful. No old config rewrite.
 **Interfaces:** Original raw0..15 preserved, new raw inputs/focused configs; independent ObservedClass unchanged unless separately justified by SPEC; proposed source-fault matrix to root.
 
 - [ ] Record original40 EL-guard-survivor and new-input discriminator as regression RED, with exact source delta and intended ClassificationCorrect failure.
@@ -56,7 +56,7 @@
 
 ### Task 4: V04 conditional connection progress
 
-**Files:** Modify EtnaCheckpointImport.tla and CHECKPOINT_IMPORT.md; create nested coverage/configs/import-progress\*.cfg, optional new default reachability config(s). Existing safety specification preserved.
+**Files:** Modify EtnaCheckpointImport.tla and CHECKPOINT_IMPORT.md; create nested sensitivity/configs/import-progress\*.cfg, optional new default reachability config(s). Existing safety specification preserved.
 **Interfaces:** ImportProgressSpec, independent connection-enabled/reachability property and named eventual-stable-connection temporal property; campaign fragment uses sole named PROPERTY and meaningful counterexample.
 
 - [ ] Preserve disabled-Connect40/40 survivor evidence; write new obligation that fails disabled/no-effect connection, not parser or fairness configuration.

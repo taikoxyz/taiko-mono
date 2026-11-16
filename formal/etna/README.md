@@ -431,3 +431,14 @@ history. This closes those two C03 profile gaps; callback coverage stays open.
 historical-anchor/L2 observations. Its34 exact outcomes include historical
 store provenance controls. Schema1 public receipts feed C05 real-contract replay.
 The model retains original S for planned stop even after recovery origin moves.
+
+## Verification sensitivity batch
+
+The user authorized V01–V05 after independent fault experiments exposed input,
+success-observer and progress gaps. [`sensitivity/README.md`](sensitivity/README.md)
+describes a reusable versioned fault campaign. It distinguishes intended semantic
+kills, surviving faults, inconclusive execution and explicitly unassessed scope.
+The initial three-fault diagnostic correctly reports SURVIVED/non-ready; this
+is an honest baseline, not a completed coverage repair. Subsequent bounded tasks
+repair and independently retest those obligations before one held-candidate
+handoff model. Source pins and production packages remain unchanged.

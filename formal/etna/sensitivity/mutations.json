@@ -1,0 +1,158 @@
+{
+  "schema": "etna-fault-campaign-1",
+  "inventory_scope": "Selected verification sensitivity obligations; no automatic completeness claim. Initial V01 diagnostic is expected to SURVIVE.",
+  "obligations": [
+    {
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "workloads": [
+        "configs/import-latest.cfg",
+        "configs/import-negative-bad-peer.cfg",
+        "configs/import-negative-committee-contradiction.cfg",
+        "configs/import-negative-contradiction-with-missing.cfg",
+        "configs/import-negative-envelope-contradiction.cfg",
+        "configs/import-negative-generation-bypass.cfg",
+        "configs/import-negative-hrs-reset.cfg",
+        "configs/import-negative-import-trust.cfg",
+        "configs/import-negative-latest-bypass.cfg",
+        "configs/import-negative-lost-halt.cfg",
+        "configs/import-negative-missing-ancestor.cfg",
+        "configs/import-negative-missing-evidence.cfg",
+        "configs/import-negative-missing-halt.cfg",
+        "configs/import-negative-mixed-authentication.cfg",
+        "configs/import-negative-new-genesis.cfg",
+        "configs/import-negative-origin-comet.cfg",
+        "configs/import-negative-origin-height.cfg",
+        "configs/import-negative-origin-preimage.cfg",
+        "configs/import-negative-partial-publication.cfg",
+        "configs/import-negative-preimage-contradiction.cfg",
+        "configs/import-negative-unfinalized.cfg",
+        "configs/import-negative-wrong-apphash.cfg",
+        "configs/import-negative-wrong-el-store.cfg",
+        "configs/import-negative-wrong-fi.cfg",
+        "configs/import-negative-wrong-pending.cfg",
+        "configs/import-negative-wrong-priority.cfg",
+        "configs/import-negative-wrong-proposer.cfg",
+        "configs/import-negative-wrong-publication.cfg",
+        "configs/import-older.cfg",
+        "configs/import-origin.cfg",
+        "configs/import-witness-contradiction.cfg",
+        "configs/import-witness-crash-resume.cfg",
+        "configs/import-witness-import-untrusted.cfg",
+        "configs/import-witness-latest.cfg",
+        "configs/import-witness-missing-retry.cfg",
+        "configs/import-witness-older.cfg",
+        "configs/import-witness-origin.cfg",
+        "configs/import-witness-partial-crash.cfg",
+        "configs/import-witness-restart-trust.cfg",
+        "configs/import-witness-superseded.cfg"
+      ],
+      "id": "m10-el-binding",
+      "obligation": "Downloaded EL identity must bind the authenticated L1 checkpoint.",
+      "replace": {
+        "old": "/\\ x.peer.el = x.l1.el /\\ x.peer.state = x.l1.state",
+        "new": "/\\ x.peer.state = x.l1.state"
+      },
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      }
+    },
+    {
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "workloads": [
+        "configs/import-latest.cfg",
+        "configs/import-negative-bad-peer.cfg",
+        "configs/import-negative-committee-contradiction.cfg",
+        "configs/import-negative-contradiction-with-missing.cfg",
+        "configs/import-negative-envelope-contradiction.cfg",
+        "configs/import-negative-generation-bypass.cfg",
+        "configs/import-negative-hrs-reset.cfg",
+        "configs/import-negative-import-trust.cfg",
+        "configs/import-negative-latest-bypass.cfg",
+        "configs/import-negative-lost-halt.cfg",
+        "configs/import-negative-missing-ancestor.cfg",
+        "configs/import-negative-missing-evidence.cfg",
+        "configs/import-negative-missing-halt.cfg",
+        "configs/import-negative-mixed-authentication.cfg",
+        "configs/import-negative-new-genesis.cfg",
+        "configs/import-negative-origin-comet.cfg",
+        "configs/import-negative-origin-height.cfg",
+        "configs/import-negative-origin-preimage.cfg",
+        "configs/import-negative-partial-publication.cfg",
+        "configs/import-negative-preimage-contradiction.cfg",
+        "configs/import-negative-unfinalized.cfg",
+        "configs/import-negative-wrong-apphash.cfg",
+        "configs/import-negative-wrong-el-store.cfg",
+        "configs/import-negative-wrong-fi.cfg",
+        "configs/import-negative-wrong-pending.cfg",
+        "configs/import-negative-wrong-priority.cfg",
+        "configs/import-negative-wrong-proposer.cfg",
+        "configs/import-negative-wrong-publication.cfg",
+        "configs/import-older.cfg",
+        "configs/import-origin.cfg",
+        "configs/import-witness-contradiction.cfg",
+        "configs/import-witness-crash-resume.cfg",
+        "configs/import-witness-import-untrusted.cfg",
+        "configs/import-witness-latest.cfg",
+        "configs/import-witness-missing-retry.cfg",
+        "configs/import-witness-older.cfg",
+        "configs/import-witness-origin.cfg",
+        "configs/import-witness-partial-crash.cfg",
+        "configs/import-witness-restart-trust.cfg",
+        "configs/import-witness-superseded.cfg"
+      ],
+      "id": "m10-connect-enabled",
+      "obligation": "A correct fixed target must eventually connect under the declared progress premises. Existing safety workload does not establish it.",
+      "replace": {
+        "old": "Connect ==\n    /\\ n.phase = \"Running\"",
+        "new": "Connect ==\n    /\\ FALSE\n    /\\ n.phase = \"Running\""
+      },
+      "failure": {
+        "kind": "invariant",
+        "name": "ConnectedRequiresTrust"
+      }
+    },
+    {
+      "id": "settlement-signal-publication",
+      "obligation": "Every successful land publishes the expected terminal checkpoint to SignalService.",
+      "required": true,
+      "engine": "forge",
+      "source": "contracts",
+      "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+      "replace": {
+        "old": "        _signalService.saveCheckpoint(\n            ICheckpointStore.Checkpoint({\n                blockNumber: h, blockHash: lastBlockHash, stateRoot: _input.lastStateRoot\n            })\n        );",
+        "new": "        // Fault campaign: omit terminal checkpoint publication."
+      },
+      "workloads": [
+        "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_conformance_identityReplay()",
+        "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_concreteRangeLeafAndOriginGuards()",
+        "test/layer1/etna/conformance/EtnaRecoveryLifecycleReplay.t.sol:EtnaRecoveryLifecycleReplayTest::test_conformance_recoveryLifecycleReplay()",
+        "test/layer1/etna/conformance/EtnaRecoveryLifecycleReplay.t.sol:EtnaRecoveryLifecycleReplayTest::test_lifecycle_publicHistoryProbe()",
+        "test/layer1/etna/conformance/EtnaRecoveryLifecycleReplay.t.sol:EtnaRecoveryLifecycleReplayTest::test_lifecycle_unissuedRecoveryRevertsUnknownBond()",
+        "test/layer1/etna/conformance/EtnaRecoveryReplay.t.sol:EtnaRecoveryReplayTest::test_conformance_recoveryReplay()",
+        "test/layer1/etna/conformance/EtnaRecoveryReplay.t.sol:EtnaRecoveryUnheldReplayTest::test_publicDisplacementThenUnheldRecoveryExclusion()",
+        "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_conformance_rulesReplay()",
+        "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_rules_concreteAbiRangeRejection()",
+        "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_rules_concreteUint48Boundaries()",
+        "test/layer1/etna/conformance/EtnaSettlementReplay.t.sol:EtnaSettlementReplayTest::test_conformance_settlementReplay()"
+      ],
+      "failure": {
+        "kind": "forge",
+        "failures": {
+          "test/layer1/etna/conformance/EtnaSettlementReplay.t.sol:EtnaSettlementReplayTest::test_conformance_settlementReplay()": "terminal checkpoint publication mismatch"
+        }
+      }
+    },
+    {
+      "id": "unselected-protocol-obligations",
+      "required": false,
+      "unassessed_reason": "This reviewed finite selection does not assess the remaining protocol obligations, guest/client refinement, proof validity, committee derivation or full liveness."
+    }
+  ]
+}

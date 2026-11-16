@@ -1173,3 +1173,41 @@ batch can be green. No further scope is started before the user's retrospective.
 
 Artifacts and commits remain local on codex/etna-tla-settlement; the existing
 GitHub worklist records exact pins, bounded completion evidence and limits.
+
+## Fourth batch in progress: verify the verification (2026-11-16)
+
+Baseline aed1b861e; same SPECd18357214fab30ea512ae9858a11699806d72ba1 and
+contract89f419915de4b73bb57c53bf970f6dea9e8e8c8c. The user authorized exactly
+V01fault campaign, V02inputs, V03success publication, V04progress, V05handoff.
+Stop on confirmed actual protocol/source problems; repair verification defects
+separately and stop after five. No production-package change or publication.
+
+### V01 — reproducible fault campaign
+
+`sensitivity/run.py` implements versioned manifests/external runtimes, temporary
+exact source replacements, complete baseline/mutated/restored execution, full
+Forge test identities, sole-property temporal identification and raw-log hashes.
+Only intended semantic failures count as KILLED. Empty/skipped tests, parser or
+runtime errors, unrelated failures, timeouts, input/dependency drift or failed
+restoration are INCONCLUSIVE. Surviving faults and unassessed obligations remain
+explicit; default readiness requires the selected required obligations killed.
+
+The actual initial EL-binding and disabled-Connect faults each preserve all40
+original expected outcomes in baseline/mutated/restored phases. The source-only
+SignalService-publication omission preserves all11 selected C02–C06 tests in all
+three phases. All three correctly report SURVIVED, ready=false and nonzero CLI
+status. Corrected-runner focused TLC and real Forge11×3 readbacks confirm the
+classification. These diagnostic results do not claim the holes are repaired.
+
+Fifteen focused runner tests and independent review pass. Two independent P2
+runner defects were fixed in one wave: separately-sessioned descendants could
+survive timeout, and changed dependency directories could remain reported stable.
+The reviewer reran both concrete probes; descendants now stop promptly without
+killing an unrelated process, and dependency drift invalidates readiness. Raw
+logs/argv persist promptly and compact JSON avoids duplicated full Forge traces.
+Code/tests/manifest were relocated byte-identically from ignored generated
+coverage directory to tracked sensitivity source; new-path tests/actual TLC
+readback pass. The pinned564 source inventory remains unchanged.
+
+This is a finite reviewed inventory/tool, not a claim that all faults have been
+enumerated. V02–V05 remain pending at this point; no sixth task is started.
