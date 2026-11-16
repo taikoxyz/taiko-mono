@@ -996,3 +996,53 @@ counterparts are not claimed equivalent. The next discussion should compare
 those uncovered boundaries with actual implementation risks and choose further
 scopes; this batch does not start them automatically. Artifacts/commits remain
 local and the GitHub worklist tracks their unpublished status.
+
+## Third batch in progress (2026-11-16)
+
+The user explicitly authorized the next exactly five increments M10-A/C04/M11-A/
+C05/C06. The prior five-increment stopping boundary was respected. SPEC remains
+d18357214fab30ea512ae9858a11699806d72ba1 (main content refreshed identical);
+real contracts remain89f419915de4b73bb57c53bf970f6dea9e8e8c8c. No production
+implementation changes or new protocol defect have been established.
+
+### M10-A — import installation and admission
+
+Forty exact outcomes passed both author and root executions: three exhaustive
+normal profiles,27 named mutation controls and10 reachability witnesses. The
+normal profiles explore3361/3448/10963 distinct states with empty queues. The
+model compares independently captured raw authenticated inputs, complete durable
+EL/app/Comet/evidence contents and publication receipts, including origin/genesis
+installation, pending/current sets, priorities/proposers, FI and signer fencing.
+An independently selected mutation changes only Comet paramsChanged from s+1
+to s; TLC reports exactly PublishedStoresAligned, exit12.
+
+Independent full-source/config/document review passed. The model is a thin
+standalone interface, not formal composition with M02/M03. The latest target is
+fixed per profile; Continue assumes normally validated post-import execution.
+Required evidence/ancestor sets are fixed; actual importer, full window/index
+implementation, cryptography, power-loss behavior and stock consensus remain
+outside scope. See CHECKPOINT_IMPORT.md for mappings and exact controls.
+
+### C04 — literal displaced and withdrawn recovery
+
+Two exhausted frozen M08 profiles generate eight original PublicAttempt
+receipts: Displaced/Withdrawn × Mixed/Unheld × None/SecondRegistry. Real public
+registration/topUp/requestExit/displacement/forfeit/confirmExit/setOrigin/withdraw
+history preserves literal exits93, confirmation95, ready/origin97 and withdrawal98.
+Exact50% forfeiture on4 MIN_STAKE units avoids scaling/rounding assumptions.
+The adapter checks full selected before/after state, retained identities, FI,
+custody, events and independently inventoried filler preservation.
+
+All three actual final Forge tests pass (eight receipts, public-history probe
+and genuine UnknownBond recovery), plus11 exporter regressions. Fresh export
+comparison and564-entry original-source readback pass. An independently selected
+AFTER confirmation95→96 mutation with valid rehashed fixture fails at the real
+observer (95 != 96); the fixture is restored byte-for-byte. Independent complete
+source/replay review passed.
+
+This closes only the earlier literal Displaced/Withdrawn gaps. The unheld first
+forceExit is a no-op; its later failure does not demonstrate tentative-write
+rollback (Held C03 already does). Unheld/SecondRegistry succeeds because there
+is no second call. Legacy Unzen finalization and landing-proof validity are
+explicit test premises; callbacks, real STF/cryptography and full refinement
+remain unchecked. All artifacts stay local.

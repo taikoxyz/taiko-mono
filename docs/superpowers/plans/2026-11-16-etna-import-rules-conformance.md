@@ -34,11 +34,11 @@
 
 **Interfaces:** Independent raw candidate/L1/store/publication/session inputs and observer receipts; three profiles latest s4/t4, older s4/t6, origin s=o2. Document M02/M03 interfaces without modifying fixed old domains.
 
-- [ ] Define raw component domains and expected rejection/wait/halt/publication observations; write exact config expectations before completing behavior.
-- [ ] Implement bounded candidate authentication, separate durable staging, atomic publication, crash/restart, latest-target admission and immutable signer HRS.
-- [ ] Include fixed required ancestor/evidence sets, priorities/proposers and EL(s) AppHash; explicitly defer actual importer/full window arithmetic.
-- [ ] Run exhaustive normals, exact named controls/witnesses; independent pure-store-write/auth-boundary mutation challenges; retain incomplete candidates.
-- [ ] Independent full-source review/behavior verification, local commit/shared report/worklist update or stop on real issue.
+- [x] Define raw component domains and expected rejection/wait/halt/publication observations; write exact config expectations before completing behavior.
+- [x] Implement bounded candidate authentication, separate durable staging, atomic publication, crash/restart, latest-target admission and immutable signer HRS.
+- [x] Include fixed required ancestor/evidence sets, priorities/proposers and EL(s) AppHash; explicitly defer actual importer/full window arithmetic.
+- [x] Run exhaustive normals, exact named controls/witnesses; independent pure-store-write/auth-boundary mutation challenges; retain incomplete candidates.
+- [x] Independent full-source review/behavior verification, local commit/shared report/worklist update or stop on real issue.
 
 ### Task 2: C04 literal displaced and withdrawn recovery
 
@@ -46,11 +46,11 @@
 
 **Interfaces:** Consume frozen M08 PublicAttempt;8 cases from two profiles×two kinds×two failure classes; real public switching chronology and mappings exactly as design. No callback class claim.
 
-- [ ] Generate actual M08 receipts with copied-source/jar/config provenance, source drift and full8case validation; add meaningful exporter negative regressions first.
-- [ ] Materialize exact public history87/92/93/95/97/98/99, oldeff3/pending1/5000bps, fillers5/replacement5 and real confirmation/withdrawal. No planted registry state.
-- [ ] Compare full mapped before/after public projection, raw filler/replacement/custody and actual withdrawal identity effects; inject only explicitly labeled second dependency failure.
-- [ ] Execute actual selected methods with same build/cache and at least one independently selected failure/observer mutation; review schema/hash/case completeness.
-- [ ] Independent source/replay review and focused fixes, local commit/report/worklist or stop on real issue.
+- [x] Generate actual M08 receipts with copied-source/jar/config provenance, source drift and full8case validation; add meaningful exporter negative regressions first.
+- [x] Materialize exact public history87/92/93/95/97/98/99, oldeff3/pending1/5000bps, fillers5/replacement5 and real confirmation/withdrawal. No planted registry state.
+- [x] Compare full mapped before/after public projection, raw filler/replacement/custody and actual withdrawal identity effects; inject only explicitly labeled second dependency failure.
+- [x] Execute actual selected methods with same build/cache and at least one independently selected failure/observer mutation; review schema/hash/case completeness.
+- [x] Independent source/replay review and focused fixes, local commit/report/worklist or stop on real issue.
 
 ### Task 3: M11-A schedule/history model
 

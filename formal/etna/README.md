@@ -410,3 +410,19 @@ The second five-increment batch is complete locally. Its final212-case regressio
 selected real-contract executions, repaired verification gaps and retrospective
 are recorded in [REPORT.md](REPORT.md). Further increments await the agreed
 retrospective; passing these workloads does not close the module worklist.
+
+## Third batch: import and rules plus real-code correspondence
+
+A new user-authorized five-increment batch starts from the completed212-case
+baseline: M10-A, C04, M11-A, C05 and C06. Stop on a confirmed real issue; otherwise
+stop after these five. The previous retrospective remains the historical record.
+
+[`CHECKPOINT_IMPORT.md`](CHECKPOINT_IMPORT.md) adds a thin authenticated import
+transaction/admission model with40 exact normal/control/witness outcomes. It
+checks durable store content, atomic publication, crash retry, generation fences
+and older-versus-latest admission. It does not execute an actual importer or
+compose the earlier models formally.
+
+C04 extends the [real-code lane](conformance/README.md) with eight literal
+Displaced-confirm95 and Withdrawn recovery receipts and actual public registry
+history. This closes those two C03 profile gaps; callback coverage stays open.

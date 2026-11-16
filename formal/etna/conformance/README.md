@@ -162,3 +162,27 @@ For accepted model attempts the adapter also expects the selected Recovered even
 indexed generation, Inbox emitter and complete checkpoint/L1 context/original
 array payloads. A wrong expected indexed generation fails actual replay. Other
 registry events and failed-call log payloads are outside this selected event check.
+
+## C04: literal lifecycle recovery profiles
+
+`export_recovery_lifecycle.py` executes the unchanged frozen M08 model and
+exports eight Displaced/Withdrawn × Mixed/Unheld × None/SecondRegistry receipts
+to `recovery_lifecycle_cases.json`. `EtnaRecoveryLifecycleReplay.t.sol` constructs
+the actual public switching history and compares selected complete public states.
+
+Old bond registration87 uses3 MIN_STAKE; topUp92 adds1 (ready97); requestExit
+records93.4095 fillers have5 units each, and a paid5-unit replacement at93
+displaces the unique4-unit minimum. Switching init95/cutoff94,50% forfeit and
+confirm95 leave effective1/pending1; origin97 uses S=6. Withdrawn calls actual
+withdraw98, clears owner/confirmation/pending and preserves lifetime metadata.
+H(q)=6+6q, timestamps1200t, literal L1/exit/confirmation/ready coordinates and
+bond IDs0/4096/4097 are explicit mappings. Only inventoried filler reserve is
+removed from projected custody; raw filler/replacement/custody stays checked.
+
+Three actual tests pass, including all eight receipts and exact UnknownBond
+atomicity;11 exporter regressions and fresh export comparison pass. An AFTER
+confirmation95→96 mutation fails the actual observer after recover. Independent
+source/replay review passed. This closes C03's two literal lifecycle profile gaps,
+not its callback gap. Unheld first forceExit is a no-op; no tentative-write
+rollback claim follows from its second-call failure. Legacy finalization and
+full-statement-bound proof mocks remain explicit imported premises.
