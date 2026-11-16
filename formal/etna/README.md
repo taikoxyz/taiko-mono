@@ -426,3 +426,8 @@ compose the earlier models formally.
 C04 extends the [real-code lane](conformance/README.md) with eight literal
 Displaced-confirm95 and Withdrawn recovery receipts and actual public registry
 history. This closes those two C03 profile gaps; callback coverage stays open.
+
+[`RULES_SCHEDULE.md`](RULES_SCHEDULE.md) checks raw L1 schedule calls and separate
+historical-anchor/L2 observations. Its34 exact outcomes include historical
+store provenance controls. Schema1 public receipts feed C05 real-contract replay.
+The model retains original S for planned stop even after recovery origin moves.

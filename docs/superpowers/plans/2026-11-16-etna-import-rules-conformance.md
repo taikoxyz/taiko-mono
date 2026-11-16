@@ -58,11 +58,11 @@
 
 **Interfaces:** PublicAttempt schema1 with original operation/arguments/context, actual accepted/reverted result, complete raw before/after schedule and packed event/counter projection for C05. Export L1 projection independently of L2-only candidate observations.
 
-- [ ] Pin actual scheduleRules/scheduleStop/recover guards and raw state effects; write exact normal/control/witness expectations.
-- [ ] Implement sparse-time L1 schedule transitions and atomic failed attempts plus bounded historical anchors/L2 rule and planned-stop selection with separate clocks.
-- [ ] Check strict equality/cancellation/nonzero S/parent boundary, historical anchor use, unknown rules retry, recovery zero/nonzero schedule effects and packed sentinel boundaries.
-- [ ] Exhaust bounded normal products; named controls and positive witnesses; independent actual raw-write/old-anchor/mixed-clock mutations.
-- [ ] Freeze schema/source/config, independent review/test gate, local commit/report/worklist; concrete importer/K-upgrade remains outside scope.
+- [x] Pin actual scheduleRules/scheduleStop/recover guards and raw state effects; write exact normal/control/witness expectations.
+- [x] Implement sparse-time L1 schedule transitions and atomic failed attempts plus bounded historical anchors/L2 rule and planned-stop selection with separate clocks.
+- [x] Check strict equality/cancellation/nonzero S/parent boundary, historical anchor use, unknown rules retry, recovery zero/nonzero schedule effects and packed sentinel boundaries.
+- [x] Exhaust bounded normal products; named controls and positive witnesses; independent actual raw-write/old-anchor/mixed-clock mutations.
+- [x] Freeze schema/source/config, independent review/test gate, local commit/report/worklist; concrete importer/K-upgrade remains outside scope.
 
 ### Task 4: C05 real L1 scheduling replay
 

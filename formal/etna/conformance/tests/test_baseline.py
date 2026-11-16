@@ -28,6 +28,21 @@ class BaselineTests(unittest.TestCase):
         self.consumer = copy.deepcopy(self.current)
         self.consumer['authorityCommit'] = 'b' * 40
 
+    def test_checked_in_spec_pin_matches_both_source_manifests(self):
+        root = PATH.parent
+        pins = json.loads((root / 'pins.json').read_text())
+        spec_path = 'packages/protocol/docs/etna/SPEC.md'
+        for consumer in ('lean', 'contracts'):
+            raw = (root / 'manifests' / (consumer + '.json')).read_bytes()
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), pins[consumer]['manifestSha256'])
+            entry = json.loads(raw)['files'][spec_path]
+            self.assertEqual(entry['sha256'], pins['spec']['sha256'])
+            self.assertEqual(entry['gitBlob'], pins['spec']['blob'])
+        current = (root.parents[2] / spec_path).read_bytes()
+        self.assertEqual(hashlib.sha256(current).hexdigest(), pins['spec']['sha256'])
+        self.assertEqual(hashlib.sha1(b'blob ' + str(len(current)).encode() + b'\0' + current).hexdigest(),
+                         pins['spec']['blob'])
+
     def compare(self, left=None, right=None):
         return MODULE.compare_vectors(left or self.current, right or self.consumer,
                                       current_authority='a' * 40,

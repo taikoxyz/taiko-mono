@@ -1046,3 +1046,39 @@ rollback (Held C03 already does). Unheld/SecondRegistry succeeds because there
 is no second call. Legacy Unzen finalization and landing-proof validity are
 explicit test premises; callbacks, real STF/cryptography and full refinement
 remain unchecked. All artifacts stay local.
+
+### M11-A — L1 scheduling and historical-anchor observations
+
+The model extends actual EtnaSettlement.Recover with schedule-specific guards/
+writes and23 raw programs (38 public calls). Two normal searches exhaust217 and
+13680 distinct states, queue0;22 exact mutation controls and10 reachability
+witnesses bring the owned selection to34. It separates L1 time/current storage,
+valid historical anchor state, candidate L2 timestamp and parent metadata. It
+checks strict notice equality, cancellation, failed promotion atomicity, rules0/
+next+1 recovery, unknown-rules wait/retry and original-S parent-boundary stop.
+
+Independent review found one model assertion gap: replacing historical schedules
+with zero still passed normal CandidateCorrect/AnchorAgreement because both
+used the same corrupted history. This is not a protocol defect and does not mean
+all earlier controls/witnesses missed that broad mutant. Observer-only raw history
+audit now binds every appended and retained record, length/current state and
+candidate prefix to actual executed writes. The reviewer rechecked and withdrew
+the finding. Root's direct write and older-retained-entry mutants both report
+exactly HistoryProvenance, exit12. All34 owned outcomes pass after one fix wave.
+
+The model is finite fixed programs, resolved/authenticated anchor inputs and one
+selected candidate/retry per trace; it does not implement real clients/guests,
+anchor envelope validation or structural K upgrades. Event data is represented
+as five48-bit limbs plus reserved16; C05 independently packs concrete words and
+maps normalized notice1 to actual1152 seconds. See RULES_SCHEDULE.md.
+
+### Provenance integrity repair
+
+A final cross-check found the existing top-level pins.json SPEC SHA256 was wrong.
+Pinned commit d18357214fab30ea512ae9858a11699806d72ba1 and blob649548c58d6629dd85143b33efd3644a3bb71509
+remain unchanged; both previously validated source manifests already contained
+the correct digest4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b.
+Only that redundant digest is corrected. A focused regression fails before the
+repair and passes after, checking both raw manifest pins, their SPEC SHA/blob and
+local SPEC bytes/blob. All17 baseline-helper tests pass; independent review and
+root564-entry source verification pass. No source repin or vector regeneration.
