@@ -1,0 +1,227 @@
+{
+  "block-id-current-base": {
+    "domain": "block-id",
+    "sha256": "f17c846fb533d32e97998b56bd908c256c35c10053a8018c9f32b5ec439d2cd3",
+    "symbol": [
+      "Hash",
+      {
+        "appHash": ["EL", 3],
+        "chain": ["Chain", 1],
+        "data": [
+          "Hash",
+          {
+            "execution": ["EL", 4]
+          }
+        ],
+        "height": 4,
+        "next": [
+          "Validators",
+          [
+            [1, 2],
+            [3, 2]
+          ]
+        ],
+        "time": 102,
+        "window": [
+          "Hash",
+          {
+            "ancestors": [2, 3, 4],
+            "commits": ["WindowCommits", 4],
+            "evidence": [["Evidence", 3]],
+            "validators": ["WindowValidators", 4]
+          }
+        ]
+      }
+    ]
+  },
+  "block-id-current-first-alternate": {
+    "domain": "block-id",
+    "sha256": "4cbaafc11d4e6e861b5cf710b9c1f01f11784b05366d6e1cfb8f9aa9ff2ab532",
+    "symbol": [
+      "Hash",
+      {
+        "appHash": ["EL", 3],
+        "chain": ["Chain", 1],
+        "data": [
+          "Hash",
+          {
+            "execution": ["EL", 4]
+          }
+        ],
+        "height": 4,
+        "next": [
+          "Validators",
+          [
+            [1, 2],
+            [3, 5]
+          ]
+        ],
+        "time": 102,
+        "window": [
+          "Hash",
+          {
+            "ancestors": [2, 3, 4],
+            "commits": ["WindowCommits", 4],
+            "evidence": [["Evidence", 3]],
+            "validators": ["WindowValidators", 4]
+          }
+        ]
+      }
+    ]
+  },
+  "block-id-current-second-alternate": {
+    "domain": "block-id",
+    "sha256": "f17c846fb533d32e97998b56bd908c256c35c10053a8018c9f32b5ec439d2cd3",
+    "symbol": [
+      "Hash",
+      {
+        "appHash": ["EL", 3],
+        "chain": ["Chain", 1],
+        "data": [
+          "Hash",
+          {
+            "execution": ["EL", 4]
+          }
+        ],
+        "height": 4,
+        "next": [
+          "Validators",
+          [
+            [1, 2],
+            [3, 2]
+          ]
+        ],
+        "time": 102,
+        "window": [
+          "Hash",
+          {
+            "ancestors": [2, 3, 4],
+            "commits": ["WindowCommits", 4],
+            "evidence": [["Evidence", 3]],
+            "validators": ["WindowValidators", 4]
+          }
+        ]
+      }
+    ]
+  },
+  "block-parts-current-base": {
+    "domain": "block-parts",
+    "sha256": "084590893530ea9269c6578a6be4820f7a7426e37c4c62cb0ba739e1e066b906",
+    "symbol": [
+      "Hash",
+      {
+        "appHash": ["EL", 3],
+        "chain": ["Chain", 1],
+        "data": [
+          "Hash",
+          {
+            "execution": ["EL", 4]
+          }
+        ],
+        "height": 4,
+        "next": [
+          "Validators",
+          [
+            [1, 2],
+            [3, 2]
+          ]
+        ],
+        "time": 102,
+        "window": [
+          "Hash",
+          {
+            "ancestors": [2, 3, 4],
+            "commits": ["WindowCommits", 4],
+            "evidence": [["Evidence", 3]],
+            "validators": ["WindowValidators", 4]
+          }
+        ]
+      }
+    ]
+  },
+  "block-parts-current-first-alternate": {
+    "domain": "block-parts",
+    "sha256": "72396ba73b19e524a797aaa5e38eb972dd5af68828bc0ee1c42bfa6d5321f4cf",
+    "symbol": [
+      "Hash",
+      {
+        "appHash": ["EL", 3],
+        "chain": ["Chain", 1],
+        "data": [
+          "Hash",
+          {
+            "execution": ["EL", 4]
+          }
+        ],
+        "height": 4,
+        "next": [
+          "Validators",
+          [
+            [1, 2],
+            [3, 5]
+          ]
+        ],
+        "time": 102,
+        "window": [
+          "Hash",
+          {
+            "ancestors": [2, 3, 4],
+            "commits": ["WindowCommits", 4],
+            "evidence": [["Evidence", 3]],
+            "validators": ["WindowValidators", 4]
+          }
+        ]
+      }
+    ]
+  },
+  "block-parts-current-second-alternate": {
+    "domain": "block-parts",
+    "sha256": "084590893530ea9269c6578a6be4820f7a7426e37c4c62cb0ba739e1e066b906",
+    "symbol": [
+      "Hash",
+      {
+        "appHash": ["EL", 3],
+        "chain": ["Chain", 1],
+        "data": [
+          "Hash",
+          {
+            "execution": ["EL", 4]
+          }
+        ],
+        "height": 4,
+        "next": [
+          "Validators",
+          [
+            [1, 2],
+            [3, 2]
+          ]
+        ],
+        "time": 102,
+        "window": [
+          "Hash",
+          {
+            "ancestors": [2, 3, 4],
+            "commits": ["WindowCommits", 4],
+            "evidence": [["Evidence", 3]],
+            "validators": ["WindowValidators", 4]
+          }
+        ]
+      }
+    ]
+  },
+  "el2": {
+    "domain": "el",
+    "sha256": "29fef2fad088110d511a55c48530baa7e7e5625f67eea74867826b4c824e535e",
+    "symbol": ["EL", 2]
+  },
+  "el3": {
+    "domain": "el",
+    "sha256": "1baddb0f0d71d34e4b9f5b7079a0418b5e2e18c718a53f5cbc410af242aab796",
+    "symbol": ["EL", 3]
+  },
+  "el4": {
+    "domain": "el",
+    "sha256": "fecad5015e18f33205b19153aec8dfab68f82729f752eab17b6bc18a09399471",
+    "symbol": ["EL", 4]
+  }
+}

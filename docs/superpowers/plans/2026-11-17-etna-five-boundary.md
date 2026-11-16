@@ -64,10 +64,10 @@
 **Files:** separate `conformance/comet_bootstrap/` Go module/tests, focused collector only if needed, tests and COMET docs; reuse existing Comet manifest/pin and supervisor helpers.
 **Interface:** exact native subtests consuming all F03 IDs, real Bootstrap/Load/validator/params APIs with raw field observers; original/faulted/actually restored source outcomes and hashes.
 
-- [ ] Inspect stock API/serialization/key mappings and define exact selected native IDs; disclose in-memory and symbolic mapping premises before execution.
-- [ ] Implement the minimum adapter/collector reuse and wrong-field controls without signing; keep old native test discovery/results compatible.
-- [ ] Execute actual upstream-write fault with exact intended failure diagnostics and real restoration; verify all1659 source entries and consumed receipt/tool hashes.
-- [ ] Independently review/test failure paths and readback. If shared runner bytes change, rerun original seven native cases and controller regressions. Commit reviewed result.
+- [x] Inspect stock API/serialization/key mappings and define exact selected native IDs; disclose in-memory and symbolic mapping premises before execution.
+- [x] Implement the minimum adapter/collector reuse and wrong-field controls without signing; keep old native test discovery/results compatible.
+- [x] Execute actual upstream-write fault with exact intended failure diagnostics and real restoration; verify all1659 source entries and consumed receipt/tool hashes.
+- [x] Independently review/test failure paths and readback, including rejection of extra failure diagnostics across every mutant output channel. Shared helpers remain unchanged; old-lane reruns were not reopened. Confirm commit readiness; publication is recorded in the ledger.
 
 ## F05 — nonzero recovery/proving companion
 

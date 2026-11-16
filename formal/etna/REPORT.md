@@ -2074,3 +2074,78 @@ These are actual model publication observations with symbolic commitments and
 durability markers, not concrete importer execution, authenticated archive/STF
 history, signed commits, proof soundness or database power-loss durability.
 F04/F05 and the accumulated five-item gate remain pending.
+
+## F04 — selected stock Bootstrap and independent history rows
+
+The new [Bootstrap experiment](conformance/COMET_BOOTSTRAP.md) consumes the
+reviewed F03 fixture in a separate Go module and collector. It calls actual
+pinned Store.Bootstrap, Load, LoadValidators and LoadConsensusParams, with fresh
+MemDBs and reopened Store wrappers. Five receipt leaves compare actual state,
+current/next rows, raw row metadata, parameters and selected MakeBlock headers.
+A separate historical-lookup leaf checks origin's absent row2 and current row4;
+observer-controls checks deliberately wrong fields. Literal key/priority/proposer,
+sorting, total-power, state and mapping observers are independent of the adapter.
+LastResultsHash uses actual TxResultsHash of the single fixed ExecTxResult.
+
+The private source fault removes only Bootstrap's historical LastValidators
+write. All seven original tests pass. The actual mutant fails only the historical
+lookup, with three ordered observations of typed ErrNoValSetForHeight4, nil set,
+absent raw row and preserved serialized State.LastValidators. Original bytes are
+then restored into that same private tree, all1659 entries verified and all seven
+tests rerun successfully. This separates complete-State serialization from the
+independent historical validator rows. There is no phase flag in native code.
+
+The collector reuses existing source verification, canonical layout checks,
+shared physical cache/lock, authoritative supervisor and isolation launcher.
+Generated modfile/sum inputs are separately bound read-only and checked before
+and after execution; author self-review reproduced this generated-input gap and
+fixed it before peer freeze. F03 JSON uses its strict loader and frozen byte hash;
+native receipt decoding also checks that hash. Fourteen shared/F03/old-native
+files remain byte-identical, so the conditional unchanged old-lane rerun was not
+reopened or claimed as fresh evidence.
+
+Independent review found a further wrong-reason admission: correct leaf statuses
+and the three expected messages could conceal an additional parent cleanup
+error, because parent/package failure was already expected. Independent
+verification reproduced the same gap in parent, package and other-leaf outputs.
+The final collector validates the entire fixed mutant output sequence, allowing
+only its framework frames and three required diagnostics. It rejects unexpected
+diagnostics in every channel, with or without optional OutputType, and rejects
+error-typed framework banners. A byte-for-byte retained real output fixture
+drives portable regression tests.
+
+Author final17 focused tests and a fresh actual three-phase campaign pass, with seven
+native outcomes per phase, exact mutant semantics, stable inputs/tools and
+original/restored1659-entry source manifests. Independent behavioral verification
+ran its own actual three phases, checked public vectors and nine focused
+controls, and demonstrated actual rejection of a wrong-AppHash adapter. After
+the publication hook reformatted the embedded mapping JSON, both author and
+independent verifier reran actual native phases on the final formatted bytes;
+the independent wrong-AppHash probe was also rerun. Canonical JSON values/types
+remain identical, and the final byte manifest matches the publication format.
+The recorder fix was independently checked against six genuine author/tester
+phase streams and15 error-channel controls; that evidence remains valid for the
+unchanged collector bytes. The post-format independent run classifies its three
+new phase streams and repeats six channel controls, with restored manifests
+verified. The raiser independently rechecks the original finding
+and final scoped diff; both source-review verdicts and behavioral verdict pass.
+
+Final collector SHA256:
+`7d50ef1091ff5702c450a05176acad0e3c23448ffd9e7bc45ec5842437570999`.
+Final actual campaign summary SHA256:
+`def625ba7d762b7879ecf6416d6a5a2454c63048aa62787edc0f4a7783661362`.
+The independent current-byte campaign summary SHA256 is
+`1cc5b6beeeacb008bbaeb581cf3a6450980c771c91b0463c25268efbb0b463b0`.
+The source fault changes state/store.go from
+`32aa1743ae14e624569c9c20824a3a476330d4d00cf899a3b76d3c6f8605c63e`
+to `965437e88750a27f2e136f05b78dc32032729bcab38f3f46dce5a46771f58ee1`;
+actual restoration returns the entire private tree to the original manifest.
+
+These are selected stock serialization/readback and header-construction results.
+The public B/-B/2B identity realization is not Etna's secp256k1eth mapping;
+version/parameters, unsigned timestamp records and opaque hash/BlockID mappings
+are explicit premises. The selected Last set realizes the earlier actual prefix,
+not a complete authenticated archive. MemDB plus reopened wrappers does not prove
+power-loss durability. No concrete Etna importer, non-genesis block admission,
+valid signed commits, EL/STF execution, committee derivation or live consensus
+is established. F05 and the accumulated five-item gate remain pending.

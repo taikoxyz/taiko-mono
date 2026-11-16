@@ -377,3 +377,11 @@ premises. Valid STF/authenticated archive history, complete window reconstructio
 real importer behavior, stock database power-loss durability, signatures and full
 consensus execution remain outside this export. See
 [the checkpoint-import model scope](../CHECKPOINT_IMPORT.md).
+
+Selected stock checkpoint-import Bootstrap/store correspondence is documented in
+[COMET_BOOTSTRAP.md](COMET_BOOTSTRAP.md). The separate `comet_bootstrap/` module
+consumes the five actual F03 publications and checks actual stock serialization,
+independent historical validator rows, parameters and selected next-header fields,
+with one exact missing-write source fault and same-copy restoration. Public key,
+opaque commitment, version/parameter and in-memory durability limits are explicit;
+this is not a concrete Etna importer or full consensus/history validation.

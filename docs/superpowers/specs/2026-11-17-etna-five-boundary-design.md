@@ -141,6 +141,9 @@ Do not duplicate a runner framework or change the shared TLC/Forge engine API.
 Any necessary shared helper change requires the existing seven-test native replay
 and controller regression to be rerun. This is selected stock-store correspondence,
 not an implemented Etna importer, verified commits/signatures or full consensus.
+An expected parent/package failure can conceal a second error: mutant admission
+must validate all output channels and reject extra diagnostics, including those
+without optional error metadata, rather than checking only the failed leaf.
 
 ## F05 — nonzero settled recovery and proving resources
 
