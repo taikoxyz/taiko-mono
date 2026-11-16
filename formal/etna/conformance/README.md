@@ -296,3 +296,12 @@ parent/origin/anchor/generation premises are explicit. `--check` regenerates and
 compares actual observations; Python contains no timestamp constructor. See
 [the model scope and reproduction](../RECOVERY_TIME.md). These receipts describe
 a bounded interface, not executed STF history or actual CometBFT validation.
+
+## T02: selected stock CometBFT admission
+
+[`COMET.md`](COMET.md) documents the pinned stock CometBFT v0.40.0 replay of the
+T01 receipts, seven exact native tests, private genesis-time-check fault and
+actual source restoration. It also documents the recorder and mandatory
+controller lifecycle test lanes. This checks selected first-block header/time
+admission with seeded state and empty evidence; EL/STF, committee/key mapping,
+signatures and consensus progress remain outside this adapter.

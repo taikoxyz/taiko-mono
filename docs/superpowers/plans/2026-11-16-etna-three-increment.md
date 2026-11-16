@@ -41,12 +41,12 @@
 
 **Files:** add `formal/etna/conformance/comet/` Go module/tests, `comet-pins.json`, `manifests/comet.json`, a focused `run_comet.py`/tests if needed, and reproduction documentation. Do not alter existing global pins.
 
-**Interface:** consume T01 exact receipts; call pinned upstream exported BlockExecutor.ValidateBlock with disclosed evidence-free/seeded-state premises; emit nonempty exact test identities/outcomes and raw logs with source/tool hashes.
+**Interface:** consume T01 exact receipts; call pinned upstream exported BlockExecutor.ValidateBlock with disclosed evidence-free/seeded-state premises; emit nonempty exact test identities/outcomes and execution logs with source/tool hashes.
 
-- [ ] Inspect upstream boundary, source/license/tool requirements; fetch only missing public dependencies with bounded commands, then use offline execution.
-- [ ] Add meaningful actual-code RED/controls for wrong first BFT time/height/LastBlockID/LastCommit, including valid EL4/BFT3 cases.
-- [ ] Implement minimal fixture adapter and exact outcome recorder, preserving one authoritative upstream validation path.
-- [ ] Run original/upstream-time-check-mutant/restored trials, independently review/test, verify original source/caches and publish the reviewed result.
+- [x] Inspect upstream boundary, source/license/tool requirements; fetch only missing public dependencies with bounded commands, then use offline execution.
+- [x] Add meaningful actual-code RED/controls for wrong first BFT time/height/LastBlockID/LastCommit, including valid EL4/BFT3 cases.
+- [x] Implement minimal fixture adapter and exact outcome recorder, preserving one authoritative upstream validation path.
+- [x] Run original/upstream-time-check-mutant/restored trials, independently review/test and verify original source/caches; confirm readiness to publish the reviewed task result (actual commit/push readback is recorded in Git history and the ledger).
 
 ## T03 — import contradiction prerequisite sensitivity
 

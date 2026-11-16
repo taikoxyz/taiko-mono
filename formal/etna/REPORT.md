@@ -1631,3 +1631,64 @@ T01 covers finite integer-second construction and export with explicit input
 premises. Actual CometBFT admission is T02; actual EL execution, fractional-time
 behavior, cryptography and unbounded consensus/progress are not established.
 T02/T03 and the final three-item retrospective remain pending here.
+
+## Three-increment batch — T02 stock CometBFT boundary
+
+T02 consumes the exact T01 receipts in a separate Go adapter and calls stock
+CometBFT v0.40.0 `BlockExecutor.ValidateBlock`, commit
+`0880b4d378f347ab16e54ec677ff50d803f37d62`. All1,659 source files match the
+official commit tree by Git blob identity, size and SHA256. Source/license,
+module origin and tool requirements were inspected; public dependencies were
+prepared separately, followed by offline execution using the existing SDK and
+shared caches. Original module sources remain read-only. Separate Comet pins
+preserve the existing contract/Lean pins.
+
+- Seven exact native subtests pass in both normal and actually restored source:
+  the three BFT3/EL3 or BFT3/EL4 receipts, wrong BFT time, wrong initial height,
+  retained block ID and nonempty first commit. Each validation uses a fresh
+  upstream executor to avoid its validated-block cache. Negative controls reach
+  their intended upstream errors; BFT time tests both +1 second and +1 nanosecond.
+- Removing only the actual upstream initial genesis-time equality check in a
+  private copy makes exactly wrong-bft-time fail, with both offsets admitted and
+  the evidence check reached. The six other tests pass. Normal/restored trials
+  each return0; the mutant returns1. Source restoration changes the same private
+  copy back and verifies all1,659 original entries before running it again.
+- Independent verification reproduces the native campaign and changes the
+  adapter to use EL time as BFT time: exactly the two EL4 cases fail at the
+  genesis-time check. All other native cases pass. This challenges the adapter
+  wiring independently of the TLC construction.
+
+Two material review repairs strengthened the new controller before publication.
+The first recorder checked test identities/statuses but could count an unrelated
+failure as the intended mutation kill. It now requires both ordered native time
+diagnostics and evidence-check observations; six altered actual logs and focused
+regressions reject missing, duplicate, single-offset and unrelated failures.
+The second repair reuses the existing authoritative sensitivity supervisor:
+caller cancellation previously could leave the independently sessioned namespace
+workload alive. Five controller cases now check TERM, group TERM, INT, caller
+SIGKILL and timeout, with every owned descendant gone and an unrelated sentinel
+alive. An independent actual-Go TestMain probe passes the same five modes. Root
+rechecked the committed controller suite against the original failure path.
+
+The final preflight also resolves physical aliases, rejects cache/output nesting
+or equality, and protects the whole formal source tree and every watched input
+from writable aliases. The canonical campaign layout was already disjoint; the
+guard closes unsupported CLI layouts. Seventeen core tests and the five separate
+host-controller tests pass on the final bytes. Independent source review and
+unmocked entrypoint probes confirm rejection before execution preparation. The
+reused supervisor and Go adapter remain unchanged by this last layout repair.
+
+Execution schema2 stores combined stdout/stderr as UTF-8 replacement-decoded,
+re-encoded text, with its digest and exact supervisor command. It does not claim
+separate raw streams. Initialization/cleanup result125 fails closed. The final
+campaign checks watched input, tool and source identities before/after and
+records log digests, independently read back. Reproduction and the mandatory
+separate controller lane are documented in
+[`conformance/COMET.md`](conformance/COMET.md).
+
+This is selected stock single-block header/time admission. Seeded application
+state, a public-only validator point and empty evidence are explicit premises.
+EL/anchor/generation metadata is opaque transaction data. No actual Etna EL/STF,
+committee derivation, key mapping, authenticated recovery history, signatures,
+proofs, consensus rounds/locks or network progress is established. No protocol
+defect was confirmed. T03 and the final accumulated three-item gate remain.
