@@ -2018,3 +2018,59 @@ The35-fault campaign SHA256 is
 `ed5bcd5a12f74c1af12165653f6c0c87c29bcbf14c03a34f62b58cb485fde2b7`;
 the evidence-summary SHA256 is
 `62065d5ec958c2267bfb21d38ab73e505908d31a7da845f809c2667e48179d7c`.
+
+## F03 — actual checkpoint-import publication receipts
+
+The new [exporter](conformance/export_checkpoint_import.py) runs five singleton
+temporary wrappers over the final reviewed M10 source. Each wrapper calls the
+unchanged Init, Check, Stage, Flush and Publish actions and records ten actual
+enabled steps. The [fixture](conformance/checkpoint_import_cases.json) contains
+the complete selected raw inputs, classification/publication observations,
+actual EL/app/Comet/evidence stores, durability markers and publication metadata.
+It stops with trust and connection false and signer HRS preserved. Python parses
+observations; it does not reconstruct the import transition or choose a verdict
+from the case ID. The five IDs cover fixed-genesis origin import and all three
+coherent current pairs.
+
+The local parser extends the unchanged old parser with signed integers and
+bounded sets/ranges. Sets and ranges share canonical JSON ordering, while
+sequence order remains intact. Exact scalar types prevent bool/int aliases.
+Source, parser, pins/SPEC, wrapper, singleton configs and TLC jar are recorded;
+fresh `--check` executes TLC and compares complete canonical observations.
+
+Independent review and behavioral fault injection found two additional checker
+defects before publication. First, plain JSON loading discarded conflicting
+duplicate object fields before exact comparison. The reusable `load_fixture`
+now rejects duplicates at every nesting level, with actual CLI-path regression
+coverage. Second, hashing original files did not establish which temporary
+model/wrapper/config bytes actually executed. A temporary Java launcher changed
+each executed copy before invoking the real pinned TLC; all five cases still
+succeeded with the wrong provenance. The exporter now compares those copies to
+their expected bytes before and after every run, before accepting observations.
+Each final fixture was generated again from actual execution after the exporter
+changed; earlier versions remain historical.
+
+Final author checks pass: five fresh exported publications/50 enabled actions,
+five fresh `--check` observations,11 focused regressions and114 ordinary
+conformance tests. Three actual controls distinguish missing progress from green
+safety: disabled Publish with safety only exhausts but yields no receipt and is
+rejected; retaining enablement fails exactly RequiredStepEnabled; removing Print
+also exhausts without a receipt and is rejected. Independent source review
+rechecks both fixes and the complete four-file change. Independent behavioral
+verification separately reruns fresh export/check and a complete literal oracle
+for all five raw/store observations and50 before/after action records. Both
+conflicting duplicate fields fail through main's fixture-loading path with
+generation mocked; a separate actual CLI `--check` executes all five cases before
+rejecting malformed duplicate input. All three original executed-copy drift
+reproductions now fail at the exact copy-integrity guard after real TLC execution.
+
+The final exporter SHA256 is
+`2bee3e3fc5feb16c7c529777d97d0eb56c8219b94ef9e7fb710580aec22ec151`;
+the141767-byte formatted fixture SHA256 is
+`ffb50b92a5b22220b6a1e44821e2731c1b29466cdabbea12211ca4866b71bea6`.
+M10 remains `4091cee2e355b553db60986d99ff8e29b7d4fe4285fd457c6a320dc5c0111258`;
+the old parser and all old conformance payloads/pins remain byte-identical.
+These are actual model publication observations with symbolic commitments and
+durability markers, not concrete importer execution, authenticated archive/STF
+history, signed commits, proof soundness or database power-loss durability.
+F04/F05 and the accumulated five-item gate remain pending.

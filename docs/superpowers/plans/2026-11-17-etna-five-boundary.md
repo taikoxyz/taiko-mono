@@ -54,10 +54,10 @@
 **Files:** new `conformance/export_checkpoint_import.py`, `checkpoint_import_cases.json`, `tests/test_checkpoint_import.py`; conformance/model docs.
 **Interface:** `etna-checkpoint-import-replay-1`; five exact IDs origin-base/origin-landed-alternate/current-base/current-first-alternate/current-second-alternate, raw source fields plus actual publication stores/durability/trust and pinned provenance.
 
-- [ ] Export actual TLC action observations using a temporary wrapper; Python parses values only.
-- [ ] Freeze exact five receipts and reject omissions/duplicates/alterations/source drift; test fresh --check comparison.
-- [ ] Independently audit every literal field and show disabled publication loses required receipts/witnesses despite green safety.
-- [ ] Independently review/verify and commit; pass this frozen interface to F04.
+- [x] Export actual TLC action observations using a temporary wrapper; Python parses values only.
+- [x] Freeze exact five receipts and reject omissions/duplicates/alterations/source drift; test fresh --check comparison. Reject duplicate JSON fields at the CLI boundary and verify the temporary executed model/wrapper/config bytes around every run.
+- [x] Independently audit every literal field and show disabled publication loses required receipts/witnesses despite green safety.
+- [x] Independently review/verify and confirm commit readiness; pass this frozen interface to F04 after publication readback recorded in the ledger.
 
 ## F04 — stock bootstrap/store replay
 

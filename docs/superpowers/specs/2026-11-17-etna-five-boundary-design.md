@@ -116,6 +116,10 @@ and set tokens while inheriting its record/function/sequence grammar. Canonicali
 sets as sorted JSON arrays, preserve sequence order and compare fresh canonical
 JSON bytes with exact scalar types, so bool/int equality cannot hide alterations.
 Fresh comparison rejects missing/duplicate/altered receipts and provenance drift.
+Reject duplicate external JSON object fields before they are collapsed into a
+dictionary. Verify the actual temporary model, wrapper and current config bytes
+against their expected copies before and after every execution; hashing only the
+original sources does not establish which copies ran.
 Independent literal audits and disabled-publication experiments must distinguish
 missing progress from a green safety assertion. Do not claim a valid STF history,
 full archive reconstruction or a concrete importer from these symbolic receipts.

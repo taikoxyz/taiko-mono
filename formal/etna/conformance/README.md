@@ -305,3 +305,75 @@ actual source restoration. It also documents the recorder and mandatory
 controller lifecycle test lanes. This checks selected first-block header/time
 admission with seeded state and empty evidence; EL/STF, committee/key mapping,
 signatures and consensus progress remain outside this adapter.
+
+## F03: actual checkpoint-import publication receipts
+
+[`export_checkpoint_import.py`](export_checkpoint_import.py) runs a temporary
+wrapper over M10's actual Init, Check, Stage, Flush and Publish actions. Each
+singleton input follows ten required enabled actions, then emits exactly one
+terminal observation. Python parses the TLC values; it does not construct the
+import transition or expected stores. Five cases are frozen in
+[`checkpoint_import_cases.json`](checkpoint_import_cases.json), with schema
+`etna-checkpoint-import-replay-1`:
+
+| ID                       | ImportHeight = TargetHeight | Raw case |
+| ------------------------ | --------------------------- | -------- |
+| origin-base              | 2                           | 0        |
+| origin-landed-alternate  | 2                           | 11       |
+| current-base             | 4                           | 0        |
+| current-first-alternate  | 4                           | 11       |
+| current-second-alternate | 4                           | 20       |
+
+Regenerate and compare actual fresh TLC output through the inspected offline
+isolation launcher, using read-only source/tool bindings and a disposable output:
+
+```sh
+"$PYTHON" formal/etna/conformance/export_checkpoint_import.py \
+  --java "$JAVA" --jar "$TLA2TOOLS_JAR" --check --log-dir "$OUTPUT_LOGS"
+```
+
+Each case records its exact ID/context and `observation.raw` (the complete selected
+L1 landing and peer header/envelope/preimage/window), actual Init metadata,
+ten action receipts with enabledness and before/after metadata, classification,
+`observation.publication` and `observation.atPublication`. The publication contains
+actual complete `stores.el`, `stores.app`, `stores.comet` and `stores.evidence`;
+the second observation retains actual node stores/boundary, durability, trust,
+connection and signer HRS. No trust or connection is granted at publication;
+HRS stays `[1,9,2]`. Consumers select cases by ID and validator keys by identity,
+rather than relying on JSON object or case-array order.
+
+The Comet store carries height, appHash, chain, initialHeight, validators, next,
+last, blockID, time, results, valChanged and paramsChanged. Full first/second
+priorities and stored proposers also occur in app.recorded; app.active/pending
+are key/power pairs. Origin retains the old height2/chain0/time20 raw header but
+installs fixed genesis height0/time100/initialHeight3 with first proposer1 and
+next proposer2. Current imports retain the landed distinct first/second sets at
+height4/time102. Ancestors, evidence markers, symbolic commitments and full
+window payloads remain explicit; these are not reconstructed from a case ID.
+
+The exporter hashes its own source, unchanged base parser, M10 source, pins/SPEC,
+wrapper, every singleton config and the pinned TLC jar. Original input bytes and
+the jar are checked again after each execution. The temporary executed model,
+wrapper and current config must match their expected copied bytes both before
+and after every TLC run. `--check` always runs TLC afresh and compares canonical
+JSON bytes. The reusable `load_fixture` rejects duplicate JSON object fields at
+every nesting level before comparison. Validation requires exact JSON types and field names, all five unique
+IDs, ten enabled actions, terminal metadata, complete durable stores and preserved
+signer/trust state. A rehashed bool substituted for an integer is rejected.
+The minimal local parser subclass reuses the existing record/function/sequence
+grammar and adds only bounded signed integers, integer ranges and sets. Sets map
+to JSON arrays sorted by canonical JSON bytes; sequence order is preserved.
+Malformed/duplicate values and excessive ranges fail; this is a bounded M10
+value subset, not a general TLA+ parser. Existing parser/payload bytes are retained.
+
+Ordinary Python regressions use frozen data and mocked process boundaries, with
+no host JVM dependency. The separate actual gate must also disable Publish and
+remove PrintT in disposable wrappers: green safety without required receipts is
+failure. Keeping RequiredStepEnabled when Publish is disabled must fail that
+invariant. This protects actual progress and recorder non-vacuity separately.
+
+These observations establish selected model publications and necessary genesis
+premises. Valid STF/authenticated archive history, complete window reconstruction,
+real importer behavior, stock database power-loss durability, signatures and full
+consensus execution remain outside this export. See
+[the checkpoint-import model scope](../CHECKPOINT_IMPORT.md).
