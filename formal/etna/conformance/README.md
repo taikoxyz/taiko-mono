@@ -214,3 +214,25 @@ Separate strict-original-statement mocks test substituted-origin and old-generat
 binding. Retained public originVal is compared separately from exported fresh
 execution genesis; real guest/STF/cryptography is not executed. These are selected
 contract/integration observations, not proof-system or whole-protocol refinement.
+
+## C05: actual rule and stop scheduling
+
+`export_rules.py` consumes the frozen M11 public projection:23 programs and38
+original calls. `EtnaRulesReplay.t.sol` replays real scheduleRules/scheduleStop/
+recover calls with T(t)=100000+1152t, separate stored-zero/MAX sentinels, S=6,
+optional public first landing12 and actual switching setup. It compares raw
+slot293, all five fields, event word, counters/current origin, retained records
+and failed-state equality. Two labeled concrete tests supplement uint48/ABI edges.
+
+All three final tests pass,13 exporter regressions pass and fresh export matches.
+Changing only the actual pending-rule lock from < to <= makes RulesLock/2 fail
+actual acceptance at exact1152-second equality. Changing only the event stopGrid
+shift192→191 fails its raw event assertion. Original-source restoration passes
+all three tests. Independent source/replay review passed. Fixture/setup/assert
+work is unmetered; actual selected calls are metered, not a production benchmark.
+
+Actual L2 ruleset support/stop execution remains model-only. Legacy finalization
+and seeded-landing proof mocks are explicit premises; no real STF/cryptographic
+proof or registry callback-lock conformance is claimed. Sources and dependencies
+are read-only in a network-disabled runner. One shared filesystem lock serializes
+all actual Forge jobs; overlapping diagnostic runs were excluded from evidence.

@@ -1106,5 +1106,70 @@ recomputed against the actual results. All255 baseline TLA/config files remain
 byte-identical, including the19 archived incomplete experiments. Original564
 contract entries and corrected SPEC digest/blob match. Production-package diff
 is empty. Twenty runner tests and640 live rule checks pass; migration purity
-is explicitly skipped without a migration-base argument. C05's final behavioral
-review still remains before the five-increment stopping boundary is reached.
+is explicitly skipped without a migration-base argument. The final C05 gate is recorded below; the five-increment stopping boundary
+has now been reached.
+
+### C05 — concrete rule scheduling correspondence
+
+The frozen M11 PublicAttempt schema yields38 original calls in23 programs. Real
+Inbox scheduleRules/scheduleStop/recover execution matches acceptance, full
+five-field slot293 and event payload, current origin/counters, retained state
+and failed-call equality. Exact normalization uses1152 seconds per notice unit;
+stored zero, present origin time0 and cancellation MAX remain distinct.
+
+Three final isolated Forge tests,13 exporter regressions and fresh model export
+comparison pass. The root-selected strict <→<= lock mutant is accepted exactly
+at RulesLock/2 and fails actual acceptance; the independent event-only stopGrid
+shift mutant fails raw RulesScheduleUpdated payload. Restored original source
+passes all three tests. Independent complete-source/evidence review passed.
+Actual L2 rules/stop behavior, callback locks and real proof execution remain
+outside this selected contract projection. Concrete uint48/ABI cases are labeled
+supplements, not tiny-model-derived proofs.
+
+## Third five-increment batch: stop and retrospective (2026-11-16)
+
+All five authorized increments M10-A, C04, M11-A, C05 and C06 completed their
+local independent-review/behavior gates. **Stop here: no sixth task starts.**
+No independently supported protocol/SPEC/production implementation defect was
+established on the pinned revisions. No production code was changed.
+
+| Increment | Completed evidence                                                                           | Principal remaining boundary                                                                                      |
+| --------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| M10-A     | 40 exact outcomes; full durable-store/publication checks; root pure-write mutant             | Thin standalone interface; fixed latest target; actual importer/window/index and normal continuation not executed |
+| C04       | 8 actual lifecycle receipts,3 actual tests and observer sensitivity                          | Callback gap; imported legacy finalization/proof premise                                                          |
+| M11-A     | 34 exact outcomes;23programs/38calls; independent historical-store oracle                    | Resolved authenticated anchors, finite programs and one candidate/retry; actual client/guest not executed         |
+| C05       | 38 actual public calls,3 actual tests, strict-lock/event mutants and restoration             | L1 selected projection/list-free recovery; L2 selection and full cryptography not replayed                        |
+| C06       | 20scenarios/88observations,2 actual tests; frontier-guard omission causes unexpected success | Strict statement mocks, symbolic execution/genesis and selected bounded records                                   |
+
+The final accumulated TLC run passes286/286 exact expected outcomes:39 normal
+searches exhaust with empty queues and247 controls/witnesses violate exactly
+the declared invariant. Current source/config hashes match every result. All255
+baseline TLA/config files, including19 incomplete historical experiments, remain
+byte-identical. Integrated Python checks pass72 conformance+20 runner tests;
+640 live rule references/index/assets/links pass, with migration purity explicitly
+skipped. All8 selected new actual Forge tests pass against pinned sources in one
+existing cache. No duplicate Rust target, new SDK, publication or deployment.
+
+### Why this still does not establish a perfect protocol
+
+Independent mutation exposed a genuine verification blind spot: historical
+snapshots initially served as both data and oracle. Normal exploration passed
+even when those schedules were written as zero. A separate raw history audit
+now catches both new-write and older-record corruption. Existing witnesses could
+already detect some broad mutations; the claim is specifically about the missing
+normal invariant. The wrong redundant SPEC digest was also repaired while its
+commit/blob and both source manifests remained correct. Test-adapter type/blob/
+gas-accounting issues were repaired separately, and overlapping-cache diagnostics
+were excluded from the evidence. None was a production protocol finding.
+
+The selected real public calls agree with the finite model workloads, and
+intentional guard/write omissions are observable. Broader protocol bugs can
+still hide in omitted interleavings, concurrent changing targets, actual RPC/L1
+views, client/CometBFT/EL persistence, untested callbacks, actual guest execution
+and proof soundness or unavailable importer/migration APIs. The models are not a
+fully composed product and the adapters are not universal refinement proofs.
+Those explicit boundaries, rather than a claim of perfection, explain why this
+batch can be green. No further scope is started before the user's retrospective.
+
+Artifacts and commits remain local on codex/etna-tla-settlement; the existing
+GitHub worklist records exact pins, bounded completion evidence and limits.

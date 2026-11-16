@@ -70,11 +70,11 @@
 
 **Interfaces:** Consume frozen M11 PublicAttempt actual execution. Clock scale1152 with explicit base and zero/MAX48 mapping; L2 heights separately normalized. L2 ruleset support is model-only.
 
-- [ ] Export bounded valid/invalid reschedule, earliest/equality lock, cancellation, stop grid, failed promotion and recover0/next+1 attempts without Python guard copies.
-- [ ] Validate complete cases/provenance/fresh outputs and negative regressions; materialize only real public schedule/recovery setup.
-- [ ] Compare success/revert, entire schedule, selected packed event, counters/origin and failed state equality; add concrete48-bit/ABI boundary cases explicitly labeled.
-- [ ] Run actual methods with shared compiler/cache; independent model time-equality and event/write mutation checks; preserve exact source/hash identity.
-- [ ] Independent review/fix gate, local commit/report/worklist or stop on real issue.
+- [x] Export bounded valid/invalid reschedule, earliest/equality lock, cancellation, stop grid, failed promotion and recover0/next+1 attempts without Python guard copies.
+- [x] Validate complete cases/provenance/fresh outputs and negative regressions; materialize only real public schedule/recovery setup.
+- [x] Compare success/revert, entire schedule, selected packed event, counters/origin and failed state equality; add concrete48-bit/ABI boundary cases explicitly labeled.
+- [x] Run actual methods with shared compiler/cache; independent model time-equality and event/write mutation checks; preserve exact source/hash identity.
+- [x] Independent review/fix gate, local commit/report/worklist or stop on real issue.
 
 ### Task 5: C06 landing identity responsibility replay
 

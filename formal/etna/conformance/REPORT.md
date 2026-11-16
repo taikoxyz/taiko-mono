@@ -205,3 +205,28 @@ Separate strict-original-statement mocks test substituted-origin and old-generat
 binding. Retained public originVal is compared separately from exported fresh
 execution genesis; real guest/STF/cryptography is not executed. These are selected
 contract/integration observations, not proof-system or whole-protocol refinement.
+
+## Third-batch real-code results (2026-11-16)
+
+| Increment | Actual selected replay                                                                     | Final checks                                                                                                               | Responsibility boundary                                                                                                                   |
+| --------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| C04       | 8 literal Displaced/Withdrawn recovery receipts plus real public lifecycle and UnknownBond | 3 Forge tests,11 exporter tests, fresh comparison; AFTER confirmation95→96 observer fails                                  | Unzen/proof premise; callback gap remains                                                                                                 |
+| C05       | 38 actual M11 calls/23 programs; full schedule/raw event/origin and abort projection       | 3 Forge tests,13 exporter tests, fresh comparison; strict-lock and event-only source mutants fail, restored normals pass   | L2 anchor/ruleset/stop execution model-only; list-free recovery                                                                           |
+| C06       | 20 identity scenarios/88 observations;44 real lands32accepted12rejected plus4recoveries    | 2 Forge tests,12 exporter tests, fresh comparison; omitted frontier guard causes unexpected success, restored normals pass | Candidate-valid mock for contract guards; strict original-statement mock only for binding; actual STF/genesis reconstruction not executed |
+
+All8 selected new Forge tests pass. The final integrated Python conformance
+suite passes72 tests; runner suite separately passes20. Every original564 source
+entry remains unchanged at89f419915de4b73bb57c53bf970f6dea9e8e8c8c. SPEC
+commit/blob remain fixed; the incorrect redundant top-level digest was corrected
+to match both already-correct source manifests and actual bytes, with regression
+coverage. Independent adversarial review and root-selected behavioral probes
+completed for every increment. These are finite model-to-code traces, not whole
+implementation equivalence or real proof verification.
+
+A cache scheduling race invalidated two diagnostic runs. Final C05/C06 evidence
+uses exclusive locks around complete isolated commands, normal runs and
+source-only sensitivity overlays followed by original-source restoration.
+Fixture gas parsing exhaustion was repaired in test adapters without changing
+production/compiler/global gas settings. Reported test gas excludes fixture
+work and does not estimate production gas. The shared output/cache was reused;
+no Rust target or extra toolchain was created.
