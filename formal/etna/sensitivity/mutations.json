@@ -986,6 +986,40 @@
         "name": "ClassificationCorrect"
       },
       "obligation": "A bound but contradictory entry tuple with an unbound window cannot establish a committee contradiction; raw27 is a negative classifier input requiring Reject, not an executed STF or proof-validity witness."
+    },
+    {
+      "id": "m10-positive-import-chronology",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "time |-> IF ImportHeight = Origin THEN 20 ELSE 102]",
+        "new": "time |-> IF ImportHeight = Origin THEN 20 ELSE 40]"
+      },
+      "workloads": ["configs/import-premise-chronology.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "PositiveImportPremises"
+      },
+      "obligation": "The actual healthy non-origin published checkpoint preserves a necessary same-generation chronology premise: header4 time102 is later than fixed genesis100. Exact source fault restores canonical time40; independent audit observes raw input and actual stores only. This does not establish full window/STF validity."
+    },
+    {
+      "id": "m10-positive-origin-genesis-proposer",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "GenesisPreimage == [first |-> [First EXCEPT !.proposer = 1],",
+        "new": "GenesisPreimage == [first |-> First,"
+      },
+      "workloads": ["configs/import-premise-origin.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "PositiveImportPremises"
+      },
+      "obligation": "Actual origin publication installs the stock fixed-genesis first stored proposer key1 with priorities[-2,2] and next stored proposer key2 with priorities[1,-1], independently of retained landed priorities/proposers. Exact source fault restores the old wrong first proposer key2; independent literal audit must reject it."
     }
   ]
 }

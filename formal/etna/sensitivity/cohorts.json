@@ -55,7 +55,9 @@
         "m10-conflict-auth-preimage-next",
         "m10-conflict-auth-preimage-entry",
         "m10-conflict-auth-registry",
-        "m10-conflict-auth-window"
+        "m10-conflict-auth-window",
+        "m10-positive-import-chronology",
+        "m10-positive-origin-genesis-proposer"
       ]
     },
     {

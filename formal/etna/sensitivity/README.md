@@ -36,7 +36,7 @@ inventory and is not a usable full gate with the current one-runtime Forge argv.
 
 | Cohort           | Required IDs | Engine | Exact selected Forge test                                          |
 | ---------------- | ------------ | ------ | ------------------------------------------------------------------ |
-| `tlc`            | 49           | TLC    | None                                                               |
+| `tlc`            | 51           | TLC    | None                                                               |
 | `forge-identity` | 3            | Forge  | `EtnaIdentityReplayTest::test_identity_publicHistoryPublication()` |
 | `forge-rules`    | 2            | Forge  | `EtnaRulesReplayTest::test_conformance_stopHandoffReplay()`        |
 
@@ -51,7 +51,7 @@ does not satisfy an item that declares only one.
 Full assessed-inventory evidence requires all three campaigns from the same
 frozen source/manifest/tools, separately compatible runtime selections and the
 same shared physical Foundry lock. Aggregate by obligation ID: verify the exact
-54-ID union without duplicates or omissions, all per-ID original/mutant/restored
+56-ID union without duplicates or omissions, all per-ID original/mutant/restored
 phases, source/tool hashes, input stability and each campaign's raw log hashes.
 Retain each cohort verdict separately. A full aggregate may report complete
 assessed coverage only after all these checks; unassessed protocol boundaries
@@ -195,3 +195,25 @@ not normal execution or proof validity evidence. The aggregate unassessed scope
 retains concrete authentication, cryptography and window reconstruction; trusted
 chain/height fixture premises and the other unassessed inventory entries remain.
 The separate T02 native Go source fault is outside this shared inventory.
+
+## F01 additive chronology obligation
+
+`m10-positive-import-chronology` and `m10-positive-origin-genesis-proposer`
+add two required TLC selectors to the existing cohort. The previous54 assessed
+IDs and four unassessed entries are preserved;
+at this increment the assessed inventory is56 (51 TLC, three identity and two
+rules). Historical54-ID results are not fresh evidence for the expanded set.
+The exact source replacement restores only canonical non-origin header time40;
+`import-premise-chronology.cfg` must fail `PositiveImportPremises` at actual
+publication. It deliberately isolates that audit from the older literal store
+expectation; the separate full healthy origin/current profiles retain all old
+normal invariants plus the new audit. Required publication/trust witnesses and
+a disabled-publication experiment distinguish progress from vacuous safety.
+Original and actually restored source must pass with unchanged input hashes.
+This finite necessary-premise obligation makes no full STF/window claim.
+
+The origin selector restores only `GenesisPreimage.first.proposer` from1 to2
+and uses the complete healthy origin profile. Its literal publication audit
+must fail `PositiveImportPremises` on the actual stored proposer; the older
+observer shares the fixed-genesis fixture and cannot detect this defect.
+Both selectors retain actual source restoration and required non-vacuity gates.

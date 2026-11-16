@@ -40,10 +40,18 @@ the first block at height3 to use100 and later block times to increase. Observe
 the actual published boundary, rather than merely checking a fixture constant.
 Keep origin2's old-generation retained header separate from new-generation genesis.
 
+The same premise audit checks stock genesis proposer initialization. With powers
+3/2, NewValidatorSet stores proposer1 with priorities[-2,2]; the next increment
+stores proposer2 with[1,-1]. Genesis must not inherit the landed First.proposer2.
+Preserve that landed value for non-origin import. Independently compare both
+genesis sets, app recorded state and selected stores to these literal source facts.
+
 If confirmed, correct the non-origin fixture to102 and its independent literal
 store expectation. Add an independent publication-premise audit, origin/non-origin
 profiles and required successful reachability. An exact source fault restoring40
-must fail the new audit. State this necessary timestamp premise separately from
+must fail the new audit. A second source fault restoring only the wrong origin
+first proposer must also fail, despite the old shared observer agreeing with it.
+State these necessary initialization/timestamp premises separately from
 full STF/window validity; do not retrofit a new protocol timestamp guard.
 
 ## F02 — discriminate chain and height authentication

@@ -483,3 +483,17 @@ three actual TLC receipts. It distinguishes BFT genesis time3 from EL timestamp
 3/4/4 under explicit retained-parent/origin/anchor premises, with independent
 literal audits, reachable witnesses and source-fault controls. It leaves all
 existing models/configurations and old conformance payloads/pins unchanged.
+
+### F01 positive import chronology
+
+The seven additive `import-premise-*` configurations audit the actual healthy
+M10 publication boundary and require origin/non-origin publication and trust
+witnesses. Non-origin header4 now uses102 after genesis100; origin's retained
+old-generation header20 remains distinct from its new height0/genesis100
+bootstrap. Its stock-genesis first stored proposer is1 at priorities[-2,2],
+with next proposer2 at[1,-1]; non-origin landed proposer2 is preserved.
+See [CHECKPOINT_IMPORT.md](CHECKPOINT_IMPORT.md#f01-independent-positive-chronology-premise)
+for the reproduced fixture defect, independent literal premise audit and exact
+source-fault sensitivity. This is a necessary chronology check, not full
+STF/window validity or importer conformance. Prior M10 source hashes and run
+results are historical; the350 prior main configuration bytes are preserved.

@@ -16,7 +16,7 @@ Hash(x) == <<"Hash", x>>
 First == [keys |-> <<1, 2>>, powers |-> <<3, 2>>, priorities |-> <<-2, 2>>, proposer |-> 2]
 Second == [keys |-> <<2, 3>>, powers |-> <<2, 4>>, priorities |-> <<3, -3>>, proposer |-> 3]
 Preimage == [first |-> First, second |-> Second]
-GenesisPreimage == [first |-> First,
+GenesisPreimage == [first |-> [First EXCEPT !.proposer = 1],
                     second |-> [First EXCEPT !.priorities = <<1, -1>>]]
 RequiredAncestors == Origin..ImportHeight
 RequiredEvidence == IF ImportHeight = Origin THEN {} ELSE {<<"Evidence", 3>>}
@@ -27,7 +27,7 @@ Envelope == [execution |-> EL(ImportHeight)]
 Header == [height |-> ImportHeight, chain |-> IF ImportHeight = Origin THEN <<"Chain", 0>> ELSE Chain,
            data |-> Hash(Envelope),
            next |-> VHash(First), appHash |-> EL(ImportHeight - 1),
-           window |-> Hash(Window), time |-> ImportHeight * 10]
+           window |-> Hash(Window), time |-> IF ImportHeight = Origin THEN 20 ELSE 102]
 \* Genesis does not authenticate the old-generation Comet/validator hashes.
 Landing == [height |-> ImportHeight, generation |-> 1, origin |-> Origin, originTime |-> 100,
             recordGeneration |-> IF ImportHeight = Origin THEN 0 ELSE 1,
@@ -316,7 +316,7 @@ ObservedStores(x) ==
                     initialHeight |-> 3, validators |-> pre.first, next |-> pre.second,
                     last |-> IF ImportHeight = 2 THEN <<>> ELSE Window.validators,
                     blockID |-> IF ImportHeight = 2 THEN <<>> ELSE <<"Hash", x.peer.header>>,
-                    time |-> IF ImportHeight = 2 THEN x.l1.originTime ELSE ImportHeight * 10, results |-> IF ImportHeight = Origin THEN <<>> ELSE <<"FixedExecTxResult">>,
+                    time |-> IF ImportHeight = 2 THEN x.l1.originTime ELSE 102, results |-> IF ImportHeight = Origin THEN <<>> ELSE <<"FixedExecTxResult">>,
                     valChanged |-> IF ImportHeight = 2 THEN 3 ELSE ImportHeight + 2,
                     paramsChanged |-> IF ImportHeight = 2 THEN 3 ELSE ImportHeight + 1],
         evidence |-> [markers |-> RequiredEvidence, validators |-> IF ImportHeight = 2 THEN <<>> ELSE Window.validators,
@@ -364,4 +364,31 @@ ConnectionEnabledWhenReady ==
     (n.phase = "Running" /\ n.published /\ n.trusted /\
      n.knownGeneration = 1 /\ ~n.connected) => ENABLED Connect
 ConnectionNotReached == ~n.connected
+
+\* Selected healthy publication fixtures: necessary chronology/genesis premises.
+\* Literal raw-source/publication audit; no constructor, Planned or ObservedStores.
+\* Origin's retained generation-0 header is not a generation-1 parent.
+PositiveImportPremises == seen.publication.present =>
+    LET x == seen.publication.input
+        c == seen.publication.stores.comet
+    IN /\ x.l1.generation = 1 /\ x.l1.origin = 2 /\ x.l1.originTime = 100
+       /\ c.chain = <<"Chain", 1>> /\ c.initialHeight = 3
+       /\ IF x.l1.height = 2
+          THEN /\ x.peer.header.height = 2 /\ x.peer.header.chain = <<"Chain", 0>>
+               /\ x.peer.header.time = 20
+               /\ c.height = 0 /\ c.time = 100 /\ c.blockID = <<>>
+               /\ c.validators = [keys |-> <<1, 2>>, powers |-> <<3, 2>>,
+                                    priorities |-> <<-2, 2>>, proposer |-> 1]
+               /\ c.next = [keys |-> <<1, 2>>, powers |-> <<3, 2>>,
+                              priorities |-> <<1, -1>>, proposer |-> 2]
+               /\ seen.publication.stores.app.recorded.first = c.validators
+               /\ seen.publication.stores.app.recorded.second = c.next
+               /\ seen.publication.stores.app.active = <<<<1, 2>>, <<3, 2>>>>
+               /\ seen.publication.stores.app.pending = <<<<1, 2>>, <<3, 2>>>>
+          ELSE /\ x.l1.height = 4 /\ x.peer.header.height = 4
+               /\ x.peer.header.chain = <<"Chain", 1>>
+               /\ x.peer.header.time = 102 /\ x.peer.header.time > x.l1.originTime
+               /\ c.height = 4 /\ c.time = x.peer.header.time
+               /\ c.blockID = <<"Hash", x.peer.header>>
+PositivePublicationNotReached == ~seen.publication.present
 =============================================================================

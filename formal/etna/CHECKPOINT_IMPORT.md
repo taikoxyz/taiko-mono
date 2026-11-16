@@ -364,3 +364,67 @@ the source-mutation target, and the stable-connection property observes only
 `n.connected`. `progressAllVars` retains every base state variable plus the tag
 for the next-state specification. The base `Init`, `vars` and `ImportSpec` do not
 include the tag and their existing safety/configuration behavior is unchanged.
+
+## F01: independent positive chronology premise
+
+The original non-origin canonical fixture used `header4.time = 40` although
+its generation's fixed genesis has `initial_height = 3`, `genesis_time = 100`.
+A private reproduction appended an independent invariant over actual
+`seen.publication.input` and `seen.publication.stores`: the original Raw0
+reached `Published` with time40, violated the necessary chronology premise
+there, and separately reached trust. Original store alignment therefore did
+not establish a viable positive history.
+
+SPEC DATA-5.4-2/4 preserves the fixed genesis and installs the checkpoint's
+actual header time. RECOV-8.4-7/10 and stock CometBFT0.40.0
+`state/validation.go` require the initial-height block's time to equal genesis
+and later blocks' times to increase. F01 changes the selected non-origin
+canonical header time to102 and independently changes the literal
+`ObservedStores` expectation to102. Origin2 retains its generation0 header
+at20; its generation1 bootstrap installs height0, genesis time100 and an
+empty BlockID. No operational authentication guard or action is changed.
+
+Seven additive `import-premise-*.cfg` profiles check origin/current healthy
+inputs (including landed priority/proposer alternatives), require actual
+publication and trust witnesses for both boundaries, and isolate the new
+chronology fault. `PositiveImportPremises` reads only literal raw fields and
+actual publication fields; it does not call fixture constructors, `Planned`
+or `ObservedStores`. Its literal expectations describe these selected positive
+fixtures; it is not required of arbitrary corrupt candidates or old-generation
+headers supplied to the origin exception.
+
+The required `m10-positive-import-chronology` source fault restores the
+canonical non-origin time40 at one source site. Its focused workload checks
+`ImportTypeOK` and `PositiveImportPremises`, so the older literal store
+observer cannot mask the intended new failure. The complete healthy profiles
+retain every old normal invariant. Disabling `Publish` must lose each required
+publication/trust witness even if safety remains green. These checks establish
+only a necessary timestamp premise and selected reachability: they do not
+validate a full STF history, authenticated window, median-time commits,
+concrete importer or whole consensus behavior. Old M10 source hashes/results
+are historical after the fixture repair; old config bytes remain unchanged.
+
+### Fixed-genesis stored proposer correspondence
+
+The same positive-premise audit exposed an additional origin fixture mismatch.
+Stock `state.MakeGenesisState` calls `NewValidatorSet` for `Validators`, and
+`NewValidatorSet(...).CopyIncrementProposerPriority(1)` for `NextValidators`.
+For public key identities1/2 with powers3/2, actual CometBFT0.40.0 produces
+first priorities[-2,2] with stored proposer1 and next priorities[1,-1] with
+stored proposer2. The stored proposer is the winner before its priority is
+decremented; selecting the current maximum priority would give the wrong result.
+An offline probe using only explicit public Edwards25519 points B and -B
+confirmed those fields against all1659 pinned source entries. The public points
+are a disclosed symbolic-key mapping for selected stock field correspondence,
+not Etna's production validator-key type or a signature/commit validation test.
+
+F01 changes only `GenesisPreimage.first.proposer` to1; non-origin landed
+`First.proposer = 2` remains a distinct authoritative premise. The independent
+origin publication audit contains literal full first/next records and checks
+actual app recorded/active/pending state against them. A separately appended
+literal invariant reproduced the original mismatch after `Published` before
+repair. `m10-positive-origin-genesis-proposer` restores only that wrong fixture
+field and must fail `PositiveImportPremises`; original and actual restored
+source must pass. The old shared store observer cannot establish this
+correspondence by itself. This is a verification-fixture repair, with no
+change to protocol authentication actions or a full consensus-validity claim.

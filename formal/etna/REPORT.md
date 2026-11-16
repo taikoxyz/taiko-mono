@@ -1803,3 +1803,54 @@ stock header admission are explicit scopes, not substitutes for those gaps.
 No confirmed production/SPEC defect was found. This batch stops at three for
 retrospective; the authorized hourly PR-feedback monitor continues without
 starting a fourth increment. The PR remains draft.
+
+## Five-increment boundary batch — F01 positive import premises
+
+The user authorized five further increments after56fc86d48. F01 starts by
+reproducing two invalid positive M10 premises, rather than expanding green counts.
+The non-origin height4 header had time40 although generation1's first height3
+must use genesis time100 and later stock block times increase. The origin fixture
+also reused landed `First.proposer=2` as genesis proposer. Pinned stock
+`MakeGenesisState` instead stores proposer1 with priorities[-2,2], then proposer2
+with[1,-1] for its next set. A bounded offline Go probe with public B/-B points,
+no signing material, confirms those selected fields; manifest checks verify
+all1,659 pinned source files remain unchanged.
+
+Independent appended checks fail on the actual old Published boundary for each
+defect, while the prior normal and successful-trust witness still pass. The old
+M10 results remain historical conditional transition checks; they did not
+establish these usable initialization/chronology premises. Those stronger
+successful-fixture claims are withdrawn and corrected here.
+
+F01 sets the selected non-origin time to102 and corrects only the origin genesis
+first proposer to1. Origin's retained old-generation header remains time20 and
+the non-origin landed proposer remains2. A separately written literal
+`PositiveImportPremises` audits raw origin/header fields and actual selected
+Comet/app publication fields without calling constructor or store-oracle helpers.
+The old350 config bytes, old54 assessed fault entries, four unassessed entries,
+other models and existing conformance payloads/pins remain unchanged.
+
+- All61 affected import configs match their exact outcomes:18 exhausted normal
+  searches and43 named controls/witnesses, including seven new focused configs.
+- Both exact new source faults, canonical time40 and origin first proposer2,
+  fail only `PositiveImportPremises` in their declared audit workloads; original
+  and actual restored source exhaust successfully. The full healthy profiles
+  preserve the existing invariants; the chronology fault's focused workload
+  isolates this audit from the older literal store comparison.
+- Disabling Publish leaves three safety profiles green but loses all four
+  required publication/trust witnesses. Missing progress receives no success
+  credit. Five cohort-partition tests pass; the inventory now has56 assessed
+  required IDs,51TLC/3Identity/2Rules. A full56-item campaign is a final batch gate.
+- Independent behavioral verification executes30 additional trials: old-premise
+  reproductions, per-input repaired publication/trust, two faults/restorations
+  and missing-publication challenges. Independent review reclassifies all61
+  default outcomes, both fault triples and the seven disabled-publication logs,
+  checks source/config/mutant/log identities and verifies the full old config set.
+
+Executed model SHA256:
+`b62d824a6d64bb86457bf23116f79b8120f8b778a78e5c103ac78f208019b165`.
+Final v3 differs from executed v2 only in sensitivity README current counts and
+wrapping; all execution inputs remain identical. These are selected necessary
+premises and bounded reachability checks, not valid STF history, full window
+reconstruction or a concrete importer. No actual protocol defect was established.
+F02–F05 and the final five-item accumulated gate remain pending.

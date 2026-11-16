@@ -27,15 +27,15 @@
 - Stock validator lookup silently substitutes priorities/proposer or aliases source through a cache: F04 exact field readback, source fault/restoration and existing layout/lifecycle controls.
 - Recovery resurrects resources, old proof authority or an empty origin while a scripted step never runs: F05 raw action enabledness/receipts, live-reference controls and terminal witnesses.
 
-## F01 — positive import chronology
+## F01 — positive import chronology and genesis
 
 **Files:** `formal/etna/EtnaCheckpointImport.tla`, new `configs/import-premise-*.cfg`, CHECKPOINT_IMPORT/README and sensitivity inventory/cohorts.
-**Interface:** selected non-origin header time102, origin retains old header but installs genesis100; independent `PositiveImportPremises` over actual publication, no shared constructor helper.
+**Interface:** selected non-origin header time102; origin retains old header but installs genesis100, first priorities[-2,2]/stored proposer1 and next[1,-1]/proposer2. Independent `PositiveImportPremises` checks actual publication without the shared constructor/helper. Non-origin landed First.proposer2 stays unchanged.
 
-- [ ] Reproduce old non-origin publication40 against genesis100 using an independently appended invariant; record exact source/published trace.
-- [ ] Repair fixture and literal observer, add origin/non-origin normals and required trust/publication witnesses; preserve350 config bytes.
-- [ ] Add exact canonical-time source fault to existing TLC cohort; original/restored pass, mutant fails PositiveImportPremises.
-- [ ] Independently review/verify, inspect full diff/hygiene and commit the reviewed increment.
+- [x] Reproduce old non-origin publication40 against genesis100 using an independently appended invariant; record exact source/published trace.
+- [x] Repair fixture and literal observer, add origin/non-origin normals and required trust/publication witnesses; preserve350 config bytes.
+- [x] Add exact canonical-time and origin-first-proposer source faults to the existing TLC cohort; original/restored pass, each mutant fails PositiveImportPremises. Confirm stock genesis field derivation/readback independently.
+- [x] Independently review/verify and inspect full diff/hygiene; confirm readiness to commit the reviewed increment (actual publication readback is recorded in the ledger).
 
 ## F02 — chain/height input discrimination
 
