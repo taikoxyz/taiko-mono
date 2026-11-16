@@ -468,3 +468,11 @@ stop/time/grid/signing controls supplement all 314 original configurations.
 A separate nine-call actual Inbox replay reuses the C05 receipt exporter and
 state/event/abort adapter; all 38 original C05 call semantics remain unchanged.
 No stopped-candidate proof, real client/STF or unbounded refinement is claimed.
+
+## Recovery first-header clocks
+
+[T01](RECOVERY_TIME.md) adds a separate deterministic first-header companion and
+three actual TLC receipts. It distinguishes BFT genesis time3 from EL timestamp
+3/4/4 under explicit retained-parent/origin/anchor premises, with independent
+literal audits, reachable witnesses and source-fault controls. It leaves all
+existing models/configurations and old conformance payloads/pins unchanged.

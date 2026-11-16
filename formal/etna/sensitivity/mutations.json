@@ -813,6 +813,94 @@
         "name": "FreshIdentity"
       },
       "obligation": "Fresh first block extends the exact retained checkpoint12, not the discarded height18 suffix."
+    },
+    {
+      "id": "recovery-time-bft-origin",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRecoveryTime.tla",
+      "replace": {
+        "old": "FirstBFT(x) == x.origin.l1Timestamp",
+        "new": "FirstBFT(x) == x.origin.l1Timestamp+1"
+      },
+      "workloads": ["configs/recovery-time-normal.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ObservationExact"
+      },
+      "obligation": "First BFT time must equal fixed R.timestamp, independently of the EL clock."
+    },
+    {
+      "id": "recovery-time-parent-step",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRecoveryTime.tla",
+      "replace": {
+        "old": "FirstEL(x) == Max2(x.parent.elTimestamp+1, Max2(FirstBFT(x),x.anchor.l1Timestamp))",
+        "new": "FirstEL(x) == Max2(FirstBFT(x),x.anchor.l1Timestamp)"
+      },
+      "workloads": ["configs/recovery-time-parent-witness.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ObservationExact"
+      },
+      "obligation": "Parent12/time3 requires EL4 while BFT remains3; omitting parent+1 loses that header."
+    },
+    {
+      "id": "recovery-time-later-anchor",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRecoveryTime.tla",
+      "replace": {
+        "old": "FirstEL(x) == Max2(x.parent.elTimestamp+1, Max2(FirstBFT(x),x.anchor.l1Timestamp))",
+        "new": "FirstEL(x) == Max2(x.parent.elTimestamp+1,FirstBFT(x))"
+      },
+      "workloads": ["configs/recovery-time-later-witness.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ObservationExact"
+      },
+      "obligation": "Valid finalized anchor104/time4 requires EL4 while BFT remains3."
+    },
+    {
+      "id": "recovery-time-collapse-clocks",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRecoveryTime.tla",
+      "replace": {
+        "old": "FirstEL(x) == Max2(x.parent.elTimestamp+1, Max2(FirstBFT(x),x.anchor.l1Timestamp))",
+        "new": "FirstEL(x) == FirstBFT(x)"
+      },
+      "workloads": [
+        "configs/recovery-time-parent-witness.cfg",
+        "configs/recovery-time-later-witness.cfg"
+      ],
+      "failure": {
+        "kind": "invariant",
+        "name": "ObservationExact"
+      },
+      "obligation": "Both valid EL4/BFT3 cases independently reject collapsing EL timestamp to BFT time."
+    },
+    {
+      "id": "recovery-time-construction-enabled",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRecoveryTime.tla",
+      "replace": {
+        "old": "Construct == /\\ ~observed.present",
+        "new": "Construct == /\\ FALSE /\\ ~observed.present"
+      },
+      "workloads": ["configs/recovery-time-normal.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ConstructionEnabled"
+      },
+      "obligation": "Suppressing first-header construction must fail an enabledness obligation rather than vacuously pass safety."
     }
   ]
 }

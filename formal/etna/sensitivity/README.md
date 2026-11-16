@@ -36,7 +36,7 @@ inventory and is not a usable full gate with the current one-runtime Forge argv.
 
 | Cohort           | Required IDs | Engine | Exact selected Forge test                                          |
 | ---------------- | ------------ | ------ | ------------------------------------------------------------------ |
-| `tlc`            | 39           | TLC    | None                                                               |
+| `tlc`            | 44           | TLC    | None                                                               |
 | `forge-identity` | 3            | Forge  | `EtnaIdentityReplayTest::test_identity_publicHistoryPublication()` |
 | `forge-rules`    | 2            | Forge  | `EtnaRulesReplayTest::test_conformance_stopHandoffReplay()`        |
 
@@ -51,7 +51,7 @@ does not satisfy an item that declares only one.
 Full assessed-inventory evidence requires all three campaigns from the same
 frozen source/manifest/tools, separately compatible runtime selections and the
 same shared physical Foundry lock. Aggregate by obligation ID: verify the exact
-44-ID union without duplicates or omissions, all per-ID original/mutant/restored
+49-ID union without duplicates or omissions, all per-ID original/mutant/restored
 phases, source/tool hashes, input stability and each campaign's raw log hashes.
 Retain each cohort verdict separately. A full aggregate may report complete
 assessed coverage only after all these checks; unassessed protocol boundaries
@@ -159,5 +159,17 @@ parent time remains below the valid candidate time 3, so the fault cannot pass
 silently by disabling `ObserveFresh`. Each fault must fail `FreshIdentity`, whose
 independent raw parent and recovery-call/anchor observations do not use the
 operational construction helpers. Successful original/restored runs are required.
-The 39/3/2 compatible cohorts cover all 44 assessed required IDs; earlier 41-item
+The historical 39/3/2 cohorts covered 44 assessed required IDs; earlier 41-item
 campaigns remain historical evidence for their original source head.
+
+## Recovery clock companion controls
+
+[T01](../RECOVERY_TIME.md) appends five `recovery-time-*` obligations to the same
+TLC cohort. The current 44/3/2 cohorts cover 49 assessed required IDs; all 44 older
+IDs and Forge selectors are preserved. Wrong BFT origin time, omitted parent+1,
+omitted later anchor and EL=BFT must fail the independent literal
+`ObservationExact`. Clock collapse is checked on each valid EL4/BFT3 case
+separately. Disabling construction must fail `ConstructionEnabled`, preventing
+vacuous safety. Normal/restored phases must still reach the exact witness where
+one is selected. This adds finite first-header sensitivity, not another consensus
+engine, executed STF, or full protocol coverage.

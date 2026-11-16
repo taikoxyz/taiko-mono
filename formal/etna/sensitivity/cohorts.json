@@ -45,7 +45,12 @@
         "handoff-stop-candidate-time",
         "handoff-fresh-first-time",
         "handoff-fresh-parent-time",
-        "handoff-fresh-parent-height"
+        "handoff-fresh-parent-height",
+        "recovery-time-bft-origin",
+        "recovery-time-parent-step",
+        "recovery-time-later-anchor",
+        "recovery-time-collapse-clocks",
+        "recovery-time-construction-enabled"
       ]
     },
     {

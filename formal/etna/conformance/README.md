@@ -286,3 +286,13 @@ Independent review verifies all six files, every successful path, exact12 IDs,
 three exact failure reasons/raw hashes and original564 source entries. No
 production defect identified; source remains pinned/read-only. Early empty-test
 selection was INCONCLUSIVE, not a kill, and was corrected before final evidence.
+
+## T01: recovery clock receipts
+
+[`export_recovery_time.py`](export_recovery_time.py) exports exactly three actual
+TLC first-header observations to [`recovery_time_cases.json`](recovery_time_cases.json),
+schema `etna-recovery-time-replay-1`. Both BFT and EL clocks and the complete raw
+parent/origin/anchor/generation premises are explicit. `--check` regenerates and
+compares actual observations; Python contains no timestamp constructor. See
+[the model scope and reproduction](../RECOVERY_TIME.md). These receipts describe
+a bounded interface, not executed STF history or actual CometBFT validation.

@@ -1569,3 +1569,65 @@ later REPORT integration is a reviewed prose-only delta. The original external
 feedback is addressed by this scoped repair; historical counts are not erased
 and no whole-protocol or actual-client proof is claimed. No production/SPEC,
 deployment or merge change is included. The PR stays draft for continued review.
+
+## Three-increment batch after review repair — T01
+
+R0 was published at `d1206bb07` before this new batch. T01 makes first-block BFT
+time and EL timestamp distinct in a small deterministic companion. At fixed
+origin12/R103/time3/generation1, the three literal cases produce:
+
+| Retained parent time | Anchor number/time | First BFT time | EL timestamp |
+| -------------------- | ------------------ | -------------- | ------------ |
+| 1                    | 103/3              | 3              | 3            |
+| 3                    | 103/3              | 3              | 4            |
+| 1                    | 104/4              | 3              | 4            |
+
+These cases satisfy the selected RECOV-8.4 and CONS-3.2-3 timestamp premises.
+They do not execute parent/origin authentication or an STF history. The audit is
+a separately written literal table, never the constructor or its maximum helper.
+It binds complete raw input and observed header metadata. Enabledness, three
+required existence witnesses and three actual exported receipts prevent safety
+from passing solely because nothing was constructed. Preparation is observation
+staging, not a protocol action or fairness assumption.
+
+- All6 new configs match their exact declared outcomes. Independently collapsing
+  EL to BFT fails on both valid EL4 cases. The339 old configs and28 old TLA files
+  remain byte-identical; the full accumulated batch regression is still a final
+  gate, not inferred from these focused runs.
+- All5 new selected source faults are KILLED, with6 workloads per phase and18
+  original/mutant/restored logs checked. Original/restored outcomes succeed;
+  mutants fail only their exact ObservationExact or ConstructionEnabled targets.
+  Existing44 assessed IDs/selectors are preserved. The shared manifest now has49
+  assessed required IDs; a full49-item campaign is not claimed at this point.
+- Fresh TLC export reproduces exactly3 receipts. Eight new exporter tests cover
+  missing/duplicate/unexpected records, source/provenance drift and rehashed
+  altered raw/clock fields against fresh output. Root's126 Python tests
+  (20runner/86conformance/20sensitivity) and640 rule-reference checks pass.
+  Migration-purity remains skipped without a migration base.
+- Independent behavior verification freshly exports and literally audits all raw
+  and header fields, checks all3 positive witnesses, and changes constructed
+  origin metadata while leaving clocks intact: ObservationExact fails. Disabling
+  preparation leaves safety vacuously green but loses all3 required witnesses and
+  receipts; those exact gates reject it. Restored runs reproduce the same data.
+  Independent review also challenges raw parent binding, constructed parent
+  binding, disabled construction and both collapsed-clock cases. No finding.
+
+Final model SHA256:
+`7a963ec9d4c5c5394763e59f4918dec9ce90afa387db0c1c2968b8a9376681b6`;
+fixture SHA256:
+`ac047ee026a0e97f8db54a514a52d6638a3660bcaeba6e2265e9a405bfd07735`.
+The final5-fault campaign SHA256 is
+`5c980ecdd6918bea9f39932c3dccefb40cc77027a35fca3dd29e01a7cac4f439`.
+Final formatting changed only inventory whitespace and Markdown table alignment;
+parsed inventory, models, configs, exporter and fixture stay unchanged. The
+selected campaign and20 sensitivity tests were rerun on those final bytes.
+Initial unsupported initial-state-failure formatting and a namespace SPEC-path
+omission were inconclusive setup attempts, not semantic kills. A read-only file
+mode copied into a private mutation target was also an inconclusive preparation
+error; a byte-identical writable staging source with read-only execution binds
+resolved it without changing the shared runner or sealed snapshot.
+
+T01 covers finite integer-second construction and export with explicit input
+premises. Actual CometBFT admission is T02; actual EL execution, fractional-time
+behavior, cryptography and unbounded consensus/progress are not established.
+T02/T03 and the final three-item retrospective remain pending here.
