@@ -22,7 +22,7 @@ Two finite programs execute inherited `Setup`, `PrepareCall`, and `Invoke`:
 - `HandoffRecovery`: seed checkpoint 12 through inherited `LandFresh(1)`;
   schedule rules 1 at timestamp 2 in L1 call 1; recover at time 3 with expected
   generation 0, checkpoint 12, nonce 0, validUntil 6, and rules 2. This is the
-  only added M11 raw program and `NeedsLanding` entry. Existing 23 programs,
+  original handoff's added M11 raw program and `NeedsLanding` entry. Existing 23 programs,
   public-call actions, and C05 schema remain unchanged.
 
 Between the two calls, hold candidate timestamp 2, parent height 12, parent time
@@ -84,7 +84,55 @@ This finite composition checks the listed interface premises and interleavings.
 It does not prove unbounded protocol safety, real cryptography/proof soundness,
 complete L1 trust authentication, stock CometBFT behavior, or client/guest refinement.
 
-Both selected handoff programs have `stopTime=0`. Historical stop is therefore
-checked only for the no-stop case in this composition. Positive-stop and
-stop-clear/recovery handoff interleavings remain UNASSESSED in the sensitivity
-inventory; separate M11 stop coverage does not close this composition gap.
+## Positive-stop composition
+
+The original two programs and 19 configurations remain unchanged. An independent
+source-only diagnostic showed that all 19 outcomes survived complete historical
+stop removal; the original M11 candidate workload rejected that same fault.
+That historical coverage gap is retained as evidence, not a protocol defect.
+
+Three additional raw programs seed checkpoint 12, schedule Stop in call 1 at
+time 1, schedule rules 1/time 3 in call 2 at time 2, hold, then recover in call 3
+at time 3 with rules 2, expected generation/nonce 0, checkpoint 12 and deadline 6:
+
+| Program             | Stop time/grid | Held timestamp | Parent height/time | Initial / supported result |
+| ------------------- | -------------- | -------------- | ------------------ | -------------------------- |
+| StopDueRecovery     | 2 / 12         | 3              | 18 / 2             | Stop / Stop                |
+| StopFutureRecovery  | 3 / 12         | 3              | 18 / 2             | Wait / Accept              |
+| StopOffGridRecovery | 2 / 12         | 3              | 13 / 2             | Wait / Accept              |
+
+The retained anchor is the actual time-2 history entry, independently captured
+as index 3/generation 0 in the raw audit. Parent 18 is an unlanded suffix beyond
+the seeded checkpoint, so its time-2 metadata does not relabel the time-1 landed
+checkpoint. Parent/block validity remains an explicit interface premise.
+The original grid origin remains S=6. Grid 12 distinguishes it from recovery
+origin 12; future stop time 3 distinguishes parent time 2 from candidate time 3.
+
+Recovery clears the current stop but cannot rewrite held identity/history.
+`HistoricalDerivation` independently observes the initial and retry outcomes;
+`StoppedSignatureFence` uses frozen raw candidate/history and at-exposure support,
+and refuses a historically stopped candidate even when the old session otherwise
+remains authorized. Authenticated knowledge independently revokes that session.
+Earlier permitted signatures for legal future/off-grid candidates stay historical.
+The new pre-knowledge and preservation witnesses bind the exposure's own current
+generation to 1: they require a signature after recovery and before learning it,
+then retention of that same permitted historical exposure after authentication.
+An exposure made before recovery cannot satisfy these two witnesses; it remains
+a valid earlier historical exposure under the separate at-exposure signing fence.
+Fresh generation-1 candidates are separate observations. No queued proof is
+created for these three programs; the original opaque-proof premise stays scoped
+to `HandoffRecovery` and is never a proof of a stopped candidate.
+
+Three normal searches and 21 exact reachability witnesses cover retention after
+current stop clearing, unsupported/supported stop, future/off-grid acceptance,
+all support/knowledge orders, pre-knowledge refusal, past legal exposure and fresh
+continuation. Seven source-only controls independently remove stop, due-time,
+grid, retained schedule, signing gate, original grid origin or parent-time use.
+They require the exact `HistoricalDerivation` or `StoppedSignatureFence` failure,
+with successful original/restored runs. Tool/parser errors do not count.
+
+The separate `stop-handoff` exporter profile reuses M11 public receipts and the
+existing Solidity rules adapter for all nine real Stop/Rules/Recover calls.
+This checks actual L1 state, raw slot/event, generation/origin and abort observers;
+held-candidate execution, signing, real client/consensus and STF/proving remain
+model-only. Broader stop programs and unbounded composition remain unassessed.

@@ -28,18 +28,32 @@ contract EtnaRulesReplayTest is EtnaReplayTestBase {
 
     /// @notice Applies every original call in order, resetting only between independent programs.
     function test_conformance_rulesReplay() external {
-        vm.pauseGasMetering();
         string memory j = vm.readFile(string.concat(vm.projectRoot(), FILE));
-        assertEq(vm.parseJsonString(j, ".schema"), "etna-rules-replay-1");
+        _replay(j, "etna-rules-replay-1", 38, 23);
+    }
+
+    /// @notice Replays all nine Stop/Rules/Recover calls from the separate handoff profile.
+    /// @dev Held candidate execution/signing is model-only; this checks real public L1 calls.
+    function test_conformance_stopHandoffReplay() external {
+        string memory j = vm.readFile(string.concat(
+                vm.projectRoot(), "/test/layer1/etna/conformance/vectors/stop_handoff_cases.json"
+            ));
+        _replay(j, "etna-stop-handoff-replay-1", 9, 3);
+    }
+
+    /// @dev Both profiles use the same original-call setup/state/event/abort observers.
+    function _replay(string memory j, string memory schema, uint256 calls, uint256 programCount) private {
+        vm.pauseGasMetering();
+        assertEq(vm.parseJsonString(j, ".schema"), schema);
         assertEq(_u(j, ".mapping", ".timestamp_scale"), NOTICE);
         assertEq(_u(j, ".mapping", ".timestamp_base"), TIME_BASE);
-        assertTrue(vm.keyExistsJson(j, ".cases[37].id"));
-        assertFalse(vm.keyExistsJson(j, ".cases[38].id"));
+        assertTrue(vm.keyExistsJson(j, string.concat(".cases[", vm.toString(calls - 1), "].id")));
+        assertFalse(vm.keyExistsJson(j, string.concat(".cases[", vm.toString(calls), "].id")));
         uint256 blank = vm.snapshotState();
         bytes32 previous;
         uint256 programs;
         uint256 nextIndex;
-        for (uint256 i; i < 38; ++i) {
+        for (uint256 i; i < calls; ++i) {
             string memory p = string.concat(".cases[", vm.toString(i), "].attempt");
             bytes32 program = keccak256(bytes(vm.parseJsonString(j, string.concat(p, ".program"))));
             bool newProgram = program != previous;
@@ -52,7 +66,7 @@ contract EtnaRulesReplayTest is EtnaReplayTestBase {
             assertEq(_u(j, p, ".index"), nextIndex++);
             this.runAttempt(j, i, newProgram);
         }
-        assertEq(programs, 23);
+        assertEq(programs, programCount);
     }
 
     /// @notice Parses one receipt in a bounded memory frame, preserving public program state.

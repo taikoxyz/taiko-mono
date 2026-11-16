@@ -5,19 +5,57 @@ starts with three known surviving faults. A diagnostic with `SURVIVED` is useful
 evidence and deliberately exits nonzero. Historical logs remain external artifacts;
 subsequent verification repairs must run a fresh campaign.
 
-Use the configured Python environment, with no additional packages:
+Use the configured Python environment, with no additional packages. The current
+inventory requires three compatible runtime cohorts; no single Forge selector
+can execute the mixed full inventory with the required exact per-item test set.
+Select a cohort from [`cohorts.json`](cohorts.json), prepare its matching runtime,
+and pass every listed ID explicitly with `--only`:
 
 ```sh
-python -B formal/etna/sensitivity/run.py --manifest formal/etna/sensitivity/mutations.json \
-  --runtime "$runtime_file" --output-dir "$evidence_dir"
+# cohort_name is tlc, forge-identity, or forge-rules; runtime_file must match it.
+python - "$cohort_name" "$runtime_file" "$evidence_dir" <<'PY'
+import json, subprocess, sys
+with open("formal/etna/sensitivity/cohorts.json") as source:
+    cohorts = json.load(source)["cohorts"]
+cohort = next(item for item in cohorts if item["id"] == sys.argv[1])
+assert cohort["required_ids"]
+only = [arg for identifier in cohort["required_ids"] for arg in ("--only", identifier)]
+subprocess.run([sys.executable, "-B", "formal/etna/sensitivity/run.py",
+                "--manifest", "formal/etna/sensitivity/mutations.json",
+                "--runtime", sys.argv[2], "--output-dir", sys.argv[3], *only], check=True)
+PY
 python -B -m unittest discover -s formal/etna/sensitivity/tests
 ```
 
 `--only ID` is repeatable. Omitted inventory entries are `UNASSESSED`, with a
-reason. Deliberately unassessed entries carry `unassessed_reason`. The default
-readiness gate requires every selected required obligation to be `KILLED`, with
-successful normal baseline and restoration. It does not assert anything about
-unselected or unassessed inventory.
+reason. Deliberately unassessed entries carry `unassessed_reason`. The runner's
+`ready` flag requires every selected required obligation to be `KILLED`, with
+successful normal baseline and restoration. It is a selected-cohort verdict and
+does not establish full inventory coverage. Omitting `--only` selects the mixed
+inventory and is not a usable full gate with the current one-runtime Forge argv.
+
+| Cohort           | Required IDs | Engine | Exact selected Forge test                                          |
+| ---------------- | ------------ | ------ | ------------------------------------------------------------------ |
+| `tlc`            | 36           | TLC    | None                                                               |
+| `forge-identity` | 3            | Forge  | `EtnaIdentityReplayTest::test_identity_publicHistoryPublication()` |
+| `forge-rules`    | 2            | Forge  | `EtnaRulesReplayTest::test_conformance_stopHandoffReplay()`        |
+
+The descriptor lists every exact obligation ID and full test identity. Its
+regression checks require the cohorts to partition all assessed required manifest
+IDs exactly once and every Forge cohort to have one homogeneous exact test set.
+Unknown/unassessed IDs, missing/duplicate coverage and union/substituted Forge
+test sets are rejected. The descriptor does not change runtime argv automatically.
+The per-item exact Forge classifier is unchanged: selecting both tests together
+does not satisfy an item that declares only one.
+
+Full assessed-inventory evidence requires all three campaigns from the same
+frozen source/manifest/tools, separately compatible runtime selections and the
+same shared physical Foundry lock. Aggregate by obligation ID: verify the exact
+41-ID union without duplicates or omissions, all per-ID original/mutant/restored
+phases, source/tool hashes, input stability and each campaign's raw log hashes.
+Retain each cohort verdict separately. A full aggregate may report complete
+assessed coverage only after all these checks; unassessed protocol boundaries
+remain outside that verdict.
 
 ## Portable manifest: `etna-fault-campaign-1`
 
@@ -84,3 +122,30 @@ workload. A survivor is not automatically equivalent or redundant.
 The manifest's original safety workloads intentionally do not establish eventual
 connection, adversarial input completeness, real proofs, committee derivation,
 or full client/guest refinement. Later entries must state their own premises.
+
+## Positive-stop handoff controls
+
+The original 19 zero-stop handoff profiles survived a source-only complete stop
+removal; the original M11 candidate observer killed it. Keep that diagnostic as
+the historical boundary. The new three-program scope adds seven exact model
+controls: omitted stop, premature stop, missing grid, current cleared schedule,
+stopped signing bypass, recovery grid origin and candidate-time substitution.
+The intended failures are `HistoricalDerivation` and `StoppedSignatureFence`.
+No alternate stop implementation is checked in: faults modify unique operational
+source sites only in temporary snapshots.
+
+Two actual Inbox faults target the separate nine-call handoff replay: omitted
+recovery stop-time clearing and a wrong event stopGrid shift. Their exact failures
+are the existing state/event observers. Probe runs with provisional expected
+reasons are inconclusive; only a fresh normal/mutant/restored campaign using the
+observed exact reasons establishes kills. The original 38-call replay and shared
+physical Foundry lock remain in use. No candidate proof is fabricated, and real
+L2 stop execution/signing remains outside the Solidity replay.
+
+For the stop-specific pre-knowledge and historical-preservation witnesses, a
+separate reachability-loss experiment suppresses allowed exposures only after
+recovery. Normal/restored graphs reach each declared witness; the mutant must
+exhaust without reaching either witness. The original weak current-global-state
+observers still reach under this fault and are retained as the diagnostic RED.
+This experiment records `WITNESS_REACHED` versus `EXHAUSTED_NO_WITNESS` explicitly;
+it is not an invariant-violation kill and is not classified by `sensitivity/run.py`.

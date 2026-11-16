@@ -15,6 +15,64 @@ spec.loader.exec_module(export)
 
 
 class RulesExportTests(unittest.TestCase):
+    def stop_log(self, omitted=False, duplicate=False):
+        rows = [f'<<"ETNA_RULES", [program |-> "{program}", index |-> {index}]>>'
+                for program in ("StopDueRecovery", "StopFutureRecovery", "StopOffGridRecovery")
+                for index in range(1, 4)]
+        if omitted:
+            rows.pop()
+        if duplicate:
+            rows.append(rows[0])
+        return "\n".join(rows + ["Model checking completed. No error has been found.",
+                                  "0 states left on queue."])
+
+    def test_stop_profile_requires_exact_nine_original_calls(self):
+        rows = export.parse_receipts(self.stop_log(), profile="stop-handoff")
+        self.assertEqual(len(rows), 9)
+        for fault in (dict(omitted=True), dict(duplicate=True)):
+            with self.subTest(fault=fault), self.assertRaisesRegex(ValueError, "missing|duplicate"):
+                export.parse_receipts(self.stop_log(**fault), profile="stop-handoff")
+
+    def test_default_profile_rejects_stop_calls(self):
+        with self.assertRaisesRegex(ValueError, "missing/unexpected"):
+            export.parse_receipts(self.stop_log())
+
+    def stop_fixture(self):
+        return json.loads((ROOT / "stop_handoff_cases.json").read_text())
+
+    def test_actual_stop_profile_validates_separately(self):
+        data = self.stop_fixture()
+        export.validate(data, profile="stop-handoff")
+        self.assertEqual(len(data["cases"]), 9)
+        self.assertEqual({x["attempt"]["program"] for x in data["cases"]}, set(export.STOP_COUNTS))
+
+    def test_stop_missing_or_duplicate_case_rejected_after_rehash(self):
+        for duplicate in (False, True):
+            data = self.stop_fixture()
+            if duplicate:
+                data["cases"][-1] = copy.deepcopy(data["cases"][0])
+            else:
+                data["cases"].pop()
+            with self.subTest(duplicate=duplicate), self.assertRaisesRegex(ValueError, "missing/duplicate"):
+                export.validate(self.rehash(data), profile="stop-handoff")
+
+    def test_profiles_cannot_substitute_schema_or_config_provenance(self):
+        rules, stop = self.fixture(), self.stop_fixture()
+        with self.assertRaisesRegex(ValueError, "schema/time mapping"):
+            export.validate(stop)
+        with self.assertRaisesRegex(ValueError, "schema/time mapping"):
+            export.validate(rules, profile="stop-handoff")
+        stop["provenance"] = rules["provenance"]
+        with self.assertRaisesRegex(ValueError, "provenance"):
+            export.validate(self.rehash(stop), profile="stop-handoff")
+
+    def test_stop_rehashed_receipt_change_requires_fresh_comparison(self):
+        actual = self.stop_fixture()
+        changed = copy.deepcopy(actual)
+        changed["cases"][0]["attempt"]["args"]["grid"] += 6
+        with self.assertRaisesRegex(ValueError, "differs from actual"):
+            export.compare_fixture(actual, self.rehash(changed), profile="stop-handoff")
+
     def fixture(self):
         return json.loads((ROOT / "rules_cases.json").read_text())
 

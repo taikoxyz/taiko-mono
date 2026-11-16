@@ -459,3 +459,12 @@ invariant-only failure classifier. This is no unconditional client/network claim
 V05 composes a held candidate with actual M11 public schedule/recovery calls,
 separating historical derivation from learned recovery/signature authorization
 and current-generation proof enabledness. See [CANDIDATE_HANDOFF.md](CANDIDATE_HANDOFF.md).
+
+The positive-stop continuation adds three bounded Stop/Rules/Recover programs:
+due, future and off-grid retained candidates. Historical stop survives current
+stop clearing; support and authenticated generation knowledge remain separate.
+Three new normal profiles, 21 reachability witnesses and exact source-only
+stop/time/grid/signing controls supplement all 314 original configurations.
+A separate nine-call actual Inbox replay reuses the C05 receipt exporter and
+state/event/abort adapter; all 38 original C05 call semantics remain unchanged.
+No stopped-candidate proof, real client/STF or unbounded refinement is claimed.

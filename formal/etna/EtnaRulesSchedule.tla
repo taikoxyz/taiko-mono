@@ -9,7 +9,18 @@ CancelTime == 99
 H(h) == S + K * h
 ZeroSchedule == [activeRules |-> 0, nextRules |-> 0, rulesTime |-> 0,
                  stopTime |-> 0, stopGrid |-> 0]
+StopHandoffPrograms == {"StopDueRecovery", "StopFutureRecovery", "StopOffGridRecovery"}
+\* Raw public-call fixtures only; all three execute the original public actions.
+StopHandoffProgram(stopAt) ==
+    LET context == [owner |-> TRUE, initialized |-> TRUE, registryUnlocked |-> TRUE, startWritten |-> TRUE]
+        args == [rules |-> 0, time |-> 0, grid |-> 0, expectedGeneration |-> 0,
+                 expectedC |-> 12, expectedRecoveryNonce |-> 0, validUntil |-> 6]
+    IN <<[operation |-> "Stop", at |-> 1, args |-> [args EXCEPT !.time = stopAt, !.grid = 12], context |-> context],
+         [operation |-> "Rules", at |-> 2, args |-> [args EXCEPT !.rules = 1, !.time = 3], context |-> context],
+         [operation |-> "Recover", at |-> 3, args |-> [args EXCEPT !.rules = 2], context |-> context]>>
 Programs(id) == CASE
+    id \in StopHandoffPrograms -> StopHandoffProgram(IF id = "StopFutureRecovery" THEN 3 ELSE 2)
+ []
     "Earliest" = id -> <<[operation |-> "Rules", at |-> 1, args |-> [rules |-> 1, time |-> 2, grid |-> 0, expectedGeneration |-> 0, expectedC |-> 6, expectedRecoveryNonce |-> 0, validUntil |-> 6], context |-> [owner |-> TRUE, initialized |-> TRUE, registryUnlocked |-> TRUE, startWritten |-> TRUE]], [operation |-> "Stop", at |-> 2, args |-> [rules |-> 0, time |-> 3, grid |-> 6, expectedGeneration |-> 0, expectedC |-> 6, expectedRecoveryNonce |-> 0, validUntil |-> 6], context |-> [owner |-> TRUE, initialized |-> TRUE, registryUnlocked |-> TRUE, startWritten |-> TRUE]]>>
  [] "Reschedule" = id -> <<[operation |-> "Rules", at |-> 1, args |-> [rules |-> 1, time |-> 5, grid |-> 0, expectedGeneration |-> 0, expectedC |-> 6, expectedRecoveryNonce |-> 0, validUntil |-> 6], context |-> [owner |-> TRUE, initialized |-> TRUE, registryUnlocked |-> TRUE, startWritten |-> TRUE]], [operation |-> "Rules", at |-> 2, args |-> [rules |-> 1, time |-> 6, grid |-> 0, expectedGeneration |-> 0, expectedC |-> 6, expectedRecoveryNonce |-> 0, validUntil |-> 6], context |-> [owner |-> TRUE, initialized |-> TRUE, registryUnlocked |-> TRUE, startWritten |-> TRUE]], [operation |-> "Rules", at |-> 3, args |-> [rules |-> 1, time |-> 99, grid |-> 0, expectedGeneration |-> 0, expectedC |-> 6, expectedRecoveryNonce |-> 0, validUntil |-> 6], context |-> [owner |-> TRUE, initialized |-> TRUE, registryUnlocked |-> TRUE, startWritten |-> TRUE]], [operation |-> "Rules", at |-> 4, args |-> [rules |-> 2, time |-> 5, grid |-> 0, expectedGeneration |-> 0, expectedC |-> 6, expectedRecoveryNonce |-> 0, validUntil |-> 6], context |-> [owner |-> TRUE, initialized |-> TRUE, registryUnlocked |-> TRUE, startWritten |-> TRUE]]>>
  [] "RulesLock" = id -> <<[operation |-> "Rules", at |-> 1, args |-> [rules |-> 1, time |-> 3, grid |-> 0, expectedGeneration |-> 0, expectedC |-> 6, expectedRecoveryNonce |-> 0, validUntil |-> 6], context |-> [owner |-> TRUE, initialized |-> TRUE, registryUnlocked |-> TRUE, startWritten |-> TRUE]], [operation |-> "Rules", at |-> 2, args |-> [rules |-> 1, time |-> 4, grid |-> 0, expectedGeneration |-> 0, expectedC |-> 6, expectedRecoveryNonce |-> 0, validUntil |-> 6], context |-> [owner |-> TRUE, initialized |-> TRUE, registryUnlocked |-> TRUE, startWritten |-> TRUE]]>>
@@ -36,6 +47,7 @@ Programs(id) == CASE
  [] "RecoveryNoStart" = id -> <<[operation |-> "Recover", at |-> 1, args |-> [rules |-> 0, time |-> 0, grid |-> 0, expectedGeneration |-> 0, expectedC |-> 6, expectedRecoveryNonce |-> 0, validUntil |-> 6], context |-> [owner |-> TRUE, initialized |-> TRUE, registryUnlocked |-> TRUE, startWritten |-> FALSE]]>>
 NeedsLanding(id) == id \in {"RecoveryZero", "RecoveryNew", "RecoveryNumber", "RecoveryExpired",
                              "RecoveryNonce", "RecoveryCheckpoint", "RecoveryGeneration", "RecoveryStop", "HandoffRecovery"}
+                    \cup StopHandoffPrograms
 Context(x) == [owner |-> x.context.owner, initialized |-> x.context.initialized,
               registryUnlocked |-> x.context.registryUnlocked, startWritten |-> x.context.startWritten,
               timestamp |-> x.at, l1Block |-> 100 + x.at]

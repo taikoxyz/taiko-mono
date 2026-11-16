@@ -585,7 +585,168 @@
     {
       "id": "handoff-positive-stop-composition",
       "required": false,
-      "unassessed_reason": "UNASSESSED: held candidate across positive stop and stop-clear/recovery interleavings. Both current handoff programs use stopTime=0; separate M11 stop tests do not establish this composition."
+      "unassessed_reason": "Historical diagnostic: original 19 zero-stop handoff profiles survived complete stop removal. Closed for the three bounded StopDueRecovery/StopFutureRecovery/StopOffGridRecovery profiles by the assessed handoff-stop-* source faults; broader stop compositions remain unassessed."
+    },
+    {
+      "id": "handoff-stop-ignore-stop",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRulesSchedule.tla",
+      "replace": {
+        "old": "IN IF sch.stopTime = 0 THEN FALSE",
+        "new": "IN IF TRUE THEN FALSE"
+      },
+      "workloads": ["configs/handoff-stop-normal-due.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      },
+      "obligation": "Retained positive-stop handoff: ignore-stop must fail the independent historical/signing observation."
+    },
+    {
+      "id": "handoff-stop-premature-stop",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRulesSchedule.tla",
+      "replace": {
+        "old": "time >= sch.stopTime",
+        "new": "TRUE"
+      },
+      "workloads": ["configs/handoff-stop-normal-future.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      },
+      "obligation": "Retained positive-stop handoff: premature-stop must fail the independent historical/signing observation."
+    },
+    {
+      "id": "handoff-stop-ignore-grid",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRulesSchedule.tla",
+      "replace": {
+        "old": "(height - origin) % sch.stopGrid = 0 /\\ time >= sch.stopTime",
+        "new": "time >= sch.stopTime"
+      },
+      "workloads": ["configs/handoff-stop-normal-offgrid.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      },
+      "obligation": "Retained positive-stop handoff: ignore-grid must fail the independent historical/signing observation."
+    },
+    {
+      "id": "handoff-stop-current-cleared-stop",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRulesSchedule.tla",
+      "replace": {
+        "old": "Stopped(x) ==\n    LET sch == UsedSchedule(x)",
+        "new": "Stopped(x) ==\n    LET sch == schedule"
+      },
+      "workloads": ["configs/handoff-stop-normal-due.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      },
+      "obligation": "Retained positive-stop handoff: current-cleared-stop must fail the independent historical/signing observation."
+    },
+    {
+      "id": "handoff-stop-sign-stop-bypass",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "(~StopProfile \\/ ~Stopped(held.candidate))",
+        "new": "TRUE"
+      },
+      "workloads": ["configs/handoff-stop-normal-due.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "StoppedSignatureFence"
+      },
+      "obligation": "Retained positive-stop handoff: sign-stop-bypass must fail the independent historical/signing observation."
+    },
+    {
+      "id": "handoff-stop-recovery-origin",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRulesSchedule.tla",
+      "replace": {
+        "old": "IF Mutant = \"RecoveryOrigin\" THEN H(startHeight) ELSE S",
+        "new": "H(startHeight)"
+      },
+      "workloads": ["configs/handoff-stop-normal-due.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      },
+      "obligation": "Retained positive-stop handoff: recovery-origin must fail the independent historical/signing observation."
+    },
+    {
+      "id": "handoff-stop-candidate-time",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRulesSchedule.tla",
+      "replace": {
+        "old": "IF Mutant = \"CandidateStop\" THEN x.timestamp ELSE x.parentTime",
+        "new": "x.timestamp"
+      },
+      "workloads": ["configs/handoff-stop-normal-future.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      },
+      "obligation": "Retained positive-stop handoff: candidate-time must fail the independent historical/signing observation."
+    },
+    {
+      "id": "handoff-actual-stop-clear",
+      "required": true,
+      "engine": "forge",
+      "source": "contracts",
+      "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+      "replace": {
+        "old": "        schedule_.stopTime = 0;",
+        "new": "        // Deliberate source-only omission of stop clear."
+      },
+      "workloads": [
+        "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_conformance_stopHandoffReplay()"
+      ],
+      "failure": {
+        "kind": "forge",
+        "failures": {
+          "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_conformance_stopHandoffReplay()": "assertion failed: 102304 != 0"
+        }
+      },
+      "obligation": "Actual positive-stop handoff replay observes stop-clear"
+    },
+    {
+      "id": "handoff-actual-stop-event",
+      "required": true,
+      "engine": "forge",
+      "source": "contracts",
+      "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+      "replace": {
+        "old": "| uint256(_schedule.stopGrid) << 192",
+        "new": "| uint256(_schedule.stopGrid) << 191"
+      },
+      "workloads": [
+        "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_conformance_stopHandoffReplay()"
+      ],
+      "failure": {
+        "kind": "forge",
+        "failures": {
+          "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_conformance_stopHandoffReplay()": "raw RulesScheduleUpdated payload: 37662610414601540019805213409117668618779150642292027555840 != 75325220826921624602819949948363667115393283309076234633216"
+        }
+      },
+      "obligation": "Actual positive-stop handoff replay observes stop-event"
     }
   ]
 }

@@ -1389,3 +1389,111 @@ continuation and fixed correct available inputs underpin the temporal result.
 Source replay uses statement-bound verifier mocks and selected concrete traces,
 not a universal refinement theorem. The next discussion should prioritize those
 assumption boundaries and missing compositions; no next task starts automatically.
+
+## Verification takeover — positive-stop composition, 2026-11-16
+
+The user authorized continued verification after the previous five-task stop,
+then requested a published branch without a PR. Baseline `2fbe8b366` was pushed
+to `codex/etna-tla-settlement`; this increment continues that branch. Earlier
+local-only and stop-after-five statements above describe the previous batch.
+SPEC and actual-contract pins remain unchanged. Production code, normative
+documents and the GitHub worklist were not edited in this increment.
+
+### Confirmed blind spot and bounded repair
+
+An independent takeover experiment disabled historical stop decisions. All 19
+previous handoff outcomes still matched, while the original M11 observation
+workload detected the same fault. This independently confirms the declared
+positive-stop coverage gap; it is not an actual protocol defect.
+
+Three new raw Stop/Rules/Recover programs reuse the existing public action engine.
+With S6/K6/c12 and stopGrid12, due/future parents are unlanded parent18/time2;
+off-grid uses parent13/time2. Future stopTime3 equals candidate time3 but is after
+parent time2. These choices distinguish original-start grid alignment and
+parent-time stop semantics without retimestamping the landed checkpoint12.
+Support, recovery and authenticated generation knowledge can occur separately.
+The retained candidate keeps its historical identity and stop decision after
+recovery clears the live stop. Stopped candidates cannot sign; an earlier legal
+exposure stays historical after knowledge advances. The original opaque queued
+proof experiment remains separate: no proof of a stopped candidate is fabricated.
+
+There are 25 new configurations: three normal searches, 21 existence witnesses
+and one public-receipt export. A separate exporter profile produces nine real
+public calls from three programs. One additional Solidity replay test invokes
+the actual pinned Inbox methods using the existing state/event/abort observers.
+All 314 previous configs, 43 archived experiment files and original 38 C05
+semantic payloads remain unchanged; model provenance/content digests are refreshed.
+
+### Integrated evidence
+
+- Fresh accumulated `check.py`: **339/339 exact expected outcomes**. All 52 normal
+  searches exhaust with queue0; the remaining 287 controls and existence witnesses
+  match their declared outcomes. New due/future/off-grid normal
+  searches exhaust 1,922/584/584 distinct states. Root independently rehashed
+  every recorded model/config input against the final files.
+- Complete assessed fault inventory: **41/41 required faults KILLED**, executed
+  as compatible TLC36 /Forge Identity3 /Forge Rules2 cohorts. The selected IDs
+  cover the assessed required inventory exactly once; all 44 workload executions
+  per phase pass normally and after restoration, and fail at their declared
+  semantic targets when mutated. Source/tool/input identities and every raw log
+  hash are stable. Aggregate SHA256:
+  `2a2050493e404ff75884b0774f0290d39cf6d285109f9e01c7e268436f36e5af`.
+  This assesses the selected inventory only; the four explicitly unassessed
+  inventory entries retain their documented limits.
+- Full isolated real-contract replay: **13/13 exact selected test identities**
+  pass, including the original 12 and new nine-call stop-handoff replay. Original
+  564 source entries and copied/formal inputs are stable; one existing physically
+  locked Foundry cache is reused. Fresh original 38-call and new nine-call exports
+  reproduce the fixtures exactly.
+- Final Python discovery: **20 runner +78 conformance +20 sensitivity =118 tests
+  pass**. Rule checker:640 live markers, index, assets, links and tables pass;
+  migration-purity is explicitly skipped without a migration base.
+- Independent behavioral checks detect an operational held-parent-time corruption
+  while the raw audit remains unchanged, and an actual Inbox recovery fault that
+  clears stopTime but leaves stopGrid. Original/restored phases succeed. These
+  checks supplement, rather than replace, the declared fault inventory.
+
+### Independent review and repairs
+
+Two material findings concerned verification machinery. Both are distinct from
+protocol/SPEC defects.
+
+1. The initial pre-knowledge witness could be satisfied by an exposure made before
+   recovery and retained afterward. Two new stop-specific observers now bind the
+   exposure's own generation1/floor0, with a separate later-knowledge preservation
+   check. The original reviewer independently denies every allowed post-recovery
+   exposure: normal/restored executions reach the exact intended witnesses, while
+   both faulty searches exhaust 584 states without those witnesses. This explicit
+   reachability-loss regression is not mislabeled an invariant-failure kill.
+2. Existing Identity and new Rules fault entries require disjoint exact Forge
+   test sets, so one fixed runtime cannot execute the full mixed manifest. The
+   portable cohort descriptor partitions every assessed required obligation into
+   compatible TLC/Identity/Rules groups. Five focused regressions reject missing,
+   duplicate, unassessed and incompatible selections. Execution must supply an
+   explicit compatible runtime and `--only` IDs for each group; exact test-set
+   validation remains strict and a subset-ready flag is not full-inventory success.
+   The original reviewer independently verified all 132 raw phase logs, exact
+   semantic/test identities, source/tool hashes, mutant replacements and full
+   aggregate; no material finding remains. Reproduce the grouped procedure in
+   [sensitivity/README.md](sensitivity/README.md) using the checked-in descriptor
+   and external runtimes; do not reuse the earlier single-runtime full command
+   for the current mixed manifest.
+
+Separate harness attempts were inconclusive, not semantic evidence. A disposable
+namespace driver inherited ignored SIGINT/SIGTERM dispositions; restoring normal
+dispositions only in that driver makes the unchanged cancellation tests pass.
+A rule-check attempt initially omitted the referenced sibling Derivation document;
+mounting the complete existing docs read-only resolves that setup error. No test
+assertions or repository launchers were weakened. Earlier interrupted/superseded
+and parser/selector/setup failures are not counted as passing gates or fault kills.
+
+### Remaining limits
+
+No independently confirmed protocol/SPEC/production defect was found. This closes
+positive-stop composition for three finite programs, not all stop/recovery products.
+The historical unassessed inventory entry retains that distinction. The 19 archived
+incomplete profiles remain incomplete. Actual client/importer/CometBFT/EL behavior,
+real STF/guest/proving, weighted consensus, initialization validity, structural K
+upgrades and unbounded refinement remain outside the result. Authenticated anchors,
+valid parent metadata, statement-bound verifier mocks and trusted normal continuation
+remain explicit premises. No deployment, merge, PR or Notion/worklist write occurred.

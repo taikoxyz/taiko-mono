@@ -1,0 +1,69 @@
+{
+  "schema": "etna-fault-cohorts-1",
+  "manifest": "mutations.json",
+  "cohorts": [
+    {
+      "id": "tlc",
+      "engine": "tlc",
+      "test_ids": [],
+      "required_ids": [
+        "m10-el-binding",
+        "m10-connect-enabled",
+        "m10-state-binding",
+        "m10-computed-state-binding",
+        "m10-header-binding",
+        "m10-envelope-binding",
+        "m10-preimage-binding",
+        "m10-entries-binding",
+        "m10-window-binding",
+        "m10-missing-present",
+        "m10-missing-finality",
+        "m10-missing-ancestors",
+        "m10-missing-evidence",
+        "m10-contradiction-envelope",
+        "m10-contradiction-next",
+        "m10-contradiction-entries",
+        "m10-conflict-non-origin",
+        "m10-conflict-finality",
+        "m10-conflict-present",
+        "m10-conflict-header-binding",
+        "m10-connect-disabled-progress",
+        "m10-connect-no-effect",
+        "m10-target-auth-progress",
+        "handoff-latest-schedule",
+        "handoff-current-clock",
+        "handoff-relabel-generation",
+        "handoff-relabel-anchor",
+        "handoff-cached-authorization",
+        "handoff-proof-generation",
+        "handoff-stop-ignore-stop",
+        "handoff-stop-premature-stop",
+        "handoff-stop-ignore-grid",
+        "handoff-stop-current-cleared-stop",
+        "handoff-stop-sign-stop-bypass",
+        "handoff-stop-recovery-origin",
+        "handoff-stop-candidate-time"
+      ]
+    },
+    {
+      "id": "forge-identity",
+      "engine": "forge",
+      "test_ids": [
+        "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()"
+      ],
+      "required_ids": [
+        "settlement-signal-publication",
+        "settlement-signal-state-root",
+        "settlement-active-snapshot"
+      ]
+    },
+    {
+      "id": "forge-rules",
+      "engine": "forge",
+      "test_ids": [
+        "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_conformance_stopHandoffReplay()"
+      ],
+      "required_ids": ["handoff-actual-stop-clear", "handoff-actual-stop-event"]
+    }
+  ]
+}

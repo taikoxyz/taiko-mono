@@ -237,6 +237,29 @@ proof or registry callback-lock conformance is claimed. Sources and dependencies
 are read-only in a network-disabled runner. One shared filesystem lock serializes
 all actual Forge jobs; overlapping diagnostic runs were excluded from evidence.
 
+### Positive-stop handoff replay
+
+The explicit `--profile stop-handoff` export writes
+`stop_handoff_cases.json` with schema `etna-stop-handoff-replay-1`: three programs,
+nine actual public receipts, and its own config provenance. The default API/CLI,
+schema, mapping and all 38 original C05 semantic calls remain unchanged; only the
+shared model provenance/content digest is refreshed. `parse_receipts`, validation,
+fresh comparison and Solidity `runAttempt` share the original receipt/state/event/
+abort logic. There is no Python or Solidity acceptance oracle.
+
+```sh
+python -B formal/etna/conformance/export_rules.py --java "$java" --jar "$tlc_jar" \
+  --profile stop-handoff --output "$fixture" --log "$log"
+```
+
+Run this exporter through the inspected offline isolated launcher, with source
+read-only and an explicit output binding. The selected real test is
+`EtnaRulesReplayTest::test_conformance_stopHandoffReplay()`; use the same physical
+Foundry lock as every original replay/source-fault job. The held candidates and
+signing fences are checked only in the bounded handoff model. Actual replay checks
+Stop/Rules/Recover and current stop clearing, with the existing authenticated
+anchor, imported finalization and statement-bound setup-proof premises.
+
 ## V03 — successful cross-contract publication
 
 All actual successful land/setup paths in C02–C06 now call one shared
