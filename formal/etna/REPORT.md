@@ -1275,3 +1275,26 @@ resource availability and a stable generation remain explicit premises. There is
 no actual client/CometBFT/EL progress, perpetual-crash recovery or unconditional
 network/throughput theorem. Temporal tool/setup errors were INCONCLUSIVE, never
 counted as kills. Full integrated published-source campaign remains a batch gate.
+
+### V05 — held-candidate schedule/recovery handoff
+
+Two bounded normal programs, six exact negative controls and eleven existence
+witnesses pass. Six direct source mutations fail their declared historical
+derivation, identity, at-exposure signing or proof-generation invariant, with
+normal/restored inputs passing. Independent review inspected support before
+recovery, after recovery before knowledge, knowledge before support, and a valid
+pre-knowledge signature retained after authentication. Historical validity is
+separate from current signing authorization and current L1 proof acceptance.
+
+The companion calls the actual existing M11 Setup/PrepareCall/Invoke actions.
+Only a HandoffRecovery raw fixture and NeedsLanding entry are added to M11. C05
+retains identical 23 programs/38 payload calls; its model SHA/content hash alone
+are refreshed. The signature oracle captures knowledge at exposure; comparing
+old signatures to later knowledge would create a false finding. The proof is an
+otherwise-valid opaque queued-proof premise, not generated from the candidate.
+
+Both selected programs use stopTime=0. Positive stop and stop-clear/recovery
+composition is explicitly UNASSESSED; existing independent M11 stop tests cannot
+stand in for that composition. No actual protocol/production defect was found.
+Independent per-task review passed; final integrated campaign/replay and full
+batch review remain gates.

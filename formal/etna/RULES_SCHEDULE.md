@@ -18,7 +18,7 @@ of real contracts, actual guest/client execution or structural K-upgrade code.
 
 ## Finite workload and time domain
 
-There are 23 fixed raw public programs containing 38 calls. They cover earliest
+The normal public profile selects 23 fixed raw public programs containing 38 calls. They cover earliest
 notice, equal-rule rescheduling, cancellation, strict pending/stop lock equality,
 invalid rule numbers, activation promotion, rejected promotion atomicity, stop
 move/cancel/reached state and invalid grids, too-early time, owner/initialization,
@@ -185,3 +185,7 @@ Review repair wave 1 added the independent audit, retained-prefix/current-state
 checks, and three permanent history-write controls. Normal graphs still exhaust
 at 217 public and 13,680 observation states. This is a model/assertion repair;
 no specification or production implementation defect was established.
+
+The candidate-handoff companion adds one fixture-only `HandoffRecovery` program
+outside that public profile. It does not change the 23 selected programs, their
+38 exported calls or the C05 payload; only the model-source provenance changes.

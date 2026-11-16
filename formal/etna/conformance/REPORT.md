@@ -257,3 +257,8 @@ Independent review verifies all six files, every successful path, exact12 IDs,
 three exact failure reasons/raw hashes and original564 source entries. No
 production defect identified; source remains pinned/read-only. Early empty-test
 selection was INCONCLUSIVE, not a kill, and was corrected before final evidence.
+
+V05 changes only C05 producer provenance and content digest after one unselected
+handoff fixture is added to M11. Deep comparison confirms all 38 exported calls,
+23 selected programs, mapping and schema are identical. Actual current-fixture
+full replay remains a final batch gate.

@@ -479,6 +479,113 @@
         "kind": "property",
         "name": "ConditionalStableConnection"
       }
+    },
+    {
+      "id": "handoff-latest-schedule",
+      "required": true,
+      "obligation": "Held-candidate handoff: handoff-latest-schedule",
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRulesSchedule.tla",
+      "replace": {
+        "old": "IF Mutant = \"LatestAnchor\" THEN schedule ELSE history[x.anchor].schedule",
+        "new": "schedule"
+      },
+      "workloads": ["configs/handoff-normal-handoffrecovery.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      }
+    },
+    {
+      "id": "handoff-current-clock",
+      "required": true,
+      "obligation": "Held-candidate handoff: handoff-current-clock",
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "IF Mutant = \"CurrentClock\" THEN now ELSE x.timestamp",
+        "new": "now"
+      },
+      "workloads": ["configs/handoff-normal-handoffrecovery.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      }
+    },
+    {
+      "id": "handoff-relabel-generation",
+      "required": true,
+      "obligation": "Held-candidate handoff: handoff-relabel-generation",
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "Mutant = \"RelabelHeld\"",
+        "new": "TRUE"
+      },
+      "workloads": ["configs/handoff-normal-handoffrecovery.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HeldIdentity"
+      }
+    },
+    {
+      "id": "handoff-relabel-anchor",
+      "required": true,
+      "obligation": "Held-candidate handoff: handoff-relabel-anchor",
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "Mutant = \"RelabelAnchor\"",
+        "new": "TRUE"
+      },
+      "workloads": ["configs/handoff-normal-handoffrecovery.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HeldIdentity"
+      }
+    },
+    {
+      "id": "handoff-cached-authorization",
+      "required": true,
+      "obligation": "Held-candidate handoff: handoff-cached-authorization",
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "IF Mutant = \"CachedAuthorization\" THEN held.cachedAllowed ELSE LiveAuthorization",
+        "new": "held.cachedAllowed"
+      },
+      "workloads": ["configs/handoff-normal-handoffrecovery.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "SignatureFence"
+      }
+    },
+    {
+      "id": "handoff-proof-generation",
+      "required": true,
+      "obligation": "Held-candidate handoff: handoff-proof-generation",
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaSettlement.tla",
+      "replace": {
+        "old": "(~CheckProofGeneration \\/ proof.generation = generation)",
+        "new": "TRUE"
+      },
+      "workloads": ["configs/handoff-normal-handoffrecovery.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ProofGenerationFence"
+      }
+    },
+    {
+      "id": "handoff-positive-stop-composition",
+      "required": false,
+      "obligation": "UNASSESSED: held candidate across positive stop and stop-clear/recovery interleavings. Both current handoff programs use stopTime=0; separate M11 stop tests do not establish this composition."
     }
   ]
 }

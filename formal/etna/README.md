@@ -455,3 +455,7 @@ observation tags and requires eventual stable connection under fixed correct
 available inputs, target/generation and fair internal work with at most one crash.
 Nested sole-property profiles run through the sensitivity tool, not the older
 invariant-only failure classifier. This is no unconditional client/network claim.
+
+V05 composes a held candidate with actual M11 public schedule/recovery calls,
+separating historical derivation from learned recovery/signature authorization
+and current-generation proof enabledness. See [CANDIDATE_HANDOFF.md](CANDIDATE_HANDOFF.md).

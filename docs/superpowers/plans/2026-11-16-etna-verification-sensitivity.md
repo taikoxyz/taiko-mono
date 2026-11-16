@@ -69,10 +69,10 @@
 **Files:** Create EtnaCandidateHandoff.tla, CANDIDATE_HANDOFF.md and configs/handoff-\*.cfg; add only HandoffRecovery raw program/NeedsLanding in EtnaRulesSchedule.tla; refresh conformance/rules_cases.json provenance after unchanged38-call export. Existing engine/raw programs/schema unchanged.
 **Interfaces:** EXTENDS real M11 action engine; one held candidate at intermediate Ready point, original metadata and captured anchor; separate derivation, authenticated knowledge/signature exposure and inherited proof-enabledness receipts.
 
-- [ ] Define explicit legal hold-before-call/retry-after-call and support/knowledge-ordering witnesses, using existing Promote and new fixture-only HandoffRecovery(scheduleRules1,time2 at1; recover g0,c12,nonce0,validUntil6,rules2 at3; seededc12).
-- [ ] Reuse actual Setup/PrepareCall/Invoke and original history audit; preserve historical timestamps/generation rather than filtering old candidates through current-generation ValidCandidate.
-- [ ] Add independent historical identity/derivation, at-exposure knowledge fence and current-generation proof-enabledness invariants; no fake STF or copied consensus engine.
-- [ ] Exhaust bounded normals/witnesses and selected wrong-latest/cached-auth/relabelled-generation/proof-generation faults; independently review/verify.
+- [x] Define explicit legal hold-before-call/retry-after-call and support/knowledge-ordering witnesses, using existing Promote and new fixture-only HandoffRecovery(scheduleRules1,time2 at1; recover g0,c12,nonce0,validUntil6,rules2 at3; seededc12).
+- [x] Reuse actual Setup/PrepareCall/Invoke and original history audit; preserve historical timestamps/generation rather than filtering old candidates through current-generation ValidCandidate.
+- [x] Add independent historical identity/derivation, at-exposure knowledge fence and current-generation proof-enabledness invariants; no fake STF or copied consensus engine.
+- [x] Exhaust bounded normals/witnesses and selected wrong-latest/cached-auth/relabelled-generation/proof-generation faults; independently review/verify.
 - [ ] Root final stable accumulated TLC/campaign/temporal/Python/real replay evidence, committed-byte readback, whole-batch review and GitHub worklist; stop after five and report remaining gaps.
 
 ## Order and source freezes
