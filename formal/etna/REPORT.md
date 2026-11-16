@@ -4,8 +4,10 @@ The first section records the original height/generation model. The
 [2026-11-14 extension](#2026-11-14-checkpoint-identity-extension) below records
 the composed checkpoint-identity model.
 
-The [latest three-increment gate and retrospective](#three-increment-batch-final-gate-and-retrospective)
-records the current accumulated results and their limits.
+The [latest five-increment gate and retrospective](#five-increment-batch-final-gate-and-retrospective)
+records the current369-config/65-obligation gate and its independent audits.
+Earlier sections preserve historical inputs and explicitly corrected claims;
+their intermediate counts and positive tuples are not the current result.
 
 Date: 2026-11-13. Source specification:
 `d18357214fab30ea512ae9858a11699806d72ba1`.
@@ -2207,3 +2209,92 @@ External finality/authentication and physical restoration remain assumptions of
 the trusted recovery macro. These selected executions do not implement recovery,
 real proving, resource fairness, latency guarantees or universal liveness. The
 stable accumulated five-item gate and final whole-batch review remain pending.
+
+## Five-increment batch: final gate and retrospective
+
+All five authorized increments are complete. The stable execution snapshot is
+implementation head `d9c1c4d43dd747167f065b6433bdaba131c5b0be`, containing511
+tracked formal files. Every frozen byte was independently matched to that Git
+tree. Subsequent closing edits affect this report and the plan only; executable,
+model, config, fixture, inventory and consumed tool inputs remain unchanged.
+
+| Gate                              | Final measured result                                                                                                                                                                                                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Default TLC                       | 369/369 exact outcomes:70 exhausted normal searches and299 named controls/reachability witnesses across17 top-level models.                                                                                                                                                                 |
+| Compatible shared cohorts         | 65/65 assessed obligations KILLED, exactly once:60TLC/3Forge Identity/2Forge Rules. All234 phase/workload logs checked;78 workloads per original/mutant/restored phase.                                                                                                                     |
+| Ordinary Python                   | 20 runner +131 conformance +20 sensitivity =171 tests, all passing.                                                                                                                                                                                                                         |
+| Separate controller lane          | Five mandatory host-controller lifecycle tests pass with stable shared inputs; their sleeping process fixture supplies no Go admission evidence.                                                                                                                                            |
+| Rules                             | 640 live markers,640 live/28 retired index, assets, links and tables pass. All106 mounted doc/tool inputs stable. Migration purity remains explicitly skipped without a base.                                                                                                               |
+| Fresh model exports               | Three clock observations and five complete import publications compare to the committed fixtures; all50 import action records independently checked.                                                                                                                                        |
+| Current-byte stock store evidence | Two independently executed seven-leaf, three-phase campaigns match the final formatted inputs; exact historical-row source fault, actual same-copy restoration and wrong-AppHash rejection verified. These earlier-in-batch executions were audited, not relabeled as a new final Go rerun. |
+
+Default TLC completes in538.934s; the complete compatible shared campaign in
+387.724s. Python/rules and fresh exports complete in4.274s and6.276s respectively.
+Every required lane exits0. Raw shared failures comprise57 declared invariant
+obligations, three single-property temporal obligations and five exact Forge
+failure obligations; setup, parsing, timeout and wrong-reason errors earn no
+credit. Both selected actual contract test identities execute under their own
+compatible cohorts. All564 original contract entries and the complete568-entry
+runtime snapshot are independently checked, including the original symlinks.
+
+A fresh whole-batch source reviewer inspects the complete eight-commit,
+43-file implementation diff and relevant legacy interfaces; specification
+compliance and code quality both pass without a requested fix. A separate
+stdlib-only artifact audit imports no production classifiers or validators.
+It independently checks every default result, all65 obligations/234 raw phase
+logs, exact model/config/tool/mutation hashes, original/restored records,
+actual exporter values, native identities/diagnostics and source preservation.
+Both final verdicts are READY for this bounded draft-review scope, not merge or
+production approval.
+
+The shared executor removes its temporary TLC/Forge phase trees. The independent
+audit therefore verifies full original hash maps, exact single-site mutation
+reconstruction, identical private bindings, recorded stable restoration and
+actual raw behavior; it cannot walk deleted phase trees afterward. F04 retains
+its actual mutant bytes and restored private tree, and both original/restored
+1659-file manifests were independently walked. These are distinct evidence
+strengths and are not conflated.
+
+All350 pre-batch configs remain byte-identical. F05 also preserves all359
+preceding configs and65 inventory objects. The old first-block seven-native
+gate, full13-test contract replay and38/9-call exports remain historical evidence
+for verified byte-identical consumed inputs; those whole gates were not rerun
+or called fresh. Nineteen archived incomplete profiles remain incomplete and
+four unassessed boundaries stay outside the65-obligation denominator.
+
+The concrete self-check blind spots were shared positive premises, incomplete
+input domains, progress inferred from green safety, and incomplete failure or
+execution-input attribution. Constructors and observers could agree on time40
+before genesis100 or an impossible validator pair. Removing a guard could survive
+when no input distinguished it. An expected failed child could conceal another
+parent error. Original-file hashes could remain correct while executed copies
+changed, and JSON loading could discard conflicting fields. More repetitions of
+the same checks would not add those missing properties. The completed work adds
+independent literal/source premises, required actual receipts, raw state audits,
+exact error-channel classification and current-byte upstream execution controls.
+
+The scope decisions remain explicit: selected stock two-update prefixes prove
+local validator arithmetic, not Etna committee derivation or complete signed
+history; symbolic proving and trusted completed recovery do not establish real
+proofs, external authentication/finality, resource fairness or universal progress;
+MemDB serialization does not establish physical durability or importer atomicity.
+Full App/EL/STF/archive reconstruction, actual secp256k1eth mapping, non-genesis
+commit admission, network voting and sustained throughput remain unverified.
+These limits explain why finite green results cannot establish protocol
+completeness. No independently supported production/SPEC defect was found in
+the inspected scope; the confirmed repairs concern fixtures and verification.
+
+Exact final evidence SHA256:
+
+| Artifact                              | SHA256                                                             |
+| ------------------------------------- | ------------------------------------------------------------------ |
+| Frozen511-file manifest               | `20287a33baa37ef71d0548480485d8030bfad46cb7441e0a39d16f525a4e2e80` |
+| Default369 results                    | `9c500810e59f327533d0b201a8a767b9a177c4e69a8fb332829fa5c4177560b3` |
+| Shared65 aggregate                    | `de28136237d54ba2a2c78d58908f196cb5fd4204e3333c43888797197526886b` |
+| Independent whole-batch source review | `12d2fe55d907e152d9e92e80bdaa87c1b7c7b7b29418ab208051c0a15cf4673c` |
+| Independent artifact report           | `7a9788d8cf4364def4f0ae6a1d4b66bef1fc53030c9842f1d5635d56038b6482` |
+| Independent per-result evidence       | `bfc6dfa729462314dda4e4ffdbb6184aca50263845a0ddadcacb419ba2aeac4d` |
+
+The existing PR stays draft, production/normative sources and Notion remain
+untouched, and this batch stops after five increments. Hourly feedback checks
+continue under the existing authorization; they do not start a sixth increment.

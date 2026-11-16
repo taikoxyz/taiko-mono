@@ -77,11 +77,11 @@
 - [x] Build explicit settle1/finalize/recover-origin1 sequences; use separate programs to respect two once-used job IDs. Keep old proof reference live to isolate generation binding.
 - [x] Add actual completed-script witnesses and absence/late-resource cases; disabled steps or missing terminal receipts must fail gates.
 - [x] Add exact wrong-origin, fabricated-resource, generation-binding and disabled-Recover source faults in the existing compatible TLC campaign; normal/restored succeed, exact audit targets fail.
-- [x] Independently review/verify and confirm commit readiness, preserving old M07/config bytes and explicit external recovery-macro premises. Publication readback remains pending.
+- [x] Independently review/verify and confirm commit readiness, preserving old M07/config bytes and explicit external recovery-macro premises. Implementation publication readback is recorded in the ledger.
 
 ## Final five-item gate
 
-- [ ] Refresh all PR feedback/head/CI and resolve worthwhile new opinions first.
-- [ ] Freeze final consumed inputs; run accumulated exact TLC/Python/cohort checks, fresh import/time exports and affected native/store/controller lanes.
-- [ ] Independently reclassify actual logs/receipts, exact IDs, source/config/tool/mutant hashes and coverage; review complete batch diff and final report.
-- [ ] Commit/push/read back existing draft head/body/scope, record completed5, then report retrospective and remaining limitations. Do not start a sixth increment.
+- [x] Refresh all PR feedback/head/CI and resolve worthwhile new opinions first.
+- [x] Freeze final consumed inputs; run accumulated exact TLC/Python/cohort checks, fresh import/time exports and affected native/store/controller lanes.
+- [x] Independently reclassify actual logs/receipts, exact IDs, source/config/tool/mutant hashes and coverage; review complete batch diff and final report.
+- [x] Prepare the measured final report and reviewed draft publication. Exact closing commit/push/readback and completion are recorded in the ledger after publication. Stop after these five increments; no sixth is authorized.
