@@ -204,12 +204,14 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
                                 ("l1ChainId", "TaikoAnchorImpl"),
                                 ("_authorizedSyncer", "SignalServiceImpl"),
                                 ("_remoteSignalService", "SignalServiceImpl"),
-                                ("pauser", "SignalServiceImpl")):
+                                ("pauser", "SignalServiceImpl"),
+                                ("stateRootProvider", "SignalServiceImpl"),
+                                ("unzenInbox", "SignalServiceImpl")):
             self.predeploys = self.fixture.predeploys(**{immutable: other})
             with self.assertRaisesRegex(ValueError, name + " " + immutable + " is " + other
                                         + ".*rerun `pnpm genesis:gen`"):
                 self._build()
-        # Each implementation's `__self` is its own address, and only SignalServiceL2 has a
+        # Each implementation's `__self` is its own address, and only SignalService has a
         # resolver.
         anchor_self = self.fixture.address_word(self.addresses["TaikoAnchorImpl"])
         self.predeploys = self.fixture.predeploys(__self=anchor_self, __resolver=self.fixture.word(0))
@@ -315,11 +317,11 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
 
     def test_rejects_root_path_artifacts_that_link_a_library(self):
         # A linked library would be a call target the immutable check does not cover.
-        signal = self.fixture.artifacts()["SignalServiceL2"]
+        signal = self.fixture.artifacts()["SignalService"]
         signal["deployedBytecode"]["linkReferences"] = {
             "contracts/Lib.sol": {"Lib": [{"start": 132, "length": 20}]}}
-        self.fixture.write_artifacts(self.artifacts, {"SignalServiceL2": signal})
-        with self.assertRaisesRegex(ValueError, "SignalServiceL2 links a library"):
+        self.fixture.write_artifacts(self.artifacts, {"SignalService": signal})
+        with self.assertRaisesRegex(ValueError, "SignalService links a library"):
             self._build()
 
     def test_rejects_an_immutable_that_is_not_32_bytes(self):
@@ -331,7 +333,7 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
 
     def test_rejects_code_that_is_not_the_compiled_runtime(self):
         for name, contract, offset in (("TaikoAnchorImpl", "Anchor", 0),
-                                       ("SignalServiceImpl", "SignalServiceL2", 33)):
+                                       ("SignalServiceImpl", "SignalService", 33)):
             self.setUp()
             self._set_code_byte(name, offset, 0xFE)
             # The message names the artifacts directory and how to point at the right one.
@@ -339,21 +341,37 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
                                         + " runtime in " + re.escape(str(self.artifacts))
                                         + ".*--artifacts"):
                 self._build()
-        # A trailing byte, and the base SignalService instead of SignalServiceL2.
+        # A trailing byte is stale runtime too.
         self.setUp()
         account = self.predeploys[self.addresses["TaikoAnchorImpl"]]
         account["code"] += "00"
         with self.assertRaisesRegex(ValueError, "TaikoAnchorImpl is not the compiled Anchor"):
             self._build()
-        self.setUp()
-        base_runtime = self.fixture.runtime(self.fixture.artifacts()["SignalService"], {
-            "_authorizedSyncer": self.fixture.address_word(self.addresses["TaikoAnchor"]),
-            "_remoteSignalService": self.fixture.address_word(self.l1_signal_service),
-            "pauser": self.fixture.word(0),
-        })
-        self.predeploys[self.addresses["SignalServiceImpl"]]["code"] = base_runtime
+
+    def test_rejects_native_checkpoint_configuration_on_l2(self):
+        self.predeploys = self.fixture.predeploys(stateRootProvider=self.fixture.word(0))
+        with self.assertRaisesRegex(ValueError, "SignalServiceImpl stateRootProvider is 0x0+"):
+            self._build()
+
+    def test_rejects_swapped_provider_and_syncer_bindings(self):
+        self.predeploys = self.fixture.predeploys(
+            stateRootProvider=self.fixture.address_word(self.addresses["SignalService"]),
+            _authorizedSyncer=self.fixture.word(0))
+        with self.assertRaisesRegex(ValueError, "SignalServiceImpl _authorizedSyncer is 0x0+"):
+            self._build()
+
+    def test_rejects_stale_three_immutable_signal_alloc(self):
+        old_artifact = self.fixture._artifact(
+            "SignalService", ("_authorizedSyncer", "_remoteSignalService", "pauser"),
+            ("_authorizedSyncer", "_remoteSignalService", "pauser"))
+        self.predeploys[self.addresses["SignalServiceImpl"]]["code"] = self.fixture.runtime(
+            old_artifact, {
+                "_authorizedSyncer": self.fixture.address_word(self.addresses["TaikoAnchor"]),
+                "_remoteSignalService": self.fixture.address_word(self.l1_signal_service),
+                "pauser": self.fixture.word(0),
+            })
         with self.assertRaisesRegex(ValueError,
-                                    "SignalServiceImpl is not the compiled SignalServiceL2"):
+                                    "SignalServiceImpl is not the compiled SignalService runtime"):
             self._build()
 
     def test_rejects_a_proxy_that_points_elsewhere(self):
@@ -386,10 +404,10 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             self._build()
         # An immutable the runtime never reads cannot carry the checked value. Its bytes are then
         # ordinary code, zero in the artifact.
-        signal = json.loads(json.dumps(contracts["SignalServiceL2"]))
+        signal = json.loads(json.dumps(contracts["SignalService"]))
         del signal["deployedBytecode"]["immutableReferences"]["22"]
         self.fixture.write_artifacts(self.artifacts, {"Anchor": contracts["Anchor"],
-                                                      "SignalServiceL2": signal})
+                                                      "SignalService": signal})
         self.predeploys = self.fixture.predeploys(_remoteSignalService=self.fixture.word(0))
         with self.assertRaisesRegex(ValueError, "_remoteSignalService has no offsets"):
             self._build()

@@ -10,7 +10,6 @@ import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
-import { SignalServiceL2 } from "src/shared/signal/SignalServiceL2.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 import { LegacySignalService } from "test/shared/signal/LegacySignalService.sol";
 
@@ -110,11 +109,11 @@ contract TestDeployShastaL2Config is CommonTest {
         loader.validateConfig(config);
     }
 
-    /// @dev The Anchor saves checkpoints into the L2 SignalService proxy, and SignalServiceL2
+    /// @dev The Anchor saves checkpoints into the L2 SignalService proxy, and SignalService
     /// accepts them only from the Anchor proxy and proves against the L1 SignalService. Swapping
     /// the first two would make every Unzen `anchorV4` revert once the DAO batch installs both
     /// implementations; a wrong remote would make every L1 to L2 proof fail.
-    function test_deploy_WiresAnchorAndSignalServiceL2() external {
+    function test_deploy_WiresAnchorAndSignalService() external {
         MainnetConfigLoader loader = new MainnetConfigLoader();
         DeployShastaL2Contracts.DeploymentConfig memory config =
             DeployShastaL2Contracts.DeploymentConfig({
@@ -133,8 +132,10 @@ contract TestDeployShastaL2Config is CommonTest {
         assertEq(anchor.l1ChainId(), config.l1ChainId, "L1 chain id");
         assertEq(anchor.etnaTimestamp(), config.etnaTimestamp, "Etna timestamp");
 
-        SignalServiceL2 signalService = SignalServiceL2(signalServiceImpl);
+        SignalService signalService = SignalService(signalServiceImpl);
         assertEq(signalService.pauser(), Alice, "pauser");
+        assertEq(signalService.stateRootProvider(), config.anchorProxy, "root provider");
+        assertEq(signalService.unzenInbox(), address(0), "legacy disabled");
         // The remote has no getter; the runtime embeds it as an immutable word.
         assertTrue(_embeds(signalServiceImpl.code, config.l1SignalService), "remote");
         assertFalse(_embeds(signalServiceImpl.code, config.l2SignalService), "not the L2 one");
@@ -188,12 +189,14 @@ contract TestDeployShastaL2Config is CommonTest {
         vm.etch(_signalService, "");
         _expectLoaderRevert(_loader);
 
-        SignalService implementation = new SignalService(address(this), address(1), Alice);
+        SignalService implementation =
+            new SignalService(address(this), address(1), Alice, address(0), address(0));
         vm.etch(_signalService, address(implementation).code);
         _expectPauser(_loader, _signalService, Alice);
 
         // A versioned implementation must expose its immutable pauser, even when it is zero.
-        implementation = new SignalService(address(this), address(1), address(0));
+        implementation =
+            new SignalService(address(this), address(1), address(0), address(0), address(0));
         vm.etch(_signalService, address(implementation).code);
         _expectPauser(_loader, _signalService, address(0));
         vm.mockCall(_signalService, abi.encodeWithSignature("pauser()"), "");

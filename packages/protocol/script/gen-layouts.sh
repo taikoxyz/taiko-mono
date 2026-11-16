@@ -24,7 +24,6 @@ contracts_shared=(
 "contracts/shared/bridge/Bridge.sol:Bridge"
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
 "contracts/shared/signal/SignalService.sol:SignalService"
-"contracts/shared/signal/SignalServiceL2.sol:SignalServiceL2"
 "contracts/shared/fork-router/ForkRouter.sol:ForkRouter"
 )
 

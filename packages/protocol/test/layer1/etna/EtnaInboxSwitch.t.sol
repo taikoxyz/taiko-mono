@@ -75,6 +75,36 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         _upgradeAndInit(inboxImpl, _switchInitParams());
     }
 
+    /// @dev The shared service reads the real Inbox start view only for legacy writes. Before
+    /// the origin write, any legacy height is allowed; afterwards the last Unzen height is S.
+    function test_saveCheckpoint_LegacyAuthorizationFollowsRealInboxStart() external {
+        assertEq(signalService.stateRootProvider(), address(0));
+        assertEq(signalService.unzenInbox(), address(unzen));
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: uint48(S + 2), blockHash: _startHash(), stateRoot: _startStateRoot()
+        });
+        vm.prank(address(unzen));
+        signalService.saveCheckpoint(checkpoint);
+        assertEq(signalService.getCheckpoint(uint48(S + 2)).stateRoot, _startStateRoot());
+
+        _writeStart();
+        checkpoint.blockNumber = uint48(S - 1);
+        vm.prank(address(unzen));
+        signalService.saveCheckpoint(checkpoint);
+        _saveUnzenCheckpoint(_startHash(), _startStateRoot());
+        assertEq(signalService.getCheckpoint(uint48(S)).stateRoot, _startStateRoot());
+
+        checkpoint.blockNumber = uint48(S + 1);
+        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
+        vm.prank(address(unzen));
+        signalService.saveCheckpoint(checkpoint);
+        vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
+        signalService.saveCheckpoint(checkpoint);
+        vm.prank(inboxProxy);
+        signalService.saveCheckpoint(checkpoint);
+        assertEq(signalService.getCheckpoint(uint48(S + 1)).stateRoot, _startStateRoot());
+    }
+
     // ---------------------------------------------------------------
     // setOrigin (START-10-5a, 10-5b, 10-5c)
     // ---------------------------------------------------------------

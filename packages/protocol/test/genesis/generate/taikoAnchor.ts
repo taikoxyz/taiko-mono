@@ -157,10 +157,7 @@ async function generateContractConfigs(
             path.join(ARTIFACTS_PATH, "./ERC1155Vault.sol/ERC1155Vault.json"),
         ),
         SignalServiceImpl: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./SignalServiceL2.sol/SignalServiceL2.json",
-            ),
+            path.join(ARTIFACTS_PATH, "./SignalService.sol/SignalService.json"),
         ),
         SharedResolverImpl: require(
             path.join(
@@ -246,8 +243,14 @@ async function generateContractConfigs(
         ["erc1155Vault"],
     );
     const signalServiceReferencesMap: any = getImmutableReference(
-        "SignalServiceL2",
-        ["_authorizedSyncer", "_remoteSignalService"],
+        "SignalService",
+        [
+            "_authorizedSyncer",
+            "_remoteSignalService",
+            "stateRootProvider",
+            "unzenInbox",
+            "pauser",
+        ],
     );
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
@@ -612,6 +615,21 @@ async function generateContractConfigs(
                     {
                         id: signalServiceReferencesMap._remoteSignalService.id,
                         value: ethers.utils.hexZeroPad(remoteSignalService, 32),
+                    },
+                    {
+                        id: signalServiceReferencesMap.stateRootProvider.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.TaikoAnchor,
+                            32,
+                        ),
+                    },
+                    {
+                        id: signalServiceReferencesMap.unzenInbox.id,
+                        value: ethers.constants.HashZero,
+                    },
+                    {
+                        id: signalServiceReferencesMap.pauser.id,
+                        value: ethers.constants.HashZero,
                     },
                 ]),
                 addressMap,

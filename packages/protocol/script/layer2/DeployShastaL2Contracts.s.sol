@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import { Anchor } from "src/layer2/core/Anchor.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { SignalServiceL2 } from "src/shared/signal/SignalServiceL2.sol";
+import { SignalService } from "src/shared/signal/SignalService.sol";
 import "test/shared/DeployCapability.sol";
 
 /// @title DeployShastaL2Contracts
@@ -58,7 +58,7 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         );
         // On a running network the gate must lie in the future, or anchorV4 would already revert.
         // This checks only deploy time. The DAO proposal's single L2 batch upgrades this Anchor
-        // and SignalServiceL2 together and must execute well before the Unzen propose cutoff, so
+        // and SignalService together and must execute well before the Unzen propose cutoff, so
         // the Anchor at the Etna start S is already this one (Etna SWITCH.md section 3).
         require(config.etnaTimestamp > block.timestamp, "ETNA_TIMESTAMP not in the future");
         // ETNA_FORK_TIME is a uint48 in the EtnaInbox; a larger value could never match it.
@@ -106,11 +106,11 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
     }
 
     /// @dev Deploys the two implementations without upgrading the proxies: the Anchor saves
-    /// checkpoints into the L2 SignalService proxy, and SignalServiceL2 accepts them only from the
+    /// checkpoints into the L2 SignalService proxy, and SignalService accepts them only from the
     /// Anchor proxy.
     /// @param config The validated deployment configuration.
     /// @return anchorImpl_ The new Anchor implementation.
-    /// @return signalServiceImpl_ The new SignalServiceL2 implementation.
+    /// @return signalServiceImpl_ The new SignalService implementation.
     function _deploy(DeploymentConfig memory config)
         internal
         returns (address anchorImpl_, address signalServiceImpl_)
@@ -123,8 +123,12 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         console2.log("New anchorImpl deployed:", anchorImpl_);
 
         signalServiceImpl_ = address(
-            new SignalServiceL2(
-                config.anchorProxy, config.l1SignalService, config.signalServicePauser
+            new SignalService(
+                config.anchorProxy,
+                config.l1SignalService,
+                config.signalServicePauser,
+                config.anchorProxy,
+                address(0)
             )
         );
         console2.log("New signalServiceImpl deployed:", signalServiceImpl_);

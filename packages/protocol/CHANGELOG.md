@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Unify L1 and L2 SignalService implementations with immutable root-provider routing and optional
+  Unzen checkpoint authorization. Replace SignalServiceL2 and update deployment/genesis tooling;
+  keep VERSION 1 and the proxy storage layout unchanged.
+
 - Fix Etna double-sign evidence encoding for present all-zero BlockID hashes. Vote hashes now use
   `bytes` of length 0 or 32, changing the `slashDoubleSign` ABI; clients must refresh it and the
   schema-7 shared vectors.

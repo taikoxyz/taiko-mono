@@ -366,7 +366,11 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         signalService = SignalService(
             address(
                 new ERC1967Proxy(
-                    address(new SignalService(inbox, _REMOTE_SIGNAL_SERVICE, address(0))),
+                    address(
+                        new SignalService(
+                            inbox, _REMOTE_SIGNAL_SERVICE, address(0), address(0), address(0)
+                        )
+                    ),
                     abi.encodeCall(SignalService.init, (address(this)))
                 )
             )

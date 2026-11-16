@@ -9,7 +9,7 @@ the canonical EIP-4788 and EIP-2935 system contracts.
 The predeploy configuration must give the Anchor `etnaTimestamp` 0x0: on a new network every block
 is an Etna block, and an Anchor without that gate keeps `anchorV4` callable with the public golden
 touch key, which would let anyone save a forged L1 checkpoint. Its `remoteSignalService` must be
-the deployed L1 SignalService passed as `--l1-signal-service`, which `SignalServiceL2` proves
+the deployed L1 SignalService passed as `--l1-signal-service`, which `SignalService` proves
 against. Predeploy accounts are reduced to the fields execution clients accept (balance, nonce,
 code, storage), dropping the generator's `contractName`, with storage keys and values written as
 32-byte words.
@@ -19,13 +19,13 @@ the generator, so the same values are also checked in the emitted bytecode, agai
 `--artifacts` (`out/layer2`, written with their AST by `pnpm genesis:gen`). The Anchor and
 SignalService proxy accounts must hold exactly the compiled `ERC1967Proxy` runtime and point at
 their implementations. Each implementation's code must be the runtime of the compiled `Anchor` or
-`SignalServiceL2`, differing only in immutables; these contracts link no library, so an artifact
+`SignalService`, differing only in immutables; these contracts link no library, so an artifact
 with a library link is refused. Then the immutables are read at the compiler's offsets: the
 Anchor's `etnaTimestamp` must be 0 and its `checkpointStore` the SignalService proxy, and
-SignalServiceL2's `_authorizedSyncer` must be the Anchor proxy and its `_remoteSignalService` the
-L1 SignalService. Every other immutable of both implementations is pinned to the value the
-generator writes (UUPS `__self` the implementation's own address, the Anchor's `l1ChainId` the
-configured one, its resolver zero, SignalServiceL2's resolver the SharedResolver proxy and its
+SignalService's `_authorizedSyncer` and `stateRootProvider` must be the Anchor proxy, its
+`unzenInbox` zero and its `_remoteSignalService` the L1 SignalService. Every other immutable of
+both implementations is pinned to the value the generator writes (UUPS `__self` the implementation's own address, the Anchor's `l1ChainId` the
+configured one, its resolver zero, SignalService's resolver the SharedResolver proxy and its
 `pauser` zero), and an immutable the builder does not know is refused. The proxies' storage may
 hold only what the generator initializes: initialized, not paused, the configured owner and the
 implementation slot. No root-path address, nor the L1 SignalService, may be a precompile or system
@@ -55,7 +55,7 @@ ZERO_ADDRESS = "0x" + "00" * 20
 ROOTS_RUNTIME = "0x3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500"
 HISTORY_RUNTIME = "0x3373fffffffffffffffffffffffffffffffffffffffe14604657602036036042575f35600143038111604257611fff81430311604257611fff9006545f5260205ff35b5f5ffd5b5f35611fff60014303065500"
 # Predeploys the Etna root path depends on: the Anchor gates anchorV4 and resolves L1 state roots,
-# and SignalServiceL2 proves L1 signals against them.
+# and SignalService proves L1 signals against them.
 REQUIRED_PREDEPLOYS = ("TaikoAnchor", "TaikoAnchorImpl", "SignalService", "SignalServiceImpl")
 # Genesis account fields execution clients accept; alethia-reth rejects any other key.
 ACCOUNT_FIELDS = ("balance", "nonce", "code", "storage")
@@ -301,12 +301,14 @@ def check_predeploy_code(config, predeploys, artifacts, l1_signal_service):
             ("Anchor", "l1ChainId", "0x" + format(config["l1ChainId"], "064x")),
             ("Anchor", "etnaTimestamp", ZERO_WORD),
         )),
-        ("SignalServiceImpl", "SignalServiceL2", (
+        ("SignalServiceImpl", "SignalService", (
             ("UUPSUpgradeable", "__self", address_word(addresses["SignalServiceImpl"])),
             ("EssentialContract", "__resolver", address_word(addresses["SharedResolver"])),
             ("SignalService", "_authorizedSyncer", address_word(addresses["TaikoAnchor"])),
             ("SignalService", "_remoteSignalService", address_word(l1_signal_service)),
             ("SignalService", "pauser", ZERO_WORD),
+            ("SignalService", "stateRootProvider", address_word(addresses["TaikoAnchor"])),
+            ("SignalService", "unzenInbox", ZERO_WORD),
         )),
     )
     for name, contract, immutables in expected:

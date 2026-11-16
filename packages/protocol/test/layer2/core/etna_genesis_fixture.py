@@ -1,6 +1,6 @@
 """Synthetic inputs for the Etna genesis builder tests (stdlib only).
 
-The predeploys are stand-in Anchor and SignalServiceL2 implementations behind stand-in ERC-1967
+The predeploys are stand-in Anchor and SignalService implementations behind stand-in ERC-1967
 proxies. Each account's code is a small artifact's runtime with its immutables filled in the way
 `pnpm genesis:gen` fills them, so the builder can check the emitted bytecode against the
 artifacts. Run as a script, it writes the inputs to a temporary directory and runs the builder
@@ -32,6 +32,7 @@ ADDRESSES = {
 IDS = {
     "checkpointStore": 11, "etnaTimestamp": 12, "__self": 13, "__resolver": 14, "l1ChainId": 15,
     "_authorizedSyncer": 21, "_remoteSignalService": 22, "pauser": 23,
+    "stateRootProvider": 24, "unzenInbox": 25,
 }
 
 
@@ -75,10 +76,11 @@ def _artifact(name, declared, layout, bases=(), body="00"):
 
 
 def artifacts():
-    """The stand-in ERC1967Proxy, UUPSUpgradeable, EssentialContract, Anchor, SignalService and
-    SignalServiceL2 artifacts. The proxy has no immutables, both implementations also carry the
-    inherited `__self` and `__resolver`, the Anchor reads `etnaTimestamp` twice, and
-    SignalServiceL2 inherits SignalService's immutables."""
+    """Stand-in root-path artifacts including every shared SignalService immutable.
+
+    Both implementations carry inherited `__self` and `__resolver`; the Anchor reads
+    `etnaTimestamp` twice and SignalService reads `_remoteSignalService` twice.
+    """
     return {
         "ERC1967Proxy": _artifact("ERC1967Proxy", (), (), body="363d3d373d3d3d363d00"),
         "UUPSUpgradeable": _artifact("UUPSUpgradeable", ("__self",), ("__self",)),
@@ -91,14 +93,11 @@ def artifacts():
             bases=("EssentialContract",),
         ),
         "SignalService": _artifact(
-            "SignalService", ("_authorizedSyncer", "_remoteSignalService", "pauser"),
-            ("_authorizedSyncer", "_remoteSignalService", "pauser"),
+            "SignalService", ("_authorizedSyncer", "_remoteSignalService", "pauser",
+                              "stateRootProvider", "unzenInbox"),
+            ("_authorizedSyncer", "_remoteSignalService", "pauser", "_remoteSignalService",
+             "__self", "__resolver", "stateRootProvider", "unzenInbox"),
             bases=("EssentialContract",),
-        ),
-        "SignalServiceL2": _artifact(
-            "SignalServiceL2", (), ("_authorizedSyncer", "_remoteSignalService", "pauser",
-                                    "_remoteSignalService", "__self", "__resolver"),
-            bases=("SignalService",),
         ),
     }
 
@@ -139,6 +138,8 @@ def predeploys(**overrides):
         "_authorizedSyncer": address_word(ADDRESSES["TaikoAnchor"]),
         "_remoteSignalService": address_word(L1_SIGNAL_SERVICE),
         "pauser": word(0),
+        "stateRootProvider": address_word(ADDRESSES["TaikoAnchor"]),
+        "unzenInbox": word(0),
     }
     anchor = dict(shared, __self=address_word(ADDRESSES["TaikoAnchorImpl"]), __resolver=word(0))
     signal = dict(shared, __self=address_word(ADDRESSES["SignalServiceImpl"]),
@@ -154,7 +155,7 @@ def predeploys(**overrides):
             "balance": "0x0", "code": runtime(stand_ins["Anchor"], anchor)},
         ADDRESSES["SignalService"]: proxy(ADDRESSES["SignalServiceImpl"]),
         ADDRESSES["SignalServiceImpl"]: {
-            "balance": "0x0", "code": runtime(stand_ins["SignalServiceL2"], signal)},
+            "balance": "0x0", "code": runtime(stand_ins["SignalService"], signal)},
     }
 
 

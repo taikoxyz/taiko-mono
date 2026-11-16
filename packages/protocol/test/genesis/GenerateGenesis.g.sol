@@ -59,6 +59,14 @@ contract TestGenerateGenesis is Test {
         checkDeployedCode("SharedResolver");
     }
 
+    function testSignalServiceConfiguration() public view {
+        SignalService signalService = SignalService(getPredeployedContractAddress("SignalService"));
+        assertEq(signalService.stateRootProvider(), getPredeployedContractAddress("TaikoAnchor"));
+        assertEq(signalService.unzenInbox(), address(0));
+        assertEq(signalService.pauser(), address(0));
+        assertEq(signalService.VERSION(), 1);
+    }
+
     function testRollupContractsDeployment() public {
         // check bytecode
         checkDeployedCode("TaikoAnchor");

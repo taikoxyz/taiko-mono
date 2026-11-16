@@ -9,11 +9,10 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
-import { SignalServiceL2 } from "src/shared/signal/SignalServiceL2.sol";
 import { AnchorTestBase } from "test/layer2/core/Anchor.t.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
-contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFixture {
+contract TestSignalServiceProvider is CommonTest, AnchorTestBase, SignalServiceProofFixture {
     Anchor private _anchor;
     SignalService private _signalService;
 
@@ -205,8 +204,9 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
     }
 
     function test_proxyUpgrade_PreservesVersionOneRecordsOwnerPausedStateAndSentSignal() external {
-        SignalService implementation =
-            new SignalService(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0));
+        SignalService implementation = new SignalService(
+            address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), address(0), address(0)
+        );
         SignalService versionOne = SignalService(
             address(
                 new ERC1967Proxy(
@@ -223,8 +223,9 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         versionOne.sendSignal(localSignal);
         versionOne.pause();
 
-        SignalServiceL2 etnaImplementation =
-            new SignalServiceL2(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0));
+        SignalService etnaImplementation = new SignalService(
+            address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), address(_anchor), address(0)
+        );
         versionOne.upgradeTo(address(etnaImplementation));
         SignalService upgraded = SignalService(address(versionOne));
 
@@ -251,8 +252,9 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
         address signalServiceProxy =
             vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 3);
         _anchor = _deployAnchor(ICheckpointStore(signalServiceProxy), _etnaTimestamp);
-        SignalServiceL2 implementation =
-            new SignalServiceL2(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0));
+        SignalService implementation = new SignalService(
+            address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), address(_anchor), address(0)
+        );
         _signalService = SignalService(
             address(
                 new ERC1967Proxy(
@@ -277,8 +279,9 @@ contract TestSignalServiceL2 is CommonTest, AnchorTestBase, SignalServiceProofFi
     }
 
     function _upgradeLegacy(LegacySignalService _legacy) private returns (SignalService) {
-        SignalServiceL2 implementation =
-            new SignalServiceL2(address(_anchor), REMOTE_SIGNAL_SERVICE, address(0));
+        SignalService implementation = new SignalService(
+            address(_anchor), REMOTE_SIGNAL_SERVICE, address(0), address(_anchor), address(0)
+        );
         _legacy.upgradeTo(address(implementation));
         return SignalService(address(_legacy));
     }

@@ -9,7 +9,8 @@ encodings and appendix B its L1 storage layout.
 
 The current specification baseline is main at `d18357214fab30ea512ae9858a11699806d72ba1`
 ([#22348](https://github.com/taikoxyz/taiko-mono/pull/22348)).
-It also clarifies the distinction between empty and present zero-filled vote hashes in
+It also includes the shared SignalService design of
+[#22386](https://github.com/taikoxyz/taiko-mono/pull/22386) and clarifies the distinction between empty and present zero-filled vote hashes in
 STAKE-4.1-31 and ENC-A-44/45, matching stock CometBFT's protobuf encoding.
 
 ## Contracts
@@ -255,11 +256,11 @@ another chain id and predeploys without the Anchor or SignalService. Because the
 in the emitted bytecode too, against the `out/layer2` artifacts of the same `pnpm genesis:gen` run
 (`--artifacts` overrides the directory): both proxy accounts must hold exactly the compiled
 `ERC1967Proxy` runtime and point at their implementations, whose code must be the compiled
-`Anchor` and `SignalServiceL2` runtimes (neither links a library), with the Anchor's
-`etnaTimestamp` 0 and `checkpointStore` the SignalService proxy, and SignalServiceL2's syncer the
-Anchor proxy and its remote SIGNAL_SERVICE. Every other immutable of the two implementations is
+`Anchor` and `SignalService` runtimes (neither links a library), with the Anchor's
+`etnaTimestamp` 0 and `checkpointStore` the SignalService proxy, and SignalService's syncer and
+`stateRootProvider` the Anchor proxy, `unzenInbox` zero and its remote SIGNAL_SERVICE. Every other immutable of the two implementations is
 pinned to the generator's value (UUPS `__self` the implementation itself, the configured
-`l1ChainId`, SignalServiceL2's `pauser` zero), and an immutable it does not know is refused. The
+`l1ChainId`, SignalService's `pauser` zero), and an immutable it does not know is refused. The
 proxies may hold only the storage the generator writes (initialized, not paused, the configured
 owner, the implementation), so a seeded signal or checkpoint is refused. No root-path address nor
 SIGNAL_SERVICE may be a precompile or system contract address, and SIGNAL_SERVICE may not be an L2
@@ -313,15 +314,23 @@ These implement [ANCHORLESS.md](../../../docs/etna/ANCHORLESS.md) sections 4 and
   `getL1StateRoot(blockId)` reads the checkpoint store before it and the EIP-4788 root for an L2
   timestamp at or after it. `etnaTimestamp` is `ETNA_FORK_TIME` on a switching network and 0 on a
   new one.
-- `shared/signal/SignalServiceL2.sol`: the L2 SignalService; it resolves proof roots through the
-  Anchor and adds no storage. Both SignalServices keep checkpoints and cached signals under
-  `VERSION`; `_authorizeCheckpoint` is the hook the L1 two-syncer upgrade overrides. Bumping
-  `VERSION` hides every checkpoint and cached signal at once, including the checkpoints a
-  verifier-failure rollback must keep usable, so RECOV-8-27 rules out a rollback that only moves
-  the whole checkpoint mapping to a new version.
+- `shared/signal/SignalService.sol`: the same source and storage layout on L1 and L2. Its last
+  two constructor arguments fix `stateRootProvider` and `unzenInbox`. L1 uses a zero provider to
+  read local checkpoints; L2 uses the Anchor proxy, which handles the fork boundary. Provider
+  reverts, missing return data and zero roots reject proofs without falling back to checkpoints.
+  Root lookup and checkpoint-write authorization are independent.
+- The primary `_authorizedSyncer` is the EtnaInbox on L1 and the Anchor proxy on L2. A switching
+  L1 also sets `unzenInbox` to the live Unzen Inbox. Only that legacy caller reads `etnaStart()`
+  from the primary syncer: before the start write any height is allowed, afterwards heights above
+  S revert. New L1 networks and L2 set `unzenInbox` to zero, disabling the path and all Inbox reads.
+- Checkpoints and cached signals keep `VERSION = 1`; the new immutables add no proxy storage.
+  Bumping `VERSION` hides every checkpoint and cached signal at once, including the checkpoints
+  a verifier-failure rollback must keep usable, so RECOV-8-27 rules out a rollback that only
+  moves the whole checkpoint mapping to a new version.
 - `script/layer2/DeployShastaL2Contracts.s.sol` deploys both implementations for a switching
   network from ETNA_TIMESTAMP without upgrading the proxies; the DAO proposal's single L2 batch
-  upgrades them (SWITCH.md section 3).
+  upgrades them (SWITCH.md section 3). Its final checks must verify the Anchor timestamp and
+  that SignalService's provider is the Anchor proxy, reverting the whole batch on mismatch.
 
 ## Tests
 
@@ -348,9 +357,9 @@ python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
   first bad landing is unusable until it is proven again against a checkpoint the SignalService
   holds after the rollback (RECOV-8-27a).
 - The rest of the switch from Unzen: the start rewrite of spec 10 step 5c, which ships with the
-  correcting Inbox upgrade, the L1 SignalService upgrade that accepts both Inboxes and rejects
-  Unzen Inbox checkpoints above S (an override of `_authorizeCheckpoint`), and the Unzen Inbox
-  cutoffs (10 step 5d).
+  correcting Inbox upgrade, and the Unzen Inbox cutoffs (10 step 5d). The shared SignalService's
+  legacy-syncer authorization is implemented here; switching-network deployment and DAO proposal
+  tooling must configure it with the live Unzen Inbox.
 - Snapshot verification, checkpoint import and switch deployment tooling. The merged spec's
   missing-data retry rules, originWriter finality and timestamp duties, and DAO proposal lead
   guard belong to those implementations and operations; the contract enforces its observable gates.

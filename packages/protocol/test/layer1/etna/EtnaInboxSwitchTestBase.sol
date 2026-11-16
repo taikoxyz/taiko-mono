@@ -6,6 +6,7 @@ import { EtnaLandTestBase } from "./EtnaLandTestBase.sol";
 import { MockUnzenInbox } from "./MockUnzenInbox.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { SignalService } from "src/shared/signal/SignalService.sol";
 
 /// @title EtnaInboxSwitchTestBase
 /// @notice An Inbox on a network that switches from Unzen (SWITCH.md): initialized with Carol as
@@ -27,6 +28,13 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
     function setUp() public virtual override {
         EtnaInboxTestBase.setUp();
         unzen = new MockUnzenInbox();
+        signalService.upgradeTo(
+            address(
+                new SignalService(
+                    inboxProxy, REMOTE_SIGNAL_SERVICE, address(0), address(0), address(unzen)
+                )
+            )
+        );
         inboxImpl = _newInboxImpl(_switchConfig());
         _upgradeAndInit(inboxImpl, _switchInitParams());
         vm.roll(LEAN_REFERENCE_BLOCK + 1);
@@ -79,7 +87,7 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
     }
 
     /// @dev The Unzen Inbox has finalized proposals 1 to 7 up to S, whose checkpoint its final
-    /// proof saved in the SignalService (modelled by saving it as the SignalService's syncer).
+    /// proof saved in the SignalService through the configured legacy-syncer path.
     function _finalizeUnzen() internal {
         unzen.setCoreState(8, 7, _startHash());
         _saveUnzenCheckpoint(_startHash(), _startStateRoot());
@@ -87,7 +95,7 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
 
     /// @dev Saves the SignalService checkpoint at S as the Unzen Inbox's final proof would.
     function _saveUnzenCheckpoint(bytes32 _blockHash, bytes32 _stateRoot) internal {
-        vm.prank(inboxProxy);
+        vm.prank(address(unzen));
         signalService.saveCheckpoint(
             ICheckpointStore.Checkpoint({
                 blockNumber: uint48(S), blockHash: _blockHash, stateRoot: _stateRoot

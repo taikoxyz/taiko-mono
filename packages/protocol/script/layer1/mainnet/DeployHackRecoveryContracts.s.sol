@@ -52,7 +52,11 @@ contract DeployHackRecoveryContracts is Script {
     function _deployImplementations() private returns (Deployment memory deployment_) {
         deployment_.signalServiceImpl = address(
             new SignalService(
-                LibL1Addrs.INBOX, LibL2Addrs.SIGNAL_SERVICE, LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH
+                LibL1Addrs.INBOX,
+                LibL2Addrs.SIGNAL_SERVICE,
+                LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
+                address(0),
+                address(0)
             )
         );
 

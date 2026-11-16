@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "../common/EssentialContract.sol";
-import "../libs/LibTrieProof.sol";
-import "./ICheckpointStore.sol";
-import "./ISignalService.sol";
+import { EssentialContract } from "../common/EssentialContract.sol";
+import { LibTrieProof } from "../libs/LibTrieProof.sol";
+import { ICheckpointStore } from "./ICheckpointStore.sol";
+import { IEtnaStart } from "./IEtnaStart.sol";
+import { IL1StateRootProvider } from "./IL1StateRootProvider.sol";
+import { ISignalService } from "./ISignalService.sol";
 
 import "./SignalService_Layout.sol"; // DO NOT DELETE
 
@@ -41,6 +43,12 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @notice Address authorized to pause/unpause alongside the owner. Optional (may be zero).
     address public immutable pauser;
+
+    /// @notice Root provider for signal proofs; zero selects local checkpoints.
+    address public immutable stateRootProvider;
+
+    /// @notice Optional legacy Unzen Inbox authorized to save checkpoints through the Etna start.
+    address public immutable unzenInbox;
 
     // ---------------------------------------------------------------
     // Constants
@@ -81,17 +89,27 @@ contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
 
     /// @notice Initializes the signal service's immutable state.
-    /// @param authorizedSyncer Address that can save checkpoints to this contract.
-    /// @param remoteSignalService Address of the remote signal service.
-    /// @param _pauser Address authorized to pause/unpause alongside the owner. Optional (may be
-    /// zero).
-    constructor(address authorizedSyncer, address remoteSignalService, address _pauser) {
-        require(authorizedSyncer != address(0), ZERO_ADDRESS());
-        require(remoteSignalService != address(0), ZERO_ADDRESS());
+    /// @param _syncer Address that can save checkpoints to this contract.
+    /// @param _remote Address of the remote signal service.
+    /// @param _pauser Optional address authorized to pause/unpause alongside the owner.
+    /// @param _stateRootProvider Root provider; zero reads local checkpoints, L2 uses its Anchor.
+    /// @param _unzenInbox Optional legacy syncer; its checkpoints are bounded by the Etna start
+    /// returned by _syncer. Zero disables this path and its Inbox reads.
+    constructor(
+        address _syncer,
+        address _remote,
+        address _pauser,
+        address _stateRootProvider,
+        address _unzenInbox
+    ) {
+        require(_syncer != address(0), ZERO_ADDRESS());
+        require(_remote != address(0), ZERO_ADDRESS());
 
-        _authorizedSyncer = authorizedSyncer;
-        _remoteSignalService = remoteSignalService;
+        _authorizedSyncer = _syncer;
+        _remoteSignalService = _remote;
         pauser = _pauser;
+        stateRootProvider = _stateRootProvider;
+        unzenInbox = _unzenInbox;
     }
 
     /// @notice Initializes the SignalService contract for upgradeable deployments.
@@ -202,21 +220,31 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
     function _authorizePause(address, bool) internal view override onlyFromOwnerOr(pauser) { }
 
-    /// @dev Reverts unless `msg.sender` may save the checkpoint passed to `saveCheckpoint`. The
-    /// base accepts only the authorized syncer. An implementation with more syncers, such as the
-    /// L1 SignalService that accepts checkpoints from both the Unzen Inbox and the EtnaInbox (Etna
-    /// SWITCH.md section 3), overrides this hook and keeps the base, and so `SignalServiceL2`,
-    /// unchanged.
-    function _authorizeCheckpoint(Checkpoint calldata) internal view virtual {
-        if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
+    /// @dev Authorizes the primary syncer or the configured legacy Unzen Inbox.
+    /// Only the legacy path reads the Etna start; a nonzero start hash activates its height bound.
+    /// @param _checkpoint The checkpoint to authorize.
+    function _authorizeCheckpoint(Checkpoint calldata _checkpoint) internal view {
+        if (msg.sender == _authorizedSyncer) return;
+        if (unzenInbox == address(0) || msg.sender != unzenInbox) revert SS_UNAUTHORIZED();
+
+        (uint48 height, bytes32 blockHash) = IEtnaStart(_authorizedSyncer).etnaStart();
+        if (blockHash != bytes32(0) && _checkpoint.blockNumber > height) {
+            revert SS_INVALID_CHECKPOINT();
+        }
     }
 
-    /// @dev Returns the authenticated state root for a checkpoint proof.
-    /// @param _blockId Source block number.
-    /// @return stateRoot_ State root saved in the checkpoint.
-    function _getStateRoot(uint64 _blockId) internal view virtual returns (bytes32 stateRoot_) {
-        if (_blockId > type(uint48).max) revert SS_INVALID_BLOCK_ID();
-        return _getCheckpoint(uint48(_blockId)).stateRoot;
+    /// @dev Resolves a proof root from the immutable provider or the local checkpoint store.
+    /// Provider failures propagate without falling back to local checkpoints.
+    /// @param _blockId Source block number in checkpoint mode; provider-defined ID otherwise.
+    /// @return stateRoot_ Authenticated nonzero state root.
+    function _getStateRoot(uint64 _blockId) internal view returns (bytes32 stateRoot_) {
+        if (stateRootProvider == address(0)) {
+            if (_blockId > type(uint48).max) revert SS_INVALID_BLOCK_ID();
+            stateRoot_ = _getCheckpoint(uint48(_blockId)).stateRoot;
+        } else {
+            stateRoot_ = IL1StateRootProvider(stateRootProvider).getL1StateRoot(_blockId);
+        }
+        if (stateRoot_ == bytes32(0)) revert SS_INVALID_CHECKPOINT();
     }
 
     /// @dev Gets a checkpoint by block number

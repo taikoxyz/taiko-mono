@@ -170,12 +170,7 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
 
     /// @dev The owner upgrades the Inbox proxy to `_impl` and calls `init(_params)` in the same
     /// transaction.
-    function _upgradeAndInit(
-        EtnaInbox _impl,
-        IEtnaInbox.InitParams memory _params
-    )
-        internal
-    {
+    function _upgradeAndInit(EtnaInbox _impl, IEtnaInbox.InitParams memory _params) internal {
         EssentialContract(inboxProxy)
             .upgradeToAndCall(address(_impl), abi.encodeCall(EtnaInbox.init, (_params)));
     }
@@ -231,7 +226,8 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
 
     /// @dev Deploys a SignalService proxy that accepts checkpoints only from `_inbox`.
     function _deploySignalService(address _inbox) internal returns (SignalService) {
-        SignalService impl = new SignalService(_inbox, REMOTE_SIGNAL_SERVICE, address(0));
+        SignalService impl =
+            new SignalService(_inbox, REMOTE_SIGNAL_SERVICE, address(0), address(0), address(0));
         return SignalService(
             address(
                 new ERC1967Proxy(address(impl), abi.encodeCall(SignalService.init, (address(this))))

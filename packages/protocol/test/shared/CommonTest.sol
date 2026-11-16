@@ -122,11 +122,7 @@ abstract contract CommonTest is Test, Script {
         }
     }
 
-    function deploy(
-        bytes32 name,
-        address impl,
-        bytes memory data
-    )
+    function deploy(bytes32 name, address impl, bytes memory data)
         internal
         returns (address proxy)
     {
@@ -165,7 +161,9 @@ abstract contract CommonTest is Test, Script {
         internal
         returns (SignalService)
     {
-        SignalService impl = new SignalService(authorizedSyncer, remoteSignalService, address(0));
+        SignalService impl = new SignalService(
+            authorizedSyncer, remoteSignalService, address(0), address(0), address(0)
+        );
         SignalService proxy = SignalService(
             deploy({
                 name: "", impl: address(impl), data: abi.encodeCall(SignalService.init, (owner))
@@ -236,10 +234,7 @@ abstract contract CommonTest is Test, Script {
         );
     }
 
-    function deployQuotaManager(
-        address bridge,
-        address erc20Vault
-    )
+    function deployQuotaManager(address bridge, address erc20Vault)
         internal
         returns (QuotaManager)
     {
