@@ -57,7 +57,7 @@ Raw(i) == CASE
  [] i = 8 -> [Input EXCEPT !.peer.ancestors = {ImportHeight}]
  [] i = 9 -> [Input EXCEPT !.peer.computedState = Root(99)]
  [] i = 10 -> [Input EXCEPT !.peer.evidence = {}]
- [] i = 11 -> LET pre == [Preimage EXCEPT !.first.priorities = <<7, -7>>,
+ [] i = 11 -> LET pre == [Preimage EXCEPT !.first.priorities = <<-1, 1>>,
                                        !.first.proposer = 1]
              IN [Input EXCEPT !.peer.preimage = pre, !.l1.val = Hash(pre)]
  [] i = 12 -> LET env == [Envelope EXCEPT !.execution = EL(99)]
@@ -78,7 +78,7 @@ Raw(i) == CASE
  [] i = 18 -> [Input EXCEPT !.peer.entries = <<KP(Second), KP(First)>>]
  [] i = 19 -> [Input EXCEPT !.peer.window.validators = <<"WrongWindowValidators">>]
  \* Landed proposer/priority values are authoritative for both future sets.
- [] i = 20 -> LET pre == [Preimage EXCEPT !.second.priorities = <<6, -6>>,
+ [] i = 20 -> LET pre == [Preimage EXCEPT !.second.priorities = <<-2, 2>>,
                                        !.second.proposer = 2]
              IN [Input EXCEPT !.peer.preimage = pre, !.l1.val = Hash(pre)]
  \* Match the derived entries to the changed preimage, isolating header.next.
@@ -396,5 +396,10 @@ PositiveImportPremises == seen.publication.present =>
                /\ x.peer.header.time = 102 /\ x.peer.header.time > x.l1.originTime
                /\ c.height = 4 /\ c.time = x.peer.header.time
                /\ c.blockID = <<"Hash", x.peer.header>>
+               \* Necessary two-member post-increment bounds for these fixed powers.
+               \* Actual published fields only; not a sufficient history/STF audit.
+               /\ c.validators.powers = <<3, 2>> /\ c.next.powers = <<2, 4>>
+               /\ c.validators.priorities[1] - c.validators.priorities[2] \in (-6)..6
+               /\ c.next.priorities[1] - c.next.priorities[2] \in (-8)..8
 PositivePublicationNotReached == ~seen.publication.present
 =============================================================================

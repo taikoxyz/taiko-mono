@@ -54,6 +54,18 @@ first proposer must also fail, despite the old shared observer agreeing with it.
 State these necessary initialization/timestamp premises separately from
 full STF/window validity; do not retrofit a new protocol timestamp guard.
 
+F01 is reopened before F03 freezing for an additional confirmed necessary
+priority premise. Both committed future validator sets are post-increment. For
+two members, rescaling bounds the pre-step difference by2V and a priority step
+gives an absolute difference at most V+|power1-power2|. Raw11's[7,-7] at powers3/2
+violates6; Raw20's[6,-6] at2/4 violates8. Replace only these priority tuples with
+actual stock-generated alternatives[-1,1]/proposer1 and[-2,2]/proposer2. Extend
+the independent publication audit with these selected necessary bounds and add
+two exact source faults restoring the invalid tuples. This is an explicit
+exception to old Raw11/20 byte preservation, with actual published counterexamples
+and source/Go evidence; all other raw cases and old config bytes remain unchanged.
+It is a repair within F01, not a sixth increment or a full prehistory proof.
+
 ## F02 — discriminate chain and height authentication
 
 Append Raw28/29: change the non-origin peer header chain or height and rebind only

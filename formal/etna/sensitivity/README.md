@@ -36,7 +36,7 @@ inventory and is not a usable full gate with the current one-runtime Forge argv.
 
 | Cohort           | Required IDs | Engine | Exact selected Forge test                                          |
 | ---------------- | ------------ | ------ | ------------------------------------------------------------------ |
-| `tlc`            | 53           | TLC    | None                                                               |
+| `tlc`            | 55           | TLC    | None                                                               |
 | `forge-identity` | 3            | Forge  | `EtnaIdentityReplayTest::test_identity_publicHistoryPublication()` |
 | `forge-rules`    | 2            | Forge  | `EtnaRulesReplayTest::test_conformance_stopHandoffReplay()`        |
 
@@ -51,7 +51,7 @@ does not satisfy an item that declares only one.
 Full assessed-inventory evidence requires all three campaigns from the same
 frozen source/manifest/tools, separately compatible runtime selections and the
 same shared physical Foundry lock. Aggregate by obligation ID: verify the exact
-58-ID union without duplicates or omissions, all per-ID original/mutant/restored
+60-ID union without duplicates or omissions, all per-ID original/mutant/restored
 phases, source/tool hashes, input stability and each campaign's raw log hashes.
 Retain each cohort verdict separately. A full aggregate may report complete
 assessed coverage only after all these checks; unassessed protocol boundaries
@@ -245,3 +245,20 @@ an exact `ClassificationCorrect` failure at `Check`/`Classified` with false
 Verified are required. Later publication failures and unrelated TLC errors
 receive no kill credit. These two selected obligations do not close the
 remaining unassessed protocol boundaries.
+
+## F01 correction: post-increment priority bounds
+
+`m10-positive-first-priority-bound` and `m10-positive-second-priority-bound`
+append two required TLC selectors. Current coverage is60 assessed IDs:55 TLC,
+three identity and two rules. All58 earlier required selector entries and four
+unassessed entries remain unchanged; earlier count/results sections are historical.
+
+Each exact unique Raw11/20 source replacement restores only the old impossible
+priority tuple. Both use existing `configs/import-premise-current.cfg`, with
+its full normal invariants. The older store observer shares the raw preimage,
+so it must not mask the new literal `PositiveImportPremises` failure at actual
+publication. Original and actually restored phases pass; arbitrary errors or
+another named invariant do not count as kills. Singleton corrected-alternate
+publication and trust probes require actual progress with exact stored values.
+These two-member necessary bounds are not a complete STF/history validator;
+no operational authentication guard, engine or new config is added.

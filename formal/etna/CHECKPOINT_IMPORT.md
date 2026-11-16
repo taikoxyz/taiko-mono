@@ -448,3 +448,57 @@ field and must fail `PositiveImportPremises`; original and actual restored
 source must pass. The old shared store observer cannot establish this
 correspondence by itself. This is a verification-fixture repair, with no
 change to protocol authentication actions or a full consensus-validity claim.
+
+## F01 correction: necessary post-increment priority bounds
+
+A later independent stock-source review reopened F01 before the F03 receipt
+freeze. Non-origin Raw11's first priorities[7,-7] with powers3/2, and Raw20's
+second priorities[6,-6] with powers2/4, violate a necessary local property of
+the committed stock validator state. Earlier positive-preimage labels and
+preservation statements for those two tuples were insufficient and are withdrawn.
+This is another verification-fixture defect, not a supported protocol defect.
+
+SPEC appendix A's `valStateHash` and PROOF-6.2-41a refer to the exact committed
+`State.Validators` and `State.NextValidators`. Pinned CometBFT0.40.0
+`state/execution.go:updateState` always increments the new next set after any
+validator updates; the new current set copies the previous committed next set.
+Genesis initializes both sets after an increment. Therefore neither future
+position is a pre-increment intermediate, including committee-change heights.
+
+For two positive powers a,b, let V=a+b, delta=a-b and d=p_a-p_b by key identity.
+`IncrementProposerPriority` first rescales/centers to absolute difference at
+most2V. One step gives `d'=(d+delta)-sign(d+delta)*V`, with either sign at a tie.
+Consequently `abs(d') <= V+abs(delta)`; further steps preserve that bound even
+though normalization occurs only once. This necessary bound is6 for powers3/2
+and8 for powers2/4. The rejected tuples have differences14 and12. The argument
+does not require fixed-committee prehistory and does not select the proposer
+from the maximum priority after its decrement.
+
+Raw11 now uses first priorities[-1,1] with the same stored proposer1; Raw20
+uses second priorities[-2,2] with the same stored proposer2. A public-only
+actual stock probe reached the first alternate on the third genesis increment
+for3/2 and the second alternate on the second increment for2/4, comparing by key
+identity even when stock power sorting reverses array order. Another242406
+actual bounded calls respected the necessary bounds. This local construction
+and the source proof do not establish a complete Etna STF/committee/window
+history. Base membership, priorities and stored proposers remain unchanged;
+in particular, base first[-2,2]/stored proposer2 is a distinct premise.
+
+An independently appended bound invariant reproduced each old tuple after
+actual `Published`, while singleton old normal and trust checks remained green.
+The main `PositiveImportPremises` now binds literal fixed powers and checks
+differences in[-6,6]/[-8,8] directly over the actual published Comet sets, without
+constructor, `Planned`, `ObservedStores` or arithmetic helper reuse. Two new
+required source faults separately restore only the old Raw11/20 priority tuple.
+Both use the existing complete healthy current profile and must fail exactly
+`PositiveImportPremises` after publication; the older shared-preimage store
+observer must not mask that result. Singleton alternate publication/trust
+probes separately require the corrected literal tuples to be actually reached.
+
+Only those two raw priority values and the non-origin audit suffix are reopened.
+All other Raw0..29 constructors, origin literal audit, operational authentication,
+classification/actions,359 existing main configs,58 previous required fault
+selectors, four unassessed entries and old conformance payloads/pins remain
+unchanged. This correction adds no config, protocol guard or history-validity
+claim. Previous F01/F02 source hashes/results remain historical for their exact
+inputs; fresh affected import and selected fault runs use the repaired source.

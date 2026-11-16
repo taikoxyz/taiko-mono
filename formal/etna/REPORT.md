@@ -1898,3 +1898,57 @@ Focused campaign SHA256:
 Initial namespace/JMX setup errors were inconclusive; the same inspected offline
 launch passed with the required local capability. No operational protocol guard
 or normative document changed. F03–F05 remain.
+
+## F01 supplement before export — necessary priority bounds
+
+Before F03 froze positive import receipts, source review found two further
+impossible M10 positive tuples: Raw11's first priorities[7,-7] at powers3/2,
+and Raw20's second priorities[6,-6] at powers2/4. Both committed future stock
+validator sets have passed at least one proposer-priority increment, including
+committee-update heights. For two members, normalization bounds the pre-step
+difference by2V; adding powers and decrementing the selected winner bounds the
+post-step absolute difference by V+|power1-power2|. Ties give difference+V or-V,
+and further increments retain the bound. Thus these selected bounds are6 and8,
+while the old differences were14 and12. Arbitrary valid prior committees cannot
+rescue those positive premises. This is a necessary condition, not a complete
+history characterization or a requirement to recompute history during import.
+
+Independent actual Go probes confirm source-generated alternatives: first
+[-1,1]/stored proposer1 on the third increment for3/2, and second[-2,2]/proposer2
+on the second for2/4. Baseline first[-2,2]/proposer2 remains unchanged and passes
+the necessary condition; no complete prehistory is inferred for it. The baseline
+second's stored proposer tie imposes a public-address ordering on any claimed
+local concrete realization; F04 must respect that mapping or limit its claim.
+The independent TLC verifier read back the existing Go probe artifact; it did
+not rerun the Go probe as part of its27 fresh TLC trials.
+
+F01 was reopened within this five-item batch to correct only Raw11/20's priority
+tuples and add independent literal power/difference checks over actual published
+Comet fields. All other raw cases, actions, authentication/store/classification
+observers,359 prior config bytes and old payloads/pins stay unchanged. The prior
+strong positive-preimage premise is withdrawn; older results remain identified
+with their original source. This is an explicit exception to Raw11/20 byte
+preservation before the F03 export, not another technical increment.
+
+- Each original tuple still passed its old normal search and reached trust;
+  an independently appended necessary-bound invariant fails after Published.
+- All63 affected import configs match their exact outcomes on the repaired
+  model. Six selected F01/F02 source faults, including restoration of each old
+  priority tuple, are KILLED at their exact targets; originals and actual restored
+  sources pass with stable inputs. Existing20 sensitivity tests pass.
+- Singleton repaired Raw11/20 checks bind raw and actual Comet/app fields and
+  reach separate publication/trust witnesses. Fresh independent verification
+  adds27 TLC trials:15 exhausted passes and12 intended counterexamples, including
+  old-premise reproductions, target-only two-by-three fault matrix and byte-exact
+  source restoration. Independent review checks the complete six-file diff,
+  source proof,63 raw outcomes, six fault triples and all provenance hashes.
+- Two required faults join the preserved58, giving60 assessed IDs partitioned
+  55TLC/3Identity/2Rules. Main configs remain359; the complete accumulated gate
+  remains pending. Concurrent unfinished F03 files were excluded from the frozen
+  execution snapshot and from this increment's commit.
+
+Executed M10 SHA256:
+`37af404f24845ca3f805b914222934a7af3a13fd51635276915e93996fa47e37`.
+The scalar bound applies to these two-member positive-power fixtures; it does
+not prove complete STF/window validity, full importer correctness, generalized
+weighted consensus or unbounded protocol behavior. No protocol defect was found.

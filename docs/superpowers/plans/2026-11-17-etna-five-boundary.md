@@ -35,7 +35,8 @@
 - [x] Reproduce old non-origin publication40 against genesis100 using an independently appended invariant; record exact source/published trace.
 - [x] Repair fixture and literal observer, add origin/non-origin normals and required trust/publication witnesses; preserve350 config bytes.
 - [x] Add exact canonical-time and origin-first-proposer source faults to the existing TLC cohort; original/restored pass, each mutant fails PositiveImportPremises. Confirm stock genesis field derivation/readback independently.
-- [x] Independently review/verify and inspect full diff/hygiene; confirm readiness to commit the reviewed increment (actual publication readback is recorded in the ledger).
+- [x] Repair the subsequently confirmed Raw11/20 priority-bound premise violations before F03 freezes: use stock-generated[-1,1]/proposer1 and[-2,2]/proposer2; independently audit bounds6/8 and detect exact old-tuple source faults. Preserve all other raw cases/configs and record the explicit exception.
+- [x] Independently review/verify and inspect full diff/hygiene; confirm readiness to commit the reviewed increment including the priority supplement (actual publication readback is recorded in the ledger).
 
 ## F02 — chain/height input discrimination
 

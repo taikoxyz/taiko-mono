@@ -1054,6 +1054,40 @@
         "name": "ClassificationCorrect"
       },
       "obligation": "Raw29 changes only the non-origin peer header height and rebinds the L1 Comet commitment, isolating Authentic's height equality without another failed binding or an established contradiction branch. This deliberately invalid classifier input must Reject; omission must cause false Verified at Check/Classified. It is not a proof-valid landing or executed STF witness."
+    },
+    {
+      "id": "m10-positive-first-priority-bound",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": " [] i = 11 -> LET pre == [Preimage EXCEPT !.first.priorities = <<-1, 1>>,",
+        "new": " [] i = 11 -> LET pre == [Preimage EXCEPT !.first.priorities = <<7, -7>>,"
+      },
+      "workloads": ["configs/import-premise-current.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "PositiveImportPremises"
+      },
+      "obligation": "Actual non-origin Raw11 publication must satisfy the necessary two-member post-increment priority-difference bound for its fixed powers. Restore only that raw constructor priority tuple to the old impossible value; the independent actual-store audit must fail at Published despite old store alignment sharing the same raw preimage. No full STF/history validity claim."
+    },
+    {
+      "id": "m10-positive-second-priority-bound",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": " [] i = 20 -> LET pre == [Preimage EXCEPT !.second.priorities = <<-2, 2>>,",
+        "new": " [] i = 20 -> LET pre == [Preimage EXCEPT !.second.priorities = <<6, -6>>,"
+      },
+      "workloads": ["configs/import-premise-current.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "PositiveImportPremises"
+      },
+      "obligation": "Actual non-origin Raw20 publication must satisfy the necessary two-member post-increment priority-difference bound for its fixed powers. Restore only that raw constructor priority tuple to the old impossible value; the independent actual-store audit must fail at Published despite old store alignment sharing the same raw preimage. No full STF/history validity claim."
     }
   ]
 }

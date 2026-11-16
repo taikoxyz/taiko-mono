@@ -59,7 +59,9 @@
         "m10-positive-import-chronology",
         "m10-positive-origin-genesis-proposer",
         "m10-header-chain",
-        "m10-header-height"
+        "m10-header-height",
+        "m10-positive-first-priority-bound",
+        "m10-positive-second-priority-bound"
       ]
     },
     {

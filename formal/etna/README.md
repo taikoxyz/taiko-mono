@@ -511,3 +511,17 @@ actually restored source must pass. See [the input obligations](CHECKPOINT_IMPOR
 All357 previous config bytes, raw0..27 and the complete operational/observer/
 audit suffix remain unchanged. The assessed inventory is58 (53 TLC,3 identity,
 2 rules), with the four aggregate unassessed entries retained.
+
+### F01 correction: post-increment positive priority premises
+
+Before F03 receipt freezing, independent source review found Raw11 first[7,-7]
+and Raw20 second[6,-6] incompatible with necessary two-member stock committed
+priority bounds6/8. Their former positive-premise labels are withdrawn. F01
+corrects only those tuples to[-1,1]/stored proposer1 and[-2,2]/stored proposer2,
+and adds literal bounds over actual non-origin published sets. Base tuples,
+origin, actions, classifier,359 existing configs and previous fault selectors
+remain unchanged. Two exact source faults restore the impossible tuples and
+must fail the independent publication audit. See
+[CHECKPOINT_IMPORT.md](CHECKPOINT_IMPORT.md#f01-correction-necessary-post-increment-priority-bounds).
+These are necessary local premises and selected reachability, not a full valid
+STF, committee history, authenticated window or concrete importer claim.
