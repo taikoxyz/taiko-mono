@@ -261,4 +261,12 @@ selection was INCONCLUSIVE, not a kill, and was corrected before final evidence.
 V05 changes only C05 producer provenance and content digest after one unselected
 handoff fixture is added to M11. Deep comparison confirms all 38 exported calls,
 23 selected programs, mapping and schema are identical. Actual current-fixture
-full replay remains a final batch gate.
+full12-test replay passed in the final batch gate.
+
+Fourth-batch final gate: all12 selected current replay tests pass with stable
+formal/source inputs and564 verified contract inventory entries. All three
+success-effect faults are killed by the public-history probe, including valid
+nonzero altered state root. Full C05 replay and fresh export comparison preserve
+all38 call payloads. Python72 passes. This adds selected concrete state-effect
+observations; verifier/genesis/guest premises and missing implementation lanes
+remain as recorded in the main REPORT.

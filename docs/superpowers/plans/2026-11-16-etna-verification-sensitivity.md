@@ -73,7 +73,7 @@
 - [x] Reuse actual Setup/PrepareCall/Invoke and original history audit; preserve historical timestamps/generation rather than filtering old candidates through current-generation ValidCandidate.
 - [x] Add independent historical identity/derivation, at-exposure knowledge fence and current-generation proof-enabledness invariants; no fake STF or copied consensus engine.
 - [x] Exhaust bounded normals/witnesses and selected wrong-latest/cached-auth/relabelled-generation/proof-generation faults; independently review/verify.
-- [ ] Root final stable accumulated TLC/campaign/temporal/Python/real replay evidence, committed-byte readback, whole-batch review and GitHub worklist; stop after five and report remaining gaps.
+- [x] Root final stable accumulated TLC/campaign/temporal/Python/real replay evidence, committed-byte readback, whole-batch review and GitHub worklist; stop after five and report remaining gaps.
 
 ## Order and source freezes
 

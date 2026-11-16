@@ -1274,7 +1274,7 @@ Independent semantics/fairness review passed. Trusted normal continuation,
 resource availability and a stable generation remain explicit premises. There is
 no actual client/CometBFT/EL progress, perpetual-crash recovery or unconditional
 network/throughput theorem. Temporal tool/setup errors were INCONCLUSIVE, never
-counted as kills. Full integrated published-source campaign remains a batch gate.
+counted as kills. The final integrated published-source campaign below passed.
 
 ### V05 — held-candidate schedule/recovery handoff
 
@@ -1296,5 +1296,96 @@ otherwise-valid opaque queued-proof premise, not generated from the candidate.
 Both selected programs use stopTime=0. Positive stop and stop-clear/recovery
 composition is explicitly UNASSESSED; existing independent M11 stop tests cannot
 stand in for that composition. No actual protocol/production defect was found.
-Independent per-task review passed; final integrated campaign/replay and full
-batch review remain gates.
+Independent per-task review passed; integrated campaign/replay evidence follows.
+
+## Fourth-batch final verification and retrospective — 2026-11-16
+
+Exactly five increments V01–V05 are implemented locally. No sixth increment is
+started. Baseline is `aed1b861e9dfa9b03f2700837bb8e437be55082c`; the reviewed
+implementation head is `0343ddd99` on `codex/etna-tla-settlement`, not pushed.
+Final documentation-only commit is recorded in the GitHub worklist #22355.
+SPEC and concrete contract pins stated above remain unchanged. No production
+package was modified. Independent per-task and whole-batch reviews apply to
+these bounded verification changes, not to the complete protocol.
+
+### Fresh accumulated gates
+
+- `check.py` with the pinned Java/TLC: **314/314** exact expected outcomes;
+  48 normal searches exhaust with queue0, 266 controls/existence witnesses fail
+  only their declared invariant. All recorded source/config hashes match current
+  files. Original286 default configs and all43 archived experiment files are
+  byte-identical to the batch baseline;19 historical incomplete profiles remain
+  incomplete, not reclassified by the green default suite.
+- `sensitivity/run.py` with the full checked-in inventory: **32 required faults
+  KILLED**, all normal/restored phases accepted, all inputs stable. All105
+  executed workload logs were independently rehashed. Four inventory entries
+  remain explicitly UNASSESSED. The ready flag applies only to this selected
+  required inventory and is not protocol-wide readiness. Temporal latest/older
+  baseline/restoration searches are included; disabled/no-effect Connect and
+  disabled ReadTarget violate the sole declared stable-connection property.
+- Full real-contract isolated replay: **12/12 selected test identities pass**,
+  using the single existing physically locked Foundry out/cache. This includes
+  current C05, all38 calls, and the genuine public checkpoint21/snapshot switch.
+  The564-entry source inventory and original/copy/formal inputs remain stable.
+- Fresh `export_rules.py --check`:38 actual calls/23 programs reproduce the
+  current fixture. Only model provenance and content digest differ from the
+  previous fixture; C05 SHA256 is
+  `ef6fe8ada1fe11b35497bc746ff3de1e6a7d149acaf8c190b56fae2d229fc0ae`.
+- Python unittest discovery:20 runner +72 conformance +15 sensitivity =**107
+  passing tests**. Rule checker:640 live markers/index/assets/links pass;
+  migration-purity explicitly SKIPPED without a migration base.
+
+Run the three Python suites with `python -B -m unittest discover -s` followed
+by `formal/etna/tests`, `formal/etna/conformance/tests`, or
+`formal/etna/sensitivity/tests`. Use `check.py --java <pinned-java> --tlc-jar
+<pinned-jar> --output-dir <evidence>/default`; then `sensitivity/run.py
+--manifest formal/etna/sensitivity/mutations.json --runtime <external-runtime>
+--output-dir <evidence>/campaign`. The runtime supplies local source/tool/cache
+paths rather than embedding machine paths in tracked files. Full replay uses
+the inspected `conformance/run_isolated.py` read-bind argv, current adapters
+and vectors, exact12 expected test IDs, offline pinned Forge/Solc and the common
+physical cache lock. Raw result JSON, argv sidecars and logs are retained in the
+author's local evidence directory; worklist updates identify the final local
+commit without pretending it is a published GitHub commit.
+
+### Why previous green results missed faults
+
+1. **Inputs were insufficiently discriminatory.** The old40 import checks lacked
+   a wrong downloaded EL hash and coherent contradictory bundles. New raw inputs
+   distinguish rejection/wait/halt and kill19 selected guard/prerequisite faults.
+2. **Success was incompletely observed.** Existing replay assertions allowed a
+   missing SignalService publication. Shared observers now compare its complete
+   tuple and Inbox active snapshot against original input after successful land.
+   Missing publication, nonzero wrong root and missing snapshot all fail exactly
+   the new success observer. The existing upstream unit already caught missing
+   publication; this was a conformance-lane gap, not a newly discovered bug.
+3. **Safety did not establish progress.** Disabled Connect preserved every old
+   invariant. Enabledness/existence and conditional temporal progress are now
+   distinct. An enabled action that does nothing still fails eventual stable
+   connection; fairness is not used to assume successful connection.
+
+V01 independent review also found and repaired two verification-tool defects:
+nested isolation sessions survived timeout/cancellation, and read-bound
+dependency directories were absent from drift checks. Original repros were
+rerun independently after the fix. Parser/runtime/setup errors, empty selections
+and wrong assertion failures remain INCONCLUSIVE, never semantic kills. A root
+metadata-schema typo and temporary replay-driver missing path were corrected
+before semantic execution; neither counts as a successful test or protocol finding.
+
+### What remains outside the result
+
+No independently supported protocol/SPEC/production defect was found. A green
+finite selected mutation inventory does not show model completeness, unbounded
+safety or implementation equivalence. Four explicit unassessed categories are:
+remaining protocol obligations; individually discriminating wrong trusted
+chain/height bindings; branch-specific contradiction authentication removals;
+and positive-stop/stop-clear candidate-handoff composition. Both handoff
+programs here use stopTime0.
+
+Actual client/importer/CometBFT/EL crash and network behavior, weighted consensus,
+real proof/STF/guest and committee/genesis validity, concrete corrective-upgrade
+migration and broader products remain separate obligations. Trusted normal
+continuation and fixed correct available inputs underpin the temporal result.
+Source replay uses statement-bound verifier mocks and selected concrete traces,
+not a universal refinement theorem. The next discussion should prioritize those
+assumption boundaries and missing compositions; no next task starts automatically.
