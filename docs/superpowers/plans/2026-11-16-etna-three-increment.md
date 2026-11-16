@@ -6,7 +6,7 @@
 
 **Architecture:** One existing formal project, a distinct-clock companion with actual TLC receipts, an isolated pinned Go replay, and raw-input-only M10 extensions. Shared fault inventory/cohorts remain authoritative.
 
-**Tech Stack:** Existing Python stdlib, Java17/TLC1.7.4, Go1.27.4 and shared Go caches; pinned CometBFT0.40.0.
+**Tech Stack:** Existing Python stdlib, Java17, TLA+ tools1.7.4 (TLC2.19), Go1.27.4 and shared Go caches; pinned CometBFT0.40.0.
 
 **Spec:** `docs/superpowers/specs/2026-11-16-etna-three-increment-design.md`.
 
@@ -54,10 +54,10 @@
 
 **Interface:** existing Raw, ProvenContradiction/Decision and ObservedClass, exact ClassificationCorrect target, compatible TLC cohort. Original raw0..24 and operational/observer definitions remain unchanged.
 
-- [ ] Demonstrate which five branch-specific guard removals survive old inputs or lack inventory coverage; inspect SPEC classifications before defining fixtures.
-- [ ] Add discriminatory negative raw inputs and positive healthy controls; do not use a contradictory input as normal-progress evidence.
-- [ ] Execute each guard fault with exact semantic normal/mutated/restored results and update compatible inventory coverage.
-- [ ] Complete independent source review and behavior challenges; publish the reviewed result.
+- [x] Demonstrate which five branch-specific guard removals survive old inputs or lack inventory coverage; inspect SPEC classifications before defining fixtures.
+- [x] Add discriminatory negative raw inputs and positive healthy controls; do not use a contradictory input as normal-progress evidence.
+- [x] Execute each guard fault with exact semantic normal/mutated/restored results and update compatible inventory coverage.
+- [x] Complete independent source review and behavior challenges; confirm readiness to publish the reviewed task result (actual commit/push readback is recorded in Git history and the ledger).
 
 ## Final three-item gate
 

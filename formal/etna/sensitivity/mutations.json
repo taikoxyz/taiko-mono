@@ -379,7 +379,7 @@
     {
       "id": "m10-conflict-authentication-prerequisites",
       "required": false,
-      "unassessed_reason": "The global non-origin, finalized, package-present and header-binding prerequisites are assessed. Individual branch-specific envelope/preimage/registry/window authentication removals remain unassessed."
+      "unassessed_reason": "Global prerequisites and five selected branch-specific envelope/preimage/registry/window guard removals are now assessed by finite symbolic source faults. Concrete authentication, cryptography, and window reconstruction remain unassessed; these fixtures do not establish an executed STF or proof-validity claim."
     },
     {
       "id": "settlement-signal-state-root",
@@ -901,6 +901,91 @@
         "name": "ConstructionEnabled"
       },
       "obligation": "Suppressing first-header construction must fail an enabledness obligation rather than vacuously pass safety."
+    },
+    {
+      "id": "m10-conflict-auth-envelope",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "(Hash(x.peer.envelope) = x.peer.header.data /\\ x.peer.envelope.execution # x.l1.el)",
+        "new": "(TRUE /\\ x.peer.envelope.execution # x.l1.el)"
+      },
+      "workloads": ["configs/import-input-conflict-auth-envelope.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Unbound envelope execution cannot establish an authenticated EL conflict; raw2 requires Reject, not Halt."
+    },
+    {
+      "id": "m10-conflict-auth-preimage-next",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "(Hash(x.peer.preimage) = x.l1.val /\\ VHash(x.peer.preimage.first) # x.peer.header.next)",
+        "new": "(TRUE /\\ VHash(x.peer.preimage.first) # x.peer.header.next)"
+      },
+      "workloads": ["configs/import-input-conflict-auth-preimage-next.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Unbound first-set powers with matching derived entries cannot establish a header next-set contradiction; raw25 requires Reject, not Halt."
+    },
+    {
+      "id": "m10-conflict-auth-preimage-entry",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "(Hash(x.peer.preimage) = x.l1.val /\\ Hash(x.peer.entries) = x.l1.registry /\\",
+        "new": "(TRUE /\\ Hash(x.peer.entries) = x.l1.registry /\\"
+      },
+      "workloads": ["configs/import-input-conflict-auth-preimage-entry.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Unbound second-set powers cannot establish a derived-entry contradiction; raw26 leaves the first set/header next binding unchanged and requires Reject, not Halt."
+    },
+    {
+      "id": "m10-conflict-auth-registry",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "(Hash(x.peer.preimage) = x.l1.val /\\ Hash(x.peer.entries) = x.l1.registry /\\",
+        "new": "(Hash(x.peer.preimage) = x.l1.val /\\ TRUE /\\"
+      },
+      "workloads": ["configs/import-input-conflict-auth-registry.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Unbound reordered entries cannot establish a derived-committee contradiction; raw18 requires Reject, not Halt."
+    },
+    {
+      "id": "m10-conflict-auth-window",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "             Hash(x.peer.window) = x.peer.header.window /\\",
+        "new": "             TRUE /\\"
+      },
+      "workloads": ["configs/import-input-conflict-auth-window.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "A bound but contradictory entry tuple with an unbound window cannot establish a committee contradiction; raw27 is a negative classifier input requiring Reject, not an executed STF or proof-validity witness."
     }
   ]
 }

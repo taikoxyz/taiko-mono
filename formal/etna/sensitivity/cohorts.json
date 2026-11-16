@@ -50,7 +50,12 @@
         "recovery-time-parent-step",
         "recovery-time-later-anchor",
         "recovery-time-collapse-clocks",
-        "recovery-time-construction-enabled"
+        "recovery-time-construction-enabled",
+        "m10-conflict-auth-envelope",
+        "m10-conflict-auth-preimage-next",
+        "m10-conflict-auth-preimage-entry",
+        "m10-conflict-auth-registry",
+        "m10-conflict-auth-window"
       ]
     },
     {

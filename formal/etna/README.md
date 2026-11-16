@@ -449,6 +449,13 @@ fail the intended independent classification observer; original raw0..15, action
 and old configurations remain unchanged. Chain/height checks and other unassessed
 obligations are recorded, not counted as covered.
 
+T03 adds three raw-only M10 inputs and five focused contradiction-authentication
+profiles, preserving raw0..24 and all 345 previous main configurations. The five
+branch omissions fail `ClassificationCorrect` with healthy input0 controls; the
+[import matrix](CHECKPOINT_IMPORT.md#discriminatory-input-obligations) records
+negative-input premises and remaining authentication/cryptography gaps. The
+shared inventory now has 54 assessed required IDs across compatible runtimes.
+
 V04 separately checks connection enabledness/existence and conditional temporal
 progress. `EtnaImportProgress` wraps actual unchanged M10 actions with typed
 observation tags and requires eventual stable connection under fixed correct

@@ -1692,3 +1692,50 @@ EL/anchor/generation metadata is opaque transaction data. No actual Etna EL/STF,
 committee derivation, key mapping, authenticated recovery history, signatures,
 proofs, consensus rounds/locks or network progress is established. No protocol
 defect was confirmed. T03 and the final accumulated three-item gate remain.
+
+## Three-increment batch — T03 contradiction authentication
+
+T03 adds three raw negative inputs and five focused M10 configurations without
+changing `Authentic`, `ProvenContradiction`, `Decision`, `ObservedClass` or any
+action. Raw0..24, all345 prior configs and49 prior assessed fault entries remain
+unchanged. The five new required faults join the existing TLC cohort; the
+inventory now partitions54 assessed IDs as49TLC/3Identity/2Rules. An old aggregate
+unassessed entry retains its identity/flag and clarifies the remaining concrete
+authentication, cryptography and window-reconstruction boundary.
+
+Raw25 changes the first validator preimage and matching peer entries without
+rebinding any L1 commitment. Raw26 changes only the second preimage set. Raw27
+combines bound conflicting entries with an unbound peer window. These corrupt
+candidate inputs must be rejected; none establishes an authenticated conflict
+or a valid STF history. Healthy raw0 accompanies each negative input.
+
+- Pre-edit diagnostics showed envelope/registry guard omissions already fail
+  on old inputs, while both preimage omissions and the window omission survive
+  the complete old raw0..24 union. These are verification-input gaps.
+- All5 new source faults are KILLED by the shared campaign:15 actual phases,
+  successful normal/restored searches, and only `ClassificationCorrect` failures
+  for mutants, each at the two-state Check-to-Classified false-Halt boundary.
+  All source/config/tool and execution-log identities are checked.
+- Independent behavior verification runs56 small boundary trials: normal and
+  restored singleton inputs, explicit classification reachability and a five
+  fault by six input matrix. Only the intended corrupt input fails under each
+  fault; healthy0 and every off-target input pass. Literal audits check the
+  actual raw preimage/entry/window fields and L1 commitments independently.
+  Separate old-domain trials reproduce the three survivors; three authenticated
+  contradiction inputs still reach Halt as intended negative-classifier witnesses.
+- Independent review verifies the complete old raw and operational/oracle byte
+  preservation, exact unique fault sites, cohort coverage and SPEC classification
+  correspondence. Its separate literal classifier run exhausts with raw0
+  Verified and raw2/18/25/26/27 Reject; healthy raw0 can reach trusted admission.
+
+The focused campaign uses immutable v1 inputs. Final v2 changes only a stale
+documentation row that still called these finite guard omissions unassessed;
+all execution inputs remain byte-identical. An initial Python cleanup-test run
+inherited ignored SIGINT/SIGTERM and was inconclusive; restoring the standard
+signal dispositions in the disposable entrypoint yields20/20 passing unchanged
+tests. No runtime helper was modified to make them pass.
+
+No concrete importer, crypto or proof validity is established. The symbolic
+hash constructors and fixed trusted chain/height/window domain remain explicit
+premises. This completes the third technical increment; accumulated final gates
+and the three-item retrospective are reported separately below when complete.

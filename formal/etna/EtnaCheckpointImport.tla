@@ -4,7 +4,7 @@ EXTENDS Integers, FiniteSets, TLC
 \* Thin import boundary; symbolic commitments, fixed authenticated window.
 CONSTANTS ImportHeight, TargetHeight, RawCases, Mutant
 ASSUME /\ ImportHeight \in {2, 4} /\ TargetHeight \in {2, 4, 6}
-       /\ ImportHeight <= TargetHeight /\ RawCases \subseteq 0..24 /\ RawCases # {}
+       /\ ImportHeight <= TargetHeight /\ RawCases \subseteq 0..27 /\ RawCases # {}
 Origin == 2
 Chain == <<"Chain", 1>>
 StoreNames == {"el", "app", "comet", "evidence"}
@@ -99,6 +99,16 @@ Raw(i) == CASE
  [] i = 24 -> LET env == [Envelope EXCEPT !.execution = EL(99)]
                  hdr == [Header EXCEPT !.data = Hash(env)]
              IN [Input EXCEPT !.peer.envelope = env, !.peer.header = hdr]
+ \* Match entries to the corrupt preimage, without rebinding either L1 commitment.
+ [] i = 25 -> LET pre == [Preimage EXCEPT !.first.powers = <<4, 2>>]
+                  entries == <<KP(pre.first), KP(pre.second)>>
+              IN [Input EXCEPT !.peer.preimage = pre, !.peer.entries = entries]
+ \* Only the second set changes: header.next still agrees with the first set.
+ [] i = 26 -> [Input EXCEPT !.peer.preimage.second.powers = <<3, 4>>]
+ \* Negative classifier input: conflicting bound entries plus an unbound window.
+ [] i = 27 -> LET entries == <<KP(Second), KP(First)>>
+              IN [Input EXCEPT !.peer.entries = entries, !.l1.registry = Hash(entries),
+                                !.peer.window.validators = <<"WrongWindowValidators">>]
  [] OTHER -> Input
 Inputs == {Raw(i) : i \in RawCases}
 AtOrigin(x) == x.l1.height = x.l1.origin

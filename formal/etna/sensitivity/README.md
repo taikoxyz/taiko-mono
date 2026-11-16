@@ -165,7 +165,7 @@ campaigns remain historical evidence for their original source head.
 ## Recovery clock companion controls
 
 [T01](../RECOVERY_TIME.md) appends five `recovery-time-*` obligations to the same
-TLC cohort. The current 44/3/2 cohorts cover 49 assessed required IDs; all 44 older
+TLC cohort. The T01 44/3/2 cohorts cover 49 assessed required IDs; all 44 older
 IDs and Forge selectors are preserved. Wrong BFT origin time, omitted parent+1,
 omitted later anchor and EL=BFT must fail the independent literal
 `ObservationExact`. Clock collapse is checked on each valid EL4/BFT3 case
@@ -173,3 +173,25 @@ separately. Disabling construction must fail `ConstructionEnabled`, preventing
 vacuous safety. Normal/restored phases must still reach the exact witness where
 one is selected. This adds finite first-header sensitivity, not another consensus
 engine, executed STF, or full protocol coverage.
+
+## Import contradiction authentication controls
+
+[T03](../CHECKPOINT_IMPORT.md#discriminatory-input-obligations) adds five assessed
+`m10-conflict-auth-*` IDs to the existing TLC cohort: envelope, preimage-next,
+preimage-entry, registry and window. The current 49/3/2 runtime cohorts cover
+54 assessed required IDs; the previous 49 assessed entries and selectors remain
+unchanged. Each new ID has one exact operational source replacement and its own
+`import-input-conflict-auth-*` config pairing healthy raw0 with a single negative
+input (2/25/26/18/27). Each requires successful normal/restored exhaustion and an
+exact `ClassificationCorrect` mutant failure at classification, where omission
+would produce false Halt instead of Reject. Parser errors, unrelated failures
+and later store invariant failures receive no credit.
+
+A diagnostic over unchanged raw0..24 already killed envelope and registry
+omissions, but both preimage omissions and the window omission survived. Raw25
+and26 remove those masking conditions; raw27 tests the missing window binding
+with a deliberately contradictory tuple. It is a negative classifier input,
+not normal execution or proof validity evidence. The aggregate unassessed scope
+retains concrete authentication, cryptography and window reconstruction; trusted
+chain/height fixture premises and the other unassessed inventory entries remain.
+The separate T02 native Go source fault is outside this shared inventory.
