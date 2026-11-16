@@ -4,7 +4,7 @@ EXTENDS Integers, FiniteSets, TLC
 \* Thin import boundary; symbolic commitments, fixed authenticated window.
 CONSTANTS ImportHeight, TargetHeight, RawCases, Mutant
 ASSUME /\ ImportHeight \in {2, 4} /\ TargetHeight \in {2, 4, 6}
-       /\ ImportHeight <= TargetHeight /\ RawCases \subseteq 0..15 /\ RawCases # {}
+       /\ ImportHeight <= TargetHeight /\ RawCases \subseteq 0..24 /\ RawCases # {}
 Origin == 2
 Chain == <<"Chain", 1>>
 StoreNames == {"el", "app", "comet", "evidence"}
@@ -71,6 +71,34 @@ Raw(i) == CASE
              IN [Input EXCEPT !.peer.entries = entries, !.l1.registry = Hash(entries),
                                !.peer.evidence = {}]
  [] i = 15 -> [Input EXCEPT !.peer.header.time = 99]
+ [] i = 16 -> [Input EXCEPT !.peer.el = EL(99)]
+ \* Matching bad downloaded/computed roots leave only the L1 root binding false.
+ [] i = 17 -> [Input EXCEPT !.peer.state = Root(99), !.peer.computedState = Root(99)]
+ \* Keep authenticated commitments unchanged: these are corrupt peer candidates.
+ [] i = 18 -> [Input EXCEPT !.peer.entries = <<KP(Second), KP(First)>>]
+ [] i = 19 -> [Input EXCEPT !.peer.window.validators = <<"WrongWindowValidators">>]
+ \* Landed proposer/priority values are authoritative for both future sets.
+ [] i = 20 -> LET pre == [Preimage EXCEPT !.second.priorities = <<6, -6>>,
+                                       !.second.proposer = 2]
+             IN [Input EXCEPT !.peer.preimage = pre, !.l1.val = Hash(pre)]
+ \* Match the derived entries to the changed preimage, isolating header.next.
+ [] i = 21 -> LET pre == [Preimage EXCEPT !.first.powers = <<4, 2>>]
+                 entries == <<KP(pre.first), KP(pre.second)>>
+             IN [Input EXCEPT !.peer.preimage = pre, !.l1.val = Hash(pre),
+                               !.peer.entries = entries, !.l1.registry = Hash(entries)]
+ \* A contradictory-looking package cannot prove a conflict before finality/arrival.
+ [] i = 22 -> LET env == [Envelope EXCEPT !.execution = EL(99)]
+                 hdr == [Header EXCEPT !.data = Hash(env)]
+             IN [Input EXCEPT !.peer.envelope = env, !.peer.header = hdr,
+                               !.l1.comet = Hash(hdr), !.l1.finalized = FALSE]
+ [] i = 23 -> LET env == [Envelope EXCEPT !.execution = EL(99)]
+                 hdr == [Header EXCEPT !.data = Hash(env)]
+             IN [Input EXCEPT !.peer.envelope = env, !.peer.header = hdr,
+                               !.l1.comet = Hash(hdr), !.peer.present = FALSE]
+ \* Coherent corrupt peer bundle; do not rebind the retained L1 Comet commitment.
+ [] i = 24 -> LET env == [Envelope EXCEPT !.execution = EL(99)]
+                 hdr == [Header EXCEPT !.data = Hash(env)]
+             IN [Input EXCEPT !.peer.envelope = env, !.peer.header = hdr]
  [] OTHER -> Input
 Inputs == {Raw(i) : i \in RawCases}
 AtOrigin(x) == x.l1.height = x.l1.origin

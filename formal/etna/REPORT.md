@@ -1211,3 +1211,27 @@ readback pass. The pinned564 source inventory remains unchanged.
 
 This is a finite reviewed inventory/tool, not a claim that all faults have been
 enumerated. V02–V05 remain pending at this point; no sixth task is started.
+
+### V02 — discriminatory import inputs
+
+Raw16–24 add wrong downloaded EL, coherent wrong state/recomputed root, unbound
+entries/window, legal alternate second-set metadata, an isolated next-set
+contradiction and missing-finality/package/header-auth contradiction qualifiers.
+Original0..15, all operational/observer definitions after Raw, and40 original
+import configs are byte-identical. Five focused normal configurations supplement
+the original workloads; no production change or hash/crypto implementation.
+
+The root's actual sensitivity campaign runs19 selected guard/prerequisite
+deletions on the published model. All57 phases complete: each original/restored
+workload passes and each mutant fails exactly ClassificationCorrect at Classified
+depth2, before publication. Inputs remain stable and the selected campaign is
+ready. The independent reviewer verified all seven files, SPEC classifications,
+exact raw-log hashes and the stage of every failure. No material finding.
+
+This fixes both missing inputs and guard masking: old next-set contradiction
+also violated derived membership; a coherent changed preimage/entry input now
+exercises the header-next mismatch alone. Finality/package/header-auth prerequisites
+and the origin exemption also have separate false-halt discriminators. Authenticated
+chain/height corner cases remain explicitly unassessed; the matrix is finite, not
+a proof that all input combinations/classification premises are complete. Full
+accumulated regression remains a final-batch gate.

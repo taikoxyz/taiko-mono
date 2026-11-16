@@ -39,10 +39,10 @@
 **Files:** Modify EtnaCheckpointImport.tla and CHECKPOINT_IMPORT.md; add configs/import-input-\*.cfg; add sensitivity/input_obligations.json if useful. No old config rewrite.
 **Interfaces:** Original raw0..15 preserved, new raw inputs/focused configs; independent ObservedClass unchanged unless separately justified by SPEC; proposed source-fault matrix to root.
 
-- [ ] Record original40 EL-guard-survivor and new-input discriminator as regression RED, with exact source delta and intended ClassificationCorrect failure.
-- [ ] Add wrong EL hash and selected coherent binding bundles; map each selected guard to a valid discriminating input/rejection stage, preserving normal/origin/alternate-priority behavior.
-- [ ] Execute focused normal/negative cases and guard-removal campaign; mark masking/redundancy/unassessed obligations honestly rather than declaring all guards covered.
-- [ ] Independently review SPEC classification and matrix; root runs selected independent fault, integrates manifest/records local commit/worklist.
+- [x] Record original40 EL-guard-survivor and new-input discriminator as regression RED, with exact source delta and intended ClassificationCorrect failure.
+- [x] Add wrong EL hash and selected coherent binding bundles; map each selected guard to a valid discriminating input/rejection stage, preserving normal/origin/alternate-priority behavior.
+- [x] Execute focused normal/negative cases and guard-removal campaign; mark masking/redundancy/unassessed obligations honestly rather than declaring all guards covered.
+- [x] Independently review SPEC classification and matrix; root runs selected independent fault, integrates manifest/records local commit/worklist.
 
 ### Task 3: V03 successful publication observers
 

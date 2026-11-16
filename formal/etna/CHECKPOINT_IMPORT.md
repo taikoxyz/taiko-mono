@@ -5,7 +5,9 @@ transaction, process-crash installation and subsequent session admission under
 SPEC `d18357214fab30ea512ae9858a11699806d72ba1`, especially DATA-5.3-3/4/8,
 DATA-5.4-1..7, RECOV-8.4-7..15 and SYNC-9-4..14. It adds forty configurations:
 three exhaustive normal searches, twenty-seven permanent mutation controls and
-ten existential reachability witnesses. No earlier module or configuration changes.
+ten existential reachability witnesses. Five additional input profiles exercise
+individual bindings, contradictions, legal alternatives and origin exceptions.
+The original forty configurations and raw inputs 0..15 are unchanged.
 
 This is specification-level finite evidence. It does not execute an importer,
 CometBFT, EL, proof verifier or network; no concrete importer conformance is
@@ -51,7 +53,7 @@ remains unchanged even when import crashes or a generation change is learned.
 A raw input contains independent L1 commitments and candidate fields: EL hash,
 state root and recomputed state; Comet header and envelope; validator-state
 preimage with keys, powers, priorities and stored proposers; registry entries;
-and the authenticated fixed window. The sixteen fixture variants construct
+and the authenticated fixed window. The twenty-five fixture variants construct
 those fields; no operational or observer predicate reads a variant number.
 
 The variants cover exact input; unfinalized L1; corrupt publisher envelope;
@@ -88,6 +90,99 @@ Comet identity still participates in the latest-target both-hash check; only the
 validator-state comparison has the origin exception. At `s>o`, all landed
 priorities and stored proposers are installed exactly, without requiring `s+1`
 or `s+2` blocks, and app/Info AppHash is EL(s), not header(s)'s EL(s-1).
+
+## Discriminatory input obligations
+
+The added fixtures change inputs only. `Authentic`, `Missing`,
+`ProvenContradiction`, `Decision`, `ObservedClass` and the action engine remain
+unchanged. Each source-fault probe replaces exactly one selected operational
+condition in a temporary module; its normal baseline and restored module must
+exhaust, and its mutated module must violate `ClassificationCorrect` at `Check`.
+A parser/runtime error or a later store invariant does not meet this obligation.
+
+| Input | Construction                                                                                                  | Normal classification above origin     | Isolated obligation                                                   |
+| ----- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------- |
+| 16    | Wrong peer EL hash; retained L1 and envelope unchanged                                                        | Reject                                 | Peer EL equals retained EL                                            |
+| 17    | Wrong downloaded state root **and matching wrong recomputed root**                                            | Reject                                 | Downloaded root equals authenticated root                             |
+| 18    | Reordered peer committee entries; retained registry commitment unchanged                                      | Reject                                 | Entries authenticate to the registry commitment                       |
+| 19    | Changed peer window validator object; header window commitment unchanged                                      | Reject                                 | Window authenticates to the header commitment                         |
+| 20    | Alternate second-set priorities and stored proposer; matching landed preimage hash                            | Verified                               | Install the authenticated second set without hardcoding its metadata  |
+| 21    | Changed first-set powers plus matching preimage/entry commitments and entries; header next-set hash unchanged | Halt                                   | Authenticated preimage versus header next-set contradiction           |
+| 22    | Input 3's envelope-conflict fields, but the L1 record is unfinalized                                          | Wait, then Halt after finality arrives | A contradiction requires finalized L1 authentication                  |
+| 23    | Input 3's envelope-conflict fields, but the peer package is unavailable                                       | Wait, then Halt after arrival          | Latent absent fields cannot establish a contradiction                 |
+| 24    | Matching corrupt envelope and header DataHash; retained L1 Comet commitment unchanged                         | Reject                                 | A peer header must authenticate before its envelope proves a conflict |
+
+Input 17 is deliberately a coherent bad pair: changing only downloaded state
+would also fail the recomputation comparison and mask omission of the L1 root
+binding. Similarly, existing input 5 changes first-set powers without updating
+derived entries; it contradicts both the header next-set hash and the derived
+committee. Input 21 removes that masking by matching entries to the changed
+preimage. It does not weaken the independent observer or manufacture an
+incorrect chain/height commitment. Inputs 18, 19 and 24 leave their authenticating
+L1 commitments untouched and therefore represent corrupt peer candidates.
+Inputs 22 and 23 reuse the existing authenticated-envelope-conflict family with
+only finality or availability absent. Their retained record fields are not a new
+trusted premise: finality must arrive before the record authenticates anything,
+and `present = FALSE` makes all latent package fields unavailable. The existing
+retry supplies only that missing prerequisite; the now-proven contradiction
+then halts. This is the DATA-5.3-4/8 and DATA-5.4-5 wait/retry boundary.
+
+The following matrix records the bounded input-to-guard relation. Source-fault
+probes use one listed input at a time, so another input cannot receive credit for
+killing a different omission. “Remove” means replace only that conjunct/disjunct
+with its neutral Boolean value, leaving the independent observer unchanged.
+
+| Operational obligation                                 | Input                      | Fault and intended classification failure                              | Coverage limit                                                                                  |
+| ------------------------------------------------------ | -------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `Authentic`: peer EL binding                           | 16                         | Remove equality: Verified instead of Reject                            | Symbolic EL identity                                                                            |
+| `Authentic`: downloaded root binding                   | 17                         | Remove equality: Verified instead of Reject                            | Coherent bad pair isolates this comparison                                                      |
+| `Authentic`: recomputed root binding                   | 9                          | Remove equality: Verified instead of Reject                            | Recomputed root is an independent symbolic result                                               |
+| `Authentic`: Comet header binding                      | 15                         | Remove equality: Verified instead of Reject                            | Peer header time changes, retained hash does not                                                |
+| `Authentic`: envelope binding                          | 2                          | Remove equality: Verified instead of Reject                            | Unauthenticated envelope cannot prove a contradiction                                           |
+| `Authentic`: validator-preimage binding                | 4                          | Remove equality: Verified instead of Reject                            | Proposer changes without changing keys/powers                                                   |
+| `Authentic`: registry-entry binding                    | 18                         | Remove equality: Verified instead of Reject                            | Mismatching entries are not authenticated                                                       |
+| `Authentic`: window binding                            | 19                         | Remove equality: Verified instead of Reject                            | Fixed symbolic window; no window reconstruction algorithm                                       |
+| `Missing`: peer presence                               | 7                          | Remove disjunct: Verified instead of Wait                              | Material arrives on existing retry action                                                       |
+| `Missing`: finalized record                            | 1                          | Remove disjunct: Verified instead of Wait                              | Finality arrival is an environment assumption                                                   |
+| `Missing`: ancestors                                   | 8                          | Remove disjunct: Verified instead of Wait                              | Non-origin bounded ancestor set                                                                 |
+| `Missing`: evidence markers                            | 10                         | Remove disjunct: Verified instead of Wait                              | Non-origin bounded evidence set                                                                 |
+| `ProvenContradiction`: envelope/EL conflict            | 3                          | Suppress conflict branch: Verified instead of Halt                     | Authenticated header and envelope                                                               |
+| `ProvenContradiction`: next-set conflict               | 21                         | Suppress conflict branch: Verified instead of Halt                     | Matching entries avoid the second conflict branch                                               |
+| `ProvenContradiction`: derived-committee conflict      | 6                          | Suppress conflict branch: Verified instead of Halt                     | Authenticated entries/window and preimage                                                       |
+| Contradiction precedence over corrupt/missing material | 12, 13, 14                 | Existing `ContradictionRetry` controls require `ClassificationCorrect` | Existing controls test the combined outcome, not every prerequisite separately                  |
+| `Authentic`: chain and height                          | None                       | **Unassessed** individual removals                                     | Coherent authenticated non-origin headers have the selected chain and height                    |
+| `ProvenContradiction`: non-origin prerequisite         | 3 at origin                | Remove conjunct: Halt instead of Verified                              | Existing old-generation fixture under the fixed-genesis exception                               |
+| `ProvenContradiction`: finality prerequisite           | 22                         | Remove conjunct: Halt instead of Wait                                  | Conflict is not authenticated until finality arrives                                            |
+| `ProvenContradiction`: package-presence prerequisite   | 23                         | Remove conjunct: Halt instead of Wait                                  | Absent fields cannot prove a contradiction                                                      |
+| `ProvenContradiction`: header-binding prerequisite     | 24                         | Remove conjunct: Halt instead of Reject                                | Coherent peer envelope/header do not authenticate their own L1 root                             |
+| `Authentic` origin exception                           | 0, 3, 11, 16..21 at origin | Positive input profile; only EL/root/recomputation still bind          | Individual removal of `Authentic`'s origin exception is unassessed                              |
+| Branch-specific conflict authentication prerequisites  | 2, 4, 18, 19               | Positive rejection checks                                              | Individual envelope/preimage/registry/window prerequisite-removal sensitivity is **unassessed** |
+
+Chain and height checks remain required by DATA-5.4-1/2, but ordinary wrong peer
+chain/height fields also break the header hash and cannot discriminate these
+checks. Rebinding the finalized L1 Comet commitment to such a header would assert
+a different trusted input domain. DATA-5.4-5 and SYNC-9-7 require distinguishing
+that authenticated contradiction from invalid peer input; this model does not
+claim that its generic Reject branch settles that extended classification.
+These two guards are therefore unassessed, not proved redundant or complete.
+No existing fixture is reclassified to make a mutation fail.
+
+`import-input-bindings` checks rejection inputs 2, 4, 9, 15..19;
+`import-input-contradictions` checks 3, 6, 12..14 and 21;
+`import-input-valid-alternates` checks 0, 11 and 20;
+`import-input-origin` checks 0, 3, 11 and 16..21 at the fixed recovery origin;
+`import-input-conflict-prerequisites` checks 22..24 above the origin.
+All five use the full existing safety-invariant set. Origin imports retain the
+DATA-5.4-1/RECOV-8.4 genesis exception, including old-generation commitments and
+fixed genesis validators; wrong EL/state inputs still reject. Existing input 3 at
+the origin explicitly exercises the model's retained old-generation-header
+exception: that envelope is not authenticated for the new generation's bootstrap
+under DATA-5.4-1, so its would-be post-origin conflict cannot bypass genesis
+installation. This is a check of the already-modeled origin boundary, not a
+claim that a full valid old-generation execution produces contradictory landing
+data. Alternate priority
+fixtures preserve landed metadata for both sets. They are symbolic input
+alternatives, not a proof of reachability under full Comet priority arithmetic.
 
 ## Installation, observation and crashes
 

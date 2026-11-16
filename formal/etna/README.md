@@ -442,3 +442,9 @@ The initial three-fault diagnostic correctly reports SURVIVED/non-ready; this
 is an honest baseline, not a completed coverage repair. Subsequent bounded tasks
 repair and independently retest those obligations before one held-candidate
 handoff model. Source pins and production packages remain unchanged.
+
+V02 adds discriminatory import inputs and an explicit input-to-guard matrix in
+[`CHECKPOINT_IMPORT.md`](CHECKPOINT_IMPORT.md). Nineteen selected deletions now
+fail the intended independent classification observer; original raw0..15, actions
+and old configurations remain unchanged. Chain/height checks and other unassessed
+obligations are recorded, not counted as covered.

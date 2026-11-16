@@ -1,64 +1,23 @@
 {
   "schema": "etna-fault-campaign-1",
-  "inventory_scope": "Selected verification sensitivity obligations; no automatic completeness claim. Initial V01 diagnostic is expected to SURVIVE.",
+  "inventory_scope": "V02 assessed import input/classification obligations plus pending progress/publication and explicit unassessed boundaries; finite reviewed inventory, no completeness claim.",
   "obligations": [
     {
+      "id": "m10-el-binding",
       "required": true,
       "engine": "tlc",
       "source": "formal",
       "path": "EtnaCheckpointImport.tla",
-      "workloads": [
-        "configs/import-latest.cfg",
-        "configs/import-negative-bad-peer.cfg",
-        "configs/import-negative-committee-contradiction.cfg",
-        "configs/import-negative-contradiction-with-missing.cfg",
-        "configs/import-negative-envelope-contradiction.cfg",
-        "configs/import-negative-generation-bypass.cfg",
-        "configs/import-negative-hrs-reset.cfg",
-        "configs/import-negative-import-trust.cfg",
-        "configs/import-negative-latest-bypass.cfg",
-        "configs/import-negative-lost-halt.cfg",
-        "configs/import-negative-missing-ancestor.cfg",
-        "configs/import-negative-missing-evidence.cfg",
-        "configs/import-negative-missing-halt.cfg",
-        "configs/import-negative-mixed-authentication.cfg",
-        "configs/import-negative-new-genesis.cfg",
-        "configs/import-negative-origin-comet.cfg",
-        "configs/import-negative-origin-height.cfg",
-        "configs/import-negative-origin-preimage.cfg",
-        "configs/import-negative-partial-publication.cfg",
-        "configs/import-negative-preimage-contradiction.cfg",
-        "configs/import-negative-unfinalized.cfg",
-        "configs/import-negative-wrong-apphash.cfg",
-        "configs/import-negative-wrong-el-store.cfg",
-        "configs/import-negative-wrong-fi.cfg",
-        "configs/import-negative-wrong-pending.cfg",
-        "configs/import-negative-wrong-priority.cfg",
-        "configs/import-negative-wrong-proposer.cfg",
-        "configs/import-negative-wrong-publication.cfg",
-        "configs/import-older.cfg",
-        "configs/import-origin.cfg",
-        "configs/import-witness-contradiction.cfg",
-        "configs/import-witness-crash-resume.cfg",
-        "configs/import-witness-import-untrusted.cfg",
-        "configs/import-witness-latest.cfg",
-        "configs/import-witness-missing-retry.cfg",
-        "configs/import-witness-older.cfg",
-        "configs/import-witness-origin.cfg",
-        "configs/import-witness-partial-crash.cfg",
-        "configs/import-witness-restart-trust.cfg",
-        "configs/import-witness-superseded.cfg"
-      ],
-      "id": "m10-el-binding",
-      "obligation": "Downloaded EL identity must bind the authenticated L1 checkpoint.",
       "replace": {
         "old": "/\\ x.peer.el = x.l1.el /\\ x.peer.state = x.l1.state",
         "new": "/\\ x.peer.state = x.l1.state"
       },
+      "workloads": ["configs/import-input-bindings.cfg"],
       "failure": {
         "kind": "invariant",
         "name": "ClassificationCorrect"
-      }
+      },
+      "obligation": "Import classification preserves el-binding; raw input 16 isolates this operational condition in the bounded model."
     },
     {
       "required": true,
@@ -153,6 +112,322 @@
       "id": "unselected-protocol-obligations",
       "required": false,
       "unassessed_reason": "This reviewed finite selection does not assess the remaining protocol obligations, guest/client refinement, proof validity, committee derivation or full liveness."
+    },
+    {
+      "id": "m10-state-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ x.peer.el = x.l1.el /\\ x.peer.state = x.l1.state",
+        "new": "/\\ x.peer.el = x.l1.el"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves state-binding; raw input 17 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-computed-state-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ x.peer.computedState = x.peer.state",
+        "new": "/\\ TRUE"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves computed-state-binding; raw input 9 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-header-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ Hash(x.peer.header) = x.l1.comet\n       /\\ Hash(x.peer.envelope)",
+        "new": "/\\ TRUE\n       /\\ Hash(x.peer.envelope)"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves header-binding; raw input 15 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-envelope-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ Hash(x.peer.envelope) = x.peer.header.data",
+        "new": "/\\ TRUE"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves envelope-binding; raw input 2 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-preimage-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ Hash(x.peer.preimage) = x.l1.val",
+        "new": "/\\ TRUE"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves preimage-binding; raw input 4 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-entries-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "\n       /\\ Hash(x.peer.entries) = x.l1.registry",
+        "new": "\n       /\\ TRUE"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves entries-binding; raw input 18 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-window-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ Hash(x.peer.window) = x.peer.header.window",
+        "new": "/\\ TRUE"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves window-binding; raw input 19 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-missing-present",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "Missing(x) == ~x.peer.present \\/ ~x.l1.finalized \\/",
+        "new": "Missing(x) == ~x.l1.finalized \\/"
+      },
+      "workloads": ["configs/import-latest.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves missing-present; raw input 7 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-missing-finality",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "Missing(x) == ~x.peer.present \\/ ~x.l1.finalized \\/",
+        "new": "Missing(x) == ~x.peer.present \\/"
+      },
+      "workloads": ["configs/import-latest.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves missing-finality; raw input 1 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-missing-ancestors",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "              ~RequiredAncestors \\subseteq x.peer.ancestors \\/",
+        "new": "              FALSE \\/"
+      },
+      "workloads": ["configs/import-latest.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves missing-ancestors; raw input 8 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-missing-evidence",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "              ~RequiredEvidence \\subseteq x.peer.evidence",
+        "new": "              FALSE"
+      },
+      "workloads": ["configs/import-latest.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves missing-evidence; raw input 10 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-contradiction-envelope",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "(Hash(x.peer.envelope) = x.peer.header.data /\\ x.peer.envelope.execution # x.l1.el)",
+        "new": "FALSE"
+      },
+      "workloads": ["configs/import-input-contradictions.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves contradiction-envelope; raw input 3 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-contradiction-next",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "(Hash(x.peer.preimage) = x.l1.val /\\ VHash(x.peer.preimage.first) # x.peer.header.next)",
+        "new": "FALSE"
+      },
+      "workloads": ["configs/import-input-contradictions.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves contradiction-next; raw input 21 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-contradiction-entries",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "(Hash(x.peer.preimage) = x.l1.val /\\ Hash(x.peer.entries) = x.l1.registry /\\\n             Hash(x.peer.window) = x.peer.header.window /\\\n             x.peer.entries # <<KP(x.peer.preimage.first), KP(x.peer.preimage.second)>>)",
+        "new": "FALSE"
+      },
+      "workloads": ["configs/import-input-contradictions.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves contradiction-entries; raw input 6 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-conflict-non-origin",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ ~AtOrigin(x) /\\ x.l1.finalized /\\ x.peer.present",
+        "new": "/\\ x.l1.finalized /\\ x.peer.present"
+      },
+      "workloads": ["configs/import-input-origin.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Contradiction classification preserves the conflict-non-origin prerequisite; isolated raw3 rejects a false safety halt."
+    },
+    {
+      "id": "m10-conflict-finality",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ ~AtOrigin(x) /\\ x.l1.finalized /\\ x.peer.present",
+        "new": "/\\ ~AtOrigin(x) /\\ x.peer.present"
+      },
+      "workloads": ["configs/import-input-conflict-prerequisites.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Contradiction classification preserves the conflict-finality prerequisite; isolated raw22 rejects a false safety halt."
+    },
+    {
+      "id": "m10-conflict-present",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ ~AtOrigin(x) /\\ x.l1.finalized /\\ x.peer.present",
+        "new": "/\\ ~AtOrigin(x) /\\ x.l1.finalized"
+      },
+      "workloads": ["configs/import-input-conflict-prerequisites.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Contradiction classification preserves the conflict-present prerequisite; isolated raw23 rejects a false safety halt."
+    },
+    {
+      "id": "m10-conflict-header-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ Hash(x.peer.header) = x.l1.comet\n    /\\ \\/",
+        "new": "/\\ TRUE\n    /\\ \\/"
+      },
+      "workloads": ["configs/import-input-conflict-prerequisites.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Contradiction classification preserves the conflict-header-binding prerequisite; isolated raw24 rejects a false safety halt."
+    },
+    {
+      "id": "m10-header-chain-height",
+      "required": false,
+      "unassessed_reason": "Ordinary peer chain/height corruptions also fail header authentication. Rebinding finalized L1 to a wrong chain/height extends the trusted-input domain and requires SPEC classification analysis; individual guard sensitivity is unassessed."
+    },
+    {
+      "id": "m10-conflict-authentication-prerequisites",
+      "required": false,
+      "unassessed_reason": "The global non-origin, finalized, package-present and header-binding prerequisites are assessed. Individual branch-specific envelope/preimage/registry/window authentication removals remain unassessed."
     }
   ]
 }
