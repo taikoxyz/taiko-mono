@@ -98,6 +98,7 @@ jobs:
           # PR base) allows go/forge/pnpm tests, git, rm and WebFetch, so project and local settings
           # are excluded; user settings are the ones the action writes (enableAllProjectMcpServers only).
           claude_args: |
+            --permission-mode default
             --setting-sources user
             --allowedTools "
               Read,
