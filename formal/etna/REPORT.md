@@ -1854,3 +1854,47 @@ wrapping; all execution inputs remain identical. These are selected necessary
 premises and bounded reachability checks, not valid STF history, full window
 reconstruction or a concrete importer. No actual protocol defect was established.
 F02–F05 and the final five-item accumulated gate remain pending.
+
+## Five-increment boundary batch — F02 chain and height discrimination
+
+The old Raw0..27 input domain never independently corrupted the non-origin
+header chain or height. Removing either `Authentic` equality therefore survives
+the complete old domain: each normal/mutated/restored search exhausts with
+13,220 generated and4,512 distinct states. Those diagnostic survivors are
+evidence of missing input discrimination, not production guard omissions.
+
+F02 appends Raw28/29, changing only the peer header's chain or height to99 and
+rebinding its symbolic L1 Comet commitment. Other input fields remain unchanged.
+Neither input establishes an existing authenticated-contradiction branch;
+both require Reject. They are intentionally invalid classifier tuples, not
+proof-valid landings or positive STF/history witnesses. Healthy Raw0 accompanies
+each new focused configuration.
+
+- Both required one-site guard faults are KILLED exactly at Check/Classified:
+  the omitted equality causes false Verified and `ClassificationCorrect` fails.
+  Normal and actual restored searches pass, each with3,273 generated and1,101
+  distinct states and an empty queue. Six focused phase logs and six old-domain
+  diagnostic phase logs retain exact config/source/mutant/tool/output identities.
+- Independent behavioral verification executes38 additional TLC trials, with
+  literal raw-field/binding checks, per-input classification reachability,
+  selective two-by-three fault matrix, healthy trust, authenticated Halt/Wait/
+  corrupt-candidate controls, old-domain survival and actual source restoration.
+  Healthy and off-target inputs do not supply fault-kill credit.
+- Independent source review inspects all eight owned files and verifies Raw0..27
+  and the entire operational/observer/audit suffix unchanged, all357 previous configs,
+  other old files/payloads/pins and all56 prior required selectors preserved.
+  All20 sensitivity/cohort/classifier/lifecycle Python tests pass.
+
+The inventory now partitions58 assessed required IDs as53TLC/3Identity/2Rules.
+The four unassessed categories retain their IDs/flags; the chain/height category
+clarifies that concrete authentication, cryptography and full extended-history
+classification remain outside the finite guard checks. The full359-config and
+58-fault accumulated gates remain pending until the five-item batch ends.
+
+Executed model SHA256:
+`2ca92b8b685112444444dfcbdf5df4ab8294dfaa0af40f084919806207d63782`.
+Focused campaign SHA256:
+`ea1dc13a48f12c33f2b3d8d70ca7e4c439f200bb6ad644c736bf0a242da102c3`.
+Initial namespace/JMX setup errors were inconclusive; the same inspected offline
+launch passed with the required local capability. No operational protocol guard
+or normative document changed. F03–F05 remain.

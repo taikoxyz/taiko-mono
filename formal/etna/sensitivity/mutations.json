@@ -374,7 +374,7 @@
     {
       "id": "m10-header-chain-height",
       "required": false,
-      "unassessed_reason": "Ordinary peer chain/height corruptions also fail header authentication. Rebinding finalized L1 to a wrong chain/height extends the trusted-input domain and requires SPEC classification analysis; individual guard sensitivity is unassessed."
+      "unassessed_reason": "The two selected finite wrong-chain/wrong-height classifier inputs and individual Authentic guard omissions are now assessed. Concrete authentication, cryptography, full authenticated extended-input classification, and valid STF/window/history reconstruction remain unassessed; rebinding the symbolic finalized L1 Comet commitment does not establish a proof-valid landing or an authenticated contradiction."
     },
     {
       "id": "m10-conflict-authentication-prerequisites",
@@ -1020,6 +1020,40 @@
         "name": "PositiveImportPremises"
       },
       "obligation": "Actual origin publication installs the stock fixed-genesis first stored proposer key1 with priorities[-2,2] and next stored proposer key2 with priorities[1,-1], independently of retained landed priorities/proposers. Exact source fault restores the old wrong first proposer key2; independent literal audit must reject it."
+    },
+    {
+      "id": "m10-header-chain",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ x.peer.header.chain = Chain /\\ x.peer.header.height = x.l1.height",
+        "new": "/\\ TRUE /\\ x.peer.header.height = x.l1.height"
+      },
+      "workloads": ["configs/import-input-chain-height-chain.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Raw28 changes only the non-origin peer header chain and rebinds the L1 Comet commitment, isolating Authentic's chain equality without another failed binding or an established contradiction branch. This deliberately invalid classifier input must Reject; omission must cause false Verified at Check/Classified. It is not a proof-valid landing or executed STF witness."
+    },
+    {
+      "id": "m10-header-height",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ x.peer.header.chain = Chain /\\ x.peer.header.height = x.l1.height",
+        "new": "/\\ x.peer.header.chain = Chain /\\ TRUE"
+      },
+      "workloads": ["configs/import-input-chain-height-height.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Raw29 changes only the non-origin peer header height and rebinds the L1 Comet commitment, isolating Authentic's height equality without another failed binding or an established contradiction branch. This deliberately invalid classifier input must Reject; omission must cause false Verified at Check/Classified. It is not a proof-valid landing or executed STF witness."
     }
   ]
 }

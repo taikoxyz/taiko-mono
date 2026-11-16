@@ -55,7 +55,7 @@ remains unchanged even when import crashes or a generation change is learned.
 A raw input contains independent L1 commitments and candidate fields: EL hash,
 state root and recomputed state; Comet header and envelope; validator-state
 preimage with keys, powers, priorities and stored proposers; registry entries;
-and the authenticated fixed window. The twenty-eight fixture variants construct
+and the authenticated fixed window. The thirty fixture variants construct
 those fields; no operational or observer predicate reads a variant number.
 
 The variants cover exact input; unfinalized L1; corrupt publisher envelope;
@@ -178,7 +178,8 @@ with its neutral Boolean value, leaving the independent observer unchanged.
 | `ProvenContradiction`: next-set conflict                       | 21                         | Suppress conflict branch: Verified instead of Halt                     | Matching entries avoid the second conflict branch                              |
 | `ProvenContradiction`: derived-committee conflict              | 6                          | Suppress conflict branch: Verified instead of Halt                     | Authenticated entries/window and preimage                                      |
 | Contradiction precedence over corrupt/missing material         | 12, 13, 14                 | Existing `ContradictionRetry` controls require `ClassificationCorrect` | Existing controls test the combined outcome, not every prerequisite separately |
-| `Authentic`: chain and height                                  | None                       | **Unassessed** individual removals                                     | Coherent authenticated non-origin headers have the selected chain and height   |
+| `Authentic`: chain                                             | 28                         | Remove equality: Verified instead of Reject                            | Symbolic header/L1 rebinding; invalid classifier input only                    |
+| `Authentic`: height                                            | 29                         | Remove equality: Verified instead of Reject                            | Symbolic header/L1 rebinding; invalid classifier input only                    |
 | `ProvenContradiction`: non-origin prerequisite                 | 3 at origin                | Remove conjunct: Halt instead of Verified                              | Existing old-generation fixture under the fixed-genesis exception              |
 | `ProvenContradiction`: finality prerequisite                   | 22                         | Remove conjunct: Halt instead of Wait                                  | Conflict is not authenticated until finality arrives                           |
 | `ProvenContradiction`: package-presence prerequisite           | 23                         | Remove conjunct: Halt instead of Wait                                  | Absent fields cannot prove a contradiction                                     |
@@ -190,14 +191,33 @@ with its neutral Boolean value, leaving the independent observer unchanged.
 | `ProvenContradiction`: registry authentication                 | 18                         | Remove branch binding: Halt instead of Reject                          | Original corrupt entry input                                                   |
 | `ProvenContradiction`: window authentication                   | 27                         | Remove branch binding: Halt instead of Reject                          | Deliberately contradictory negative tuple; no positive validity claim          |
 
-Chain and height checks remain required by DATA-5.4-1/2, but ordinary wrong peer
-chain/height fields also break the header hash and cannot discriminate these
-checks. Rebinding the finalized L1 Comet commitment to such a header would assert
-a different trusted input domain. DATA-5.4-5 and SYNC-9-7 require distinguishing
-that authenticated contradiction from invalid peer input; this model does not
-claim that its generic Reject branch settles that extended classification.
-These two guards are therefore unassessed, not proved redundant or complete.
-No existing fixture is reclassified to make a mutation fail.
+Chain and height checks are required by DATA-5.4-1/2. The complete old raw0..27
+union never changes either source field; actual private single-guard omissions
+therefore survive that domain. A plain wrong peer header would also break its
+L1 hash, masking the equality. F02 appends raw28 (chain99) and raw29 (height99)
+and changes only the corresponding peer header and `l1.comet = Hash(header)`.
+All other fields and commitments remain as in raw0. Each focused
+`import-input-chain-height-{chain,height}` profile pairs raw0 with one negative
+input at import/target4. All357 previous main config bytes, raw0..27 source
+bytes and the entire operational/observer/audit suffix are preserved.
+
+These are deliberately invalid classifier inputs, not proof-valid authenticated
+landings or valid STF histories. DATA-5.4-5 rejects invalid peer candidates
+unless an authenticated contradiction is established. Neither new input
+establishes any modeled contradiction branch: its envelope execution equals
+L1 EL, its first validator-set hash equals header.next, and its entries equal
+the two preimage key/power tuples. Header binding alone does not establish
+those contradictions. Thus both must Reject while raw0 remains Verified.
+This selected finite interpretation does not classify arbitrary contradictory
+L1/EL evidence under SYNC-9-7 or prove extended-domain history validity.
+
+Two required shared-campaign selectors remove only the respective `Authentic`
+equality at one exact source site. With the literal `ObservedClass` unchanged,
+each must fail exactly `ClassificationCorrect` at `Check`/`Classified`, reporting
+false Verified rather than Reject. Original and actually restored source must
+pass. No existing fixture is reclassified and no operational check is weakened
+in the published model. Concrete cryptography, authenticated extended-input
+classification and full STF/window/history reconstruction remain unassessed.
 
 `import-input-bindings` checks rejection inputs 2, 4, 9, 15..19;
 `import-input-contradictions` checks 3, 6, 12..14 and 21;

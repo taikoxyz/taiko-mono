@@ -4,7 +4,7 @@ EXTENDS Integers, FiniteSets, TLC
 \* Thin import boundary; symbolic commitments, fixed authenticated window.
 CONSTANTS ImportHeight, TargetHeight, RawCases, Mutant
 ASSUME /\ ImportHeight \in {2, 4} /\ TargetHeight \in {2, 4, 6}
-       /\ ImportHeight <= TargetHeight /\ RawCases \subseteq 0..27 /\ RawCases # {}
+       /\ ImportHeight <= TargetHeight /\ RawCases \subseteq 0..29 /\ RawCases # {}
 Origin == 2
 Chain == <<"Chain", 1>>
 StoreNames == {"el", "app", "comet", "evidence"}
@@ -109,6 +109,12 @@ Raw(i) == CASE
  [] i = 27 -> LET entries == <<KP(Second), KP(First)>>
               IN [Input EXCEPT !.peer.entries = entries, !.l1.registry = Hash(entries),
                                 !.peer.window.validators = <<"WrongWindowValidators">>]
+ \* Negative classifier inputs: bind only the changed header to the retained L1 record.
+ \* These tuples do not establish proof-valid landings or a proven contradiction.
+ [] i = 28 -> LET hdr == [Header EXCEPT !.chain = <<"Chain", 99>>]
+              IN [Input EXCEPT !.peer.header = hdr, !.l1.comet = Hash(hdr)]
+ [] i = 29 -> LET hdr == [Header EXCEPT !.height = 99]
+              IN [Input EXCEPT !.peer.header = hdr, !.l1.comet = Hash(hdr)]
  [] OTHER -> Input
 Inputs == {Raw(i) : i \in RawCases}
 AtOrigin(x) == x.l1.height = x.l1.origin

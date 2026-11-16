@@ -73,6 +73,11 @@ premises, actual complete selected EL/app/Comet/evidence stores, durability and
 trust-at-publication. Include schema, source/tool provenance and exact IDs.
 
 Python parses actual TLC values, never reconstructs the import transition.
+The existing base parser is a provenance input to old fixtures and must remain
+byte-identical. A minimal local subclass may add only signed-integer, bounded-range
+and set tokens while inheriting its record/function/sequence grammar. Canonicalize
+sets as sorted JSON arrays, preserve sequence order and compare fresh canonical
+JSON bytes with exact scalar types, so bool/int equality cannot hide alterations.
 Fresh comparison rejects missing/duplicate/altered receipts and provenance drift.
 Independent literal audits and disabled-publication experiments must distinguish
 missing progress from a green safety assertion. Do not claim a valid STF history,

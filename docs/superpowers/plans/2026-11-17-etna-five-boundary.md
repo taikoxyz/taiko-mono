@@ -42,10 +42,10 @@
 **Files:** M10 Raw/domain only, two `configs/import-input-chain-height-*.cfg`, CHECKPOINT_IMPORT and sensitivity inventory/cohorts.
 **Interface:** Raw28/29 wrong-chain/wrong-height with only L1 Comet rebinding; raw0 healthy; existing operational/observer definitions unchanged.
 
-- [ ] Demonstrate each original guard omission's old-domain survival/masking and justify Reject from SPEC.
-- [ ] Append two negative fixtures/configs and unique required fault selectors; preserve Raw0..27.
-- [ ] Run exact normal/mutant/restored trials and independent singleton/cross-input/reachability probes, including authenticated contradiction controls.
-- [ ] Independently review/verify, then commit; do not promote these fixtures to STF validity evidence.
+- [x] Demonstrate each original guard omission's old-domain survival/masking and justify Reject from SPEC.
+- [x] Append two negative fixtures/configs and unique required fault selectors; preserve Raw0..27.
+- [x] Run exact normal/mutant/restored trials and independent singleton/cross-input/reachability probes, including authenticated contradiction controls.
+- [x] Independently review/verify and confirm commit readiness; do not promote these fixtures to STF validity evidence (actual publication is recorded in the ledger).
 
 ## F03 — actual import receipts
 

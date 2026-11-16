@@ -497,3 +497,17 @@ for the reproduced fixture defect, independent literal premise audit and exact
 source-fault sensitivity. This is a necessary chronology check, not full
 STF/window validity or importer conformance. Prior M10 source hashes and run
 results are historical; the350 prior main configuration bytes are preserved.
+
+### F02 chain and height input discrimination
+
+Two additive `import-input-chain-height-*` configurations pair healthy raw0
+with wrong-chain raw28 or wrong-height raw29. Only the changed header's L1
+Comet commitment is rebound, exposing each equality without header-hash masking.
+They are invalid classifier inputs requiring Reject, with no modeled
+contradiction branch established, and are not proof-valid landing witnesses.
+Two exact shared TLC source faults must cause false Verified and fail the
+unchanged `ClassificationCorrect` observer at classification; original and
+actually restored source must pass. See [the input obligations](CHECKPOINT_IMPORT.md#discriminatory-input-obligations).
+All357 previous config bytes, raw0..27 and the complete operational/observer/
+audit suffix remain unchanged. The assessed inventory is58 (53 TLC,3 identity,
+2 rules), with the four aggregate unassessed entries retained.

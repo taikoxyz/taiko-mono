@@ -36,7 +36,7 @@ inventory and is not a usable full gate with the current one-runtime Forge argv.
 
 | Cohort           | Required IDs | Engine | Exact selected Forge test                                          |
 | ---------------- | ------------ | ------ | ------------------------------------------------------------------ |
-| `tlc`            | 51           | TLC    | None                                                               |
+| `tlc`            | 53           | TLC    | None                                                               |
 | `forge-identity` | 3            | Forge  | `EtnaIdentityReplayTest::test_identity_publicHistoryPublication()` |
 | `forge-rules`    | 2            | Forge  | `EtnaRulesReplayTest::test_conformance_stopHandoffReplay()`        |
 
@@ -51,7 +51,7 @@ does not satisfy an item that declares only one.
 Full assessed-inventory evidence requires all three campaigns from the same
 frozen source/manifest/tools, separately compatible runtime selections and the
 same shared physical Foundry lock. Aggregate by obligation ID: verify the exact
-56-ID union without duplicates or omissions, all per-ID original/mutant/restored
+58-ID union without duplicates or omissions, all per-ID original/mutant/restored
 phases, source/tool hashes, input stability and each campaign's raw log hashes.
 Retain each cohort verdict separately. A full aggregate may report complete
 assessed coverage only after all these checks; unassessed protocol boundaries
@@ -217,3 +217,31 @@ and uses the complete healthy origin profile. Its literal publication audit
 must fail `PositiveImportPremises` on the actual stored proposer; the older
 observer shares the fixed-genesis fixture and cannot detect this defect.
 Both selectors retain actual source restoration and required non-vacuity gates.
+
+## F02 chain and height classifier controls
+
+`m10-header-chain` and `m10-header-height` append two required TLC selectors.
+The current partition is58 assessed IDs:53 TLC, three identity and two rules;
+all56 earlier required selectors and all four unassessed entries remain.
+The aggregate `m10-header-chain-height` entry stays unassessed for concrete
+extended-domain authentication, cryptography and valid STF/window/history
+reconstruction, while acknowledging these two finite classifier faults.
+Historical cohort counts and results describe their original frozen inputs.
+
+Actual private source-fault trials over the complete old raw0..27 union let
+both individual equalities survive: none of those constructors changes chain
+or height, and a plain peer-header corruption would also fail its L1 hash.
+Raw28/29 rebind only that hash after changing one header field. Each focused
+`import-input-chain-height-{chain,height}` config pairs the negative with raw0
+at import/target4. DATA-5.4-1/2/5 requires an invalid candidate to Reject unless
+an authenticated contradiction is established; neither new input establishes
+any existing envelope/EL, preimage/header-next or derived-entry conflict.
+They do not model proof-valid authenticated landings.
+
+Each exact unique source replacement removes only its `Authentic` equality;
+`ObservedClass`, all old raw constructors and the complete operational/observer/
+audit suffix remain unchanged. Successful original/actually-restored runs and
+an exact `ClassificationCorrect` failure at `Check`/`Classified` with false
+Verified are required. Later publication failures and unrelated TLC errors
+receive no kill credit. These two selected obligations do not close the
+remaining unassessed protocol boundaries.

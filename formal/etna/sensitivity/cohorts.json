@@ -57,7 +57,9 @@
         "m10-conflict-auth-registry",
         "m10-conflict-auth-window",
         "m10-positive-import-chronology",
-        "m10-positive-origin-genesis-proposer"
+        "m10-positive-origin-genesis-proposer",
+        "m10-header-chain",
+        "m10-header-height"
       ]
     },
     {
