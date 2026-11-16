@@ -31,4 +31,4 @@
   };
 </script>
 
-<span data-testid="claim-stub" data-msg-hash={bridgeTx?.msgHash} />
+<span data-testid="claim-stub" data-msg-hash={bridgeTx?.msgHash}></span>
