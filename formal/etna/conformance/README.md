@@ -236,3 +236,30 @@ and seeded-landing proof mocks are explicit premises; no real STF/cryptographic
 proof or registry callback-lock conformance is claimed. Sources and dependencies
 are read-only in a network-disabled runner. One shared filesystem lock serializes
 all actual Forge jobs; overlapping diagnostic runs were excluded from evidence.
+
+## V03 — successful cross-contract publication
+
+All actual successful land/setup paths in C02–C06 now call one shared
+EtnaReplayTestBase observer. It compares original mapped call height/EL/stateRoot
+to SignalService and original activeCommitteeSnapshot to Inbox state. No expected
+value is derived from a post-call getter; prior model/abort assertions remain.
+
+A dedicated public-history probe performs topUp at11, activateTopUp at21 and
+land at22 with snapshot21/terminal12. Actual snapshot changes1→21; the initial
+committee, anchor and proof remain explicit adapter/guest premises. This tests
+publication wiring under real registry history, not full guest/STF correctness.
+
+The actual full original11 tests plus this probe pass (12), and restored full12
+pass. Three isolated source faults are killed by the intended new observer:
+missing saveCheckpoint, wrong nonzero stateRoot312→313, and omitted active snapshot
+(write leaves1 versus expected21). Zero stateRoot was rejected as an invalid
+discriminator because SignalService already rejects it; the tested nonzero fault
+passes the callee and fails the post-success root comparison. The minimal final
+campaign uses only the dedicated probe for each mutation; full12 normal/restored
+gates remain separate evidence. Missing publication additionally fails existing
+Settlement replay, which previously survived it.
+
+Independent review verifies all six files, every successful path, exact12 IDs,
+three exact failure reasons/raw hashes and original564 source entries. No
+production defect identified; source remains pinned/read-only. Early empty-test
+selection was INCONCLUSIVE, not a kill, and was corrected before final evidence.

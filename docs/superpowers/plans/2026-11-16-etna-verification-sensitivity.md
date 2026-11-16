@@ -49,10 +49,10 @@
 **Files:** Add conformance/solidity/EtnaReplayTestBase.sol or one equivalent shared assertion library; modify five existing Etna\*Replay.t.sol harnesses; dedicated new public-history test under same directory if needed. Preserve fixture semantics.
 **Interfaces:** assert expected SignalService(height,EL,stateRoot) and Inbox active snapshot from original mapped call, explicit invocation after every successful actual land/setup; return source-fault fragments to root.
 
-- [ ] Reproduce missing-saveCheckpoint survivor against11 selected replays; add assertions so this exact mutant now fails a declared success observer.
-- [ ] Share the tuple/snapshot observer, preserve all existing model/abort assertions; add wrong-stateRoot and omitted-snapshot source-fault sensitivity.
-- [ ] Build source-valid public topUp11/activate21/land22(snapshot21,terminal12) probe with explicit mock/initial-committee premises; require actual changed snapshot and complete tuple.
-- [ ] Execute original/mutant/restored tests under one physical cache lock, compare original564 entries/final hashes; independently review and root verify/commit/update worklist.
+- [x] Reproduce missing-saveCheckpoint survivor against11 selected replays; add assertions so this exact mutant now fails a declared success observer.
+- [x] Share the tuple/snapshot observer, preserve all existing model/abort assertions; add wrong-stateRoot and omitted-snapshot source-fault sensitivity.
+- [x] Build source-valid public topUp11/activate21/land22(snapshot21,terminal12) probe with explicit mock/initial-committee premises; require actual changed snapshot and complete tuple.
+- [x] Execute original/mutant/restored tests under one physical cache lock, compare original564 entries/final hashes; independently review and root verify/commit/update worklist.
 
 ### Task 4: V04 conditional connection progress
 

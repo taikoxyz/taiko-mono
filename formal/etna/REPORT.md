@@ -1235,3 +1235,16 @@ and the origin exemption also have separate false-halt discriminators. Authentic
 chain/height corner cases remain explicitly unassessed; the matrix is finite, not
 a proof that all input combinations/classification premises are complete. Full
 accumulated regression remains a final-batch gate.
+
+### V03 — successful cross-contract publication
+
+A shared original-input observer now checks SignalService(height,EL,stateRoot)
+and Inbox active snapshot after every successful selected land/setup. Prior
+model and abort comparisons remain. A real public topUp11/activate21/land22
+probe changes snapshot1→21. Full12 normal/restored tests pass. Three source-only
+faults fail exactly at the intended publication assertion: omitted checkpoint,
+nonzero wrong root312→313 and omitted snapshot. Minimal one-test mutation scope
+is explicit; the full12-test gates and existing Settlement missing-write failure
+are recorded separately. Original564 source entries and six owned hashes match;
+independent source/behavior review passed with no material findings. Initial
+committee/guest/anchor/proof validity remain mock premises. See conformance docs.

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { EtnaInboxTestBase, MockLandProofVerifier } from "../EtnaInboxTestBase.sol";
-import { EtnaLandTestBase } from "../EtnaLandTestBase.sol";
-import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
+import {EtnaInboxTestBase, MockLandProofVerifier} from "../EtnaInboxTestBase.sol";
+import {EtnaReplayTestBase} from "./EtnaReplayTestBase.sol";
+import {IEtnaInbox} from "src/layer1/etna/iface/IEtnaInbox.sol";
 
 /// @notice Replays TLC-produced public settlement/auth attempts on the actual Inbox.
 /// @dev K6 grid, same compatible chain, empty FI/exclusions and rules zero. The strict
 /// statement-bound mock models proof validity; this does not execute a proving guest.
-contract EtnaSettlementReplayTest is EtnaLandTestBase {
+contract EtnaSettlementReplayTest is EtnaReplayTestBase {
     string private constant FILE = "/test/layer1/etna/conformance/vectors/settlement_cases.json";
     IEtnaInbox.LandInput private prepared;
     bytes32[] private preparedLeaves;
@@ -75,8 +75,7 @@ contract EtnaSettlementReplayTest is EtnaLandTestBase {
             } else if (op == 3) {
                 ok = _submit(prepared, preparedLeaves, preparedStatement);
             } else if (op == 4) {
-                (IEtnaInbox.LandInput memory input, bytes32[] memory leaves, bytes32 statement) =
-                    _capture(arg * K);
+                (IEtnaInbox.LandInput memory input, bytes32[] memory leaves, bytes32 statement) = _capture(arg * K);
                 ok = _submit(input, leaves, statement);
             } else if (op == 5) {
                 (ok,) = inboxProxy.call(
@@ -94,9 +93,7 @@ contract EtnaSettlementReplayTest is EtnaLandTestBase {
                     )
                 );
             } else if (op == 6) {
-                (ok,) = inboxProxy.call(
-                    abi.encodeCall(IEtnaInbox.invalidateRecoveryNonce, (_inbox().recoveryNonce()))
-                );
+                (ok,) = inboxProxy.call(abi.encodeCall(IEtnaInbox.invalidateRecoveryNonce, (_inbox().recoveryNonce())));
             } else if (op == 7) {
                 vm.roll(11 + _uint(j, path, ".now"));
                 vm.warp(1000 + 12 * _uint(j, path, ".now"));
@@ -105,11 +102,7 @@ contract EtnaSettlementReplayTest is EtnaLandTestBase {
                 assertEq(op, 0, "known operation");
             }
             if (op == 5 && ok) {
-                assertEq(
-                    _inbox().activeCommitteeSnapshot(),
-                    beforeSnapshot,
-                    "recovery preserves snapshot"
-                );
+                assertEq(_inbox().activeCommitteeSnapshot(), beforeSnapshot, "recovery preserves snapshot");
             }
             assertEq(ok, vm.parseJsonBool(j, string.concat(path, ".accepted")), path);
             if (!ok || op == 0 || op == 1 || op == 2 || op == 7) {
@@ -117,16 +110,13 @@ contract EtnaSettlementReplayTest is EtnaLandTestBase {
             }
             if (op == 3 && !ok && _uint(j, path, ".proof[1]") < _uint(j, path, ".generation")) {
                 assertEq(
-                    lastProofRevert,
-                    MockLandProofVerifier.ProofRejected.selector,
-                    "original proof statement rejected"
+                    lastProofRevert, MockLandProofVerifier.ProofRejected.selector, "original proof statement rejected"
                 );
             }
             _assertState(j, path);
         }
         assertFalse(
-            vm.keyExistsJson(j, string.concat(prefix, vm.toString(lengths[index]), "]")),
-            "unexpected model step"
+            vm.keyExistsJson(j, string.concat(prefix, vm.toString(lengths[index]), "]")), "unexpected model step"
         );
     }
 
@@ -138,17 +128,12 @@ contract EtnaSettlementReplayTest is EtnaLandTestBase {
     {
         input = _input(_inbox().lastCheckpoint().height, h);
         leaves = _leaves(input.parentHeight, h);
-        statement =
-            _statement(input, _inbox().landings(input.parentHeight), _cutHash(input, leaves));
+        statement = _statement(input, _inbox().landings(input.parentHeight), _cutHash(input, leaves));
         require(statement != bytes32(0), "strict proof binding");
     }
 
     /// @dev Submits exact original artifacts; binding is never rebuilt from post-recovery state.
-    function _submit(
-        IEtnaInbox.LandInput memory input,
-        bytes32[] memory leaves,
-        bytes32 statement
-    )
+    function _submit(IEtnaInbox.LandInput memory input, bytes32[] memory leaves, bytes32 statement)
         private
         returns (bool ok)
     {
@@ -158,14 +143,13 @@ contract EtnaSettlementReplayTest is EtnaLandTestBase {
         bytes memory result;
         (ok, result) = inboxProxy.call(abi.encodeCall(IEtnaInbox.land, (input, leaves, PROOF)));
         lastProofRevert = result.length >= 4 ? bytes4(result) : bytes4(0);
+        if (ok) _assertSuccessfulPublication(input);
     }
 
     /// @dev Compares actual getters/raw retained records against every TLC receipt.
     function _assertState(string memory j, string memory path) private view {
         uint256 gen = _uint(j, path, ".generation");
-        _assertCheckpoint(
-            _uint(j, path, ".checkpoint") * K, bytes32(100 + _uint(j, path, ".checkpoint") * K)
-        );
+        _assertCheckpoint(_uint(j, path, ".checkpoint") * K, bytes32(100 + _uint(j, path, ".checkpoint") * K));
         assertEq(_inbox().recoveryGeneration(), gen, "generation");
         assertEq(_inbox().recoveryNonce(), _uint(j, path, ".nonce"), "nonce");
         assertEq(_inbox().origins(gen).startHeight, _uint(j, path, ".origin") * K, "origin");
@@ -174,9 +158,7 @@ contract EtnaSettlementReplayTest is EtnaLandTestBase {
             string memory originPath = string.concat(path, ".origins[", vm.toString(g), "]");
             IEtnaInbox.Origin memory actual = _inbox().origins(g);
             if (vm.parseJsonBool(j, string.concat(originPath, "[0]"))) {
-                assertEq(
-                    actual.startHeight, _uint(j, originPath, "[1]") * K, "retained origin height"
-                );
+                assertEq(actual.startHeight, _uint(j, originPath, "[1]") * K, "retained origin height");
                 uint256 observedAt = _uint(j, originPath, "[2]");
                 assertEq(
                     actual.l1BlockNumber,
@@ -190,9 +172,7 @@ contract EtnaSettlementReplayTest is EtnaLandTestBase {
                 );
             } else {
                 assertEq(
-                    keccak256(abi.encode(actual)),
-                    keccak256(abi.encode(IEtnaInbox.Origin(0, 0, 0))),
-                    "unwritten origin"
+                    keccak256(abi.encode(actual)), keccak256(abi.encode(IEtnaInbox.Origin(0, 0, 0))), "unwritten origin"
                 );
             }
         }
@@ -200,9 +180,7 @@ contract EtnaSettlementReplayTest is EtnaLandTestBase {
             string memory record = string.concat(path, ".landings[", vm.toString(h), "]");
             bool exists = vm.parseJsonBool(j, string.concat(record, "[0]"));
             if (exists) {
-                _assertLanding(
-                    h * K, _record(_uint(j, record, "[2]") * K, _uint(j, record, "[1]"), 0, h * K)
-                );
+                _assertLanding(h * K, _record(_uint(j, record, "[2]") * K, _uint(j, record, "[1]"), 0, h * K));
             } else {
                 IEtnaInbox.Landing memory empty;
                 _assertLanding(h * K, empty);
@@ -231,15 +209,7 @@ contract EtnaSettlementReplayTest is EtnaLandTestBase {
     }
 
     /// @dev Reads a numeric field without reimplementing protocol predicates.
-    function _uint(
-        string memory j,
-        string memory path,
-        string memory field
-    )
-        private
-        view
-        returns (uint256)
-    {
+    function _uint(string memory j, string memory path, string memory field) private view returns (uint256) {
         return vm.parseJsonUint(j, string.concat(path, field));
     }
 }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {EtnaInboxTestBase} from "../EtnaInboxTestBase.sol";
-import {EtnaLandTestBase} from "../EtnaLandTestBase.sol";
+import {EtnaReplayTestBase} from "./EtnaReplayTestBase.sol";
 import {MockUnzenInbox} from "../MockUnzenInbox.sol";
 import {IEtnaInbox} from "src/layer1/etna/iface/IEtnaInbox.sol";
 import {EssentialContract} from "src/shared/common/EssentialContract.sol";
@@ -12,7 +12,7 @@ import {Vm} from "forge-std/src/Vm.sol";
 /// @notice Replays 38 actual M11 calls from 23 programs against pinned real Inbox methods.
 /// @dev Times T(t)=100000+1152t; stored0 and cancellation99 are distinct sentinels.
 /// Unzen finalization and strict statement-bound setup proof remain explicit premises.
-contract EtnaRulesReplayTest is EtnaLandTestBase {
+contract EtnaRulesReplayTest is EtnaReplayTestBase {
     uint256 private constant S = 6;
     uint256 private constant TIME_BASE = 100000;
     uint256 private constant NOTICE = 1152;
@@ -103,6 +103,7 @@ contract EtnaRulesReplayTest is EtnaLandTestBase {
         bytes32[] memory leaves = _leaves(S, S + K);
         landVerifier.setExpectedStatementHash(_statement(input, _inbox().landings(S), _cutHash(input, leaves)));
         _land(input, leaves);
+        _assertSuccessfulPublication(input);
         assertEq(_inbox().lastCheckpoint().height, S + K);
     }
 

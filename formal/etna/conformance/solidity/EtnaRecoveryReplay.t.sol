@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { EtnaInboxTestBase } from "../EtnaInboxTestBase.sol";
-import { EtnaLandTestBase } from "../EtnaLandTestBase.sol";
-import { EtnaTestKeys } from "../EtnaTestKeys.sol";
-import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
-import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
+import {EtnaInboxTestBase} from "../EtnaInboxTestBase.sol";
+import {EtnaReplayTestBase} from "./EtnaReplayTestBase.sol";
+import {EtnaTestKeys} from "../EtnaTestKeys.sol";
+import {IEtnaInbox} from "src/layer1/etna/iface/IEtnaInbox.sol";
+import {IEtnaStakingRegistry} from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 
 /// @notice Replays eighteen actual frozen M08 Held public attempts against deployed code.
 /// @dev Gridq maps to6q; tokenunit maps toMIN_STAKE, feeunit to1gwei. Proof
 /// verification is statement-bound mock. Callback/Withdrawn/literal confirmed95 are GAPs.
 /// Model Unix timestamps map as T(t)=1200*t; L1 block coordinates remain unchanged.
-contract EtnaRecoveryReplayTest is EtnaLandTestBase {
+contract EtnaRecoveryReplayTest is EtnaReplayTestBase {
     bytes32[2] private originalKeys;
     bytes4 private lastRecoveryRevert;
     string private constant FILE = "/test/layer1/etna/conformance/vectors/recovery_cases.json";
@@ -54,17 +54,10 @@ contract EtnaRecoveryReplayTest is EtnaLandTestBase {
         bytes32 preserved = _preservedDigest();
         bool ok = _callRecover(j, p);
         if (
-            keccak256(
-                    bytes(
-                        vm.parseJsonString(j, string.concat(".cases[", vm.toString(index), "].id"))
-                    )
-                ) == keccak256("LateUnissued/None")
+            keccak256(bytes(vm.parseJsonString(j, string.concat(".cases[", vm.toString(index), "].id"))))
+                == keccak256("LateUnissued/None")
         ) {
-            assertEq(
-                lastRecoveryRevert,
-                IEtnaStakingRegistry.UnknownBond.selector,
-                "genuine unissued/default record"
-            );
+            assertEq(lastRecoveryRevert, IEtnaStakingRegistry.UnknownBond.selector, "genuine unissued/default record");
         }
         assertEq(ok, vm.parseJsonBool(j, string.concat(p, ".outcome.accepted")), p);
         if (!ok) {
@@ -91,15 +84,11 @@ contract EtnaRecoveryReplayTest is EtnaLandTestBase {
             vm.record();
             vm.expectCall(
                 address(registry),
-                abi.encodeCall(
-                    IEtnaStakingRegistry.forceExit, (exclusions[0].bondId, exclusions[0].entryKey)
-                )
+                abi.encodeCall(IEtnaStakingRegistry.forceExit, (exclusions[0].bondId, exclusions[0].entryKey))
             );
             vm.expectCall(
                 address(registry),
-                abi.encodeCall(
-                    IEtnaStakingRegistry.forceExit, (exclusions[1].bondId, exclusions[1].entryKey)
-                )
+                abi.encodeCall(IEtnaStakingRegistry.forceExit, (exclusions[1].bondId, exclusions[1].entryKey))
             );
         }
         if (inject) {
@@ -107,9 +96,7 @@ contract EtnaRecoveryReplayTest is EtnaLandTestBase {
             // code is replaced; real first-call tentative writes must be rolled back by EVM.
             vm.mockCallRevert(
                 address(registry),
-                abi.encodeCall(
-                    IEtnaStakingRegistry.forceExit, (exclusions[1].bondId, exclusions[1].entryKey)
-                ),
+                abi.encodeCall(IEtnaStakingRegistry.forceExit, (exclusions[1].bondId, exclusions[1].entryKey)),
                 abi.encodeWithSignature("InjectedSecondRegistry()")
             );
         }
@@ -132,9 +119,7 @@ contract EtnaRecoveryReplayTest is EtnaLandTestBase {
         string memory p,
         IEtnaInbox.Exclusion[] memory exclusions,
         uint256[] memory indices
-    )
-        private
-    {
+    ) private {
         vm.expectEmit(true, false, false, true, inboxProxy);
         emit IEtnaInbox.Recovered(
             uint48(_u(j, p, ".after.generation")),
@@ -152,11 +137,7 @@ contract EtnaRecoveryReplayTest is EtnaLandTestBase {
         string memory path,
         IEtnaInbox.Exclusion[] memory exclusions,
         uint256[] memory indices
-    )
-        private
-        view
-        returns (bytes memory)
-    {
+    ) private view returns (bytes memory) {
         return abi.encodeCall(
             IEtnaInbox.recover,
             (
@@ -205,11 +186,11 @@ contract EtnaRecoveryReplayTest is EtnaLandTestBase {
         vm.roll(98);
         vm.warp(1200 * 998);
         vm.prank(Alice);
-        _inbox().saveForcedInclusion{ value: 1 gwei }("A");
+        _inbox().saveForcedInclusion{value: 1 gwei}("A");
         vm.roll(99);
         vm.warp(1200 * 999);
         vm.prank(Alice);
-        _inbox().saveForcedInclusion{ value: 2 gwei }("B");
+        _inbox().saveForcedInclusion{value: 2 gwei}("B");
         vm.roll(100);
         vm.warp(1200 * 1000);
         _setReference(99, bytes32(uint256(999)));
@@ -217,10 +198,9 @@ contract EtnaRecoveryReplayTest is EtnaLandTestBase {
         IEtnaInbox.LandInput memory input = _input(0, K);
         input.activeCommitteeSnapshot = 94;
         bytes32[] memory leaves = _leaves(0, K);
-        landVerifier.setExpectedStatementHash(
-            _statement(input, _inbox().landings(0), _cutHash(input, leaves))
-        );
+        landVerifier.setExpectedStatementHash(_statement(input, _inbox().landings(0), _cutHash(input, leaves)));
         _land(input, leaves);
+        _assertSuccessfulPublication(input);
     }
 
     /// @dev Pays for a real key registration under this registry's actual domain.
@@ -243,14 +223,7 @@ contract EtnaRecoveryReplayTest is EtnaLandTestBase {
     }
 
     /// @dev Decodes original exclusion order and identities without sorting or repairing input.
-    function _exclusions(
-        string memory j,
-        string memory p
-    )
-        private
-        view
-        returns (IEtnaInbox.Exclusion[] memory result)
-    {
+    function _exclusions(string memory j, string memory p) private view returns (IEtnaInbox.Exclusion[] memory result) {
         uint256 count;
         while (vm.keyExistsJson(j, string.concat(p, ".exclusions[", vm.toString(count), "]"))) {
             ++count;
@@ -258,9 +231,8 @@ contract EtnaRecoveryReplayTest is EtnaLandTestBase {
         result = new IEtnaInbox.Exclusion[](count);
         for (uint256 i; i < count; ++i) {
             string memory e = string.concat(p, ".exclusions[", vm.toString(i), "]");
-            result[i] = IEtnaInbox.Exclusion(
-                _u(j, e, ".bondId"), _key(vm.parseJsonString(j, string.concat(e, ".entryKey")))
-            );
+            result[i] =
+                IEtnaInbox.Exclusion(_u(j, e, ".bondId"), _key(vm.parseJsonString(j, string.concat(e, ".entryKey"))));
         }
     }
 
@@ -269,22 +241,16 @@ contract EtnaRecoveryReplayTest is EtnaLandTestBase {
         _assertCheckpoint(_u(j, p, ".checkpoint") * K, bytes32(100 + _u(j, p, ".checkpoint") * K));
         assertEq(_inbox().recoveryGeneration(), _u(j, p, ".generation"));
         assertEq(_inbox().recoveryNonce(), _u(j, p, ".nonce"));
-        assertEq(
-            _inbox().origins(_inbox().recoveryGeneration()).startHeight, _u(j, p, ".start") * K
-        );
+        assertEq(_inbox().origins(_inbox().recoveryGeneration()).startHeight, _u(j, p, ".start") * K);
         string memory state = string.concat(p, ".state");
         _assertQueue(_u(j, state, ".head"), _u(j, state, ".tail"));
         assertEq(_inbox().activeCommitteeSnapshot(), _u(j, state, ".activeSnapshot"));
-        assertEq(
-            address(inboxProxy).balance, _u(j, state, ".fees") * 1 gwei, "admission fees retained"
-        );
+        assertEq(address(inboxProxy).balance, _u(j, state, ".fees") * 1 gwei, "admission fees retained");
         assertEq(taikoToken.balanceOf(address(registry)), _u(j, state, ".tokenVault") * MIN_STAKE);
         for (uint256 h; h <= 2; ++h) {
             string memory r = string.concat(p, ".landings.", vm.toString(h));
             if (vm.parseJsonBool(j, string.concat(r, ".present"))) {
-                _assertLanding(
-                    h * K, _record(_u(j, r, ".parent") * K, _u(j, r, ".generation"), h, h * K)
-                );
+                _assertLanding(h * K, _record(_u(j, r, ".parent") * K, _u(j, r, ".generation"), h, h * K));
             } else {
                 IEtnaInbox.Landing memory empty;
                 _assertLanding(h * K, empty);
@@ -305,10 +271,7 @@ contract EtnaRecoveryReplayTest is EtnaLandTestBase {
             (bool registered, uint256 id) = registry.bondForKey(vm.addr(i + 1));
             assertEq(registered, vm.parseJsonBool(j, string.concat(state, ".registered.", token)));
             assertEq(id, i);
-            assertEq(
-                registry.forfeited(_key(token)),
-                vm.parseJsonBool(j, string.concat(state, ".forfeited.", token))
-            );
+            assertEq(registry.forfeited(_key(token)), vm.parseJsonBool(j, string.concat(state, ".forfeited.", token)));
             string memory slot = string.concat(state, ".slots.", vm.toString(i));
             (bool occupied, uint256 holder) = registry.bondInSlot(i);
             assertEq(occupied, vm.parseJsonBool(j, string.concat(slot, ".occupied")));
@@ -359,17 +322,10 @@ contract EtnaRecoveryReplayTest is EtnaLandTestBase {
         assertEq(bond.withdrawn, vm.parseJsonBool(j, string.concat(p, ".withdrawn")));
         assertEq(bond.holdsSlot, vm.parseJsonBool(j, string.concat(p, ".holds")));
         assertEq(bond.slot, _u(j, p, ".slot"));
-        assertEq(
-            keccak256(abi.encode(registry.entryAt(id))),
-            keccak256(abi.encode(bond.entry)),
-            "slot mirrors bond"
-        );
+        assertEq(keccak256(abi.encode(registry.entryAt(id))), keccak256(abi.encode(bond.entry)), "slot mirrors bond");
         assertEq(bond.entry.activeFromL1, 92, "activation metadata preserved");
         assertEq(bond.entry.effStake, _u(j, p, ".eff") * MIN_STAKE);
-        assertEq(
-            bond.entry.exitEffectiveL1,
-            _u(j, p, ".exit") == 10_000 ? registry.NO_EXIT() : _u(j, p, ".exit")
-        );
+        assertEq(bond.entry.exitEffectiveL1, _u(j, p, ".exit") == 10_000 ? registry.NO_EXIT() : _u(j, p, ".exit"));
         assertEq(registry.ownerOf(id), _u(j, p, ".owner") == 0 ? address(0) : Alice);
         assertEq(registry.exitConfirmedAtL1(id), _u(j, p, ".confirmed"));
         (uint256 pending, uint48 ready) = registry.topUpOf(id);
@@ -421,14 +377,7 @@ contract EtnaRecoveryReplayTest is EtnaLandTestBase {
             (uint256 pending, uint48 ready) = registry.topUpOf(i);
             (bool registered, uint256 id) = registry.bondForKey(vm.addr(i + 1));
             value = keccak256(
-                abi.encode(
-                    value,
-                    pending,
-                    ready,
-                    registered,
-                    id,
-                    registry.forfeited(_key(i == 0 ? "K0" : "K1"))
-                )
+                abi.encode(value, pending, ready, registered, id, registry.forfeited(_key(i == 0 ? "K0" : "K1")))
             );
         }
         for (uint256 i; i < registry.checkpointCount(); ++i) {
@@ -484,21 +433,13 @@ contract EtnaRecoveryReplayTest is EtnaLandTestBase {
     }
 
     /// @dev Reads original receipt fields only; no protocol acceptance predicates.
-    function _u(
-        string memory j,
-        string memory p,
-        string memory f
-    )
-        private
-        view
-        returns (uint256)
-    {
+    function _u(string memory j, string memory p, string memory f) private view returns (uint256) {
         return vm.parseJsonUint(j, string.concat(p, f));
     }
 }
 
 /// @notice Concrete unconfirmed issued/unheld recovery variant outside the Held projection.
-contract EtnaRecoveryUnheldReplayTest is EtnaLandTestBase {
+contract EtnaRecoveryUnheldReplayTest is EtnaReplayTestBase {
     /// @notice Exercises a genuinely issued/unheld unconfirmed bond from paid public history.
     /// @dev Separate concrete variant, not literal M08 confirmed95 displaced correspondence.
     function test_publicDisplacementThenUnheldRecoveryExclusion() external {
@@ -525,8 +466,7 @@ contract EtnaRecoveryUnheldReplayTest is EtnaLandTestBase {
         assertEq(registry.bondAt(0).entry.effStake, MIN_STAKE);
         bytes32 oldBond = keccak256(abi.encode(registry.bondAt(0), registry.ownerOf(0)));
         assertEq(registry.exitConfirmedAtL1(0), 0, "explicit unconfirmed variant");
-        bytes32 beforeReplacement =
-            keccak256(abi.encode(registry.bondAt(4096), registry.entryAt(0)));
+        bytes32 beforeReplacement = keccak256(abi.encode(registry.bondAt(4096), registry.entryAt(0)));
         bytes32 beforeRoot = registry.entriesRoot();
         uint256 beforeVault = taikoToken.balanceOf(address(registry));
         IEtnaInbox.Exclusion[] memory exclusions = new IEtnaInbox.Exclusion[](1);
@@ -537,14 +477,10 @@ contract EtnaRecoveryUnheldReplayTest is EtnaLandTestBase {
         assertEq(_inbox().recoveryGeneration(), 1);
         assertEq(registry.bondAt(0).entry.exitEffectiveL1, 12);
         assertEq(
-            keccak256(abi.encode(registry.bondAt(0), registry.ownerOf(0))),
-            oldBond,
-            "funded unheld bond preserved"
+            keccak256(abi.encode(registry.bondAt(0), registry.ownerOf(0))), oldBond, "funded unheld bond preserved"
         );
         assertEq(registry.exitConfirmedAtL1(0), 0, "confirmation unchanged");
-        assertEq(
-            keccak256(abi.encode(registry.bondAt(4096), registry.entryAt(0))), beforeReplacement
-        );
+        assertEq(keccak256(abi.encode(registry.bondAt(4096), registry.entryAt(0))), beforeReplacement);
         assertEq(registry.entriesRoot(), beforeRoot);
         assertEq(taikoToken.balanceOf(address(registry)), beforeVault);
         emit log_string("4096 public registrations + paid replacement + genuine issued/unheld exclusion");

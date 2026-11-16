@@ -2,14 +2,15 @@
 pragma solidity ^0.8.26;
 
 import {EtnaInboxTestBase, MockLandProofVerifier} from "../EtnaInboxTestBase.sol";
-import {EtnaLandTestBase} from "../EtnaLandTestBase.sol";
+import {EtnaReplayTestBase} from "./EtnaReplayTestBase.sol";
 import {IEtnaInbox} from "src/layer1/etna/iface/IEtnaInbox.sol";
+import {IEtnaStakingRegistry} from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import {ICheckpointStore} from "src/shared/signal/ICheckpointStore.sol";
 
 /// @notice Replays actual frozen identity actions with explicit contract/proof responsibilities.
 /// @dev Frontier negatives accept the candidate statement, so only the real contract guard
 /// can reject them. Origin/generation binding uses separately labeled strict proof mocks.
-contract EtnaIdentityReplayTest is EtnaLandTestBase {
+contract EtnaIdentityReplayTest is EtnaReplayTestBase {
     string private constant FILE = "/test/layer1/etna/conformance/vectors/identity_cases.json";
     IEtnaInbox.LandInput private prepared;
     bytes32[] private preparedLeaves;
@@ -118,6 +119,7 @@ contract EtnaIdentityReplayTest is EtnaLandTestBase {
         vm.resumeGasMetering();
         (ok, reason) = inboxProxy.call(abi.encodeCall(IEtnaInbox.land, (input, leaves, PROOF)));
         vm.pauseGasMetering();
+        if (ok) _assertSuccessfulPublication(input);
         bytes4 error = reason.length >= 4 ? bytes4(reason) : bytes4(0);
         if (!expected && _same(kind, "Frontier")) {
             assertEq(
@@ -181,12 +183,71 @@ contract EtnaIdentityReplayTest is EtnaLandTestBase {
         landVerifier.setExpectedStatementHash(_statement(input, _inbox().landings(0), _cutHash(input, leaves)));
         vm.blobhashes(blobHashes);
         _inbox().land(input, leaves, PROOF);
+        _assertSuccessfulPublication(input);
         input.parentHeight = K;
         input.lastHeight = 3 * K;
         _expectGuard(input, new bytes32[](1), IEtnaInbox.MissingOrigin.selector);
         _inbox().recover(0, 2 * K, 0, block.timestamp, new IEtnaInbox.Exclusion[](0), new uint256[](0), 0);
         input.parentHeight = 0;
         _expectGuard(input, new bytes32[](2), IEtnaInbox.InvalidRange.selector);
+    }
+
+    /// @notice Publishes a real activated registry snapshot and the original input's complete checkpoint.
+    /// @dev Registration at L1 1 is eligible at 11; public topUp11/activate21 produces snapshot21.
+    /// The initial committee/cutoff1 is an imported fixture premise, preceding eligibility11.
+    /// Guest validity, committee selection and the anchor witness remain statement-bound mock premises.
+    /// This dedicated concrete probe does not alter the frozen identity receipt mapping.
+    function test_identity_publicHistoryPublication() external {
+        assertEq(block.number, 11);
+        assertEq(registryCheckpointBlock, 1);
+        assertEq(registry.bondAt(0).entry.activeFromL1, 11);
+        assertEq(_inbox().activeCommitteeSnapshot(), 1);
+        assertEq(registry.checkpointCount(), 1);
+        IEtnaStakingRegistry.Checkpoint memory original = registry.checkpointAt(0);
+        assertEq(original.l1Block, 1);
+        assertEq(original.entriesRoot, registry.entriesRoot());
+
+        taikoToken.mint(Alice, MIN_STAKE);
+        vm.prank(Alice);
+        taikoToken.approve(address(registry), MIN_STAKE);
+        vm.prank(Alice);
+        registry.topUp(0, MIN_STAKE);
+        (uint256 pending, uint48 readyAt) = registry.topUpOf(0);
+        assertEq(pending, MIN_STAKE);
+        assertEq(readyAt, 21);
+        assertEq(registry.bondAt(0).entry.effStake, MIN_STAKE);
+        assertEq(registry.checkpointCount(), 1);
+        assertEq(registry.entriesRoot(), original.entriesRoot);
+
+        vm.roll(21);
+        vm.warp(1120);
+        vm.prank(Bob);
+        registry.activateTopUp(0);
+        assertEq(registry.bondAt(0).entry.effStake, 2 * MIN_STAKE);
+        (pending, readyAt) = registry.topUpOf(0);
+        assertEq(pending, 0);
+        assertEq(readyAt, 0);
+        assertEq(registry.checkpointCount(), 2);
+        IEtnaStakingRegistry.Checkpoint memory activated = registry.checkpointAt(1);
+        assertEq(activated.l1Block, 21);
+        assertEq(activated.entriesRoot, registry.entriesRoot());
+        assertNotEq(activated.entriesRoot, original.entriesRoot);
+        assertEq(keccak256(abi.encode(registry.checkpointAt(0))), keccak256(abi.encode(original)));
+        assertEq(_inbox().activeCommitteeSnapshot(), 1, "activation precedes publication");
+
+        vm.roll(22);
+        vm.warp(1132);
+        _setReference(21, bytes32(uint256(999)));
+        IEtnaInbox.LandInput memory input = _input(0, 2 * K);
+        input.activeCommitteeSnapshot = 21;
+        input.forcedInclusionHead = 1; // The one real C06 queue item, also committed by the cut at6.
+        bytes32[] memory leaves = _leaves(0, 2 * K);
+        landVerifier.setExpectedStatementHash(_statement(input, _inbox().landings(0), _cutHash(input, leaves)));
+        _land(input, leaves);
+        _assertSuccessfulPublication(input);
+        _assertCheckpoint(input.lastHeight, input.lastBlockHash);
+        _assertQueue(1, 1);
+        assertEq(registry.entriesRoot(), activated.entriesRoot, "landing preserves activated registry");
     }
 
     /// @dev Reads original exported supplied cuts and terminal; never recreates model guards.

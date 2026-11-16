@@ -79,32 +79,22 @@
     },
     {
       "id": "settlement-signal-publication",
-      "obligation": "Every successful land publishes the expected terminal checkpoint to SignalService.",
+      "obligation": "A successful actual land publishes the original terminal height, EL block hash and state root to SignalService.",
       "required": true,
       "engine": "forge",
       "source": "contracts",
       "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
       "replace": {
         "old": "        _signalService.saveCheckpoint(\n            ICheckpointStore.Checkpoint({\n                blockNumber: h, blockHash: lastBlockHash, stateRoot: _input.lastStateRoot\n            })\n        );",
-        "new": "        // Fault campaign: omit terminal checkpoint publication."
+        "new": "        // Deliberate validation fault: checkpoint publication omitted."
       },
       "workloads": [
-        "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_conformance_identityReplay()",
-        "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_concreteRangeLeafAndOriginGuards()",
-        "test/layer1/etna/conformance/EtnaRecoveryLifecycleReplay.t.sol:EtnaRecoveryLifecycleReplayTest::test_conformance_recoveryLifecycleReplay()",
-        "test/layer1/etna/conformance/EtnaRecoveryLifecycleReplay.t.sol:EtnaRecoveryLifecycleReplayTest::test_lifecycle_publicHistoryProbe()",
-        "test/layer1/etna/conformance/EtnaRecoveryLifecycleReplay.t.sol:EtnaRecoveryLifecycleReplayTest::test_lifecycle_unissuedRecoveryRevertsUnknownBond()",
-        "test/layer1/etna/conformance/EtnaRecoveryReplay.t.sol:EtnaRecoveryReplayTest::test_conformance_recoveryReplay()",
-        "test/layer1/etna/conformance/EtnaRecoveryReplay.t.sol:EtnaRecoveryUnheldReplayTest::test_publicDisplacementThenUnheldRecoveryExclusion()",
-        "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_conformance_rulesReplay()",
-        "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_rules_concreteAbiRangeRejection()",
-        "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_rules_concreteUint48Boundaries()",
-        "test/layer1/etna/conformance/EtnaSettlementReplay.t.sol:EtnaSettlementReplayTest::test_conformance_settlementReplay()"
+        "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()"
       ],
       "failure": {
         "kind": "forge",
         "failures": {
-          "test/layer1/etna/conformance/EtnaSettlementReplay.t.sol:EtnaSettlementReplayTest::test_conformance_settlementReplay()": "terminal checkpoint publication mismatch"
+          "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()": "publication: SignalService missing"
         }
       }
     },
@@ -428,6 +418,48 @@
       "id": "m10-conflict-authentication-prerequisites",
       "required": false,
       "unassessed_reason": "The global non-origin, finalized, package-present and header-binding prerequisites are assessed. Individual branch-specific envelope/preimage/registry/window authentication removals remain unassessed."
+    },
+    {
+      "id": "settlement-signal-state-root",
+      "obligation": "SignalService stores the exact nonzero original input state root after successful land.",
+      "required": true,
+      "engine": "forge",
+      "source": "contracts",
+      "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+      "replace": {
+        "old": "                blockNumber: h, blockHash: lastBlockHash, stateRoot: _input.lastStateRoot",
+        "new": "                blockNumber: h, blockHash: lastBlockHash, stateRoot: bytes32(uint256(_input.lastStateRoot) ^ 1)"
+      },
+      "workloads": [
+        "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()"
+      ],
+      "failure": {
+        "kind": "forge",
+        "failures": {
+          "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()": "publication: SignalService state root: 0x0000000000000000000000000000000000000000000000000000000000000139 != 0x0000000000000000000000000000000000000000000000000000000000000138"
+        }
+      }
+    },
+    {
+      "id": "settlement-active-snapshot",
+      "obligation": "A successful actual land publishes the original input snapshot after real changed registry checkpoint history.",
+      "required": true,
+      "engine": "forge",
+      "source": "contracts",
+      "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+      "replace": {
+        "old": "        _activeCommitteeSnapshot = _input.activeCommitteeSnapshot;",
+        "new": "        // Deliberate validation fault: active committee publication omitted."
+      },
+      "workloads": [
+        "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()"
+      ],
+      "failure": {
+        "kind": "forge",
+        "failures": {
+          "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()": "publication: active committee snapshot: 1 != 21"
+        }
+      }
     }
   ]
 }

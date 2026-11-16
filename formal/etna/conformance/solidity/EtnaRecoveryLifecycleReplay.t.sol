@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {EtnaInboxTestBase} from "../EtnaInboxTestBase.sol";
-import {EtnaLandTestBase} from "../EtnaLandTestBase.sol";
+import {EtnaReplayTestBase} from "./EtnaReplayTestBase.sol";
 import {MockUnzenInbox} from "../MockUnzenInbox.sol";
 import {ICheckpointStore} from "src/shared/signal/ICheckpointStore.sol";
 import {EtnaTestKeys} from "../EtnaTestKeys.sol";
@@ -12,7 +12,7 @@ import {IEtnaStakingRegistry} from "src/layer1/etna/iface/IEtnaStakingRegistry.s
 /// @notice Replays eight frozen M08 Displaced/Withdrawn receipts with real public history.
 /// @dev H(q)=6+6q, T(t)=1200t; token unit MIN_STAKE. Unzen finalization and
 /// proof verification are explicit imported/mocked premises; registry state is real.
-contract EtnaRecoveryLifecycleReplayTest is EtnaLandTestBase {
+contract EtnaRecoveryLifecycleReplayTest is EtnaReplayTestBase {
     uint256 private constant S = 6;
     uint256 private constant REPLACEMENT = 4096;
     uint256 private constant UNISSUED = 4097;
@@ -286,6 +286,7 @@ contract EtnaRecoveryLifecycleReplayTest is EtnaLandTestBase {
         bytes32[] memory leaves = _leaves(S, S + K);
         landVerifier.setExpectedStatementHash(_statement(input, _inbox().landings(S), _cutHash(input, leaves)));
         _land(input, leaves);
+        _assertSuccessfulPublication(input);
     }
 
     /// @notice Registers one fully paid filler in a bounded frame.
