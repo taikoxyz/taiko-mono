@@ -7,7 +7,9 @@ DATA-5.4-1..7, RECOV-8.4-7..15 and SYNC-9-4..14. It adds forty configurations:
 three exhaustive normal searches, twenty-seven permanent mutation controls and
 ten existential reachability witnesses. Five additional input profiles exercise
 individual bindings, contradictions, legal alternatives and origin exceptions.
-The original forty configurations and raw inputs 0..15 are unchanged.
+The original forty configurations and raw inputs 0..15 are unchanged. Four
+additional default connection profiles and two nested conditional temporal
+profiles are described below.
 
 This is specification-level finite evidence. It does not execute an importer,
 CometBFT, EL, proof verifier or network; no concrete importer conformance is
@@ -248,7 +250,8 @@ Use the unchanged suite runner with supplied Java/TLC paths and an output path:
   --case import-negative-wrong-publication
 ```
 
-Every configuration is `configs/import-*.cfg`. The runner uses one worker, seed
+Every default safety/reachability configuration is `configs/import-*.cfg`.
+The two temporal profiles are nested under `sensitivity/configs/`. The runner uses one worker, seed
 one, a 512 MiB heap and 45 seconds per configuration by default, recording exact
 module/config hashes and requiring stable input files throughout the run.
 
@@ -262,3 +265,72 @@ by the permanent behavioral and pure-write mutations; ordinary configurations
 must exhaust normally. Source review also corrected the origin branch before
 independent review: a recovery origin uses genesis stores rather than the
 post-s import bootstrap. These are model changes, not production defects.
+
+## Conditional connection progress
+
+The original disabled-`Connect` fault survived all forty original M10 safety and
+reachability workloads. That remains valid historical evidence: those witnesses
+stop at trust/admission and the safety invariant `ConnectedRequiresTrust` cannot
+require a connection to occur. Existing actions, `Next`, `ImportSpec`, raw inputs
+0..24 and all existing configurations retain their semantics.
+
+[`EtnaImportProgress.tla`](EtnaImportProgress.tla) extends the unchanged base
+actions with `ImportProgressSpec`, a separate conditional temporal workload. Its initial
+state must contain the already correct, available and finalized `Raw(0)` package.
+The generation and session target remain fixed: `LearnGeneration` is excluded.
+The internal next-state relation uses the actual existing actions and includes
+an optional process crash, bounded by `Crash` to at most one occurrence. A crash
+may occur before publication or after connection; restart must re-establish
+trust before reconnecting. No fairness condition requires a crash.
+
+Weak fairness applies separately to `Check`, every `Stage(k)` and `Flush(k)`,
+`Publish`, `Restart`, `ReadTarget`, `Continue`, `Admit` and `Connect`. Thus an
+internal action that stays enabled must eventually make a non-stuttering step.
+Fairness refers to the actual action operators, including their changed behavior
+under a source mutation. It does not refer to preserved, unmutated action copies
+or assume `connected = TRUE`. Per-store fairness avoids starving one store by
+scheduling another. The finite crash allowance and fixed generation permit the
+stronger `ConditionalStableConnection == <>[]n.connected`: eventually connection
+holds forever, rather than merely occurring once before a crash.
+
+These premises exclude missing/unavailable material and Byzantine candidates;
+there is no `Retry` resource-arrival assumption. `Continue` retains the explicit
+trusted premise that normal execution has validated every intervening block.
+The profiles therefore prove neither real network/client liveness, data
+availability, arbitrary crash recovery nor STF/consensus execution correctness.
+
+Two nested temporal profiles exercise latest import 4→4 and older import 4→6.
+Each declares exactly one `PROPERTY ConditionalStableConnection` and runs via
+`sensitivity/run.py`, whose temporal classifier requires TLC exit 13 and the
+sole matching property. They are deliberately outside the old default
+invariant-only discovery path. The old `check.py` remains unchanged.
+
+Four default profiles separately check `ConnectionEnabledWhenReady` and witness
+`ConnectionNotReached` violations for latest and older imports under the original
+`ImportSpec`. The enabledness antecedent observes published, trusted, running,
+current-generation state with no connection; it does not reuse `Connect` as its
+own prerequisite. These checks establish enabledness and existential reachability,
+not fairness. The disabled-action fault must violate enabledness and the temporal
+property. A no-effect `Connect` remains `ENABLED` and passes enabledness, but must
+violate eventual stable connection. In particular, weak fairness of its eventual
+stuttering self-loop cannot stand in for the desired result.
+
+TLC's temporal evaluator compares candidate action successors. Existing store
+slots change from the string `"Empty"` to records, and TLC cannot compare those
+heterogeneous values for equality. The companion adds only a typed action tag,
+`progressEvent`, whose primitive next-state assignment precedes the actual base
+action. Different actions (including different store keys) therefore reject an
+incompatible candidate tag before comparing store records; enabledness can
+construct that tag and then generate the actual action's successor normally.
+
+Fairness uses a typed `progressVars` projection containing this tag, phase,
+staged/durable sets, publication/trust/connection flags, target readiness,
+reached height and crash count. Each genuine internal action changes a projected
+field. Erasing the tag from a companion transition gives exactly the existing
+base action. No tagged wrapper assumes that action is enabled or changes its
+result. A no-effect connection can change the tag once, then stutter forever;
+weak fairness still cannot force its missing result. The actual `Connect` remains
+the source-mutation target, and the stable-connection property observes only
+`n.connected`. `progressAllVars` retains every base state variable plus the tag
+for the next-state specification. The base `Init`, `vars` and `ImportSpec` do not
+include the tag and their existing safety/configuration behavior is unchanged.

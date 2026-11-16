@@ -56,13 +56,13 @@
 
 ### Task 4: V04 conditional connection progress
 
-**Files:** Modify EtnaCheckpointImport.tla and CHECKPOINT_IMPORT.md; create nested sensitivity/configs/import-progress\*.cfg, optional new default reachability config(s). Existing safety specification preserved.
+**Files:** Modify EtnaCheckpointImport.tla observers and CHECKPOINT_IMPORT.md; add thin EtnaImportProgress.tla fairness companion; create nested sensitivity/configs/import-progress\*.cfg, optional new default reachability config(s). Existing safety specification preserved.
 **Interfaces:** ImportProgressSpec, independent connection-enabled/reachability property and named eventual-stable-connection temporal property; campaign fragment uses sole named PROPERTY and meaningful counterexample.
 
-- [ ] Preserve disabled-Connect40/40 survivor evidence; write new obligation that fails disabled/no-effect connection, not parser or fairness configuration.
-- [ ] Define benign environment and weak fairness over internal actions, bounded optional crash/restart; require stable eventual connection without assuming result or resource arrival.
-- [ ] Run original temporal search and both direct mutations, selected original safety/reachability checks; inspect a counterexample/lasso and exact property identity.
-- [ ] Independent semantics/fairness review and behavior challenge; root integrates final manifest, local commit/report/worklist.
+- [x] Preserve disabled-Connect40/40 survivor evidence; write new obligation that fails disabled/no-effect connection, not parser or fairness configuration.
+- [x] Define benign environment and weak fairness over internal actions, bounded optional crash/restart; require stable eventual connection without assuming result or resource arrival.
+- [x] Run original temporal search and both direct mutations, selected original safety/reachability checks; inspect a counterexample/lasso and exact property identity.
+- [x] Independent semantics/fairness review and behavior challenge; root integrates final manifest, local commit/report/worklist.
 
 ### Task 5: V05 held-candidate handoff
 

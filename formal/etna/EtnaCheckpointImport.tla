@@ -347,4 +347,11 @@ ImportUntrustedNotReached == ~(n.published /\ ~n.trusted /\ n.reached < TargetHe
 ContradictionNotReached == ~seen.halt
 SupersededNotReached == ~(n.published /\ n.knownGeneration = 2 /\ ~n.trusted)
 RestartTrustNotReached == ~(n.trusted /\ n.resumed /\ seen.restartTrusted)
+
+\* Independent readiness observation: do not use Connect's guard as the antecedent.
+\* This detects a disabled action; ineffective actions need the temporal companion.
+ConnectionEnabledWhenReady ==
+    (n.phase = "Running" /\ n.published /\ n.trusted /\
+     n.knownGeneration = 1 /\ ~n.connected) => ENABLED Connect
+ConnectionNotReached == ~n.connected
 =============================================================================

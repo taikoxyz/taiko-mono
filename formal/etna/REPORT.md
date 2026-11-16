@@ -1248,3 +1248,30 @@ is explicit; the full12-test gates and existing Settlement missing-write failure
 are recorded separately. Original564 source entries and six owned hashes match;
 independent source/behavior review passed with no material findings. Initial
 committee/guest/anchor/proof validity remain mock premises. See conformance docs.
+
+### V04 — connection capability and conditional progress
+
+M10 gains only eight observer lines; all actual actions/default specification and
+45 existing import configurations remain unchanged. A thin EtnaImportProgress
+companion adds typed action labels for TLC fairness evaluation. Labels do not
+enter old guards/data; every genuine internal action changes a typed projection
+field, and weak fairness still refers to the actual action. This avoids TLC
+heterogeneous Empty/record equality failures without changing old state encoding.
+
+Enabledness/positive witnesses detect disabled Connect. The stronger sole
+ConditionalStableConnection property requires eventual stable connection under
+fixed correct/available input, fixed target/generation, fair internal checks and
+stores/restart/admission/connection, and optional at most one existing crash.
+Latest4→4 and older4→6 normal temporal searches pass. Disabled and no-effect
+Connect mutations fail the intended invariant or temporal property; no-effect
+Connect deliberately remains ENABLED, so enabledness alone cannot certify progress.
+Three selected campaign obligations and nine focused safety/witness checks pass.
+The independent reviewer inspected actual lassos and independently disabled only
+ReadTarget: the older profile reaches a fair disconnected suffix and violates
+the sole property. That extra obligation is included in the final inventory.
+
+Independent semantics/fairness review passed. Trusted normal continuation,
+resource availability and a stable generation remain explicit premises. There is
+no actual client/CometBFT/EL progress, perpetual-crash recovery or unconditional
+network/throughput theorem. Temporal tool/setup errors were INCONCLUSIVE, never
+counted as kills. Full integrated published-source campaign remains a batch gate.

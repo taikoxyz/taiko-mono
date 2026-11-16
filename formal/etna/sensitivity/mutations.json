@@ -20,62 +20,24 @@
       "obligation": "Import classification preserves el-binding; raw input 16 isolates this operational condition in the bounded model."
     },
     {
+      "id": "m10-connect-enabled",
       "required": true,
       "engine": "tlc",
       "source": "formal",
       "path": "EtnaCheckpointImport.tla",
-      "workloads": [
-        "configs/import-latest.cfg",
-        "configs/import-negative-bad-peer.cfg",
-        "configs/import-negative-committee-contradiction.cfg",
-        "configs/import-negative-contradiction-with-missing.cfg",
-        "configs/import-negative-envelope-contradiction.cfg",
-        "configs/import-negative-generation-bypass.cfg",
-        "configs/import-negative-hrs-reset.cfg",
-        "configs/import-negative-import-trust.cfg",
-        "configs/import-negative-latest-bypass.cfg",
-        "configs/import-negative-lost-halt.cfg",
-        "configs/import-negative-missing-ancestor.cfg",
-        "configs/import-negative-missing-evidence.cfg",
-        "configs/import-negative-missing-halt.cfg",
-        "configs/import-negative-mixed-authentication.cfg",
-        "configs/import-negative-new-genesis.cfg",
-        "configs/import-negative-origin-comet.cfg",
-        "configs/import-negative-origin-height.cfg",
-        "configs/import-negative-origin-preimage.cfg",
-        "configs/import-negative-partial-publication.cfg",
-        "configs/import-negative-preimage-contradiction.cfg",
-        "configs/import-negative-unfinalized.cfg",
-        "configs/import-negative-wrong-apphash.cfg",
-        "configs/import-negative-wrong-el-store.cfg",
-        "configs/import-negative-wrong-fi.cfg",
-        "configs/import-negative-wrong-pending.cfg",
-        "configs/import-negative-wrong-priority.cfg",
-        "configs/import-negative-wrong-proposer.cfg",
-        "configs/import-negative-wrong-publication.cfg",
-        "configs/import-older.cfg",
-        "configs/import-origin.cfg",
-        "configs/import-witness-contradiction.cfg",
-        "configs/import-witness-crash-resume.cfg",
-        "configs/import-witness-import-untrusted.cfg",
-        "configs/import-witness-latest.cfg",
-        "configs/import-witness-missing-retry.cfg",
-        "configs/import-witness-older.cfg",
-        "configs/import-witness-origin.cfg",
-        "configs/import-witness-partial-crash.cfg",
-        "configs/import-witness-restart-trust.cfg",
-        "configs/import-witness-superseded.cfg"
-      ],
-      "id": "m10-connect-enabled",
-      "obligation": "A correct fixed target must eventually connect under the declared progress premises. Existing safety workload does not establish it.",
       "replace": {
         "old": "Connect ==\n    /\\ n.phase = \"Running\"",
         "new": "Connect ==\n    /\\ FALSE\n    /\\ n.phase = \"Running\""
       },
+      "workloads": [
+        "configs/import-progress-enabled-latest.cfg",
+        "configs/import-progress-enabled-older.cfg"
+      ],
       "failure": {
         "kind": "invariant",
-        "name": "ConnectedRequiresTrust"
-      }
+        "name": "ConnectionEnabledWhenReady"
+      },
+      "obligation": "Correct available Raw(0), fixed generation/target and optional one process crash: ready admission enables Connect."
     },
     {
       "id": "settlement-signal-publication",
@@ -459,6 +421,63 @@
         "failures": {
           "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()": "publication: active committee snapshot: 1 != 21"
         }
+      }
+    },
+    {
+      "id": "m10-connect-disabled-progress",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "Connect ==\n    /\\ n.phase = \"Running\"",
+        "new": "Connect ==\n    /\\ FALSE\n    /\\ n.phase = \"Running\""
+      },
+      "workloads": [
+        "sensitivity/configs/import-progress-latest.cfg",
+        "sensitivity/configs/import-progress-older.cfg"
+      ],
+      "failure": {
+        "kind": "property",
+        "name": "ConditionalStableConnection"
+      },
+      "obligation": "Correct available Raw(0), fixed generation/target and optional one process crash: fair internal import/continuation must eventually remain connected; no external availability or client liveness claim."
+    },
+    {
+      "id": "m10-connect-no-effect",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ n' = [n EXCEPT !.connected = TRUE]",
+        "new": "/\\ n' = [n EXCEPT !.connected = FALSE]"
+      },
+      "workloads": [
+        "sensitivity/configs/import-progress-latest.cfg",
+        "sensitivity/configs/import-progress-older.cfg"
+      ],
+      "failure": {
+        "kind": "property",
+        "name": "ConditionalStableConnection"
+      },
+      "obligation": "Correct available Raw(0), fixed generation/target and optional one process crash: fair internal import/continuation must eventually remain connected; no external availability or client liveness claim."
+    },
+    {
+      "id": "m10-target-auth-progress",
+      "obligation": "With fixed available correct input/current target and fair actual internal work, missing target authentication cannot be silently accepted as progress.",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "ReadTarget ==\n    /\\ n.phase",
+        "new": "ReadTarget ==\n    /\\ FALSE\n    /\\ n.phase"
+      },
+      "workloads": ["sensitivity/configs/import-progress-older.cfg"],
+      "failure": {
+        "kind": "property",
+        "name": "ConditionalStableConnection"
       }
     }
   ]

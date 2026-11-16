@@ -448,3 +448,10 @@ V02 adds discriminatory import inputs and an explicit input-to-guard matrix in
 fail the intended independent classification observer; original raw0..15, actions
 and old configurations remain unchanged. Chain/height checks and other unassessed
 obligations are recorded, not counted as covered.
+
+V04 separately checks connection enabledness/existence and conditional temporal
+progress. `EtnaImportProgress` wraps actual unchanged M10 actions with typed
+observation tags and requires eventual stable connection under fixed correct
+available inputs, target/generation and fair internal work with at most one crash.
+Nested sole-property profiles run through the sensitivity tool, not the older
+invariant-only failure classifier. This is no unconditional client/network claim.

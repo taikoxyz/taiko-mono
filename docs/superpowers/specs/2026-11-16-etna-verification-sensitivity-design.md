@@ -119,6 +119,12 @@ fair internal checks/stores/restart/admission/connection, require eventual stabl
 connection. State the exact environmental/fairness premise, including trusted
 normal continuation. No unconditional availability/throughput claim.
 
+A thin EtnaImportProgress companion owns typed observation/action labels to
+avoid TLC equality between heterogeneous Empty/store-record values during fairness
+edge evaluation. Old operational actions/default data are unchanged; the labels
+do not affect their guards. The fair subscript distinguishes every genuine
+internal step. This implementation choice is independently reviewed per action.
+
 Both fully disabled Connect and a Connect action that leaves connected=false
 must be caught. Weak fairness on a disabled action is vacuous; independently
 require the progress property/positive reachability. Do not make fairness assume
