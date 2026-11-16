@@ -62,7 +62,11 @@
         "m10-header-height",
         "m10-positive-first-priority-bound",
         "m10-positive-second-priority-bound",
-        "m10-positive-committed-pair"
+        "m10-positive-committed-pair",
+        "proving-recovery-origin",
+        "proving-recovery-resources",
+        "proving-recovery-generation",
+        "proving-recovery-enabled"
       ]
     },
     {

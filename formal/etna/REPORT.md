@@ -2149,3 +2149,61 @@ not a complete authenticated archive. MemDB plus reopened wrappers does not prov
 power-loss durability. No concrete Etna importer, non-genesis block admission,
 valid signed commits, EL/STF execution, committee derivation or live consensus
 is established. F05 and the accumulated five-item gate remain pending.
+
+## F05 — nonzero recovery and proving-resource scenarios
+
+The [new companion](EtnaProvingRecovery.tla) runs three explicit bounded scripts
+over unchanged M07 actions. They produce an unsettled suffix, actually land and
+ordinarily finalize checkpoint1, then invoke the existing trusted completed
+recovery macro at execution3/observation4. Recovery retains records, jobs, proofs,
+publication and resource state while resetting the production origin to1.
+New-generation Produce explicitly replaces the old unsettled height2 identity.
+
+FreshPresent captures the unused job1 with generation1/parent1/terminal2/ref4/
+dependency3 and lands at5. FreshAbsent preserves missing resources through
+recovery and capture/publication, observes two actually disabled completions,
+then uses explicit history/provider arrivals before completing and landing.
+OldOutstanding retains its already captured old-generation job and attempts
+actual Land at4: its reference, ancestry, frontier cut, full data, both proofs
+and head remain live, isolating generation rejection. No job ID is recycled.
+Each receipt contains actual enabledness/execution and complete raw pre/post
+state. Expected outcomes audit the execution; they do not decide whether to run
+an enabled action. Terminal predicates require raw state, receipts and counts.
+
+Author verification covers all ten new configurations with exact outcomes: seven exhausted normal/
+focused searches and three named terminal witnesses. Four new scoped source
+faults are KILLED exactly at RecoveryOriginAudit, RecoveryResourceAudit,
+RecoveryGenerationAudit or RecoveryEnabledAudit; original and actual-restored
+sources pass with stable inputs. The generation mutant actually executes the
+old landing, advances included1 to2 and is caught by the actual-receipt audit.
+Disabling the real Recover action loses the required complete terminal witness;
+restoring the same source makes it reachable again. Green safety exhaustion
+alone therefore earns no progress credit.
+
+Independent source review checks the complete16-file diff and actual M07/SPEC.
+Independent behavioral verification separately executes ten cases, four fault
+triples and the witness-loss/restoration control, using its own general raw TLA
+value parser and literal audits of all terminal receipts. Both verdicts pass
+without a material fix wave. All359 old config bytes and65 old inventory objects
+remain unchanged. The new total is369 main configs and65 assessed obligations
+(60TLC/3Identity/2Rules), with four unassessed boundaries retained. These are four
+new scoped verification obligations, not four discovered protocol bugs.
+
+The author's existing20 sensitivity tests pass after resetting inherited ignored signals
+in the disposable jailed launcher. The initial three lifecycle timeouts were
+reproduced as parent/child SIG_IGN launch context; no helper or test was changed,
+and the failed launch is retained without semantic pass credit. Project formatting
+was applied and checked before the final source/inventory freeze.
+
+Companion SHA256:
+`7f7b3014f81dc450e5926bda559400648fd38c79bf492a79f20b9fea82e962e6`.
+M07 remains
+`4a102d5e465b7c943b8564994a320fb4b2af13fbe5348c0f095aa75016fa0105`.
+The four-fault campaign SHA256 is
+`a4b27678de9d499ea07c3dc87ddecfe2839bc7b743ced3019109a87ea086e492`;
+the independent behavioral report SHA256 is
+`3bbb671062b71472b55e9e2543099671c77e31a8a77c0f83c9685aa727afb5d5`.
+External finality/authentication and physical restoration remain assumptions of
+the trusted recovery macro. These selected executions do not implement recovery,
+real proving, resource fairness, latency guarantees or universal liveness. The
+stable accumulated five-item gate and final whole-batch review remain pending.

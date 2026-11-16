@@ -376,6 +376,13 @@ Ready-resource and missing-resource workloads are distinct; neither guarantees
 that data or proofs arrive. This model is not a formal product with the earlier
 modules and establishes no sustained throughput or settlement latency.
 
+[`PROVING_RECOVERY.md`](PROVING_RECOVERY.md) describes F05's scripted companion
+over unchanged M07 actions: settle and ordinarily finalize checkpoint1, recover
+at that nonzero origin, preserve or explicitly restore proving resources, and
+observe a fresh task or rejection of an outstanding old-generation task with a
+live reference. Actual enabledness receipts, literal audits and required terminal
+witnesses bound these three chronologies without a universal recovery claim.
+
 ## Recovery transaction and implementation-correspondence batch
 
 The next authorized batch comprises exactly C01, M08-A, C02, M09-A and C03.

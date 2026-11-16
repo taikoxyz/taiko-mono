@@ -1105,6 +1105,74 @@
         "name": "PositiveImportPremises"
       },
       "obligation": "Raw11 preserves individually bounded actual member fields but substitutes the base Next priority vector into the first-alternate pair. Coherent hashes/store alignment alone cannot identify this wrong pair. The independent literal actual-publication pair table must fail at Published; original and actual restoration must pass. This selected two-update-prefix correspondence does not establish full STF/committee history."
+    },
+    {
+      "id": "proving-recovery-origin",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaProvingProgress.tla",
+      "replace": {
+        "old": "!.start=r.included",
+        "new": "!.start=0"
+      },
+      "workloads": ["configs/proving-recovery-origin-audit.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "RecoveryOriginAudit"
+      },
+      "obligation": "FreshPresent settles1 through ordinary finality before completed authenticated recovery; the actual new generation start remains the nonzero included origin1."
+    },
+    {
+      "id": "proving-recovery-resources",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaProvingProgress.tla",
+      "replace": {
+        "old": "!.now=observed,!.dependency=execution",
+        "new": "!.privateHistory=TRUE,!.available=[b \\in Backends |-> TRUE],!.now=observed,!.dependency=execution"
+      },
+      "workloads": ["configs/proving-recovery-resources-audit.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "RecoveryResourceAudit"
+      },
+      "obligation": "FreshAbsent explicitly removes history and both backends before completed recovery; recovery preserves absence and only later explicit resource arrivals restore fresh-task completion."
+    },
+    {
+      "id": "proving-recovery-generation",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaProvingProgress.tla",
+      "replace": {
+        "old": "(~CheckGeneration \\/ x.generation=r.generation)",
+        "new": "TRUE"
+      },
+      "workloads": ["configs/proving-recovery-generation-audit.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "RecoveryGenerationAudit"
+      },
+      "obligation": "OldOutstanding keeps original generation0 proofs, live reference0, ancestry support, matching frontier1, full data and head2 after recovery at1; actual old Land must remain rejected. The original M07 generation semantic control is retained."
+    },
+    {
+      "id": "proving-recovery-enabled",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaProvingProgress.tla",
+      "replace": {
+        "old": "/\\ r.generation=0 /\\ r.now+2<=MaxTime",
+        "new": "/\\ FALSE /\\ r.generation=0 /\\ r.now+2<=MaxTime"
+      },
+      "workloads": ["configs/proving-recovery-enabled-audit.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "RecoveryEnabledAudit"
+      },
+      "obligation": "FreshPresent must actually execute the required nonzero-origin recovery step; a disabled action is recorded and fails independently enumerated enabledness rather than earning vacuous safety success."
     }
   ]
 }

@@ -36,7 +36,7 @@ inventory and is not a usable full gate with the current one-runtime Forge argv.
 
 | Cohort           | Required IDs | Engine | Exact selected Forge test                                          |
 | ---------------- | ------------ | ------ | ------------------------------------------------------------------ |
-| `tlc`            | 56           | TLC    | None                                                               |
+| `tlc`            | 60           | TLC    | None                                                               |
 | `forge-identity` | 3            | Forge  | `EtnaIdentityReplayTest::test_identity_publicHistoryPublication()` |
 | `forge-rules`    | 2            | Forge  | `EtnaRulesReplayTest::test_conformance_stopHandoffReplay()`        |
 
@@ -51,7 +51,7 @@ does not satisfy an item that declares only one.
 Full assessed-inventory evidence requires all three campaigns from the same
 frozen source/manifest/tools, separately compatible runtime selections and the
 same shared physical Foundry lock. Aggregate by obligation ID: verify the exact
-61-ID union without duplicates or omissions, all per-ID original/mutant/restored
+65-ID union without duplicates or omissions, all per-ID original/mutant/restored
 phases, source/tool hashes, input stability and each campaign's raw log hashes.
 Retain each cohort verdict separately. A full aggregate may report complete
 assessed coverage only after all these checks; unassessed protocol boundaries
@@ -279,3 +279,32 @@ Original and actual restored source must pass, with required positive witnesses.
 All affected M10 source-fault triples must be rechecked on the final source;
 prior independent-set results are historical and do not establish pair coherence.
 No new runner, main config or operational Mutant=None guard is introduced.
+
+## F05 nonzero proving/recovery controls
+
+[`PROVING_RECOVERY.md`](../PROVING_RECOVERY.md) adds four scoped assessed TLC
+obligations: `proving-recovery-origin`, `proving-recovery-resources`,
+`proving-recovery-generation` and `proving-recovery-enabled`. The current
+partition is65 assessed IDs:60 TLC, three identity and two rules; all61 earlier
+assessed entries and the four explicitly unassessed entries are preserved.
+The separate native Go controls remain outside this shared inventory count.
+
+Each new entry mutates one unique source site in a private copy of unchanged
+M07 and calls it through the new scripted companion. The focused normal config
+checks type plus its exact target audit, preventing another generic observer
+from masking that intended failure. Full normal scripts retain all relevant
+original and new audits, and each needs an actual completed terminal witness.
+Wrong start0, fabricated resources, omitted generation binding and disabled
+recovery must respectively fail `RecoveryOriginAudit`, `RecoveryResourceAudit`,
+`RecoveryGenerationAudit` and `RecoveryEnabledAudit`. Original and actually
+restored source must pass; parser/setup errors or different failures do not
+count. Omitting generation must actually execute the old landing before its
+receipt is rejected by the audit, rather than being suppressed by the harness.
+
+The original M07 `progress-bad-generation.cfg` already checks that generation
+semantic site via a guard constant. This new entry assesses the distinct c1
+recovery/live-reference workload and shared source-fault restoration; the four
+controls are not four newly found protocol defects. External recovery
+authentication/finality, proof validity and universal progress remain premises
+or exclusions. Earlier count/result sections describe their frozen historical
+inputs and are not evidence for the expanded set.

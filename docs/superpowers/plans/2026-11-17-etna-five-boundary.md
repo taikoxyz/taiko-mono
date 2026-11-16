@@ -74,10 +74,10 @@
 **Files:** new `EtnaProvingRecovery.tla`, `PROVING_RECOVERY.md`, focused `configs/proving-recovery-*.cfg`, sensitivity inventory/cohorts and README links. Existing M07 source unchanged.
 **Interface:** three scripted programs calling actual M07 actions: FreshPresent, FreshAbsent and OldOutstanding. Raw step receipts/expected action results and independent checkpoint/resource/job audits; no duplicate pipeline engine.
 
-- [ ] Build explicit settle1/finalize/recover-origin1 sequences; use separate programs to respect two once-used job IDs. Keep old proof reference live to isolate generation binding.
-- [ ] Add actual completed-script witnesses and absence/late-resource cases; disabled steps or missing terminal receipts must fail gates.
-- [ ] Add exact wrong-origin, fabricated-resource and generation-binding source faults in the existing compatible TLC campaign; normal/restored succeed, exact audit targets fail.
-- [ ] Independently review/verify and commit, preserving old M07/config bytes and explicit external recovery-macro premises.
+- [x] Build explicit settle1/finalize/recover-origin1 sequences; use separate programs to respect two once-used job IDs. Keep old proof reference live to isolate generation binding.
+- [x] Add actual completed-script witnesses and absence/late-resource cases; disabled steps or missing terminal receipts must fail gates.
+- [x] Add exact wrong-origin, fabricated-resource, generation-binding and disabled-Recover source faults in the existing compatible TLC campaign; normal/restored succeed, exact audit targets fail.
+- [x] Independently review/verify and confirm commit readiness, preserving old M07/config bytes and explicit external recovery-macro premises. Publication readback remains pending.
 
 ## Final five-item gate
 
