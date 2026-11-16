@@ -585,7 +585,7 @@
     {
       "id": "handoff-positive-stop-composition",
       "required": false,
-      "obligation": "UNASSESSED: held candidate across positive stop and stop-clear/recovery interleavings. Both current handoff programs use stopTime=0; separate M11 stop tests do not establish this composition."
+      "unassessed_reason": "UNASSESSED: held candidate across positive stop and stop-clear/recovery interleavings. Both current handoff programs use stopTime=0; separate M11 stop tests do not establish this composition."
     }
   ]
 }
