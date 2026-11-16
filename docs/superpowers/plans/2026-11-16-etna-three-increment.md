@@ -61,6 +61,6 @@
 
 ## Final three-item gate
 
-- [ ] Check current PR feedback before final publication; handle confirmed issues first.
-- [ ] Root verifies one final stable accumulated TLC/Python/fault-cohort result and selected Comet replay/export, input hashes, complete diff and hygiene.
-- [ ] Whole-batch independent review, report assumptions/incomplete work, push/read back exact draft head, and stop for the three-item retrospective.
+- [x] Check current PR feedback before final publication; handle confirmed issues first.
+- [x] Root verifies one final stable accumulated TLC/Python/fault-cohort result and selected Comet replay/export, input hashes, complete diff and hygiene.
+- [x] Complete whole-batch independent review and final report, confirm publication readiness, then push/read back the exact draft head and stop for the three-item retrospective (actual publication is recorded in Git history and the ledger).

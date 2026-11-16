@@ -4,6 +4,9 @@ The first section records the original height/generation model. The
 [2026-11-14 extension](#2026-11-14-checkpoint-identity-extension) below records
 the composed checkpoint-identity model.
 
+The [latest three-increment gate and retrospective](#three-increment-batch-final-gate-and-retrospective)
+records the current accumulated results and their limits.
+
 Date: 2026-11-13. Source specification:
 `d18357214fab30ea512ae9858a11699806d72ba1`.
 
@@ -1739,3 +1742,64 @@ No concrete importer, crypto or proof validity is established. The symbolic
 hash constructors and fixed trusted chain/height/window domain remain explicit
 premises. This completes the third technical increment; accumulated final gates
 and the three-item retrospective are reported separately below when complete.
+
+## Three-increment batch final gate and retrospective
+
+Date: 2026-11-16. Exactly T01, T02 and T03 complete this batch after the R0 review
+repair. The final accumulated executions use one stable478-file snapshot; later
+differences are reviewed prose only in REPORT, CHECKPOINT_IMPORT and the current
+sensitivity cohort-count table. No execution model, config, runner, receipt,
+source pin or tool changed after the freeze.
+
+| Gate                         | Measured outcome                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Default TLC suite            | 350/350 exact outcomes:58 exhausted normal searches,292 named controls/witnesses                       |
+| Shared source-fault campaign | 54/54 assessed required IDs KILLED, partitioned49TLC/3Identity/2Rules                                  |
+| Shared phase evidence        | 67 workloads per phase,201 checked original/mutant/restored execution logs                             |
+| Ordinary Python suites       | 20runner+103conformance+20sensitivity=143 passing tests                                                |
+| Separate controller lane     | Five cancellation/timeout cases pass; independent actual-Go five-mode probe also passes                |
+| Rule references              | 640 live markers; index/assets/links/tables pass; migration purity explicitly skipped                  |
+| Recovery-time export         | Three fresh actual TLC observations match the committed fixture exactly                                |
+| Stock CometBFT boundary      | Seven exact tests pass normal/restored; the private source fault loses only both wrong-time rejections |
+
+Root reclassifies all350 default logs and checks model/config/source identities,
+not just the runner success flag. An independent stdlib-only artifact audit
+separately checks every default outcome and all201 shared phase logs, exact
+semantic/test failure identities, reconstructed single-site mutant bytes,
+cohort coverage, tools and input stability. A fresh whole-batch reviewer inspects
+the complete three-commit implementation diff, actual upstream Comet sources,
+focused receipts/counterexamples and accumulated evidence. No material finding
+remains; a stale top-level cohort table was corrected during final prose review.
+
+Execution snapshot manifest SHA256:
+`24136dbe42acdf98934a76635d46c2e839afa3159d9d5db1e537bbb6d4e06925`.
+Default results SHA256:
+`39957003e8fae9003655ca44a2b17db0e1a82a7dd59110cdadb16f8b0aaf2347`.
+Shared cohort aggregate SHA256:
+`cf2a3001bd18b2a3dfa8bf7fa01d51cd0ed2eb04885fd6803e8fb392f7de6235`.
+T02 final native campaign SHA256:
+`0413ab38dafa05e319e9a333a214858c818fd0e10d00615779a55b1c48a8fe96`.
+Existing unchanged13-test Solidity and38/9-call export evidence is retained as
+historical, with exact consumed input identity; those complete gates were not
+rerun or described as fresh. The two selected real-contract test identities do
+execute normally, under fault and after restoration in the current shared cohort
+campaign. Original564 contract source entries remain unchanged.
+
+The original self-check failure was a shared omission: the constructor, fixture
+assumptions and assertions agreed with one another without checking every
+successful witness against the normative clauses. A missing genesis/retained
+parent relation escaped that loop. This batch also exposes input masking:
+three removed import-authentication guards survived the old input domain. The
+recorder and process-lifecycle repairs show why the verification tools need
+their own wrong-reason, cancellation and input-alias controls. Repeating the
+same green suite would not have found a property it never checked.
+
+The resulting evidence is stronger at these selected boundaries. It still does
+not establish full Etna App/EL/importer integration, authenticated STF history,
+actual proof generation or proving latency/backpressure, weighted consensus,
+network progress or whole-protocol refinement. The19 archived incomplete
+profiles remain incomplete. BFT/EL clocks, finite negative classification and
+stock header admission are explicit scopes, not substitutes for those gaps.
+No confirmed production/SPEC defect was found. This batch stops at three for
+retrospective; the authorized hourly PR-feedback monitor continues without
+starting a fourth increment. The PR remains draft.
