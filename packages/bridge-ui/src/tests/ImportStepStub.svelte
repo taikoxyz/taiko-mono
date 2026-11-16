@@ -11,4 +11,4 @@
   $: validating = false;
 </script>
 
-<span data-testid="stub" />
+<span data-testid="stub"></span>

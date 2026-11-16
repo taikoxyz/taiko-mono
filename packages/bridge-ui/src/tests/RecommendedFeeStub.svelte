@@ -20,4 +20,4 @@
   $: error = false;
 </script>
 
-<span data-testid="recommended-fee-stub" />
+<span data-testid="recommended-fee-stub"></span>
