@@ -249,13 +249,13 @@
 
 ## STOR-B-27
 
-| Vector      | Claimed layout or data                                                | Expected           |
-| ----------- | --------------------------------------------------------------------- | ------------------ |
-| 27.a accept | `confirmExit` writes only into the exit-confirmations namespace       | matches            |
-| 27.b accept | withdrawal clears the confirmation                                    | matches            |
-| 27.c reject | `confirmExit` creates a committee checkpoint or changes `entriesRoot` | violates STOR-B-27 |
-| 27.d reject | after withdrawal the confirmation remains                             | violates STOR-B-27 |
-| 27.e reject | `confirmExit` writes a `regLeaf` entry                                | violates STOR-B-27 |
+| Vector      | Claimed layout or data                                               | Expected           |
+| ----------- | -------------------------------------------------------------------- | ------------------ |
+| 27.a accept | `confirmExit` writes only into the exit-confirmations namespace      | matches            |
+| 27.b accept | withdrawal clears the confirmation                                   | matches            |
+| 27.c reject | `confirmExit` creates a registry checkpoint or changes `entriesRoot` | violates STOR-B-27 |
+| 27.d reject | after withdrawal the confirmation remains                            | violates STOR-B-27 |
+| 27.e reject | `confirmExit` writes a `regLeaf` entry                               | violates STOR-B-27 |
 
 ## STOR-B-28
 
