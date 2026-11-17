@@ -17,7 +17,11 @@ These numbers describe selected finite evidence, not whole-module completion.
 Normative baseline: SPEC commit `d18357214fab30ea512ae9858a11699806d72ba1`,
 blob `649548c58d6629dd85143b33efd3644a3bb71509`. Actual contract and stock
 CometBFT pins remain those in the conformance manifests. A changed specification
-or executable input requires a correspondence review before reusing evidence.
+or executable input requires a correspondence review before reusing evidence. A separately
+[reviewed exact workspace correspondence](conformance/spec_correspondence.json)
+binds the editorial b796b007 SPEC (blob07912c04/SHA53877) without changing the
+historical consumer pins. Unknown future document bytes remain rejected; this is
+reviewed metadata, not a general equivalence or ancestry proof.
 
 Every row below names a remaining obligation, its owning module, the acceptance
 evidence, and its dependencies. **OPEN** is actionable verification work;

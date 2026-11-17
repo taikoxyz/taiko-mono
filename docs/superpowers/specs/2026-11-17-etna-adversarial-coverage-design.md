@@ -105,3 +105,15 @@ The existing PR stays draft; feedback first, no production/SPEC/Notion change,
 merge, mark-ready, deployment or live transaction. Preserve worktree/raw evidence/
 plan workspace while PR open, superseding default skill cleanup. Stop after five
 and report a retrospective; keep hourly monitoring after completion.
+
+## Reviewed workspace SPEC integration update
+
+During H01, main advanced to b796b007c31a00e687238011dec38534a5b21d08 and hosted
+CI used that effective merge. Its exact SPEC blob07912c040eea8a925f9cb4ab2579bed1a105a3c7/
+SHA53877d1f29ce90aac0b2f41620c6c79c2229eab154fa4630e5b187450be6ffc1
+has eleven independently reviewed editorial changes only. The historical canonical
+authority/consumer pins above remain unchanged. spec_authority.py and the exact
+single-pair spec_correspondence.json separate historical pin integrity from
+reviewed workspace bytes; no normalizer or future automatic acceptance. This
+necessary old-gate repair does not add a sixth increment or authorize normative
+source edits. Protected inputs and independent review/actual tests are required.

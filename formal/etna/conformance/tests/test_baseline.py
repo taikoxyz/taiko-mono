@@ -17,6 +17,11 @@ if PATH.exists():
     MODULE = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(MODULE)
 
+AUTHORITY_PATH = PATH.with_name('spec_authority.py')
+authority_spec = importlib.util.spec_from_file_location('spec_authority', AUTHORITY_PATH)
+AUTHORITY = importlib.util.module_from_spec(authority_spec)
+authority_spec.loader.exec_module(AUTHORITY)
+
 
 class BaselineTests(unittest.TestCase):
     def setUp(self):
@@ -38,10 +43,14 @@ class BaselineTests(unittest.TestCase):
             entry = json.loads(raw)['files'][spec_path]
             self.assertEqual(entry['sha256'], pins['spec']['sha256'])
             self.assertEqual(entry['gitBlob'], pins['spec']['blob'])
-        current = (root.parents[2] / spec_path).read_bytes()
-        self.assertEqual(hashlib.sha256(current).hexdigest(), pins['spec']['sha256'])
-        self.assertEqual(hashlib.sha1(b'blob ' + str(len(current)).encode() + b'\0' + current).hexdigest(),
-                         pins['spec']['blob'])
+
+    def test_workspace_spec_has_exact_reviewed_correspondence(self):
+        root = PATH.parent
+        pins = json.loads((root / 'pins.json').read_text())
+        ledger = AUTHORITY.load_spec_correspondence(root / 'spec_correspondence.json')
+        current = (root.parents[2] / 'packages/protocol/docs/etna/SPEC.md').read_bytes()
+        result = AUTHORITY.verify_workspace_spec(current, pins['spec'], ledger)
+        self.assertEqual(result['status'], 'SPEC_CORRESPONDENCE_VERIFIED')
 
     def compare(self, left=None, right=None):
         return MODULE.compare_vectors(left or self.current, right or self.consumer,
@@ -188,6 +197,88 @@ class BaselineTests(unittest.TestCase):
         with self.assertRaises(ValueError): MODULE.require_forge_success(payload, 'test_vectors()')
         payload['Suite']['test_results']['test_vectors()']['status'] = 'Success'
         self.assertEqual(MODULE.require_forge_success(payload, 'test_vectors()')['tests'], 1)
+
+
+class SpecCorrespondenceTests(unittest.TestCase):
+    def setUp(self):
+        self.original = b'canonical specification\n'
+        self.reviewed = b'reviewed editorial specification\n'
+        self.authority = self.identity(self.original, 'a' * 40)
+        self.ledger = {'schema': 'etna-spec-correspondence-1',
+                       'path': 'packages/protocol/docs/etna/SPEC.md',
+                       'authority': copy.deepcopy(self.authority),
+                       'reviewedWorkspace': self.identity(self.reviewed, 'b' * 40),
+                       'classification': 'reviewed-editorial-correspondence',
+                       'rationale': 'Exact reviewed editorial fixture pair.'}
+
+    @staticmethod
+    def identity(raw, commit):
+        return {'commit': commit, 'sha256': hashlib.sha256(raw).hexdigest(),
+                'blob': hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()}
+
+    def verify(self, raw=None, ledger=None, authority=None):
+        return AUTHORITY.verify_workspace_spec(self.original if raw is None else raw,
+                    self.authority if authority is None else authority,
+                    self.ledger if ledger is None else ledger)
+
+    def test_canonical_and_exact_reviewed_bytes_are_distinguished(self):
+        self.assertEqual(self.verify()['relation'], 'canonical')
+        self.assertEqual(self.verify(self.reviewed)['relation'], 'reviewed-editorial')
+
+    def test_unknown_or_one_byte_tampered_spec_is_rejected(self):
+        for raw in (self.original + b' ', self.reviewed + b' ', b'future specification\n'):
+            with self.subTest(raw=raw), self.assertRaises(ValueError): self.verify(raw)
+
+    def test_wrong_historical_authority_identity_is_rejected(self):
+        for name, size in (('commit', 40), ('blob', 40), ('sha256', 64)):
+            bad = copy.deepcopy(self.ledger); bad['authority'][name] = 'c' * size
+            with self.subTest(field=name), self.assertRaises(ValueError): self.verify(ledger=bad)
+
+    def test_reviewed_hash_and_blob_must_both_match(self):
+        for name, size in (('blob', 40), ('sha256', 64)):
+            bad = copy.deepcopy(self.ledger); bad['reviewedWorkspace'][name] = 'c' * size
+            with self.subTest(field=name), self.assertRaises(ValueError): self.verify(self.reviewed, bad)
+
+    def test_invalid_metadata_rejected_even_for_canonical_bytes(self):
+        changes = [('schema', 'unknown'), ('path', '../SPEC.md'),
+                   ('classification', 'unreviewed'), ('rationale', ''), ('rationale', None)]
+        for name, value in changes:
+            bad = copy.deepcopy(self.ledger); bad[name] = value
+            with self.subTest(field=name, value=value), self.assertRaises(ValueError): self.verify(ledger=bad)
+        for name in self.ledger:
+            bad = copy.deepcopy(self.ledger); del bad[name]
+            with self.subTest(missing=name), self.assertRaises(ValueError): self.verify(ledger=bad)
+        bad = copy.deepcopy(self.ledger); bad['extra'] = 'unreviewed'
+        with self.assertRaises(ValueError): self.verify(ledger=bad)
+
+    def test_identity_shapes_types_and_hash_formats_are_closed(self):
+        for key in ('authority', 'reviewedWorkspace'):
+            for value in ([], None, {'commit': 'a' * 40}):
+                bad = copy.deepcopy(self.ledger); bad[key] = value
+                with self.subTest(key=key, value=value), self.assertRaises(ValueError): self.verify(ledger=bad)
+            for value in ('A' * 40, 'z' * 40, 'a' * 39, None, 12):
+                bad = copy.deepcopy(self.ledger); bad[key]['blob'] = value
+                with self.subTest(key=key, value=value), self.assertRaises(ValueError): self.verify(ledger=bad)
+            bad = copy.deepcopy(self.ledger); bad[key]['extra'] = 'ignored'
+            with self.assertRaises(ValueError): self.verify(ledger=bad)
+        with self.assertRaises(ValueError): self.verify(authority={})
+        with self.assertRaises(ValueError): self.verify(raw='decoded text')
+
+    def test_canonical_identity_cannot_be_relabelled_as_reviewed(self):
+        bad = copy.deepcopy(self.ledger); bad['reviewedWorkspace'] = copy.deepcopy(self.authority)
+        with self.assertRaises(ValueError): self.verify(ledger=bad)
+
+    def test_duplicate_top_level_and_nested_metadata_keys_are_rejected(self):
+        valid = json.dumps(self.ledger)
+        nested = valid.replace('"commit":', '"commit":"' + 'c' * 40 + '","commit":', 1)
+        top = valid.replace('{', '{"schema":"etna-spec-correspondence-1",', 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'correspondence.json'
+            for raw in (nested, top):
+                path.write_text(raw)
+                with self.subTest(raw=raw), self.assertRaises(ValueError): AUTHORITY.load_spec_correspondence(path)
+            path.write_text(valid)
+            self.assertEqual(AUTHORITY.load_spec_correspondence(path), self.ledger)
 
 
 if __name__ == '__main__': unittest.main()

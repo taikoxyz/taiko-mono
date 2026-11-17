@@ -22,6 +22,11 @@
 - Before/after every task and after H02/H04, record omitted legal path, plausible false-green explanation, independent challenge and residual assumptions. No issue quota, no widening claims from green counts.
 - Existing feedback first; stop for an independently supported actual protocol/source defect. No production/SPEC/Notion edits, merge, mark-ready, deployment, sixth increment or redundant approval pause.
 
+Reviewed integration update: canonical source/consumer pins remain unchanged;
+workspace SPEC b796b007/blob07912c04/SHA53877 is accepted only by the explicitly
+reviewed exact correspondence ledger. Unknown future bytes fail closed. This
+source-gate repair is required before H02 and is not a sixth increment.
+
 ## Review Focus
 
 - A helper generates keys/signs even when an outer test appears to replay public bytes: H01 must trace all setup and use exact published PoP/domain equality.

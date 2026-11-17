@@ -2969,3 +2969,58 @@ signing and replacing same-write getter/root agreement with literal raw state,
 independent roots/history and cash amounts. The separate confirmation fault
 challenges a second real write; neither fault proves all Registry behavior.
 H02 weighted state evolution remains next, with its own unsigned-only boundary.
+
+### H01 pre-push integration — exact SPEC correspondence
+
+Before H01 publication, hosted planning run44037594044 failed one conformance
+check. Its actual checkout was mergef0d9028c17a95365fcf3e69972ef198f36948a9d:
+planning headaae79c38c into updated mainb796b007c31a00e687238011dec38534a5b21d08.
+The earlier reported base ref was stale; the checkout log and actual SPEC bytes
+control this attribution. All387 TLC outcomes,57 gate tests,20 sensitivity tests
+and149 other conformance tests passed. The single failure correctly detected
+workspace SPEC SHA53877 versus canonical source4d81, not a Registry result.
+H01 was kept local while the version change was reviewed.
+
+Independent complete old/current SPEC review maps all11 token changes to their
+existing governing rules: registry versus active-committee checkpoint terminology,
+FI head/cursor wording, sub-proof spelling and back-pressure pause terminology.
+No changed validity condition, bound, encoding, storage layout, rule ID or H01–H05
+assumption was identified for this exact pair. Unrelated base test changes were
+not approved by that source review. Normative files were never edited here.
+
+The new [correspondence ledger](conformance/spec_correspondence.json) preserves
+historical authority d18357214fab30ea512ae9858a11699806d72ba1 / blob
+649548c58d6629dd85143b33efd3644a3bb71509 / SHA256
+4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b,
+and records ONLY the reviewed workspace revision b796b007 / blob
+07912c040eea8a925f9cb4ab2579bed1a105a3c7 / SHA256
+53877d1f29ce90aac0b2f41620c6c79c2229eab154fa4630e5b187450be6ffc1.
+The small separate spec_authority helper requires a closed metadata shape,
+fixed source path, exact historical authority and both raw SHA256/Git-blob values.
+Duplicate keys, malformed/unknown metadata and any unknown future document fail
+closed. There is no runtime text normalization or automatic semantic classifier.
+The ledger is reviewed source metadata, not an ancestry or semantic proof.
+
+Both original historical manifests/pins and run_baseline.py remain byte-identical.
+Their source consistency check is retained; a separate workspace test checks
+exact reviewed correspondence. The actual original test over the new SPEC first
+failed at the precise53877/4d81 assertion. Corrected actual original/reviewed
+SPECs each pass all26 baseline and159 full conformance tests. A real reviewed
+SPEC plus one newline still fails through the actual workspace entrypoint.
+The independent tester repeats26/26 on both exact documents,159/159 over the
+reviewed document and seven separate actual-body adversarial controls, checking
+unique IDs, zero skips/errors/failures and stable554-record original/copied inputs.
+The separate unknown-document rejection produces the required single ValueError
+and exit1. An initial independent harness import
+error remains inconclusive and is excluded from successful evidence.
+
+Independent repair source/spec/quality review and independent behavioral
+verification both pass with no material finding. This is necessary integration
+repair before advancing the five-task batch, not another increment. H01 Registry
+Solidity/public JSON bytes and its actual-source results remain unchanged; its
+guide was only table-aligned by the normal formatting hook (current guide SHA
+0e59c4ced4a479e25b809485ff8b29a3d36d46d644f064f395932e48155fc1ca;
+pre-format2459ea57 is historical documentation only). Only the old baseline test
+is adjusted for the separated gate; original model engines/configs are intact.
+Latest-head hosted CI must be read back separately after publication; earlier
+CI or these local actual-byte tests are not mislabeled as a later hosted run.
