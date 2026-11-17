@@ -3682,3 +3682,12 @@ It still assumes authenticated fixed L1/evidence tokens and constant session0;
 physical importer/signer restart, HRS/supervisor behavior, cryptography, changing
 sync targets and full T01/C01/K01 remain OPEN/WAITING. J01–J02 are the first two
 selected increments; J03–J05 and accumulated final gates remain unfinished.
+
+After J02 publication, the existing CI check flagged the fixed receipt label
+`EvidenceB1Exact` beside `AuthenticateB1` as a generic API key at commit1d399f051,
+line14. Source readback confirms these are literal schedule names, not credentials.
+The existing root ignore file receives only that exact historical commit/file/
+rule/line fingerprint; earlier entries and detection rules remain unchanged.
+The failed run44108940026 remains failed. No model/configuration or production
+source is changed, and no local scan/new security capability is invoked. The
+ordinary configured CI result on the repair head is read back separately.

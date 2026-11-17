@@ -21,3 +21,7 @@
 7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:168
 7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:177
 7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:186
+
+# Exact J02 false positive: fixed event label "EvidenceB1Exact" in a literal
+# schedule, not a credential. Only this historical commit/file/rule/line.
+1d399f051efaefcd94aeaf04ac375e7eb654ea94:formal/etna/EtnaTrustSupersession.tla:generic-api-key:14
