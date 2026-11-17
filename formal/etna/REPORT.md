@@ -3771,3 +3771,66 @@ concrete4096-slot indexing/storage/gas/callbacks or unrestricted lifecycle
 refinement. Full R01 remains OPEN; D01 WAITING and all canonical/source pins
 remain unchanged. J01–J03 selected increments are complete; J04/J05 and accumulated
 final gates remain unfinished, with no sixth authorized.
+
+## Interleaving-boundaries batch — J04 Nil replay and delayed delivery
+
+Eight finite histories cross Computed/Written crash cuts, two initial signature
+salts and Early/Late delivery. Every original21-field state is recorded around
+actual inherited calls. Written retries retain the saved Nil bytes despite the
+opposite caller salt; Computed retries have no saved write and lawfully compute
+the opposite salt. Written's extra Persist refuses; Computed's retry Persist executes.
+The Idle conflicting-payload request refuses in both. Two slots and a fresh domain exercise actual writes/exposures; recovery
+persists floor1, a second crash loses volatile knowledge and Restart restores it.
+Old Nil may legally arrive after fresh domain1 exposure: Deliver uses the actual
+saved record, without adding a new returned/network signature. Consumer admission
+and cryptographic signature validity are outside this symbolic interface.
+
+The first planned singleton smoke failed before exploration: TLC cfg grammar
+rejects direct tuple-set constant literals. This retained rc255 setup failure has
+zero states/witness/kill credit; independent/shared/catalog execution was zero.
+Two separately retained tiny syntax diagnostics are not protocol cases. Fix1 adds
+eight pure literal singleton operators and substitutes only the22 constant
+bindings. Original signer, dispatch, observations, literal expectations and shared
+metadata stay unchanged. Independent mapping/source review preceded a corrected
+single full26-attempt smoke; its raw trace was read before parallel campaigns.
+Final scoped actual-evidence review marks the representation defect ADDRESSED.
+
+Corrected author55 exact TLC executions comprise22 unique new and four focused
+old configurations, plus explicit same-copy prebaseline, actual mutation, positive
+controls and restoration. Four Written histories detect the unique actual Request
+fault at RetryNil receipt10: pending uses the wrong caller salt while saved
+durable bytes remain unchanged, before Expose. Four Computed mutant histories
+remain identical to baseline and are positive controls, not kills. Eight initial,
+same-copy prebaseline and same-copy restored complete receipt histories agree.
+Eight actual missing-DeliverOld partial histories preserve floors, durable,
+writes, returned and network while losing old delivery; fresh A is delivered.
+Mode-qualified absence alone is structural/vacuous and receives no progress credit.
+
+Independent29 exact executions challenge a different actual Restart write that
+restores knownFloor0 instead of persistent1 at the second restart. Every profile
+fails the immediate dedicated raw audit at its actual second-restart position.
+Original/restored full histories succeed. Four Written omission endpoints skip
+the first Persist: they lawfully become before-write crashes, compute the opposite
+salt on retry and actually execute the now-enabled retry Persist. They are not
+corrupted cached replays. An aggregate absence check is separately attributed.
+The new shared obligation executes its own same-copy three phases; catalog20
+regressions pass with the existing CI signal entry.
+
+Independent cross-lane parsing derives87 current exact TLC executions (author55,
+independent29, shared3), catalog20 separately, and69 raw traces/1699 states/
+1630 receipts. All original21 fields, typed records/sets, actual captured Deliver
+arguments and execution masks are checked. All666 formal inputs, private copy
+and tool guards hold. Inventory79 comprises73 TLC/six Forge; only the one new
+shared obligation is freshly replayed here. Four unassessed entries persist.
+The22 new defaults imply475 discovered, not a fresh complete475-suite result.
+The pinned JAR release1.7.4 and actual runtime banner2.19 remain distinguished.
+
+Reflection: durable replay identity, volatile floor recovery and legal network
+redelivery need separate oracles; final floor/record equality hides lost delivery
+or a lawful before-write history. Static logical review cannot establish cfg
+parser compatibility, so one planned finite smoke precedes parallel products.
+No independently supported natural signer/protocol defect was found. Broader C01
+remains OPEN: no FilePV/HSM/WAL/power-loss/concurrent-key-owner/authentication/
+actual-signature refinement is established. Canonical/current source pins stay
+unchanged and D01 WAITING. J01–J04 selected increments are complete; J05 and
+accumulated final gates remain unfinished, with no sixth authorized.

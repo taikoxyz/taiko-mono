@@ -78,7 +78,8 @@
         "m09-payments-upgrade-completed",
         "identity-second-recovery-generation",
         "trust-node-local-revocation",
-        "registry-pending-admission-balance"
+        "registry-pending-admission-balance",
+        "signer-nil-replay-saved-bytes"
       ]
     },
     {

@@ -745,3 +745,13 @@ committee values. Actual admission and independent split faults/restoration
 pass their intended checks after a wrapper priming-order correction; failed
 initial runs retain zero credit. Broader R01 remains OPEN; J04/J05 and accumulated
 final gates remain unfinished.
+
+### J04: stored Nil bytes and legal delayed delivery
+
+The [Nil replay lane](SIGNER_NIL_REPLAY.md) crosses eight crash/salt/delivery
+histories. Actual pending captures distinguish saved-byte reuse from lawful new
+computation, and old network delivery from fresh signature exposure. Independent
+second-restart and missing-first-write challenges verify intermediate floors and
+history rather than equal terminal records. A cfg representation setup failure
+is retained with zero credit; corrected source/runtime/restoration gates pass.
+Broader C01 remains OPEN; J05 and accumulated final gates remain unfinished.
