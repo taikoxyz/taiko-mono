@@ -1,5 +1,9 @@
 # Etna TLA+/TLC models
 
+The [current remaining-work index](WORKLIST.md) records module ownership,
+acceptance evidence, implementation dependencies and required compositions.
+Historical batches below remain bounded evidence; they do not close those rows.
+
 This directory contains incremental bounded Etna models for settlement and
 checkpoint binding, per-node L1 trust, signer/application crash recovery,
 committee activation, registry lifetime, forced inclusion and proving progress.
