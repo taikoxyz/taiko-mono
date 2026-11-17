@@ -154,3 +154,29 @@ fn public_api_rejects_overlong_overwalking_and_inline_extension_nodes() {
         }
     }
 }
+
+#[test]
+fn public_api_rejects_malformed_inline_descendants_after_divergence() {
+    let target = slot(12);
+    let key = Nibbles::unpack(keccak256(target));
+    let mut path = key.slice(..63).to_vec();
+    path[0] ^= 1;
+    let compact = alloy_trie::nodes::encode_path_leaf(&Nibbles::from_nibbles(&path), false);
+    // The extension diverges immediately, but its exposed inline descendants still encode an
+    // invalid 65-nibble path: extension63 + branch1 + leaf1.
+    let leaf = list(&[&[0x30], &[0x01]]);
+    let nibble = usize::from(key.get(63).unwrap());
+    let empty = [EMPTY_STRING_CODE];
+    let branch = list(
+        &(0..17)
+            .map(|i| if i == nibble || i == (nibble + 1) % 16 { leaf.as_slice() } else { &empty })
+            .collect::<Vec<_>>(),
+    );
+    assert!(branch.len() < 32);
+    let node: Bytes = list(&[&alloy_rlp::encode(compact.as_slice()), &branch]).into();
+    let (root, witness) = account_over(
+        keccak256(&node),
+        vec![StorageProof { slot: target, value: U256::ZERO, proof: vec![node] }],
+    );
+    assert!(verify_account_witness(root, &witness, &[target]).is_err());
+}

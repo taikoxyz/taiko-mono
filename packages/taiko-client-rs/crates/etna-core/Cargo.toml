@@ -5,7 +5,7 @@ description = "Portable deterministic Etna protocol witnesses and verification"
 edition.workspace = true
 publish = false
 license.workspace = true
-rust-version.workspace = true
+rust-version = "1.91"
 
 [features]
 default = []

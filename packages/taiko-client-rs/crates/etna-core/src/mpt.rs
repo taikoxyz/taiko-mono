@@ -199,7 +199,7 @@ fn verify_nodes(
             expected: root,
         }));
     }
-    let mut node = decode_node(&proof[index])?;
+    let mut node = decode_node(&proof[index], key.len())?;
     let mut walked = 0;
     loop {
         let child = match node {
@@ -222,13 +222,6 @@ fn verify_nodes(
             TrieNode::Extension(extension) => {
                 if extension.key.len() > key.len() - walked {
                     return Err(ProofFailure::Malformed)
-                }
-                // Canonical extensions end in branches. The upstream decoder assumes this
-                // for inline children; check it explicitly, including on divergent paths.
-                if extension.child.as_hash().is_none() &&
-                    !matches!(decode_node(extension.child.as_slice())?, TrieNode::Branch(_))
-                {
-                    return Err(ProofFailure::Malformed);
                 }
                 if !key.slice(walked..).starts_with(&extension.key) {
                     return finish_proof(key, expected, None, index + 1, proof.len());
@@ -261,9 +254,9 @@ fn verify_nodes(
                     expected: Some(Bytes::from(alloy_rlp::encode(hash))),
                 }));
             }
-            node = decode_node(encoded)?;
+            node = decode_node(encoded, key.len() - walked)?;
         } else {
-            node = decode_node(child.as_slice())?;
+            node = decode_node(child.as_slice(), key.len() - walked)?;
         }
     }
 }
@@ -287,9 +280,13 @@ fn finish_proof(
     }
 }
 
-/// Decodes one complete trie node after checking the compact-path capacity and canonical padding.
-/// Child references must be a 32-byte RLP string or an inline list shorter than 32 bytes.
-fn decode_node(node: &[u8]) -> Result<TrieNode, ProofFailure> {
+/// Decodes a complete node and validates its exposed inline structure within the remaining key.
+///
+/// Child references must be a 32-byte RLP string or an inline list shorter than 32 bytes. All
+/// inline descendants are checked before accepting divergence, so malformed geometry cannot hide
+/// below a divergent extension. Recursive calls follow strictly smaller inline encodings, each
+/// shorter than 32 bytes; unopened hash children are checked when their proof node is consumed.
+fn decode_node(node: &[u8], remaining_nibbles: usize) -> Result<TrieNode, ProofFailure> {
     let mut remaining = node;
     let view = Header::decode_raw(&mut remaining)?;
     if !remaining.is_empty() {
@@ -311,9 +308,15 @@ fn decode_node(node: &[u8]) -> Result<TrieNode, ProofFailure> {
     let decoded = TrieNode::decode(&mut &node[..])?;
     match &decoded {
         TrieNode::Branch(branch) => {
+            if remaining_nibbles == 0 {
+                return Err(ProofFailure::Malformed);
+            }
             for (_, child) in branch.as_ref().children() {
                 if let Some(child) = child {
                     check_child(child)?;
+                    if child.as_hash().is_none() {
+                        decode_node(child.as_slice(), remaining_nibbles - 1)?;
+                    }
                 }
             }
         }
@@ -321,9 +324,28 @@ fn decode_node(node: &[u8]) -> Result<TrieNode, ProofFailure> {
             if extension.key.is_empty() {
                 return Err(alloy_rlp::Error::Custom("empty extension path").into())
             }
+            if extension.key.len() > remaining_nibbles {
+                return Err(ProofFailure::Malformed);
+            }
             check_child(&extension.child)?;
+            if extension.child.as_hash().is_none() &&
+                !matches!(
+                    decode_node(
+                        extension.child.as_slice(),
+                        remaining_nibbles - extension.key.len()
+                    )?,
+                    TrieNode::Branch(_)
+                )
+            {
+                return Err(ProofFailure::Malformed);
+            }
         }
-        TrieNode::EmptyRoot | TrieNode::Leaf(_) => {}
+        TrieNode::Leaf(leaf) => {
+            if leaf.key.len() > remaining_nibbles {
+                return Err(ProofFailure::Malformed);
+            }
+        }
+        TrieNode::EmptyRoot => {}
     }
     Ok(decoded)
 }
