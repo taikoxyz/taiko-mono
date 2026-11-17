@@ -1350,6 +1350,25 @@
         "name": "PaymentUpgradeCompletedAudit"
       },
       "obligation": "Actual pre-correction Forged payment has escrow0/completedTRUE; real Upgrade must preserve its completed flag. This is preservation, not an invented duplicate cash payout."
+    },
+    {
+      "id": "identity-second-recovery-generation",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaSettlement.tla",
+      "replace": {
+        "old": "    /\\ generation' = generation + 1",
+        "new": "    /\\ generation' = 1"
+      },
+      "workloads": [
+        "configs/repeated-recovery-identity-sourcefault-generation.cfg"
+      ],
+      "failure": {
+        "kind": "invariant",
+        "name": "RepeatedSecondGenerationAudit"
+      },
+      "obligation": "J01 actual second structural Recover must increment raw generation1 to2; a saturated1 write is indistinguishable at the first recovery and fails only the dedicated immediate second-recovery audit. Actual action execution and complete original/restored histories are separately observed."
     }
   ]
 }

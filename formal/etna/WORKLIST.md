@@ -231,7 +231,7 @@ checks that discriminate faults before later concrete code comparison. The
 [interleaving-boundaries plan](../../docs/superpowers/plans/2026-11-17-etna-interleaving-boundaries.md)
 selects exactly five additive finite-model increments from base2f863ad77:
 
-- [ ] J01 / S01,Q01 — two real modeled recoveries with an intervening overlapping landing, retained old public origins and genuine generation2 settlement.
+- [x] J01 / S01,Q01 — [selected repeated-recovery history](REPEATED_RECOVERY_IDENTITY.md) complete after independent source/behavior gates: two actual recoveries, intervening overlap, immutable prepared inputs and real generation2 settlement; full S01/Q01 remain WAITING.
 - [ ] J02 / T01 — two nodes learn a finalized generation at different times; require local revocation, continued lagging-node service and eventual old-session containment.
 - [ ] J03 / R01 — pending-funded two-slot minimum/tie admission through six lifecycle permutations, historical slash, snapshots and actual public zero withdrawal.
 - [ ] J04 / C01 — eight Nil/two-salt/two-slot crash/retry/delivery histories; exact stored signature reuse and legal late delivery remain distinct from new exposure.

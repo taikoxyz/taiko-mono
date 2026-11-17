@@ -75,7 +75,8 @@
         "m06-suffix-cursor-rewind",
         "m06-suffix-hash-blanking",
         "m09-payments-upgrade-cash",
-        "m09-payments-upgrade-completed"
+        "m09-payments-upgrade-completed",
+        "identity-second-recovery-generation"
       ]
     },
     {

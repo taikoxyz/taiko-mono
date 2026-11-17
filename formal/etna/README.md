@@ -712,3 +712,14 @@ snapshot failed only rules; its successful component results, separate corrected
 offline rules run and hosted end-to-end success remain explicitly attributed.
 Full R01/K02/P01/F01/Q02 and D01 are not closed. No sixth increment is authorized;
 the draft and hourly feedback-only monitoring continue.
+
+### J01: repeated recovery and immutable identity overlap
+
+The [repeated-recovery lane](REPEATED_RECOVERY_IDENTITY.md) executes two actual
+modeled recoveries with an intervening competing/overlapping landing. Complete
+raw witnesses distinguish generation2 settlement and retained origins from equal
+headline checkpoints. Actual generation and independent nonce saturation faults
+fail at the second transition; missing actions can legitimately change later
+acceptance. Independent source and behavior gates pass for this selected finite
+S01/Q01 history. Concrete client/EL/guest comparison remains WAITING; J02–J05 and
+accumulated final gates remain unfinished.

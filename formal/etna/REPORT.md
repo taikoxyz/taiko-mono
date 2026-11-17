@@ -3561,3 +3561,60 @@ The closing commit changes only README/REPORT/WORKLIST/plan prose. Executable,
 model, configuration, fixture and pin bytes remain exactly the independently
 verified3bc implementation; closing-head hosted status is read separately.
 PR #22387 remains draft; worktree, ledger and raw evidence are retained.
+
+## Interleaving-boundaries batch — J01 repeated recovery identity
+
+The new companion executes13 actual modeled attempts: land1, recover at1,
+prepare1→3, competing land2, overlapping land3, prepare3→4, recover again at3,
+refuse the queued old proof and land fresh4. Full witnesses require both actual
+recoveries, four actual landings, immutable prepared inputs, retained records,
+actual parents0/1/2/3 and settled-prefix generations0/1/1/2. The final scalar
+checkpoint4/generation2 alone is insufficient. All35 prior recursive models and
+423 default configurations remain byte-identical; the nine additive profiles
+bring discovered default configurations to432, not a newly run full432 gate.
+
+Author35 exact executions comprise19 affected old identity profiles, nine new
+profiles, two private raw omission endpoints, one real generation source-fault
+execution and four same-copy-restored controls. The generation fault writes1→1
+only at the second real Recover and immediately fails the dedicated raw audit.
+The separate shared sensitivity campaign independently executes baseline,
+mutated and restored phases on the same private copy; its one new obligation is
+KILLED. Assessed inventory becomes76 (70TLC/sixForge), with old75 historical and
+four aggregate unassessed entries retained. No new Forge/native execution or
+natural protocol defect is implied.
+
+Independent behavioral verification executes a different real Recover nonce
+saturation fault. Its second recovery writes nonce1→1 while generation correctly
+becomes2; the dedicated raw nonce observer catches that actual write. Original
+and same-copy-restored full histories pass. A private missing-Prepare4 control
+still reaches checkpoint4/generation2, two recoveries and four landings, but its
+queued statement remains terminal3/parent1 instead of terminal4/parent3. The
+complete witness disappears. Independent parsing reads every original variable
+and raw state from actual TLC output, separately from author summary/oracles.
+
+Omitting recovery2 allows the old proof's landing to execute and disables the
+fresh final call. Omitting the overlap can retain the same checkpoint/generation
+headline while changing startHeight, settled prefix and actual landing history;
+its prepopulated unlanded record3 is not settled evidence. Every subsequently
+enabled call executes. Absence PASS controls establish witness loss, not progress.
+
+One pre-execution source-review finding corrected attribution: the stale proof's
+execution-origin check uses proof.generation1 and therefore Genesis1, separately
+from base Land rejecting proof1/current2. Fresh generation2 uses Genesis2. The
+source reviewer rechecked the correction before any engine run. A separate root
+launch initially produced three cleanup-test errors in20 catalog regressions.
+A retained paired probe established inherited ignored INT/TERM dispositions;
+the unchanged repository CI ENTRY resets them. Re-running only that suite with
+the exact existing ENTRY yields20 tests OK/no skips. The original failed log
+remains failed; no tool source, test or timeout was weakened.
+
+Independent source/spec/quality integration and actual behavioral/raw-evidence
+gates are READY. Source, executed-copy, configuration and pinned-tool hashes
+remain stable through actual restoration. Reflection: earlier bounds stopped at
+generation1, so saturation at1 was observationally indistinguishable from a
+correct increment. This history exposes the second transition and checks retained
+identity across both competing windows. It still assumes injective symbolic
+identities, otherwise-valid proof/cut inputs and atomic authorized recovery on a
+finite grid. Full S01/Q01 and concrete client/EL/guest comparison remain WAITING;
+this closes only the selected modeled sub-obligation. J02–J05 and accumulated
+final gates remain unfinished; no sixth is authorized.
