@@ -202,14 +202,14 @@ class BaselineTests(unittest.TestCase):
 class SpecCorrespondenceTests(unittest.TestCase):
     def setUp(self):
         self.original = b'canonical specification\n'
-        self.reviewed = b'reviewed editorial specification\n'
+        self.reviewed = b'reviewed scoped specification\n'
         self.authority = self.identity(self.original, 'a' * 40)
         self.ledger = {'schema': 'etna-spec-correspondence-1',
                        'path': 'packages/protocol/docs/etna/SPEC.md',
                        'authority': copy.deepcopy(self.authority),
                        'reviewedWorkspace': self.identity(self.reviewed, 'b' * 40),
-                       'classification': 'reviewed-editorial-correspondence',
-                       'rationale': 'Exact reviewed editorial fixture pair.'}
+                       'classification': 'reviewed-scoped-correspondence',
+                       'rationale': 'Exact reviewed fixture pair within selected scope.'}
 
     @staticmethod
     def identity(raw, commit):
@@ -223,11 +223,18 @@ class SpecCorrespondenceTests(unittest.TestCase):
 
     def test_canonical_and_exact_reviewed_bytes_are_distinguished(self):
         self.assertEqual(self.verify()['relation'], 'canonical')
-        self.assertEqual(self.verify(self.reviewed)['relation'], 'reviewed-editorial')
+        self.assertEqual(self.verify(self.reviewed)['relation'], 'reviewed-scoped')
 
     def test_unknown_or_one_byte_tampered_spec_is_rejected(self):
         for raw in (self.original + b' ', self.reviewed + b' ', b'future specification\n'):
             with self.subTest(raw=raw), self.assertRaises(ValueError): self.verify(raw)
+
+    def test_replaced_reviewed_identity_is_not_an_implicit_allowlist(self):
+        previous = b'previously reviewed specification\n'
+        with self.assertRaises(ValueError): self.verify(previous)
+        replaced = copy.deepcopy(self.ledger)
+        replaced['reviewedWorkspace'] = self.identity(previous, 'c' * 40)
+        with self.assertRaises(ValueError): self.verify(self.reviewed, replaced)
 
     def test_wrong_historical_authority_identity_is_rejected(self):
         for name, size in (('commit', 40), ('blob', 40), ('sha256', 64)):
@@ -241,7 +248,8 @@ class SpecCorrespondenceTests(unittest.TestCase):
 
     def test_invalid_metadata_rejected_even_for_canonical_bytes(self):
         changes = [('schema', 'unknown'), ('path', '../SPEC.md'),
-                   ('classification', 'unreviewed'), ('rationale', ''), ('rationale', None)]
+                   ('classification', 'unreviewed'),
+                   ('classification', 'reviewed-editorial-correspondence'), ('rationale', ''), ('rationale', None)]
         for name, value in changes:
             bad = copy.deepcopy(self.ledger); bad[name] = value
             with self.subTest(field=name, value=value), self.assertRaises(ValueError): self.verify(ledger=bad)

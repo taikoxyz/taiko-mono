@@ -117,3 +117,22 @@ single-pair spec_correspondence.json separate historical pin integrity from
 reviewed workspace bytes; no normalizer or future automatic acceptance. This
 necessary old-gate repair does not add a sixth increment or authorize normative
 source edits. Protected inputs and independent review/actual tests are required.
+
+## Second reviewed workspace integration update
+
+The preceding H01 section describes its historical editorial pair only. Main
+991e06f6d94842b2f57c67a4a8ba254b3c5a8830 adds normative shared SignalService
+deployment/provider requirements: exact SPEC blob
+af8c32cc1e8af7eade999040747d074d429df2bc / SHA256
+753d3188055cfef7cd7868e6abe954fbffd5115babca96b74602b54603bcfc32.
+Independent exact-source review confirms unchanged consumed H01–H05 dependencies
+within the stated historical/bounded scope. It does not establish whole-SPEC
+equivalence or new shared-provider implementation/deployment conformance.
+
+The closed gate now uses one reviewed-scoped-correspondence classification and
+one current exact tuple, replacing the old editorial label/53877 tuple while
+retaining canonical authority and all historical consumer pins. Unknown bytes
+still fail. D01 and a composition row track same-code configuration, provider
+root/failure behavior, independent authorization, legacy cutoff, no L2 Inbox
+read, atomic upgrade cross-check/retry and versioned cache/checkpoint continuity.
+These are WAITING implementation/deployment acceptance, not a sixth deliverable.

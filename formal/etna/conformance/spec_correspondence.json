@@ -7,10 +7,10 @@
     "sha256": "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b"
   },
   "reviewedWorkspace": {
-    "commit": "b796b007c31a00e687238011dec38534a5b21d08",
-    "blob": "07912c040eea8a925f9cb4ab2579bed1a105a3c7",
-    "sha256": "53877d1f29ce90aac0b2f41620c6c79c2229eab154fa4630e5b187450be6ffc1"
+    "commit": "991e06f6d94842b2f57c67a4a8ba254b3c5a8830",
+    "blob": "af8c32cc1e8af7eade999040747d074d429df2bc",
+    "sha256": "753d3188055cfef7cd7868e6abe954fbffd5115babca96b74602b54603bcfc32"
   },
-  "classification": "reviewed-editorial-correspondence",
-  "rationale": "Independent review of the exact eleven changed token clusters found editorial terminology clarifications only, with no changed validity condition, encoding, layout or action chronology. This correspondence does not repin or reattribute historical consumer executions and does not cover future SPEC revisions."
+  "classification": "reviewed-scoped-correspondence",
+  "rationale": "Independent exact-source review permits continued selected historical/bounded verification only. START-10-5's normative shared SignalService deployment refactor leaves the consumed registry initialization clause and bounded historical L1 checkpoint save/get behavior unchanged. Contracts89f419915de4b73bb57c53bf970f6dea9e8e8c8c and canonical consumer pins remain historical; H01-H05 do not execute the new shared-provider deployment. Same-code L1/L2 configuration, local uint48 versus provider uint64 root lookup, provider failure/zero/missing-return rejection without local fallback, legacy cutoff/no L2 Inbox reads, atomic Anchor/provider cross-check/retry and configuration preservation remain unverified. This is not editorial or whole-SPEC equivalence and does not cover future revisions."
 }

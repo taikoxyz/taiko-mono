@@ -3108,3 +3108,131 @@ node/EL/guest/L1 interface or proves commit admission. H02 selected powers do no
 exercise rescaling, clipping or overflow. R01 and K02 therefore remain OPEN.
 Next H03 must compose actual proof expiry, resource loss, fresh recapture and
 resumption, rather than infer progress from a refused stale proof alone.
+
+## Adversarial-coverage batch — H03 proof recapture and resumption
+
+The [new wrapper](PROOF_RECAPTURE.md) calls unchanged EtnaProvingProgress
+actions from its original Init, with two selected36-attempt resource orders.
+History and backend arrival/loss include isolated missing-history and
+missing-backend completion attempts. The wrapper attempts each real action when
+enabled and records complete raw before/after state, execution and production
+count; it never suppresses a bad Land merely because a control expects refusal.
+
+Both complete histories produce old blocks1/2, capture task0/reference0, retain
+its genuine completed results through resource loss and refuse its expired
+Land at time2. A distinct task1/reference2 first carries A's old reference0
+statement and B's fresh reference2 statement; the real Land refuses at time3.
+Actual fresh A completion then enables Land at3. At observation4, Finalize(3)
+produces finalized checkpoint2/L1block3; PublishAnchor publishes reference3, and
+the final actual Produce adopts that anchor and reaches head3/production count3.
+Job0 remains immutable, the accepted prefix applies blocks1/2 exactly once, and
+no recovery/generation reset is used to manufacture progress.
+
+Author exact regression checks cover21 EtnaProvingProgress,10
+EtnaProvingRecovery and10 new EtnaProofRecapture configurations, all41 matching
+their declared outcomes. The new10 comprise one complete normal profile, two
+dedicated raw audits, five deliberate absence controls and two full terminal
+witnesses. The absence controls' PASS means the complete terminal was not
+reached; it supplies no positive-progress or broad safety claim. Discovered
+default count is now397; the later whole-batch gate must execute that complete
+then-current set before claiming a fresh accumulated result.
+
+Two exact private M07 source omissions are assessed: remove the reference-age
+conjunct, or remove backend-statement equality. Independent raw traces confirm
+actual bad Land0@2 or Land1@3 with ARef0/BRef2, followed by only the intended
+RecaptureExpiryAudit or RecaptureBindingAudit failure. Original/restored phases
+pass and same-copy source restoration is actually rerun. The unchanged M07
+engine SHA256 is4a102d5e465b7c943b8564994a320fb4b2af13fbe5348c0f095aa75016fa0105.
+Shared catalog/cohort adds only those exact two entries: current inventory71
+(65TLC+6Forge), with4 unassessed categories and all prior records preserved.
+This inventory is distinct from the newly executed two obligations.
+
+Independent source/spec/quality review passes the complete14-file model/config/
+guide/catalog change. The independent verifier checks both author37-state full
+traces against its source-derived36-call/literal-job oracle, all41 exact raw
+results and both bad-Land original/mutated/restored campaigns. Its own14 selected
+TLC cases include two original full witnesses, the distinct actual wrong-parent-
+credit fault, actual same-copy restoration, and missing PublishAnchor/Produce
+controls. Ten complete37-state diagnostic/witness traces preserve every36-call
+receipt. Wrong parent credit retains genuinely landed/finalized checkpoint2 and
+its new anchor, but the last Produce is disabled and head remains2: this is
+complete-witness loss, not a generic safety kill. Restoration recovers both full
+witnesses. Source, tools, generated observers and all32 old models/387 old
+configurations remain exact. The20 shared sensitivity/cohort regression tests
+also pass against the integrated catalog.
+
+An initial independent TLC attempt was inconclusive before state generation
+because the managed sandbox blocked Java's local worker socket. The same
+inspected isolated/offline invocation then ran with the required outer permission;
+no external-network or alternate-runtime fallback was used. Author fault source
+snapshots predate guide creation, so no later guide hash is attributed to them.
+Independent execution includes its then-frozen guide; subsequent prose changes
+format tables, replace ambiguous module numbering with exact module names, or
+remove the stale editorial qualifier after the scoped source update.
+All executable model/config bytes remain the actually tested versions.
+
+Reflection: refusing stale or mixed proof alone could leave an apparently safe
+but permanently stalled chain. Complete real recapture, accepted landing,
+finality, anchor adoption and another Produce are now required, and a distinct
+real credit omission loses that exact terminal. The selected bounded schedules
+do not establish latency guarantees, arbitrary asynchronous liveness, private
+history availability, real proving/STF/DA correctness or a long-outage policy.
+RefWindow still jointly reduces proof-reference age and anchor age as in M07;
+no protocol parameter change is inferred. P01 remains OPEN. No natural protocol
+defect is established by these intentionally faulty executions.
+
+### H03 pre-push integration — scoped SPEC correspondence
+
+Fresh PR inspection before H03 publication found H02 headf22df335d hosted
+run44049560621 failed one test. Actual checkout470fb21af29bcaf12891ee1eb1653cf39fe1e48a
+merged it into newmain991e06f6d94842b2f57c67a4a8ba254b3c5a8830, parentb796b007.
+All387 TLC expectations,57 gate tests,20 sensitivity tests and164 other
+conformance outcomes pass. The sole error correctly rejects unknown workspace
+SPEC bytes. Both399-file raw and2-file diagnostic archives were checksum-bound
+to their GitHub metadata before error/root-cause readback. This is normative
+source drift, not a failed H02 transition or a reason to weaken an unknown guard.
+
+Exact current SPEC blobaf8c32cc1e8af7eade999040747d074d429df2bc / SHA256
+753d3188055cfef7cd7868e6abe954fbffd5115babca96b74602b54603bcfc32 changes
+START-10-5. Independent primary review also reads its five adjacent document
+deltas. Shared same-code SignalService deployment now separates immutable root
+provider, write syncer and optional legacy syncer; adjacent requirements include
+full provider uint64 lookup, uncached failure/zero/missing-return rejection
+without local fallback, no L2 Inbox read, atomic Anchor/provider cross-check
+and retry, plus VERSION/cache/checkpoint continuity. These are normative changes,
+not editorial synonyms. Historical89 contracts have the older constructor and
+separate L2 override, and no selected replay executes the new provider/upgrade
+path. That new implementation/deployment acceptance remains D01 WAITING.
+
+Independent scope review finds the consumed registry initialization clause, old
+bounded L1 checkpoint save/get, selected model rules/encodings/layouts and
+H01–H05 chronologies unchanged. This permits continuing only those explicitly
+historical/bounded programs under their stated premises. It supplies no whole-
+SPEC equivalence or new deployment conformance. Current tracking adds D01 and
+one required composition family, totaling30 records/11 families; earlier29/10
+counts stay historical. Tracking is not an extra executed increment.
+
+The small three-file gate update keeps the same closed schema, fixed source path,
+exact historical authority, duplicate-key rejection and both raw SHA256/Git-blob
+checks. The reviewed-scoped-correspondence class and reviewed-scoped result
+replace the editorial taxonomy, and sole current753d tuple replaces53877. Canonical4d81
+remains accepted; earlier53877 is no longer an implicit runtime exception.
+All historical pins/manifests, run_baseline and original models/configs remain
+exact. No normalization, automatic classification or future revision acceptance
+is introduced; metadata records independent review rather than proving it.
+
+Actual unchanged-helper/new-body rejection was reproduced first. Corrected actual
+canonical/current documents each pass27 targeted and166 full conformance tests;
+previous53877 and current753d plus newline each fail through the real workspace
+entrypoint with the precise no-reviewed-correspondence ValueError. An added
+replacement regression and old-editorial-class rejection preserve one admitted
+current identity. Independent repair source/code review and actual behavioral
+verification pass separately; the latter retains exact raw identities, expected
+refusals and source/tool guards. Whole-batch accumulated checks and latest-head
+hosted CI remain separate final gates.
+
+All18 H03 files and561 tracked formal files outside the three-file repair were
+protected through authored repair execution; final independent guards likewise preserve actual model/code
+inputs. Only afterward are D01/closing prose and the guide's stale editorial
+wording updated. No earlier run is relabeled as consuming that later prose.
+No production, normative source, deployment or live operation changed here.

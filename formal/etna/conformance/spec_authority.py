@@ -32,7 +32,7 @@ def verify_workspace_spec(raw, authority, ledger):
         raise ValueError('invalid SPEC correspondence fields')
     if (ledger['schema'] != 'etna-spec-correspondence-1'
             or ledger['path'] != 'packages/protocol/docs/etna/SPEC.md'
-            or ledger['classification'] != 'reviewed-editorial-correspondence'
+            or ledger['classification'] != 'reviewed-scoped-correspondence'
             or not isinstance(ledger['rationale'], str) or not ledger['rationale'].strip()):
         raise ValueError('invalid SPEC correspondence metadata')
     for identity in (authority, ledger['authority'], ledger['reviewedWorkspace']):
@@ -50,7 +50,7 @@ def verify_workspace_spec(raw, authority, ledger):
         raise ValueError('SPEC input must be raw bytes')
     actual = {'sha256': hashlib.sha256(raw).hexdigest(),
               'blob': hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()}
-    for relation, expected in (('canonical', authority), ('reviewed-editorial', reviewed)):
+    for relation, expected in (('canonical', authority), ('reviewed-scoped', reviewed)):
         if all(actual[name] == expected[name] for name in actual):
             return {'status': 'SPEC_CORRESPONDENCE_VERIFIED', 'relation': relation,
                     'authorityCommit': authority['commit'], 'workspace': actual}

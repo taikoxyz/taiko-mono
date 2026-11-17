@@ -655,3 +655,24 @@ increment and premature-activation omissions. An independent change-height
 fault checks metadata that memberships and hashes alone cannot expose.
 Unsigned structural inputs do not establish commit admission, rounds, network
 consensus or authenticated registry derivation; broader K02 remains OPEN.
+
+### H03: proof expiry, fresh recapture and actual resumption
+
+The [proof recapture lane](PROOF_RECAPTURE.md) composes unchanged M07 actions
+in two36-attempt resource histories. It actually refuses an otherwise complete
+expired task, refuses a fresh task carrying an old backend statement, completes
+the fresh result, lands/finalizes checkpoint2, adopts its anchor and produces
+block3. Dedicated actual-source faults distinguish age and statement binding.
+Independent wrong-parent-credit and missing-action controls lose the complete
+progress witness. These selected resource schedules retain the existing proof,
+history and shared reference/anchor-window abstractions; wider P01 remains OPEN.
+
+### Current normative deployment boundary
+
+Main991e06f6 changes shared SignalService deployment/provider requirements. The
+exact [scoped correspondence](conformance/spec_correspondence.json) preserves
+historical consumer pins and the selected H01–H05 assumptions. It does not
+certify the new same-code deployment, provider failure policy or atomic upgrade
+checks. [D01 in the current worklist](WORKLIST.md#remaining-obligations) keeps
+that acceptance WAITING; current30 obligations/11 composition families retain
+all earlier incomplete work. This tracking update is not another H increment.

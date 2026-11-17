@@ -1248,6 +1248,40 @@
           "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_pendingLiabilityConfirmationAndPayout()": "public ledger: pending principal"
         }
       }
+    },
+    {
+      "id": "m07-recapture-reference-age",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaProvingProgress.tla",
+      "replace": {
+        "old": "/\\ (IF PastReference THEN x.reference<r.now ELSE x.reference<=r.now) /\\ r.now-x.reference<=RefWindow /\\ x.reference-x.dependency<=AncestryBudget",
+        "new": "/\\ (IF PastReference THEN x.reference<r.now ELSE x.reference<=r.now) /\\ x.reference-x.dependency<=AncestryBudget"
+      },
+      "workloads": ["configs/proof-recapture-audit-expiry.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "RecaptureExpiryAudit"
+      },
+      "obligation": "H03 actual expiry omission executes bad Land against independent raw attempt audit."
+    },
+    {
+      "id": "m07-recapture-backend-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaProvingProgress.tla",
+      "replace": {
+        "old": " /\\ (~CheckBackendBinding \\/ (r.proofs[<<j,\"A\">>].statement=x.statement /\\ r.proofs[<<j,\"B\">>].statement=x.statement))",
+        "new": ""
+      },
+      "workloads": ["configs/proof-recapture-audit-binding.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "RecaptureBindingAudit"
+      },
+      "obligation": "H03 actual binding omission executes bad Land against independent raw attempt audit."
     }
   ]
 }

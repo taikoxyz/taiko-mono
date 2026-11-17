@@ -22,10 +22,15 @@
 - Before/after every task and after H02/H04, record omitted legal path, plausible false-green explanation, independent challenge and residual assumptions. No issue quota, no widening claims from green counts.
 - Existing feedback first; stop for an independently supported actual protocol/source defect. No production/SPEC/Notion edits, merge, mark-ready, deployment, sixth increment or redundant approval pause.
 
-Reviewed integration update: canonical source/consumer pins remain unchanged;
-workspace SPEC b796b007/blob07912c04/SHA53877 is accepted only by the explicitly
-reviewed exact correspondence ledger. Unknown future bytes fail closed. This
-source-gate repair is required before H02 and is not a sixth increment.
+Historical H01 integration accepted the exact editorial b796b007/blob07912c04/
+SHA53877 pair. Before H03 publication, main advanced to991e06f6/blobaf8c32cc/
+SHA753d3188 with normative shared SignalService deployment/provider changes.
+Independent review finds the selected historical/bounded H01–H05 scope unchanged,
+not whole-SPEC equivalence. The single current tuple and taxonomy now express
+reviewed scoped correspondence; canonical source/consumer pins remain unchanged.
+Unknown future bytes and superseded53877 fail closed. New D01 deployment/provider
+acceptance remains WAITING. This integration maintenance/tracking is not a sixth
+increment; the original five deliverables and their execution scopes remain.
 
 ## Review Focus
 
@@ -62,11 +67,11 @@ source-gate repair is required before H02 and is not a sixth increment.
 **Files:** create `formal/etna/EtnaProofRecapture.tla`, `PROOF_RECAPTURE.md`, `configs/proof-recapture-*.cfg`. Root owns shared catalog/cohorts.
 **Interfaces:** consume unchanged `EtnaProvingProgress` Capture/History/Availability/Complete/Publish/Tick/Land/Finalize/PublishAnchor/Produce, bypass only the default Setup scheduler with a reviewed additive Init. Independent raw receipts describe actual attempts/enabledness before/after; no copied Ready predicate as oracle.
 
-- [ ] Define finite resource-arrival/loss order programs with MaxHead3/MaxProduces3/MaxTime4/U2/BlobCapacity2/RefWindow1/AncestryBudget3, two jobs and existing backend identities. Preserve exact existing proof/anchor abstractions and name the shared RefWindow/maxAnchorAge reduction.
-- [ ] Actually produce old1/2, capture job0 at0, stagger history/backend loss and restoration, complete/publish; advance2 and attempt its otherwise-complete expired Land. Capture distinct job1 with reference2; deliberately complete one backend from old job0, otherwise complete/publish; at3 attempt/refuse mixed statement, then genuinely complete the fresh result and Land. Advance4/finalize inclusion3/adopt checkpoint2 anchor/actually Produce3.
-- [ ] Require complete positive terminal: immutable job0, expiry/mixed refusal, checkpoint2 landed at L1block3, finalized2, adopted anchor3, exactly-once prefix and resumed head3 without recovery. Include at least two legal resource orders; disabled required actions must lose the witness.
-- [ ] Actual-source omission of reference-age or backend-statement equality must execute the corresponding bad Land and violate only the dedicated independent raw audit. Baseline/mutant/actual-restored and independent extra challenge required; generic setup/type/bridge failures do not count.
-- [ ] Independently review/verify all affected old/new profiles, complete raw terminals and hashes, reflect on remaining history/prover/clock assumptions, then publish.
+- [x] Define finite resource-arrival/loss order programs with MaxHead3/MaxProduces3/MaxTime4/U2/BlobCapacity2/RefWindow1/AncestryBudget3, two jobs and existing backend identities. Preserve exact existing proof/anchor abstractions and name the shared RefWindow/maxAnchorAge reduction.
+- [x] Actually produce old1/2, capture job0 at0, stagger history/backend loss and restoration, complete/publish; advance2 and attempt its otherwise-complete expired Land. Capture distinct job1 with reference2; deliberately complete one backend from old job0, otherwise complete/publish; at3 attempt/refuse mixed statement, then genuinely complete the fresh result and Land. Advance4/finalize inclusion3/adopt checkpoint2 anchor/actually Produce3.
+- [x] Require complete positive terminal: immutable job0, expiry/mixed refusal, checkpoint2 landed at L1block3, finalized2, adopted anchor3, exactly-once prefix and resumed head3 without recovery. Include at least two legal resource orders; disabled required actions must lose the witness.
+- [x] Actual-source omission of reference-age or backend-statement equality must execute the corresponding bad Land and violate only the dedicated independent raw audit. Baseline/mutant/actual-restored and independent extra challenge required; generic setup/type/bridge failures do not count.
+- [x] Independently review/verify all affected old/new profiles, complete raw terminals and hashes, reflect on remaining history/prover/clock assumptions, then publish.
 
 ### Task 4: H04 — FI partially settled suffix, recovery and replacement
 
