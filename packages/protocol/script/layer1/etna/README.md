@@ -14,10 +14,14 @@ mainnet/Hoodi entry points. EIP-2935 and EIP-4788 must already be installed on L
 ## Inputs and deployment order
 
 Use the same L1 RPC and `L1_CHAIN_ID` for every step. `PRIVATE_KEY` selects the deployer;
-`CONTRACT_OWNER` selects the owner of new proxies (defaults to the deployer). Use the existing
+`CONTRACT_OWNER` is required and must explicitly name the nonzero DAO owner. The switching
+scripts and dedicated-verifier script never default ownership to the deployment key. The
+devnet-only script retains its deployer fallback. Use the existing
 Unzen proxy as `UNZEN_INBOX` and its existing L1 SignalService proxy as `SIGNAL_SERVICE`.
 The scripts reject implementation addresses in place of these proxies and require VERSION=1.
 They read the live Unzen `getConfig()` and six-word `getCoreState()` ABI.
+The live Unzen Inbox and SignalService, new Inbox proxy, registry and every enabled Etna
+image-trusting verifier must have that owner installed and no pending ownership transfer.
 
 1. Deploy the bootstrap with `DeployEtnaSwitch.deployInboxProxy()`, then export `INBOX_PROXY`.
    It creates no replacement SignalService or checkpoint store.
@@ -49,6 +53,12 @@ the owner installation/initialization calldata for review; no switch entry point
 actual DAO batch, including time/implementation guards and L1/L2 fork-time cross-checks, remains
 outside this preparation. Install and initialize the Etna implementation atomically. Until that
 point the bootstrap's `etnaStart()` reports an unwritten start, so Unzen proofs can continue.
+Keep the bootstrap under direct DAO control from its creation. Check its creation receipt,
+initializer owner and complete upgrade/ownership history before installation; current ownership
+alone cannot prove that an earlier privileged implementation left no mapping entries behind.
+`EtnaInbox.init` rejects dirty finite Etna fields and generation-0/1 origin records, mismatched
+registry ownership and pending Inbox/registry transfers. It neither scans nor sanitizes arbitrary
+historical mapping keys, and it never reads the reserved slots for this check.
 
 Use Foundry's normal script simulation/review and broadcast process for each preparation entry
 point. This task did not execute these scripts or broadcast transactions.
@@ -76,10 +86,10 @@ Unzen's matching SignalService checkpoint at S. Those EtnaInbox guards already u
 
 ## Dedicated verifier inputs
 
-`DeployEtnaVerifiers.run()` reads `PRIVATE_KEY`, optional `CONTRACT_OWNER`, `L1_CHAIN_ID`,
+`DeployEtnaVerifiers.run()` reads `PRIVATE_KEY`, required nonzero `CONTRACT_OWNER`, `L1_CHAIN_ID`,
 `L2_CHAIN_ID`, `DCAP_ATTESTATION`, `SGX_REGISTRAR`, `SGX_INSTANCE_VALIDITY_DELAY`,
 `R0_GROTH16_VERIFIER` and `SP1_PLONK_VERIFIER`. It checks dependency code and chain identities.
-An unset/empty owner defaults to the deployer; an explicit zero owner is refused. Registrar zero
+An unset, empty or zero owner is refused. Registrar zero
 allows permissionless SGX registration. The SGX validity delay is positive and at most its
 90-day instance lifetime. Allow enough lead for attestation, registration and that delay.
 

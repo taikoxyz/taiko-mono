@@ -204,7 +204,7 @@ contract DeployEtnaDevnet is Script {
     /// CONTRACT_OWNER is unset, empty or zero. A malformed value reverts.
     /// @param _key The deployment key.
     /// @return The owner.
-    function _owner(uint256 _key) internal view returns (address) {
+    function _owner(uint256 _key) internal view virtual returns (address) {
         address owner = _isSet("CONTRACT_OWNER") ? vm.envAddress("CONTRACT_OWNER") : address(0);
         return owner == address(0) ? vm.addr(_key) : owner;
     }

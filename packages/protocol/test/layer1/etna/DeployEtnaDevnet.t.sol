@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { DeployEtnaSwitchScenarios } from "./DeployEtnaSwitchScenarios.sol";
 import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
 import { LibEtnaLandStatement } from "./LibEtnaLandStatement.sol";
 import { VmSafe } from "forge-std/src/Vm.sol";
@@ -55,6 +56,11 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     /// the gas suites measure the contracts.
     function test_deployment_OrderAndRejections() external {
         vm.pauseGasMetering();
+        DeployEtnaSwitchScenarios switching = DeployEtnaSwitchScenarios(
+            deployCode("DeployEtnaSwitchScenarios.sol:DeployEtnaSwitchScenarios")
+        );
+        switching.setUp();
+        switching.run();
         _deploysTheBootstrapProxyFirst();
         _deploysTheRegistryFixedToTheProxy();
         _registersThenOwnerInitializesAndLandsBlockSix();
@@ -443,14 +449,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     }
 
     /// @dev Checks the Inbox implementation's immutables against the environment.
-    function _assertImmutables(
-        EtnaInbox _inbox,
-        address _signals,
-        address _registry
-    )
-        private
-        view
-    {
+    function _assertImmutables(EtnaInbox _inbox, address _signals, address _registry) private view {
         assertEq(_inbox.proofVerifier(), address(landVerifier), "proof verifier");
         assertEq(_inbox.signalService(), _signals, "SignalService");
         assertEq(_inbox.stakingRegistry(), _registry, "registry");
@@ -502,13 +501,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
 
     /// @dev Carol lands (0, 6] with no cut leaves and one blob; the mock verifier must receive the
     /// appendix A statement rebuilt from the environment.
-    function _landBlockSix(
-        EtnaInbox _inbox,
-        SignalService _signals,
-        uint256 _cutoff
-    )
-        private
-    {
+    function _landBlockSix(EtnaInbox _inbox, SignalService _signals, uint256 _cutoff) private {
         IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
             parentHeight: 0,
             lastHeight: 6,

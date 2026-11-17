@@ -39,7 +39,10 @@ STAKE-4.1-31 and ENC-A-44/45, matching stock CometBFT's protobuf encoding.
   one; the constructor rejects a mix and an Unzen Inbox without code.
 - `init`: owner only, sent through `upgradeToAndCall` from the bootstrap implementation. It checks
   every spec 10 deployment constraint it can see, checks that the registry's fixed Inbox is this
-  proxy and that both use the same L2 chain id, and writes the appendix B initial values. On a
+  proxy and that both use the same L2 chain id and owner with no pending transfer, rejects dirty
+  finite initial fields and generation-0/1 origin records, and writes the appendix B initial values.
+  This is no proof that every historic mapping key is empty; bootstrap creation and privileged
+  upgrade history must also be checked. On a
   new network it also performs the start write with S = 0 and the genesis hash and state root and
   saves the block-0 SignalService checkpoint; on a switching network both must be zero and it
   writes no start.
@@ -98,6 +101,9 @@ registry mutations.
 Pause affects none of these entry points, nor the registry's (spec 1 requires this for `land`,
 `saveForcedInclusion` and the registry). Only `saveForcedInclusion` accepts ETH;
 `upgradeToAndCall` rejects it too.
+For an independently justified recovery exposed to intermittent landing, use the
+[two-stage verifier-trust procedure](../../../docs/etna/RECOVERY.md) before reading and authorizing
+the exact recovery tuple. This procedure adds no freeze to `recover` itself.
 
 ## EtnaStakingRegistry
 
@@ -312,10 +318,12 @@ automatically enough for forfeiture execution. See SPEC 4.4/8.3/11 and ACCEPTANC
 
 These implement [ANCHORLESS.md](../../../docs/etna/ANCHORLESS.md) sections 4 and 8.
 
-- `layer2/core/Anchor.sol`: `anchorV4` reverts from the immutable `etnaTimestamp` on;
-  `getL1StateRoot(blockId)` reads the checkpoint store before it and the EIP-4788 root for an L2
-  timestamp at or after it. `etnaTimestamp` is `ETNA_FORK_TIME` on a switching network and 0 on a
-  new one.
+- `layer2/core/Anchor.sol`: `anchorV4` reverts from the immutable `etnaTimestamp` on or whenever
+  the canonical EIP-4788 ring holds a nonzero root for the current block timestamp. That EL-written
+  marker also routes `getL1StateRoot(blockId)` to EIP-4788 if the EL fork precedes the immutable,
+  closing both the checkpoint-write and legacy-root paths. Unzen's absent or zero current root
+  preserves pre-fork anchoring and checkpoint reads. `etnaTimestamp` is `ETNA_FORK_TIME` on a
+  switching network and 0 on a new one.
 - `shared/signal/SignalServiceL2.sol`: the L2 SignalService; it resolves proof roots through the
   Anchor and adds no storage. Both SignalServices keep checkpoints and cached signals under
   `VERSION`; `_authorizeCheckpoint` is the hook the L1 two-syncer upgrade overrides. Bumping

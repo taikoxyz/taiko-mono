@@ -179,6 +179,34 @@ contract AnchorTest is AnchorTestBase {
         etnaAnchor.anchorV4(_checkpoint(1000, 0x1234, 0x5678));
     }
 
+    /// @dev The EL writes the current EIP-4788 root before user transactions at its own fork
+    /// time. A late Anchor immutable must not reopen the public golden-touch checkpoint writer.
+    function test_anchorV4_RevertWhen_ExecutionForkPrecedesAnchorImmutable() external {
+        Anchor etnaAnchor = _deployAnchor(checkpointStore, ETNA_TIMESTAMP + 100);
+        vm.etch(BEACON_ROOTS, BEACON_ROOTS_CODE);
+        _recordBeaconRoot(ETNA_TIMESTAMP, bytes32(uint256(0x1234)));
+        vm.roll(SHASTA_FORK_HEIGHT);
+
+        ICheckpointStore.Checkpoint memory forged = _checkpoint(2000, 0xBAD, 0xBAD);
+        vm.prank(GOLDEN_TOUCH);
+        vm.expectRevert(Anchor.AnchorDisabled.selector);
+        etnaAnchor.anchorV4(forged);
+
+        assertEq(checkpointStore.getCheckpoint(forged.blockNumber).stateRoot, 0);
+        assertEq(etnaAnchor.getBlockState().anchorBlockNumber, 0);
+    }
+
+    function test_anchorV4_SucceedsBeforeEtnaWithZeroCurrentExecutionRoot() external {
+        Anchor etnaAnchor = _deployAnchor(checkpointStore, ETNA_TIMESTAMP);
+        vm.etch(BEACON_ROOTS, BEACON_ROOTS_CODE);
+        _recordBeaconRoot(ETNA_TIMESTAMP - 1, bytes32(0));
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        etnaAnchor.anchorV4(_checkpoint(1000, 0x1234, 0x5678));
+
+        assertEq(etnaAnchor.getBlockState().anchorBlockNumber, 1000);
+    }
+
     function test_anchorV4_succeedsWhenEtnaNeverActivates() external {
         ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
 
