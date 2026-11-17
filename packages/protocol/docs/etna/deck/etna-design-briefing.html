@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Etna Design Briefing</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600;700&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600;700&display=swap"></noscript>
 <style>
   /* Layout: a vertical deck of 16:9 slides. Each slide is a container and its type scales with
      the slide's width, so a slide looks the same at any size. On phones slides become reading cards. */
@@ -96,8 +98,8 @@
     content: ""; position: absolute; left: 0; top: .58em;
     width: .42em; height: .42em; background: var(--muted);
   }
-  .etna ul.pts li::before { background: var(--etna); }
-  .based ul.pts li::before { background: var(--based); }
+  .etna ul.pts li::before, ul.pts.etna li::before { background: var(--etna); }
+  .based ul.pts li::before, ul.pts.based li::before { background: var(--based); }
   ol.steps { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: .55em; }
   ol.steps li::marker { font-family: var(--font-display); font-weight: 600; color: var(--etna); }
 
@@ -202,7 +204,7 @@
   }
   .nav button:hover { background: var(--code-bg); }
   .nav button:focus-visible, .slide:focus-visible { outline: 2px solid var(--etna); outline-offset: 2px; }
-  .nav output { min-width: 4.4em; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .nav .count { min-width: 4.4em; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
 
   @media (max-width: 720px) {
     .deck { gap: 16px; }
@@ -220,12 +222,17 @@
     .shifts .to::before { content: "Etna: "; color: var(--etna); font-weight: 600; }
     .dg.flow { min-width: 700px; }
     .dg.range { min-width: 440px; }
+    .grid3, .parts { grid-template-columns: 1fr; }
+    .cells { grid-template-columns: 1fr 1fr; }
+    .cells > div + div { border-left: 1px solid var(--fg); }
+    .arrow { display: none; }
+    .tbl { min-width: 520px; }
   }
 
   /* Slide numbers */
   .deck { counter-reset: s; }
   .slide { counter-increment: s; }
-  .src .n::after { content: counter(s) " / 43"; }
+  .src .n::after { content: counter(s) " / " var(--total, "43"); }
 
   /* Added components for the long version */
   .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1em 1.8em; }
@@ -265,13 +272,6 @@
   .cells span { font-size: .86em; color: var(--muted); display: block; }
   .reads { display: grid; grid-template-columns: auto 1fr; gap: .32em 1em; font-size: .9em; }
   .reads b { font-family: var(--font-mono); font-weight: 600; font-size: .92em; white-space: nowrap; }
-  @media (max-width: 720px) {
-    .grid3, .parts { grid-template-columns: 1fr; }
-    .cells { grid-template-columns: 1fr 1fr; }
-    .cells > div + div { border-left: 1px solid var(--fg); }
-    .arrow { display: none; }
-    .tbl { min-width: 520px; }
-  }
   @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 </style>
 
@@ -686,7 +686,7 @@
             </ul>
             <div style="margin-top:1em">
               <div class="bytes"><div class="b1">100</div><div class="b6">generation · 6 bytes</div><div class="b6 hl">anchor block number · 6 bytes</div></div>
-              <p class="cap"><code>extraData</code>, 13 bytes. The first byte is the base-fee share and is always 100.</p>
+              <p class="cap"><code>extraData</code>, 13 bytes. The first byte is the base-fee sharing percentage and is always 100.</p>
             </div>
           </div>
         </div>
@@ -1033,7 +1033,7 @@
             <li><strong>Queue head.</strong> It only advances, never past the tail, and by at most h − c.</li>
             <li><strong>Reference and blobs.</strong> The reference block's hash is readable on chain; one to six blobs.</li>
             <li><strong>Proofs.</strong> Compute the cut hash, build the statement, verify both proofs.</li>
-            <li><strong>Update.</strong> Checkpoint, committee snapshot, queue head, landing record and SignalService, atomically.</li>
+            <li><strong>Update.</strong> Checkpoint, active committee snapshot, queue head, landing record and SignalService, atomically.</li>
           </ol>
           <div class="etna">
             <ul class="pts">
@@ -1363,7 +1363,7 @@ statement  = keccak256(abi.encode("TAIKO_ETNA_LAND_V1",
             <div class="tag">Contain, then roll back</div>
             <ul class="pts">
               <li>First pause the L1 SignalService and the Bridge, and rely on quota limits. <code>land</code> and the registry are not pausable.</li>
-              <li>One DAO upgrade replaces the verifier and restores the checkpoint, queue head and committee snapshot to the last trusted landing.</li>
+              <li>One DAO upgrade replaces the verifier and restores the checkpoint, queue head and active committee snapshot to the last trusted landing.</li>
               <li>It voids later landing records and the SignalService checkpoints they wrote.</li>
             </ul>
           </div>
@@ -1484,7 +1484,7 @@ statement  = keccak256(abi.encode("TAIKO_ETNA_LAND_V1",
             <thead><tr><th>Parameter</th><th>Fixed in</th><th>Reference value</th></tr></thead>
             <tbody>
               <tr><td>K, grid interval</td><td>Protocol constant in the Inbox and both guests</td><td>Between 1 and 6, not fixed yet</td></tr>
-              <tr><td>U, unsettled limit</td><td>Config hash</td><td>3,600 blocks, about 4 hours</td></tr>
+              <tr><td>U, unsettled-block limit</td><td>Config hash</td><td>3,600 blocks, about 4 hours</td></tr>
               <tr><td>L, epoch length</td><td>Inbox initialization</td><td>900 blocks, about 60 minutes</td></tr>
               <tr><td><code>maxAnchorAge</code></td><td>Inbox initialization</td><td>At least 1,152 s</td></tr>
               <tr><td><code>n_max</code>, <code>vp_unit</code>, <code>s_min</code></td><td>Config hash</td><td><code>n_max</code> up to 4,096; <code>vp_unit</code> at least 867,361,738</td></tr>
@@ -1599,13 +1599,15 @@ statement  = keccak256(abi.encode("TAIKO_ETNA_LAND_V1",
 
 <nav class="nav" aria-label="Slide navigation">
   <button type="button" id="nav-prev" aria-label="Previous slide">&#8249;</button>
-  <output id="nav-count" aria-live="polite">1 / 43</output>
+  <span id="nav-count" class="count">1 / 43</span>
   <button type="button" id="nav-next" aria-label="Next slide">&#8250;</button>
 </nav>
 
 <script>
 (function () {
-  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var slides = Array.from(document.querySelectorAll('.slide'));
+  // The slide footers read the total from here, so it follows the number of slides.
+  document.documentElement.style.setProperty('--total', '"' + slides.length + '"');
   var count = document.getElementById('nav-count');
   var current = 0;
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1613,7 +1615,7 @@ statement  = keccak256(abi.encode("TAIKO_ETNA_LAND_V1",
   function nearest() {
     var best = 0, bestDistance = Infinity;
     slides.forEach(function (slide, i) {
-      var distance = Math.abs(slide.getBoundingClientRect().top - 16);
+      var distance = Math.abs(slide.getBoundingClientRect().top - 12);
       if (distance < bestDistance) { bestDistance = distance; best = i; }
     });
     return best;
@@ -1628,7 +1630,7 @@ statement  = keccak256(abi.encode("TAIKO_ETNA_LAND_V1",
   document.getElementById('nav-prev').addEventListener('click', function () { go(nearest() - 1); });
   document.getElementById('nav-next').addEventListener('click', function () { go(nearest() + 1); });
   document.addEventListener('keydown', function (event) {
-    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
     var key = event.key;
     if (key === 'ArrowRight' || key === 'PageDown') { event.preventDefault(); go(nearest() + 1); }
     else if (key === 'ArrowLeft' || key === 'PageUp') { event.preventDefault(); go(nearest() - 1); }
