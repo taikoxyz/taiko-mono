@@ -2974,8 +2974,17 @@ mod tests {
 
     #[tokio::test]
     async fn batch_input_and_statement_carry_the_stored_forced_head() {
-        let fixture = Arc::new(Fixture::new(0, 6));
-        let snapshot = fixture.snapshot_with_forced_queue(fixture.snapshot.genesis.clone(), 3, 9);
+        let fixture = Arc::new(Fixture::with_forced(
+            6,
+            12,
+            crate::test_utils::consensus_mpt::ForcedPlan {
+                entries: vec![(10, 5); 9],
+                consume_at: vec![2, 3, 4],
+                ..Default::default()
+            },
+        ));
+        let snapshot = fixture.snapshot.clone();
+        assert_eq!((snapshot.forced_inclusion_head, snapshot.forced_inclusion_tail), (3, 9));
         let request = builder(fixture, limits(6)).prepare(snapshot.clone()).await.unwrap().unwrap();
         let batch = &request.batch;
         assert_eq!(batch.input.forcedInclusionHead, U256::from(3));
@@ -3415,11 +3424,28 @@ mod tests {
             assert_eq!((consumed.index, consumed.tx.is_empty()), (0, false));
             assert_eq!(envelope(&request, 2).forced, None);
 
-            // A stored head past the entry block 2 consumes contradicts the decided chain.
+            // The start record must retain head zero even after an entry is admitted.
             let snapshot = fixture.snapshot_with_forced_queue(snapshot.genesis.clone(), 1, 1);
             let error = builder(fixture.clone(), limits(6)).prepare(snapshot).await.unwrap_err();
             assert!(matches!(error, LanderError::Safety(_)), "{error}");
-            assert!(error.to_string().contains(&ForcedError::UnexpectedWitness.to_string()));
+            assert!(error.to_string().contains("invalid checkpoint landing record"), "{error}");
+
+            // A later checkpoint may carry a nonzero head, but it cannot skip the entry that
+            // the decided successor still witnesses and block 8 consumes.
+            let fixture = Arc::new(Fixture::with_forced(
+                6,
+                12,
+                ForcedPlan { entries: vec![(10, 5)], consume_at: vec![8], ..Default::default() },
+            ));
+            let snapshot =
+                fixture.snapshot_with_forced_queue(fixture.snapshot.genesis.clone(), 1, 1);
+            crate::l1::authenticate_snapshot(&snapshot, &fixture.params).unwrap();
+            let error = builder(fixture, limits(6)).prepare(snapshot).await.unwrap_err();
+            assert!(matches!(error, LanderError::Safety(_)), "{error}");
+            assert!(
+                error.to_string().contains(&ForcedError::UnexpectedWitness.to_string()),
+                "{error}"
+            );
         }
 
         /// Review Focus 4: the cut starts while an entry is pending, so its first block peeks.
