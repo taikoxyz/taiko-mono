@@ -1386,6 +1386,23 @@
         "name": "TrustSelectiveRevokeAudit"
       },
       "obligation": "J02 actual first finalized generation observation must revoke only its observing node and preserve all twelve fields of the other still-trusted node, whose actual old-view Retained signing and service remain available. Excess revocation can preserve inherited conservative safety; a dedicated immediate raw noninterference observer must detect the actual cross-node trust write."
+    },
+    {
+      "id": "registry-pending-admission-balance",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRegistry.tla",
+      "replace": {
+        "old": "SlotBalance(s) == IF r.slots[s].occupied THEN Balance(r.bonds[r.slots[s].id]) ELSE 0",
+        "new": "SlotBalance(s) == IF r.slots[s].occupied THEN r.bonds[r.slots[s].id].eff ELSE 0"
+      },
+      "workloads": ["configs/registry-retirement-admission-audit.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "RegistryRawAdmissionAudit"
+      },
+      "obligation": "J03 actual occupied-slot admission must count effective1 plus pending2 on each tied slot. Register amount2 executes its reject branch with operational state unchanged; omitting pending from actual SlotBalance accepts key2/ID2 and transfers2 at receipt9, caught by the immediate independent raw admission observer before generic audits or later calls."
     }
   ]
 }

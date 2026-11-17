@@ -734,3 +734,14 @@ finality-boundary fault and missing-admission history provide independent
 verification. Logical sessions do not establish physical restart or fresh
 session-generation liveness; broader T01 remains WAITING. J03–J05 and accumulated
 final gates remain unfinished.
+
+### J03: pending-funded admission and complete retirement
+
+The [Registry retirement lane](REGISTRY_RETIREMENT_PRODUCT.md) executes six
+actual21-attempt orders through pending-funded admission, displacement, recovery,
+forfeiture, historical slash, snapshots and public zero withdrawal. Intermediate
+raw principal/slot histories distinguish errors hidden by matching final cash or
+committee values. Actual admission and independent split faults/restoration
+pass their intended checks after a wrapper priming-order correction; failed
+initial runs retain zero credit. Broader R01 remains OPEN; J04/J05 and accumulated
+final gates remain unfinished.

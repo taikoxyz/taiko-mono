@@ -77,7 +77,8 @@
         "m09-payments-upgrade-cash",
         "m09-payments-upgrade-completed",
         "identity-second-recovery-generation",
-        "trust-node-local-revocation"
+        "trust-node-local-revocation",
+        "registry-pending-admission-balance"
       ]
     },
     {

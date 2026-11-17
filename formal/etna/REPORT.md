@@ -3691,3 +3691,83 @@ rule/line fingerprint; earlier entries and detection rules remain unchanged.
 The failed run44108940026 remains failed. No model/configuration or production
 source is changed, and no local scan/new security capability is invoked. The
 ordinary configured CI result on the repair head is read back separately.
+
+## Interleaving-boundaries batch — J03 pending-funded admission and retirement
+
+All six21-attempt schedules execute the actual unchanged Registry actions.
+Both occupied slots have effective1/pending2 when amount2 registration really
+executes and rejects against total3; amount4 then accepts at tied lowest slot0.
+Displaced bond0 retains principal and identity, activation refuses after exit,
+and every Activate1/Recover0/Forfeit0 permutation executes before historical
+Slash0generation0. Full raw histories require the effective-first2 then pending1
+sinks, generation1, closed immutable snapshots, confirmation5 and an actual
+public zero withdrawal6 that preserves replacement bond2's slot0. Snapshot4
+selects only1/power3, while snapshot5 selects1/2 with powers3/4. Cash is actual
+deposited10/sunk3/paid0/vault7, supplemented by every normal operational r prefix;
+ENABLED registration is never equated with acceptance or a sticky journal flag.
+
+The first execution exposed a new-wrapper evaluation-order defect: primed raw
+receipts read setup before TLC bound its unchanged next value. The original
+Registry/protocol source was unchanged. Initial12 new author cases failed with
+that setup error; two old logs completed separately and a broader two-slot case
+was interrupted without a complete batch results file. Root's first shared
+three phases were INCONCLUSIVE75, catalog tests were not run, and independent
+actual execution was zero. All failures and old snapshots remain retained and
+receive no successful-witness/fault-kill credit.
+
+Fix1 moves only the existing unchanged setup/program frame before the primed
+receipt, preserving the mathematical transition relation, dispatch, expected
+literals, all twelve configs and original Registry. Independent static readback
+preceded renewed execution; independent final scoped review marks the finding
+ADDRESSED after actual current-byte commands/results and restoration. The
+pinned release1.7.4 JAR has runtime TLC banner2.19; its exact required SHA remains
+unchanged. No alternative tool or production/SPEC change was introduced.
+
+Fresh corrected author30 outcomes comprise twelve new/two focused old profiles,
+a true same-copy prebaseline, one real occupied-slot-balance fault and restored
+normal/six full witnesses/admission audit. That fault actually accepts amount2
+at attempt9, transfers2, consumes key/id2 and displaces old0, then fails precisely
+RegistryRawAdmissionAudit before attempt10. All six restored full receipt
+histories equal their originals. The broader original two-slot profile is not
+claimed freshly rerun here; accumulated default coverage remains a final gate.
+
+Independent actual25 cases use a different real Forfeit pending-first write.
+Each of six orders really leaves effective1/pending0/ready0 after penalty2,
+instead of effective0/pending1/ready4; the immediate raw split observer detects
+it at that order's actual Forfeit position. Source inspection shows later Slash could converge to identical operational r
+and total cash; mutant runs stop at the first bad Forfeit, so no observed full
+mutant endpoint is claimed. Final-state equality alone would hide that error.
+All six original/restored full positives pass. Six normal-mode missing-Forfeit
+endpoint histories plus combined absence show that Slash can instead take3 and
+leave the same10/3/7 totals without the actual2+1 sink sequence or lifetime
+forfeit flag. Original/restored/fault/private-input/copy/tool guards hold.
+
+The new shared obligation separately executes true same-copy baseline/mutant/
+restored phases and20 catalog regressions with the existing CI signal entry.
+Current successful totals are58 exact TLC invocations (author30/independent25/
+shared3), plus catalog20. Independent parsing audits46 actual raw traces,
+940states/894receipts, every original r/audit/event/setup value and actual
+execution mask. Whole642formal and generated-private/source/tool guards hold.
+Inventory becomes78 (72TLC/sixForge); this step newly executes one shared
+obligation while earlier77 are not rerun here and four unassessed remain.
+The twelve new defaults imply453 discovered, not a fresh whole453 result.
+
+Missing replacement permits previously disabled Activate0 to execute; forfeiture
+then takes effective stake, and zero withdrawal clears old0's still-owned slot.
+Its vault3/no-bond2/only-member1 endpoint is an actual partial history. Missing
+withdrawal retains owner1/confirmed5/unwithdrawn despite zero principal and
+maturity. Author retains one printed partial history per combined-six witness,
+not six raw paths from each such run. Mode-qualified absence alone is structural/
+vacuous and gets no progress credit; positive partial/raw evidence is separate.
+
+Reflection: spare identity/key capacity and pending-funded minima remove masked
+admission premises, while actual intermediate principal splits, historical cash
+movements and slot lifetime prevent equal totals or cached committees from
+supplying an absent history. The wrapper failure also shows why static logical
+review needs actual first-transition execution; later lanes start with a planned
+finite smoke case before parallel fault products. These six normalized schedules
+still assume valid evidence/authorization/token behavior and do not establish
+concrete4096-slot indexing/storage/gas/callbacks or unrestricted lifecycle
+refinement. Full R01 remains OPEN; D01 WAITING and all canonical/source pins
+remain unchanged. J01–J03 selected increments are complete; J04/J05 and accumulated
+final gates remain unfinished, with no sixth authorized.
