@@ -2865,3 +2865,31 @@ extensions. Root checked each against the accepted task and actual evidence:
 These affirm existing explicit bounds rather than park a correctness finding.
 If a later implementation relies on any excluded behavior, its owning worklist
 obligation must be executed before these results can be reused for that claim.
+
+## Adversarial-coverage batch — scope and attribution preflight
+
+H01–H05 starts at18fb38a39 under new direct authorization for five increments
+and frequent reflection. No implementation result is claimed yet. Read-only
+source-first reconnaissance identified two actual-source boundaries (public-PoP
+Registry lifecycle and unsigned weighted multi-height stock transitions) and
+three omitted model chronologies (proof recapture, FI replacement after partial
+settlement/recovery, and irreversible pre-correction payments).
+
+A concrete attribution gap was found before execution: existing Registry8 and
+recovery lifecycle helpers call Foundry test-key creation/signing. Their earlier
+actual-source test results remain valid under that test setup, but they are not
+public-signature-vector-only runs, and a blanket statement that no local test
+signing occurred is incorrect. No live key, wallet or transaction is implicated
+by this setup observation. H01 must instead consume published PoP bytes at their
+bound domain from a fresh minimal base, with all transitive hooks inspected.
+Existing unchanged legacy Forge results remain historical rather than counted
+as newly executed under the no-signing scope. This correction concerns execution
+provenance, not an established protocol flaw or retrospective claim of public
+fixture correctness.
+
+The new plan requires an omitted legal history, independent raw observation,
+complete positive terminal and intended-failure discrimination per increment.
+More green counts alone are insufficient. Concrete authenticated histories,
+STF/proof execution, full consensus and corrective storage migration remain
+separate obligations; independently supported actual protocol defects stop work
+for discussion. Original sources/configs and prior evidence remain preserved.
