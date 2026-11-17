@@ -2352,3 +2352,27 @@ does not execute native Go, contracts, real proving, mandatory host-controller
 tests or shared source-fault campaigns; their earlier results remain historical
 for unchanged consumed inputs until an explicitly affected gate is rerun.
 G02-G05 and the final accumulated batch review remain pending.
+
+### G01 hosted launch and artifact ownership repair
+
+The first hosted run43998140485 at87464de50 fails before TLC starts: Python
+cannot open the prepared launcher under `sudo` (Errno13). Pinned tool preparation
+succeeds; this is not a model counterexample or a GitHub authentication failure.
+Independent review also identifies the later ownership consequence: a sudo
+launcher would create host-root-owned0700 TLC directories, which the ordinary
+artifact uploader could not traverse. The first run stops too early to observe
+that later artifact failure.
+
+The workflow now launches the same namespace helper as the ordinary runner UID,
+matching the successful local execution model. Namespace isolation, read-only
+source/dependencies and the signal-reset entry remain intact. A disposable
+committed-source-only profile executes three genuine TLC cases and63 selected
+Python checks (38/5/20) with all required child statuses0. The normal caller owns
+the0700 results directory, reads all13 output files, and archives the results
+plus all three raw logs. This profile is launcher/readability evidence, not a
+new full369-case or189-test run. The unchanged gate/model bytes retain the prior
+canonical full execution above. Paused G02 untracked files are excluded.
+
+Hosted execution and complete artifact readback of the repaired workflow remain
+required. G02 is paused at a coherent draft boundary until this earlier CI
+integration issue is repaired and verified.

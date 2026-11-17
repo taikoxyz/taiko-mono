@@ -59,8 +59,9 @@ jobs:
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/etna-ci"
+          # Keep source access and artifact ownership with the ordinary runner UID.
           # Restore cancellation signals after unshare, before starting the gate.
-          sudo -- /usr/bin/env -i PATH=/usr/bin:/bin LANG=C.UTF-8 \
+          /usr/bin/env -i PATH=/usr/bin:/bin LANG=C.UTF-8 \
             /usr/bin/python3 -B "$work/source/formal/etna/conformance/run_isolated.py" \
             --read-bind "$work/source=/tmp/etna-ci/source" \
             --read-bind "$JAVA_HOME_17_X64=/tmp/etna-ci/java" \
