@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<style>body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}</style>
 <title>Etna Design Briefing</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -164,6 +164,7 @@
   .bytes .b1 { flex: 1.4; } .bytes .b6 { flex: 6; }
   .bytes .hl { background: var(--etna-soft); }
   .cap { font-size: .8em; color: var(--muted); margin-top: .45em; }
+  .cap code { overflow-wrap: anywhere; }
 
   /* Diagrams */
   figure { margin: 0; }
@@ -276,6 +277,16 @@
     .tbl { min-width: 520px; }
   }
 
+  /* Printing gives one 16:9 slide per page. */
+  @media print {
+    @page { size: 1280px 720px; margin: 0; }
+    html, body { background: #fff; }
+    body { padding: 0; }
+    .deck { display: block; max-width: none; margin: 0; }
+    .slide { width: 1280px; height: 720px; aspect-ratio: auto; border: 0; border-radius: 0; break-after: page; break-inside: avoid; overflow: hidden; }
+    .slide:last-child { break-after: auto; }
+    .nav { display: none; }
+  }
   @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 </style>
 
@@ -861,7 +872,7 @@
               <li>An epoch is L blocks. Epoch t starts at height H(t) = 1 + t·L. The suggested L is 900.</li>
               <li>The switch block is H(t) − 2. It carries the committee witness, and its FinalizeBlock returns the updates.</li>
               <li>CometBFT applies updates two heights later, so the new committee signs from H(t).</li>
-              <li>The snapshot is the anchor of block H(t) − 3.</li>
+              <li>The snapshot is the later of two L1 blocks: the anchor of D(t) = H(t) − 3 and the generation's origin block. When D(t) ≤ S it is the origin block alone.</li>
               <li>There is no limit on power change per rotation and no automatic eviction for being offline.</li>
             </ul>
           </div>
@@ -1122,10 +1133,10 @@
       <div class="body">
 <pre class="code">cutLeaf(x) = keccak256(abi.encode(x, blockHash, cometHash, forcedHead, valStateHash))
 
-cutHash    = keccak256(abi.encode("ETNA_LAND_CUTS_V1", generation, p, h,
+cutHash    = keccak256(abi.encode(bytes32("ETNA_LAND_CUTS_V1"), generation, p, h,
                                   keccak256(abi.encodePacked(leaves))))
 
-statement  = keccak256(abi.encode("TAIKO_ETNA_LAND_V1",
+statement  = keccak256(abi.encode(bytes32("TAIKO_ETNA_LAND_V1"),
                l1ChainId, l2ChainId, inbox, registry, generation,
                parentHeight, parentHash, parentCometHash, parentValStateHash,
                committeeConfigHash,
@@ -1334,7 +1345,7 @@ statement  = keccak256(abi.encode("TAIKO_ETNA_LAND_V1",
         <h2>Each recovery starts a new generation</h2>
       </header>
       <div class="body etna">
-        <p class="cap" style="margin:0"><code>chain_id = "etna-" + base64url(keccak256(tag, l1ChainId, l2ChainId, inbox, generation))</code>, 48 ASCII bytes</p>
+        <p class="cap" style="margin:0"><code>chain_id = "etna-" + base64url(keccak256(abi.encode(bytes32("ETNA_COMET_DOMAIN_V1"), l1ChainId, l2ChainId, inbox, generation)))</code>, 48 ASCII bytes</p>
         <div class="cols">
           <ul class="pts">
             <li>The generation is part of the chain id, so every vote is bound to it. Old votes cannot authorize the new chain.</li>
@@ -1618,8 +1629,10 @@ statement  = keccak256(abi.encode("TAIKO_ETNA_LAND_V1",
 
   function nearest() {
     var best = 0, bestDistance = Infinity;
+    // The same offset the slides scroll to, including any safe-area inset.
+    var offset = parseFloat(getComputedStyle(slides[0]).scrollMarginTop) || 0;
     slides.forEach(function (slide, i) {
-      var distance = Math.abs(slide.getBoundingClientRect().top - 12);
+      var distance = Math.abs(slide.getBoundingClientRect().top - offset);
       if (distance < bestDistance) { bestDistance = distance; best = i; }
     });
     return best;
@@ -1649,6 +1662,7 @@ statement  = keccak256(abi.encode("TAIKO_ETNA_LAND_V1",
     ticking = true;
     window.requestAnimationFrame(function () { current = nearest(); show(); ticking = false; });
   }, { passive: true });
+  current = nearest();
   show();
 })();
 </script>
