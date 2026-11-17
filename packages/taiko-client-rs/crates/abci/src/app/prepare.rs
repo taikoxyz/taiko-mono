@@ -33,19 +33,20 @@ use crate::{
 };
 
 /// Maximum encoded transaction bytes selected for a forced-first mixed candidate. This
-/// proposer policy preserves the existing 128 KiB budget; landing capacity is checked separately.
+/// proposer policy preserves the existing 128 KiB budget; the block size bound is checked
+/// separately.
 const MIXED_TX_SELECTION_BYTES: u64 = 128 * 1024;
 
 impl<L: L1Source, E: Engine> App<L, E> {
-    /// Handles `PrepareProposal`: one envelope, or no transactions when the node cannot or must
-    /// not propose (liveness only).
+    /// Handles `PrepareProposal`: one envelope, or a placeholder proposal with no transactions
+    /// when the node cannot or must not propose (liveness only, RECOV-8-10).
     ///
-    /// It first refreshes the background switch-witness discovery
+    /// It first refreshes the background committee-witness discovery
     /// ([`App::prefetch_committee_witness`]), which runs on past this request. The whole build
     /// runs within [`AppOptions::prepare_timeout`](super::AppOptions) (each external call also
     /// keeps its own deadline), so the proposer answers before CometBFT's `timeout_propose` even
     /// when every call is slow but in time; a request queued behind it waits no longer. A failed
-    /// build (I/O error, timeout, a failing pre-check, an unavailable switch witness or forced
+    /// build (I/O error, timeout, a failing pre-check, an unavailable committee witness or forced
     /// admission bytes, an envelope above `max_tx_bytes` or one landing) is recorded as the halt
     /// reason and logged, and answers empty `txs`. The errors are a request before `InitChain`
     /// and a failure that needs its dependency repaired
@@ -75,7 +76,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 if rejection.requires_dependency_repair() {
                     return Err(AbciError::SafetyHalt(rejection.to_string()));
                 }
-                AbciMetrics::proposals_empty().inc();
+                AbciMetrics::proposals_placeholder().inc();
                 self.note_rejection("PrepareProposal", height, &rejection);
                 vec![]
             }

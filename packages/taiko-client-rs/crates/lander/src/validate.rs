@@ -65,7 +65,7 @@ pub struct BlockFacts {
 
 /// Authenticate canonical precommits with distinct signers and strict `> 2/3` signed power.
 ///
-/// The timestamp, round, block id, height and chain id all enter Tendermint's canonical
+/// The timestamp, round, block id, height and chain id all enter CometBFT's canonical
 /// length-delimited vote sign bytes. Nil votes are verified but contribute no block power.
 /// Absent slots contribute no power. Signatures must follow the authenticated validator order.
 /// Native stock secp256k1eth verification enforces low-S recoverable signatures and authorized
@@ -172,7 +172,7 @@ pub(crate) fn verify_native_commit(
     Ok(())
 }
 
-/// Tendermint's simple Merkle root of byte slices, including the SHA-256 empty root.
+/// CometBFT's simple Merkle root of byte slices, including the SHA-256 empty root.
 fn merkle(items: &[Vec<u8>]) -> Hash {
     Hash::Sha256(tendermint::merkle::simple_hash_from_byte_vectors::<
         tendermint::crypto::default::Sha256,
@@ -198,8 +198,8 @@ pub fn commit_hash(commit: &Commit) -> Hash {
 
 /// Stock CometBFT's 64-KiB part commitment over the original block protobuf.
 ///
-/// Never reconstruct this witness through the Tendermint domain adapter: that adapter changes
-/// evidence powers, nil vote block ids and nested light-client validator set encodings.
+/// Never reconstruct this witness through the `tendermint` crate's domain adapter: that adapter
+/// changes evidence powers, nil vote block ids and nested light-client validator set encodings.
 pub fn block_parts(block: &RawBlock) -> tendermint::block::parts::Header {
     let bytes = block.encode_to_vec();
     let parts = bytes.chunks(65_536).map(<[u8]>::to_vec).collect::<Vec<_>>();

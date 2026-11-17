@@ -904,7 +904,7 @@ mod tests {
         let mut v2 = vec![2];
         v2.extend_from_slice(&list);
         assert!(encoding_error(decode(&v2, &limits())).contains("unsupported batch version 2"));
-        // Neither the V2 version byte over a compressed list nor V3's over an uncompressed one.
+        // Neither the V2 version byte over a compressed list nor V6's over an uncompressed one.
         assert!(
             encoding_error(decode(&frame(2, &list), &limits()))
                 .contains("unsupported batch version 2")

@@ -354,9 +354,9 @@ mod tests {
 
         let error = Store::open(directory.path(), id).unwrap().load().unwrap_err();
         assert!(
-            error
-                .to_string()
-                .contains(&format!("incompatible journal schema {version} (expected 16)")),
+            error.to_string().contains(&format!(
+                "incompatible journal schema {version} (expected {JOURNAL_VERSION})"
+            )),
             "{error}"
         );
         assert_eq!(std::fs::read(&path).unwrap(), bytes);

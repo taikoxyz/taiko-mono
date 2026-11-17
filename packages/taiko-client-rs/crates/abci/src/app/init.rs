@@ -29,18 +29,18 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// CometBFT re-sends `InitChain` whenever the app reports height 0, i.e. after a restart
     /// before the first PoS block is committed. An app already holding a state answers only
-    /// while that state is still at its generation origin (B* or c): the request is verified again
-    /// and must yield exactly the stored state, which is then answered as before without being
-    /// rewritten. Either way the origin's validator state is recorded first
+    /// while that state is still at its generation origin (the Etna start S or c): the request is
+    /// verified again and must yield exactly the stored state, which is then answered as before
+    /// without being rewritten. Either way the origin's validator state is recorded first
     /// ([`Store::save_val_state`](crate::store::Store::save_val_state); a well-formed record of
     /// another state fails). A state past its origin, or a request yielding another state, is
     /// [`AbciError::AlreadyInitialized`]. Temporary L1/EL acquisition failures keep the same
     /// request pending; authenticated contradictions still fail for safety.
     ///
-    /// See [`App::verify_genesis`] for the checks; as they make sure the EL serves `B*`, a
-    /// successful `InitChain` also counts as the EL reconcile of the current set of ABCI
-    /// connections (see [`App::info`]). Answers with the authenticated origin EL hash: H* or
-    /// ELHash(c), the same on every re-sent `InitChain`, even when the EL already holds the
+    /// See [`App::verify_genesis`] for the checks; as they make sure the EL serves the Etna start
+    /// block, a successful `InitChain` also counts as the EL reconcile of the current set of ABCI
+    /// connections (see [`App::info`]). Answers with the authenticated origin EL hash: the start
+    /// hash or ELHash(c), the same on every re-sent `InitChain`, even when the EL already holds the
     /// generation's first block after a crash before its `Commit` (CONS-3.1-9).
     pub(super) async fn init_chain(
         &mut self,
@@ -105,11 +105,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// the request's time, canonical consensus parameters, `chain_id`, initial height and
     /// validators to be exactly the ones that evidence determines ([`check_request`]); then
     /// acquires the inputs the evidence leaves to the own L1 and EL. At generation zero: the
-    /// `L1_0` header must be final and canonical in the own L1 view, and the EL must serve `B*`
-    /// with hash `H*` and state root `S*` (EL sync if needed). For a recovery, the inputs come
-    /// from [`App::recovery_inputs`], retried here while unavailable. The state is
+    /// `L1_0` header must be final and canonical in the own L1 view, and the EL must serve the
+    /// Etna start block with the start hash and the start state root (EL sync if needed). For a
+    /// recovery, the inputs come from [`App::recovery_inputs`], retried here while unavailable.
+    /// The state is
     /// [`VerifiedGenesis::origin_state`](crate::genesis::VerifiedGenesis::origin_state), as for
-    /// an import at the origin: `last = (B*, H*)` with the `L1_0` anchor, or c with its
+    /// an import at the origin: `last = (S, start hash)` with the `L1_0` anchor, or c with its
     /// historical anchor; the origin's forced inclusion cursor; and CometBFT's genesis validator
     /// state of the initial committee at the origin height. A recovery's immutable bootstrap
     /// sidecar is durable before this returns, so before the state is published.
@@ -275,26 +276,26 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok((bootstrap, history))
     }
 
-    /// Makes sure the EL serves the genesis anchor `B*` with hash `H*` (syncing it over devp2p
+    /// Makes sure the EL serves the Etna start block with the start hash (syncing it over devp2p
     /// if needed) and summarizes it as the parent of `H_0`.
     ///
-    /// An EL that rejects the genesis hash, serves another block at height 0 or returns a
-    /// state root differing from the authenticated `S*` contradicts
+    /// An EL that rejects the start hash, serves another block at the start height or returns a
+    /// state root differing from the authenticated start state root contradicts
     /// the verified genesis: [`AbciError::SafetyHalt`].
     async fn genesis_parent(&self, genesis: &GenesisRecord) -> Result<ParentInfo, AbciError> {
         let (number, hash) = (genesis.genesis_height, genesis.genesis_hash);
-        self.sync_el_to("EL sync to the genesis anchor", number, hash).await?;
+        self.sync_el_to("EL sync to the Etna start block", number, hash).await?;
 
         let header = self.el_header(number).await?;
         let found = header.hash_slow();
         if found != hash {
             return Err(AbciError::SafetyHalt(format!(
-                "execution engine serves {found} at the genesis anchor {number}, expected H* {hash}"
+                "execution engine serves {found} at the Etna start {number}, expected hash {hash}"
             )));
         }
         if header.state_root != genesis.genesis_state_root {
             return Err(AbciError::SafetyHalt(format!(
-                "execution engine's genesis state root {} differs from S* {}",
+                "execution engine's Etna start state root {} differs from the authenticated start state root {}",
                 header.state_root, genesis.genesis_state_root
             )));
         }

@@ -68,7 +68,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Judges one proposal on top of `state`.
     ///
     /// In order: a superseded chain rejects everything; no transaction at all is an
-    /// [`Rejection::EmptyProposal`]; the transactions must be exactly one envelope;
+    /// [`Rejection::PlaceholderProposal`]; the transactions must be exactly one envelope;
     /// [`validate_proposal`] with the request's BFT time, whose first check is the block size bound
     /// ([`check_execution_size`](super::validate::check_execution_size)); a present
     /// anchor witness must be final and canonical in the own L1 view (L1 is not called when it is
@@ -96,7 +96,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Err(Rejection::ChainSuperseded);
         }
         if req.txs.is_empty() {
-            return Err(Rejection::EmptyProposal);
+            return Err(Rejection::PlaceholderProposal);
         }
         let txs: Vec<Bytes> = req.txs.iter().cloned().map(Bytes::from).collect();
         let env = match single_envelope(&txs) {

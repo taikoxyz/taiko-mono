@@ -44,7 +44,7 @@ pub enum WitnessError {
     /// widths.
     #[error("invalid generation-zero origin")]
     InvalidOrigin,
-    /// Genesis only: the Solidity start record's `startBlockHash` (H*) is zero.
+    /// Genesis only: the Solidity start record's `startBlockHash` (the start hash) is zero.
     #[error("genesis record has a zero genesis block hash")]
     ZeroGenesisHash,
     /// Genesis only: `genesisCommitteeRecordHash` is zero, so no genesis committee was recorded.
@@ -121,8 +121,8 @@ pub(crate) fn anchor_state(header: &RawL1Header, inbox: InboxFacts) -> AnchorSta
 /// `genesisCommitteeRecordHash` record hash.
 ///
 /// The witness must prove the account at `inbox` and `layout::inbox::genesis_slots()`. The
-/// returned facts take the last checkpoint from the genesis record (`(B*, H*)`, the L2 genesis
-/// block's number and hash) and an empty forced inclusion queue (head = tail = 0: Etna
+/// returned facts take the last checkpoint from the genesis record (the Etna start block's
+/// number S and hash) and an empty forced inclusion queue (head = tail = 0: Etna
 /// starts with an empty queue, slot 281 is not part of the genesis witness, and the first block
 /// always carries its own anchor witness). Rejects, in this order: `status != ETNA_ACTIVE`, a
 /// set reserved bit above the fields of the status, generation, activation record, genesis
@@ -160,8 +160,8 @@ pub fn verify_genesis_inbox(
         genesis_height: word_u48(packed, 0),
         l1_0: word_u48(packed, 48),
         epoch_len: word_u48(packed, 96),
-        genesis_hash: inbox_word(&storage, inbox::GENESIS_BLOCK_HASH).into(),
-        genesis_state_root: inbox_word(&storage, inbox::GENESIS_STATE_ROOT).into(),
+        genesis_hash: inbox_word(&storage, inbox::START_BLOCK_HASH).into(),
+        genesis_state_root: inbox_word(&storage, inbox::START_STATE_ROOT).into(),
         genesis_cutoff: word_u48(inbox_word(&storage, inbox::GENESIS_CUTOFF), 0),
         committee_config_hash: inbox_word(&storage, inbox::COMMITTEE_CONFIG_HASH).into(),
         forced_inclusion_delay: word_u48(forced_config, 0),

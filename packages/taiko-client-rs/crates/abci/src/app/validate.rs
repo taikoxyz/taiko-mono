@@ -169,19 +169,20 @@ impl fmt::Display for WitnessKind {
 /// matter for the node that observes it: the block is refused, the chain keeps rounding.
 /// [`validate_block`] yields only the deterministic variants on a decoded envelope; the ¹
 /// node-local ones (anchor finality, L1, engine, EL sync state, timeouts) and the handler-level
-/// ones ([`Rejection::Envelope`], [`Rejection::EmptyProposal`], [`Rejection::ChainSuperseded`],
-/// [`Rejection::PayloadInvalid`], [`Rejection::Registry`], [`Rejection::Oversize`],
-/// [`Rejection::BuiltHeader`], [`Rejection::LandingCapacity`], [`Rejection::ForcedBuild`]) come
-/// from the handlers.
+/// ones ([`Rejection::Envelope`], [`Rejection::PlaceholderProposal`],
+/// [`Rejection::ChainSuperseded`], [`Rejection::PayloadInvalid`], [`Rejection::Registry`],
+/// [`Rejection::Oversize`], [`Rejection::BuiltHeader`], [`Rejection::BlockSizeBound`],
+/// [`Rejection::ForcedBuild`]) come from the handlers.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Rejection {
     /// The block's transactions are not exactly one well-formed envelope.
     #[error("malformed envelope: {0}")]
     Envelope(#[from] EnvelopeError),
-    /// `ProcessProposal`: the block carries no transaction at all, which is how a proposer in a
-    /// liveness halt proposes nothing.
-    #[error("empty proposal: the proposer built no block")]
-    EmptyProposal,
+    /// `ProcessProposal`: the block is a placeholder proposal (RECOV-8-10): it carries no
+    /// transaction at all, which is how a proposer in a liveness pause, or one whose envelope
+    /// does not fit, proposes nothing.
+    #[error("placeholder proposal: the proposer built no block")]
+    PlaceholderProposal,
     /// A header field or a consensus predicate fails ([`RuleViolation`]).
     #[error(transparent)]
     Rule(#[from] RuleViolation),
@@ -276,12 +277,12 @@ pub enum Rejection {
     /// A canonical skip failed the shared singleton check.
     #[error("forced inclusion check failed: {0}")]
     ForcedBuild(#[from] crate::engine::forced::ForcedBuildError),
-    /// The raw execution block exceeds the consensus byte limit.
-    #[error("execution block needs {bytes} RLP bytes, above the {max} limit")]
-    LandingCapacity {
+    /// The raw execution block exceeds the block size bound (CONS-3.4-13).
+    #[error("execution block needs {bytes} RLP bytes, above the {max}-byte block size bound")]
+    BlockSizeBound {
         /// Canonical execution block RLP length, in bytes.
         bytes: usize,
-        /// Consensus limit, in bytes.
+        /// The block size bound, in bytes.
         max: usize,
     },
 }
@@ -323,7 +324,7 @@ impl Rejection {
     pub fn label(&self) -> &'static str {
         match self {
             Self::Envelope(_) => "envelope",
-            Self::EmptyProposal => "empty_proposal",
+            Self::PlaceholderProposal => "placeholder_proposal",
             Self::Rule(rule) => rule.label(),
             Self::Witness(_) => "anchor_witness",
             Self::OwnWitness(_) => "own_l1_witness",
@@ -348,7 +349,7 @@ impl Rejection {
             Self::BuiltHeader(_) => "built_header_mismatch",
             Self::Forced(_) => "forced_inclusion",
             Self::ForcedBuild(_) => "forced_skip_invalid",
-            Self::LandingCapacity { .. } => "landing_capacity",
+            Self::BlockSizeBound { .. } => "block_size_bound",
         }
     }
 
@@ -547,7 +548,7 @@ fn check_candidate(
 }
 
 /// Authenticates a supplied anchor or inherits the parent's anchor, then checks anchor progress,
-/// generation and the authenticated back-pressure cap before registry discovery.
+/// generation and the authenticated unsettled-block limit before registry discovery.
 /// Anchor witnesses are forced on anchor moves and the generation's first height, independently
 /// of global switch heights.
 pub(crate) fn check_candidate_anchor(
@@ -568,7 +569,7 @@ pub(crate) fn check_candidate_anchor(
     rules::check_back_pressure(
         height,
         anchor.inbox.last_checkpoint_height,
-        params.unsettled_cap(),
+        params.unsettled_limit(),
     )?;
     Ok(anchor)
 }
@@ -686,12 +687,13 @@ fn candidate_committee(
     }
 }
 
-/// Rejects raw execution blocks above the consensus bound, before validation or execution.
+/// Rejects raw execution blocks above the block size bound (CONS-3.4-13), before validation or
+/// execution.
 pub fn check_execution_size(block: &crate::ExecutionBlock) -> Result<(), Rejection> {
     use alloy_rlp::Encodable;
     let bytes = block.length();
     if bytes > 124_000 {
-        return Err(Rejection::LandingCapacity { bytes, max: 124_000 });
+        return Err(Rejection::BlockSizeBound { bytes, max: 124_000 });
     }
     Ok(())
 }

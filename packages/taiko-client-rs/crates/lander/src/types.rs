@@ -125,6 +125,11 @@ impl Limits {
 }
 
 /// Current Inbox facts pinned to `l1_block_hash`, with separate finalized recovery evidence.
+///
+/// The `checkpoint_*` fields hold the latest checkpoint c at `l1_block_hash`. A
+/// [`PreparedBatch`] keeps the snapshot it was built on, and there the same fields are the
+/// batch's proof origin p (`LandInput.parentHeight` and the statement's parent words): p stays
+/// fixed while c may advance on L1 before the landing executes (LAND-6.1-2..4, PROOF-6.2-8).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LandingSnapshot {
     /// L1 state block hash to which all Inbox reads are pinned.
@@ -147,15 +152,18 @@ pub struct LandingSnapshot {
     /// Canonical RLP recovery evidence retained with the immutable proof request.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_witness: Option<Bytes>,
-    /// Latest landed L2 height.
+    /// Latest landed L2 height: the latest checkpoint c when this snapshot was read, and the
+    /// proof origin p of a batch built on it.
     pub checkpoint_height: u64,
-    /// Latest landed L2 hash.
+    /// Latest landed L2 hash, at the same height (c when read, proof origin p in a batch).
     pub checkpoint_hash: B256,
-    /// Authenticated Comet hash from the retained landing record at the checkpoint.
+    /// Authenticated Comet hash from the retained landing record at the checkpoint (c when read,
+    /// proof origin p in a batch).
     pub checkpoint_comet_hash: B256,
     /// Validator-state hash (appendix A's `valStateHash`, slot 285 word 4) from the retained
-    /// landing record at the checkpoint: 0 in the start record, and at a recovery origin the
-    /// old generation's value, which the statement binds as stored but no replay starts from.
+    /// landing record at the checkpoint (c when read, proof origin p in a batch): 0 in the start
+    /// record, and at a recovery origin the old generation's value, which the statement binds as
+    /// stored but no replay starts from.
     pub checkpoint_val_state_hash: B256,
     /// Forced inclusion queue `head` (slot 281, bits 0–47): the next entry not yet settled on L1.
     pub forced_inclusion_head: u64,
@@ -327,7 +335,8 @@ impl From<CertifiedBlock> for CertifiedBlockWire {
 /// Immutable public inputs and authenticated host context of a prepared landing job.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PreparedBatch {
-    /// Coherent Inbox state from which this batch extends.
+    /// Coherent Inbox state from which this batch extends. Its `checkpoint_*` fields are this
+    /// batch's proof origin p, not the latest checkpoint c at execution.
     pub snapshot: LandingSnapshot,
     /// Public EL parent header, verified against the checkpoint height and hash.
     pub parent_header: Header,

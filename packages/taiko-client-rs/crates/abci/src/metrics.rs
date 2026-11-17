@@ -27,10 +27,10 @@ impl AbciMetrics {
         &METRICS.proposals_built
     }
 
-    /// `abci_proposals_empty_total`: `PrepareProposal` answers without transactions (the node
-    /// could not or must not propose).
-    pub fn proposals_empty() -> &'static IntCounter {
-        &METRICS.proposals_empty
+    /// `abci_proposals_placeholder_total`: `PrepareProposal` answers with a placeholder proposal,
+    /// one without transactions (RECOV-8-10: the node could not or must not propose).
+    pub fn proposals_placeholder() -> &'static IntCounter {
+        &METRICS.proposals_placeholder
     }
 
     /// `abci_process_accepted_total`: `ProcessProposal` answers `ACCEPT`.
@@ -114,8 +114,9 @@ impl AbciMetrics {
         &METRICS.checkpoint_distance
     }
 
-    /// `abci_halted`: 1 while the app refuses to make progress (the last proposal was refused,
-    /// reason in `/status`, or a safety halt stopped it), 0 otherwise.
+    /// `abci_halted`: 1 while the app refuses to make progress, 0 otherwise. Despite the name it
+    /// covers both a liveness pause (the last proposal was refused, reason in `/status`; the
+    /// process keeps running) and a safety halt (the node stops).
     pub fn halted() -> &'static IntGauge {
         &METRICS.halted
     }
@@ -130,8 +131,8 @@ pub(crate) fn set_u64(gauge: &IntGauge, value: u64) {
 struct Metrics {
     /// See [`AbciMetrics::proposals_built`].
     proposals_built: IntCounter,
-    /// See [`AbciMetrics::proposals_empty`].
-    proposals_empty: IntCounter,
+    /// See [`AbciMetrics::proposals_placeholder`].
+    proposals_placeholder: IntCounter,
     /// See [`AbciMetrics::process_accepted`].
     process_accepted: IntCounter,
     /// See [`AbciMetrics::process_rejected`].
@@ -172,9 +173,9 @@ static METRICS: Lazy<Metrics> = Lazy::new(|| Metrics {
         "abci_proposals_built_total",
         "PrepareProposal answers carrying a block",
     ),
-    proposals_empty: counter(
-        "abci_proposals_empty_total",
-        "PrepareProposal answers without transactions",
+    proposals_placeholder: counter(
+        "abci_proposals_placeholder_total",
+        "PrepareProposal answers with a placeholder proposal (no transactions)",
     ),
     process_accepted: counter("abci_process_accepted_total", "ProcessProposal ACCEPT answers"),
     process_rejected: register(
@@ -221,7 +222,10 @@ static METRICS: Lazy<Metrics> = Lazy::new(|| Metrics {
         "abci_checkpoint_distance",
         "Pinned checkpoint height minus committed height",
     ),
-    halted: gauge("abci_halted", "1 while the app refuses to make progress, 0 otherwise"),
+    halted: gauge(
+        "abci_halted",
+        "1 during a liveness pause (last proposal refused) or after a safety halt, 0 otherwise",
+    ),
 });
 
 /// A registered integer counter.
@@ -262,7 +266,7 @@ mod tests {
             prometheus::gather().iter().map(|family| family.get_name().to_string()).collect();
         for name in [
             "abci_proposals_built_total",
-            "abci_proposals_empty_total",
+            "abci_proposals_placeholder_total",
             "abci_process_accepted_total",
             "abci_process_rejected_total",
             "abci_proposal_fallbacks_total",

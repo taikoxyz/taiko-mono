@@ -70,6 +70,8 @@ async fn abci_sigterm_closes_live_connections_and_exits() -> Result<()> {
             &format!("tcp://{address}"),
             "--data-dir",
             &dir.path().join("state").display().to_string(),
+            "--engine-control-dir",
+            &dir.path().join("engine-control").display().to_string(),
         ])
         .env_remove("METRICS_ENABLED")
         .env_remove("METRICS_ADDR")

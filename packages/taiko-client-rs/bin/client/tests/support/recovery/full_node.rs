@@ -62,6 +62,8 @@ pub async fn join_after_landing(
     commands.lander = false;
     commands.l2_http = el.http.clone();
     commands.l2_auth = el.auth.clone();
+    // This separately imported EL has its own writer domain; the validator stays live.
+    commands.engine_control_dir = commands.dir.path().canonicalize()?.join("engine-control");
     let result = async {
         // prepare reads the EL state at c from this node's own EL (SYNC-9-16).
         let plan = commands.prepare_command(1).await?;

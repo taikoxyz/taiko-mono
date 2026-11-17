@@ -36,7 +36,8 @@ pub struct ChainParams {
     pub registry: Address,
     /// Full L1 chain identifier used to bind the Comet signing domain.
     pub l1_chain_id: U256,
-    /// Authenticated maximum unsettled depth U in L2 blocks, independent of epoch length.
+    /// U, the authenticated unsettled-block limit: the maximum unsettled depth in L2 blocks,
+    /// independent of epoch length.
     pub unsettled_limit: u64,
     /// Local execution beneficiary chosen by this proposer; not committee authentication data.
     pub fee_recipient: Address,
@@ -177,8 +178,8 @@ impl ChainParams {
         Ok(self)
     }
 
-    /// Returns the directly authenticated unsettled limit U in L2 blocks, independent of L.
-    pub fn unsettled_cap(&self) -> u64 {
+    /// Returns the directly authenticated unsettled-block limit U in L2 blocks, independent of L.
+    pub fn unsettled_limit(&self) -> u64 {
         self.unsettled_limit
     }
 
@@ -280,13 +281,13 @@ mod tests {
     fn defaults_and_direct_u_are_valid() {
         let p = devnet();
         p.validate().unwrap();
-        assert_eq!(p.unsettled_cap(), 3600);
+        assert_eq!(p.unsettled_limit(), 3600);
         assert_eq!(p.n_max, 128);
     }
     #[test]
     fn overrides_authenticate_u_and_accept_full_l1_chain_id() {
         let p=devnet().with_overrides("unsettled_limit = 7200\nl1_chain_id = '0x100000000000000000000000000000000000000000000000000'\nfee_recipient = '0x1111111111111111111111111111111111111111'").unwrap();
-        assert_eq!(p.unsettled_cap(), 7200);
+        assert_eq!(p.unsettled_limit(), 7200);
         assert!(p.l1_chain_id > U256::from(u64::MAX));
         assert_eq!(p.fee_recipient, Address::repeat_byte(0x11));
     }

@@ -47,8 +47,8 @@ fn trie(leaves: BTreeMap<B256, Vec<u8>>, targets: Vec<Nibbles>) -> (B256, ProofN
     let root = builder.root();
     (root, builder.take_proof_nodes())
 }
-/// `len` pseudorandom nonzero calldata bytes seeded by `height`, which payload V5's zlib cannot
-/// shrink, so block sizes keep counting blobs.
+/// `len` pseudorandom nonzero calldata bytes seeded by `height`, which the V6 payload's zlib
+/// cannot shrink, so block sizes keep counting blobs.
 fn incompressible(height: u64, len: usize) -> Bytes {
     let mut state = 0x9e37_79b9_7f4a_7c15 ^ height;
     (0..len)
@@ -236,8 +236,8 @@ fn state_with_queue(
             inbox::slot(inbox::GENESIS_PACKED),
             U256::from(genesis.l1_0) << 48 | U256::from(genesis.epoch_len) << 96,
         ),
-        (inbox::slot(inbox::GENESIS_BLOCK_HASH), genesis.genesis_hash.into()),
-        (inbox::slot(inbox::GENESIS_STATE_ROOT), genesis.genesis_state_root.into()),
+        (inbox::slot(inbox::START_BLOCK_HASH), genesis.genesis_hash.into()),
+        (inbox::slot(inbox::START_STATE_ROOT), genesis.genesis_state_root.into()),
         (inbox::slot(inbox::GENESIS_CUTOFF), U256::from(genesis.genesis_cutoff)),
         (
             inbox::slot(inbox::FORCED_INCLUSION_CONFIG),
@@ -585,8 +585,8 @@ impl Fixture {
         Self::with_epoch(checkpoint, tip, bytes, 24)
     }
 
-    /// As [`Fixture::with_calldata`], with all-zero calldata that payload V4 compresses to almost
-    /// nothing.
+    /// As [`Fixture::with_calldata`], with all-zero calldata that the V6 payload compresses to
+    /// almost nothing.
     fn with_zero_calldata(checkpoint: u64, tip: u64, bytes: usize) -> Self {
         Self::build(
             checkpoint,
@@ -1286,7 +1286,7 @@ mod readiness {
                 builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await.unwrap();
             assert_eq!(observed.observation.decided_height, checkpoint);
             assert_eq!(observed.observation.publishable_blocks, 0);
-            assert!(!observed.observation.force_backpressure);
+            assert!(!observed.observation.force_back_pressure);
             assert!(!observed.observation.force_epoch);
         }
     }
@@ -1301,7 +1301,7 @@ mod readiness {
             builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await.unwrap();
         assert_eq!(observed.observation.decided_height, 12);
         assert_eq!(observed.observation.publishable_blocks, 12);
-        assert!(!observed.observation.force_backpressure);
+        assert!(!observed.observation.force_back_pressure);
         assert!(!observed.observation.force_epoch);
     }
 
@@ -1314,12 +1314,12 @@ mod readiness {
             builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await.unwrap();
         assert_eq!(observed.observation.publishable_blocks, 6);
         // U=20, tip=20, tip anchor CP=1: depth 19 forces publication despite latest CP=19.
-        assert!(observed.observation.force_backpressure);
+        assert!(observed.observation.force_back_pressure);
         assert!(!observed.observation.force_epoch);
     }
 
     #[tokio::test]
-    async fn pressure_below_unsettled_cap_minus_one_allows_waiting() {
+    async fn pressure_below_unsettled_limit_minus_one_allows_waiting() {
         let mut fixture = Fixture::new(0, 16);
         advance_checkpoint(&mut fixture, 6);
         let fixture = Arc::new(fixture);
@@ -1328,7 +1328,7 @@ mod readiness {
         // U=20, tip=19, tip anchor CP=1: depth 18 stays below the urgent threshold.
         assert_eq!(observed.observation.decided_height, 16);
         assert_eq!(observed.observation.publishable_blocks, 6);
-        assert!(!observed.observation.force_backpressure);
+        assert!(!observed.observation.force_back_pressure);
         assert!(!observed.observation.force_epoch);
     }
 
@@ -1341,7 +1341,7 @@ mod readiness {
         assert_eq!(observed.observation.decided_height, 30);
         assert_eq!(observed.observation.publishable_blocks, 0);
         assert!(observed.observation.force_epoch); // h_first(1)=25 is beyond the single-block prefix at 21.
-        assert!(!observed.observation.force_backpressure); // The tip anchor CP=20 gives depth 6 < 19.
+        assert!(!observed.observation.force_back_pressure); // The tip anchor CP=20 gives depth 6 < 19.
         assert!(
             builder(fixture.clone(), bound)
                 .prepare(fixture.snapshot.clone())
@@ -1517,7 +1517,7 @@ mod readiness {
             let observed =
                 builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await.unwrap();
             assert_eq!(observed.observation.publishable_blocks, 0);
-            assert_eq!(observed.observation.force_backpressure, pressure);
+            assert_eq!(observed.observation.force_back_pressure, pressure);
             assert!(matches!(
                 builder(fixture.clone(), limits(12)).prepare(fixture.snapshot.clone()).await,
                 Err(LanderError::Safety(_))

@@ -139,7 +139,7 @@ async fn committee_witness_uses_own_anchor_root_and_parent_cutoff() {
 /// Another node accepts the honest moved-anchor `switch 2` proposal and retains its witness, in
 /// memory only, under the candidate anchor it was verified at.
 #[tokio::test]
-async fn a_valid_peer_switch_witness_is_accepted_and_retained_in_memory() {
+async fn a_valid_peer_committee_witness_is_accepted_and_retained_in_memory() {
     let fx = Fixture::genesis(3);
     let proposer_dir = tempfile::tempdir().unwrap();
     let (mut proposer, _) = before_switch(&fx, proposer_dir.path()).await;

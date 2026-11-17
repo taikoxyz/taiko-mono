@@ -35,7 +35,7 @@ struct Control {
     proofs: usize,
     decided_height: u64,
     publishable_blocks: usize,
-    force_backpressure: bool,
+    force_back_pressure: bool,
     force_epoch: bool,
     observation_error: bool,
     checkpoint_error: bool,
@@ -70,7 +70,7 @@ impl Fixture {
             proofs: 0,
             decided_height: 2,
             publishable_blocks: 2,
-            force_backpressure: false,
+            force_back_pressure: false,
             force_epoch: false,
             observation_error: false,
             checkpoint_error: false,
@@ -180,7 +180,7 @@ impl BatchSource for MockBatch {
         Ok(BatchPreview::from_observation(BatchObservation {
             decided_height: control.decided_height,
             publishable_blocks: control.publishable_blocks,
-            force_backpressure: control.force_backpressure,
+            force_back_pressure: control.force_back_pressure,
             force_epoch: control.force_epoch,
         }))
     }
@@ -816,7 +816,7 @@ async fn consensus_pressure_and_epoch_progress_bypass_high_threshold_and_long_wa
         let policy = BatchPolicy { min_blocks: 100, max_wait: Duration::from_secs(3600) };
         {
             let mut control = fixture.control.lock().unwrap();
-            control.force_backpressure = !force_epoch;
+            control.force_back_pressure = !force_epoch;
             control.force_epoch = force_epoch;
         }
         let mut runner = fixture.with_policy(policy);

@@ -300,7 +300,7 @@ mod tests {
         }
     }
 
-    /// Payload V3 compresses, so one envelope may exceed the compressed payload bound.
+    /// The V6 payload compresses, so one envelope may exceed the compressed payload bound.
     #[test]
     fn accepts_messages_larger_than_the_compressed_payload() {
         let c = valid();

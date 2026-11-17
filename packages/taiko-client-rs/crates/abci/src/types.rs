@@ -143,11 +143,12 @@ pub struct GenesisRecord {
     pub genesis_height: u64,
     /// `L1_0`: L1 block number of initialization; the minimum anchor of every block.
     pub l1_0: u64,
-    /// `L`: epoch length in L2 blocks (validated `>= 3`; independent of the unsettled cap).
+    /// `L`: epoch length in L2 blocks (validated `>= 3`; independent of the unsettled limit U).
     pub epoch_len: u64,
-    /// `H*`: L2 block hash of `B*`.
+    /// The start hash: the L2 block hash of the Etna start block (height S).
     pub genesis_hash: B256,
-    /// `S*`: L2 state root of `B*`.
+    /// The start state root: the L2 state root of the Etna start block. Not the spec's S, which
+    /// is the start height ([`GenesisRecord::genesis_height`]).
     pub genesis_state_root: B256,
     /// `genesisCutoff`: the snapshot cutoff `C` of the genesis committee `e_0`, an L1 block
     /// number; validated `< l1_0`. Genesis names it explicitly before `L1_0` is known.

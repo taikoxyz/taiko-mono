@@ -1,4 +1,5 @@
-//! Canonical V6 blob construction and decoding using the shared Kona-v0 field coder.
+//! Canonical V6 blob construction and decoding in Unzen's blob encoding (DATA-5.2-2), through
+//! the shared field coder `protocol::shasta::BlobCoder`.
 //!
 //! Ordered batches contain one to six blobs. Each chunk has 1..=130044 bytes; every nonfinal
 //! chunk is full, and all unused bytes/bits are zero. Every field element has its top two bits
@@ -26,7 +27,8 @@ use crate::{
 };
 use alloy_eips::eip4844::{BYTES_PER_BLOB, Blob};
 
-/// Kona-compatible capacity: 127 usable bytes per four field elements, minus four header bytes.
+/// Capacity of one blob in Unzen's blob encoding: 127 usable bytes per four field elements, minus
+/// four header bytes.
 pub const PAYLOAD_BYTES_PER_BLOB: usize = BYTES_PER_BLOB * 127 / 128 - 4;
 
 /// The most blobs one landing carries (LAND-6.1 step 5): the six Fusaka permits per transaction.
@@ -104,7 +106,8 @@ pub fn verify(blobs: &PreparedBlobs) -> Result<()> {
         .map_err(|e| LanderError::Journal(format!("sidecar fails KZG verification: {e}")))
 }
 
-/// Decode canonical Kona chunks in transaction order, bounded before allocating payload bytes.
+/// Decode canonical chunks of Unzen's blob encoding in transaction order, bounded before
+/// allocating payload bytes.
 pub fn decode(blobs: &[Blob], limits: &Limits) -> Result<Vec<u8>> {
     use protocol::shasta::BlobCoder;
     let limits = crate::codec::bounded_limits(limits)?;
@@ -115,15 +118,17 @@ pub fn decode(blobs: &[Blob], limits: &Limits) -> Result<Vec<u8>> {
     }
     let mut payload = Vec::new();
     for (index, blob) in blobs.iter().enumerate() {
-        // The shared Shasta decoder checks later field elements; V6 also forbids the first
-        // field element's reserved top bits rather than silently masking them.
+        // The shared decoder of Unzen's blob encoding (`protocol::shasta::BlobCoder`) checks
+        // later field elements; V6 also forbids the first field element's reserved top bits
+        // rather than silently masking them.
         if blob[0] & 0xc0 != 0 {
             return Err(LanderError::Encoding(format!(
                 "invalid first field element at index {index}"
             )));
         }
-        let chunk = BlobCoder::decode_blob(blob)
-            .ok_or_else(|| LanderError::Encoding(format!("invalid Kona blob at index {index}")))?;
+        let chunk = BlobCoder::decode_blob(blob).ok_or_else(|| {
+            LanderError::Encoding(format!("invalid Unzen blob encoding at index {index}"))
+        })?;
         if chunk.is_empty() || (index + 1 < blobs.len() && chunk.len() != PAYLOAD_BYTES_PER_BLOB) {
             return Err(LanderError::Encoding(format!(
                 "noncanonical blob chunk length {} at index {index}",
@@ -239,7 +244,7 @@ mod tests {
         assert!(decode(&wrong, &limits(2)).is_err());
         // The blob codec returns a truncated collection's full first blob as is: its length is
         // exactly one blob's payload. Rejecting such a prefix is left to the V6 payload's zlib
-        // stream end and checksum (`a_truncated_v3_payload_fails_its_zlib_stream`).
+        // stream end and checksum (`a_truncated_v6_payload_fails_its_zlib_stream`).
         let prefix = decode(&sidecar.sidecar.blobs()[..1], &limits(2)).unwrap();
         assert_eq!(prefix.len(), PAYLOAD_BYTES_PER_BLOB);
     }
@@ -289,9 +294,9 @@ mod tests {
     }
 
     /// A real V6 payload spanning two blobs, cut to its first blob: the blob codec serves the
-    /// prefix, and the V5 codec rejects it at the zlib stream's end and checksum.
+    /// prefix, and the V6 codec rejects it at the zlib stream's end and checksum.
     #[test]
-    fn a_truncated_v3_payload_fails_its_zlib_stream() {
+    fn a_truncated_v6_payload_fails_its_zlib_stream() {
         let limits = landing_limits();
         let payload = crate::codec::encode(&[noisy_block(200_000)], &limits).unwrap();
         let sidecar = build(&payload, &limits, SidecarMode::Eip4844).unwrap();

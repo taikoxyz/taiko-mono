@@ -136,11 +136,11 @@ class ElRuntime(FakeHost, unittest.TestCase):
         self.assertEqual(pin("tests/entrypoint.sh", r"^default_el_image=(\S+)$"), PINNED)
         self.assertEqual(pin("crates/test-harness/src/boot.rs", r'^pub\(crate\) const RETH_IMAGE: &str = "([^"]+)";$'), PINNED)
         # Every alethia-reth crate of the workspace and the import helper, and every locked source.
-        dependency = r'^alethia-reth-(?:chainspec|consensus|primitives) = \{.*\brev = "([0-9a-f]{40})"'
-        self.assertEqual(pins("Cargo.toml", dependency, 3), {REVISION})
+        dependency = r'^alethia-reth-(?:chainspec|consensus|primitives|rpc-types) = \{.*\brev = "([0-9a-f]{40})"'
+        self.assertEqual(pins("Cargo.toml", dependency, 4), {REVISION})
         self.assertEqual(pins("tools/etna-el-import/Cargo.toml", dependency, 2), {REVISION})
         locked = r'^source = "git\+https://github\.com/taikoxyz/alethia-reth\?rev=([0-9a-f]{40})#\1"$'
-        self.assertEqual(pins("Cargo.lock", locked, 3), {REVISION})
+        self.assertEqual(pins("Cargo.lock", locked, 4), {REVISION})
         self.assertEqual(pins("tools/etna-el-import/Cargo.lock", locked, 2), {REVISION})
         # The import receipt names the alethia-reth revision and the reth commit its tag locks.
         dataset = "tools/etna-el-import/src/dataset.rs"

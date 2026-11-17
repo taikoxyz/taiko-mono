@@ -395,8 +395,7 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_restarts_wait_after_sigkil
 
 #[tokio::test]
 #[ignore = "docker"]
-async fn lander_cli_flushes_backpressure_and_switch_witnesses_before_batch_deadline() -> Result<()>
-{
+async fn lander_cli_flushes_back_pressure_and_committee_witnesses_before_deadline() -> Result<()> {
     let fixture = ContractFixture::deploy_config(1, 12, 15).await?;
     let result = async {
         let mut chain = FixtureChain::new(&fixture).await?;
@@ -423,7 +422,7 @@ async fn lander_cli_flushes_backpressure_and_switch_witnesses_before_batch_deadl
         mine_l1_blocks(&fixture.anvil.provider, 3).await?;
         chain.extend(&fixture, 17).await?;
         rpc.replace(rpc_data(&chain)).await;
-        // Nine unlanded blocks leave only one height before the builtin ABCI cap U=10.
+        // Nine unlanded blocks leave only one height before the builtin ABCI limit U=10.
         wait_checkpoint_before(&fixture, &mut process, 12, Duration::from_secs(15)).await?;
         ensure!(process.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
         assert_key_absent(&process);
@@ -438,7 +437,7 @@ async fn lander_cli_flushes_backpressure_and_switch_witnesses_before_batch_deadl
             directory.path().join("batch-epoch.log"),
             &[("--min-blocks", "12"), ("--max-batch-wait", "3600")],
         )?;
-        // Only two blocks remain, including the fixed-cutoff switch witness.
+        // Only two blocks remain, including the fixed-cutoff committee witness.
         wait_checkpoint_before(&fixture, &mut process, switch_height, Duration::from_secs(15))
             .await?;
         ensure!(

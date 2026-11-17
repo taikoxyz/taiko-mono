@@ -524,8 +524,8 @@ async fn frozen_comet_is_reaped_before_parent_read_and_recovers() -> Result<()> 
     d.stop().await
 }
 
-/// Exercise the raw cap against executable blocks built by the pinned real EL, including legacy
-/// transactions that fit the production byte limit only when counted in block-body form.
+/// Exercise the block size bound against executable blocks built by the pinned real EL, including
+/// legacy transactions that fit the production byte limit only when counted in block-body form.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn raw_execution_boundary_124000_accepts_124001_rejects() -> Result<()> {

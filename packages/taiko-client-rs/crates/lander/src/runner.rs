@@ -238,7 +238,7 @@ impl Runner {
                 if observation.publishable_blocks == 0 ||
                     (observation.publishable_blocks < self.config.batch_policy.min_blocks &&
                         elapsed < self.config.batch_policy.max_wait &&
-                        !observation.force_backpressure &&
+                        !observation.force_back_pressure &&
                         !observation.force_epoch)
                 {
                     return Ok(StepOutcome::Waiting);
@@ -250,14 +250,14 @@ impl Runner {
                 let elapsed = self.wait_elapsed();
                 if request.batch.blocks.len() < self.config.batch_policy.min_blocks &&
                     elapsed < self.config.batch_policy.max_wait &&
-                    !observation.force_backpressure &&
+                    !observation.force_back_pressure &&
                     !observation.force_epoch
                 {
                     // The decided tip can regress between observation and full construction.
                     return Ok(StepOutcome::Waiting);
                 }
-                let trigger = if observation.force_backpressure {
-                    "backpressure"
+                let trigger = if observation.force_back_pressure {
+                    "back-pressure"
                 } else if observation.force_epoch {
                     "epoch"
                 } else if request.batch.blocks.len() >= self.config.batch_policy.min_blocks {
@@ -627,6 +627,10 @@ fn observe_state(state: &JournalState) {
 
 /// Accept only an authenticated frontier on the immutable job's original proof interval.
 /// Interior progress must equal the corresponding signed cut leaf; nothing is rewritten.
+///
+/// The same `checkpoint_*` field names mean two things here: in `current` they are the latest
+/// checkpoint c, in `prepared` (the snapshot the job was built on) the job's proof origin p. The
+/// frontier overlaps while the generation is unchanged and `p <= c < lastHeight`.
 fn overlapping_frontier(
     current: &LandingSnapshot,
     batch: &crate::types::PreparedBatch,

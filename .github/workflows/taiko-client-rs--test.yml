@@ -222,6 +222,9 @@ jobs:
           cache-key: taiko-client-rs-unit
           save-cache: ${{ github.ref == 'refs/heads/main' }}
           nextest: "true"
+      # The protocol crate's subscription-source unit test spawns a local anvil.
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
       - name: Run unit tests
         working-directory: packages/taiko-client-rs
         run: just unit

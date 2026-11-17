@@ -54,7 +54,7 @@ pub struct ForcedWitness {
 
 impl Decodable for ForcedWitness {
     /// Decodes exactly three fields, bounding borrowed transaction bytes before copying them.
-    /// Empty bytes remain valid witness input for the invalid-transaction classification.
+    /// Empty bytes remain valid witness input for the ineligible-transaction classification.
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         let mut payload = alloy_rlp::Header::decode_bytes(buf, true)?;
         let payload_length = payload.len();
@@ -81,9 +81,9 @@ pub enum ForcedDecision {
     Ordinary,
     /// The canonical transaction at position zero consumes this queue index.
     Included(u64),
-    /// Due bytes are not an eligible transaction ([`decode_eligible`]), consuming the index
-    /// directly.
-    SkippedInvalid(u64),
+    /// Due raw bytes are ineligible (not an eligible transaction, [`decode_eligible`]; FI-7.2-7),
+    /// consuming the index directly.
+    SkippedIneligible(u64),
     /// A due eligible transaction, whatever its fee cap, needs an authenticated skip decision.
     NeedsSkip {
         /// Pending queue index; this classification alone does not authorize consumption.
@@ -176,7 +176,7 @@ pub(crate) fn is_due(timestamp: u64, delay: u64, anchor_timestamp: u64) -> bool 
     u128::from(anchor_timestamp) >= u128::from(timestamp) + u128::from(delay)
 }
 
-/// Authenticates the queue head and any supplied preimage before every acceptance branch.
+/// Authenticates the entry at the cursor and any supplied preimage before every acceptance branch.
 /// Only an eligible matching transaction at position zero consumes an inclusion. Before due,
 /// omission consumes nothing. A due ineligible preimage can be skipped directly; every eligible
 /// omission requires a completed singleton build, independent of its fee cap.
@@ -213,7 +213,7 @@ pub fn check(
     if !is_due(entry.timestamp, context.delay, context.anchor.timestamp) {
         return Ok(ForcedDecision::Ordinary);
     }
-    // Omission never proves an invalid admission: only an actual empty admission hashes to
+    // Omission never proves an ineligible admission: only an actual empty admission hashes to
     // empty bytes. Every nonempty due entry still needs its authenticated preimage to skip.
     if got != entry.tx_hash {
         return Err(ForcedError::TxHashMismatch { expected: entry.tx_hash, got });
@@ -221,7 +221,7 @@ pub fn check(
     Ok(if decode_eligible(&w.tx, context.l2_chain_id, context.block_gas_limit).is_some() {
         ForcedDecision::NeedsSkip { index: context.cursor, tx: w.tx.clone() }
     } else {
-        ForcedDecision::SkippedInvalid(context.cursor)
+        ForcedDecision::SkippedIneligible(context.cursor)
     })
 }
 

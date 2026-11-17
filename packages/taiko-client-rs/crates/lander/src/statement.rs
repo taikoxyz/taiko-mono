@@ -50,7 +50,9 @@ pub fn cut_hash(generation: u64, parent: U256, last: U256, leaves: &[B256]) -> B
 
 /// Encode the twenty-three static ABI words authenticated by the Inbox V1 statement, in ENC-A-35
 /// order. The parent words, `parentValStateHash` included, are the checkpoint record's values as
-/// stored, even at a generation's origin.
+/// stored, even at a generation's origin. They are taken at proof origin p (PROOF-6.2-8):
+/// `snapshot` is the one the batch was built on, so its `checkpoint_*` fields are p's, not the
+/// latest checkpoint c's at execution.
 pub fn preimage(
     snapshot: &LandingSnapshot,
     input: &LandInput,

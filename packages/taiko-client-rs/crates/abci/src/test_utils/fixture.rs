@@ -3,7 +3,7 @@
 //! [`Fixture::build`] plants an initialized Inbox and a staking registry (one checkpoint, by
 //! default written at the genesis cutoff, holding `n_validators` eligible entries) in an L1
 //! [`TestState`], derives the `e_0` committee from it at the genesis cutoff, records its hash at
-//! `genesisCommitteeRecordHash`, builds the EL chain up to the genesis anchor `B*`, and assembles
+//! `genesisCommitteeRecordHash`, builds the EL chain up to the Etna start block, and assembles
 //! the genesis witness and the CometBFT `InitChain` request that start the chain.
 //! [`Fixture::l1`] and [`Fixture::engine`] serve that L1 and EL; [`Fixture::expected_state`] is
 //! the `AppState` a correct `InitChain` persists.
@@ -48,7 +48,7 @@ pub(crate) struct GenesisSpec {
     pub(crate) n_validators: usize,
     /// Overrides the genesis registry entries (default: `sample_entries(n_validators)`).
     pub(crate) entries: Option<Vec<RegistryEntry>>,
-    /// `B*`, the genesis anchor's L2 block number.
+    /// The Etna start S, the start block's L2 block number.
     pub(crate) genesis_height: u64,
     /// `L1_0`, the genesis's L1 block number.
     pub(crate) l1_0: u64,
@@ -71,7 +71,7 @@ pub(crate) struct GenesisSpec {
 }
 
 impl GenesisSpec {
-    /// A valid genesis with `n_validators` validators: `B* = 0`, `L1_0 = 64`, genesis cutoff
+    /// A valid genesis with `n_validators` validators: `S = 0`, `L1_0 = 64`, genesis cutoff
     /// 63, `L = 20`, forced inclusion delay 1 h, maximum anchor age 2 h, generation 0, devnet
     /// parameters.
     pub(crate) fn new(n_validators: usize) -> Self {
@@ -128,7 +128,7 @@ pub(crate) struct Fixture {
     pub(crate) record: CommitteeRecord,
     /// The derived `e_0` members (set-key order).
     pub(crate) members: Vec<Member>,
-    /// The EL's canonical chain: `[B* − 1, B*]` (just `[B*]` when `B* = 0`).
+    /// The EL's canonical chain: `[S − 1, S]` (just `[S]` when `S = 0`), S the Etna start.
     pub(crate) el_chain: Vec<Header>,
     /// The `InitChain` request CometBFT sends for this genesis.
     pub(crate) request: InitChain,
@@ -145,7 +145,7 @@ impl Fixture {
         let params = spec.params.clone();
 
         let el_chain = el_chain();
-        let b_star = el_chain.last().expect("the EL chain holds B*");
+        let b_star = el_chain.last().expect("the EL chain holds the Etna start block");
         let genesis = GenesisRecord {
             committee_config_hash: committee::committee_config_hash(&params),
             genesis_height: spec.genesis_height,
@@ -244,7 +244,7 @@ impl Fixture {
         self.witness = witness;
     }
 
-    /// `H*`, the genesis anchor's L2 block hash.
+    /// The start hash, the Etna start block's L2 block hash.
     pub(crate) fn genesis_hash(&self) -> B256 {
         self.genesis.genesis_hash
     }
@@ -256,7 +256,7 @@ impl Fixture {
 
     /// The genesis Inbox storage with the last checkpoint moved to `last_checkpoint_height`
     /// with the bootstrap committee unchanged. Its hash is the local chain's block there in tests
-    /// that move the committed state with `jump`: the genesis hash at `B*`, a
+    /// that move the committed state with `jump`: the start hash at the Etna start S, a
     /// [`committed_block`] above it.
     pub(crate) fn inbox_with(&self, last_checkpoint_height: u64) -> InboxStorage {
         let hash = if last_checkpoint_height == self.genesis.genesis_height {
@@ -360,7 +360,7 @@ impl Fixture {
 
     /// The `AppState` a correct `InitChain` persists for this genesis.
     pub(crate) fn expected_state(&self) -> AppState {
-        let b_star = self.el_chain.last().expect("the EL chain holds B*");
+        let b_star = self.el_chain.last().expect("the EL chain holds the Etna start block");
         let grandparent_timestamp = if self.el_chain.len() > 1 {
             self.el_chain[self.el_chain.len() - 2].timestamp
         } else {
@@ -382,7 +382,7 @@ impl Fixture {
                 timestamp: b_star.timestamp,
                 gas_limit: b_star.gas_limit,
                 gas_used: b_star.gas_used,
-                base_fee: b_star.base_fee_per_gas.expect("B* has a base fee"),
+                base_fee: b_star.base_fee_per_gas.expect("the Etna start block has a base fee"),
                 difficulty: b_star.difficulty,
                 grandparent_timestamp,
             },
@@ -413,8 +413,9 @@ impl Fixture {
 
     /// The state of a store a checkpoint import installed at `floor` and that has since
     /// committed up to `head` (`floor <= head`), and the EL chain serving it: the fixture chain
-    /// up to `B*`, then a [`committed_block`] at every later height up to `head`. The execution
-    /// floor names that chain's block at `floor`; the validator state advances without updates.
+    /// up to the Etna start S, then a [`committed_block`] at every later height up to `head`. The
+    /// execution floor names that chain's block at `floor`; the validator state advances
+    /// without updates.
     pub(crate) fn imported_state(&self, floor: u64, head: u64) -> (AppState, Vec<Header>) {
         let mut chain = self.el_chain.clone();
         chain.extend((self.genesis.genesis_height + 1..=head).map(committed_block));
