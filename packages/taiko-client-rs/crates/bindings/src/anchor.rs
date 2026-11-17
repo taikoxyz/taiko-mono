@@ -306,7 +306,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -358,7 +357,6 @@ See the [wrapper's documentation](`ICheckpointStoreInstance`) for more details.*
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -375,7 +373,6 @@ See the [wrapper's documentation](`ICheckpointStoreInstance`) for more details.*
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -6755,7 +6752,6 @@ function withdraw(address _token, address _to) external;
         #[allow(missing_docs)]
         withdraw(withdrawCall),
     }
-    #[automatically_derived]
     impl AnchorCalls {
         /// All the selectors of this enum.
         ///
@@ -7585,7 +7581,6 @@ function withdraw(address _token, address _to) external;
         #[allow(missing_docs)]
         ZERO_VALUE(ZERO_VALUE),
     }
-    #[automatically_derived]
     impl AnchorErrors {
         /// All the selectors of this enum.
         ///
@@ -8113,7 +8108,6 @@ function withdraw(address _token, address _to) external;
         #[allow(missing_docs)]
         Withdrawn(Withdrawn),
     }
-    #[automatically_derived]
     impl AnchorEvents {
         /// All the selectors of this enum.
         ///
@@ -8400,7 +8394,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -8497,7 +8490,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -8652,7 +8644,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,

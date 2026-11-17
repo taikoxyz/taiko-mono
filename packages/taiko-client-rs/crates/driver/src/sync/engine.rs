@@ -319,14 +319,9 @@ async fn fetch_block_by_number<R: EnginePayloadRpc>(
 mod tests {
     use super::*;
     use alloy::primitives::{Address, B256, Bloom, Bytes, U256};
-    use alloy_consensus::proofs::{calculate_withdrawals_root, ordered_trie_root_with_encoder};
     use alloy_eips::eip4895::Withdrawal;
-    use alloy_primitives::bytes::BufMut;
     use alloy_rpc_types_engine::ExecutionPayloadV2;
-    use protocol::shasta::{
-        PayloadAttributesInput, build_payload_attributes,
-        constants::{TAIKO_DEVNET_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID},
-    };
+    use protocol::shasta::{PayloadAttributesInput, build_payload_attributes};
 
     fn sample_payload(timestamp: u64) -> ExecutionPayloadV1 {
         ExecutionPayloadV1 {
@@ -347,93 +342,91 @@ mod tests {
         }
     }
 
-    fn sample_envelope_v1(timestamp: u64, block_value: U256) -> ExecutionPayloadEnvelopeV2 {
-        ExecutionPayloadEnvelopeV2 {
-            execution_payload: ExecutionPayloadFieldV2::V1(sample_payload(timestamp)),
+    fn sample_envelope(block_value: U256) -> ExecutionPayloadEnvelopeV5 {
+        ExecutionPayloadEnvelopeV5 {
+            execution_payload: ExecutionPayloadV3 {
+                payload_inner: ExecutionPayloadV2 {
+                    payload_inner: sample_payload(123),
+                    withdrawals: vec![Withdrawal {
+                        index: 0,
+                        validator_index: 1,
+                        address: Address::from([2u8; 20]),
+                        amount: 3,
+                    }],
+                },
+                blob_gas_used: 6,
+                excess_blob_gas: 7,
+            },
             block_value,
+            blobs_bundle: Default::default(),
+            should_override_builder: false,
+            execution_requests: Default::default(),
         }
     }
 
-    fn sample_envelope_v2(timestamp: u64, block_value: U256) -> ExecutionPayloadEnvelopeV2 {
-        ExecutionPayloadEnvelopeV2 {
-            execution_payload: ExecutionPayloadFieldV2::V2(ExecutionPayloadV2 {
-                payload_inner: sample_payload(timestamp),
-                withdrawals: vec![],
-            }),
-            block_value,
-        }
+    #[tokio::test]
+    async fn apply_payload_forwards_complete_payload_and_header_difficulty() {
+        let envelope = sample_envelope(U256::from(u64::MAX));
+        let engine = ScriptedEngine { envelope: Some(envelope.clone()), ..scripted_happy_engine() };
+
+        apply_payload_internal(
+            &engine,
+            &sample_attributes(),
+            sample_parent_hash(),
+            Some(sample_finalized_hash()),
+        )
+        .await
+        .expect("u64 header difficulty must be accepted");
+
+        assert_eq!(
+            engine.calls()[2],
+            EngineCall::NewPayload {
+                payload: Box::new(envelope.execution_payload),
+                header_difficulty: u64::MAX,
+                parent_beacon_block_root: sample_parent_beacon_block_root(),
+            }
+        );
     }
 
-    #[test]
-    fn derive_payload_sidecar_matches_roots() {
-        let transactions =
-            vec![Bytes::from_static(&[0x01, 0x23]), Bytes::from_static(&[0x45, 0x67])];
-        let withdrawals = vec![Withdrawal {
-            index: 0,
-            validator_index: 1,
-            address: Address::from([2u8; 20]),
-            amount: 3,
-        }];
-
-        let payload_v1 = ExecutionPayloadV1 {
-            parent_hash: B256::from(U256::from(10u64)),
-            fee_recipient: Address::from([1u8; 20]),
-            state_root: B256::from(U256::from(2u64)),
-            receipts_root: B256::from(U256::from(3u64)),
-            logs_bloom: Bloom::default(),
-            prev_randao: B256::from(U256::from(4u64)),
-            block_number: 7,
-            gas_limit: 30_000_000,
-            gas_used: 0,
-            timestamp: 123,
-            extra_data: Bytes::new(),
-            base_fee_per_gas: U256::from(1u64),
-            block_hash: B256::from(U256::from(42u64)),
-            transactions: transactions.clone(),
+    #[tokio::test]
+    async fn apply_payload_rejects_header_difficulty_overflow_before_submission() {
+        let engine = ScriptedEngine {
+            envelope: Some(sample_envelope(U256::from(u64::MAX) + U256::from(1))),
+            ..scripted_happy_engine()
         };
 
-        let payload_input = ExecutionPayloadInputV2 {
-            execution_payload: payload_v1,
-            withdrawals: Some(withdrawals.clone()),
-        };
+        let err = apply_payload_internal(
+            &engine,
+            &sample_attributes(),
+            sample_parent_hash(),
+            Some(sample_finalized_hash()),
+        )
+        .await
+        .unwrap_err();
 
-        let sidecar = derive_payload_sidecar(&payload_input, None);
-
-        let expected_tx_root =
-            ordered_trie_root_with_encoder(&transactions, |item, buf| buf.put_slice(item));
-        assert_eq!(sidecar.tx_hash, expected_tx_root);
-
-        let expected_withdrawals_root = calculate_withdrawals_root(&withdrawals);
-        assert_eq!(sidecar.withdrawals_hash, Some(expected_withdrawals_root));
-        assert_eq!(sidecar.header_difficulty, None);
-        assert_eq!(sidecar.taiko_block, Some(true));
+        assert!(matches!(err, EngineSubmissionError::Provider(reason)
+            if reason == "engine blockValue exceeds u64"));
+        assert_eq!(engine.calls(), vec![attrs_call(), get_payload_call()]);
     }
 
-    #[test]
-    fn unzen_block_value_becomes_header_difficulty() {
-        let envelope = sample_envelope_v1(0, U256::from(42u64));
+    #[tokio::test]
+    async fn apply_payload_rejects_missing_parent_beacon_root_before_submission() {
+        let engine = scripted_happy_engine();
+        let mut attributes = sample_attributes();
+        attributes.payload_attributes.parent_beacon_block_root = None;
 
-        let (_, sidecar, _, _) = envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, envelope);
+        let err = apply_payload_internal(
+            &engine,
+            &attributes,
+            sample_parent_hash(),
+            Some(sample_finalized_hash()),
+        )
+        .await
+        .unwrap_err();
 
-        assert_eq!(sidecar.header_difficulty, Some(U256::from(42u64)));
-    }
-
-    #[test]
-    fn pre_unzen_block_value_is_not_reused_as_header_difficulty() {
-        let envelope = sample_envelope_v1(0, U256::from(42u64));
-
-        let (_, sidecar, _, _) = envelope_into_submission(TAIKO_MAINNET_CHAIN_ID, envelope);
-
-        assert_eq!(sidecar.header_difficulty, None);
-    }
-
-    #[test]
-    fn unzen_block_value_becomes_header_difficulty_for_v2_envelope() {
-        let envelope = sample_envelope_v2(0, U256::from(42u64));
-
-        let (_, sidecar, _, _) = envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, envelope);
-
-        assert_eq!(sidecar.header_difficulty, Some(U256::from(42u64)));
+        assert!(matches!(err, EngineSubmissionError::Provider(reason)
+            if reason == "payload build omitted parent beacon block root"));
+        assert_eq!(engine.calls(), vec![attrs_call(), get_payload_call()]);
     }
 
     #[test]
@@ -498,7 +491,7 @@ mod tests {
     }
 
     /// Which engine RPC a scripted call hit, in production sequence order.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     enum EngineCall {
         ForkchoiceWithAttributes {
             head: B256,
@@ -511,12 +504,9 @@ mod tests {
             payload_id: PayloadId,
         },
         NewPayload {
-            block_hash: B256,
-            block_number: u64,
-            tx_hash: B256,
-            withdrawals_hash: Option<B256>,
-            header_difficulty: Option<U256>,
-            taiko_block: Option<bool>,
+            payload: Box<ExecutionPayloadV3>,
+            header_difficulty: u64,
+            parent_beacon_block_root: B256,
         },
         PromotionForkchoice {
             head: B256,
@@ -535,7 +525,7 @@ mod tests {
     struct ScriptedEngine {
         calls: std::sync::Mutex<Vec<EngineCall>>,
         attributes_forkchoice: Option<ForkchoiceUpdated>,
-        envelope: Option<ExecutionPayloadEnvelopeV2>,
+        envelope: Option<ExecutionPayloadEnvelopeV5>,
         new_payload: Option<PayloadStatus>,
         promotion_forkchoice: Option<ForkchoiceUpdated>,
         readback_block: Option<RpcBlock<TxEnvelope>>,
@@ -557,11 +547,7 @@ mod tests {
 
     #[async_trait]
     impl EnginePayloadRpc for ScriptedEngine {
-        fn chain_id(&self) -> u64 {
-            TAIKO_DEVNET_CHAIN_ID
-        }
-
-        async fn forkchoice_updated_v2(
+        async fn forkchoice_updated_v3(
             &self,
             state: ForkchoiceState,
             attrs: Option<TaikoPayloadAttributes>,
@@ -589,26 +575,24 @@ mod tests {
             }
         }
 
-        async fn get_payload_v2(
+        async fn get_payload_v5(
             &self,
             payload_id: PayloadId,
-        ) -> Result<ExecutionPayloadEnvelopeV2, EngineSubmissionError> {
+        ) -> Result<ExecutionPayloadEnvelopeV5, EngineSubmissionError> {
             self.record(EngineCall::GetPayload { payload_id });
             self.envelope.clone().ok_or_else(|| Self::unscripted("getPayload"))
         }
 
-        async fn new_payload_v2(
+        async fn new_payload_v4(
             &self,
-            payload: &ExecutionPayloadInputV2,
-            sidecar: &TaikoExecutionDataSidecar,
+            payload: &ExecutionPayloadV3,
+            header_difficulty: u64,
+            parent_beacon_block_root: B256,
         ) -> Result<PayloadStatus, EngineSubmissionError> {
             self.record(EngineCall::NewPayload {
-                block_hash: payload.execution_payload.block_hash,
-                block_number: payload.execution_payload.block_number,
-                tx_hash: sidecar.tx_hash,
-                withdrawals_hash: sidecar.withdrawals_hash,
-                header_difficulty: sidecar.header_difficulty,
-                taiko_block: sidecar.taiko_block,
+                payload: Box::new(payload.clone()),
+                header_difficulty,
+                parent_beacon_block_root,
             });
             self.new_payload.clone().ok_or_else(|| Self::unscripted("newPayload"))
         }
@@ -622,7 +606,7 @@ mod tests {
         }
     }
 
-    /// Payload attributes for block 7, matching [`sample_envelope_v1`]'s block number.
+    /// Payload attributes for block 7, matching [`sample_envelope`]'s block number.
     fn sample_attributes() -> TaikoPayloadAttributes {
         let mut attributes = build_payload_attributes(PayloadAttributesInput {
             beneficiary: Address::from([1u8; 20]),
@@ -637,7 +621,7 @@ mod tests {
             l1_block_hash: Some(B256::ZERO),
             is_forced_inclusion: false,
             signature: [0; 65],
-            parent_beacon_block_root: None,
+            parent_beacon_block_root: Some(sample_parent_beacon_block_root()),
             anchor_transaction: None,
         });
         attributes.l1_origin.build_payload_args_id = *expected_payload_id().0;
@@ -664,6 +648,11 @@ mod tests {
     /// Finalized hash supplied to the promotion forkchoice.
     fn sample_finalized_hash() -> B256 {
         B256::from(U256::from(20u64))
+    }
+
+    /// Beacon root supplied in payload attributes and forwarded with newPayload.
+    fn sample_parent_beacon_block_root() -> B256 {
+        B256::from(U256::from(30u64))
     }
 
     /// Payload id derived by the driver before contacting the engine.
@@ -701,15 +690,10 @@ mod tests {
 
     /// Expected newPayload log entry: the block hash advertised by getPayload.
     fn new_payload_call() -> EngineCall {
-        let (_, sidecar, block_hash, block_number) =
-            envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, sample_envelope_v1(0, U256::ZERO));
         EngineCall::NewPayload {
-            block_hash,
-            block_number,
-            tx_hash: sidecar.tx_hash,
-            withdrawals_hash: sidecar.withdrawals_hash,
-            header_difficulty: sidecar.header_difficulty,
-            taiko_block: sidecar.taiko_block,
+            payload: Box::new(sample_envelope(U256::ZERO).execution_payload),
+            header_difficulty: 0,
+            parent_beacon_block_root: sample_parent_beacon_block_root(),
         }
     }
 
@@ -734,7 +718,7 @@ mod tests {
                 PayloadStatusEnum::Valid,
                 Some(engine_payload_id()),
             )),
-            envelope: Some(sample_envelope_v1(0, U256::ZERO)),
+            envelope: Some(sample_envelope(U256::ZERO)),
             new_payload: Some(PayloadStatus::from_status(PayloadStatusEnum::Valid)),
             promotion_forkchoice: Some(forkchoice_response(PayloadStatusEnum::Valid, None)),
             readback_block: Some(sample_readback_block(sample_block_hash())),

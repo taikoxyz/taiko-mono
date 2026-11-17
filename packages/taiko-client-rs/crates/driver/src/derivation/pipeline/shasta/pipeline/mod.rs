@@ -982,6 +982,7 @@ mod tests {
             min_base_fee_to_clamp: min_base_fee_for_chain(TAIKO_MAINNET_CHAIN_ID),
             chain_id: TAIKO_MAINNET_CHAIN_ID,
             initial_proposal_id: U256::ZERO,
+            replay_parent: None,
         };
 
         let mut parent_block = RpcBlock::<TxEnvelope>::default();

@@ -285,7 +285,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -337,7 +336,6 @@ See the [wrapper's documentation](`IBondManagerInstance`) for more details.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -354,7 +352,6 @@ See the [wrapper's documentation](`IBondManagerInstance`) for more details.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -656,7 +653,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -708,7 +704,6 @@ See the [wrapper's documentation](`IForcedInclusionStoreInstance`) for more deta
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -725,7 +720,6 @@ See the [wrapper's documentation](`IForcedInclusionStoreInstance`) for more deta
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -3447,7 +3441,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -3499,7 +3492,6 @@ See the [wrapper's documentation](`IInboxInstance`) for more details.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -3516,7 +3508,6 @@ See the [wrapper's documentation](`IInboxInstance`) for more details.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -4098,7 +4089,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -4150,7 +4140,6 @@ See the [wrapper's documentation](`LibBlobsInstance`) for more details.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -4167,7 +4156,6 @@ See the [wrapper's documentation](`LibBlobsInstance`) for more details.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -15965,7 +15953,6 @@ function withdraw(address _to, uint64 _amount) external;
         #[allow(missing_docs)]
         withdraw(withdrawCall),
     }
-    #[automatically_derived]
     impl InboxCalls {
         /// All the selectors of this enum.
         ///
@@ -17316,7 +17303,6 @@ function withdraw(address _to, uint64 _amount) external;
         #[allow(missing_docs)]
         ZERO_VALUE(ZERO_VALUE),
     }
-    #[automatically_derived]
     impl InboxErrors {
         /// All the selectors of this enum.
         ///
@@ -18461,7 +18447,6 @@ function withdraw(address _to, uint64 _amount) external;
         #[allow(missing_docs)]
         WithdrawalRequested(WithdrawalRequested),
     }
-    #[automatically_derived]
     impl InboxEvents {
         /// All the selectors of this enum.
         ///
@@ -18845,7 +18830,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -18897,7 +18881,6 @@ See the [wrapper's documentation](`InboxInstance`) for more details.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -19177,7 +19160,6 @@ See the [wrapper's documentation](`InboxInstance`) for more details.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,

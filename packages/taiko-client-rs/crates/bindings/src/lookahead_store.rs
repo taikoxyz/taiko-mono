@@ -518,7 +518,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -570,7 +569,6 @@ See the [wrapper's documentation](`IBlacklistInstance`) for more details.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -587,7 +585,6 @@ See the [wrapper's documentation](`IBlacklistInstance`) for more details.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -1831,7 +1828,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -1883,7 +1879,6 @@ See the [wrapper's documentation](`ILookaheadStoreInstance`) for more details.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -1900,7 +1895,6 @@ See the [wrapper's documentation](`ILookaheadStoreInstance`) for more details.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -12922,7 +12916,6 @@ function urc() external view returns (address);
         #[allow(missing_docs)]
         urc(urcCall),
     }
-    #[automatically_derived]
     impl LookaheadStoreCalls {
         /// All the selectors of this enum.
         ///
@@ -14348,7 +14341,6 @@ function urc() external view returns (address);
         #[allow(missing_docs)]
         ZERO_VALUE(ZERO_VALUE),
     }
-    #[automatically_derived]
     impl LookaheadStoreErrors {
         /// All the selectors of this enum.
         ///
@@ -15654,7 +15646,6 @@ function urc() external view returns (address);
         #[allow(missing_docs)]
         Upgraded(Upgraded),
     }
-    #[automatically_derived]
     impl LookaheadStoreEvents {
         /// All the selectors of this enum.
         ///
@@ -16031,7 +16022,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -16148,7 +16138,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -16455,7 +16444,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,

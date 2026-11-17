@@ -26,3 +26,6 @@ SNIPPET=$'\n\n[lib]\ndoctest = false\n\n[lints]\nrust.warnings = "allow"\n'
 if ! grep -q 'rust.warnings' "$CARGO_TOML"; then
   printf "%s" "$SNIPPET" >> "$CARGO_TOML"
 fi
+
+# Keep generated Rust compatible with strict linting on the workspace toolchain.
+python3 "$SCRIPT_DIR/normalize_bindings.py" crates/bindings

@@ -595,6 +595,7 @@ fn every_violation() -> Vec<RuleViolation> {
         RuleViolation::HeaderField { field: "number", expected: "1".into(), got: "2".into() },
         RuleViolation::ExtraDataOverflow { field: "generation", value: u64::MAX },
         RuleViolation::ExtraDataLength { len: 7 },
+        RuleViolation::ExtraDataEncoding("invalid encoding".into()),
         RuleViolation::BaseFeeUnavailable { parent: 1 },
         RuleViolation::AnchorRegressed { parent: 2, anchor: 1 },
         RuleViolation::AnchorBeforeActivation { anchor: 1, origin: 2 },
@@ -618,6 +619,7 @@ fn every_violation() -> Vec<RuleViolation> {
             RuleViolation::HeaderField { .. } |
             RuleViolation::ExtraDataOverflow { .. } |
             RuleViolation::ExtraDataLength { .. } |
+            RuleViolation::ExtraDataEncoding(_) |
             RuleViolation::BaseFeeUnavailable { .. } |
             RuleViolation::AnchorRegressed { .. } |
             RuleViolation::AnchorBeforeActivation { .. } |

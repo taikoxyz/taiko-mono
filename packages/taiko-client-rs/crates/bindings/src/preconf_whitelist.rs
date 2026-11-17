@@ -7707,7 +7707,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
         #[allow(missing_docs)]
         upgradeToAndCall(upgradeToAndCallCall),
     }
-    #[automatically_derived]
     impl PreconfWhitelistCalls {
         /// All the selectors of this enum.
         ///
@@ -8889,7 +8888,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
         #[allow(missing_docs)]
         ZERO_VALUE(ZERO_VALUE),
     }
-    #[automatically_derived]
     impl PreconfWhitelistErrors {
         /// All the selectors of this enum.
         ///
@@ -9464,7 +9462,6 @@ function upgradeToAndCall(address newImplementation, bytes memory data) external
         #[allow(missing_docs)]
         Upgraded(Upgraded),
     }
-    #[automatically_derived]
     impl PreconfWhitelistEvents {
         /// All the selectors of this enum.
         ///
@@ -9769,7 +9766,6 @@ See the [module-level documentation](self) for all the available methods.*/
         }
     }
     /// Instantiation and getters/setters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -9846,7 +9842,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         }
     }
     /// Function calls.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,
@@ -10084,7 +10079,6 @@ the bytecode concatenated with the constructor's ABI-encoded arguments.*/
         }
     }
     /// Event filters.
-    #[automatically_derived]
     impl<
         P: alloy_contract::private::Provider<N>,
         N: alloy_contract::private::Network,

@@ -2293,7 +2293,7 @@ mod tests {
         production::{BlockProductionPath, ProductionRouter},
         test_support::{
             MockProductionPath, mock_client_with_asserters, mock_client_with_l1_asserter,
-            sample_derivation_source, sample_payload,
+            sample_derivation_source, sample_engine_outcome, sample_payload,
         },
     };
 
@@ -3034,7 +3034,10 @@ mod tests {
         .await;
 
         assert!(
-            matches!(result, Ok(Ok(()))),
+            matches!(result, Ok(Ok(Some(completed)))
+                if completed.proposal_id == 2 && completed.l1_number == 2 &&
+                    completed.l1_hash == B256::from([0x12; 32]) && completed.height == 2 &&
+                    completed.hash == sample_engine_outcome(2).block_hash()),
             "orphaned log should be skipped so a later log in the same batch still processes",
         );
         assert_eq!(path.seen_tx_hashes(), vec![orphaned_tx_hash, later_tx_hash]);
@@ -3085,7 +3088,10 @@ mod tests {
         .await;
 
         assert!(
-            matches!(result, Ok(Ok(()))),
+            matches!(result, Ok(Ok(Some(completed)))
+                if completed.proposal_id == 1 && completed.l1_number == 1 &&
+                    completed.l1_hash == retry_block_hash && completed.height == 1 &&
+                    completed.hash == sample_engine_outcome(1).block_hash()),
             "recheck rpc errors should keep the log retryable until a later attempt succeeds",
         );
         assert_eq!(path.seen_tx_hashes(), vec![retry_tx_hash, retry_tx_hash]);
