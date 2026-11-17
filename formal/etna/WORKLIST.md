@@ -223,3 +223,33 @@ STF/authenticated L1 and atomic modeled correction are premises, not verified
 implementations. Full event histories and independent raw observations improve
 selected coverage; injected-fault detection does not cover all unknown defects.
 Stop at five, preserve this draft/evidence and return to hourly feedback-only.
+
+## Current authorized J01–J05 batch
+
+After completing H01–H05, the user authorized continuation and explicitly values
+checks that discriminate faults before later concrete code comparison. The
+[interleaving-boundaries plan](../../docs/superpowers/plans/2026-11-17-etna-interleaving-boundaries.md)
+selects exactly five additive finite-model increments from base2f863ad77:
+
+- [ ] J01 / S01,Q01 — two real modeled recoveries with an intervening overlapping landing, retained old public origins and genuine generation2 settlement.
+- [ ] J02 / T01 — two nodes learn a finalized generation at different times; require local revocation, continued lagging-node service and eventual old-session containment.
+- [ ] J03 / R01 — pending-funded two-slot minimum/tie admission through six lifecycle permutations, historical slash, snapshots and actual public zero withdrawal.
+- [ ] J04 / C01 — eight Nil/two-salt/two-slot crash/retry/delivery histories; exact stored signature reuse and legal late delivery remain distinct from new exposure.
+- [ ] J05 / P01 — twelve partial-resource-arrival histories, cached short landing, overlapping full-data refusal/acceptance, same-block checkpoint finality and actual resumed production.
+
+These are selected model/checking scopes. Source/API reconnaissance and exact
+planning do not count as model execution or passing tests. Each increment must
+supply complete positive raw histories, discriminating actual-source faults,
+same-copy restoration, meaningful omission controls and independent source and
+behavioral gates before publication. Per-program witnesses prevent an easier
+profile from hiding a missing harder history. Final counts are discovered and
+verified, not assumed from planned configuration names.
+
+All35 prior recursive models and423 default configurations remain fixed. Existing
+75 assessed shared obligations and concrete native/Forge results retain their
+historical execution identity until explicitly rerun. Broader S01/T01/C01/R01/P01/
+P02/Q01/Q02 and new D01 remain partial, OPEN or WAITING as applicable. No missing
+client/EL/guest/migration interface is synthesized to create a result. Planning
+and catalog integration are not extra technical increments. Stop at five after
+independent final gates/retrospective; no sixth, production/SPEC/Notion edits,
+merge/ready conversion, key/signing or live operations are authorized.
