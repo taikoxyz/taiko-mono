@@ -3037,3 +3037,74 @@ The repository-root .gitleaksignore records only those18 original
 7a550c1c3 commit/file/rule/line fingerprints, without path/value wildcards.
 Existing workflow and rule configuration are unchanged. No scanner was invoked
 locally; a later hosted result must verify this integration separately.
+
+## Adversarial-coverage batch — H02 actual unsigned weighted handovers
+
+The [new native lane](conformance/COMET_HANDOVER.md) adds five six-transition
+programs over actual stock CometBFT v0.40.0 /
+0880b4d378f347ab16e54ec677ff50d803f37d62. Public A=B/B=-B/C=2B identities
+are fixed; MakeGenesisState at InitialHeight11 starts A3/B1, and actual returned
+State feeds each updateState call through height16. Programs cover no change,
+unequal powers, removal/addition, full replacement and a second update at12
+before the first update at11 becomes current at13. A byte-pinned bridge only
+forwards the private operation; an external module imports production packages
+without compiling upstream test-package key-generation globals.
+
+Before native execution, source-independent literal arithmetic and protobuf/
+Merkle encoding were frozen: literals SHA256
+d8b9e9a2059cf7ef2a2a3d5b5f1b1a1ba668f85c7d1512fe891c485971f20f09;
+derivation4b85ada31a77633a54a16ab9e117ad2d41a20eea50b7cbfb2380404d3402b5e8.
+The independent reviewer checks all105 normal/two-fault state rows and210 hash
+projections; the behavioral verifier separately derives35 normal rows/70 hashes.
+Expectations do not call the actual transition, ValidatorSet constructor,
+GetProposer or Hash as their oracle. The complete stored proposer object matters:
+it need not equal the member with greatest final priority. Signed negative-floor
+centering can preserve a nonzero priority sum; the expected table retains it.
+
+Author execution has five phases: normal, omitted actual priority increment,
+actual restoration, premature current-set activation and actual restoration.
+All25 exact leaves,150 transitions and175 full state observations match their
+predeclared normal/fault results, including actual MakeBlock current/next hashes.
+A compiler/setup failure or arbitrary diagnostic never qualifies as sensitivity.
+The independent tester chooses the different actual LastHeightValidatorsChanged
+H+1 versus H+2 fault: unchanged remains green, all4 update programs produce only
+the exact predeclared change-height differences; normal/restored5/5 pass.
+Complete raw receipts and positive terminals remain mandatory.
+
+All1659 original upstream entries and the one generated bridge are audited
+before/after execution. Native module/fixture/generated modfile and selected Go
+tools are guarded, with the existing offline namespace/supervisor and the same
+canonical cache/lock. Actual source restores on the same private tree, followed
+by actual normal reruns. No new dependency, signing, live operation or production
+source change is involved. Prior serialized State.Bytes and update/header/ABCI
+inputs are checked unchanged; private unexported caches are outside that claim.
+The guide's serialized-state scope was clarified before author execution;
+only table formatting happened afterward. All code, literals and pins stay exact,
+and independent native execution uses the final guide bytes. Historical author
+input records retain the pre-format guide hash.
+
+Six collector regression tests and the full165-test conformance suite pass.
+Independent source/spec/quality review and independent behavioral/source/raw
+verification pass. Existing shared mutation inventory remains69; the native
+source faults are separate evidence, not newly added shared obligations.
+Exact final whole-batch Python/TLC counts and hosted CI remain later gates.
+
+### H01–H02 cross-task reflection
+
+The prior false-green risk was testing coherent prepared objects or two getters
+backed by the same write. H01 replaces that agreement with public registration
+history, literal principal/cash/history observations and a separately chosen
+confirmation write omission. H02 replaces independently seeded validator states
+with actual consecutive stock updates and checks every intermediate result.
+An independent change-height fault demonstrates a field that could be wrong
+while all member hashes remain coherent. These are substantive coverage changes,
+not evidence that the remaining protocol is correct. No natural protocol defect
+is established by the selected executions.
+
+The strongest remaining shared premise is the boundary input itself: H01's
+initialized/mock Inbox snapshot and exact-transfer token; H02's unsigned genesis/
+ABCI updates and empty structural commit. Neither authenticates the real
+node/EL/guest/L1 interface or proves commit admission. H02 selected powers do not
+exercise rescaling, clipping or overflow. R01 and K02 therefore remain OPEN.
+Next H03 must compose actual proof expiry, resource loss, fresh recapture and
+resumption, rather than infer progress from a refused stale proof alone.

@@ -644,3 +644,14 @@ event/root observers detect actual pending-deduction and confirmation-guard
 omissions; original/restored runs pass. Broader token callbacks, capacity,
 displacement, real Inbox snapshots and deployment remain explicit premises or
 open obligations. Historical older test-key setups retain their own attribution.
+
+### H02: unsigned weighted consecutive Comet handovers
+
+The [weighted handover lane](conformance/COMET_HANDOVER.md) executes actual
+stock MakeGenesisState/updateState/MakeBlock over five consecutive six-height
+programs. Independently frozen literal members, powers, priorities, stored
+proposer, change heights and header-hash projections distinguish real priority
+increment and premature-activation omissions. An independent change-height
+fault checks metadata that memberships and hashes alone cannot expose.
+Unsigned structural inputs do not establish commit admission, rounds, network
+consensus or authenticated registry derivation; broader K02 remains OPEN.
