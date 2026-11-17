@@ -40,6 +40,8 @@ use crate::{
 mod checkpoint;
 /// In-memory retention of independently verified committee witnesses.
 mod committee_cache;
+/// Recovery of committed execution payloads after an EL restart.
+mod execution_recovery;
 /// The `FinalizeBlock` and `Commit` handlers.
 mod finalize;
 /// `Info`, `Query` and `CheckTx` handlers.
@@ -292,7 +294,7 @@ pub struct App<L: L1Source, E: Engine> {
     /// judged here ([`App::confirm_anchor`]).
     l1: Arc<L>,
     /// The execution engine.
-    engine: E,
+    engine: Arc<E>,
     /// The chain parameters (validated).
     params: ChainParams,
     /// Where [`App::state`] is persisted.
@@ -329,6 +331,8 @@ pub struct App<L: L1Source, E: Engine> {
     /// facts. These reads are proposer-independent; expected headers, builds and singleton
     /// verdicts are derived anew for every request's certified proposer.
     preparation_cache: Arc<Mutex<preparation_cache::PreparationCache>>,
+    /// One context-bound Prepare parent replay surviving cancellation of its waiting round.
+    execution_repair: Mutex<Option<execution_recovery::OwnedExecutionRepair>>,
     /// Whether the block `FinalizeBlock` last decided was judged here (its `ProcessProposal`
     /// verdict was cached), rather than replayed or block-synced; gates `Commit`'s prefetches.
     decided_live: bool,
@@ -425,6 +429,7 @@ pub(super) fn classify(error: &AbciError) -> ErrorClass {
         AbciError::Store(
             StoreError::Corrupt { .. } |
             StoreError::CometConflict(_) |
+            StoreError::ExecutionConflict(_) |
             StoreError::ValStateConflict(_) |
             StoreError::ValUpdatesConflict(_) |
             StoreError::BootstrapConflict,
@@ -527,7 +532,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let trust = trust::TrustHandle::new(state.as_ref())?;
         let app = Self {
             l1: Arc::new(l1),
-            engine,
+            engine: Arc::new(engine),
             params,
             store,
             opts,
@@ -538,6 +543,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             committee_cache: Mutex::default(),
             committee_prefetch: Mutex::default(),
             preparation_cache: Arc::default(),
+            execution_repair: Mutex::default(),
             decided_live: false,
             halt: None,
             superseded: false,
@@ -585,7 +591,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// The execution engine.
     pub fn engine(&self) -> &E {
-        &self.engine
+        self.engine.as_ref()
     }
 
     /// The chain parameters.
@@ -733,7 +739,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         within(
             what,
             opts.elsync_timeout.saturating_add(http_timeout_for(opts.engine_timeout)),
-            ensure_block(&self.engine, number, hash, opts.elsync_timeout, ELSYNC_POLL),
+            ensure_block(self.engine(), number, hash, opts.elsync_timeout, ELSYNC_POLL),
         )
         .await
     }

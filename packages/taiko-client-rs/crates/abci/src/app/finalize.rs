@@ -104,6 +104,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.check_trust_candidate(height, hash, next.last_comet_hash, &next.val_state)?;
         let finalized = next.anchor.inbox.last_checkpoint_hash;
         self.settle(height, &validated, finalized).await?;
+        self.store.save_execution_block(&validated.block)?;
         self.decided_live = !cold;
 
         tracing::debug!(
@@ -224,7 +225,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// Handles `Commit`: persists the state the last `FinalizeBlock` derived and makes it the
-    /// committed state.
+    /// committed state. Retires owned execution repair and returns any delivered failure before
+    /// writing a new committed record or state.
     ///
     /// Clears the `ProcessProposal` cache, the proposal reads (but for the entry at the committed
     /// cursor, whose authenticated bytes remain reusable) and the halt reason, drops a cached
@@ -242,6 +244,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Errors: [`AbciError::NothingToCommit`] without a pending state; [`AbciError::Store`]
     /// when it cannot be persisted (it then stays pending).
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {
+        self.clear_execution_repair().map_err(|error| {
+            if !matches!(error, AbciError::SafetyHalt(_) | AbciError::Store(_)) &&
+                super::classify(&error) == super::ErrorClass::Contradiction
+            {
+                super::contradiction_halt(error)
+            } else {
+                error
+            }
+        })?;
         let pending = self.pending.as_ref().ok_or(AbciError::NothingToCommit)?;
         self.store.save_comet_hash(pending.last_height, pending.last_comet_hash)?;
         if pending.genesis.is_grid_height(pending.last_height) {
@@ -333,6 +344,17 @@ impl<L: L1Source, E: Engine> App<L, E> {
                         continue;
                     }
                     Settled::Syncing => {
+                        // An EL can lose the already committed suffix after ProcessProposal's
+                        // ACCEPT. Re-feed that auxiliary archive before retrying the decided
+                        // payload; older stores without it retain their peer-sync path.
+                        if let Some(state) = &self.state &&
+                            matches!(
+                                self.store.load_execution_block(state.last_height)?,
+                                crate::store::Record::Valid(_)
+                            )
+                        {
+                            self.nudge_committed_head(height, state).await?;
+                        }
                         let nudge =
                             self.engine.forkchoice(hash, self.trusted_safe(hash), finalized);
                         let reason = match self.el_call(height, FCU, nudge).await? {
@@ -450,7 +472,27 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// answers, the caller re-reads the local chain on its next attempt. `INVALID` and a
     /// non-retryable engine error halt ([`App::el_call`]); a retryable failure or an elapsed
     /// deadline is part of the description.
-    async fn nudge_committed_head(
+    pub(super) async fn nudge_committed_head(
+        &self,
+        height: u64,
+        state: &AppState,
+    ) -> Result<String, AbciError> {
+        match self.restore_committed_execution(state).await {
+            Ok(_) => {}
+            Err(error) if super::classify(&error) == super::ErrorClass::MissingData => {
+                tracing::warn!(height, %error, "committed execution recovery waiting for EL");
+            }
+            Err(error) if super::classify(&error) == super::ErrorClass::Contradiction => {
+                return Err(super::contradiction_halt(error));
+            }
+            Err(error) => return Err(error),
+        }
+        self.point_committed_head(height, state).await
+    }
+
+    /// Sends only the trusted committed-head FCU after synchronous or owned payload repair.
+    /// Prepare waiters call this themselves so no background task can race a later decided head.
+    pub(super) async fn point_committed_head(
         &self,
         height: u64,
         state: &AppState,
@@ -536,7 +578,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 Ok(Err(e)) => return Err(invalid_block(height, &Rejection::ForcedBuild(e))),
                 Err(_) => format!("timed out after {limit:?}"),
             };
-            let diagnostic = format!("{}: {reason}", cannot_build_on(&state.parent));
+            let ready = self.execution_parent_ready(state).await?;
+            let diagnostic = format!(
+                "{}: {reason}; committed execution parent available: {ready}",
+                cannot_build_on(&state.parent)
+            );
             backoff.wait(FORCED_SKIP_PROBE, &diagnostic).await;
         }
     }

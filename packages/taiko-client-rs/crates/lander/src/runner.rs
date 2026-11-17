@@ -508,20 +508,9 @@ impl Runner {
             tracing::info!(transaction_hash=%transaction.hash,pending_nonce=transaction.nonce,"lander waiting for outstanding nonce; no fee replacement");
             return Ok(StepOutcome::Waiting);
         }
-        if !overlapping_frontier(&snapshot, &job.request.batch)? {
-            // Already-attempted bytes may still exist at another peer. Allocate no new nonce and
-            // avoid spending gas rebroadcasting a job that the current checkpoint made obsolete.
-            tracing::warn!(transaction_hash=%transaction.hash,pending_nonce=transaction.nonce,"lander outstanding nonce unresolved after competing checkpoint; operator reconciliation may be required");
-            return Ok(StepOutcome::Waiting);
-        }
-        let (number, hash) = job_reference(&job.request.batch)?;
-        if let Err(error) = self.l1.validate_reference(&snapshot, number, hash).await {
-            if matches!(error, LanderError::Stale(_)) {
-                tracing::warn!(transaction_hash=%transaction.hash,pending_nonce=transaction.nonce,"lander dropped transaction has expired reference; outstanding nonce requires operator reconciliation");
-                return Ok(StepOutcome::Waiting);
-            }
-            return Err(error);
-        }
+        // Pending owns this nonce even if another landing completed the job or its reference
+        // expired. Resubmit only the journal's identical bytes: a canonical revert spends the
+        // nonce safely, while a crash before the first send must not strand it forever.
         self.broadcast(&transaction).await?;
         Ok(StepOutcome::Waiting)
     }

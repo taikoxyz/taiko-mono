@@ -242,10 +242,10 @@ async fn cold_finalize_points_an_el_missing_the_checkpoint_block_at_the_committe
         let mut engine = validator.engine().state();
         let lost = engine.chain.split_off(&checkpoint_height);
         assert!(lost.contains_key(&checkpoint_height), "the checkpoint block is lost");
-        assert!(!engine.known.contains_key(&parent), "the EL does not hold the committed parent");
         for header in lost.values() {
             engine.known.remove(&header.hash_slow());
         }
+        assert!(!engine.known.contains_key(&parent), "the EL does not hold the committed parent");
         engine.backfill = lost;
         engine.forkchoice_script.push_back(Err(EngineError::Transport("down".into())));
     }
@@ -263,8 +263,10 @@ async fn cold_finalize_points_an_el_missing_the_checkpoint_block_at_the_committe
         engine_calls_since(&validator, before),
         [
             EngineCall::HeaderByNumber(checkpoint_height),
+            EngineCall::HeaderByNumber(validator.state().unwrap().last_height),
             nudge.clone(),
             EngineCall::HeaderByNumber(checkpoint_height),
+            EngineCall::HeaderByNumber(validator.state().unwrap().last_height),
             nudge,
             EngineCall::HeaderByNumber(checkpoint_height),
             EngineCall::NewPayload(hash),
@@ -1310,7 +1312,13 @@ async fn cold_forced_skip_failures_retry_or_halt() {
             Err(EngineError::BuildNotStarted(crate::engine::PayloadVerdict::Syncing)),
         ]);
         engine.build_script.push_back(Ok(env.block.clone()));
-        engine.delay_script.extend([Duration::ZERO, Duration::ZERO, slow]);
+        engine.delay_script.extend([
+            Duration::ZERO,
+            Duration::ZERO,
+            Duration::ZERO,
+            Duration::ZERO,
+            slow,
+        ]);
     }
     let parent = app.state().unwrap().parent.clone();
     let on_parent = format!("parent {} ({})", parent.number, parent.hash);

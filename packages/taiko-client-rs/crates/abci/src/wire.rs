@@ -89,9 +89,16 @@ mod tests {
     }
 }
 
-/// Native requests whose key-bearing InitChain cannot pass through tendermint-rs.
+/// Requests retaining native InitChain keys and uninterpreted Query/snapshot fields.
 pub mod request {
     pub use tendermint::v0_38::abci::request::*;
+    // These methods consume only Query.path or ignore their inputs entirely. Keep the stock
+    // protobuf domains rather than rejecting unused fields in tendermint-rs conversions.
+    pub use tendermint_proto::v0_38::abci::{
+        RequestApplySnapshotChunk as ApplySnapshotChunk,
+        RequestLoadSnapshotChunk as LoadSnapshotChunk, RequestOfferSnapshot as OfferSnapshot,
+        RequestQuery as Query,
+    };
     /// Stock InitChain with native tag5 validators and raw consensus key-type strings.
     #[derive(Clone, Debug, PartialEq)]
     pub struct InitChain {
@@ -143,7 +150,7 @@ pub enum WireError {
     Field(String),
 }
 
-/// Stock ABCI request with only key-bearing messages adapted.
+/// Stock ABCI request retaining native keys and the full domains of ignored fields.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Request {
     /// Stock Echo request.
@@ -222,8 +229,12 @@ pub enum Response {
 impl Request {
     /// Decodes an unframed stock ABCI request, retaining tag5 InitChain validators.
     pub fn decode(bytes: &[u8]) -> Result<Self, WireError> {
-        if let Some(raw) = InitEnvelope::decode(bytes)?.init {
-            return Ok(Self::InitChain(request::InitChain {
+        use WireRequestValue as Raw;
+        let value = WireRequest::decode(bytes)?
+            .value
+            .ok_or_else(|| WireError::Field("request value missing".into()))?;
+        Ok(match value {
+            Raw::InitChain(raw) => Self::InitChain(request::InitChain {
                 time: raw
                     .time
                     .ok_or_else(|| WireError::Field("genesis time missing".into()))?
@@ -240,28 +251,30 @@ impl Request {
                     .collect::<Result<_, _>>()?,
                 app_state_bytes: raw.app_state_bytes,
                 initial_height: raw.initial_height.try_into().map_err(field_error)?,
-            }));
-        }
-        let raw = tendermint_proto::v0_38::abci::Request::decode(bytes)?;
-        let typed = tendermint::v0_38::abci::Request::try_from(raw).map_err(field_error)?;
-        use tendermint::v0_38::abci::Request as Legacy;
-        Ok(match typed {
-            Legacy::Echo(value) => Self::Echo(value),
-            Legacy::Flush => Self::Flush,
-            Legacy::Info(value) => Self::Info(value),
-            Legacy::Query(value) => Self::Query(value),
-            Legacy::CheckTx(value) => Self::CheckTx(value),
-            Legacy::Commit => Self::Commit,
-            Legacy::ListSnapshots => Self::ListSnapshots,
-            Legacy::OfferSnapshot(value) => Self::OfferSnapshot(value),
-            Legacy::LoadSnapshotChunk(value) => Self::LoadSnapshotChunk(value),
-            Legacy::ApplySnapshotChunk(value) => Self::ApplySnapshotChunk(value),
-            Legacy::PrepareProposal(value) => Self::PrepareProposal(value),
-            Legacy::ProcessProposal(value) => Self::ProcessProposal(value),
-            Legacy::ExtendVote(value) => Self::ExtendVote(value),
-            Legacy::VerifyVoteExtension(value) => Self::VerifyVoteExtension(value),
-            Legacy::FinalizeBlock(value) => Self::FinalizeBlock(value),
-            Legacy::InitChain(_) => return Err(WireError::Field("unrecognized InitChain".into())),
+            }),
+            Raw::Echo(value) => Self::Echo(value.try_into().map_err(field_error)?),
+            Raw::Flush(_) => Self::Flush,
+            Raw::Info(value) => Self::Info(value.try_into().map_err(field_error)?),
+            Raw::Query(value) => Self::Query(value),
+            Raw::CheckTx(value) => Self::CheckTx(value.try_into().map_err(field_error)?),
+            Raw::Commit(_) => Self::Commit,
+            Raw::ListSnapshots(_) => Self::ListSnapshots,
+            Raw::OfferSnapshot(value) => Self::OfferSnapshot(value),
+            Raw::LoadSnapshotChunk(value) => Self::LoadSnapshotChunk(value),
+            Raw::ApplySnapshotChunk(value) => Self::ApplySnapshotChunk(value),
+            Raw::PrepareProposal(value) => {
+                Self::PrepareProposal(value.try_into().map_err(field_error)?)
+            }
+            Raw::ProcessProposal(value) => {
+                Self::ProcessProposal(value.try_into().map_err(field_error)?)
+            }
+            Raw::ExtendVote(value) => Self::ExtendVote(value.try_into().map_err(field_error)?),
+            Raw::VerifyVoteExtension(value) => {
+                Self::VerifyVoteExtension(value.try_into().map_err(field_error)?)
+            }
+            Raw::FinalizeBlock(value) => {
+                Self::FinalizeBlock(value.try_into().map_err(field_error)?)
+            }
         })
     }
 }
@@ -332,6 +345,29 @@ mod stock_wire_tests {
         assert_eq!(request.consensus_params.validator.unwrap().pub_key_types, ["secp256k1eth"]);
     }
     #[test]
+    fn request_oneof_selects_the_last_variant_before_native_field_validation() {
+        use tendermint_proto::v0_38::abci as pb;
+        let echo = pb::Request {
+            value: Some(pb::request::Value::Echo(pb::RequestEcho { message: "last".into() })),
+        }
+        .encode_to_vec();
+        let init = fixture("init_chain");
+        let init_then_echo = [init.as_ref(), echo.as_slice()].concat();
+        assert!(matches!(
+            Request::decode(&init_then_echo).unwrap(),
+            Request::Echo(value) if value.message == "last"
+        ));
+        let echo_then_init = [echo.as_slice(), init.as_ref()].concat();
+        assert!(matches!(Request::decode(&echo_then_init).unwrap(), Request::InitChain(_)));
+        // The superseded InitChain is syntactically valid but lacks required native fields.
+        assert!(matches!(
+            Request::decode(&[&[0x2a, 0][..], &echo].concat()).unwrap(),
+            Request::Echo(_)
+        ));
+        assert!(Request::decode(&[echo.as_slice(), &[0x2a, 0]].concat()).is_err());
+    }
+
+    #[test]
     fn emits_exact_stock_finalize_block_validator_updates() {
         let value: serde_json::Value =
             serde_json::from_str(include_str!("../testdata/comet-wire.json")).unwrap();
@@ -364,12 +400,69 @@ fn field_error(error: impl std::fmt::Display) -> WireError {
     WireError::Field(error.to_string())
 }
 
-/// Reads only the key-bearing InitChain variant; all other request fields stay upstream.
+/// Selects the stock Request oneof before validating application-consumed fields.
+/// InitChain shares the oneof so a superseded native-key request cannot override the last tag.
 #[derive(Clone, PartialEq, Message)]
-struct InitEnvelope {
-    /// Stock Request.InitChain tag5.
-    #[prost(message, optional, tag = "5")]
-    init: Option<WireInit>,
+struct WireRequest {
+    /// Stock Request variants, including the native-key InitChain representation.
+    #[prost(
+        oneof = "WireRequestValue",
+        tags = "1, 2, 3, 5, 6, 8, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20"
+    )]
+    value: Option<WireRequestValue>,
+}
+
+/// Stock request variants with full protobuf fields and native InitChain validators.
+#[derive(Clone, PartialEq, prost::Oneof)]
+enum WireRequestValue {
+    /// Stock Echo request.
+    #[prost(message, tag = "1")]
+    Echo(tendermint_proto::v0_38::abci::RequestEcho),
+    /// Stock Flush request.
+    #[prost(message, tag = "2")]
+    Flush(tendermint_proto::v0_38::abci::RequestFlush),
+    /// Stock Info request.
+    #[prost(message, tag = "3")]
+    Info(tendermint_proto::v0_38::abci::RequestInfo),
+    /// Stock InitChain request.
+    #[prost(message, tag = "5")]
+    InitChain(WireInit),
+    /// Stock Query request.
+    #[prost(message, tag = "6")]
+    Query(tendermint_proto::v0_38::abci::RequestQuery),
+    /// Stock CheckTx request.
+    #[prost(message, tag = "8")]
+    CheckTx(tendermint_proto::v0_38::abci::RequestCheckTx),
+    /// Stock Commit request.
+    #[prost(message, tag = "11")]
+    Commit(tendermint_proto::v0_38::abci::RequestCommit),
+    /// Stock ListSnapshots request.
+    #[prost(message, tag = "12")]
+    ListSnapshots(tendermint_proto::v0_38::abci::RequestListSnapshots),
+    /// Stock OfferSnapshot request.
+    #[prost(message, tag = "13")]
+    OfferSnapshot(tendermint_proto::v0_38::abci::RequestOfferSnapshot),
+    /// Stock LoadSnapshotChunk request.
+    #[prost(message, tag = "14")]
+    LoadSnapshotChunk(tendermint_proto::v0_38::abci::RequestLoadSnapshotChunk),
+    /// Stock ApplySnapshotChunk request.
+    #[prost(message, tag = "15")]
+    ApplySnapshotChunk(tendermint_proto::v0_38::abci::RequestApplySnapshotChunk),
+    /// Stock PrepareProposal request.
+    #[prost(message, tag = "16")]
+    PrepareProposal(tendermint_proto::v0_38::abci::RequestPrepareProposal),
+    /// Stock ProcessProposal request.
+    #[prost(message, tag = "17")]
+    ProcessProposal(tendermint_proto::v0_38::abci::RequestProcessProposal),
+    /// Stock ExtendVote request.
+    #[prost(message, tag = "18")]
+    ExtendVote(tendermint_proto::v0_38::abci::RequestExtendVote),
+    /// Stock VerifyVoteExtension request.
+    #[prost(message, tag = "19")]
+    VerifyVoteExtension(tendermint_proto::v0_38::abci::RequestVerifyVoteExtension),
+    /// Stock FinalizeBlock request.
+    #[prost(message, tag = "20")]
+    FinalizeBlock(tendermint_proto::v0_38::abci::RequestFinalizeBlock),
 }
 /// Exact stock InitChain fields with native validator keys.
 #[derive(Clone, PartialEq, Message)]

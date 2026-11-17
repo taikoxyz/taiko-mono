@@ -216,8 +216,10 @@ pub(super) fn jump(
     let genesis_height = app.state().expect("initialized").genesis.genesis_height;
     {
         let mut engine = app.engine().state();
-        for number in genesis_height + 1..last {
-            engine.chain.entry(number).or_insert_with(|| committed_block(number));
+        for number in genesis_height + 1..=last {
+            let header =
+                engine.chain.entry(number).or_insert_with(|| committed_block(number)).clone();
+            engine.known.insert(header.hash_slow(), header);
         }
     }
     let state = app.state.as_mut().expect("initialized");
@@ -712,10 +714,12 @@ async fn proposal_unknown_certified_proposer_fails_closed() {
     prepare_request.proposer_address = account::Id::new([0xff; 20]);
     let engine_before = app.engine().calls();
     assert!(prepare(&mut app, prepare_request).await.is_empty());
+    let mut expected = engine_before;
+    expected.push(EngineCall::HeaderByNumber(app.state().unwrap().last_height));
     assert_eq!(
         app.engine().calls(),
-        engine_before,
-        "unknown proposer cannot build or reuse an EL result"
+        expected,
+        "unknown proposer performs only the committed-parent presence check"
     );
     assert_eq!(app.halt.as_deref(), Some("proposer_unknown"));
     let mut req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);

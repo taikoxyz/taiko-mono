@@ -7,8 +7,8 @@
       },
       "sources": {
         "contracts/layer2/core/Anchor.sol": {
-          "keccak256": "0xc3cf0828ee2ff14d082e3529b800b92af7893ca00808863bdaf579919aba1a6b",
-          "sha256": "d86983df46a9079262f3349cb173862b229d9d092ceb85919349bf61f4a4fad0"
+          "keccak256": "0x4f27119941c6da44fe94fc6999fd4c2dd044197ce6ae573009822eaab30336d5",
+          "sha256": "77295e20330e75989f5e1b6ad886549f1045a4555ab47205a3c136edc44efb72"
         },
         "contracts/layer2/core/Anchor_Layout.sol": {
           "keccak256": "0xe7450e755f951159dbdf802501e69cba30ae8ede05376fd4c72da49a69263b2e",
@@ -363,12 +363,12 @@
   },
   "files": {
     "Cargo.toml": "244923482f90da5db5ede551d5602ca529bc51023f389a82d66121559366cf7d",
-    "src/anchor.rs": "9a6c8fad832955f28639b1fc2c5594011b85dfecd56045452f043f4c27086376",
+    "src/anchor.rs": "8a96ff3cbb2759cc5e28f34293b0ff5a9e417e58053c5f8abf1862b39436889f",
     "src/inbox.rs": "2b0b4cea4eb30c5e716bb49b741b29335b0bbb747d4f356e79b006abe5029030",
     "src/lib.rs": "aca21e641ba36497b8fa37a02a58e31c11b7115952936d8ca0ed7d7161becfca",
     "src/preconf_whitelist.rs": "ddc304900edfa442c9d27aa9350201f73b5b6546e09893742614c0f8f4da8a73"
   },
   "foundryVersion": ["Commit SHA: 4072e48705af9d93e3c0f6e29e93b5e9a40caed8"],
   "generator": "script/gen_bindings.sh",
-  "protocolRevision": "ce4a50feee4f4134c1a094cb6da1f66f235fe9b4"
+  "protocolRevision": "c8c2e7c5e67945eafc37e7846d8fe03fece68bdd"
 }

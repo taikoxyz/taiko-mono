@@ -114,6 +114,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             ))),
             None => {
                 tracing::info!(number, %hash, "execution engine lacks the committed head; syncing");
+                self.restore_committed_execution(state).await?;
                 self.sync_el_to("EL sync to the committed head", number, hash).await
             }
         }
@@ -157,7 +158,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// preimage of [`App::val_state_preimage`]. Anything else (an unknown path, epoch or height,
     /// or any query before `InitChain`) answers code [`CODE_REJECTED`] with the reason in `log`.
     /// `height` is the last committed height. Callers authenticate the answers themselves.
-    pub(super) fn query(&self, req: request::Query) -> response::Query {
+    pub(super) fn query(&self, req: crate::wire::request::Query) -> response::Query {
         let height =
             self.state.as_ref().map_or(Height::from(0u32), |s| cometbft_height(s.last_height));
         match self.query_value(&req.path) {

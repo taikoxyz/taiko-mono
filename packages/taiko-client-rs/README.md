@@ -109,6 +109,19 @@ restarts and records the first safety failure, such as an unknown-execution-stat
 (`-38100`); repair its cause before restarting. An L1 header shape the node cannot parse makes
 `ProcessProposal` reject and `FinalizeBlock` wait, without a safety halt: upgrade the client.
 
+The app fsyncs a checksummed RLP execution body before acknowledging each finalized block,
+then publishes the committed AppState through the existing atomic barrier. After an EL restart,
+startup and proposal retries can re-feed a lost suffix from these local bodies without peers.
+Recovery authenticates the chain backward from the committed EL hash and replays forward with
+bounded memory; it never makes an uncommitted proposal canonical. Keep `execution-block-*.bin`
+alongside the app data. Bodies are retained for the full generation above its origin or imported
+execution floor: a landing alone does not prove the EL has flushed that checkpoint to disk.
+A fresh recovery or checkpoint import establishes a new boundary in a fresh app directory; keep
+older directories under the existing recovery retention policy. Existing app stores remain
+compatible, but heights committed before these bodies were recorded still need EL peer sync or
+operator-restored execution data. Missing or corrupt auxiliary bodies keep the request pending;
+missing state at the generation origin or import floor must be restored separately.
+
 Each landing record also holds the hash of the CometBFT validator state after its height: the
 validator set that signs the next height and the one after it, with their voting powers,
 proposer priorities and stored proposers (spec appendix A). The app computes that state with
@@ -195,6 +208,14 @@ Serves the ABCI++ application to a CometBFT node.
 | `--metrics.enabled` / `.addr` / `.port` | `METRICS_*`            | Prometheus metrics server (default off, `0.0.0.0:9090`)                        |
 | `-v`, `--verbosity`                     | `VERBOSITY`            | Log level, 0 = error … 4 = trace (default 2); `RUST_LOG` overrides it          |
 
+Proposal preparation first completes a mandatory-only execution block: an explicit empty
+transaction list, or the eligible forced transaction alone. This also establishes any legal
+singleton skip. Optional mempool selection and block building use the remaining preparation
+budget. If that work expires, the proposer returns the completed execution envelope, including
+its anchor and forced-inclusion witnesses, rather than an empty Comet transaction list. Missing
+mandatory evidence or an over-budget mandatory build still prevents a proposal; configure both
+preparation and Comet propose deadlines for the target hardware.
+
 The four timeouts accept 1 to 3600 seconds. The L2 chain id is read from `--l2.http` and
 selects the built-in chain parameters. Only the internal devnet (chain id `167001`) has Etna PoS
 parameters so far; on other chains `abci` refuses to start. The `--chain-config` TOML uses the
@@ -279,8 +300,8 @@ The public blob payload carries execution blocks only (spec section 5.2, Blob pa
 `--sidecar eip4844` or `eip7594` selects the sidecar format for the same payload. The `land`
 input and statement are spec section 6.1 (land). At startup and for each batch the lander reads
 the Inbox's `VERSION`, initialization, L2 chain id, registry, committee config hash,
-`GRID_INTERVAL` and `maxBatchBlocks`. Before signing or resending it rechecks the checkpoint
-frontier and the reference block.
+`GRID_INTERVAL` and `maxBatchBlocks`. Before signing or first scheduling a broadcast it
+rechecks the checkpoint frontier and the reference block.
 
 `lander-state.json` uses schema 17 and is protected by `lander.lock`; other schemas are refused
 and left intact. The journal is verified once at startup (statement hash, blob and KZG binding,
@@ -290,8 +311,12 @@ original input, leaves, proof, blobs, nonce and signed bytes remain unchanged. A
 never-broadcast work can finish; possibly-broadcast work remains pending until canonical
 receipt/nonce reconciliation.
 An ambiguous send or dropped transaction never authorizes recycling its nonce.
-If a transaction remains dropped or underpriced, the lander keeps its original signed bytes
-and nonce and waits; restarting cannot repair it. Investigate the account and journal using
+When the RPC no longer knows a pending transaction and both account nonce views still match
+its nonce, the lander rebroadcasts the identical persisted bytes, including after competing
+checkpoint progress or reference expiry and across restart. A canonical revert can then resolve
+the outstanding nonce. It never signs a replacement or raises the original fee caps. A known
+or underpriced transaction can still require operator reconciliation; investigate the account and
+journal using
 the [nonce reconciliation procedure](docs/governance-recovery.md#5-start-the-new-services)
 before any operator action; never delete the journal or allocate a replacement nonce to bypass it.
 
@@ -788,11 +813,27 @@ committing those values to the Inbox.
   request: the new handshake's `Info` waits until the request in progress has been answered.
   On a validator a CometBFT restart also reconnects `etna-signer`, and every new trust session
   re-checks the committed head before signing reopens.
-- If alethia-reth restarted or crashed while the app kept running, it may come back without its
-  last blocks: restart the app and CometBFT so the next handshake re-checks it. Until then
-  `FinalizeBlock` keeps retrying a block alethia-reth cannot execute, logging at ERROR after a
-  minute. Restarting CometBFT alone does not help here: the retrying `FinalizeBlock` holds the
-  app, the new handshake's `Info` waits behind it, and only an app restart cancels it.
+- If alethia-reth loses its recent execution tail while the app remains running, preparation,
+  proposal validation and cold/cached finalization repair the committed parent before retrying
+  execution. Startup `Info` uses the same local execution archive before peer sync. A Prepare
+  deadline cancels only its waiter: context-bound payload recovery continues across rounds.
+  The owned task never sends forkchoice; a live handler checks its result and canonicalizes the
+  committed head. Commit, context replacement and app drop abort obsolete work. Retries are
+  logged with backoff. `ProcessProposal` points forkchoice only at the trusted committed head;
+  it never makes an undecided peer proposal canonical to repair missing history.
+- Every successful finalization fsyncs its exact checksum-framed RLP execution body to
+  `execution-block-<height>.bin` before its AppState can be committed. Preserve these files with
+  the app store. Recovery authenticates the suffix backward from the committed hash, then
+  re-feeds it in bounded memory from a surviving ancestor whose execution state is available.
+  The archive grows with this generation's execution history above its authenticated origin or
+  import floor; ordinary landings do not authorize pruning it, because even a recently landed
+  checkpoint may still be volatile in the EL. Reclaim history only across a separately installed
+  authenticated origin/import boundary with retained execution state.
+- Existing stores without these auxiliary bodies keep the peer-sync path. Missing/corrupt bodies
+  or unavailable origin/import state remain missing data, not permission to invent payloads or
+  reset Comet/FilePV state. If no peer retains the data, restore a verified execution dataset and
+  its state boundary; restarting alone cannot recreate lost data. No signed journal or AppState
+  schema is migrated by this recovery path.
 - Replay and block sync need the own L1 node. For each block the node never judged whose
   envelope carries an anchor witness, `FinalizeBlock` requires the own L1 to have finalized that
   very header (plus the extra finality depth), as `ProcessProposal` does. So the L1 node must

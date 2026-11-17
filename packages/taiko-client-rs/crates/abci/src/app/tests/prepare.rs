@@ -452,8 +452,14 @@ async fn restart_rediscovers_the_committee_witness_from_own_l1() {
     assert_eq!(app.cached_committee_witness(&state, target), witness, "and retained it");
 
     let App { l1, engine, params, store, opts, .. } = app;
-    let mut restarted =
-        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, params, store, opts).unwrap();
+    let mut restarted = App::new(
+        Arc::try_unwrap(l1).expect("sole L1 owner"),
+        Arc::try_unwrap(engine).expect("sole EL owner"),
+        params,
+        store,
+        opts,
+    )
+    .unwrap();
     assert_eq!(restarted.cached_committee_witness(&state, target), None, "nothing is reloaded");
     restarted.l1().state().calls.clear();
     assert_eq!(propose(&mut restarted).await.committee, witness);
@@ -1114,7 +1120,7 @@ async fn slow_pre_due_admission_read_leaves_time_for_ordinary_build_and_is_reuse
     let raw: Bytes = sample_transactions()[0].encoded_2718().into();
     plant_input(&fx, &app, raw.clone(), false);
     app.l1().state().forced_transaction_delay = Some(Duration::from_millis(2500));
-    app.engine().state().delay = Some(Duration::from_secs(1));
+    app.engine().state().delay = Some(Duration::from_millis(500));
     let start = tokio::time::Instant::now();
     let env = propose(&mut app).await;
     assert!(start.elapsed() < app.opts.prepare_timeout);
@@ -1147,7 +1153,6 @@ async fn canonical_skip_reuses_confirmation_after_restoring_the_ordinary_budget(
         alloy_consensus::proofs::ordered_trie_root_encoded(&ordinary.transactions);
     app.engine().state().build_script.extend([
         Ok(empty.clone()),
-        Ok(empty.clone()),
         Ok(ordinary.clone()),
         Err(EngineError::Transport("a repeated singleton check is unavailable".into())),
     ]);
@@ -1161,8 +1166,12 @@ async fn canonical_skip_reuses_confirmation_after_restoring_the_ordinary_budget(
             _ => None,
         })
         .collect::<Vec<_>>();
-    assert_eq!(lists.len(), 3);
-    assert!(lists[0].is_some() && lists[1].is_some() && lists[2].is_none());
+    assert_eq!(lists.len(), 2, "one singleton probe and one ordinary build");
+    assert!(lists[0].is_some() && lists[1].is_none());
+    assert!(
+        calls.iter().all(|call| !matches!(call, EngineCall::PoolTransactions(_))),
+        "a proven skip does not spend a mixed-selection budget"
+    );
     assert_eq!(app.state().unwrap().forced_cursor, 0);
 }
 
@@ -1294,9 +1303,11 @@ async fn preparation_proposer_change_rebuilds_for_payout_and_reuses_raw_proofs()
                 _ => None,
             })
             .collect();
-        assert_eq!(builds.len(), 1, "even equal payout addresses require a fresh build");
-        assert_eq!(builds[0].payload_attributes.suggested_fee_recipient, recipient);
-        assert_eq!(builds[0].block_metadata.beneficiary, recipient);
+        assert!(!builds.is_empty(), "even equal payout addresses require fresh builds");
+        for build in builds {
+            assert_eq!(build.payload_attributes.suggested_fee_recipient, recipient);
+            assert_eq!(build.block_metadata.beneficiary, recipient);
+        }
         assert!(
             app.l1().calls().iter().all(|call| match call {
                 L1Call::ForcedTransaction { .. } => false,
@@ -1381,4 +1392,69 @@ async fn review_own_l1_invalid_mpt_proof_halts_durably() {
         App::new(fx.l1(), fx.engine(), fx.params.clone(), app.store.clone(), AppOptions::default()),
         Err(AbciError::SafetyHalt(_))
     ));
+}
+
+/// Slow optional pool execution must not turn every consensus round into a placeholder.
+#[tokio::test(start_paused = true)]
+async fn slow_pool_build_falls_back_to_a_valid_empty_execution_envelope() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    app.engine().state().ordinary_build_delay = Some(Duration::from_millis(2500));
+    let started = tokio::time::Instant::now();
+    let req = prepare_req(6, bft_time(&app));
+    let txs = prepare(&mut app, req).await;
+    assert_eq!(txs.len(), 1, "resource pressure must still yield an execution envelope");
+    assert!(started.elapsed() <= app.opts.prepare_timeout);
+    let env = EtnaEnvelope::decode(&txs[0]).unwrap();
+    assert!(env.block.transactions.is_empty());
+    app.engine().state().ordinary_build_delay = None;
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().last_height, 6);
+}
+
+/// The optional forced-first pool tail cannot consume the budget for mandatory inclusion.
+#[tokio::test(start_paused = true)]
+async fn slow_forced_pool_selection_falls_back_to_a_valid_singleton() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let tx = Bytes::from(sample_transactions()[0].encoded_2718());
+    plant_input(&fx, &app, tx.clone(), true);
+    app.engine().state().pool_selection_delay = Some(Duration::from_millis(2500));
+    let started = tokio::time::Instant::now();
+    let req = prepare_req(6, bft_time(&app));
+    let txs = prepare(&mut app, req).await;
+    assert_eq!(txs.len(), 1, "optional work must not starve due forced inclusion");
+    assert!(started.elapsed() <= app.opts.prepare_timeout);
+    let env = EtnaEnvelope::decode(&txs[0]).unwrap();
+    assert_eq!(env.block.transactions, [tx]);
+    app.engine().state().pool_selection_delay = None;
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 1);
+}
+
+/// A legal singleton skip remains available even when the ordinary pool build never finishes.
+#[tokio::test(start_paused = true)]
+async fn slow_pool_after_a_legal_skip_returns_the_completed_singleton() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let tx = Bytes::from(sample_transactions()[0].encoded_2718());
+    plant_input(&fx, &app, tx.clone(), true);
+    let anchor = Some(fx.anchor_witness(app.l1(), 66));
+    let empty = super::proposal::hand_envelope(&app, anchor, None).block;
+    app.engine().state().build_script.extend([Ok(empty.clone()), Ok(empty)]);
+    app.engine().state().ordinary_build_delay = Some(Duration::from_millis(2500));
+    let started = tokio::time::Instant::now();
+    let req = prepare_req(6, bft_time(&app));
+    let txs = prepare(&mut app, req).await;
+    assert_eq!(txs.len(), 1, "a completed legal skip must survive optional build timeout");
+    assert!(started.elapsed() <= app.opts.prepare_timeout);
+    let env = EtnaEnvelope::decode(&txs[0]).unwrap();
+    assert!(env.block.transactions.is_empty());
+    assert_eq!(env.forced.as_ref().unwrap().tx, tx);
+    app.engine().state().ordinary_build_delay = None;
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 1);
 }

@@ -320,6 +320,14 @@ pub(crate) struct MockEngineState {
     pub(crate) pool: Vec<TxEnvelope>,
     /// Scripted pool selection answers.
     pub(crate) pool_script: VecDeque<Result<Vec<TxEnvelope>, EngineError>>,
+    /// Delay only optional mempool simulation, leaving explicit singleton builds available.
+    pub(crate) pool_selection_delay: Option<Duration>,
+    /// Delay full pool or mixed builds, leaving explicit zero/one-transaction builds available.
+    pub(crate) ordinary_build_delay: Option<Duration>,
+    /// Additional delay of each canonical-header read, independent of other EL methods.
+    pub(crate) header_read_delay: Option<Duration>,
+    /// Additional delay of each FCU, independent of payload import and header reads.
+    pub(crate) forkchoice_delay: Option<Duration>,
     /// Explicitly configured finalized boundary, absent when unknown.
     pub(crate) finalized: Option<Header>,
     /// Hashes for which the mock retains historical state, independent of headers.
@@ -337,6 +345,10 @@ pub(crate) struct MockEngineState {
     pub(crate) header_script: VecDeque<Result<Option<Header>, EngineError>>,
     /// Scripted `build_block` answers (an empty queue builds [`simple_block`]).
     pub(crate) build_script: VecDeque<Result<ExecutionBlock, EngineError>>,
+    /// Unscripted payloads need their parent in the known set, as on an EL without peers.
+    pub(crate) require_payload_parent: bool,
+    /// Error of a parent-aware build while its parent is absent; defaults to unknown state.
+    pub(crate) missing_parent_build_error: Option<EngineError>,
     /// Scripted `new_payload` answers (before the default `Valid`).
     pub(crate) new_payload_script: VecDeque<Result<PayloadVerdict, EngineError>>,
     /// Scripted `forkchoice` answers (before the default canonicalization).
@@ -491,6 +503,10 @@ impl Engine for MockEngine {
         selection: PoolSelection,
     ) -> Result<Vec<TxEnvelope>, EngineError> {
         self.pause().await;
+        let delay = self.state().pool_selection_delay;
+        if let Some(delay) = delay {
+            tokio::time::sleep(delay).await;
+        }
         let mut state = self.state();
         state.calls.push(EngineCall::PoolTransactions(selection));
         state.pool_script.pop_front().unwrap_or_else(|| Ok(state.pool.clone()))
@@ -503,9 +519,25 @@ impl Engine for MockEngine {
         attrs: TaikoPayloadAttributes,
     ) -> Result<ExecutionBlock, EngineError> {
         self.pause().await;
+        let full = attrs.block_metadata.tx_list.as_ref().is_none_or(|encoded| {
+            alloy_rlp::decode_exact::<Vec<TxEnvelope>>(encoded).is_ok_and(|txs| txs.len() > 1)
+        });
+        let delay = self.state().ordinary_build_delay.filter(|_| full);
+        if let Some(delay) = delay {
+            tokio::time::sleep(delay).await;
+        }
         let mut state = self.state();
-        let built =
-            state.build_script.pop_front().unwrap_or_else(|| Ok(simple_block(parent_hash, &attrs)));
+        let built = if state.require_payload_parent && !state.known.contains_key(&parent_hash) {
+            Err(state.missing_parent_build_error.clone().unwrap_or_else(|| {
+                EngineError::ErrorReply {
+                    call: "engine_forkchoiceUpdated".into(),
+                    code: -38100,
+                    message: "unknown parent execution state".into(),
+                }
+            }))
+        } else {
+            state.build_script.pop_front().unwrap_or_else(|| Ok(simple_block(parent_hash, &attrs)))
+        };
         state.calls.push(EngineCall::BuildBlock { parent: parent_hash, attrs: Box::new(attrs) });
         let built = built?;
         state.known.insert(built.header.hash_slow(), built.header.clone());
@@ -518,7 +550,14 @@ impl Engine for MockEngine {
         let mut state = self.state();
         let hash = block.header.hash_slow();
         state.calls.push(EngineCall::NewPayload(hash));
-        let verdict = state.new_payload_script.pop_front().unwrap_or(Ok(PayloadVerdict::Valid))?;
+        let default = if state.require_payload_parent &&
+            !state.known.contains_key(&block.header.parent_hash)
+        {
+            PayloadVerdict::Syncing
+        } else {
+            PayloadVerdict::Valid
+        };
+        let verdict = state.new_payload_script.pop_front().unwrap_or(Ok(default))?;
         if verdict == PayloadVerdict::Valid {
             state.known.insert(hash, block.header.clone());
         }
@@ -535,6 +574,10 @@ impl Engine for MockEngine {
         finalized: B256,
     ) -> Result<PayloadVerdict, EngineError> {
         self.pause().await;
+        let delay = self.state().forkchoice_delay;
+        if let Some(delay) = delay {
+            tokio::time::sleep(delay).await;
+        }
         let mut state = self.state();
         state.calls.push(EngineCall::Forkchoice { head, safe, finalized });
         let known = state.known.get(&head).cloned();
@@ -576,6 +619,10 @@ impl Engine for MockEngine {
     /// Pops `header_script`, falling back to the canonical `chain`.
     async fn header_by_number(&self, number: u64) -> Result<Option<Header>, EngineError> {
         self.pause().await;
+        let delay = self.state().header_read_delay;
+        if let Some(delay) = delay {
+            tokio::time::sleep(delay).await;
+        }
         let mut state = self.state();
         state.calls.push(EngineCall::HeaderByNumber(number));
         match state.header_script.pop_front() {

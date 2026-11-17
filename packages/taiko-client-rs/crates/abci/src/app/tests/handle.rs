@@ -1,7 +1,7 @@
 //! [`App::handle`] dispatch of the methods without app logic.
 
 use crate::wire::{Request, Response, request, response};
-use tendermint::{Hash, Time, abci::types::Snapshot, account, block::Height};
+use tendermint::{Hash, Time, account, block::Height};
 
 use super::*;
 
@@ -60,19 +60,19 @@ async fn snapshot_methods_answer_empty_defaults() {
         app.handle(Request::ListSnapshots).await.unwrap(),
         Response::ListSnapshots(Default::default())
     );
-    let snapshot = Snapshot {
-        height: Height::from(9u32),
+    let snapshot = tendermint_proto::v0_38::abci::Snapshot {
+        height: 9,
         format: 1,
         chunks: 1,
         hash: vec![7].into(),
         metadata: Default::default(),
     };
-    let offer = request::OfferSnapshot { snapshot, app_hash: Default::default() };
+    let offer = request::OfferSnapshot { snapshot: Some(snapshot), app_hash: Default::default() };
     assert_eq!(
         app.handle(Request::OfferSnapshot(offer)).await.unwrap(),
         Response::OfferSnapshot(Default::default())
     );
-    let load = request::LoadSnapshotChunk { height: Height::from(9u32), format: 1, chunk: 0 };
+    let load = request::LoadSnapshotChunk { height: 9, format: 1, chunk: 0 };
     assert_eq!(
         app.handle(Request::LoadSnapshotChunk(load)).await.unwrap(),
         Response::LoadSnapshotChunk(Default::default())

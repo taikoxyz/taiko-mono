@@ -36,10 +36,31 @@ impl<L: L1Source, E: Engine> App<L, E> {
             None => return Err(AbciError::Uninitialized("ProcessProposal")),
             Some(state) => {
                 self.prefetch_committee_witness(state)?;
+                let mut backoff = super::finalize::Backoff::new("proposal dependency", height);
                 loop {
                     let result = self.judge(state, &req).await;
                     if result.as_ref().err().is_some_and(Rejection::retryable_dependency) {
-                        tokio::time::sleep(super::FINALIZE_RETRY_INITIAL).await;
+                        let rejection = result.as_ref().expect_err("retryable rejection");
+                        let reason = if matches!(
+                            rejection,
+                            Rejection::PayloadSyncing | Rejection::LocalBlockMissing(_)
+                        ) {
+                            let nudge = self.nudge_committed_head(height, state).await?;
+                            format!("{rejection}; {nudge}")
+                        } else if matches!(
+                            rejection,
+                            Rejection::Timeout(_) |
+                                Rejection::Engine(_) |
+                                Rejection::ForcedBuild(
+                                    crate::engine::forced::ForcedBuildError::Engine(_)
+                                )
+                        ) {
+                            let ready = self.execution_parent_ready(state).await?;
+                            format!("{rejection}; committed execution parent available: {ready}")
+                        } else {
+                            rejection.to_string()
+                        };
+                        backoff.wait("ProcessProposal dependency", &reason).await;
                         continue;
                     }
                     break result;

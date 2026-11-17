@@ -584,6 +584,72 @@ async fn dropped_transaction_is_identically_rebroadcast_after_receipt_and_nonce_
     assert_eq!(control.signs, 1);
 }
 
+#[tokio::test]
+async fn obsolete_pending_bytes_rebroadcast_after_restart_then_reverted_receipt_frees_nonce() {
+    for before_first_send in [false, true] {
+        for checkpoint in [0, 6, 12] {
+            let fixture = Fixture::new();
+            let (transaction, signs, previous_sends) = if before_first_send {
+                let proof = Bytes::from_static(&[0]);
+                let transaction = signed(&fixture.request, &proof, 0).await;
+                let store = Store::open(fixture.directory.path(), fixture.identity()).unwrap();
+                store
+                    .save(&JournalState::Pending {
+                        job: Box::new(ProvedJob { request: fixture.request.clone(), proof }),
+                        transaction: transaction.clone(),
+                    })
+                    .unwrap();
+                (transaction, 0, 0)
+            } else {
+                let mut runner = fixture.runner();
+                for _ in 0..3 {
+                    runner.step().await.unwrap();
+                }
+                (pending_transaction(&runner), 1, 1)
+            };
+            if checkpoint != 0 {
+                fixture.compete(checkpoint);
+            }
+            {
+                let mut control = fixture.control.lock().unwrap();
+                control.reference_current = false;
+                control.known = false;
+                control.nonce =
+                    NonceState { confirmed: transaction.nonce, pending: transaction.nonce };
+                control.events.clear();
+            }
+            let journal = fixture.directory.path().join("lander-state.json");
+            let original = std::fs::read(&journal).unwrap();
+            let mut runner = fixture.runner();
+            assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+            assert_eq!(pending_transaction(&runner), transaction);
+            assert_eq!(std::fs::read(&journal).unwrap(), original);
+            {
+                let control = fixture.control.lock().unwrap();
+                assert_eq!(control.events, vec!["receipt", "nonce", "known", "broadcast"]);
+                assert_eq!(control.signs, signs);
+                assert_eq!(control.broadcasts.len(), previous_sends + 1);
+                assert!(control.broadcasts.iter().all(|bytes| bytes == &transaction.network_bytes));
+            }
+            fixture.mine(&transaction, false);
+            assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+            fixture.control.lock().unwrap().snapshot.l1_block_number = 31;
+            let outcome = runner.step().await;
+            if checkpoint == 0 {
+                assert!(matches!(outcome, Err(LanderError::Reverted(_))), "{outcome:?}");
+            } else {
+                assert_eq!(outcome.unwrap(), StepOutcome::Settled);
+            }
+            assert_eq!(runner.state(), &JournalState::Idle);
+            drop(runner);
+            assert_eq!(fixture.runner().state(), &JournalState::Idle);
+            let control = fixture.control.lock().unwrap();
+            assert_eq!(control.signs, signs);
+            assert_eq!(control.nonce.confirmed, transaction.nonce + 1);
+        }
+    }
+}
+
 #[tokio::test(start_paused = true)]
 async fn expired_unbroadcast_reference_rebuilds_and_consumed_unknown_nonce_is_fatal() {
     let fixture = Fixture::new();
@@ -621,7 +687,7 @@ async fn partial_or_full_checkpoint_after_dropped_send_never_spends_a_new_nonce(
         assert!(matches!(runner.state(), JournalState::Pending { .. }));
         let control = fixture.control.lock().unwrap();
         assert_eq!(control.signs, 1);
-        assert_eq!(control.broadcasts.len(), if height == 6 { 2 } else { 1 });
+        assert_eq!(control.broadcasts.len(), 2);
     }
 }
 
@@ -1157,7 +1223,7 @@ async fn v1_completed_settlement_keeps_pending_nonce_across_restart_until_canoni
     let mut runner = fixture.runner();
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
     assert_eq!(runner.state(), &original);
-    assert_eq!(fixture.control.lock().unwrap().broadcasts.len(), 1);
+    assert_eq!(fixture.control.lock().unwrap().broadcasts.len(), 2);
     fixture.mine(&transaction, false);
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
     fixture.control.lock().unwrap().snapshot.l1_block_number = 31;

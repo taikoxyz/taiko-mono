@@ -27,6 +27,9 @@ use crate::{
     valstate::ValState,
 };
 
+/// Checksummed execution payloads retained for local EL crash recovery.
+mod execution;
+
 /// File name of the persisted state inside the data directory.
 pub const STATE_FILE: &str = "abci-state.json";
 
@@ -200,6 +203,9 @@ pub enum StoreError {
     /// Replaying a committed height produced a different Comet block ID.
     #[error("conflicting durable Comet block hash at height {0}")]
     CometConflict(u64),
+    /// Replaying a finalized height produced a different execution block.
+    #[error("conflicting durable execution block at height {0}")]
+    ExecutionConflict(u64),
     /// Replaying the origin or a committed grid height produced a different validator state.
     #[error("conflicting durable validator state at height {0}")]
     ValStateConflict(u64),

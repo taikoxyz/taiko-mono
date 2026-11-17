@@ -400,7 +400,11 @@ async fn checkpoint_lookup_failures_wait_without_a_false_rejection() {
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
     assert!(app.engine().state().delay_script.is_empty(), "the first read ran out of time");
     // The mock records a read once its delay ends, so the timed-out one is not listed.
-    assert_eq!(header_reads_since(&app, before), [3, 3, 3], "missing, down, then served");
+    assert_eq!(
+        header_reads_since(&app, before),
+        [5, 5, 5, 3],
+        "timed-out checkpoint, missing parent, recovery read down, parent and checkpoint served"
+    );
 }
 
 #[tokio::test]
