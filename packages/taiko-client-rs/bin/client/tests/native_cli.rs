@@ -10,8 +10,10 @@ use std::{
 use tokio::process::Command;
 
 async fn run(args: &[&str]) -> Output {
+    let workdir = tempfile::tempdir().expect("CLI working directory");
     Command::new(env!("CARGO_BIN_EXE_taiko-client"))
         .env_clear()
+        .current_dir(workdir.path())
         .args(args)
         .output()
         .await
