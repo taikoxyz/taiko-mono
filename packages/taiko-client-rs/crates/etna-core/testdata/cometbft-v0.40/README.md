@@ -19,9 +19,10 @@ ordinary validator sets and light-client evidence. The non-cryptographic executi
 an existing deterministic fixture; these files establish stock wire/commitment compatibility,
 not complete Etna execution validity or a runnable devnet.
 
-The Rust bridge is `crates/lander/src/native.rs`. Its wire types retain every stock key tag inside
+The Rust bridge is `crates/etna-core/src/comet/native.rs`; host RPC repair remains in
+`crates/lander/src/native.rs`. Its wire types retain every stock key tag inside
 foreign evidence without enabling those algorithms for Etna committee authentication. Actual
-Etna committee authorization must continue to use `abci::key::ConsensusKey`, native
-`abci::wire::validators_hash`, and strict native certificate/quorum validation. Original block
+Etna committee authorization must continue to use `etna_core::key::ConsensusKey`, native
+`etna_core::validator::validators_hash`, and strict native certificate/quorum validation. Original block
 and commit bytes must remain private proof/journal inputs; decode/re-encode canonicality and
 body/header/evidence/part-set commitments must be checked by their consumers.

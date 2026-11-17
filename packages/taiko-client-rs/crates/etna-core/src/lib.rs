@@ -4,6 +4,8 @@
 extern crate alloc;
 #[cfg(test)]
 extern crate std;
+/// Native Comet codecs, QC and original body commitments.
+pub mod comet;
 /// Complete committee authentication, derivation and commitments.
 pub mod committee;
 /// Deployment and generation signing domain.

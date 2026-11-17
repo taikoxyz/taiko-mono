@@ -2635,6 +2635,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "tendermint",
+ "tendermint-proto",
  "thiserror 2.0.18",
 ]
 
@@ -3777,6 +3778,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "base64",
+ "etna-core",
  "flate2",
  "futures",
  "libz-sys",

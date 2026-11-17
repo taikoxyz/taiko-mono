@@ -1,28 +1,17 @@
 //! Pure certificate, CometBFT body-commitment and Etna envelope validation.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
+use crate::{
+    committee::AuthenticatedCommittee,
+    native::{Commit, RawBlock},
+    types::CertifiedBlock,
+};
 use abci::{
     AnchorState, ChainParams, CommitteeState, EtnaEnvelope, GenesisRecord, ParentInfo,
     app::ChainContext, rules,
 };
 use alloy_primitives::B256;
-use prost::Message;
-use sha2::{Digest, Sha256};
-use tendermint::{
-    Hash, Vote,
-    vote::{CanonicalVote, Type},
-};
-use tendermint_proto::{
-    Protobuf,
-    v0_38::types::{CanonicalVote as RawVote, CommitSig as RawCommitSig},
-};
-
-use crate::{
-    committee::AuthenticatedCommittee,
-    native::{Commit, CommitSig, RawBlock, evidence::Sum as RawEvidence},
-    types::CertifiedBlock,
-};
 
 /// A certificate or block is inconsistent with authenticated consensus context.
 #[derive(Debug, thiserror::Error)]
@@ -84,133 +73,68 @@ pub fn verify_commit(
     verify_native_commit(commit, header, &committee.validators, chain_id)
 }
 
-/// Verify the native certificate against keys/powers bound by this header, independently of
-/// whether the registry switch choosing the historical set is inside the import window.
+/// Shared native certificate verification with lander's existing error boundary.
 pub(crate) fn verify_native_commit(
     commit: &Commit,
     header: &tendermint::block::Header,
     validators: &crate::committee::Validators,
     chain_id: &str,
 ) -> Result<(), ValidationError> {
-    if header.version.app != abci::app::APP_VERSION {
-        return Err(ValidationError::Certificate("unsupported Etna APP_VERSION".into()));
-    }
-    if header.chain_id.as_str() != chain_id || commit.height != header.height {
-        return Err(ValidationError::Certificate("chain id or commit height mismatch".into()));
-    }
-    if commit.block_id.hash != header.hash() ||
-        commit.block_id.part_set_header.total == 0 ||
-        commit.block_id.part_set_header.hash == Hash::None
-    {
-        return Err(ValidationError::Certificate(
-            "commit block id mismatch or empty part set".into(),
-        ));
-    }
-    if commit.signatures.len() != validators.validators().len() {
-        return Err(ValidationError::Certificate(
-            "signature slots differ from validator count".into(),
-        ));
-    }
-    if header.validators_hash != validators.hash() {
-        return Err(ValidationError::Commitment("validator set"));
-    }
-    let mut signed_power = 0u128;
-    let mut seen = BTreeSet::new();
-    for (index, (sig, validator)) in
-        commit.signatures.iter().zip(validators.validators()).enumerate()
-    {
-        let (address, timestamp, signature, is_commit) = match sig {
-            CommitSig::BlockIdFlagAbsent => continue,
-            CommitSig::BlockIdFlagCommit { validator_address, timestamp, signature } => {
-                (*validator_address, *timestamp, signature.as_ref(), true)
-            }
-            CommitSig::BlockIdFlagNil { validator_address, timestamp, signature } => {
-                (*validator_address, *timestamp, signature.as_ref(), false)
-            }
-        };
-        if !seen.insert(address) || address != validator.address {
-            return Err(ValidationError::Certificate(
-                "duplicate signer or incorrect validator slot".into(),
-            ));
-        }
-        let signature =
-            signature.ok_or_else(|| ValidationError::Certificate("missing signature".into()))?;
-        let vote = Vote {
-            vote_type: Type::Precommit,
-            height: commit.height,
-            round: commit.round,
-            block_id: is_commit.then_some(commit.block_id),
-            timestamp: Some(timestamp),
-            validator_address: address,
-            validator_index: u32::try_from(index)
-                .map_err(|_| ValidationError::Certificate("validator index overflow".into()))?
-                .try_into()
-                .map_err(|e| ValidationError::Certificate(format!("validator index: {e}")))?,
-            signature: None,
-            extension: Vec::new(),
-            extension_signature: None,
-        };
-        let chain_id =
-            chain_id.parse().map_err(|e| ValidationError::Certificate(format!("chain id: {e}")))?;
-        let sign_bytes =
-            Protobuf::<RawVote>::encode_length_delimited_vec(CanonicalVote::new(vote, chain_id));
-        if !validator.pub_key.verify_signature(&sign_bytes, signature.as_bytes()) {
-            return Err(ValidationError::Certificate(
-                "native secp256k1eth signature verification failed".into(),
-            ));
-        }
-        if is_commit {
-            signed_power += u128::from(validator.power());
-        }
-    }
-    let total = u128::from(validators.total_voting_power());
-    if signed_power * 3 <= total * 2 {
-        return Err(ValidationError::Certificate(format!(
-            "insufficient commit power {signed_power}/{total}; require strictly more than 2/3"
-        )));
-    }
-    Ok(())
+    etna_core::comet::verify::verify_native_commit(commit, header, validators, chain_id)
+        .map_err(Into::into)
 }
 
-/// Tendermint's simple Merkle root of byte slices, including the SHA-256 empty root.
-fn merkle(items: &[Vec<u8>]) -> Hash {
-    Hash::Sha256(tendermint::merkle::simple_hash_from_byte_vectors::<
-        tendermint::crypto::default::Sha256,
-    >(items))
-}
+/// Shared stock transaction and signature-protobuf Merkle commitments.
+pub use etna_core::comet::verify::{commit_hash, data_hash};
 
-/// CometBFT `Data.Hash`: the simple Merkle root of the transactions' SHA-256 hashes.
-pub fn data_hash(txs: &[Vec<u8>]) -> Hash {
-    merkle(&txs.iter().map(|tx| Sha256::digest(tx).to_vec()).collect::<Vec<_>>())
-}
-
-/// Commit hash binds the signature protobufs, as CometBFT `Commit.Hash` does.
-pub fn commit_hash(commit: &Commit) -> Hash {
-    merkle(
-        &commit
-            .signatures
-            .iter()
-            .cloned()
-            .map(|s| RawCommitSig::from(s).encode_to_vec())
-            .collect::<Vec<_>>(),
-    )
-}
-
-/// Stock CometBFT's 64-KiB part commitment over the original block protobuf.
-///
-/// Never reconstruct this witness through the Tendermint domain adapter: that adapter changes
-/// evidence powers, nil vote block ids and nested light-client validator set encodings.
+/// Legacy infallible helper for already size-bounded native blocks.
+/// Untrusted verification uses the fallible shared implementation directly.
 pub fn block_parts(block: &RawBlock) -> tendermint::block::parts::Header {
-    let bytes = block.encode_to_vec();
-    let parts = bytes.chunks(65_536).map(<[u8]>::to_vec).collect::<Vec<_>>();
-    tendermint::block::parts::Header::new(
-        u32::try_from(parts.len()).expect("bounded block has at most u32::MAX parts"),
-        merkle(&parts),
-    )
-    .expect("nonempty protobuf block yields a nonempty SHA-256 part set")
+    etna_core::comet::verify::block_parts(block).expect("bounded nonempty native block")
 }
 
-/// [`verify_body_at_origin`] for generation zero, whose fixed origin is height 0.
+/// Pure native failures retain the existing lander certificate/commitment/Etna distinction.
+impl From<etna_core::comet::verify::BftError> for ValidationError {
+    /// Maps deterministic failures without changing unsupported-rules or runtime policy.
+    fn from(error: etna_core::comet::verify::BftError) -> Self {
+        use etna_core::comet::verify::BftError;
+        match error {
+            BftError::Certificate(reason) => Self::Certificate(reason),
+            BftError::Commitment(reason) => Self::Commitment(reason),
+            BftError::TransactionCount(count) => {
+                Self::Etna(abci::EnvelopeError::TxCount(count).to_string())
+            }
+            other => Self::Certificate(other.to_string()),
+        }
+    }
+}
+
+/// Borrows the shared native view without copying original protobuf bytes.
+fn native_pair(pair: &CertifiedBlock) -> etna_core::comet::verify::CertifiedBlockRef<'_> {
+    etna_core::comet::verify::CertifiedBlockRef {
+        block: &pair.block,
+        raw_block: &pair.raw_block,
+        commit: &pair.commit,
+    }
+}
+
+/// Decodes the native-committed Etna transaction and preserves host EL linkage checks.
+fn decode_transaction(
+    transaction: &[u8],
+    expected_height: u64,
+    parent_el_hash: B256,
+) -> Result<EtnaEnvelope, ValidationError> {
+    let envelope = abci::single_envelope(&[alloy_primitives::Bytes::copy_from_slice(transaction)])
+        .map_err(|e| ValidationError::Etna(e.to_string()))?;
+    if envelope.block.header.number != expected_height ||
+        envelope.block.header.parent_hash != parent_el_hash
+    {
+        return Err(ValidationError::Etna("execution height / parent hash mismatch".into()));
+    }
+    Ok(envelope)
+}
+
+/// Generation-zero body verification retained for native host tests.
 #[cfg(test)]
 pub fn verify_body(
     pair: &CertifiedBlock,
@@ -220,84 +144,23 @@ pub fn verify_body(
     verify_body_at_origin(pair, expected_height, parent_el_hash, 0)
 }
 
-/// Recomputes every CometBFT body commitment and checks its decoded EL height/parent link;
-/// empty consensus ancestry is permitted only at the fixed origin + 1.
-///
-/// This is also necessary for an already-landed checkpoint: a genuine certificate signs the
-/// header's roots, not an arbitrary body an RPC response happens to return beside it.
+/// Checks shared native commitments, then decodes the envelope and verifies its EL linkage.
 pub fn verify_body_at_origin(
     pair: &CertifiedBlock,
     expected_height: u64,
     parent_el_hash: B256,
     origin_height: u64,
 ) -> Result<EtnaEnvelope, ValidationError> {
-    let block = &pair.block;
-    if block.header.height.value() != expected_height {
-        return Err(ValidationError::Certificate("requested block height mismatch".into()));
-    }
-    if block.header.data_hash != Some(data_hash(&block.data)) {
-        return Err(ValidationError::Commitment("data"));
-    }
-    if block.header.evidence_hash.is_none() {
-        return Err(ValidationError::Commitment("evidence"));
-    }
-    let raw = pair.block_proto().map_err(|e| ValidationError::Certificate(e.to_string()))?;
-    let evidence = raw
-        .evidence
-        .as_ref()
-        .into_iter()
-        .flat_map(|list| &list.evidence)
-        .map(|e| {
-            // EvidenceList.Hash uses each concrete evidence's Bytes(), not the Evidence oneof.
-            match e.sum.as_ref() {
-                Some(RawEvidence::DuplicateVoteEvidence(e)) => Ok(e.encode_to_vec()),
-                Some(RawEvidence::LightClientAttackEvidence(e)) => Ok(e.encode_to_vec()),
-                None => Err(ValidationError::Certificate("missing evidence subtype".into())),
-            }
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    if block.header.evidence_hash != Some(merkle(&evidence)) {
-        return Err(ValidationError::Commitment("evidence"));
-    }
-    if pair.commit.block_id.part_set_header != block_parts(&raw) {
-        return Err(ValidationError::Commitment("block part set"));
-    }
-    match &block.last_commit {
-        None if origin_height.checked_add(1) == Some(expected_height) => {
-            if block.header.last_commit_hash != Some(merkle(&[])) ||
-                block.header.last_block_id.is_some()
-            {
-                return Err(ValidationError::Commitment("genesis last commit"));
-            }
-        }
-        Some(last) if expected_height > 1 => {
-            if expected_height.checked_sub(1) != Some(last.height.value()) ||
-                block.header.last_block_id != Some(last.block_id) ||
-                block.header.last_commit_hash != Some(commit_hash(last))
-            {
-                return Err(ValidationError::Commitment("last commit"));
-            }
-        }
-        _ => return Err(ValidationError::Commitment("missing last commit")),
-    }
-    if block.header.app_hash.as_bytes() != parent_el_hash.as_slice() {
-        return Err(ValidationError::Commitment("parent execution app hash"));
-    }
-    let transactions =
-        block.data.iter().cloned().map(alloy_primitives::Bytes::from).collect::<Vec<_>>();
-    let envelope =
-        abci::single_envelope(&transactions).map_err(|e| ValidationError::Etna(e.to_string()))?;
-    let header = &envelope.block.header;
-    if header.number != expected_height || header.parent_hash != parent_el_hash {
-        return Err(ValidationError::Etna("execution height / parent hash mismatch".into()));
-    }
-    Ok(envelope)
+    let transaction = etna_core::comet::verify::verify_body_at_origin(
+        native_pair(pair),
+        expected_height,
+        parent_el_hash,
+        origin_height,
+    )?;
+    decode_transaction(transaction, expected_height, parent_el_hash)
 }
 
-/// Verifies one body's commitments plus its BFT ancestry against the preceding certificate.
-///
-/// A previous pair may be absent only at height one. Certificate verification remains a
-/// separate operation using the independently authenticated epoch committee.
+/// Generation-zero ancestry and envelope facade, retaining its existing public signature.
 pub fn verify_structure(
     pair: &CertifiedBlock,
     previous: Option<&CertifiedBlock>,
@@ -307,7 +170,7 @@ pub fn verify_structure(
     verify_structure_at_origin(pair, previous, expected_height, parent_el_hash, 0)
 }
 
-/// Verifies BFT ancestry with an empty LastCommit only at the authenticated generation start.
+/// Checks shared native full-identity ancestry before host envelope and EL linkage validation.
 pub fn verify_structure_at_origin(
     pair: &CertifiedBlock,
     previous: Option<&CertifiedBlock>,
@@ -315,15 +178,14 @@ pub fn verify_structure_at_origin(
     parent_el_hash: B256,
     origin_height: u64,
 ) -> Result<EtnaEnvelope, ValidationError> {
-    let envelope = verify_body_at_origin(pair, expected_height, parent_el_hash, origin_height)?;
-    match (&pair.block.last_commit, previous) {
-        (None, None) if origin_height.checked_add(1) == Some(expected_height) => {}
-        (Some(last), Some(previous)) if last.block_id == previous.commit.block_id => {}
-        _ => {
-            return Err(ValidationError::Commitment("missing or conflicting previous block/commit"))
-        }
-    }
-    Ok(envelope)
+    let transaction = etna_core::comet::verify::verify_structure_at_origin(
+        native_pair(pair),
+        previous.map(native_pair),
+        expected_height,
+        parent_el_hash,
+        origin_height,
+    )?;
+    decode_transaction(transaction, expected_height, parent_el_hash)
 }
 
 /// Authenticated context of one certified block for [`verify_envelope`].
@@ -411,8 +273,39 @@ pub fn verify_envelope(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::consensus::{self, committee, nil_vote, pair, raw_block};
-    use tendermint::Time;
+    use crate::{
+        native::CommitSig,
+        test_utils::consensus::{self, committee, nil_vote, pair, raw_block},
+    };
+    use tendermint::{Hash, Time};
+
+    #[test]
+    fn epoch_boundary_uses_outgoing_last_commit_and_incoming_current_commit() {
+        let (_, outgoing, old_keys) = committee(&[30, 10], 0);
+        let (_, incoming, new_keys) = committee(&[10, 30], 1);
+        let previous = pair(1, B256::ZERO, &outgoing, &old_keys, None);
+        let parent = abci::single_envelope(
+            &previous
+                .block
+                .data
+                .iter()
+                .cloned()
+                .map(alloy_primitives::Bytes::from)
+                .collect::<Vec<_>>(),
+        )
+        .unwrap()
+        .block
+        .header
+        .hash_slow();
+        let current = pair(2, parent, &incoming, &new_keys, Some(&previous));
+        verify_structure(&current, Some(&previous), 2, parent).unwrap();
+        let last = current.block.last_commit.as_ref().unwrap();
+        let chain = previous.block.header.chain_id.as_str();
+        verify_commit(last, &previous.block.header, &outgoing, chain).unwrap();
+        verify_commit(&current.commit, &current.block.header, &incoming, chain).unwrap();
+        assert!(verify_commit(last, &previous.block.header, &incoming, chain).is_err());
+        assert!(verify_commit(&current.commit, &current.block.header, &outgoing, chain).is_err());
+    }
 
     #[test]
     fn v1_certificate_rejects_another_app_version_even_with_valid_native_signatures() {
@@ -738,7 +631,7 @@ mod tests {
     fn authenticates_initial_empty_commit_and_multi_part_blocks() {
         let (_, committee, keys) = committee(&[1], 0);
         let mut original = pair(1, B256::ZERO, &committee, &keys, None);
-        assert_eq!(original.block.header.last_commit_hash, Some(merkle(&[])));
+        assert_eq!(original.block.header.last_commit_hash, Some(data_hash(&[])));
         verify_structure(&original, None, 1, B256::ZERO).unwrap();
         let mut wrong = original.clone();
         wrong.block.header.last_commit_hash = None;
@@ -754,9 +647,7 @@ mod tests {
         let mut envelope = abci::EtnaEnvelope::decode(&big.block.data[0]).unwrap();
         envelope.block.transactions.push(alloy_primitives::Bytes::from(vec![7; 70_000]));
         big.block.data[0] = envelope.encode().to_vec();
-        big.block.header.data_hash = Some(merkle(
-            &big.block.data.iter().map(|tx| Sha256::digest(tx).to_vec()).collect::<Vec<_>>(),
-        ));
+        big.block.header.data_hash = Some(data_hash(&big.block.data));
         crate::test_utils::consensus::resign(&mut big, &committee, &keys);
         assert_eq!(big.commit.block_id.part_set_header.total, 2);
         verify_structure(&big, None, 1, B256::ZERO).unwrap();

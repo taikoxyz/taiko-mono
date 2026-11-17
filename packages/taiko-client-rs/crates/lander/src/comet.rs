@@ -541,8 +541,10 @@ mod tests {
 
     #[tokio::test]
     async fn authenticates_stock_go_duplicate_extended_nil_and_light_client_evidence() {
-        let fixture: Value =
-            serde_json::from_str(include_str!("../testdata/cometbft-v0.40/vectors.json")).unwrap();
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../etna-core/testdata/cometbft-v0.40/vectors.json"
+        ))
+        .unwrap();
         let (_, committee, _) = crate::test_utils::consensus::stock_go_committee(&[10, 30], 0);
         for vector in fixture["vectors"].as_array().unwrap() {
             let rpc = source(
@@ -613,9 +615,10 @@ mod tests {
         use prost::Message;
         use tendermint_proto::v0_38::types::Commit as RawCommit;
 
-        let fixture: Value =
-            serde_json::from_str(include_str!("../testdata/cometbft-v0.40/differential.json"))
-                .unwrap();
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../etna-core/testdata/cometbft-v0.40/differential.json"
+        ))
+        .unwrap();
         let hex = |value: &Value| alloy_primitives::hex::decode(value.as_str().unwrap()).unwrap();
         for vector in fixture["vectors"].as_array().unwrap() {
             let name = vector["name"].as_str().unwrap();

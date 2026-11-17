@@ -75,7 +75,7 @@ pub const APP_NAME: &str = "taiko-abci";
 
 /// The ABCI application version reported in `Info.app_version`; the genesis
 /// `consensus_params.version.app` carries the same value.
-pub const APP_VERSION: u64 = 1;
+pub use etna_core::comet::APP_VERSION;
 
 /// Interval between EL polls while waiting for an EL sync to a trusted head.
 pub const ELSYNC_POLL: Duration = Duration::from_secs(1);
