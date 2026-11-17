@@ -9,6 +9,8 @@ import os
 from pathlib import Path
 import re
 import signal
+import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -106,6 +108,55 @@ def mounts(source, java, jar, output):
             ("--mount", f"type=bind,src={origin},dst={target}" + ("" if writable else ",readonly"))]
 
 
+def publish_private_file(private, destination):
+    # Keep the canonical diagnostic private; only a separate staged inode is
+    # exposed. A failed rename is an error, never a copy through destination.
+    staged = private.with_name(private.name + ".publish")
+    with private.open("rb") as source, staged.open("xb") as target:
+        shutil.copyfileobj(source, target)
+    os.replace(staged, destination)
+
+
+def read_owner(runtime):
+    state = runtime / "owner.json"
+    if not state.exists():
+        return None
+    owner = json.loads(state.read_text())["owner"]
+    if not isinstance(owner, str) or re.fullmatch(r"[0-9a-f]{32}", owner) is None:
+        raise ValueError("invalid runtime ownership identity")
+    return owner
+
+
+def check_output(args):
+    if args.output_dir is None:
+        raise ValueError("output directory is required")
+    output = args.output_dir.absolute()
+    if not stat.S_ISDIR(output.lstat().st_mode):
+        raise ValueError("unsafe output root: expected a real directory")
+    ISOLATION.parse_binding(f"{output}=/tmp/etna-ci/output")
+    owner = read_owner(args.runtime_dir)
+    if owner is None:
+        with os.scandir(output) as entries:
+            if next(entries, None) is not None:
+                raise ValueError("output ownership unknown for nonempty output")
+        return {"safe_output": True, "empty_setup_output": True, "entries": 0}
+    docker = Docker(args.docker, args.runtime_dir, owner)
+    for kind in ("container", "image"):
+        if docker.resources(kind):
+            raise ValueError("owned Docker resources remain; output is not quiescent")
+    pending, count = [output], 0
+    while pending:
+        with os.scandir(pending.pop()) as entries:
+            for entry in entries:
+                mode = entry.stat(follow_symlinks=False).st_mode
+                count += 1
+                if stat.S_ISDIR(mode):
+                    pending.append(Path(entry.path))
+                elif not stat.S_ISREG(mode):
+                    raise ValueError(f"unsafe output entry: {str(Path(entry.path).relative_to(output))!r}")
+    return {"safe_output": True, "empty_setup_output": False, "entries": count}
+
+
 def run(args):
     source, java, jar = args.source.resolve(), args.java_home.resolve(), args.tlc_jar.resolve()
     output, runtime = args.output_dir.resolve(), args.runtime_dir.resolve()
@@ -133,6 +184,8 @@ def run(args):
     docker = Docker(args.docker, runtime, owner)
     report = dict(ok=False, returncode=1, owner=owner, uid=os.getuid(), gid=os.getgid(), errors=[])
     process = None
+    private_log = runtime / "container.log"
+    private_log.touch()
     started = time.monotonic()
     try:
         report["docker_version"] = json.loads(docker.call("version", "--format", "{{json .Server}}"))
@@ -154,7 +207,7 @@ def run(args):
         container = docker.call(*command, timeout=30)
         report["container"] = container
         report["inspection"] = json.loads(docker.call("container", "inspect", container))[0]
-        with (output / "container.log").open("wb") as stream:
+        with private_log.open("wb") as stream:
             process = subprocess.Popen([*docker.command, "start", "--attach", container],
                                        stdout=stream, stderr=subprocess.STDOUT, env=ENVIRONMENT,
                                        stdin=subprocess.DEVNULL)
@@ -186,10 +239,27 @@ def run(args):
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait()
+        # The child controls output entries. Rename replaces a destination link
+        # itself; opening/copying through that name could write outside the bind.
+        try:
+            publish_private_file(private_log, output / "container.log")
+        except OSError as error:
+            report["errors"].append(f"container.log publication failed: {error}")
+            if report["returncode"] == 0:
+                report["returncode"] = 1
         report["ok"] = report["returncode"] == 0 and not report["errors"]
         report["seconds"] = round(time.monotonic() - started, 3)
         report["calls"] = docker.calls
-        (output / "container-status.json").write_text(json.dumps(report, indent=2) + "\n")
+        private_status = runtime / "container-status.json"
+        private_status.write_text(json.dumps(report, indent=2) + "\n")
+        try:
+            publish_private_file(private_status, output / "container-status.json")
+        except OSError as error:
+            report["errors"].append(f"container-status.json publication failed: {error}")
+            report["ok"] = False
+            if report["returncode"] == 0:
+                report["returncode"] = 1
+            private_status.write_text(json.dumps(report, indent=2) + "\n")
         print(json.dumps({k: report[k] for k in ("ok", "returncode", "cleanup_ok", "errors", "seconds")}), flush=True)
     return report["returncode"] if report["returncode"] else (0 if report["ok"] else 1)
 
@@ -204,16 +274,18 @@ def main(argv=None):
     parser.add_argument("--runtime-dir", required=True, type=Path)
     parser.add_argument("--container-name")
     parser.add_argument("--timeout", type=float, default=2350)
-    parser.add_argument("--cleanup-only", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--cleanup-only", action="store_true")
+    mode.add_argument("--check-output", action="store_true")
     args = parser.parse_args(argv)
     try:
+        if args.check_output:
+            print(json.dumps(check_output(args)), flush=True)
+            return 0
         if args.cleanup_only:
-            state = args.runtime_dir / "owner.json"
-            if not state.exists():
+            owner = read_owner(args.runtime_dir)
+            if owner is None:
                 return 0
-            owner = json.loads(state.read_text())["owner"]
-            if re.fullmatch(r"[0-9a-f]{32}", owner) is None:
-                raise ValueError("invalid runtime ownership identity")
             errors = Docker(args.docker, args.runtime_dir, owner).cleanup()
             print(json.dumps({"cleanup_errors": errors}), flush=True)
             return 1 if errors else 0
@@ -222,7 +294,7 @@ def main(argv=None):
         signal.signal(signal.SIGINT, cancel)
         signal.signal(signal.SIGTERM, cancel)
         return run(args)
-    except (OSError, ValueError, KeyError) as error:
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.TimeoutExpired) as error:
         parser.error(str(error))
 
 

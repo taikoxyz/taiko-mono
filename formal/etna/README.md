@@ -36,6 +36,10 @@ namespaces. The adapter assembles its runtime locally without pulling an image,
 keeps the caller's numeric UID and checks every configured binding before
 creating Docker resources. Its outer output directory must already exist; the
 inner gate directory is new. Native lanes retain their existing supervisor.
+The parent retains diagnostics outside the container bindings and publishes
+copies with atomic replacement. After owned resources are removed, a separate
+check rejects links and special files throughout the output tree before raw
+artifact upload; failure diagnostics use two fixed private files.
 
 The gate requires every discovered
 default configuration exactly once, rereads its actual TLC log,

@@ -107,9 +107,12 @@ supported protocol/source defect; otherwise finish the five and report before
 starting another batch. No production, normative SPEC or Notion edits, merge,
 deployment or automatic sixth increment is authorized.
 
-G01 retains complete369-case model evidence and has passed the final Docker
-adapter's197-test/rules preflight, genuine TLC integration and independent
-source/behavior checks. Earlier hosted startup exposed a runner namespace
-restriction; the current Docker workflow still needs hosted full-gate and
-complete artifact readback. G02 is paused while that repair finishes; G03-G05
+G01's published Docker version passed the hosted369-case/197-Python gate and
+complete381-file artifact readback. A subsequent review found that parent
+metadata writes and the artifact consumer could follow child-created links.
+The current repair stages private diagnostics, atomically publishes copies and
+requires a quiescent, link-free regular output tree before raw upload. Its208-test/
+rules preflight, actual Docker output controls and independent rechecks pass;
+a new hosted full-gate/artifact readback remains required. G02 is paused
+while that repair finishes; G03-G05
 and the complete batch gate remain pending.

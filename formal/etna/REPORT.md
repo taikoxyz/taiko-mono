@@ -2417,3 +2417,39 @@ The unchanged model search is retained with its original adapter attribution;
 it is not relabeled as a final-validator full run. The current hosted full
 369/current-Python gate and complete raw artifact readback remain required
 before closing G01 or resuming G02. G02-G05 and the final batch gate remain open.
+
+### G01 host output publication and artifact boundary repair
+
+Hosted run44008626733 at acb7e5c400 passed all gate, reconciliation and upload
+steps. The downloaded381-file artifact was read without extraction: all369
+case logs match their exact outcomes (70 exhausted searches,299 named invariant
+failures), current model/configuration hashes match, and197 Python tests have
+no skips or failures. Its ZIP SHA-256 is
+`f0311b2c49d8fcd3d9c524299931e02185099de46051422e1959381825e1a665`.
+This execution predates the following output-boundary repair.
+
+Review then found two related host-consumer defects. The parent opened log/status
+destinations in child-writable output and could follow a planted link. The pinned
+artifact action also follows links when reading that output. Disposable sentinel
+controls reproduced the parent overwrite; inspection of the exact pinned action
+confirmed its consumer path. No real sensitive paths or unsafe remote uploads
+were used.
+
+The parent now retains canonical diagnostics in its unmounted private runtime
+and publishes separate inodes using atomic replacement; directory collisions and
+cross-device renames fail without a copy-through fallback. After reconciliation,
+an independent output check freshly confirms owned daemon resources are absent
+and uses no-follow metadata reads throughout the tree, rejecting links and
+special files. Raw upload requires both reconciliation and output-check success.
+The always-run diagnostics upload names only the two private canonical files.
+
+The current adapter passes208 Python tests (57 gate/adapter,131 conformance,
+20 model/sensitivity), rule markers and actual Docker controls. Outside disposable
+sentinels stay unchanged; planted metadata links are replaced with regular files;
+extra file/directory links and a FIFO are rejected; directory collisions and an
+actual cross-device publication fail safely with cleanup. Normal prior381-file
+artifact layout passes the new checker. These controls do not relabel the older
+full run as execution of the repaired adapter. Independent source and actual
+behavior rechecks pass at the frozen current adapter/workflow/test hashes. A
+new hosted full run with complete artifact readback is required before G01
+closes and G02 resumes.
