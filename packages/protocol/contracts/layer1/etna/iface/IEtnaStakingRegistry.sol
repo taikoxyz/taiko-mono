@@ -47,8 +47,11 @@ interface IEtnaStakingRegistry {
         uint256 forfeitBps;
     }
 
-    /// @notice The registry at the end of an L1 block that changed an entry (array at slot R, two
-    /// words each); the first word packs `l1Block` and `count`.
+    /// @notice A registry checkpoint (l1Block, count, entriesRoot): the registry at the end of an
+    /// L1 block that changed an entry (array at slot R, two words each); the first word packs
+    /// `l1Block` and `count`.
+    /// @dev Distinct from the Inbox's landed checkpoint (`IEtnaInbox.LandedCheckpoint`), an L2
+    /// (height, block hash).
     struct Checkpoint {
         /// @notice The L1 block.
         uint48 l1Block;
@@ -95,8 +98,10 @@ interface IEtnaStakingRegistry {
         uint64 height;
         /// @notice The consensus round, below 2^31.
         uint32 round;
-        /// @notice The block id hash: empty or exactly 32 bytes, including all-zero bytes.
-        /// @dev A nil vote has both hashes empty and partsTotal zero.
+        /// @notice The CometBFT block id hash (the vote's `hash` in spec appendix A), not an EL
+        /// block hash: empty or exactly 32 bytes, including all-zero bytes.
+        /// @dev A nil vote has both hashes empty and partsTotal zero. `IEtnaInbox` calls the same
+        /// kind of value `cometHash` and uses `blockHash` for EL block hashes.
         bytes blockHash;
         /// @notice The part set header total.
         uint32 partsTotal;
@@ -210,11 +215,14 @@ interface IEtnaStakingRegistry {
     );
 
     /// @notice Emitted when governance recovery moves a bond's exit earlier.
+    /// @dev Only `forceExit`, the recovery exclusion path, emits it; the exit `forfeit` forces is
+    /// reported by `Forfeited`.
     /// @param bondId The bond id.
     /// @param exitEffectiveL1 The new exit block, R.
     event ExitForced(uint256 indexed bondId, uint48 exitEffectiveL1);
 
-    /// @notice Emitted when the current block's checkpoint is appended or overwritten.
+    /// @notice Emitted when the current block's registry checkpoint (l1Block, count, entriesRoot)
+    /// is appended or overwritten; it is not the Inbox's landed checkpoint.
     /// @param index The checkpoint index.
     /// @param l1Block The L1 block of the checkpoint, the current block.
     /// @param count The number of slots used so far.
@@ -275,7 +283,11 @@ interface IEtnaStakingRegistry {
     function activateTopUp(uint256 _bondId) external;
 
     /// @notice Deducts a fixed fraction of remaining principal and forces exit (spec 4.4).
-    /// @dev Registry owner only after Inbox initialization, once per lifetime entryKey, through
+    /// @dev Spec 4.4's responsibility forfeiture, separate from slashing (`slashDoubleSign`): a
+    /// bond without principal reverts `NothingToForfeit`. It also forces an exit,
+    /// exitEffectiveL1 = min(existing, block.number), reported by `Forfeited`; `forceExit` and
+    /// `ExitForced` are the recovery exclusion path only.
+    /// Registry owner only after Inbox initialization, once per lifetime entryKey, through
     /// any DAO execution path. Checks the bond's key, positive effective plus pending principal,
     /// and block.timestamp <= _validUntil, whether or not the bond holds a slot. Deducts
     /// ceil(balance * forfeitBps / 10000) from effective stake first, then pending funds; pays
@@ -357,7 +369,9 @@ interface IEtnaStakingRegistry {
 
     /// @notice Moves a bond's exit to the recovery execution block during governance recovery
     /// (spec 8 step 2).
-    /// @dev Only the Inbox. Requires an issued bond, displaced or withdrawn ones included, whose
+    /// @dev The recovery exclusion path only; `forfeit` (spec 4.4) forces an exit on its own path,
+    /// without `ExitForced`.
+    /// Only the Inbox. Requires an issued bond, displaced or withdrawn ones included, whose
     /// key matches `_entryKey = keccak256(abi.encode(ckPrefix, ckX))`, and reverts
     /// `InvalidEventBlock` if `block.number >= 2^48 - 1`, the no-exit sentinel. If the current
     /// block is below the bond's exitEffectiveL1, sets it to that block without slashing, writes
@@ -499,6 +513,8 @@ interface IEtnaStakingRegistry {
     error FutureGeneration();
     /// @notice The bond has no stake to slash.
     error NothingToSlash();
+    /// @notice The bond has no principal to forfeit.
+    error NothingToForfeit();
     /// @notice The bond's key does not match the expected entry key.
     error EntryKeyMismatch();
     /// @notice A slot value is not below 2^244.

@@ -316,7 +316,7 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         assertEq(token.balanceOf(SLASH_SINK), 906.3 ether);
         assertEq(registry.entryAt(0).effStake, 0);
         _assertPending(0, 0);
-        vm.expectRevert(IEtnaStakingRegistry.NothingToSlash.selector);
+        vm.expectRevert(IEtnaStakingRegistry.NothingToForfeit.selector);
         registry.forfeit(0, _key, 0, block.timestamp);
         assertFalse(registry.forfeited(_key));
         vm.expectRevert(IEtnaStakingRegistry.TopUpNotAllowed.selector);

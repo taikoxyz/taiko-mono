@@ -193,16 +193,19 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
 
 `land` accepts an opaque `lastValStateHash` after `lastCometHash`. The verifier statement
 binds the stored parent's validator-state hash and the terminal hash in 23 static words
-(736 bytes); frontier cut leaves bind five words. L1 never decodes their preimages.
-The start record has zero validator-state hash, and recovery retains its origin's original
-fourth word while the proof applies the generation-start validator-state exception.
+(736 bytes); frontier cut leaves bind five words ("frontier" means the leaf at c, the latest
+checkpoint height). L1 never decodes their preimages.
+S's landing record (slot 285) has zero validator-state hash, and recovery retains its origin's
+original fourth word while the proof applies the generation-start validator-state exception.
 
 ## Storage
 
 - Inbox: appendix B exactly. The named slots are 258, 268–274, 278–282, 284, 285, 290, 292 and 293;
   reserved slots 283, 286–289 and 291 are never read or written, and slots 251–257, 259–267 and
   275–277 are unused padding. Each slot-285 mapping value has four words: the packed
-  parent/generation/head, EL hash, Comet hash, and validator-state hash.
+  parent/generation/head, EL hash, Comet hash, and validator-state hash. The record's `head` is
+  the forced-inclusion cursor at that height (the spec's "FI cursor"); the Inbox queue head
+  (slot 281) equals it once that height is the checkpoint.
 - Registry: the ERC-7201 namespace `taiko.etna.registry` with base R holds `checkpoints` at R
   and the slot-indexed `entries` at R + 1, the only slots nodes read, then the tree nodes, the
   admission index, the key and slot lookups, the bond records and the bond count. Bond owners

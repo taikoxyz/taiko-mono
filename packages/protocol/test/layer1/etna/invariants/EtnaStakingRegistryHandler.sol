@@ -650,7 +650,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (lifetimeForfeited[key]) {
             expected = _err(IEtnaStakingRegistry.AlreadyForfeited.selector);
         } else if (principal == 0) {
-            expected = _err(IEtnaStakingRegistry.NothingToSlash.selector);
+            expected = _err(IEtnaStakingRegistry.NothingToForfeit.selector);
         }
         address dao = registry.owner();
         vm.prank(dao);

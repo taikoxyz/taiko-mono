@@ -119,8 +119,8 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         assertEq(inbox.committeeConfigHash(), _probe("committee_config_hash"), "269");
         assertEq(inbox.lastCheckpoint().height, _probe48("last_checkpoint_height"), "270");
         assertEq(inbox.lastCheckpoint().blockHash, _probe("last_checkpoint_hash"), "271");
-        assertEq(inbox.genesis().genesisBlockHash, _probe("genesis_block_hash"), "273");
-        assertEq(inbox.genesis().genesisStateRoot, _probe("genesis_state_root"), "274");
+        assertEq(inbox.genesis().startBlockHash, _probe("genesis_block_hash"), "273");
+        assertEq(inbox.genesis().startStateRoot, _probe("genesis_state_root"), "274");
         assertEq(inbox.genesisCommitteeRecordHash(), _probe("genesis_committee_record_hash"), "278");
         assertEq(inbox.genesisCutoff(), _probe48("genesis_cutoff"), "279");
         assertEq(

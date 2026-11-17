@@ -478,8 +478,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(record.genesisHeight, 0, "the start is block 0");
         assertEq(record.l1Block, block.number, "L1_0");
         assertEq(record.epochLenL2, EPOCH_LEN_L2, "epoch length");
-        assertEq(record.genesisBlockHash, GENESIS_BLOCK_HASH, "genesis hash");
-        assertEq(record.genesisStateRoot, GENESIS_STATE_ROOT, "genesis state root");
+        assertEq(record.startBlockHash, GENESIS_BLOCK_HASH, "genesis hash");
+        assertEq(record.startStateRoot, GENESIS_STATE_ROOT, "genesis state root");
         assertEq(_inbox.genesisCutoff(), _cutoff, "genesis cutoff");
         assertEq(_inbox.activeCommitteeSnapshot(), _cutoff, "snapshot starts at the cutoff");
         assertEq(_inbox.genesisCommitteeRecordHash(), COMMITTEE_RECORD_HASH, "committee 0");

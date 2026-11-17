@@ -6,7 +6,8 @@ pragma solidity ^0.8.26;
 /// that end at grid points, keeps the forced inclusion queue and the rules schedule and runs
 /// governance recovery.
 /// @dev Section numbers refer to the Etna specification. S is block 0 on a new network and the last
-/// Unzen block on a network that switches from Unzen. Nodes, guests and landers read the storage
+/// Unzen block on a network that switches from Unzen. K is the grid interval (spec 6.1), 6 in this
+/// implementation (`GRID_INTERVAL`). Nodes, guests and landers read the storage
 /// layout of spec appendix B (slots 258-293) with EIP-1186 proofs; each struct names the slots it
 /// occupies. Every packed word lays its fields out in declaration order from the
 /// least-significant bit. This file has no imports so clients can copy it as is.
@@ -26,7 +27,7 @@ interface IEtnaInbox {
         address stakingRegistry;
         /// @notice The chain id of the Etna L2; non-zero.
         uint64 l2ChainId;
-        /// @notice The maximum `h - p` of one landing; at least 6, one grid segment, and at most
+        /// @notice The maximum `h - p` of one landing; at least K, one grid segment, and at most
         /// 65,532, so that the leaf calldata fits one transaction (spec 11).
         uint64 maxBatchBlocks;
         /// @notice The forced inclusion fee in Gwei with an empty queue (spec 7.1); non-zero.
@@ -36,8 +37,8 @@ interface IEtnaInbox {
         /// @notice The DAO treasury that receives the swept forced inclusion fees (spec 7.1);
         /// non-zero.
         address protocolFeeRecipient;
-        /// @notice The multisig that writes the Etna start with `setOrigin` on a switching
-        /// network; zero on a new network (spec 11).
+        /// @notice The multisig that performs the one-time start write with `setOrigin` on a
+        /// switching network, recording the Etna start S; zero on a new network (spec 11).
         address originWriter;
         /// @notice The live Unzen Inbox proxy on a switching network, which must have code; zero
         /// on a new network.
@@ -58,7 +59,7 @@ interface IEtnaInbox {
         uint256 sMin;
         /// @notice `n_max`: the maximum committee size, in [1, 4096].
         uint256 nMax;
-        /// @notice `U`: the maximum number of unsettled L2 blocks, a multiple of 6 in [6, 65,532].
+        /// @notice `U`: the maximum number of unsettled L2 blocks, a multiple of K in [K, 65,532].
         uint256 unsettledLimit;
     }
 
@@ -102,13 +103,18 @@ interface IEtnaInbox {
         bytes32 lastStateRoot;
         /// @notice The L1 block whose header chain holds every anchor and proving root used.
         uint256 l1ReferenceBlockNumber;
-        /// @notice The forced inclusion queue head after `h`.
+        /// @notice The forced-inclusion cursor at `h` (the spec's "FI cursor"): the number of queue
+        /// entries L2 has consumed through `h`. The Inbox queue head (slot 281) equals it once `h`
+        /// is the checkpoint.
         uint256 forcedInclusionHead;
         /// @notice The selection snapshot of the committee actually signing `h`.
         uint256 activeCommitteeSnapshot;
     }
 
-    /// @notice The latest landed L2 block `c` (slots 270/271).
+    /// @notice The landed checkpoint (`lastCheckpoint`, slots 270/271): the latest landed L2 block
+    /// `c` as (height, EL block hash).
+    /// @dev Distinct from the SignalService checkpoint (height, block hash, state root) and from
+    /// the registry checkpoint (`IEtnaStakingRegistry.Checkpoint`).
     struct LandedCheckpoint {
         /// @notice The L2 height.
         uint48 height;
@@ -117,8 +123,10 @@ interface IEtnaInbox {
     }
 
     /// @notice The start record (slots 272-274); slot 272 packs the three 48-bit fields.
-    /// @dev `init` writes `epochLenL2`; the start write writes the rest. The start is written
-    /// exactly when `genesisBlockHash` is non-zero.
+    /// @dev The struct and `genesisHeight` keep appendix B's names, but `genesisHeight` holds the
+    /// Etna start S, and slots 273 and 274 hold the start block's hash and state root: those of
+    /// L2 block 0 only on a new network. `init` writes `epochLenL2`; the start write writes the
+    /// rest. The start is written exactly when `startBlockHash` is non-zero.
     struct GenesisRecord {
         /// @notice The Etna start S: block 0 on a new network, the last Unzen block on a switching
         /// network.
@@ -127,10 +135,10 @@ interface IEtnaInbox {
         uint48 l1Block;
         /// @notice `L`: the epoch length in L2 blocks.
         uint48 epochLenL2;
-        /// @notice The EL block hash of S.
-        bytes32 genesisBlockHash;
-        /// @notice The state root of S.
-        bytes32 genesisStateRoot;
+        /// @notice The EL block hash of the start block S (slot 273).
+        bytes32 startBlockHash;
+        /// @notice The state root of the start block S (slot 274).
+        bytes32 startStateRoot;
     }
 
     /// @notice The rules schedule (slot 293, spec 10.1), packed from the least-significant bit.
@@ -157,7 +165,9 @@ interface IEtnaInbox {
         uint48 parentHeight;
         /// @notice The recovery generation of the landing.
         uint48 generation;
-        /// @notice The forced inclusion queue head at this height.
+        /// @notice The forced-inclusion cursor at this height (the spec's "FI cursor"): the number
+        /// of queue entries L2 has consumed through it. The Inbox queue head (slot 281) equals it
+        /// once this height is the checkpoint.
         uint48 head;
         /// @notice The EL block hash at this height; never zero once written.
         bytes32 elHash;
@@ -167,8 +177,11 @@ interface IEtnaInbox {
         bytes32 valStateHash;
     }
 
-    /// @notice The fixed origin of a recovery generation (slot 290 mapping, three words; spec 8.4).
-    /// @dev Generation 0 is (S, L1_0, L1_0's timestamp), written by the start write; a recovery
+    /// @notice The fixed per-generation origin record (slot 290 mapping, three words: startHeight,
+    /// l1BlockNumber, l1Timestamp; spec 8.4).
+    /// @dev "Origin" has two other uses in this interface: the proof origin `p` of `land`
+    /// (`LandInput.parentHeight`) and `setOrigin`, which performs the start write.
+    /// Generation 0 is (S, L1_0, L1_0's timestamp), written by the start write; a recovery
     /// generation is (c, R.number, R.timestamp). Written once; every field is below 2^48.
     struct Origin {
         /// @notice The checkpoint height `c` the generation starts from.
@@ -293,7 +306,10 @@ interface IEtnaInbox {
     function init(InitParams calldata _params) external;
 
     /// @notice Writes the Etna start on a switching network (spec 10 step 5a).
-    /// @dev Only `originWriter()`, once, on an initialized Inbox whose start is unwritten, at
+    /// @dev The one-time start write that records the Etna start S (the spec's "start write").
+    /// "Origin" in the name is that start, not the slot 290 `Origin` record and not the proof
+    /// origin `p` of `land`; a second call reverts `StartAlreadyWritten`.
+    /// Only `originWriter()`, once, on an initialized Inbox whose start is unwritten, at
     /// block.timestamp >= etnaForkTime(), with a non-zero hash and state root, 0 < _height < 2^48
     /// and block.number and block.timestamp below 2^48. A new-network Inbox has no originWriter,
     /// so every call reverts there. The start write sets slot 272 to (S, L1_0 = block.number, L),
@@ -491,7 +507,8 @@ interface IEtnaInbox {
     /// @return The record; all zero if no landing ended at `_height`.
     function landings(uint256 _height) external view returns (Landing memory);
 
-    /// @notice Returns the fixed origin of a recovery generation (slot 290).
+    /// @notice Returns the fixed per-generation origin record (slot 290): startHeight,
+    /// l1BlockNumber and l1Timestamp.
     /// @param _generation The recovery generation.
     /// @return The origin; all zero if the generation has not started.
     function origins(uint256 _generation) external view returns (Origin memory);
@@ -574,7 +591,8 @@ interface IEtnaInbox {
     /// @return The protocol fee recipient.
     function protocolFeeRecipient() external view returns (address);
 
-    /// @notice Returns the multisig that may write the Etna start; zero on a new network.
+    /// @notice Returns the multisig that may perform the one-time start write (`setOrigin`), which
+    /// records the Etna start S; zero on a new network.
     /// @return The origin writer.
     function originWriter() external view returns (address);
 
@@ -594,9 +612,9 @@ interface IEtnaInbox {
     error NotInitialized();
     /// @notice The Etna start is not written yet.
     error StartNotWritten();
-    /// @notice The Etna start is already written.
+    /// @notice The Etna start is already written: a second `setOrigin`.
     error StartAlreadyWritten();
-    /// @notice `recover` finds the new generation's origin record already written.
+    /// @notice `recover` finds the new generation's origin record (slot 290) already written.
     error OriginAlreadyWritten();
     /// @notice `setOrigin` is called before `etnaForkTime()`.
     error BeforeEtnaForkTime();
@@ -609,9 +627,11 @@ interface IEtnaInbox {
     error UnzenNotFinalized();
     /// @notice The Unzen Inbox's last finalized block hash differs from the start's hash.
     error UnzenStartMismatch();
-    /// @notice The SignalService checkpoint at S differs from the start's hash or state root.
+    /// @notice The SignalService checkpoint at S (not the landed checkpoint) differs from the
+    /// start's hash or state root.
     error StartCheckpointMismatch();
-    /// @notice The checkpoint height minus S is not a multiple of 6.
+    /// @notice The landed checkpoint's height (`lastCheckpoint().height`) minus S is not a
+    /// multiple of K.
     error CheckpointOffGrid();
     /// @notice The ruleset is neither `nextRules` nor `nextRules + 1`, or not `nextRules + 1` in
     /// `recover`.
@@ -623,7 +643,7 @@ interface IEtnaInbox {
     /// @notice The planned stop can no longer be changed.
     error StopLocked();
     /// @notice The stop is neither (0, 0) nor a time at least `maxAnchorAge` ahead with a positive
-    /// multiple of 6 as its grid.
+    /// multiple of K as its grid.
     error InvalidStop();
     /// @notice The expected recovery nonce differs from the current one.
     error RecoveryNonceMismatch();
@@ -631,7 +651,7 @@ interface IEtnaInbox {
     error AuthorizationExpired();
     /// @notice The staking registry holds its reentrancy lock.
     error RegistryLocked();
-    /// @notice `maxBatchBlocks` is below 6 or above 65,532.
+    /// @notice `maxBatchBlocks` is below K or above 65,532.
     error InvalidMaxBatchBlocks();
     /// @notice The forced inclusion fee is zero.
     error ForcedInclusionFeeZero();
@@ -642,8 +662,8 @@ interface IEtnaInbox {
     error InvalidGenesis();
     /// @notice The epoch length is below 3 or its successor does not fit 48 bits.
     error InvalidEpochLength();
-    /// @notice The genesis cutoff is not a past block at or after the registry's first
-    /// checkpoint.
+    /// @notice The genesis cutoff is not a past block at or after the first registry checkpoint
+    /// (`IEtnaStakingRegistry.Checkpoint`).
     error InvalidGenesisCutoff();
     /// @notice The committee 0 record hash is zero.
     error ZeroCommitteeRecord();
@@ -661,19 +681,23 @@ interface IEtnaInbox {
     error AlreadySettled();
     /// @notice The proof origin is outside [generationStartHeight(), c] or `h` reaches 2^48.
     error InvalidRange();
-    /// @notice `p - S` or `h - S` is not a multiple of 6.
+    /// @notice `p - S` or `h - S` is not a multiple of K.
     error OffGrid();
     /// @notice `h - p` exceeds `maxBatchBlocks`.
     error BatchTooLarge();
-    /// @notice The proof origin has no landing record.
+    /// @notice The proof origin `p` (`LandInput.parentHeight`) has no landing record (slot 285);
+    /// unrelated to the slot 290 origin record.
     error MissingOrigin();
     /// @notice The proof origin's record belongs to another generation.
     error ForeignGeneration();
-    /// @notice The number of cut leaves is not `(h - p) / 6 - 1`.
+    /// @notice The number of cut leaves is not `(h - p) / K - 1`.
     error LeafCountMismatch();
-    /// @notice The checkpoint's recorded queue head differs from the stored queue head.
+    /// @notice The forced-inclusion cursor in the checkpoint's landing record (`Landing.head`, the
+    /// spec's "FI cursor") differs from the Inbox queue head (slot 281), which must equal it once
+    /// that height is the checkpoint.
     error ForcedInclusionHeadMismatch();
-    /// @notice The cut leaf at `c` differs from the one computed from `c`'s landing record.
+    /// @notice The cut leaf at `c`, the latest checkpoint height (the "frontier"), differs from the
+    /// one computed from `c`'s landing record.
     error FrontierLeafMismatch();
     /// @notice The new queue head goes back, passes the tail or advances more than `h - c`.
     error InvalidForcedInclusionHead();
@@ -687,7 +711,8 @@ interface IEtnaInbox {
     error InsufficientFee();
     /// @notice The expected generation is not the current one.
     error GenerationMismatch();
-    /// @notice The expected checkpoint height is not the current one.
+    /// @notice The expected checkpoint height is not the landed checkpoint's
+    /// (`lastCheckpoint().height`).
     error CheckpointMismatch();
     /// @notice The exclusions are not sorted strictly by bond id.
     error ExclusionsNotSorted();
