@@ -76,7 +76,7 @@ contract DeployEtnaDevnet is Script {
     /// authorizing it (step 1).
     /// @return proxy_ The Inbox proxy, owned by CONTRACT_OWNER or the deployer.
     /// @return signalService_ The L1 SignalService proxy, with the same owner.
-    function deployInboxProxy() external returns (address proxy_, address signalService_) {
+    function deployInboxProxy() external virtual returns (address proxy_, address signalService_) {
         uint256 privateKey = _privateKey();
         address owner = _owner(privateKey);
         require(vm.envUint("L1_CHAIN_ID") == block.chainid, L1ChainIdMismatch());
@@ -133,7 +133,7 @@ contract DeployEtnaDevnet is Script {
     /// INBOX_PROXY. Reverts before broadcasting if SIGNAL_SERVICE or ETNA_PROOF_VERIFIER has no
     /// code or L1_CHAIN_ID is not this chain's id.
     /// @return inboxImpl_ The `EtnaInbox` implementation.
-    function deployInbox() external returns (address inboxImpl_) {
+    function deployInbox() external virtual returns (address inboxImpl_) {
         uint256 privateKey = _privateKey();
         address proxy = vm.envAddress("INBOX_PROXY");
         IEtnaInbox.Config memory config = _inboxConfig();
@@ -189,12 +189,12 @@ contract DeployEtnaDevnet is Script {
     }
 
     // ---------------------------------------------------------------
-    // Private Functions
+    // Internal & Private Functions
     // ---------------------------------------------------------------
 
     /// @dev Reads a non-zero deployment key.
     /// @return The key passed to the broadcast cheatcode.
-    function _privateKey() private view returns (uint256) {
+    function _privateKey() internal view returns (uint256) {
         uint256 key = vm.envUint("PRIVATE_KEY");
         require(key != 0, InvalidPrivateKey());
         return key;
@@ -204,7 +204,7 @@ contract DeployEtnaDevnet is Script {
     /// CONTRACT_OWNER is unset, empty or zero. A malformed value reverts.
     /// @param _key The deployment key.
     /// @return The owner.
-    function _owner(uint256 _key) private view returns (address) {
+    function _owner(uint256 _key) internal view returns (address) {
         address owner = _isSet("CONTRACT_OWNER") ? vm.envAddress("CONTRACT_OWNER") : address(0);
         return owner == address(0) ? vm.addr(_key) : owner;
     }
@@ -213,7 +213,7 @@ contract DeployEtnaDevnet is Script {
     /// defaults to ETNA_S_MIN when REGISTRY_MIN_STAKE is unset, empty or zero. A malformed value
     /// reverts.
     /// @return The registry configuration.
-    function _registryConfig() private view returns (IEtnaStakingRegistry.Config memory) {
+    function _registryConfig() internal view virtual returns (IEtnaStakingRegistry.Config memory) {
         uint256 minStake = _isSet("REGISTRY_MIN_STAKE") ? vm.envUint("REGISTRY_MIN_STAKE") : 0;
         if (minStake == 0) minStake = vm.envUint("ETNA_S_MIN");
         return IEtnaStakingRegistry.Config({
@@ -233,7 +233,7 @@ contract DeployEtnaDevnet is Script {
     /// @dev Reads the Inbox implementation's configuration. A new network has no originWriter,
     /// Unzen Inbox or fork time, so all three are zero and `init` writes the start at block 0.
     /// @return The Inbox configuration.
-    function _inboxConfig() private view returns (IEtnaInbox.Config memory) {
+    function _inboxConfig() internal view virtual returns (IEtnaInbox.Config memory) {
         return IEtnaInbox.Config({
             proofVerifier: vm.envAddress("ETNA_PROOF_VERIFIER"),
             signalService: vm.envAddress("SIGNAL_SERVICE"),
@@ -251,10 +251,11 @@ contract DeployEtnaDevnet is Script {
 
     /// @dev Encodes `init` over the genesis environment.
     /// @return The `init` calldata.
-    function _initCall() private view returns (bytes memory) {
+    function _initCall() internal view returns (bytes memory) {
+        (bytes32 genesisHash, bytes32 genesisRoot) = _genesisBlock();
         IEtnaInbox.InitParams memory params = IEtnaInbox.InitParams({
-            genesisBlockHash: vm.envBytes32("GENESIS_BLOCK_HASH"),
-            genesisStateRoot: vm.envBytes32("GENESIS_STATE_ROOT"),
+            genesisBlockHash: genesisHash,
+            genesisStateRoot: genesisRoot,
             epochLenL2: vm.envUint("EPOCH_LEN_L2"),
             genesisCutoff: vm.envUint("GENESIS_CUTOFF"),
             committeeRecordHash: vm.envBytes32("COMMITTEE_RECORD_HASH"),
@@ -270,10 +271,17 @@ contract DeployEtnaDevnet is Script {
         return abi.encodeCall(EtnaInbox.init, (params));
     }
 
+    /// @dev Reads the block-zero identity for a new chain; switching deployments leave it unwritten.
+    /// @return hash_ The genesis block hash.
+    /// @return root_ The genesis state root.
+    function _genesisBlock() internal view virtual returns (bytes32 hash_, bytes32 root_) {
+        return (vm.envBytes32("GENESIS_BLOCK_HASH"), vm.envBytes32("GENESIS_STATE_ROOT"));
+    }
+
     /// @dev Reads an environment integer and rejects values outside uint64.
     /// @param _name The variable name.
     /// @return The uint64 value.
-    function _envUint64(string memory _name) private view returns (uint64) {
+    function _envUint64(string memory _name) internal view returns (uint64) {
         return SafeCast.toUint64(vm.envUint(_name));
     }
 

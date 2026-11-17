@@ -341,6 +341,15 @@ python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
 
 `testdata/etna_vectors/README.md` explains how to regenerate the vectors.
 
+## Switching from Unzen
+
+[The switch preparation scripts](../../../script/layer1/etna/README.md) retain the existing L1
+SignalService and deploy the Etna bootstrap, registry, dedicated verifier instances and replacement
+implementations without upgrading live proxies. `InboxWithEtnaCutoffs` preserves Unzen's configuration
+and storage while applying immutable proposal and FI cutoffs. `SignalServiceL1` keeps VERSION=1 and
+the shared signal/checkpoint storage, authorizes both Inboxes and rejects Unzen checkpoints above S
+once the Etna start is written. Existing first-landing checks use the real six-word Unzen CoreState ABI.
+
 ## Out of scope
 
 - The verifier-failure rollback (spec 8); it comes with the Inbox upgrade replacing the verifier,
@@ -350,13 +359,11 @@ python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
   SignalService cached, and every Bridge message left `RETRIABLE`, at or after the L1 block of the
   first bad landing is unusable until it is proven again against a checkpoint the SignalService
   holds after the rollback (RECOV-8-27a).
-- The rest of the switch from Unzen: the start rewrite of spec 10 step 5c, which ships with the
-  correcting Inbox upgrade, the L1 SignalService upgrade that accepts both Inboxes and rejects
-  Unzen Inbox checkpoints above S (an override of `_authorizeCheckpoint`), and the Unzen Inbox
-  cutoffs (10 step 5d).
-- Snapshot verification, checkpoint import and switch deployment tooling. The merged spec's
-  missing-data retry rules, originWriter finality and timestamp duties, and DAO proposal lead
-  guard belong to those implementations and operations; the contract enforces its observable gates.
+- DAO proposal construction and installation, including the start rewrite of spec 10 step 5c,
+  the correcting Inbox upgrade, L1 proposal lead/time cross-checks and L2 batch guards.
+- Snapshot verification and checkpoint import are client work. Missing-data retry rules and
+  originWriter finality, timestamp and Anchor identity duties belong to clients and operations;
+  the contract enforces its observable gates. Switch deployment rehearsal remains outstanding.
 - Real proving guests. Tests use mock verifiers, so they show contract behaviour, not proof
   soundness; production needs a verifier that requires two proofs, at least one ZK (6.2).
 

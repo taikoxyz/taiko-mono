@@ -268,6 +268,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
+        _checkProposeAllowed();
+
         unchecked {
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             _validateProposeInput(input);
@@ -429,6 +431,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// submitted to make sure blocks have been produced already and the derivation can use the
     /// parent's block timestamp.
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
+        _checkForcedInclusionAllowed();
+
         bytes32 proposalHash = _proposalHashes[1];
         require(proposalHash != bytes32(0), IncorrectProposalCount());
 
@@ -559,6 +563,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     function getProposalHash(uint256 _proposalId) public view returns (bytes32) {
         return _proposalHashes[_proposalId % _ringBufferSize];
     }
+
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Checks whether new proposals may be accepted. Derived implementations can impose
+    /// admission cutoffs without changing proof verification or bond accounting.
+    function _checkProposeAllowed() internal view virtual { }
+
+    /// @dev Checks whether new forced inclusions may be accepted. Derived implementations can
+    /// impose a cutoff while leaving queued inclusions and their fees unchanged.
+    function _checkForcedInclusionAllowed() internal view virtual { }
 
     // ---------------------------------------------------------------
     // Private State-Changing Functions

@@ -24,12 +24,14 @@ contracts_shared=(
 "contracts/shared/bridge/Bridge.sol:Bridge"
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
 "contracts/shared/signal/SignalService.sol:SignalService"
+"contracts/shared/signal/SignalServiceL1.sol:SignalServiceL1"
 "contracts/shared/signal/SignalServiceL2.sol:SignalServiceL2"
 "contracts/shared/fork-router/ForkRouter.sol:ForkRouter"
 )
 
 # Layer 1 contracts
 contracts_layer1=(
+"contracts/layer1/core/impl/InboxWithEtnaCutoffs.sol:InboxWithEtnaCutoffs"
 "contracts/layer1/core/impl/ProverWhitelist.sol:ProverWhitelist"
 "contracts/layer1/etna/impl/EtnaInbox.sol:EtnaInbox"
 "contracts/layer1/etna/impl/EtnaStakingRegistry.sol:EtnaStakingRegistry"
