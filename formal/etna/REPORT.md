@@ -3907,3 +3907,104 @@ Proof and producer anchor ages still share RefWindow. No independently supported
 natural protocol/source defect was found; broader P01/P02 remain OPEN and D01
 WAITING. All five selected increments are complete; accumulated final gates and
 retrospective remain unfinished. No sixth is authorized.
+
+## Interleaving-boundaries batch — final gate and retrospective
+
+All five selected increments and final independent source/behavior gates are
+complete at implementation34c797bb53a5b7faedd4ddd46585900af0cc5801. This closing
+change updates four prose files only. All35 original recursive models,423 old
+default configurations and529 old code inputs remain byte-identical. The current
+493 defaults comprise the original423 plus70 additive configs; source discovery
+includes40 recursive TLA and514 recursive configs. Broader30 obligations and11
+composition families retain their existing acceptance boundaries.
+
+Fresh accumulated verification uses the unchanged checker/gate in the existing
+offline container, with a read-only792-input snapshot containing686 formal files
+and106 complete protocol documents, including Derivation.md. The locally
+assembled runtime uses repository ci_container.py's documented Python runtime;
+outer drivers and the separate controller use the managed Python. Exact pinned
+Java17/JAR and canonical signal-reset entry remain unchanged. No download,
+replacement engine, host-network fallback, real signing or live operation is
+part of this verification. Wall time is a validation resource measurement.
+
+Actual results:493 exact default outcomes, split133 PASS (including absence
+controls) and360 named controls/witnesses;243 ordinary Python tests with zero
+skips/failures;5 separately counted controller tests; all640 rule markers resolve.
+The5 newly added shared TLC source faults independently rerun true same-copy
+baseline/mutant/restored phases,15 actual executions, with the precise immediate
+named audit and exact restoration. Inventory80 is74 TLC/six Forge; prior75
+shared obligations, native transitions and Forge execution remain historical,
+and four unassessed entries remain. No fresh native/Forge result is claimed.
+
+Independent whole-batch source review inspected the complete base2f863ad77 to
+implementation34c797bb5 diff, all70 new config mappings, actual inherited action
+calls, literal observations, five unique actual-source mutation selectors,
+old79-row catalog preservation and all529 original inputs. Independent final
+artifact review checks actual command/isolation/cleanup, complete discovered
+coverage, exact config/module/source/tool binding, raw outcomes and test counts,
+including the fresh mutated raw effects and mandatory controller lane. It
+retains the separate meaning of safety PASS, named reachability, fault detection,
+omission witness loss and restoration. Source and artifact verdicts are READY.
+
+The exact implementation-head configured CI is SUCCESS/SKIPPED at17:25:29Z;
+this is status readback, distinct from the independent local raw-artifact audit.
+Its two Check links jobs initially failed only GitHub503/504 on links already
+present before this batch. Full failed logs were retained; one failed-only retry
+per existing link workflow passed at the same head. No URL exclusion/checker
+weakening or source change followed. Earlier failed parser/setup calls and
+pure data-reader errors remain failed/zero-credit with their original inputs;
+none is silently counted as a protocol fault or additional successful coverage.
+The final artifact reader also retains its overly strict end-of-log and single-
+line unittest assumptions; the canonical count trailer and exact existing split
+output are explicitly validated without repeating any engine execution. The pinned artifact release1.7.4/runtime TLC banner2.19 remain distinguished.
+
+Reflection: the useful result is discriminating intermediate histories. A
+second recovery exposes generation/nonce saturation hidden at max1. Local node
+service separates over-revocation from safe halting. Registry admission and
+intermediate effective/pending splits expose errors hidden by final cash. Nil
+saved-byte identity differs from lawful unsaved computation and network delivery.
+Overlapping proof settlement needs full original publication, a real current
+parent, retained interior records and block-end finality; a missing first Land
+can keep headline counters unchanged. Missing full publication can leave an
+existing anchor that still permits production. Expected masks observe actual
+calls and never suppress a newly legal action.
+
+Checks also exposed their own weaknesses: a proof-origin oracle needed the
+prepared proof's actual generation; a new wrapper needed primed frame binding
+before observation; cfg tuple bindings and tuple-equality spacing needed valid
+parser representations; temporary readers over-assumed graph-count equality
+and misrouted old logs. The first planned finite smoke now precedes parallel
+products. Exact named-fault controls, actual same-copy restoration, independent
+literal fixtures and complete raw histories reduce these blind spots. No
+independently supported natural protocol/source defect was found. This supplies
+neither an absence-of-defects argument nor an exhaustive oracle-completeness claim.
+
+Six recorded scope decisions and their costs:
+
+1. Continue the established next-five method from direct authorization: selected
+   topics may need bounded rework; no extra production or external authority.
+2. Improve model/check effectiveness before concrete comparison: client/EL/guest/
+   upgrade mismatches remain uncovered by these histories.
+3. Use fixed histories and finite6/8/12 products: omitted asynchronous
+   interleavings remain possible; no unrestricted equivalence or fairness claim.
+4. Keep prior75 shared/native/Forge execution historical: no new concrete-code
+   assurance for those unchanged lanes is supplied by this group.
+5. Run immutable author/tester copies concurrently after coherent freeze:
+   contention may delay or inconclusively time out a run; failure stays retained,
+   and execution wall time does not become protocol performance evidence.
+6. Exclude one confirmed historical literal-label false positive by exact existing
+   commit/file/rule/line fingerprint: that one historical finding is excluded;
+   future commits, paths, lines and rules remain checked. Detector rules and
+   shared history are unchanged.
+
+Canonical SPEC and reviewed current753d/af8c32cc bytes remain fixed, with scoped
+correspondence only; the live main SPEC blob was rechecked unchanged at17:25Z.
+Normative START10-5 provider/deployment behavior remains D01 WAITING. Unlimited
+interleavings/fairness/latency, concrete client/EL/guest/ABCI/importer/signer
+refinement, cryptography/physical durability/concurrent key owners, Registry
+production-scale storage/gas/token/DAO behavior and exhaustive fault coverage
+remain explicitly outside this completed finite batch. Broader S01/T01/C01/R01/
+P01/P02/Q01/Q02 and D01 retain OPEN/WAITING status. No unavailable interface was
+invented to close them. Draft/worktree/ledger/raw artifacts are preserved for
+review; hourly monitoring returns to feedback-only after final readbacks.
+No sixth increment, merge/ready, production/SPEC/Notion or live action is authorized.

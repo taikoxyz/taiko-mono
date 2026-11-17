@@ -721,8 +721,7 @@ raw witnesses distinguish generation2 settlement and retained origins from equal
 headline checkpoints. Actual generation and independent nonce saturation faults
 fail at the second transition; missing actions can legitimately change later
 acceptance. Independent source and behavior gates pass for this selected finite
-S01/Q01 history. Concrete client/EL/guest comparison remains WAITING; J02–J05 and
-accumulated final gates remain unfinished.
+S01/Q01 history. Concrete client/EL/guest comparison remains WAITING.
 
 ### J02: selective two-node generation knowledge
 
@@ -732,8 +731,7 @@ containment in both node orders. Raw histories distinguish safe refusal from
 excessive cross-node revocation and lost valid availability. A separate real
 finality-boundary fault and missing-admission history provide independent
 verification. Logical sessions do not establish physical restart or fresh
-session-generation liveness; broader T01 remains WAITING. J03–J05 and accumulated
-final gates remain unfinished.
+session-generation liveness; broader T01 remains WAITING.
 
 ### J03: pending-funded admission and complete retirement
 
@@ -743,8 +741,7 @@ forfeiture, historical slash, snapshots and public zero withdrawal. Intermediate
 raw principal/slot histories distinguish errors hidden by matching final cash or
 committee values. Actual admission and independent split faults/restoration
 pass their intended checks after a wrapper priming-order correction; failed
-initial runs retain zero credit. Broader R01 remains OPEN; J04/J05 and accumulated
-final gates remain unfinished.
+initial runs retain zero credit. Broader R01 remains OPEN.
 
 ### J04: stored Nil bytes and legal delayed delivery
 
@@ -754,7 +751,7 @@ computation, and old network delivery from fresh signature exposure. Independent
 second-restart and missing-first-write challenges verify intermediate floors and
 history rather than equal terminal records. A cfg representation setup failure
 is retained with zero credit; corrected source/runtime/restoration gates pass.
-Broader C01 remains OPEN; J05 and accumulated final gates remain unfinished.
+Broader C01 remains OPEN.
 
 ### J05: proof-resource arrivals and overlapping same-block settlement
 
@@ -765,4 +762,16 @@ production. Independent actual finality and normal-mode omission challenges
 separate missing two-landing history from matching terminal counters, and show
 that anchor1 can support production while settlement remains1. A lexical setup
 failure stays zero-credit; corrected source/runtime/restoration gates pass.
-Broader P01/P02 remain OPEN; accumulated final gates and retrospective are pending.
+Broader P01/P02 remain OPEN.
+
+### J01–J05 accumulated final gate and retrospective
+
+All five selected increments and independent source/raw gates are complete at
+implementation34c797bb5. [Final evidence and reflection](REPORT.md#interleaving-boundaries-batch--final-gate-and-retrospective)
+separate493 exact default outcomes (133 PASS/360 named),243 ordinary Python,
+5 separate controller tests and5 fresh shared source faults with actual same-copy
+three-phase restoration. Inventory80 includes75 historical obligations; old
+native/Forge evidence remains historical and four entries remain unassessed.
+Original35 models/423 defaults/529 code inputs are unchanged. Real client/EL/guest/
+upgrade and deployment correspondence remain partial/OPEN/WAITING. The draft and
+all evidence are retained; hourly monitoring returns to feedback-only, no sixth.

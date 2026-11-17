@@ -89,7 +89,7 @@
 
 ## Final gate
 
-- [ ] Reconcile all five reflections, remaining-work acceptance and source correspondence. Broader S01/T01/C01/R01/P01/P02/Q01/Q02/D01 stay partial/open/waiting as applicable; no invented implementation or protocol defect quota.
-- [ ] Fresh exact discovered default TLC and ordinary Python suites, new shared TLC source faults and mandatory controller tests. Complete packages/protocol/docs snapshot includes Derivation.md; no repeated incomplete-docs failure. Existing unchanged native/Forge evidence remains historical, not fresh. Preserve canonical tools/source/cfg/actual same-copy restoration and exact outcome meanings.
+- [x] Reconcile all five reflections, remaining-work acceptance and source correspondence. Broader S01/T01/C01/R01/P01/P02/Q01/Q02/D01 stay partial/open/waiting as applicable; no invented implementation or protocol defect quota.
+- [x] Fresh exact discovered default TLC and ordinary Python suites, new shared TLC source faults and mandatory controller tests. Complete packages/protocol/docs snapshot includes Derivation.md; no repeated incomplete-docs failure. Existing unchanged native/Forge evidence remains historical, not fresh. Preserve canonical tools/source/cfg/actual same-copy restoration and exact outcome meanings.
 - [ ] Independent complete-batch most-capable nonauthor source review plus independent raw artifact audit; inspect exact current feedback/head/CI. Narrowly review any closing prose and verify post-hook hashes. Retain ledger/worktree/evidence by user preference.
 - [ ] Root reviewed normal commit/push to existing draft; synchronize/read back PR22387/issue22355 and monitor5/5completed/feedback-only, clear processed pending only after assessment. Report every ledger Ruling and its cost, final results/limits and stop at five.
