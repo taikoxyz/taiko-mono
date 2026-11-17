@@ -2664,3 +2664,57 @@ G04 is complete for this finite opaque-proof product. The inherited proof has no
 age field: availability of the proof/reference remains a fixed environment
 premise, not measured retention, an M07 produced job, real ZK/STF execution or
 complete authenticated history. G05 actual signer composition remains next.
+
+## Coverage-closure batch — G05 actual signer composition
+
+The additive [signer wrapper](HANDOFF_SIGNER.md) extends G04 and invokes a
+namespaced INSTANCE of unchanged EtnaSignerCrash with21 distinct signer
+variables. Three Future/support-first profiles retain computed, persisted or
+already-exposed-and-retried generation0 work before public recovery. Actual
+handoff and signer AuthenticateRecovery adopt floor1 together; immediate and
+post-restart stale requests/exposures are attempted through actual enabledness.
+Already-sent old packets may be delivered afterward. Fresh-domain trust/connect,
+two persist/expose pairs and a second crash/restart precede a refused rollback/
+conflict attempt. Old inherited session trust remains revoked throughout.
+
+All eight new configurations pass. Five normal/focused audits exhaust10,623
+states generated/5,356 distinct with queue0; three full terminal witnesses reach
+only SignerTerminalNotReached at10,468/5,285/119. Each requires the full inherited
+G04 terminal and all32 actual signer steps, not a cursor-only end marker.
+Independent raw parsing matches all96 before/after receipts to actual signer
+globals and independently derives application replies from historical Outcome.
+The tester also repeats all10 G04 and13 original signer profiles. All31 old TLA
+and379 default configuration bytes remain unchanged.
+
+Two actual shared source faults add precise exposure obligations. Omitting only
+AuthenticateRecovery's durable floor write permits restart to restore floor0,
+then actual StaleExpose at step15 under independent handoff learnedFloor1. The
+returned/network sets are unchanged because this is an idempotent re-exposure;
+SignerFloorExposureAudit observes the action event and catches it. Dropping
+actual Crash HRS preservation permits second restart followed by actual
+Request/Persist/Expose of domain1 slot1/B, despite retained returns slot1/A and
+slot2/B. SignerHRSExposureAudit catches this actual rollback/conflict at step32.
+Both fresh shared campaigns are KILLED for exactly those named audits; baseline
+and same-copy restored phases exhaust cleanly. Source maps and mutation hashes
+verify attribution. Shared temporary phase trees are deleted by the engine;
+raw/hash/reconstruction and recorded restoration are audited, not a posthoc walk
+of those deleted trees.
+
+Six actual component-action omissions (Request, Persist, Expose, recovery
+AuthenticateRecovery, Crash, Restart) lose the required terminal witness while
+safely exhausting; same-copy restoration regains it. These36 authored TLC runs
+are missing-progress controls, not assessed safety kills. The tester independently
+repeats Request and Restart omissions in12 runs. The shared inventory is now68
+assessed obligations:63 TLC and5 Forge; the four aggregate unassessed rows remain
+unchanged. This increment executes only its two new shared IDs; the final gate
+separately reruns all required cohorts.
+
+Independent adversarial source review and independent behavioral verification
+pass at all12 frozen semantic file hashes. Wrapper SHA-256 is
+`56a2ed7c081eabd1250b222637f34f3d5edfea56a129f8645c7c15a081a23043`.
+The scope is three selected scripts, two domains and two abstract HRS ranks,
+symbolic signature records and authenticated input premises. It does not
+establish concrete L1/session authentication, FilePV/key/crypto behavior, node/
+WAL/power loss, exhaustive interleavings, real proving/STF or full liveness.
+Proof/reference availability remains G04's fixed premise. All five authorized
+increments are implemented; final accumulated verification/review remain pending.

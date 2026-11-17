@@ -88,14 +88,14 @@ then claim it exercised the existing action engine.
 **Files:** new `EtnaHandoffSigner.tla`, `HANDOFF_SIGNER.md`, focused `configs/handoff-signer-*.cfg`; use a namespaced INSTANCE of unchanged EtnaSignerCrash and the reviewed handoff interface. Root owns shared inventory/cohorts.
 **Interfaces:** bind signer state variables distinctly from handoff variables, invoking actual Request/Persist/Expose/Crash/Restart/recovery-floor actions. Document exact mapping of authenticated recovery and trust restoration. Never copy an acceptance predicate or treat a stored floor as actual FilePV implementation.
 
-- [ ] Define small computed/persisted-before-recovery and restart programs with explicit two-domain/two-slot bounds and actual enabled-action receipts. The handoff's recovery observations drive signer floor adoption; fresh trust remains a stated authenticated-input premise.
-- [ ] Require old pending work before recovery, refusal of new old-domain exposure afterward, HRS preservation across restart and successful fresh-domain persist/expose under correct trust.
-- [ ] Use independent raw returned/network/durable observations and meaningful omitted-fence/disabled-action controls; delayed delivery of a signature exposed before recovery is not new post-recovery signing.
-- [ ] Independently source-review and behaviorally verify actual actions, negative controls, terminal witnesses and all old source/config preservation; publish the reviewed increment.
+- [x] Define small computed/persisted-before-recovery and restart programs with explicit two-domain/two-slot bounds and actual enabled-action receipts. The handoff's recovery observations drive signer floor adoption; fresh trust remains a stated authenticated-input premise.
+- [x] Require old pending work before recovery, refusal of new old-domain exposure afterward, HRS preservation across restart and successful fresh-domain persist/expose under correct trust.
+- [x] Use independent raw returned/network/durable observations and meaningful omitted-fence/disabled-action controls; delayed delivery of a signature exposed before recovery is not new post-recovery signing.
+- [x] Independently source-review and behaviorally verify actual actions, negative controls, terminal witnesses and all old source/config preservation; publish the reviewed increment.
 
 ## Final gate
 
-- [ ] Review every remaining-work row and composition against SPEC/ACCEPTANCE and preserved incomplete-search records; synchronize issue22355 without marking whole modules complete.
+- [x] Review every remaining-work row and composition against SPEC/ACCEPTANCE and preserved incomplete-search records; synchronize issue22355 without marking whole modules complete.
 - [ ] Refresh PR feedback/head/CI, freeze final executed inputs, run accumulated exact default TLC/Python/cohort checks and affected actual native/controller lanes.
 - [ ] Independently review complete batch diff and raw actual results with exact source/tool/mutation hashes, identities and evidence attribution.
 - [ ] Publish reviewed final report/worklist/PR readback; preserve the active hourly monitor and stop after five for retrospective.

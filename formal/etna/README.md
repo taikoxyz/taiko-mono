@@ -607,3 +607,16 @@ terminal witnesses cover pre-recovery support and knowledge-first ordering.
 Missing queue/attempt lose their required witnesses, and removing the real
 generation binding enables an observed bad landing. Proof/reference availability
 is a fixed premise, separate from produced proofs and measured retention.
+
+### G05: actual signer actions across handoff
+
+[HANDOFF_SIGNER.md](HANDOFF_SIGNER.md) composes the unchanged signer engine with
+G04's selected Future positive-stop program. Computed, persisted and already
+exposed/retried old work undergo actual floor adoption, crash/restart, stale
+action attempts and fresh-domain persist/expose. Full terminals require actual
+progress; exposure receipts detect even idempotent returns. Omitting the actual
+durable floor or crash HRS preservation produces the corresponding bad exposure.
+Independent source review and actual-model/raw-receipt verification pass. This
+is a bounded composition with explicit authenticated trust inputs; concrete
+signer/FilePV/authentication and wider interleavings remain open. The five
+increments are implemented; accumulated verification and final review are next.

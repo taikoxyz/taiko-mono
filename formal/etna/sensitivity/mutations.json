@@ -1190,6 +1190,40 @@
         "name": "StopProofGenerationAudit"
       },
       "obligation": "Positive due-stop held-candidate/opaque-proof composition: an independently queued generation-zero proof is land-enabled before actual public recovery at nonzero checkpoint1, then its actual enabledness receipt must refuse landing under generation1 while its retained parent reference stays live. Selected abstract proof availability is a fixed premise, not produced-proof, retention-clock or full-product evidence."
+    },
+    {
+      "id": "handoff-signer-durable-floor",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaSignerCrash.tla",
+      "replace": {
+        "old": "    /\\ durableFloor' = IF PreserveGenerationFence THEN 1 ELSE durableFloor",
+        "new": "    /\\ durableFloor' = durableFloor \\* Deliberate omitted durable floor."
+      },
+      "workloads": ["configs/handoff-signer-floor-audit.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "SignerFloorExposureAudit"
+      },
+      "obligation": "Selected actual-action Future/queued-proof/signer product: authenticated public recovery must survive signer restart and refuse an actually attempted same-record old-domain re-exposure, including idempotent returned/network set reuse."
+    },
+    {
+      "id": "handoff-signer-crash-hrs",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaSignerCrash.tla",
+      "replace": {
+        "old": "    /\\ durable' = IF PreserveHRSOnCrash THEN durable ELSE [d \\in Domains |-> EmptyRecord(d)]",
+        "new": "    /\\ durable' = [d \\in Domains |-> EmptyRecord(d)] \\* Deliberate HRS loss on crash."
+      },
+      "workloads": ["configs/handoff-signer-hrs-audit.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "SignerHRSExposureAudit"
+      },
+      "obligation": "Selected actual-action handoff/signer product: fresh domain1 two-slot persisted returns must retain HRS across actual Crash/Restart, preventing the actually attempted lower-slot conflicting exposure."
     }
   ]
 }
