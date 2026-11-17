@@ -245,4 +245,108 @@ class RestartCollectorTests(unittest.TestCase):
                 self.assertFalse((args.output/'summary.json').exists())
 
 
+
+# G03 extends the same recorder; G02's eight identities above remain regressions.
+HANDSHAKE_NAMES = ('consistent-no-replay','negative-info-height','nonempty-apphash-mismatch',
+                   'app-ahead','app-below-store-base','state-ahead','store-too-far-ahead',
+                   'missing-last-response','wrong-height-last-response','empty-store-equal',
+                   'empty-store-mismatch','empty-store-different-app-height','nonone-first-block-crash',
+                   'app-behind-finalize-boundary','app-behind-commit-boundary')
+HANDSHAKE_PARENT = 'TestCheckpointHandshake'
+
+
+def handshake_receipt(name, mutant=False):
+    fixture=json.loads((ROOT/'comet_restart/handshake_observations.json').read_bytes())
+    expected=fixture['cases'][name]
+    for key in ('stateBefore','stateAfter'):
+        expected[key]=fixture['states'][expected.pop(key+'Profile')]
+    data=dict(kind='handshake',name=name,directory='/tmp/output/handshake/'+name,
+              parentPID=10,workerPID=11,observation=copy.deepcopy(expected))
+    if mutant and name in ('nonempty-apphash-mismatch','empty-store-mismatch'):
+        data['observation']['result']=dict(kind='success',reason='',panicType='')
+    return data
+
+
+def handshake_events(mutant=False):
+    parent=HANDSHAKE_PARENT
+    rows=[event('start'),event('run',parent),event('output',parent,'=== RUN   '+parent+'\n')]
+    for name in HANDSHAKE_NAMES:
+        identity=parent+'/'+name
+        failed=mutant and name in ('nonempty-apphash-mismatch','empty-store-mismatch')
+        rows += [event('run',identity),event('output',identity,'=== RUN   '+identity+'\n'),
+                 event('output',identity,'    handshake_test.go:42: receipt='+json.dumps(handshake_receipt(name,failed))+'\n')]
+        if failed:
+            rows.append(event('output',identity,'    handshake_test.go:99: missing-handshake-apphash-guard id='+name+' expected=panic got=success\n'))
+        action='FAIL' if failed else 'PASS'
+        rows += [event('output',identity,'--- '+action+': '+identity+' (0.01s)\n'),event(action.lower(),identity)]
+    action='FAIL' if mutant else 'PASS'
+    rows += [event('output',parent,'--- '+action+': '+parent+' (0.10s)\n'),event(action.lower(),parent),
+             event('output',output=action+'\n'),event('output',output=('FAIL\t' if mutant else 'ok  \t')+PACKAGE+'\t0.100s\n'),event(action.lower())]
+    return rows
+
+
+class HandshakeCollectorTests(unittest.TestCase):
+    # Reuse import setup without inheriting/rerunning G02's tests.
+    setUpClass = classmethod(RestartCollectorTests.setUpClass.__func__)
+
+    def setUp(self):
+        self.assertIsNotNone(self.module)
+        self.m=self.module
+        self.assertIn('handshake',self.m.SCENARIOS,'handshake scenario is not implemented')
+
+    def test_handshake_requires_all_fifteen_exact_native_leaves(self):
+        for phase in ('normal','mutant','restored'):
+            result=self.m.require_go_outcomes(stream(handshake_events(phase=='mutant')),int(phase=='mutant'),phase,scenario='handshake')
+            self.assertEqual(set(result),{HANDSHAKE_PARENT+'/'+name for name in HANDSHAKE_NAMES})
+
+    def test_handshake_rejects_missing_skipped_duplicate_wrong_reason_and_extra_diagnostic(self):
+        base=handshake_events(True)
+        variants=[[],base[1:],base+[base[3]],base[:3]+base[8:]]
+        rows=copy.deepcopy(base);rows[3]['Action']='skip';variants.append(rows)
+        rows=copy.deepcopy(base)
+        index=next(i for i,r in enumerate(rows) if 'missing-handshake-apphash-guard' in r.get('Output',''))
+        rows[index]['Output']=rows[index]['Output'].replace('got=success','got=unrelated-panic');variants.append(rows)
+        for scope in (None,HANDSHAKE_PARENT,HANDSHAKE_PARENT+'/consistent-no-replay'):
+            rows=copy.deepcopy(base);rows.insert(2,event('output',scope,'    handshake_test.go:25: setup failed\n'));variants.append(rows)
+        for rows in variants:
+            with self.assertRaises(ValueError): self.m.require_go_outcomes(stream(rows),1,'mutant',scenario='handshake')
+
+    def test_handshake_full_inputs_results_calls_state_rows_and_process_receipt_are_bound(self):
+        name='consistent-no-replay'
+        for field,value in [('workerPID',10),('directory','/tmp/fresh'),('observation',{})]:
+            data=handshake_receipt(name);data[field]=value
+            with self.assertRaises(ValueError): self.m.require_handshake_receipt(data,name,False)
+        for key in ('result','calls','stateBefore','stateAfter','stateBeforeSha256','stateAfterSha256','blockBase','blockHeight'):
+            data=handshake_receipt(name);data['observation'].pop(key)
+            with self.assertRaises(ValueError): self.m.require_handshake_receipt(data,name,False)
+        data=handshake_receipt('nonempty-apphash-mismatch',True)
+        data['observation']['result']['reason']='arbitrary panic'
+        with self.assertRaises(ValueError): self.m.require_handshake_receipt(data,'nonempty-apphash-mismatch',True)
+
+    def test_handshake_private_native_source_drift_cannot_earn_outcomes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'source';source.mkdir();p=source/'sample.go';p.write_text('package sample\n')
+            manifest={'schema':'etna-source-snapshot-1','commit':'a'*40,'files':{'sample.go':self.m.COMET.file_entry(p.read_bytes())}}
+            args=SimpleNamespace(output=root/'output',go_root=root/'sdk',module_cache=root/'modules',build_cache=root/'cache',timeout=1,scenario='handshake')
+            def result(*unused):
+                (args.output/'normal/inputs/handshake_test.go').write_text('changed during execution')
+                return dict(returncode=0,timeout=False,supervisor_argv=['shared-supervisor'],output=stream(handshake_events()).decode())
+            with mock.patch.object(self.m.COMET.EXECUTION,'execute',side_effect=result):
+                with self.assertRaisesRegex(ValueError,'executed private build inputs'):
+                    self.m.run_trial('normal',source,manifest,args,{'source':{'commit':'a'*40},'receipt':{'file':'checkpoint_import_cases.json','sha256':'a'*64}}, {}, {})
+            self.assertNotIn('outcomes',json.loads((args.output/'normal/execution.json').read_bytes()))
+
+    def test_handshake_fault_is_one_guard_and_restores_actual_same_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'source';path=source/'consensus/replay.go';path.parent.mkdir(parents=True)
+            path.write_text('before\n'+self.m.HANDSHAKE_FAULT_BEFORE+'after\n')
+            raw=path.read_bytes();manifest={'schema':'etna-source-snapshot-1','commit':'a'*40,'files':{'consensus/replay.go':self.m.COMET.file_entry(raw)}}
+            private=root/'private';self.m.private_fault(source,private,manifest,scenario='handshake')
+            self.assertEqual(path.read_bytes(),raw)
+            self.assertNotEqual((private/'consensus/replay.go').read_bytes(),raw)
+            self.m.restore_source(private,source,manifest,'a'*40,scenario='handshake')
+            self.assertEqual((private/'consensus/replay.go').read_bytes(),raw)
+            with self.assertRaises(ValueError): self.m.restore_source(private,source,manifest,'a'*40,scenario='handshake')
+
+
 if __name__ == '__main__': unittest.main()

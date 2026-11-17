@@ -9,11 +9,30 @@
     "readiness-failed-worker",
     "observer-controls"
   ],
+  "handshakeSubtests": [
+    "consistent-no-replay",
+    "negative-info-height",
+    "nonempty-apphash-mismatch",
+    "app-ahead",
+    "app-below-store-base",
+    "state-ahead",
+    "store-too-far-ahead",
+    "missing-last-response",
+    "wrong-height-last-response",
+    "empty-store-equal",
+    "empty-store-mismatch",
+    "empty-store-different-app-height",
+    "nonone-first-block-crash",
+    "app-behind-finalize-boundary",
+    "app-behind-commit-boundary"
+  ],
   "inputsSha256": {
     "comet_bootstrap/bootstrap_test.go": "0c70b0f39ad0702368019388e8dafafe0770e46db69bde52696f16c89576515b",
     "comet_bootstrap/mapping_vectors.json": "7c57e160db7ff1ce94f6bb50d0a9b803035804d95d92733bce0f9005a4eb0b96",
-    "comet_restart/go.mod": "48f6acb5d3b2d25b89d786938cd5b2fb23ceb7bb19babdb3174794c489bf2c76",
-    "comet_restart/go.sum": "d164bf94a973d5582491cd6486c8b4e859be31d867ec6f2c0452c1afd19aecfa",
+    "comet_restart/go.mod": "e79a5f086df2d3b2ab2719ae06ada8bfd1c46fbcd820ae216b2c265647ca7260",
+    "comet_restart/go.sum": "f79af3ec03edcbd7f173a87cca9318677d139fda4f3cb629873546b3ec71842a",
+    "comet_restart/handshake_observations.json": "d7fb856696b6b2381852dbc526e8ebb9c76dfa1f18aac397105b10dd534df1c4",
+    "comet_restart/handshake_test.go": "d976cd16371b16a9e7e027c4368106ffdb60419394806066ff4597f27e9a0f70",
     "comet_restart/literal_observations.json": "4979818481139d06b203a0ba44610b437ab2ed0fbaff35972d80c82f7206145d",
     "comet_restart/mutant.jsonl": "ba79b8472fd43af9934bf899762ae46ba5e9c5dbbfbd71fcdc72c0d29295401c",
     "comet_restart/restart_test.go": "41438dc029fb86a576dab75ce05c4bed83f0753ad4dff57872382d8f444e6b71"

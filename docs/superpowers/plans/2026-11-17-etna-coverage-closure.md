@@ -63,10 +63,10 @@ unsandboxed fallback are permitted.
 **Files:** extend only new `comet_restart/` test module and `run_comet_restart.py` scenario table, its focused tests and COMET_RESTART docs. Do not modify old run_comet/bootstrap helpers.
 **Interfaces:** `--scenario handshake` invokes actual `HandshakeWithContext` through the stock exported API, using explicit observed Info/replay calls. Reuse G02 process/source recording and exact-output handling; G02 identities remain regression cases.
 
-- [ ] Build a literal state/blockstore/app-height matrix including empty blockstore equal/mismatched AppHash, nonempty app/state ahead refusals, and a consistent no-replay case. Declare ABCI application responses as a mock boundary, never actual EL durability.
-- [ ] Assert exact typed/error and call-count behavior. Confirm the empty-blockstore shortcut directly instead of assuming it validates all heights; investigate any actual SPEC requirement mismatch before classifying it.
-- [ ] Add a single actual upstream AppHash-check fault whose unexpected success is caught by the intended leaf; normal/restored pass. Require complete stable native source/tool/input hashes.
-- [ ] Independently verify the actual matrix and source mutation/restoration, plus old G02 persistent readback; format and review the complete task diff before publication.
+- [x] Build a literal state/blockstore/app-height matrix including empty blockstore equal/mismatched AppHash, nonempty app/state ahead refusals, and a consistent no-replay case. Declare ABCI application responses as a mock boundary, never actual EL durability.
+- [x] Assert exact typed/error and call-count behavior. Confirm the empty-blockstore shortcut directly instead of assuming it validates all heights; investigate any actual SPEC requirement mismatch before classifying it.
+- [x] Add a single actual upstream AppHash-check fault whose unexpected success is caught by the intended leaf; normal/restored pass. Require complete stable native source/tool/input hashes.
+- [x] Independently verify the actual matrix and source mutation/restoration, plus old G02 persistent readback; format and review the complete task diff before publication. Independent current-code handshake and persistence three-phase campaigns,33 fresh-stream negatives and source-drift refusal pass at the eight frozen hashes.
 
 ### Task 4: G04 — positive-stop queued proof handoff
 

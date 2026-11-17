@@ -2538,3 +2538,76 @@ loss, multi-store atomicity, actual Etna importer/App/EL, signing, WAL/consensus
 restart and authenticated complete history remain separate obligations. The
 existing shared cache, lock, offline namespaces and authoritative supervisor are
 reused; no dependency fetch, installation or production source change is needed.
+
+## Coverage-closure batch — G03 stock handshake matrix
+
+The [handshake scenario](conformance/COMET_RESTART.md#actual-stock-handshake-scenario)
+calls actual exported HandshakeWithContext over disk state/block stores and an
+explicit controlled ABCI application. Fifteen selected inputs cover no-replay
+success; negative/app-ahead/app-too-far-behind heights; state/store divergence;
+missing/wrong-height last responses; empty-store equal/mismatched AppHash and
+matching-hash/different-height behavior; the known non1 first-block stop; and
+controlled FinalizeBlock/Commit error boundaries. Every leaf runs in an owned
+subprocess, with exact return/panic/call counts, full state observations and
+logical raw-store before/after hashes. Setup and lifecycle failures cannot count
+as the expected panic. Blocks remain unsigned structural storage fixtures.
+
+Two observations constrain what this evidence means. Empty blockstore accepts a
+matching AppHash before ordinary height checks, including the selected app5/
+state4 input; stock success therefore does not establish complete importer
+consistency. InitialHeight3/state0/store3/app0 reaches InitChain then the already
+documented CONS-3.1-9/Q3.1-8 stop. Its exact state-store effect is checked, but no
+wipe or repair procedure is accepted here. Handshake's replay-error wrapping
+also loses typed height errors; separate actual ReplayBlocks calls verify those
+types without attributing them to the exported Handshake return.
+
+The private fault removes only the actual assertAppHashEqualsOneFromState body.
+Only the two AppHash-mismatch leaves may then report unexpected success; thirteen
+other leaves must pass. Original and actual same-copy restored execution pass
+all15. All1659 source entries, tool bytes and copied/generated inputs verify
+before/after every phase.
+
+| Phase    | Native return | Required result                         | Raw combined-log SHA-256                                           |
+| -------- | ------------- | --------------------------------------- | ------------------------------------------------------------------ |
+| mutant   | 1             | Two exact guard failures, thirteen pass | `787ab8394bdac380960c78438eb1b8fb6e81b15badec4cbeaee4b8321070b0d7` |
+| normal   | 0             | Fifteen pass                            | `72270c2e847ec85eee5a04f24e9b77c133bbd894a938a66917ba997cabf674ad` |
+| restored | 0             | Fifteen pass                            | `6fff68d35c2c2f7dd5025a1d51668d59b2919d38565dfe755df53a81d314b28b` |
+
+The formatted-byte author phases take2.711/1.759/1.759s. Summary SHA-256 is
+`8711cf4beaebfff2b21a034bc257dd2e00899a00b79f03a5cc3f3473d543c279`;
+native source SHA-256
+`d976cd16371b16a9e7e027c4368106ffdb60419394806066ff4597f27e9a0f70`;
+collector SHA-256
+`d5ef8c43f97c3ea0d82931386da0a0858b8a4082532a5af0d2d94d1e9ecb60e5`.
+Current-code G02 regression separately passes all eight identities in each
+phase, with its four intended missing-write failures only in the mutant. Its
+summary SHA-256 is
+`ed0c8d1940322b55663c5ddc412e0380e29451cb308981b860da6e8624057078`.
+Nineteen focused and150 full conformance tests pass with no skips. Independent
+source/spec/quality review passes at all eight frozen hashes. A second actual
+handshake campaign and current-code persistence campaign independently reproduce
+both exact three-phase contracts. Thirty-three changes to fresh actual streams
+and a real CLI source-drift check reject their intended errors; independent
+branch/state oracles and all source/copy/tool audits pass. No material finding
+remains; G03 is complete for its selected stock API scope.
+
+Actual offline discovery first exposed absent transitive dependencies from
+stock consensus/privval/libp2p imports. The accepted separate preparation step
+downloaded32 exact public source modules into the existing cache, verifying both
+module and go.mod sums against pinned primary sources; no SDK/system package was
+installed. Offline discovery then reports825 packages and zero missing inputs.
+Relevant new initialization hooks were inspected before execution. All native
+builds/runs retain read-only sources/modules/tools and disabled network; setup/
+dependency-list output is never semantic evidence. The complete observation
+fixture was captured after independent native branch/call assertions, then pinned
+and checked in full by the collector.
+
+This closes selected stock API behavior only. Actual Etna App/EL, authenticated
+history, valid commits, node/P2P/WAL startup, physical power loss, multi-store
+publication and the known first-block stop's concrete handler remain open.
+
+The preceding G02 commit also passes hosted run44018110081:369 exact TLC outcomes,
+222 Python tests (57+145+20), reconciliation, output checking and both uploads.
+All381 raw files and both private diagnostic files were checksum-verified and
+read back at514371270. This ordinary CI evidence is separate from both actual
+native scenarios above.

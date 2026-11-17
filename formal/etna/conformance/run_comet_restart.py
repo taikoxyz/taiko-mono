@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded offline stock Bootstrap disk/process restart experiment.
+"""Bounded offline stock Bootstrap restart and handshake experiments.
 
 Uses the existing authoritative namespace supervisor and unmodified F04 literal
 mapper/observer inputs. No node, signing, fetching or power-loss experiment.
@@ -26,9 +26,16 @@ PARENT = 'TestCheckpointRestart'
 NAMES = ('origin-clean-close', 'current-clean-close', 'origin-kill-after-ack',
          'current-kill-after-ack', 'readiness-no-ack', 'readiness-wrong-child',
          'readiness-failed-worker', 'observer-controls')
-# A scenario chooses a bounded native parent/leaf contract. G03 can add a
-# separate contract here; persistence never broadens to ./... test selection.
-SCENARIOS = {'persistence': (PARENT, NAMES)}
+# Each scenario selects a separate bounded native parent/leaf contract;
+# persistence never broadens to ./... test selection.
+HANDSHAKE_PARENT = 'TestCheckpointHandshake'
+HANDSHAKE_NAMES = ('consistent-no-replay','negative-info-height','nonempty-apphash-mismatch',
+                   'app-ahead','app-below-store-base','state-ahead','store-too-far-ahead',
+                   'missing-last-response','wrong-height-last-response','empty-store-equal',
+                   'empty-store-mismatch','empty-store-different-app-height','nonone-first-block-crash',
+                   'app-behind-finalize-boundary','app-behind-commit-boundary')
+HANDSHAKE_FAULT_NAMES = {'nonempty-apphash-mismatch','empty-store-mismatch'}
+SCENARIOS = {'persistence': (PARENT, NAMES), 'handshake': (HANDSHAKE_PARENT,HANDSHAKE_NAMES)}
 IDENTITIES = tuple(PARENT + '/' + name for name in NAMES)
 FAULT_PATH = 'state/store.go'
 # Include the entire Bootstrap function to distinguish its final batch write
@@ -80,6 +87,54 @@ WRITE_CALL = '\tif err := batch.WriteSync(); err != nil {\n\t\tpanic(err)\n\t}\n
 FAULT_AFTER = FAULT_BEFORE.replace(WRITE_CALL, '\t// Private restart conformance fault: omit the entire Bootstrap batch write.\n')
 
 
+HANDSHAKE_FAULT_BEFORE = '''func assertAppHashEqualsOneFromState(appHash []byte, state sm.State) {
+	if !bytes.Equal(appHash, state.AppHash) {
+		panic(fmt.Sprintf(`state.AppHash does not match AppHash after replay. Got
+%X, expected %X.
+
+State: %v
+
+Did you reset CometBFT without resetting your application's data?`,
+			appHash, state.AppHash, state))
+	}
+}
+'''
+HANDSHAKE_FAULT_AFTER = 'func assertAppHashEqualsOneFromState(appHash []byte, state sm.State) {\n\t// Private handshake conformance fault: omit the entire AppHash guard.\n}\n'
+
+
+def fault_selector(scenario):
+    if scenario == 'persistence': return FAULT_PATH,FAULT_BEFORE,FAULT_AFTER
+    if scenario == 'handshake': return 'consensus/replay.go',HANDSHAKE_FAULT_BEFORE,HANDSHAKE_FAULT_AFTER
+    raise ValueError('unknown execution scenario')
+
+
+def handshake_expectation(name):
+    fixture=json.loads((ROOT/'comet_restart/handshake_observations.json').read_bytes(),
+                       object_pairs_hook=COMET.EXECUTION.unique_object)
+    if fixture.get('schema')!='etna-comet-handshake-observations-1':
+        raise ValueError('wrong frozen handshake observation schema')
+    expected=fixture['cases'][name]
+    for key in ('stateBefore','stateAfter'):
+        expected[key]=fixture['states'][expected.pop(key+'Profile')]
+    return expected
+
+
+def require_handshake_receipt(data,name,mutant):
+    if type(data) is not dict or set(data) != {'kind','name','directory','parentPID','workerPID','observation'}:
+        raise ValueError('missing/extra handshake receipt fields')
+    if (data['kind'] != 'handshake' or data['name'] != name
+            or data['directory'] != '/tmp/output/handshake/'+name):
+        raise ValueError('wrong handshake case/directory binding')
+    pids=[data['parentPID'],data['workerPID']]
+    if any(type(pid) is not int or pid <= 0 for pid in pids) or len(set(pids)) != 2:
+        raise ValueError('handshake worker is not a distinct owned process')
+    expected = handshake_expectation(name)
+    if mutant:
+        expected['result']=dict(kind='success',reason='',panicType='')
+    if json.dumps(data['observation'],sort_keys=True) != json.dumps(expected,sort_keys=True):
+        raise ValueError('wrong complete handshake inputs/result/calls/state/rows observation')
+
+
 def require_receipt(data, name, mutant):
     if type(data) is not dict:
         raise ValueError('native receipt must be an object')
@@ -126,7 +181,12 @@ def require_receipt(data, name, mutant):
 
 
 
-def require_go_outcomes(raw, returncode, phase):
+def require_go_outcomes(raw, returncode, phase, scenario='persistence'):
+    if scenario not in SCENARIOS: raise ValueError('unknown execution scenario')
+    parent,names=SCENARIOS[scenario]
+    identities=tuple(parent+'/'+name for name in names)
+    filename='handshake_test.go' if scenario=='handshake' else 'restart_test.go'
+    fault_names=HANDSHAKE_FAULT_NAMES if scenario=='handshake' else set(names[:4])
     if phase not in ('normal','mutant','restored'):
         raise ValueError('unknown execution phase')
     try:
@@ -137,9 +197,9 @@ def require_go_outcomes(raw, returncode, phase):
     if not rows or any(type(row) is not dict or row.get('Package') != PACKAGE for row in rows):
         raise ValueError('missing/unexpected Go package')
     mutant = phase == 'mutant'
-    wanted = {identity:'fail' if mutant and identity in IDENTITIES[:4] else 'pass' for identity in IDENTITIES}
+    wanted = {identity:'fail' if mutant and identity.rsplit('/',1)[1] in fault_names else 'pass' for identity in identities}
     parent_action = 'fail' if mutant else 'pass'
-    allowed = {PARENT,*IDENTITIES}
+    allowed = {parent,*identities}
     runs, endings, package_actions = Counter(), {}, []
     output_by_scope, scopes = {}, []
     for row in rows:
@@ -159,41 +219,42 @@ def require_go_outcomes(raw, returncode, phase):
             if type(payload) is not str:
                 raise ValueError('missing native output payload')
             frame = payload.startswith(('=== RUN   ','--- PASS: ','--- FAIL: ','PASS\n','FAIL\n','ok  \t','FAIL\t'))
-            diagnostic = re.match(r'[ \t]+restart_test\.go:[1-9][0-9]*: missing-bootstrap-batch ', payload) is not None
+            diagnostic = re.match(r'[ \t]+'+re.escape(filename)+r':[1-9][0-9]*: (?:missing-bootstrap-batch |missing-handshake-apphash-guard )', payload) is not None
             kind = 'frame' if frame else 'error' if diagnostic else ''
             if 'OutputType' in row and row['OutputType'] != kind:
                 raise ValueError('unexpected native OutputType')
             if not scopes or scopes[-1] != identity: scopes.append(identity)
             output_by_scope[identity] = output_by_scope.get(identity,'') + payload
-    if runs != Counter({name:1 for name in allowed}) or endings != {**wanted,PARENT:parent_action}:
+    if runs != Counter({name:1 for name in allowed}) or endings != {**wanted,parent:parent_action}:
         raise ValueError('missing/duplicate/wrong native test outcome')
     if package_actions != ['start',parent_action] or returncode != int(mutant):
         raise ValueError('wrong package outcome/return code')
-    if scopes != [PARENT,*IDENTITIES,PARENT,None]:
+    if scopes != [parent,*identities,parent,None]:
         raise ValueError('unexpected native output ordering/scopes')
     duration = r'[0-9]+(?:\.[0-9]+)?s'
-    parent = output_by_scope[PARENT].splitlines(keepends=True)
-    expected_parent = ['=== RUN   '+PARENT+'\n']
-    if (len(parent) != 2 or parent[:1] != expected_parent or
-            not re.fullmatch('--- '+parent_action.upper()+': '+PARENT+r' \('+duration+r'\)\n', parent[1])):
+    parent_lines = output_by_scope[parent].splitlines(keepends=True)
+    expected_parent = ['=== RUN   '+parent+'\n']
+    if (len(parent_lines) != 2 or parent_lines[:1] != expected_parent or
+            not re.fullmatch('--- '+parent_action.upper()+': '+parent+r' \('+duration+r'\)\n', parent_lines[1])):
         raise ValueError('unexpected parent output diagnostic/frame')
-    for name,identity in zip(NAMES,IDENTITIES):
+    for name,identity in zip(names,identities):
         lines = output_by_scope[identity].splitlines(keepends=True)
         failed = wanted[identity] == 'fail'
         if len(lines) != (4 if failed else 3) or lines[0] != '=== RUN   '+identity+'\n':
             raise ValueError('missing/extra native output diagnostics or frames')
-        match = re.fullmatch(r'[ \t]+restart_test\.go:[1-9][0-9]*: receipt=(.+)\n', lines[1])
+        match = re.fullmatch(r'[ \t]+'+re.escape(filename)+r':[1-9][0-9]*: receipt=(.+)\n', lines[1])
         if not match:
             raise ValueError('wrong native receipt diagnostic')
         try:
             data = json.loads(match[1], object_pairs_hook=COMET.EXECUTION.unique_object)
-            require_receipt(data,name,failed)
+            (require_handshake_receipt if scenario=='handshake' else require_receipt)(data,name,failed)
         except (ValueError,TypeError,KeyError,AttributeError) as error:
             raise ValueError('invalid native receipt: '+str(error)) from error
         if failed:
             origin = name.startswith('origin-')
             message = 'missing-bootstrap-batch id='+('origin-base state=absent validators=3,4 params=3' if origin else 'current-base state=absent validators=4,5,6 params=5')
-            if not re.fullmatch(r'[ \t]+restart_test\.go:[1-9][0-9]*: '+re.escape(message+'\n'),lines[2]):
+            if scenario=='handshake': message='missing-handshake-apphash-guard id='+name+' expected=panic got=success'
+            if not re.fullmatch(r'[ \t]+'+re.escape(filename)+r':[1-9][0-9]*: '+re.escape(message+'\n'),lines[2]):
                 raise ValueError('wrong native missing Bootstrap batch diagnostic')
         if not re.fullmatch('--- '+wanted[identity].upper()+': '+re.escape(identity)+r' \('+duration+r'\)\n',lines[-1]):
             raise ValueError('wrong native leaf terminal frame')
@@ -209,33 +270,42 @@ def inputs():
     pins_path = ROOT/'comet_restart/pins.json'
     pins = json.loads(pins_path.read_bytes(), object_pairs_hook=COMET.EXECUTION.unique_object)
     if (pins.get('schema') != 'etna-comet-restart-pins-1' or pins.get('source') != old_pins['source']
-            or pins.get('receipt') != old_pins['receipt'] or pins.get('expectedSubtests') != list(NAMES)):
+            or pins.get('receipt') != old_pins['receipt'] or pins.get('expectedSubtests') != list(NAMES)
+            or pins.get('handshakeSubtests') != list(HANDSHAKE_NAMES)):
         raise ValueError('wrong restart pins/source/receipt/native identities')
     for relative,value in pins['inputsSha256'].items():
         if COMET.digest((ROOT/relative).read_bytes()) != value:
             raise ValueError('wrong frozen restart build input bytes: '+relative)
+    fixture=json.loads((ROOT/'comet_restart/handshake_observations.json').read_bytes(),
+                       object_pairs_hook=COMET.EXECUTION.unique_object)
+    if (fixture.get('sourceCommit')!=pins['source']['commit']
+            or fixture.get('receiptSha256')!=pins['receipt']['sha256']
+            or set(fixture.get('cases',{}))!=set(HANDSHAKE_NAMES)):
+        raise ValueError('wrong handshake observation provenance/case identities')
     watched.update({p:COMET.digest(p.read_bytes()) for p in [Path(__file__),ROOT/'tests/test_comet_restart.py',
                     ROOT/'COMET_RESTART.md',*(p for p in (ROOT/'comet_restart').iterdir() if p.is_file())]})
     return pins,manifest,watched
 
 
-def private_fault(source,destination,manifest):
+def private_fault(source,destination,manifest,scenario='persistence'):
+    fault_path,before,after=fault_selector(scenario)
     shutil.copytree(source,destination)
-    path = destination/FAULT_PATH
+    path = destination/fault_path
     text = path.read_text()
-    if text.count(FAULT_BEFORE) != 1:
-        raise ValueError('upstream Bootstrap write fault selector does not match exactly once')
+    if text.count(before) != 1:
+        raise ValueError('upstream source fault selector does not match exactly once')
     path.chmod(0o644)
-    path.write_text(text.replace(FAULT_BEFORE,FAULT_AFTER))
+    path.write_text(text.replace(before,after))
     mutant = json.loads(json.dumps(manifest))
-    mutant['files'][FAULT_PATH] = COMET.file_entry(path.read_bytes())
+    mutant['files'][fault_path] = COMET.file_entry(path.read_bytes())
     return mutant
 
 
-def restore_source(private,original,manifest,commit):
-    raw = (original/FAULT_PATH).read_bytes()
-    path = private/FAULT_PATH
-    if path.read_bytes() != raw.decode().replace(FAULT_BEFORE,FAULT_AFTER).encode() or path.read_bytes() == raw:
+def restore_source(private,original,manifest,commit,scenario='persistence'):
+    fault_path,before,after=fault_selector(scenario)
+    raw = (original/fault_path).read_bytes()
+    path = private/fault_path
+    if path.read_bytes() != raw.decode().replace(before,after).encode() or path.read_bytes() == raw:
         raise ValueError('exact faulted source was not present before restoration')
     path.write_bytes(raw)
     return COMET.verify_snapshot(private,manifest,commit)
@@ -247,7 +317,8 @@ def run_trial(phase,source,manifest,args,pins,tool_hashes,watched):
     trial = args.output/phase
     work = trial/'work'; (work/'build').mkdir(parents=True)
     build_inputs = trial/'inputs'; build_inputs.mkdir()
-    for source_path in [ROOT/'comet_restart/restart_test.go',ROOT/'comet_restart/go.mod',ROOT/'comet_restart/go.sum',
+    extra_sources=[ROOT/'comet_restart/handshake_test.go'] if args.scenario=='handshake' else []
+    for source_path in [*extra_sources,ROOT/'comet_restart/restart_test.go',ROOT/'comet_restart/go.mod',ROOT/'comet_restart/go.sum',
                         ROOT/'comet_bootstrap/bootstrap_test.go',ROOT/'comet_bootstrap/mapping_vectors.json']:
         (build_inputs/source_path.name).write_bytes(source_path.read_bytes())
     # The original F04 helpers are copied verbatim, never edited or regenerated.
@@ -289,12 +360,12 @@ def run_trial(phase,source,manifest,args,pins,tool_hashes,watched):
         raise ValueError('supervisor reported execution timeout')
     BOOT.require_stable(executed,'executed private build inputs/modfiles')
     report['executedInputsAfter'] = {str(p.relative_to(trial)):COMET.digest(p.read_bytes()) for p in executed}
-    report['outcomes'] = require_go_outcomes(combined,result['returncode'],phase)
+    report['outcomes'] = require_go_outcomes(combined,result['returncode'],phase,scenario=args.scenario)
     report['sourceAfter'] = COMET.verify_snapshot(source,manifest,pins['source']['commit'])
     BOOT.require_stable(watched,'adapter/receipt/provenance inputs')
     BOOT.require_stable({args.go_root/p:h for p,h in tool_hashes.items()},'Go toolchain')
     record.write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
-    print(phase+': eight exact Bootstrap disk/process restart outcomes verified',flush=True)
+    print(phase+': '+str(len(SCENARIOS[args.scenario][1]))+' exact '+args.scenario+' outcomes verified',flush=True)
     return report
 
 
@@ -316,13 +387,14 @@ def main(argv=None):
             COMET.EXECUTION.acquire_lock(lock,min(args.timeout,60))
             COMET.verify_snapshot(args.source,manifest,pins['source']['commit'])
             args.output.mkdir(parents=True)
+            fault_path,_,_=fault_selector(args.scenario)
             private = args.output/'private-upstream-fault'
-            mutant_manifest = private_fault(args.source,private,manifest)
+            mutant_manifest = private_fault(args.source,private,manifest,scenario=args.scenario)
             (args.output/'mutant-manifest.json').write_text(json.dumps(mutant_manifest,sort_keys=True,indent=2)+'\n')
-            (args.output/'mutant-store.go').write_bytes((private/FAULT_PATH).read_bytes())
+            (args.output/('mutant-replay.go' if args.scenario=='handshake' else 'mutant-store.go')).write_bytes((private/fault_path).read_bytes())
             reports = [run_trial('mutant',private,mutant_manifest,args,pins,tool_hashes,watched),
                        run_trial('normal',args.source,manifest,args,pins,tool_hashes,watched)]
-            restored = restore_source(private,args.source,manifest,pins['source']['commit'])
+            restored = restore_source(private,args.source,manifest,pins['source']['commit'],scenario=args.scenario)
             reports.append(run_trial('restored',private,manifest,args,pins,tool_hashes,watched))
             BOOT.require_stable(watched,'adapter/receipt/provenance inputs')
             BOOT.require_stable({args.go_root/p:h for p,h in tool_hashes.items()},'Go toolchain')
@@ -331,14 +403,14 @@ def main(argv=None):
                 actualRestoredSource=restored,samePrivateSourceRestored=reports[0]['sourceRoot']==reports[2]['sourceRoot'],
                 goToolchainVersion=(args.go_root/'VERSION').read_text().strip(),
                 inputSha256={str(p.relative_to(ROOT.parent)):h for p,h in watched.items()},reports=reports,
-                fault=dict(path=FAULT_PATH,originalSha256=manifest['files'][FAULT_PATH]['sha256'],mutantSha256=mutant_manifest['files'][FAULT_PATH]['sha256']),
+                fault=dict(path=fault_path,originalSha256=manifest['files'][fault_path]['sha256'],mutantSha256=mutant_manifest['files'][fault_path]['sha256']),
                 boundaries=['Selected actual GoLevelDB Bootstrap completed-write ACK, owned writer SIGKILL without Close, distinct reader PID same directory',
                             'Clean Close/reopen baseline; unmodified frozen F03/F04 public-point/literal field and independent row oracle',
-                            'Process restart only; no power-loss, multi-store atomicity, Etna importer, App/EL, signing, node, WAL or committee authentication'])
+                            'Process restart only; no power-loss, multi-store atomicity, Etna importer, App/EL, signing, node, WAL or committee authentication'] if args.scenario=='persistence' else ['Actual exported HandshakeWithContext over real state/block stores and explicit mock ABCI responses', 'Selected height/AppHash/error/panic/replay-call branches; unsigned structural block storage fixtures only', 'Known CONS-3.1-9/Q3.1-8 high-initial-height expected stop; no repair procedure or newly discovered protocol defect', 'No real EL/STF, signed history, node/P2P, WAL, power-loss or multi-store atomicity'])
             (args.output/'summary.json').write_text(json.dumps(summary,sort_keys=True,indent=2)+'\n')
-            print('PASS: stock Bootstrap disk/process restart; exact missing batch fault and same-copy restoration')
+            print('PASS: stock '+args.scenario+' scenario; exact source fault and same-copy restoration')
     except (OSError,ValueError,subprocess.SubprocessError) as error:
-        print('Bootstrap restart failed: '+str(error),file=sys.stderr)
+        print('Comet '+args.scenario+' scenario failed: '+str(error),file=sys.stderr)
         return 1
     return 0
 

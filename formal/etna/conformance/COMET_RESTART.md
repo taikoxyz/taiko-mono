@@ -114,3 +114,80 @@ campaign emits eight exact outcomes per phase and a source-restoration summary;
 its measured paths/hashes belong in the execution record, not this portable
 recipe. A scenario map provides an explicit extension seam for G03; this lane
 does not infer actual Handshake behavior.
+
+## Actual stock handshake scenario
+
+`--scenario handshake` selects only `TestCheckpointHandshake`. Each leaf runs in
+an owned subprocess, bootstraps and closes actual GoLevelDB state, reopens it,
+creates/reopens an actual disk blockstore, starts stock local ABCI connections,
+and calls exported `consensus.NewHandshaker(...).HandshakeWithContext(...)`.
+The explicit local application returns controlled Info/InitChain responses and
+records Info, InitChain, FinalizeBlock and Commit calls. It is a mock ABCI boundary;
+its responses do not establish real Etna App/EL consistency or durability.
+
+Blocks are unsigned **structural storage fixtures**. Stock `SaveBlock` accepts
+complete parts, contiguous heights and matching seen-commit height without
+verifying a quorum. No valid history, commit admission or signature claim follows.
+The two app-behind controls additionally supply a literal historical validator
+row solely for stock CommitInfo construction. They stop at exact controlled
+FinalizeBlock/Commit errors rather than claiming a completed real EL replay.
+
+| Native leaf                      | State / store base..height / app height | Exact observation                                   | Info / Init / Finalize / Commit |
+| -------------------------------- | --------------------------------------- | --------------------------------------------------- | ------------------------------- |
+| consistent-no-replay             | 4 / 4..4 / 4                            | success; zero replayed blocks                       | 1 / 0 / 0 / 0                   |
+| negative-info-height             | 4 / 4..4 / -1                           | exact negative-height error                         | 1 / 0 / 0 / 0                   |
+| nonempty-apphash-mismatch        | 4 / 4..4 / 4                            | exact AppHash mismatch panic                        | 1 / 0 / 0 / 0                   |
+| app-ahead                        | 4 / 4..4 / 5                            | app higher than core error                          | 1 / 0 / 0 / 0                   |
+| app-below-store-base             | 4 / 4..4 / 2                            | app too far below base error                        | 1 / 0 / 0 / 0                   |
+| state-ahead                      | 5 / 4..4 / 4                            | StateBlockHeight > StoreBlockHeight panic           | 1 / 0 / 0 / 0                   |
+| store-too-far-ahead              | 4 / 4..6 / 4                            | StoreBlockHeight > StateBlockHeight+1 panic         | 1 / 0 / 0 / 0                   |
+| missing-last-response            | 4 / 4..5 / 5                            | exact absent last-response error                    | 1 / 0 / 0 / 0                   |
+| wrong-height-last-response       | 4 / 4..5 / 5                            | persisted response4 cannot satisfy expected5        | 1 / 0 / 0 / 0                   |
+| empty-store-equal                | 4 / empty / 4                           | success at empty-store shortcut                     | 1 / 0 / 0 / 0                   |
+| empty-store-mismatch             | 4 / empty / 4                           | exact AppHash mismatch panic                        | 1 / 0 / 0 / 0                   |
+| empty-store-different-app-height | 4 / empty / 5                           | success despite differing height, when hash matches | 1 / 0 / 0 / 0                   |
+| nonone-first-block-crash         | 0, initial3 / 3..3 / 0                  | exact known store3 > state+1 panic after InitChain  | 1 / 1 / 0 / 0                   |
+| app-behind-finalize-boundary     | 4 / 4..4 / 3                            | controlled FinalizeBlock error reached              | 1 / 0 / 1 / 0                   |
+| app-behind-commit-boundary       | 4 / 4..4 / 3                            | controlled Commit error reached after FinalizeBlock | 1 / 0 / 1 / 1                   |
+
+All cases require zero completed replay blocks. Exact panic recovery surrounds
+only the exported Handshake call; setup, client lifecycle, store operations and
+independent observers are outside recovery. Arbitrary panics and wrong reasons
+cannot satisfy a leaf. Full panic text, actual state before/after, logical raw
+state/block DB hashes, independently decoded last-response height, actual store
+base/height and every observed call count are recorded and bound by the frozen
+complete output fixture. `handshake_observations.json` stores four full literal
+state profiles and case-specific observations captured after the original native
+branch/call assertions passed. Profile references are simple data lookups; the
+collector expands them and compares the entire observed state, not just heights
+or hashes. Fixture provenance/case identities and exact bytes are pinned.
+
+Stock Handshake wraps replay errors with `%v`, so its returned error does not
+preserve the typed height error. The app-ahead and app-below-base leaves separately
+invoke actual `ReplayBlocksWithContext` to observe exact typed
+`ErrAppBlockHeightTooHigh` / `ErrAppBlockHeightTooLow`, including their fields.
+Those two early-refusal probes add no application calls or writes. The exported
+Handshake error object itself is checked independently; typed replay observations
+are not misattributed to it.
+
+The empty-blockstore shortcut checks AppHash and returns before the ordinary
+height constraints. Its matching-hash/different-height success is a bounded stock
+capability observation; it does not establish complete importer consistency.
+The non1 first-block stop is already explicit in SPEC CONS-3.1-9 and ACCEPTANCE's
+Q3.1-8 exception. This lane records its InitChain/state-store effect and expected
+stop, with no store wipe, repair procedure or newly discovered protocol defect.
+
+The handshake source campaign omits exactly the entire guard body in actual
+`assertAppHashEqualsOneFromState`, in a private pinned source tree. Only
+`nonempty-apphash-mismatch` and `empty-store-mismatch` may fail, each with exact
+`missing-handshake-apphash-guard ... expected=panic got=success`; every other
+receipt/outcome stays exact. The same private tree is restored and all1659 source
+entries plus tools and copied/generated inputs are verified before/after as for
+persistence. G02's original native source, literal oracle and eight persistence
+identities retain their existing meaning and remain regression cases.
+
+The handshake module compiles the full stock consensus package, including
+unexecuted private-validator/libp2p imports. If a required public dependency is
+absent, the offline compile fails without a semantic result; dependency preparation
+is separate from this runner. Compiling those packages does not invoke their
+node, network or signing APIs.

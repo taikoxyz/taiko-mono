@@ -392,3 +392,11 @@ different reader process opening the same persisted directory. Complete state
 and historical rows, readiness refusals, an entire-batch-write omission and
 same-copy restoration are checked. It reuses the unmodified F04 fixture/oracle;
 physical power loss and multi-store importer atomicity remain separate.
+
+Its `--scenario handshake` separately invokes the actual stock exported
+handshaker over real stores and a controlled ABCI application. Fifteen cases
+cover height/AppHash/last-response refusals, no-replay success, the empty-store
+shortcut and the documented non1 first-block stop. The AppHash source fault and
+restoration are checked independently of persistence. Unsigned storage fixtures
+and mock Info/replay callbacks do not establish valid history or real App/EL
+recovery; the concrete handler for the known first-block stop remains open.

@@ -587,3 +587,13 @@ uses unmodified F04 public fixtures and literal observers, with separate evidenc
 from the TLC/Python CI job. It establishes selected process restart behavior on
 the executing filesystem; physical power loss and real multi-store import remain
 unverified.
+
+### G03: stock handshake boundaries
+
+The [handshake scenario](conformance/COMET_RESTART.md#actual-stock-handshake-scenario)
+calls actual stock CometBFT over real disk stores and a controlled ABCI boundary.
+It observes selected height, AppHash and last-response refusals, exact replay
+callbacks, the empty-store shortcut and SPEC's known non1 first-block stop.
+Typed ReplayBlocks errors are distinguished from the exported Handshake's
+string wrapping. These selected API observations leave actual Etna App/EL,
+authenticated history and the documented stop's concrete recovery procedure open.
