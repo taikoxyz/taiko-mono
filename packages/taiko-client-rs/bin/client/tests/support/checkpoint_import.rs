@@ -524,6 +524,14 @@ async fn app(
         "abci".to_string(),
         "--data-dir".into(),
         data_dir.display().to_string(),
+        "--engine-control-dir".into(),
+        // The imported EL and app share this stable parent across normal restarts.
+        data_dir
+            .parent()
+            .context("imported app parent")?
+            .join("engine-control")
+            .display()
+            .to_string(),
         "--l1.http".into(),
         f.anvil.http.to_string(),
         "--l2.http".into(),
