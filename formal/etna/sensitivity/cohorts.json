@@ -76,7 +76,8 @@
         "m06-suffix-hash-blanking",
         "m09-payments-upgrade-cash",
         "m09-payments-upgrade-completed",
-        "identity-second-recovery-generation"
+        "identity-second-recovery-generation",
+        "trust-node-local-revocation"
       ]
     },
     {

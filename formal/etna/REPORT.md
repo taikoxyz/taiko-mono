@@ -3618,3 +3618,67 @@ identities, otherwise-valid proof/cut inputs and atomic authorized recovery on a
 finite grid. Full S01/Q01 and concrete client/EL/guest comparison remain WAITING;
 this closes only the selected modeled sub-obligation. J02–J05 and accumulated
 final gates remain unfinished; no sixth is authorized.
+
+## Interleaving-boundaries batch — J02 selective two-node supersession
+
+The companion executes both41-attempt node-order mirrors across authenticated
+snapshot1 and finalized recovery snapshot2. Both nodes really sign and serve
+first; the first node then learns generation1 and loses only its own trust.
+The lagging node actually signs Retained and serves using provider1/known0.
+The first node's Block/Nil/Retained requests, service and old-target re-admission
+refuse after knowledge1. Actual logical sessions retain that knowledge, and
+new-target authentication produces the sticky mismatch halt on each node.
+This is modeled service followed by containment, not generation1 installation
+or fresh-generation admission/liveness.
+
+Author26 exact outcomes comprise10 affected original configurations, nine new,
+two actual revoke-all faults and five restored controls. The two fault mirrors
+execute the real first finalized observation21, changing the other node's trust
+TRUE→FALSE while the correct observing-node effects still occur. Only the
+dedicated immediate raw noninterference audit fails. Both actual-restored full
+41-receipt histories equal their original histories, with all16 original fields
+and all12 node-owned fields retained. The original19 baseline and later
+mutant/restored copy paths are separately attributed; the root shared campaign
+supplies a true same-copy baseline/mutant/restored triple for the one new assessed
+obligation. Catalog regressions20 also pass using the existing CI signal entry.
+Inventory is77 (71TLC/sixForge); this step freshly executes one shared obligation,
+with earlier76 not rerun here and four unassessed entries retained. The nine new
+defaults imply441 discovered, not a freshly executed whole441 gate.
+
+Skipping the first finalized observation really enables subsequent old Sign,
+Serve and GrantTrust. Later new-target authentication then refuses while the node
+is trusted, and a nominally halted-session attempt instead executes. The actual
+41-receipt partial witnesses check those changed branches and the complete raw
+endpoint. The mode-qualified absence PASS alone is structural/vacuous and gets
+no containment or progress credit.
+
+Independent behavioral verification uses a different actual source fault:
+removing only ObserveGeneration's finalized-provider guard. In both mirrors,
+attempt19 then really learns generation1 and revokes trust at included2/finalized1;
+the focused raw finality observer fails immediately after that write. Actual
+same-copy original/restored complete mirrored witnesses pass. A private missing-
+GrantTrust14 control remains in normal mode and reaches exactly the same all16
+original terminal fields, while B's initial and lagging Sign/Serve never execute.
+Full intermediate raw histories distinguish that loss from complete availability.
+
+Independent execution9 plus author26 plus shared3 give38 exact TLC executions,
+separately attributed. The independent parser audits17 actual raw traces,
+610states/593receipts, every16original field at each state and all12node fields
+at every history prefix. Whole628formal and generated-private/source/tool/copy
+hash guards hold. No setup/type/parse/timeout or wrong-error result is credited.
+
+Independent source/spec/quality and literal/dispatch review checked the complete
+implementation before any execution; a separate scoped review checked the one
+catalog row and cohort link. All previously published model/config/code inputs
+remain unchanged, and current source/copy/tool guards and real restoration pass.
+No natural protocol/source defect or additional production implementation is
+claimed. Current canonical/scoped SPEC correspondence and D01 WAITING remain.
+
+Reflection: earlier two-node bounds never reached the recovery snapshot, and
+earlier supersession bounds had only one node. Conservative signing safety alone
+could therefore miss excessive revocation and lost valid service. This selected
+cross-product checks actual intermediate availability as well as local refusal.
+It still assumes authenticated fixed L1/evidence tokens and constant session0;
+physical importer/signer restart, HRS/supervisor behavior, cryptography, changing
+sync targets and full T01/C01/K01 remain OPEN/WAITING. J01–J02 are the first two
+selected increments; J03–J05 and accumulated final gates remain unfinished.

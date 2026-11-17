@@ -723,3 +723,14 @@ fail at the second transition; missing actions can legitimately change later
 acceptance. Independent source and behavior gates pass for this selected finite
 S01/Q01 history. Concrete client/EL/guest comparison remains WAITING; J02–J05 and
 accumulated final gates remain unfinished.
+
+### J02: selective two-node generation knowledge
+
+The [two-node supersession lane](TRUST_SUPERSESSION.md) requires actual initial
+service, local revocation, retained lagging-node service and eventual old-session
+containment in both node orders. Raw histories distinguish safe refusal from
+excessive cross-node revocation and lost valid availability. A separate real
+finality-boundary fault and missing-admission history provide independent
+verification. Logical sessions do not establish physical restart or fresh
+session-generation liveness; broader T01 remains WAITING. J03–J05 and accumulated
+final gates remain unfinished.

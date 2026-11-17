@@ -1369,6 +1369,23 @@
         "name": "RepeatedSecondGenerationAudit"
       },
       "obligation": "J01 actual second structural Recover must increment raw generation1 to2; a saturated1 write is indistinguishable at the first recovery and fails only the dedicated immediate second-recovery audit. Actual action execution and complete original/restored histories are separately observed."
+    },
+    {
+      "id": "trust-node-local-revocation",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaL1Trust.tla",
+      "replace": {
+        "old": "/\\ trusted' = [trusted EXCEPT ![n] =\n          IF CheckSupersession /\\ Gen(provider[n]) > SessionGeneration THEN FALSE ELSE @]",
+        "new": "/\\ trusted' = [m \\in Nodes |->\n          IF CheckSupersession /\\ Gen(provider[n]) > SessionGeneration THEN FALSE ELSE trusted[m]]"
+      },
+      "workloads": ["configs/trust-supersession-audit-first1.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "TrustSelectiveRevokeAudit"
+      },
+      "obligation": "J02 actual first finalized generation observation must revoke only its observing node and preserve all twelve fields of the other still-trusted node, whose actual old-view Retained signing and service remain available. Excess revocation can preserve inherited conservative safety; a dedicated immediate raw noninterference observer must detect the actual cross-node trust write."
     }
   ]
 }

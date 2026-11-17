@@ -232,7 +232,7 @@ checks that discriminate faults before later concrete code comparison. The
 selects exactly five additive finite-model increments from base2f863ad77:
 
 - [x] J01 / S01,Q01 — [selected repeated-recovery history](REPEATED_RECOVERY_IDENTITY.md) complete after independent source/behavior gates: two actual recoveries, intervening overlap, immutable prepared inputs and real generation2 settlement; full S01/Q01 remain WAITING.
-- [ ] J02 / T01 — two nodes learn a finalized generation at different times; require local revocation, continued lagging-node service and eventual old-session containment.
+- [x] J02 / T01 — [selected two-node supersession](TRUST_SUPERSESSION.md) complete after independent source/behavior gates: actual local revocation, lagging-node service and eventual old-session containment in both mirrors; full T01 remains WAITING.
 - [ ] J03 / R01 — pending-funded two-slot minimum/tie admission through six lifecycle permutations, historical slash, snapshots and actual public zero withdrawal.
 - [ ] J04 / C01 — eight Nil/two-salt/two-slot crash/retry/delivery histories; exact stored signature reuse and legal late delivery remain distinct from new exposure.
 - [ ] J05 / P01 — twelve partial-resource-arrival histories, cached short landing, overlapping full-data refusal/acceptance, same-block checkpoint finality and actual resumed production.
