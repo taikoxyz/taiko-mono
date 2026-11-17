@@ -157,7 +157,13 @@ abstract contract EtnaStakingRegistryGasBase is EtnaStakingRegistryTestBase {
     }
 
     /// @dev Measures `_owner`'s withdrawal of `_bondId` to itself as `_label`.
-    function _measureWithdraw(string memory _label, address _owner, uint256 _bondId) internal {
+    function _measureWithdraw(
+        string memory _label,
+        address _owner,
+        uint256 _bondId
+    )
+        internal
+    {
         EtnaStakingRegistry target = registry;
         vm.startPrank(_owner);
         vm.startSnapshotGas(_label);
