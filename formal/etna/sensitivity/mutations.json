@@ -1282,6 +1282,40 @@
         "name": "RecaptureBindingAudit"
       },
       "obligation": "H03 actual binding omission executes bad Land against independent raw attempt audit."
+    },
+    {
+      "id": "m06-suffix-cursor-rewind",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaForcedInclusion.tla",
+      "replace": {
+        "old": "!.frontier=c, !.cursor=fi.landedCuts[c], !.anchorFloor=now, !.lastAnchor=now,",
+        "new": "!.frontier=c, !.cursor=fi.cursor, !.anchorFloor=now, !.lastAnchor=now,"
+      },
+      "workloads": ["configs/fi-suffix-recovery-audit-cursor.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "SuffixCursorAudit"
+      },
+      "obligation": "H04 actual cursor recovery write fault executes real FIRecover against an independent raw before/after audit."
+    },
+    {
+      "id": "m06-suffix-hash-blanking",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaForcedInclusion.tla",
+      "replace": {
+        "old": "THEN [fi.queue[i] EXCEPT !.hash=\"Nil\"] ELSE fi.queue[i]],",
+        "new": "THEN fi.queue[i] ELSE fi.queue[i]],"
+      },
+      "workloads": ["configs/fi-suffix-recovery-audit-hash.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "SuffixHashAudit"
+      },
+      "obligation": "H04 actual hash recovery write fault executes real FIRecover against an independent raw before/after audit."
     }
   ]
 }

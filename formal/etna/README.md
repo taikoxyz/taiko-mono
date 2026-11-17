@@ -676,3 +676,14 @@ certify the new same-code deployment, provider failure policy or atomic upgrade
 checks. [D01 in the current worklist](WORKLIST.md#remaining-obligations) keeps
 that acceptance WAITING; current30 obligations/11 composition families retain
 all earlier incomplete work. This tracking update is not another H increment.
+
+### H04: partially settled FI suffix recovery and replacement
+
+The [FI suffix recovery lane](FI_SUFFIX_RECOVERY.md) executes two15-attempt
+histories with three actual productions: old1/old2, settle only1, recover with
+B hash blanked or retained, then produce and land replacement2. Literal raw
+cursor/queue/fee/history observers distinguish real cursor/hash write omissions
+and an independently selected revenue-reset fault. A missing-old2 control can
+reach matching final scalar values while lacking the required discarded suffix.
+Full history witnesses remain distinct from absence controls. Real STF/EVM,
+resource behavior and wider F01 implementation correspondence remain WAITING.

@@ -3236,3 +3236,84 @@ protected through authored repair execution; final independent guards likewise p
 inputs. Only afterward are D01/closing prose and the guide's stale editorial
 wording updated. No earlier run is relabeled as consuming that later prose.
 No production, normative source, deployment or live operation changed here.
+
+## Adversarial-coverage batch — H04 FI suffix recovery and replacement
+
+The [new additive companion](FI_SUFFIX_RECOVERY.md) starts at the unchanged
+FIInit and calls actual EtnaForcedInclusion/EtnaSettlement actions, preserving
+the original outer production guard/increment. MaxHeight2 and MaxProduces3
+permit old1, discarded old2 and replacement2; stage remains0. Two selected
+15-attempt histories differ only in hash blanking versus retention. Every
+enabled real action executes, even a deliberately bad source operation; raw
+audits never schedule that operation away.
+
+A is admitted at block0/timestamp10/fee1 and old1 consumes it locally. B is
+admitted at block1/timestamp12/fee2 while local cursor1 has advanced but the
+L1 landed head is still0. After old2 exists, Prepare2 retains its queued proof
+and a fresh landing settles only checkpoint1. Actual recovery at3 retains
+parent(0,1), rewinds the raw local cursor2->1, advances generation/nonce and
+only blanks B's hash in the Blank case. Timestamp12/enqueueBlock1, A's entry,
+fee admissions and cash/revenue3 persist. The inherited journal oldCursor is
+settled1 and cannot independently attest actual pre-recovery local2.
+
+The old prepared proof is actually refused after recovery; generation, parent/
+origin and cut conditions all reject it, so this supplies no isolated generation-
+guard sensitivity claim. At block4 the replacement adopts closed anchor3,
+produces distinct(1,2) with retained parent(0,1), then actually lands checkpoint2.
+Complete terminals require three actual productions, one recovery, two executed
+landings, final cursors/head/tail2, unchanged queue timestamps and fee totals,
+and the independent L1 applied-index event sequence[0,1] exactly once. B is
+a symbolic inclusion body; no Completed/ObserveBuild or real EVM revert/STF
+is executed or inferred.
+
+Author final39 exact outcomes cover20 original EtnaForcedInclusion and19 new
+configs. The new19 are one complete normal, two focused raw recovery audits,
+14 deliberate omission/terminal-absence regressions and two positive terminal
+witnesses. Each positive trace has16 states/15 raw receipts. Absence PASS is
+not a successful-progress or broad safety claim. Initial missing-Sequences and
+unbound primed-stage diagnostics were confined to the companion, corrected and
+retained without behavioral credit; final39 uses the corrected frozen code.
+The formatted guide existed before the final checker/source campaigns and its
+consumed bytes match the published guide. Discovered default count is now416;
+the whole-batch final gate remains separate.
+
+Two actual private FIRecover write faults are assessed: retain old local cursor2
+instead of landedCut1, or omit B's hash-only blanking. Each really executes
+recovery11 and violates only the matching SuffixCursorAudit or SuffixHashAudit.
+Original/restored phases pass with actual same-copy restoration/rerun and stable
+source/input/tool records. Shared inventory now73 (67TLC+6Forge); only these two
+new catalog obligations are freshly executed here. All previous71 assessed
+records and4 unassessed categories remain unchanged. The20 catalog/sensitivity
+Python regressions also pass.
+
+Independent source/spec/quality review passes the complete23-file change.
+Independent behavior uses a different actual FIRecover revenue-reset fault: it
+executes genuine recovery while revenue3->0 and cashPaid/admissions remain3.
+Literal raw accounting rejects it immediately, and original/same-copy-restored
+Blank/Retain full witnesses pass. Missing old2 is especially discriminating:
+the program can still end with settlement head/cursor2 and revenue3, but has
+only two productions and no discarded old2. Missing final landing instead
+retains only the first L1 applied index. Full partial-terminal traces expose
+these differences; no final-scalar snapshot substitutes for the required history.
+The verifier also independently checks author39 raw results, both actual bad
+Recover writes, original/restored source and tool identities.
+
+### H03–H04 cross-task reflection
+
+H03 required actual fresh proof completion through finality, anchor adoption and
+another Produce, beyond a refusal or enabled predicate. H04 requires an actual
+old suffix and replacement landing beyond apparently correct final height,
+cursor and cash. Its missing-old2 control demonstrates how the same terminal
+scalar state can hide omitted coverage. Raw local cursor2 is also distinct
+from the recovery journal's settled1; agreement with that journal alone would
+miss a wrong rewind. These checks strengthen specific observers and histories
+without implying that the whole protocol has been verified.
+
+Remaining shared premises include authenticated canonical anchors, atomic
+authorized recovery, symbolic FI bodies/fees, valid chain/STF and abstract proof
+interfaces. These are finite schedules with selected bounds, not arbitrary
+interleaving/fairness, actual EL/guest/client/prover/resource execution, real
+fee currency or gas/zk budgets. F01/P01/Q01 and new D01 deployment acceptance
+remain OPEN/WAITING. No natural protocol defect is established. H05 next tests
+actual modeled payments before correction and preservation afterward; broader
+corrective implementation remains Q02 WAITING.

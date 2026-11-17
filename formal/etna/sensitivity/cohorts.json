@@ -71,7 +71,9 @@
         "handoff-signer-durable-floor",
         "handoff-signer-crash-hrs",
         "m07-recapture-reference-age",
-        "m07-recapture-backend-binding"
+        "m07-recapture-backend-binding",
+        "m06-suffix-cursor-rewind",
+        "m06-suffix-hash-blanking"
       ]
     },
     {
