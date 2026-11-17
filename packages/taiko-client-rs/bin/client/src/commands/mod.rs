@@ -28,18 +28,18 @@ pub fn load_chain_params(
     l2_chain_id: u64,
     chain_config: Option<&Path>,
 ) -> Result<(ChainParams, Option<U256>)> {
-    let mut params = ChainParams::builtin(l2_chain_id)?;
+    let mut params = ::abci::config::builtin(l2_chain_id)?;
     let mut expected_l1 = None;
     if let Some(path) = chain_config {
         let toml = std::fs::read_to_string(path)
             .map_err(|source| CliError::ChainConfigRead { path: path.to_path_buf(), source })?;
-        params = params.with_overrides(&toml)?;
+        params = ::abci::config::with_overrides(params, &toml)?;
         let fields: toml::Table = toml::from_str(&toml).map_err(::abci::ConfigError::from)?;
         if fields.contains_key("l1_chain_id") {
             expected_l1 = Some(params.l1_chain_id);
         }
     }
-    params.validate()?;
+    params.validate().map_err(::abci::ConfigError::from)?;
     Ok((params, expected_l1))
 }
 

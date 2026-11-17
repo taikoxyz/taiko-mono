@@ -19,6 +19,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "base64",
+ "etna-core",
  "flate2",
  "futures",
  "k256",
@@ -2618,6 +2619,23 @@ checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "etna-core"
+version = "2.3.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-sol-types",
+ "base64",
+ "k256",
+ "prost 0.13.5",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tendermint",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

@@ -23,7 +23,7 @@ use crate::{
     key::ConsensusKey,
     recovery::RecoveryOrigin,
     schedule::Schedule,
-    types::{AnchorState, CommitteeRecord, GenesisRecord, Member, ParentInfo},
+    types::{AnchorState, GenesisRecord, ParentInfo},
     valstate::ValState,
 };
 
@@ -34,15 +34,9 @@ pub const STATE_FILE: &str = "abci-state.json";
 /// interrupted save and is discarded by [`Store::load`].
 pub const TMP_FILE: &str = "abci-state.json.tmp";
 
-/// One epoch's committee: its record (as deterministically derived from a fixed L1 snapshot) and
-/// members.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CommitteeState {
-    /// The committee record of the epoch.
-    pub record: CommitteeRecord,
-    /// The members, in set-key order; their powers are the CometBFT validator set.
-    pub members: Vec<Member>,
-}
+#[cfg(test)]
+use crate::types::{CommitteeRecord, Member};
+pub use etna_core::types::CommitteeState;
 
 /// The one [`AppState`] schema; a state file of any other schema is refused, never migrated.
 pub const STATE_SCHEMA_VERSION: u32 = 19;
@@ -787,10 +781,8 @@ mod tests {
     fn state() -> AppState {
         let genesis = GenesisRecord {
             committee_config_hash: crate::committee::committee_config_hash(
-                &crate::config::ChainParams::builtin(
-                    protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
-                )
-                .unwrap(),
+                &crate::config::builtin(protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID)
+                    .unwrap(),
             ),
             genesis_height: 0,
             l1_0: 1_000,

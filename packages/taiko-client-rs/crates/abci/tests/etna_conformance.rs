@@ -267,7 +267,7 @@ fn all_keys(expect: &Value) -> Vec<String> {
 
 /// The devnet chain parameters every family starts from.
 fn params() -> ChainParams {
-    ChainParams::builtin(TAIKO_DEVNET_CHAIN_ID).expect("devnet parameters")
+    abci::config::builtin(TAIKO_DEVNET_CHAIN_ID).expect("devnet parameters")
 }
 
 // ---------------------------------------------------------------------------------------------

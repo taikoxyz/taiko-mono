@@ -1,0 +1,26 @@
+[package]
+name = "etna-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+rust-version = "1.91"
+
+[features]
+# Test-only stock replica fixtures used by native integration tests.
+test-utils = []
+
+[dependencies]
+alloy-primitives = { workspace = true, features = ["serde", "rlp"] }
+alloy-rlp = { workspace = true, features = ["derive"] }
+base64 = { version = "0.22", default-features = false, features = ["alloc"] }
+k256 = { workspace = true, features = ["ecdsa"] }
+prost = { version = "0.13", default-features = false, features = ["derive"] }
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+sha2 = { version = "0.10", default-features = false }
+tendermint = { version = "0.40", default-features = false }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+alloy-sol-types = { workspace = true }
+serde_json = { workspace = true }

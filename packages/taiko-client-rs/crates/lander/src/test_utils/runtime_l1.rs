@@ -169,7 +169,7 @@ fn anchor(header: &RawL1Header) -> AnchorState {
     }
 }
 fn snapshot(headers: &BTreeMap<u64, RawL1Header>) -> LandingSnapshot {
-    let params = ChainParams::builtin(167001).unwrap();
+    let params = abci::config::builtin(167001).unwrap();
     LandingSnapshot {
         l1_block_hash: headers[&20].hash(),
         l1_block_number: 20,
@@ -821,7 +821,7 @@ async fn references_older_than_blockhash_window_require_actual_history_contract_
         let source = RpcLandingSource::new(
             l1.provider.clone(),
             l1.provider.clone(),
-            ChainParams::builtin(167001).unwrap(),
+            abci::config::builtin(167001).unwrap(),
         );
         let mut older = snapshot.clone();
         older.l1_block_number = 300;

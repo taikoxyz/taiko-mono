@@ -4,6 +4,7 @@ members = [
     "crates/abci",
     "crates/bindings",
     "crates/driver",
+    "crates/etna-core",
     "crates/lander",
     "crates/protocol",
     "crates/rpc",

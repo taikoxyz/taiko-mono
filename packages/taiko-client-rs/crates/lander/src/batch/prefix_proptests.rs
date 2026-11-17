@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use abci::{AnchorState, AnchorWitness, ChainParams, CommitteeWitness, RawL1Header};
+use abci::{AnchorState, AnchorWitness, CommitteeWitness, RawL1Header};
 use alloy_primitives::B256;
 use async_trait::async_trait;
 use proptest::{collection::vec, prelude::*};
@@ -175,7 +175,7 @@ fn builder(
 ) -> BatchBuilder<Decided, Decided> {
     let decided = Arc::new(Decided(chain));
     let config = BatchBuilderConfig {
-        params: ChainParams::builtin(167_001).expect("a built-in chain"),
+        params: abci::config::builtin(167_001).expect("a built-in chain"),
         limits,
         mode: SidecarMode::Eip4844,
         engine: Arc::new(test_harness::unavailable_engine::UnavailableEngine),

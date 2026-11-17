@@ -2,11 +2,11 @@
 
 use std::collections::BTreeMap;
 
-use alloy::sol_types::{
+use alloy_primitives::{Address, B256, U256, hex};
+use alloy_sol_types::{
     SolType,
     sol_data::{Array, FixedBytes, Int, Uint},
 };
-use alloy_primitives::{Address, B256, U256, hex};
 use serde_json::Value;
 
 use super::{ValEntry, ValSet, ValState};
@@ -15,7 +15,7 @@ use crate::{
     key::ConsensusKey,
     test_utils::{test_key, vectors::at},
     types::Member,
-    wire::ValidatorUpdate,
+    validator::ValidatorUpdate,
 };
 
 fn number(value: &Value) -> u64 {
