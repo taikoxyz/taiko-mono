@@ -632,3 +632,15 @@ passes the same387/227 gate; complete399-file raw and two-file private archives
 were checksum-verified and independently read back. The29-row worklist retains
 broader runtime dependencies and19 archived-search obligations. Stop after five;
 PR22387 remains draft and hourly feedback checks continue.
+
+### H01: public-input Registry lifecycle
+
+The [public Registry lane](conformance/REGISTRY_PUBLIC.md) executes real published
+PoPs at their bound domain from a fresh minimal setup with no key generation or
+signing. Five complete histories cover repeated activation, pending-principal
+liability, first-confirmation preservation, exact-delay payout, public zero
+withdrawal and historical/coalesced checkpoints. Independent raw storage/cash/
+event/root observers detect actual pending-deduction and confirmation-guard
+omissions; original/restored runs pass. Broader token callbacks, capacity,
+displacement, real Inbox snapshots and deployment remain explicit premises or
+open obligations. Historical older test-key setups retain their own attribution.

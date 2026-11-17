@@ -1224,6 +1224,30 @@
         "name": "SignerHRSExposureAudit"
       },
       "obligation": "Selected actual-action handoff/signer product: fresh domain1 two-slot persisted returns must retain HRS across actual Crash/Restart, preventing the actually attempted lower-slot conflicting exposure."
+    },
+    {
+      "id": "registry-public-pending-deduction",
+      "required": true,
+      "engine": "forge",
+      "source": "contracts",
+      "path": "packages/protocol/contracts/layer1/etna/impl/EtnaStakingRegistry.sol",
+      "replace": {
+        "old": "        pending.pendingTopUp -= penalty - fromEffective;",
+        "new": "        // Diagnostic omission: pending principal not deducted."
+      },
+      "workloads": [
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_allPublishedOwnerAAPoPs()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_allPublishedOwnerBBPoPs()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_repeatedActivationAndClosedHistory()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_pendingLiabilityConfirmationAndPayout()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_fullForfeitPublicZeroWithdrawal()"
+      ],
+      "failure": {
+        "kind": "forge",
+        "failures": {
+          "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_pendingLiabilityConfirmationAndPayout()": "public ledger: pending principal"
+        }
+      }
     }
   ]
 }

@@ -91,6 +91,18 @@
         "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_conformance_stopHandoffReplay()"
       ],
       "required_ids": ["handoff-actual-stop-clear", "handoff-actual-stop-event"]
+    },
+    {
+      "id": "forge-registry-public",
+      "engine": "forge",
+      "test_ids": [
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_allPublishedOwnerAAPoPs()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_allPublishedOwnerBBPoPs()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_repeatedActivationAndClosedHistory()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_pendingLiabilityConfirmationAndPayout()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_fullForfeitPublicZeroWithdrawal()"
+      ],
+      "required_ids": ["registry-public-pending-deduction"]
     }
   ]
 }

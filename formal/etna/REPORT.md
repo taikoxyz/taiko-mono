@@ -2893,3 +2893,79 @@ More green counts alone are insufficient. Concrete authenticated histories,
 STF/proof execution, full consensus and corrective storage migration remain
 separate obligations; independently supported actual protocol defects stop work
 for discussion. Original sources/configs and prior evidence remain preserved.
+
+## Adversarial-coverage batch — H01 public-input Registry lifecycle
+
+H01 completes the selected actual held-slot lifecycle, not all R01. A fresh
+Vm-only minimal fixture uses the actual Registry constructor, proxy dispatch and
+initialization at the published chain1/address2222 domain. It checks all12
+published digests before actual PoP registration across6 keys/2 owners. No
+EtnaTestKeys/CommonTest/base setup runs; no new key/signature is generated.
+Public code placement, actor impersonation, exact-transfer token and supplied
+initialized/unlocked Inbox snapshots are explicit test premises.
+
+Five actual tests cover two six-PoP same-block cohorts and later activation,
+repeated top-ups/activation, mature-but-unactivated liability, and full forfeiture/
+public zero withdrawal. Literal histories require effective12 after two activations;
+forfeit8 from principal16 (effective4 then pending4), leaving effective0/pending8/
+custody8/sink8; first confirmation16 survives repeat17; withdrawal17 refuses and
+18 pays8. The zero-principal path emits no token zero-transfer. Complete raw
+packed bond/entry/principal/custody/lifetime identity, exact ordered events and
+independently constructed canonical roots/frozen checkpoints are checked. Every
+failed call has exact revert bytes, no logs and full selected raw equality,
+including all8192 admission-index cells. This is a bounded footprint, not all
+possible EVM/transient storage or semantic admission-index verification.
+
+The author actual-source fault omits only pending-principal deduction. Its
+mutant reaches raw pending12 with custody8 and fails exactly the liability test's
+`public ledger: pending principal`; the other4 pass. Both original and actual
+same-copy restored phases pass all5. The integrated authoritative manifest's
+fresh `registry-public-pending-deduction` campaign separately passes with
+ready=true/inputs_stable=true and only that obligation selected. Inventory total
+is69 assessed (63 TLC/6 Forge), but this increment freshly executes only its one
+new shared obligation; the five legacy Forge obligations retain historical
+test-key execution evidence. Four aggregate unassessed rows remain unchanged.
+
+An independent tester chooses a different real source fault: omitting the
+first-confirmation early return. Repeating confirmation then writes17 over16;
+only the liability leaf fails the direct raw assertion
+`public confirmation: first block preserved`, while the other4 pass. Actual
+original/restored phases pass all5. The tester independently audits the authored
+pending fault rather than redundantly rerunning it. Both mutation effects and
+all exact case/command/log/source identities are checked from raw Forge JSON.
+No parser/setup/skip/timeout/wrong-reason failure is credited. Temporary phase
+trees are removed by the existing runner; evidence is raw execution, same-copy
+commands/hash maps, exact source replacement and recorded restored execution,
+not a posthoc walk of deleted phase trees.
+
+The independently re-extracted public Git blob is
+`e069e2930143cbaf126d46532a96179764ec0ab6`, SHA256
+`85d9df59bbc1709950be8cd8b248a3871523229afabd3d4e65b8027d6e4529de`;
+all allowlisted12 row/6 key fields equal the published fixture. Only public fields
+were retained. All564 pinned source entries and568 full staged snapshot records
+verify, with symlink records checked by target, plus all30 reachable import/tool/
+dependency identities. The source snapshot and extra staging metadata counts
+serve different purposes. Sources/dependencies stay read-only and offline; the
+existing physical cache/lock, launcher and classifier remain authoritative.
+
+An initial observer resource-exhaustion run and incomplete Solady import-audit
+attempt remain INCONCLUSIVE, not semantic evidence. The audit was completed
+before accepted runs. All8192 cells remain checked; gas metering pauses only
+around expensive observer sweeps and resumes before every actual public call.
+No protocol/EVM limit was raised, and this establishes no gas/latency budget.
+
+Independent source/spec/quality review and independently selected actual behavior
+challenge pass with no material finding. Frozen test SHA256 is
+`a44ac6d6ae69afdffd6cb9c1bed303a4d4ce16dd2c4565fa4febfb1f9ae75ae9`.
+The public JSON extract SHA256 remains
+`e441ece5cd83e70c2008da00b144f3411a1009dda3e18ce8cda9a4bebb208cdf`.
+All old32 TLA/387 default cfg and other original executable inputs remain intact.
+No actual protocol defect was established. Six keys and these histories do not
+cover real governance/landing/proving, token callbacks,4096 displacement/capacity,
+concurrency, double-sign admission or arbitrary failure storage. R01 remains OPEN.
+
+Reflection: the concrete improvement is tracing setup to remove hidden local
+signing and replacing same-write getter/root agreement with literal raw state,
+independent roots/history and cash amounts. The separate confirmation fault
+challenges a second real write; neither fault proves all Registry behavior.
+H02 weighted state evolution remains next, with its own unsigned-only boundary.
