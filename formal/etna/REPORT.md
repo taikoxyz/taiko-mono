@@ -3024,3 +3024,16 @@ pre-format2459ea57 is historical documentation only). Only the old baseline test
 is adjusted for the separated gate; original model engines/configs are intact.
 Latest-head hosted CI must be read back separately after publication; earlier
 CI or these local actual-byte tests are not mislabeled as a later hosted run.
+
+### H01 public-vector CI false positives
+
+Hosted check44045299768 reports18 generic-api-key findings in the unchanged
+public registration fixture:12 compressed public-key rows and6 public entry-key
+digests. Independent extraction from pinned published blob
+e069e2930143cbaf126d46532a96179764ec0ab6 already verified every field; no
+credential is among these exact findings. The fixture SHA256 remains
+e441ece5cd83e70c2008da00b144f3411a1009dda3e18ce8cda9a4bebb208cdf.
+The repository-root .gitleaksignore records only those18 original
+7a550c1c3 commit/file/rule/line fingerprints, without path/value wildcards.
+Existing workflow and rule configuration are unchanged. No scanner was invoked
+locally; a later hosted result must verify this integration separately.
