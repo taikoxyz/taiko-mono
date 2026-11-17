@@ -2453,3 +2453,29 @@ full run as execution of the repaired adapter. Independent source and actual
 behavior rechecks pass at the frozen current adapter/workflow/test hashes. A
 new hosted full run with complete artifact readback is required before G01
 closes and G02 resumes.
+
+Final repaired execution: [hosted run44014380640](https://github.com/taikoxyz/taiko-mono/actions/runs/44014380640)
+at9798a68fa83490835e519720c454505bf9bfa75d succeeds, including reconciliation,
+quiescent output checking and both uploads. Downloaded artifact14298780801 has
+381 files and SHA-256
+`939acf27300a1e1567100d8d4ca1ac7508b41c597c0cd0ba6792d8cba460d58d`.
+An independent raw read of all369 case logs confirms70 exhausted searches and299
+exact named failures, all current configuration/model hashes,208 tests
+(57+131+20, zero skips/errors/failures), all five children0 and backend cleanup0.
+The separate two-file diagnostic artifact14298656593 has SHA-256
+`a70ec19ba145c6862c4a2c978a5936d48686f028c095ddb929aae44d3195a68c`;
+both canonical files match their public copies byte for byte. The TLC results
+file SHA-256 is
+`6c0f4b32d13bf03cb0d255f0cdaf938da5d43449df016fe774821392a333eee5`.
+G01 is complete for its TLC/Python CI scope; G02 resumes. Native, contract,
+real proving and complete protocol acceptance remain separate work.
+
+A final independent ACCEPTANCE-to-worklist audit also found two remaining-plan
+omissions, repaired without expanding G01-G05: O01 now owns actual launch capital,
+concentration, finalized-R quorum/revaluation and funded operations; C01 explicitly
+owns concrete timed refusal, trusted-session reconnect and automatic supervisor/
+WAL retry without resetting HRS or restarting safety halts/old generations. L01
+now explicitly names production signer/HSM/KMS pins and maximum-committee
+signature-tail measurements. The raiser rechecked all fixes. The current index
+has29 obligations and10 required composition families; bounded completion is
+still distinguished from whole-module closure.

@@ -45,7 +45,7 @@ unsandboxed fallback are permitted.
 - [x] Implement the minimal gate; inspect existing runner tests and preserve check.py behavior and all existing source inputs.
 - [x] Add draft-enabled PR/main triggers for formal files, workflow and normative docs; read-only permissions, credential-free checkout, pinned existing action commits, bounded job/download/execution, checksum verification and failure artifacts. Separate network tool preparation from offline code execution.
 - [x] Execute the actual full default TLC/Python gate locally in the existing namespace and independent negative/omission controls; distinguish actual GitHub CI from local validation until its run is read back.
-- [ ] Independent source/quality review and behavioral verification; root formats, reviews tested bytes and publishes the reviewed increment before G02.
+- [x] Independent source/quality review and behavioral verification; root formats, reviews tested bytes and publishes the reviewed increment before G02. Final hosted44014380640 at9798a68fa passes369 exact outcomes/208 tests, reconciliation, output checking and both artifacts; complete raw/diagnostic archives read back.
 
 ### Task 2: G02 — persistent stock Bootstrap restart
 
