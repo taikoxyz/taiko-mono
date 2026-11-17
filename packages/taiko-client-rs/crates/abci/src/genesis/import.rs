@@ -137,17 +137,18 @@ impl VerifiedGenesis {
         self.recovery.as_ref().map_or(self.genesis.genesis_height, |origin| origin.height)
     }
 
-    /// The EL hash at the origin, the genesis's `app_hash`: H* at generation zero, ELHash(c)
-    /// for a recovery (CONS-3.1-8).
+    /// The EL hash at the origin, the genesis's `app_hash`: the start hash at generation zero,
+    /// ELHash(c) for a recovery (CONS-3.1-8).
     pub fn origin_hash(&self) -> B256 {
         self.recovery.as_ref().map_or(self.genesis.genesis_hash, |origin| origin.el_hash)
     }
 
     /// The `AppState` the generation starts from at its origin, for `InitChain` and import alike
-    /// (START-10-22, RECOV-8.4-7..11, DATA-5.4-1): `parent` summarizes the origin EL block (B*
-    /// or c), which the caller authenticated against [`VerifiedGenesis::origin_hash`]; `anchor`
-    /// is the anchor that block inherited: [`VerifiedGenesis::anchor`] (`L1_0`) at generation
-    /// zero, or a recovery's historical anchor from its verified bootstrap sidecar
+    /// (START-10-22, RECOV-8.4-7..11, DATA-5.4-1): `parent` summarizes the origin EL block (the
+    /// Etna start block or c), which the caller authenticated against
+    /// [`VerifiedGenesis::origin_hash`]; `anchor` is the anchor that block inherited:
+    /// [`VerifiedGenesis::anchor`] (`L1_0`) at generation zero, or a recovery's historical
+    /// anchor from its verified bootstrap sidecar
     /// ([`VerifiedBootstrap::anchor`](crate::recovery::VerifiedBootstrap::anchor)), never R. The
     /// state holds the initial committee, the origin's forced inclusion cursor and CometBFT's
     /// genesis validator state of that committee at the origin height, which fails exactly
@@ -252,7 +253,8 @@ mod tests {
         let mut app = fx.app(dir.path());
         app.handle(Request::InitChain(fx.request.clone())).await.unwrap();
         let fixed = verify_original_genesis(&doc, &fx.params).unwrap();
-        // The import summarizes its origin header B* as the parent, with no grandparent.
+        // The import summarizes its origin header, the Etna start block, as the parent, with no
+        // grandparent.
         let b_star = &fx.el_chain[0];
         let parent = ParentInfo {
             number: b_star.number,

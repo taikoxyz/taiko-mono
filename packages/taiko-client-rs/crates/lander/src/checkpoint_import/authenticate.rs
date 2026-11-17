@@ -288,7 +288,7 @@ where
                 let witness = env
                     .committee
                     .as_ref()
-                    .ok_or_else(|| unavailable("required switch witness absent"))?;
+                    .ok_or_else(|| unavailable("required committee witness absent"))?;
                 let snapshot_number = if parent.number <= origin {
                     state.anchor_floor()
                 } else {
@@ -784,8 +784,12 @@ fn check_metadata(
     }
     rules::check_checkpoint_height(parent.number, anchor.inbox.last_checkpoint_height)
         .map_err(candidate)?;
-    rules::check_back_pressure(height, anchor.inbox.last_checkpoint_height, params.unsettled_cap())
-        .map_err(candidate)?;
+    rules::check_back_pressure(
+        height,
+        anchor.inbox.last_checkpoint_height,
+        params.unsettled_limit(),
+    )
+    .map_err(candidate)?;
     rules::check_rules_schedule(
         anchor.inbox.rules_schedule,
         &parent_info(parent, 0)?,

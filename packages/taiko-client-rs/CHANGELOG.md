@@ -64,6 +64,10 @@ older stores are refused, never migrated (START-10-24).
   the setting (START-10-6). An imported store also re-checks that the own EL serves the block and
   state at `execution_floor` at every CometBFT handshake, not once per app process, so that state
   must stay readable across Comet restarts.
+- Metric and reason names follow the Etna spec's terms; update dashboards and alerts. The counter
+  `abci_proposals_empty_total` is now `abci_proposals_placeholder_total`. In the `reason` label
+  of `abci_process_rejected_total` and in `/status` `halt_reason`, `empty_proposal` is now
+  `placeholder_proposal` and `landing_capacity` is now `block_size_bound`.
 
 ### Features
 
@@ -140,7 +144,7 @@ older stores are refused, never migrated (START-10-24).
   Comet can trigger, instead of waiting forever for trust.
 - Recovery InitChain also requires the EL to serve the origin's state and waits with trust
   closed while it is missing, instead of reporting Ready and halting on the first block.
-- Halt when the own L1's registry proof fails under its own state root, in switch-witness
+- Halt when the own L1's registry proof fails under its own state root, in committee-witness
   discovery or in a re-proof under the candidate anchor (SYNC-9-7); a peer's failing proof still
   only rejects its proposal. A background discovery's own-L1 integrity failure is kept and halts
   whichever handler sees it first, not only a waiting proposer.

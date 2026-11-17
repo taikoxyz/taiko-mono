@@ -78,7 +78,8 @@ pub struct AppState {
     pub inbox: Address,
     /// The Etna genesis record verified at `InitChain`.
     pub genesis: GenesisRecord,
-    /// Logical EL boundary (== `parent.number`); B* or c before the first generation commit.
+    /// Logical EL boundary (== `parent.number`); the Etna start S or c before the first generation
+    /// commit.
     pub last_height: u64,
     /// Exact new-generation Comet block ID; zero before the first generation commit.
     pub last_comet_hash: B256,

@@ -365,7 +365,8 @@ struct TransportKey {
     priv_key: tendermint::private_key::PrivateKey,
 }
 
-/// Validates stock Ed25519 P2P key bytes using the pinned Tendermint decoder, without signing.
+/// Validates stock CometBFT Ed25519 P2P key bytes using the pinned `tendermint` crate's decoder,
+/// without signing.
 /// A registered FilePV structure or another algorithm is never a transport identity
 /// (RECOV-8.2-2: no copy of the registered key may sign outside its signer state).
 pub fn validate_node_key(bytes: &[u8]) -> Result<(), RecoveryCommandError> {

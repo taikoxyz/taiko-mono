@@ -229,7 +229,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Clears the `ProcessProposal` cache, the proposal reads (but for the entry at the committed
     /// cursor, whose authenticated bytes remain reusable) and the halt reason, drops a cached
     /// committee witness or a running discovery the new committed state no longer needs, starts
-    /// a live decision's switch-witness prefetch, publishes the new head's gauges, and answers
+    /// a live decision's committee-witness prefetch, publishes the new head's gauges, and answers
     /// `retain_height = 0` (no block pruning). When the new
     /// state raises [`AppState::comet_history_floor`], the Comet block IDs below it are deleted
     /// after the state is durable; a failed deletion only logs, and the next raise retries it.
@@ -270,7 +270,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.verdicts.clear();
         let state = self.state.as_ref().expect("just committed");
         self.prepare_next_height(state);
-        // The commit is durable either way; an own-L1 integrity failure the switch-witness
+        // The commit is durable either way; an own-L1 integrity failure the committee-witness
         // discovery met halts once the commit's bookkeeping is done (SYNC-9-7).
         let prefetched = if self.decided_live {
             self.prefetch_committee_witness(state)
@@ -498,7 +498,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// Completes a cold forced decision before deriving the next cursor. Included transactions,
-    /// early peeks and invalid-byte skips need no singleton build. A canonical skip builds the
+    /// early peeks and ineligible-byte skips need no singleton build. A canonical skip builds the
     /// singleton on the committed parent's historical state and needs an empty result with
     /// matching headers. Retryable Engine errors and timeouts wait and retry; any other Engine
     /// error (usually the parent's state is gone) is a safety halt with reason

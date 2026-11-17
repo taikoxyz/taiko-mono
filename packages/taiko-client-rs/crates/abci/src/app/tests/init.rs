@@ -39,7 +39,7 @@ async fn init_chain_persists_the_verified_genesis_state() {
 
     // L1: only the finality check (finalized number and the canonical header at L1_0).
     assert_eq!(app.l1().calls(), [L1Call::Finalized, L1Call::CanonicalHash(fx.genesis.l1_0)]);
-    // EL: already holds B*, so no forkchoice update.
+    // EL: already holds the Etna start block, so no forkchoice update.
     assert!(
         !app.engine().calls().iter().any(|c| matches!(c, EngineCall::Forkchoice { .. })),
         "{:?}",
@@ -442,7 +442,7 @@ async fn genesis_header_must_be_the_initialization_block() {
 }
 
 #[tokio::test]
-async fn epoch_length_is_independent_of_unsettled_cap() {
+async fn epoch_length_is_independent_of_unsettled_limit() {
     let fx = Fixture::build(GenesisSpec { epoch_len: 3, ..GenesisSpec::new(2) });
     let dir = tempfile::tempdir().unwrap();
     let app = initialized(&fx, dir.path()).await;
@@ -580,7 +580,8 @@ async fn genesis_state_root_must_match_the_authenticated_el_genesis() {
 
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
-    let err = init_chain(&mut app, fx.request.clone()).await.expect_err("inconsistent S*");
+    let err =
+        init_chain(&mut app, fx.request.clone()).await.expect_err("inconsistent start state root");
     assert!(matches!(err, AbciError::SafetyHalt(_)), "{err:?}");
     assert_not_initialized(&app, dir.path());
 }
@@ -648,7 +649,7 @@ async fn genesis_validators_must_equal_the_committee() {
 async fn el_missing_b_star_is_synced_first() {
     let fx = Fixture::genesis(2);
     let (l1, _, params, req) = fx.parts();
-    // The EL knows B* (and its parent) but has not made them canonical yet.
+    // The EL knows the Etna start block (and its parent) but has not made them canonical yet.
     let engine = MockEngine::new();
     for header in &fx.el_chain {
         engine.insert_known(header.clone());
@@ -690,7 +691,7 @@ async fn el_holding_another_b_star_is_a_safety_halt() {
     let mut other = fx.el_chain.clone();
     other[0].timestamp += 1;
     let engine = MockEngine::with_chain(other);
-    // The EL accepts H* as VALID but keeps serving its own block at B*.
+    // The EL accepts the start hash as VALID but keeps serving its own block at the start height.
     engine.state().forkchoice_script.push_back(Ok(PayloadVerdict::Valid));
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
@@ -707,7 +708,7 @@ async fn el_rejecting_b_star_is_a_safety_halt() {
     engine.state().forkchoice_script.push_back(Ok(PayloadVerdict::Invalid("bad block".into())));
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
-    let err = init_chain(&mut app, req).await.expect_err("EL rejects H*");
+    let err = init_chain(&mut app, req).await.expect_err("EL rejects the start hash");
     assert!(matches!(err, AbciError::SafetyHalt(_)), "{err:?}");
     assert_not_initialized(&app, dir.path());
 }
@@ -718,7 +719,7 @@ async fn el_serving_another_block_after_sync_is_a_safety_halt() {
     let (l1, engine, params, req) = fx.parts();
     let mut other = fx.el_chain[0].clone();
     other.timestamp += 1;
-    // ensure_block sees B*; the follow-up read of B* returns another block.
+    // ensure_block sees the Etna start block; the follow-up read of it returns another block.
     engine.state().header_script.extend([Ok(Some(fx.el_chain[0].clone())), Ok(Some(other))]);
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
@@ -758,7 +759,7 @@ async fn lost_state_rejects_old_app_zero_genesis_before_replay() {
 
 /// Back-pressure values are per-chain configuration authenticated at genesis and restart.
 #[tokio::test]
-async fn genesis_and_restart_authenticate_chain_specific_backpressure_parameters() {
+async fn genesis_and_restart_authenticate_chain_specific_back_pressure_parameters() {
     let params =
         ChainParams::builtin(167001).unwrap().with_overrides("unsettled_limit = 24").unwrap();
     let fx = Fixture::build(GenesisSpec { params, epoch_len: 28, ..GenesisSpec::new(2) });

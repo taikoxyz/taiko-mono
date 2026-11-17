@@ -33,8 +33,8 @@ async fn info_before_init_chain_reports_height_zero() {
 }
 
 /// Before the first PoS block CometBFT's store is empty: it accepts only an app at height 0
-/// (and then re-sends InitChain). `InitChain` already made sure the EL holds `B*`, so a later
-/// `Info` on the same ABCI connections does not ask the EL again.
+/// (and then re-sends InitChain). `InitChain` already made sure the EL holds the Etna start
+/// block, so a later `Info` on the same ABCI connections does not ask the EL again.
 #[tokio::test]
 async fn info_at_genesis_reports_height_zero() {
     let fx = Fixture::genesis(2);
@@ -42,7 +42,7 @@ async fn info_at_genesis_reports_height_zero() {
     let mut app = initialized(&fx, dir.path()).await;
     assert!(
         app.engine().calls().contains(&EngineCall::HeaderByNumber(fx.genesis.genesis_height)),
-        "InitChain checks B* on the EL"
+        "InitChain checks the Etna start block on the EL"
     );
     app.engine().state().calls.clear();
     let resp = info(&mut app).await.expect("Info succeeds");
@@ -486,12 +486,12 @@ async fn app_new_rejects_a_changed_inbox_after_initialization() {
 }
 
 #[tokio::test]
-async fn app_new_rejects_a_changed_authenticated_unsettled_cap() {
+async fn app_new_rejects_a_changed_authenticated_unsettled_limit() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     drop(initialized(&fx, dir.path()).await);
 
-    // L = 20 is too short once the cap grows to 18.
+    // L = 20 is too short once the unsettled limit grows to 18.
     let params = ChainParams { unsettled_limit: 18, ..fx.params.clone() };
     let err = App::new(
         fx.l1(),
@@ -500,7 +500,7 @@ async fn app_new_rejects_a_changed_authenticated_unsettled_cap() {
         Store::volatile(dir.path().into()),
         AppOptions::default(),
     )
-    .expect_err("stored schedule violates the cap");
+    .expect_err("stored schedule violates the unsettled limit");
     assert!(
         matches!(err, AbciError::StoredState(ref msg) if msg.contains("configuration")),
         "{err:?}"

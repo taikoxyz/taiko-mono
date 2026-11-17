@@ -28,7 +28,7 @@ pub struct GenesisDoc {
     pub consensus_params: GenesisConsensusParams,
     /// Initial committee in set-key order, derived at genesis cutoff or recovery R.
     pub validators: Vec<GenesisValidator>,
-    /// Initial EL boundary hash H* or ELHash(c), uppercase hex for stock Comet JSON.
+    /// Initial EL boundary hash, the start hash or ELHash(c), uppercase hex for stock Comet JSON.
     pub app_hash: String,
     /// The genesis witness, embedded as the JSON object `{"witness": "0x<hex>"}`.
     pub app_state: AppStateJson,
@@ -247,7 +247,7 @@ impl GenesisDoc {
                     .find(|word| {
                         word.slot ==
                             crate::l1::layout::inbox::slot(
-                                crate::l1::layout::inbox::GENESIS_BLOCK_HASH,
+                                crate::l1::layout::inbox::START_BLOCK_HASH,
                             )
                     })
                     .expect("verified genesis hash slot")

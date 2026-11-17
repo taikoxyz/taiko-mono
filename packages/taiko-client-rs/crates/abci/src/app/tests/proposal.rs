@@ -257,8 +257,8 @@ pub(super) fn incompressible(len: usize) -> Bytes {
     out.into()
 }
 
-/// An initialized app whose committed head sits `offset` heights after `B*`, anchored at the
-/// genesis L1 block (last checkpoint `B*`). With `offset` in 1..=9 the next height is a plain
+/// An initialized app whose committed head sits `offset` heights after the Etna start S, anchored
+/// at the genesis L1 block (last checkpoint S). With `offset` in 1..=9 the next height is a plain
 /// height: no witness required, back-pressure satisfied.
 pub(super) async fn mid_epoch(fx: &Fixture, dir: &Path, offset: u64) -> App<MockL1, MockEngine> {
     let mut app = initialized(fx, dir).await;

@@ -95,7 +95,7 @@ impl EtnaHandoffSubCommand {
                 async {
                     let finalized = l1.finalized_number().await?;
                     let start_hash = l1
-                        .storage_at(params.inbox, inbox::slot(inbox::GENESIS_BLOCK_HASH), finalized)
+                        .storage_at(params.inbox, inbox::slot(inbox::START_BLOCK_HASH), finalized)
                         .await?;
                     if start_hash == U256::ZERO {
                         return Ok(None);

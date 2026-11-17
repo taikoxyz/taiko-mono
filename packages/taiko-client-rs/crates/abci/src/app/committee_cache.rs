@@ -1,4 +1,4 @@
-//! Independently verified switch witnesses, held in memory only and separate from consensus
+//! Independently verified committee witnesses, held in memory only and separate from consensus
 //! state, and the one background discovery that acquires them from the own L1; a restart
 //! re-discovers them there (SYNC-9-16).
 
@@ -22,14 +22,14 @@ use crate::{
     types::{AnchorState, GenesisRecord},
 };
 
-/// The bound of one background switch-witness discovery; a failed or timed-out discovery is
+/// The bound of one background committee-witness discovery; a failed or timed-out discovery is
 /// restarted by a later round or `Commit` once its backoff ([`prefetch_backoff`]) has passed.
 const COMMITTEE_PREFETCH_TIMEOUT: Duration = Duration::from_secs(300);
 
-/// The pause before the first restart of a failed background switch-witness discovery.
+/// The pause before the first restart of a failed background committee-witness discovery.
 const COMMITTEE_PREFETCH_BACKOFF: Duration = Duration::from_secs(2);
 
-/// The longest pause between restarts of a failing background switch-witness discovery.
+/// The longest pause between restarts of a failing background committee-witness discovery.
 const COMMITTEE_PREFETCH_MAX_BACKOFF: Duration = Duration::from_secs(60);
 
 /// The pause before restarting a discovery that failed after `failures` earlier failed attempts
@@ -135,7 +135,7 @@ impl CacheKey {
     }
 }
 
-/// One background discovery and verification of the switch witness for one context; dropping it
+/// One background discovery and verification of the committee witness for one context; dropping it
 /// aborts the discovery.
 #[derive(Debug)]
 pub(super) struct CommitteePrefetch {
@@ -191,7 +191,7 @@ pub(super) struct PrefetchedCommittee {
     pub(super) proof_anchor: (u64, B256, B256),
 }
 
-/// The L1 block whose registry snapshot the switch witness for `state` takes, and that the
+/// The L1 block whose registry snapshot the committee witness for `state` takes, and that the
 /// discovery reads and proves at: the committed parent anchor (that of `D(t)` at `S(t)`), or the
 /// generation origin R while that anchor still precedes it, i.e. their maximum (COMM-4.3-11). A
 /// candidate's own anchor never selects it. Registry checkpoints are append-only, so a snapshot
@@ -218,7 +218,7 @@ pub(super) struct CachedCommittee {
     witness: VerifiedWitness,
 }
 
-/// The epoch `t` whose switch witness `state`'s committed anchor may have to prove: that of the
+/// The epoch `t` whose committee witness `state`'s committed anchor may have to prove: that of the
 /// first switch `S(t)` after the committed height, while its derivation parent `D(t)` can still
 /// carry this anchor, i.e. pass back-pressure against the anchor's last checkpoint height and
 /// anchor freshness (`maxAnchorAge`), every height adding at least a second to the block
@@ -235,7 +235,7 @@ fn prefetch_target(state: &AppState, params: &ChainParams) -> Option<u64> {
     let reachable = rules::check_back_pressure(
         parent,
         anchor.inbox.last_checkpoint_height,
-        params.unsettled_cap(),
+        params.unsettled_limit(),
     )
     .is_ok() &&
         rules::check_anchor_freshness(earliest, anchor.timestamp, state.genesis.max_anchor_age)
@@ -255,7 +255,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// Runs at a live `Commit`, at every `ProcessProposal`, which every node (full nodes
     /// included) handles in each round that delivers a proposal while it is not locked on a block,
-    /// empty proposals included, and at every `PrepareProposal`. The live `Commit` of the block
+    /// placeholders included, and at every `PrepareProposal`. The live `Commit` of the block
     /// adopting an anchor discovers its witness right away, so an L1 finality stall that keeps
     /// that anchor until `D(t)` (and on until freshness stops proposals) or an outage resumes from
     /// the cached witness even once the L1 node pruned the anchor's state, provided that state
@@ -274,7 +274,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.refresh_committee_prefetch(state, false)
     }
 
-    /// Adopts, drops or (when `start`) starts the switch-witness prefetch for `state`
+    /// Adopts, drops or (when `start`) starts the committee-witness prefetch for `state`
     /// ([`App::committee_discovery`]). A held discovery that ended in an own-L1 integrity
     /// failure, for any context, is returned as a safety halt before anything could restart or
     /// drop it.
@@ -372,7 +372,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         slot.as_ref().map(|discovery| discovery.result.clone())
     }
 
-    /// The switch witness of `target` for `state` from the background discovery at
+    /// The committee witness of `target` for `state` from the background discovery at
     /// [`snapshot_block`]: starts it when none is held for this context (restarting a failed one
     /// whose backoff has passed), or joins the running one, and waits for it. The wait holds no
     /// lock and is bounded only by the caller's deadline (`PrepareProposal`'s); the discovery
@@ -400,7 +400,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             }
             if outcome.changed().await.is_err() {
                 return Err(Rejection::Registry(
-                    "the switch witness discovery stopped without a result".into(),
+                    "the committee witness discovery stopped without a result".into(),
                 ));
             }
         }
@@ -490,7 +490,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             };
             let outcome = match tokio::time::timeout(COMMITTEE_PREFETCH_TIMEOUT, discovery).await {
                 Ok(outcome) => outcome,
-                Err(_) => Err(FetchError::Timeout("switch witness discovery")),
+                Err(_) => Err(FetchError::Timeout("committee witness discovery")),
             };
             let outcome = outcome.map_err(|cause| {
                 tracing::warn!(
@@ -522,7 +522,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             .and_then(|cached| (cached.key == key).then(|| cached.witness.witness().clone()))
     }
 
-    /// Verifies a switch witness proven under the committed parent anchor and retains it in
+    /// Verifies a committee witness proven under the committed parent anchor and retains it in
     /// memory for later proposal rounds; no unverified or partially acquired reads enter the
     /// cache.
     #[cfg(test)]

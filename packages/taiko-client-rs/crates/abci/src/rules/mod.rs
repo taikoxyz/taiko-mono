@@ -47,7 +47,7 @@ pub const MAX_CHAIN_ID_LEN: usize = 50;
 #[derive(Clone, Copy, Debug)]
 pub struct HeaderInputs<'a> {
     /// CometBFT height `H` of the block, which is also its L2 block number (the genesis
-    /// `initial_height` is `B* + 1`).
+    /// `initial_height` is `S + 1`, S being the Etna start).
     pub height: u64,
     /// The committed parent block (`H - 1`).
     pub parent: &'a ParentInfo,
@@ -86,7 +86,8 @@ pub struct ExpectedHeader {
     pub gas_limit: u64,
     /// EIP-4396 base fee per gas, in wei.
     pub base_fee: u64,
-    /// Shasta mix hash (`prevRandao`) of the parent's `difficulty` and the height.
+    /// `mixHash` (`prevRandao`): computed from the parent's `difficulty` and the height with the
+    /// Unzen formula (CONS-3.2-9; the shared `calculate_shasta_mix_hash`).
     pub mix_hash: B256,
 }
 
@@ -202,13 +203,13 @@ pub enum RuleViolation {
         /// The genesis `maxAnchorAge`, in seconds.
         max: u64,
     },
-    /// The unsettled depth `H - lastCheckpoint.height` exceeds `U`.
-    #[error("unsettled depth {depth} exceeds the cap {cap}")]
+    /// The unsettled depth `H - lastCheckpoint.height` exceeds the unsettled-block limit `U`.
+    #[error("unsettled depth {depth} exceeds the limit {limit}")]
     BackPressure {
         /// `H - lastCheckpoint.height`, in L2 blocks (0 when the checkpoint is not behind).
         depth: u64,
-        /// `U`, in L2 blocks.
-        cap: u64,
+        /// `U`, the unsettled-block limit, in L2 blocks.
+        limit: u64,
     },
     /// The `extraData` generation differs from the `chain_id` generation.
     #[error("extraData generation {extra} differs from the chain generation {chain}")]
@@ -562,16 +563,16 @@ pub fn check_anchor_freshness(
     Ok(())
 }
 
-/// Back-pressure: `height - last_checkpoint_height <= cap`, with the depth saturating at
-/// 0 when the checkpoint is not behind `height`. `cap` is `U`.
+/// Back-pressure: `height - last_checkpoint_height <= limit`, with the depth saturating at
+/// 0 when the checkpoint is not behind `height`. `limit` is `U`, the unsettled-block limit.
 pub fn check_back_pressure(
     height: u64,
     last_checkpoint_height: u64,
-    cap: u64,
+    limit: u64,
 ) -> Result<(), RuleViolation> {
     let depth = height.saturating_sub(last_checkpoint_height);
-    if depth > cap {
-        return Err(RuleViolation::BackPressure { depth, cap });
+    if depth > limit {
+        return Err(RuleViolation::BackPressure { depth, limit });
     }
     Ok(())
 }

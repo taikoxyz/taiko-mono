@@ -200,7 +200,7 @@ async fn calldata_forced_inclusion_executes_and_replays() -> anyhow::Result<()> 
 
 /// With L1 paused, logical parent-plus-one timestamps reach the valid 1152-second anchor age
 /// minimum at a fast commit cadence. Only freshness can stop this chain: its epoch and unsettled
-/// cap exceed the number of blocks needed to reach the boundary. Advancing the test L1 clock to
+/// limit exceed the number of blocks needed to reach the boundary. Advancing the test L1 clock to
 /// the stopped L2 head then finalizing fresh L1 blocks permits consensus to resume.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]

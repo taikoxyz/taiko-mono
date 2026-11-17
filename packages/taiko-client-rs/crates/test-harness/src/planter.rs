@@ -117,8 +117,8 @@ impl InboxValues {
                 (U256::from(a.epoch_len) << 96);
             w.push((slot(inbox::GENESIS_PACKED), packed));
             w.push((inbox::origin_slots(0)[1], U256::from(a.l1_0)));
-            w.push((slot(inbox::GENESIS_BLOCK_HASH), a.genesis_hash.into()));
-            w.push((slot(inbox::GENESIS_STATE_ROOT), a.genesis_state_root.into()));
+            w.push((slot(inbox::START_BLOCK_HASH), a.genesis_hash.into()));
+            w.push((slot(inbox::START_STATE_ROOT), a.genesis_state_root.into()));
             w.push((slot(inbox::GENESIS_CUTOFF), U256::from(a.genesis_cutoff)));
             w.push((slot(inbox::COMMITTEE_CONFIG_HASH), a.committee_config_hash.into()));
             w.push((

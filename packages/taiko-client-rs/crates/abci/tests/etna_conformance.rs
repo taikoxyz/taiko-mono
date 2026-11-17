@@ -523,7 +523,7 @@ impl BlockCase {
             l1_0: 100,
             max_anchor_age: 7200,
             delay: 3600,
-            unsettled: params().unsettled_cap(),
+            unsettled: params().unsettled_limit(),
             parent_height: 4,
             parent_timestamp: anchor_timestamp - 2,
             parent_anchor: AnchorFacts::new(110, anchor_timestamp - 100, 2, 0),
@@ -1180,7 +1180,7 @@ fn block_size_client(input: &Value) -> Decision {
     case.transactions = vec![sized_filler(&case.header(), bytes, incompressible)];
     match case.judge() {
         Ok(_) => Ok(json!({"valid": true})),
-        Err(Rejection::LandingCapacity { .. }) => Ok(json!({"valid": false})),
+        Err(Rejection::BlockSizeBound { .. }) => Ok(json!({"valid": false})),
         Err(other) => Err(unexpected(&other)),
     }
 }

@@ -98,6 +98,6 @@ async fn lander_live_comet_collector_preserves_and_authenticates_certificates() 
         )?,
         published
     );
-    assert!(devnet.cmt(0).committee(1).await?.is_none(), "no switch witness exists by height 5");
+    assert!(devnet.cmt(0).committee(1).await?.is_none(), "no committee witness exists by height 5");
     devnet.stop().await
 }

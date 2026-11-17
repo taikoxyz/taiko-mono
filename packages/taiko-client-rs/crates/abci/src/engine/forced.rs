@@ -50,7 +50,9 @@ pub async fn verify_forced<E: Engine + ?Sized>(
 ) -> Result<Option<u64>, ForcedBuildError> {
     match decision {
         ForcedDecision::Ordinary => Ok(None),
-        ForcedDecision::Included(index) | ForcedDecision::SkippedInvalid(index) => Ok(Some(*index)),
+        ForcedDecision::Included(index) | ForcedDecision::SkippedIneligible(index) => {
+            Ok(Some(*index))
+        }
         ForcedDecision::NeedsSkip { index, tx } => {
             let transaction = decode_canonical(tx).ok_or(ForcedBuildError::InvalidDecision)?;
             let tx_list = protocol::shasta::encode_transactions(&[transaction]);
@@ -212,7 +214,7 @@ mod tests {
         for (decision, consumed) in [
             (ForcedDecision::Ordinary, None),
             (ForcedDecision::Included(9), Some(9)),
-            (ForcedDecision::SkippedInvalid(9), Some(9)),
+            (ForcedDecision::SkippedIneligible(9), Some(9)),
         ] {
             let engine = MockEngine::new();
             assert_eq!(

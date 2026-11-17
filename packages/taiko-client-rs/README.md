@@ -206,16 +206,18 @@ All nodes must use the same chain parameters: genesis and every restart check th
 Inbox's committee configuration hash. The Inbox address
 is also required in persisted state and checked again on restart. Fresh `InitChain` requires
 the exact L1_0 genesis time, canonical representable CometBFT consensus parameters, and an EL
-genesis header whose hash and state root match H* and S*. Recovered `InitChain` independently
+header at the Etna start S whose hash and state root match the start hash and the start state
+root. Recovered `InitChain` independently
 verifies its authenticated c/R origin and generation genesis; see the
 [recovery runbook](docs/governance-recovery.md).
 
 A safety halt (a committed block or the execution engine contradicting the app state) exits the
-process with status 2; investigate before restarting. Liveness halts (anchor not final, anchor
+process with status 2; investigate before restarting. Liveness pauses (anchor not final, anchor
 older than `maxAnchorAge`, back-pressure, committee discovery unavailable, a due forced
 inclusion event unavailable; spec section 8, Halts and recovery) keep the process running and
 CometBFT rounding; the ABCI query
-`/status` reports the head, epoch, generation and halt reason. A superseded generation is
+`/status` reports the head, epoch, generation and, as `halt_reason`, the cause of the current
+liveness pause. A superseded generation is
 permanent. A proposal whose anchor shows a higher Inbox `recoveryGeneration` is refused and trust
 is revoked while the process keeps running. A decided block carrying such an anchor, or a startup
 or signer-session trust check finding a different generation, is a safety halt. Restart only
@@ -684,7 +686,7 @@ committing those values to the Inbox.
   outage would leave every later L1 read failing until a restart.
 - **Every node** reads L1 headers and the `finalized` block from its own L1 node to check that
   anchored L1 headers are canonical and final. Full nodes also run the background prefetches
-  validators use for committee switch witnesses, so give them the same L1 proof access.
+  validators use for committee witnesses, so give them the same L1 proof access.
   Proposers also need exact-block historical admission logs for pending forced entries.
 - **Validators** also build proposals, so their L1 node must serve `eth_getProof` (EIP-1186) for
   historical blocks. A proposal proves Inbox storage at its anchor, the own L1 node's
@@ -708,11 +710,11 @@ committing those values to the Inbox.
   not live when the anchor was adopted, or restarted since, still needs historical state. The own
   L1 node behind `--l1.http` is the only source of these reads (spec SYNC-9-16), so configure its
   historical proof/state retention to cover the required history.
-- Fully verified switch witnesses acquired locally or received in valid proposals are kept in
+- Fully verified committee witnesses acquired locally or received in valid proposals are kept in
   memory only; nothing is written to the app data directory. Every node discovers the upcoming
-  switch witness in the background under each committed anchor that can still be `D(t)`'s,
+  committee witness in the background under each committed anchor that can still be `D(t)`'s,
   starting with the live `Commit` of the block adopting it, and keeps it while the anchor stays.
-  Every `PrepareProposal` and `ProcessProposal`, empty proposals included, and every live
+  Every `PrepareProposal` and `ProcessProposal`, placeholder proposals included, and every live
   `Commit` start a missing discovery and restart a failed one, from scratch, once its backoff has
   passed (2 s, doubling per failure under the same anchor up to 60 s, so an L1 that cannot serve
   the state or rate-limits it sees one attempt per pause). A running discovery is never
@@ -917,7 +919,7 @@ contract harness.
 - `just test` runs the serial Docker integration scenarios in `crates/abci/tests`,
   `crates/lander/tests`, `crates/test-harness/tests` and `bin/client/tests`. ABCI scenarios cover single validator,
   anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
-  bump, calldata inclusion, invalid-byte skips, canonical skips, and unavailable-history
+  bump, calldata inclusion, ineligible-byte skips, canonical skips, and unavailable-history
   retry/recovery, plus an L1 finality stall that pauses and resumes L2. The history test emulates
   the source-backed unavailable-build RPC shape through a delegating Engine adapter; it does not
   actually prune Reth state. Lander scenarios cover actual Inbox blob
