@@ -1,7 +1,7 @@
 import EtnaModel.RegistryHistory
 import EtnaModel.Signer
 
-/-! Current decoded rules at main e84a9aa. The old machine is a historical reference;
+/-! Current decoded rules at main d18357214f. The old machine is a historical reference;
 these definitions do not silently extend its headline theorems to the current design.
 Crypto, authenticated L1 storage and stock EL/Comet adapters remain external. -/
 namespace Etna.Design.Current

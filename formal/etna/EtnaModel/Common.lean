@@ -89,10 +89,13 @@ structure State where
   recoveryNonce : Nat := 0
   origin : Origin
   origins : List (Nat × Origin)
+  /-- The spec's `lastCheckpoint` (slots 270/271), held as its whole slot 285 record. -/
   checkpoint : Checkpoint
   records : List Checkpoint
   head : Nat
   tail : Nat
+  /-- The spec's `activeCommitteeSnapshot` (slot 284): the selection snapshot of the committee
+  that signed the checkpoint. -/
   snapshot : Nat
   ethBalance : Nat
   feeAdmissions : Nat

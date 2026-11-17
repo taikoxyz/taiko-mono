@@ -27,6 +27,7 @@ structure State where
   domain : Domain
   activeGeneration : Nat
   startHeight : Nat
+  /-- Generations this signer has left: the spec's superseded generations (RECOV-8-14). -/
   retired : List Nat
   ready : Bool
   log : List Signed
