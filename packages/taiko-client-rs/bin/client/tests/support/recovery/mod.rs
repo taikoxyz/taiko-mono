@@ -120,6 +120,8 @@ pub struct Commands {
     pub l1_http: Url,
     pub l2_http: Url,
     pub l2_auth: Url,
+    /// This EL's writer domain, shared across recovered stores, generations and restarts.
+    pub engine_control_dir: PathBuf,
     pub jwt: PathBuf,
     /// The stopped node's Comet home; `install` reads its config.toml and node_key.json.
     pub old_home: PathBuf,
@@ -167,6 +169,10 @@ impl Commands {
             l1_http: f.anvil.http.clone(),
             l2_http,
             l2_auth,
+            engine_control_dir: c
+                .app_dir(index)
+                .canonicalize()?
+                .with_file_name(format!("engine-control-{index}")),
             jwt: package().join("tests/docker/jwt.hex"),
             old_home: c.comet_home(index).canonicalize()?,
             signer: Some(f.signer_storage.path().join(index.to_string()).canonicalize()?),
@@ -316,6 +322,7 @@ impl Commands {
         args.extend(self.endpoints());
         for (flag, value) in [
             ("--chain-config", self.chain.display().to_string()),
+            ("--engine-control-dir", self.engine_control_dir.display().to_string()),
             ("--abci.addr", proxy.clone()),
             ("--fee-recipient", self.params.fee_recipient.to_string()),
         ] {
