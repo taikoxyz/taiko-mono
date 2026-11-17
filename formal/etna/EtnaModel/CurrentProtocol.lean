@@ -119,7 +119,8 @@ structure Landing where
 
 /-- Ghost provenance of one actual landing: its pre-call Inbox, closed L1 history and input.
 No later call rewrites these values. The source is reconstructed only for pure certification,
-never to re-run a public call. -/
+never to re-run a public call. This is not the spec's landing record (slot 285), which is
+`Checkpoint`. -/
 structure LandingRecord where
   inbox : Etna.Design.State
   history : List Snapshot

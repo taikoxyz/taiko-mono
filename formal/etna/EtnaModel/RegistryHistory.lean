@@ -7,6 +7,9 @@ import EtnaModel.Forced
 entries only: owner and exit confirmation metadata never enter entriesRoot. -/
 namespace Etna.Design.RegistryHistory
 
+/-- The spec's registry checkpoint (STAKE-4.1-36: l1Block, count, entriesRoot), with the entries
+themselves in place of their count and root. The spec's snapshot, an L1 block number, is
+`cutoff` in this model. -/
 structure Snapshot where
   block : Nat
   entries : List Committee.Entry

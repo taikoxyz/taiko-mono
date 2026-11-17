@@ -18,7 +18,8 @@ def maxPower : Nat := (2^63-1)/8
 
 def minUnit : Nat := 867361738
 
-/-- Duplicate keys invalidate the state only among eligible entries: released slots are all
+/-- The spec's selection rule (COMM-4.3-1 to COMM-4.3-8); the spec does not say "election".
+Duplicate keys invalidate the state only among eligible entries: released slots are all
 zero (exitEffectiveL1 = 0, so never eligible) and legitimately repeat the zero key. -/
 def election (unit minimum cutoff nMax : Nat) (entries : List Entry) : Option (List Entry) :=
   let selected := chosen unit minimum cutoff nMax entries

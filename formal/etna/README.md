@@ -33,7 +33,7 @@ seven per-state hypotheses of `LiveAt` (below).
 - **H2, accountable finality.** Two conflicting commits at the same height and round imply an
   overlap of more than one third of the voting power with authentic evidence and an executable
   funded slash; with honest locking and a Byzantine minority, valid chains agree.
-- **H3, forced-inclusion integrity.** No valid landing skips a due forced inclusion: FIFO
+- **H3, forced-inclusion integrity.** No valid landing passes over a due forced inclusion: FIFO
   service, due-only skips, no early skip, and only `land` advances the head. This is a safety
   property of landings. It does **not** promise that a due inclusion is ever landed.
 - **H4, recoverability.** From every reachable, initialized state that meets `LiveAt`, some
@@ -62,6 +62,128 @@ ruleset; recovery after a verifier failure, even once the verifier is replaced, 
 premises assume a sound verifier; refinement to the Solidity contracts, the Rust client or the
 zkVM guests; CometBFT's implementation, cryptography, data availability, and economic
 security. Cross-round equivocation (amnesia) is outside H2, as the spec states.
+
+## Terms
+
+Some of the model's names are not the spec's words. Renaming a definition that the headline
+statements use changes the statement lock and hand-reviewed gate files (see Review surface and
+statement lock), so the names stay and this section maps them to `SPEC.md` at the pin above.
+
+Headlines and the bullets of SPEC section 1:
+
+- H1, fund safety (`FundSafety`): the "Funds" bullet. It also carries the second sentence of the
+  "Finality" bullet: nothing at or below a checkpoint is rolled back, except by a DAO upgrade
+  after verifier failure.
+- H2, accountable finality (`AccountableFinality`): the first sentence of the "Finality" bullet
+  (a commit is final while Byzantine voting power stays below 1/3) and the same-round
+  double-signing part of "Slashing scope".
+- H3, forced-inclusion integrity (`ForcedInclusionIntegrity`): the "Censorship resistance"
+  bullet.
+- H4, recoverability (`Recoverability`): no section 1 bullet. It is about the governance
+  recovery of SPEC section 8. It is not the "Liveness" bullet, which this package does not prove.
+- `ProtocolFinality.H2` (`EtnaModel/CurrentProtocolFinality.lean`) is not headline H2. It is a
+  per-state proposition, same-round paid accountability together with chain agreement, which
+  `ProtocolFinality.current_h2` proves under honest executions. Headline H2's proof uses only
+  its agreement half.
+
+Committees and the registry:
+
+- "election" (`Committee.election`, `Consensus.ElectionValid`): the spec's selection (SPEC 4.3,
+  "One selection rule"). The spec never says "election".
+- "cutoff" (`Committee.Record.cutoff`, `Finality.cutoff`): the spec's selection snapshot, an L1
+  block number. In the spec the word survives in the names `genesisCutoff` and `cutoffL1Block`.
+- `RegistryHistory.Snapshot`, `recordSnapshot`, `latestSnapshot`: the spec's registry
+  checkpoint (l1Block, count, entriesRoot; STAKE-4.1-36), with the entries themselves in place
+  of their count and root. So here the model's "snapshot" is the spec's checkpoint, and the
+  spec's snapshot is the model's cutoff.
+- `State.snapshot`: the spec's `activeCommitteeSnapshot` (slot 284).
+- Other uses of "snapshot": `Protocol.Snapshot` is the modelled L1 state at the end of one L1
+  block (`World.history`); `ValidatorState.Snapshot` is appendix A's validator-state payload at
+  one height; `Call.importSnapshot` is the spec's checkpoint import (SPEC 5.4).
+- `Signer.State.retired`: the generations a signer has left, which the spec calls superseded
+  (RECOV-8-14).
+
+Checkpoints and records:
+
+- `structure Checkpoint` (`EtnaModel/Common.lean`): the spec's slot 285 landing record.
+  `State.records` is slot 285 itself. `State.checkpoint` is the record at the height of the
+  spec's `lastCheckpoint`, which stores only the height and the EL hash (slots 270/271).
+- `structure Signal`: the spec's SignalService checkpoint (height, hash, stateRoot).
+  `State.signals` are those the Inbox saved; `World.legacySignals` are those the Unzen Inbox's
+  proofs saved.
+- `structure LandingRecord` (`EtnaModel/CurrentProtocol.lean`): ghost provenance of one landing,
+  namely its input and the Inbox and L1 history before the call (`World.activeLandings`). It is
+  not the spec's landing record, which is `Checkpoint`.
+- `World.start` (`StartData`): the Etna start S with its hash and stateRoot (slots 272 to 274).
+  The spec's storage name for S is `genesisHeight`.
+
+"Origin" has four senses in the model:
+
+- The fixed origin record of slot 290 (RECOV-8.4-3): `Etna.Design.Origin`, with `State.origin`
+  for the current generation and `State.origins` for every generation. `originHeight` and
+  `originBlock` (`Finality.Config`, `Consensus.Context`) are its startHeight and its
+  l1BlockNumber, the spec's L1 origin. `Start.Origin` is a second copy of the same record, used
+  by the standalone start machine `Start.State`.
+- The proof origin p (`LandInput.parentHeight`): the local `origin` in `Protocol.statement` is
+  p's slot 285 record.
+- The slot 285 record at the current generation's start height: `certificateOrigin` and
+  `certificateOriginCut`.
+- The start write (START-10-5a): `setOrigin` writes the start S, and `Core.originWriter` is the
+  only address that may call it. Both names are the spec's.
+
+Calls (`Protocol.Call`, `RegistryMachine.Action`):
+
+- `enqueue` is `saveForcedInclusion`, `sweep` is `sweepProtocolFees`, `invalidate` is
+  `invalidateRecoveryNonce` and `unzenProve` is the Unzen Inbox's `prove`.
+- In the registry, `confirm` is `confirmExit`, `slash` is `slashDoubleSign`, and `exclude` is the
+  `forceExit` that `recover` calls for its exclusion list (RECOV-8-41, RECOV-8.3-16).
+- `clear` (`RecoveryRequest.clear`, `Forced.clear`): the spec's `fiToClear` and blanking
+  (RECOV-8-43, RECOV-8-44).
+- The spec describes these steps but gives them no function name: `initializeInbox` (Inbox
+  initialization, START-10-5), `correctStart` (the start correction by DAO upgrade,
+  START-10-5c), `rollback` (the verifier-failure rollback, RECOV-8-27) and the registry's
+  `recheck` (that rollback's re-check of exit confirmations, STAKE-4.1-29).
+
+Words the spec does not use, or uses for something else:
+
+- "World" (`Protocol.World`): the model's whole state. It holds the Inbox, the registry and its
+  token, the forced-inclusion queue, the Unzen Inbox's state, the rules schedule, the verifier
+  and images, one node, the L1 block number and ghost history.
+- "journal": the World's record of what has happened: every forced inclusion ever admitted
+  (`World.queue`), one `Protocol.Snapshot` per closed L1 block (`World.history`) and the retained
+  landings (`World.activeLandings`). `Journal.Invariant` states its shape.
+- "catalogue" (`Blocks.RulesetCatalogue`, `Environment.catalogue`): for each ruleset number, its
+  published definition (SPEC 10.1, START-10.1-3a).
+- "Unzen lane", "legacy": the Unzen Inbox's side of the L1 SignalService on a switching network:
+  its proofs (`unzenProve`), its state (`World.unzen`) and the checkpoints it saved
+  (`World.legacySignals`). The spec says "Unzen Inbox" and uses "legacy" only for transactions.
+- "archive": the current-generation EL headers, from the generation origin through the batch,
+  that a certificate carries and committees are derived from (`Archive.Authenticated`). In the
+  spec an archive is retained history (SPEC 5.3, 9.1); its nearest words here are the
+  "historical headers" of PROOF-6.2-13.
+- "certificate", "certifies" (`BatchCertificate`, `Certifies`, `ImageCertifies`): what a sound
+  proof establishes about a statement: a valid batch of blocks, with its archive, that has
+  this statement. The spec says a sub-proof "authenticates" the statement (PROOF-6.2-9). A
+  certificate is not a CometBFT commit, which the model also calls a commit
+  (`Consensus.CommitValid`).
+- "custody" (`Protocol.Custody`): the chain of accepted landings, from an authenticated root
+  (the genesis block or the Unzen start), that stands behind a checkpoint (`Custody.Path`,
+  `Custody.Coherent`).
+- "fence": `Start.firstLanding`, `Protocol.firstFence` and `Custody.FirstFence` are the spec's
+  Unzen start check (LAND-6.1-8a), and `Custody.SwitchingFence` is the separation of Unzen and
+  Etna checkpoint heights at S that follows from it. The spec's "checkpoint fence" is something
+  else, the forkchoice `finalized` hash of SYNC-9-3; the model's comments call that one the
+  forkchoice fence (`CheckpointRisk.Candidate`).
+
+Smaller names:
+
+- `gridK`: K, the grid interval. Grid points are counted from the start S (`Start.onGrid`).
+- `unsettled`: U, the unsettled-block limit. `AnchorValid.pressure` is back-pressure
+  (CONS-3.4-6, SPEC 6.4).
+- `forcedETH`, `Forced.extraETH`: force-sent ETH (FI-7.1-9). It is unrelated to forced
+  inclusion, unlike `forcedDelay`, `forcedFee` and `forcedThreshold`.
+- "skip": as in SPEC 7.2, a legal skip consumes a due entry. Leaving a due entry unconsumed is
+  not a skip.
 
 ## Premises and who must discharge them
 
