@@ -3407,3 +3407,157 @@ node reconciliation and new D01 deployment are unverified. Q02 remains WAITING.
 No natural protocol counterexample is established. All five selected increments
 are now implemented; final accumulated execution/review and retrospective remain.
 No sixth increment is authorized.
+
+## Adversarial-coverage batch — final gate and retrospective
+
+The authorized H01–H05 implementation head is
+`3bc4d53ff675ecf60a1e6c9c1846ff0af706d872`. All five selected increments have
+separate nonauthor source/spec/quality review and behavioral verification.
+The final accumulated snapshot contains35 recursive TLA sources and423 default
+configurations. All32 original recursive TLA sources and387 original default
+configurations remain byte-identical to the preceding completed G batch. Of480
+original Python/Solidity/model/config records, only the approved source-correspondence
+regressions in `conformance/tests/test_baseline.py` changed; original model and
+runner implementations were not weakened to make the new histories pass.
+
+### Fresh accumulated evidence and precise attribution
+
+- The local isolated run checks423 exact TLC outcomes:108 EXPECT:PASS and315
+  intended named controls/witnesses. PASS includes deliberate terminal-absence
+  controls;108 is not a count of successful progress programs or independent
+  protocol properties. Its ordinary Python suites pass57 gate,166 conformance
+  and20 sensitivity tests, with zero skipped/error/failing tests.
+- That local overall gate initially **fails**, despite those successful children:
+  root prepared only the Etna docs subtree, omitting the external `Derivation.md`
+  link target. The unchanged rule checker correctly rejects the incomplete
+  snapshot. The authoritative hosted workflow copies the entire docs directory.
+  Original failure/status/logs and its686-record snapshot remain retained. A
+  separate offline focused rerun with the complete106-record docs snapshot passes
+  all640 live markers, index/assets/links/tables. All original Etna doc bytes
+  remain exact. This focused result does not relabel the failed overall run.
+- Exact implementation-head [hosted run44068685817](https://github.com/taikoxyz/taiko-mono/actions/runs/44068685817)
+  succeeds end to end, including all423 outcomes,243 ordinary Python tests,
+  rules, resource reconciliation, quiescent output checks and both uploads.
+  Its actual checkout is merge5d63416 of3bc4d53ff into reviewed991e06f6.
+  The local SPEC is historical canonical4d81; that merge uses exact reviewed
+  current753d/blobaf8. The executable/model/config inputs match3bc, while the
+  separate strict scoped-correspondence gate checks the two distinct SPEC bodies.
+  Both API archive digests match;435 raw files contain all423 case logs and
+  exact config/model hashes, and the two separately uploaded private diagnostic
+  files match their raw-archive copies. Native/Forge/controller work is separate
+  from that hosted TLC/Python job.
+- Only the **seven newly added shared obligations** are freshly rerun in the
+  final campaign: six TLC actual-source faults and one public-input Registry
+  fault. Each has successful original and actual-restored phases with its
+  precise intended mutant failure. The public Registry phase runs five exact
+  tests. The75-record assessed inventory is69TLC+6Forge; previous68 obligations,
+  including five legacy test-key Forge lanes, retain their explicitly historical
+  evidence. Neither75 fresh executions nor public-only legacy runs are claimed.
+- The actual unsigned Comet handover lane freshly executes all five consecutive
+  six-height programs through original, omitted-priority fault, restoration,
+  premature-activation fault and restoration. Source/generated overlays, frozen
+  literal observations, tools and1659 original source entries are guarded.
+  Separately, all five real controller termination/timeout lifecycle tests pass.
+  Independent per-increment extra faults and missing-action controls remain
+  separately attributed rather than silently added to shared inventory totals.
+
+Source snapshots, commands, raw receipts, exact mutation/restoration records,
+tool hashes and independent audits are retained for this open draft. Migration
+purity is explicitly skipped without a pre-marker base, as in the unchanged
+checker; it is not a passing invariant. Four aggregate unassessed categories
+and19 archived incomplete profiles remain outside the passing denominator.
+
+### Why earlier self-checks could stay green
+
+The useful outcome is that concrete blind spots were demonstrated and removed,
+not that a protocol bug quota was met. H01 traced setup far enough to discover
+historical indirect test-key signing, then built a genuinely public-input lane.
+H02 checked independent literal priority/proposer/change-height histories rather
+than deriving the expected validator set with the operation being tested. H03
+required real fresh completion, landing, finality, anchor adoption and resumed
+production instead of treating refusal or enabledness as sufficient progress.
+
+H04's missing-old2 control reaches the same final height/cursor/revenue while
+never constructing the discarded suffix; requiring all three Produce actions
+exposes that gap. H05's missing-first-legitimate-payout control likewise reaches
+the same final balances because the nominal repeat becomes the first payment;
+only the full paid-then-zero-repeat history distinguishes it. Raw actual fields
+also differ from journals: FI recovery's oldCursor records settled1 rather than
+the actual local2, and correction's afterCash is unprimed. Independent allowed
+amounts per action/payee prevent mere telescoping totals from passing as an
+accounting oracle. These are reproducible reasons not to trust final snapshots,
+shared expected-value code or green counts alone.
+
+Fault injection establishes that selected observers discriminate selected
+defects; it does not show that our fault selection spans unknown protocol
+failures. Scripted full histories also do not exhaust asynchronous schedules.
+Valid STF/authenticated L1 and an atomic correct correction interface exclude
+important failure classes by premise. More runs over those same abstractions
+cannot substitute for the concrete client/EL/provider/upgrade obligations.
+
+Two SPEC movements were also treated as evidence requiring review. The initial
+exact editorial correspondence is historical. The later991e06f6 shared
+SignalService/provider changes are normative: current753d admission asserts only
+independently reviewed correspondence for selected historical/bounded consumers,
+not whole-SPEC equivalence or conformance to the new deployment. Canonical pins
+remain unchanged; unknown future and superseded53877 bytes fail closed. New D01
+deployment/provider/upgrade acceptance remains WAITING in the30-obligation,
+11-composition worklist. This tracking and gate maintenance is not a sixth task.
+
+### Scope decisions and their costs
+
+1. Execute the directly authorized five without another approval pause. The
+   chosen bounded APIs may require rework; this grants no protocol/production
+   change authority.
+2. Retain old five Forge lanes as historical test-key evidence and rerun the
+   new public-only lane. Cost: those older lanes are not fresh in this batch.
+3. Check unsigned weighted Comet state arithmetic. Cost: signed commit admission,
+   rounds/locks, network behavior and registry derivation cannot be inferred;
+   broader K02 remains open.
+4. Check selected real-action chronologies in H03–H05. Cost: arbitrary asynchronous
+   interleavings, real STF/proving and concrete correction remain P01/F01/Q02.
+5. Pause gas only for complete raw observer/index sweeps and resume before actual
+   Registry calls. Cost if the boundary were wrong: gas-dependent behavior could
+   be distorted; these results establish no gas/capacity budget.
+6. Preserve canonical pins and admit only the independently reviewed exact
+   editorial pair during the first repair. Cost of misclassification: overstated
+   relevance; unknown bytes must be rejected and exact source deltas reviewed.
+7. Replace that superseded pair with the one independently reviewed current
+   scoped normative correspondence and D01 tracking. Cost of missed consumed-rule
+   impact: overstated relevance; this remains a reviewed finite-scope assertion,
+   with no automatic future admission or new deployment guarantee.
+
+No independently supported natural protocol/source counterexample has been
+established within these bounds. Real App/EL/guest/STF/history/proving, weighted
+network consensus, full registry lifecycle/capacity, concrete correction,
+partial-failure atomicity and new shared SignalService deployment remain open
+or waiting. The reason for no finding is still an open hypothesis about our
+coverage, not evidence that the protocol is complete. Stop after these five;
+the existing draft and hourly feedback-only monitoring continue.
+
+The complete-batch nonauthor source review is READY for this selected draft
+scope (report SHA256
+`085a58e10f537039a96d851dbc1d2f6471dde5c7b3a6e063302d558f7cb6f1df`).
+The independent accumulated local audit preserves the failed overall rule
+snapshot attribution (SHA256
+`8d1a7b15ded0d719caad931c488e9b0a4b06567464fb9bd946bfef3db24feff2`);
+its separate exact-head hosted audit is READY (SHA256
+`1c91172544a1f3ff90039c26b323a5c23ab4d0144aef0c173d452a05f9d10f90`).
+The latter independently reads all seven full positive H03–H05 witnesses in
+addition to every exact case result, unique Python test identity and archive
+digest. Final source review did not substitute passing tests for code judgment.
+
+Root retains all seven review boundaries above: authorization stays at five;
+legacy Forge is historical; unsigned arithmetic is not consensus; selected
+chronologies are not complete concrete refinement; observer gas is not a gas
+budget; old correspondence is not future permission; scoped current
+correspondence is not deployment acceptance. Additional arithmetic rescale,
+clipping/overflow and private-cache internals remain broader K02 work. Final
+execution/publication judgments were not delegated to the source reviewer;
+independent raw audit and narrow closing-prose review address those separately.
+No material finding was silently parked or counted as fixed by a setup failure.
+
+The closing commit changes only README/REPORT/WORKLIST/plan prose. Executable,
+model, configuration, fixture and pin bytes remain exactly the independently
+verified3bc implementation; closing-head hosted status is read separately.
+PR #22387 remains draft; worktree, ledger and raw evidence are retained.

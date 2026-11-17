@@ -95,7 +95,7 @@ increment; the original five deliverables and their execution scopes remain.
 
 ## Final gate
 
-- [ ] Reconcile all five reflection records and master worklist; distinguish natural protocol candidates, verification defects and remaining premises. Do not silently close full K02/R01/P01/F01/Q02.
-- [ ] Fresh exact discovered default TLC/Python gate and current new TLC cohorts; H01 public-input Forge source faults and H02 native actual original/mutant/restored. Old unchanged five Forge obligations retain historical test-key evidence and are not counted as new no-signing executions. Audit runtime/source/generated overlays/tool hashes and actual restoration.
-- [ ] Independent complete-batch source review and independent raw artifact audit; review any closing prose separately. Confirm exact current PR feedback/head/CI and preserve all evidence.
-- [ ] Root reviewed commit/push, issue22355/PR readback, monitor state5/5/feedback-only and final user retrospective. Keep draft/worktree/evidence; stop at five.
+- [x] Reconcile all five reflection records and master worklist; distinguish natural protocol candidates, verification defects and remaining premises. Do not silently close full K02/R01/P01/F01/Q02.
+- [x] Fresh exact discovered default TLC/Python gate and current new TLC cohorts; H01 public-input Forge source faults and H02 native actual original/mutant/restored. Old unchanged five Forge obligations retain historical test-key evidence and are not counted as new no-signing executions. Audit runtime/source/generated overlays/tool hashes and actual restoration.
+- [x] Independent complete-batch source review and independent raw artifact audit; review any closing prose separately. Confirm exact current PR feedback/head/CI and preserve all evidence.
+- [x] Root reviewed commit/push, issue22355/PR readback, monitor state5/5/feedback-only and final user retrospective. Keep draft/worktree/evidence; stop at five.

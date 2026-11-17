@@ -144,7 +144,7 @@ STF/corrective execution remains WAITING even when a selected model path passes.
 Before/after each task and after H02/H04, challenge omitted legal histories,
 shared oracles, disabled required actions and overly strong premises. Independent
 source review and actual behavioral verification remain separate gates. No issue
-quota: verification defects are not relabeled as protocol defects. H01–H05 are complete for their selected public-input lifecycle, unsigned arithmetic, proof recapture, FI suffix-recovery and pre-correction-payment histories after independent source and actual behavioral gates; accumulated final gates remain pending. No sixth increment is authorized. Planning/index maintenance is not a technical increment.
+quota: verification defects are not relabeled as protocol defects. H01–H05 are complete for their selected public-input lifecycle, unsigned arithmetic, proof recapture, FI suffix-recovery and pre-correction-payment histories after independent source and actual behavioral gates; accumulated final source/raw gates are now complete for that selected scope. No sixth increment is authorized. Planning/index maintenance is not a technical increment.
 
 Source-first inspection corrected a provenance boundary: legacy Registry8 and
 some contract replay setup call test-key generation/signing helpers. Preserve
@@ -202,3 +202,24 @@ afterCash is not a primed-state observation, and its preservation property does
 not name completed; new raw audits cover those selected fields. Q02 concrete
 proxy/storage/node recovery, real currency and D01 remain WAITING. Fifty grouped
 omission histories are structural controls, not fifty new verified obligations.
+
+### H01–H05 final disposition
+
+Implementation3bc4d53ff completes the five selected obligations, with no
+independently supported natural protocol/source defect established. The
+[final retrospective](REPORT.md#adversarial-coverage-batch--final-gate-and-retrospective)
+records independent source/behavior review,423 exact TLC outcomes,243 ordinary
+Python tests,5 controller tests, the actual native handover and seven fresh
+shared faults. Inventory75 includes68 unchanged historical obligations; the
+five older Forge lanes were not rerun or relabeled public-only. Local rules
+snapshot failure, separate corrected rules success and complete hosted success
+are not conflated. Four aggregate unassessed categories and19 archived
+incomplete profiles remain outside the passing denominator.
+
+Current30 obligations/11 composition families remain authoritative. H01–H05
+completion does not close the larger R01/K02/P01/F01/Q02 obligations, and new
+D01 implementation/deployment/provider acceptance stays WAITING. Valid
+STF/authenticated L1 and atomic modeled correction are premises, not verified
+implementations. Full event histories and independent raw observations improve
+selected coverage; injected-fault detection does not cover all unknown defects.
+Stop at five, preserve this draft/evidence and return to hourly feedback-only.
