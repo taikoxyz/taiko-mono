@@ -1,0 +1,25 @@
+[package]
+name = "etna-core"
+version.workspace = true
+description = "Portable deterministic Etna protocol witnesses and verification"
+edition.workspace = true
+publish = false
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+std = [
+    "alloy-primitives/std",
+    "alloy-rlp/std",
+    "alloy-trie/std",
+    "serde/std",
+    "thiserror/std",
+]
+
+[dependencies]
+alloy-primitives = { workspace = true, features = ["serde", "rlp"] }
+alloy-rlp = { workspace = true, features = ["derive"] }
+alloy-trie = { workspace = true, features = ["ethereum"] }
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+thiserror = { workspace = true }

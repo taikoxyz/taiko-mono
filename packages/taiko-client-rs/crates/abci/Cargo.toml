@@ -33,6 +33,7 @@ tower-abci = { workspace = true }
 
 # taiko
 alethia-reth-primitives = { workspace = true }
+etna-core = { path = "../etna-core", features = ["std"] }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 

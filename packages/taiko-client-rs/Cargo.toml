@@ -2,6 +2,7 @@
 members = [
     "bin/client",
     "crates/abci",
+    "crates/etna-core",
     "crates/lander",
     "crates/protocol",
     "crates/rpc",
