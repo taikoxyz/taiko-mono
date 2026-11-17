@@ -404,7 +404,7 @@ async fn a_second_round_at_a_switch_reuses_the_committee_witness() {
 /// needs it. Once its L1 has pruned the parent anchor's state (after a stall longer than its
 /// proof window), it still proposes `S(t)` from that witness, without an archive.
 #[tokio::test]
-async fn the_switch_witness_is_prefetched_before_the_parent_anchor_state_is_pruned() {
+async fn the_committee_witness_is_prefetched_before_the_parent_anchor_state_is_pruned() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;
@@ -431,7 +431,7 @@ async fn the_switch_witness_is_prefetched_before_the_parent_anchor_state_is_prun
 /// re-discovers it from its own L1 at the parent anchor (SYNC-9-16), and writes nothing beside
 /// the app state.
 #[tokio::test]
-async fn restart_rediscovers_the_switch_witness_from_own_l1() {
+async fn restart_rediscovers_the_committee_witness_from_own_l1() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
@@ -472,7 +472,7 @@ async fn restart_rediscovers_the_switch_witness_from_own_l1() {
 /// A live `Commit` of `D(t)` starts the committee-witness discovery on its own, before any round at
 /// `S(t)` (which an anchor freshness stall could keep from ever reaching it).
 #[tokio::test]
-async fn committing_the_derivation_parent_prefetches_the_switch_witness() {
+async fn committing_the_derivation_parent_prefetches_the_committee_witness() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
@@ -522,7 +522,7 @@ fn d_2(fx: &Fixture) -> u64 {
 /// away, while its L1 state is recent: when L1 finality then stalls, that anchor stays until
 /// `D(t)` and the L1 node prunes its state, yet `S(t)` is still proposed without an archive.
 #[tokio::test]
-async fn committing_a_new_anchor_prefetches_the_switch_witness_it_may_have_to_prove() {
+async fn committing_a_new_anchor_prefetches_the_committee_witness_it_may_have_to_prove() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_anchor_adoption(&fx, dir.path(), d_2(&fx) - 5).await;
@@ -574,7 +574,7 @@ fn registry_reads_at(app: &App<MockL1, MockEngine>, block: u64) -> (usize, usize
 /// 60 s, however many rounds and commits come in between. Each restart reads afresh, and once
 /// the L1 serves proofs again the next attempt succeeds.
 #[tokio::test(start_paused = true)]
-async fn a_failing_switch_witness_prefetch_is_restarted_after_a_growing_backoff() {
+async fn a_failing_committee_witness_prefetch_is_restarted_after_a_growing_backoff() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_anchor_adoption(&fx, dir.path(), d_2(&fx) - 5).await;
@@ -685,7 +685,7 @@ async fn a_committee_witness_judged_at_a_switch_is_reused_by_the_next_proposer()
 /// read nothing more. With a slow L1 the round ends empty (RECOV-8-4) while the discovery keeps
 /// reading past its deadline, and the next round proposes from it without repeating a read.
 #[tokio::test(start_paused = true)]
-async fn prepare_starts_the_switch_discovery_when_none_runs() {
+async fn prepare_starts_the_committee_witness_discovery_when_none_runs() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;
@@ -725,7 +725,7 @@ async fn prepare_starts_the_switch_discovery_when_none_runs() {
 /// backoff: a round within it observes the same failed discovery, without a new read, and halts
 /// again rather than pausing.
 #[tokio::test(start_paused = true)]
-async fn a_malformed_own_l1_answer_during_switch_discovery_halts() {
+async fn a_malformed_own_l1_answer_during_committee_witness_discovery_halts() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;
@@ -778,7 +778,7 @@ async fn a_malformed_own_l1_answer_in_the_background_discovery_halts_any_handler
 /// The same failure in a peer's proposal only rejects it
 /// (`forged_committee_witnesses_are_rejected`).
 #[tokio::test(start_paused = true)]
-async fn an_own_l1_proof_failing_under_its_own_root_during_switch_discovery_halts() {
+async fn an_own_l1_proof_failing_under_its_own_root_during_committee_witness_discovery_halts() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;
@@ -852,7 +852,7 @@ async fn an_own_l1_proof_read_before_its_anchor_was_final_pauses() {
 /// a halt. A round within its backoff proposes nothing at once and reads nothing; the first round
 /// past it restarts the discovery.
 #[tokio::test(start_paused = true)]
-async fn an_unavailable_own_l1_during_switch_discovery_pauses_proposals() {
+async fn an_unavailable_own_l1_during_committee_witness_discovery_pauses_proposals() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;

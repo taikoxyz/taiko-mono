@@ -295,7 +295,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         if header.state_root != genesis.genesis_state_root {
             return Err(AbciError::SafetyHalt(format!(
-                "execution engine's Etna start state root {} differs from the authenticated {}",
+                "execution engine's Etna start state root {} differs from the authenticated start state root {}",
                 header.state_root, genesis.genesis_state_root
             )));
         }
