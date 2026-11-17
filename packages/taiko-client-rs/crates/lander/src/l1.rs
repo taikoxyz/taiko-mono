@@ -28,6 +28,23 @@ use crate::{
     types::LandingSnapshot,
 };
 
+alloy::sol! {
+    /// SignalService's existing checkpoint read interface used by the switch preflight.
+    interface ISwitchCheckpointStore {
+        /// Unzen's settled execution checkpoint.
+        struct Checkpoint {
+            /// Settled execution height.
+            uint48 blockNumber;
+            /// Settled execution hash.
+            bytes32 blockHash;
+            /// Settled execution state root.
+            bytes32 stateRoot;
+        }
+        /// Read the checkpoint at exactly the requested height.
+        function getCheckpoint(uint48 blockNumber) external view returns (Checkpoint memory);
+    }
+}
+
 /// EIP-2935's block-hash retention window, as enforced by the pinned Inbox.
 const REFERENCE_WINDOW: u64 = 8191;
 /// EIP-2935 system contract, matching the Inbox's pinned reference-hash resolver.
@@ -62,6 +79,19 @@ pub trait LandingSource: Send + Sync {
     async fn snapshot(&self) -> Result<LandingSnapshot>;
     /// Authenticate the checkpoint's EL parent and its preceding timestamp.
     async fn parent_header(&self, snapshot: &LandingSnapshot) -> Result<ParentContext>;
+    /// Wait for terminal Unzen proofs and the matching SignalService checkpoint before new jobs.
+    /// A source without switch support fails closed for a nonzero initial checkpoint.
+    async fn first_landing_ready(&self, snapshot: &LandingSnapshot) -> Result<bool> {
+        Ok(snapshot.genesis.genesis_height == 0 ||
+            snapshot.checkpoint_height != snapshot.genesis.genesis_height)
+    }
+    /// Retain raw Anchor proxy state at S for the first switching proof; the builder verifies it.
+    async fn start_anchor_witness(
+        &self,
+        _snapshot: &LandingSnapshot,
+    ) -> Result<Option<AccountWitness>> {
+        Ok(None)
+    }
     /// Read an untrusted public execution header; the builder verifies checkpoint ancestry.
     async fn execution_header(&self, number: u64) -> Result<Header>;
     /// Recover the checkpoint's historical anchor, or R at the fixed recovery boundary.
@@ -332,10 +362,80 @@ impl LandingSource for RpcLandingSource {
             }
             preceding.timestamp
         };
-        if header.number == 0 && header.state_root != snapshot.genesis.genesis_state_root {
-            return Err(LanderError::Safety("EL genesis state root contradicts Inbox".into()));
+        if header.number == snapshot.genesis.genesis_height &&
+            header.state_root != snapshot.genesis.genesis_state_root
+        {
+            return Err(LanderError::Safety("EL start state root contradicts Inbox".into()));
         }
         Ok(ParentContext { header, grandparent_timestamp })
+    }
+
+    /// Check the contract's three switch guards at one canonical Inbox snapshot, after cutoff
+    /// finality. Pending transactions are reconciled independently of this new-job gate.
+    async fn first_landing_ready(&self, snapshot: &LandingSnapshot) -> Result<bool> {
+        let Some(config) = self
+            .params
+            .switch
+            .as_ref()
+            .filter(|_| snapshot.checkpoint_height == snapshot.genesis.genesis_height)
+        else {
+            return Ok(true);
+        };
+        let finalized = self.anchors.finalized_number().await.map_err(anchor_error)?;
+        let finalized_header = self.anchors.header(finalized).await.map_err(anchor_error)?;
+        if finalized_header.timestamp() < config.fork_timestamp || finalized < snapshot.genesis.l1_0
+        {
+            return Ok(false);
+        }
+        if !switch_checkpoint_ready(&self.anchors, &self.params, snapshot).await? {
+            return Ok(false);
+        }
+        if self.anchors.canonical_hash(finalized).await.map_err(anchor_error)? !=
+            finalized_header.hash() ||
+            self.canonical_hash(snapshot.l1_block_number).await? != snapshot.l1_block_hash
+        {
+            return Err(LanderError::Temporary("switch preflight L1 observation changed".into()));
+        }
+        Ok(true)
+    }
+
+    /// Hash-pin the EIP-1186 read to S and retain every MPT node for the external proof backend.
+    async fn start_anchor_witness(
+        &self,
+        snapshot: &LandingSnapshot,
+    ) -> Result<Option<AccountWitness>> {
+        let anchor = alethia_reth_primitives::addresses::get_treasury_address(snapshot.l2_chain_id);
+        let response = self
+            .l2
+            .get_proof(anchor, vec![crate::types::ANCHOR_IMPLEMENTATION_SLOT])
+            .block_id(BlockId::hash_canonical(snapshot.genesis.genesis_hash))
+            .await
+            .map_err(rpc_error)?;
+        let witness = AccountWitness {
+            address: response.address,
+            nonce: response.nonce,
+            balance: response.balance,
+            storage_root: response.storage_hash,
+            code_hash: response.code_hash,
+            account_proof: response.account_proof,
+            storage: response
+                .storage_proof
+                .into_iter()
+                .map(|proof| abci::StorageProof {
+                    slot: proof.key.as_b256(),
+                    value: proof.value,
+                    proof: proof.proof,
+                })
+                .collect(),
+        };
+        let parent = self.parent_header(snapshot).await?;
+        crate::types::verify_start_anchor_witness(
+            snapshot,
+            &parent.header,
+            &self.params,
+            Some(&witness),
+        )?;
+        Ok(Some(witness))
     }
 
     /// Return public EL data for pure checkpoint-bound history authentication.
@@ -351,7 +451,7 @@ impl LandingSource for RpcLandingSource {
         let at_recovery = snapshot.recovery.as_ref().filter(|r| parent.header.number == r.height);
         let number = if let Some(origin) = at_recovery {
             origin.l1_number
-        } else if parent.header.number == 0 {
+        } else if parent.header.number == snapshot.genesis.genesis_height {
             snapshot.genesis.l1_0
         } else {
             // Read only extraData's deployment-core generation and anchor fields (START-10.1-2a);
@@ -369,7 +469,7 @@ impl LandingSource for RpcLandingSource {
         };
         let anchor = self.anchor_at(number).await?;
         if at_recovery.is_none() &&
-            parent.header.number != 0 &&
+            parent.header.number != snapshot.genesis.genesis_height &&
             parent.header.parent_beacon_block_root != Some(anchor.state_root)
         {
             return Err(LanderError::Safety("EL checkpoint anchor root differs from L1".into()));
@@ -538,6 +638,75 @@ impl LandingSource for RpcLandingSource {
     }
 }
 
+/// Authenticate Unzen's terminal proof and SignalService's S checkpoint under one own-L1 pin.
+/// Callers establish this observation's finality (or cutoff finality for a live landing) and
+/// recheck canonicality after the reads. An absent checkpoint remains retryable.
+pub(crate) async fn switch_checkpoint_ready<L: AnchorSource + ?Sized>(
+    l1: &L,
+    params: &ChainParams,
+    snapshot: &LandingSnapshot,
+) -> Result<bool> {
+    let Some(config) = params.switch.as_ref() else {
+        return Ok(true);
+    };
+    if snapshot.l1_header.timestamp() < config.fork_timestamp ||
+        snapshot.l1_block_number < snapshot.genesis.l1_0
+    {
+        return Ok(false);
+    }
+    /// Decode an immutable getter under the same canonical state as the Inbox snapshot.
+    macro_rules! read {
+        ($call:ident) => {{
+            let bytes = l1
+                .call_at(
+                    snapshot.inbox,
+                    IEtnaInbox::$call {}.abi_encode().into(),
+                    snapshot.l1_block_hash,
+                )
+                .await
+                .map_err(anchor_error)?;
+            IEtnaInbox::$call::abi_decode_returns(&bytes).map_err(|_| {
+                LanderError::Configuration("invalid Inbox switch getter ABI response".into())
+            })?
+        }};
+    }
+    let unzen = read!(unzenInboxCall);
+    let fork = read!(etnaForkTimeCall);
+    if unzen != config.unzen_inbox || fork.to::<u64>() != config.fork_timestamp {
+        return Err(LanderError::Configuration(
+            "Inbox switch deployment differs from configuration".into(),
+        ));
+    }
+    let Some(hash) =
+        l1.finalized_unzen_hash(unzen, snapshot.l1_block_hash).await.map_err(anchor_error)?
+    else {
+        return Ok(false);
+    };
+    if hash != snapshot.genesis.genesis_hash {
+        return Err(LanderError::Safety("finalized Unzen terminal hash differs from S".into()));
+    }
+    let signal = read!(signalServiceCall);
+    if signal.is_zero() {
+        return Err(LanderError::Configuration("Inbox SignalService is zero".into()));
+    }
+    let call = ISwitchCheckpointStore::getCheckpointCall {
+        blockNumber: alloy_primitives::aliases::U48::from(snapshot.genesis.genesis_height),
+    };
+    let bytes = l1
+        .call_at(signal, call.abi_encode().into(), snapshot.l1_block_hash)
+        .await
+        .map_err(anchor_error)?;
+    let checkpoint = ISwitchCheckpointStore::getCheckpointCall::abi_decode_returns(&bytes)
+        .map_err(|_| LanderError::Safety("invalid SignalService checkpoint ABI response".into()))?;
+    if checkpoint.blockNumber.to::<u64>() != snapshot.genesis.genesis_height ||
+        checkpoint.blockHash != snapshot.genesis.genesis_hash ||
+        checkpoint.stateRoot != snapshot.genesis.genesis_state_root
+    {
+        return Err(LanderError::Safety("SignalService checkpoint contradicts the S tuple".into()));
+    }
+    Ok(true)
+}
+
 /// Complete fixed Inbox slots authenticating schedule, configuration, bootstrap, checkpoint and
 /// the forced inclusion queue's head/tail and configuration.
 pub fn snapshot_slots() -> Vec<B256> {
@@ -588,16 +757,6 @@ pub(crate) fn decode_snapshot(
         verify_account_witness(raw.state_root(), &witness, &snapshot_landing_slots(height))
             .map_err(|e| LanderError::Safety(format!("Inbox snapshot proof: {e}")))?;
     let word = |slot| storage.get(inbox::slot(slot)).expect("verified snapshot slot");
-    // This release supports fresh networks only. Authenticate the packed start before the
-    // S=0 origin checks, so a switching deployment asks for compatible software rather than
-    // reporting its valid nonzero origin as a chain contradiction.
-    let packed = word(inbox::GENESIS_PACKED);
-    let etna_start = word_u48(packed, 0);
-    if packed >> 144 == U256::ZERO && etna_start != 0 {
-        return Err(LanderError::Configuration(format!(
-            "Etna start {etna_start} is unsupported; this lander supports fresh S=0 deployments"
-        )));
-    }
     let (genesis, _, bootstrap) = verify_genesis_inbox(
         raw.state_root(),
         &project_witness(&witness, &inbox::genesis_slots()),
@@ -619,6 +778,11 @@ pub(crate) fn decode_snapshot(
     if genesis.genesis_state_root.is_zero() {
         return Err(LanderError::Configuration("Inbox genesis record is invalid".into()));
     }
+    if genesis.genesis_height != 0 && params.switch.is_none() {
+        return Err(LanderError::Configuration(
+            "nonzero Etna start requires switch configuration".into(),
+        ));
+    }
     if word(inbox::LAST_CHECKPOINT_HEIGHT) >> 48 != U256::ZERO {
         return Err(LanderError::Safety(
             "snapshot packed checkpoint height sets reserved bits".into(),
@@ -636,13 +800,21 @@ pub(crate) fn decode_snapshot(
     let generation = word_u48(word(inbox::RECOVERY_GENERATION), 0);
     if landing >> 144 != U256::ZERO ||
         head_tail >> 96 != U256::ZERO ||
-        !height.is_multiple_of(abci::GRID_INTERVAL) ||
+        !genesis.is_grid_height(height) ||
         el_hash != B256::from(word(inbox::LAST_CHECKPOINT_HASH)) ||
         word_u48(landing, 48) > generation ||
         word_u48(landing, 96) != word_u48(head_tail, 0) ||
-        (height == 0 &&
-            (word_u48(landing, 0) != 0 || !comet_hash.is_zero() || !val_state_hash.is_zero())) ||
-        (height > 0 && (word_u48(landing, 0) >= height || comet_hash.is_zero()))
+        (height == genesis.genesis_height &&
+            (word_u48(landing, 0) != height ||
+                word_u48(landing, 48) != 0 ||
+                word_u48(landing, 96) != 0 ||
+                el_hash != genesis.genesis_hash ||
+                !comet_hash.is_zero() ||
+                !val_state_hash.is_zero())) ||
+        (height > genesis.genesis_height &&
+            (word_u48(landing, 0) >= height ||
+                !genesis.is_grid_height(word_u48(landing, 0)) ||
+                comet_hash.is_zero()))
     {
         return Err(LanderError::Safety("invalid checkpoint landing record".into()));
     }

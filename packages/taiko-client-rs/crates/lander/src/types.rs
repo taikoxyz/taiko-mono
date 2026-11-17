@@ -17,6 +17,61 @@ use crate::{
     error::{LanderError, Result},
 };
 
+/// EIP-1967 implementation key, shared by the switch's proxy-state checks and proof input.
+pub(crate) const ANCHOR_IMPLEMENTATION_SLOT: B256 =
+    alloy_primitives::b256!("360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc");
+
+/// Authenticate the first proof's raw Anchor implementation witness against the fixed S header.
+/// Later parents must not carry a replacement witness for the already-settled start.
+pub(crate) fn verify_start_anchor_witness(
+    snapshot: &LandingSnapshot,
+    parent_header: &Header,
+    params: &abci::ChainParams,
+    witness: Option<&AccountWitness>,
+) -> Result<()> {
+    let Some(config) = params
+        .switch
+        .as_ref()
+        .filter(|_| snapshot.checkpoint_height == snapshot.genesis.genesis_height)
+    else {
+        if witness.is_some() {
+            return Err(LanderError::Safety("unexpected start Anchor witness".into()));
+        }
+        return Ok(());
+    };
+    let witness = witness.ok_or_else(|| {
+        LanderError::Unavailable(
+            "first landing requires the Anchor implementation proof at S".into(),
+        )
+    })?;
+    if parent_header.number != snapshot.genesis.genesis_height ||
+        parent_header.hash_slow() != snapshot.genesis.genesis_hash ||
+        parent_header.state_root != snapshot.genesis.genesis_state_root ||
+        parent_header.timestamp >= config.fork_timestamp ||
+        witness.address !=
+            alethia_reth_primitives::addresses::get_treasury_address(params.l2_chain_id)
+    {
+        return Err(LanderError::Safety(
+            "start Anchor witness contradicts the S header or account".into(),
+        ));
+    }
+    let storage = abci::l1::mpt::verify_account_witness(
+        parent_header.state_root,
+        witness,
+        &[ANCHOR_IMPLEMENTATION_SLOT],
+    )
+    .map_err(|error| LanderError::Safety(format!("start Anchor implementation proof: {error}")))?;
+    let value = storage.get(ANCHOR_IMPLEMENTATION_SLOT).expect("verified implementation slot");
+    if value >> 160 != U256::ZERO ||
+        Address::from_word(B256::from(value)) != config.anchor_implementation
+    {
+        return Err(LanderError::Safety(
+            "start Anchor implementation differs from switch configuration".into(),
+        ));
+    }
+    Ok(())
+}
+
 /// Decode a protocol uint48 carried in an ABI uint256 without truncation.
 pub fn protocol_u48(value: U256) -> Result<u64> {
     if value >= U256::from(1u64 << 48) {
@@ -286,6 +341,9 @@ pub struct PreparedBatch {
     /// ancestry.
     #[serde(with = "rlp_serde")]
     pub starting_inbox_witness: AnchorWitness,
+    /// Raw EIP-1186 Anchor proxy implementation proof under S's state root, retained only for
+    /// a switching batch whose parent is S. A real proof backend must verify this private input.
+    pub start_anchor_witness: Option<AccountWitness>,
     /// Exact complete block/commit pairs in increasing height order. Only execution blocks are
     /// published; original envelopes, headers, evidence and signatures remain private.
     pub blocks: Vec<CertifiedBlock>,
@@ -349,8 +407,8 @@ impl PreparedBatch {
         }
         if parent != self.snapshot.checkpoint_height ||
             parent >= last ||
-            !parent.is_multiple_of(GRID_INTERVAL) ||
-            !last.is_multiple_of(GRID_INTERVAL) ||
+            !self.snapshot.genesis.is_grid_height(parent) ||
+            !self.snapshot.genesis.is_grid_height(last) ||
             self.blocks.len() as u64 != last - parent
         {
             return Err(LanderError::Journal("job has an invalid V1 grid interval".into()));

@@ -48,13 +48,30 @@ pub struct HistoryRequirements {
 
 /// Bound starting history to the committees active at the checkpoint and two heights later.
 ///
-/// `origin` is the generation's fixed origin: genesis height 0, or c after a recovery. The
-/// checkpoint cannot precede it (BATCH-6.3-9). The initial set, `floor(origin / L)`, needs no
+/// This form uses recovery's initial target, `floor(origin / L)`; an original deployment
+/// starting above zero supplies committee zero through [`requirements_with_initial`]. The
+/// checkpoint cannot precede the fixed origin (BATCH-6.3-9). The initial set needs no
 /// derivation parent: the genesis snapshot or R selects it (PROOF-6.2-14). Every other starting
 /// set needs its D(t), which must lie in this generation at or below the checkpoint. The history
 /// stays within L+2 headers (PROOF-6.2-13) and the journal header budget. Two starting sets need
 /// not be adjacent epochs: a recovery may discard the next switch.
 pub fn requirements(height: u64, schedule: &Schedule, origin: u64) -> Result<HistoryRequirements> {
+    requirements_with_initial(
+        height,
+        schedule,
+        origin,
+        origin.checked_div(schedule.epoch_len).unwrap_or(0),
+    )
+}
+
+/// Bound history with the generation's authenticated initial committee target: zero for an
+/// original deployment, or the R-selected target after recovery. Epoch arithmetic remains global.
+pub fn requirements_with_initial(
+    height: u64,
+    schedule: &Schedule,
+    origin: u64,
+    initial: u64,
+) -> Result<HistoryRequirements> {
     if height < origin || schedule.epoch_len < 3 {
         return Err(LanderError::Safety(
             "checkpoint predates generation origin or invalid schedule".into(),
@@ -63,12 +80,14 @@ pub fn requirements(height: u64, schedule: &Schedule, origin: u64) -> Result<His
     let future = height
         .checked_add(2)
         .ok_or_else(|| LanderError::Safety("checkpoint height overflow".into()))?;
-    let initial = origin / schedule.epoch_len;
+    let first = origin
+        .checked_add(1)
+        .ok_or_else(|| LanderError::Safety("generation origin height overflow".into()))?;
     let current = schedule
-        .active_committee_epoch(height.max(origin + 1), origin)
+        .active_committee_epoch_with_initial(height.max(first), origin, initial)
         .ok_or_else(|| LanderError::Safety("invalid committee height".into()))?;
     let next = schedule
-        .active_committee_epoch(future, origin)
+        .active_committee_epoch_with_initial(future, origin, initial)
         .ok_or_else(|| LanderError::Safety("invalid future committee height".into()))?;
     let mut epochs = vec![current];
     if next != current && schedule.derivation_parent_height(next).is_some_and(|d| d <= height) {
@@ -106,7 +125,19 @@ pub fn verify(
     headers: &[Header],
 ) -> Result<BTreeMap<u64, Option<Header>>> {
     let origin = input.recovery.map_or(0, |r| r.height);
-    let required = requirements(input.height, input.schedule, origin)?;
+    let initial = input.recovery.map_or(0, |r| r.committee.record.target_epoch);
+    verify_at_origin(input, headers, origin, initial)
+}
+
+/// Authenticate history from the original Etna start S or a recovery origin, retaining the
+/// initial committee's explicit target independently of the global epoch containing the origin.
+pub fn verify_at_origin(
+    input: HistoryInput<'_>,
+    headers: &[Header],
+    origin: u64,
+    initial: u64,
+) -> Result<BTreeMap<u64, Option<Header>>> {
+    let required = requirements_with_initial(input.height, input.schedule, origin, initial)?;
     let count = input.height - required.oldest + 1;
     if headers.len() as u64 != count {
         return Err(LanderError::Safety(format!(
@@ -155,8 +186,7 @@ pub fn verify(
         .epochs
         .into_iter()
         .map(|epoch| {
-            let parent = if input.recovery.is_some_and(|r| epoch == r.committee.record.target_epoch)
-            {
+            let parent = if epoch == initial {
                 None
             } else {
                 input
@@ -169,16 +199,20 @@ pub fn verify(
         .collect()
 }
 
-/// Uses R when the derivation parent is the retained recovery boundary, whose extraData is old.
+/// Uses R at a recovery boundary, or L1_0 at the original Etna start S, whose extraData is Unzen's.
 pub fn snapshot_number_at_origin(
     parent: Option<&Header>,
     schedule: &Schedule,
     recovery: Option<&abci::recovery::RecoveryOrigin>,
+    start_height: u64,
 ) -> Result<u64> {
     if let Some(origin) = recovery &&
         parent.is_none_or(|h| h.number == origin.height)
     {
         return Ok(origin.l1_number);
+    }
+    if parent.is_some_and(|header| header.number == start_height) {
+        return Ok(schedule.l1_0);
     }
     snapshot_number(parent, schedule)
 }

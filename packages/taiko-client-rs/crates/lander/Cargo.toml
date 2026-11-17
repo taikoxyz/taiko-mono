@@ -9,6 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 abci = { path = "../abci" }
+alethia-reth-primitives = { workspace = true }
 alloy = { workspace = true, features = ["std", "sol-types", "contract", "providers", "rpc-types", "signer-local"] }
 alloy-consensus = { workspace = true, features = ["k256"] }
 alloy-eips = { workspace = true, features = ["std", "serde", "kzg"] }

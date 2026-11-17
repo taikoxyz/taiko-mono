@@ -9,12 +9,16 @@
 - Add authenticated nonzero ABCI starts with committee 0 and the unchanged global epoch schedule.
 - Add the shared `--engine-control-dir` Engine writer lease. Mount the same directory for every local controller of one EL.
 - Pin alethia-reth to PR #248 head `efc3c162`, including its legacy proposal-index coexistence fixes.
+- Support nonzero-S landing, S-relative cut leaves and overlaps, committee 0 bootstrap and authenticated Unzen ancestry.
+- Wait for terminal Unzen finalization and the matching SignalService checkpoint before preparing the first landing; retain its raw Anchor implementation witness for the proof backend.
+- Support nonzero-S checkpoint import/export, deriving the original EL block-zero identity from the operator-selected runtime chainspec.
+- Bump lander journals from schema 16 to 17 for the additional private proof witness. Older journals are refused without migration; resolve outstanding signed transactions with the compatible lander before upgrading.
 
 
 ### ⚠ BREAKING CHANGES
 
 Etna is unlaunched, so start a fresh devnet: the app state (schema 19), validator-state records,
-lander journals (16), private trust control (schema 1) and the signer's state layout are new, and
+lander journals (17), private trust control (schema 1) and the signer's state layout are new, and
 older stores are refused, never migrated (START-10-24).
 
 - The lander's `--max-blobs` (`LANDER_MAX_BLOBS`) and the app's `--l1.archive`
@@ -103,7 +107,7 @@ older stores are refused, never migrated (START-10-24).
   Recovery keeps the registered key, every older chain_id's HRS state, old Comet history and
   immutable pending lander bytes, and the new generation's chain_id gets its own HRS state from
   `etna-signer init-state` (RECOV-8.2-5). See the [recovery runbook](docs/governance-recovery.md).
-  The lander still uses dummy proofs; real proving, Unzen switching, public EL snapshot
+  The lander still uses dummy proofs; real proving, public EL snapshot
   distribution and production deployment acceptance are outside this change.
 - Keep one stock HRS state per full chain_id in the signer, listed in a domains log on another
   volume, so a lost state or log is refused with exit 3 instead of looking like a fresh start.

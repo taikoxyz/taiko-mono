@@ -40,14 +40,19 @@ pub(super) fn verify_complete_window(
         .ok_or_else(|| candidate("terminal evidence context absent"))?;
     first = first.min(latest_anchor);
     for epoch in future {
-        if *epoch == origin / schedule.epoch_len {
+        if *epoch == Schedule::E0 {
             continue;
         }
         let switch = schedule
             .checked_h_first(*epoch)
             .and_then(|h| h.checked_sub(2))
             .ok_or_else(|| candidate("switch height overflow"))?;
-        if switch <= origin || switch > terminal {
+        // A generation's initial set has no retained switch, whether it is committee zero
+        // at S or the recovery-selected committee whose global switch preceded c.
+        if switch <= origin {
+            continue;
+        }
+        if switch > terminal {
             return Err(candidate("future committee has no retained switch"));
         }
         first = first.min(switch);

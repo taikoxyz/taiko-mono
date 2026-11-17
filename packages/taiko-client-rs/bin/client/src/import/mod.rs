@@ -96,7 +96,8 @@ pub struct Inputs {
     /// for the duration of the import; it is copied and never written.
     #[arg(long)]
     pub el_source: PathBuf,
-    /// The original deployment's EL chain JSON (alethia-reth `--chain`).
+    /// The operator-selected original deployment's EL chain JSON (alethia-reth `--chain`),
+    /// independently defining block zero even when Etna's start S is above it.
     #[arg(long)]
     pub el_chain: PathBuf,
     /// The `etna-el-import` helper.

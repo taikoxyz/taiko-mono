@@ -14,7 +14,7 @@ use std::{
 };
 
 /// Journal schema version; any other version is refused with its file unchanged (START-10-24).
-const JOURNAL_VERSION: u8 = 16;
+const JOURNAL_VERSION: u8 = 17;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
