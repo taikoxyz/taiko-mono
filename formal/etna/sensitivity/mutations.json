@@ -1422,6 +1422,25 @@
         "name": "NilRetryByteAudit"
       },
       "obligation": "J04 actual Written same-request retry must restore saved Nil salt0 bytes despite caller salt1. Mutating only actual Request reuse pending assignment creates alternate bytes and fails immediate raw retry audit at receipt10, before Expose12. Computed fresh-recompute profiles remain separately measured positive controls, not extra kills."
+    },
+    {
+      "id": "proving-overlap-retained-prefix",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaProvingProgress.tla",
+      "replace": {
+        "old": "r'=[r EXCEPT !.included=x.terminal,!.records[x.terminal]=rec]",
+        "new": "r'=[r EXCEPT !.included=x.terminal,!.records[x.terminal]=rec,!.records[r.included]=IF r.included=0 THEN @ ELSE AbsentRecord]"
+      },
+      "workloads": [
+        "configs/proving-arrival-overlap-retained-prefix-audit.cfg"
+      ],
+      "failure": {
+        "kind": "invariant",
+        "name": "OverlapRetainedPrefixAudit"
+      },
+      "obligation": "J05 overlapping same-block long settlement must retain the already landed interior record1. Mutating the actual Land r-prime write preserves genesis on first landing but erases record1 on second. Dedicated immediate literal raw audit detects this without relying on observer expectedRecords; twelve full baseline/restored histories and distinct independent finality/omission challenges are separately attributed."
     }
   ]
 }

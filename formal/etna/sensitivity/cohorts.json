@@ -79,7 +79,8 @@
         "identity-second-recovery-generation",
         "trust-node-local-revocation",
         "registry-pending-admission-balance",
-        "signer-nil-replay-saved-bytes"
+        "signer-nil-replay-saved-bytes",
+        "proving-overlap-retained-prefix"
       ]
     },
     {

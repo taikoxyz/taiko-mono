@@ -235,7 +235,7 @@ selects exactly five additive finite-model increments from base2f863ad77:
 - [x] J02 / T01 — [selected two-node supersession](TRUST_SUPERSESSION.md) complete after independent source/behavior gates: actual local revocation, lagging-node service and eventual old-session containment in both mirrors; full T01 remains WAITING.
 - [x] J03 / R01 — [selected pending-funded retirement product](REGISTRY_RETIREMENT_PRODUCT.md) complete after independent source/behavior gates: six actual lifecycle orders, raw admission/split/history/slot checks and public zero withdrawal; broader R01 remains OPEN.
 - [x] J04 / C01 — [selected Nil replay product](SIGNER_NIL_REPLAY.md) complete after independent source/behavior gates: eight actual histories, exact saved-byte/floor recovery, omission witnesses and legal delayed delivery; broader C01 remains OPEN.
-- [ ] J05 / P01 — twelve partial-resource-arrival histories, cached short landing, overlapping full-data refusal/acceptance, same-block checkpoint finality and actual resumed production.
+- [x] J05 / P01 — [selected proof-arrival overlap product](PROVING_ARRIVAL_OVERLAP.md) complete after independent source/behavior gates: twelve actual histories, retained-prefix/finality faults and legal changed omission/anchor paths; broader P01/P02 remain OPEN.
 
 These are selected model/checking scopes. Source/API reconnaissance and exact
 planning do not count as model execution or passing tests. Each increment must

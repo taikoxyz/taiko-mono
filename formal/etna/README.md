@@ -755,3 +755,14 @@ second-restart and missing-first-write challenges verify intermediate floors and
 history rather than equal terminal records. A cfg representation setup failure
 is retained with zero credit; corrected source/runtime/restoration gates pass.
 Broader C01 remains OPEN; J05 and accumulated final gates remain unfinished.
+
+### J05: proof-resource arrivals and overlapping same-block settlement
+
+The [proof-arrival lane](PROVING_ARRIVAL_OVERLAP.md) runs twelve actual histories
+through partial completions, cached short landing, full-original-publication
+refusal/acceptance, retained interior records, block-end finality and resumed
+production. Independent actual finality and normal-mode omission challenges
+separate missing two-landing history from matching terminal counters, and show
+that anchor1 can support production while settlement remains1. A lexical setup
+failure stays zero-credit; corrected source/runtime/restoration gates pass.
+Broader P01/P02 remain OPEN; accumulated final gates and retrospective are pending.

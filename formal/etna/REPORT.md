@@ -3834,3 +3834,76 @@ remains OPEN: no FilePV/HSM/WAL/power-loss/concurrent-key-owner/authentication/
 actual-signature refinement is established. Canonical/current source pins stay
 unchanged and D01 WAITING. J01–J04 selected increments are complete; J05 and
 accumulated final gates remain unfinished, with no sixth authorized.
+
+## Interleaving-boundaries batch — J05 proof arrivals and overlapping landings
+
+Twelve finite programs cross six H/A/B resource-arrival permutations with
+Early/Late long-A completion. Actual inherited calls retain all original r/seen/
+stage/count before and after; complete typed raw parsing checks17 operational r
+and9 seen fields plus stage/count. Literal short completion masks distinguish
+partial resources, while enabled repeated completions execute idempotently.
+Both immutable jobs keep parent0/reference0/dependency0. Short Land at now1
+accepts cached proofs while B is unavailable; a new long-B completion refuses.
+After B returns, matching long results still cannot land one-payload suffix
+publication. Full original two-payload publication then lands at the same now1
+with actual parent1, retaining record1 and applying height2 exactly once.
+Finalize1 at now2 selects block-end checkpoint2, publishes reference1 anchor2,
+and actual third production uses that selected anchor.
+
+The first planned singleton smoke failed lexical parsing before exploration:
+24 adjacent equality/tuple tokens require separating whitespace. Retained rc150
+has no states or witness/kill credit; independent/shared/catalog execution then
+zero. Fix1 changes only24 whitespace separators and two local LET indentation
+lines. The latter was an unconfirmed static layout suspicion, not another
+observed bug. An exact inverse reconstructs the failed original bytes; other21
+integrated files and all old source/config inputs stay unchanged. Independent
+static mapping gates preceded one corrected full31-receipt smoke. Actual35
+generated/32 distinct/0 queued are separate counters; no equality is assumed.
+All18 new configurations later execute, and final scoped review marks the
+lexical defect ADDRESSED with no new fix breakage.
+
+Author51 exact TLC outcomes comprise18 unique new/six focused old configurations
+and explicit same-copy prebaseline, actual source mutation and restoration.
+All twelve original/prebaseline/restored full receipt histories agree. The
+unique actual Land r-prime fault preserves genesis on first landing but deletes
+record1 on the second. Its selected actual HAB/Late25-receipt prefix fails only
+OverlapRetainedPrefixAudit: record1 is erased while record2 has parent1 and
+seen.expectedRecords is unchanged. Actual338 generated/302 distinct/11 queued
+are retained as an early invariant stop, not exhaustion. Same private source
+bytes are restored before all twelve full witnesses plus normal/audit succeed.
+
+Independent51 exact TLC outcomes challenge actual Finalize's block-end selector.
+All twelve mutants select intermediate checkpoint1 instead of2 at the real
+Finalize call (Early29/Late27), failing the immediate IndependentBlockEndAudit;
+all twelve original/restored positives pass. Twelve normal-mode missing-short-
+Land endpoints execute the now-legal suffix Land0→2 and later refuse settled
+FullLand. Head3/included2/finalized2 and applied1/1 then hide one absent landing,
+missing record1 and parent0 record2. Two missing-full-publication probes first
+retain the scheduled unavailable anchor2 refusal, then actually Produce with
+existing anchor1: head/count3 while included/finalized1. Missing full publication
+therefore does not universally stop production. Author's two emitted omission
+traces are HAB/Early singletons; aggregate12 audits do not emit twelve traces.
+Mode-qualified absence PASS alone remains structural and gets no progress credit.
+
+The new shared obligation separately executes actual same-copy three phases and
+catalog20 regressions. Independent cross-lane audit derives105 current matching
+TLC outcomes (author51/independent51/shared3),90 raw histories/2760 states/
+2670 receipts, all original fields and actual execution masks. Whole686
+formal/private/source/tool guards hold. Initial failed parser call and two
+separately retained data-only auditor failures (generated==distinct assumption,
+old-log routing) receive no successful credit; fixing those temporary readers
+reran no engine. Pinned JAR release1.7.4/runtime banner2.19 remain distinguished.
+Inventory80 comprises74 TLC/six Forge with four unassessed; only one new shared
+obligation is freshly run here. Earlier79 are not rerun in this step. Discovered
+default493 is not yet a fresh accumulated complete493 result.
+
+Reflection: immutable original publication, actual settlement parent, retained
+interior record, block-end finality and candidate-specific production require
+separate intermediate observations. Equal head or settled counters cannot
+supply missing accepted-call histories. The finite product adds meaningful
+arrival/order variation but no fairness, latency, throughput, real proving,
+concrete STF/client/EL/upgrade or unrestricted asynchronous equivalence result.
+Proof and producer anchor ages still share RefWindow. No independently supported
+natural protocol/source defect was found; broader P01/P02 remain OPEN and D01
+WAITING. All five selected increments are complete; accumulated final gates and
+retrospective remain unfinished. No sixth is authorized.
