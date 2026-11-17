@@ -107,6 +107,9 @@ supported protocol/source defect; otherwise finish the five and report before
 starting another batch. No production, normative SPEC or Notion edits, merge,
 deployment or automatic sixth increment is authorized.
 
-G01 implementation has passed its final local369-case/189-test gate and
-independent source/behavior checks; hosted workflow execution remains pending
-readback after publication. G02-G05 and the complete batch gate remain pending.
+G01 retains complete369-case model evidence and has passed the final Docker
+adapter's197-test/rules preflight, genuine TLC integration and independent
+source/behavior checks. Earlier hosted startup exposed a runner namespace
+restriction; the current Docker workflow still needs hosted full-gate and
+complete artifact readback. G02 is paused while that repair finishes; G03-G05
+and the complete batch gate remain pending.

@@ -30,10 +30,17 @@ read-only source snapshot and disposable outputs:
   --java "$JAVA" --tlc-jar "$TLA2TOOLS_JAR" --output-dir "$NEW_GATE_OUTPUT"
 ```
 
-The output directory must not already exist. The gate requires every discovered
+The direct gate's output directory must not already exist. Hosted CI uses the
+[container adapter](ci_container.py) because its runner rejects nested user
+namespaces. The adapter assembles its runtime locally without pulling an image,
+keeps the caller's numeric UID and checks every configured binding before
+creating Docker resources. Its outer output directory must already exist; the
+inner gate directory is new. Native lanes retain their existing supervisor.
+
+The gate requires every discovered
 default configuration exactly once, rereads its actual TLC log,
 and rejects empty or skipped mandatory Python suites. Native Go, contract,
-controller, proof and shared source-fault campaigns remain separate evidence;
+the five Comet host-controller tests, proof and shared source-fault campaigns remain separate evidence;
 this CI job does not run or certify those lanes. The script downloads nothing.
 
 Use Java 17+ and `tla2tools.jar` from the official

@@ -2376,3 +2376,44 @@ canonical full execution above. Paused G02 untracked files are excluded.
 Hosted execution and complete artifact readback of the repaired workflow remain
 required. G02 is paused at a coherent draft boundary until this earlier CI
 integration issue is repaired and verified.
+
+### G01 supported Docker runtime and final binding boundary
+
+Hosted retry44000312830 atb8437f27c confirms a separate platform refusal:
+`unshare` cannot write `uid_map`. CI now uses the installed Docker runtime;
+native local lanes keep the existing namespace supervisor. A tiny locally
+assembled empty-base image needs no registry pull, package or SDK installation.
+The caller's numeric UID, read-only root/system/source/tools, private PID/tmp,
+no network/capabilities, no-new-privileges and explicit writable output preserve
+the required isolation. Private tmpfs permits executable fixtures as the old
+namespace backend did. Default Docker policies remain enabled.
+
+The adapter records a private unmounted ownership nonce and rechecks actual
+daemon labels/IDs before cleanup. It never removes caller-provided names,
+overwrites image tags or prunes global resources. Actual success, unrelated
+name collision, mandatory-child failure, timeout, SIGTERM/SIGINT and accepted
+import/create with a lost reply verify cleanup and unrelated-resource retention.
+The always-run reconciliation step covers interrupted execution.
+
+Review identifies and repairs a binding-policy gap: only the source had been
+checked against HOME/Git, leaving other configured mounts unchecked. All four
+configured bindings now reuse the authoritative parser before any Docker or
+runtime creation. Executable Java and an existing outer output directory are
+required. Disposable mocked-home/Git/symlink controls prove rejection without
+submitting any real sensitive directory or file; no Docker call occurs.
+
+The frozen pre-validation adapter executes **369/369** exact TLC outcomes and
+**195** Python tests in520.374s, with reconciliation0 and no owned resources.
+An independent raw audit checks all369 logs and source hashes, and the normal
+caller archives/reopens all381 output files byte-for-byte. This is explicitly
+pre-binding-fix host-adapter evidence. The final validator leaves the388 child
+inputs (369 configs,17 models, gate and checker), valid mounts/runtime and rootfs
+tar bytes unchanged. Its current **197** Python/rules preflight, genuine
+three-case TLC integration, all-binding controls and real failure/timeout
+cleanup controls pass. Independent source/spec/quality review and behavioral
+verification close the binding finding on the final bytes.
+
+The unchanged model search is retained with its original adapter attribution;
+it is not relabeled as a final-validator full run. The current hosted full
+369/current-Python gate and complete raw artifact readback remain required
+before closing G01 or resuming G02. G02-G05 and the final batch gate remain open.

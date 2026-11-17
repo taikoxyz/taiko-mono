@@ -31,6 +31,13 @@ remain explicitly waiting on concrete implementations.
 
 - G01: a draft-enabled, bounded TLC/Python CI lane with pinned tool bytes and
   fail-closed result handling. No native/contract/proof acceptance is inferred.
+  Hosted startup evidence requires the installed Docker runtime rather than
+  nested user namespaces: the runner rejects `uid_map`. The CI backend uses a
+  locally assembled empty-base image, same numeric caller UID, read-only public
+  system/source/tool bindings, no network/capabilities/host credentials and only
+  private temporary/output writes. It preserves the authoritative gate/test
+  semantics and verifies cleanup of only its own resources. Native local lanes
+  continue using their existing namespace supervisor.
 - G02: completed stock Bootstrap survives process termination and real on-disk
   DB reopening, preserving selected literal state and validator-history fields.
   This is process-restart evidence, not physical power-loss or multi-store atomicity.

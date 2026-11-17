@@ -6,7 +6,7 @@
 
 **Architecture:** One current work index, an isolated TLC/Python CI gate, selected stock Go boundary replays and thin compositions over existing model actions.
 
-**Tech Stack:** Configured Python stdlib, Java17+/TLC release1.7.4, pinned Go/CometBFT0.40.0 and existing isolated supervisors/caches.
+**Tech Stack:** Configured Python stdlib, Java17+/TLC release1.7.4, pinned Go/CometBFT0.40.0, installed Docker for hosted CI and existing native isolated supervisors/caches.
 
 **Spec:** `docs/superpowers/specs/2026-11-17-etna-coverage-closure-design.md`.
 
@@ -30,8 +30,16 @@
 
 ### Task 1: G01 — exact-outcome CI
 
-**Files:** create `.github/workflows/protocol--etna-tlc.yml`, `formal/etna/ci.py`, `formal/etna/tests/test_ci.py`; root updates WORKLIST/README.
+**Files:** create `.github/workflows/protocol--etna-tlc.yml`, `formal/etna/ci.py`, `formal/etna/tests/test_ci.py`; hosted repair adds `formal/etna/ci_container.py` and `formal/etna/tests/test_ci_container.py` for the installed Docker runtime lifecycle, preserving the gate/classifier. Root updates WORKLIST/README.
 **Interfaces:** `ci.py --java PATH --tlc-jar PATH --output-dir PATH` calls existing check.py with the whole discovered config set and stdlib test suites. It verifies the pinned jar before execution, records child statuses/logs and returns nonzero on any required failure. Do not reimplement TLC result parsing.
+
+Hosted-repair ruling: actual `uid_map` refusal prevents this runner using the
+local namespace launcher. Replace only CI isolation plumbing with the installed
+Docker backend described in the design, preserving all checks and signal
+semantics. Validate actual full Python/rules, real TLC and same-UID complete
+artifact reads, failure/timeout cleanup and unrelated-resource preservation
+before new hosted readback. No global kernel/LSM policy changes or hidden
+unsandboxed fallback are permitted.
 
 - [x] Write and run red tests for wrong tool hash, failed child, empty/missing default coverage and stale output handling; keep tests behavioral with disposable fake child tools where appropriate.
 - [x] Implement the minimal gate; inspect existing runner tests and preserve check.py behavior and all existing source inputs.
