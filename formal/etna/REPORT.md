@@ -2611,3 +2611,56 @@ The preceding G02 commit also passes hosted run44018110081:369 exact TLC outcome
 All381 raw files and both private diagnostic files were checksum-verified and
 read back at514371270. This ordinary CI evidence is separate from both actual
 native scenarios above.
+
+## Coverage-closure batch — G04 positive-stop old-proof handoff
+
+The additive [stop/proof wrapper](STOP_PROOF_HANDOFF.md) invokes unchanged
+CandidateHandoff/RulesSchedule/Settlement actions. Due, future and off-grid
+positive-stop programs now queue an immutable generation0 proof for parent1/
+terminal2 before actual public recovery at checkpoint1. Actual Land is enabled
+before recovery; afterward the same proof's actual attempted landing is refused
+under generation1/origin1, with the retained prefix unchanged. The stopped held
+candidate is not claimed to have produced this independent opaque proof.
+
+All10 new configurations pass: three normal profiles and a focused generation
+audit exhaust their queues; six complete terminal witnesses cover both support
+and knowledge orders for all three programs. Due explores418 distinct states;
+future/off-grid each192. Raw terminals require all three accepted public calls,
+immutable proof/held history, a real attempted refusal, cleared current stop,
+knowledge, support, and a fresh generation1 candidate. All43 original handoff
+outcomes and all30 existing TLA/390 configuration bytes remain preserved.
+
+Root review found that the initial wrapper unnecessarily deferred InstallSupport
+until after recovery, blocking legitimate G05 pre-recovery work. Restoring the
+base action's availability fixes this seam. A red old-wrapper check loses the
+new support-first witness; all three repaired support-first terminals record
+supportAt.index2/floor0, and knowledge-first terminals record index3/floor1.
+An earlier Setup framing error was also caught before semantic acceptance.
+
+The actual shared source fault removes only Settlement's generation conjunct.
+Baseline/restored exhaust663 generated/418 distinct states with queue0; the
+mutant violates exactly StopProofGenerationAudit and executes actual Land from
+checkpoint1 to2 with proof generation0/current generation1, preserving live
+parent1 and recording audit.oldProof. Original Settlement SHA-256 is
+`3fd57284128ea5a19966c2684161f909155a4730310972fee87d50eed009b84a`;
+mutant SHA-256 is
+`795218170ebae50896522cc1facf7c473a1639e881f21e7e8505ac8564818a2f`.
+Actual same-copy restoration and source maps verify. Missing queue and attempt
+controls instead exhaust safely with the required terminal absent, then regain
+the witness after restoration; they are not counted as safety kills.
+
+Independent adversarial source review and independent actual execution/raw-state
+audits pass at all14 frozen model/config/catalog hashes. The tester independently
+repeats new10/old43, the selected generation campaign and both omission controls,
+and checks all six full terminals plus G05's eligible pre-recovery Future seam.
+The shared inventory now has66 assessed obligations (61 TLC,5 Forge); four
+aggregate unassessed categories remain unchanged. Deleted temporary shared phase
+trees are not claimed to have been walked post hoc; raw/hash/restoration evidence
+retains its actual attribution.
+
+The wrapper SHA-256 is
+`d03354cf46164ba71aef62bd3076793cc68e1006382135982d536914fe7202ee`.
+G04 is complete for this finite opaque-proof product. The inherited proof has no
+age field: availability of the proof/reference remains a fixed environment
+premise, not measured retention, an M07 produced job, real ZK/STF execution or
+complete authenticated history. G05 actual signer composition remains next.

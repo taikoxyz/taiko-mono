@@ -78,10 +78,10 @@ otherwise-valid proof/reference is an explicit fixed environment premise, not
 a measured retention or M07 resource result; do not invent an expiry check and
 then claim it exercised the existing action engine.
 
-- [ ] Demonstrate the old positive-stop cases never queue/attempt a proof, then add minimal selected programs or action enabling needed for the missing composition.
-- [ ] Audit immutable queued input and generation/origin/reference/prefix after recovery; require queue, recovery, attempted-refusal and terminal witnesses so green safety cannot omit the path.
-- [ ] Execute a live-reference missing-generation-binding source fault with the exact independent property failure, original/restored success; disabled queue/attempt must lose its required witness.
-- [ ] Independently review/verify all affected old/new handoff profiles, actual terminal values and preserved old configs. Update finite assessed scope honestly and publish the reviewed increment.
+- [x] Demonstrate the old positive-stop cases never queue/attempt a proof, then add minimal selected programs or action enabling needed for the missing composition.
+- [x] Audit immutable queued input and generation/origin/reference/prefix after recovery; require queue, recovery, attempted-refusal and terminal witnesses so green safety cannot omit the path.
+- [x] Execute a live-reference missing-generation-binding source fault with the exact independent property failure, original/restored success; disabled queue/attempt must lose its required witness.
+- [x] Independently review/verify all affected old/new handoff profiles, actual terminal values and preserved old configs. Update finite assessed scope honestly and publish the reviewed increment. New10/old43, actual shared generation fault, missing-action restoration and six full terminals independently pass; early-support seam fixed and rechecked.
 
 ### Task 5: G05 — actual signer action composition
 

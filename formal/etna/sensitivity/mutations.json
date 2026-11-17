@@ -1173,6 +1173,23 @@
         "name": "RecoveryEnabledAudit"
       },
       "obligation": "FreshPresent must actually execute the required nonzero-origin recovery step; a disabled action is recorded and fails independently enumerated enabledness rather than earning vacuous safety success."
+    },
+    {
+      "id": "handoff-stop-proof-generation",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaSettlement.tla",
+      "replace": {
+        "old": "    /\\ (~CheckProofGeneration \\/ proof.generation = generation)",
+        "new": "    /\\ TRUE \\* Deliberate selected-product generation-binding fault."
+      },
+      "workloads": ["configs/stop-proof-generation-audit-due.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "StopProofGenerationAudit"
+      },
+      "obligation": "Positive due-stop held-candidate/opaque-proof composition: an independently queued generation-zero proof is land-enabled before actual public recovery at nonzero checkpoint1, then its actual enabledness receipt must refuse landing under generation1 while its retained parent reference stays live. Selected abstract proof availability is a fixed premise, not produced-proof, retention-clock or full-product evidence."
     }
   ]
 }

@@ -597,3 +597,13 @@ callbacks, the empty-store shortcut and SPEC's known non1 first-block stop.
 Typed ReplayBlocks errors are distinguished from the exported Handshake's
 string wrapping. These selected API observations leave actual Etna App/EL,
 authenticated history and the documented stop's concrete recovery procedure open.
+
+### G04: positive-stop old-proof handoff
+
+[STOP_PROOF_HANDOFF.md](STOP_PROOF_HANDOFF.md) composes actual public recovery
+with an independently queued opaque proof in all three selected positive-stop
+programs. Actual landing is enabled before recovery and refused afterward; full
+terminal witnesses cover pre-recovery support and knowledge-first ordering.
+Missing queue/attempt lose their required witnesses, and removing the real
+generation binding enables an observed bad landing. Proof/reference availability
+is a fixed premise, separate from produced proofs and measured retention.
