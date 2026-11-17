@@ -11,11 +11,13 @@ udeps_toolchain := "nightly-2026-07-29"
 fmt:
   rustup toolchain install {{fmt_toolchain}} && \
   cargo +{{fmt_toolchain}} fmt && \
+  cargo +{{fmt_toolchain}} fmt --manifest-path tools/etna-el-import/Cargo.toml && \
   cargo sort --workspace --grouped
 
 fmt-check:
   rustup toolchain install {{fmt_toolchain}} && \
-  cargo +{{fmt_toolchain}} fmt --check
+  cargo +{{fmt_toolchain}} fmt --check && \
+  cargo +{{fmt_toolchain}} fmt --manifest-path tools/etna-el-import/Cargo.toml --check
 
 # Two passes: doc lints apply to library code only, while the second pass lints
 # every target (unit/integration tests, test-harness included) so dead test

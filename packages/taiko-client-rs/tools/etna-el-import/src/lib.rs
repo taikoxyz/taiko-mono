@@ -13,7 +13,9 @@ mod state;
 /// Pinned static-file and canonical number/hash index installation.
 mod stores;
 
-pub use dataset::{DatasetReport, install_dataset, install_dataset_with_scratch};
+pub use dataset::{
+    DatasetReport, install_dataset, install_dataset_with_scratch, runtime_genesis_hash,
+};
 pub use headers::{ElTrust, HeaderManifest, VerifiedHeaders};
 pub use state::{ImportError, StateCounts};
 pub use stores::install_headers;

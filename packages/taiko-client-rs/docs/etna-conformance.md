@@ -2,14 +2,16 @@
 
 This record maps the client work in the checkpoint-import update to the Etna
 specification at `d18357214fab30ea512ae9858a11699806d72ba1`. Paths below are
-relative to `packages/taiko-client-rs`. It covers fresh generation-zero networks
-and governance recovery. The pinned execution node is Alethia
-`20a9282a24b14567ebad82c427f8ceeeaf40aab4`; consensus remains unmodified CometBFT
+relative to `packages/taiko-client-rs`. It covers generation-zero networks, including
+nonzero Unzen starts, and governance recovery. The pinned execution node is Alethia
+`efc3c162ad54760a84c561da03f44af9c2adffdd`; consensus remains unmodified CometBFT
 v0.40.0. The lander's dummy proof restricts this implementation to development
 chains.
 
-Unzen switching and public EL snapshot download, export, hosting and distribution
-are outside this update. Local verification of independently acquired complete
+The Unzen driver handoff and nonzero-S lander/import paths are described in
+[the handoff runbook](unzen-etna-handoff.md). Behavioral tests for these additions are deferred;
+the tables below describe the earlier behavioral coverage. Public EL snapshot download, export,
+hosting and distribution are outside this update. Local verification of independently acquired complete
 EL state is included. This record does not certify production resource budgets,
 public archive availability, real proof guests or a deployment.
 

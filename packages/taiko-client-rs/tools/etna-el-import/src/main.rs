@@ -6,7 +6,7 @@ use alloy_primitives::B256;
 use clap::{Args, Parser, Subcommand};
 use etna_el_import::{
     DatasetReport, ElTrust, HeaderManifest, ImportError, install_dataset,
-    install_dataset_with_scratch,
+    install_dataset_with_scratch, runtime_genesis_hash,
 };
 use std::{
     fs::File,
@@ -22,7 +22,7 @@ const JSON_LIMIT: u64 = 256 * 1024 * 1024;
 #[derive(Parser)]
 #[command(version, about)]
 struct Cli {
-    /// One installation from a stopped source into a fresh datadir.
+    /// Read the selected runtime chain identity or install a stopped source into a fresh datadir.
     #[command(subcommand)]
     operation: Operation,
 }
@@ -30,6 +30,8 @@ struct Cli {
 /// A successful install still leaves chain trust and signing to the parent application.
 #[derive(Subcommand)]
 enum Operation {
+    /// Derive the original EL block-zero identity from the operator's runtime configuration.
+    ChainIdentity(ChainInputs),
     /// Copy a stopped EL datadir, verify its state against the trusted root and build a pruned
     /// normal-provider-compatible datadir, without adopting old histories.
     Install(Inputs),
@@ -63,9 +65,40 @@ struct Inputs {
     /// Terminal header state root authenticated by the caller.
     #[arg(long)]
     trusted_state_root: B256,
-    /// Original EL genesis hash from authenticated deployment facts.
+    /// Original EL block-zero hash from the independently selected runtime chain configuration.
+    /// This is not the Inbox's Etna start hash.
     #[arg(long)]
     trusted_genesis_hash: B256,
+}
+
+/// Read-only selection of the operator's runtime chain, independent of imported package metadata.
+#[derive(Args)]
+struct ChainInputs {
+    /// Operator's original EL runtime Genesis JSON.
+    #[arg(long)]
+    chain: PathBuf,
+    /// L2 chain identity already checked by the caller's RPC/configuration binding.
+    #[arg(long)]
+    chain_id: u64,
+}
+
+/// Identity of the original EL runtime chain without any database reads or writes.
+#[derive(serde::Serialize)]
+struct ChainIdentity {
+    /// Runtime chain identifier opened by the pinned helper.
+    chain_id: u64,
+    /// Hash of the pinned runtime's original block-zero header.
+    genesis_hash: B256,
+}
+
+/// Exactly one typed receipt for the selected helper operation.
+#[derive(serde::Serialize)]
+#[serde(untagged)]
+enum Receipt {
+    /// A selected runtime chain's read-only identity.
+    Chain(ChainIdentity),
+    /// The verified stores of a completed installation.
+    Dataset(Box<DatasetReport>),
 }
 
 /// Read bounded JSON without echoing input contents into diagnostics.
@@ -83,9 +116,21 @@ fn load<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, ImportError> {
     serde_json::from_slice(&bytes).map_err(|_| ImportError::Invalid("invalid local JSON input"))
 }
 
-/// Run one complete offline install with independently supplied expected identities.
-fn execute(operation: Operation) -> Result<DatasetReport, ImportError> {
-    let Operation::Install(inputs) = operation;
+/// Read the selected runtime chain identity or install stores against independently supplied roots.
+fn execute(operation: Operation) -> Result<Receipt, ImportError> {
+    let inputs = match operation {
+        Operation::ChainIdentity(inputs) => {
+            let genesis: Genesis = load(&inputs.chain)?;
+            if genesis.config.chain_id != inputs.chain_id {
+                return Err(ImportError::Invalid("runtime genesis uses another chain id"));
+            }
+            return Ok(Receipt::Chain(ChainIdentity {
+                chain_id: inputs.chain_id,
+                genesis_hash: runtime_genesis_hash(&genesis),
+            }));
+        }
+        Operation::Install(inputs) => inputs,
+    };
     let genesis: Genesis = load(&inputs.chain)?;
     let manifest: HeaderManifest = load(&inputs.manifest)?;
     let trust = ElTrust {
@@ -101,6 +146,7 @@ fn execute(operation: Operation) -> Result<DatasetReport, ImportError> {
         }
         None => install_dataset(source, datadir, &genesis, &manifest, &trust),
     }
+    .map(|report| Receipt::Dataset(Box::new(report)))
 }
 
 /// Emit exactly one receipt on success; every failure keeps parent publication closed.

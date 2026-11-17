@@ -37,7 +37,7 @@ pub async fn select_export<L: L1Source + ?Sized>(
     let origin = fixed.origin_height();
     if height < origin ||
         height > abci::schedule::UINT48_MAX ||
-        !height.is_multiple_of(abci::GRID_INTERVAL)
+        !fixed.genesis.is_grid_height(height)
     {
         return Err(candidate("invalid export checkpoint selection"))
     }
@@ -80,7 +80,8 @@ where
     let (origin, origin_hash) = (fixed.origin_height(), fixed.origin_hash());
     if package.origin_header.number != origin ||
         package.origin_header.hash_slow() != origin_hash ||
-        (origin == 0 && package.origin_header.state_root != fixed.genesis.genesis_state_root)
+        (fixed.recovery.is_none() &&
+            package.origin_header.state_root != fixed.genesis.genesis_state_root)
     {
         return Err(candidate("fixed origin execution header mismatch"));
     }
@@ -152,6 +153,13 @@ where
             return Err(candidate("origin import must use fixed-genesis initialization"));
         }
         let headers = execution_prefix(package, origin, origin, params)?;
+        if fixed.recovery.is_none() {
+            let preceding_time = headers.iter().rev().nth(1).map_or(0, |h| h.timestamp);
+            if origin > 0 && preceding_time >= package.origin_header.timestamp {
+                return Err(candidate("fixed origin execution predecessor timestamp mismatch"));
+            }
+            state.parent = parent_info(&package.origin_header, preceding_time)?;
+        }
         return Ok(VerifiedImport {
             state,
             genesis: package.genesis.clone(),
@@ -165,7 +173,8 @@ where
     let val_state =
         authenticate_preimage(&package.validator_state, landing.val_state_hash, landing.height)?;
     let schedule = Schedule::from_genesis(&fixed.genesis);
-    let future = future_epochs(&schedule, origin, landing.height)?;
+    let future =
+        future_epochs(&schedule, origin, fixed.committee.record.target_epoch, landing.height)?;
     let mut expected_committees = BTreeMap::new();
     if future.contains(&fixed.committee.record.target_epoch) {
         expected_committees.insert(fixed.committee.record.target_epoch, fixed.committee.clone());
@@ -462,6 +471,28 @@ async fn own_landing<L: L1Source + ?Sized>(
     let landing = read_landing(l1, params.inbox, &header, selected).await?;
     let origin = fixed.origin_height();
     validate_selected_landing(&landing, snapshot.generation, origin, snapshot.checkpoint_height)?;
+    if selected == origin &&
+        fixed.recovery.is_none() &&
+        (landing.parent_height != origin ||
+            landing.generation != 0 ||
+            landing.forced_cursor != 0 ||
+            landing.el_hash != fixed.origin_hash() ||
+            !landing.comet_hash.is_zero() ||
+            !landing.val_state_hash.is_zero())
+    {
+        return Err(safety("selected initial landing contradicts fixed genesis"));
+    }
+    if selected == fixed.genesis.genesis_height && params.switch.is_some() {
+        let ready =
+            crate::l1::switch_checkpoint_ready(l1, params, &snapshot).await.map_err(|error| {
+                if error.is_retryable() { unavailable(error) } else { safety(error) }
+            })?;
+        if !ready {
+            return Err(unavailable(
+                "waiting for Unzen's terminal proof and SignalService checkpoint at S",
+            ));
+        }
+    }
     if selected > origin && selected < snapshot.checkpoint_height {
         verify_settled_suffix(l1, &snapshot, &landing, origin).await?;
     }
@@ -519,7 +550,7 @@ async fn verify_settled_suffix<L: L1Source + ?Sized>(
     let mut child = snapshot.checkpoint_height;
     let mut parent = word_u48(packed, 0);
     loop {
-        if parent >= child || parent < origin || !parent.is_multiple_of(abci::GRID_INTERVAL) {
+        if parent >= child || parent < origin || !snapshot.genesis.is_grid_height(parent) {
             return Err(safety("own finalized landing has an invalid parent-height link"));
         }
         match parent.cmp(&selected.height) {
@@ -634,11 +665,16 @@ fn verify_boundary(
 }
 
 /// Signing epochs at s+1 and s+2, retaining duplicates for direct preimage-set comparison.
-fn future_epochs(schedule: &Schedule, origin: u64, height: u64) -> Result<[u64; 2], ImportError> {
+fn future_epochs(
+    schedule: &Schedule,
+    origin: u64,
+    initial_epoch: u64,
+    height: u64,
+) -> Result<[u64; 2], ImportError> {
     let get = |delta| {
         height
             .checked_add(delta)
-            .and_then(|h| schedule.active_committee_epoch(h, origin))
+            .and_then(|h| schedule.active_committee_epoch_with_initial(h, origin, initial_epoch))
             .ok_or_else(|| candidate("future committee height overflow"))
     };
     Ok([get(1)?, get(2)?])

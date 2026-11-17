@@ -114,6 +114,12 @@ fn runtime_spec(genesis: &Genesis) -> TaikoChainSpec {
     parsed.clone_with_devnet_etna_timestamp(0).unwrap_or(parsed)
 }
 
+/// Original block-zero identity derived from the operator-selected runtime chain configuration.
+/// This is distinct from the Inbox's Etna start hash when Etna starts above block zero.
+pub fn runtime_genesis_hash(genesis: &Genesis) -> B256 {
+    runtime_spec(genesis).genesis_hash()
+}
+
 /// Construct an immutable receipt only from verified local results and trusted expectations.
 fn report(state: StateCounts, headers: &VerifiedHeaders<'_>, trust: &ElTrust) -> DatasetReport {
     DatasetReport {

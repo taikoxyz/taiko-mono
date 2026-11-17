@@ -1,6 +1,6 @@
-//! The two install helpers. Each runs once, inherits the root lock, writes only its fresh store
-//! under the stage and reports on stdout what it installed; that receipt is compared with the
-//! authenticated checkpoint before anything is published.
+//! The two install helpers. Each install runs once, inherits the root lock, writes only its fresh
+//! store under the stage and reports what it installed. The EL helper also derives the operator's
+//! chain identity without opening stores; every receipt is checked before publication.
 use super::*;
 use alloy_consensus::Header;
 use serde::{Deserialize, Serialize};
@@ -183,6 +183,41 @@ fn check_el(stdout: &[u8], expected: &ElIdentity) -> R<()> {
     Ok(())
 }
 
+/// Original EL identity derived from the operator-selected runtime chainspec, never a package.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ChainIdentity {
+    /// Runtime chain identifier opened by the pinned helper.
+    chain_id: u64,
+    /// Original EL block-zero hash, distinct from the Inbox's Etna start hash.
+    genesis_hash: B256,
+}
+
+/// Ask the pinned helper for the identity of the operator's original EL runtime configuration.
+/// The subsequent install checks that same configuration against this independently selected
+/// identity, preserving full receipt comparison when Etna's origin is above block zero.
+async fn chain_identity(lock: &File, inputs: &Inputs, chain_id: u64) -> R<B256> {
+    let mut command = helper_command(lock, &inputs.el_helper);
+    command
+        .arg("chain-identity")
+        .arg("--chain")
+        .arg(&inputs.el_chain)
+        .arg("--chain-id")
+        .arg(chain_id.to_string());
+    let output = run(command, "etna-el-import chain-identity").await?;
+    match output.status.code() {
+        Some(0) => {}
+        Some(1) => return Err(bad("etna-el-import rejected the runtime chain; see its stderr")),
+        _ => return Err(unavailable("etna-el-import could not read the runtime chain identity")),
+    }
+    let identity: ChainIdentity = serde_json::from_slice(&output.stdout)
+        .map_err(|_| unavailable("invalid etna-el-import chain identity"))?;
+    if identity.chain_id != chain_id || identity.genesis_hash.is_zero() {
+        return Err(unavailable("etna-el-import runtime chain identity differs"));
+    }
+    Ok(identity.genesis_hash)
+}
+
 /// Install the EL store once from the stopped `--el-source` into the absent `stage/ready/el`,
 /// with every authenticated header from the header floor through s (DATA-5.4-4). Exit 1 rejects
 /// the dataset or manifest as a candidate; any other failure is unavailable.
@@ -203,7 +238,7 @@ pub(super) async fn el_install(
     let terminal = manifest.headers.last().ok_or_else(|| bad("missing terminal header"))?;
     let expected = ElIdentity {
         chain_id: params.l2_chain_id,
-        genesis_hash: v.state().genesis.genesis_hash,
+        genesis_hash: chain_identity(lock, inputs, params.l2_chain_id).await?,
         height: v.landing().height,
         block_hash: v.landing().el_hash,
         state_root: terminal.state_root,
@@ -238,7 +273,7 @@ pub(super) async fn el_install(
         .arg("--trusted-state-root")
         .arg(terminal.state_root.to_string())
         .arg("--trusted-genesis-hash")
-        .arg(v.state().genesis.genesis_hash.to_string());
+        .arg(expected.genesis_hash.to_string());
     let output = run(command, "etna-el-import").await?;
     match output.status.code() {
         Some(0) => check_el(&output.stdout, &expected),

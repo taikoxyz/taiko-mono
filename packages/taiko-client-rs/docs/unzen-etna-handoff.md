@@ -2,8 +2,8 @@
 
 The restored `driver` command synchronizes existing Unzen history. `etna-handoff` uses that
 complete driver until the finalized L1 view closes Unzen proposals, then serves Etna ABCI on
-the same EL. This revision covers driver/bootstrap handoff; the lander's nonzero-S path,
-real proving integration and switch deployment are separate work.
+the same EL. The standalone lander supports the same nonzero start. Real proving integration
+and switch deployment remain separate work.
 
 ## Required deployment inputs
 
@@ -65,6 +65,28 @@ Start the existing guarded signer/Comet configuration with that fixed genesis af
 The ABCI server is exposed only after the driver has drained. The command holds the Engine
 lease throughout both stages. Unzen tail proving may continue independently using retained
 history and blobs. No signing state is reset by this command.
+
+## First landing
+
+Run the lander with the same switching chain configuration and public L1/L2 endpoints. Its
+landing endpoints are S+nK, where K is GRID_INTERVAL; global epoch boundaries remain unchanged.
+The initial validators are committee 0 until an actual post-S switch takes effect.
+
+While the Inbox checkpoint is S, the lander waits for every accepted Unzen proposal to finalize,
+checks that Unzen's terminal hash equals ELHash(S), and checks the SignalService checkpoint at S
+against that hash and the recorded state root. It reads these facts at one canonical L1 snapshot
+after fork-cutoff and start-block finality. Pending nonce and receipt reconciliation continues
+independently of this gate.
+
+The first proof request retains and host-verifies an EIP-1186 proof of the Anchor proxy's
+EIP-1967 implementation slot under S's state root. Keep S's state available until the first
+landing. The included DummyProofProvider remains suitable only for development deployments;
+a real backend must verify this witness as well as the remaining private inputs.
+
+Lander journal schema 17 includes this witness. Older journals are refused, never rewritten.
+Resolve outstanding signed jobs with their compatible lander before upgrading. Nonzero-S
+[checkpoint import/export](checkpoint-import.md) preserves the fixed Comet genesis and uses the
+original EL block-zero chainspec independently of the Etna start hash at S.
 
 ## Restart behavior
 
