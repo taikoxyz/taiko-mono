@@ -117,6 +117,6 @@ found and repaired host metadata/artifact link handling; the repaired version,
 rather than an earlier adapter, has the complete hosted evidence. G02 is also complete for its selected disk/process boundary, with independent
 source/behavior verification and12 read-only DB reopens. G03 is complete for its selected stock handshake matrix while C02 keeps actual
 App/EL and known-stop handling open. G04 is complete for its selected positive-stop/old-proof product after independent
-source/behavior review. G05 is complete for its selected actual-action composition after independent source and raw behavioral verification. All five increments are implemented; the complete accumulated batch gate and final review remain pending. The29-row master index also
+source/behavior review. G05 is complete for its selected actual-action composition after independent source and raw behavioral verification. All five increments and their independent accumulated gates are complete. The [final retrospective](REPORT.md#coverage-closure-batch--final-gate-and-retrospective) records387 exact outcomes,68 assessed faults,227 ordinary Python tests,5 separate controller tests, both actual native scenarios and hosted387/227 evidence. Stop after five; hourly checks remain feedback-only. The29-row master index also
 includes the final reviewed launch/operations and concrete supervisor/WAL gaps;
 its completed selected CI row does not close any full protocol module.

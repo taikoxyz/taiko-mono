@@ -2718,3 +2718,150 @@ establish concrete L1/session authentication, FilePV/key/crypto behavior, node/
 WAL/power loss, exhaustive interleavings, real proving/STF or full liveness.
 Proof/reference availability remains G04's fixed premise. All five authorized
 increments are implemented; final accumulated verification/review remain pending.
+
+## Coverage-closure batch — final gate and retrospective
+
+All five authorized increments G01–G05 are complete. Stop here; no sixth
+increment starts. The existing PR remains draft. No independently supported
+protocol/SPEC/production defect was established on the pinned revisions, and no
+production, normative SPEC or Notion source was changed.
+
+| Increment | Established selected evidence                                                                                                                  | Principal remaining boundary                                                                                    |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| G01       | Draft-enabled exact TLC/Python CI, actual hosted execution, owned-resource cleanup and complete artifact readback                              | Native/contract/proving acceptance remains separate                                                             |
+| G02       | Actual GoLevelDB completed-write ACK, owned SIGKILL, different-process same-directory reopen, full literal rows and intended whole-write fault | Power loss and actual multi-store importer/App/EL not exercised                                                 |
+| G03       | Actual stock15-branch handshake matrix, exact AppHash-guard fault, empty-store shortcut and documented first-block stop                        | Mock ABCI; real application/history admission and known-stop handler remain open                                |
+| G04       | Three positive-stop programs with actual queued/attempted old proof, six full terminals and observed bad landing on generation omission        | Opaque proof/reference availability is fixed; no producer/retention/real proof claim                            |
+| G05       | Actual signer actions in three prework profiles,96 raw receipts, crash/restart/fresh progress and two observed bad-exposure faults             | Authenticated inputs, two abstract HRS ranks and selected scripts; no native signer or exhaustive interleavings |
+
+### Stable accumulated execution
+
+The immutable candidate snapshot was formed from ef65f26a6 plus the exact12
+reviewed G05 semantic files. Every model, config, runner, native input and catalog
+byte matches implementation head43fe46187fdf0eb5791ac75f840b1a15a49b2e56; the
+snapshot's older README/REPORT/WORKLIST prose is explicitly excluded from claims
+about closing documentation. All655 snapshot file hashes remained stable.
+
+The actual Docker gate passes387/387 exact outcomes:79 normal searches exhaust
+with empty queues and308 controls/witnesses violate only their declared
+invariants. All current config/model hashes match raw logs/results. Mandatory
+Python discovery/execution passes227 tests (57 gate/container,150 conformance,
+20 sensitivity), with zero skips/errors/failures. The separate host-controller
+lane passes all five real lifecycle tests. Rule checks verify640 live markers,
+index/assets/links; migration purity is explicitly skipped without a base.
+Docker reconciliation and quiescent no-follow output checking pass.
+
+Actual hosted [run44030752309](https://github.com/taikoxyz/taiko-mono/actions/runs/44030752309)
+at exact implementation head43fe46187 also passes every job step, the same387
+outcomes/227 Python tests, resource reconciliation, quiescent output check and
+both artifact uploads. Both API artifact digests bind the exact run/head. The
+complete399-file raw archive and separate two-file private diagnostics have been
+read back, with config/model hashes and every named outcome checked. Raw archive
+SHA-256 is
+`913679a53b43c55f16f8c22ce448734eed08171c48b160f0d40c20acc0c814bf`.
+The closing documentation head triggers its own CI; implementation-head success
+is not mislabeled as that later execution.
+
+All68 assessed obligations run freshly in the required63 TLC/3 Forge identity/
+2 Forge rules partitions. Every intended mutation is KILLED with successful
+original and actual same-copy restored execution:243 raw phase logs in total.
+The four aggregate unassessed categories remain unchanged and outside this
+passing denominator. Temporary shared phase trees were deleted by the engine;
+raw logs, hashes, reconstructed sole replacements and recorded restoration are
+verified, without claiming a posthoc filesystem walk of deleted trees.
+
+Current frozen-byte native persistence and handshake campaigns also rerun.
+Original/restored phases pass8 and15 leaves respectively; the whole Bootstrap
+write omission gives exactly four intended failures, and the AppHash guard
+omission exactly two. Full1659-file pinned source maps, retained original/
+restored copies, generated fixtures and tool hashes verify. Native execution is
+offline and uses the existing canonical cache/lock. It does not imply signed
+history, consensus startup, real EL durability or physical power-loss testing.
+
+Independent complete-batch source review and independent raw-artifact audit
+are READY for the selected diagnostic draft, with no material finding. Source report SHA-256: 408e160e5f43b98b0881af187cfe781db1a5b059838a0d03140c2e110df63ae0.
+Raw-artifact report SHA-256: 83de53cc542283e80b02aa97e881e54bcce16a40e94f6888f46a37db979c234b. Per-task gates and final gates
+are separate evidence. The closing commit changes reporting/checklist prose
+only; executed semantic inputs remain identical to the reviewed implementation.
+
+### What self-checking missed and what changed
+
+The previous green scopes could not establish the omitted paths. This batch
+found missing acceptance obligations in the work index, false-green empty or
+skipped test handling and ordering assumptions in the new gate, hosted isolation
+incompatibility, and unsafe parent-output/artifact link handling. All confirmed
+in-scope defects were repaired and independently rechecked. The G04 wrapper
+initially blocked legitimate pre-recovery support; the corrected seam has exact
+raw support-first terminals. Setup/parser/receipt defects were corrected before
+counting semantic outcomes. These are verification/tool/abstraction defects,
+not new production protocol findings.
+
+The improvement is to require independently observed raw writes/actions, complete
+positive terminals, actual missing-action controls and exact real-source faults,
+then audit original/restored bytes. An assertion sharing its acceptance data or
+a safe no-progress run can still be green while omitting the important path.
+Counts and independent review reduce those blind spots; they do not exhaust
+unmodeled behavior or validate implementation interfaces that do not yet exist.
+
+### Remaining work and decisions
+
+[WORKLIST.md](WORKLIST.md) retains29 obligations and10 required composition
+families. V02 and the selected C03/U01/U02 scopes are complete; wider C01/C02,
+weighted consensus/committee derivation, changing authenticated targets, actual
+multi-store import, shared encoding/key vectors, zk-gas semantics, real proving/
+DA, runtime budgets and funded launch/operations remain OPEN or WAITING with
+explicit acceptance. The19 incomplete historical profiles map to their missing
+properties, not a fabricated requirement to rerun obsolete model versions.
+M01–M12 parent checkboxes stay partial until their broader acceptance is met.
+
+Root decisions made during this batch, with the cost if wrong:
+
+- Use the Git worklist as the current index and preserve the older issue body as
+  history; old local/unpushed counts must not be mistaken for current status.
+- Choose these five bounded available checks while real App/EL/importer/proving
+  dependencies remain WAITING; a green batch cannot close whole modules.
+- Compose actual EtnaSignerCrash rather than repeat only local trust booleans;
+  concrete L1/session certificate authentication remains unverified.
+- Keep pre-fix host-adapter evidence attributed to its own bytes after pre-mount/
+  output repairs, and require the final hosted full run/artifact audit before G02;
+  otherwise old execution could be mislabeled as new runtime verification. That
+  required final hosted gate passed at9798a68fa.
+- Rebut the speculative Go finalizer concern from exact pinned LevelDB receiver/
+  goroutine lifetime rather than add KeepAlive without evidence. If that source
+  judgment were wrong, an automatic Close could weaken the abrupt-death claim;
+  the independent source reviewer checked and agreed with the lifetime evidence.
+
+The hosted Docker backend is the documented response to actual uid_map refusal;
+no global policy change, privileged fallback or unsandboxed execution was used.
+Authentication and proof availability remain stated premises. Historical issue
+content, raw evidence, plan workspace and linked worktree are preserved while
+PR22387 stays open. The hourly monitor returns to feedback-only mode; another
+batch requires direct user authorization.
+
+### Root disposition of final-review boundaries
+
+The final source reviewer reported no material finding and listed16 considered
+extensions. Root checked each against the accepted task and actual evidence:
+
+| Review item                                           | Root disposition and consequence                                                                                |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 1 production importer/App/EL/real prover              | Keep WAITING dependencies; no concrete recovery/proof acceptance claim.                                         |
+| 2 power loss or WriteSync-to-Write                    | Keep actual process-death/whole-write control; OS page cache survival does not establish power-loss durability. |
+| 3 complete real handshake replay/history              | Keep selected stock API observations; complete replay and signed-history admission remain open.                 |
+| 4 empty-store/error typing/non1 stop repair           | Preserve observed upstream behavior and documented stop; concrete handler remains C02 work.                     |
+| 5 stock Ed25519/parameter fixtures                    | Keep stock-only attribution; exact Etna encodings/signatures/resources remain E01/L01.                          |
+| 6 proof age/producer attribution                      | Keep fixed opaque proof/reference premise; no M07 or real-proof result.                                         |
+| 7 forced Due signer acceptance                        | Use genuinely accepted Future prework; Due/OffGrid remain separately checked G04 paths.                         |
+| 8 concrete L1/FilePV or alternate L1Trust             | Keep actual SignerCrash deliverable and explicit authentication premise; T01/C01 remain open.                   |
+| 9 wider/unbounded/fairness/nil-vote products          | Keep finite bounds; these green scripts do not establish wider coverage.                                        |
+| 10 omission controls as safety kills                  | Preserve reachability-loss classification and assessed denominator.                                             |
+| 11 mock tests as native/hosted evidence               | Keep actual lanes separate; final runtime claims come from fresh raw executions and archives.                   |
+| 12 golden fixture as sufficient/automatically invalid | Retain independent native branch/state/row oracles; hashes alone are insufficient.                              |
+| 13 arbitrary host/daemon-loss cleanup                 | Keep owned-resource reconciliation/fail-closed publication; host-loss guarantees remain unproved.               |
+| 14 unknown future Go output                           | Keep strict pinned event contract; a changed SDK needs revalidation.                                            |
+| 15 cache/tool provenance as refinement                | Keep bounded provenance claim; no runtime-equivalence certification.                                            |
+| 16 cosmetic collector/fixture rewrite                 | Leave unchanged without a demonstrated defect; retain current reviewed behavior and avoid unrelated scope.      |
+
+These affirm existing explicit bounds rather than park a correctness finding.
+If a later implementation relies on any excluded behavior, its owning worklist
+obligation must be executed before these results can be reused for that claim.

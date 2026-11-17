@@ -619,4 +619,16 @@ durable floor or crash HRS preservation produces the corresponding bad exposure.
 Independent source review and actual-model/raw-receipt verification pass. This
 is a bounded composition with explicit authenticated trust inputs; concrete
 signer/FilePV/authentication and wider interleavings remain open. The five
-increments are implemented; accumulated verification and final review are next.
+increments and independent accumulated gates are complete; see the final retrospective below.
+
+### G01–G05: accumulated gate complete
+
+The [final retrospective](REPORT.md#coverage-closure-batch--final-gate-and-retrospective)
+records387 exact outcomes (79 normal/308 named),68 assessed source-fault
+obligations,227 ordinary Python tests and five separate controller tests, plus
+current-byte actual persistence/handshake campaigns. Independent complete-batch
+source and raw-evidence audits pass. Actual hosted run44030752309 at43fe46187
+passes the same387/227 gate; complete399-file raw and two-file private archives
+were checksum-verified and independently read back. The29-row worklist retains
+broader runtime dependencies and19 archived-search obligations. Stop after five;
+PR22387 remains draft and hourly feedback checks continue.
