@@ -6,7 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-PROTOCOL_DIR="$(cd "${PROTOCOL_DIR:-$SCRIPT_DIR/../../protocol}" && pwd)"
+PROTOCOL_DIR="$(cd "${PROTOCOL_DIR:-$SCRIPT_DIR/../../protocol}" && pwd -P)"
 PROTOCOL_CHECKOUT="$(git -C "$PROTOCOL_DIR" rev-parse --show-toplevel)"
 PINNED_REVISION="$(sed -n 's/^PINNED_REVISION=//p' "$SCRIPT_DIR/gen_lander_artifacts.sh")"
 if [[ "$(git -C "$PROTOCOL_CHECKOUT" rev-parse HEAD)" != "$PINNED_REVISION" ]]; then
@@ -25,13 +25,13 @@ ALLOY_VERSION="$(python3 -c 'import sys,tomllib; print(tomllib.load(open(sys.arg
 CRATE_VERSION="$(python3 -c 'import sys,tomllib; print(tomllib.load(open(sys.argv[1],"rb"))["workspace"]["package"]["version"])' "$CLIENT_DIR/Cargo.toml")"
 
 # Collect selected production artifacts from both fork profiles into one clean output.
-FOUNDRY_PROFILE=layer1 forge build --root "$PROTOCOL_DIR" \
+(cd "$PROTOCOL_DIR" && FOUNDRY_PROFILE=layer1 forge build \
     --out "$BUILD_DIR/artifacts" --cache-path "$BUILD_DIR/cache/layer1" \
-    "$PROTOCOL_DIR/contracts/layer1/core/impl/Inbox.sol" \
-    "$PROTOCOL_DIR/contracts/layer1/preconf/impl/PreconfWhitelist.sol"
-FOUNDRY_PROFILE=layer2 forge build --root "$PROTOCOL_DIR" \
+    contracts/layer1/core/impl/Inbox.sol \
+    contracts/layer1/preconf/impl/PreconfWhitelist.sol)
+(cd "$PROTOCOL_DIR" && FOUNDRY_PROFILE=layer2 forge build \
     --out "$BUILD_DIR/artifacts" --cache-path "$BUILD_DIR/cache/layer2" \
-    "$PROTOCOL_DIR/contracts/layer2/core/Anchor.sol"
+    contracts/layer2/core/Anchor.sol)
 forge bind --root "$PROTOCOL_DIR" --out "$BUILD_DIR/artifacts" --skip-build \
     --select '^Inbox$' --select '^Anchor$' --select '^PreconfWhitelist$' \
     --bindings-path "$BUILD_DIR/bindings" --crate-name bindings \
@@ -75,6 +75,8 @@ manifest = {
 for name in ["Anchor", "Inbox", "PreconfWhitelist"]:
     artifact = json.loads((build / "artifacts" / (name + ".sol") / (name + ".json")).read_text())
     metadata = json.loads(artifact["rawMetadata"])
+    if any(pathlib.Path(source).is_absolute() or ".." in pathlib.Path(source).parts for source in metadata["sources"]):
+        raise SystemExit("nonportable source path in " + name)
     if metadata["compiler"]["version"] != "0.8.30+commit.73712a01" or metadata["settings"]["evmVersion"] != "osaka":
         raise SystemExit("unexpected compiler or fork for " + name)
     abi = json.dumps(artifact["abi"], sort_keys=True, separators=(",", ":")).encode()
