@@ -101,7 +101,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev The maximum `n_max`, the registry's capacity.
     uint256 private constant _MAX_COMMITTEE_SIZE = 4096;
 
-    /// @dev The maximum `U`, the largest multiple of 6 below 2^16 (spec 10).
+    /// @dev The maximum `U`, the largest multiple of K below 2^16 (spec 10).
     uint256 private constant _MAX_UNSETTLED_LIMIT = 65_532;
 
     /// @dev The maximum `maxBatchBlocks` (spec 11). L2 height never exceeds c + U (spec 6.4), so a
@@ -241,7 +241,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @notice Sets the implementation's immutable parameters.
     /// @param _config The configuration: non-zero addresses and L2 chain id, `maxBatchBlocks` in
-    /// [6, 65,532], non-zero forced inclusion fee parameters, and either no switching parameters
+    /// [K, 65,532], non-zero forced inclusion fee parameters, and either no switching parameters
     /// (a new network) or all three with an Unzen Inbox that has code (a switching network).
     constructor(Config memory _config) {
         bool switching = _config.unzenInbox != address(0);
@@ -331,7 +331,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     {
         _checkRegistryUnlocked();
         require(_initStatus == INITIALIZED_STATUS, NotInitialized());
-        require(_genesis.genesisBlockHash == 0, StartAlreadyWritten());
+        require(_genesis.startBlockHash == 0, StartAlreadyWritten());
         require(block.timestamp >= etnaForkTime, BeforeEtnaForkTime());
         require(
             _height != 0 && _height < _HEIGHT_LIMIT && _blockHash != 0 && _stateRoot != 0,
@@ -389,14 +389,15 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// a failed refund reverts the whole submission.
     function saveForcedInclusion(bytes calldata _tx) external payable nonReentrant {
         _checkRegistryUnlocked();
-        require(_genesis.genesisBlockHash != 0, StartNotWritten());
+        require(_genesis.startBlockHash != 0, StartNotWritten());
         require(_tx.length <= MAX_FORCED_TX_BYTES, ForcedTransactionTooLarge());
 
-        uint256 feeWei = uint256(
-            _forcedInclusions.currentFee(
-                forcedInclusionFeeInGwei, forcedInclusionFeeDoubleThreshold
-            )
-        ) * 1 gwei;
+        uint256 feeWei =
+            uint256(
+                    _forcedInclusions.currentFee(
+                        forcedInclusionFeeInGwei, forcedInclusionFeeDoubleThreshold
+                    )
+                ) * 1 gwei;
         require(msg.value >= feeWei, InsufficientFee());
 
         uint48 index = _forcedInclusions.tail;
@@ -558,7 +559,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @inheritdoc IEtnaInbox
     function etnaStart() external view returns (uint48 height_, bytes32 blockHash_) {
-        return (_genesis.genesisHeight, _genesis.genesisBlockHash);
+        return (_genesis.genesisHeight, _genesis.startBlockHash);
     }
 
     /// @inheritdoc IEtnaInbox
@@ -603,13 +604,13 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @inheritdoc IEtnaInbox
     function generationStartHeight() external view returns (uint256) {
-        require(_genesis.genesisBlockHash != 0, StartNotWritten());
+        require(_genesis.startBlockHash != 0, StartNotWritten());
         return _origins[_recoveryGeneration].startHeight;
     }
 
     /// @inheritdoc IEtnaInbox
     function recoverySnapshot() external view returns (uint256) {
-        require(_genesis.genesisBlockHash != 0, StartNotWritten());
+        require(_genesis.startBlockHash != 0, StartNotWritten());
         return _origins[_recoveryGeneration].l1BlockNumber;
     }
 
@@ -738,12 +739,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         // Reverts if the SignalService has no checkpoint at S.
         ICheckpointStore.Checkpoint memory checkpoint = _signalService.getCheckpoint(uint48(_s));
         require(
-            checkpoint.blockHash == _startHash && checkpoint.stateRoot == _genesis.genesisStateRoot,
+            checkpoint.blockHash == _startHash && checkpoint.stateRoot == _genesis.startStateRoot,
             StartCheckpointMismatch()
         );
     }
 
-    /// @dev Spec 6.1 steps 3 and 4: exactly the (h - p) / 6 - 1 grid-point leaves, c's recorded
+    /// @dev Spec 6.1 steps 3 and 4: exactly the (h - p) / K - 1 grid-point leaves, c's recorded
     /// queue head equal to the queue head, the leaf at c equal to cutLeaf(c) over c's record if
     /// c > p, and a new queue head in [head, tail] at most h - c past the head.
     /// @param _input The landing inputs.
@@ -795,8 +796,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             genesisHeight: s,
             l1Block: uint48(block.number),
             epochLenL2: _genesis.epochLenL2,
-            genesisBlockHash: _blockHash,
-            genesisStateRoot: _stateRoot
+            startBlockHash: _blockHash,
+            startStateRoot: _stateRoot
         });
         _origins[0] = Origin({
             startHeight: _height, l1BlockNumber: block.number, l1Timestamp: block.timestamp
@@ -834,7 +835,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         returns (uint48 c_, uint48 newGeneration_)
     {
         require(_initStatus == INITIALIZED_STATUS, NotInitialized());
-        require(_genesis.genesisBlockHash != 0, StartNotWritten());
+        require(_genesis.startBlockHash != 0, StartNotWritten());
         uint48 generation = _recoveryGeneration;
         require(_expectedGeneration == generation, GenerationMismatch());
         c_ = _lastCheckpoint.height;
@@ -1084,7 +1085,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @dev Returns whether the committee configuration is within the spec 10 bounds:
-    /// 6 <= U <= 65,532 with U a multiple of 6, vp_unit >= 867,361,738, s_min >= vp_unit and
+    /// K <= U <= 65,532 with U a multiple of K, vp_unit >= 867,361,738, s_min >= vp_unit and
     /// 1 <= n_max <= 4096.
     /// @param _config The committee configuration.
     /// @return Whether the configuration is valid.

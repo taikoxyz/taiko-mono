@@ -11,10 +11,10 @@ import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaInboxBootstrap } from "src/layer1/etna/impl/EtnaInboxBootstrap.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { LibL2HoodiAddrs } from "src/layer2/hoodi/LibL2HoodiAddrs.sol";
 import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
 /// @title DeployEtnaDevnetTest
@@ -300,9 +300,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
             0x1670010000000000000000000000000000000005,
             "167001"
         );
-        assertEq(
-            _deployment.l2SignalServiceAddress(167_000), LibL2Addrs.SIGNAL_SERVICE, "mainnet"
-        );
+        assertEq(_deployment.l2SignalServiceAddress(167_000), LibL2Addrs.SIGNAL_SERVICE, "mainnet");
         assertEq(
             _deployment.l2SignalServiceAddress(167_013),
             LibL2HoodiAddrs.HOODI_SIGNAL_SERVICE,
@@ -445,7 +443,14 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     }
 
     /// @dev Checks the Inbox implementation's immutables against the environment.
-    function _assertImmutables(EtnaInbox _inbox, address _signals, address _registry) private view {
+    function _assertImmutables(
+        EtnaInbox _inbox,
+        address _signals,
+        address _registry
+    )
+        private
+        view
+    {
         assertEq(_inbox.proofVerifier(), address(landVerifier), "proof verifier");
         assertEq(_inbox.signalService(), _signals, "SignalService");
         assertEq(_inbox.stakingRegistry(), _registry, "registry");
@@ -478,8 +483,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(record.genesisHeight, 0, "the start is block 0");
         assertEq(record.l1Block, block.number, "L1_0");
         assertEq(record.epochLenL2, EPOCH_LEN_L2, "epoch length");
-        assertEq(record.genesisBlockHash, GENESIS_BLOCK_HASH, "genesis hash");
-        assertEq(record.genesisStateRoot, GENESIS_STATE_ROOT, "genesis state root");
+        assertEq(record.startBlockHash, GENESIS_BLOCK_HASH, "genesis hash");
+        assertEq(record.startStateRoot, GENESIS_STATE_ROOT, "genesis state root");
         assertEq(_inbox.genesisCutoff(), _cutoff, "genesis cutoff");
         assertEq(_inbox.activeCommitteeSnapshot(), _cutoff, "snapshot starts at the cutoff");
         assertEq(_inbox.genesisCommitteeRecordHash(), COMMITTEE_RECORD_HASH, "committee 0");
@@ -497,7 +502,13 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
 
     /// @dev Carol lands (0, 6] with no cut leaves and one blob; the mock verifier must receive the
     /// appendix A statement rebuilt from the environment.
-    function _landBlockSix(EtnaInbox _inbox, SignalService _signals, uint256 _cutoff) private {
+    function _landBlockSix(
+        EtnaInbox _inbox,
+        SignalService _signals,
+        uint256 _cutoff
+    )
+        private
+    {
         IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
             parentHeight: 0,
             lastHeight: 6,
