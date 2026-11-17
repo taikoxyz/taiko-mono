@@ -774,12 +774,18 @@ async fn governance_recovery_reconciles_old_pending_nonce_after_receipt_reorg() 
         assert_eq!(before["state"]["transaction"], pending);
         let plan = commands.prepare_command(1).await?;
         let installed = commands.install_command(&plan, "old-pending-reorg").await?;
+        // Hold the automatically rebroadcast transaction pending until its immutable bytes are
+        // checked and the recovered processes stop. The old-statement guard stays installed.
+        set_interval_mining(p, 0).await?;
+        test_harness::anvil_request::<Value>(p, "evm_setAutomine", json!([false])).await?;
         let mut node = commands.start_recovered(&installed, "old-pending-reorg").await?;
         tokio::time::timeout(std::time::Duration::from_secs(30), async {
             loop {
                 node.running()?;
-                if node.output().contains("outstanding nonce unresolved after competing checkpoint")
-                {
+                if node.output().lines().any(|line| {
+                    line.contains("broadcast persisted blob transaction") &&
+                        line.contains(&old_hash.to_string())
+                }) {
                     return Ok::<_, anyhow::Error>(());
                 }
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -793,11 +799,24 @@ async fn governance_recovery_reconciles_old_pending_nonce_after_receipt_reorg() 
             p.get_transaction_count(test_harness::dev_signer().address()).await?,
             pending["nonce"].as_u64().unwrap()
         );
-        // Recovery deliberately does not rebroadcast an obsolete generation automatically.
-        // Explicit operator reconciliation sends the exact already-signed envelope, without
-        // replacing fees, signing again, allocating another nonce, or editing its journal.
         let immutable: lander::tx::SignedTransaction = serde_json::from_value(pending.clone())?;
-        assert_eq!(*p.send_raw_transaction(&immutable.network_bytes).await?.tx_hash(), old_hash);
+        assert_eq!(immutable.hash, old_hash);
+        assert!(p.get_transaction_by_hash(old_hash).await?.is_some());
+        assert!(p.get_transaction_receipt(old_hash).await?.is_none());
+        assert_eq!(
+            p.get_transaction_count(test_harness::dev_signer().address()).pending().await?,
+            immutable.nonce + 1,
+            "only the original nonce is outstanding"
+        );
+        wait_committed(&c.cmt, 1, &mut node).await?;
+        node.stop().await?;
+        let stopped: Value =
+            serde_json::from_slice(&fs::read(commands.journal.join("lander-state.json"))?)?;
+        assert_eq!(stopped["state"]["phase"], "pending");
+        assert_eq!(stopped["state"]["transaction"], pending);
+        // Mine the lander's automatic exact-byte rebroadcast, with no operator send or
+        // replacement. Keep the processes stopped so a new g1 proof cannot race the guard.
+        mine_l1_blocks(p, 1).await?;
         let reconciled = contracts_support::contracts::receipt(p, old_hash).await?;
         assert!(
             !reconciled.status(),
@@ -817,9 +836,26 @@ async fn governance_recovery_reconciles_old_pending_nonce_after_receipt_reorg() 
             reconciled.block_hash.unwrap()
         );
         assert_eq!(f.checkpoint().await?.0, 0);
-        // Resume the explicit dummy profile for the new, normal generation-one CLI proof.
+        assert_eq!(
+            p.get_transaction_count(test_harness::dev_signer().address()).await?,
+            immutable.nonce + 1,
+            "the canonical revert spends exactly the old nonce"
+        );
+        // Resume the explicit dummy profile before restarting the recovered processes. Their
+        // Pending journal must settle the old receipt before signing a fresh generation-one job.
+        test_harness::anvil_request::<Value>(p, "evm_setAutomine", json!([true])).await?;
+        set_interval_mining(p, 1).await?;
         f.expect_statement(alloy_primitives::B256::ZERO).await?;
+        let mut node = commands.start_recovered(&installed, "old-pending-reconciled").await?;
         wait_checkpoint(&f, &mut node, 6).await?;
+        assert!(
+            node.output().lines().any(|line| {
+                line.contains("canonical transaction settled") &&
+                    line.contains(&old_hash.to_string()) &&
+                    line.contains("success=false")
+            }),
+            "the old nonce is reconciled before the new generation lands"
+        );
         mine_l1_blocks(p, 3).await?;
         use lander::l1::LandingSource;
         let landed =

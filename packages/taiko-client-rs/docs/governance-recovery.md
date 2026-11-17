@@ -174,13 +174,17 @@ The app runs InitChain at c+1, and its checkpoint trust is the ordinary section 
 
 The lander preserves each old job's proof, blobs, account nonce and signed network bytes.
 Never-broadcast obsolete work can finish; possibly broadcast work must reconcile canonical
-receipt/account nonce first. A reorged receipt with an unchanged account nonce can leave the
-old pending job **Waiting**, while consensus continues. The runner does not automatically
-rebroadcast/replace obsolete work or allocate a new nonce to bypass it. Investigate with the
-account owner and canonical L1. If appropriate, explicit rebroadcast must use the **exact
-original signed network bytes**; an old-generation call can revert under the new generation
-and consume that nonce. Normal receipt/account reconciliation can then allow new work.
-No fee replacement, journal editing, nonce reset or new account-path bypass is implied.
+receipt/account nonce first. When the RPC no longer knows the pending transaction and both
+account nonce views still equal its nonce, the runner automatically rebroadcasts the **exact
+original signed network bytes**, including after a receipt reorg or generation recovery.
+An old-generation call can revert under the new generation and consume that nonce; canonical
+receipt/account reconciliation then allows new work. The runner never signs a replacement,
+raises its fee caps or allocates another nonce to bypass unresolved work.
+A known or underpriced transaction can still leave that job **Waiting** while consensus
+continues. If the confirmed account nonce advances without this transaction's receipt, the
+runner allows a bounded receipt-index grace period, then stops for reconciliation. Investigate
+with the account owner and canonical L1; do not edit the journal, reset the nonce or bypass the
+account path.
 
 ## Full nodes
 
