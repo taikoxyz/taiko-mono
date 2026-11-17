@@ -481,7 +481,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         require(!flags.forfeitures[_entryKey], AlreadyForfeited());
         TopUp storage pending = _topUpsStorage().topUps[_bondId];
         uint256 balance = entry.effStake + pending.pendingTopUp;
-        require(balance != 0, NothingToSlash());
+        require(balance != 0, NothingToForfeit());
         uint256 penalty = Math.mulDiv(balance, forfeitBps, _BPS, Math.Rounding.Up);
         uint256 fromEffective = Math.min(penalty, entry.effStake);
         entry.effStake -= fromEffective;

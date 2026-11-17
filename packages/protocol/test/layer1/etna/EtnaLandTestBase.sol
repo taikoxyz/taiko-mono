@@ -112,7 +112,14 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
 
     /// @dev The inputs landing the committed chain's `(_p, _h]` with the current reference block
     /// and snapshot 4.
-    function _input(uint256 _p, uint256 _h) internal view returns (IEtnaInbox.LandInput memory) {
+    function _input(
+        uint256 _p,
+        uint256 _h
+    )
+        internal
+        view
+        returns (IEtnaInbox.LandInput memory)
+    {
         (bytes32 el, bytes32 comet, uint256 head) = _cut(_h);
         return IEtnaInbox.LandInput({
             parentHeight: _p,
@@ -204,7 +211,13 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
     // ---------------------------------------------------------------
 
     /// @dev Bob lands the committed chain's `(_p, _h]` with its honest leaves.
-    function _land(uint256 _p, uint256 _h) internal returns (IEtnaInbox.LandInput memory input_) {
+    function _land(
+        uint256 _p,
+        uint256 _h
+    )
+        internal
+        returns (IEtnaInbox.LandInput memory input_)
+    {
         input_ = _input(_p, _h);
         _land(input_, _leaves(_p, _h));
     }
@@ -386,7 +399,13 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
     }
 
     /// @dev Checks `landings(_height)` through the getter and its four raw slot 285 words.
-    function _assertLanding(uint256 _height, IEtnaInbox.Landing memory _expected) internal view {
+    function _assertLanding(
+        uint256 _height,
+        IEtnaInbox.Landing memory _expected
+    )
+        internal
+        view
+    {
         IEtnaInbox.Landing memory landing = _inbox().landings(_height);
         assertEq(landing.parentHeight, _expected.parentHeight, "landing parentHeight");
         assertEq(landing.generation, _expected.generation, "landing generation");

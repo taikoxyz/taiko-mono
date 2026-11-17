@@ -194,16 +194,19 @@ Pause affects none of these entry points, nor the registry's (spec 1 requires th
 
 `land` accepts an opaque `lastValStateHash` after `lastCometHash`. The verifier statement
 binds the stored parent's validator-state hash and the terminal hash in 23 static words
-(736 bytes); frontier cut leaves bind five words. L1 never decodes their preimages.
-The start record has zero validator-state hash, and recovery retains its origin's original
-fourth word while the proof applies the generation-start validator-state exception.
+(736 bytes); frontier cut leaves bind five words ("frontier" means the leaf at c, the latest
+checkpoint height). L1 never decodes their preimages.
+S's landing record (slot 285) has zero validator-state hash, and recovery retains its origin's
+original fourth word while the proof applies the generation-start validator-state exception.
 
 ## Storage
 
 - Inbox: appendix B exactly. The named slots are 258, 268–274, 278–282, 284, 285, 290, 292 and 293;
   reserved slots 283, 286–289 and 291 are never read or written, and slots 251–257, 259–267 and
   275–277 are unused padding. Each slot-285 mapping value has four words: the packed
-  parent/generation/head, EL hash, Comet hash, and validator-state hash.
+  parent/generation/head, EL hash, Comet hash, and validator-state hash. The record's `head` is
+  the forced-inclusion cursor at that height (the spec's "FI cursor"); the Inbox queue head
+  (slot 281) equals it once that height is the checkpoint.
 - Registry: the ERC-7201 namespace `taiko.etna.registry` with base R holds `checkpoints` at R
   and the slot-indexed `entries` at R + 1, the only slots nodes read, then the tree nodes, the
   admission index, the key and slot lookups, the bond records and the bond count. Bond owners
@@ -347,6 +350,17 @@ python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
 
 `testdata/etna_vectors/README.md` explains how to regenerate the vectors.
 
+## Switching from Unzen
+
+[The switch preparation scripts](../../../script/layer1/etna/README.md) retain the existing L1
+SignalService and deploy the Etna bootstrap, registry, dedicated verifier instances and replacement
+implementations without upgrading live proxies. `InboxWithEtnaCutoffs` preserves Unzen's configuration
+and storage while applying immutable proposal and FI cutoffs. The shared `SignalService` keeps
+VERSION=1 and the signal/checkpoint storage, with `stateRootProvider = address(0)`, its primary syncer
+set to the EtnaInbox and `unzenInbox` set to the live Unzen Inbox. It authorizes both Inboxes and
+rejects Unzen checkpoints above S once the Etna start is written. Existing first-landing checks use
+the real six-word Unzen CoreState ABI.
+
 ## Out of scope
 
 - The verifier-failure rollback (spec 8); it comes with the Inbox upgrade replacing the verifier,
@@ -356,13 +370,11 @@ python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
   SignalService cached, and every Bridge message left `RETRIABLE`, at or after the L1 block of the
   first bad landing is unusable until it is proven again against a checkpoint the SignalService
   holds after the rollback (RECOV-8-27a).
-- The rest of the switch from Unzen: the start rewrite of spec 10 step 5c, which ships with the
-  correcting Inbox upgrade, and the Unzen Inbox cutoffs (10 step 5d). The shared SignalService's
-  legacy-syncer authorization is implemented here; switching-network deployment and DAO proposal
-  tooling must configure it with the live Unzen Inbox.
-- Snapshot verification, checkpoint import and switch deployment tooling. The merged spec's
-  missing-data retry rules, originWriter finality and timestamp duties, and DAO proposal lead
-  guard belong to those implementations and operations; the contract enforces its observable gates.
+- DAO proposal construction and installation, including the start rewrite of spec 10 step 5c,
+  the correcting Inbox upgrade, L1 proposal lead/time cross-checks and L2 batch guards.
+- Snapshot verification and checkpoint import are client work. Missing-data retry rules and
+  originWriter finality, timestamp and Anchor identity duties belong to clients and operations;
+  the contract enforces its observable gates. Switch deployment rehearsal remains outstanding.
 - Real proving guests. Tests use mock verifiers, so they show contract behaviour, not proof
   soundness; production needs a verifier that requires two proofs, at least one ZK (6.2).
 

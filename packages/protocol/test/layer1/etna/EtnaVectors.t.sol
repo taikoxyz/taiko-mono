@@ -119,8 +119,8 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         assertEq(inbox.committeeConfigHash(), _probe("committee_config_hash"), "269");
         assertEq(inbox.lastCheckpoint().height, _probe48("last_checkpoint_height"), "270");
         assertEq(inbox.lastCheckpoint().blockHash, _probe("last_checkpoint_hash"), "271");
-        assertEq(inbox.genesis().genesisBlockHash, _probe("genesis_block_hash"), "273");
-        assertEq(inbox.genesis().genesisStateRoot, _probe("genesis_state_root"), "274");
+        assertEq(inbox.genesis().startBlockHash, _probe("genesis_block_hash"), "273");
+        assertEq(inbox.genesis().startStateRoot, _probe("genesis_state_root"), "274");
         assertEq(inbox.genesisCommitteeRecordHash(), _probe("genesis_committee_record_hash"), "278");
         assertEq(inbox.genesisCutoff(), _probe48("genesis_cutoff"), "279");
         assertEq(
@@ -986,7 +986,13 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
     /// @dev The namespace's base is its ERC-7201 slot, and a value written at each vector slot
     /// `keccak256(abi.encode(bondId, base))` is what the registry's view returns for that bond id,
     /// so the registry's private base constant is the vector's.
-    function _assertNamespace(string memory _j, string memory _key, string memory _ns) private {
+    function _assertNamespace(
+        string memory _j,
+        string memory _key,
+        string memory _ns
+    )
+        private
+    {
         string memory p = string.concat(".layout.registry.", _key, ".");
         assertEq(LibEtnaVectors.stringAt(_j, string.concat(p, "namespace")), _ns);
         bytes32 base = _bytes32(_j, p, "base");
@@ -1017,7 +1023,14 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
 
     /// @dev Checks one committee set: ascending set keys, member leaves, odd-node promotion, the
     /// root, the total power and the five-field record (appendix A).
-    function _assertCommitteeSet(string memory _j, string memory _p, uint256 _size) private view {
+    function _assertCommitteeSet(
+        string memory _j,
+        string memory _p,
+        uint256 _size
+    )
+        private
+        view
+    {
         assertTrue(vm.parseJsonBool(_j, string.concat(_p, "valid")));
         assertEq(_uint(_j, _p, "l2_chain_id"), L2_CHAIN_ID);
         uint256 k = _uint(_j, _p, "set_version");
@@ -1097,7 +1110,14 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
 
     /// @dev Checks one cut hash case, rebuilding its leaves from the cut model; returns whether
     /// its leaf list is empty.
-    function _assertCutHash(string memory _j, string memory _p) private pure returns (bool empty_) {
+    function _assertCutHash(
+        string memory _j,
+        string memory _p
+    )
+        private
+        pure
+        returns (bool empty_)
+    {
         uint256 parentHeight = _uint(_j, _p, "parent_height");
         uint256 lastHeight = _uint(_j, _p, "last_height");
         bytes32[] memory leaves = new bytes32[]((lastHeight - parentHeight) / _K - 1);
@@ -1287,7 +1307,13 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
     /// and registry, this suite's verifier and a fresh SignalService accepting that address;
     /// switches to the statement's L1 chain id, rolls to the block after its reference block,
     /// whose hash it sets, attaches its blobs and plants slot 258 = 3 and the vector config hash.
-    function _etchVectorInbox(string memory _j, string memory _in) private returns (address at_) {
+    function _etchVectorInbox(
+        string memory _j,
+        string memory _in
+    )
+        private
+        returns (address at_)
+    {
         at_ = _address(_j, ".deployment.", "inbox");
         vm.etch(_address(_j, ".deployment.", "registry"), registry.impl().code);
         assertEq(_address(_j, _in, "inbox"), at_, "statement inbox");
