@@ -28,9 +28,9 @@ pub mod inbox {
     /// Activation record, packed: `genesisHeight` (B*, bits 0–47), `l1Block` (L1_0, bits 48–95),
     /// `epochLenL2` (L, bits 96–143); higher bits are reserved.
     pub const GENESIS_PACKED: u64 = 272;
-    /// Activation record: `genesisBlockHash` (H*), `bytes32`.
+    /// Etna start record: Solidity `startBlockHash` (H*), `bytes32`.
     pub const GENESIS_BLOCK_HASH: u64 = 273;
-    /// Activation record: `genesisStateRoot` (S*), `bytes32`.
+    /// Etna start record: Solidity `startStateRoot` (S*), `bytes32`.
     pub const GENESIS_STATE_ROOT: u64 = 274;
     /// Authenticated parent-anchor derivation configuration hash.
     pub const COMMITTEE_CONFIG_HASH: u64 = 269;

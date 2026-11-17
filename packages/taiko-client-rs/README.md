@@ -988,8 +988,19 @@ formats generated JSON, and records ABI/bytecode/compiler provenance. It also co
 vectors shared with the contracts (`testdata/etna_vectors`, which the `abci` and `lander` unit
 tests read) from that revision and records their hashes. Run it twice and require identical
 generated output.
+The export includes the switching SignalService and an ABI-only Unzen cutoff artifact, whose
+external library references are recorded in the manifest rather than exposing unlinked deployment
+bytecode. Shared vectors follow the pinned contracts' schema 7. Test adapter updates and execution
+are separate from this artifact refresh.
+
+Regenerate the legacy Inbox, Anchor and PreconfWhitelist Rust bindings with
+`PROTOCOL_DIR=/path/to/pinned-protocol/packages/protocol script/gen_bindings.sh`.
+It uses the same protocol pin and the workspace's Alloy dependency, records source/ABI/generated
+file hashes in `crates/bindings/protocol-manifest.json`, and removes the retired LookaheadStore
+module. Generated binding sources and their manifest must not be edited or formatted manually.
 `just check-lander-artifacts` (the CI job "Lander artifacts") runs it on the pinned revision in a
-temporary git worktree and fails unless every generated file equals the committed one.
+temporary git worktree, regenerates both the Etna artifacts and legacy bindings, and fails unless
+every generated file equals the committed one.
 Regenerate test-only `InboxSetter`, `ZkGasFixture` and `FeeRoutingFixture` artifacts with
 `script/gen_test_harness_artifacts.sh /path/to/alethia-reth`; it verifies compiler settings and source hashes and records
 bytecode provenance. Run that generator twice with identical output as well.

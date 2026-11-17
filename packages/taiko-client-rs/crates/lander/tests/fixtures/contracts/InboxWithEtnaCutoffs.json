@@ -1,0 +1,1854 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "proofVerifier",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "proposerChecker",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "proverWhitelist",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "signalService",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "bondToken",
+              "type": "address"
+            },
+            {
+              "internalType": "uint64",
+              "name": "minBond",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "livenessBond",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint48",
+              "name": "withdrawalDelay",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "provingWindow",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "permissionlessProvingDelay",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "maxProofSubmissionDelay",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "ringBufferSize",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint8",
+              "name": "basefeeSharingPctg",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint16",
+              "name": "forcedInclusionDelay",
+              "type": "uint16"
+            },
+            {
+              "internalType": "uint64",
+              "name": "forcedInclusionFeeInGwei",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "forcedInclusionFeeDoubleThreshold",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint8",
+              "name": "permissionlessInclusionMultiplier",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct IInbox.Config",
+          "name": "_config",
+          "type": "tuple"
+        },
+        {
+          "internalType": "uint48",
+          "name": "_etnaForkTime",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint48",
+          "name": "_proposeMargin",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint48",
+          "name": "_fiMargin",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "ETNA_FORK_TIME",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "FI_CUTOFF",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "FI_MARGIN",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "PROPOSE_CUTOFF",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "PROPOSE_MARGIN",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "acceptOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "_lastPacayaBlockHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "activate",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "activationTimestamp",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "cancelWithdrawal",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "_data",
+          "type": "bytes"
+        }
+      ],
+      "name": "decodeProposeInput",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint48",
+              "name": "deadline",
+              "type": "uint48"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint16",
+                  "name": "blobStartIndex",
+                  "type": "uint16"
+                },
+                {
+                  "internalType": "uint16",
+                  "name": "numBlobs",
+                  "type": "uint16"
+                },
+                {
+                  "internalType": "uint24",
+                  "name": "offset",
+                  "type": "uint24"
+                }
+              ],
+              "internalType": "struct LibBlobs.BlobReference",
+              "name": "blobReference",
+              "type": "tuple"
+            },
+            {
+              "internalType": "uint16",
+              "name": "numForcedInclusions",
+              "type": "uint16"
+            }
+          ],
+          "internalType": "struct IInbox.ProposeInput",
+          "name": "input_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "_data",
+          "type": "bytes"
+        }
+      ],
+      "name": "decodeProveInput",
+      "outputs": [
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "uint48",
+                  "name": "firstProposalId",
+                  "type": "uint48"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "firstProposalParentBlockHash",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "lastProposalHash",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "address",
+                  "name": "actualProver",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint48",
+                  "name": "endBlockNumber",
+                  "type": "uint48"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "endStateRoot",
+                  "type": "bytes32"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "address",
+                      "name": "proposer",
+                      "type": "address"
+                    },
+                    {
+                      "internalType": "uint48",
+                      "name": "timestamp",
+                      "type": "uint48"
+                    },
+                    {
+                      "internalType": "bytes32",
+                      "name": "blockHash",
+                      "type": "bytes32"
+                    }
+                  ],
+                  "internalType": "struct IInbox.Transition[]",
+                  "name": "transitions",
+                  "type": "tuple[]"
+                }
+              ],
+              "internalType": "struct IInbox.Commitment",
+              "name": "commitment",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct IInbox.ProveInput",
+          "name": "input_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "_amount",
+          "type": "uint64"
+        }
+      ],
+      "name": "deposit",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "uint64",
+          "name": "_amount",
+          "type": "uint64"
+        }
+      ],
+      "name": "depositTo",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint48",
+              "name": "deadline",
+              "type": "uint48"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint16",
+                  "name": "blobStartIndex",
+                  "type": "uint16"
+                },
+                {
+                  "internalType": "uint16",
+                  "name": "numBlobs",
+                  "type": "uint16"
+                },
+                {
+                  "internalType": "uint24",
+                  "name": "offset",
+                  "type": "uint24"
+                }
+              ],
+              "internalType": "struct LibBlobs.BlobReference",
+              "name": "blobReference",
+              "type": "tuple"
+            },
+            {
+              "internalType": "uint16",
+              "name": "numForcedInclusions",
+              "type": "uint16"
+            }
+          ],
+          "internalType": "struct IInbox.ProposeInput",
+          "name": "_input",
+          "type": "tuple"
+        }
+      ],
+      "name": "encodeProposeInput",
+      "outputs": [
+        {
+          "internalType": "bytes",
+          "name": "encoded_",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "uint48",
+                  "name": "firstProposalId",
+                  "type": "uint48"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "firstProposalParentBlockHash",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "lastProposalHash",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "address",
+                  "name": "actualProver",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint48",
+                  "name": "endBlockNumber",
+                  "type": "uint48"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "endStateRoot",
+                  "type": "bytes32"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "address",
+                      "name": "proposer",
+                      "type": "address"
+                    },
+                    {
+                      "internalType": "uint48",
+                      "name": "timestamp",
+                      "type": "uint48"
+                    },
+                    {
+                      "internalType": "bytes32",
+                      "name": "blockHash",
+                      "type": "bytes32"
+                    }
+                  ],
+                  "internalType": "struct IInbox.Transition[]",
+                  "name": "transitions",
+                  "type": "tuple[]"
+                }
+              ],
+              "internalType": "struct IInbox.Commitment",
+              "name": "commitment",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct IInbox.ProveInput",
+          "name": "_input",
+          "type": "tuple"
+        }
+      ],
+      "name": "encodeProveInput",
+      "outputs": [
+        {
+          "internalType": "bytes",
+          "name": "encoded_",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_address",
+          "type": "address"
+        }
+      ],
+      "name": "getBond",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint64",
+              "name": "balance",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint48",
+              "name": "withdrawalRequestedAt",
+              "type": "uint48"
+            }
+          ],
+          "internalType": "struct IBondManager.Bond",
+          "name": "bond_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getConfig",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "proofVerifier",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "proposerChecker",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "proverWhitelist",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "signalService",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "bondToken",
+              "type": "address"
+            },
+            {
+              "internalType": "uint64",
+              "name": "minBond",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "livenessBond",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint48",
+              "name": "withdrawalDelay",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "provingWindow",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "permissionlessProvingDelay",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "maxProofSubmissionDelay",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "ringBufferSize",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint8",
+              "name": "basefeeSharingPctg",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint16",
+              "name": "forcedInclusionDelay",
+              "type": "uint16"
+            },
+            {
+              "internalType": "uint64",
+              "name": "forcedInclusionFeeInGwei",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint64",
+              "name": "forcedInclusionFeeDoubleThreshold",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint8",
+              "name": "permissionlessInclusionMultiplier",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct IInbox.Config",
+          "name": "config_",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getCoreState",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint48",
+              "name": "nextProposalId",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "lastProposalBlockId",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "lastFinalizedProposalId",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "lastFinalizedTimestamp",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "lastCheckpointTimestamp",
+              "type": "uint48"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "lastFinalizedBlockHash",
+              "type": "bytes32"
+            }
+          ],
+          "internalType": "struct IInbox.CoreState",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getCurrentForcedInclusionFee",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "feeInGwei_",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getForcedInclusionState",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "head_",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint48",
+          "name": "tail_",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint48",
+          "name": "_start",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint48",
+          "name": "_maxCount",
+          "type": "uint48"
+        }
+      ],
+      "name": "getForcedInclusions",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint64",
+              "name": "feeInGwei",
+              "type": "uint64"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "bytes32[]",
+                  "name": "blobHashes",
+                  "type": "bytes32[]"
+                },
+                {
+                  "internalType": "uint24",
+                  "name": "offset",
+                  "type": "uint24"
+                },
+                {
+                  "internalType": "uint48",
+                  "name": "timestamp",
+                  "type": "uint48"
+                }
+              ],
+              "internalType": "struct LibBlobs.BlobSlice",
+              "name": "blobSlice",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct IForcedInclusionStore.ForcedInclusion[]",
+          "name": "inclusions_",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_proposalId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getProposalHash",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint48",
+              "name": "firstProposalId",
+              "type": "uint48"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "firstProposalParentBlockHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "lastProposalHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "address",
+              "name": "actualProver",
+              "type": "address"
+            },
+            {
+              "internalType": "uint48",
+              "name": "endBlockNumber",
+              "type": "uint48"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "endStateRoot",
+              "type": "bytes32"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "proposer",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint48",
+                  "name": "timestamp",
+                  "type": "uint48"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "blockHash",
+                  "type": "bytes32"
+                }
+              ],
+              "internalType": "struct IInbox.Transition[]",
+              "name": "transitions",
+              "type": "tuple[]"
+            }
+          ],
+          "internalType": "struct IInbox.Commitment",
+          "name": "_commitment",
+          "type": "tuple"
+        }
+      ],
+      "name": "hashCommitment",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint48",
+              "name": "id",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "timestamp",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "endOfSubmissionWindowTimestamp",
+              "type": "uint48"
+            },
+            {
+              "internalType": "address",
+              "name": "proposer",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "parentProposalHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "uint48",
+              "name": "originBlockNumber",
+              "type": "uint48"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "originBlockHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "uint8",
+              "name": "basefeeSharingPctg",
+              "type": "uint8"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "bool",
+                  "name": "isForcedInclusion",
+                  "type": "bool"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "bytes32[]",
+                      "name": "blobHashes",
+                      "type": "bytes32[]"
+                    },
+                    {
+                      "internalType": "uint24",
+                      "name": "offset",
+                      "type": "uint24"
+                    },
+                    {
+                      "internalType": "uint48",
+                      "name": "timestamp",
+                      "type": "uint48"
+                    }
+                  ],
+                  "internalType": "struct LibBlobs.BlobSlice",
+                  "name": "blobSlice",
+                  "type": "tuple"
+                }
+              ],
+              "internalType": "struct IInbox.DerivationSource[]",
+              "name": "sources",
+              "type": "tuple[]"
+            }
+          ],
+          "internalType": "struct IInbox.Proposal",
+          "name": "_proposal",
+          "type": "tuple"
+        }
+      ],
+      "name": "hashProposal",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "impl",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "inNonReentrant",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_owner",
+          "type": "address"
+        }
+      ],
+      "name": "init",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint48",
+          "name": "_lastFinalizedProposalId",
+          "type": "uint48"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_lastFinalizedBlockHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "init2",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "init3",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "paused",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pendingOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "_lookahead",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_data",
+          "type": "bytes"
+        }
+      ],
+      "name": "propose",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "_data",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_proof",
+          "type": "bytes"
+        }
+      ],
+      "name": "prove",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "proxiableUUID",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "renounceOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "requestWithdrawal",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "resolver",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint16",
+              "name": "blobStartIndex",
+              "type": "uint16"
+            },
+            {
+              "internalType": "uint16",
+              "name": "numBlobs",
+              "type": "uint16"
+            },
+            {
+              "internalType": "uint24",
+              "name": "offset",
+              "type": "uint24"
+            }
+          ],
+          "internalType": "struct LibBlobs.BlobReference",
+          "name": "_blobReference",
+          "type": "tuple"
+        }
+      ],
+      "name": "saveForcedInclusion",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "unpause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newImplementation",
+          "type": "address"
+        }
+      ],
+      "name": "upgradeTo",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newImplementation",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "upgradeToAndCall",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint64",
+          "name": "_amount",
+          "type": "uint64"
+        }
+      ],
+      "name": "withdraw",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "previousAdmin",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "newAdmin",
+          "type": "address"
+        }
+      ],
+      "name": "AdminChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "beacon",
+          "type": "address"
+        }
+      ],
+      "name": "BeaconUpgraded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "depositor",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "amount",
+          "type": "uint64"
+        }
+      ],
+      "name": "BondDeposited",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "amount",
+          "type": "uint64"
+        }
+      ],
+      "name": "BondWithdrawn",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint64",
+              "name": "feeInGwei",
+              "type": "uint64"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "bytes32[]",
+                  "name": "blobHashes",
+                  "type": "bytes32[]"
+                },
+                {
+                  "internalType": "uint24",
+                  "name": "offset",
+                  "type": "uint24"
+                },
+                {
+                  "internalType": "uint48",
+                  "name": "timestamp",
+                  "type": "uint48"
+                }
+              ],
+              "internalType": "struct LibBlobs.BlobSlice",
+              "name": "blobSlice",
+              "type": "tuple"
+            }
+          ],
+          "indexed": false,
+          "internalType": "struct IForcedInclusionStore.ForcedInclusion",
+          "name": "forcedInclusion",
+          "type": "tuple"
+        }
+      ],
+      "name": "ForcedInclusionSaved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "oldHead",
+          "type": "uint48"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "newHead",
+          "type": "uint48"
+        }
+      ],
+      "name": "ForcedInclusionsVoided",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "lastPacayaBlockHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "InboxActivated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "version",
+          "type": "uint8"
+        }
+      ],
+      "name": "Initialized",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "payer",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "payee",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "livenessBond",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "credited",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "slashed",
+          "type": "uint64"
+        }
+      ],
+      "name": "LivenessBondSettled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferStarted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "Paused",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint48",
+          "name": "id",
+          "type": "uint48"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "proposer",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "parentProposalHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "endOfSubmissionWindowTimestamp",
+          "type": "uint48"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "basefeeSharingPctg",
+          "type": "uint8"
+        },
+        {
+          "components": [
+            {
+              "internalType": "bool",
+              "name": "isForcedInclusion",
+              "type": "bool"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "bytes32[]",
+                  "name": "blobHashes",
+                  "type": "bytes32[]"
+                },
+                {
+                  "internalType": "uint24",
+                  "name": "offset",
+                  "type": "uint24"
+                },
+                {
+                  "internalType": "uint48",
+                  "name": "timestamp",
+                  "type": "uint48"
+                }
+              ],
+              "internalType": "struct LibBlobs.BlobSlice",
+              "name": "blobSlice",
+              "type": "tuple"
+            }
+          ],
+          "indexed": false,
+          "internalType": "struct IInbox.DerivationSource[]",
+          "name": "sources",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "Proposed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "firstProposalId",
+          "type": "uint48"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "firstNewProposalId",
+          "type": "uint48"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "lastProposalId",
+          "type": "uint48"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "actualProver",
+          "type": "address"
+        }
+      ],
+      "name": "Proved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "nextProposalId",
+          "type": "uint48"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "lastFinalizedProposalId",
+          "type": "uint48"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "lastFinalizedBlockHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "StateRecovered",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "Unpaused",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "implementation",
+          "type": "address"
+        }
+      ],
+      "name": "Upgraded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "WithdrawalCancelled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "withdrawableAt",
+          "type": "uint48"
+        }
+      ],
+      "name": "WithdrawalRequested",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "ACCESS_DENIED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ActivationRequired",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "BlobNotFound",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CannotProposeInCurrentBlock",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DeadlineExceeded",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ETH_TRANSFER_FAILED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "EmptyBatch",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FUNC_NOT_IMPLEMENTED",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FirstProposalIdTooLarge",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ForcedInclusionsClosed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "INVALID_PAUSE_STATUS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "IncorrectProposalCount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InsufficientBond",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidEtnaCutoffs",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidRecoveryState",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "LastProposalAlreadyFinalized",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "LastProposalHashMismatch",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "LastProposalIdTooLarge",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "LengthExceedsUint16",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "MustMaintainMinBond",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NoBlobs",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NoBondToWithdraw",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NoWithdrawalRequested",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotEnoughCapacity",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ParentBlockHashMismatch",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ProposalsClosed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ProverNotWhitelisted",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "REENTRANT_CALL",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UnprocessedForcedInclusionIsDue",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "WithdrawalAlreadyRequested",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZERO_ADDRESS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZERO_VALUE",
+      "type": "error"
+    }
+  ],
+  "contractName": "InboxWithEtnaCutoffs"
+}

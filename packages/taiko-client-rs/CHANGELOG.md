@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Protocol artifact alignment
+
+- Align the protocol pin, ABI/artifact provenance and shared schema-7 vectors with the published switch contracts in PR #22286.
+- Regenerate Inbox, Anchor and PreconfWhitelist bindings with workspace Alloy; remove the retired, unused LookaheadStore binding.
+- Reproduction checks now include the legacy generated bindings. Signed journals and persisted app state are unchanged.
+
 ### Unzen driver and Etna handoff
 
 - Restore the Unzen sync/derivation driver and its CLI, protocol/RPC dependencies and generated bindings.

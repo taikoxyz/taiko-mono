@@ -3,8 +3,8 @@
 // It reads {"key": hex32, "votes": [{"name", "chain_id", "vote": {...}}]} on stdin and writes
 // {"public_key", "signer", "cases": [{"name", "sign_bytes", "signature"}]} on stdout. Sign bytes
 // come from types.VoteSignBytes and signatures from the secp256k1eth key type, so the vectors
-// reflect what a CometBFT validator signs. Vote integers are decimal strings; an all-zero 32-byte
-// hash is an absent (empty) hash, as in the Etna spec's appendix A. timestampSeconds is a signed
+// reflect what a CometBFT validator signs. Vote integers are decimal strings; a hash is either
+// empty ("0x") or exactly 32 bytes, including all-zero bytes. timestampSeconds is a signed
 // int64 (negative before 1970) and timestampSecondsU64 its 64-bit two's-complement pattern; the
 // two must agree.
 //
@@ -12,7 +12,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -165,16 +164,12 @@ func toProto(in vote) (*cmtproto.Vote, error) {
 	}, nil
 }
 
-// optionalHash decodes a 32-byte hash, mapping the all-zero hash to an empty (absent) one.
+// optionalHash preserves the difference between an empty hash and 32 zero bytes.
 func optionalHash(s string) ([]byte, error) {
-	b, err := decodeHex(s, 32)
-	if err != nil {
-		return nil, err
-	}
-	if bytes.Equal(b, make([]byte, 32)) {
+	if s == "0x" {
 		return []byte{}, nil
 	}
-	return b, nil
+	return decodeHex(s, 32)
 }
 
 func decodeHex(s string, size int) ([]byte, error) {
