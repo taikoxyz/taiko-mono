@@ -89,3 +89,37 @@ fn cutoff_selection_is_checked_after_backend_authentication() {
         Err(CommitteeError::NextCheckpointMismatch { .. })
     ));
 }
+
+#[test]
+fn oversized_uint48_entry_counts_are_rejected_without_pointer_width_truncation() {
+    use etna_core::{committee::entries_root, types::RegistryEntry};
+    let entry = RegistryEntry {
+        ck_prefix: 2,
+        ck_x: alloy_primitives::b256!(
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+        ),
+        eff_stake: U256::from(1_000_000_000_000_000_000u64),
+        active_from_l1: 0,
+        exit_effective_l1: (1 << 48) - 1,
+    };
+    for count in [1u64 << 32, (1u64 << 32) + 1, (1u64 << 48) - 1] {
+        for entries in [vec![], vec![entry.clone()]] {
+            let proof = AuthenticatedWords {
+                words: vec![
+                    U256::from(1),
+                    (U256::from(count) << 48) | U256::from(10),
+                    U256::from_be_bytes(entries_root(&entries).0),
+                ],
+                root: B256::repeat_byte(9),
+                index: 0,
+                has_next: false,
+            };
+            assert_eq!(
+                verify_snapshot(proof.root, Address::ZERO, 0, &entries, &proof, 10),
+                Err(CommitteeError::EntryCountMismatch { expected: count, got: entries.len() }),
+                "count={count}, actual entries={}",
+                entries.len(),
+            );
+        }
+    }
+}

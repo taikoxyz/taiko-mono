@@ -411,7 +411,8 @@ pub fn verify_snapshot<P: RegistryProof>(
         }
     }
 
-    if entries.len() != count as usize {
+    // A uint48 count can exceed RV32 usize; never truncate authenticated metadata.
+    if usize::try_from(count) != Ok(entries.len()) {
         return Err(CommitteeError::EntryCountMismatch { expected: count, got: entries.len() });
     }
     let expected = B256::from(storage[2]);
