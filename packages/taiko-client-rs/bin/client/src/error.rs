@@ -17,6 +17,12 @@ use thiserror::Error;
 /// - Metrics initialization errors
 #[derive(Debug, Error)]
 pub enum CliError {
+    /// Unzen derivation or synchronization failed before Engine ownership could be handed off.
+    #[error(transparent)]
+    Driver(#[from] driver::DriverError),
+    /// The selected switch deployment or fixed origin contradicts the local runtime inputs.
+    #[error("Etna handoff: {0}")]
+    Handoff(String),
     /// Classified offline checkpoint failure. Only authenticated safety evidence exits two.
     #[error("checkpoint import: {0}")]
     CheckpointImport(#[from] lander::checkpoint_import::ImportError),

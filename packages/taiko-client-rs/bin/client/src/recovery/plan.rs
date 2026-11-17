@@ -62,6 +62,7 @@ impl Deployment {
     /// Restores and validates the exact original consensus parameters.
     pub fn params(&self) -> Result<ChainParams, RecoveryCommandError> {
         let p = ChainParams {
+            switch: None,
             l2_chain_id: self.l2_chain_id,
             inbox: self.inbox,
             registry: self.registry,

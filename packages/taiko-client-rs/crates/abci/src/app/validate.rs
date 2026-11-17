@@ -66,10 +66,16 @@ impl ChainContext<'_> {
         self.recovery.map_or(self.genesis.l1_0, |origin| origin.l1_number)
     }
 
+    /// The active target epoch, with committee 0 as generation zero's initial committee.
+    pub fn active_committee_epoch(&self, height: u64) -> Option<u64> {
+        let initial =
+            self.recovery.map_or(Schedule::E0, |origin| origin.height / self.genesis.epoch_len);
+        self.schedule().active_committee_epoch_with_initial(height, self.origin_height(), initial)
+    }
+
     /// Committee required at this height, allowing only switches discarded by recovery.
     pub fn committee_at(&self, height: u64) -> Option<&CommitteeState> {
-        self.committees
-            .committee(self.schedule().active_committee_epoch(height, self.origin_height())?)
+        self.committees.committee(self.active_committee_epoch(height)?)
     }
 
     /// The epoch schedule of the genesis record.
@@ -499,8 +505,7 @@ pub(crate) fn expected_header(
     proposer: tendermint::account::Id,
 ) -> Result<ExpectedHeader, Rejection> {
     let epoch = chain.schedule().epoch_of(height);
-    let required =
-        chain.schedule().active_committee_epoch(height, chain.origin_height()).unwrap_or(epoch);
+    let required = chain.active_committee_epoch(height).unwrap_or(epoch);
     let committee = chain.committee_at(height).ok_or(Rejection::CommitteeUnknown(required))?;
     if !rules::is_committee_proposer(&committee.members, proposer) {
         return Err(Rejection::ProposerUnknown(proposer));
@@ -581,8 +586,7 @@ pub(crate) fn finish_candidate(
     let derived = candidate_committee(chain, height, committee, &anchor)?;
     if chain.schedule().switch_target(height).is_some() && chain.committee_at(height).is_none() {
         let epoch = chain
-            .schedule()
-            .active_committee_epoch(height, chain.origin_height())
+            .active_committee_epoch(height)
             .unwrap_or_else(|| chain.schedule().epoch_of(height));
         return Err(Rejection::CommitteeUnknown(epoch));
     }
@@ -621,7 +625,9 @@ fn candidate_anchor(
 }
 
 /// The snapshot cutoff of a switch on top of `chain`: the committed parent's anchor number
-/// floored by the generation origin (COMM-4.3-11). The committee cache's
+/// floored by the generation origin (COMM-4.3-11). At the first switch above S whose
+/// derivation parent D(t) is S, the synthetic start context supplies L1_0 instead of an Unzen
+/// anchor. The committee cache's
 /// [`snapshot_block`](super::committee_cache::snapshot_block) is this formula, so a witness it
 /// verified is one this check accepts.
 pub(super) fn snapshot_cutoff(chain: &ChainContext<'_>) -> u64 {

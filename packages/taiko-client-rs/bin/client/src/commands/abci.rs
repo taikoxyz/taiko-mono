@@ -1,6 +1,6 @@
 //! `abci` subcommand: serves the Etna PoS chain's ABCI++ app to CometBFT.
 
-use abci::{AbciMetrics, App, Engine, RpcEngine, RpcL1Source, Store, serve};
+use abci::{AbciMetrics, App, Engine, RpcEngine, RpcL1Source, Store, SwitchOrigin, serve};
 use async_trait::async_trait;
 use clap::Parser;
 use rpc::{
@@ -66,9 +66,17 @@ impl Subcommand for AbciSubCommand {
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
 
+        self.init_metrics()?;
+        let _engine = super::engine_lease(&self.common_flags)?;
+        self.serve_app(None).await
+    }
+}
+
+impl AbciSubCommand {
+    /// Start the app after its caller has reserved the shared Engine and initialized logging.
+    pub(super) async fn serve_app(&self, origin: Option<SwitchOrigin>) -> Result<()> {
         let common = &self.common_flags;
         let flags = &self.abci_flags;
-        self.init_metrics()?;
         let _ownership = abci::ownership::ComponentLease::standalone(
             abci::ownership::ComponentRole::App,
             &flags.data_dir,
@@ -95,7 +103,10 @@ impl Subcommand for AbciSubCommand {
         ));
         let store = Store::new(flags.data_dir.clone())
             .with_val_archive(flags.checkpoint_archive_dir.clone());
-        let app = App::new(l1, engine, params, store, opts)?;
+        let mut app = App::new(l1, engine, params, store, opts)?;
+        if let Some(origin) = origin {
+            app = app.with_switch_origin(origin);
+        }
         info!(
             chain_id,
             addr = %flags.addr,

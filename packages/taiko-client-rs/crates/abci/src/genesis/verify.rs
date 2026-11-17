@@ -15,7 +15,7 @@ use crate::{
 
 /// Authenticated bootstrap facts, before the epoch-0 committee has been verified.
 pub(crate) struct GenesisContext {
-    /// The initialized Inbox's genesis record, with L2 height zero.
+    /// The initialized Inbox's genesis record, with the Etna start height S.
     pub(crate) genesis: GenesisRecord,
     /// The L1 initialization header and its proven Inbox facts.
     pub(crate) anchor: AnchorState,
@@ -26,7 +26,7 @@ pub(crate) struct GenesisContext {
 /// Verifies Inbox proofs, the initialization header's number and the epoch schedule.
 ///
 /// The caller authenticates the header's canonicality and finality independently. No L1 or EL
-/// operations occur here. Rejects nonzero L2 genesis heights through the Inbox witness verifier.
+/// operations occur here. The origin record must bind the same L2 start height S.
 pub(crate) fn verify_context(
     header: &RawL1Header,
     inbox: &AccountWitness,

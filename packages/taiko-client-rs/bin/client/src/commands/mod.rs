@@ -18,6 +18,8 @@ pub mod abci_committee_record;
 pub mod abci_genesis;
 pub mod abci_import;
 pub mod abci_recover;
+pub mod driver;
+pub mod etna_handoff;
 pub mod lander;
 
 /// The chain parameters of `l2_chain_id`: the built-in ones, overridden by the TOML file at
@@ -125,4 +127,12 @@ pub fn init_metrics(args: &ObservabilityArgs) -> Result<()> {
     crate::metrics::spawn_server(socket_addr)?;
     info!(target: "metrics", "Prometheus metrics server started at http://{}", metrics_addr);
     Ok(())
+}
+
+/// Reserve the operator-selected Engine control directory for the whole runtime stage.
+pub(super) fn engine_lease(common: &CommonArgs) -> Result<::abci::ownership::ComponentLease> {
+    Ok(::abci::ownership::ComponentLease::standalone(
+        ::abci::ownership::ComponentRole::App,
+        &common.engine_control_dir.join("writer"),
+    )?)
 }

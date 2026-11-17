@@ -282,7 +282,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// state root differing from the authenticated `S*` contradicts
     /// the verified genesis: [`AbciError::SafetyHalt`].
     async fn genesis_parent(&self, genesis: &GenesisRecord) -> Result<ParentInfo, AbciError> {
-        let (number, hash) = (0, genesis.genesis_hash);
+        let (number, hash) = (genesis.genesis_height, genesis.genesis_hash);
         self.sync_el_to("EL sync to the genesis anchor", number, hash).await?;
 
         let header = self.el_header(number).await?;
@@ -299,15 +299,27 @@ impl<L: L1Source, E: Engine> App<L, E> {
             )));
         }
 
+        self.check_switch_header(genesis, &header)?;
+        let grandparent_timestamp = if let Some(parent_number) = number.checked_sub(1) {
+            let parent = self.el_header(parent_number).await?;
+            if parent.hash_slow() != header.parent_hash || parent.timestamp >= header.timestamp {
+                return Err(AbciError::SafetyHalt(
+                    "Etna start has inconsistent own-EL parent".into(),
+                ));
+            }
+            parent.timestamp
+        } else {
+            0
+        };
         Ok(ParentInfo {
-            number: 0,
+            number,
             hash,
             timestamp: header.timestamp,
             gas_limit: header.gas_limit,
             gas_used: header.gas_used,
             base_fee: header.base_fee_per_gas.unwrap_or(0),
             difficulty: header.difficulty,
-            grandparent_timestamp: 0,
+            grandparent_timestamp,
         })
     }
 

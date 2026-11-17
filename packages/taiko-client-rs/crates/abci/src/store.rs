@@ -140,12 +140,21 @@ impl AppState {
 
     /// Target epoch of the authenticated initial committee, on the unchanged global schedule.
     pub fn initial_committee_epoch(&self) -> u64 {
-        self.origin_height() / self.genesis.epoch_len
+        self.recovery.as_ref().map_or(Schedule::E0, |origin| origin.height / self.genesis.epoch_len)
+    }
+
+    /// The target epoch of the committee active at `height`, preserving generation-zero set 0.
+    pub fn active_committee_epoch(&self, height: u64) -> Option<u64> {
+        self.schedule().active_committee_epoch_with_initial(
+            height,
+            self.origin_height(),
+            self.initial_committee_epoch(),
+        )
     }
 
     /// The actually active authenticated set; missing in-generation rotations never fall back.
     pub fn committee_at(&self, height: u64) -> Option<&CommitteeState> {
-        self.committees.get(&self.schedule().active_committee_epoch(height, self.origin_height())?)
+        self.committees.get(&self.active_committee_epoch(height)?)
     }
 
     /// Drops obsolete records while retaining the set still active at `keep_from_epoch`.
@@ -154,7 +163,7 @@ impl AppState {
         let keep = self
             .schedule()
             .checked_h_first(keep_from_epoch)
-            .and_then(|height| self.schedule().active_committee_epoch(height, self.origin_height()))
+            .and_then(|height| self.active_committee_epoch(height))
             .unwrap_or(keep_from_epoch);
         self.committees = self.committees.split_off(&keep);
     }
@@ -586,7 +595,7 @@ impl Store {
     pub fn save(&self, s: &AppState) -> Result<(), StoreError> {
         if let Some(archive) = &self.archive &&
             s.has_generation_commit() &&
-            s.last_height.is_multiple_of(crate::GRID_INTERVAL)
+            s.genesis.is_grid_height(s.last_height)
         {
             archive_preimage(archive, s)?;
         }

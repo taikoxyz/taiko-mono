@@ -8,7 +8,7 @@
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_consensus::{Header, TxEnvelope};
-use alloy_primitives::{B256, U256};
+use alloy_primitives::{Address, B256, U256};
 use async_trait::async_trait;
 
 use crate::envelope::ExecutionBlock;
@@ -90,6 +90,19 @@ pub trait Engine: Send + Sync + 'static {
     /// Reads the hash-checked finalized EL header with a bounded deadline; never changes
     /// forkchoice.
     async fn finalized_header(&self) -> Result<Option<Header>, EngineError>;
+
+    /// Proves the Anchor proxy implementation under `state_root` at canonical EL block `hash`.
+    /// Missing historical state returns `None`; malformed proofs are integrity failures. The
+    /// default supplies no evidence, keeping switching-network trust closed.
+    async fn anchor_implementation(
+        &self,
+        anchor: Address,
+        hash: B256,
+        state_root: B256,
+    ) -> Result<Option<Address>, EngineError> {
+        let _ = (anchor, hash, state_root);
+        Ok(None)
+    }
 
     /// Performs a bounded hash-pinned historical state read. A successful read is preliminary
     /// evidence only, not proof that a stateful build will succeed. RPC failure remains an error.

@@ -3,11 +3,16 @@
 
 use std::{
     fs, io,
-    path::Path,
+    path::{Path, PathBuf},
     task::{Context, Poll},
     time::Duration,
 };
 
+use crate::{
+    SubscriptionSource,
+    error::{Result as RpcResult, RpcClientError},
+};
+use alethia_reth_primitives::addresses::get_treasury_address;
 use alloy::{
     rpc::{
         client::RpcClient,
@@ -15,9 +20,15 @@ use alloy::{
     },
     transports::{TransportError, TransportErrorKind, TransportFut, utils::guess_local_url},
 };
-use alloy_provider::{ProviderBuilder, RootProvider};
+use alloy_eips::{BlockId, eip1898::RpcBlockHash};
+use alloy_primitives::{Address, B256};
+use alloy_provider::{
+    Provider, ProviderBuilder, RootProvider, WsConnect, fillers::FillProvider,
+    utils::JoinedRecommendedFillers,
+};
 use alloy_rpc_types_engine::JwtSecret;
 use alloy_transport_http::AuthLayer;
+use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
 use http_body_util::{BodyExt, Full};
 use hyper::{
     Request, Response,
@@ -29,6 +40,125 @@ use hyper_util::{
 };
 use reqwest::{Client as ReqwestClient, Url};
 use tower::{Service, ServiceBuilder, timeout::TimeoutLayer};
+use tracing::info;
+
+/// L1 provider type used by [`Client`]: recommended fillers over an HTTP/WS root provider.
+pub type DefaultProvider = FillProvider<JoinedRecommendedFillers, RootProvider>;
+
+/// Instances of Shasta protocol contracts.
+#[derive(Clone, Debug)]
+pub struct ShastaProtocolInstance {
+    /// Inbox contract instance on L1.
+    pub inbox: InboxInstance<DefaultProvider>,
+    /// Anchor contract instance on L2 (auth provider).
+    pub anchor: AnchorInstance<RootProvider>,
+}
+
+/// A client for interacting with L1 and L2 providers and Shasta protocol contracts.
+///
+/// The client is read-only towards L1: it never signs or submits transactions, so it
+/// carries no wallet. L1 transaction submission is owned by the proposer's transaction
+/// manager, which keeps nonce management on a single path.
+#[derive(Clone, Debug)]
+pub struct Client {
+    /// L2 chain ID, fetched from the L2 provider at startup.
+    pub chain_id: u64,
+    /// Walletless L1 provider used for contract calls and event scans.
+    pub l1_provider: DefaultProvider,
+    /// L2 public provider for read-only access.
+    pub l2_provider: RootProvider,
+    /// L2 authenticated provider for engine/anchor interactions.
+    pub l2_auth_provider: RootProvider,
+    /// Shasta protocol contract bundle (Inbox/Anchor).
+    pub shasta: ShastaProtocolInstance,
+}
+
+/// Configuration for the `Client`.
+#[derive(Clone, Debug)]
+pub struct ClientConfig {
+    /// Source describing how to build the L1 provider used by contract calls and event scans.
+    pub l1_provider_source: SubscriptionSource,
+    /// HTTP endpoint for the L2 public provider.
+    pub l2_provider_url: Url,
+    /// HTTP endpoint for the L2 authenticated provider.
+    pub l2_auth_provider_url: Url,
+    /// Path to the engine JWT secret.
+    pub jwt_secret: PathBuf,
+    /// L1 address of the Inbox contract.
+    pub inbox_address: Address,
+}
+
+impl Client {
+    /// Create a new `Client` from the given configuration.
+    pub async fn new(config: ClientConfig) -> RpcResult<Self> {
+        let l1_provider = config.l1_provider_source.to_provider().await.map_err(|e| {
+            RpcClientError::Connection(format!(
+                "L1 provider source (l1.http or l1.ws) connection failed: {}",
+                e
+            ))
+        })?;
+        let l2_provider =
+            connect_provider_with_timeout(config.l2_provider_url.clone()).await.map_err(|e| {
+                RpcClientError::Connection(format!(
+                    "L2 HTTP RPC (l2.http) connection failed: {}",
+                    e
+                ))
+            })?;
+        let jwt_secret = read_jwt_secret(config.jwt_secret.as_path()).ok_or_else(|| {
+            RpcClientError::JwtSecretReadFailed(config.jwt_secret.display().to_string())
+        })?;
+        let l2_auth_provider = build_jwt_http_provider(
+            config.l2_auth_provider_url.clone(),
+            jwt_secret,
+            DEFAULT_HTTP_TIMEOUT,
+        );
+
+        crate::auth::EngineClient::new(l2_auth_provider.clone())
+            .check_engine_capabilities()
+            .await?;
+        let chain_id = l2_provider.get_chain_id().await.map_err(|e| {
+            RpcClientError::RpcMessage(format!(
+                "L2 HTTP RPC (l2.http) failed to get chain id: {}",
+                e
+            ))
+        })?;
+
+        let inbox = InboxInstance::new(config.inbox_address, l1_provider.clone());
+        let anchor = AnchorInstance::new(get_treasury_address(chain_id), l2_auth_provider.clone());
+
+        info!(
+            inbox_address = ?config.inbox_address,
+            anchor_address = ?anchor.address(),
+            "Shasta protocol contract addresses"
+        );
+
+        let shasta = ShastaProtocolInstance { inbox, anchor };
+
+        Ok(Self { chain_id, l1_provider, l2_provider, l2_auth_provider, shasta })
+    }
+
+    /// Fetch the anchor block number advertised by the anchor contract at the given
+    /// parent block hash.
+    pub async fn shasta_anchor_block_number_by_hash(&self, block_hash: B256) -> RpcResult<u64> {
+        let block_id = BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) });
+
+        let block_state = self.shasta.anchor.getBlockState().block(block_id).call().await?;
+
+        Ok(block_state.anchorBlockNumber.to::<u64>())
+    }
+}
+
+/// Build a [`RootProvider`] backed by either HTTP or WebSocket transport based on URL scheme.
+pub async fn connect_provider_with_timeout(url: Url) -> RpcResult<RootProvider> {
+    match url.scheme() {
+        "http" | "https" => Ok(connect_http_with_timeout(url, DEFAULT_HTTP_TIMEOUT)),
+        "ws" | "wss" => ProviderBuilder::default()
+            .connect_ws(WsConnect::new(url.as_str()))
+            .await
+            .map_err(|e| RpcClientError::Connection(e.to_string())),
+        scheme => Err(RpcClientError::Connection(format!("unsupported RPC scheme: {scheme}"))),
+    }
+}
 
 /// Default HTTP request timeout, for callers without a deadline of their own.
 pub const DEFAULT_HTTP_TIMEOUT: Duration = Duration::from_secs(12);

@@ -149,6 +149,18 @@ pub trait L1Source: Send + Sync + 'static {
         block: u64,
     ) -> Result<AccountWitness, L1Error>;
 
+    /// Last finalized Unzen block hash once every proposal is finalized, read at the supplied
+    /// canonical own-L1 hash. `None` means proposal proofs or this optional interface are missing.
+    /// The caller must separately establish finality and that the fork cutoff has passed.
+    async fn finalized_unzen_hash(
+        &self,
+        inbox: Address,
+        hash: B256,
+    ) -> Result<Option<B256>, L1Error> {
+        let _ = (inbox, hash);
+        Ok(None)
+    }
+
     /// The calldata transaction emitted by exactly one `ForcedInclusionSaved` event from
     /// `inbox` for `index` in the proven L1 block `l1_block`. Acquisition failures are errors;
     /// callers must additionally authenticate the returned bytes against the proven hash.
@@ -326,6 +338,48 @@ impl L1Source for RpcL1Source {
         block: u64,
     ) -> Result<AccountWitness, L1Error> {
         self.account_witness_at(address, slots, BlockId::number(block)).await
+    }
+
+    /// Calls the unchanged Unzen `getCoreState()` at the exact canonical finalized observation.
+    async fn finalized_unzen_hash(
+        &self,
+        inbox: Address,
+        hash: B256,
+    ) -> Result<Option<B256>, L1Error> {
+        let response: Value = self
+            .provider
+            .raw_request(
+                "eth_call".into(),
+                (
+                    serde_json::json!({ "to": inbox, "data": "0x6aa6a01a" }),
+                    BlockId::hash_canonical(hash),
+                ),
+            )
+            .await
+            .map_err(|error| L1Error::Rpc(format!("Unzen getCoreState at {hash}: {error}")))?;
+        let bytes: Bytes = serde_json::from_value(response).map_err(|error| {
+            L1Error::MalformedResponse(format!("Unzen getCoreState bytes: {error}"))
+        })?;
+        if bytes.len() != 6 * 32 {
+            return Err(L1Error::MalformedResponse(
+                "Unzen getCoreState has wrong ABI length".into(),
+            ));
+        }
+        let fields: Vec<U256> =
+            bytes.as_chunks::<32>().0.iter().map(|word| U256::from_be_bytes(*word)).collect();
+        if fields[..5].iter().any(|value| *value >> 48 != U256::ZERO) {
+            return Err(L1Error::MalformedResponse(
+                "Unzen getCoreState has invalid uint48 padding".into(),
+            ));
+        }
+        if fields[0].is_zero() || fields[2] + U256::from(1) != fields[0] {
+            return Ok(None);
+        }
+        let finalized = B256::from(fields[5]);
+        if finalized.is_zero() {
+            return Err(L1Error::MalformedResponse("Unzen finalized block hash is zero".into()));
+        }
+        Ok(Some(finalized))
     }
 
     /// Fetches and validates one exact-block calldata forced inclusion event.

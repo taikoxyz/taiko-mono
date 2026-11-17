@@ -2,7 +2,10 @@
 
 use alethia_reth_primitives::{
     ETNA_EXTRA_DATA_LEN, SHASTA_EXTRA_DATA_LEN,
-    payload::attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
+    payload::{
+        attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
+        builder::payload_id_taiko,
+    },
 };
 use alloy::{
     primitives::{Address, B256, Bytes, U256, keccak256},
@@ -11,6 +14,9 @@ use alloy::{
 use alloy_consensus::TxEnvelope;
 use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
+
+/// Taiko keeps the V2 payload-ID discriminator for pre-Etna block builds.
+const PAYLOAD_ID_VERSION_V2: u8 = 2;
 
 use crate::shasta::error::{ProtocolError, Result};
 
@@ -65,6 +71,18 @@ fn uint48_be_bytes(field: &'static str, value: u64) -> Result<[u8; 6]> {
     Ok(bytes)
 }
 
+/// Encode the extra data field for a Shasta block header.
+///
+/// The first byte contains the basefee sharing percentage, followed by a 6-byte
+/// big-endian proposal id.
+pub fn encode_extra_data(basefee_sharing_pctg: u8, proposal_id: u64) -> Bytes {
+    let mut data = [0u8; 7];
+    data[0] = basefee_sharing_pctg;
+    let proposal_bytes = proposal_id.to_be_bytes();
+    data[1..7].copy_from_slice(&proposal_bytes[2..8]);
+    Bytes::from(data.to_vec())
+}
+
 /// Encode a list of transactions into the format expected by the execution engine.
 pub fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
     let mut buf = BytesMut::new();
@@ -90,7 +108,7 @@ pub struct PayloadAttributesInput {
     pub gas_limit: u64,
     /// Encoded transaction list, or `None` to let the engine build from its mempool.
     pub tx_list: Option<Bytes>,
-    /// Header `extraData`: the 13-byte Etna layout ([`encode_etna_extra_data`]).
+    /// Header `extraData`: the 7-byte pre-Etna or 13-byte Etna layout.
     pub extra_data: Bytes,
     /// Base fee per gas for the block.
     pub base_fee_per_gas: U256,
@@ -161,6 +179,19 @@ pub fn build_payload_attributes(input: PayloadAttributesInput) -> TaikoPayloadAt
         anchor_transaction,
         max_block_bytes: None,
     }
+}
+
+/// Assemble [`TaikoPayloadAttributes`] and stamp `build_payload_args_id` from the parent hash.
+pub fn build_payload_attributes_with_id(
+    input: PayloadAttributesInput,
+    parent_hash: &B256,
+) -> TaikoPayloadAttributes {
+    let mut input = input;
+    input.parent_beacon_block_root = Some(input.parent_beacon_block_root.unwrap_or(B256::ZERO));
+    let mut payload = build_payload_attributes(input);
+    let payload_id = payload_id_taiko(parent_hash, &payload, PAYLOAD_ID_VERSION_V2);
+    payload.l1_origin.build_payload_args_id = payload_id.0.0;
+    payload
 }
 
 #[cfg(test)]

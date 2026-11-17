@@ -201,7 +201,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// the head state's when `height` is the last committed height, else the record the node
     /// made when it committed that height (SYNC-9-5c).
     ///
-    /// Only grid heights (multiples of [`GRID_INTERVAL`]) within the retained range
+    /// Only grid heights (S plus multiples of [`GRID_INTERVAL`]) within the retained range
     /// `[comet_history_floor, last_height]` answer; any other height, a state not yet
     /// initialized, and the generation origin once a block follows it (its record is only a
     /// recompute base; its landing record does not hold this generation's state, SYNC-9-5) are
@@ -215,9 +215,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// state is missing data (SYNC-9-7): an error, logged as a warning.
     pub fn val_state_preimage(&self, height: u64) -> Result<Vec<u8>, String> {
         let state = self.state.as_ref().ok_or("the app is not initialized")?;
-        if !height.is_multiple_of(GRID_INTERVAL) {
+        if !state.genesis.is_grid_height(height) {
             return Err(format!(
-                "height {height} is not a grid height (a multiple of {GRID_INTERVAL})"
+                "height {height} is not on the Etna grid (S + a multiple of {GRID_INTERVAL})"
             ));
         }
         let (floor, last) = (state.comet_history_floor(), state.last_height);

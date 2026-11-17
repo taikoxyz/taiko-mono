@@ -435,6 +435,53 @@ impl Engine for RpcEngine {
         .map_err(|_| EngineError::Transport("historical EL state read deadline".into()))?
     }
 
+    /// Fetches the hash-pinned EIP-1967 slot and verifies its account and storage MPT proofs.
+    async fn anchor_implementation(
+        &self,
+        anchor: Address,
+        hash: B256,
+        state_root: B256,
+    ) -> Result<Option<Address>, EngineError> {
+        let slot = crate::switch::ANCHOR_IMPLEMENTATION_SLOT;
+        let response = self
+            .l2
+            .get_proof(anchor, vec![slot])
+            .block_id(BlockId::hash_canonical(hash))
+            .await
+            .map_err(recovery_read_error)?;
+        if response.address != anchor {
+            return Err(EngineError::BadReply("Anchor proof names another account".into()));
+        }
+        let witness = crate::types::AccountWitness {
+            address: response.address,
+            nonce: response.nonce,
+            balance: response.balance,
+            storage_root: response.storage_hash,
+            code_hash: response.code_hash,
+            account_proof: response.account_proof,
+            storage: response
+                .storage_proof
+                .into_iter()
+                .map(|proof| crate::types::StorageProof {
+                    slot: proof.key.as_b256(),
+                    value: proof.value,
+                    proof: proof.proof,
+                })
+                .collect(),
+        };
+        let verified = crate::l1::mpt::verify_account_witness(state_root, &witness, &[slot])
+            .map_err(|error| {
+                EngineError::BadReply(format!("invalid Anchor implementation proof: {error}"))
+            })?;
+        let value = verified.get(slot).expect("verified implementation slot");
+        if value >> 160 != alloy_primitives::U256::ZERO {
+            return Err(EngineError::BadReply(
+                "Anchor implementation has nonzero address padding".into(),
+            ));
+        }
+        Ok(Some(Address::from_word(B256::from(value))))
+    }
+
     /// `eth_getBlockByNumber(number)` on the public endpoint; the header must hash to the reported
     /// hash ([`EngineError::HeaderHashMismatch`]) and be block `number`
     /// ([`EngineError::HeaderNumberMismatch`]).

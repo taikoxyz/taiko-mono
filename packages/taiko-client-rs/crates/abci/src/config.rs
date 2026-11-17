@@ -8,8 +8,22 @@ use serde::{Deserialize, Deserializer, de};
 pub const MAX_N_MAX: usize = 4096;
 
 /// `K`, the landing grid interval in L2 blocks (the Inbox's `GRID_INTERVAL`): every landed
-/// checkpoint height, every batch boundary and the unsettled limit `U` are multiples of it.
+/// checkpoint and batch boundary is S plus a multiple of it; unsettled limit U is a multiple.
 pub const GRID_INTERVAL: u64 = 6;
+
+/// Deployment constants for authenticating an Unzen to Etna switch (SPEC PARAM-11-12a).
+/// Production networks compile these values into their chain parameters; private devnets may
+/// set the explicit `[switch]` TOML table before creating the signing domain.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SwitchConfig {
+    /// Live L1 Unzen Inbox proxy whose closed proposal history defines the final Unzen block.
+    pub unzen_inbox: Address,
+    /// Shared Unzen cutoff and Etna activation timestamp, in Unix seconds.
+    pub fork_timestamp: u64,
+    /// Etna Anchor implementation expected in the L2 proxy's EIP-1967 slot at S.
+    pub anchor_implementation: Address,
+}
 
 /// Per-chain constants consumed by consensus.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -35,6 +49,8 @@ pub struct ChainParams {
     pub n_max: usize,
     /// `L2_BLOCK_GAS_LIMIT`: gas limit of every L2 block, in gas; `> 0`.
     pub block_gas_limit: u64,
+    /// Switching-network deployment constants; absent for a fresh network starting at S=0.
+    pub switch: Option<SwitchConfig>,
 }
 
 /// Errors building or validating [`ChainParams`].
@@ -65,6 +81,11 @@ pub enum ConfigError {
         /// The consensus constant whose override differed from its built-in value.
         parameter: &'static str,
     },
+    /// A switch requires a nonzero Unzen Inbox, fork timestamp and Anchor implementation.
+    #[error(
+        "switch configuration requires nonzero Unzen Inbox, fork timestamp and Anchor implementation"
+    )]
+    InvalidSwitch,
     /// U must be a [`GRID_INTERVAL`] multiple within the protocol unsettled-depth bounds.
     #[error("unsettled_limit must be a multiple of {k} in {k}..=65536", k = GRID_INTERVAL)]
     InvalidUnsettledLimit,
@@ -114,6 +135,7 @@ impl ChainParams {
                 s_min: U256::from(1_000_000_000_000_000_000u64),
                 n_max: 128,
                 block_gas_limit: 45_000_000,
+                switch: None,
             }),
             chain_id => Err(ConfigError::NotConfigured { chain_id }),
         }
@@ -145,6 +167,13 @@ impl ChainParams {
         self.s_min = o.s_min.map_or(self.s_min, |v| v.0);
         self.n_max = o.n_max.unwrap_or(self.n_max);
         self.block_gas_limit = o.block_gas_limit.unwrap_or(self.block_gas_limit);
+        if let Some(switch) = o.switch {
+            if self.l2_chain_id != TAIKO_DEVNET_CHAIN_ID && builtin.switch.as_ref() != Some(&switch)
+            {
+                return Err(ConfigError::FixedConsensusParameter { parameter: "switch" });
+            }
+            self.switch = Some(switch);
+        }
         Ok(self)
     }
 
@@ -157,6 +186,13 @@ impl ChainParams {
     /// capacity, positive block gas limit and s_min >= vp_unit. Returns the first invalid
     /// deployment parameter.
     pub fn validate(&self) -> Result<(), ConfigError> {
+        if self.switch.as_ref().is_some_and(|switch| {
+            switch.unzen_inbox.is_zero() ||
+                switch.fork_timestamp == 0 ||
+                switch.anchor_implementation.is_zero()
+        }) {
+            return Err(ConfigError::InvalidSwitch);
+        }
         if !(GRID_INTERVAL..=65_536).contains(&self.unsettled_limit) ||
             !self.unsettled_limit.is_multiple_of(GRID_INTERVAL)
         {
@@ -205,6 +241,8 @@ struct Overrides {
     n_max: Option<usize>,
     /// See [`ChainParams::block_gas_limit`].
     block_gas_limit: Option<u64>,
+    /// Explicit switching-network deployment configuration; see [`ChainParams::switch`].
+    switch: Option<SwitchConfig>,
 }
 
 /// A `U256` written in TOML as a decimal or `0x`-hex string (TOML integers stop at `i64::MAX`).

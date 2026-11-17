@@ -44,7 +44,7 @@ pub struct RecoveryBootstrap {
     pub(crate) version: u32,
     /// Canonical R-observation witness RLP, without the JSON wrapper or discriminator.
     pub(crate) witness: alloy_primitives::Bytes,
-    /// Historical anchor RLP, absent only for the explicit c=0 genesis context.
+    /// Historical anchor RLP, absent only for the explicit c=S genesis context.
     pub(crate) anchor: Option<alloy_primitives::Bytes>,
 }
 
@@ -54,7 +54,7 @@ pub struct VerifiedBootstrap {
     /// The canonical R-observation witness the sidecar retains.
     pub witness: super::RecoveryWitness,
     /// The anchor the origin EL block c inherited: its historical anchor, or the deployment's
-    /// initialization anchor at c = 0. Never R, which is only the new generation's floor.
+    /// initialization anchor at c = S. Never R, which is only the new generation's floor.
     pub anchor: crate::types::AnchorState,
     /// The fixed recovery origin ([`verify_recovery_witness`] of `witness`).
     pub origin: super::RecoveryOrigin,
@@ -81,8 +81,8 @@ impl RecoveryBootstrap {
         let VerifiedRecovery { origin, context, landing_generation } =
             verify_recovery(&witness, params)?;
         let anchor = match (&self.anchor, origin.height) {
-            (None, 0) => context.anchor,
-            (Some(bytes), height) if height > 0 => {
+            (None, height) if height == context.genesis.genesis_height => context.anchor,
+            (Some(bytes), height) if height > context.genesis.genesis_height => {
                 let mut bytes = bytes.as_ref();
                 let evidence = crate::AnchorWitness::decode(&mut bytes).map_err(invalid)?;
                 if !bytes.is_empty() {
@@ -121,13 +121,23 @@ impl RecoveryBootstrap {
 
 /// Fetches historical c provenance without confusing it with the R floor for new blocks, and
 /// returns the sidecar with what its verification authenticates.
-/// c=0 has no Etna header anchor and uses the immutable deployment context explicitly.
+/// c=S has no Etna header anchor and uses the immutable deployment context explicitly.
 pub(crate) async fn recovery_bootstrap<L: L1Source + ?Sized>(
     l1: &L,
     params: &ChainParams,
     witness: &super::RecoveryWitness,
 ) -> Result<(RecoveryBootstrap, VerifiedBootstrap), RecoveryError> {
-    let anchor = if witness.el_header.number == 0 {
+    let start = witness
+        .genesis
+        .inbox
+        .storage
+        .iter()
+        .find(|proof| {
+            proof.slot == crate::l1::layout::inbox::slot(crate::l1::layout::inbox::GENESIS_PACKED)
+        })
+        .map(|proof| crate::l1::layout::word_u48(proof.value, 0))
+        .ok_or_else(|| invalid("missing deployment start slot"))?;
+    let anchor = if witness.el_header.number == start {
         None
     } else {
         let (_, _, number) =

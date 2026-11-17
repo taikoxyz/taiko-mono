@@ -48,6 +48,15 @@ pub struct CommonArgs {
         help = "Path to a JWT secret to use for authenticated RPC endpoints"
     )]
     pub l2_auth_jwt_secret: PathBuf,
+    /// Shared local directory whose lease excludes simultaneous Unzen/Etna Engine writers.
+    /// Every command controlling the same EL must use the same directory, including across
+    /// containers.
+    #[clap(
+        long = "engine-control-dir",
+        env = "ENGINE_CONTROL_DIR",
+        default_value = "engine-control"
+    )]
+    pub engine_control_dir: PathBuf,
     /// Logging and Prometheus options independent of authenticated RPCs.
     #[command(flatten)]
     pub observability: ObservabilityArgs,

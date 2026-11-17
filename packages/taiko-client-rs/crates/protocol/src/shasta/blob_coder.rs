@@ -138,6 +138,11 @@ fn process_chunk(chunk: &[u8], builder: &mut PartialSidecar, required_fe_count: 
 }
 
 impl BlobCoder {
+    /// Decode every blob into its raw Kona-compatible payload, rejecting malformed encodings.
+    pub fn decode_blobs(blobs: &[Blob]) -> Option<Vec<Vec<u8>>> {
+        Self.decode_all(blobs)
+    }
+
     /// Decode a single blob using the Kona-compatible scheme, returning the raw payload bytes
     /// if the encoding is valid.
     pub fn decode_blob(blob: &Blob) -> Option<Vec<u8>> {

@@ -11,7 +11,7 @@ use crate::{
     commands::{
         abci::AbciSubCommand, abci_committee_record::AbciCommitteeRecordSubCommand,
         abci_genesis::AbciGenesisSubCommand, abci_recover::AbciRecoverSubCommand,
-        lander::LanderSubCommand,
+        driver::DriverSubCommand, etna_handoff::EtnaHandoffSubCommand, lander::LanderSubCommand,
     },
     error::{CliError, Result},
 };
@@ -26,6 +26,10 @@ const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 /// Subcommands for the CLI.
 #[derive(Debug, Clone, Subcommand)]
 pub enum Commands {
+    /// Synchronize the Unzen chain from its L1 proposals.
+    Driver(Box<DriverSubCommand>),
+    /// Synchronize Unzen to its finalized end, then serve Etna ABCI on the same EL.
+    EtnaHandoff(Box<EtnaHandoffSubCommand>),
     /// Export, authenticate and install an offline landed checkpoint.
     AbciImport(Box<crate::commands::abci_import::Command>),
     /// Prepare a governance recovery plan, install its fresh stores, or summarize it.
@@ -53,6 +57,8 @@ impl Cli {
     /// Run the subcommand.
     pub fn run(self) -> Result<()> {
         match self.subcommand {
+            Commands::Driver(cmd) => Self::run_until_shutdown(cmd.run()),
+            Commands::EtnaHandoff(cmd) => Self::run_until_shutdown(cmd.run()),
             Commands::AbciImport(cmd) => Self::run_one_shot(cmd.run()),
             Commands::AbciRecover(cmd) => Self::run_one_shot(cmd.run()),
             Commands::Abci(cmd) => Self::run_until_shutdown(cmd.run()),

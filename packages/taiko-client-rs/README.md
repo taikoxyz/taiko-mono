@@ -1,6 +1,6 @@
 # taiko-client-rs
 
-The Rust consensus-side node of the Taiko Etna PoS chain, supporting fresh genesis and explicit
+The Rust Unzen derivation driver and consensus-side node of the Taiko Etna PoS chain, supporting fresh genesis and explicit
 L1-authenticated governance recovery from a retained local EL origin. Stock CometBFT orders and finalizes
 blocks; the `taiko-client abci` ABCI++ application builds and validates them and drives
 alethia-reth through the Engine API. The independent `taiko-client lander` publishes decided batches to L1.
@@ -11,7 +11,9 @@ The protocol rules are specified in the
 client, and names the spec section where an operator needs a rule.
 
 Mainnet and Hoodi must keep their existing pinned 2.3.x client images: the Etna 3.x client removes
-`driver`, `proposer`, and `whitelist-preconfirmation-driver`. The `codex/taiko-client-rs-2.3.x`
+the independent `proposer` and `whitelist-preconfirmation-driver` commands. The Unzen `driver`
+and staged `etna-handoff` command are available in this revision; see
+[Unzen to Etna handoff](docs/unzen-etna-handoff.md). The `codex/taiko-client-rs-2.3.x`
 maintenance branch preserves those commands for legacy fixes. Cherry-pick compatible fixes there,
 verify them using that branch's checks, and release patches with manual
 `taiko-alethia-client-rs-v2.3.x` tags; its inherited tag-triggered Docker workflow publishes the
@@ -71,7 +73,7 @@ Fresh deployment starts at generation zero; it migrates no earlier state format.
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
 creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with the protocol revision `PINNED_REVISION` in
 `script/gen_lander_artifacts.sh` (the Inbox, staking registry and the pinned contract artifacts)
-and alethia-reth commit `20a9282a24b14567ebad82c427f8ceeeaf40aab4`. Start the EL and verify its block 0 before the Inbox
+and alethia-reth commit `efc3c162ad54760a84c561da03f44af9c2adffdd`. Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
 so run the client only on disposable development chains.
 
@@ -129,10 +131,11 @@ An authenticated planned stop permits the stopping grid block and refuses its su
 governance recovery clears the stop. Recovery preparation also refuses rules it cannot
 implement at R. Rules scheduled after R do not change that fixed recovery origin.
 
-This release supports new networks with Etna start S = 0 and their governance recoveries.
-[Checkpoint import](docs/checkpoint-import.md) uses a separately obtained offline EL dataset.
-The [Unzen switch](../protocol/docs/etna/SWITCH.md) and public EL snapshot tooling require
-separate implementations. A nonzero Etna start is refused.
+The ABCI app supports new networks with Etna start S = 0 and authenticated nonzero starts
+through [the restored Unzen driver handoff](docs/unzen-etna-handoff.md). The standalone lander
+still restricts settlement to S = 0; nonzero-S landing and the complete switch deployment remain
+follow-up work. [Checkpoint import](docs/checkpoint-import.md) uses a separately obtained offline
+EL dataset; its nonzero-start path and public EL snapshot tooling are separate work.
 App state uses schema 19; lander journals use schema 16.
 Older stores and witnesses are refused without rewriting signed jobs or FilePV state.
 

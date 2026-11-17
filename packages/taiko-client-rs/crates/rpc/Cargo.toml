@@ -6,9 +6,6 @@ publish = false
 license.workspace = true
 
 [dependencies]
-# async
-tokio = { workspace = true }
-
 # observability
 tracing = { workspace = true }
 
@@ -17,19 +14,26 @@ http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
 tower = { workspace = true }
-url = { workspace = true }
 
 # ethereum
 alloy = { workspace = true, features = ["json-rpc", "rpc-client"] }
 alloy-consensus = { workspace = true }
+alloy-eips = { workspace = true, features = ["kzg"] }
 alloy-primitives = { workspace = true, default-features = false }
-alloy-provider = { workspace = true, features = ["reqwest"] }
+alloy-provider = { workspace = true, features = ["ws", "reqwest"] }
+alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
 alloy-transport-http = { workspace = true }
+once_cell = { workspace = true }
 reqwest = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+url = { workspace = true }
 
 # taiko
 alethia-reth-primitives = { workspace = true, features = ["net"] }
+alethia-reth-rpc-types = { workspace = true }
+bindings = { path = "../bindings" }
+protocol = { path = "../protocol" }
 
 # types
 anyhow = { workspace = true }
@@ -38,7 +42,9 @@ thiserror = { workspace = true }
 # serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 
 [dev-dependencies]
 alloy-eips = { workspace = true }
+hyper = { workspace = true, features = ["server"] }
 tracing-subscriber = { workspace = true }

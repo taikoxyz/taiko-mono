@@ -51,6 +51,8 @@ pub mod schedule;
 pub mod server;
 /// The persisted app state and its atomic file store.
 pub mod store;
+/// Own-finalized Unzen origin evidence handed from the complete derivation driver to the app.
+pub mod switch;
 /// Plain data shared across modules (witnesses, committee records, anchor and parent facts).
 pub mod types;
 /// Stock CometBFT v0.40.0 validator-set arithmetic: the proposer priorities and stored proposers
@@ -67,7 +69,7 @@ mod proptests;
 
 pub use app::{AbciError, App, AppOptions, Status};
 pub use committee::{CommitteeError, Snapshot, committee_config_hash};
-pub use config::{ChainParams, ConfigError, GRID_INTERVAL};
+pub use config::{ChainParams, ConfigError, GRID_INTERVAL, SwitchConfig};
 pub use elsync::{ElSyncError, ensure_block};
 pub use engine::{
     Engine, EngineError, PayloadVerdict, RpcEngine, block_from_payload, payload_from_block,
@@ -97,6 +99,7 @@ pub use server::{
     SAFETY_HALT_EXIT_CODE, ServerError, serve, serve_with,
 };
 pub use store::{AppState, CommitteeState, ExecutionFloor, Store, StoreError};
+pub use switch::SwitchOrigin;
 pub use types::{
     AccountWitness, AnchorState, CommitteeRecord, GenesisRecord, InboxFacts, Member, ParentInfo,
     RegistryEntry, StorageProof,

@@ -139,7 +139,7 @@ pub struct InboxFacts {
 pub struct GenesisRecord {
     /// Authenticated slot-269 derivation configuration hash; required for persisted state.
     pub committee_config_hash: B256,
-    /// L2 genesis block number, always zero; retained to validate older state files.
+    /// Etna start height S: zero on a fresh network, the last Unzen height on a switching network.
     pub genesis_height: u64,
     /// `L1_0`: L1 block number of initialization; the minimum anchor of every block.
     pub l1_0: u64,
@@ -159,6 +159,15 @@ pub struct GenesisRecord {
     /// `maxAnchorAge` (`M`, slot 282 bits 48–95), in seconds: a block's timestamp may exceed
     /// its anchor's by at most `M`. Validated `>= 1152`.
     pub max_anchor_age: u64,
+}
+
+impl GenesisRecord {
+    /// Whether `height` is an Etna checkpoint grid point: height >= S and (height-S) mod K = 0.
+    pub fn is_grid_height(&self, height: u64) -> bool {
+        height
+            .checked_sub(self.genesis_height)
+            .is_some_and(|offset| offset.is_multiple_of(crate::GRID_INTERVAL))
+    }
 }
 
 /// The L1 anchor a block uses: the L1 header facts plus the Inbox facts proven at it.

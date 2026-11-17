@@ -22,7 +22,7 @@ pub struct GenesisDoc {
     pub genesis_time: String,
     /// The 48-byte chain ID authenticating the complete deployment domain.
     pub chain_id: String,
-    /// First global consensus height: 1 for deployment, c+1 for recovery.
+    /// First global consensus height: S+1 for deployment, c+1 for recovery.
     pub initial_height: String,
     /// The consensus parameters ([`GenesisConsensusParams::etna`]).
     pub consensus_params: GenesisConsensusParams,
@@ -223,7 +223,21 @@ impl GenesisDoc {
         Ok(Self {
             genesis_time: genesis_time.to_rfc3339(),
             chain_id,
-            initial_height: "1".to_string(),
+            initial_height: (crate::l1::layout::word_u48(
+                w.inbox
+                    .storage
+                    .iter()
+                    .find(|word| {
+                        word.slot ==
+                            crate::l1::layout::inbox::slot(
+                                crate::l1::layout::inbox::GENESIS_PACKED,
+                            )
+                    })
+                    .expect("verified genesis packed slot")
+                    .value,
+                0,
+            ) + 1)
+                .to_string(),
             consensus_params: GenesisConsensusParams::etna(),
             validators: members.iter().map(GenesisValidator::from_member).collect(),
             app_hash: alloy_primitives::hex::encode_upper(

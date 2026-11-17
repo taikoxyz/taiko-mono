@@ -162,6 +162,9 @@ pub enum RuleViolation {
         /// The rejected value.
         value: u64,
     },
+    /// The shared protocol encoder failed for a reason other than a field-width bound.
+    #[error("extraData encoding failed: {0}")]
+    ExtraDataEncoding(String),
     /// The `extraData` is not exactly [`EXTRA_DATA_LEN`] bytes.
     #[error("extraData is {len} bytes, expected {EXTRA_DATA_LEN}")]
     ExtraDataLength {
@@ -271,6 +274,7 @@ impl RuleViolation {
             Self::PlannedStop { .. } => "planned_stop",
             Self::HeightMismatch { .. } => "height_mismatch",
             Self::HeaderField { .. } => "header_field",
+            Self::ExtraDataEncoding(_) => "extra_data_encoding",
             Self::ExtraDataOverflow { .. } => "extra_data_overflow",
             Self::ExtraDataLength { .. } => "extra_data_length",
             Self::BaseFeeUnavailable { .. } => "base_fee_unavailable",
@@ -310,11 +314,12 @@ pub fn block_timestamp(parent_ts: u64, bft_secs: u64, anchor_ts: u64) -> u64 {
 /// Fails with [`RuleViolation::ExtraDataOverflow`] when `generation` or `anchor` exceeds
 /// `uint48`.
 pub fn encode_extra_data(generation: u64, anchor: u64) -> Result<Bytes, RuleViolation> {
-    encode_etna_extra_data(BASEFEE_SHARING_PCTG, generation, anchor).map_err(
-        |ProtocolError::EtnaExtraDataFieldOverflow { field, value }| {
+    encode_etna_extra_data(BASEFEE_SHARING_PCTG, generation, anchor).map_err(|error| match error {
+        ProtocolError::EtnaExtraDataFieldOverflow { field, value } => {
             RuleViolation::ExtraDataOverflow { field, value }
-        },
-    )
+        }
+        other => RuleViolation::ExtraDataEncoding(other.to_string()),
+    })
 }
 
 /// Decodes an Etna `extraData` into `(basefeeSharingPctg, generation, anchorNumber)`.

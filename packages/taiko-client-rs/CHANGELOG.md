@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Unzen driver and Etna handoff
+
+- Restore the Unzen sync/derivation driver and its CLI, protocol/RPC dependencies and generated bindings.
+- Add `etna-handoff` to drain finalized Unzen derivation before serving Etna ABCI at S+1.
+- Add authenticated nonzero ABCI starts with committee 0 and the unchanged global epoch schedule.
+- Add the shared `--engine-control-dir` Engine writer lease. Mount the same directory for every local controller of one EL.
+- Pin alethia-reth to PR #248 head `efc3c162`, including its legacy proposal-index coexistence fixes.
+
+
 ### ⚠ BREAKING CHANGES
 
 Etna is unlaunched, so start a fresh devnet: the app state (schema 19), validator-state records,

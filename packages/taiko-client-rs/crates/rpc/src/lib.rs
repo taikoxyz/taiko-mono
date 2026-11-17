@@ -1,9 +1,16 @@
 #![cfg_attr(not(test), deny(missing_docs, clippy::missing_docs_in_private_items))]
 #![cfg_attr(test, allow(missing_docs, clippy::missing_docs_in_private_items))]
-//! Engine API wrappers and JSON-RPC provider helpers for the execution engine and L1.
+//! RPC client utilities for connecting to Taiko nodes.
 
 pub mod auth;
+pub mod beacon;
+pub mod blob;
 pub mod client;
 pub mod error;
+pub mod l1_origin;
+#[cfg(test)]
+mod test_utils;
 
+pub use auth::TxPoolContentParams;
 pub use error::{Result, RpcClientError};
+pub use protocol::subscription_source::{SubscriptionSource, SubscriptionSourceError};

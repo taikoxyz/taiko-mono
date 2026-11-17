@@ -52,6 +52,8 @@ mod preparation_cache;
 mod prepare;
 /// The `ProcessProposal` handler.
 mod process;
+/// Switching-network origin authentication before first-landing trust.
+mod switch;
 /// Node-local startup checkpoint authentication and signing readiness.
 pub mod trust;
 /// Deterministic block validation shared by `ProcessProposal`, `FinalizeBlock` and the lander.
@@ -347,6 +349,8 @@ pub struct App<L: L1Source, E: Engine> {
     connections: ConnectionEpoch,
     /// Process-local trust and session state, never serialized into AppState.
     trust: trust::TrustHandle,
+    /// Last Unzen block independently derived by the complete driver from own finalized L1.
+    switch_origin: Option<crate::switch::SwitchOrigin>,
     /// Revokes shared authorization on worker destruction, including panic/cancellation.
     _trust_lifetime: trust::TrustLifetime,
 }
@@ -538,9 +542,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
             connections: ConnectionEpoch::default(),
             _trust_lifetime: trust::TrustLifetime(trust.clone()),
             trust,
+            switch_origin: None,
         };
         app.publish_state_metrics();
         Ok(app)
+    }
+
+    /// Installs the complete driver's independently authenticated last Unzen block.
+    /// The evidence must come from finalized proposal closure and complete derivation, never
+    /// from a peer, an operator-supplied checkpoint or the EL's bare latest head. It is checked
+    /// against the own finalized L1 and the authenticated Etna start before trust is granted.
+    pub fn with_switch_origin(mut self, origin: crate::switch::SwitchOrigin) -> Self {
+        self.switch_origin = Some(origin);
+        self
     }
 
     /// The committed state; `None` before `InitChain`.
@@ -828,8 +842,10 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
         )));
     }
     state.schedule().validate()?;
-    if state.genesis.genesis_height != 0 {
-        return Err(AbciError::StoredState("genesis height must be zero".into()));
+    if state.genesis.genesis_height > crate::schedule::UINT48_MAX ||
+        state.last_height < state.genesis.genesis_height
+    {
+        return Err(AbciError::StoredState("invalid Etna start height".into()));
     }
     match &state.recovery {
         None if state.generation != 0 => {

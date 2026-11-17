@@ -21,7 +21,7 @@ fmt-check:
 # every target (unit/integration tests, test-harness included) so dead test
 # helpers and unused test deps can't accumulate unseen.
 clippy:
-  cargo clippy --workspace --all-features --no-deps --exclude test-harness -- -D warnings -D missing_docs -D clippy::missing_docs_in_private_items && \
+  cargo clippy --workspace --all-features --no-deps --exclude test-harness --exclude bindings -- -D warnings -D missing_docs -D clippy::missing_docs_in_private_items && \
   cargo clippy --workspace --all-targets --all-features --no-deps -- -D warnings
 
 clippy-fix:

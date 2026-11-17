@@ -36,10 +36,10 @@ pub struct CheckpointTarget {
     pub height: u64,
     /// Checkpoint L2 block hash.
     pub hash: B256,
-    /// Comet block ID authenticated by the checkpoint landing record (zero at height zero).
+    /// Comet block ID authenticated by the checkpoint landing record (zero at the Etna start S).
     pub comet_hash: B256,
     /// Validator-state hash (appendix A's `valStateHash`) authenticated by the checkpoint
-    /// landing record's word 4 (zero at height zero).
+    /// landing record's word 4 (zero at the Etna start S).
     pub val_state_hash: B256,
     /// Authenticated recovery generation.
     pub generation: u64,
@@ -588,7 +588,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 current: facts.recovery_generation,
             }));
         }
-        let slots = inbox::landing_slots(facts.last_checkpoint_height);
+        let mut slots = inbox::landing_slots(facts.last_checkpoint_height).to_vec();
+        slots.extend([
+            inbox::slot(inbox::GENESIS_PACKED),
+            inbox::slot(inbox::GENESIS_BLOCK_HASH),
+            inbox::slot(inbox::GENESIS_STATE_ROOT),
+        ]);
         let landing = within(
             "trust landing proof",
             timeout,
@@ -604,6 +609,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let el_hash = B256::from(storage.get(slots[1]).expect("verified exact slots"));
         let comet_hash = B256::from(storage.get(slots[2]).expect("verified exact slots"));
         let val_state_hash = B256::from(storage.get(slots[3]).expect("verified exact slots"));
+        let genesis_word =
+            storage.get(inbox::slot(inbox::GENESIS_PACKED)).expect("verified genesis slot");
+        let start_height = word_u48(genesis_word, 0);
+        let start_hash = B256::from(
+            storage.get(inbox::slot(inbox::GENESIS_BLOCK_HASH)).expect("verified genesis slot"),
+        );
+        let start_root = B256::from(
+            storage.get(inbox::slot(inbox::GENESIS_STATE_ROOT)).expect("verified genesis slot"),
+        );
+        let is_start = facts.last_checkpoint_height == start_height;
         let parent = word_u48(packed, 0);
         let landing_generation = word_u48(packed, 48);
         let retained_origin =
@@ -625,14 +640,32 @@ impl<L: L1Source, E: Engine> App<L, E> {
             (landing_generation != facts.recovery_generation && !retained_origin) ||
             packed >> 144 != alloy_primitives::U256::ZERO ||
             word_u48(packed, 96) != facts.forced_inclusion_head ||
-            (facts.last_checkpoint_height == 0 &&
-                (parent != 0 || !comet_hash.is_zero() || !val_state_hash.is_zero())) ||
-            (facts.last_checkpoint_height > 0 &&
-                (parent >= facts.last_checkpoint_height || comet_hash.is_zero()))
+            genesis_word >> 144 != alloy_primitives::U256::ZERO ||
+            facts.last_checkpoint_height < start_height ||
+            (is_start &&
+                (el_hash != start_hash ||
+                    parent != start_height ||
+                    !comet_hash.is_zero() ||
+                    !val_state_hash.is_zero() ||
+                    word_u48(packed, 96) != 0)) ||
+            (!is_start &&
+                (parent < start_height ||
+                    parent >= facts.last_checkpoint_height ||
+                    comet_hash.is_zero()))
         {
             return Err(AbciError::SafetyHalt("invalid checkpoint landing record".into()));
         }
         self.confirm_target_header(&header).await?;
+        if is_start && let Some(state) = &self.state {
+            if state.genesis.genesis_height != start_height ||
+                state.genesis.genesis_hash != start_hash ||
+                state.genesis.genesis_state_root != start_root
+            {
+                return Err(AbciError::SafetyHalt("authenticated Etna start changed".into()));
+            }
+            self.verify_switch_origin(&state.genesis, &header).await?;
+            self.confirm_target_header(&header).await?;
+        }
         if facts.last_checkpoint_hash.is_zero() || facts.last_checkpoint_height > i64::MAX as u64 {
             return Err(AbciError::SafetyHalt("invalid finalized Inbox checkpoint/status".into()));
         }
@@ -736,7 +769,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 return Err(AbciError::SafetyHalt("checkpoint contradicts retained origin".into()));
             }
             origin.comet_hash
-        } else if target.height == 0 {
+        } else if target.height == state.genesis.genesis_height {
             B256::ZERO
         } else if target.height == state.last_height {
             state.last_comet_hash

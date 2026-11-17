@@ -1,6 +1,8 @@
 //! Error types for RPC operations.
 
 use alloy::transports::TransportError;
+use anyhow::anyhow;
+use protocol::subscription_source::SubscriptionSourceError;
 use std::result::Result as StdResult;
 use thiserror::Error;
 
@@ -10,6 +12,22 @@ pub type Result<T> = StdResult<T, RpcClientError>;
 /// Error types for RPC operations
 #[derive(Debug, Error)]
 pub enum RpcClientError {
+    /// Failed to read JWT secret
+    #[error("failed to read JWT secret from {0}")]
+    JwtSecretReadFailed(String),
+
+    /// Connection error
+    #[error("connection error: {0}")]
+    Connection(String),
+
+    /// Provider error
+    #[error("provider error: {0}")]
+    Provider(String),
+
+    /// Contract call failure.
+    #[error("contract error: {0}")]
+    Contract(String),
+
     /// Typed RPC error from the transport stack.
     #[error("RPC error: {0}")]
     Rpc(#[from] TransportError),
@@ -34,6 +52,25 @@ pub enum RpcClientError {
     /// Generic error
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+// Manual From implementation for alloy contract Error
+impl From<alloy::contract::Error> for RpcClientError {
+    /// Convert contract call errors into the contract-specific RPC client variant.
+    fn from(err: alloy::contract::Error) -> Self {
+        RpcClientError::Contract(err.to_string())
+    }
+}
+
+impl From<SubscriptionSourceError> for RpcClientError {
+    /// Convert subscription source errors into RPC client error variants.
+    fn from(err: SubscriptionSourceError) -> Self {
+        match err {
+            SubscriptionSourceError::Connection(msg) => RpcClientError::Connection(msg),
+            SubscriptionSourceError::Wallet(msg) => RpcClientError::Other(anyhow!(msg)),
+            other => RpcClientError::Other(anyhow!(other)),
+        }
+    }
 }
 
 #[cfg(test)]

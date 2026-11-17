@@ -30,7 +30,7 @@ use super::{
     validate::{Rejection, Validated, validate_block},
 };
 use crate::{
-    GRID_INTERVAL, committee,
+    committee,
     engine::{Engine, EngineError, PayloadVerdict},
     envelope::{EtnaEnvelope, single_envelope},
     l1::{L1Source, OwnFinality, RawL1Header, own_finality},
@@ -244,7 +244,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {
         let pending = self.pending.as_ref().ok_or(AbciError::NothingToCommit)?;
         self.store.save_comet_hash(pending.last_height, pending.last_comet_hash)?;
-        if pending.last_height.is_multiple_of(GRID_INTERVAL) {
+        if pending.genesis.is_grid_height(pending.last_height) {
             self.store.save_val_state(&pending.val_state)?;
         }
         if let Some(updates) = &self.pending_val_updates {

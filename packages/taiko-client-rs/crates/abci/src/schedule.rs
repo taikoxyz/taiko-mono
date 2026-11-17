@@ -1,4 +1,4 @@
-//! Epoch schedule of a chain starting at L2 genesis block 0.
+//! Global epoch schedule, unchanged when Etna starts above the L2 genesis block.
 //!
 //! CometBFT heights equal L2 block numbers. With `e_0 = 0`, `H_0 = 1`,
 //! `epoch_of(h) = (h - 1) / L`, `h_first(e) = 1 + e·L` and `h_last(e) = h_first(e +
@@ -87,14 +87,31 @@ impl Schedule {
     /// Committee epoch required at a global height after a fixed generation origin.
     /// The R-selected set survives global boundaries whose switch was discarded. A switch
     /// after the origin always requires its own record; absence never falls back to an older set.
+    /// This convenience form uses the recovery target floor(c/L). Generation zero supplies E0
+    /// explicitly through [`Self::active_committee_epoch_with_initial`].
     pub fn active_committee_epoch(&self, height: u64, origin_height: u64) -> Option<u64> {
+        self.active_committee_epoch_with_initial(
+            height,
+            origin_height,
+            origin_height / self.len("active_committee_epoch"),
+        )
+    }
+
+    /// Committee active after an origin whose initial record has `initial_epoch` as its target.
+    /// Generation zero always starts with committee 0, even when S lies in a later global
+    /// epoch; recovery starts with floor(c/L). The ordinary global switch schedule is unchanged.
+    pub fn active_committee_epoch_with_initial(
+        &self,
+        height: u64,
+        origin_height: u64,
+        initial_epoch: u64,
+    ) -> Option<u64> {
         if height <= origin_height {
             return None;
         }
-        let initial = origin_height / self.len("active_committee_epoch");
         let epoch = self.epoch_of(height);
-        if epoch <= initial || self.checked_h_first(epoch)?.checked_sub(2)? <= origin_height {
-            Some(initial)
+        if epoch == Self::E0 || self.checked_h_first(epoch)?.checked_sub(2)? <= origin_height {
+            Some(initial_epoch)
         } else {
             Some(epoch)
         }

@@ -1,5 +1,10 @@
 //! Authenticated RPC extensions for Taiko execution engine.
 
+use crate::{client::Client, l1_origin::EngineRpcL1Origin};
+use alethia_reth_primitives::payload::attributes::RpcL1Origin;
+use alethia_reth_rpc_types::PreBuiltTxList as TaikoPreBuiltTxList;
+use alloy::rpc::json_rpc::RpcSend;
+use alloy_primitives::{FixedBytes, U256};
 use std::borrow::Cow;
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
@@ -227,6 +232,199 @@ impl EngineClient {
             .await
             .map_err(Into::into)
     }
+}
+
+/// Re-export of Taiko's pre-built transaction list type using untyped transactions.
+pub type PreBuiltTxList = TaikoPreBuiltTxList<Value>;
+
+/// Parameters for fetching pre-built transaction lists with minimum tip.
+pub struct TxPoolContentParams {
+    /// Beneficiary used for txpool list filtering on the engine side.
+    pub beneficiary: Address,
+    /// Optional base fee hint used by the txpool prebuild endpoint.
+    pub base_fee: Option<u64>,
+    /// Block gas limit used when building candidate tx lists.
+    pub block_max_gas_limit: u64,
+    /// Maximum encoded bytes permitted per returned tx list.
+    pub max_bytes_per_tx_list: u64,
+    /// Local addresses to prioritize in txpool prebuild.
+    pub locals: Vec<String>,
+    /// Maximum number of tx lists requested from the engine.
+    pub max_transactions_lists: u64,
+    /// Minimum tip (wei) required for transactions in returned lists.
+    pub min_tip: u64,
+}
+
+impl Client {
+    /// Issue an L1-origin lookup against the given provider, mapping ignorable engine errors to
+    /// `Ok(None)` and converting the transport wrapper into the public [`RpcL1Origin`] type.
+    pub(crate) async fn request_l1_origin<Params: RpcSend>(
+        provider: &RootProvider,
+        method: &'static str,
+        params: Params,
+    ) -> Result<Option<RpcL1Origin>> {
+        provider
+            .raw_request::<_, Option<EngineRpcL1Origin>>(Cow::Borrowed(method), params)
+            .await
+            .or_else(handle_ignorable_origin_error)
+            .map(|origin| origin.map(Into::into))
+    }
+
+    /// Fetch pre-built transaction lists from the authenticated L2 execution engine.
+    pub async fn tx_pool_content_with_min_tip(
+        &self,
+        params: TxPoolContentParams,
+    ) -> Result<Vec<PreBuiltTxList>> {
+        self.l2_auth_provider
+            .raw_request(
+                Cow::Borrowed("taikoAuth_txPoolContentWithMinTip"),
+                (
+                    params.beneficiary,
+                    params.base_fee,
+                    params.block_max_gas_limit,
+                    params.max_bytes_per_tx_list,
+                    params.locals,
+                    params.max_transactions_lists,
+                    params.min_tip,
+                ),
+            )
+            .await
+            .map_err(Into::into)
+    }
+
+    /// Update the execution engine's L1 origin metadata for a given block.
+    pub async fn update_l1_origin(&self, origin: &RpcL1Origin) -> Result<Option<RpcL1Origin>> {
+        let origin = EngineRpcL1Origin::from(origin.clone());
+        self.l2_auth_provider
+            .raw_request::<_, Option<EngineRpcL1Origin>>(
+                Cow::Borrowed("taikoAuth_updateL1Origin"),
+                (origin,),
+            )
+            .await
+            .map(|origin| origin.map(Into::into))
+            .map_err(Into::into)
+    }
+
+    /// Store the signature associated with a block's L1 origin envelope.
+    pub async fn set_l1_origin_signature(
+        &self,
+        block_id: U256,
+        signature: FixedBytes<65>,
+    ) -> Result<Option<RpcL1Origin>> {
+        self.l2_auth_provider
+            .raw_request::<_, Option<EngineRpcL1Origin>>(
+                Cow::Borrowed("taikoAuth_setL1OriginSignature"),
+                (block_id, signature),
+            )
+            .await
+            .map(|origin| origin.map(Into::into))
+            .map_err(Into::into)
+    }
+
+    /// Update the head L1 origin pointer in the execution engine.
+    pub async fn set_head_l1_origin(&self, block_id: U256) -> Result<Option<U256>> {
+        self.l2_auth_provider
+            .raw_request(Cow::Borrowed("taikoAuth_setHeadL1Origin"), (block_id,))
+            .await
+            .map_err(Into::into)
+    }
+
+    /// Record the last block associated with a batch in the execution engine.
+    pub async fn set_batch_to_last_block(
+        &self,
+        batch_id: U256,
+        block_id: U256,
+    ) -> Result<Option<U256>> {
+        self.l2_auth_provider
+            .raw_request(Cow::Borrowed("taikoAuth_setBatchToLastBlock"), (batch_id, block_id))
+            .await
+            .map_err(Into::into)
+    }
+
+    /// Fetch the last L1 origin associated with the given batch id via the authenticated engine
+    /// API.
+    pub async fn last_l1_origin_by_batch_id(
+        &self,
+        proposal_id: U256,
+    ) -> Result<Option<RpcL1Origin>> {
+        Self::request_l1_origin(
+            &self.l2_auth_provider,
+            "taikoAuth_lastL1OriginByBatchID",
+            (proposal_id,),
+        )
+        .await
+    }
+
+    /// Fetch the last block id that corresponds to the provided batch id via the authenticated
+    /// engine API.
+    pub async fn last_block_id_by_batch_id(&self, proposal_id: U256) -> Result<Option<U256>> {
+        self.l2_auth_provider
+            .raw_request(Cow::Borrowed("taikoAuth_lastBlockIDByBatchID"), (proposal_id,))
+            .await
+            .or_else(handle_ignorable_origin_error)
+    }
+
+    /// Fetch the cached last block id that corresponds to the provided batch id via the
+    /// authenticated engine API, without allowing the engine to scan the chain as a fallback.
+    pub async fn last_certain_block_id_by_batch_id(
+        &self,
+        proposal_id: U256,
+    ) -> Result<Option<U256>> {
+        self.l2_auth_provider
+            .raw_request(Cow::Borrowed("taikoAuth_lastCertainBlockIDByBatchID"), (proposal_id,))
+            .await
+            .or_else(handle_ignorable_origin_error)
+    }
+
+    /// Update the forkchoice through the Engine V3 API served by the pinned execution engine.
+    pub async fn engine_forkchoice_updated_v3(
+        &self,
+        state: ForkchoiceState,
+        attributes: Option<TaikoPayloadAttributes>,
+    ) -> Result<ForkchoiceUpdated> {
+        EngineClient::new(self.l2_auth_provider.clone())
+            .engine_forkchoice_updated_v3(state, attributes)
+            .await
+    }
+
+    /// Retrieve the Engine V5 envelope, whose block value carries finalized zk gas.
+    pub async fn engine_get_payload_v5(
+        &self,
+        payload_id: PayloadId,
+    ) -> Result<ExecutionPayloadEnvelopeV5> {
+        EngineClient::new(self.l2_auth_provider.clone()).engine_get_payload_v5(payload_id).await
+    }
+
+    /// Import an Engine V3 payload with the exact build root and checked zk-gas difficulty.
+    pub async fn engine_new_payload_v4(
+        &self,
+        payload: &ExecutionPayloadV3,
+        header_difficulty: u64,
+        parent_beacon_block_root: B256,
+    ) -> Result<PayloadStatus> {
+        EngineClient::new(self.l2_auth_provider.clone())
+            .engine_new_payload_v4(payload, header_difficulty, parent_beacon_block_root)
+            .await
+    }
+}
+
+/// Checks whether the underlying RPC error message represents a "not found" or ignorable response.
+///
+/// Covers all three "no usable mapping" responses emitted by the execution engine's batch
+/// lookup: missing entry, uncertain match at head, and backward-scan lookback exhaustion.
+fn is_ignorable_origin_error(message: &str) -> bool {
+    message.contains("not found") ||
+        message.contains("proposal last block uncertain") ||
+        message.contains("proposal last block lookback exceeded")
+}
+
+/// Converts an RPC error into an optional origin, mapping ignorable errors to `Ok(None)`.
+pub(crate) fn handle_ignorable_origin_error<T, E>(err: E) -> Result<Option<T>>
+where
+    E: Into<RpcClientError> + std::fmt::Display,
+{
+    let message = err.to_string();
+    if is_ignorable_origin_error(&message) { Ok(None) } else { Err(err.into()) }
 }
 
 #[cfg(test)]

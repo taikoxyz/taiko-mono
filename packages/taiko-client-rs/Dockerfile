@@ -5,9 +5,9 @@ RUN apt-get update && apt-get install -y git libclang-dev pkg-config build-essen
     rm -rf /var/lib/apt/lists/*
 WORKDIR /execution
 RUN git init . && git remote add origin https://github.com/taikoxyz/alethia-reth.git && \
-    git fetch --depth=1 origin 20a9282a24b14567ebad82c427f8ceeeaf40aab4 && \
+    git fetch --depth=1 origin efc3c162ad54760a84c561da03f44af9c2adffdd && \
     git checkout --detach FETCH_HEAD && \
-    test "$(git rev-parse HEAD)" = 20a9282a24b14567ebad82c427f8ceeeaf40aab4
+    test "$(git rev-parse HEAD)" = efc3c162ad54760a84c561da03f44af9c2adffdd
 ARG CARGO_BUILD_JOBS=2
 ARG TARGETARCH
 RUN --mount=type=cache,target=/usr/local/cargo/registry \

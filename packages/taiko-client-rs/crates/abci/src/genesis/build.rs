@@ -29,7 +29,7 @@ use crate::{
 /// leaves the node's state window).
 ///
 /// The document uses the 48-byte deployment-domain chain ID,
-/// `initial_height = 1`, `genesis_time` = the `L1_0` timestamp, the `e_0` members as
+/// `initial_height = S + 1`, `genesis_time` = the `L1_0` timestamp, the `e_0` members as
 /// validators and the genesis witness as `app_state`. Nothing in it is trusted: `InitChain`
 /// re-verifies all of it against each node's own L1.
 pub async fn build_genesis<L: L1Source + ?Sized>(

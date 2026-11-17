@@ -127,7 +127,7 @@ pub(crate) fn anchor_state(header: &RawL1Header, inbox: InboxFacts) -> AnchorSta
 /// always carries its own anchor witness). Rejects, in this order: `status != ETNA_ACTIVE`, a
 /// set reserved bit above the fields of the status, generation, activation record, genesis
 /// cutoff or forced inclusion configuration slot, a generation-zero origin other than
-/// `(0, L1_0)`, a nonzero genesis height, a zero genesis hash, a zero bootstrap committee hash, a
+/// `(S, L1_0)`, a zero genesis hash, a zero bootstrap committee hash, a
 /// zero epoch length, `genesisCutoff >= L1_0`, and a forced inclusion configuration without a
 /// positive delay and a maximum anchor age of at least 1152 seconds. The remaining schedule
 /// bounds are checked by [`crate::Schedule::validate`].
@@ -168,12 +168,11 @@ pub fn verify_genesis_inbox(
         max_anchor_age: word_u48(forced_config, 48),
     };
     let [start, number, timestamp] = inbox::origin_slots(0).map(|slot| word(&storage, slot));
-    if start != U256::ZERO || number != U256::from(genesis.l1_0) || timestamp > U256::from(u64::MAX)
+    if start != U256::from(genesis.genesis_height) ||
+        number != U256::from(genesis.l1_0) ||
+        timestamp > U256::from(u64::MAX)
     {
         return Err(WitnessError::InvalidOrigin);
-    }
-    if genesis.genesis_height != 0 {
-        return Err(WitnessError::NonzeroGenesisHeight(genesis.genesis_height));
     }
     if genesis.genesis_hash.is_zero() {
         return Err(WitnessError::ZeroGenesisHash);

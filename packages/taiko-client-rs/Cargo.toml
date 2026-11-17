@@ -2,6 +2,8 @@
 members = [
     "bin/client",
     "crates/abci",
+    "crates/bindings",
+    "crates/driver",
     "crates/lander",
     "crates/protocol",
     "crates/rpc",
@@ -55,9 +57,9 @@ alloy-trie = { version = "0.9.5", default-features = false }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 
 # taiko
-alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-chainspec", rev = "20a9282a24b14567ebad82c427f8ceeeaf40aab4", default-features = false }
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "20a9282a24b14567ebad82c427f8ceeeaf40aab4", default-features = false }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "20a9282a24b14567ebad82c427f8ceeeaf40aab4", default-features = false, features = [
+alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-chainspec", rev = "efc3c162ad54760a84c561da03f44af9c2adffdd", default-features = false }
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "efc3c162ad54760a84c561da03f44af9c2adffdd", default-features = false }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "efc3c162ad54760a84c561da03f44af9c2adffdd", default-features = false, features = [
     "serde",
 ] }
 
@@ -90,6 +92,28 @@ ed25519-dalek = "2"
 proptest = { version = "1.11", default-features = false, features = ["std"] }
 sha2 = "0.10"
 tempfile = "3"
+
+# Unzen sync/derivation dependencies, sharing the Etna Alloy version.
+alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "efc3c162ad54760a84c561da03f44af9c2adffdd" }
+alloy-contract = { version = "2.4.2", default-features = false }
+alloy-hardforks = { version = "0.4.8", default-features = false }
+alloy-json-rpc = { version = "2.4.2", default-features = false }
+alloy-network = { version = "2.4.2", default-features = false }
+alloy-node-bindings = { version = "2.4.2" }
+alloy-rpc-client = { version = "2.4.2", default-features = false }
+alloy-rpc-types-eth = { version = "2.4.2", default-features = false }
+alloy-signer = { version = "2.4.2", default-features = false }
+alloy-signer-local = { version = "2.4.2", default-features = false }
+alloy-sol-macro = { version = "1.6.1", default-features = false, features = ["json"] }
+alloy-sol-types = { version = "1.6.1", default-features = false }
+event-scanner = "1.1.2"
+robust-provider = "1.0.2"
+secp256k1 = { version = "0.30", features = ["recovery", "rand"] }
+serial_test = { version = "3", features = ["async"] }
+test-context = "0.3"
+test-log = { version = "0.2", features = ["trace"] }
+tokio-retry = "0.3.0"
+tokio-stream = "0.1"
 
 [profile.dev]
 debug = "line-tables-only"
@@ -125,3 +149,9 @@ inherits = "release"
 lto = "fat"
 codegen-units = 1
 incremental = false
+
+# Published scanner/provider releases still depend on Alloy 1; these exact-source
+# compatibility copies share the Alloy 2 types of the driver and execution client.
+[patch.crates-io]
+event-scanner = { path = "vendor/event-scanner" }
+robust-provider = { path = "vendor/robust-provider" }

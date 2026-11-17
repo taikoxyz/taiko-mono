@@ -80,6 +80,14 @@ pub(super) fn observation(
 ) -> Result<Observation, RecoveryError> {
     crate::l1::witness::check_contract(proof, params.inbox).map_err(invalid)?;
     let c = w.el_header.number;
+    let start = w
+        .genesis
+        .inbox
+        .storage
+        .iter()
+        .find(|proof| proof.slot == inbox::slot(inbox::GENESIS_PACKED))
+        .map(|proof| word_u48(proof.value, 0))
+        .ok_or_else(|| invalid("missing deployment start slot"))?;
     let storage =
         verify_account_witness(header.state_root(), proof, &inbox::recovery_slots(w.generation, c))
             .map_err(invalid)?;
@@ -113,7 +121,9 @@ pub(super) fn observation(
         number < w.genesis.l1_header.number() ||
         timestamp == 0 ||
         height != c ||
-        !height.is_multiple_of(crate::GRID_INTERVAL)
+        !height
+            .checked_sub(start)
+            .is_some_and(|offset| offset.is_multiple_of(crate::GRID_INTERVAL))
     {
         return Err(invalid("missing or inconsistent fixed origin"));
     }
@@ -130,14 +140,18 @@ pub(super) fn observation(
     let val_state_hash = B256::from(val_state_hash);
     if el_hash.is_zero() ||
         landing_generation >= w.generation ||
-        (c > 0 &&
+        (c > start &&
             (parent >= c ||
-                !parent.is_multiple_of(crate::GRID_INTERVAL) ||
+                !parent
+                    .checked_sub(start)
+                    .is_some_and(|offset| offset.is_multiple_of(crate::GRID_INTERVAL)) ||
                 comet_hash.is_zero()))
     {
         return Err(invalid("invalid retained landing"));
     }
-    if c == 0 && (packed != U256::ZERO || !comet_hash.is_zero() || !val_state_hash.is_zero()) {
+    if c == start &&
+        (parent != start || cursor != 0 || !comet_hash.is_zero() || !val_state_hash.is_zero())
+    {
         return Err(invalid("invalid genesis landing"));
     }
     let checkpoint = word(&storage, inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT));
@@ -226,7 +240,7 @@ pub(crate) fn verify_recovery(
         return Err(invalid("fixed origin does not bind R and finalized observation"));
     }
     if w.el_header.hash_slow() != origin.el_hash ||
-        (origin.height == 0 &&
+        (origin.height == context.genesis.genesis_height &&
             (origin.el_hash != context.genesis.genesis_hash ||
                 w.el_header.state_root != context.genesis.genesis_state_root))
     {

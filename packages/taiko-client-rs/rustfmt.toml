@@ -10,3 +10,6 @@ trailing_semicolon = false
 use_field_init_shorthand = true
 format_code_in_doc_comments = true
 doc_comment_code_block_width = 100
+
+# Generated bindings and vendored upstream sources retain their original formatting.
+ignore = ["crates/bindings", "vendor"]
