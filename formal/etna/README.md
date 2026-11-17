@@ -21,6 +21,21 @@ correctness.
 
 ## Run
 
+The draft-enabled [TLC/Python workflow](../../.github/workflows/protocol--etna-tlc.yml)
+runs the exact-outcome gate below with a checksum-pinned TLC jar, an offline
+read-only source snapshot and disposable outputs:
+
+```sh
+"$PYTHON" formal/etna/ci.py \
+  --java "$JAVA" --tlc-jar "$TLA2TOOLS_JAR" --output-dir "$NEW_GATE_OUTPUT"
+```
+
+The output directory must not already exist. The gate requires every discovered
+default configuration exactly once, rereads its actual TLC log,
+and rejects empty or skipped mandatory Python suites. Native Go, contract,
+controller, proof and shared source-fault campaigns remain separate evidence;
+this CI job does not run or certify those lanes. The script downloads nothing.
+
 Use Java 17+ and `tla2tools.jar` from the official
 [TLA+ tools release](https://github.com/tlaplus/tlaplus/releases/tag/v1.7.4).
 The recorded runs use release 1.7.4 (its banner says TLC2 Version 2.19).

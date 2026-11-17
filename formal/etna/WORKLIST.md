@@ -106,3 +106,7 @@ technical increment. Review feedback takes priority. Stop for an independently
 supported protocol/source defect; otherwise finish the five and report before
 starting another batch. No production, normative SPEC or Notion edits, merge,
 deployment or automatic sixth increment is authorized.
+
+G01 implementation has passed its final local369-case/189-test gate and
+independent source/behavior checks; hosted workflow execution remains pending
+readback after publication. G02-G05 and the complete batch gate remain pending.

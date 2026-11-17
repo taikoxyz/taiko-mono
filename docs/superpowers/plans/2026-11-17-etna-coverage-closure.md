@@ -33,10 +33,10 @@
 **Files:** create `.github/workflows/protocol--etna-tlc.yml`, `formal/etna/ci.py`, `formal/etna/tests/test_ci.py`; root updates WORKLIST/README.
 **Interfaces:** `ci.py --java PATH --tlc-jar PATH --output-dir PATH` calls existing check.py with the whole discovered config set and stdlib test suites. It verifies the pinned jar before execution, records child statuses/logs and returns nonzero on any required failure. Do not reimplement TLC result parsing.
 
-- [ ] Write and run red tests for wrong tool hash, failed child, empty/missing default coverage and stale output handling; keep tests behavioral with disposable fake child tools where appropriate.
-- [ ] Implement the minimal gate; inspect existing runner tests and preserve check.py behavior and all existing source inputs.
-- [ ] Add draft-enabled PR/main triggers for formal files, workflow and normative docs; read-only permissions, credential-free checkout, pinned existing action commits, bounded job/download/execution, checksum verification and failure artifacts. Separate network tool preparation from offline code execution.
-- [ ] Execute the actual full default TLC/Python gate locally in the existing namespace and independent negative/omission controls; distinguish actual GitHub CI from local validation until its run is read back.
+- [x] Write and run red tests for wrong tool hash, failed child, empty/missing default coverage and stale output handling; keep tests behavioral with disposable fake child tools where appropriate.
+- [x] Implement the minimal gate; inspect existing runner tests and preserve check.py behavior and all existing source inputs.
+- [x] Add draft-enabled PR/main triggers for formal files, workflow and normative docs; read-only permissions, credential-free checkout, pinned existing action commits, bounded job/download/execution, checksum verification and failure artifacts. Separate network tool preparation from offline code execution.
+- [x] Execute the actual full default TLC/Python gate locally in the existing namespace and independent negative/omission controls; distinguish actual GitHub CI from local validation until its run is read back.
 - [ ] Independent source/quality review and behavioral verification; root formats, reviews tested bytes and publishes the reviewed increment before G02.
 
 ### Task 2: G02 — persistent stock Bootstrap restart

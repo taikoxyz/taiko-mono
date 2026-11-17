@@ -4,8 +4,11 @@ The first section records the original height/generation model. The
 [2026-11-14 extension](#2026-11-14-checkpoint-identity-extension) below records
 the composed checkpoint-identity model.
 
-The [latest five-increment gate and retrospective](#five-increment-batch-final-gate-and-retrospective)
-records the current369-config/65-obligation gate and its independent audits.
+The [completed F01-F05 gate and retrospective](#five-increment-batch-final-gate-and-retrospective)
+records that batch's369-config/65-obligation gate and its independent audits.
+The [coverage-closure CI increment](#coverage-closure-batch--g01-exact-outcome-ci)
+records subsequent current-byte CI validation; the new five-item batch remains
+in progress under the [remaining-work index](WORKLIST.md).
 Earlier sections preserve historical inputs and explicitly corrected claims;
 their intermediate counts and positive tuples are not the current result.
 
@@ -2298,3 +2301,54 @@ Exact final evidence SHA256:
 The existing PR stays draft, production/normative sources and Notion remain
 untouched, and this batch stops after five increments. Hourly feedback checks
 continue under the existing authorization; they do not start a sixth increment.
+
+## Coverage-closure batch — G01 exact-outcome CI
+
+The user authorized a new five-item batch after organizing remaining tasks.
+The [worklist](WORKLIST.md) now records acceptance/dependencies and the required
+composition matrix, with19 archived searches grouped by their missing obligation.
+Independent review added explicit shared encoding/key/signature vectors and
+unified zk-gas semantic equivalence; these remain implementation dependencies,
+not extra completed work or new protocol findings. Issue22355 links this index,
+states the published draft status and preserves all older body text as history.
+
+G01 adds `ci.py` and a draft-enabled TLC/Python workflow. The existing runner
+still classifies TLC outcomes; the gate audits exact discovered identities,
+current model/config/tool hashes and raw logs, refuses stale output directories,
+and requires positive discovered/run counts with no skipped mandatory tests.
+Tool preparation downloads only the checksum-pinned jar before offline execution.
+The workflow and local validation use the same explicit signal-reset entry so
+namespace PID1's inherited ignored signals do not invalidate lifecycle checks.
+
+Two material fix waves closed verification defects before publication: empty or
+partially skipped unittest discovery could return success; and sorting config
+filenames but comparing sorted stems falsely rejected the complete prefix-named
+case set. Independent actual CLI controls reproduce the former and reject it
+after repair. Prefix-name regression and an audit of the preserved genuine369
+results verify the latter. Setup-denied Java sockets, superseded runs, cancelled
+runs and wrong signal-context failures remain excluded from final success.
+
+The final canonical isolated execution exits0 in511.857s: **369/369** exact TLC
+outcomes (70 exhausted normals,299 named invariant controls/witnesses), **189**
+Python tests (38 runner/CI,131 conformance,20 sensitivity), all discovered and
+run with zero skips/errors/failures, and rule-reference checking exit0. Migration
+purity remains explicitly skipped without a base. Root separately audits all369
+raw logs and source/config hashes without importing the production classifier.
+Independent source/spec/quality review and independent behavioral verification
+pass on the final three owned code hashes. Actual tiny TLC cases, empty/mixed
+skip controls, missing/duplicate/forged results and nested-session cleanup are
+independently checked. The369 old configs and operational models are unchanged.
+
+Final results SHA256:
+`f86df8bbe79a4972b0aa23116fc9016aa9c03de2cbb3fadfed3126f480e64c99`;
+gate summary SHA256:
+`c5d168b63f1756fc438c71e17af4738f7c50965c46bc1b8babb640a8088e3b50`.
+The source review SHA256 is
+`4e926e177a07dd2b3e5f9e9fbf1fe247b76335cd8c1c5def0e3a22e07c3f5eaa`.
+
+This is local current-byte gate evidence. Hosted Actions provisioning/execution
+and artifact upload require separate readback after publication. The CI job
+does not execute native Go, contracts, real proving, mandatory host-controller
+tests or shared source-fault campaigns; their earlier results remain historical
+for unchanged consumed inputs until an explicitly affected gate is rerun.
+G02-G05 and the final accumulated batch review remain pending.
