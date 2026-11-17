@@ -1,0 +1,38 @@
+{
+  "expectedSubtests": [
+    "origin-clean-close",
+    "current-clean-close",
+    "origin-kill-after-ack",
+    "current-kill-after-ack",
+    "readiness-no-ack",
+    "readiness-wrong-child",
+    "readiness-failed-worker",
+    "observer-controls"
+  ],
+  "inputsSha256": {
+    "comet_bootstrap/bootstrap_test.go": "0c70b0f39ad0702368019388e8dafafe0770e46db69bde52696f16c89576515b",
+    "comet_bootstrap/mapping_vectors.json": "7c57e160db7ff1ce94f6bb50d0a9b803035804d95d92733bce0f9005a4eb0b96",
+    "comet_restart/go.mod": "48f6acb5d3b2d25b89d786938cd5b2fb23ceb7bb19babdb3174794c489bf2c76",
+    "comet_restart/go.sum": "d164bf94a973d5582491cd6486c8b4e859be31d867ec6f2c0452c1afd19aecfa",
+    "comet_restart/literal_observations.json": "4979818481139d06b203a0ba44610b437ab2ed0fbaff35972d80c82f7206145d",
+    "comet_restart/mutant.jsonl": "ba79b8472fd43af9934bf899762ae46ba5e9c5dbbfbd71fcdc72c0d29295401c",
+    "comet_restart/restart_test.go": "41438dc029fb86a576dab75ce05c4bed83f0753ad4dff57872382d8f444e6b71"
+  },
+  "receipt": {
+    "file": "checkpoint_import_cases.json",
+    "schema": "etna-checkpoint-import-replay-1",
+    "sha256": "ffb50b92a5b22220b6a1e44821e2731c1b29466cdabbea12211ca4866b71bea6"
+  },
+  "schema": "etna-comet-restart-pins-1",
+  "source": {
+    "commit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+    "files": 1659,
+    "goModSum": "h1:3z+Aq3BSkwNKw+Z40yPUTxtSRIpQa0w2PyCwyaxxHeU=",
+    "goModuleSum": "h1:0+zc7FlcnonFfMwzhyDCd5vK/fHZqz0RfRyTCxZsFPU=",
+    "license": "Apache-2.0",
+    "manifestSha256": "627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c",
+    "module": "github.com/cometbft/cometbft",
+    "officialTree": "083ecc3cf413b6333ffe47c2b0ce1d91ce84a259",
+    "version": "v0.40.0"
+  }
+}

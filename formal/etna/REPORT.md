@@ -2479,3 +2479,62 @@ now explicitly names production signer/HSM/KMS pins and maximum-committee
 signature-tail measurements. The raiser rechecked all fixes. The current index
 has29 obligations and10 required composition families; bounded completion is
 still distinguished from whole-module closure.
+
+## Coverage-closure batch — G02 stock disk/process restart
+
+The [new native lane](conformance/COMET_RESTART.md) uses actual GoLevelDB with
+pinned stock CometBFT0880b4d378f347ab16e54ec677ff50d803f37d62. It reuses the
+unmodified F04 mapper/literal observers and frozen F03 public receipt. The old
+F04 test parent compiles but is not executed. Each origin/current case runs both
+clean close and abrupt death after completed Bootstrap: an independently checked
+private ACK binds the writer PID, case, mode and canonical disk directory; only
+the owned process handle is killed, SIGKILL is confirmed by Wait, and a different
+reader process reopens that same directory.
+
+The reader checks complete state and independent raw/getter validator/parameter
+rows: origin rows3/4 and params3, with validators2 absent; current rows4/5/6 and
+params5. Collector receipts must also equal the full frozen public observations,
+including members, priorities and stored proposers. Actual no-ACK, wrong-child
+and failed-worker controls prevent reader startup; observer controls distinguish
+missing history and changed fields.
+
+The sole private source fault omits the entire final Bootstrap batch.WriteSync
+call. All four persistence leaves then acknowledge success but reopening reports
+exactly absent state and expected rows; four independent controls still pass.
+Normal and actual same-copy restored execution pass all eight leaves. Every
+entry of the1659-file source manifest, copied F04/native files, both module-file
+locations, tool bytes and provenance inputs is checked before and after execution.
+
+| Phase    | Native return | Required result                                  | Raw combined-log SHA-256                                           |
+| -------- | ------------- | ------------------------------------------------ | ------------------------------------------------------------------ |
+| mutant   | 1             | Four exact missing-batch failures, four controls | `62b22407ec835f5dfb456f81191d6720c87b855449a7a8bd371f94400efebf74` |
+| normal   | 0             | Eight pass                                       | `fac777531fefd1ef13faf7f965cc5339b79790445ab7918fce65e2083df956d8` |
+| restored | 0             | Eight pass                                       | `92ae39194faf82ef920f43e82ad0fbb445b804f19d09957f5bf8fe05823ec128` |
+
+The final formatted-byte author campaign takes1.158/1.207/0.957s respectively.
+Its summary SHA-256 is
+`d4413c6c9a8a7679a077a0e73f656ac72c4b7f6184d0ae6006f980b73b84daa4`;
+native source SHA-256
+`41438dc029fb86a576dab75ce05c4bed83f0753ad4dff57872382d8f444e6b71`;
+collector SHA-256
+`acd807bbc2678e6b488eb829e857a48458f19ab52a4fbd6ba2740d067f751e6e`.
+Fourteen focused tests,145 complete conformance tests and five separate actual
+host-controller tests pass. Independent source/spec/quality review passes at all
+nine frozen hashes. A second actual native campaign independently reproduces the
+three phases, then reopens all12 resulting databases read-only and compares
+literal full state, raw/getter history and parameters without changing DB bytes.
+Independent actual-stream and source-drift controls also reject their intended
+errors. No material review finding remains; G02 is complete for this boundary.
+
+Self-checks first exposed a missing private module-root file, incomplete collector
+observation acceptance and timeout metadata acceptance. Red regressions preceded
+the fixes; setup failures were never counted as semantic outcomes. Missing/skipped/
+duplicate identities, all unrelated diagnostics, wrong reason/return codes and
+generated-input drift fail closed.
+
+This establishes selected completed-write process restart on the executing
+filesystem. SIGKILL does not simulate loss of the OS page cache: physical power
+loss, multi-store atomicity, actual Etna importer/App/EL, signing, WAL/consensus
+restart and authenticated complete history remain separate obligations. The
+existing shared cache, lock, offline namespaces and authoritative supervisor are
+reused; no dependency fetch, installation or production source change is needed.

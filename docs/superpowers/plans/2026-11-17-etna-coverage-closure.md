@@ -52,11 +52,11 @@ unsandboxed fallback are permitted.
 **Files:** new `formal/etna/conformance/comet_restart/` module/test inputs, focused `run_comet_restart.py`, `tests/test_comet_restart.py`, `COMET_RESTART.md`; reuse existing supervisors/source manifests, not a second process-control engine.
 **Interfaces:** selected native test identities and JSON observations over real GoLevelDB, with completion readiness bound to the child process. Collector accepts only complete expected leaves and exact phase diagnostics; `--scenario persistence` is the initial campaign. Keep a clean extension point for G03 handshake test identities without changing old Bootstrap evidence.
 
-- [ ] Inspect actual stock Bootstrap writes and selected disk backend; define the exact observable field/row table and a public-only literal state fixture. Record missing App/EL and power-loss premises.
-- [ ] Implement red controls for missing durable history/state and no-ready/wrong-child/failed worker outcomes. Use an independent process to Bootstrap, stop/kill only after its explicit completed-write receipt, reopen the same disk directory and compare literal fields/rows.
-- [ ] Execute isolated stock original/faulted/restored campaigns with one exact upstream write omission; read back all original source entries and actual restored bytes. Never edit the module cache or original source.
-- [ ] Reject skipped/missing/duplicate identities, wrong reason, added failure diagnostics and generated input drift; verify shared canonical cache/layout and cancellation behavior through existing supervisor contracts.
-- [ ] Independent source/quality review and actual disk/process behavior verification; format before final tested freeze and publish only reviewed bytes.
+- [x] Inspect actual stock Bootstrap writes and selected disk backend; define the exact observable field/row table and a public-only literal state fixture. Record missing App/EL and power-loss premises.
+- [x] Implement red controls for missing durable history/state and no-ready/wrong-child/failed worker outcomes. Use an independent process to Bootstrap, stop/kill only after its explicit completed-write receipt, reopen the same disk directory and compare literal fields/rows.
+- [x] Execute isolated stock original/faulted/restored campaigns with one exact upstream write omission; read back all original source entries and actual restored bytes. Never edit the module cache or original source.
+- [x] Reject skipped/missing/duplicate identities, wrong reason, added failure diagnostics and generated input drift; verify shared canonical cache/layout and cancellation behavior through existing supervisor contracts.
+- [x] Independent source/quality review and actual disk/process behavior verification; format before final tested freeze and publish only reviewed bytes. Independent three-phase campaign and12 actual DB read-only reopen checks pass at the nine frozen file hashes.
 
 ### Task 3: G03 — stock handshake height/AppHash boundary
 

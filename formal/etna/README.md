@@ -576,3 +576,14 @@ wrong-pair source fault distinguish coherence from per-set bounds. See
 This is selected prefix arithmetic/header correspondence, not complete protocol
 STF/history, EL execution or valid signed commits. Earlier source/results remain
 historical;359 existing config bytes and operational Mutant=None actions remain.
+
+### G02: stock disk/process restart
+
+The [disk/process lane](conformance/COMET_RESTART.md) runs actual GoLevelDB
+Bootstrap writers and distinct readers. Both clean close and abrupt death after
+a completed-write receipt preserve the selected full state and historical rows;
+readiness and missing-write controls discriminate the claimed boundary. This
+uses unmodified F04 public fixtures and literal observers, with separate evidence
+from the TLC/Python CI job. It establishes selected process restart behavior on
+the executing filesystem; physical power loss and real multi-store import remain
+unverified.

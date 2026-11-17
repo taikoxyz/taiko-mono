@@ -385,3 +385,10 @@ independent historical validator rows, parameters and selected next-header field
 with one exact missing-write source fault and same-copy restoration. Public key,
 opaque commitment, version/parameter and in-memory durability limits are explicit;
 this is not a concrete Etna importer or full consensus/history validation.
+
+[COMET_RESTART.md](COMET_RESTART.md) adds the separate G02 disk/process boundary:
+actual GoLevelDB, a completed-write receipt, owned writer termination and a
+different reader process opening the same persisted directory. Complete state
+and historical rows, readiness refusals, an entire-batch-write omission and
+same-copy restoration are checked. It reuses the unmodified F04 fixture/oracle;
+physical power loss and multi-store importer atomicity remain separate.
