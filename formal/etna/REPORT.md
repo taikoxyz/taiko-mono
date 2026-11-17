@@ -3317,3 +3317,93 @@ fee currency or gas/zk budgets. F01/P01/Q01 and new D01 deployment acceptance
 remain OPEN/WAITING. No natural protocol defect is established. H05 next tests
 actual modeled payments before correction and preservation afterward; broader
 corrective implementation remains Q02 WAITING.
+
+## Adversarial-coverage batch — H05 pre-correction payments and fresh retry
+
+The [final additive companion](ROLLBACK_PAYMENTS.md) invokes unchanged
+EtnaVerifierRollback/EtnaSettlement actions from RollbackInit/setup0. Its Core
+program has23 actual attempt receipts; NonceBefore and HeightReuse have24each.
+All include the16 original transaction/progress calls plus explicit checkpoint,
+cache, stale-authorization and invalid-proof probes. No concrete corrective
+implementation API or payment history is invented by a state setter.
+
+Imported valuePaid1/stakePaid1 are labeled baseline, not transfers. Actual
+Withdraw1 before containment adds one stake payment, and RetryForged actually
+pays one value before PauseBoth/Upgrade. At correction, raw valuePaid2/stake2/
+fees1each, Forged escrow0/completedTRUE and bond1 principal0/withdrawnTRUE must
+persist. Both old message caches are100, equal to firstBadBlock100, so even
+the earlier Legit cache is revoked; genuine ReproveLegit is necessary. It then
+pays its remaining escrow1 once with fee0, and the real repeat makes no transfer.
+Final valuePaid3/stake2 therefore separate actual[2,1] from imported[1,1];
+only the two SeedMessage actions contribute the two fee payments. Confirmed1
+was already cleared by withdrawal, so its zero at correction is not credited
+as confirmation-invalidation sensitivity.
+
+NonceBefore executes OwnerInvalidate before containment, requiring Upgrade to
+advance the current nonce1->2 even though stored authorization.nonce remains0.
+HeightReuse executes actual FreshGood2 after unpause; generation stays0 and
+Good2 snapshot is20, not block101. The newly honest identity at numeric height2
+can serve a fresh legitimate proof; height2 is not permanently forbidden. These
+are selected atomic-model behaviors, not full node/consensus recovery evidence.
+
+Raw observers inspect complete actual before/after state and every value/stake/
+per-message fee delta. Independent totals alone would telescope, so literal
+allowed amounts are also checked by actual action/payee and every other call
+must transfer0. The old one-slot message journal can be overwritten; Upgrade's
+afterCash is unprimed and its payment-preservation property omits completed.
+Neither substitutes for actual raw cash' and completed preservation.
+
+Author26 exact outcomes comprise19 original M09 configs and7 additive configs:
+one normal, two focused preservation audits, three complete witnesses and one
+grouped omission control. That control exhausts50 applicable profile/call
+histories; these are structural nonreachability regressions, not50 new safety
+claims. All3 full raw histories and each actual transfer were checked. Initial
+Init-parenthesis parse diagnostics were confined to the companion, fixed and
+excluded; final26 uses the corrected frozen code. Guide formatting occurred
+before final execution and its consumed bytes remain exact. Current discovered
+default count is423; whole-batch freshness remains the final gate.
+
+Two actual private Upgrade faults are assessed. Resetting valuePaid to imported1
+really executes correction with raw2->1 while the inherited journal still says2;
+PaymentUpgradeCashAudit catches the negative change. Resetting already-paid
+Forged.completed toFALSE really changes that flag while escrow remains0;
+PaymentUpgradeCompletedAudit catches the preservation failure. It is not a
+demonstrated duplicate cash drain. Removing the completed guard alone is not
+discriminated by merely retrying again because retry isFALSE; even re-arming
+would have escrow0. Original/restored phases pass, with actual same-copy source
+restoration and stable source/copy/tool records. Inventory75 (69TLC+6Forge)
+adds only these two obligations; earlier73 and4 unassessed records persist.
+The20 shared catalog/sensitivity Python regressions pass as well.
+
+Independent source/spec/quality review passes all11 source/config/catalog files.
+Independent behavior uses a different real Upgrade nonce-source fault: stale
+authorization.nonce+1 yields1->1 only in NonceBefore, rather than correct1->2.
+Core/HeightReuse remain ordinary full-witness controls; their unchanged output
+is not counted as another kill. All3 original/restored positives regain full
+history after actual same-copy restoration. Missing the first PayLegit can still
+finish valuePaid3/stake2 because RepeatLegit then pays1; there was no preceding
+successful retry followed by a zero-value repeat. All3 raw partial histories
+therefore lose the required complete witness despite matching final balances.
+
+The independent audit checks author26, both bad Upgrade source triples and its
+own13 exact executions/12 traces. In total17 independently parsed histories
+contain385states/368raw receipts, with literal action/payee/authority/accounting
+checks. All34 old models and416 old default configs remain byte-identical to
+published b907a4108; original M09 SHA remains
+9de72dfbc6149d07c0add856d11c71a9e113b3a80c26e1a0893cef2f3d48c832.
+No source/jar/tool/generated-input drift or setup failure receives result credit.
+Only later root closing prose is outside those execution snapshots.
+
+Reflection: previous setup could assume already-paid amounts and correct only
+before any real cash movement; final balances or a journal could then hide a
+missing history or an actual field reset. This increment requires the actual
+pre-correction payments, observes unchanged raw irreversible effects and then
+executes a fresh-authority payout and genuine zero-transfer repeat. Those
+selected observations leave injected verifier failure, valid root labels,
+abstract fee/principal units and an already-correct atomic correction interface
+as premises. Real proxy/storage migration, partial-failure atomicity, actual
+SignalService/Bridge/Registry/guest/client authentication, real tokens/fees,
+node reconciliation and new D01 deployment are unverified. Q02 remains WAITING.
+No natural protocol counterexample is established. All five selected increments
+are now implemented; final accumulated execution/review and retrospective remain.
+No sixth increment is authorized.

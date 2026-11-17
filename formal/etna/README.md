@@ -687,3 +687,15 @@ and an independently selected revenue-reset fault. A missing-old2 control can
 reach matching final scalar values while lacking the required discarded suffix.
 Full history witnesses remain distinct from absence controls. Real STF/EVM,
 resource behavior and wider F01 implementation correspondence remain WAITING.
+
+### H05: payments before correction and legitimate fresh retry
+
+The [rollback payments lane](ROLLBACK_PAYMENTS.md) executes actual modeled
+withdrawal and forged-message payment before correction, preserves their raw
+cash/escrow/completed/principal/withdrawn state, and pays remaining legitimate
+escrow after a fresh proof. It separates imported1/1 from actual transfer deltas
+and checks permitted amounts per action/payee, beyond net sums or overwritten
+journals. Current-nonce and numeric-height-reuse variants remain within the
+unchanged atomic M09 interface. This is the fifth selected increment; accumulated
+final gates remain separate. Concrete corrective implementation Q02 and shared
+SignalService deployment D01 remain WAITING.

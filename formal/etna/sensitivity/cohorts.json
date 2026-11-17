@@ -73,7 +73,9 @@
         "m07-recapture-reference-age",
         "m07-recapture-backend-binding",
         "m06-suffix-cursor-rewind",
-        "m06-suffix-hash-blanking"
+        "m06-suffix-hash-blanking",
+        "m09-payments-upgrade-cash",
+        "m09-payments-upgrade-completed"
       ]
     },
     {

@@ -1316,6 +1316,40 @@
         "name": "SuffixHashAudit"
       },
       "obligation": "H04 actual hash recovery write fault executes real FIRecover against an independent raw before/after audit."
+    },
+    {
+      "id": "m09-payments-upgrade-cash",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaVerifierRollback.tla",
+      "replace": {
+        "old": "/\\ UNCHANGED <<now,authorization,pendingProof,lastLanding,audit,cash>>",
+        "new": "/\\ cash'=[cash EXCEPT !.valuePaid=1]\n /\\ UNCHANGED <<now,authorization,pendingProof,lastLanding,audit>>"
+      },
+      "workloads": ["configs/rollback-payments-audit-cash.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "PaymentUpgradeCashAudit"
+      },
+      "obligation": "Actual paid value2 before real Upgrade must remain2; dedicated observer reads primed raw cash, not unprimed journal.afterCash. Reset to imported1 must fail immediately, never count as a harmless net offset."
+    },
+    {
+      "id": "m09-payments-upgrade-completed",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaVerifierRollback.tla",
+      "replace": {
+        "old": "!.upgraded=TRUE,!.epoch=@+1]",
+        "new": "!.completed[\"Forged\"]=FALSE,!.upgraded=TRUE,!.epoch=@+1]"
+      },
+      "workloads": ["configs/rollback-payments-audit-completed.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "PaymentUpgradeCompletedAudit"
+      },
+      "obligation": "Actual pre-correction Forged payment has escrow0/completedTRUE; real Upgrade must preserve its completed flag. This is preservation, not an invented duplicate cash payout."
     }
   ]
 }
