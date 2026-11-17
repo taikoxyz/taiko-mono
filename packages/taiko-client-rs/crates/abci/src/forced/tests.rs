@@ -308,7 +308,7 @@ fn rule_rejects_8193_bytes_before_classification() {
 }
 
 #[test]
-fn rule_accepts_8192_invalid_bytes_as_due_skip() {
+fn rule_accepts_8192_ineligible_bytes_as_due_skip() {
     let (anchor, w) = fixture(vec![0; 8192].into());
     assert_eq!(
         check(context(&anchor), Some(&w), None),

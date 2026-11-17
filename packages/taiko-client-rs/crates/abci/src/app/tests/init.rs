@@ -646,7 +646,7 @@ async fn genesis_validators_must_equal_the_committee() {
 }
 
 #[tokio::test]
-async fn el_missing_b_star_is_synced_first() {
+async fn el_missing_the_etna_start_is_synced_first() {
     let fx = Fixture::genesis(2);
     let (l1, _, params, req) = fx.parts();
     // The EL knows the Etna start block (and its parent) but has not made them canonical yet.
@@ -671,7 +671,7 @@ async fn el_missing_b_star_is_synced_first() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn el_that_has_not_reached_b_star_keeps_init_chain_pending() {
+async fn el_that_has_not_reached_the_etna_start_keeps_init_chain_pending() {
     let fx = Fixture::genesis(2);
     let (l1, _, params, req) = fx.parts();
     let opts = AppOptions { elsync_timeout: Duration::from_secs(30), ..AppOptions::default() };
@@ -685,7 +685,7 @@ async fn el_that_has_not_reached_b_star_keeps_init_chain_pending() {
 }
 
 #[tokio::test]
-async fn el_holding_another_b_star_is_a_safety_halt() {
+async fn el_holding_another_etna_start_is_a_safety_halt() {
     let fx = Fixture::genesis(2);
     let (l1, _, params, req) = fx.parts();
     let mut other = fx.el_chain.clone();
@@ -701,7 +701,7 @@ async fn el_holding_another_b_star_is_a_safety_halt() {
 }
 
 #[tokio::test]
-async fn el_rejecting_b_star_is_a_safety_halt() {
+async fn el_rejecting_the_etna_start_is_a_safety_halt() {
     let fx = Fixture::genesis(2);
     let (l1, _, params, req) = fx.parts();
     let engine = MockEngine::new();

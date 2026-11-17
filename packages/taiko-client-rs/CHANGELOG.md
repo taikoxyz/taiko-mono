@@ -72,6 +72,8 @@ older stores are refused, never migrated (START-10-24).
   `abci_proposals_empty_total` is now `abci_proposals_placeholder_total`. In the `reason` label
   of `abci_process_rejected_total` and in `/status` `halt_reason`, `empty_proposal` is now
   `placeholder_proposal` and `landing_capacity` is now `block_size_bound`.
+  The `trigger` field of the lander's "batch collection threshold reached" log line is now
+  `back-pressure` where it was `backpressure`.
 
 ### Features
 
