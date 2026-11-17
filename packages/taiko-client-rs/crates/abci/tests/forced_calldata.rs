@@ -376,9 +376,16 @@ async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
                 );
             }
         } else {
+            let empty = protocol::shasta::encode_transactions(&[]);
             assert!(
-                evidence.iter().all(|b| b.list.is_none()),
-                "{name}: malformed bytes never reach an explicit EL build"
+                evidence
+                    .iter()
+                    .all(|b| { b.list.as_ref().is_none_or(|list| list == &empty && b.count == 0) }),
+                "{name}: explicit EL builds contain no malformed admission bytes"
+            );
+            assert!(
+                evidence.iter().any(|b| b.list.is_none() && b.count == 1),
+                "{name}: ordinary pool build preserves the tail"
             );
         }
         if requires_singleton {
