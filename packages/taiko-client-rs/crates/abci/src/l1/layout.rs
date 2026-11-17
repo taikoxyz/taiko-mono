@@ -28,12 +28,11 @@ pub mod inbox {
     /// Activation record, packed: `genesisHeight` (the Etna start S, bits 0–47), `l1Block` (L1_0,
     /// bits 48–95), `epochLenL2` (L, bits 96–143); higher bits are reserved.
     pub const GENESIS_PACKED: u64 = 272;
-    /// Activation record: the start hash, the Etna start block's hash, `bytes32`. The pinned
-    /// Inbox ABI names the field `genesisBlockHash` (`startBlockHash` after the contracts' rename).
+    /// Etna start record: Solidity `startBlockHash`, the start hash (the Etna start block's hash),
+    /// `bytes32`.
     pub const START_BLOCK_HASH: u64 = 273;
-    /// Activation record: the start state root, the Etna start block's state root, `bytes32`. The
-    /// pinned Inbox ABI names the field `genesisStateRoot` (`startStateRoot` after the contracts'
-    /// rename).
+    /// Etna start record: Solidity `startStateRoot`, the start state root (the Etna start block's
+    /// state root), `bytes32`.
     pub const START_STATE_ROOT: u64 = 274;
     /// Authenticated parent-anchor derivation configuration hash.
     pub const COMMITTEE_CONFIG_HASH: u64 = 269;

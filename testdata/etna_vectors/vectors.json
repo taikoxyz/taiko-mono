@@ -1,5 +1,5 @@
 {
-  "schema_version": "6",
+  "schema_version": "7",
   "deployment": {
     "l1_chain_id": "1",
     "l2_chain_id": "167001",
@@ -3662,9 +3662,9 @@
           "voteType": "2",
           "height": "1000",
           "round": "0",
-          "blockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "blockHash": "0x",
           "partsTotal": "0",
-          "partsHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "partsHash": "0x",
           "timestampSeconds": "1700000000",
           "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
@@ -3878,7 +3878,7 @@
           "voteType": "2",
           "height": "1000",
           "round": "0",
-          "blockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "blockHash": "0x",
           "partsTotal": "1",
           "partsHash": "0xabababababababababababababababababababababababababababababababab",
           "timestampSeconds": "1700000000",
@@ -3934,7 +3934,7 @@
           "round": "0",
           "blockHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "partsTotal": "0",
-          "partsHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "partsHash": "0x",
           "timestampSeconds": "1700000000",
           "timestampSecondsU64": "1700000000",
           "timestampNanos": "123",
@@ -4051,6 +4051,114 @@
         "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
         "sign_bytes": "0x9401080211e80300000000000022480a20bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb122408021220bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc2a0b08ffffffffffffffffff01323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
         "signature": "0x87de3ea383f4eb4e3854e0770bd40415d58c291f74029957596323471a6e404f203847a769f02fec4ed7818e07c3d07bd012ae12938017095c3369229b7c173001"
+      },
+      {
+        "name": "precommit_zero_block_hash",
+        "vote": {
+          "voteType": "2",
+          "height": "1000",
+          "round": "0",
+          "blockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "partsTotal": "1",
+          "partsHash": "0xabababababababababababababababababababababababababababababababab",
+          "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
+          "timestampNanos": "123",
+          "generation": "0"
+        },
+        "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "sign_bytes": "0x9101080211e80300000000000022480a200000000000000000000000000000000000000000000000000000000000000000122408011220abababababababababababababababababababababababababababababababab2a080880e2cfaa06107b323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+        "signature": "0x492aa9c506139f36a72a70e7804ac2080f190867d9b2b818468f196a8516c41004794ec5e370ae9b4e45bfdde5a9f488dca45d44a842ad68b5f34a9ac79a847301"
+      },
+      {
+        "name": "precommit_zero_parts_hash",
+        "vote": {
+          "voteType": "2",
+          "height": "1000",
+          "round": "0",
+          "blockHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "partsTotal": "1",
+          "partsHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
+          "timestampNanos": "123",
+          "generation": "0"
+        },
+        "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "sign_bytes": "0x9101080211e80300000000000022480a20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa12240801122000000000000000000000000000000000000000000000000000000000000000002a080880e2cfaa06107b323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+        "signature": "0xe1b55407a575153ffea443e4081641f9d9771ed5f8130d2b925097408ea7d6f918b85ea93532ce31dfeb50a73320e1470b48661afa5e2a372dadf8c99f42a50500"
+      },
+      {
+        "name": "precommit_zero_both_hashes",
+        "vote": {
+          "voteType": "2",
+          "height": "1000",
+          "round": "0",
+          "blockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "partsTotal": "1",
+          "partsHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
+          "timestampNanos": "123",
+          "generation": "0"
+        },
+        "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "sign_bytes": "0x9101080211e80300000000000022480a20000000000000000000000000000000000000000000000000000000000000000012240801122000000000000000000000000000000000000000000000000000000000000000002a080880e2cfaa06107b323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+        "signature": "0xf6bd94b6e932029b5f04cae30ae95daa0a9b6af2199ffc54442a6de7a855c3030acb657bcdb19c58d73116e4071a2a1c54f7e5b506e34c07497eedf6b25307a101"
+      },
+      {
+        "name": "zero_hashes_zero_total",
+        "vote": {
+          "voteType": "2",
+          "height": "1000",
+          "round": "0",
+          "blockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "partsTotal": "0",
+          "partsHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
+          "timestampNanos": "123",
+          "generation": "0"
+        },
+        "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "sign_bytes": "0x8f01080211e80300000000000022460a2000000000000000000000000000000000000000000000000000000000000000001222122000000000000000000000000000000000000000000000000000000000000000002a080880e2cfaa06107b323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+        "signature": "0xa20511e4d3c587c2a80f6b452a4dae62f6ce9e6660d9beda61370e351445975a3aed6b7b492facd494dcef345284a7a1e29bd244537cff1ea199b0b9d099d92401"
+      },
+      {
+        "name": "zero_block_hash_only",
+        "vote": {
+          "voteType": "2",
+          "height": "1000",
+          "round": "0",
+          "blockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "partsTotal": "0",
+          "partsHash": "0x",
+          "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
+          "timestampNanos": "123",
+          "generation": "0"
+        },
+        "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "sign_bytes": "0x6d080211e80300000000000022240a20000000000000000000000000000000000000000000000000000000000000000012002a080880e2cfaa06107b323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+        "signature": "0x9466b16f75fc79fe6d95668202bd18778046714ce4c4ad5b8f78244e41e5492d7d8b5f703e10c5d47508069e9b15c6be3d5e515e3345a9bce54df7a8a72ea77000"
+      },
+      {
+        "name": "zero_parts_hash_only",
+        "vote": {
+          "voteType": "2",
+          "height": "1000",
+          "round": "0",
+          "blockHash": "0x",
+          "partsTotal": "0",
+          "partsHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "timestampSeconds": "1700000000",
+          "timestampSecondsU64": "1700000000",
+          "timestampNanos": "123",
+          "generation": "0"
+        },
+        "chain_id": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+        "sign_bytes": "0x6d080211e80300000000000022241222122000000000000000000000000000000000000000000000000000000000000000002a080880e2cfaa06107b323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+        "signature": "0x26cecf59f7dd05668a0bae6f40f0cfdf47117c6864b31f0258d240c5d2ebd786250911e11b24f76edc83d34a9fe7de791745d90c3e29d5b6798186d44e7b4c7700"
       }
     ],
     "pairs": [
@@ -4165,8 +4273,64 @@
         "double_sign": true,
         "reason": "double_sign",
         "current_generation": "0"
+      },
+      {
+        "name": "zero_block_hash_conflict",
+        "a": "precommit_a",
+        "b": "precommit_zero_block_hash",
+        "double_sign": true,
+        "reason": "double_sign",
+        "current_generation": "0"
+      },
+      {
+        "name": "zero_parts_hash_conflict",
+        "a": "precommit_a",
+        "b": "precommit_zero_parts_hash",
+        "double_sign": true,
+        "reason": "double_sign",
+        "current_generation": "0"
+      },
+      {
+        "name": "zero_both_hashes_conflict",
+        "a": "precommit_nil",
+        "b": "precommit_zero_both_hashes",
+        "double_sign": true,
+        "reason": "double_sign",
+        "current_generation": "0"
+      },
+      {
+        "name": "zero_hashes_zero_total_conflict",
+        "a": "precommit_nil",
+        "b": "zero_hashes_zero_total",
+        "double_sign": true,
+        "reason": "double_sign",
+        "current_generation": "0"
+      },
+      {
+        "name": "zero_block_hash_only_conflict",
+        "a": "precommit_nil",
+        "b": "zero_block_hash_only",
+        "double_sign": true,
+        "reason": "double_sign",
+        "current_generation": "0"
+      },
+      {
+        "name": "zero_parts_hash_only_conflict",
+        "a": "precommit_nil",
+        "b": "zero_parts_hash_only",
+        "double_sign": true,
+        "reason": "double_sign",
+        "current_generation": "0"
       }
-    ]
+    ],
+    "slash_abi": {
+      "signature": "slashDoubleSign(uint256,(uint8,uint64,uint32,bytes,uint32,bytes,uint64,uint32,uint48,bytes),(uint8,uint64,uint32,bytes,uint32,bytes,uint64,uint32,uint48,bytes))",
+      "selector": "0xd61617a4",
+      "bond_id": "0",
+      "a": "precommit_a",
+      "b": "precommit_zero_parts_hash",
+      "calldata": "0xd61617a40000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000002a0000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000003e80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000180000000000000000000000000000000000000000000000000000000006553f100000000000000000000000000000000000000000000000000000000000000007b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001c00000000000000000000000000000000000000000000000000000000000000020aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0000000000000000000000000000000000000000000000000000000000000020abababababababababababababababababababababababababababababababab0000000000000000000000000000000000000000000000000000000000000041eba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff430000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000003e80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000180000000000000000000000000000000000000000000000000000000006553f100000000000000000000000000000000000000000000000000000000000000007b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001c00000000000000000000000000000000000000000000000000000000000000020aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000041e1b55407a575153ffea443e4081641f9d9771ed5f8130d2b925097408ea7d6f918b85ea93532ce31dfeb50a73320e1470b48661afa5e2a372dadf8c99f42a5050000000000000000000000000000000000000000000000000000000000000000"
+    }
   },
   "fi_eligibility": {
     "l2_chain_id": "167001",

@@ -44,7 +44,7 @@ pub enum WitnessError {
     /// widths.
     #[error("invalid generation-zero origin")]
     InvalidOrigin,
-    /// Genesis only: the genesis record's `genesisBlockHash` (the start hash) is zero.
+    /// Genesis only: the Solidity start record's `startBlockHash` (the start hash) is zero.
     #[error("genesis record has a zero genesis block hash")]
     ZeroGenesisHash,
     /// Genesis only: `genesisCommitteeRecordHash` is zero, so no genesis committee was recorded.
