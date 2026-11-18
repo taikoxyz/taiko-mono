@@ -10,7 +10,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Type       | Count | partial | partial-via | supporting | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| rule       |   608 |      46 |           0 |         40 |      522 |              0 |
+| rule       |   608 |      47 |           0 |         40 |      521 |              0 |
 | limitation |    21 |       0 |           0 |          0 |       21 |              0 |
 | assumption |    11 |       0 |           0 |          0 |       11 |              0 |
 
@@ -18,7 +18,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Family | Rules | partial | partial-via | supporting | deferred | design-pending |
 | ------ | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| RECOV  |   114 |       4 |           0 |         10 |      100 |              0 |
+| RECOV  |   114 |       5 |           0 |         10 |       99 |              0 |
 | ENC    |    59 |       0 |           0 |          0 |       59 |              0 |
 | CONS   |    53 |       2 |           0 |          0 |       51 |              0 |
 | START  |    52 |       4 |           0 |          4 |       44 |              0 |
@@ -370,8 +370,8 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | RECOV-8-24     | rule       | deferred   | LIVE_EN-4a56676c3ce76122 |     14 |                                                                                                             |
 | RECOV-8-25     | rule       | deferred   | LIVE_EN-4a56676c3ce76122 |     14 |                                                                                                             |
 | RECOV-8-26     | rule       | deferred   | LIVE_EN-4a56676c3ce76122 |     14 |                                                                                                             |
-| RECOV-8-27     | rule       | partial    | LIVE_EN-4a56676c3ce76122 |     14 | `coherent_signal_bounded`, `rollback_coherent`, `rollback_snapshot_provenance` +1                           |
-| RECOV-8-27a    | rule       | deferred   | LIVE_EN-4a56676c3ce76122 |     14 |                                                                                                             |
+| RECOV-8-27     | rule       | partial    | LIVE_EN-4a56676c3ce76122 |     14 | `run_backed`, `coherent_signal_bounded`, `rollback_coherent` +2                                             |
+| RECOV-8-27a    | rule       | partial    | LIVE_EN-4a56676c3ce76122 |     14 | `revoked_needs_proof`, `run_backed`                                                                         |
 | RECOV-8-28     | rule       | supporting | LIVE_EN-4a56676c3ce76122 |     14 | `rollback_target_unique`                                                                                    |
 | RECOV-8-29     | rule       | deferred   | LIVE_EN-4a56676c3ce76122 |     14 |                                                                                                             |
 | RECOV-8-30     | rule       | deferred   | LIVE_EN-4a56676c3ce76122 |     14 |                                                                                                             |
@@ -748,7 +748,8 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 - **FI-7.3-1**: Actual current due queue-head bytes are included or legally skipped under the selected interpreter.
 - **FI-7.3-2**: The inclusive block-time age bound implies due service under the selected interpreter.
 - **FI-7.3-4**: A valid decoded block/every actual consecutive cut edge of a valid chain consumes at most one queue entry. This is per-block cardinality only; aggregate endpoint bounds do not supply this pointwise conclusion, and linear fee growth/sender balances are separate.
-- **RECOV-8-27**: After the rollback no voided checkpoint is readable; every other checkpoint stays usable, including the Unzen ones at or below S and block 0; and a re-landing at a voided height is usable. The model realizes this by keeping the checkpoints at or below the trusted one and appending fresh ones. Rollback truncates retained signal/custody associations at the trusted checkpoint; a raw rollback that meets its duty restores the target's checkpoint and FI head and the snapshot saved with it and keeps only the records at or below it. No governance mechanism proof. Modelled signals are SignalService checkpoints only: the receive cache and Bridge RETRIABLE messages of RECOV-8-27a are not modelled.
+- **RECOV-8-27**: After the rollback no voided checkpoint is readable; every other checkpoint stays usable, including the Unzen ones at or below S and block 0; and a re-landing at a voided height is usable. The model realizes this by keeping the checkpoints at or below the trusted one and appending fresh ones. Rollback truncates retained signal/custody associations at the trusted checkpoint; a raw rollback that meets its duty restores the target's checkpoint and FI head and the snapshot saved with it and keeps only the records at or below it. No governance mechanism proof. The receive cache and Bridge RETRIABLE messages of RECOV-8-27a are modelled alongside (Bridge.run_backed): every derived authorization stays backed by a checkpoint the L1 SignalService holds.
+- **RECOV-8-27a**: With the L1 SignalService and Bridge run alongside the protocol machine, every signal cached as received and every message left RETRIABLE was proven against the state root of a checkpoint the L1 SignalService still holds; after a rollback's revocation an empty proof and a retry are refused until the signal is proven again (27a.a, 27a.c), a message proven again completes, and a completed message is not paid again (27a.h). The model revokes the whole cache (27a.k) as part of the rollback step, so this shows that revocation suffices, not that a DAO upgrade performs it. Message values, fees, quotas and pausing (27a.g, 27a.j) are not modelled.
 - **RECOV-8-28**: The target rule is an external authorization duty of raw DAO rollbacks (Governance.RollbackAuthorized): every retained record at or below the target is trusted (TrustedRecord binds actual retained landing provenance and its complete statement, including snapshot and signal root; starts are exempt from event existence) and the first retained record above it is bad. The theorem shows only that the duty fixes one target height; existence of a target after a verifier failure, the start-rewrite clause and generation counting are not shown. Badness includes metadata-only corruption in the actual landing; the DAO's choice is not a contract check.
 - **RECOV-8-38**: Successful recovery has a strictly sorted FI clear list entirely within the pending execution-time queue interval, and an exclusion list strictly sorted by bond id; no nonce/generation conclusion.
 - **RECOV-8-40a**: A successful recover had every exclusion name an id below nextId whose stored bond key's entryKey equals the listed one (exclusionsValid), so a withdrawn bond whose storage remains passes; the check reads no unissued default storage.

@@ -176,6 +176,21 @@
       "declaration": "Etna.Design.Current.CheckpointRisk.NormalRun.trans",
       "shadows": "trans",
       "reason": "Transitivity of the actual normal execution relation, intentionally selected inside its namespace instead of the generic trans relation helper."
+    },
+    {
+      "declaration": "Etna.Design.Current.Bridge.State",
+      "shadows": "Etna.Design.State",
+      "reason": "Bridge read-path state (cached receive authorizations and retriable messages), distinct from the historical inbox State; Bridge statements intentionally mean this State."
+    },
+    {
+      "declaration": "Etna.Design.Current.Bridge.instDecidableEqState",
+      "shadows": "Etna.Design.instDecidableEqState",
+      "reason": "Derived DecidableEq instance for Bridge.State; instances are found by type class resolution, not by this name."
+    },
+    {
+      "declaration": "Etna.Design.Current.Bridge.instReprState",
+      "shadows": "Etna.Design.instReprState",
+      "reason": "Derived Repr instance for Bridge.State; instances are found by type class resolution, not by this name."
     }
   ]
 }

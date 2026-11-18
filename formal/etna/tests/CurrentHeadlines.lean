@@ -257,14 +257,16 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
   ((Headlines.fund_safety env registry premises.toFundPremises w run).2.2.2.2.2.2.2.1 switching).2
 
 -- SPEC section 1, finality: checkpoints survive every later run without a rollback, and no
--- rollback meets its verifier-failure duty under H1's premises.
+-- rollback meets its verifier-failure duty under H1's premises. RECOV-8-27a: every derived
+-- bridge authorization is backed by a checkpoint the L1 SignalService holds.
 example (env : Environment) (registry : RegistryMachine.State) (premises : FundPremises env registry)
     (w : World) (run : Trace env (empty env registry) w) :
     (∀ later, CheckpointRisk.RollbackFreeRun env w later →
       (∀ s ∈ w.inbox.signals, s ∈ later.inbox.signals) ∧
       (w.everLanded = true → w.inbox.checkpoint.height ≤ later.inbox.checkpoint.height ∧
         ∀ cp ∈ w.activeRecords, cp ∈ later.activeRecords)) ∧
-    (∀ trusted snapshot, ¬ Governance.RollbackAuthorized env (empty env registry) w trusted snapshot) :=
+    (∀ trusted snapshot, ¬ Governance.RollbackAuthorized env (empty env registry) w trusted snapshot) ∧
+    (∀ verify bridge, Bridge.Run env verify (empty env registry,{}) (w,bridge) → Bridge.Backed verify w bridge) :=
   (Headlines.fund_safety env registry premises w run).2.2.2.2.2.2.2.2
 
 -- An authorized raw DAO history from a fresh deployment never executes a rollback, so H2's

@@ -2737,12 +2737,16 @@
       "module": "EtnaProofs.Headline.Current",
       "role": "property",
       "type": "Etna.Statements.Current.FundSafety",
-      "sources": ["LIVE_EN-806e818366c6b783", "LIVE_EN-c36e4d0d76a728b6"],
+      "sources": [
+        "LIVE_EN-806e818366c6b783",
+        "LIVE_EN-c36e4d0d76a728b6",
+        "LIVE_EN-4a56676c3ce76122"
+      ],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "scope": "Conditional decoded custody: retained checkpoint/signal headers have authenticated genesis/accepted-Unzen roots and actual accepted landing edges. SPEC section 1 checkpoint finality: every later run without rollback keeps each retained signal and, once something has landed, each retained record and a checkpoint at least as high; and no rollback meets its verifier-failure duty (Governance.RollbackAuthorized), since no retained record is bad. It is not evidence for LAND-9 atomic multi-field update, bridge withdrawals or arbitrary untrusted DAO upgrades."
+      "scope": "Conditional decoded custody: retained checkpoint/signal headers have authenticated genesis/accepted-Unzen roots and actual accepted landing edges. SPEC section 1 checkpoint finality: every later run without rollback keeps each retained signal and, once something has landed, each retained record and a checkpoint at least as high; and no rollback meets its verifier-failure duty (Governance.RollbackAuthorized), since no retained record is bad. RECOV-8-27a on the read path (Bridge.run_backed): with the L1 SignalService and Bridge run alongside, under any Merkle adapter, every cached signal and RETRIABLE message was proven against the root of a checkpoint the L1 SignalService still holds, because a rollback revokes them all. It is not evidence for LAND-9 atomic multi-field update, bridge message values, fees or quotas, or arbitrary untrusted DAO upgrades."
     },
     {
       "declaration": "Etna.Design.Current.Blocks.opened_early_inclusion",
@@ -8180,6 +8184,80 @@
       "role": "supporting",
       "sources": ["LIVE_EN-47c9c7d7edef31c4"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. A bond whose exit an exclusion at L1 block R set to min(exit, R) is ineligible in every election at a cutoff at or after R."
+    },
+    {
+      "module": "EtnaProofs.CurrentBridge",
+      "declaration": "Etna.Design.Current.Bridge.run_backed",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment}\n  {registry : Etna.Design.Current.RegistryMachine.State}\n  {verify : Etna.Design.Hash → Etna.Design.Hash → Etna.Design.Hash → Bool} {w : Etna.Design.Current.Protocol.World}\n  {b : Etna.Design.Current.Bridge.State},\n  Etna.Design.Current.RegistryMachine.Genesis registry →\n    Etna.Design.Current.Protocol.Custody.Primitives env →\n      Etna.Design.Current.Protocol.VerifierSound env (Etna.Design.Current.Protocol.empty env registry) →\n        Etna.Design.Current.Bridge.Run env verify (Etna.Design.Current.Protocol.empty env registry, { }) (w, b) →\n          Etna.Design.Current.Bridge.Backed verify w b",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "LIVE_EN-4a56676c3ce76122",
+        "LIVE_ANCHORLESS-325a918cb4ae77b9"
+      ],
+      "scope": "Derived conditional decoded property. RECOV-8-27 and RECOV-8-27a on the L1 read path: along every run of the protocol machine with the L1 SignalService and Bridge alongside (Bridge.Run), under any Merkle adapter, every signal cached as received and every message left RETRIABLE was proven against the state root of a checkpoint the L1 SignalService still holds (an Unzen one or an Etna landing's). An accepted rollback revokes every derived authorization in the same step (vector 27a.k); every other call keeps each checkpoint (CheckpointRisk.execute_retains). The revocation is part of the modelled rollback step, so this shows the design's revocation suffices, not that a DAO upgrade performs it. Message values, fees, quotas, pausing (RECOV-8-25) and Bridge message status beyond RETRIABLE/done are not modelled; the Merkle check is a fixed adapter."
+    },
+    {
+      "module": "EtnaProofs.CurrentBridge",
+      "declaration": "Etna.Design.Current.Bridge.revoked_needs_proof",
+      "type": "∀ (verify : Etna.Design.Hash → Etna.Design.Hash → Etna.Design.Hash → Bool) (w : Etna.Design.Current.Protocol.World)\n  (b : Etna.Design.Current.Bridge.State) (slot : Etna.Design.Hash) (delivered : Bool),\n  Etna.Design.Current.Bridge.execute verify w (Etna.Design.Current.Bridge.revoke b)\n        (Etna.Design.Current.Bridge.Call.processCached slot delivered) =\n      Option.none ∧\n    Etna.Design.Current.Bridge.execute verify w (Etna.Design.Current.Bridge.revoke b)\n        (Etna.Design.Current.Bridge.Call.retry slot delivered) =\n      Option.none",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-4a56676c3ce76122"],
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. RECOV-8-27a vectors 27a.a and 27a.c: after the revocation an empty proof for a cached signal and a retry of a RETRIABLE message are refused until the signal is proven again."
+    },
+    {
+      "module": "EtnaProofs.CurrentBridge",
+      "declaration": "Etna.Design.Current.Bridge.saved_before_fork",
+      "type": "∀ {c : Etna.Design.Current.Bridge.L2Config} {start now : Nat}\n  {store : List Etna.Design.Current.Bridge.Saved},\n  Etna.Design.Current.Bridge.L2Run c (start, []) (now, store) →\n    ∀ (s : Etna.Design.Current.Bridge.Saved),\n      s ∈ store → s.caller = c.syncer ∧ Etna.Design.Current.Bridge.checkpointsOpen c s.savedAt = Bool.true ∧ s.root ≠ 0",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "LIVE_ANCHORLESS-04b5ee63903e1dab",
+        "LIVE_ANCHORLESS-d207bf647205c559"
+      ],
+      "scope": "Derived decoded property of the shared SignalService's checkpoint store (ANCHORLESS sections 4 and 8): every checkpoint a run of L2 blocks saves into an empty store was saved by the authorized syncer while the store was open (on L2 before beaconRootsFrom, on L1 always) and has a nonzero root, so a public anchor key used from the fork on forges none. The L2 block order, the Anchor and the EVM are not modelled; L1 checkpoint saving is the Inbox's (H1)."
+    },
+    {
+      "module": "EtnaProofs.CurrentBridge",
+      "declaration": "Etna.Design.Current.Bridge.store_closed",
+      "type": "∀ {c : Etna.Design.Current.Bridge.L2Config} {now later : Nat}\n  {store final : List Etna.Design.Current.Bridge.Saved},\n  c.beaconRootsFrom ≠ 0 →\n    c.beaconRootsFrom ≤ now →\n      Etna.Design.Current.Bridge.L2Run c (now, store) (later, final) →\n        ∀ (s : Etna.Design.Current.Bridge.Saved), s ∈ final → s ∈ store",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "LIVE_ANCHORLESS-8fdafa7abe7ff1c0",
+        "LIVE_ANCHORLESS-04b5ee63903e1dab",
+        "LIVE_ANCHORLESS-3790abc1517ccc8d"
+      ],
+      "scope": "Derived decoded property: on L2 (beaconRootsFrom nonzero), from beaconRootsFrom on, a run of L2 blocks in timestamp order adds no checkpoint to the SignalService's store. Storage namespace migration, deletion and the pre-fork Anchor are not modelled."
+    },
+    {
+      "module": "EtnaProofs.CurrentBridge",
+      "declaration": "Etna.Design.Current.Bridge.root_after_fork",
+      "type": "∀ (c : Etna.Design.Current.Bridge.L2Config)\n  (beacon : Nat → Option Etna.Design.Hash) (store : List Etna.Design.Current.Bridge.Saved) {timestamp blockId : Nat}\n  {r : Etna.Design.Hash},\n  c.beaconRootsFrom ≠ 0 →\n    c.beaconRootsFrom ≤ timestamp →\n      Etna.Design.Current.Bridge.stateRoot c beacon store timestamp blockId = Option.some r →\n        c.beaconRootsFrom ≤ blockId ∧\n          beacon blockId = Option.some r ∧\n            r ≠ 0 ∧\n              ∀ (other : List Etna.Design.Current.Bridge.Saved),\n                Etna.Design.Current.Bridge.stateRoot c beacon other timestamp blockId = Option.some r",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "LIVE_ANCHORLESS-6eb47d0db834bec0",
+        "LIVE_ANCHORLESS-0eac9986fbc839f3",
+        "LIVE_ANCHORLESS-8fdafa7abe7ff1c0"
+      ],
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. In an L2 block at or after beaconRootsFrom, _getStateRoot resolves a root only from the EIP-4788 entry for a blockId at or after the fork, never as zero, and independently of the checkpoint store. The EIP-4788 ring buffer is an abstract partial function; the Merkle proof and the uint48 bound of the checkpoint path are not shown."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Governance.trace_trusted_records",

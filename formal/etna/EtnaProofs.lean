@@ -1,3 +1,4 @@
+import EtnaProofs.CurrentBridge
 import EtnaProofs.CurrentCandidate
 import EtnaProofs.CurrentValidatorState
 import EtnaProofs.CurrentAdmission

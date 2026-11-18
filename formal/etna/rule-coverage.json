@@ -348,9 +348,17 @@
         "Etna.Design.Current.Protocol.Custody.coherent_signal_bounded",
         "Etna.Design.Current.Protocol.Custody.rollback_coherent",
         "Etna.Design.Current.Protocol.Custody.rollback_snapshot_provenance",
-        "Etna.Design.Current.Protocol.Governance.authorized_rollback_restores"
+        "Etna.Design.Current.Protocol.Governance.authorized_rollback_restores",
+        "Etna.Design.Current.Bridge.run_backed"
       ],
-      "reason": "After the rollback no voided checkpoint is readable; every other checkpoint stays usable, including the Unzen ones at or below S and block 0; and a re-landing at a voided height is usable. The model realizes this by keeping the checkpoints at or below the trusted one and appending fresh ones. Rollback truncates retained signal/custody associations at the trusted checkpoint; a raw rollback that meets its duty restores the target's checkpoint and FI head and the snapshot saved with it and keeps only the records at or below it. No governance mechanism proof. Modelled signals are SignalService checkpoints only: the receive cache and Bridge RETRIABLE messages of RECOV-8-27a are not modelled."
+      "reason": "After the rollback no voided checkpoint is readable; every other checkpoint stays usable, including the Unzen ones at or below S and block 0; and a re-landing at a voided height is usable. The model realizes this by keeping the checkpoints at or below the trusted one and appending fresh ones. Rollback truncates retained signal/custody associations at the trusted checkpoint; a raw rollback that meets its duty restores the target's checkpoint and FI head and the snapshot saved with it and keeps only the records at or below it. No governance mechanism proof. The receive cache and Bridge RETRIABLE messages of RECOV-8-27a are modelled alongside (Bridge.run_backed): every derived authorization stays backed by a checkpoint the L1 SignalService holds."
+    },
+    "RECOV-8-27a": {
+      "theorems": [
+        "Etna.Design.Current.Bridge.run_backed",
+        "Etna.Design.Current.Bridge.revoked_needs_proof"
+      ],
+      "reason": "With the L1 SignalService and Bridge run alongside the protocol machine, every signal cached as received and every message left RETRIABLE was proven against the state root of a checkpoint the L1 SignalService still holds; after a rollback's revocation an empty proof and a retry are refused until the signal is proven again (27a.a, 27a.c), a message proven again completes, and a completed message is not paid again (27a.h). The model revokes the whole cache (27a.k) as part of the rollback step, so this shows that revocation suffices, not that a DAO upgrade performs it. Message values, fees, quotas and pausing (27a.g, 27a.j) are not modelled."
     },
     "RECOV-8-28": {
       "theorems": [

@@ -583,4 +583,5 @@ added only its own root, since its statement names no new definition. Making the
 deployed-history headlines (`Headlines.deployed_claims`, `deployed_rollback_free` and
 `deployed_recoverability`) roots added the raw DAO upgrade machine and its authorization
 duties, for 1,617 constants then. Letting the recovery exclude members (RECOV-8-41) added
-`excluded` and changed `RecoveryCall` and `LiveAt`, for 1,746 constants at this revision.
+`excluded` and changed `RecoveryCall` and `LiveAt`, for 1,746 constants. H1's bridge read-path
+conjunct (RECOV-8-27a) made it 1,790 at this revision.

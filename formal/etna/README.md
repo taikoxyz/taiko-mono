@@ -29,7 +29,10 @@ seven per-state hypotheses of `LiveAt` (below).
   on L1. H1 also states SPEC section 1's finality of checkpoints: every later run without a
   `rollback` keeps each retained signal and, once something has landed, each retained landing
   record and a checkpoint at least as high; and no rollback is authorized, because a rollback
-  needs a bad landing (a verifier failure) and under H1's premises there is none.
+  needs a bad landing (a verifier failure) and under H1's premises there is none. It covers the
+  bridge's read path too (RECOV-8-27a): with the L1 `SignalService` and Bridge run alongside,
+  every signal cached as received and every message left `RETRIABLE` was proven against the
+  state root of a checkpoint the L1 `SignalService` still holds (`Bridge.run_backed`).
 - **H2, accountable finality.** Two conflicting commits at the same height and round imply an
   overlap of more than one third of the voting power with authentic evidence and an executable
   funded slash; with honest locking and a Byzantine minority, valid chains agree.
@@ -256,7 +259,7 @@ forms (`Headlines.deployed_claims`, `deployed_rollback_free` and `deployed_recov
 eight joint-premise witness theorems (from the six profiles under Joint-premise realizations),
 the trap witness and its escape mean: their statements and every Etna definition they use, but
 no proof. `review-surface.lock.json` records a SHA-256 of the kernel terms of each of those
-constants (1,746 at this revision).
+constants (1,790 at this revision).
 `python3 scripts/review_surface.py --check` fails if the lock is stale; the `etna-formal` job
 runs it. Proof-only changes never touch the lock.
 The concrete validator-state H+2, checked-prefix and certificate-refinement theorems
@@ -333,8 +336,15 @@ locking/minority, signature attribution and codec assumptions.
 Exceptional verifier-failure rollback is outside that normal retention result. As
 RECOV-8-35 states, money already withdrawn using a bad checkpoint cannot be recovered.
 The modelled rollback truncates the retained signals, which are SignalService checkpoints.
-The SignalService receive cache and Bridge messages left `RETRIABLE`, which RECOV-8-27a
-makes the rollback upgrade invalidate until they are proven again, are not modelled.
+`EtnaModel/CurrentBridge.lean` runs the SignalService receive cache and Bridge messages left
+`RETRIABLE` alongside the protocol machine. RECOV-8-27a makes the rollback upgrade invalidate
+them until they are proven again; the model's rollback step revokes them all (vector 27a.k),
+and H1's last conjunct shows that this keeps every derived authorization backed by a held
+checkpoint. Message values, fees, quotas and pausing are not modelled. The same module models
+the L2 `SignalService`: from `beaconRootsFrom` on its checkpoint store gains nothing and only
+the syncer ever saved into it (`Bridge.store_closed`, `Bridge.saved_before_fork`), and a root
+comes only from EIP-4788 (`Bridge.root_after_fork`). These L2 results stand apart from
+H1–H4.
 A regression constructs that loss and rejects treating it as normal execution.
 There is no restart theorem after a rollback; the normal guarantee then remains
 inapplicable for that deployment. Under H1's premises no rollback is authorized, so an
@@ -499,10 +509,12 @@ the current proofs reuse, and fourteen semantic pins (`EtnaProofs/Contracts.lean
 `Consensus.election_valid_iff`) that fail the build if a shared definition the statements use
 is weakened without editing its pin.
 
-The inventory is **62 partial / 518 deferred clauses**, and **46 narrow partial /
-40 supporting / 522 deferred binding rules**, plus 32 deferred assumption/limitation rows.
-SWITCH has narrow first-fence/root evidence. All 101 ANCHORLESS and 47 ACCEPTANCE
-clauses remain deferred. Margin arithmetic, bridge resolver/EIP-4788/storage migration,
+The inventory is **67 partial / 513 deferred clauses**, and **47 narrow partial /
+40 supporting / 521 deferred binding rules**, plus 32 deferred assumption/limitation rows.
+SWITCH has narrow first-fence/root evidence. Five ANCHORLESS clauses (section 4's root
+resolution and checkpoint authorization, section 8's checkpoint cutoff) have narrow partial
+evidence; the other 96 and all 47 ACCEPTANCE clauses remain deferred. Margin arithmetic,
+EIP-4788 deployment and ring-buffer expiry, SignalService storage migration,
 production parsing/crypto/EL/guest/token/Solidity/Comet/store refinement, operational
 availability, measured resources and full launch/switch/recovery acceptance remain separate.
 

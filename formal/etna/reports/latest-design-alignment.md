@@ -24,7 +24,8 @@ and 43 partial / 37 supporting / 528 deferred binding rules, and the #22348 re-p
 unchanged. After the #22410 re-pin it was 61 partial / 519 deferred clauses and 45 partial / 39
 supporting / 524 deferred binding rules. Letting H4's recovery exclude members (RECOV-8-38,
 8-40a, 8-41) made it 62 partial / 518 deferred clauses and 46 partial / 40 supporting / 522
-deferred binding rules (README). The counts below are those after #22338.
+deferred binding rules. Modelling the bridge's read path (RECOV-8-27a, ANCHORLESS sections 4 and 8) made it 67 partial / 513 deferred clauses and 47 partial / 40 supporting / 521 deferred
+binding rules (README). The counts below are those after #22338.
 
 ## Current-only package
 

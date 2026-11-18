@@ -10,6 +10,7 @@ import EtnaProofs.CurrentUnzen
 import EtnaProofs.CurrentGovernance
 import EtnaProofs.CurrentLandingHistory
 import EtnaProofs.CurrentCheckpointRisk
+import EtnaProofs.CurrentBridge
 import EtnaProofs.CurrentRecoveryLanding
 
 namespace Etna.Design.Current.Headlines
@@ -38,7 +39,7 @@ private theorem no_rollback_authorized {env : Environment} {initial w : World}
 theorem fund_safety : FundSafety := by
   intro env registry premises w trace
   refine ⟨Custody.trace_coherent premises.currentRegistryGenesis premises.currentPrimitives premises.currentVerifierSound trace,
-    Custody.trace_legacy_authenticated premises.currentPrimitives trace,?_,?_,?_,?_,?_,?_,?_,?_⟩
+    Custody.trace_legacy_authenticated premises.currentPrimitives trace,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
   · intro a t accepted
     exact Custody.landing_edge_authorized premises.currentRegistryGenesis premises.currentPrimitives premises.currentVerifierSound trace accepted
   · intro later future ever
@@ -59,6 +60,9 @@ theorem fund_safety : FundSafety := by
   · intro trusted snapshot
     exact no_rollback_authorized (Governance.trace_trusted_records premises.currentRegistryGenesis
       premises.currentPrimitives premises.currentVerifierSound trace)
+  · intro verify bridge run
+    exact Bridge.run_backed premises.currentRegistryGenesis premises.currentPrimitives
+      premises.currentVerifierSound run
 
 theorem accountable_finality : AccountableFinality := by
   intro env registry engine premises w trace initialized

@@ -5,6 +5,7 @@ import EtnaModel.CurrentUnzen
 import EtnaModel.CurrentGovernance
 import EtnaModel.CurrentCheckpointRisk
 import EtnaModel.CurrentRecovery
+import EtnaModel.CurrentBridge
 
 /-! Current conditional safety (H1–H3) and recoverability (H4) over a closed decoded machine.
 Raw deployment, commitment and cryptographic facts remain explicit; their joint accepting
@@ -58,7 +59,12 @@ checkpoint at least as high; and no rollback meets its verifier-failure duty
 The record and height parts wait for a landing because START-10-5c's start correction
 (`correctStart`) may lower the checkpoint, and replace the start record, before any landing.
 Unzen checkpoints at or below S (`legacySignals`) are not in the retention conjunct; the model
-only appends to them. -/
+only appends to them.
+The last conjunct is the bridge's read path (RECOV-8-27, RECOV-8-27a): with the L1
+`SignalService` and Bridge run alongside, under any Merkle proof adapter `verify`, every signal
+cached as received and every message left `RETRIABLE` was proven against the state root of a
+checkpoint the L1 `SignalService` still holds, because a rollback revokes them all in the same
+upgrade. Message values, fees and quotas are not modelled. -/
 def FundSafetyAt (env : Environment) (registry : RegistryMachine.State) (w : World) : Prop :=
     Custody.Coherent env (empty env registry) w ∧
     (∀ signal ∈ w.legacySignals, Custody.LegacySignalSafe env signal) ∧
@@ -75,7 +81,8 @@ def FundSafetyAt (env : Environment) (registry : RegistryMachine.State) (w : Wor
       (∀ s ∈ w.inbox.signals, s ∈ later.inbox.signals) ∧
       (w.everLanded = true → w.inbox.checkpoint.height ≤ later.inbox.checkpoint.height ∧
         ∀ cp ∈ w.activeRecords, cp ∈ later.activeRecords)) ∧
-    (∀ trusted snapshot, ¬ Governance.RollbackAuthorized env (empty env registry) w trusted snapshot)
+    (∀ trusted snapshot, ¬ Governance.RollbackAuthorized env (empty env registry) w trusted snapshot) ∧
+    (∀ verify bridge, Bridge.Run env verify (empty env registry,{}) (w,bridge) → Bridge.Backed verify w bridge)
 
 /-- H1 needs only `FundPremises`, not the full `Premises` record. -/
 def FundSafety : Prop :=

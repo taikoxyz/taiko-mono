@@ -1,3 +1,4 @@
+import EtnaModel.CurrentBridge
 import EtnaModel.CurrentRecovery
 import EtnaModel.CurrentValidatorState
 import EtnaModel.CurrentRecoveryInterface
