@@ -4244,3 +4244,73 @@ capacity, arbitrary lifecycle combinations, real Inbox/token/deployment and
 client/EL/guest consumers remain open. Restoration has the documented handled/
 cooperative boundary; abrupt between-phase termination may retain an unfinished
 private copy with no PASS. No natural protocol defect was established.
+
+## N04 actual late token failures and identical retries
+
+Implementation `7c845ea39a45672b37c172cb2507b022d0c2c0a7` completes the selected
+actual Registry atomicity/retry gate. Four authorized increments are complete;
+N05 and final accumulated gates remain. The actual source, public inputs and
+shared fixture are unchanged. The two new native leaves bind seven actual
+Registry/external calls and their before/after commitments. The bounded raw
+projection includes all 8192 admission cells, fixture bond/key/owner/pending/
+confirmation/forfeiture state, entry and checkpoint storage, seven token actors,
+transfer count, proxy pointer and inherited persistent slots. It does not claim
+the entire unbounded storage domain or transient state.
+
+At h11/snapshot 7, valid public registration reaches token allowance 3 against
+amount 4. The exact nested transferFrom and bubbled Error("token allowance")
+refuse, and full selected raw/cash/history state remains identical. Calibration
+establishes that Forge retains emit-then-revert trace entries: the failed
+registration includes an attempted checkpoint. Owner B externally approves 4;
+identical actual Registry/token calldata at the same height/snapshot succeeds
+once, issues contiguous bond 1 after bond 0 and pays 4 into custody. The retry's
+ordered trace is CheckpointWritten/Transfer/Registered.
+
+At h12/snapshot 9, topUp has allowance 4 and balance 0. It reaches the real token
+balance error after one attempted allowance 4→0 write; all selected state,
+including allowance and admission cells, rolls back. The driver mints 4 externally
+and the identical call succeeds once. Pending 4/ready 14 and admission value 8
+change while effective 4, prior checkpoint/root and the neighboring bond stay
+fixed. Actual h14 activation consumes pending and records effective 8 while
+preserving the old checkpoint. Final vault 12 and transfer count 3 match the
+independent ledger. Token call/actor/calldata/revert/write observations and the
+pinned SafeERC20/Address bubbling path establish this fixture's failure origin;
+AccountAccess has no per-frame returndata, and the exact bytes come from the
+outer proxy call. Logs here are execution traces, not committed chain receipts.
+
+Original and restored two-leaf runs pass. Removing the actual topUp token
+transfer causes exactly the intended unexpected-success diagnostic and deposit
+trace; the registration control still passes. A distinct independent source
+change overwrites admission parent 2048 with leaf 0 rather than the smaller
+sibling. The genuine balance refusal still fully rolls back, and funded retry
+still transfers normally, with the same allowance observations, logs, entries,
+leaf values and native Success. Only the independently predicted full state
+commitments expose the incorrect minimum. The stock collector rejects topup_retry;
+activation retains the predicted bad parent, and restoring the same private
+source recovers both complete positive journals. All 564 files and original
+mode 0664 restore exactly.
+
+Independent source and behavior gates pass without open findings. The carried
+N03 CLI-test issue now captures stderr and checks the specific missing flag.
+Fresh affected N03 retains 16 steps/23 logs and its exact source-control phases;
+N02 retains 42 leaves/23 Go-byte comparisons in each phase. All 277 ordinary Python
+checks pass 91/166/20 with zero skipped/errors/failures. No shared consumer pin
+is stale. Published prior 87aafa47f hosted run 44231458235 completed successfully
+with all 10 steps read back; current-head CI is separately tracked.
+
+| Retained artifact             | SHA256                                                             |
+| ----------------------------- | ------------------------------------------------------------------ |
+| Author two-leaf full campaign | `5dd7d16f536f689482989f546c5a55768e969804503b1835e69fe4af863498cb` |
+| Affected N03 campaign         | `c672c4e696de2de979c223196ce17c60a7a73c3ac2e037020ac49195c3bc645c` |
+| Affected N02 campaign         | `10c5c6dfaa318344b0be265ea920c15305cf782c1b7ef6db0ed3a9e96fd5fccf` |
+| Independent parent-error raw  | `9cb2dc3b7ce20ffa1b92df26975969eb9bbaff00be330ff58cba4d4140234301` |
+| Independent source report     | `f4e869d936a195126bb810167d127b9585400885d4c41a4203420ea3d5a7c743` |
+| Independent behavior report   | `ba2b78e544a3618ecf8047b905ffd42312e2c26711031511f8207328a5c9fb95` |
+
+The original snapshot, public-only read mounts, existing physical cache lock,
+offline tool/dependency pins and documented cooperative restoration boundary
+remain. This is selected EVM-call retry evidence with an exact-transfer fixture;
+it does not establish arbitrary token callbacks, real transaction deployment,
+withdrawal custody, full-capacity admission, gas or proving behavior. R01 and
+full cross-consumer E01 remain open. No natural protocol defect was established;
+source controls are separately attributed from the historical 80 inventory.
