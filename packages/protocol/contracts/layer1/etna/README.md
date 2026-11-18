@@ -318,12 +318,10 @@ automatically enough for forfeiture execution. See SPEC 4.4/8.3/11 and ACCEPTANC
 
 These implement [ANCHORLESS.md](../../../docs/etna/ANCHORLESS.md) sections 4 and 8.
 
-- `layer2/core/Anchor.sol`: `anchorV4` reverts from the immutable `etnaTimestamp` on or whenever
-  the canonical EIP-4788 ring holds a nonzero root for the current block timestamp. That EL-written
-  marker also routes `getL1StateRoot(blockId)` to EIP-4788 if the EL fork precedes the immutable,
-  closing both the checkpoint-write and legacy-root paths. Unzen's absent or zero current root
-  preserves pre-fork anchoring and checkpoint reads. `etnaTimestamp` is `ETNA_FORK_TIME` on a
-  switching network and 0 on a new one.
+- `layer2/core/Anchor.sol`: `anchorV4` reverts from the immutable `etnaTimestamp` on;
+  `getL1StateRoot(blockId)` reads the checkpoint store before it and the EIP-4788 root for an L2
+  timestamp at or after it. `etnaTimestamp` is `ETNA_FORK_TIME` on a switching network and 0 on a
+  new one.
 - `shared/signal/SignalServiceL2.sol`: the L2 SignalService; it resolves proof roots through the
   Anchor and adds no storage. Both SignalServices keep checkpoints and cached signals under
   `VERSION`; `_authorizeCheckpoint` is the hook the L1 two-syncer upgrade overrides. Bumping
