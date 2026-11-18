@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/cometbft/cometbft/crypto/secp256k1eth"
 	cmtjson "github.com/cometbft/cometbft/libs/json"
+	privvalproto "github.com/cometbft/cometbft/proto/tendermint/privval"
 	pb "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cometbft/cometbft/types"
 )
@@ -285,8 +287,9 @@ func observeVote(t *testing.T, chain string, vote *pb.Vote) record {
 	}
 }
 
-func replayVote(t *testing.T, pv *FilePV, chain string, vote *pb.Vote, pub secp256k1eth.PubKey) (record, record) {
+func requirePublicReplay(t *testing.T, pv *FilePV, vote *pb.Vote) {
 	t.Helper()
+	check(t, pv.Key.PrivKey == nil, "fixture contains a private key")
 	check(t, vote.Type == pb.PrevoteType || (vote.Type == pb.PrecommitType && types.ProtoBlockIDIsNil(&vote.BlockID)),
 		"fixture attempted a signing-only vote type")
 	check(t, len(vote.Signature) == 0 && len(vote.Extension) == 0 && len(vote.ExtensionSignature) == 0,
@@ -296,6 +299,11 @@ func replayVote(t *testing.T, pv *FilePV, chain string, vote *pb.Vote, pub secp2
 	later := vote.Height > state.Height ||
 		(vote.Height == state.Height && (vote.Round > state.Round || (vote.Round == state.Round && step > state.Step)))
 	check(t, !later, "fixture attempted a new signature")
+}
+
+func replayVote(t *testing.T, pv *FilePV, chain string, vote *pb.Vote, pub secp256k1eth.PubKey) (record, record) {
+	t.Helper()
+	requirePublicReplay(t, pv, vote)
 	attempt := record{"chain": chain, "vote": observeVote(t, chain, vote)}
 	err := pv.SignVote(chain, vote)
 	response := observeVote(t, chain, vote)
@@ -303,12 +311,18 @@ func replayVote(t *testing.T, pv *FilePV, chain string, vote *pb.Vote, pub secp2
 		"verified": pub.VerifySignature(types.VoteSignBytes(chain, vote), vote.Signature)}
 }
 
-func TestFilePVRead(t *testing.T) {
-	projection, rows := readProjection(t)
+func publicKey(t *testing.T, projection publicVotes) (secp256k1eth.PubKey, []byte) {
+	t.Helper()
 	pub, err := secp256k1eth.NewPubKeyFromBytes(publicBytes(t, projection.Key.PublicKey))
 	check(t, err == nil, "construct native public vote key: %v", err)
 	address := pub.Address()
 	check(t, "0x"+hex.EncodeToString(address) == projection.Key.Signer, "wrong public vote address")
+	return pub, address
+}
+
+func TestFilePVRead(t *testing.T) {
+	projection, rows := readProjection(t)
+	pub, address := publicKey(t, projection)
 
 	for _, test := range readerCases() {
 		t.Run(test.name, func(t *testing.T) {
@@ -354,6 +368,140 @@ func TestFilePVRead(t *testing.T) {
 					"O01 cached-time id=%s: expected 1700000000/123, got %d/%d",
 					test.name, vote["seconds"], vote["nanos"])
 			}
+		})
+	}
+}
+
+type handlerCall struct {
+	row        string
+	change     func(*pb.Vote)
+	wrongChain bool
+	refused    bool
+}
+
+type handlerEpisode struct {
+	name  string
+	seed  string
+	calls []handlerCall
+}
+
+func handlerEpisodes() []handlerEpisode {
+	nilReplay := handlerCall{row: nilSeed}
+	prevoteReplay := handlerCall{row: prevoteSeed}
+	return []handlerEpisode{
+		{"nil-exact", nilSeed, []handlerCall{nilReplay}},
+		{"nil-time", nilSeed, []handlerCall{{row: nilSeed, change: func(v *pb.Vote) {
+			v.Timestamp = timeAt(1700000000, 124)
+		}}}},
+		{"wrong-chain-retry", nilSeed, []handlerCall{{row: nilSeed, wrongChain: true, refused: true}, nilReplay}},
+		{"prevote-conflict-retry", prevoteSeed, []handlerCall{{row: "prevote_b_r1", refused: true}, prevoteReplay}},
+		{"height-regression", nilSeed, []handlerCall{{row: nilSeed, refused: true, change: func(v *pb.Vote) {
+			v.Height, v.Round = 999, 2
+		}}}},
+		{"round-regression", prevoteSeed, []handlerCall{{row: nilSeed, refused: true}}},
+		{"step-regression", nilSeed, []handlerCall{{row: prevoteSeed, refused: true, change: func(v *pb.Vote) {
+			v.Round = 0
+		}}}},
+		{"prevote-exact", prevoteSeed, []handlerCall{prevoteReplay}},
+	}
+}
+
+func observeHandlerResponse(t *testing.T, response privvalproto.Message, err error, chain string, pub secp256k1eth.PubKey) (record, string) {
+	t.Helper()
+	wire, marshalErr := response.Marshal()
+	check(t, marshalErr == nil, "marshal actual handler response: %v", marshalErr)
+	reply := record{
+		"wire": hex.EncodeToString(wire), "union": fmt.Sprintf("%T", response.Sum),
+		"vote": nil, "error": nil, "verified": false,
+	}
+	signed := response.GetSignedVoteResponse()
+	if signed == nil {
+		return reply, "unexpected response"
+	}
+	reply["union"] = "SignedVoteResponse"
+	reply["vote"] = observeVote(t, chain, &signed.Vote)
+	verified := pub.VerifySignature(types.VoteSignBytes(chain, &signed.Vote), signed.Vote.Signature)
+	reply["verified"] = verified
+	if signed.Error != nil {
+		reply["error"] = record{"code": signed.Error.Code, "description": signed.Error.Description}
+	}
+	switch {
+	case signed.Error != nil && err != nil && !verified:
+		return reply, "refusal"
+	case signed.Error == nil && err == nil && verified:
+		return reply, "cached vote"
+	default:
+		return reply, "unexpected response"
+	}
+}
+
+func callHandler(t *testing.T, pv *FilePV, requested, configured string, vote *pb.Vote,
+	pub secp256k1eth.PubKey) (record, string) {
+	t.Helper()
+	requirePublicReplay(t, pv, vote)
+	request := mustWrapMsg(&privvalproto.SignVoteRequest{ChainId: requested, Vote: vote})
+	message := request.GetSignVoteRequest()
+	check(t, message != nil && message.Vote == vote, "wrong actual handler request")
+	wire, err := request.Marshal()
+	check(t, err == nil, "marshal actual handler request: %v", err)
+	// Capture the request before the handler can modify the shared Vote pointer.
+	attempt := record{
+		"wire": hex.EncodeToString(wire), "requestedChain": message.ChainId, "configuredChain": configured,
+		"vote": observeVote(t, message.ChainId, message.Vote),
+	}
+	path := pv.LastSignState.filePath
+	stateBefore := observeState(pv.LastSignState)
+	_, diskBefore := readStateBytes(t, path)
+	response, err := DefaultValidationRequestHandler(pv, request, configured)
+	stateAfter := observeState(pv.LastSignState)
+	_, diskAfter := readStateBytes(t, path)
+	reply, outcome := observeHandlerResponse(t, response, err, configured, pub)
+	var goError any
+	if err != nil {
+		goError = err.Error()
+	}
+	return record{
+		"request": attempt, "response": reply, "goError": goError, "voteAfter": observeVote(t, configured, vote),
+		"stateBefore": stateBefore, "stateAfter": stateAfter, "diskBefore": diskBefore, "diskAfter": diskAfter,
+	}, outcome
+}
+
+func TestFilePVHandler(t *testing.T) {
+	projection, rows := readProjection(t)
+	pub, address := publicKey(t, projection)
+	for _, episode := range handlerEpisodes() {
+		t.Run(episode.name, func(t *testing.T) {
+			path := stateFile(episode.seed)
+			pv, disk := rehydrate(t, path)
+			configured := rows[episode.seed].Chain
+			calls := make([]record, 0, len(episode.calls))
+			var mismatch string
+			for i, call := range episode.calls {
+				row := rows[call.row]
+				vote := unsignedVote(t, row, address)
+				if call.change != nil {
+					call.change(vote)
+				}
+				requested := row.Chain
+				if call.wrongChain {
+					requested = rows["gen1_precommit_a"].Chain
+				}
+				observed, outcome := callHandler(t, &pv, requested, configured, vote, pub)
+				calls = append(calls, observed)
+				want := "cached vote"
+				if call.refused {
+					want = "refusal"
+				}
+				if outcome != want && mismatch == "" {
+					mismatch = fmt.Sprintf("O02 handler id=%s: call %d expected %s, got %s",
+						episode.name, i+1, want, outcome)
+				}
+			}
+			logReceipt(t, record{
+				"schema": "etna-comet-filepv-handler-1", "seed": episode.seed, "path": path,
+				"loadedDisk": disk, "calls": calls,
+			})
+			check(t, mismatch == "", "%s", mismatch)
 		})
 	}
 }

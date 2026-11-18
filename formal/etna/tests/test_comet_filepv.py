@@ -1,4 +1,5 @@
 """Static evidence-boundary tests for the public FilePV runner."""
+import hashlib
 import importlib.util
 import json
 import os
@@ -88,6 +89,8 @@ class FilePVBoundary(unittest.TestCase):
         expected = {
             "inputs/file.go": "1" * 64,
             "inputs/filepv_test.go": "2" * 64,
+            "inputs/signer_requestHandler.go": "8" * 64,
+            "inputs/msgs.go": "9" * 64,
             "inputs/go.mod": "3" * 64,
             "inputs/go.sum": "4" * 64,
             "inputs/public-votes.json": "5" * 64,
@@ -177,12 +180,21 @@ class FilePVBoundary(unittest.TestCase):
             source.parent.mkdir(parents=True)
             for phase, content in (("normal", b"stock source"), ("mutant", b"changed source"),
                                    ("restored", b"stock source")):
-                source.write_bytes(content)
-                manifest = {"files": {FILEPV.FAULT_PATH: FILEPV.COMET.file_entry(content)}}
+                stocks = {
+                    "privval/file.go": content,
+                    "privval/signer_requestHandler.go": b"handler " + content,
+                    "privval/msgs.go": b"message wrapper",
+                }
+                for name, raw in stocks.items():
+                    (private / name).write_bytes(raw)
+                manifest = {"files": {name: FILEPV.COMET.file_entry(raw) for name, raw in stocks.items()}}
                 output = root / phase
                 executed = FILEPV.stage(output, private, manifest, pins, native)
-                self.assertEqual((output / "inputs/file.go").read_bytes(), content)
-                self.assertEqual(executed["inputs/file.go"], FILEPV.COMET.digest(content))
+                self.assertEqual(len(executed), 9)
+                for name, raw in stocks.items():
+                    staged = "inputs/" + Path(name).name
+                    self.assertEqual((output / staged).read_bytes(), raw)
+                    self.assertEqual(executed[staged], hashlib.sha256(raw).hexdigest())
                 self.assertEqual(
                     executed["modfiles/go.sum"],
                     FILEPV.COMET.digest((output / "modfiles/go.sum").read_bytes()),
@@ -191,6 +203,114 @@ class FilePVBoundary(unittest.TestCase):
                     executed["modfiles/go.mod"],
                     FILEPV.COMET.digest((output / "modfiles/go.mod").read_bytes()),
                 )
-            source.write_bytes(b"stale source")
-            with self.assertRaisesRegex(ValueError, "current guarded source"):
-                FILEPV.stage(root / "stale", private, manifest, pins, native)
+            for name, raw in stocks.items():
+                path = private / name
+                path.write_bytes(b"stale source")
+                with self.assertRaisesRegex(ValueError, "current guarded source"):
+                    FILEPV.stage(root / f"stale-{path.name}", private, manifest, pins, native)
+                path.write_bytes(raw)
+
+
+class HandlerBoundary(unittest.TestCase):
+    def test_handler_oracle_requires_actual_request_and_typed_response_before_retry(self):
+        _, _, _, _, _, (disk, writers, readers), _ = FILEPV.inputs(scenario="handler")
+        self.assertEqual(tuple(writers), tuple(disk))
+        self.assertEqual(tuple(readers), (
+            "nil-exact", "nil-time", "wrong-chain-retry", "prevote-conflict-retry",
+            "height-regression", "round-regression", "step-regression", "prevote-exact",
+        ))
+        parent, name = "TestFilePVHandler", "wrong-chain-retry"
+        oracle = readers[name]
+        denied, retried = oracle["calls"]
+        self.assertNotEqual(denied["request"]["requestedChain"], denied["request"]["configuredChain"])
+        self.assertEqual(retried["request"]["requestedChain"], denied["request"]["configuredChain"])
+        self.assertEqual(denied["response"]["error"], {"code": 0, "description": "unable to sign vote"})
+        self.assertEqual(denied["goError"], "want chainID: {}, got chainID: {}".format(
+            denied["request"]["requestedChain"], denied["request"]["configuredChain"],
+        ))
+        self.assertEqual(denied["response"]["vote"]["wire"], "220212002a0b088092b8c398feffffff01")
+        self.assertEqual(hashlib.sha256(bytes.fromhex(denied["request"]["wire"])).hexdigest(),
+                         "dacbe1f3f2544d183c85c8e8f6e1498c1405677e9cf713ffeece269d6e04f299")
+        self.assertEqual(hashlib.sha256(bytes.fromhex(denied["response"]["wire"])).hexdigest(),
+                         "a727e6021695cc58727b70f6f7a85431e0d6ba74cc9a77a0304b93076553b34e")
+        self.assertIsNone(retried["response"]["error"])
+        self.assertIsNone(retried["goError"])
+        self.assertEqual(retried["request"]["vote"]["signature"], "")
+        self.assertEqual(retried["response"]["vote"]["signature"], writers["precommit_nil"]["attempt"]["signature"])
+        self.assertTrue(retried["response"]["verified"])
+        self.assertEqual(denied["stateAfter"], retried["stateBefore"])
+        self.assertEqual(denied["diskAfter"], retried["diskBefore"])
+        timed = readers["nil-time"]["calls"][0]
+        self.assertEqual(timed["request"]["vote"]["nanos"], 124)
+        self.assertEqual(timed["response"]["vote"]["nanos"], 123)
+
+        def parse(calls):
+            receipt = oracle | {"calls": calls, "process": {"pid": 7, "namespace": "pid:[1007]", "startTicks": "11"}}
+            raw = "\n".join(map(json.dumps, native_stream(parent, name, receipt))).encode()
+            return FILEPV.require_go_outcomes(raw, 0, parent, {name: oracle}, {})
+
+        self.assertEqual(parse([denied, retried])["outcomes"], {f"{parent}/{name}": "pass"})
+        for calls in (
+            [denied], [retried, denied],
+            [denied | {"request": denied["request"] | {"wire": retried["request"]["wire"]}}, retried],
+            [denied | {"request": denied["request"] | {"configuredChain": "another-chain"}}, retried],
+            [denied | {"response": denied["response"] | {"vote": None}}, retried],
+            [denied | {"response": denied["response"] | {"error": {"code": False, "description": "unable to sign vote"}}}, retried],
+            [denied | {"goError": denied["response"]["error"]["description"]}, retried],
+            [denied, retried | {"response": retried["response"] | {"vote": denied["response"]["vote"]}}],
+        ):
+            with self.subTest(calls=len(calls)), self.assertRaisesRegex(ValueError, "wrong native observation"):
+                parse(calls)
+
+    def test_chain_guard_fault_requires_actual_cached_response_and_keeps_the_retry(self):
+        _, _, _, _, _, (_, _, stock), _ = FILEPV.inputs(scenario="handler")
+        mutant = FILEPV.omitted_chain_guard_expectations(stock)
+        name, parent = "wrong-chain-retry", "TestFilePVHandler"
+        self.assertEqual([leaf for leaf in stock if mutant[leaf] != stock[leaf]], [name])
+        refused, retry = stock[name]["calls"]
+        accepted, mutant_retry = mutant[name]["calls"]
+        self.assertEqual(mutant_retry, retry)
+        self.assertEqual(accepted["request"], refused["request"])
+        self.assertIsNone(accepted["goError"])
+        self.assertEqual(accepted["response"], retry["response"])
+        diagnostic = "O02 handler id=wrong-chain-retry: call 1 expected refusal, got cached vote"
+
+        def parse(observed, failure):
+            receipt = observed | {"process": {"pid": 7, "namespace": "pid:[1007]", "startTicks": "11"}}
+            raw = "\n".join(map(json.dumps, native_stream(parent, name, receipt, failure))).encode()
+            return FILEPV.require_go_outcomes(raw, 1, parent, {name: mutant[name]}, {name: diagnostic})
+
+        self.assertEqual(parse(mutant[name], diagnostic)["outcomes"], {f"{parent}/{name}": "fail"})
+        with self.assertRaisesRegex(ValueError, "wrong native observation"):
+            parse(stock[name], diagnostic)
+        with self.assertRaisesRegex(ValueError, "unexpected native output"):
+            parse(mutant[name], "O02 unrelated fault")
+
+    def test_long_prevote_retry_receipt_stays_bounded_and_complete(self):
+        pin_path = FILEPV.FIXTURE / "pins.json"
+        disk = json.loads(pin_path.read_bytes())["disk"]
+        projection = FILEPV.SIGNED.load_projection(
+            (FILEPV.SIGNED.FIXTURE / "public-votes.json").read_bytes(),
+        )
+        _, _, readers = FILEPV.frozen_expectations(projection, disk, scenario="handler")
+        parent, name = "TestFilePVHandler", "prevote-conflict-retry"
+        oracle = readers[name]
+        receipt = oracle | {"process": {"pid": 7, "namespace": "pid:[1007]", "startTicks": "11"}}
+        rows = native_stream(parent, name, receipt)
+        first = next(index for index, row in enumerate(rows) if "receipt=" in row.get("Output", ""))
+        fragments = [row["Output"] for row in rows if row.get("Test") == f"{parent}/{name}"
+                     and row["Action"] == "output" and "OutputType" not in row]
+        self.assertGreater(len(fragments), 8)
+        self.assertTrue(fragments[-1].endswith("\n"))
+
+        def parse(events):
+            raw = "\n".join(map(json.dumps, events)).encode()
+            return FILEPV.require_go_outcomes(raw, 0, parent, {name: oracle}, {})
+
+        self.assertEqual(parse(rows)["outcomes"], {f"{parent}/{name}": "pass"})
+        truncated = rows[:first] + [rows[first] | {"Output": fragments[0][:-1]}] + rows[first + 1:]
+        excessive = (rows[:first] + [rows[first] | {"Output": "x" * 1024}] * 16
+                     + [rows[first] | {"Output": "\n"}] + rows[first + len(fragments):])
+        for changed in (truncated, excessive):
+            with self.assertRaisesRegex(ValueError, "truncated or excessive native receipt"):
+                parse(changed)

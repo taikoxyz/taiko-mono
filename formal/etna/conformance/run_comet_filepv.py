@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Collect pinned stock FilePV persistence and cached public-vote replay evidence."""
+"""Collect pinned stock FilePV persistence and signer-handler evidence."""
 import argparse
 import base64
 from contextlib import contextmanager
@@ -27,6 +27,8 @@ write_json = SIGNED.write_json
 PACKAGE = "command-line-arguments"
 WRITER = "TestFilePVWrite"
 READER = "TestFilePVRead"
+HANDLER = "TestFilePVHandler"
+READERS = {"persistence": READER, "handler": HANDLER}
 SEEDS = {"precommit_nil": (1000, 0, 3), "prevote_a_r1": (1000, 1, 2)}
 SMOKE = "nil-exact"
 FAULT_PATH = "privval/file.go"
@@ -37,8 +39,25 @@ FAULT_BEFORE = (
 )
 FAULT_AFTER = b"\tpv.LastSignState.SignBytes = signBytes\n}\n"
 FAULT_FUNCTION = b"func (pv *FilePV) saveSigned("
+HANDLER_FAULT_PATH = "privval/signer_requestHandler.go"
+SIGN_VOTE_CASE = b"\tcase *privvalproto.Message_SignVoteRequest:\n"
+SIGN_VOTE_GUARD = SIGN_VOTE_CASE + (
+    b"\t\tif r.SignVoteRequest.ChainId != chainID {\n"
+    b"\t\t\tres = mustWrapMsg(&privvalproto.SignedVoteResponse{\n"
+    b"\t\t\t\tVote: cmtproto.Vote{}, Error: &privvalproto.RemoteSignerError{\n"
+    b'\t\t\t\t\tCode: 0, Description: "unable to sign vote",\n'
+    b"\t\t\t\t},\n"
+    b"\t\t\t})\n"
+    b'\t\t\treturn res, fmt.Errorf("want chainID: %s, got chainID: %s", r.SignVoteRequest.GetChainId(), chainID)\n'
+    b"\t\t}\n"
+)
+STOCK_FILES = (FAULT_PATH, HANDLER_FAULT_PATH, "privval/msgs.go")
+WRONG_CHAIN_RETRY = "wrong-chain-retry"
+CHAIN_GUARD_FAILURE = "O02 handler id=wrong-chain-retry: call 1 expected refusal, got cached vote"
 BUILD_FILES = ("go.mod", "go.sum", "filepv_test.go", "public-votes.json")
 MISSING_STATE = "O01 persistence id={}: state file missing after saveSigned"
+# Two-call handler receipts include votes, HRS and disk on both sides of each call.
+MAX_RECEIPT_FRAGMENTS = 16
 
 
 def state_path(seed):
@@ -90,7 +109,7 @@ def disk_observation(seed, expected):
     return dict(path=state_path(seed), sha256=COMET.digest(raw), bytes=len(raw), mode="0600")
 
 
-def frozen_expectations(projection, disk_oracle):
+def frozen_expectations(projection, disk_oracle, scenario="persistence"):
     rows = {row["name"]: row for row in projection["voteCases"]}
     address = SIGNED.hex_field(projection["voteKey"]["signer"], 20)
     chain = rows["precommit_nil"]["chain_id"]
@@ -137,6 +156,11 @@ def frozen_expectations(projection, disk_oracle):
                     operation=operation, attempt=attempt, reply=reply, stateBefore=before,
                     stateAfter=before, diskBefore=observed_disk, diskAfter=observed_disk)
 
+    if scenario == "handler":
+        return disk, writers, handler_expectations(rows, address, chain, state, disk)
+    if scenario != "persistence":
+        raise ValueError("unknown FilePV scenario")
+
     nil, prevote = SEEDS
     conflict = "error signing vote: conflicting data"
     readers = {
@@ -158,6 +182,83 @@ def frozen_expectations(projection, disk_oracle):
         "advance-check": reader(nil, check=(1000, 1, 2)),
     }
     return disk, writers, readers
+
+
+def zero_vote_observation(chain):
+    """Derive the value-typed zero Vote from generated Vote/BlockID/CanonicalVote encoding."""
+    seconds = -62135596800  # time.Time{} at year 1, encoded as protobuf int64.
+    timestamp = number(0x08, (1 << 64) + seconds)
+    wire = field(0x22, field(0x12, b"")) + field(0x2A, timestamp)
+    canonical = field(0x2A, timestamp) + field(0x32, chain.encode())
+    return dict(wire=wire.hex(), signBytes=(varint(len(canonical)) + canonical).hex(),
+                seconds=seconds, nanos=0, signature="", extensionSignature="")
+
+
+def handler_expectations(rows, address, chain, state, disk):
+    def call(seed, row=None, *, changes=None, requested=chain, go_error=None, description=None):
+        vote = rows[row or seed]["vote"] | (changes or {})
+        unsigned = vote_observation(vote, requested, address)
+        request = field(0x1A, field(0x0A, bytes.fromhex(unsigned["wire"])) + field(0x12, requested.encode()))
+        if go_error is None:
+            signature = bytes.fromhex(state[seed]["signature"])
+            response_vote = vote_observation(vote | {"timestampNanos": "123"}, chain, address, signature)
+            vote_after = response_vote
+            typed_error = None
+        else:
+            response_vote = zero_vote_observation(chain)
+            vote_after = vote_observation(vote, chain, address)
+            typed_error = dict(code=0, description=description or go_error)
+        wrapped_vote = field(0x0A, bytes.fromhex(response_vote["wire"]))
+        if typed_error is not None:
+            wrapped_vote += field(0x12, field(0x12, typed_error["description"].encode()))
+        observed_disk = disk_observation(seed, disk[seed])
+        return dict(request=dict(wire=request.hex(), requestedChain=requested,
+                                 configuredChain=chain, vote=unsigned),
+                    response=dict(union="SignedVoteResponse", wire=field(0x22, wrapped_vote).hex(),
+                                  vote=response_vote, error=typed_error, verified=go_error is None),
+                    goError=go_error, voteAfter=vote_after, stateBefore=state[seed], stateAfter=state[seed],
+                    diskBefore=observed_disk, diskAfter=observed_disk)
+
+    def episode(seed, *calls):
+        return dict(schema="etna-comet-filepv-handler-1", seed=seed, path=state_path(seed),
+                    loadedDisk=disk_observation(seed, disk[seed]), calls=list(calls))
+
+    nil, prevote = SEEDS
+    wrong = rows["gen1_precommit_a"]["chain_id"]
+    if wrong == chain:
+        raise ValueError("wrong-chain handler control must request a different chain")
+    return {
+        SMOKE: episode(nil, call(nil)),
+        "nil-time": episode(nil, call(nil, changes={"timestampNanos": "124"})),
+        WRONG_CHAIN_RETRY: episode(
+            nil, call(nil, requested=wrong, description="unable to sign vote",
+                      go_error=f"want chainID: {wrong}, got chainID: {chain}"), call(nil),
+        ),
+        "prevote-conflict-retry": episode(
+            prevote, call(prevote, "prevote_b_r1", go_error="error signing vote: conflicting data"),
+            call(prevote),
+        ),
+        "height-regression": episode(
+            nil, call(nil, changes={"height": "999", "round": "2"},
+                      go_error="error signing vote: height regression. Got 999, last height 1000"),
+        ),
+        "round-regression": episode(
+            prevote, call(prevote, nil,
+                          go_error="error signing vote: round regression at height 1000. Got 0, last round 1"),
+        ),
+        "step-regression": episode(
+            nil, call(nil, prevote, changes={"round": "0"},
+                      go_error="error signing vote: step regression at height 1000 round 0. Got 2, last step 3"),
+        ),
+        "prevote-exact": episode(prevote, call(prevote)),
+    }
+
+
+def omitted_chain_guard_expectations(readers):
+    original = readers[WRONG_CHAIN_RETRY]
+    refused, cached = original["calls"]
+    accepted = refused | {key: cached[key] for key in ("response", "goError", "voteAfter")}
+    return readers | {WRONG_CHAIN_RETRY: original | {"calls": [accepted, cached]}}
 
 
 def require_go_outcomes(raw, returncode, parent, expected, faults):
@@ -217,7 +318,7 @@ def require_go_outcomes(raw, returncode, parent, expected, faults):
         start(test)
         parts = [event("output", test, output=True)]
         while not parts[-1].endswith("\n"):
-            if len(parts[-1].encode()) != SIGNED.GO_OUTPUT_BUFFER or len(parts) == 8:
+            if len(parts[-1].encode()) != SIGNED.GO_OUTPUT_BUFFER or len(parts) == MAX_RECEIPT_FRAGMENTS:
                 raise ValueError("truncated or excessive native receipt for " + test)
             parts.append(event("output", test, output=True))
         match = re.fullmatch(log_prefix + r"receipt=(.+)\n", "".join(parts))
@@ -306,7 +407,7 @@ def require_disk_set(directory, expected):
     return {name: require_disk(directory, name, disk) for name, disk in expected.items()}
 
 
-def inputs():
+def inputs(scenario="persistence"):
     signed_pins, manifest, watched, _, correspondence = SIGNED.inputs()
     pins_path = FIXTURE / "pins.json"
     pins = SIGNED.strict_json(pins_path.read_bytes())
@@ -322,7 +423,8 @@ def inputs():
     for path in (Path(__file__), pins_path, ROOT / "run_comet_signed.py",
                  ROOT / "COMET_FILEPV.md", ROOT.parent / "tests/test_comet_filepv.py"):
         watched[path] = COMET.digest(path.read_bytes())
-    expected = frozen_expectations(SIGNED.load_projection(projection_path.read_bytes()), pins["disk"])
+    expected = frozen_expectations(SIGNED.load_projection(projection_path.read_bytes()),
+                                   pins["disk"], scenario)
     return signed_pins, pins, manifest, watched | native_pins, native, expected, correspondence
 
 
@@ -332,10 +434,9 @@ def expected_executed_inputs(pins, manifest):
     if COMET.digest(module) != originals["go.mod"]:
         raise ValueError("original FilePV Go module changed")
     return {f"inputs/{name}": digest for name, digest in originals.items()} | {
-        "inputs/file.go": manifest["files"][FAULT_PATH]["sha256"],
         "modfiles/go.mod": COMET.digest(module + SIGNED.GO_MOD_REPLACEMENT),
         "modfiles/go.sum": originals["go.sum"],
-    }
+    } | {f"inputs/{Path(name).name}": manifest["files"][name]["sha256"] for name in STOCK_FILES}
 
 
 def require_executed_inputs(record, expected):
@@ -350,10 +451,11 @@ def stage(directory, private, manifest, pins, native):
     (directory / "inputs").mkdir()
     for name, source in native.items():
         shutil.copyfile(source, directory / "inputs" / name)
-    actual = (private / FAULT_PATH).read_bytes()
-    if COMET.file_entry(actual) != manifest["files"][FAULT_PATH]:
-        raise ValueError("FilePV staged source differs from current guarded source")
-    (directory / "inputs/file.go").write_bytes(actual)
+    for name in STOCK_FILES:
+        actual = (private / name).read_bytes()
+        if COMET.file_entry(actual) != manifest["files"][name]:
+            raise ValueError("FilePV staged source differs from current guarded source: " + name)
+        (directory / "inputs" / Path(name).name).write_bytes(actual)
     (directory / "modfiles/go.mod").write_bytes(
         (directory / "inputs/go.mod").read_bytes() + SIGNED.GO_MOD_REPLACEMENT)
     shutil.copyfile(directory / "inputs/go.sum", directory / "modfiles/go.sum")
@@ -366,27 +468,43 @@ def selector(parent, selected):
 
 def isolation_command(directory, private, args, selected_filter):
     command = SIGNED.isolation_command(directory, private, args, selected_filter)
-    return command[:-1] + ["file.go", "filepv_test.go"]
+    return command[:-1] + [Path(name).name for name in STOCK_FILES] + ["filepv_test.go"]
+
+
+def fault_path(scenario):
+    return HANDLER_FAULT_PATH if scenario == "handler" else FAULT_PATH
+
+
+def fault_bytes(scenario, original):
+    if scenario == "handler":
+        before, after = SIGN_VOTE_GUARD, SIGN_VOTE_CASE
+        anchored = original.count(SIGN_VOTE_CASE) == 1
+    else:
+        before, after = FAULT_BEFORE, FAULT_AFTER
+        anchored = (original.count(FAULT_FUNCTION) == 1 and
+                    original.find(before) > original.index(FAULT_FUNCTION))
+    if not anchored or original.count(before) != 1:
+        raise ValueError("wrong FilePV source fault anchor for " + scenario)
+    return original.replace(before, after, 1)
 
 
 @contextmanager
-def omit_save(private, manifest, evidence):
-    source = private / FAULT_PATH
+def source_fault(scenario, private, manifest, evidence):
+    path = fault_path(scenario)
+    source = private / path
     original = source.read_bytes()
     mode = stat.S_IMODE(source.stat().st_mode)
-    if (COMET.file_entry(original) != manifest["files"][FAULT_PATH]
-            or original.count(FAULT_FUNCTION) != 1 or original.count(FAULT_BEFORE) != 1
-            or original.index(FAULT_BEFORE) <= original.index(FAULT_FUNCTION)):
-        raise ValueError("wrong FilePV original bytes or omit-save anchor")
-    mutated = original.replace(FAULT_BEFORE, FAULT_AFTER, 1)
-    changed = manifest | {"files": manifest["files"] | {FAULT_PATH: COMET.file_entry(mutated)}}
+    if COMET.file_entry(original) != manifest["files"][path]:
+        raise ValueError("wrong FilePV original source fault bytes: " + path)
+    mutated = fault_bytes(scenario, original)
+    changed = manifest | {"files": manifest["files"] | {path: COMET.file_entry(mutated)}}
     applied = False
     try:
         source.chmod(mode | stat.S_IWUSR)
         if source.write_bytes(mutated) != len(mutated):
             raise OSError("incomplete FilePV source fault write")
         applied = True
-        (evidence / "mutant-file.go").write_bytes(mutated)
+        (evidence / ("mutant-" + source.name)).write_bytes(mutated)
         write_json(evidence / "mutant-manifest.json", changed)
         yield changed
     finally:
@@ -410,7 +528,7 @@ def omit_save(private, manifest, evidence):
 
 def invocation(role, phase, directory, private, manifest, args, expected_inputs, guarded,
                tool_hashes, expected, faults):
-    parent = WRITER if role == "writer" else READER
+    parent = WRITER if role == "writer" else READERS[args.scenario]
     path = directory / (role + ".json")
     raw_path = directory / (role + ".log")
     staged = {directory / name: digest for name, digest in expected_inputs.items()}
@@ -445,23 +563,27 @@ def run_trial(phase, private, manifest, args, pins, native, guarded, tools, expe
     if phase == "smoke":
         name = next(iter(SEEDS))
         disk, writers, readers = {name: disk[name]}, {name: writers[name]}, {SMOKE: readers[SMOKE]}
-    faults = {}
+    writer_faults, reader_faults = {}, {}
     if phase == "mutant":
-        faults = {name: MISSING_STATE.format(name) for name in writers}
-        writers = {name: row | {"diskAfter": None} for name, row in writers.items()}
+        if args.scenario == "handler":
+            reader_faults = {WRONG_CHAIN_RETRY: CHAIN_GUARD_FAILURE}
+            readers = omitted_chain_guard_expectations(readers)
+        else:
+            writer_faults = {name: MISSING_STATE.format(name) for name in writers}
+            writers = {name: row | {"diskAfter": None} for name, row in writers.items()}
     executed = stage(directory, private, manifest, pins, native)
     state_identity = state_directory_identity(state)
     require_disk_set(state, {})
     writer = invocation("writer", phase, directory, private, manifest, args, executed, guarded,
-                        tools, writers, faults)
-    before = require_disk_set(state, {} if faults else disk)
+                        tools, writers, writer_faults)
+    before = require_disk_set(state, {} if writer_faults else disk)
     if state_directory_identity(state) != state_identity:
         raise ValueError("writer replaced the FilePV state directory")
     report = dict(phase=phase, writer=writer, stateDirectory=state_identity,
                   diskBeforeReader=before, reader=None, diskAfterReader=None)
-    if not faults:
+    if not writer_faults:
         reader = invocation("reader", phase, directory, private, manifest, args, executed, guarded,
-                            tools, readers, {})
+                            tools, readers, reader_faults)
         after = require_disk_set(state, disk)
         if (after != before or state_directory_identity(state) != state_identity
                 or reader["process"] == writer["process"]):
@@ -492,7 +614,7 @@ def validate_smoke(path, args, pins, manifest, watched_hashes, tools, expected):
     smoke_args = argparse.Namespace(**vars(args))
     smoke_args.output = smoke_root
     for role, parent, leaves in (("writer", WRITER, {name: writers[name]}),
-                                 ("reader", READER, {SMOKE: readers[SMOKE]})):
+                                 ("reader", READERS[args.scenario], {SMOKE: readers[SMOKE]})):
         record = read_record(phase / (role + ".json"))
         raw = (phase / (role + ".log")).read_bytes()
         selected = selector(parent, leaves)
@@ -516,6 +638,7 @@ def validate_smoke(path, args, pins, manifest, watched_hashes, tools, expected):
             or report["stateDirectory"] != state_directory_identity(phase / "work/state")
             or report["diskAfterReader"] != current or report["writer"]["process"] == report["reader"]["process"]
             or summary["schema"] != "etna-comet-filepv-execution-1" or summary["status"] != "PASS"
+            or summary["scenario"] != args.scenario
             or summary["reports"] != [report] or summary["inputsSha256"] != watched_hashes
             or summary["physicalBuildLock"] != str(args.build_lock)):
         raise ValueError("invalid or stale FilePV smoke handoff")
@@ -525,7 +648,7 @@ def validate_smoke(path, args, pins, manifest, watched_hashes, tools, expected):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scenario", choices=("persistence",), default="persistence")
+    parser.add_argument("--scenario", choices=READERS, default="persistence")
     for name in ("source", "go-root", "module-cache", "build-cache", "build-lock", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--timeout", type=int, default=180, help="per-invocation isolation deadline")
@@ -534,7 +657,7 @@ def main(argv=None):
     mode.add_argument("--smoke-output", type=Path)
     args = parser.parse_args(argv)
     try:
-        signed, pins, manifest, watched, native, expected, correspondence = inputs()
+        signed, pins, manifest, watched, native, expected, correspondence = inputs(args.scenario)
         COMET.validate_layout(args, watched)
         args.build_lock = args.build_lock.resolve(strict=True)
         tool_hashes = signed["goToolSha256"]
@@ -558,7 +681,7 @@ def main(argv=None):
             reports = []
             for phase in phases:
                 if phase == "mutant":
-                    with omit_save(private, manifest, args.output) as changed:
+                    with source_fault(args.scenario, private, manifest, args.output) as changed:
                         reports.append(run_trial(phase, private, changed, args, pins, native,
                                                  guarded, tool_hashes, expected))
                 else:
@@ -571,8 +694,9 @@ def main(argv=None):
                            originalSourceAfter=source_after, specCorrespondence=correspondence,
                            inputsSha256=watched_hashes, physicalBuildLock=str(lock))
             if not args.smoke:
-                summary["fault"] = dict(path=FAULT_PATH, original=manifest["files"][FAULT_PATH],
-                                        mutant=changed["files"][FAULT_PATH],
+                path = fault_path(args.scenario)
+                summary["fault"] = dict(path=path, original=manifest["files"][path],
+                                        mutant=changed["files"][path],
                                         restored=read_record(args.output / "actual-restoration.json"))
             write_json(args.output / "summary.json", summary)
             print("PASS: pinned FilePV writer and consumer evidence verified")
