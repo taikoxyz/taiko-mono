@@ -1,4 +1,15 @@
-//! Portable deterministic Etna consensus shared by native and proving consumers.
+//! Portable Etna consensus primitives for Raiko2 and native clients.
+//!
+//! [`committee::derive`] computes a candidate committee from snapshot data.
+//! [`comet::validators::Validators::from_members`] checks validator identities and power.
+//! Consumers separately authenticate the committee for the applicable epoch and generation.
+//! [`committee::verify_committee_at_cutoff`] is available for verifying registry witnesses
+//! against an authenticated L1 state root.
+//!
+//! The Comet certificate and body helpers verify individual consensus commitments. Consumers
+//! compose these checks with generation and range validation, execution and forced inclusion
+//! rules, and their own state and witness handling.
+
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(not(test), deny(missing_docs, clippy::missing_docs_in_private_items))]
 extern crate alloc;

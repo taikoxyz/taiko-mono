@@ -28,7 +28,7 @@ use etna_core::comet::{
     codec::{checked_block_proto, decode_canonical_block, decode_canonical_commit},
     native::{Block, Commit, CommitSig, RawBlock, RawCommit, RawCommitSig},
     verify::{
-        CertifiedBlockRef, block_parts, verify_body_at_origin, verify_native_commit,
+        CertifiedBlockRef, block_parts, commit_hash, verify_body_at_origin, verify_native_commit,
         verify_structure_at_origin,
     },
 };
@@ -234,19 +234,81 @@ fn native_qc_checks_full_parts_validator_hash_and_late_nil_signatures() {
     );
 }
 
+fn rebind_block(
+    raw: &mut RawBlock,
+    block: &Block,
+    commit: &mut Commit,
+    validators: &Validators,
+    keys: &[SigningKey],
+) -> Vec<u8> {
+    raw.header = Some(block.header.clone().into());
+    raw.last_commit = Some(block.last_commit.clone().unwrap_or_default().into());
+    commit.block_id.part_set_header = block_parts(raw).unwrap();
+    resign(commit, block, validators, keys);
+    raw.encode_to_vec()
+}
+
 #[test]
 fn empty_ancestry_is_authorized_only_at_checked_nonzero_origin_plus_one() {
-    let (raw, mut block, mut commit, _, _) = fixture(&fixtures()[0]);
+    let (raw, mut block, mut commit, validators, keys) = fixture(&fixtures()[0]);
     let mut proto = RawBlock::decode(raw.as_slice()).unwrap();
     block.header.height = 42u32.into();
-    proto.header = Some(block.header.clone().into());
-    let raw = proto.encode_to_vec();
-    commit.block_id.part_set_header = block_parts(&proto).unwrap();
+    let raw = rebind_block(&mut proto, &block, &mut commit, &validators, &keys);
+    let first = view(&raw, &block, &commit);
+    assert_eq!(verify_body_at_origin(first, 42, B256::ZERO, 41).unwrap(), block.data[0]);
+    assert!(verify_structure_at_origin(first, None, 42, B256::ZERO, 41).is_ok());
+    for wrong_origin in [0, 42, u64::MAX] {
+        assert!(verify_body_at_origin(first, 42, B256::ZERO, wrong_origin).is_err());
+        assert!(verify_structure_at_origin(first, None, 42, B256::ZERO, wrong_origin).is_err());
+    }
+
+    block.header.last_block_id = Some(commit.block_id);
+    let raw = rebind_block(&mut proto, &block, &mut commit, &validators, &keys);
+    let first = view(&raw, &block, &commit);
+    assert!(verify_body_at_origin(first, 42, B256::ZERO, 41).is_err());
+    assert!(verify_structure_at_origin(first, None, 42, B256::ZERO, 41).is_err());
+}
+
+#[test]
+fn nonempty_ancestry_requires_a_successor_after_generation_start() {
+    let (raw, mut previous_block, mut previous_commit, validators, keys) = fixture(&fixtures()[0]);
+    let mut proto = RawBlock::decode(raw.as_slice()).unwrap();
+    previous_block.header.height = 42u32.into();
+    let previous_raw =
+        rebind_block(&mut proto, &previous_block, &mut previous_commit, &validators, &keys);
+    let previous = view(&previous_raw, &previous_block, &previous_commit);
+
+    let mut block = previous_block.clone();
+    block.header.height = 43u32.into();
+    block.header.last_block_id = Some(previous_commit.block_id);
+    block.header.last_commit_hash = Some(commit_hash(&previous_commit));
+    block.last_commit = Some(previous_commit.clone());
+    let mut commit = previous_commit.clone();
+    let raw = rebind_block(&mut proto, &block, &mut commit, &validators, &keys);
+    let successor = view(&raw, &block, &commit);
+
+    assert!(verify_body_at_origin(successor, 43, B256::ZERO, 41).is_ok());
+    assert!(verify_structure_at_origin(successor, Some(previous), 43, B256::ZERO, 41).is_ok());
+    assert!(verify_structure_at_origin(successor, None, 43, B256::ZERO, 41).is_err());
+
+    let mut mismatched = previous_commit.clone();
+    mismatched.block_id.part_set_header.total += 1;
+    let wrong_previous = view(&previous_raw, &previous_block, &mismatched);
     assert!(
-        verify_structure_at_origin(view(&raw, &block, &commit), None, 42, B256::ZERO, 41).is_ok()
+        verify_structure_at_origin(successor, Some(wrong_previous), 43, B256::ZERO, 41).is_err()
     );
-    assert!(verify_body_at_origin(view(&raw, &block, &commit), 42, B256::ZERO, 0).is_err());
-    assert!(verify_body_at_origin(view(&raw, &block, &commit), 42, B256::ZERO, u64::MAX).is_err());
+
+    for wrong_origin in [42, 43, u64::MAX] {
+        let body = verify_body_at_origin(successor, 43, B256::ZERO, wrong_origin);
+        let structure =
+            verify_structure_at_origin(successor, Some(previous), 43, B256::ZERO, wrong_origin);
+        assert!(
+            body.is_err() && structure.is_err(),
+            "origin {wrong_origin} accepted nonempty ancestry: body={}, structure={}",
+            body.is_ok(),
+            structure.is_ok(),
+        );
+    }
 }
 
 #[test]

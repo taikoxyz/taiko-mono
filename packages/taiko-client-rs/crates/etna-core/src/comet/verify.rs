@@ -204,8 +204,8 @@ pub fn block_parts(block: &RawBlock) -> Result<tendermint::block::parts::Header,
     .map_err(|_| BftError::PartSetLength)
 }
 
-/// Recomputes native body commitments and returns the single committed transaction unchanged;
-/// empty consensus ancestry is permitted only at the fixed origin + 1.
+/// Recomputes native body commitments and returns the single committed transaction unchanged.
+/// Consensus ancestry must be empty at the authenticated origin + 1 and present thereafter.
 ///
 /// This is also necessary for an already-landed checkpoint: a genuine certificate signs the
 /// header's roots, not an arbitrary body an RPC response happens to return beside it.
@@ -219,6 +219,10 @@ pub fn verify_body_at_origin<'a>(
     if block.header.height.value() != expected_height {
         return Err(BftError::Certificate("requested block height mismatch".into()));
     }
+    let first_height = origin_height
+        .checked_add(1)
+        .filter(|height| *height <= expected_height)
+        .ok_or(BftError::Commitment("generation origin"))?;
     if block.header.data_hash != Some(data_hash(&block.data)) {
         return Err(BftError::Commitment("data"));
     }
@@ -247,14 +251,14 @@ pub fn verify_body_at_origin<'a>(
         return Err(BftError::Commitment("block part set"));
     }
     match &block.last_commit {
-        None if origin_height.checked_add(1) == Some(expected_height) => {
+        None if expected_height == first_height => {
             if block.header.last_commit_hash != Some(merkle(&[])) ||
                 block.header.last_block_id.is_some()
             {
                 return Err(BftError::Commitment("genesis last commit"));
             }
         }
-        Some(last) if expected_height > 1 => {
+        Some(last) if expected_height > first_height => {
             if expected_height.checked_sub(1) != Some(last.height.value()) ||
                 block.header.last_block_id != Some(last.block_id) ||
                 block.header.last_commit_hash != Some(commit_hash(last))
@@ -262,7 +266,8 @@ pub fn verify_body_at_origin<'a>(
                 return Err(BftError::Commitment("last commit"));
             }
         }
-        _ => return Err(BftError::Commitment("missing last commit")),
+        Some(_) => return Err(BftError::Commitment("nonempty initial last commit")),
+        None => return Err(BftError::Commitment("missing last commit")),
     }
     if block.header.app_hash.as_bytes() != parent_el_hash.as_slice() {
         return Err(BftError::Commitment("parent execution app hash"));
@@ -296,7 +301,7 @@ pub fn verify_structure_at_origin<'a>(
 ) -> Result<&'a [u8], BftError> {
     let envelope = verify_body_at_origin(pair, expected_height, parent_el_hash, origin_height)?;
     match (&pair.block.last_commit, previous) {
-        (None, None) if origin_height.checked_add(1) == Some(expected_height) => {}
+        (None, None) => {}
         (Some(last), Some(previous)) if last.block_id == previous.commit.block_id => {}
         _ => return Err(BftError::Commitment("missing or conflicting previous block/commit")),
     }

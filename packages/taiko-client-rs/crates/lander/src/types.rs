@@ -200,8 +200,9 @@ impl CertifiedBlock {
     /// Retains the original protobuf before creating a validated domain projection.
     pub fn from_raw(raw: RawBlock, commit: Commit) -> Result<Self> {
         let raw_block = Bytes::from(raw.encode_to_vec());
-        let (_, block) =
-            etna_core::comet::codec::decode_canonical_block(&raw_block).map_err(codec_error)?;
+        let block = Block::try_from(raw)
+            .map_err(etna_core::comet::codec::CodecError::InvalidBlock)
+            .map_err(codec_error)?;
         Ok(Self { block, raw_block, commit })
     }
 
@@ -426,6 +427,15 @@ mod rlp_serde {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn malformed_typed_block_remains_an_encoding_error() {
+        let error = CertifiedBlock::from_raw(RawBlock::default(), Commit::default()).unwrap_err();
+        assert!(matches!(
+            error,
+            LanderError::Encoding(message) if message == "invalid original CometBFT block: missing block header"
+        ));
+    }
 
     #[test]
     fn prepared_statement_rejects_every_terminal_comet_bit_even_with_rebound_digest() {
