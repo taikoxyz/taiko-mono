@@ -59,8 +59,7 @@ contract Anchor is EssentialContract, IL1StateRootProvider {
 
     /// @notice First L2 block timestamp at which the Etna fork is active.
     /// @dev `anchorV4` reverts from this timestamp on. 0 means Etna is active from genesis;
-    /// `type(uint64).max` disables the timestamp gate. The EL's nonzero current EIP-4788 root
-    /// independently disables anchoring and selects execution-root reads.
+    /// `type(uint64).max` means Etna never activates.
     uint64 public immutable etnaTimestamp;
 
     // ---------------------------------------------------------------
@@ -136,18 +135,14 @@ contract Anchor is EssentialContract, IL1StateRootProvider {
 
     /// @notice Processes a block and anchors L1 data.
     /// @dev Core function that anchors L1 block data for cross-chain verification. Reverts from
-    /// `etnaTimestamp` on, or once the EL has written the current block's EIP-4788 root, where
-    /// blocks no longer carry an anchor transaction.
+    /// `etnaTimestamp` on, where blocks no longer carry an anchor transaction.
     /// @param _checkpoint Checkpoint data for the L1 block being anchored.
     function anchorV4(ICheckpointStore.Checkpoint calldata _checkpoint)
         external
         onlyValidSender
         nonReentrant
     {
-        require(
-            block.timestamp < etnaTimestamp && _readBeaconRoot(block.timestamp) == 0,
-            AnchorDisabled()
-        );
+        require(block.timestamp < etnaTimestamp, AnchorDisabled());
 
         uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
         _validateBlock(_checkpoint);
@@ -162,17 +157,17 @@ contract Anchor is EssentialContract, IL1StateRootProvider {
 
     /// @inheritdoc IL1StateRootProvider
     function getL1StateRoot(uint64 _blockId) external view returns (bytes32 stateRoot_) {
-        // The EL writes this marker before transactions, independently of this implementation's
-        // immutable. It also prevents a late immutable from selecting the old checkpoint oracle.
-        bool executionEtna = _readBeaconRoot(block.timestamp) != 0;
-        if (block.timestamp < etnaTimestamp && !executionEtna) {
+        if (block.timestamp < etnaTimestamp) {
             require(_blockId <= type(uint48).max, InvalidL1BlockNumber());
             stateRoot_ = checkpointStore.getCheckpoint(uint48(_blockId)).stateRoot;
         } else {
-            // With an early EL fork, valid recorded timestamps may precede the immutable. The
-            // canonical ring authenticates their exact timestamps; Unzen writes no roots there.
-            if (!executionEtna) require(_blockId >= etnaTimestamp, TimestampBeforeEtna());
-            stateRoot_ = _readBeaconRoot(_blockId);
+            require(_blockId >= etnaTimestamp, TimestampBeforeEtna());
+
+            // EIP-4788 takes a raw 32-byte timestamp without a selector. Missing/expired entries
+            // revert; absent code returns no data.
+            (bool ok, bytes memory ret) = BEACON_ROOTS.staticcall(abi.encode(uint256(_blockId)));
+            require(ok && ret.length == 32, L1StateRootNotFound());
+            stateRoot_ = abi.decode(ret, (bytes32));
         }
         require(stateRoot_ != bytes32(0), L1StateRootNotFound());
     }
@@ -207,15 +202,6 @@ contract Anchor is EssentialContract, IL1StateRootProvider {
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
-
-    /// @dev Reads an exact timestamp from the canonical EIP-4788 ring. Missing/expired entries,
-    /// absent code, malformed responses and zero roots return zero.
-    /// @param _timestamp The L2 block timestamp to query.
-    /// @return root_ The execution-written L1 state root, or zero when unavailable.
-    function _readBeaconRoot(uint256 _timestamp) private view returns (bytes32 root_) {
-        (bool ok, bytes memory ret) = BEACON_ROOTS.staticcall(abi.encode(_timestamp));
-        if (ok && ret.length == 32) root_ = abi.decode(ret, (bytes32));
-    }
 
     /// @dev Validates and processes block-level data.
     /// @param _checkpoint Anchor checkpoint data from L1.

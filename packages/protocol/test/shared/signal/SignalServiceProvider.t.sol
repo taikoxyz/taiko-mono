@@ -59,7 +59,7 @@ contract TestSignalServiceProvider is CommonTest, AnchorTestBase, SignalServiceP
 
         vm.warp(ETNA_TIMESTAMP);
         // The wire format is unchanged, but blockId is now interpreted as an L2 timestamp.
-        vm.expectRevert(Anchor.L1StateRootNotFound.selector);
+        vm.expectRevert(Anchor.TimestampBeforeEtna.selector);
         _signalService.verifySignalReceived(
             SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
         );
@@ -140,7 +140,7 @@ contract TestSignalServiceProvider is CommonTest, AnchorTestBase, SignalServiceP
         );
     }
 
-    function test_verifySignalReceived_RespectsGenesisAndDisabledForkTime() external {
+    function test_verifySignalReceived_RespectsGenesisAndNeverEtnaConfiguration() external {
         _deployPair(0);
         _recordBeaconRoot(1, VALID_PROOF_STATE_ROOT);
         _signalService.verifySignalReceived(
@@ -148,7 +148,7 @@ contract TestSignalServiceProvider is CommonTest, AnchorTestBase, SignalServiceP
         );
 
         _deployPair(type(uint64).max);
-        vm.warp(ETNA_TIMESTAMP + 1);
+        vm.warp(ETNA_TIMESTAMP);
         _saveCheckpoint(_signalService, VALID_PROOF_STATE_ROOT);
         _signalService.verifySignalReceived(
             SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
