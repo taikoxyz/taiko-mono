@@ -1,5 +1,7 @@
 """Focused tests for raw Forge evidence admission and private fault restoration."""
 import copy
+from contextlib import redirect_stderr
+import io
 import importlib.util
 import json
 import re
@@ -262,9 +264,89 @@ class LifecycleBoundary(unittest.TestCase):
         with patch.object(CASES, "run") as run:
             self.assertEqual(CASES.main(args), 0)
         self.assertIsNone(run.call_args.args[0].go_normal)
-        with self.assertRaises(SystemExit) as exited:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr), self.assertRaises(SystemExit) as exited:
             CASES.main(args[:1] + ["double-sign"] + args[2:])
         self.assertEqual(exited.exception.code, 2)
+        self.assertTrue(stderr.getvalue().endswith("error: --go-normal is required for double-sign\n"))
+
+
+class AtomicityBoundary(unittest.TestCase):
+    def setUp(self):
+        target = "0x" + "22" * 20
+        token = "0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f"
+        self.refusal = dict(
+            name="topup_refusal", height=12, snapshot=9, actor="0x" + "aa" * 20,
+            target=target, ok=False, beforeState="0x" + "12" * 32, afterState="0x" + "12" * 32,
+            logCount=0, tokenTarget=token, tokenReverted=True, allowanceWrite=[1, 4, 0],
+            calldata="0x12345678", result="0x08c379a0", tokenCalldata="0x23b872dd",
+        )
+        self.retry = self.refusal | dict(
+            name="topup_retry", ok=True, afterState="0x" + "34" * 32,
+            tokenReverted=False, result="0x",
+        )
+        self.oracle = dict(journal=[self.refusal, self.retry], setupLogs=[], actionLogs=[])
+
+    def encode(self, step):
+        # Independent framing of the fixed head and three dynamic byte strings.
+        word = lambda value: value.to_bytes(32, "big")
+        head = [step["name"].encode().ljust(32, b"\0"), word(step["height"]), word(step["snapshot"]),
+                bytes.fromhex(step["actor"][2:]).rjust(32, b"\0"),
+                bytes.fromhex(step["target"][2:]).rjust(32, b"\0"), word(int(step["ok"])),
+                bytes.fromhex(step["beforeState"][2:]), bytes.fromhex(step["afterState"][2:]),
+                word(step["logCount"]), bytes.fromhex(step["tokenTarget"][2:]).rjust(32, b"\0"),
+                word(int(step["tokenReverted"])), *map(word, step["allowanceWrite"])]
+        tail = b""
+        for field in ("calldata", "result", "tokenCalldata"):
+            head.append(word(17 * 32 + len(tail)))
+            data = bytes.fromhex(step[field][2:])
+            tail += word(len(data)) + data.ljust((len(data) + 31) // 32 * 32, b"\0")
+        body = b"".join(head) + tail
+        return word(len(body)) + body
+
+    def check(self, receipt):
+        suite = "test/layer1/etna/conformance/EtnaRegistryAtomicityCases.t.sol:EtnaRegistryAtomicityCasesTest"
+        leaf = "test_topup_balance_rollback_and_retry()"
+        native = json.dumps({suite: dict(duration="2ms", test_results={leaf: row(receipt)})})
+        return CASES.require_forge_outcomes(
+            native, 0, suite, {leaf: lambda payload, logs: CASES.atomicity_receipt(payload, logs, self.oracle)},
+        )[leaf]["journal"]
+
+    def test_accepts_exact_atomicity_journal(self):
+        journal = self.check(self.encode(self.refusal) + self.encode(self.retry))
+        self.assertEqual(journal[0]["allowanceWrite"], [1, 4, 0])
+        self.assertEqual(journal[1]["calldata"], journal[0]["calldata"])
+
+    def test_rejects_wrong_nested_token_refusal(self):
+        for field, value in (
+            ("tokenTarget", "0x" + "00" * 20), ("tokenCalldata", "0x23b872dc"),
+            ("tokenReverted", False), ("result", "0x08c379a1"), ("allowanceWrite", [0, 0, 0]),
+        ):
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "topup_refusal"):
+                self.check(self.encode(self.refusal | {field: value}) + self.encode(self.retry))
+
+    def test_rejects_missing_or_changed_rollback_post_state(self):
+        step = self.encode(self.refusal)
+        offset = 32 + 7 * 32
+        for post in (b"", bytes(32)):
+            with self.subTest(post=post), self.assertRaisesRegex(ValueError, "topup_refusal"):
+                self.check(step[:offset] + post + step[offset + 32:] + self.encode(self.retry))
+
+    def test_rejects_nonidentical_retry(self):
+        for field, value in (
+            ("calldata", "0x12345679"), ("tokenCalldata", "0x23b872dc"), ("height", 13),
+            ("snapshot", 8), ("actor", "0x" + "bb" * 20), ("beforeState", "0x" + "66" * 32),
+        ):
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "topup_retry"):
+                self.check(self.encode(self.refusal) + self.encode(self.retry | {field: value}))
+
+    def test_atomicity_does_not_require_stock_go_evidence(self):
+        args = ["--scenario", "atomicity", "--runtime", "runtime", "--output", "output", "--smoke"]
+        with patch.object(CASES, "run") as run:
+            self.assertEqual(CASES.main(args), 0)
+        self.assertEqual(run.call_args.args[0].scenario, "atomicity")
+        self.assertIsNone(run.call_args.args[0].go_normal)
+        self.assertTrue(run.call_args.args[0].smoke)
 
 
 if __name__ == "__main__":

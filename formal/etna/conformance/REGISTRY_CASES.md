@@ -17,7 +17,7 @@ offline compiler selection, FFI disabled, and an empty script directory. It
 holds the existing physical cache lock to serialize Forge execution. Each
 campaign compiles into a fresh private output and cache and reuses them for its
 three phases. The existing shared cache contents are outside the mounts. This
-adds a bounded cold compile and private artifacts. The runner accepts `double-sign` and `lifecycle`.
+adds a bounded cold compile and private artifacts. The runner accepts `double-sign`, `lifecycle` and `atomicity`.
 
 The 42 individually selected tests are five domain cases, 23 canonical byte
 cases and 14 actual evidence pairs. Published bytes/domain literals and
@@ -120,3 +120,68 @@ mode and repeat the full positive. `--smoke` selects the same single positive
 without mutation. The gate uses an initialized/unlocked Inbox fixture and
 exact-transfer test token. Full 4096-slot capacity, deployment, production
 token behavior and other lifecycle products remain open.
+
+## Late token refusal and identical calldata retry
+
+Use the same offline Forge routing configuration. Add `--smoke` to run only
+the register refusal, approval and same-block retry.
+
+```sh
+python -B formal/etna/conformance/run_registry_cases.py \
+  --scenario atomicity --runtime "$forge_runtime" \
+  --output "$case_output" --timeout 180
+```
+
+At block 11 and Inbox snapshot 7, the second public key has a valid
+registration proof, balance 4 and allowance 3. Registry writes a checkpoint
+before the token refuses `transferFrom` with `Error("token allowance")`. The
+pre/post commitments are equal. The first bond and checkpoint survive,
+and the second key, slot, ID and checkpoint are absent until retry. The
+same caller approves 4 externally and resubmits the same bytes at block 11. The retry issues bond 1 in slot 1 and observes precisely
+`CheckpointWritten`, `Transfer`, `Registered` in that order.
+
+The second test begins with both bonds at block 10. At block 12 and
+snapshot 9, the first bond's owner has allowance 4 and balance 0. The
+nested token frame records a reverted allowance write from 4 to 0 before
+`Error("token balance")` propagates through the Registry call. The allowance
+returns to 4 and the full selected state equals the pre-call state. The
+test driver mints 4 to the owner and leaves the allowance at 4. The same
+caller retries the same top-up at block 12. The retry transfers 4 once and
+raises the pending principal and admission value. The neighbor's state,
+the target's effective stake, the entry tree and the block-10 checkpoint
+stay unchanged through retry. At block 14 actual activation consumes the
+pending amount, increases effective stake to 8 and writes checkpoint 1.
+The original checkpoint remains readable.
+
+Both leaves use the same ordered raw rollback observer. It covers inherited
+Registry words 0–250 and its ERC1967 implementation pointer, the packed
+Inbox generation/snapshot, the eight Registry namespace head words, 16 raw
+checkpoint words, 18 raw entry words, all 8192 admission cells and the bounded
+Merkle nodes covering the fixture's selected leaves and ancestors. It also
+covers six selected bond records, slot occupants, owners, confirmations,
+pending amounts and readiness, lifetime keys and forfeiture flags, plus seven
+actors' token balances and allowances and the token transfer counter. The
+journal binds the independently frozen full raw commitment before and after
+each action. It also binds each action's VM height, snapshot, caller, target,
+calldata, low-level return bytes, nested transfer target and calldata,
+reverted flag and allowance-write count and values. The approval and mint
+are separately observed token calls between the refusal and retry, at the
+same height and snapshot. The pinned SafeERC20/Address path bubbles the
+nonempty token error bytes to the Registry proxy. The account recorder
+provides frame and storage-access data, while the proxy call supplies the
+error bytes.
+
+The register leaf performs a self-call calibration that emits a marker
+before reverting. Forge's local log recorder retains that marker and the
+failed register's attempted checkpoint. These are reverted execution trace
+entries. Both the failed top-up and its nested token call emit zero trace
+logs at the selected balance refusal. The exact action order is checked
+against the frozen native trace, including the successful retry events.
+
+The guarded source control removes only the actual `topUp` transfer. It
+must reach the expected incorrect-success diagnostic and the attempted
+deposit event without a corresponding token transfer. The register leaf
+still passes in the fault phase. The runner restores the private source
+bytes and mode and repeats both positives. The evidence covers the
+selected rollback state and the exact-transfer fixture. Token callbacks,
+withdrawal custody, gas and full-capacity admission are outside this gate.

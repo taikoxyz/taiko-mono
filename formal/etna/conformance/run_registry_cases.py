@@ -41,6 +41,17 @@ LIFECYCLE_FAULT_BEFORE = (
 )
 LIFECYCLE_FAULT_AFTER = b"        TopUp memory pending = _topUpsStorage().topUps[_bondId];\n"
 LIFECYCLE_FAULT_DIAGNOSTIC = "N03 activate_mature_exiting: expected ExitAlreadySet, got success"
+ATOMICITY_FILE = "EtnaRegistryAtomicityCases.t.sol"
+ATOMICITY_CONTRACT = "EtnaRegistryAtomicityCasesTest"
+ATOMICITY_REGISTER = "test_register_allowance_rollback_and_retry()"
+ATOMICITY_TOPUP = "test_topup_balance_rollback_and_retry()"
+ATOMICITY_FAULT_FUNCTION = b"function topUp("
+ATOMICITY_FAULT_BEFORE = (
+    b"        token.safeTransferFrom(msg.sender, address(this), _amount);\n"
+    b"        emit TopUpDeposited(_bondId, _amount, readyAt);"
+)
+ATOMICITY_FAULT_AFTER = b"        emit TopUpDeposited(_bondId, _amount, readyAt);"
+ATOMICITY_FAULT_DIAGNOSTIC = "N04 topup_refusal: expected token balance, got success"
 FAULT_FUNCTION = b"function slashDoubleSign("
 FAULT_BEFORE = (
     b"                && !LibCometVote.sameBlockId(voteA, voteB),\n"
@@ -75,6 +86,15 @@ DEPENDENCIES = (
     ("optimism", "@optimism/"), ("ds-test", "ds-test/"), ("solady", "@solady/"),
 )
 TOOLS = ("forge", "solc-0.8.30")
+SCENARIOS = {
+    "double-sign": (SOLIDITY_FILES[-1], CONTRACT, SMOKE_TEST),
+    "lifecycle": (LIFECYCLE_FILE, LIFECYCLE_CONTRACT, LIFECYCLE_TEST),
+    "atomicity": (ATOMICITY_FILE, ATOMICITY_CONTRACT, ATOMICITY_REGISTER),
+}
+ATOMICITY_STEPS = {
+    ATOMICITY_REGISTER: ("register_refusal", "approve_retry", "register_retry"),
+    ATOMICITY_TOPUP: ("topup_refusal", "fund_retry", "topup_retry", "activate_topup"),
+}
 
 
 def require_hash(path, expected):
@@ -321,10 +341,74 @@ def lifecycle_failure(oracle):
     return LIFECYCLE_TEST, LIFECYCLE_FAULT_DIAGNOSTIC, require_activation_trace
 
 
+def atomicity_binding(step):
+    """Exact call, token frame, allowance write and full selected pre/post observations."""
+    dynamic = [abi_bytes(b"" if step[field] == "0x" else hex_bytes(step[field]))
+               for field in ("calldata", "result", "tokenCalldata")]
+    head_size = 17 * 32
+    body = b"".join((
+        step["name"].encode("ascii").ljust(32, b"\0"), word(step["height"]),
+        word(step["snapshot"]), address_word(step["actor"]), address_word(step["target"]),
+        word(int(step["ok"])), hex_bytes(step["beforeState"], 32), hex_bytes(step["afterState"], 32),
+        word(step["logCount"]), address_word(step["tokenTarget"]), word(int(step["tokenReverted"])),
+        *map(word, step["allowanceWrite"]), word(head_size), word(head_size + len(dynamic[0])),
+        word(head_size + len(dynamic[0]) + len(dynamic[1])), *dynamic,
+    ))
+    return word(len(body)) + body
+
+
+def atomicity_receipt(receipt, logs, oracle):
+    """Admit only the independently pinned journal and native trace sequence."""
+    action_logs = oracle["actionLogs"]
+    if logs != oracle["setupLogs"] + action_logs:
+        raise ValueError("wrong ordered atomicity trace logs")
+    offset = log_offset = 0
+    journal = []
+    for step in oracle["journal"]:
+        expected = atomicity_binding(step)
+        if receipt[offset:offset + len(expected)] != expected:
+            raise ValueError("wrong atomicity receipt at " + step["name"])
+        offset += len(expected)
+        end = log_offset + step["logCount"]
+        journal.append(step | {"traceLogs": action_logs[log_offset:end]})
+        log_offset = end
+    if offset != len(receipt) or log_offset != len(action_logs):
+        raise ValueError("extra atomicity receipt words or unbound trace logs")
+    return dict(journal=journal)
+
+
+def atomicity_failure(oracle):
+    def require_missing_transfer_trace(logs):
+        if logs != oracle["setupLogs"] + oracle["faultLogs"]:
+            raise ValueError("wrong ordered atomicity fault trace logs")
+
+    return ATOMICITY_TOPUP, ATOMICITY_FAULT_DIAGNOSTIC, require_missing_transfer_trace
+
+
+def require_atomicity_oracle(leaves):
+    if set(leaves) != set(ATOMICITY_STEPS):
+        raise ValueError("wrong frozen atomicity leaf inventory")
+    for leaf, names in ATOMICITY_STEPS.items():
+        oracle = leaves[leaf]
+        journal = oracle["journal"]
+        if (tuple(step["name"] for step in journal) != names
+                or sum(step["logCount"] for step in journal) != len(oracle["actionLogs"])):
+            raise ValueError("wrong frozen atomicity journal inventory")
+        refusal, external, retry = journal[:3]
+        repeated = ("height", "snapshot", "actor", "target", "calldata", "tokenTarget", "tokenCalldata")
+        if (any(refusal[field] != retry[field] for field in repeated)
+                or refusal["ok"] or not refusal["tokenReverted"] or not retry["ok"]
+                or retry["tokenReverted"] or not external["ok"] or external["target"] != TOKEN
+                or refusal["beforeState"] != refusal["afterState"]
+                or refusal["afterState"] != external["beforeState"]
+                or external["beforeState"] == external["afterState"]
+                or external["afterState"] != retry["beforeState"]
+                or any(external[field] != retry[field] for field in ("height", "snapshot"))):
+            raise ValueError("wrong frozen atomicity refusal, context or retry")
+
+
 def solidity_files(scenario):
-    if scenario == "lifecycle":
-        return (*SOLIDITY_FILES[:2], LIFECYCLE_FILE)
-    return SOLIDITY_FILES
+    return (*SOLIDITY_FILES[:2], SCENARIOS[scenario][0])
 
 
 def inputs(scenario="double-sign"):
@@ -372,6 +456,13 @@ def inputs(scenario="double-sign"):
                 or sum(step["logCount"] for step in journal) != len(lifecycle["actionLogs"])):
             raise ValueError("wrong frozen lifecycle journal inventory")
         expected = {LIFECYCLE_TEST: lambda receipt, logs: lifecycle_receipt(receipt, logs, lifecycle)}
+    elif scenario == "atomicity":
+        leaves = pins["atomicity"]
+        require_atomicity_oracle(leaves)
+        expected = {
+            leaf: lambda receipt, logs, oracle=oracle: atomicity_receipt(receipt, logs, oracle)
+            for leaf, oracle in leaves.items()
+        }
     authored_paths += [ROOT / "solidity" / name for name in solidity_files(scenario)]
     watched.update({path: EXEC.sha(path) for path in authored_paths})
     return pins, expected, watched | stock_watch, stock_pins, stock_oracles, authority
@@ -420,15 +511,16 @@ def private_source_fault(source, manifest, artifact, *, scenario="double-sign"):
     path = source / FAULT_PATH
     mode = stat.S_IMODE(path.stat().st_mode)
     original = path.read_bytes()
-    function, before, after = (
-        (LIFECYCLE_FAULT_FUNCTION, LIFECYCLE_FAULT_BEFORE, LIFECYCLE_FAULT_AFTER)
-        if scenario == "lifecycle" else (FAULT_FUNCTION, b"\n" + FAULT_BEFORE, FAULT_AFTER)
-    )
+    function, before, after = {
+        "double-sign": (FAULT_FUNCTION, b"\n" + FAULT_BEFORE, FAULT_AFTER),
+        "lifecycle": (LIFECYCLE_FAULT_FUNCTION, LIFECYCLE_FAULT_BEFORE, LIFECYCLE_FAULT_AFTER),
+        "atomicity": (ATOMICITY_FAULT_FUNCTION, ATOMICITY_FAULT_BEFORE, ATOMICITY_FAULT_AFTER),
+    }[scenario]
     if (STOCK.COMET.file_entry(original) != manifest["files"][FAULT_PATH]
             or original.count(function) != 1 or original.count(before) != 1
             or original.find(function) >= original.find(before)):
         raise ValueError("original branch hash or unique fault context differs")
-    if scenario == "lifecycle" and original.find(before) >= original.find(b"\n    }", original.find(function)):
+    if scenario != "double-sign" and original.find(before) >= original.find(b"\n    }", original.find(function)):
         raise ValueError("original branch hash or unique fault context differs")
     mutant = original.replace(before, after, 1)
     if mutant == original:
@@ -586,7 +678,7 @@ def isolation_command(output, private, tests, dependencies, config, paths, selec
     for name, value in env.items():
         argv += ["--env", name + "=" + value]
     pattern = "^(" + "|".join(re.escape(name) for name in selected) + ")$"
-    path, contract = (LIFECYCLE_FILE, LIFECYCLE_CONTRACT) if scenario == "lifecycle" else (SOLIDITY_FILES[-1], CONTRACT)
+    path, contract, _ = SCENARIOS[scenario]
     return argv + ["--", tools + "/forge", "test", "--root", protocol, "--config-path",
                    protocol + "/foundry.toml", "--offline", "--use", tools + "/solc-0.8.30",
                    "--match-path", TEST_ROOT + "/" + path, "--match-contract",
@@ -610,7 +702,8 @@ def phase(name, output, staged, paths, watch, manifest, expectations, comparison
     STOCK.write_json(directory / "0-result.json", record)
     if record["timeout"]:
         raise ValueError("Forge timed out")
-    suite = LIFECYCLE_SUITE if scenario == "lifecycle" else SUITE
+    source_file, contract, _ = SCENARIOS[scenario]
+    suite = f"{TEST_ROOT}/{source_file}:{contract}"
     outcomes = require_forge_outcomes(raw, record["returncode"], suite, expectations, failure=failure)
     common = {key: outcomes[key]["bytes"] for key in comparison if key in outcomes}
     if common != {key: value for key, value in comparison.items() if key in expectations}:
@@ -670,12 +763,14 @@ def run(args):
             guards()
             common = (output, staged, paths, watch, manifest)
             if args.smoke:
-                leaf = LIFECYCLE_TEST if scenario == "lifecycle" else SMOKE_TEST
+                leaf = SCENARIOS[scenario][2]
                 selected = {leaf: expectations[leaf]}
                 result = {"smoke": phase("smoke", *common, selected, comparison, timeout, scenario=scenario)}
             else:
                 if scenario == "lifecycle":
                     failure = lifecycle_failure(pins["lifecycle"])
+                elif scenario == "atomicity":
+                    failure = atomicity_failure(pins["atomicity"][ATOMICITY_TOPUP])
                 else:
                     pre_root = hex_bytes(pins["effects"]["preRoot"], 32)
                     post_root = hex_bytes(pins["effects"]["postRoot"], 32)
@@ -713,7 +808,7 @@ def run(args):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scenario", choices=("double-sign", "lifecycle"), required=True)
+    parser.add_argument("--scenario", choices=SCENARIOS, required=True)
     parser.add_argument("--runtime", type=Path, required=True)
     parser.add_argument("--go-normal", type=Path)
     parser.add_argument("--output", type=Path, required=True)
