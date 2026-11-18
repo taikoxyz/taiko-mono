@@ -47,23 +47,11 @@ Raised by: DeepSeek-V4.1-Flash (dantaik)
 
 Raised by: DeepSeek-V4.1-Flash (dantaik)
 
-## Q-C-4
-
-**Which funded figure applies before K is pinned?**
-
-**Text.** "A landing carries at most six blobs, hence six blocks, and must end at a grid point, so each covers m blocks, where m is the largest multiple of K not above 6: about 900/m landings an hour, which is about 150 when K divides 6, about 225 at K = 4 and about 180 at K = 5."
-
-**Why it matters.** K "is not fixed yet; set from proving capacity measured during acceptance" (section 11), so the funded figure depends on a parameter pinned later. Before K is pinned there is no single number to fund, and after it is pinned the required landing rate can differ by 50% between K = 6 (150 an hour) and K = 4 (225 an hour). A budget approved now against the wrong value is a budget that does not cover the sustained worst case.
-
-**Would close it.** Say which figure to fund before K is pinned (the maximum, or the K = 4 case) and require re-funding when K is set.
-
-Raised by: DeepSeek-V4.1-Flash (dantaik)
-
 ## Q-C-5
 
 **"3 blobs per L1 slot" assumes an L1 slot time the spec never states**
 
-**Text.** "Whatever K is, that is 3 blobs per L1 slot."
+**Text.** "That is 3 blobs per L1 slot."
 
 **Why it matters.** The figure follows from about 150 landings an hour at six blobs each over 300 L1 slots an hour, which assumes a 12 s L1 slot. Appendix C states neither the slot duration nor the per-block blob capacity of the L1 chain it assumes, so the number cannot be checked against a future L1 schedule, and a reader cannot tell which external parameters the blob budget depends on.
 
