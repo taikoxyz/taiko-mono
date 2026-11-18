@@ -2,15 +2,15 @@
   "schema_version": 2,
   "spec": {
     "path": "packages/protocol/docs/etna/SPEC.md",
-    "revision": "2026-11-13",
-    "commit": "d18357214fab30ea512ae9858a11699806d72ba1",
-    "sha256": "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b"
+    "revision": "2026-11-18",
+    "commit": "9c832234b4681fbc5eccdbaf9c9303b7869f91f4",
+    "sha256": "7875c10373114ca5eaa7b164d2bfa844b4f5bbbede2ebfa252bb59246efd96de"
   },
   "index": {
     "path": "packages/protocol/docs/etna/rules/INDEX.md",
-    "revision": "2026-11-13",
-    "commit": "d18357214fab30ea512ae9858a11699806d72ba1",
-    "sha256": "721b38677b0901be29c934404d4dcdd344995217f49dbfbd3c5c9fc84bd40105"
+    "revision": "2026-11-18",
+    "commit": "9c832234b4681fbc5eccdbaf9c9303b7869f91f4",
+    "sha256": "661775729a11c74c0335037ab349508e75ed151791d08cf2aa6cd1d0fe0394b7"
   },
   "evidence": {
     "CONS-3.2-2": {
@@ -198,7 +198,7 @@
       "reason": "The decoded forfeiture intent sends the entire penalty to slashSink with no bounty; principal deduction order is not this conclusion."
     },
     "LAND-6.1-3": {
-      "clause": "LIVE_EN-a563a899ed3d4c6b",
+      "clause": "LIVE_EN-4217c5498e2e83a4",
       "theorems": [
         "Etna.Design.Current.Protocol.accepted_suffix_from_certificate"
       ],
@@ -213,14 +213,14 @@
       "reason": "Accepted decoded landing checks and resulting atomic state value; exact transcription, not Solidity order proof."
     },
     "LAND-6.1-8": {
-      "clause": "LIVE_EN-a563a899ed3d4c6b",
+      "clause": "LIVE_EN-4217c5498e2e83a4",
       "theorems": [
         "Etna.Design.Current.Protocol.accepted_certificate_checkpoint_split"
       ],
       "reason": "An actual accepted landing and certificate identify the physical archive header at execution-time c with the stored checkpoint hash, via the authenticated frontier cut. This is decoded frontier binding only, not the other ordered guards or Solidity execution order."
     },
     "LAND-6.1-8a": {
-      "clause": "LIVE_EN-a563a899ed3d4c6b",
+      "clause": "LIVE_EN-4217c5498e2e83a4",
       "theorems": [
         "Etna.Design.Current.Protocol.Custody.path_rooted",
         "Etna.Design.Current.Protocol.Custody.pending_parent_fence",
@@ -231,7 +231,7 @@
       "reason": "The first switching landing checks all three LAND-6.1-8a conditions: every Unzen proposal finalized, the last finalized hash equal to the start hash, and the Unzen proof's SignalService checkpoint at height S with the start hash and stateRoot (the model keeps the latest Unzen checkpoint, with its height). After closure no ordinary modeled Unzen proof can progress, and retained legacy/Etna heights remain on their respective sides of S. Existing Unzen proof/header extension and pure guest soundness are explicit primitive boundaries."
     },
     "LAND-6.1-9": {
-      "clause": "LIVE_EN-a563a899ed3d4c6b",
+      "clause": "LIVE_EN-4217c5498e2e83a4",
       "theorems": [
         "Etna.Design.Current.Protocol.land_success",
         "Etna.Design.Current.Protocol.Custody.landing_snapshot_saved"
@@ -313,7 +313,7 @@
       "reason": "Valid decoded chains have exactly consecutive heights from the parent through the terminal height; this is the height-continuity fragment of cut coverage, not full cuts authentication."
     },
     "PROOF-6.2-41": {
-      "clause": "LIVE_EN-9dabf1462e3643ef",
+      "clause": "LIVE_EN-2096743a5d399f16",
       "theorems": [
         "Etna.Design.Current.Blocks.valid_cursor_step",
         "Etna.Design.Current.Blocks.chain_cursor_steps",
@@ -582,12 +582,12 @@
       "reason": "Every retained checkpoint after a successful decoded registry call is either an existing checkpoint or has the current L1 block and the exact resulting slot-entry list. This is the new-checkpoint fidelity component only."
     },
     "START-10-5": {
-      "clause": "LIVE_EN-469ffbdb2e14d0b4",
+      "clause": "LIVE_EN-8dbee22be3a3eda7",
       "theorems": [
         "Etna.Design.Current.Protocol.Custody.trace_legacy_prefix",
         "Etna.Design.Current.Protocol.Custody.trace_legacy_etna_disjoint"
       ],
-      "reason": "Retained legacy signals form a prefix below every retained Etna signal on actual switching traces. This is compatibility of decoded lanes only, not SignalService storage/version, initialization, all treasury/configuration fields or arbitrary upgrade safety."
+      "reason": "Retained legacy signals form a prefix below every retained Etna signal on actual switching traces. `unzenProve` applies the height gate of the Inbox's checkpoint forwarder: any height before the start write, at most S after it. This is compatibility of decoded lanes only, not SignalService storage/version, the forwarder's caller check, initialization, all treasury/configuration fields or arbitrary upgrade safety."
     },
     "START-10-5a": {
       "theorems": ["Etna.Design.Current.Protocol.Custody.set_origin_once"],
@@ -646,7 +646,7 @@
       "reason": "Concrete two-set commit pipeline: H changes leave H+1 unchanged and become H+2 current state. This does not prove stock CometBFT implements the decoded machine."
     },
     "PROOF-6.2-41a": {
-      "clause": "LIVE_EN-9dabf1462e3643ef",
+      "clause": "LIVE_EN-2096743a5d399f16",
       "theorems": [
         "Etna.Design.Current.ValidatorState.origin_uses_genesis",
         "Etna.Design.Current.ValidatorState.later_origin_authenticates",
@@ -656,7 +656,7 @@
       "reason": "Concrete Batch/Certificate refinements compute genesis or authenticate a later preimage, then check each block against separately normalized per-height updates. Existing H1–H4 certificates do not yet require this refinement; hash/ABI/key bindings remain external."
     },
     "SYNC-9-5": {
-      "clause": "LIVE_EN-926574b7e8b2e1e6",
+      "clause": "LIVE_EN-2b31e997f0d3114c",
       "theorems": [
         "Etna.Design.Current.ValidatorState.trust_cut_at_origin",
         "Etna.Design.Current.ValidatorState.trust_cut_after_origin"
@@ -664,7 +664,7 @@
       "reason": "The actual nodeTrust predicate uses trustCut: only the validator-state field is exempted at the current-generation origin. This is a guard theorem, not a complete node/store refinement."
     },
     "SYNC-9-5c": {
-      "clause": "LIVE_EN-926574b7e8b2e1e6",
+      "clause": "LIVE_EN-2b31e997f0d3114c",
       "theorems": ["Etna.Design.Current.ValidatorState.checked_run_prefix"],
       "reason": "Every concrete checked prefix identifies the exact per-height state whose hash matches that block. Durable record storage, historical lookup implementation and node/guest adoption remain external."
     }

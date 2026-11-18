@@ -502,8 +502,9 @@ def landed (w : World) (a : Landing) : World :=
 def land (env : Environment) (w : World) (a : Landing) : Option World :=
   if LandingChecks env w a then some (landed w a) else none
 
-/-- An accepted legacy proof updates the original Unzen lane atomically. Once a start is
-written, its SignalService gate rejects a checkpoint above S. -/
+/-- An accepted legacy proof updates the original Unzen lane atomically. Its checkpoint goes
+through the Inbox's forwarder (START-10-5), which rejects a checkpoint above S once a start is
+written. -/
 def unzenProve (env : Environment) (w : World) (proposal : Nat) (h : Header) (proof : Hash) : Option World :=
   if env.core.unzenInbox ≠ 0 ∧ env.unzenValid proposal h proof = true ∧
       w.unzen.finalizedProposal < proposal ∧ proposal < w.unzen.nextProposal ∧

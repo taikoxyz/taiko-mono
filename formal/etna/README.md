@@ -1,8 +1,8 @@
 # Etna design verification
 
 The authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md` under
-`packages/protocol/docs/etna`, pinned to main `d18357214fab30ea512ae9858a11699806d72ba1`
-(2026-11-13, after #22348). This package contains only the current design; the archived 2026-10-30 model,
+`packages/protocol/docs/etna`, pinned to main `9c832234b4681fbc5eccdbaf9c9303b7869f91f4`
+(2026-11-18, after #22410). This package contains only the current design; the archived 2026-10-30 model,
 its vectors and reports were removed and remain readable at formal revision
 [`583bc2620`](https://github.com/taikoxyz/taiko-mono/tree/583bc2620258838e75ce353c11f9344616ac1020/formal/etna).
 
@@ -155,8 +155,9 @@ Words the spec does not use, or uses for something else:
 - "catalogue" (`Blocks.RulesetCatalogue`, `Environment.catalogue`): for each ruleset number, its
   published definition (SPEC 10.1, START-10.1-3a).
 - "Unzen lane", "legacy": the Unzen Inbox's side of the L1 SignalService on a switching network:
-  its proofs (`unzenProve`), its state (`World.unzen`) and the checkpoints it saved
-  (`World.legacySignals`). The spec says "Unzen Inbox" and uses "legacy" only for transactions.
+  its proofs (`unzenProve`, including the Inbox's forwarding of their checkpoints, START-10-5),
+  its state (`World.unzen`) and the checkpoints it saved (`World.legacySignals`). The spec says
+  "Unzen Inbox" and uses "legacy" only for transactions.
 - "archive": the current-generation EL headers, from the generation origin through the batch,
   that a certificate carries and committees are derived from (`Archive.Authenticated`). In the
   spec an archive is retained history (SPEC 5.3, 9.1); its nearest words here are the
@@ -383,8 +384,9 @@ binding, the precise ENC-A-29a ABI/Keccak encoder, durable SYNC-9-5c records and
 CometBFT store/Go implementation refinement remain separate obligations. Hashing a
 concrete snapshot does not by itself prove those implementations.
 
-The [PR #22348 alignment](reports/alignment-22348.md) records the latest re-pin. The
-[PR #22341 alignment](reports/alignment-22341.md) records the previous re-pin and the H1
+The [PR #22410 alignment](reports/alignment-22410.md) records the latest re-pin, and the
+[PR #22348 alignment](reports/alignment-22348.md) the one before it. The
+[PR #22341 alignment](reports/alignment-22341.md) records an earlier re-pin and the H1
 restatement. The [PR #22338 alignment](reports/alignment-22338.md) records the changed clauses, evidence
 and boundaries.
 
@@ -496,9 +498,9 @@ the current proofs reuse, and fourteen semantic pins (`EtnaProofs/Contracts.lean
 `Consensus.election_valid_iff`) that fail the build if a shared definition the statements use
 is weakened without editing its pin.
 
-The inventory is **61 partial / 507 deferred clauses**, and **45 narrow partial /
+The inventory is **61 partial / 519 deferred clauses**, and **45 narrow partial /
 39 supporting / 524 deferred binding rules**, plus 32 deferred assumption/limitation rows.
-SWITCH has narrow first-fence/root evidence. All 93 ANCHORLESS and 47 ACCEPTANCE
+SWITCH has narrow first-fence/root evidence. All 101 ANCHORLESS and 47 ACCEPTANCE
 clauses remain deferred. Margin arithmetic, bridge resolver/EIP-4788/storage migration,
 production parsing/crypto/EL/guest/token/Solidity/Comet/store refinement, operational
 availability, measured resources and full launch/switch/recovery acceptance remain separate.

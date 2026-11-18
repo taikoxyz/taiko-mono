@@ -1,6 +1,6 @@
 # Etna recoverability (H4)
 
-Authorities: main `d18357214fab30ea512ae9858a11699806d72ba1` (2026-11-13) for SPEC,
+Authorities: main `9c832234b4681fbc5eccdbaf9c9303b7869f91f4` (2026-11-18) for SPEC,
 ACCEPTANCE, ANCHORLESS and SWITCH, as for the rest of this package.
 
 H1–H3 are safety claims: they say that nothing bad happens. Most Etna design bugs found so far
@@ -414,9 +414,9 @@ They get no Lean counterexample. For each, here is who must make it true.
   the Unzen guest image, Etna cannot land until the DAO trusts a fixed image in the Unzen
   verifier. That DAO step is not modelled, so this is a hypothesis.
 - **Every valid final Unzen header is a usable Etna start** (`unzenStart`). The switching
-  deployment must put the Etna `Anchor` implementation in place on L2 before S, which the
-  guest checks at S (PROOF-6.2-46a, PARAM-11-12a, SWITCH.md), and the existing Unzen guest
-  must authenticate real headers with nonzero fields.
+  deployment must put the Etna L2 `SignalService` implementation in place on L2 before S,
+  which the guest checks at S (PROOF-6.2-46a, PARAM-11-12a, SWITCH.md), and the existing Unzen
+  guest must authenticate real headers with nonzero fields.
 - **LIMIT-12-6, empty committee.** Recovery cannot create a quorum from nothing.
   `CommitteeLive` assumes that the election at R succeeds and that online keys hold more than
   2/3 of its power. Eligible stake must exist and its validators must be online.

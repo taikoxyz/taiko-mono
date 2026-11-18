@@ -107,7 +107,7 @@ def vector (name : String) (seed : Seed) (amount : Nat) : JVal :=
 def file : String :=
   jObj [
     ("schema",jStr "etna-current-registry-admission-1"),
-    ("authorityCommit",jStr "d18357214fab30ea512ae9858a11699806d72ba1"),
+    ("authorityCommit",jStr "9c832234b4681fbc5eccdbaf9c9303b7869f91f4"),
     ("model",jStr "Etna.Design.Current.RegistryPayments.executeTransaction"),
     ("keyMeaning",jStr "Distinct valid test keys with valid PoP; numbers are fixture identities, not raw public-key bytes."),
     ("vectors",jArr [
