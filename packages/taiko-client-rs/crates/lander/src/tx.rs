@@ -342,7 +342,14 @@ impl TransactionTransport for RpcTransactionTransport {
             Err(error) => {
                 let unavailable = match &error {
                     RpcError::ErrorResp(response) => {
-                        matches!(response.code, -32601 | -32602 | -32004)
+                        matches!(response.code, -32601 | -32602 | -32004) ||
+                            // Geth reports pruned state with the same error code as transient
+                            // failures. Only its specific retention errors rule out tracing.
+                            (response.code == -32000 &&
+                                (response.message == "historical state is not available" ||
+                                    response.message.starts_with(
+                                        "required historical state unavailable (reexec=",
+                                    )))
                     }
                     RpcError::UnsupportedFeature(_) |
                     RpcError::DeserError { .. } |

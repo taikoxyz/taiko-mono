@@ -689,6 +689,16 @@ async fn expired_reference_does_not_recover_unknown_or_out_of_gas_reverts() {
             true,
         ),
         (8192, json!({"__rpc_error": {"code": -32601, "message": "unsupported method"}}), true),
+        (
+            8192,
+            json!({"__rpc_error": {"code": -32000, "message": "historical state is not available"}}),
+            true,
+        ),
+        (
+            8192,
+            json!({"__rpc_error": {"code": -32000, "message": "required historical state unavailable (reexec=128)"}}),
+            true,
+        ),
     ] {
         let fixture = Fixture::new();
         let mut runner = fixture.runner();
@@ -721,7 +731,7 @@ async fn expired_reference_trace_failure_or_reorg_keeps_the_pending_transaction(
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
     fixture.control.lock().unwrap().snapshot.l1_block_number += 1;
     let _unavailable = fixture
-        .trace(|_| json!({"__rpc_error": {"code": -32603, "message": "temporarily unavailable"}}))
+        .trace(|_| json!({"__rpc_error": {"code": -32000, "message": "temporarily unavailable"}}))
         .await;
     assert!(matches!(runner.step().await, Err(LanderError::Temporary(_))));
     assert!(matches!(runner.state(), JournalState::Confirming { .. }));
