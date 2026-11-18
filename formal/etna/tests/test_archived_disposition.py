@@ -19,6 +19,11 @@ BUDGET_FI = "experiments/fi-budget/configs/fi-mixed.cfg"
 FI_BASE = "experiments/fi-base/EtnaSettlement.tla"
 ROLLBACK_BASE = "experiments/m09-wide-runtime/EtnaSettlement.tla"
 SIGNER_CFG = "experiments/signer-wide-two-payloads.cfg"
+SIGNER_NIL_CFG = "experiments/signer-wide-three-payloads.cfg"
+ROLLBACK_CFG = "experiments/m09-wide-runtime/configs/rollback-replay.cfg"
+RAW_REGISTRY = "experiments/registry-raw-init/registry-workflow.cfg"
+BUDGET_NOTE = "experiments/fi-budget/OBSERVATION.md"
+GUIDE = "ARCHIVED_DISPOSITION.md"
 N04_EVIDENCE = "REPORT.md#n04-actual-late-token-failures-and-identical-retries"
 
 
@@ -107,6 +112,98 @@ class ArchivedDispositionTests(unittest.TestCase):
         path = self.root / RAW_FI
         path.write_bytes(path.read_bytes().replace(b"MaxTime = 2", b"MaxTime = 3"))
         self.assert_rejected("config SHA-256 mismatch: " + RAW_FI)
+
+    def test_retained_configs_cannot_be_rebound_by_rehashing_the_manifest(self):
+        changes = (
+            (SIGNER_CFG, b"MaxSlot = 2", b"MaxSlot = 3"),
+            (ROLLBACK_CFG, b"MaxTime = 1", b"MaxTime = 2"),
+        )
+        manifest = self.read_manifest()
+        for config, old, new in changes:
+            with self.subTest(config=config):
+                path = self.root / config
+                baseline = path.read_bytes()
+                replacement = baseline.replace(old, new)
+                self.assertNotEqual(baseline, replacement)
+                path.write_bytes(replacement)
+                changed = self.row(manifest, config)
+                baseline_digest = changed["config_sha256"]
+                changed["config_sha256"] = hashlib.sha256(replacement).hexdigest()
+                self.write_manifest(manifest)
+                try:
+                    self.assert_rejected("retained config SHA-256 mismatch: " + config)
+                finally:
+                    path.write_bytes(baseline)
+                    changed["config_sha256"] = baseline_digest
+
+    def test_the_signer_nil_profile_cannot_be_replaced_by_the_two_payload_profile(self):
+        replacement = (self.root / SIGNER_CFG).read_bytes()
+        (self.root / SIGNER_NIL_CFG).write_bytes(replacement)
+        manifest = self.read_manifest()
+        self.row(manifest, SIGNER_NIL_CFG)["config_sha256"] = hashlib.sha256(replacement).hexdigest()
+        self.write_manifest(manifest)
+        self.assert_rejected("retained config SHA-256 mismatch: " + SIGNER_NIL_CFG)
+
+    def test_same_config_bytes_cannot_move_out_of_audited_archive_layout(self):
+        moves = (
+            (SIGNER_CFG, SIGNER_CFG.replace("two-payloads", "unreviewed"), "unreviewed retained config"),
+            (RAW_REGISTRY, RAW_REGISTRY.replace("/registry-workflow.cfg", "/configs/registry-workflow.cfg"), "config layout"),
+            (RAW_FI, RAW_FI.replace("/configs", ""), "config layout"),
+            (ROLLBACK_CFG, ROLLBACK_CFG.replace("/configs", ""), "config layout"),
+        )
+        manifest = self.read_manifest()
+        for old, new, diagnostic in moves:
+            with self.subTest(config=old):
+                target = self.root / new
+                target.parent.mkdir(parents=True, exist_ok=True)
+                source = self.root / old
+                source.rename(target)
+                changed = self.row(manifest, old)
+                changed["config"] = new
+                self.write_manifest(manifest)
+                try:
+                    self.assert_rejected(diagnostic)
+                finally:
+                    target.rename(source)
+                    changed["config"] = old
+
+    def test_registry_directory_name_cannot_be_rebound_with_unchanged_inputs(self):
+        old = "experiments/registry-raw-init"
+        new = "experiments/registry-unreviewed"
+        (self.root / old).rename(self.root / new)
+        manifest = (self.root / MANIFEST).read_text(encoding="utf-8")
+        (self.root / MANIFEST).write_text(manifest.replace(old, new), encoding="utf-8")
+        self.assert_rejected("unreviewed archive for config:")
+
+    def test_guide_cannot_drop_an_exact_config_link(self):
+        path = self.root / GUIDE
+        original = path.read_text(encoding="utf-8")
+        path.write_text(original.replace(f"({RAW_FI})", f"({BUDGET_FI})"), encoding="utf-8")
+        self.assert_rejected("guide config links must match the 19 archived configs")
+
+    def test_immutable_observation_preserves_the_wrapper_and_base_roles(self):
+        path = self.root / BUDGET_NOTE
+        original = path.read_text(encoding="utf-8")
+        manifest = self.read_manifest()
+        wrapper = manifest["source_sha256"]["experiments/fi-budget/EtnaForcedInclusion.tla"]
+        base = manifest["source_sha256"][FI_BASE]
+        changed = original.replace(wrapper, "DIGEST_PLACEHOLDER").replace(base, wrapper)
+        path.write_text(changed.replace("DIGEST_PLACEHOLDER", base), encoding="utf-8")
+        self.assert_rejected("historical observation SHA-256 mismatch: " + BUDGET_NOTE)
+
+    def test_one_profile_cannot_be_marked_pass_in_its_historical_observation(self):
+        path = self.root / BUDGET_NOTE
+        original = path.read_text(encoding="utf-8")
+        changed = original.replace("- `fi-mixed`: **INCONCLUSIVE**", "- `fi-mixed`: **PASS**")
+        self.assertNotEqual(original, changed)
+        path.write_text(changed, encoding="utf-8")
+        self.assert_rejected("historical observation SHA-256 mismatch: " + BUDGET_NOTE)
+
+    def test_fi_base_observation_is_part_of_historical_evidence(self):
+        note = "experiments/fi-base/OBSERVATION.md"
+        with (self.root / note).open("a", encoding="utf-8") as stream:
+            stream.write("\nSubstituted dependency documentation.\n")
+        self.assert_rejected("historical observation SHA-256 mismatch: " + note)
 
     def test_same_config_bytes_cannot_select_a_different_version(self):
         self.assertEqual(
@@ -215,10 +312,14 @@ class ArchivedDispositionTests(unittest.TestCase):
     def test_remaining_obligation_must_stay_open_or_waiting(self):
         worklist = self.root / "WORKLIST.md"
         before = worklist.read_text(encoding="utf-8")
-        for status in ("COMPLETE", "COMPLETE / WAITING"):
+        for status in (
+            "COMPLETE", "COMPLETE / WAITING", "WAITING-COMPLETE",
+            "WAITING/COMPLETE", "WAITING / COMPLETE", "WAITING,COMPLETE",
+            "WAITING, COMPLETE", "WAITING.CLOSED", "WAITING - COMPLETE",
+        ):
             with self.subTest(status=status):
                 after = before.replace(
-                    "| F01 | M06 + M01 + M07 / WAITING",
+                    "| F01 | M06 + M01 + M07 / WAITING STF",
                     f"| F01 | M06 + M01 + M07 / {status}",
                 )
                 self.assertNotEqual(before, after)

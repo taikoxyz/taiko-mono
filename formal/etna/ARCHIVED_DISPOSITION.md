@@ -38,8 +38,11 @@ The available [parameterized model](EtnaSignerCrash.tla) is byte-verified as
 The note says the predecessor held salts fixed to `0..1`. The two retained
 configs explicitly declare that same domain. The predecessor digest is an
 attestation for the observed runs and the parameterized digest identifies the
-local reproduction source. Historical config digests for signer and rollback
-bind the retained files. Their notes lack config-digest claims.
+local reproduction source. The historical notes for the two signer configs
+and rollback Replay lack config-digest claims. The checker pins their exact
+retained paths and SHA-256 values from the audited checkout. Those are retained
+file identities. The signer note attests only the predecessor module identity
+for the incomplete runs.
 
 Run the local checker from the repository root.
 
@@ -48,11 +51,15 @@ python3 -B formal/etna/check_archived_disposition.py
 python3 -B -m unittest discover -s formal/etna/tests -p test_archived_disposition.py
 ```
 
-The checker reads a source export directly. It checks inventory and family
-counts, exact source associations and hashes, observation digests where recorded,
-and current evidence link targets and named obligation statuses. Shared report
-and worklist bytes may evolve while their named evidence and obligations remain
-available. Row interpretations require source-semantic review.
+The checker discovers the configs in a source export and checks exact layout,
+family counts, one guide link per config, and source paths and hashes. It
+byte-verifies the historical observation files, including the
+[FI dependency note](experiments/fi-base/OBSERVATION.md), so their labels and
+per-profile results retain their audited meaning. Historical config digests
+recorded in those notes corroborate the remaining 16 config identities. The
+checker validates current evidence links and named obligation statuses without
+pinning the shared report or worklist bytes. Row interpretations require
+source-semantic review.
 
 ## Signer · C01
 

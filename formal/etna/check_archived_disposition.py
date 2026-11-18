@@ -13,6 +13,48 @@ import sys
 MANIFEST = "archived_disposition.json"
 ARCHIVE = Path("experiments")
 SIGNER_NOTE = ARCHIVE / "signer-wide-progress.txt"
+FI_BASE_NOTE = ARCHIVE / "fi-base" / "OBSERVATION.md"
+GUIDE = "ARCHIVED_DISPOSITION.md"
+# These notes are frozen historical evidence, including labels and per-case results.
+HISTORICAL_NOTE_SHA256 = {
+    "experiments/fi-base/OBSERVATION.md":
+        "ecfe1e820be00ceb03d1124e99f87a48ff3222ce3becd89c0f3d25d7307be9ac",
+    "experiments/fi-budget/OBSERVATION.md":
+        "a897cb8fed2d5214e3721e69f70227decb72ac4d4f3765028771064e7cf07231",
+    "experiments/fi-prefix/OBSERVATION.md":
+        "05364f08de66572f8bbea8b5ac5dbbc199a04af6eebc2bb271eee7c235b082dc",
+    "experiments/fi-projected/OBSERVATION.md":
+        "ad8d023cc7354404cb010da68b23ee864d92720286205add1310876f91fdcd92",
+    "experiments/fi-raw/OBSERVATION.md":
+        "df81ac8f5a2f5e902352b9e476c382572b5fbe1f43fc4f5701f16855cdec347f",
+    "experiments/m09-wide-runtime/README.md":
+        "0126c7d8ee33aa9783cf87e67b419c4e10cc16971b50c18b893d7b818f181723",
+    "experiments/progress-initial/OBSERVATION.md":
+        "442d5a354056c06222d73d288cf3011a3d91ffb0d927fa7cab24b60f2f106b38",
+    "experiments/registry-fixed-init/OBSERVATION.md":
+        "ba668fd91d4be71495adc4fbdcd43b6a3619dbf61a2583912f52c7802754fae3",
+    "experiments/registry-raw-init/OBSERVATION.md":
+        "9fe443d0bf113f82c07f99e909e5fe85811368ab21d0c47079c746f2d14f2e1d",
+    "experiments/registry-rich-receipt/OBSERVATION.md":
+        "43ed687240e67c75eba8cf80de2b0e52b90db89ea187ff090ff6233a2b62742e",
+    "experiments/registry-two-slot-raw/OBSERVATION.md":
+        "98a72051ada5efb08420e7701638d388ee5d5866c40a72331b5288fc31786c35",
+    "experiments/signer-wide-progress.txt":
+        "9bb0af21a47e39d3bea768aeb88c80e7afe2289136f15a03e68ffef94f101a94",
+}
+# The historical notes for these three configs omit config digests. Pin the
+# retained files from the audited checkout without attributing them to the runs.
+RETAINED_CONFIG_SHA256 = {
+    "experiments/m09-wide-runtime/configs/rollback-replay.cfg":
+        "a4644485aedfd476690e56909a96bf42598fa2c447fde3947e395145a77fea41",
+    "experiments/signer-wide-three-payloads.cfg":
+        "26f0b6ab643a5582ffce7bfc81c83a732c308fd377f6f3fbf256e7d5e3fd89bd",
+    "experiments/signer-wide-two-payloads.cfg":
+        "60b54f2e551a277d2123ec9d754a47d2674fd8a3fa9cf22b124ef7f05dbb3adc",
+}
+REMAINING_STATUS = re.compile(
+    r"(?:OPEN|WAITING)(?:,?[ \t]+(?!(?:OPEN|WAITING|COMPLETE|CLOSED)\b)[A-Za-z0-9].*)?"
+)
 FAMILIES = {
     "EtnaSignerCrash": (2, "C01"),
     "EtnaRegistry": (4, "R01"),
@@ -135,13 +177,22 @@ def checked_bytes(root, name, digest, kind):
 def archive_layout(config, module):
     path = Path(config)
     if module == "EtnaSignerCrash":
-        require(path.parent == ARCHIVE, f"unexpected signer archive layout: {config}")
+        require(path.parent == ARCHIVE, f"unexpected config layout: {config}")
         return Path(module + ".tla"), SIGNER_NOTE
 
-    directory = path.parent.parent if path.parent.name == "configs" else path.parent
-    require(directory.parent == ARCHIVE, f"unexpected archive layout: {config}")
-    observation = "README.md" if module == "EtnaVerifierRollback" else "OBSERVATION.md"
-    return directory / (module + ".tla"), directory / observation
+    directory = path.parent
+    if module != "EtnaRegistry":
+        require(directory.name == "configs", f"unexpected config layout: {config}")
+        directory = directory.parent
+    require(directory.parent == ARCHIVE, f"unexpected config layout: {config}")
+    note = directory / ("README.md" if module == "EtnaVerifierRollback" else "OBSERVATION.md")
+    require(note.as_posix() in HISTORICAL_NOTE_SHA256, f"unreviewed archive for config: {config}")
+    return directory / (module + ".tla"), note
+
+
+def read_observation(root, observation):
+    name = observation.as_posix()
+    return checked_bytes(root, name, HISTORICAL_NOTE_SHA256[name], "historical observation")
 
 
 def check_model(root, source, module, pins, used):
@@ -177,7 +228,7 @@ def verify_sources(root, source, module, pins, used):
 
 
 def verify_observation(root, row, observation, sources, pins, predecessor):
-    text = local_file(root, observation.as_posix()).read_text(encoding="utf-8")
+    text = read_observation(root, observation)
     if observation == SIGNER_NOTE:
         for label, digest in (
             ("Old module SHA-256", predecessor),
@@ -198,11 +249,7 @@ def verify_observation(root, row, observation, sources, pins, predecessor):
             f"historical observation disagrees with SHA-256: {source}",
         )
     config = Path(row["config"])
-    if observation.name == "README.md":
-        # The rollback note names the exact config without recording its digest.
-        require(config.relative_to(observation.parent).as_posix() in text,
-                f"historical observation omits config: {config}")
-    else:
+    if observation.name != "README.md":
         # Registry uses filenames; FI and proving use configuration stems.
         require(
             any(
@@ -245,12 +292,22 @@ def check_evidence(root, evidence):
                 require(anchor in heading_anchors(document), f"evidence anchor missing: {link}")
 
 
+def check_guide(root, configs):
+    guide = local_file(root, GUIDE).read_text(encoding="utf-8")
+    links = re.findall(r"\]\((experiments/[^()\s]+\.cfg)\)", guide)
+    require(
+        len(links) == len(configs) and set(links) == configs,
+        f"guide config links must match the {len(configs)} archived configs",
+    )
+
+
 def check_obligations(root):
     worklist = local_file(root, "WORKLIST.md").read_text(encoding="utf-8")
     for _, obligation in FAMILIES.values():
-        statuses = re.findall(rf"^\| {obligation} \| ([^|]+)\|", worklist, re.MULTILINE)
+        statuses = re.findall(rf"^\| {obligation} \| ([^|\r\n]+)\|", worklist, re.MULTILINE)
+        status = statuses[0].partition(" / ")[2].strip() if len(statuses) == 1 else ""
         require(
-            len(statuses) == 1 and re.match(r"(?:OPEN|WAITING)\b", statuses[0].partition(" / ")[2]),
+            " / " not in status and REMAINING_STATUS.fullmatch(status),
             f"obligation {obligation} must remain OPEN or WAITING",
         )
 
@@ -297,6 +354,7 @@ def check(root):
     require(len(configs) == expected_total, f"expected {expected_total} archived configurations")
 
     used_sources = set()
+    used_observations = {FI_BASE_NOTE.as_posix()}
     counts = Counter()
     for name, row in sorted(rows.items()):
         config = checked_bytes(root, name, row["config_sha256"], "config")
@@ -305,6 +363,12 @@ def check(root):
         module = modules[0]
         counts[module] += 1
         source, observation = archive_layout(name, module)
+        if module in {"EtnaSignerCrash", "EtnaVerifierRollback"}:
+            require(name in RETAINED_CONFIG_SHA256, f"unreviewed retained config: {name}")
+            require(
+                row["config_sha256"] == RETAINED_CONFIG_SHA256[name],
+                f"retained config SHA-256 mismatch: {name}",
+            )
         historical = "attested_predecessor" if observation == SIGNER_NOTE else "archived_bytes"
         require(row["status"] == "INCONCLUSIVE", f"expected INCONCLUSIVE: {name}")
         require(row["obligation"] == FAMILIES[module][1], f"wrong obligation: {name}")
@@ -315,8 +379,16 @@ def check(root):
         sources = verify_sources(root, source, module, pins, used_sources)
         require(row["sources"] == sources, f"historical source association mismatch: {name}")
         verify_observation(root, row, observation, sources, pins, predecessor)
+        used_observations.add(observation.as_posix())
     require(counts == expected_counts, f"unexpected archive family counts: {dict(counts)}")
     require_keys(pins, used_sources, "source_sha256")
+    require_keys(HISTORICAL_NOTE_SHA256, used_observations, "historical observation coverage")
+    fi_base = (FI_BASE_NOTE.parent / "EtnaSettlement.tla").as_posix()
+    require(
+        pins[fi_base] in read_observation(root, FI_BASE_NOTE),
+        f"historical observation disagrees with SHA-256: {fi_base}",
+    )
+    check_guide(root, configs)
     check_evidence(root, data["evidence"])
     check_obligations(root)
     return len(configs), len(used_sources)
