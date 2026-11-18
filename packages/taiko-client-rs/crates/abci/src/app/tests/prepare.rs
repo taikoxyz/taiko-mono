@@ -118,6 +118,25 @@ async fn envelope_above_max_tx_bytes_is_not_proposed() {
     assert_eq!(prepare(&mut app, req).await.len(), 1);
 }
 
+#[tokio::test]
+async fn proposal_fallback_survives_optional_candidate_above_comet_limit() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let minimum = propose(&mut app).await;
+    let mut optional = minimum.block.clone();
+    optional.transactions = vec![sample_transactions()[0].encoded_2718().into()];
+    optional.header.transactions_root =
+        alloy_consensus::proofs::ordered_trie_root_encoded(&optional.transactions);
+    app.engine().state().build_script.extend([Ok(minimum.block.clone()), Ok(optional)]);
+
+    let bytes = minimum.encode();
+    let mut req = prepare_req(next_height(&app), bft_time(&app));
+    req.max_tx_bytes = i64::try_from(bytes.len()).unwrap();
+    assert_eq!(prepare(&mut app, req).await, [bytes]);
+    accept_and_commit(&mut app, &minimum).await;
+}
+
 /// An EL that builds a block whose compressed envelope cannot fit one landing gets nothing
 /// proposed, though the envelope fits `max_tx_bytes`; a zero-heavy block several times larger
 /// is proposed.
@@ -1110,6 +1129,24 @@ async fn unavailable_admission_bytes_block_only_due_proposals() {
             }
         }
     }
+}
+
+#[tokio::test(start_paused = true)]
+async fn proposal_fallback_is_ready_before_optional_pre_due_admission() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let raw: Bytes = sample_transactions()[0].encoded_2718().into();
+    plant_input(&fx, &app, raw, false);
+    app.l1().state().forced_transaction_delay = Some(Duration::from_millis(2500));
+    app.engine().state().delay_script.extend([Duration::ZERO, Duration::from_millis(1700)]);
+    app.engine().state().ordinary_build_delay = Some(Duration::from_secs(3));
+
+    let env = propose(&mut app).await;
+    assert!(env.block.transactions.is_empty());
+    assert!(env.forced.as_ref().unwrap().tx.is_empty());
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 0);
 }
 
 #[tokio::test(start_paused = true)]

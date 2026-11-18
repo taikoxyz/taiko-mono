@@ -208,13 +208,13 @@ Serves the ABCI++ application to a CometBFT node.
 | `--metrics.enabled` / `.addr` / `.port` | `METRICS_*`            | Prometheus metrics server (default off, `0.0.0.0:9090`)                        |
 | `-v`, `--verbosity`                     | `VERBOSITY`            | Log level, 0 = error … 4 = trace (default 2); `RUST_LOG` overrides it          |
 
-Proposal preparation first completes a mandatory-only execution block: an explicit empty
-transaction list, or the eligible forced transaction alone. This also establishes any legal
-singleton skip. Optional mempool selection and block building use the remaining preparation
-budget. If that work expires, the proposer returns the completed execution envelope, including
-its anchor and forced-inclusion witnesses, rather than an empty Comet transaction list. Missing
-mandatory evidence or an over-budget mandatory build still prevents a proposal; configure both
-preparation and Comet propose deadlines for the target hardware.
+Proposal preparation first builds and checks the size of a mandatory-only envelope. The
+execution block uses an explicit empty transaction list or a due, eligible forced transaction
+alone. This also establishes any legal singleton skip. Early inclusion of an entry that is not
+yet due and ordinary mempool work use the remaining preparation budget. If optional work times
+out or exceeds the size limit, the proposer returns the checked minimum envelope with its
+witnesses. Missing mandatory evidence or an over-budget mandatory build still prevents a
+proposal. Configure preparation and Comet propose deadlines for the target hardware.
 
 The four timeouts accept 1 to 3600 seconds. The L2 chain id is read from `--l2.http` and
 selects the built-in chain parameters. Only the internal devnet (chain id `167001`) has Etna PoS

@@ -1,6 +1,5 @@
-//! `PrepareProposal`: choose the anchor, collect the L1 witnesses the height needs (with the
-//! authenticated transaction of every pending forced entry), check them as `ProcessProposal` would,
-//! and let the EL build the block.
+//! `PrepareProposal`: authenticate the L1 witnesses, build a valid minimum proposal, then try
+//! to include optional transactions within the remaining time and size limits.
 
 use std::future::Future;
 
@@ -21,7 +20,7 @@ use crate::{
     committee::{CommitteeError, VerifiedWitness},
     engine::Engine,
     envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope, ForcedWitness},
-    forced::{self, ForcedContext},
+    forced::{self, ForcedContext, ForcedDecision, ForcedEntry},
     l1::{
         L1Error, L1Source, header_at, layout::inbox, reprove_committee_witness,
         verify_anchor_witness,
@@ -37,7 +36,7 @@ use crate::{
 /// separately.
 const MIXED_TX_SELECTION_BYTES: u64 = 128 * 1024;
 
-/// Leave time for envelope assembly before the enclosing preparation deadline.
+/// Leave time to return the encoded fallback before the enclosing preparation deadline.
 const PROPOSAL_RETURN_MARGIN: std::time::Duration = std::time::Duration::from_millis(10);
 
 impl<L: L1Source, E: Engine> App<L, E> {
@@ -108,11 +107,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// committee `t`'s witness at the snapshot block (the committed parent anchor, or the
     /// generation origin R when that is later) from memory or the background discovery, under the
     /// candidate anchor's state root ([`App::committee_witness`]). Then
-    /// verifies the candidate, collects the forced inclusion witness the anchor's
-    /// queue requires ([`App::forced_inclusion`]), completes a mandatory-only block and its
-    /// singleton skip evidence, then attempts optional pool inclusion within the remaining budget,
-    /// checks every derived header field and ensures the envelope fits CometBFT's transaction
-    /// limit and one landing on its own ([`check_execution_size`]).
+    /// verifies the candidate, collects the queue entry proof and any due admission bytes, and
+    /// encodes a mandatory-only block with any singleton skip evidence. It then tries to include
+    /// optional transactions within the remaining budget. Both envelopes must fit the execution
+    /// block bound and CometBFT's transaction limit.
     async fn propose(
         &self,
         state: &AppState,
@@ -169,7 +167,26 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if let Some((target_epoch, witness)) = &committee {
             self.cache_candidate_committee_witness(state, &facts.anchor, *target_epoch, witness)?;
         }
-        let mut forced = self.forced_inclusion(state, &facts.anchor, prepare_deadline).await?;
+        let index = state.forced_cursor;
+        let entry = if index < facts.anchor.inbox.forced_inclusion_tail {
+            Some(self.forced_entry(&facts.anchor, index).await?)
+        } else {
+            None
+        };
+        let due = entry.as_ref().is_some_and(|entry| {
+            forced::is_due(
+                entry.proven.timestamp,
+                state.genesis.forced_inclusion_delay,
+                facts.anchor.timestamp,
+            )
+        });
+        let pre_due = entry.as_ref().filter(|_| !due).map(|entry| entry.proven);
+        let forced = if let Some(entry) = entry {
+            let tx = if due { self.forced_transaction(entry.proven).await? } else { Bytes::new() };
+            Some(ForcedWitness { index, entry: entry.witness, tx })
+        } else {
+            None
+        };
         let context = ForcedContext {
             cursor: state.forced_cursor,
             anchor: &facts.anchor,
@@ -181,8 +198,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let canonical = forced.as_ref().and_then(|w| {
             forced::decode_eligible(&w.tx, params.l2_chain_id, params.block_gas_limit)
         });
-        // Complete a valid mandatory-only block before spending time on optional pool work.
-        // A cancelled EL RPC may leave its build running: the fallback must already be available.
+        // Complete the mandatory work before attempting early inclusion or pool transactions.
+        // A cancelled optional EL RPC may leave its build running.
         let minimum_list =
             protocol::shasta::encode_transactions(&canonical.iter().cloned().collect::<Vec<_>>());
         let minimum = deadline(
@@ -195,7 +212,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )
         .await?;
         rules::check_header(&minimum.header, &expected).map_err(Rejection::BuiltHeader)?;
-        check_execution_size(&minimum)?;
         let minimum_decision = forced::check(
             context,
             forced.as_ref(),
@@ -203,21 +219,41 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )?;
         // This exact parent/header was built with only the canonical forced transaction. Its
         // empty result is the singleton evidence; never execute the same probe a second time.
-        if matches!(minimum_decision, forced::ForcedDecision::NeedsSkip { .. }) &&
+        if matches!(minimum_decision, ForcedDecision::NeedsSkip { .. }) &&
             !minimum.transactions.is_empty()
         {
             return Err(crate::engine::forced::ForcedBuildError::Retained.into());
         }
-        let canonical = if matches!(minimum_decision, forced::ForcedDecision::NeedsSkip { .. }) {
+        let committee = committee.map(|(_, w)| w.into_witness());
+        let minimum = encode_proposal(
+            EtnaEnvelope {
+                block: minimum,
+                anchor: anchor.clone(),
+                committee: committee.clone(),
+                forced: forced.clone(),
+            },
+            &minimum_decision,
+            req.max_tx_bytes,
+        )?;
+        let canonical = if matches!(minimum_decision, ForcedDecision::NeedsSkip { .. }) {
             None
         } else {
-            canonical
+            canonical.map(|tx| (tx, forced.as_ref().expect("pending witness").tx.len()))
         };
+        let optional_deadline = prepare_deadline - PROPOSAL_RETURN_MARGIN;
         let optional = async {
-            let tx_list = if let Some(transaction) = canonical {
+            let canonical = if let Some(entry) = pre_due {
+                let budget =
+                    optional_deadline.saturating_duration_since(tokio::time::Instant::now()) / 4;
+                let early = self.pre_due_admission(entry, budget).await;
+                forced::decode_eligible(&early, params.l2_chain_id, params.block_gas_limit)
+                    .map(|tx| (tx, early.len()))
+            } else {
+                canonical
+            };
+            let tx_list = if let Some((transaction, tx_bytes)) = canonical {
                 let gas_limit = expected.gas_limit.saturating_sub(transaction.gas_limit());
-                let max_bytes = MIXED_TX_SELECTION_BYTES
-                    .saturating_sub(forced.as_ref().expect("pending witness").tx.len() as u64);
+                let max_bytes = MIXED_TX_SELECTION_BYTES.saturating_sub(tx_bytes as u64);
                 let tail = if gas_limit == 0 || max_bytes == 0 {
                     Vec::new()
                 } else {
@@ -270,50 +306,32 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 forced.as_ref(),
                 block.transactions.first().map(|tx| tx.as_ref()),
             )?;
-            if matches!(decision, forced::ForcedDecision::NeedsSkip { .. }) &&
-                decision != minimum_decision
+            if matches!(decision, ForcedDecision::NeedsSkip { .. }) && decision != minimum_decision
             {
                 // The mandatory-only build included this entry, so an optional build omitting it
                 // cannot authorize a skip. Keep the already completed inclusion instead.
                 return Err(crate::engine::forced::ForcedBuildError::Retained.into());
             }
-            Ok::<_, Rejection>((block, decision))
+            encode_proposal(
+                EtnaEnvelope { block, anchor, committee, forced },
+                &decision,
+                req.max_tx_bytes,
+            )
         };
-        let remaining = prepare_deadline
-            .saturating_duration_since(tokio::time::Instant::now())
-            .saturating_sub(PROPOSAL_RETURN_MARGIN);
-        let (block, decision) = match tokio::time::timeout(remaining, optional).await {
-            Ok(Ok(built)) => built,
-            Ok(Err(error)) if error.requires_dependency_repair() => return Err(error),
+        match tokio::time::timeout_at(optional_deadline, optional).await {
+            Ok(Ok(built)) => Ok(built),
+            Ok(Err(error)) if error.requires_dependency_repair() => Err(error),
             failed => {
                 let reason = match failed {
                     Ok(Err(error)) => error.to_string(),
-                    Err(_) => "optional pool work exhausted the preparation budget".into(),
+                    Err(_) => "optional work exhausted the preparation budget".into(),
                     Ok(Ok(_)) => unreachable!("successful build handled above"),
                 };
                 tracing::warn!(height, %reason, "proposing the completed mandatory-only block");
                 AbciMetrics::proposal_fallbacks().with_label_values(&["optional_build"]).inc();
-                (minimum, minimum_decision)
+                Ok(minimum)
             }
-        };
-        if matches!(
-            decision,
-            forced::ForcedDecision::Ordinary | forced::ForcedDecision::Included(_)
-        ) && let Some(witness) = &mut forced
-        {
-            // The entry proof determines timing; the canonical first transaction proves
-            // inclusion. Only a skip needs to publish a separate admission preimage.
-            witness.tx = Bytes::new();
         }
-
-        let committee = committee.map(|(_, w)| w.into_witness());
-        let envelope = EtnaEnvelope { block, anchor, committee, forced };
-        let encoded = envelope.encode();
-        if !i64::try_from(encoded.len()).is_ok_and(|len| len <= req.max_tx_bytes) {
-            return Err(Rejection::Oversize { len: encoded.len(), max: req.max_tx_bytes });
-        }
-        check_execution_size(&envelope.block)?;
-        Ok(encoded)
     }
 
     /// The anchor of the block at `height` on top of `state`: the newest own-finalized L1 block
@@ -532,50 +550,21 @@ impl<L: L1Source, E: Engine> App<L, E> {
         .await
     }
 
-    /// Fetches the mandatory entry proof. Before due, spends at most one quarter of the
-    /// remaining preparation time on optional authenticated admission bytes, leaving time for
-    /// an ordinary build. Cancelled waiters retain the bounded owned read for a later round.
-    /// Due acquisition errors remain fatal to preparation and never authorize a skip.
-    async fn forced_inclusion(
-        &self,
-        state: &AppState,
-        anchor: &AnchorState,
-        prepare_deadline: tokio::time::Instant,
-    ) -> Result<Option<ForcedWitness>, Rejection> {
-        let index = state.forced_cursor;
-        if index >= anchor.inbox.forced_inclusion_tail {
-            return Ok(None);
-        }
-        let cached = self.forced_entry(anchor, index).await?;
-        let tx = if forced::is_due(
-            cached.proven.timestamp,
-            state.genesis.forced_inclusion_delay,
-            anchor.timestamp,
-        ) {
-            self.forced_transaction(cached.proven).await?
-        } else {
-            let budget =
-                prepare_deadline.saturating_duration_since(tokio::time::Instant::now()) / 4;
-            match tokio::time::timeout(budget, self.forced_transaction(cached.proven)).await {
-                Ok(Ok(tx)) => tx,
-                Ok(Err(error)) => {
-                    tracing::debug!(
-                        index,
-                        reason = error.label(),
-                        "pre-due admission unavailable; building ordinary block"
-                    );
-                    Bytes::new()
-                }
-                Err(_) => {
-                    tracing::debug!(
-                        index,
-                        "pre-due admission still pending; building ordinary block"
-                    );
-                    Bytes::new()
-                }
+    /// Attempts early inclusion within its share of the optional budget. The authenticated
+    /// admission read can finish in the background when this round stops waiting.
+    async fn pre_due_admission(&self, entry: ForcedEntry, budget: std::time::Duration) -> Bytes {
+        let index = entry.index;
+        match tokio::time::timeout(budget, self.forced_transaction(entry)).await {
+            Ok(Ok(tx)) => tx,
+            Ok(Err(error)) => {
+                tracing::debug!(index, reason = error.label(), "pre-due admission unavailable");
+                Bytes::new()
             }
-        };
-        Ok(Some(ForcedWitness { index, entry: cached.witness, tx }))
+            Err(_) => {
+                tracing::debug!(index, "pre-due admission still pending");
+                Bytes::new()
+            }
+        }
     }
 
     /// The anchor witness at L1 block `n`: its canonical header (which must be block `n`) and the
@@ -614,4 +603,24 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ) -> Result<T, Rejection> {
         deadline(what, self.opts.l1_timeout, fut).await
     }
+}
+
+/// Encodes a proposal only if both the EL block and the complete CometBFT envelope fit.
+fn encode_proposal(
+    mut envelope: EtnaEnvelope,
+    decision: &ForcedDecision,
+    max_tx_bytes: i64,
+) -> Result<Bytes, Rejection> {
+    check_execution_size(&envelope.block)?;
+    if matches!(decision, ForcedDecision::Ordinary | ForcedDecision::Included(_)) &&
+        let Some(witness) = &mut envelope.forced
+    {
+        // The entry proof determines timing. Inclusion is already proved by the first transaction.
+        witness.tx = Bytes::new();
+    }
+    let bytes = envelope.encode();
+    if !i64::try_from(bytes.len()).is_ok_and(|len| len <= max_tx_bytes) {
+        return Err(Rejection::Oversize { len: bytes.len(), max: max_tx_bytes });
+    }
+    Ok(bytes)
 }
