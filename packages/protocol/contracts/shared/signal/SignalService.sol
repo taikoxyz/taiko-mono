@@ -93,8 +93,8 @@ contract SignalService is EssentialContract, ISignalService {
     /// @param _remote Address of the remote signal service.
     /// @param _pauser Optional address authorized to pause/unpause alongside the owner.
     /// @param _stateRootProvider Root provider; zero reads local checkpoints, L2 uses its Anchor.
-    /// @param _unzenInbox Optional legacy syncer; its checkpoints are bounded by the Etna start
-    /// returned by _syncer. Zero disables this path and its Inbox reads.
+    /// @param _unzenInbox Optional legacy Inbox proxy. When set, _syncer must be a distinct Etna
+    /// Inbox proxy exposing etnaStart and _stateRootProvider must be zero.
     constructor(
         address _syncer,
         address _remote,
@@ -104,6 +104,18 @@ contract SignalService is EssentialContract, ISignalService {
     ) {
         require(_syncer != address(0), ZERO_ADDRESS());
         require(_remote != address(0), ZERO_ADDRESS());
+        if (_unzenInbox != address(0)) {
+            require(
+                _syncer != _unzenInbox && _stateRootProvider == address(0),
+                SS_INVALID_SYNCER_CONFIG()
+            );
+            _requireInboxProxy(_syncer);
+            _requireInboxProxy(_unzenInbox);
+            try IEtnaStart(_syncer).etnaStart() returns (uint48, bytes32) { }
+            catch {
+                revert SS_INVALID_SYNCER_CONFIG();
+            }
+        }
 
         _authorizedSyncer = _syncer;
         _remoteSignalService = _remote;
@@ -122,6 +134,12 @@ contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
     // Public Functions
     // ---------------------------------------------------------------
+
+    /// @notice Returns the primary checkpoint syncer.
+    /// @return syncer_ The address authorized to save checkpoints without a height bound.
+    function authorizedSyncer() external view returns (address syncer_) {
+        return _authorizedSyncer;
+    }
 
     /// @inheritdoc ISignalService
     function sendSignal(bytes32 _signal) external returns (bytes32) {
@@ -229,7 +247,7 @@ contract SignalService is EssentialContract, ISignalService {
 
         (uint48 height, bytes32 blockHash) = IEtnaStart(_authorizedSyncer).etnaStart();
         if (blockHash != bytes32(0) && _checkpoint.blockNumber > height) {
-            revert SS_INVALID_CHECKPOINT();
+            revert SS_UNZEN_CHECKPOINT_ABOVE_START();
         }
     }
 
@@ -245,6 +263,15 @@ contract SignalService is EssentialContract, ISignalService {
             stateRoot_ = IL1StateRootProvider(stateRootProvider).getL1StateRoot(_blockId);
         }
         if (stateRoot_ == bytes32(0)) revert SS_INVALID_CHECKPOINT();
+    }
+
+    /// @dev Requires a deployed Inbox proxy whose implementation has code.
+    /// @param _inbox The configured Inbox address.
+    function _requireInboxProxy(address _inbox) private view {
+        require(
+            _inbox.code.length != 0 && EssentialContract(_inbox).impl().code.length != 0,
+            SS_INVALID_SYNCER_CONFIG()
+        );
     }
 
     /// @dev Gets a checkpoint by block number
@@ -348,6 +375,8 @@ contract SignalService is EssentialContract, ISignalService {
     error SS_INVALID_BLOCK_ID();
     error SS_INVALID_CHECKPOINT();
     error SS_INVALID_PROOF_LENGTH();
+    error SS_INVALID_SYNCER_CONFIG();
+    error SS_UNZEN_CHECKPOINT_ABOVE_START();
     error SS_SIGNAL_NOT_RECEIVED();
     error SS_UNAUTHORIZED();
 }

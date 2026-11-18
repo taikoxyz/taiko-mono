@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { IEtnaStart } from "src/shared/signal/IEtnaStart.sol";
 
 /// @title EtnaInboxBootstrap
 /// @notice The first implementation of the Etna Inbox proxy: it only sets the owner, so the proxy
@@ -11,7 +12,7 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 /// exit confirmation and slashing closed, and reports no Etna start, so the L1 SignalService can
 /// read it at any time. The storage is `EssentialContract`'s alone, so the Inbox slots stay zero.
 /// @custom:security-contact security@taiko.xyz
-contract EtnaInboxBootstrap is EssentialContract {
+contract EtnaInboxBootstrap is EssentialContract, IEtnaStart {
     /// @notice Sets the owner of the proxy.
     /// @param _owner The owner; `msg.sender` if zero.
     function init(address _owner) external initializer {
@@ -24,8 +25,6 @@ contract EtnaInboxBootstrap is EssentialContract {
         return false;
     }
 
-    /// @notice Returns the Etna start; always unwritten here.
-    /// @return height_ Zero.
-    /// @return blockHash_ Zero.
+    /// @inheritdoc IEtnaStart
     function etnaStart() external pure returns (uint48 height_, bytes32 blockHash_) { }
 }

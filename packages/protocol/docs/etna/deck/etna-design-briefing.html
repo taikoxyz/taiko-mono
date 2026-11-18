@@ -305,7 +305,7 @@
         <span class="b"><i></i>Today: the based design (Shasta and Unzen)</span>
         <span class="e"><i></i>Etna: PoS + ZK, with anchorless blocks</span>
       </div>
-      <p class="note">Source: <code>packages/protocol/docs/etna</code> on taiko-mono main at <code>5c281b2</code>. This deck covers the design in the spec, not implementation status. The Etna fork is not scheduled.</p>
+      <p class="note">Source: <code>packages/protocol/docs/etna</code> at <code>5c281b2</code>, with the shared SignalService update from #22386. The Etna fork is not scheduled.</p>
     </div>
   </section>
 
@@ -746,7 +746,7 @@
           <div>
             <div class="tag">L1 to L2</div>
             <ul class="pts">
-              <li><code>SignalServiceL2</code> asks the <code>Anchor</code> for the root. From the fork on, the <code>Anchor</code> reads EIP-4788 by L2 timestamp.</li>
+              <li>On L2, the shared <code>SignalService</code> uses the <code>Anchor</code> proxy as its root provider. From the fork on, the <code>Anchor</code> reads EIP-4788 by L2 timestamp.</li>
               <li>A proof sets <code>blockId</code> to an L2 timestamp and <code>rootHash</code> to that block's <code>parentBeaconBlockRoot</code>.</li>
               <li>An entry stays readable for at least 8,191 s, about 2.3 hours. A newer L1 root proves everything an older one did.</li>
               <li>No new checkpoints are saved on L2 after the fork.</li>
@@ -786,7 +786,7 @@
           <div class="etna">
             <ul class="pts">
               <li>The <code>anchorV4</code> gate is required. The golden touch key is public, so without the gate anyone could save a forged checkpoint in the first anchorless block.</li>
-              <li><code>SignalServiceL2</code> uses a new storage namespace. Old L2 checkpoints and cached signals become unreadable, and must never be revived by a rollback.</li>
+              <li>The shared <code>SignalService</code> uses its existing <code>VERSION = 1</code> layout on both chains. The upgrade from the flat L2 layout makes old L2 checkpoints and cached signals unreadable. A rollback to the flat layout would revive them.</li>
               <li>If EIP-4788 has no code at the fork, uncached L1 to L2 proofs fail closed.</li>
             </ul>
           </div>

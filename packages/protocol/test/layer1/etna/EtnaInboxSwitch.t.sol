@@ -95,7 +95,7 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         assertEq(signalService.getCheckpoint(uint48(S)).stateRoot, _startStateRoot());
 
         checkpoint.blockNumber = uint48(S + 1);
-        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
+        vm.expectRevert(SignalService.SS_UNZEN_CHECKPOINT_ABOVE_START.selector);
         vm.prank(address(unzen));
         signalService.saveCheckpoint(checkpoint);
         vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);

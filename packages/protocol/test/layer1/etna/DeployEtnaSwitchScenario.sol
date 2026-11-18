@@ -59,6 +59,7 @@ contract DeployEtnaSwitchScenario is InboxTestBase {
         assertEq(vm.getNonce(_scriptDeployer), nonce + 1, "only the implementation deployed");
         assertEq(deployed.VERSION(), 1, "checkpoint namespace preserved");
         assertEq(deployed.pauser(), Alice, "existing pauser preserved");
+        assertEq(deployed.authorizedSyncer(), address(_etna), "Etna Inbox syncer");
         assertEq(deployed.stateRootProvider(), address(0), "L1 reads local checkpoints");
         assertEq(deployed.unzenInbox(), address(inbox), "legacy Inbox preserved");
         assertEq(signalService.impl(), signalImplementation, "live SignalService not upgraded");

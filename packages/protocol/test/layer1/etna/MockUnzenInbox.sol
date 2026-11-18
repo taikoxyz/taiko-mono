@@ -2,10 +2,11 @@
 pragma solidity ^0.8.26;
 
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
 /// @title MockUnzenInbox
 /// @notice The Unzen Inbox's `getCoreState()`, the only call the EtnaInbox makes to it.
-contract MockUnzenInbox {
+contract MockUnzenInbox is EssentialContract {
     IInbox.CoreState internal _state;
 
     function setCoreState(

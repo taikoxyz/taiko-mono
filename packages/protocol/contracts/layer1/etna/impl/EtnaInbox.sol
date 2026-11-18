@@ -9,6 +9,7 @@ import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { IEtnaStart } from "src/shared/signal/IEtnaStart.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
@@ -23,7 +24,7 @@ import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 /// 259-267 and 275-277 are unused padding.
 /// @custom:security-contact security@taiko.xyz
 // solhint-disable-next-line max-states-count
-contract EtnaInbox is IEtnaInbox, EssentialContract {
+contract EtnaInbox is IEtnaInbox, IEtnaStart, EssentialContract {
     using LibAddress for address;
     using LibEtnaForcedInclusion for LibEtnaForcedInclusion.Storage;
 
@@ -558,7 +559,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @inheritdoc IEtnaInbox
-    function etnaStart() external view returns (uint48 height_, bytes32 blockHash_) {
+    function etnaStart()
+        external
+        view
+        override(IEtnaInbox, IEtnaStart)
+        returns (uint48 height_, bytes32 blockHash_)
+    {
         return (_genesis.genesisHeight, _genesis.startBlockHash);
     }
 

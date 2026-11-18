@@ -7,11 +7,10 @@ checkpoints. These are its L1 contracts; the L2 changes are listed under
 [Etna PoS + ZK design specification](../../../docs/etna/SPEC.md); appendix A is its
 encodings and appendix B its L1 storage layout.
 
-The current specification baseline is main at `d18357214fab30ea512ae9858a11699806d72ba1`
-([#22348](https://github.com/taikoxyz/taiko-mono/pull/22348)).
-It also includes the shared SignalService design of
-[#22386](https://github.com/taikoxyz/taiko-mono/pull/22386) and clarifies the distinction between empty and present zero-filled vote hashes in
-STAKE-4.1-31 and ENC-A-44/45, matching stock CometBFT's protobuf encoding.
+The specification baseline is main at `991e06f6d94842b2f57c67a4a8ba254b3c5a8830`, which
+includes the shared SignalService design in [#22386](https://github.com/taikoxyz/taiko-mono/pull/22386).
+The implementation distinguishes empty and present zero-filled vote hashes in STAKE-4.1-31 and
+ENC-A-44/45, matching stock CometBFT's protobuf encoding.
 
 ## Contracts
 
@@ -329,10 +328,11 @@ These implement [ANCHORLESS.md](../../../docs/etna/ANCHORLESS.md) sections 4 and
   read local checkpoints; L2 uses the Anchor proxy, which handles the fork boundary. Provider
   reverts, missing return data and zero roots reject proofs without falling back to checkpoints.
   Root lookup and checkpoint-write authorization are independent.
-- The primary `_authorizedSyncer` is the EtnaInbox on L1 and the Anchor proxy on L2. A switching
-  L1 also sets `unzenInbox` to the live Unzen Inbox. Only that legacy caller reads `etnaStart()`
-  from the primary syncer: before the start write any height is allowed, afterwards heights above
-  S revert. New L1 networks and L2 set `unzenInbox` to zero, disabling the path and all Inbox reads.
+- `authorizedSyncer()` returns the EtnaInbox proxy on L1 and the Anchor proxy on L2. A switching
+  L1 also sets `unzenInbox` to the live Unzen Inbox proxy. Deployment checks that the proxies are
+  distinct and that the EtnaInbox exposes `etnaStart()`. Only legacy checkpoint writes read that
+  view after deployment. They accept any height before the start write and reject heights above S
+  afterwards. New L1 networks and L2 set `unzenInbox` to zero, disabling the legacy path.
 - Checkpoints and cached signals keep `VERSION = 1`; the new immutables add no proxy storage.
   Bumping `VERSION` hides every checkpoint and cached signal at once, including the checkpoints
   a verifier-failure rollback must keep usable, so RECOV-8-27 rules out a rollback that only
@@ -378,7 +378,8 @@ the real six-word Unzen CoreState ABI.
   first bad landing is unusable until it is proven again against a checkpoint the SignalService
   holds after the rollback (RECOV-8-27a).
 - DAO proposal construction and installation, including the start rewrite of spec 10 step 5c,
-  the correcting Inbox upgrade, L1 proposal lead/time cross-checks and L2 batch guards.
+  the correcting Inbox upgrade and L1 proposal lead/time cross-checks. The L2 batch guards and
+  final configuration checks are tracked in [#22407](https://github.com/taikoxyz/taiko-mono/issues/22407).
 - Snapshot verification and checkpoint import are client work. Missing-data retry rules and
   originWriter finality, timestamp and Anchor identity duties belong to clients and operations;
   the contract enforces its observable gates. Switch deployment rehearsal remains outstanding.

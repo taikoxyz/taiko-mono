@@ -3,15 +3,12 @@ pragma solidity ^0.8.24;
 
 import { SignalServiceProofFixture } from "./SignalServiceProofFixture.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
-
-interface IConfiguredSignalService {
-    function stateRootProvider() external view returns (address);
-    function unzenInbox() external view returns (address);
-}
+import { EssentialContract_EmptyStub } from "test/shared/helpers/EssentialContract_EmptyStub.sol";
 
 contract SignalRootProviderStub {
     uint64 private _identifier;
@@ -37,7 +34,7 @@ contract SignalRootProviderStub {
     }
 }
 
-contract EtnaStartStub {
+contract EtnaStartStub is EssentialContract {
     uint48 private _height;
     bytes32 private _hash;
     bool private _unavailable;
@@ -64,21 +61,20 @@ contract TestSignalServiceConfiguration is CommonTest, SignalServiceProofFixture
     function setUpOnEthereum() internal override {
         _provider = new SignalRootProviderStub();
         _provider.configure(VALID_PROOF_BLOCK_ID, VALID_PROOF_STATE_ROOT, 0);
-        _inbox = new EtnaStartStub();
-        _legacy = makeAddr("legacyInbox");
+        _inbox = EtnaStartStub(address(new ERC1967Proxy(address(new EtnaStartStub()), "")));
+        _legacy = address(new ERC1967Proxy(address(new EssentialContract_EmptyStub()), ""));
         _providerService = _deploy(AUTHORIZED_SYNCER, address(_provider), address(0));
         _legacyService = _deploy(address(_inbox), address(0), _legacy);
     }
 
     function test_constructor_PreservesVersionAndExposesConfiguration() external view {
         assertEq(_providerService.VERSION(), 1);
-        assertEq(
-            IConfiguredSignalService(address(_providerService)).stateRootProvider(),
-            address(_provider)
-        );
-        assertEq(IConfiguredSignalService(address(_providerService)).unzenInbox(), address(0));
-        assertEq(IConfiguredSignalService(address(_legacyService)).stateRootProvider(), address(0));
-        assertEq(IConfiguredSignalService(address(_legacyService)).unzenInbox(), _legacy);
+        assertEq(_providerService.authorizedSyncer(), AUTHORIZED_SYNCER);
+        assertEq(_providerService.stateRootProvider(), address(_provider));
+        assertEq(_providerService.unzenInbox(), address(0));
+        assertEq(_legacyService.authorizedSyncer(), address(_inbox));
+        assertEq(_legacyService.stateRootProvider(), address(0));
+        assertEq(_legacyService.unzenInbox(), _legacy);
     }
 
     function test_verifySignalReceived_UsesProviderWithoutLocalCheckpoint() external view {
@@ -180,13 +176,13 @@ contract TestSignalServiceConfiguration is CommonTest, SignalServiceProofFixture
 
     function test_saveCheckpoint_RevertWhen_LegacyAboveStart() external {
         _inbox.configure(2, VALID_BLOCK_HASH, false);
-        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
+        vm.expectRevert(SignalService.SS_UNZEN_CHECKPOINT_ABOVE_START.selector);
         _save(_legacyService, _legacy, 3, VALID_PROOF_STATE_ROOT);
     }
 
     function test_saveCheckpoint_RevertWhen_LegacyAboveZeroStartWithNonzeroHash() external {
         _inbox.configure(0, VALID_BLOCK_HASH, false);
-        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
+        vm.expectRevert(SignalService.SS_UNZEN_CHECKPOINT_ABOVE_START.selector);
         _save(_legacyService, _legacy, 1, VALID_PROOF_STATE_ROOT);
     }
 
@@ -196,11 +192,37 @@ contract TestSignalServiceConfiguration is CommonTest, SignalServiceProofFixture
         assertEq(_legacyService.getCheckpoint(3).stateRoot, VALID_PROOF_STATE_ROOT);
     }
 
-    function test_saveCheckpoint_PrimaryBypassesInboxWhenLegacyEqualsPrimary() external {
-        _inbox.configure(2, VALID_BLOCK_HASH, true);
-        SignalService service = _deploy(address(_inbox), address(0), address(_inbox));
-        _save(service, address(_inbox), 3, VALID_PROOF_STATE_ROOT);
-        assertEq(service.getCheckpoint(3).stateRoot, VALID_PROOF_STATE_ROOT);
+    function test_constructor_RevertWhen_LegacyEqualsPrimary() external {
+        vm.expectRevert(SignalService.SS_INVALID_SYNCER_CONFIG.selector);
+        new SignalService(
+            address(_inbox), REMOTE_SIGNAL_SERVICE, address(0), address(0), address(_inbox)
+        );
+    }
+
+    function test_constructor_RevertWhen_LegacyEnabledWithProvider() external {
+        vm.expectRevert(SignalService.SS_INVALID_SYNCER_CONFIG.selector);
+        new SignalService(
+            address(_inbox), REMOTE_SIGNAL_SERVICE, address(0), address(_provider), _legacy
+        );
+    }
+
+    function test_constructor_RevertWhen_InboxProxiesAreSwapped() external {
+        vm.expectRevert(SignalService.SS_INVALID_SYNCER_CONFIG.selector);
+        new SignalService(_legacy, REMOTE_SIGNAL_SERVICE, address(0), address(0), address(_inbox));
+    }
+
+    function test_constructor_RevertWhen_PrimaryIsImplementation() external {
+        address implementation = _inbox.impl();
+        vm.expectRevert(SignalService.SS_INVALID_SYNCER_CONFIG.selector);
+        new SignalService(implementation, REMOTE_SIGNAL_SERVICE, address(0), address(0), _legacy);
+    }
+
+    function test_constructor_RevertWhen_LegacyIsImplementation() external {
+        address implementation = EssentialContract(_legacy).impl();
+        vm.expectRevert(SignalService.SS_INVALID_SYNCER_CONFIG.selector);
+        new SignalService(
+            address(_inbox), REMOTE_SIGNAL_SERVICE, address(0), address(0), implementation
+        );
     }
 
     function test_saveCheckpoint_RevertWhen_UnknownCallerWithoutReadingInbox() external {

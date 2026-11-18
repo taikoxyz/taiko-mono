@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
 import { EtnaLandTestBase } from "./EtnaLandTestBase.sol";
 import { MockUnzenInbox } from "./MockUnzenInbox.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
@@ -27,7 +28,7 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
 
     function setUp() public virtual override {
         EtnaInboxTestBase.setUp();
-        unzen = new MockUnzenInbox();
+        unzen = MockUnzenInbox(address(new ERC1967Proxy(address(new MockUnzenInbox()), "")));
         signalService.upgradeTo(
             address(
                 new SignalService(

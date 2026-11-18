@@ -144,6 +144,9 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(EssentialContract(proxy).owner(), Bob, "configured owner");
         assertEq(SignalService(signals).owner(), Bob, "SignalService owner");
         assertEq(SignalService(signals).pauser(), address(0), "no pauser besides the owner");
+        assertEq(SignalService(signals).authorizedSyncer(), proxy, "Inbox syncer");
+        assertEq(SignalService(signals).stateRootProvider(), address(0), "local checkpoints");
+        assertEq(SignalService(signals).unzenInbox(), address(0), "no legacy syncer");
         // Only the Inbox proxy may save checkpoints, before and after its upgrade.
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))

@@ -50,8 +50,11 @@ image-trusting verifier must have that owner installed and no pending ownership 
 The `DeployEtnaSwitch` initialization data uses zero genesis hash and state root without reading
 `GENESIS_BLOCK_HASH` or `GENESIS_STATE_ROOT`. The inherited `ownerInitCall(implementation)` returns
 the owner installation/initialization calldata for review; no switch entry point sends it. The
-actual DAO batch, including time/implementation guards and L1/L2 fork-time cross-checks, remains
-outside this preparation. Install and initialize the Etna implementation atomically. Until that
+actual DAO batch remains outside this preparation. It includes L1 timing checks, the L2 Anchor
+implementation precondition and deadline, and final L2 checks that `Anchor.etnaTimestamp()` equals
+`ETNA_FORK_TIME` and `SignalService.stateRootProvider()` equals the Anchor proxy. The L2 batch is
+tracked in [#22407](https://github.com/taikoxyz/taiko-mono/issues/22407).
+Install and initialize the Etna implementation atomically. Until that
 point the bootstrap's `etnaStart()` reports an unwritten start, so Unzen proofs can continue.
 Keep the bootstrap under direct DAO control from its creation. Check its creation receipt,
 initializer owner and complete upgrade/ownership history before installation; current ownership
@@ -75,10 +78,11 @@ the full timestamp-lead bound for short L1 slots described in SWITCH.md.
 
 The shared `SignalService` adds no storage and keeps VERSION=1. The switch implementation uses
 `stateRootProvider = address(0)`, the Etna Inbox proxy as its primary syncer and the live Unzen
-Inbox proxy as `unzenInbox`. Both Inbox proxies can save checkpoints; once a nonzero Etna start
-hash is written, Unzen cannot save above S. Only the Unzen checkpoint path reads the current start
-and fails closed if that read fails. It preserves existing checkpoints and proof/cache behavior
-and never initializes or replaces the existing L1 proxy's storage.
+Inbox proxy as `unzenInbox`. Read back the primary syncer with `authorizedSyncer()`. Deployment
+requires distinct Inbox proxies and checks that the Etna Inbox exposes `etnaStart()`. Both Inbox
+proxies can save checkpoints. After deployment, only Unzen writes read the current start, and
+they fail if the read fails or if they write above S after a nonzero start hash is written. The
+upgrade preserves existing checkpoints and proof/cache behavior in the existing L1 proxy.
 
 The scripts do not call `setOrigin`. The originWriter must wait for the post-fork finalized L1
 observation, derive the complete last Unzen proposal, verify S's hash/state root, pre-fork

@@ -353,11 +353,10 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "SignalServiceImpl stateRootProvider is 0x0+"):
             self._build()
 
-    def test_rejects_swapped_provider_and_syncer_bindings(self):
+    def test_rejects_syncer_that_is_not_the_anchor_proxy(self):
         self.predeploys = self.fixture.predeploys(
-            stateRootProvider=self.fixture.address_word(self.addresses["SignalService"]),
-            _authorizedSyncer=self.fixture.word(0))
-        with self.assertRaisesRegex(ValueError, "SignalServiceImpl _authorizedSyncer is 0x0+"):
+            _authorizedSyncer=self.fixture.address_word(self.addresses["SignalService"]))
+        with self.assertRaisesRegex(ValueError, "SignalServiceImpl _authorizedSyncer is"):
             self._build()
 
     def test_rejects_stale_three_immutable_signal_alloc(self):
