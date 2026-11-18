@@ -814,3 +814,13 @@ controls. Its [evidence and limits](REPORT.md#o01-public-filepv-disk-handoff-and
 leave the larger signer, Registry and proving obligations open. The qualified
 Registry unittest import is fixed. Larger model products later in this plan use
 their own explicit configuration directory and are not inferred from default CI.
+
+The second gate now exercises the actual stock signer handler on freshly decoded
+public last-sign state, capturing attempted request bytes before mutation and the
+returned vote/error independently. Eight leaves include two real refusal/retry
+episodes on the same FilePV. [O02 evidence](REPORT.md#o02-stock-handler-refusal-and-cached-retry)
+includes the long-receipt parser repair and independent actual response-omission
+and request-alias controls. C01 remains open. The current
+[exact workspace-SPEC review](conformance/SPEC_CORRESPONDENCE.md) maps the
+SignalService amendments and records the migration and every-target local fork
+checks that these historical consumers do not establish.

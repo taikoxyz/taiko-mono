@@ -4625,3 +4625,107 @@ and were not rerun locally for O01; exact publication CI is recorded separately.
 All 19 archived searches and other OPEN/WAITING obligations retain their status.
 The existing five-increment batch continues with O02; no external-review wait,
 new batch, production/SPEC/Notion edit or merge is implied.
+
+## Merge-target SPEC correspondence feedback
+
+Feedback [4611583127](https://github.com/taikoxyz/taiko-mono/pull/22387#discussion_r4611583127)
+identified a validation boundary missed by branch-only checks: hosted CI used
+merge `c4e7ad37b7f16895e29e22fc503571d75e3310eb`, whose main parent9c832234
+contains #22410's normative SignalService changes. The old correspondence guard
+correctly refused those bytes. Commit `a3a5adc71072c92e73faa925dfda9662d58ae0b5`
+replaces only the single exact reviewed workspace identity and its dependent
+hashes, retaining the historical authority, native sources and strict guard.
+The [clause review](conformance/SPEC_CORRESPONDENCE.md) maps all eight amended
+clauses. It explicitly excludes the new L1 Unzen forwarder/cutoff, L2 root/store
+paths, SignalService identity at S and the additional local fork-time check at
+EVERY trust target, including later snapshot joins. D01 stays WAITING with its
+acceptance revised to those actual current requirements; other 29 acceptance
+requirements are unchanged.
+
+Independent verification exported and checked all 794 selected regular blobs of
+the exact original merge. It reproduced 136 formal tests with six errors and
+166 conformance tests with one error, all the precise SPEC correspondence
+refusal. Applying only four repair files made those same 302 tests pass with no
+skips. Canonical and exact current target bytes pass; the retired991 revision
+and one-byte tamper fail. Both dependency hash chains match. Independent source
+and behavior gates pass. The original hosted44272793569 failed; the new
+44278920890 was still in progress at repair publication, not assumed green.
+
+Independent merge behavior report SHA-256:
+`d7ff485265e7106962fca40da8f337f710782950f233a63599beeefc029101a6`.
+This repair adds no new increment and no current SignalService implementation
+or deployment validation.
+
+## O02: stock handler refusal and cached retry
+
+Implementation `ec52bd0360daf1a3805cfc6ad0416f2ab526d4ee` completes the second
+selected increment. It calls stock DefaultValidationRequestHandler after a fresh
+public writer/disk/decoder handoff. The adapter captures request protobuf bytes,
+requested/configured chains and unsigned vote before the handler can mutate its
+shared pointer, then records the returned union/vote, typed error and separate Go
+error, public verification, actual loaded file and every call's HRS/disk fields.
+Refusal and retry operate on one FilePV instance and one actual state file.
+
+Eight leaves make ten actual handler calls: exact nil, time-only nil, wrong
+chain then valid nil retry, A/B conflict then valid A retry, height/round/step
+regressions, and exact A. Refusals return the value-typed zero Vote with its
+actual year1 timestamp. Wrong-chain refusal has typed code0/description
+`unable to sign vote` and a distinct Go chain-mismatch error; other refusal
+descriptions equal their signer error. Success returns a verified cached vote
+with neither error. No private key or new signing is involved.
+
+| Handler phase           | Writer leaves |          Handler leaves / calls |
+| ----------------------- | ------------: | ------------------------------: |
+| Smoke                   |        1 pass |                      1 pass / 1 |
+| Original                |        2 pass |                     8 pass / 10 |
+| Omit actual chain guard |        2 pass | 7 pass, 1 intended failure / 10 |
+| Restored                |        2 pass |                     8 pass / 10 |
+
+The source fault actually accepts the wrong requested chain under the configured
+chain, and both cached replies in that episode are retained and verified. The
+seven other leaves remain controls. All phases stage the exact current stock
+file.go, signer_requestHandler.go and msgs.go beside the adapter. The nine-file
+executed/effective hash map rejects old seven-file evidence. Affected O01
+persistence original/restored each pass two writers and eleven readers; actual
+Save omission gives two precise writer failures, updated RAM, empty disk and no
+reader. Old O01 published evidence retains its historical attribution.
+
+Independent source review found a real collector defect before the full run:
+prevote-conflict-retry needs nine 1024-byte fragments but the old cap was eight.
+The smaller smoke and earlier parser tests did not cover the longest receipt.
+The repair uses a finite cap16; regression coverage consumes the full genuine
+long leaf and rejects short non-final and seventeen-fragment input. The same
+reviewer rechecked the fix. Real native output now admits its ninth 726-byte
+fragment in every phase. This is a verification-tool defect, not a protocol
+finding; original failed/pre-correspondence preparation evidence is retained.
+
+Independent behavioral verification uses an immutable 26-blob committed export
+and a separately source-derived wire/disk oracle. Eight supervised invocations
+make seven writer leaves and sixteen handler calls. A distinct actual-source
+fault drops only the successful prevote response's Vote after SignVote, leaving
+the actual request signed and the exact nil control valid. The returned zero
+response with both errors absent reaches the precise unexpected-response
+diagnostic; the unchanged ordinary receipt oracle rejects its raw observation.
+Same-copy restoration returns genuine nil/A replies. A real125 request still
+receives the same verified123 cached reply and passes native assertions, but the
+unchanged oracle rejects that attempted-input alias. Actual disk bytes/mode0600
+stay unchanged; all 1659 source entries and original0444 mode are restored.
+
+Final ordinary coverage is 325 tests (139 formal,166 conformance,20 sensitivity),
+with no errors/failures/skips. The cap fix additionally passed 51 focused checks.
+Source and independent behavioral gates pass; root reparsed all actual raws,
+commands, staged/effective hashes and selected disk handoffs. No fresh local
+493-default TLC run is claimed: operational model/default cfg bytes are unchanged.
+All19 archived searches remain INCONCLUSIVE. No natural protocol defect is
+established; C01 stays OPEN for sessions, transport, trusted reconnect, restart,
+WAL, abrupt-write/power-loss and failover.
+
+| Retained record                   | SHA-256                                                            |
+| --------------------------------- | ------------------------------------------------------------------ |
+| Author static v2 packet           | `31e03612eb8e7a6cf18d8452eb8e998253646aed25f151860184a2ab9e3b26f2` |
+| Handler full summary              | `786c2f12953528b80f9094455777c57271809b602634720575fa32d3798115a0` |
+| Affected persistence full summary | `26e7cf257ce5c062ccab1f48500d96ec993ff878ea36dbe167e8230d6abb7105` |
+| Independent packet                | `33c272a7aa7610896dd15d1bc60676214a1d0423e0f75a958015a26e765bfa6f` |
+| Independent full summary          | `553c54e0b896c6c5c04e4e5707424bfb5f7a42fb697cb82107ca16e3e5f1135b` |
+
+Independent implementation source report (retained before closing-doc review) SHA-256: `25ef3621326d3f7507312c24683109365688244ee64b6ed29e96ac9c892d4f0b`.
