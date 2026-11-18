@@ -1,8 +1,11 @@
 //! Shasta payload helper utilities.
 
-use alethia_reth_primitives::payload::{
-    attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
-    builder::payload_id_taiko,
+use alethia_reth_primitives::{
+    SHASTA_EXTRA_DATA_LEN,
+    payload::{
+        attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
+        builder::payload_id_taiko,
+    },
 };
 use alloy::{
     primitives::{Address, B256, Bytes, U256, keccak256},
@@ -39,10 +42,10 @@ pub fn calculate_shasta_mix_hash(parent_mix_hash: B256, block_number: u64) -> B2
 /// The first byte contains the basefee sharing percentage, followed by a 6-byte
 /// big-endian proposal id.
 pub fn encode_extra_data(basefee_sharing_pctg: u8, proposal_id: u64) -> Bytes {
-    let mut data = [0u8; 7];
+    let mut data = [0u8; SHASTA_EXTRA_DATA_LEN];
     data[0] = basefee_sharing_pctg;
     let proposal_bytes = proposal_id.to_be_bytes();
-    data[1..7].copy_from_slice(&proposal_bytes[2..8]);
+    data[1..].copy_from_slice(&proposal_bytes[2..8]);
     Bytes::from(data.to_vec())
 }
 

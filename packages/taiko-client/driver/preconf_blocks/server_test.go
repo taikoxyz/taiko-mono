@@ -16,12 +16,53 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/labstack/echo/v4"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
+
+func TestValidateExecutionPayloadExtraData(t *testing.T) {
+	server := new(PreconfBlockAPIServer)
+	for _, tt := range []struct {
+		name      string
+		extraData eth.BytesMax32
+		wantErr   string
+	}{
+		{"empty", nil, "invalid Shasta extra data length"},
+		{"short", []byte{0, 0, 0, 0, 0, 1}, "invalid Shasta extra data length"},
+		{"long", []byte{0, 0, 0, 0, 0, 0, 0, 1}, "invalid Shasta extra data length"},
+		{"out of range", []byte{101, 0, 0, 0, 0, 0, 1}, "base fee sharing percentage"},
+		{"minimum", []byte{0, 0, 0, 0, 0, 0, 1}, "only one transaction list is allowed"},
+		{"maximum", []byte{100, 0, 0, 0, 0, 0, 1}, "only one transaction list is allowed"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			err := server.ValidateExecutionPayload(&eth.ExecutionPayload{
+				Timestamp:     1,
+				FeeRecipient:  common.Address{1},
+				GasLimit:      1,
+				BaseFeePerGas: eth.Uint256Quantity{1},
+				ExtraData:     tt.extraData,
+			})
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestTryPutEnvelopeIntoCacheRejectsInvalidExtraData(t *testing.T) {
+	server := &PreconfBlockAPIServer{envelopesCache: newEnvelopeQueue()}
+	hash := common.Hash{1}
+	server.tryPutEnvelopeIntoCache(&eth.ExecutionPayloadEnvelope{
+		ExecutionPayload: &eth.ExecutionPayload{
+			BlockNumber: 1,
+			BlockHash:   hash,
+			ExtraData:   []byte{101, 0, 0, 0, 0, 0, 1},
+		},
+	}, "")
+	require.False(t, server.envelopesCache.hasExact(1, hash))
+}
 
 type PreconfBlockAPIServerTestSuite struct {
 	testutils.ClientTestSuite
@@ -230,6 +271,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestTryPutEnvelopeIntoCache() {
 		ExecutionPayload: &eth.ExecutionPayload{
 			BlockNumber: eth.Uint64Quantity(new(big.Int).SetBytes(testutils.RandomBytes(32)).Uint64()),
 			BlockHash:   common.BytesToHash(testutils.RandomBytes(32)),
+			ExtraData:   []byte{0, 0, 0, 0, 0, 0, 1},
 		},
 		Signature:         &[65]byte{},
 		IsForcedInclusion: &isForcedInculsion,
