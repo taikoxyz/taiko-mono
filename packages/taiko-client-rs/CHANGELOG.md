@@ -13,6 +13,7 @@
 - Restore the Unzen sync/derivation driver and its CLI, protocol/RPC dependencies and generated bindings.
 - Add `etna-handoff` to drain finalized Unzen derivation before serving Etna ABCI at S+1.
 - Add authenticated nonzero ABCI starts with committee 0 and the unchanged global epoch schedule.
+- Keep signing closed at the Unzen-to-Etna handoff until the Anchor fork timestamp at S matches the client configuration.
 - Add the shared `--engine-control-dir` Engine writer lease. Mount the same directory for every local controller of one EL.
 - Pin alethia-reth to PR #248 merge commit `398702f2` with OP Reth `op-v2.7.0-1`.
 - Support nonzero-S landing, S-relative cut leaves and overlaps, committee 0 bootstrap and authenticated Unzen ancestry.

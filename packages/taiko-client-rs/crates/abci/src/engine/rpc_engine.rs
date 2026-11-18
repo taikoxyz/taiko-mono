@@ -15,7 +15,9 @@ use alloy_rlp::Decodable;
 use alloy_rpc_types_engine::{
     ForkchoiceState, ForkchoiceUpdated, PayloadStatus, PayloadStatusEnum,
 };
+use alloy_sol_types::SolCall;
 use async_trait::async_trait;
+use bindings::anchor::Anchor::etnaTimestampCall;
 use rpc::{
     RpcClientError,
     auth::{EngineClient, PoolSelection},
@@ -482,6 +484,29 @@ impl Engine for RpcEngine {
         Ok(Some(Address::from_word(B256::from(value))))
     }
 
+    /// Calls the Anchor proxy getter using the same canonical hash as the implementation proof.
+    async fn anchor_fork_timestamp(
+        &self,
+        anchor: Address,
+        hash: B256,
+    ) -> Result<Option<u64>, EngineError> {
+        let call = serde_json::json!({
+            "to": anchor,
+            "data": Bytes::from_static(&etnaTimestampCall::SELECTOR),
+        });
+        let response: Bytes = self
+            .l2
+            .raw_request("eth_call".into(), (call, BlockId::hash_canonical(hash)))
+            .await
+            .map_err(recovery_read_error)?;
+        if response.len() != 32 {
+            return Err(EngineError::BadReply("invalid Anchor fork timestamp ABI length".into()));
+        }
+        etnaTimestampCall::abi_decode_returns_validate(&response)
+            .map(Some)
+            .map_err(|_| EngineError::BadReply("invalid Anchor fork timestamp ABI value".into()))
+    }
+
     /// `eth_getBlockByNumber(number)` on the public endpoint; the header must hash to the reported
     /// hash ([`EngineError::HeaderHashMismatch`]) and be block `number`
     /// ([`EngineError::HeaderNumberMismatch`]).
@@ -707,8 +732,7 @@ mod tests {
         ));
     }
 
-    #[tokio::test]
-    async fn pool_transactions_send_exact_authenticated_positional_params() {
+    async fn record_rpc(result: Value) -> (Url, tokio::task::JoinHandle<Value>) {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = Url::parse(&format!("http://{}/", listener.local_addr().unwrap())).unwrap();
@@ -735,11 +759,16 @@ mod tests {
                     }
                 }
             };
-            let response =
-                json!({"jsonrpc":"2.0","id":body["id"],"result":pool_reply()}).to_string();
+            let response = json!({"jsonrpc":"2.0","id":body["id"],"result":result}).to_string();
             socket.write_all(format!("HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",response.len(),response).as_bytes()).await.unwrap();
             body
         });
+        (url, request)
+    }
+
+    #[tokio::test]
+    async fn pool_transactions_send_exact_authenticated_positional_params() {
+        let (url, request) = record_rpc(pool_reply()).await;
         assert_eq!(
             over_http(&url).pool_transactions(selection()).await.unwrap(),
             crate::test_utils::sample_transactions()
@@ -1268,6 +1297,56 @@ mod tests {
         assert!(matches!(
             m.engine.finalized_header().await,
             Err(EngineError::HeaderHashMismatch { .. })
+        ));
+    }
+
+    #[tokio::test]
+    async fn switch_anchor_timestamp_calls_the_proxy_at_the_canonical_start_hash() {
+        let (anchor, hash) = (Address::with_last_byte(2), B256::with_last_byte(3));
+        let mut word = [0u8; 32];
+        word[24..].copy_from_slice(&1_760_000_001u64.to_be_bytes());
+        let (url, request) = record_rpc(json!(Bytes::copy_from_slice(&word))).await;
+        assert_eq!(
+            over_http(&url).anchor_fork_timestamp(anchor, hash).await.unwrap(),
+            Some(1_760_000_001)
+        );
+        let request = request.await.unwrap();
+        assert_eq!(request["method"], "eth_call");
+        assert_eq!(
+            request["params"],
+            json!([
+                {"to": anchor, "data": "0x3b141589"},
+                {"blockHash": hash, "requireCanonical": true}
+            ])
+        );
+    }
+
+    #[tokio::test]
+    async fn switch_anchor_timestamp_requires_one_canonical_abi_word() {
+        let m = mocked();
+        let (anchor, hash) = (Address::with_last_byte(2), B256::with_last_byte(3));
+        let mut word = [0u8; 32];
+        word[24..].copy_from_slice(&1_760_000_001u64.to_be_bytes());
+        m.l2.push_success(&Bytes::copy_from_slice(&word));
+        assert_eq!(
+            m.engine.anchor_fork_timestamp(anchor, hash).await.unwrap(),
+            Some(1_760_000_001)
+        );
+
+        m.l2.push_success(&Bytes::new());
+        m.l2.push_success(&Bytes::copy_from_slice(&[0; 64]));
+        word[23] = 1;
+        m.l2.push_success(&Bytes::copy_from_slice(&word));
+        for _ in 0..3 {
+            assert!(matches!(
+                m.engine.anchor_fork_timestamp(anchor, hash).await,
+                Err(EngineError::BadReply(_))
+            ));
+        }
+        m.l2.push_failure_msg("historical state unavailable");
+        assert!(matches!(
+            m.engine.anchor_fork_timestamp(anchor, hash).await,
+            Err(EngineError::Transport(_))
         ));
     }
 

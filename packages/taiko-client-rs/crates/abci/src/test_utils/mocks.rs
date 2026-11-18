@@ -341,6 +341,10 @@ pub(crate) struct MockEngineState {
     /// Canonical blocks the EL lost (e.g. its tail) and backfills, all at once, when an
     /// unscripted `forkchoice` names a head it does not hold.
     pub(crate) backfill: BTreeMap<u64, Header>,
+    /// Proven Anchor implementation returned at an Etna switch.
+    pub(crate) anchor_implementation: Option<Address>,
+    /// Anchor fork timestamp returned at the validated Etna start block.
+    pub(crate) anchor_fork_timestamp: Option<u64>,
     /// Scripted `header_by_number` answers (before falling back to `chain`).
     pub(crate) header_script: VecDeque<Result<Option<Header>, EngineError>>,
     /// Scripted `build_block` answers (an empty queue builds [`simple_block`]).
@@ -491,6 +495,23 @@ impl MockEngine {
 
 #[async_trait]
 impl Engine for MockEngine {
+    async fn anchor_implementation(
+        &self,
+        _anchor: Address,
+        _hash: B256,
+        _state_root: B256,
+    ) -> Result<Option<Address>, EngineError> {
+        Ok(self.state().anchor_implementation)
+    }
+
+    async fn anchor_fork_timestamp(
+        &self,
+        _anchor: Address,
+        _hash: B256,
+    ) -> Result<Option<u64>, EngineError> {
+        Ok(self.state().anchor_fork_timestamp)
+    }
+
     async fn check_capabilities(&self) -> Result<(), EngineError> {
         self.pause().await;
         let mut state = self.state();

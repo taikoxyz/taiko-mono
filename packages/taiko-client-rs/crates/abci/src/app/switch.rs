@@ -5,7 +5,7 @@ use alloy_consensus::Header;
 
 use super::{AbciError, App, within};
 use crate::{
-    engine::Engine,
+    engine::{Engine, EngineError},
     l1::{L1Source, OwnFinality, RawL1Header, own_finality},
     types::GenesisRecord,
 };
@@ -94,11 +94,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
         .await?
         .ok_or(AbciError::ElBlockMissing(genesis.genesis_height))?;
         self.check_switch_header(genesis, &header)?;
+        let anchor = get_treasury_address(self.params.l2_chain_id);
         let implementation = within(
             "Etna start Anchor proof",
             self.opts.engine_timeout,
             self.engine.anchor_implementation(
-                get_treasury_address(self.params.l2_chain_id),
+                anchor,
                 genesis.genesis_hash,
                 genesis.genesis_state_root,
             ),
@@ -109,6 +110,21 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Err(AbciError::SafetyHalt(
                 "Etna start Anchor implementation differs from deployment configuration".into(),
             ));
+        }
+        let timestamp = within(
+            "Etna start Anchor fork timestamp",
+            self.opts.engine_timeout,
+            self.engine.anchor_fork_timestamp(anchor, genesis.genesis_hash),
+        )
+        .await?
+        .ok_or_else(|| {
+            EngineError::Transport("Etna start Anchor fork timestamp unavailable".into())
+        })?;
+        if timestamp != config.fork_timestamp {
+            return Err(AbciError::SafetyHalt(format!(
+                "Etna start Anchor fork timestamp {timestamp} differs from configured fork timestamp {}",
+                config.fork_timestamp
+            )));
         }
         Ok(())
     }
@@ -136,5 +152,74 @@ impl<L: L1Source, E: Engine> App<L, E> {
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloy_primitives::Address;
+
+    use super::*;
+    use crate::{
+        config::SwitchConfig,
+        store::Store,
+        switch::SwitchOrigin,
+        test_utils::{Fixture, MockEngine},
+    };
+
+    #[tokio::test]
+    async fn switch_origin_requires_the_configured_anchor_fork_timestamp() {
+        let fx = Fixture::genesis(1);
+        let mut start = fx.el_chain[0].clone();
+        start.number = 1;
+        let expected = start.timestamp + 1;
+        let genesis = GenesisRecord {
+            genesis_height: start.number,
+            genesis_hash: start.hash_slow(),
+            genesis_state_root: start.state_root,
+            ..fx.genesis.clone()
+        };
+        let implementation = Address::with_last_byte(2);
+        let mut params = fx.params.clone();
+        params.switch = Some(SwitchConfig {
+            unzen_inbox: Address::with_last_byte(1),
+            fork_timestamp: expected,
+            anchor_implementation: implementation,
+        });
+        let engine = MockEngine::with_chain([start]);
+        engine.state().anchor_implementation = Some(implementation);
+        let origin = SwitchOrigin {
+            l1_number: fx.witness.l1_header.number(),
+            l1_hash: fx.witness.l1_header.hash(),
+            height: genesis.genesis_height,
+            hash: genesis.genesis_hash,
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let app = App::new(
+            fx.l1(),
+            engine,
+            params,
+            Store::volatile(dir.path().to_owned()),
+            Default::default(),
+        )
+        .unwrap()
+        .with_switch_origin(origin);
+
+        let result = app.verify_switch_origin(&genesis, &fx.witness.l1_header).await;
+        assert!(
+            matches!(result, Err(AbciError::Engine(EngineError::Transport(_)))),
+            "an implementation address alone cannot authorize the switch: {result:?}"
+        );
+        for timestamp in [expected - 1, expected + 1] {
+            app.engine().state().anchor_fork_timestamp = Some(timestamp);
+            let result = app.verify_switch_origin(&genesis, &fx.witness.l1_header).await;
+            assert!(
+                matches!(result, Err(AbciError::SafetyHalt(ref reason))
+                if reason.contains("Anchor fork timestamp")),
+                "{result:?}"
+            );
+        }
+        app.engine().state().anchor_fork_timestamp = Some(expected);
+        app.verify_switch_origin(&genesis, &fx.witness.l1_header).await.unwrap();
     }
 }

@@ -104,6 +104,17 @@ pub trait Engine: Send + Sync + 'static {
         Ok(None)
     }
 
+    /// Reads the Anchor proxy's immutable Etna fork timestamp through the own EL at canonical
+    /// block `hash`. Callers must first verify the proxy implementation at that block.
+    /// The default reports no evidence so switching-network trust remains closed.
+    async fn anchor_fork_timestamp(
+        &self,
+        _anchor: Address,
+        _hash: B256,
+    ) -> Result<Option<u64>, EngineError> {
+        Ok(None)
+    }
+
     /// Performs a bounded hash-pinned historical state read. A successful read is preliminary
     /// evidence only, not proof that a stateful build will succeed. RPC failure remains an error.
     async fn historical_state_available(&self, hash: B256) -> Result<bool, EngineError>;

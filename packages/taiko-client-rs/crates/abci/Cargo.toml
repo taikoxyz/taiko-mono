@@ -20,6 +20,7 @@ alloy-primitives = { workspace = true, features = ["std", "serde", "rlp"] }
 alloy-provider = { workspace = true }
 alloy-rlp = { workspace = true, features = ["std", "derive"] }
 alloy-rpc-types-engine = { workspace = true, features = ["std", "serde"] }
+alloy-sol-types = { workspace = true }
 alloy-trie = { workspace = true, features = ["std", "ethereum"] }
 
 # consensus
@@ -33,6 +34,7 @@ tower-abci = { workspace = true }
 
 # taiko
 alethia-reth-primitives = { workspace = true }
+bindings = { path = "../bindings" }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 

@@ -26,7 +26,12 @@ anchor_implementation = "0x0000000000000000000000000000000000000002"
 
 Addresses and timestamp above are placeholders. `unzen_inbox` must equal `--shasta.inbox`;
 `anchor_implementation` is the expected implementation, not the proxy. The configuration file
-does not authenticate S. Formal network parameters must be compiled into their chain configuration.
+does not authenticate S. While S is the latest landing checkpoint, the app verifies the
+Anchor proxy's implementation proof at S, then calls `etnaTimestamp()` through the own EL
+at that same canonical block hash. Signing stays closed if the timestamp is unavailable,
+and a mismatch with `fork_timestamp` halts the app. Set the EL's fork schedule to the same
+timestamp as part of the deployment. Formal network parameters must be compiled into their
+chain configuration.
 
 ## Starting the staged runtime
 
