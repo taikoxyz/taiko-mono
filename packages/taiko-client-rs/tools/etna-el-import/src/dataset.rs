@@ -40,9 +40,9 @@ use tempfile::TempDir;
 use crate::{ElTrust, HeaderManifest, ImportError, StateCounts, VerifiedHeaders, install_headers};
 
 /// Pinned consensus-side EL library revision.
-const ALETHIA_REVISION: &str = "efc3c162ad54760a84c561da03f44af9c2adffdd";
+const ALETHIA_REVISION: &str = "398702f29917534a4d696d022336787156e0ffa9";
 /// Pinned backing database/static-file implementation revision.
-const RETH_REVISION: &str = "3c5f2f11c4e5a5647e6e911cd131ccf1bada4f25";
+const RETH_REVISION: &str = "ed91041f36b973eda3521ff90b3a25165087c133";
 /// Bounded number of derived leaves/updates retained before releasing a write transaction.
 const BATCH_ITEMS: u64 = 10_000;
 

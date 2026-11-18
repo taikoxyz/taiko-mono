@@ -17,7 +17,7 @@ use reth_db_api::{
 };
 use reth_primitives_traits::{
     Account, Bytecode, StorageEntry,
-    account::{AccountFlags, compact_ids::*},
+    account::{LegacyAccountFlags, compact_ids::*},
 };
 use serde::Serialize;
 use tempfile::TempDir;
@@ -233,7 +233,7 @@ where
             return Err(INVALID);
         }
         previous = Some(key);
-        let (flags, body) = AccountFlags::from(raw);
+        let (flags, body) = LegacyAccountFlags::from(raw);
         let nonce = usize::from(flags.nonce_len());
         let balance = usize::from(flags.balance_len());
         if nonce > 8 ||
