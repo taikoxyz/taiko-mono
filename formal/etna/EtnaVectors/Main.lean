@@ -1,7 +1,8 @@
 import EtnaVectors.CurrentRegistry
+import EtnaVectors.CurrentValidatorState
 
 /-! `lake exe etna-vectors --write <dir>` writes the current-model conformance vectors
-(`registry_admission.json`). The output depends only on the model and this generator, so two
+(`registry_admission.json`, `validator_state.json`). The output depends only on the model and this generator, so two
 runs are byte-identical. -/
 namespace Etna.Vectors
 
@@ -11,7 +12,8 @@ def run : List String → IO UInt32
   | ["--write", dir] => do
     IO.FS.createDirAll dir
     IO.FS.writeFile (System.FilePath.mk dir / "registry_admission.json") CurrentRegistry.file
-    IO.println ("etna-vectors: wrote current registry admission vectors to " ++ dir)
+    IO.FS.writeFile (System.FilePath.mk dir / "validator_state.json") CurrentValidatorState.file
+    IO.println ("etna-vectors: wrote current registry admission and validator-state vectors to " ++ dir)
     return 0
   | _ => do
     IO.eprintln usage

@@ -1,0 +1,654 @@
+{
+  "schema": "etna-current-validator-state-1",
+  "cometbft": "v0.40.0",
+  "model": "Etna.Design.Current.ValidatorState.genesis, Etna.Design.Current.ValidatorState.commit",
+  "keyMeaning": "Distinct valid consensus keys; a consumer assigns key numbers in ascending address order. Members are [key, power, priority]; proposer is a key number.",
+  "vectors": [
+    {
+      "id": "genesis-unequal-rotation",
+      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "origin": 0,
+      "genesis": [
+        [1, 10],
+        [2, 20],
+        [3, 30]
+      ],
+      "steps": [
+        [],
+        [],
+        []
+      ],
+      "expect": {
+        "rejectedAt": null,
+        "states": [
+          {
+            "height": 0,
+            "current": {
+              "members": [
+                [3, 30, -30],
+                [2, 20, 20],
+                [1, 10, 10]
+              ],
+              "proposer": 3
+            },
+            "next": {
+              "members": [
+                [3, 30, 0],
+                [2, 20, -20],
+                [1, 10, 20]
+              ],
+              "proposer": 2
+            }
+          },
+          {
+            "height": 1,
+            "current": {
+              "members": [
+                [3, 30, 0],
+                [2, 20, -20],
+                [1, 10, 20]
+              ],
+              "proposer": 2
+            },
+            "next": {
+              "members": [
+                [3, 30, 30],
+                [2, 20, 0],
+                [1, 10, -30]
+              ],
+              "proposer": 1
+            }
+          },
+          {
+            "height": 2,
+            "current": {
+              "members": [
+                [3, 30, 30],
+                [2, 20, 0],
+                [1, 10, -30]
+              ],
+              "proposer": 1
+            },
+            "next": {
+              "members": [
+                [3, 30, 0],
+                [2, 20, 20],
+                [1, 10, -20]
+              ],
+              "proposer": 3
+            }
+          },
+          {
+            "height": 3,
+            "current": {
+              "members": [
+                [3, 30, 0],
+                [2, 20, 20],
+                [1, 10, -20]
+              ],
+              "proposer": 3
+            },
+            "next": {
+              "members": [
+                [3, 30, 30],
+                [2, 20, -20],
+                [1, 10, -10]
+              ],
+              "proposer": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "equal-power-address-order",
+      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "origin": 0,
+      "genesis": [
+        [4, 10],
+        [2, 10],
+        [9, 10]
+      ],
+      "steps": [
+        [],
+        [],
+        [],
+        []
+      ],
+      "expect": {
+        "rejectedAt": null,
+        "states": [
+          {
+            "height": 0,
+            "current": {
+              "members": [
+                [2, 10, -20],
+                [4, 10, 10],
+                [9, 10, 10]
+              ],
+              "proposer": 2
+            },
+            "next": {
+              "members": [
+                [2, 10, -10],
+                [4, 10, -10],
+                [9, 10, 20]
+              ],
+              "proposer": 4
+            }
+          },
+          {
+            "height": 1,
+            "current": {
+              "members": [
+                [2, 10, -10],
+                [4, 10, -10],
+                [9, 10, 20]
+              ],
+              "proposer": 4
+            },
+            "next": {
+              "members": [
+                [2, 10, 0],
+                [4, 10, 0],
+                [9, 10, 0]
+              ],
+              "proposer": 9
+            }
+          },
+          {
+            "height": 2,
+            "current": {
+              "members": [
+                [2, 10, 0],
+                [4, 10, 0],
+                [9, 10, 0]
+              ],
+              "proposer": 9
+            },
+            "next": {
+              "members": [
+                [2, 10, -20],
+                [4, 10, 10],
+                [9, 10, 10]
+              ],
+              "proposer": 2
+            }
+          },
+          {
+            "height": 3,
+            "current": {
+              "members": [
+                [2, 10, -20],
+                [4, 10, 10],
+                [9, 10, 10]
+              ],
+              "proposer": 2
+            },
+            "next": {
+              "members": [
+                [2, 10, -10],
+                [4, 10, -10],
+                [9, 10, 20]
+              ],
+              "proposer": 4
+            }
+          },
+          {
+            "height": 4,
+            "current": {
+              "members": [
+                [2, 10, -10],
+                [4, 10, -10],
+                [9, 10, 20]
+              ],
+              "proposer": 4
+            },
+            "next": {
+              "members": [
+                [2, 10, 0],
+                [4, 10, 0],
+                [9, 10, 0]
+              ],
+              "proposer": 9
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "addition-signs-at-h-plus-2",
+      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "origin": 5,
+      "genesis": [
+        [1, 10],
+        [2, 10]
+      ],
+      "steps": [
+        [
+          [3, 10]
+        ],
+        [],
+        []
+      ],
+      "expect": {
+        "rejectedAt": null,
+        "states": [
+          {
+            "height": 5,
+            "current": {
+              "members": [
+                [1, 10, -10],
+                [2, 10, 10]
+              ],
+              "proposer": 1
+            },
+            "next": {
+              "members": [
+                [1, 10, 0],
+                [2, 10, 0]
+              ],
+              "proposer": 2
+            }
+          },
+          {
+            "height": 6,
+            "current": {
+              "members": [
+                [1, 10, 0],
+                [2, 10, 0]
+              ],
+              "proposer": 2
+            },
+            "next": {
+              "members": [
+                [1, 10, -9],
+                [2, 10, 21],
+                [3, 10, -12]
+              ],
+              "proposer": 1
+            }
+          },
+          {
+            "height": 7,
+            "current": {
+              "members": [
+                [1, 10, -9],
+                [2, 10, 21],
+                [3, 10, -12]
+              ],
+              "proposer": 1
+            },
+            "next": {
+              "members": [
+                [1, 10, 1],
+                [2, 10, 1],
+                [3, 10, -2]
+              ],
+              "proposer": 2
+            }
+          },
+          {
+            "height": 8,
+            "current": {
+              "members": [
+                [1, 10, 1],
+                [2, 10, 1],
+                [3, 10, -2]
+              ],
+              "proposer": 2
+            },
+            "next": {
+              "members": [
+                [1, 10, -19],
+                [2, 10, 11],
+                [3, 10, 8]
+              ],
+              "proposer": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "removal-and-power-change",
+      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "origin": 0,
+      "genesis": [
+        [1, 10],
+        [2, 20],
+        [3, 30]
+      ],
+      "steps": [
+        [
+          [1, 0],
+          [2, 25]
+        ],
+        [],
+        []
+      ],
+      "expect": {
+        "rejectedAt": null,
+        "states": [
+          {
+            "height": 0,
+            "current": {
+              "members": [
+                [3, 30, -30],
+                [2, 20, 20],
+                [1, 10, 10]
+              ],
+              "proposer": 3
+            },
+            "next": {
+              "members": [
+                [3, 30, 0],
+                [2, 20, -20],
+                [1, 10, 20]
+              ],
+              "proposer": 2
+            }
+          },
+          {
+            "height": 1,
+            "current": {
+              "members": [
+                [3, 30, 0],
+                [2, 20, -20],
+                [1, 10, 20]
+              ],
+              "proposer": 2
+            },
+            "next": {
+              "members": [
+                [3, 30, -15],
+                [2, 25, 15]
+              ],
+              "proposer": 3
+            }
+          },
+          {
+            "height": 2,
+            "current": {
+              "members": [
+                [3, 30, -15],
+                [2, 25, 15]
+              ],
+              "proposer": 3
+            },
+            "next": {
+              "members": [
+                [3, 30, 15],
+                [2, 25, -15]
+              ],
+              "proposer": 2
+            }
+          },
+          {
+            "height": 3,
+            "current": {
+              "members": [
+                [3, 30, 15],
+                [2, 25, -15]
+              ],
+              "proposer": 2
+            },
+            "next": {
+              "members": [
+                [3, 30, -10],
+                [2, 25, 10]
+              ],
+              "proposer": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "same-power-update",
+      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "origin": 0,
+      "genesis": [
+        [1, 10],
+        [2, 20]
+      ],
+      "steps": [
+        [
+          [2, 20]
+        ],
+        []
+      ],
+      "expect": {
+        "rejectedAt": null,
+        "states": [
+          {
+            "height": 0,
+            "current": {
+              "members": [
+                [2, 20, -10],
+                [1, 10, 10]
+              ],
+              "proposer": 2
+            },
+            "next": {
+              "members": [
+                [2, 20, 10],
+                [1, 10, -10]
+              ],
+              "proposer": 1
+            }
+          },
+          {
+            "height": 1,
+            "current": {
+              "members": [
+                [2, 20, 10],
+                [1, 10, -10]
+              ],
+              "proposer": 1
+            },
+            "next": {
+              "members": [
+                [2, 20, 0],
+                [1, 10, 0]
+              ],
+              "proposer": 2
+            }
+          },
+          {
+            "height": 2,
+            "current": {
+              "members": [
+                [2, 20, 0],
+                [1, 10, 0]
+              ],
+              "proposer": 2
+            },
+            "next": {
+              "members": [
+                [2, 20, -10],
+                [1, 10, 10]
+              ],
+              "proposer": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "duplicate-update-rejected",
+      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "origin": 0,
+      "genesis": [
+        [1, 10],
+        [2, 20]
+      ],
+      "steps": [
+        [],
+        [
+          [1, 5],
+          [1, 6]
+        ]
+      ],
+      "expect": {
+        "rejectedAt": 2,
+        "states": [
+          {
+            "height": 0,
+            "current": {
+              "members": [
+                [2, 20, -10],
+                [1, 10, 10]
+              ],
+              "proposer": 2
+            },
+            "next": {
+              "members": [
+                [2, 20, 10],
+                [1, 10, -10]
+              ],
+              "proposer": 1
+            }
+          },
+          {
+            "height": 1,
+            "current": {
+              "members": [
+                [2, 20, 10],
+                [1, 10, -10]
+              ],
+              "proposer": 1
+            },
+            "next": {
+              "members": [
+                [2, 20, 0],
+                [1, 10, 0]
+              ],
+              "proposer": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "unknown-removal-rejected",
+      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "origin": 0,
+      "genesis": [
+        [1, 10],
+        [2, 20]
+      ],
+      "steps": [
+        [
+          [7, 0]
+        ]
+      ],
+      "expect": {
+        "rejectedAt": 1,
+        "states": [
+          {
+            "height": 0,
+            "current": {
+              "members": [
+                [2, 20, -10],
+                [1, 10, 10]
+              ],
+              "proposer": 2
+            },
+            "next": {
+              "members": [
+                [2, 20, 10],
+                [1, 10, -10]
+              ],
+              "proposer": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "empty-set-rejected",
+      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "origin": 0,
+      "genesis": [
+        [1, 10],
+        [2, 20]
+      ],
+      "steps": [
+        [
+          [1, 0],
+          [2, 0]
+        ]
+      ],
+      "expect": {
+        "rejectedAt": 1,
+        "states": [
+          {
+            "height": 0,
+            "current": {
+              "members": [
+                [2, 20, -10],
+                [1, 10, 10]
+              ],
+              "proposer": 2
+            },
+            "next": {
+              "members": [
+                [2, 20, 10],
+                [1, 10, -10]
+              ],
+              "proposer": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "genesis-zero-power-rejected",
+      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "origin": 0,
+      "genesis": [
+        [1, 0],
+        [2, 20]
+      ],
+      "steps": [],
+      "expect": {
+        "rejectedAt": 0,
+        "states": []
+      }
+    },
+    {
+      "id": "total-power-overflow-rejected",
+      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "origin": 0,
+      "genesis": [
+        [1, 1152921504606846975]
+      ],
+      "steps": [
+        [
+          [2, 1]
+        ]
+      ],
+      "expect": {
+        "rejectedAt": 1,
+        "states": [
+          {
+            "height": 0,
+            "current": {
+              "members": [
+                [1, 1152921504606846975, 0]
+              ],
+              "proposer": 1
+            },
+            "next": {
+              "members": [
+                [1, 1152921504606846975, 0]
+              ],
+              "proposer": 1
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

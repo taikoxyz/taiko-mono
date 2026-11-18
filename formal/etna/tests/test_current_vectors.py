@@ -1,4 +1,5 @@
-"""Current displacement cases do not silently inherit historical full-registry rejection."""
+"""Current displacement cases do not silently inherit historical full-registry rejection, and the
+validator-state cases follow stock CometBFT v0.40.0 arithmetic."""
 import importlib.util
 import json
 from pathlib import Path
@@ -19,7 +20,7 @@ class CurrentVectorTests(unittest.TestCase):
         self.assertEqual(result.stdout + result.stderr, '')
 
     def test_current_vectors_are_fresh(self):
-        self.assertEqual(vectors.check(), 1)
+        self.assertEqual(vectors.check(), 2)
 
     def test_current_displacement_observables(self):
         data = json.loads((vectors.DIRECTORY/'registry_admission.json').read_text())
@@ -47,6 +48,35 @@ class CurrentVectorTests(unittest.TestCase):
             'exitAt':2, 'released':True, 'confirmedAt':None, 'readyAt':0, 'slot':None})
         pending = rows['displaced-pending-principal-retained']['oldBond']
         self.assertEqual((pending['stake'],pending['pending'],pending['balance'],pending['readyAt']), (7,3,10,2))
+
+    def test_current_validator_state_observables(self):
+        data = json.loads((vectors.DIRECTORY/'validator_state.json').read_text())
+        self.assertEqual(data['schema'], 'etna-current-validator-state-1')
+        rows = {v['id']:v['expect'] for v in data['vectors']}
+        self.assertEqual(len(rows), 10)
+        # CometBFT by hand: NewValidatorSet increments once (priorities += power, the highest
+        # proposes and pays the total 60); NextValidators increments once more.
+        genesis = rows['genesis-unequal-rotation']['states'][0]
+        self.assertEqual(genesis['current'], {'members': [[3,30,-30],[2,20,20],[1,10,10]], 'proposer': 3})
+        self.assertEqual(genesis['next'], {'members': [[3,30,0],[2,20,-20],[1,10,20]], 'proposer': 2})
+        # Equal powers order and tie-break by address: 2, 4, 9.
+        tied = rows['equal-power-address-order']['states'][0]['current']
+        self.assertEqual(([m[0] for m in tied['members']], tied['proposer']), ([2,4,9], 2))
+        # H's updates join NextValidators at H+1 and sign from H+2.
+        added = rows['addition-signs-at-h-plus-2']['states']
+        self.assertEqual([[m[0] for m in s['current']['members']] for s in added], [[1,2],[1,2],[1,2,3],[1,2,3]])
+        self.assertEqual([s['height'] for s in added], [5,6,7,8])
+        self.assertEqual([m[0] for m in added[1]['next']['members']], [1,2,3])
+        removed = rows['removal-and-power-change']['states'][2]['current']['members']
+        self.assertEqual([m[:2] for m in removed], [[3,30],[2,25]])
+        for name, index in [('duplicate-update-rejected',2),('unknown-removal-rejected',1),
+                            ('empty-set-rejected',1),('genesis-zero-power-rejected',0),
+                            ('total-power-overflow-rejected',1)]:
+            self.assertEqual(rows[name]['rejectedAt'], index, name)
+            self.assertEqual(len(rows[name]['states']), index, name)
+        for name in ['genesis-unequal-rotation','equal-power-address-order','addition-signs-at-h-plus-2',
+                     'removal-and-power-change','same-power-update']:
+            self.assertIsNone(rows[name]['rejectedAt'], name)
 
 
 if __name__ == '__main__':
