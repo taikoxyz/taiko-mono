@@ -47,8 +47,8 @@ example : RollbackGridTrap.restarted.inbox.gridK = 2 ∧ RollbackGridTrap.restar
     RollbackGridTrap.restarted.inbox.origin.height = 2 ∧ RollbackGridTrap.restarted.schedule.active = 2 := by
   decide +kernel
 
--- H4's call class admits the escape: it changes only K and has no exclusions and no blanking.
-example : RecoveryCall RollbackGridTrap.trapped (.recover RollbackGridTrap.structural) := ⟨rfl,rfl,.inr ⟨2,rfl⟩⟩
+-- H4's call class admits the escape: it changes only K and has no blanking.
+example : RecoveryCall RollbackGridTrap.trapped (.recover RollbackGridTrap.structural) := ⟨rfl,.inr ⟨2,rfl⟩⟩
 
 -- So H4's conclusion holds at the trapped state: a `RecoveryTrace` (that recovery) reaches the
 -- accepted 2 → 4 landing, above the trapped c = 2. The environment meets no premise record, so
@@ -58,7 +58,7 @@ example : Etna.Statements.Current.RecoverableAt RollbackGridTrap.env RollbackGri
     decide +kernel
   refine ⟨RollbackGridTrap.restarted,RollbackGridTrap.batch 2 4,
     landed RollbackGridTrap.restarted (RollbackGridTrap.batch 2 4),
-    .call (.refl _) (.recover RollbackGridTrap.structural) ⟨rfl,rfl,.inr ⟨2,rfl⟩⟩,?_,fun _ => ?_⟩
+    .call (.refl _) (.recover RollbackGridTrap.structural) ⟨rfl,.inr ⟨2,rfl⟩⟩,?_,fun _ => ?_⟩
   · simp only [Protocol.land,checks,ite_true]
   · decide +kernel
 

@@ -110,8 +110,10 @@ example {env : Environment} {registry : RegistryMachine.State} {w : World}
     (initialized : w.initialized = true) (generation : w.inbox.generation+2 < limit48)
     (nonce : w.inbox.recoveryNonce+1 < limit256) (rules : w.schedule.next+1 < limit48)
     (height : w.inbox.checkpoint.height+w.inbox.gridK < limit48)
-    (window : ∃ n keys, w.number < n ∧ n+4 < limit48 ∧ WindowBound env w ≤ env.time n ∧
-      env.time n+8 < limit256 ∧ CommitteeLive env w n keys)
+    (window : ∃ n keys exclusions, w.number < n ∧ n+4 < limit48 ∧ WindowBound env w ≤ env.time n ∧
+      env.time n+8 < limit256 ∧ exclusions.Pairwise (fun x y => x.1 < y.1) ∧
+      RegistryMachine.exclusionsValid w.registry.registry exclusions = true ∧
+      CommitteeLive env (excluded w n exclusions) n keys)
     (fresh : RulesetLive env (w.schedule.next+1)) (image : Hash)
     (implemented : w.schedule.next+1 ∈ env.imageRules image) (unzen : UnzenLaneLive env w) :
     RecoverableAt env w :=

@@ -307,7 +307,8 @@ private theorem committee_live : CommitteeLive env live 100 [onlineKey] := by
 are live, so H4's path runs a plain recovery here. -/
 private theorem live_at : Etna.Statements.Current.LiveAt env live := by
   refine ⟨by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,
-    ⟨100,[onlineKey],by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,committee_live⟩,
+    ⟨100,[onlineKey],[],by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,.nil,rfl,
+      by rw [Recovery.excluded_none]; exact committee_live⟩,
     .inl ⟨?_,ruleset_live _,ruleset_live _,0,by decide +kernel,by decide +kernel⟩,?_⟩
   · intro start started
     rw [live_start] at started

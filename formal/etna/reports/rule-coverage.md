@@ -10,7 +10,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Type       | Count | partial | partial-via | supporting | deferred | design-pending |
 | ---------- | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| rule       |   608 |      45 |           0 |         39 |      524 |              0 |
+| rule       |   608 |      46 |           0 |         40 |      522 |              0 |
 | limitation |    21 |       0 |           0 |          0 |       21 |              0 |
 | assumption |    11 |       0 |           0 |          0 |       11 |              0 |
 
@@ -18,7 +18,7 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 
 | Family | Rules | partial | partial-via | supporting | deferred | design-pending |
 | ------ | ----: | ------: | ----------: | ---------: | -------: | -------------: |
-| RECOV  |   114 |       3 |           0 |          9 |      102 |              0 |
+| RECOV  |   114 |       4 |           0 |         10 |      100 |              0 |
 | ENC    |    59 |       0 |           0 |          0 |       59 |              0 |
 | CONS   |    53 |       2 |           0 |          0 |       51 |              0 |
 | START  |    52 |       4 |           0 |          4 |       44 |              0 |
@@ -382,10 +382,10 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 | RECOV-8-35     | rule       | deferred   | LIVE_EN-4a56676c3ce76122 |     14 |                                                                                                             |
 | RECOV-8-36     | rule       | deferred   | LIVE_EN-4a56676c3ce76122 |     14 |                                                                                                             |
 | RECOV-8-37a    | rule       | deferred   | LIVE_EN-4d6ef522fb0ee3fa |      2 |                                                                                                             |
-| RECOV-8-38     | rule       | supporting | LIVE_EN-4d6ef522fb0ee3fa |      2 | `recovery_pending_guards`                                                                                   |
+| RECOV-8-38     | rule       | supporting | LIVE_EN-4d6ef522fb0ee3fa |      2 | `recover_excludes`, `recovery_pending_guards`                                                               |
 | RECOV-8-39     | rule       | deferred   | LIVE_EN-6674a50cc097257d |      1 |                                                                                                             |
-| RECOV-8-40a    | rule       | deferred   | LIVE_EN-47c9c7d7edef31c4 |      3 |                                                                                                             |
-| RECOV-8-41     | rule       | deferred   | LIVE_EN-47c9c7d7edef31c4 |      3 |                                                                                                             |
+| RECOV-8-40a    | rule       | supporting | LIVE_EN-47c9c7d7edef31c4 |      3 | `recover_excludes`                                                                                          |
+| RECOV-8-41     | rule       | partial    | LIVE_EN-47c9c7d7edef31c4 |      3 | `excluded_ineligible`, `recover_excludes`, `recoverable`                                                    |
 | RECOV-8-42     | rule       | deferred   | LIVE_EN-47c9c7d7edef31c4 |      3 |                                                                                                             |
 | RECOV-8-43     | rule       | supporting | LIVE_EN-e83bfb4c2586fe1b |      4 | `recovery_pending_guards`                                                                                   |
 | RECOV-8-44     | rule       | supporting | LIVE_EN-e83bfb4c2586fe1b |      4 | `recovery_queue_exact`                                                                                      |
@@ -750,7 +750,9 @@ counting them as a derived property. Raw decoder/EL/crypto and acceptance obliga
 - **FI-7.3-4**: A valid decoded block/every actual consecutive cut edge of a valid chain consumes at most one queue entry. This is per-block cardinality only; aggregate endpoint bounds do not supply this pointwise conclusion, and linear fee growth/sender balances are separate.
 - **RECOV-8-27**: After the rollback no voided checkpoint is readable; every other checkpoint stays usable, including the Unzen ones at or below S and block 0; and a re-landing at a voided height is usable. The model realizes this by keeping the checkpoints at or below the trusted one and appending fresh ones. Rollback truncates retained signal/custody associations at the trusted checkpoint; a raw rollback that meets its duty restores the target's checkpoint and FI head and the snapshot saved with it and keeps only the records at or below it. No governance mechanism proof. Modelled signals are SignalService checkpoints only: the receive cache and Bridge RETRIABLE messages of RECOV-8-27a are not modelled.
 - **RECOV-8-28**: The target rule is an external authorization duty of raw DAO rollbacks (Governance.RollbackAuthorized): every retained record at or below the target is trusted (TrustedRecord binds actual retained landing provenance and its complete statement, including snapshot and signal root; starts are exempt from event existence) and the first retained record above it is bad. The theorem shows only that the duty fixes one target height; existence of a target after a verifier failure, the start-rewrite clause and generation counting are not shown. Badness includes metadata-only corruption in the actual landing; the DAO's choice is not a contract check.
-- **RECOV-8-38**: Successful recovery has a strictly sorted FI clear list entirely within the pending execution-time queue interval; no nonce/generation conclusion.
+- **RECOV-8-38**: Successful recovery has a strictly sorted FI clear list entirely within the pending execution-time queue interval, and an exclusion list strictly sorted by bond id; no nonce/generation conclusion.
+- **RECOV-8-40a**: A successful recover had every exclusion name an id below nextId whose stored bond key's entryKey equals the listed one (exclusionsValid), so a withdrawn bond whose storage remains passes; the check reads no unissued default storage.
+- **RECOV-8-41**: A successful recover at L1 block R writes exactly `excluded`'s registry: each listed bond's exit becomes min(exit, R) and no other bond field changes, so recover forfeits nothing; an excluded bond is in no election at a cutoff at or after R. H4 (Recovery.recoverable) runs its recovery with the exclusions LiveAt.window names and lands whenever the committee elected at R after them is live. Independent forfeiture and double-sign evidence (RECOV-8-42) are not shown, and no witness uses a nonempty exclusion list.
 - **RECOV-8-43**: Successful recovery has a strictly sorted FI clear list entirely within the pending execution-time queue interval; no nonce/generation conclusion.
 - **RECOV-8-44**: Successful decoded recovery clears exactly listed transaction hashes via fixed hashBytes([]), retaining timestamps/enqueue blocks. This is the queue transformation only; keccak implementation and authorization are separate.
 - **RECOV-8-45**: Unlisted queue entries survive decoded recovery unchanged. No proof of the DAO unprovability judgment, eventual consumption, or liveness is claimed.

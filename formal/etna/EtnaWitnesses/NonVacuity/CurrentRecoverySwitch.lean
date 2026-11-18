@@ -280,8 +280,8 @@ are live. `LiveAt.unzen` holds by its second case: the lane is unproven, and pro
 final proposal for `legacy` is valid and links to the empty lane's finalized hash. -/
 private theorem live_at : Etna.Statements.Current.LiveAt env live := by
   refine ⟨by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,
-    ⟨100,[RecoveryNonVacuity.onlineKey],by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,
-      committee_live⟩,
+    ⟨100,[RecoveryNonVacuity.onlineKey],[],by decide +kernel,by decide +kernel,by decide +kernel,
+      by decide +kernel,.nil,rfl,by rw [Recovery.excluded_none]; exact committee_live⟩,
     .inl ⟨?_,ruleset_live _,ruleset_live _,0,by decide +kernel,by decide +kernel⟩,?_⟩
   · intro start started
     rw [live_start] at started

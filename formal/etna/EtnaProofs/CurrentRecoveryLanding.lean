@@ -665,7 +665,7 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
 
 /-- H4, recoverability (reports/recoverability.md, The claim and The path). From every reachable,
 initialized state satisfying `LiveAt`, under `RecoveryPremises`, a `RecoveryTrace` (no rollback; one
-recovery with no exclusions and no FI blanking, plain when `c` is on the grid and otherwise
+recovery with the exclusions `LiveAt` names and no FI blanking, plain when `c` is on the grid and otherwise
 structural, installing K = 1) reaches a state where `land` accepts the recovered generation's first
 K-block segment from the current checkpoint `c` to `c+K`, K being the recovered generation's.
 If anything had landed before, the recovery kept `c`, so the new checkpoint is above the starting

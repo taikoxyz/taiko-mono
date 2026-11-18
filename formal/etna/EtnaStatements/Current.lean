@@ -255,8 +255,13 @@ structure LiveAt (env : Environment) (w : World) : Prop where
   nonce : w.inbox.recoveryNonce+1 < limit256
   rules : w.schedule.next+1 < limit48
   height : w.inbox.checkpoint.height+w.inbox.gridK < limit48
-  window : ∃ n keys, w.number < n ∧ n+4 < limit48 ∧ WindowBound env w ≤ env.time n ∧
-    env.time n+8 < limit256 ∧ CommitteeLive env w n keys
+  /-- The committee left once the recovery at `n` excludes `exclusions` is live. The exclusion
+  list is sorted by bond id and names issued bonds with their entry keys (RECOV-8-38, 8-40a);
+  with no exclusions this is the committee `w`'s registry elects at `n`. -/
+  window : ∃ n keys exclusions, w.number < n ∧ n+4 < limit48 ∧ WindowBound env w ≤ env.time n ∧
+    env.time n+8 < limit256 ∧ exclusions.Pairwise (fun x y => x.1 < y.1) ∧
+    RegistryMachine.exclusionsValid w.registry.registry exclusions = true ∧
+    CommitteeLive env (excluded w n exclusions) n keys
   /-- An off-grid c meets only its second case. -/
   ruleset : LiveRules env w
   unzen : UnzenLaneLive env w

@@ -13,11 +13,12 @@ inductive CallTrace (env : Environment) (allowed : World → Call → Prop) : Wo
       (ok : allowed w call) : CallTrace env allowed first (transact env w call)
 
 /-- H4's path calls in state `w`: no `rollback` (RECOV-8-28, RECOV-8-58), and every `recover`
-has no exclusions and no forced-inclusion blanking (RECOV-8-45). A `recover` is plain (no
-upgrade) or structural with one change only: it installs `w`'s parameters with a new K. -/
+has no forced-inclusion blanking (RECOV-8-45). Its exclusions are free (RECOV-8-38 to 8-41). A
+`recover` is plain (no upgrade) or structural with one change only: it installs `w`'s parameters
+with a new K. -/
 def RecoveryCall (w : World) : Call → Prop
   | .rollback .. => False
-  | .recover request => request.exclusions = [] ∧ request.clear = [] ∧
+  | .recover request => request.clear = [] ∧
       (request.upgrade = none ∨ ∃ k, request.upgrade = some { parametersOf w.inbox with gridK := k })
   | _ => True
 
@@ -71,6 +72,13 @@ def CommitteeLive (env : Environment) (w : World) (cutoff : Nat) (keys : List Ha
       w.inbox.configuration.nMax (Finality.registryAt w.registry.registry cutoff) = some members ∧
     2*Committee.totalPower w.inbox.configuration.unit members <
       3*Committee.totalPower w.inbox.configuration.unit (members.filter fun e => keys.contains e.key)
+
+/-- RECOV-8-41: `w` once a `recover` at L1 block `n` excludes `exclusions`. Each listed bond's
+exit becomes min(exit, n), so it is out of every election at cutoff `n` or later; the registry
+records the changed slots at `n`. Nothing else changes, and no stake is forfeited. -/
+def excluded (w : World) (n : Nat) (exclusions : List (Nat × Hash)) : World :=
+  { w with registry := { w.registry with registry := (RegistryMachine.finish w.registry.registry n
+      { w.registry.registry with ledger := RegistryMachine.excludedLedger w.registry.registry exclusions n }) } }
 
 def maxAges (w : World) : Nat := (w.configurations.map fun x => x.2.maxAnchorAge).foldr max 0
 

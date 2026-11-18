@@ -847,25 +847,73 @@ private theorem configure {env : Environment} {w v : World} (path : RecoveryTrac
   exact extend (extend path registered trivial) (call := .verifier env.core.owner version)
     (by simp [execute,configured]) trivial
 
-/-- An exclusion call with no exclusions leaves the registry exactly as it is. -/
-private theorem exclude_none (s : RegistryMachine.State) (v : RegistryMachine.InboxView) (now : Nat)
-    (free : v.entered = false) (initialized : v.initialized = true) :
-    RegistryMachine.execute s v now (.exclude s.config.inbox now []) = some s := by
-  have ledger : RegistryMachine.excludedLedger s [] now = s.ledger := by
-    unfold RegistryMachine.excludedLedger
-    have bonds : (fun id => (s.ledger.bonds id).map fun b =>
-        if ([] : List (Nat × Hash)).any (fun x => x.1 == id) then
-          (⟨Staking.exclude b.value now,b.slot⟩ : Registry.Bond) else b) = s.ledger.bonds := by
-      funext id
-      cases s.ledger.bonds id <;> rfl
-    rw [bonds]
-  simp [RegistryMachine.execute,free,initialized,RegistryMachine.exclusionsValid,ledger,RegistryMachine.finish]
+/-- The Inbox's exclusion call accepts a valid list and writes exactly `excluded`'s registry. -/
+private theorem exclude_ok (w : World) (v : RegistryMachine.InboxView) (now : Nat) {xs : List (Nat × Hash)}
+    (free : v.entered = false) (initialized : v.initialized = true)
+    (valid : RegistryMachine.exclusionsValid w.registry.registry xs = true) :
+    RegistryMachine.execute w.registry.registry v now (.exclude w.registry.registry.config.inbox now xs) =
+      some (excluded w now xs).registry.registry := by
+  simp [RegistryMachine.execute,free,initialized,valid,excluded]
 
-/-- The plain recovery of step 4 at the current state's generation, checkpoint and nonce. -/
-private def plainRequest (env : Environment) (w : World) (rules : Nat) : RecoveryRequest :=
+/-- With no exclusions, `excluded` is the state itself: the recovery leaves the registry as it is. -/
+theorem excluded_none (w : World) (n : Nat) : excluded w n [] = w := by
+  have ledger : RegistryMachine.excludedLedger w.registry.registry [] n = w.registry.registry.ledger := by
+    unfold RegistryMachine.excludedLedger
+    have bonds : (fun id => (w.registry.registry.ledger.bonds id).map fun b =>
+        if ([] : List (Nat × Hash)).any (fun x => x.1 == id) then
+          (⟨Staking.exclude b.value n,b.slot⟩ : Registry.Bond) else b) = w.registry.registry.ledger.bonds := by
+      funext id
+      cases w.registry.registry.ledger.bonds id <;> rfl
+    rw [bonds]
+  simp [excluded,ledger,RegistryMachine.finish]
+
+/-- RECOV-8-38, RECOV-8-40a, RECOV-8-41: a `recover` that succeeds had its exclusions sorted
+strictly by bond id, each naming an issued bond by its entry key, and writes exactly `excluded`'s
+registry at its block R: each listed bond's exit becomes min(exit, R) and no other field of any
+bond changes, so `recover` forfeits nothing. -/
+theorem recover_excludes {env : Environment} {w t : World} {request : RecoveryRequest}
+    (ok : recover env w request = some t) :
+    request.exclusions.Pairwise (fun x y => x.1 < y.1) ∧
+      RegistryMachine.exclusionsValid w.registry.registry request.exclusions = true ∧
+      t.registry = (excluded w w.number request.exclusions).registry := by
+  unfold recover at ok
+  obtain ⟨start,-,ok⟩ := Option.bind_eq_some_iff.mp ok
+  dsimp only at ok
+  have accepted : ∀ {c : Prop} [Decidable c] {x : Option World}, (if c then x else none) = some t →
+      c ∧ x = some t := by
+    intro c _ x h
+    split at h
+    next holds => exact ⟨holds,h⟩
+    next => cases h
+  split at ok <;>
+  · obtain ⟨⟨-,-,-,-,-,-,-,-,-,-,-,sorted,-⟩,ok⟩ := accepted ok
+    obtain ⟨schedule,-,ok⟩ := Option.bind_eq_some_iff.mp ok
+    obtain ⟨registry,executed,rfl⟩ := Option.map_eq_some_iff.mp ok
+    simp only [RegistryMachine.execute] at executed
+    split at executed
+    next =>
+      split at executed
+      next valid =>
+        cases executed
+        exact ⟨sorted,valid.2.2,rfl⟩
+      next => cases executed
+    next => cases executed
+
+/-- RECOV-8-41: an excluded bond is in no election at a cutoff at or after the recovery's block. -/
+theorem excluded_ineligible (unit minimum : Nat) (b : Staking.Bond) {r cutoff : Nat} (later : r ≤ cutoff) :
+    Committee.eligible unit minimum cutoff (Staking.toEntry (Staking.exclude b r)) = false := by
+  unfold Committee.eligible
+  apply decide_eq_false
+  simp only [Staking.toEntry,Staking.exclude]
+  omega
+
+/-- The plain recovery of step 4 at the current state's generation, checkpoint and nonce,
+excluding `exclusions`. -/
+private def plainRequest (env : Environment) (w : World) (rules : Nat) (exclusions : List (Nat × Hash)) :
+    RecoveryRequest :=
   { caller := env.core.owner, expectedGeneration := w.inbox.generation,
     expectedCheckpoint := w.inbox.checkpoint.height, expectedNonce := w.inbox.recoveryNonce,
-    validUntil := env.time w.number, exclusions := [], clear := [], rules := rules }
+    validUntil := env.time w.number, exclusions := exclusions, clear := [], rules := rules }
 
 /-- `w`'s parameters with K = 1, whose grid holds every c at or above S. -/
 private def unitGrid (w : World) : Parameters := { parametersOf w.inbox with gridK := 1 }
@@ -882,14 +930,14 @@ private theorem unit_valid {w : World} (valid : (parametersOf w.inbox).valid = t
 
 /-- The structural recovery of step 4 off the grid: the plain request with ruleset next+1 that
 also installs K = 1, keeping every other parameter. -/
-private def unitRequest (env : Environment) (w : World) : RecoveryRequest :=
-  { plainRequest env w (w.schedule.next+1) with upgrade := some (unitGrid w) }
+private def unitRequest (env : Environment) (w : World) (exclusions : List (Nat × Hash)) : RecoveryRequest :=
+  { plainRequest env w (w.schedule.next+1) exclusions with upgrade := some (unitGrid w) }
 
 /-- The state a recovery from `w` writes, with storage `inbox` (`w.inbox`, or the installed
-upgrade) and generation parameters `parameters`. -/
+upgrade), generation parameters `parameters` and `exclusions` applied to the registry. -/
 private def recovered (env : Environment) (w : World) (inbox : Etna.Design.State) (parameters : Parameters)
-    (schedule : Rules.Schedule) : World :=
-  { w with
+    (schedule : Rules.Schedule) (exclusions : List (Nat × Hash)) : World :=
+  { excluded w w.number exclusions with
     inbox :=
       { inbox with
         generation := w.inbox.generation+1, recoveryNonce := w.inbox.recoveryNonce+1,
@@ -902,23 +950,26 @@ private theorem recover_ok {env : Environment} {w : World} {start : StartData} {
     (entered : w.inbox.entered = false) (nonce : w.inbox.recoveryNonce+1 < limit256)
     (stamp : env.time w.number < limit256) (generation : w.inbox.generation+1 < limit48)
     (grid : Start.onGrid start.height w.inbox.gridK w.inbox.checkpoint.height = true)
-    (scheduled : Rules.recover w.schedule rules = some schedule) :
-    execute env w (.recover (plainRequest env w rules)) =
-      some (recovered env w w.inbox (parametersOf w.inbox) schedule) := by
-  show recover env w (plainRequest env w rules) = some (recovered env w w.inbox (parametersOf w.inbox) schedule)
+    (scheduled : Rules.recover w.schedule rules = some schedule) {exclusions : List (Nat × Hash)}
+    (sorted : exclusions.Pairwise (fun x y => x.1 < y.1))
+    (issued : RegistryMachine.exclusionsValid w.registry.registry exclusions = true) :
+    execute env w (.recover (plainRequest env w rules exclusions)) =
+      some (recovered env w w.inbox (parametersOf w.inbox) schedule exclusions) := by
+  show recover env w (plainRequest env w rules exclusions) =
+    some (recovered env w w.inbox (parametersOf w.inbox) schedule exclusions)
   unfold recover
   rw [started,Option.bind_some]
-  simp only [show (plainRequest env w rules).upgrade = none from rfl,Option.isSome_none,Option.getD_none,
-    Bool.false_eq_true,↓reduceIte]
+  simp only [show (plainRequest env w rules exclusions).upgrade = none from rfl,Option.isSome_none,
+    Option.getD_none,Bool.false_eq_true,↓reduceIte]
   split
   next =>
     simp only [plainRequest,scheduled,Option.bind_some,
-      exclude_none w.registry.registry (registryView env w) w.number entered initialized,Option.map_some,
+      exclude_ok w (registryView env w) w.number entered initialized issued,Option.map_some,
       List.not_mem_nil,↓reduceIte]
     rw [show (fun x : Nat × Forced.Entry => (x.fst,x.snd)) = id from rfl,List.map_id,← started]
     rfl
   next refused =>
-    exact (refused ⟨rfl,initialized,entered,rfl,rfl,rfl,nonce,Nat.le_refl _,stamp,generation,grid,List.Pairwise.nil,
+    exact (refused ⟨rfl,initialized,entered,rfl,rfl,rfl,nonce,Nat.le_refl _,stamp,generation,grid,sorted,
       List.Pairwise.nil,fun _ absent => absurd absent List.not_mem_nil,by intro absent; cases absent⟩).elim
 
 /-- Step 4 off the grid: `recover` accepts the structural request, because K = 1 is valid under
@@ -930,33 +981,36 @@ private theorem restructure_ok {env : Environment} {w : World} {start : StartDat
     (entered : w.inbox.entered = false) (nonce : w.inbox.recoveryNonce+1 < limit256)
     (stamp : env.time w.number < limit256) (generation : w.inbox.generation+1 < limit48)
     (below : start.height ≤ w.inbox.checkpoint.height) (valid : (parametersOf w.inbox).valid = true)
-    (scheduled : Rules.recover w.schedule (w.schedule.next+1) = some schedule) :
-    execute env w (.recover (unitRequest env w)) =
-      some (recovered env w (install w.inbox (unitGrid w) env.configHash) (unitGrid w) schedule) := by
+    (scheduled : Rules.recover w.schedule (w.schedule.next+1) = some schedule) {exclusions : List (Nat × Hash)}
+    (sorted : exclusions.Pairwise (fun x y => x.1 < y.1))
+    (issued : RegistryMachine.exclusionsValid w.registry.registry exclusions = true) :
+    execute env w (.recover (unitRequest env w exclusions)) =
+      some (recovered env w (install w.inbox (unitGrid w) env.configHash) (unitGrid w) schedule exclusions) := by
   have unitValid := unit_valid valid
   have onGrid : Start.onGrid start.height (unitGrid w).gridK w.inbox.checkpoint.height = true := by
     simp only [unitGrid,Start.onGrid,Nat.mod_one,and_true,decide_eq_true_eq]
     exact ⟨Nat.one_pos,below⟩
-  show recover env w (unitRequest env w) =
-    some (recovered env w (install w.inbox (unitGrid w) env.configHash) (unitGrid w) schedule)
+  show recover env w (unitRequest env w exclusions) =
+    some (recovered env w (install w.inbox (unitGrid w) env.configHash) (unitGrid w) schedule exclusions)
   unfold recover
   rw [started,Option.bind_some]
-  simp only [show (unitRequest env w).upgrade = some (unitGrid w) from rfl,Option.isSome_some,Option.getD_some,
-    ↓reduceIte]
+  simp only [show (unitRequest env w exclusions).upgrade = some (unitGrid w) from rfl,Option.isSome_some,
+    Option.getD_some,↓reduceIte]
   split
   next =>
     simp only [unitRequest,plainRequest,scheduled,Option.bind_some,
-      exclude_none w.registry.registry (registryView env w) w.number entered initialized,Option.map_some,
+      exclude_ok w (registryView env w) w.number entered initialized issued,Option.map_some,
       List.not_mem_nil,↓reduceIte]
     rw [show (fun x : Nat × Forced.Entry => (x.fst,x.snd)) = id from rfl,List.map_id,← started]
     rfl
   next refused =>
     exact (refused ⟨rfl,initialized,entered,rfl,rfl,rfl,nonce,Nat.le_refl _,stamp,generation,onGrid,
-      List.Pairwise.nil,List.Pairwise.nil,fun _ absent => absurd absent List.not_mem_nil,
+      sorted,List.Pairwise.nil,fun _ absent => absurd absent List.not_mem_nil,
       fun _ => ⟨unitValid,Nat.succ_ne_zero _,rfl⟩⟩).elim
 
 private theorem committee_transfer {env : Environment} {w x : World} {cutoff : Nat} {keys : List Hash}
-    (configuration : x.inbox.configuration = w.inbox.configuration) (registry : x.registry = w.registry)
+    (configuration : x.inbox.configuration = w.inbox.configuration)
+    (registry : x.registry.registry = w.registry.registry)
     (live : CommitteeLive env w cutoff keys) : CommitteeLive env x cutoff keys := by
   unfold CommitteeLive at live ⊢
   rw [configuration,registry]
@@ -1006,9 +1060,12 @@ private theorem settle {env : Environment} {registry : RegistryMachine.State} {w
 ruleset next+1. It is plain when c is on the grid. Off the grid it is structural and installs
 K = 1 (RECOV-8.3-3a), which `LiveRules`' second case allows: a K change rides in a new ruleset. -/
 private theorem finish {env : Environment} {registry : RegistryMachine.State} {w v : World} {p : Header}
-    {n : Nat} {keys : List Hash} (premises : RecoveryPremises env registry)
+    {n : Nat} {keys : List Hash} {exclusions : List (Nat × Hash)} (premises : RecoveryPremises env registry)
     (trace : Trace env (empty env registry) w) (initialized : w.initialized = true) (live : LiveAt env w)
-    (fits : n+4 < limit48) (stamp : env.time n+8 < limit256) (committee : CommitteeLive env w n keys)
+    (fits : n+4 < limit48) (stamp : env.time n+8 < limit256)
+    (sorted : exclusions.Pairwise (fun x y => x.1 < y.1))
+    (issued : RegistryMachine.exclusionsValid w.registry.registry exclusions = true)
+    (committee : CommitteeLive env (excluded w n exclusions) n keys)
     (started : Started env w v p n) : ∃ u image, Prepared env registry w u p n keys image := by
   obtain ⟨path,number,kept,generation,progress,⟨s,written,settled,height,implementation⟩,keptGrid,fence,parent,
     time⟩ := started
@@ -1024,6 +1081,22 @@ private theorem finish {env : Environment} {registry : RegistryMachine.State} {w
   have timed : p.timestamp+v.inbox.gridK+1 ≤ env.time n := by
     rw [kept.gridK]
     exact time
+  have keptValid : RegistryMachine.exclusionsValid v.registry.registry exclusions = true := by
+    rw [kept.registry]
+    exact issued
+  -- The recovery at `n` writes `excluded w n exclusions`'s registry, whose committee is live.
+  have excludedRegistry : ∀ image, (excluded (configured v image version) (configured v image version).number
+      exclusions).registry.registry = (excluded w n exclusions).registry.registry := by
+    intro image
+    unfold excluded configured
+    dsimp only
+    rw [kept.registry,number]
+  have transfer : ∀ image inbox parameters schedule,
+      (recovered env (configured v image version) inbox parameters schedule exclusions).inbox.configuration =
+        w.inbox.configuration →
+      CommitteeLive env (recovered env (configured v image version) inbox parameters schedule exclusions) n keys :=
+    fun image _ _ _ configuration =>
+      committee_transfer (w := excluded w n exclusions) configuration (excludedRegistry image) committee
   -- The plain recovery (step 4 on the grid) for a rule schedule whose rulesets `image` implements.
   have plain : ∀ rules image schedule, Rules.recover w.schedule rules = some schedule →
       (∀ t, RulesetLive env (Rules.select schedule t) ∧ Rules.select schedule t ∈ env.imageRules image) →
@@ -1034,11 +1107,11 @@ private theorem finish {env : Environment} {registry : RegistryMachine.State} {w
       rw [kept.schedule]
       exact scheduled
     have recovery := recover_ok (env := env) (w := configured v image version) (rules := rules) (schedule := schedule)
-      written ready heldV.entered nonce early generation grid keptRules
-    exact ⟨_,image,settle premises trace (extend (configure path image version) recovery ⟨rfl,rfl,.inl rfl⟩) number
+      written ready heldV.entered nonce early generation grid keptRules sorted keptValid
+    exact ⟨_,image,settle premises trace (extend (configure path image version) recovery ⟨rfl,.inl rfl⟩) number
       fits stamp progress ⟨Nat.succ_pos _,rfl,number⟩ parent timed ⟨s,written,grid,height,implementation⟩ fence
       (Rules.recover_clears_stop scheduled).1 selected ⟨List.mem_cons_self,complete⟩
-      (committee_transfer kept.configuration kept.registry committee) ready⟩
+      (transfer image _ _ _ kept.configuration) ready⟩
   rcases live.ruleset with ⟨onGrid,active,next,image,inActive,inNext⟩ | ⟨fresh,image,inFresh⟩
   · -- First case: keep the rule schedule (`rules` = 0); c is on the grid.
     refine plain 0 image { w.schedule with stopTime := 0, stopGrid := 0 } rfl (fun t => ?_) (keptGrid onGrid s written)
@@ -1064,11 +1137,11 @@ private theorem finish {env : Environment} {registry : RegistryMachine.State} {w
         rw [kept.schedule]
         exact scheduled
       have recovery := restructure_ok (env := env) (w := configured v image version) written ready heldV.entered
-        nonce early generation settled (valid _ member) keptRules
-      refine ⟨_,image,settle premises trace (extend (configure path image version) recovery ⟨rfl,rfl,.inr ⟨1,rfl⟩⟩)
+        nonce early generation settled (valid _ member) keptRules sorted keptValid
+      refine ⟨_,image,settle premises trace (extend (configure path image version) recovery ⟨rfl,.inr ⟨1,rfl⟩⟩)
         number fits stamp progress ⟨Nat.succ_pos _,rfl,number⟩ parent ?_
         ⟨s,written,?_,?_,implementation⟩ fence (Rules.recover_clears_stop scheduled).1 selected
-        ⟨List.mem_cons_self,complete⟩ (committee_transfer kept.configuration kept.registry committee) ready⟩
+        ⟨List.mem_cons_self,complete⟩ (transfer image _ _ _ kept.configuration) ready⟩
       · show p.timestamp+1+1 ≤ env.time n
         omega
       · show Start.onGrid s.height 1 v.inbox.checkpoint.height = true
@@ -1081,8 +1154,8 @@ private theorem finish {env : Environment} {registry : RegistryMachine.State} {w
 /-! ### The L1 half -/
 
 /-- From every reachable, initialized state satisfying `LiveAt`, the recovery path of
-reports/recoverability.md (The path, steps 1-5; no rollback, no exclusions, no blanking, and a
-structural upgrade only off the grid, installing K = 1) reaches a state with a settled start, a
+reports/recoverability.md (The path, steps 1-5; no rollback, no blanking, the exclusions `LiveAt`
+names, and a structural upgrade only off the grid, installing K = 1) reaches a state with a settled start, a
 fresh recovered generation whose origin is the current checkpoint at the window block R, the
 snapshots at R and R+1 closed, a live committee and ruleset, a registered image and a complete
 verifier, and a hash-bound parent header early enough for K blocks anchored at R, K being the
@@ -1092,7 +1165,7 @@ theorem prepare {env : Environment} {registry : RegistryMachine.State} {w : Worl
     (trace : Trace env (empty env registry) w) (initialized : w.initialized = true)
     (live : Etna.Statements.Current.LiveAt env w) :
     ∃ u p R keys image, Prepared env registry w u p R keys image := by
-  obtain ⟨n,keys,later,fits,bound,stamp,committee⟩ := live.window
+  obtain ⟨n,keys,exclusions,later,fits,bound,stamp,sorted,issued,committee⟩ := live.window
   have held := trace_reach premises.toFundPremises trace
   have started : ∃ v p, Started env w v p n := by
     by_cases newNetwork : env.core.unzenInbox = 0
@@ -1101,7 +1174,7 @@ theorem prepare {env : Environment} {registry : RegistryMachine.State} {w : Worl
       | true => exact fixed_started premises trace initialized live held (Or.inr ever) later fits bound
       | false => exact unlanded_started premises trace initialized live held newNetwork ever later fits bound
   obtain ⟨v,p,started⟩ := started
-  obtain ⟨u,image,prepared⟩ := finish premises trace initialized live fits stamp committee started
+  obtain ⟨u,image,prepared⟩ := finish premises trace initialized live fits stamp sorted issued committee started
   exact ⟨u,p,n,keys,image,prepared⟩
 
 end Etna.Design.Current.Protocol.Recovery

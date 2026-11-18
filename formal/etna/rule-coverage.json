@@ -360,9 +360,22 @@
     },
     "RECOV-8-38": {
       "theorems": [
-        "Etna.Design.Current.QueueIntegrity.recovery_pending_guards"
+        "Etna.Design.Current.QueueIntegrity.recovery_pending_guards",
+        "Etna.Design.Current.Protocol.Recovery.recover_excludes"
       ],
-      "reason": "Successful recovery has a strictly sorted FI clear list entirely within the pending execution-time queue interval; no nonce/generation conclusion."
+      "reason": "Successful recovery has a strictly sorted FI clear list entirely within the pending execution-time queue interval, and an exclusion list strictly sorted by bond id; no nonce/generation conclusion."
+    },
+    "RECOV-8-40a": {
+      "theorems": ["Etna.Design.Current.Protocol.Recovery.recover_excludes"],
+      "reason": "A successful recover had every exclusion name an id below nextId whose stored bond key's entryKey equals the listed one (exclusionsValid), so a withdrawn bond whose storage remains passes; the check reads no unissued default storage."
+    },
+    "RECOV-8-41": {
+      "theorems": [
+        "Etna.Design.Current.Protocol.Recovery.excluded_ineligible",
+        "Etna.Design.Current.Protocol.Recovery.recover_excludes",
+        "Etna.Design.Current.Protocol.Recovery.recoverable"
+      ],
+      "reason": "A successful recover at L1 block R writes exactly `excluded`'s registry: each listed bond's exit becomes min(exit, R) and no other bond field changes, so recover forfeits nothing; an excluded bond is in no election at a cutoff at or after R. H4 (Recovery.recoverable) runs its recovery with the exclusions LiveAt.window names and lands whenever the committee elected at R after them is live. Independent forfeiture and double-sign evidence (RECOV-8-42) are not shown, and no witness uses a nonempty exclusion list."
     },
     "RECOV-8-43": {
       "theorems": [

@@ -195,12 +195,19 @@ class RuleCoverageTests(unittest.TestCase):
         expected = {
             'FORF-4.4-9': 'RegistryPayments.forfeit_payment_exact',
             'RECOV-8-47a': 'Rules.recover_clears_stop',
-            'RECOV-8-38': 'QueueIntegrity.recovery_pending_guards',
             'RECOV-8-43': 'QueueIntegrity.recovery_pending_guards',
             'CONS-3.4-2': 'Blocks.chain_parent_hashes',
         }
         for rule, suffix in expected.items():
             self.assertEqual(rows[rule]['theorems'], ['Etna.Design.Current.'+suffix])
+        # Recovery exclusions: the sorted lists, the issued-bond check and the exit write are
+        # supporting guards; H4's path using them makes RECOV-8-41 partial.
+        excludes = 'Etna.Design.Current.Protocol.Recovery.recover_excludes'
+        self.assertEqual(rows['RECOV-8-38']['theorems'],
+                         sorted([excludes, 'Etna.Design.Current.QueueIntegrity.recovery_pending_guards']))
+        self.assertEqual((rows['RECOV-8-40a']['status'], rows['RECOV-8-40a']['theorems']), ('supporting', [excludes]))
+        self.assertEqual(rows['RECOV-8-41']['status'], 'partial')
+        self.assertIn('Etna.Design.Current.Protocol.Recovery.recoverable', rows['RECOV-8-41']['theorems'])
 
     def test_every_live_id_is_present_once(self):
         rows = self.rows()

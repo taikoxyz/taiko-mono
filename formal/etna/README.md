@@ -37,8 +37,9 @@ seven per-state hypotheses of `LiveAt` (below).
   service, due-only skips, no early skip, and only `land` advances the head. This is a safety
   property of landings. It does **not** promise that a due inclusion is ever landed.
 - **H4, recoverability.** From every reachable, initialized state that meets `LiveAt`, some
-  sequence of modelled calls with no `rollback`, no exclusions, no forced-inclusion blanking and
-  no structural change other than K reaches an accepted `land`; if anything had landed before,
+  sequence of modelled calls with no `rollback`, no forced-inclusion blanking and no structural
+  change other than K reaches an accepted `land`. Its one recovery excludes the members that
+  `LiveAt` names, so it covers a committee that is live only once offline members are excluded; if anything had landed before,
   that landing ends above the starting checkpoint. `LiveAt` has no grid condition: when the
   checkpoint is off the current grid, the path's recovery installs K = 1 in a new ruleset, so
   it needs ruleset nextRules + 1 to be live. Under H4's premises only a rollback can leave the
@@ -56,7 +57,7 @@ Not covered here: normal-operation liveness (landings continue without governanc
 adversarial scheduling, since H4's path is one that exists when every caller cooperates; the
 DAO's recovery policy in SPEC 8.1 (when to recover, and the checks before it), since H4 shows
 that the recovery mechanism works from every such state, not that the DAO should use it there;
-recoveries with exclusions or blanking, and structural upgrades other than a K change; a
+recoveries with blanking, and structural upgrades other than a K change; a
 checkpoint off the grid when ruleset nextRules + 1 is not live, since a K change rides in a new
 ruleset; recovery after a verifier failure, even once the verifier is replaced, since H4's
 premises assume a sound verifier; refinement to the Solidity contracts, the Rust client or the
@@ -255,7 +256,7 @@ forms (`Headlines.deployed_claims`, `deployed_rollback_free` and `deployed_recov
 eight joint-premise witness theorems (from the six profiles under Joint-premise realizations),
 the trap witness and its escape mean: their statements and every Etna definition they use, but
 no proof. `review-surface.lock.json` records a SHA-256 of the kernel terms of each of those
-constants (1,745 at this revision).
+constants (1,746 at this revision).
 `python3 scripts/review_surface.py --check` fails if the lock is stale; the `etna-formal` job
 runs it. Proof-only changes never touch the lock.
 The concrete validator-state H+2, checked-prefix and certificate-refinement theorems
@@ -498,8 +499,8 @@ the current proofs reuse, and fourteen semantic pins (`EtnaProofs/Contracts.lean
 `Consensus.election_valid_iff`) that fail the build if a shared definition the statements use
 is weakened without editing its pin.
 
-The inventory is **61 partial / 519 deferred clauses**, and **45 narrow partial /
-39 supporting / 524 deferred binding rules**, plus 32 deferred assumption/limitation rows.
+The inventory is **62 partial / 518 deferred clauses**, and **46 narrow partial /
+40 supporting / 522 deferred binding rules**, plus 32 deferred assumption/limitation rows.
 SWITCH has narrow first-fence/root evidence. All 101 ANCHORLESS and 47 ACCEPTANCE
 clauses remain deferred. Margin arithmetic, bridge resolver/EIP-4788/storage migration,
 production parsing/crypto/EL/guest/token/Solidity/Comet/store refinement, operational
