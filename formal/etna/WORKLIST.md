@@ -302,5 +302,12 @@ N05's [exact archived-disposition acceptance](REPORT.md#n05-exact-archived-dispo
 is complete after independent semantic and behavioral review and two checker
 repair rounds. X01 is COMPLETE for disposition only; all 19 searches remain
 INCONCLUSIVE and the underlying obligations retain their statuses. Five selected
-increments are complete. The accumulated final source/raw/publication gate is
-pending; no sixth starts automatically. Preserve evidence and keep feedback first.
+increments and the [accumulated final gate](REPORT.md#n01n05-accumulated-final-gate-and-retrospective)
+are complete after one consolidated correction and independent rechecks. The
+existing draft and evidence are preserved; hourly monitoring returns to
+feedback-only. No sixth starts automatically.
+
+Nonblocking deferred test convenience: use the documented unittest discovery
+entrypoint for Registry cases. The dotted module invocation currently cannot
+import its shared helper; CI and runtime evidence are unaffected. This is a
+named follow-up, not an extra automatically authorized increment.

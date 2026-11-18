@@ -4359,3 +4359,100 @@ actual STF/proving/rollback implementation, consensus or client correspondence.
 No natural protocol defect is established by this audit. The retained notes,
 32 config/model pins and provenance distinctions are enumerated in the guide
 and manifest; immutable local review reports remain alongside the plan ledger.
+
+## N01–N05 accumulated final gate and retrospective
+
+All five selected increments and the independent accumulated source/raw gates
+are complete. The final consolidated correction is `033f4b6eee19afecd2e0857733797069251849bc`; it was read back
+at the existing OPEN/DRAFT PR before this closing record. No additional increment,
+merge, readiness change or production/SPEC/Notion/live action is authorized.
+
+The most-capable independent whole-batch review found two further P2 defects
+in evidence acceptance. First, both Go smoke admission and the Solidity runner's
+stock evidence consumer checked the original staged files but did not require
+the two effective module files used by `-modfile`. Correct pre/post records
+were present in all genuine runs; the readback boundary also admitted mutually
+consistent missing or wrong effective inputs. The repair uses one authoritative
+exact six-entry map, including the pinned module plus its exact replacement,
+for receipt generation and both readback paths. Missing, added and changed map entries
+fail independently of the raw Go verdicts.
+
+Second, N02's native pair collector filtered the full log list to three topics.
+That discarded setup events and could hide an extra Registry event, including
+on the actual same-block source-fault path before the Solidity complete-log
+assertion. The correction validates the entire nine-event native setup prefix
+and exact zero/four-event action suffix. Only after validation does it retain
+the established selected summary. Extra, missing and reordered formerly ignored
+events are rejected in normal and fault records. Legitimate existing native
+receipts retain their outcomes; N03/N04 already compare complete arrays.
+
+Independent RED probes reproduced both gaps at the previous head and distinct
+negative/positive readbacks verify the repair. The same source reviewer rechecked
+the consolidated correction; the independent behavioral auditor rechecked the
+actual retained original/fault/restored records and corrective regressions.
+All important findings are addressed. One nonblocking P3 remains explicitly deferred: the new shared test helper
+imports under documented unittest discovery, while the conventional dotted
+`-m unittest formal.etna.tests.test_registry_cases` invocation fails at import.
+The predecessor's dotted invocation passed; the documented Registry/Comet
+discovery commands and local CI test suites pass. This is a test invocation convenience regression,
+with no runtime or evidence effect. It is retained for follow-up after the sole
+final correction wave, and no second wave starts automatically.
+
+The bounded abrupt-between-phases private
+snapshot cleanup limitation remains documented: no PASS or canonical-source
+mutation follows from interruption, and an unfinished output cannot be reused.
+
+Fresh root ordinary Python is **313** tests (127/166/20),
+zero failures/errors/skips. The exact archive checker and focused publication
+checks pass after X01 status and link updates. The separately retained hosted
+run 44235324891 at N04 publication 48718f504 passed all 10 job steps. Its downloaded
+artifact SHA-256 is `a996d04fbf74fa998b01cf676b08610c1e7256e07f1488898fa8ef30162e4c4f`.
+The independent auditor read all 493 actual TLC logs: 133 completed positive
+searches and 360 exact named invariant traces, with positive counters and
+terminal completion. All 493 configs, 27 current models and pinned jar match
+this batch's unchanged executable authority. These are re-audited hosted results,
+not a new local 493 run or a fresh execution of the historical 80 source-control
+inventory. Current publication CI is separately read back and never inferred
+from an older successful head. Rules markers 640/live index 640/retired 28,
+assets, links and tables pass; migration purity remains an optional separate
+check, distinct from the zero Python skips.
+
+All 682 baseline files outside the four shared Markdown records are byte-identical,
+including 636 executable/data/module inputs and every archive config, model and
+historical note. Public projections and source/tool pins remain unchanged.
+The native evidence is separately attributed: N01's 45 leaves/23 genuine public
+wire checks; N02's 42 leaves/23 Go-byte comparisons; N03's 16 actions/23 logs; and
+N04's two leaves/seven actions with all 8192 admission cells. Original, actual
+source-control and restored results remain individually identified in the prior
+reports and raw audit. Changed receipt validation is freshly verified against
+these real records; it does not claim another execution of their native programs.
+All 19 archived searches remain INCONCLUSIVE. X01 is COMPLETE for disposition
+only; C01/R01/P01 remain OPEN and F01/Q02 remain WAITING.
+
+| Independent final record                             | SHA-256                                                            |
+| ---------------------------------------------------- | ------------------------------------------------------------------ |
+| Whole-batch source review before correction          | `fcdec841670d5253c08d643410e608ddcfa40a87ceba2c43c4618b5211a045bc` |
+| Scoped consolidated correction review                | `e62b097b073a36d65c95c57d11a5e87efc8939c79cd4461ba0857697b3eec189` |
+| Behavioral/raw artifact audit and correction recheck | `2291e114dfc47eff86540eb0b9f7f4b3e910dc0538471aaeb495b128c11a8048` |
+
+Self-checks missed these defects because accepting genuine positive runs did not
+exercise incorrect but internally consistent input records, and selected-event
+projection erased evidence before comparison. Earlier N01/N02 input aliases and
+N05 provenance rebinding had the same shared-assumption weakness. The missed
+N01-to-N02 pin dependency also showed that a coherent local component is not a
+complete integration check. Independent source inspection, altered real records,
+whole-array comparisons and affected consumer checks now cover the specific
+failures; they do not prove the remaining protocol or checker has no defects.
+No independently confirmed natural protocol defect is established in this batch.
+
+The overall estimate remains about 50 percent engineering progress, not measured
+test coverage. The 30 unequal remaining-obligation rows now comprise 5 COMPLETE,
+7 OPEN and 18 WAITING. Full client/EL/guest/provider correspondence, complete
+consensus/committee operation, real proving/backpressure measurement, recovery,
+deployment and broader interleavings remain substantial. Prior read-only
+infra PR51 context only establishes merged multi-GPU test configuration changes;
+it contains no measured proving latency result and closes no P02 acceptance.
+
+The five-increment batch stops here. Preserve the existing draft, worktree and
+raw ledger. Hourly checks continue in feedback-only mode; another group needs
+direct user authorization.

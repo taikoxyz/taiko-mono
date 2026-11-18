@@ -104,8 +104,8 @@
 
 ## Root-owned final gate (part of these five)
 
-- [ ] Recheck feedback/head/base/CI first; fix confirmed in-scope feedback before advancing.
-- [ ] Review complete base-to-head diff, preserve baseline executable hashes; fresh affected Python/native/Forge gates and ordinary exact493 TLC/default regressions where justified by shared documentation/catalog integration. Do not silently claim historical80 mutation results as fresh.
-- [ ] Independent most-capable whole-diff source review and independent behavioral/raw-artifact audit; one final fix wave, retained failures/restoration. Verify source manifests, public projection mounts, all exact identities and current plan/checklist state.
-- [ ] Synchronize REPORT/WORKLIST/README/catalog as actually required; verify formatting, links and completed checkbox evidence. Commit/push normally to existing draft branch only, read back exact head/draft/CI and authorized issue/PR bodies. No merge/ready.
-- [ ] Mark all five complete only after evidence/review/publication; retain this plan's ignored ledger/raws. Return hourly monitoring to feedback-only and report progress estimate with scope/limits and all root rulings/costs.
+- [x] Recheck feedback/head/base/CI first; fix confirmed in-scope feedback before advancing.
+- [x] Review complete base-to-head diff, preserve baseline executable hashes; fresh affected Python/native/Forge gates and ordinary exact493 TLC/default regressions where justified by shared documentation/catalog integration. Do not silently claim historical80 mutation results as fresh.
+- [x] Independent most-capable whole-diff source review and independent behavioral/raw-artifact audit; one final fix wave, retained failures/restoration. Verify source manifests, public projection mounts, all exact identities and current plan/checklist state.
+- [x] Synchronize REPORT/WORKLIST/README/catalog as actually required; verify formatting, links and completed checkbox evidence. Commit/push normally to existing draft branch only, read back exact head/draft/CI and authorized issue/PR bodies. No merge/ready.
+- [x] Mark all five complete only after evidence/review/publication; retain this plan's ignored ledger/raws. Return hourly monitoring to feedback-only and report progress estimate with scope/limits and all root rulings/costs.

@@ -793,6 +793,7 @@ The [19 archived dispositions](ARCHIVED_DISPOSITION.md) close X01's acceptance
 review only. Every search remains INCONCLUSIVE, with missing products and named
 open obligations preserved. No historical model/config/note bytes change.
 The [current worklist](WORKLIST.md#active-n01n05-public-consumer-batch) and
-[report](REPORT.md#n05-exact-archived-disposition-acceptance) track the accumulated
-final gate separately. Full consensus, concrete client/EL/guest/proving, real
-Inbox/token/deployment, capacity and arbitrary lifecycle products remain open.
+[report](REPORT.md#n05-exact-archived-disposition-acceptance) track the
+[completed final gate](REPORT.md#n01n05-accumulated-final-gate-and-retrospective),
+including the final independent evidence-consumer corrections. Full consensus,
+concrete client/EL/guest/proving, real Inbox/token/deployment, capacity and arbitrary lifecycle products remain open.
