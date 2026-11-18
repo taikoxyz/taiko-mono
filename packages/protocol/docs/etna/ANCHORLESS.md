@@ -57,12 +57,12 @@ There is no new system call into the `SignalService`, no synthetic receipt and n
 
 L1 and L2 use the same `SignalService` contract code and storage layout. The `SignalService` resolves every root itself and calls no other contract to do so: from its own checkpoint store, or on L2 from the fork on, from EIP-4788. One immutable, `beaconRootsFrom`, selects the root source and also closes the checkpoint store, so the L2 fork boundary lives in the contract that holds the checkpoints.
 
-| Immutable configuration | L1        | L2                                                                                 |
-| ----------------------- | --------- | ---------------------------------------------------------------------------------- |
-| `_authorizedSyncer`     | EtnaInbox | `Anchor` proxy                                                                     |
-| `beaconRootsFrom`       | `0`       | `ETNA_FORK_TIME` on a switching network; the L2 genesis timestamp on a new network |
+| Immutable configuration | L1        | L2                                                                                       |
+| ----------------------- | --------- | ---------------------------------------------------------------------------------------- |
+| `_authorizedSyncer`     | EtnaInbox | `Anchor` proxy                                                                           |
+| `beaconRootsFrom`       | `0`       | `ETNA_FORK_TIME` on a switching network; `max(1, L2 genesis timestamp)` on a new network |
 
-These values are fixed at implementation deployment, with no setter or automatic detection. Zero keeps the checkpoint store as the only root source, as on L1. On L2 the value is the fork time: from it on, the `SignalService` accepts no checkpoint and resolves roots only through EIP-4788. Every `SignalService` has one syncer and reads no Inbox state; on a switching L1 the Unzen Inbox's final checkpoints reach it through the EtnaInbox ([SWITCH.md](SWITCH.md#3-the-dao-proposal)).
+These values are fixed at implementation deployment, with no setter or automatic detection. Zero keeps the checkpoint store as the only root source, as on L1, so a new network whose L2 genesis timestamp is zero uses 1; every later block's timestamp is at least its parent's plus one ([SPEC.md CONS-3.2-3](SPEC.md#32-block-header)), so it is on the EIP-4788 path. On L2 the value is the fork time: from it on, the `SignalService` accepts no checkpoint and resolves roots only through EIP-4788. Every `SignalService` has one syncer and reads no Inbox state; on a switching L1 the Unzen Inbox's final checkpoints reach it through the EtnaInbox ([SWITCH.md](SWITCH.md#3-the-dao-proposal)).
 
 ```solidity
 // Shared SignalService; assigned by the constructor.
