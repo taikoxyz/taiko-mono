@@ -284,5 +284,9 @@ input binding and an independent payout fault. Its
 [report](REPORT.md#n02-actual-signed-evidence-and-input-binding) records the
 selected 42-case scope and documented private-cancellation limit. R01 stays OPEN
 and E01 stays WAITING for the larger lifecycle/consumer obligations.
+External N01 review also identified equal-outcome input aliasing. The
+[reviewed repair](REPORT.md#n01-feedback-repair-bind-actual-native-inputs)
+binds actual native verification contexts and both submitted replay signatures;
+independent domain and height aliases pass Go but are refused by the collector.
 N03–N05 and the accumulated final gate remain unfinished. Stop after five,
 preserve historical evidence and keep feedback first.

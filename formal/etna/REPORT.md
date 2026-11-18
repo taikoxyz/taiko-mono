@@ -4134,3 +4134,51 @@ No natural protocol defect was established. The unchanged model/default and
 shared inventory evidence remain separately attributed; hosted N01 job
 44213808947 at 6aa1cab2a completed successfully with exact-head/job-step readback,
 without a deep audit of its hosted archives in this check.
+
+## N01 feedback repair: bind actual native inputs
+
+External review of `b9240431` found that the N01 wrong-generation and wrong-Inbox
+refusals had identical outcome-only receipts. H/R/type refusals also omitted
+the attempted fields, and replay observed the second BlockID without identifying
+its submitted signature. The earlier actual-source faults established sensitivity
+to changed consumer logic but did not establish sensitivity to changed inputs
+with equal outcomes. The input-binding lesson from N02 had not been propagated
+back to N01 before publication. This is a verification defect, with no production
+or normative protocol change.
+
+Repair `894279273e3e69a82e2bc17734de0edff3c4afc9` binds the actual API inputs:
+verification chain, submitted height/round/type/index/address, SHA256 of canonical
+sign bytes and exact signature. Original and matching VoteSets, both replay
+operands, the occupied commit signature slot and verifier target, and the POL
+submissions retain distinct observations. The 23 wire cases retain full public
+bytes and gain actual metadata. All 45 original outcomes remain unchanged.
+Expected fields were frozen independently from named public vectors and a
+separate protobuf encoder before execution; both independent gates reproduced
+all 23 public byte strings and every new field across the other 22 leaves.
+
+Fresh original/threshold-fault/restored execution produces 45 passes, exactly
+44 passes plus the intended threshold failure, then 45 passes. The author's
+private harness changes the generation case to exercise the Inbox domain: all
+45 native leaves pass, while the collector rejects the exact mislabeled case.
+A separate independent harness changes the height refusal's submitted value
+from 1001 to 1002. All 45 native leaves still pass, but the collector rejects
+`vote-height`; the other 44 receipts remain identical. Ten independent actual-log
+substitutions, including second signature/digest replacements on the same-block
+replay, are refused. The 11 focused and 59 legacy Python regressions pass.
+Source review and independent behavior verification pass with no open findings.
+The original 1,659-file source, private restoration and physical lock are verified.
+
+| Retained artifact               | SHA256                                                             |
+| ------------------------------- | ------------------------------------------------------------------ |
+| Corrected full campaign summary | `469aba5feda8a778e4ed70573df6d2ddc77e6a1f5ff6627aa6eca3032112a5f4` |
+| Independent height-alias raw    | `d900c7efdc6fc115d267e55532aff951f04a810723c5e02ca379d509e1c9fc4c` |
+| Independent identity/raw audit  | `ea35fb7fe35dcf840fe62da978decd8cf1ceba565b09b6da4157a1153c5763dc` |
+| Independent source review       | `3728b2f19e092a57aa482265110c96c077df9bde145344243ea7a6c086ec63c0` |
+| Independent behavior report     | `7accd06470fd47f4373ac443040cb04e6af8a3c46feb268b384904d943a96a8e` |
+
+This repairs the selected N01 evidence. It adds no sixth increment and leaves
+N03–N05 plus final accumulated gates unfinished. Prior native logs are retained
+under their original, narrower attribution. Existing synthetic-validator and
+offline-cache premises and full consensus/client/EL/proving limits remain.
+Hosted run 44224189515 passed every job/step at the earlier `b9240431` head;
+that status is not evidence for this later repair until its own CI is read back.
