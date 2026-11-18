@@ -11,6 +11,8 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
+from test_comet_signed import input_map_mutations, signed_execution_record
+
 ROOT = Path(__file__).resolve().parents[1] / "conformance"
 SPEC = importlib.util.spec_from_file_location("etna_registry_cases", ROOT / "run_registry_cases.py")
 CASES = importlib.util.module_from_spec(SPEC)
@@ -117,13 +119,6 @@ class ForgeBoundary(unittest.TestCase):
                 self.tests[REFUSAL] = row(bytes(CASES.PAIR_RESULT_BYTES) + binding)
                 self.check()
 
-    def test_native_token_emitter_cannot_be_substituted_consistently(self):
-        address = "0x" + "88" * 20
-        logs = [{"address": address, "topics": [topic], "data": "0x"}
-                for topic in (CASES.CHECKPOINT_TOPIC, CASES.TRANSFER_TOPIC, CASES.TRANSFER_TOPIC)]
-        with self.assertRaisesRegex(ValueError, "wrong token emitter"):
-            CASES.require_pair_logs(logs, bytes(32), bytes(32), None)
-
     def test_forge_allows_empty_data_for_indexed_only_events(self):
         log = {"address": EMITTER, "topics": [CASES.RECEIPT_TOPIC], "data": "0x"}
         CASES.validate_native_logs([log])
@@ -173,6 +168,128 @@ class ForgeBoundary(unittest.TestCase):
         CASES.require_hash(fixture, "34932f8ddf991ae41eb1be94c873e99524f51cf96d427faed4a1bfc443dc960e")
         with self.assertRaisesRegex(ValueError, "hash"):
             CASES.require_hash(fixture, "0" * 64)
+
+
+class StockEvidence(unittest.TestCase):
+    def test_stock_comparison_requires_exact_executed_build_maps(self):
+        pins = CASES.STOCK.strict_json((ROOT / "comet_signed/pins.json").read_bytes())
+        expected = {"precommit_a": {"signBytes": "0x1234"}}
+        wire = {"precommit_a": 2}
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "normal"
+            record = signed_execution_record(output, pins, "normal", expected)
+            comparison, _ = CASES.stock_evidence(output, pins, expected, wire)
+            self.assertEqual(comparison, {"test_wire_precommit_a()": "0x1234"})
+            for mutation, hashes in input_map_mutations(record["executedInputsBefore"]):
+                with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                    (output / "execution.json").write_text(json.dumps(record | {
+                        "executedInputsBefore": hashes, "executedInputsAfter": hashes,
+                    }))
+                    CASES.stock_evidence(output, pins, expected, wire)
+
+
+class PairNativeLogs(unittest.TestCase):
+    def setUp(self):
+        self.pins = CASES.EXEC.read_json(CASES.PIN_PATH)
+        self.pre = bytes.fromhex(self.pins["effects"]["preRoot"][2:])
+        self.post = bytes.fromhex(self.pins["effects"]["postRoot"][2:])
+        self.event = self.pins["pairs"]["precommit_conflict"]["event"]
+        # The two lanes share the first registration, independently pinned in N04.
+        register = self.pins["atomicity"]["test_register_allowance_rollback_and_retry()"]
+        self.setup = [*register["setupLogs"][:7], register["setupLogs"][5], {
+            "address": "0x" + "22" * 20,
+            "topics": ["0x784a6d56e445d4ededf7abef18f427bf7500a6296ef170b71109d09ce6eae57a",
+                       "0x" + "00" * 32],
+            "data": "0x" + format(4, "064x") + format(14, "064x"),
+        }]
+        checkpoint, payment = self.setup[4:6]
+        slash = {
+            "address": "0x" + "22" * 20,
+            "topics": ["0x2ba37af98a310ee7f58eada0f1ee56a60eaf088d2a320ab8c63fb2ad4c804330",
+                       "0x" + "00" * 32, "0x" + format(0x4444, "064x")],
+            "data": "0x" + "".join(format(value, "064x") for value in (8, 2, 0, 1000, 0, 2)),
+        }
+        self.suffix = [
+            checkpoint | {"topics": [checkpoint["topics"][0], "0x" + format(1, "064x")],
+                          "data": "0x" + format(13, "064x") + format(1, "064x") + self.post.hex()},
+            *(payment | {"topics": [payment["topics"][0], "0x" + PROXY.hex(), "0x" + format(payee, "064x")],
+                         "data": "0x" + format(amount, "064x")}
+              for payee, amount in ((0x4444, 2), (0x5555, 6))),
+            slash,
+        ]
+
+    def check(self, logs, phase):
+        name = "precommit_conflict" if phase == "slash" else "same_block_later_time"
+        leaf = f"test_pair_{name}()"
+        case = self.pins["pairs"][name]
+        calldata = b"\x12\x34\x56\x78"
+        failure = None
+        if phase == "fault":
+            failure = (leaf, CASES.FAULT_DIAGNOSTIC,
+                       lambda observed: CASES.require_pair_logs(observed, self.pre, self.post, self.event))
+            native = row(None, reason=failure[1])
+            native["logs"] = logs
+        else:
+            success = phase == "slash"
+            selectors = self.pins["selectors"]
+            selector = lambda name: bytes.fromhex(selectors[name][2:]).ljust(32, b"\0")
+            before, after = CASES.word(1), CASES.word(2 if success else 1)
+            payload = b"".join([
+                PROXY, PROXY, bytes(32) if success else selector(case["result"]),
+                selector("NothingToSlash" if success else case["result"]),
+                CASES.word(case["currentGeneration"]), before, after, after, self.pre,
+                self.post if success else self.pre,
+                *map(CASES.word, self.pins["effects"]["slashed" if success else "before"]),
+            ])
+            native = row(payload + CASES.pair_binding(name, calldata))
+            native["logs"][0:0] = logs
+
+        raw = json.dumps({CASES.SUITE: dict(duration="2ms", test_results={leaf: native})})
+        expected = {leaf: lambda receipt, observed: CASES.pair_receipt(
+            receipt, observed, case, self.pins, name, calldata)}
+        return CASES.require_forge_outcomes(raw, int(failure is not None), CASES.SUITE,
+                                           expected, failure=failure)[leaf]
+
+    def test_complete_logs_preserve_selected_summary(self):
+        selected_setup = [self.setup[index] for index in (4, 5, 7)]
+        self.assertEqual(self.check(self.setup, "refusal")["actionLogs"], selected_setup)
+        self.assertEqual(self.check(self.setup + self.suffix, "slash")["actionLogs"],
+                         selected_setup + self.suffix)
+        self.assertEqual(self.check(self.setup + self.suffix, "fault"),
+                         dict(status="Failure", reason=CASES.FAULT_DIAGNOSTIC))
+
+    def test_previously_ignored_events_are_bound_on_refusal_slash_and_fault(self):
+        registration = self.setup[6]
+        for phase in ("refusal", "slash", "fault"):
+            suffix = [] if phase == "refusal" else self.suffix
+            logs = self.setup + suffix
+            changes = {
+                "omitted Registered": logs[:6] + logs[7:],
+                "extra Registered after setup": self.setup + [registration] + suffix,
+                "reordered Registered": logs[:6] + [logs[7], registration] + logs[8:],
+                "wrong Registered address": logs[:6] + [registration | {"address": EMITTER}] + logs[7:],
+                "wrong Registered data": logs[:6] + [registration | {"data": "0x"}] + logs[7:],
+                "wrong Registered topics": logs[:6] + [registration | {
+                    "topics": registration["topics"][:2] + list(reversed(registration["topics"][2:])),
+                }] + logs[7:],
+                "omitted TopUpDeposited": logs[:8] + logs[9:],
+                "extra unknown event": logs + [registration | {"topics": []}],
+            }
+            for mutation, changed in changes.items():
+                with self.subTest(phase=phase, mutation=mutation), self.assertRaises(ValueError):
+                    self.check(changed, phase)
+
+    def test_action_suffix_has_exact_values_order_and_count(self):
+        other_emitter = self.suffix[1] | {"address": EMITTER}
+        changes = (self.suffix[:-1], self.suffix + self.suffix[:1],
+                   [self.suffix[0], self.suffix[2], self.suffix[1], self.suffix[3]],
+                   [self.suffix[0], other_emitter, *self.suffix[2:]])
+        for phase in ("slash", "fault"):
+            for index, changed in enumerate(changes):
+                with self.subTest(phase=phase, mutation=index), self.assertRaises(ValueError):
+                    self.check(self.setup + changed, phase)
+        with self.assertRaises(ValueError):
+            self.check(self.setup + [native_log(PAYLOAD)] + self.suffix, "fault")
 
 
 class Restoration(unittest.TestCase):

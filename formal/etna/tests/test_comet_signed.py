@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import stat
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -13,6 +14,78 @@ ROOT = Path(__file__).resolve().parents[1] / "conformance"
 SPEC = importlib.util.spec_from_file_location("etna_comet_signed", ROOT / "run_comet_signed.py")
 SIGNED = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SIGNED)
+
+
+def signed_stream(expected, fail=False, split_receipt=False):
+    leaf = SIGNED.PARENT + "/" + next(iter(expected))
+    status = "fail" if fail else "pass"
+    rows = []
+
+    def append(action, name=None, payload=None, kind=None):
+        item = {"Package": SIGNED.PACKAGE, "Action": action}
+        if name is not None:
+            item["Test"] = name
+        if payload is not None:
+            item["Output"] = payload
+        if kind is not None:
+            item["OutputType"] = kind
+        rows.append(item)
+
+    append("start")
+    append("run", SIGNED.PARENT)
+    append("output", SIGNED.PARENT, "=== RUN   " + SIGNED.PARENT + "\n", "frame")
+    append("run", leaf)
+    append("output", leaf, "=== RUN   " + leaf + "\n", "frame")
+    receipt = "    signed_test.go:12: receipt=" + json.dumps(next(iter(expected.values()))) + "\n"
+    size = SIGNED.GO_OUTPUT_BUFFER if split_receipt else len(receipt)
+    for offset in range(0, len(receipt), size):
+        append("output", leaf, receipt[offset:offset + size])
+    if fail:
+        append("output", leaf, "    signed_test.go:13: " + SIGNED.FAULT_DIAGNOSTIC + "\n", "error")
+    for name in (leaf, SIGNED.PARENT):
+        append("output", name, f"--- {status.upper()}: {name} (0.00s)\n", "frame")
+        append(status, name)
+    append("output", payload=status.upper() + "\n", kind="frame")
+    prefix = "FAIL\t" if fail else "ok  \t"
+    append("output", payload=f"{prefix}{SIGNED.PACKAGE}\t0.001s\n", kind="frame" if fail else None)
+    append(status)
+    return rows
+
+
+def executed_input_hashes(pins):
+    # Effective module bytes and fixture identities read back from genuine Go records.
+    return {f"inputs/{name}": digest for name, digest in pins["inputsSha256"].items()} | {
+        "modfiles/go.mod": "ce9bc5560e8aa13e0043832ca34619e6fa9596127ae2ad9c2b51913f4ea91059",
+        "modfiles/go.sum": "f79af3ec03edcbd7f173a87cca9318677d139fda4f3cb629873546b3ec71842a",
+    }
+
+
+def input_map_mutations(hashes):
+    for name in hashes:
+        yield f"missing {name}", {key: digest for key, digest in hashes.items() if key != name}
+        yield f"changed {name}", hashes | {name: "0" * 64}
+    yield "extra path", hashes | {"modfiles/unexpected": "1" * 64}
+
+
+def signed_execution_record(directory, pins, phase, expected):
+    raw = "\n".join(map(json.dumps, signed_stream(expected))).encode()
+    snapshot = dict(commit=pins["source"]["commit"], files=pins["source"]["files"],
+                    status="INPUTS_VERIFIED")
+    executed = executed_input_hashes(pins)
+    selected_filter = f"^{SIGNED.PARENT}$"
+    if phase == "smoke":
+        selected_filter += f"/^{SIGNED.SMOKE}$"
+    record = dict(
+        phase=phase, timedOut=False, combinedOutputSha256=SIGNED.COMET.digest(raw),
+        toolsSha256=pins["goToolSha256"], selectedFilter=selected_filter,
+        sourceBefore=snapshot, sourceAfter=snapshot, returncode=0,
+        executedInputsBefore=executed, executedInputsAfter=executed,
+        outcomes={f"{SIGNED.PARENT}/{name}": "pass" for name in expected},
+    )
+    directory.mkdir()
+    (directory / "combined.log").write_bytes(raw)
+    (directory / "execution.json").write_text(json.dumps(record))
+    return record
 
 
 class SignedBoundary(unittest.TestCase):
@@ -45,48 +118,13 @@ class SignedBoundary(unittest.TestCase):
                     changed["voteCases"][0]["vote"]["generation"] = "1"
                 SIGNED.load_projection(json.dumps(changed).encode())
 
-    def stream(self, expected, fail=False, split_receipt=False):
-        leaf = SIGNED.PARENT + "/" + next(iter(expected))
-        status = "fail" if fail else "pass"
-        rows = []
-
-        def append(action, name=None, payload=None, kind=None):
-            item = {"Package": SIGNED.PACKAGE, "Action": action}
-            if name is not None:
-                item["Test"] = name
-            if payload is not None:
-                item["Output"] = payload
-            if kind is not None:
-                item["OutputType"] = kind
-            rows.append(item)
-
-        append("start")
-        append("run", SIGNED.PARENT)
-        append("output", SIGNED.PARENT, "=== RUN   " + SIGNED.PARENT + "\n", "frame")
-        append("run", leaf)
-        append("output", leaf, "=== RUN   " + leaf + "\n", "frame")
-        receipt = "    signed_test.go:12: receipt=" + json.dumps(next(iter(expected.values()))) + "\n"
-        size = SIGNED.GO_OUTPUT_BUFFER if split_receipt else len(receipt)
-        for offset in range(0, len(receipt), size):
-            append("output", leaf, receipt[offset:offset + size])
-        if fail:
-            append("output", leaf, "    signed_test.go:13: " + SIGNED.FAULT_DIAGNOSTIC + "\n", "error")
-        for name in (leaf, SIGNED.PARENT):
-            append("output", name, f"--- {status.upper()}: {name} (0.00s)\n", "frame")
-            append(status, name)
-        append("output", payload=status.upper() + "\n", kind="frame")
-        prefix = "FAIL\t" if fail else "ok  \t"
-        append("output", payload=f"{prefix}{SIGNED.PACKAGE}\t0.001s\n", kind="frame" if fail else None)
-        append(status)
-        return rows
-
     def parse(self, rows, expected, phase, returncode):
         raw = "\n".join(json.dumps(row) for row in rows).encode()
         return SIGNED.require_go_outcomes(raw, returncode, phase, expected)
 
     def test_exact_native_lifecycle(self):
         expected = {"precommit_a": {"verified": True}}
-        rows = self.stream(expected)
+        rows = signed_stream(expected)
         self.assertEqual(len(self.parse(rows, expected, "smoke", 0)), 1)
         for changed in (rows[:8] + rows[9:], rows + [rows[-1]], rows[:4] + rows[5:],
                         rows[:4] + [dict(rows[4], Test="unexpected")] + rows[5:],
@@ -112,15 +150,15 @@ class SignedBoundary(unittest.TestCase):
                 with self.subTest(name=name, other=other):
                     target = {name: expected[name]}
                     identity = SIGNED.PARENT + "/" + name
-                    self.assertEqual(self.parse(self.stream(target, split_receipt=True), target, "normal", 0),
+                    self.assertEqual(self.parse(signed_stream(target, split_receipt=True), target, "normal", 0),
                                      {identity: "pass"})
-                    alias = self.stream({name: expected[other]}, split_receipt=True)
+                    alias = signed_stream({name: expected[other]}, split_receipt=True)
                     with self.assertRaisesRegex(ValueError, "wrong native observation for " + identity):
                         self.parse(alias, target, "normal", 0)
 
     def test_fragmented_receipt_stays_in_the_exact_leaf(self):
         expected = {"pol-above": {"block": "ab" * 650}}
-        rows = self.stream(expected)
+        rows = signed_stream(expected)
         payload = rows[5]["Output"]
         chunks = [dict(rows[5], Output=payload[:1024]), dict(rows[5], Output=payload[1024:])]
         fragmented = rows[:5] + chunks + rows[6:]
@@ -140,7 +178,7 @@ class SignedBoundary(unittest.TestCase):
 
     def test_pinned_output_type_is_required_for_errors_and_frames(self):
         expected = {SIGNED.FAULT_LEAF: {"commit": "accept"}}
-        rows = self.stream(expected, fail=True)
+        rows = signed_stream(expected, fail=True)
         for index in (2, 6, len(rows) - 2):
             with self.subTest(event=rows[index]["OutputType"]), self.assertRaises(ValueError):
                 changed = copy.deepcopy(rows)
@@ -153,12 +191,12 @@ class SignedBoundary(unittest.TestCase):
 
     def test_each_receipt_event_has_the_pinned_byte_limit(self):
         expected = {"pol-above": {"block": "a" * 1265}}
-        rows = self.stream(expected)
+        rows = signed_stream(expected)
         self.assertEqual(len(rows[5]["Output"].encode()), 1310)
         with self.assertRaises(ValueError):
             self.parse(rows, expected, "normal", 0)
         expected = {"pol-above": {"block": "ab" * 1100}}
-        rows = self.stream(expected)
+        rows = signed_stream(expected)
         payload = rows[5]["Output"]
         chunks = [dict(rows[5], Output=payload[:1024]), dict(rows[5], Output=payload[1024:])]
         self.assertGreater(len(chunks[-1]["Output"].encode()), 1024)
@@ -167,7 +205,7 @@ class SignedBoundary(unittest.TestCase):
 
     def test_elapsed_is_only_a_nonnegative_finite_terminal_duration(self):
         expected = {"precommit_a": {"verified": True}}
-        rows = self.stream(expected)
+        rows = signed_stream(expected)
         for index, duration in ((0, 0), (0, "overflow"), (5, 0.02), (7, -0.2), (7, "overflow")):
             with self.subTest(index=index, duration=duration), self.assertRaises(ValueError):
                 changed = copy.deepcopy(rows)
@@ -178,7 +216,7 @@ class SignedBoundary(unittest.TestCase):
 
     def test_wrong_fault_diagnostic_and_unrelated_output_refused(self):
         expected = {SIGNED.FAULT_LEAF: {"commit": "accept"}}
-        rows = self.stream(expected, fail=True)
+        rows = signed_stream(expected, fail=True)
         self.assertEqual(len(self.parse(rows, expected, "mutant", 1)), 1)
         fault = 6
         for changed in (rows[:fault] + rows[fault+1:],
@@ -187,6 +225,52 @@ class SignedBoundary(unittest.TestCase):
                         rows[:fault] + [dict(rows[fault], OutputType="")] + rows[fault+1:]):
             with self.assertRaises(ValueError):
                 self.parse(changed, expected, "mutant", 1)
+
+    def test_smoke_requires_exact_executed_build_maps(self):
+        pins = SIGNED.strict_json((ROOT / "comet_signed/pins.json").read_bytes())
+        expected = {SIGNED.SMOKE: {"verified": True}}
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            record = signed_execution_record(output / "smoke", pins, "smoke", expected)
+            self.assertEqual(SIGNED.validate_smoke(output, expected, pins)["rawSha256"],
+                             record["combinedOutputSha256"])
+            for mutation, hashes in input_map_mutations(record["executedInputsBefore"]):
+                with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                    record_path = output / "smoke/execution.json"
+                    record_path.write_text(json.dumps(record | {
+                        "executedInputsBefore": hashes, "executedInputsAfter": hashes,
+                    }))
+                    SIGNED.validate_smoke(output, expected, pins)
+
+    def test_trial_refuses_corrupt_effective_module_before_execution(self):
+        pins = SIGNED.strict_json((ROOT / "comet_signed/pins.json").read_bytes())
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            private = root / "upstream"
+            private.mkdir()
+            args = SimpleNamespace(output=root / "output", go_root=root / "go",
+                                   module_cache=root / "modules", build_cache=root / "cache",
+                                   timeout=60)
+            sample = private / "fixture"
+            sample.write_bytes(b"source")
+            manifest = dict(schema="etna-source-snapshot-1", commit=pins["source"]["commit"],
+                            files={sample.name: SIGNED.COMET.file_entry(sample.read_bytes())})
+            target = args.output / "smoke/modfiles/go.mod"
+            write_bytes = Path.write_bytes
+
+            def corrupt_module(path, data):
+                if path == target:
+                    data = data.replace(b"/tmp/upstream", b"/tmp/unreviewed")
+                return write_bytes(path, data)
+
+            expected = {SIGNED.SMOKE: {"verified": True}}
+            completed = dict(output="\n".join(map(json.dumps, signed_stream(expected))),
+                             supervisor_argv=[], returncode=0, timeout=False, seconds=0)
+            with patch.object(Path, "write_bytes", corrupt_module), patch.object(
+                    SIGNED.COMET.EXECUTION, "execute", return_value=completed) as execute:
+                with self.assertRaisesRegex(ValueError, "executed inputs changed"):
+                    SIGNED.trial("smoke", private, manifest, args, pins, {}, {}, expected)
+                execute.assert_not_called()
 
     def test_frozen_input_drift_and_missing_file(self):
         with tempfile.TemporaryDirectory() as directory:

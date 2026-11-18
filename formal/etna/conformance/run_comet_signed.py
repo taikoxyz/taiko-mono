@@ -39,6 +39,7 @@ FAULT_BEFORE = (
 )
 FAULT_AFTER = FAULT_BEFORE.replace(b"got <= needed", b"got < needed")
 BUILD_FILES = ("go.mod", "go.sum", "public-votes.json", "signed_test.go")
+GO_MOD_REPLACEMENT = b"\nreplace github.com/cometbft/cometbft => /tmp/upstream\n"
 PROVENANCE = {
     "commit": "89f419915de4b73bb57c53bf970f6dea9e8e8c8c",
     "path": "testdata/etna_vectors/vectors.json",
@@ -420,6 +421,27 @@ def isolation_command(trial, private, args, parent_filter):
     return command
 
 
+def effective_go_mod(pins):
+    original = (FIXTURE / "go.mod").read_bytes()
+    if COMET.digest(original) != pins["inputsSha256"]["go.mod"]:
+        raise ValueError("original Go module input changed")
+    return original + GO_MOD_REPLACEMENT
+
+
+def expected_executed_inputs(pins):
+    original = pins["inputsSha256"]
+    return {f"inputs/{name}": original[name] for name in BUILD_FILES} | {
+        "modfiles/go.mod": COMET.digest(effective_go_mod(pins)),
+        "modfiles/go.sum": original["go.sum"],
+    }
+
+
+def require_executed_inputs(record, pins):
+    expected = expected_executed_inputs(pins)
+    if record.get("executedInputsBefore") != expected or record.get("executedInputsAfter") != expected:
+        raise ValueError("wrong executed Go input hashes")
+
+
 def trial(phase, private, manifest, args, pins, watched, tools, expected):
     require_stable(watched | tools, "runner, public inputs or Go toolchain")
     commit = pins["source"]["commit"]
@@ -430,14 +452,11 @@ def trial(phase, private, manifest, args, pins, watched, tools, expected):
     (directory / "inputs").mkdir()
     for name in BUILD_FILES:
         shutil.copyfile(FIXTURE / name, directory / "inputs" / name)
-    original = {directory / "inputs" / name: pins["inputsSha256"][name] for name in BUILD_FILES}
-    require_stable(original, "staged public/build inputs")
-    mod = directory / "modfiles/go.mod"
-    mod.write_bytes((directory / "inputs/go.mod").read_bytes() +
-                    b"\nreplace github.com/cometbft/cometbft => /tmp/upstream\n")
-    mod_sum = directory / "modfiles/go.sum"
-    shutil.copyfile(directory / "inputs/go.sum", mod_sum)
-    executed = original | {mod: COMET.digest(mod.read_bytes()), mod_sum: pins["inputsSha256"]["go.sum"]}
+    (directory / "modfiles/go.mod").write_bytes(effective_go_mod(pins))
+    shutil.copyfile(directory / "inputs/go.sum", directory / "modfiles/go.sum")
+    expected_inputs = expected_executed_inputs(pins)
+    executed = {directory / path: digest for path, digest in expected_inputs.items()}
+    require_stable(executed, "executed inputs")
     parent_filter = "^" + PARENT + "$"
     if phase == "smoke":
         parent_filter += "/^" + SMOKE + "$"
@@ -452,12 +471,12 @@ def trial(phase, private, manifest, args, pins, watched, tools, expected):
                      combinedOutputFile=raw_file.name, combinedOutputSha256=COMET.digest(raw),
                      streamsCombined=True, outputDecoding="utf-8-errors-replace", sourceBefore=source_before,
                      toolsSha256=pins["goToolSha256"], selectedFilter=parent_filter,
-                     executedInputsBefore={str(p.relative_to(directory)): h for p, h in executed.items()})
+                     executedInputsBefore=expected_inputs)
     record = directory / "execution.json"
     write_json(record, execution)
     require_stable(watched | tools | executed, "runner, toolchain or executed inputs")
     execution["sourceAfter"] = COMET.verify_snapshot(private, manifest, commit)
-    execution["executedInputsAfter"] = {str(p.relative_to(directory)): h for p, h in executed.items()}
+    execution["executedInputsAfter"] = expected_inputs
     write_json(record, execution)
     if result["timeout"] or result["returncode"] == 125:
         raise ValueError("native timeout or supervisor failure")
@@ -474,11 +493,9 @@ def validate_smoke(path, expected, pins):
     raw = (root / "combined.log").read_bytes()
     if (record["phase"] != "smoke" or record["timedOut"] is not False
             or record["combinedOutputSha256"] != COMET.digest(raw) or record["toolsSha256"] != pins["goToolSha256"]
-            or record["selectedFilter"] != f"^{PARENT}$/^{SMOKE}$"
-            or record["executedInputsBefore"] != record["executedInputsAfter"]
-            or any(record["executedInputsBefore"].get("inputs/" + name) != pins["inputsSha256"][name]
-                   for name in BUILD_FILES)):
+            or record["selectedFilter"] != f"^{PARENT}$/^{SMOKE}$"):
         raise ValueError("invalid or stale genuine smoke record")
+    require_executed_inputs(record, pins)
     source = dict(commit=pins["source"]["commit"], files=pins["source"]["files"], status="INPUTS_VERIFIED")
     if record["sourceBefore"] != source or record["sourceAfter"] != source:
         raise ValueError("smoke source identity differs")

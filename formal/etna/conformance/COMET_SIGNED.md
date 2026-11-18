@@ -80,7 +80,12 @@ smoke directory via `--smoke-output` and a different fresh `--output`.
 The existing isolation launcher and supervisor enforce offline local
 Go resolution, explicit read-only bindings, two writable bindings and
 descendant cleanup. Native source, runtime executable identities, adapter
-and public fixtures are checked before and after each phase.
+and public fixtures are checked before and after each phase. The executed
+input record binds the four staged fixture files and both effective module
+files. The effective `go.mod` is the pinned original plus the fixed replacement
+for the isolated upstream source. The effective `go.sum` retains the pinned
+original bytes. Smoke and downstream Registry admission require both recorded
+maps to match those exact six file hashes.
 
 The profiles describe controlled one-signer API arithmetic outside the
 Etna launch concentration constraint. The 14 pair descriptions and five

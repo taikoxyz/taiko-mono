@@ -41,9 +41,12 @@ collector distinguishes complete values, full suite/leaf identities and exact
 failure reasons and the pinned Forge test deployment emitter. Each pair receipt
 binds its case name and both actual delegated call inputs to the ordered
 signed tuples and bond 0 independently encoded from the named public rows.
-The collector also checks ordered Registry/token action logs against their
-expected emitters, including the token at the test driver's first CREATE. Reverted subcalls are observed with ordered account access
-frames and raw pre/post storage. Recorded logs are local Forge execution traces
+The collector compares the complete native log sequence by emitter, ordered
+topics and data. Each pair has nine setup events, then either four slash events
+or zero refusal events. The targeted source fault requires the same nine setup
+and four slash events with the expected diagnostic and no receipt. Summaries
+retain the checkpoint, transfer and slash logs in `actionLogs`. Reverted subcalls
+are observed with ordered account access frames and raw pre/post storage. Recorded logs are local Forge execution traces
 and can contain attempted events from a reverted path.
 
 Handled exceptions and completed or cooperatively supervised phases enter

@@ -76,6 +76,11 @@ RECEIPT_TOPIC = "0x56d054581a0c654a621e25ad119560579d5348d45a3bb253dee1cddd66a07
 CHECKPOINT_TOPIC = "0x860f60025c4af6e2af507f9d1c36a6a81081a6b4acca489c6904254ddce1caa2"
 TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 SLASH_TOPIC = "0x2ba37af98a310ee7f58eada0f1ee56a60eaf088d2a320ab8c63fb2ad4c804330"
+INITIALIZED_TOPIC = "0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498"
+UPGRADED_TOPIC = "0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b"
+OWNERSHIP_TRANSFERRED_TOPIC = "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0"
+REGISTERED_TOPIC = "0x911415b5bb55ba3a7ab6186cdf67f36e5964f520ae561e164bf4d4b76732440b"
+TOPUP_DEPOSITED_TOPIC = "0x784a6d56e445d4ededf7abef18f427bf7500a6296ef170b71109d09ce6eae57a"
 RESULT_FIELDS = {
     "status", "reason", "counterexample", "logs", "decoded_logs", "kind", "traces",
     "labeled_addresses", "duration", "breakpoints", "gas_snapshots",
@@ -234,14 +239,7 @@ def require_forge_outcomes(raw, returncode, suite, expected, *, failure=None):
 
 
 def require_pair_logs(logs, pre_root, post_root, event):
-    """Independently compare the action log sequence in Forge's native test output."""
-    observed = [log for log in logs if log["topics"] and log["topics"][0] in
-                {CHECKPOINT_TOPIC, TRANSFER_TOPIC, SLASH_TOPIC}]
-    if len(observed) != (7 if event else 3):
-        raise ValueError("pair receipt: wrong count of checkpoint/transfer/slash logs")
-    if any(log["address"] != TOKEN for log in observed if log["topics"][0] == TRANSFER_TOPIC):
-        raise ValueError("pair receipt: wrong token emitter")
-
+    """Compare every setup and action log before projecting the pair summary."""
     def checkpoint(index, at, root):
         return dict(address=PROXY, topics=[CHECKPOINT_TOPIC, hex_data(word(index))],
                     data=hex_data(word(at) + word(1) + root))
@@ -251,18 +249,41 @@ def require_pair_logs(logs, pre_root, post_root, event):
                     topics=[TRANSFER_TOPIC, hex_data(address_word(source)), hex_data(address_word(target))],
                     data=hex_data(word(amount)))
 
-    expected = [checkpoint(0, 10, pre_root), transfer(OWNER_A, PROXY, 4),
-                transfer(OWNER_A, PROXY, 4)]
+    # Third and fourth CREATEs in _setupRegistry deploy the implementation and
+    # the template proxy before the proxy code is etched at PROXY.
+    implementation = "0xf62849f9a0b5bf2913b396098f7c7019b51a820a"
+    proxy_template = "0x5991a2df15a8f6a256d3ec51e99254cd3fb576a9"
+    admin = "0x" + "00" * 18 + "3333"
+    # _prepare registers the first published PoP, with compressed key prefix 3.
+    signer = "0xd2431ca38735c2fd438e2caa23f094191d89675b"
+    key_x = bytes.fromhex("cc8704b8a60a0defa3a99a7299f2e9c3fbc395afb04ac078425ef8a1793cc030")
+    bond_zero = hex_data(word(0))
+    deposit = transfer(OWNER_A, PROXY, 4)
+    setup = [
+        dict(address=implementation, topics=[INITIALIZED_TOPIC], data=hex_data(word(255))),
+        dict(address=proxy_template, topics=[UPGRADED_TOPIC, hex_data(address_word(implementation))], data="0x"),
+        dict(address=PROXY, topics=[OWNERSHIP_TRANSFERRED_TOPIC, bond_zero, hex_data(address_word(admin))],
+             data="0x"),
+        dict(address=PROXY, topics=[INITIALIZED_TOPIC], data=hex_data(word(1))),
+        checkpoint(0, 10, pre_root),
+        deposit,
+        dict(address=PROXY,
+             topics=[REGISTERED_TOPIC, bond_zero, hex_data(address_word(OWNER_A)), hex_data(address_word(signer))],
+             data=hex_data(word(3) + key_x + word(4) + word(12))),
+        deposit,
+        dict(address=PROXY, topics=[TOPUP_DEPOSITED_TOPIC, bond_zero], data=hex_data(word(4) + word(14))),
+    ]
+    action = []
     if event:
-        expected += [
+        action = [
             checkpoint(1, 13, post_root), transfer(PROXY, REPORTER, 2), transfer(PROXY, SINK, 6),
-            dict(address=PROXY, topics=[SLASH_TOPIC, hex_data(word(0)), hex_data(address_word(REPORTER))],
+            dict(address=PROXY, topics=[SLASH_TOPIC, bond_zero, hex_data(address_word(REPORTER))],
                  data=hex_data(b"".join(map(word, (8, 2, event["generation"], event["height"],
                                                   event["round"], event["voteType"]))))),
         ]
-    if observed != expected:
-        raise ValueError("pair receipt: wrong ordered native action logs")
-    return observed
+    if logs != setup + action:
+        raise ValueError("pair receipt: wrong ordered native setup or action logs")
+    return [log for log in logs if log["topics"][0] in {CHECKPOINT_TOPIC, TRANSFER_TOPIC, SLASH_TOPIC}]
 
 
 def pair_receipt(receipt, logs, case, pins, name, calldata):
@@ -479,11 +500,9 @@ def stock_evidence(normal, pins, stock_oracles, wire):
     if (record["phase"] != "normal" or record["timedOut"] is not False
             or record["sourceBefore"] != snapshot or record["sourceAfter"] != snapshot
             or record["combinedOutputSha256"] != BASELINE.digest(raw)
-            or record["toolsSha256"] != pins["goToolSha256"]
-            or record["executedInputsBefore"] != record["executedInputsAfter"]
-            or any(record["executedInputsBefore"].get("inputs/" + name) != digest
-                   for name, digest in pins["inputsSha256"].items())):
+            or record["toolsSha256"] != pins["goToolSha256"]):
         raise ValueError("wrong or stale stock Go evidence")
+    STOCK.require_executed_inputs(record, pins)
     outcomes = STOCK.require_go_outcomes(raw, record["returncode"], "normal", stock_oracles)
     if outcomes != record["outcomes"]:
         raise ValueError("stock Go native identity readback differs")
