@@ -824,3 +824,11 @@ and request-alias controls. C01 remains open. The current
 [exact workspace-SPEC review](conformance/SPEC_CORRESPONDENCE.md) maps the
 SignalService amendments and records the migration and every-target local fork
 checks that these historical consumers do not establish.
+
+The third gate covers [held-zero displacement and late public withdrawal](REPORT.md#o03-held-zero-displacement-and-late-withdrawal)
+under both operation orders. Each action binds complete bounded raw state as
+well as its named projection, full inputs and logs. A real off-path write passes
+the native scenario but is refused by the full-state receipt gate; a distinct
+withdrawal fault clears the replacement and triggers its precise native failure.
+Shared-decoder regressions re-execute N02/N03/N04 and preserve the actual N04
+pre-token write witness. Larger Registry obligations remain open.

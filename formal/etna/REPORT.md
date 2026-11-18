@@ -4729,3 +4729,112 @@ WAL, abrupt-write/power-loss and failover.
 | Independent full summary          | `553c54e0b896c6c5c04e4e5707424bfb5f7a42fb697cb82107ca16e3e5f1135b` |
 
 Independent implementation source report (retained before closing-doc review) SHA-256: `25ef3621326d3f7507312c24683109365688244ee64b6ed29e96ac9c892d4f0b`.
+
+## O03: held-zero displacement and late withdrawal
+
+Implementation `44d6dce89ff0a13d2115ed858c86d4d2479a4b32` completes the
+third selected increment. The [Registry lane](conformance/REGISTRY_CASES.md#occupied-zero-displacement-and-late-public-withdrawal)
+uses the unchanged default5000-bps fixture and contracts
+`89f419915de4b73bb57c53bf970f6dea9e8e8c8c`, three distinct public PoPs and the
+existing public generation0 conflict pair. Mock initialized Inbox snapshot and
+generation inputs remain explicit premises.
+
+Both timelines register A4/B4 at10, top up A5 at12, refuse premature activation13
+and activate A9 at14. Actual Inbox forceExit15 is followed by snapshot14 coverage
+refusal, snapshot15 confirmation16 and mock generation1. Genuine historical
+generation0 evidence at17 slashes all9, paying reporter2/sink7 while retaining
+exit15/confirmation16; premature withdrawal17 refuses. Each schedule has fifteen
+fully bound actions,22 action logs, four setup logs and exact deposits17,
+owner balance/allowance83, vault8, reporter2, sink7, payee0 and six transfers.
+
+The primary registers C4 at17 into held-zero slot0 (ID2, active19), observes
+BondDisplaced and old holdsSlot cleared, then public zero-withdraws A18 without
+clearing C. Slash and replacement coalesce into checkpoint3 in that L1 block;
+the intermediate slash root is observed before replacement, and all four closed
+checkpoint rows are bound. The opposite withdraws A18 before C registers19,
+observing a real vacancy/hashed empty used leaf/checkpoint4 followed by C active21
+and checkpoint5, with no displacement event. Lifetime key, withdrawn historical
+bond, owner/confirmation cleanup and replacement identity are all checked.
+
+Schema2 carries a11296-byte journal with a14-word ABI head per action. Actual
+height, pre-action snapshot/generation, verified caller/target, calldata,
+return/error, ordered logs and both pre/post state commitments are bound. The
+named83-word projection is accompanied on EVERY action by the unchanged wider
+observer: six bonds/keys, eight checkpoints, inherited/implementation/Inbox state,
+all8192 admission cells, bounded Merkle rows and seven token actors. Refusals
+reuse the same complete commitments for rollback equality. The full observer
+runs in a self-only external test call outside the recorders; each scan has its
+own memory frame. No base observer, fixture, compiler, gas or memory limit was
+changed. The shared public-vote decoder is authoritative in the base; N02 retains
+its wrapper and all other shared bytes are equal to the preceding implementation.
+
+| Actual author phase                   | Primary                                                   | Opposite            |
+| ------------------------------------- | --------------------------------------------------------- | ------------------- |
+| Smoke                                 | Full15 actions pass                                       | Not selected        |
+| Original                              | Full15 actions pass                                       | Full15 actions pass |
+| Omit actual displaced holds-bit clear | Exact old-holds-bit failure;25 preceding logs; no receipt | Full15 actions pass |
+| Restored                              | Full15 actions pass                                       | Full15 actions pass |
+
+Independent source review caught the original success-observer gap before any
+native execution: an off-path admission cell or unused bond could change while
+the named projection stayed identical. The repaired full-state fields were
+independently derived from source twice, including exact calldata, histories,
+setup CREATE addresses, all selected/wider commitments and full receipt bytes.
+Legacy83-only receipts and relabeled old schema are refused. Independent payload
+negatives separately cover all full-state fields and same-refusal context aliases.
+
+Two preparatory smokes failed and retain zero ordinary/source-fault credit:
+legacy Solidity codegen first hit stack depth while encoding fourteen live
+arguments; a static context tuple fixed that without changing ABI. The next
+smoke exposed cumulative observer allocation in the test caller. A separately
+reviewed marker diagnostic observed22 scans each adding1,892,672 bytes, reaching
+about42MB; reading the vote file then cost10,133,972gas before a Registry slash
+could start. The [Foundry1.4.2-locked REVM25.0.3 resize branch](https://github.com/bluealloy/revm/blob/87318f6fd81e526dc4c1023ea26f375bf5e29097/crates/interpreter/src/interpreter/shared_memory.rs#L564) also maps
+memory-expansion gas failure to MemoryLimitOOG; the name alone does not establish
+exhaustion of the configured4GiB memory cap. The diagnostic remained OBSERVED_ONLY.
+Root adjudication isolated unchanged full scans in self-call frames. Fresh smoke
+and all normal/fault/restored cases then completed under the original120-second
+bound. These are harness resource observations; protocol gas and latency
+measurements remain outside this gate.
+
+Independent behavioral verification executed exactly four Forge invocations on
+a31-blob read-only committed export:32 repository aliases and three external
+trusted evidence/support files give35 total watched aliases. Original/restored
+both match all fifteen actions and complete receipts. A distinct actual-source
+write to unused minIndex4098 at C registration leaves every named83-word state,
+call context and log unchanged; both native leaves succeed. Wider commitments
+change exactly as independently predicted, and the unchanged ordinary collector
+refuses the precise replacement action in BOTH schedules. A separate actual
+withdrawal holds-slot guard omission erases C during old A's late withdrawal:
+primary reaches the exact replacement-erased native failure and27 preceding logs,
+while the opposite still passes. Both private mutations are restored atomically
+to all564 source entries and actual0664 mode, with unchanged source/tool/export
+hashes and original positive receipts. All guards and owned jails are released.
+
+Affected native replays pass N02's42 leaves and23 historical Go wire mappings,
+N03's one lifecycle leaf and N04's two atomicity leaves. The Go evidence is
+reparsed under its unchanged actual executed-input map; no new Go run is claimed.
+Independent raw ABI decoding confirms all FOUR N04 Registry writes remain before
+the nested token call: delegate frame2/depth2, Resume frame4/kind6 with write
+positions9/11/15/18, then token frame5/depth3. Values are0→4,0→14,16384→32768 and
+16384→16385, all reverted, with exact original words restored.
+
+Ordinary Python checks pass147/166/20 (333 total); the current harness corrections
+also pass38 focused Registry checks. No errors/failures/skips are counted as
+passing. Full native positive payloads above64KiB are consumed intact. Root
+reparsed commands, all four independent raw phases, wider/selected receipts,
+source restoration and the N04 witness. R01 remains OPEN for full positive
+capacity, authentic recovery/committee derivation, production token behavior and
+deployment. All30 remaining acceptance requirements and operating O01 remain
+unchanged at this increment; all19 archived searches remain INCONCLUSIVE.
+
+| Retained record                 | SHA-256                                                            |
+| ------------------------------- | ------------------------------------------------------------------ |
+| Final author static packet      | `d0238a8ea96d0587a522ff945277bec02cdd5b8eaf27add43a2d467bbfba4ed2` |
+| Author full summary             | `90949d110b5de55b8cec5178fb12042ffe166c1ff85bcf0fb7562d143614a2ad` |
+| Independent immutable packet    | `a5c0d1517439d8edf8d220a180eddb1f008c3c6208505cac58cada57fcfd0517` |
+| Independent verification        | `d0a3e9fa5dba411cf9e2d6671cebeb071394a383dcc5e2d46cec362d1067cc64` |
+| Independent behavioral report   | `4f4b7f97b753c12c9e0ea14bf83a1956508a9636619f193efe92dcf1e2fd4eb7` |
+| Actual N04 independent readback | `5a19b3f4a29ae501a6681fc642337043120a84ed8544ce834b761646d93b3c91` |
+
+Implementation source report retained before closing-doc review SHA-256: `a2ff063210d83a8b1da5b072d2507aef2f534bd9e77f898ed6da3542b5a73f60`.
