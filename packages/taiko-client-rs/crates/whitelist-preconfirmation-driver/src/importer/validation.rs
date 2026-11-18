@@ -1,14 +1,12 @@
 //! Payload-level validation for preconfirmation import compatibility.
 
+use alethia_reth_primitives::SHASTA_EXTRA_DATA_LEN;
 use alloy_consensus::TxEnvelope;
 use alloy_eips::Decodable2718;
 use alloy_primitives::Address;
 use protocol::{
     codec::ZlibTxListCodec,
-    shasta::{
-        constants::SHASTA_EXTRA_DATA_LEN, unzen_active_for_chain_timestamp,
-        validate_anchor_transaction,
-    },
+    shasta::{unzen_active_for_chain_timestamp, validate_anchor_transaction},
 };
 
 use crate::{

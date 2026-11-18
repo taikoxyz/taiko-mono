@@ -1,8 +1,11 @@
 //! Shasta payload helper utilities.
 
-use alethia_reth_primitives::payload::{
-    attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
-    builder::payload_id_taiko,
+use alethia_reth_primitives::{
+    SHASTA_EXTRA_DATA_LEN,
+    payload::{
+        attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
+        builder::payload_id_taiko,
+    },
 };
 use alloy::{
     primitives::{Address, B256, Bytes, U256, keccak256},
@@ -11,8 +14,6 @@ use alloy::{
 use alloy_consensus::TxEnvelope;
 use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types_engine_2::{PayloadAttributes as EthPayloadAttributes, PayloadId};
-
-use super::constants::SHASTA_EXTRA_DATA_LEN;
 
 /// Engine API `engine_getPayloadV2` discriminator.
 ///
