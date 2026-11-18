@@ -4,7 +4,7 @@ This record maps the client work in the checkpoint-import update to the Etna
 specification at `d18357214fab30ea512ae9858a11699806d72ba1`. Paths below are
 relative to `packages/taiko-client-rs`. It covers generation-zero networks, including
 nonzero Unzen starts, and governance recovery. The pinned execution node is Alethia
-`efc3c162ad54760a84c561da03f44af9c2adffdd`; consensus remains unmodified CometBFT
+`398702f29917534a4d696d022336787156e0ffa9`; consensus remains unmodified CometBFT
 v0.40.0. The lander's dummy proof restricts this implementation to development
 chains.
 

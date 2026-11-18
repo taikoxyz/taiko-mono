@@ -14,7 +14,7 @@
 - Add `etna-handoff` to drain finalized Unzen derivation before serving Etna ABCI at S+1.
 - Add authenticated nonzero ABCI starts with committee 0 and the unchanged global epoch schedule.
 - Add the shared `--engine-control-dir` Engine writer lease. Mount the same directory for every local controller of one EL.
-- Pin alethia-reth to PR #248 head `efc3c162`, including its legacy proposal-index coexistence fixes.
+- Pin alethia-reth to PR #248 merge commit `398702f2` with OP Reth `op-v2.7.0-1`.
 - Support nonzero-S landing, S-relative cut leaves and overlaps, committee 0 bootstrap and authenticated Unzen ancestry.
 - Wait for terminal Unzen finalization and the matching SignalService checkpoint before preparing the first landing; retain its raw Anchor implementation witness for the proof backend.
 - Support nonzero-S checkpoint import/export, deriving the original EL block-zero identity from the operator-selected runtime chainspec.

@@ -73,7 +73,7 @@ Fresh deployment starts at generation zero; it migrates no earlier state format.
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
 creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with the protocol revision `PINNED_REVISION` in
 `script/gen_lander_artifacts.sh` (the Inbox, staking registry and the pinned contract artifacts)
-and alethia-reth commit `efc3c162ad54760a84c561da03f44af9c2adffdd`. Start the EL and verify its block 0 before the Inbox
+and alethia-reth commit `398702f29917534a4d696d022336787156e0ffa9`. Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
 so run the client only on disposable development chains.
 

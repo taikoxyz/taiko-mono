@@ -11,7 +11,7 @@ if [[ -n "${ETNA_EL_BIN:-}" ]]; then
   test -x "$ETNA_EL_BIN"
   exit 0
 fi
-TASK_PINNED_REVISION=efc3c162ad54760a84c561da03f44af9c2adffdd
+TASK_PINNED_REVISION=398702f29917534a4d696d022336787156e0ffa9
 linux_arch() {
   case "$1" in
     x86_64|amd64) echo amd64 ;;
