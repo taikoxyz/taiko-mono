@@ -1,17 +1,14 @@
 use super::*;
-use crate::{
-    test_utils::{
-        RegistryStorage, TestState, committee_witness, filler_accounts, key_from_seed,
-        registry_account, sample_entries,
-    },
-    types::RegistryEntry,
+use crate::test_utils::{
+    RegistryStorage, TestState, committee_witness, filler_accounts, key_from_seed,
+    registry_account, sample_entries,
 };
 use alloy_primitives::address;
 const CHAIN: u64 = 167001;
 const REGISTRY: Address = address!("00000000000000000000000000000000E7A10002");
 const OTHER: Address = address!("00000000000000000000000000000000E7A10001");
 fn devnet() -> ChainParams {
-    crate::config::builtin(CHAIN).unwrap()
+    ChainParams::builtin(CHAIN).unwrap()
 }
 fn ether(n: u64) -> U256 {
     U256::from(n) * U256::from(10u64).pow(U256::from(18))
@@ -101,6 +98,25 @@ fn v1_registry_and_committee_roots_match_schema5() {
     }
 }
 
+#[test]
+fn displaced_and_reused_entries_hash_the_slot_instead_of_the_permanent_bond_id() {
+    for case in vectors()["registry_entries"]["bond_slots"].as_array().unwrap() {
+        let raw = &case["entry"];
+        let consensus_key = key(raw);
+        let entry = RegistryEntry {
+            ck_prefix: consensus_key.prefix(),
+            ck_x: consensus_key.x(),
+            eff_stake: raw["eff_stake"].as_str().unwrap().parse().unwrap(),
+            active_from_l1: raw["active_from_l1"].as_str().unwrap().parse().unwrap(),
+            exit_effective_l1: raw["exit_effective_l1"].as_str().unwrap().parse().unwrap(),
+        };
+        let slot: usize = case["slot"].as_str().unwrap().parse().unwrap();
+        let bond: usize = case["bond_id"].as_str().unwrap().parse().unwrap();
+        let expected: B256 = case["leaf"].as_str().unwrap().parse().unwrap();
+        assert_eq!(entry_leaf(slot, &entry), expected);
+        assert_ne!(entry_leaf(bond, &entry), expected);
+    }
+}
 #[test]
 fn v1_registry_entries_use_exact_five_field_rlp() {
     let raw = alloy_rlp::encode(&sample_entries(1)[0]);
@@ -492,6 +508,38 @@ fn record_and_config_hashes_bind_every_canonical_field() {
 }
 
 #[test]
+fn set_root_binds_chain_version_power_and_promotes_odd_nodes() {
+    let mut members: Vec<_> = sample_entries(3)
+        .iter()
+        .map(|e| Member {
+            pubkey: e.consensus_key().unwrap(),
+            eff_stake: e.eff_stake,
+            power: (e.eff_stake / devnet().vp_unit).to(),
+        })
+        .collect();
+    members.sort_by_key(|m| set_key(CHAIN, m.pubkey));
+    let root = set_root(CHAIN, 1, &members);
+    assert_eq!(
+        root,
+        set_node(
+            CHAIN,
+            1,
+            set_node(
+                CHAIN,
+                1,
+                set_leaf(CHAIN, 1, 0, &members[0]),
+                set_leaf(CHAIN, 1, 1, &members[1])
+            ),
+            set_leaf(CHAIN, 1, 2, &members[2])
+        )
+    );
+    assert_ne!(root, set_root(CHAIN, 2, &members));
+    members[0].power += 1;
+    assert_ne!(root, set_root(CHAIN, 1, &members));
+    assert_eq!(set_root(CHAIN, 1, &[]), B256::ZERO);
+}
+
+#[test]
 fn derivation_checks_zero_unit_and_stake_overflow() {
     let mut params = devnet();
     let mut snapshot = Snapshot { checkpoint_index: 0, l1_block: 1, entries: sample_entries(2) };
@@ -522,61 +570,4 @@ fn native_committee_preserves_301_member_snapshot_capacity() {
         verify_committee_witness_at_cutoff(state.state_root(), 25, &params, &witness, 0).unwrap(),
         (record, members)
     );
-}
-
-#[test]
-fn native_transport_and_shared_verifier_preserve_authenticated_bytes() {
-    let storage = registry_storage();
-    let state = registry_state(&storage);
-    let params = devnet();
-    for (index, cutoff) in [(0, 15), (1, 25), (2, 35)] {
-        let mut witness = witness_at(&state, &storage, index);
-        let snapshot = verify_snapshot(state.state_root(), REGISTRY, &witness, cutoff).unwrap();
-        witness.record = derive(&snapshot, cutoff, 7, &params).unwrap().0;
-        let native =
-            verify_committee_witness_at_cutoff(state.state_root(), cutoff, &params, &witness, 7)
-                .unwrap();
-        let shared = etna_core::committee::verify_committee_at_cutoff(
-            state.state_root(),
-            cutoff,
-            &params,
-            &witness.record,
-            &witness.entries,
-            &NodeRegistryProof(&witness.registry),
-            7,
-        )
-        .unwrap();
-        assert_eq!(alloy_rlp::encode(&native.0), alloy_rlp::encode(&shared.0));
-        assert_eq!(native.1, shared.1);
-        assert_eq!(
-            record_hash(CHAIN, &native.0),
-            etna_core::committee::record_hash(CHAIN, &shared.0)
-        );
-        assert_eq!(
-            committee_config_hash(&params),
-            etna_core::committee::committee_config_hash(&params)
-        );
-        // This is a later proving root over an explicitly historical snapshot cutoff.
-        assert_eq!(snapshot.l1_block, (index + 1) * 10);
-        let mut changed = witness.clone();
-        changed.record.total_power += 1;
-        assert!(matches!(
-            verify_committee_witness_at_cutoff(state.state_root(), cutoff, &params, &changed, 7),
-            Err(CommitteeError::RecordMismatch { .. })
-        ));
-        let shared_error = etna_core::committee::verify_committee_at_cutoff(
-            state.state_root(),
-            cutoff,
-            &params,
-            &changed.record,
-            &changed.entries,
-            &NodeRegistryProof(&changed.registry),
-            7,
-        );
-        assert!(matches!(shared_error, Err(CommitteeError::RecordMismatch { .. })));
-        assert!(matches!(
-            verify_committee_witness_at_cutoff(B256::ZERO, cutoff, &params, &witness, 7),
-            Err(CommitteeError::Mpt(_))
-        ));
-    }
 }

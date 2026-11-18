@@ -29,7 +29,7 @@ use crate::{
 pub const BATCH_RECIPIENT: alloy_primitives::Address = alloy_primitives::Address::repeat_byte(0x77);
 
 pub fn parameters() -> ChainParams {
-    let mut params = abci::config::builtin(167001).unwrap();
+    let mut params = ChainParams::builtin(167001).unwrap();
     params.inbox = alloy_primitives::Address::repeat_byte(0x11);
     params.registry = alloy_primitives::Address::repeat_byte(0x22);
     params.vp_unit = U256::from(1_000_000_000);

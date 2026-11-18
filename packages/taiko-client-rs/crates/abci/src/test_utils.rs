@@ -353,7 +353,10 @@ pub(crate) fn tx_signer() -> alloy::signers::local::PrivateKeySigner {
 pub(crate) fn sample_genesis_record() -> GenesisRecord {
     GenesisRecord {
         committee_config_hash: crate::committee::committee_config_hash(
-            &crate::config::builtin(protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID).unwrap(),
+            &crate::config::ChainParams::builtin(
+                protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
+            )
+            .unwrap(),
         ),
         genesis_height: 0,
         l1_0: 64,
@@ -694,8 +697,10 @@ mod tests {
     fn inbox_storage_packing_decodes_back() {
         let genesis = GenesisRecord {
             committee_config_hash: crate::committee::committee_config_hash(
-                &crate::config::builtin(protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID)
-                    .unwrap(),
+                &crate::config::ChainParams::builtin(
+                    protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
+                )
+                .unwrap(),
             ),
             genesis_height: ((1u64 << 48) - 1),
             l1_0: 0x0304_0506_0708,
@@ -758,8 +763,10 @@ mod tests {
     fn inbox_storage_packing_matches_hand_written_words() {
         let genesis = GenesisRecord {
             committee_config_hash: crate::committee::committee_config_hash(
-                &crate::config::builtin(protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID)
-                    .unwrap(),
+                &crate::config::ChainParams::builtin(
+                    protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
+                )
+                .unwrap(),
             ),
             genesis_height: 0x11,
             l1_0: 0x2222,

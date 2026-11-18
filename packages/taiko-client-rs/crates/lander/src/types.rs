@@ -200,40 +200,62 @@ impl CertifiedBlock {
     /// Retains the original protobuf before creating a validated domain projection.
     pub fn from_raw(raw: RawBlock, commit: Commit) -> Result<Self> {
         let raw_block = Bytes::from(raw.encode_to_vec());
-        let block = Block::try_from(raw)
-            .map_err(etna_core::comet::codec::CodecError::InvalidBlock)
-            .map_err(codec_error)?;
+        let block = domain_block(raw)
+            .map_err(|e| LanderError::Encoding(format!("invalid CometBFT block protobuf: {e}")))?;
         Ok(Self { block, raw_block, commit })
     }
 
     /// Decodes the canonical witness and rejects any disagreement with its domain projection.
     pub fn block_proto(&self) -> Result<RawBlock> {
-        etna_core::comet::codec::checked_block_proto(&self.raw_block, &self.block)
-            .map_err(codec_error)
+        let raw = RawBlock::decode(self.raw_block.as_ref()).map_err(|e| {
+            LanderError::Encoding(format!("invalid original CometBFT block protobuf: {e}"))
+        })?;
+        if raw.encode_to_vec().as_slice() != self.raw_block.as_ref() {
+            return Err(LanderError::Encoding("noncanonical original block protobuf".into()));
+        }
+        let projection = domain_block(raw.clone())
+            .map_err(|e| LanderError::Encoding(format!("invalid original CometBFT block: {e}")))?;
+        if projection != self.block {
+            return Err(LanderError::Safety("original block differs from domain projection".into()));
+        }
+        Ok(raw)
     }
 }
 
-/// Maps pure wire errors to the journal's existing encoding/safety policy.
-fn codec_error(error: etna_core::comet::codec::CodecError) -> LanderError {
-    match error {
-        etna_core::comet::codec::CodecError::ProjectionMismatch => {
-            LanderError::Safety(error.to_string())
-        }
-        _ => LanderError::Encoding(error.to_string()),
-    }
+/// The domain projection of `raw`, without its evidence.
+///
+/// Nothing reads the projection's evidence: body verification hashes the original evidence
+/// bytes. The domain conversion would reject evidence CometBFT commits: duplicate-vote extension
+/// signatures that are not 64 bytes (vote signatures do not cover extensions, and evidence
+/// verification never reads them), and inside a light-client attack, nil-vote signatures of other
+/// lengths (never verified) or validator key types this build does not convert. The original
+/// bytes, evidence included, remain the witness the evidence hash and part set are built from.
+fn domain_block(raw: RawBlock) -> std::result::Result<Block, String> {
+    raw.try_into()
 }
 
 impl TryFrom<CertifiedBlockWire> for CertifiedBlock {
-    /// Invalid canonical protobuf witness or malformed native metadata.
     type Error = LanderError;
 
     /// Restores the domain from canonical original bytes rather than rewriting evidence.
     fn try_from(wire: CertifiedBlockWire) -> Result<Self> {
-        let (_, block) = etna_core::comet::codec::decode_canonical_block(&wire.raw_block)
-            .map_err(codec_error)?;
-        let commit = etna_core::comet::codec::decode_canonical_commit(&wire.raw_commit)
-            .map_err(codec_error)?;
-        Ok(Self { block, raw_block: wire.raw_block, commit })
+        let raw = RawBlock::decode(wire.raw_block.as_ref()).map_err(|e| {
+            LanderError::Encoding(format!("invalid restored CometBFT block protobuf: {e}"))
+        })?;
+        let raw_commit = RawCommit::decode(wire.raw_commit.as_ref()).map_err(|e| {
+            LanderError::Encoding(format!("invalid restored CometBFT commit protobuf: {e}"))
+        })?;
+        if raw_commit.encode_to_vec().as_slice() != wire.raw_commit.as_ref() {
+            return Err(LanderError::Encoding("noncanonical restored commit protobuf".into()));
+        }
+        let commit = raw_commit
+            .try_into()
+            .map_err(|e| LanderError::Encoding(format!("invalid restored CometBFT commit: {e}")))?;
+        let pair = Self::from_raw(raw, commit)?;
+        if pair.raw_block != wire.raw_block {
+            return Err(LanderError::Encoding("noncanonical restored block protobuf".into()));
+        }
+        Ok(pair)
     }
 }
 
@@ -427,15 +449,6 @@ mod rlp_serde {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn malformed_typed_block_remains_an_encoding_error() {
-        let error = CertifiedBlock::from_raw(RawBlock::default(), Commit::default()).unwrap_err();
-        assert!(matches!(
-            error,
-            LanderError::Encoding(message) if message == "invalid original CometBFT block: missing block header"
-        ));
-    }
 
     #[test]
     fn prepared_statement_rejects_every_terminal_comet_bit_even_with_rebound_digest() {

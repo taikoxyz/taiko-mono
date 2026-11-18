@@ -759,11 +759,8 @@ async fn lost_state_rejects_old_app_zero_genesis_before_replay() {
 /// Back-pressure values are per-chain configuration authenticated at genesis and restart.
 #[tokio::test]
 async fn genesis_and_restart_authenticate_chain_specific_backpressure_parameters() {
-    let params = crate::config::with_overrides(
-        crate::config::builtin(167001).unwrap(),
-        "unsettled_limit = 24",
-    )
-    .unwrap();
+    let params =
+        ChainParams::builtin(167001).unwrap().with_overrides("unsettled_limit = 24").unwrap();
     let fx = Fixture::build(GenesisSpec { params, epoch_len: 28, ..GenesisSpec::new(2) });
     let dir = tempfile::tempdir().unwrap();
     let app = initialized(&fx, dir.path()).await;

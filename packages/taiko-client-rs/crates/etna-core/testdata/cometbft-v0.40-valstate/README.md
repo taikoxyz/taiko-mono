@@ -1,8 +1,10 @@
 # CometBFT v0.40.0 validator-state vectors
 
-Run `./generate.sh` from any directory. It runs `generate.go` with Go 1.27.2 against the
-unmodified `github.com/cometbft/cometbft v0.40.0` module and writes `vectors.json`. A second run
-must produce a byte-identical file (`shasum vectors.json`). Never edit `vectors.json` by hand.
+To refresh this copy, run the [ABCI validator-state generator](../../../abci/testdata/cometbft-v0.40-valstate/generate.sh)
+at the baseline identified in the crate docs. The generator runs with Go 1.27.2 against
+unmodified CometBFT v0.40.0. Run it twice to confirm reproducibility, then copy its
+`vectors.json` byte for byte and compare it with the ABCI version. The adjacent
+`comet-wire.json` is copied from the same baseline's [ABCI wire oracle](../../../abci/testdata/README.md).
 
 The generator calls only exported `types.ValidatorSet` methods, in the order stock CometBFT
 does:

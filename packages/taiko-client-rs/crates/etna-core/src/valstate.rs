@@ -18,8 +18,6 @@ use crate::{
     committee::{tag, word},
     key::ConsensusKey,
 };
-#[cfg(feature = "test-utils")]
-use alloc::vec;
 use alloc::vec::Vec;
 use alloy_primitives::{Address, B256, keccak256};
 use serde::{Deserialize, Serialize};
@@ -242,8 +240,8 @@ impl ValState {
 /// whose full `set` it stored: one `IncrementProposerPriority(steps)`, so one
 /// `RescalePriorities(2 · total)` and centring, then `steps` proposer rounds, the last round's
 /// proposer stored. `steps` must be positive, as Go panics otherwise.
-#[cfg(any(test, feature = "test-utils"))]
-pub fn stock_lookup(set: &ValSet, steps: u64) -> ValSet {
+#[cfg(test)]
+fn stock_lookup(set: &ValSet, steps: u64) -> ValSet {
     assert!(steps > 0, "IncrementProposerPriority needs a positive count");
     let mut vals = ValidatorSet::from_val_set(set);
     vals.rescale_priorities(PRIORITY_WINDOW_SIZE_FACTOR.wrapping_mul(vals.total_voting_power()));
@@ -258,8 +256,8 @@ pub fn stock_lookup(set: &ValSet, steps: u64) -> ValSet {
 /// The PROOF-6.2-41a.i/j state at `height`: powers A = B = C = 33 and N = 1, priorities A −26,
 /// B 71, C 67, N −110 in both sets, B the stored proposer. A < B < C are `test_key(1..=3)` by
 /// address and N is `test_key(4)`.
-#[cfg(any(test, feature = "test-utils"))]
-pub fn spec_41a_state(height: u64) -> ValState {
+#[cfg(test)]
+fn spec_41a_state(height: u64) -> ValState {
     use crate::test_utils::test_key;
     let mut big = [test_key(1), test_key(2), test_key(3)];
     big.sort_by_key(|k| k.address());

@@ -446,13 +446,7 @@ fn app_new_rejects_invalid_parameters() {
         AppOptions::default(),
     )
     .expect_err("invalid parameters");
-    assert!(
-        matches!(
-            err,
-            AbciError::Config(ConfigError::Validation(crate::config::ParamsError::ZeroNMax))
-        ),
-        "{err:?}"
-    );
+    assert!(matches!(err, AbciError::Config(ConfigError::ZeroNMax)), "{err:?}");
 }
 
 #[tokio::test]

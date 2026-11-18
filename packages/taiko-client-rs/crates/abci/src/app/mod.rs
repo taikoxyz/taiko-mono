@@ -75,7 +75,7 @@ pub const APP_NAME: &str = "taiko-abci";
 
 /// The ABCI application version reported in `Info.app_version`; the genesis
 /// `consensus_params.version.app` carries the same value.
-pub use etna_core::comet::APP_VERSION;
+pub const APP_VERSION: u64 = 1;
 
 /// Interval between EL polls while waiting for an EL sync to a trusted head.
 pub const ELSYNC_POLL: Duration = Duration::from_secs(1);
@@ -488,7 +488,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         store: Store,
         opts: AppOptions,
     ) -> Result<Self, AbciError> {
-        params.validate().map_err(ConfigError::from)?;
+        params.validate()?;
         if let Some(reason) = store.fatal_evidence()? {
             return Err(AbciError::SafetyHalt(format!(
                 "persisted fatal evidence requires operator repair: {reason}"

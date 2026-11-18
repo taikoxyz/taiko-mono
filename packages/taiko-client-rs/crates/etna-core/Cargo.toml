@@ -6,10 +6,6 @@ license.workspace = true
 publish = false
 rust-version = "1.91"
 
-[features]
-# Test-only stock replica fixtures used by native integration tests.
-test-utils = []
-
 [dependencies]
 alloy-primitives = { workspace = true, features = ["serde", "rlp"] }
 alloy-rlp = { workspace = true, features = ["derive"] }

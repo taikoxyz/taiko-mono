@@ -97,6 +97,13 @@ impl<C: AsRef<CommitteeState>> CommitteeLookup for BTreeMap<u64, C> {
     }
 }
 
+impl AsRef<CommitteeState> for CommitteeState {
+    /// The committee itself.
+    fn as_ref(&self) -> &CommitteeState {
+        self
+    }
+}
+
 impl AppState {
     /// The committed chain the next block extends, for [`validate_block`].
     pub fn chain_context(&self) -> ChainContext<'_> {

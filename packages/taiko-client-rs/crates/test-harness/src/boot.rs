@@ -168,7 +168,7 @@ pub(crate) async fn boot(
     let params = ChainParams {
         unsettled_limit: spec.unsettled_limit,
         l1_chain_id: l1.raw_request("eth_chainId".into(), ()).await?,
-        ..abci::config::builtin(chain_id)?
+        ..ChainParams::builtin(chain_id)?
     };
     params.validate()?;
 

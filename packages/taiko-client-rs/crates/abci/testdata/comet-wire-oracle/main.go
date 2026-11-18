@@ -1,5 +1,5 @@
 // Differential wire fixtures from unmodified stock CometBFT v0.40.0.
-// Run: go run . > ../../../etna-core/testdata/comet-wire.json
+// Run: GOCACHE=/private/tmp/etna-comet-wire-cache go run . > ../comet-wire.json
 package main
 
 import (

@@ -24,7 +24,6 @@ alloy-trie = { workspace = true, features = ["std", "ethereum"] }
 
 # consensus
 base64 = { workspace = true }
-etna-core = { path = "../etna-core" }
 k256 = { workspace = true, features = ["ecdsa"] }
 prost = { workspace = true }
 tendermint = { workspace = true }
@@ -58,7 +57,6 @@ toml = { workspace = true }
 alloy = { workspace = true, features = ["consensus", "signer-local", "std", "json"] }
 alloy-transport = { workspace = true }
 anyhow = { workspace = true }
-etna-core = { path = "../etna-core", features = ["test-utils"] }
 flate2 = { workspace = true }
 proptest = { workspace = true }
 test-harness = { path = "../test-harness" }

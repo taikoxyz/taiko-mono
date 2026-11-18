@@ -211,7 +211,7 @@ impl ContractFixture {
             unsettled_limit,
             n_max,
             fee_recipient: Address::repeat_byte(0x77),
-            ..abci::config::builtin(L2_CHAIN_ID)?
+            ..ChainParams::builtin(L2_CHAIN_ID)?
         };
         let snapshot = Snapshot {
             checkpoint_index: count as u64 - 1,

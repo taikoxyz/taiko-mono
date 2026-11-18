@@ -12,7 +12,7 @@ const BFT_SECS: u64 = 1_760_000_105;
 const GENERATION: u64 = 2;
 
 fn devnet() -> ChainParams {
-    crate::config::builtin(TAIKO_DEVNET_CHAIN_ID).expect("devnet is built in")
+    ChainParams::builtin(TAIKO_DEVNET_CHAIN_ID).expect("devnet is built in")
 }
 
 fn anchor(number: u64, timestamp: u64) -> AnchorState {
@@ -594,7 +594,6 @@ fn every_violation() -> Vec<RuleViolation> {
         RuleViolation::HeightMismatch { height: 2, parent: 0 },
         RuleViolation::HeaderField { field: "number", expected: "1".into(), got: "2".into() },
         RuleViolation::ExtraDataOverflow { field: "generation", value: u64::MAX },
-        RuleViolation::ExtraDataEncoding("noncanonical encoding".into()),
         RuleViolation::ExtraDataLength { len: 7 },
         RuleViolation::BaseFeeUnavailable { parent: 1 },
         RuleViolation::AnchorRegressed { parent: 2, anchor: 1 },
@@ -617,7 +616,6 @@ fn every_violation() -> Vec<RuleViolation> {
             RuleViolation::UnsupportedRuleset { .. } | RuleViolation::PlannedStop { .. } => {}
             RuleViolation::HeightMismatch { .. } |
             RuleViolation::HeaderField { .. } |
-            RuleViolation::ExtraDataEncoding(_) |
             RuleViolation::ExtraDataOverflow { .. } |
             RuleViolation::ExtraDataLength { .. } |
             RuleViolation::BaseFeeUnavailable { .. } |

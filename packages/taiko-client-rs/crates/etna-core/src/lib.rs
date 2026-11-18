@@ -1,4 +1,11 @@
-//! Portable Etna consensus primitives for Raiko2 and native clients.
+//! Portable Etna consensus primitives for Raiko2.
+//!
+//! This independent port is based on the Taiko client at
+//! `ea74662169262dc8ab6ada7028d2ef54137088d2`. The node continues to use its existing ABCI and
+//! lander implementations. Client adoption is a separate migration step.
+//!
+//! The crate tests check compatibility with the stock CometBFT v0.40.0 wire and validator-state
+//! vectors copied from that baseline.
 //!
 //! [`committee::derive`] computes a candidate committee from snapshot data.
 //! [`comet::validators::Validators::from_members`] checks validator identities and power.
@@ -29,7 +36,7 @@ pub mod params;
 pub mod registry;
 /// Epoch schedule and H+2 activation arithmetic.
 pub mod schedule;
-#[cfg(any(test, feature = "test-utils"))]
+#[cfg(test)]
 mod test_utils;
 /// Canonical shared committee and generation-start records.
 pub mod types;

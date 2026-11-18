@@ -1,9 +1,10 @@
 # Native Comet wire fixtures
 
-Run `./generate.sh` from any directory. The generator uses Go 1.27.2 and the unmodified
-`github.com/cometbft/cometbft v0.40.0` module. It signs with stock `secp256k1eth`, validates the
-resulting certificates with stock Comet, and exports the actual RPC JSON and protobuf bytes.
-Never edit the generated JSON or signatures by hand.
+To refresh these fixture copies, run the [lander fixture generator](../../../lander/testdata/cometbft-v0.40/generate.sh)
+at the baseline identified in the crate docs. Copy its `envelope.base64`, `vectors.json`, and
+`differential.json` byte for byte and compare each file with the lander version. The generator
+uses Go 1.27.2 and stock CometBFT v0.40.0, signs with stock `secp256k1eth`, and exports its
+validated RPC JSON and protobuf bytes.
 
 The fixed test scalars are 32 repetitions of a nonzero seed byte, producing full compressed
 33-byte keys, Ethereum addresses, and low-S 65-byte `R || S || V` signatures. The chain ID is
@@ -19,10 +20,9 @@ ordinary validator sets and light-client evidence. The non-cryptographic executi
 an existing deterministic fixture; these files establish stock wire/commitment compatibility,
 not complete Etna execution validity or a runnable devnet.
 
-The Rust bridge is `crates/etna-core/src/comet/native.rs`; host RPC repair remains in
-`crates/lander/src/native.rs`. Its wire types retain every stock key tag inside
-foreign evidence without enabling those algorithms for Etna committee authentication. Actual
-Etna committee authorization must continue to use `etna_core::key::ConsensusKey`, native
-`etna_core::validator::validators_hash`, and strict native certificate/quorum validation. Original block
-and commit bytes must remain private proof/journal inputs; decode/re-encode canonicality and
-body/header/evidence/part-set commitments must be checked by their consumers.
+These fixture bytes are copied from the lander at the baseline identified in the crate docs.
+The tests exercise the independent Rust bridge in `../../src/comet/native.rs`. Its wire types
+retain every stock key tag inside foreign evidence. Etna committee authentication uses
+`etna_core::key::ConsensusKey`, `etna_core::validator::validators_hash`, and native
+certificate and quorum validation. Consumers must keep original block and commit bytes private,
+check canonical encoding, and verify the original body, header, evidence, and part-set commitments.

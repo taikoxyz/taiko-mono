@@ -1,6 +1,6 @@
 //! Real native helper and Engine API at a sparse checkpoint, independent of consensus generation.
 use super::*;
-use abci::{AnchorState, HeaderInputs, InboxFacts, ParentInfo, rules};
+use abci::{AnchorState, ChainParams, HeaderInputs, InboxFacts, ParentInfo, rules};
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
@@ -31,7 +31,7 @@ async fn native_long_fence_restarts_and_executes_with_body_pruned_parents() -> R
     donor.stop().await?;
     // The helper creates the datadir from the stopped source.
     let local = base.join("imported");
-    let params = abci::config::builtin(167001)?;
+    let params = ChainParams::builtin(167001)?;
     let mut headers: Vec<Header> = vec![];
     let q = 606;
     let s = 900;
