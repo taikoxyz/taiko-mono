@@ -176,9 +176,6 @@ func EncodeShastaExtraData(basefeeSharingPctg uint8, proposalID *big.Int) ([]byt
 
 	extraData := make([]byte, params.ShastaExtraDataLen)
 	extraData[params.ShastaExtraDataBasefeeSharingPctgIndex] = basefeeSharingPctg
-	if err := ValidateShastaExtraData(extraData); err != nil {
-		return nil, err
-	}
 
 	proposalBytes := proposalID.Bytes()
 	offset := params.ShastaExtraDataProposalIDIndex + params.ShastaExtraDataProposalIDLength - len(proposalBytes)

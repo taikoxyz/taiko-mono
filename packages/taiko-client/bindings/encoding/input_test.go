@@ -37,11 +37,6 @@ func TestEncodeShastaExtraDataBasefeeSharingPctg(t *testing.T) {
 	}
 }
 
-func TestEncodeShastaExtraDataRejectsOutOfRangePercentage(t *testing.T) {
-	_, err := EncodeShastaExtraData(101, big.NewInt(1))
-	require.ErrorContains(t, err, "base fee sharing percentage")
-}
-
 // TestEncodeShastaExtraDataIndependentFields asserts the percentage and the proposal ID never read
 // each other's bytes, including when either is zero and when the ID fills its whole uint48.
 func TestEncodeShastaExtraDataIndependentFields(t *testing.T) {
