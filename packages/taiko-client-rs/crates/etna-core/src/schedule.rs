@@ -9,6 +9,9 @@
 //! Epoch offsets and derivation-parent heights are checked for `u64` overflow, and
 //! [`Schedule::validate`] keeps the first transition height and the activation block within
 //! the protocol's [`UINT48_MAX`] height and anchor ranges.
+//!
+//! [`Schedule::validate`]: crate::schedule::Schedule::validate
+//! [`UINT48_MAX`]: crate::schedule::UINT48_MAX
 
 use crate::types::GenesisRecord;
 use serde::{Deserialize, Serialize};

@@ -13,6 +13,13 @@
 //!
 //! [`ValState::encode`] is the state's ENC-A-29a preimage, [`ValState::hash`] its
 //! `valStateHash` and [`ValState::decode`] the inverse of `encode`.
+//!
+//! [`ValState`]: crate::valstate::ValState
+//! [`ValState::genesis`]: crate::valstate::ValState::genesis
+//! [`ValState::advance`]: crate::valstate::ValState::advance
+//! [`ValState::encode`]: crate::valstate::ValState::encode
+//! [`ValState::hash`]: crate::valstate::ValState::hash
+//! [`ValState::decode`]: crate::valstate::ValState::decode
 
 use crate::{
     committee::{tag, word},
