@@ -5,7 +5,10 @@ use alloy_eips::Decodable2718;
 use alloy_primitives::Address;
 use protocol::{
     codec::ZlibTxListCodec,
-    shasta::{unzen_active_for_chain_timestamp, validate_anchor_transaction},
+    shasta::{
+        constants::SHASTA_EXTRA_DATA_LEN, unzen_active_for_chain_timestamp,
+        validate_anchor_transaction,
+    },
 };
 
 use crate::{
@@ -44,8 +47,18 @@ pub(crate) fn validate_execution_payload_for_preconf(
         ));
     }
 
-    if payload.extra_data.is_empty() {
-        return Err(WhitelistPreconfirmationDriverError::invalid_payload("empty extra data"));
+    if payload.extra_data.len() != SHASTA_EXTRA_DATA_LEN {
+        return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+            "invalid Shasta extra data length: got {}, want {SHASTA_EXTRA_DATA_LEN}",
+            payload.extra_data.len(),
+        )));
+    }
+
+    let percentage = payload.extra_data[0];
+    if percentage > 100 {
+        return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+            "invalid Shasta base fee sharing percentage: {percentage} exceeds 100"
+        )));
     }
 
     if payload.transactions.len() != 1 {

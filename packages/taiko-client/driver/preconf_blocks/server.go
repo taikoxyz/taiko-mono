@@ -967,8 +967,8 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	if u256BaseFee.ToBig().Cmp(common.Big0) == 0 {
 		return errors.New("non-zero base fee per gas is required")
 	}
-	if len(payload.ExtraData) == 0 {
-		return errors.New("empty extra data")
+	if err := encoding.ValidateShastaExtraData(payload.ExtraData); err != nil {
+		return err
 	}
 	if len(payload.Transactions) != 1 {
 		return fmt.Errorf("only one transaction list is allowed")
@@ -1530,6 +1530,11 @@ func (s *PreconfBlockAPIServer) tryPutEnvelopeIntoCache(msg *eth.ExecutionPayloa
 	id := uint64(msg.ExecutionPayload.BlockNumber)
 	h := msg.ExecutionPayload.BlockHash
 	if s.envelopesCache.hasExact(id, h) {
+		return
+	}
+
+	if err := encoding.ValidateShastaExtraData(msg.ExecutionPayload.ExtraData); err != nil {
+		log.Warn("Skipping cache for invalid preconfirmation extra data", "blockID", id, "blockHash", h.Hex(), "error", err)
 		return
 	}
 

@@ -176,10 +176,24 @@ func EncodeShastaExtraData(basefeeSharingPctg uint8, proposalID *big.Int) ([]byt
 
 	extraData := make([]byte, params.ShastaExtraDataLen)
 	extraData[params.ShastaExtraDataBasefeeSharingPctgIndex] = basefeeSharingPctg
+	if err := ValidateShastaExtraData(extraData); err != nil {
+		return nil, err
+	}
 
 	proposalBytes := proposalID.Bytes()
 	offset := params.ShastaExtraDataProposalIDIndex + params.ShastaExtraDataProposalIDLength - len(proposalBytes)
 	copy(extraData[offset:offset+len(proposalBytes)], proposalBytes)
 
 	return extraData, nil
+}
+
+// ValidateShastaExtraData checks the header data length and base fee sharing percentage.
+func ValidateShastaExtraData(extraData []byte) error {
+	if len(extraData) != params.ShastaExtraDataLen {
+		return fmt.Errorf("invalid Shasta extra data length: got %d, want %d", len(extraData), params.ShastaExtraDataLen)
+	}
+	if percentage := extraData[params.ShastaExtraDataBasefeeSharingPctgIndex]; percentage > 100 {
+		return fmt.Errorf("invalid Shasta base fee sharing percentage: %d exceeds 100", percentage)
+	}
+	return nil
 }

@@ -12,6 +12,8 @@ use alloy_consensus::TxEnvelope;
 use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types_engine_2::{PayloadAttributes as EthPayloadAttributes, PayloadId};
 
+use super::constants::SHASTA_EXTRA_DATA_LEN;
+
 /// Engine API `engine_getPayloadV2` discriminator.
 ///
 /// The 8-byte payload identifier prepends this version byte to match the Execution API spec.
@@ -39,10 +41,10 @@ pub fn calculate_shasta_mix_hash(parent_mix_hash: B256, block_number: u64) -> B2
 /// The first byte contains the basefee sharing percentage, followed by a 6-byte
 /// big-endian proposal id.
 pub fn encode_extra_data(basefee_sharing_pctg: u8, proposal_id: u64) -> Bytes {
-    let mut data = [0u8; 7];
+    let mut data = [0u8; SHASTA_EXTRA_DATA_LEN];
     data[0] = basefee_sharing_pctg;
     let proposal_bytes = proposal_id.to_be_bytes();
-    data[1..7].copy_from_slice(&proposal_bytes[2..8]);
+    data[1..].copy_from_slice(&proposal_bytes[2..8]);
     Bytes::from(data.to_vec())
 }
 
