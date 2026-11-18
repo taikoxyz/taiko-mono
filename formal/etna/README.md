@@ -832,3 +832,13 @@ the native scenario but is refused by the full-state receipt gate; a distinct
 withdrawal fault clears the replacement and triggers its precise native failure.
 Shared-decoder regressions re-execute N02/N03/N04 and preserve the actual N04
 pre-token write witness. Larger Registry obligations remain open.
+
+The fourth gate adds the [free proving arrival/capacity product](PROVING_ASYNC_PRODUCT.md).
+Both capacity1/2 normal graphs exhaust, with ten separately classified raw
+reachability witnesses. Actual selected-availability and full-range-budget
+source faults trigger distinct independent enabledness checks and restore to
+positive originals. The explicit product directory runs through unchanged
+classification via `check.py --config-dir`; default493 configs are unchanged
+and do not run this product. [O04 evidence](REPORT.md#o04-free-proving-arrival-and-full-range-capacity)
+records full original-data/both-proof binding, overlap/prefix/finality/anchor/
+production observations and the limits on proving performance/fairness. P01 stays OPEN.

@@ -4838,3 +4838,111 @@ unchanged at this increment; all19 archived searches remain INCONCLUSIVE.
 | Actual N04 independent readback | `5a19b3f4a29ae501a6681fc642337043120a84ed8544ce834b761646d93b3c91` |
 
 Implementation source report retained before closing-doc review SHA-256: `a2ff063210d83a8b1da5b072d2507aef2f534bd9e77f898ed6da3542b5a73f60`.
+
+## O04: free proving arrival and full-range capacity
+
+Implementation `2c3c9b303721a6575d8998b96b91d2c577f24fa0` completes the fourth
+selected increment. The [free proving product](PROVING_ASYNC_PRODUCT.md) imports
+unchanged EtnaProvingProgress and executes exactly its first four setup actions:
+two blocks and two time0 origin captures, short0→1 and long0→2. Literal independent
+records check the entire initial/setup state and both frozen jobs. Bounds are
+head3/produces3/time2/U2/reference-window1/ancestry1, variable resources and
+capacity1 or2, with all normative guards enabled and no authority rewrite,
+recovery or further captures. These are finite verification bounds.
+
+After capture every resource Boolean choice, all eight target/backend/source
+Complete tuples, full or valid-interval suffix publication, Tick, either Land,
+Finalize, PublishAnchor and actual Produce interleave freely. Wrong-source
+packages may overwrite good ones. Expected eligibility never schedules actual
+actions: independent two-way enabledness and exact action/frame equations audit
+the actual branch. Jobs, original data/statements, actual landing parent, retained
+prefix, finality, anchor and production effects are checked. Sticky failure-only
+observers add no ordinary history factor; each witness uses only its own sparse
+phase fields.
+
+The sole checker gains optional caller-relative `--config-dir`; defaults remain
+the same script-relative493 configs and root-local modules. Missing, empty and
+invalid explicit directories cannot fall back. Source/config/jar hashing, drift
+refusal, metadata validation and exact outcome classification are unchanged.
+All27 original root TLA modules and493 default config bytes are unchanged; the
+new root wrapper joins the source hash inventory. These14 opt-in configs are
+NOT executed by default CI. Reproduce with the existing checker and explicit
+`--config-dir formal/etna/products/proving-async`, supplied local Java/jar and
+a fresh external output directory; see the product document for exact cases.
+
+| Actual graph/profile        | Generated | Distinct | Queued | Seconds |
+| --------------------------- | --------: | -------: | -----: | ------: |
+| Capacity1 normal            |   312,919 |   17,284 |      0 |  14.121 |
+| Capacity2 normal            |   364,487 |   20,804 |      0 |  16.876 |
+| Capacity1 Complete audit    |   312,919 |   17,284 |      0 |  13.351 |
+| Capacity1 Land-budget audit |   312,919 |   17,284 |      0 |  12.972 |
+
+The two focused positives repeat the capacity1 graph with one selected invariant;
+they are not additional distinct state coverage. All four positive profiles
+require completion text, exit0 and queue0. The ten separate named reachability
+profiles match exactly their intended NotReached invariant: both capacities
+reach same-tuple completion after actual availability arrival, cached correct
+short proofs landing with all resources absent, short settlement and suffix-only
+long-publication refusal. The capacity1 budget witness reaches frontier1/time1
+with BOTH exact long proofs and FULL original2-block publication, every other
+Ready guard true. Capacity2 additionally executes suffix refusal→full
+re-publication→overlapping long Land with actual parent1 and retained checkpoint1
+/application1→block1 finality2 at time2→checkpoint2/reference1 anchor→actual
+height3 Produce. Root independently parsed the complete raw milestone states
+and exact changed/unchanged fields. A named counterexample is reachability
+evidence, not an exhaustive safety pass or eventual-progress theorem.
+
+The author mutates only actual Complete's selected-availability conjunct on one
+private source copy. With history present and availability absent, the unchanged
+focused normal collector correctly fails on exact AsyncCompleteEnabled after
+10 generated/6 distinct states in0.922s. This is an enabledness query, not an
+attempted external backend call or a produced proof. Finally-restored original
+source SHA4a102d5e/mode0664 passes the same focused graph queue0 in13.126s.
+
+Independent behavioral verification uses45 exact committed blobs exported
+read-only with no Git metadata. Exactly three isolated checker invocations
+execute five TLC profiles: original audit plus full-data budget witness, actual
+inherited original-length budget changed ONLY to remaining-suffix length with
+private EXPECT metadata changed to the existing AsyncLandEnabled invariant, and
+finally-restored audit plus the same witness. Original/restored audits each
+exhaust312919/17284/queue0 in13.140/12.730s. Both genuine16-state budget witnesses
+and the mutant's precise16-state AsyncLandEnabled counterexample retain
+115410 generated/8314 distinct/2418 queued. Raw prestate independently confirms
+frontier1/time1/head2, immutable origins, BOTH correct long packages and FULL2
+original publication; full2 exceeds cap1 while remaining1 fits. Suffix-only data
+still fails the separate full-data equality, so it earns no budget-detection
+credit. The fault takes5.412s. Actual source SHA590aa3aa and private config
+SHA82a9d2aa restore to4a102d5e/3f4a0c2e and their frozen0600 modes; all other
+model/support/export/tool bytes remain unchanged. No owned jail, supervisor or
+state metadir remains; unrelated retained earlier-run directories are untouched.
+
+All engines use the same checksum-pinned TLC1.7.4/Temurin17 runtime, existing
+offline supervisor/isolation and checker; no new TLC cache or lock exists. Model,
+JRE, jar and managed Python environment are read-only inside the jail, with one
+fresh private writable output per invocation. Author full per-profile checker
+cap280s has isolation290/supervisor300/outer310s cleanup hierarchy; independent
+checker cap130s per profile uses the same parent hierarchy. Heap is1024MiB. No
+engine parse/setup failure, timeout, drift, bound reduction or unexpected
+violation occurred. Two independent static preparation issues (immutable export
+mode handling and strict trailing-value parsing) were corrected before any
+independent engine execution and receive no behavior/fault-detection credit.
+
+Ordinary managed-Python checks pass160 formal/166 conformance/20 sensitivity
+(346 total), including33 focused checker/product tests. Source review and
+independent actual-source behavior gates pass. P01 stays OPEN: fixed origin/time/
+ancestry bounds, absence of recovery/recapture, abstract resource toggles and
+Complete eligibility do not establish actual proving attempts, cancellation,
+backend queues, fairness, throughput, latency or production backoff. Clock expiry
+and permanent outage remain possible. No natural protocol defect is established.
+All19 archived cases remain INCONCLUSIVE; other remaining acceptance requirements
+and operating O01 retain their prior scope/status.
+
+| Retained record                          | SHA-256                                                            |
+| ---------------------------------------- | ------------------------------------------------------------------ |
+| Author static packet                     | `a0e4004e8ac840351896bf653df8d2d723841045211f4431abdce95df87ae10c` |
+| Root author full/raw readback            | `c80f4fdde3a3a9d65f6abea107aedff21ee671babc7cf9f8df1d70e475b7a835` |
+| Independent committed export attestation | `3ef16770e7e267f9dd2edacf75b967ea308c68ce94996c194d3d116f4c851999` |
+| Independent actual-source packet         | `929f187c9b045e5e91b9770badef2d5b9e6b57fff9bd14958c8de7a4084cee19` |
+| Independent final raw receipt            | `6438f956c87ee780c458c0963034bf227dc89f341c5a09c283e700a75e788594` |
+| Root separate independent raw readback   | `a979085979733e9d75d345adaa5ad0ee429264d2300a87aaa09fd45d57f05282` |
+| Implementation source review             | `7f87e0bcf750dd4c9d72004587bbbc5a4744e0f248ff1a425319bab2bddaab42` |
