@@ -91,25 +91,26 @@ pub trait Engine: Send + Sync + 'static {
     /// forkchoice.
     async fn finalized_header(&self) -> Result<Option<Header>, EngineError>;
 
-    /// Proves the Anchor proxy implementation under `state_root` at canonical EL block `hash`.
-    /// Missing historical state returns `None`; malformed proofs are integrity failures. The
-    /// default supplies no evidence, keeping switching-network trust closed.
-    async fn anchor_implementation(
+    /// Proves `proxy`'s EIP-1967 implementation slot under `state_root` at canonical EL block
+    /// `hash`. Missing historical state returns `None`; malformed proofs are integrity failures.
+    /// The default supplies no evidence, keeping switching-network trust closed.
+    async fn proxy_implementation(
         &self,
-        anchor: Address,
+        proxy: Address,
         hash: B256,
         state_root: B256,
     ) -> Result<Option<Address>, EngineError> {
-        let _ = (anchor, hash, state_root);
+        let _ = (proxy, hash, state_root);
         Ok(None)
     }
 
-    /// Reads the Anchor proxy's immutable Etna fork timestamp through the own EL at canonical
-    /// block `hash`. Callers must first verify the proxy implementation at that block.
-    /// The default reports no evidence so switching-network trust remains closed.
-    async fn anchor_fork_timestamp(
+    /// Calls `beaconRootsFrom()` on the L2 SignalService `implementation` itself, not through
+    /// the proxy, in the own EL's state at canonical block `hash`. The getter returns an
+    /// immutable, so any state holding that code gives the same value. The default reports no
+    /// evidence so switching-network trust remains closed.
+    async fn beacon_roots_from(
         &self,
-        _anchor: Address,
+        _implementation: Address,
         _hash: B256,
     ) -> Result<Option<u64>, EngineError> {
         Ok(None)

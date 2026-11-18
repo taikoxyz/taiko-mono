@@ -17,7 +17,7 @@ use alloy_rpc_types_engine::{
 };
 use alloy_sol_types::SolCall;
 use async_trait::async_trait;
-use bindings::anchor::Anchor::etnaTimestampCall;
+use bindings::signal_service::SignalService::beaconRootsFromCall;
 use rpc::{
     RpcClientError,
     auth::{EngineClient, PoolSelection},
@@ -438,21 +438,21 @@ impl Engine for RpcEngine {
     }
 
     /// Fetches the hash-pinned EIP-1967 slot and verifies its account and storage MPT proofs.
-    async fn anchor_implementation(
+    async fn proxy_implementation(
         &self,
-        anchor: Address,
+        proxy: Address,
         hash: B256,
         state_root: B256,
     ) -> Result<Option<Address>, EngineError> {
-        let slot = crate::switch::ANCHOR_IMPLEMENTATION_SLOT;
+        let slot = crate::switch::IMPLEMENTATION_SLOT;
         let response = self
             .l2
-            .get_proof(anchor, vec![slot])
+            .get_proof(proxy, vec![slot])
             .block_id(BlockId::hash_canonical(hash))
             .await
             .map_err(recovery_read_error)?;
-        if response.address != anchor {
-            return Err(EngineError::BadReply("Anchor proof names another account".into()));
+        if response.address != proxy {
+            return Err(EngineError::BadReply("proxy proof names another account".into()));
         }
         let witness = crate::types::AccountWitness {
             address: response.address,
@@ -473,26 +473,26 @@ impl Engine for RpcEngine {
         };
         let verified = crate::l1::mpt::verify_account_witness(state_root, &witness, &[slot])
             .map_err(|error| {
-                EngineError::BadReply(format!("invalid Anchor implementation proof: {error}"))
+                EngineError::BadReply(format!("invalid proxy implementation proof: {error}"))
             })?;
         let value = verified.get(slot).expect("verified implementation slot");
         if value >> 160 != alloy_primitives::U256::ZERO {
             return Err(EngineError::BadReply(
-                "Anchor implementation has nonzero address padding".into(),
+                "proxy implementation has nonzero address padding".into(),
             ));
         }
         Ok(Some(Address::from_word(B256::from(value))))
     }
 
-    /// Calls the Anchor proxy getter using the same canonical hash as the implementation proof.
-    async fn anchor_fork_timestamp(
+    /// Calls the implementation's getter, not the proxy's, at the canonical block `hash`.
+    async fn beacon_roots_from(
         &self,
-        anchor: Address,
+        implementation: Address,
         hash: B256,
     ) -> Result<Option<u64>, EngineError> {
         let call = serde_json::json!({
-            "to": anchor,
-            "data": Bytes::from_static(&etnaTimestampCall::SELECTOR),
+            "to": implementation,
+            "data": Bytes::from_static(&beaconRootsFromCall::SELECTOR),
         });
         let response: Bytes = self
             .l2
@@ -500,11 +500,11 @@ impl Engine for RpcEngine {
             .await
             .map_err(recovery_read_error)?;
         if response.len() != 32 {
-            return Err(EngineError::BadReply("invalid Anchor fork timestamp ABI length".into()));
+            return Err(EngineError::BadReply("invalid beaconRootsFrom ABI length".into()));
         }
-        etnaTimestampCall::abi_decode_returns_validate(&response)
+        beaconRootsFromCall::abi_decode_returns_validate(&response)
             .map(Some)
-            .map_err(|_| EngineError::BadReply("invalid Anchor fork timestamp ABI value".into()))
+            .map_err(|_| EngineError::BadReply("invalid beaconRootsFrom ABI value".into()))
     }
 
     /// `eth_getBlockByNumber(number)` on the public endpoint; the header must hash to the reported
@@ -1301,35 +1301,36 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn switch_anchor_timestamp_calls_the_proxy_at_the_canonical_start_hash() {
-        let (anchor, hash) = (Address::with_last_byte(2), B256::with_last_byte(3));
+    async fn switch_fork_time_calls_the_implementation_at_the_canonical_hash() {
+        let (implementation, hash) = (Address::with_last_byte(2), B256::with_last_byte(3));
         let mut word = [0u8; 32];
         word[24..].copy_from_slice(&1_760_000_001u64.to_be_bytes());
         let (url, request) = record_rpc(json!(Bytes::copy_from_slice(&word))).await;
         assert_eq!(
-            over_http(&url).anchor_fork_timestamp(anchor, hash).await.unwrap(),
+            over_http(&url).beacon_roots_from(implementation, hash).await.unwrap(),
             Some(1_760_000_001)
         );
         let request = request.await.unwrap();
         assert_eq!(request["method"], "eth_call");
+        // `beaconRootsFrom()`'s selector, computed with `cast sig`.
         assert_eq!(
             request["params"],
             json!([
-                {"to": anchor, "data": "0x3b141589"},
+                {"to": implementation, "data": "0x9bce53b5"},
                 {"blockHash": hash, "requireCanonical": true}
             ])
         );
     }
 
     #[tokio::test]
-    async fn switch_anchor_timestamp_requires_one_canonical_abi_word() {
+    async fn switch_fork_time_requires_one_canonical_abi_word() {
         let m = mocked();
-        let (anchor, hash) = (Address::with_last_byte(2), B256::with_last_byte(3));
+        let (implementation, hash) = (Address::with_last_byte(2), B256::with_last_byte(3));
         let mut word = [0u8; 32];
         word[24..].copy_from_slice(&1_760_000_001u64.to_be_bytes());
         m.l2.push_success(&Bytes::copy_from_slice(&word));
         assert_eq!(
-            m.engine.anchor_fork_timestamp(anchor, hash).await.unwrap(),
+            m.engine.beacon_roots_from(implementation, hash).await.unwrap(),
             Some(1_760_000_001)
         );
 
@@ -1339,13 +1340,13 @@ mod tests {
         m.l2.push_success(&Bytes::copy_from_slice(&word));
         for _ in 0..3 {
             assert!(matches!(
-                m.engine.anchor_fork_timestamp(anchor, hash).await,
+                m.engine.beacon_roots_from(implementation, hash).await,
                 Err(EngineError::BadReply(_))
             ));
         }
         m.l2.push_failure_msg("historical state unavailable");
         assert!(matches!(
-            m.engine.anchor_fork_timestamp(anchor, hash).await,
+            m.engine.beacon_roots_from(implementation, hash).await,
             Err(EngineError::Transport(_))
         ));
     }

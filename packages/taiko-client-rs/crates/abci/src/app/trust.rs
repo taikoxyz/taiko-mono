@@ -537,6 +537,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             return Ok(());
         }
         self.verify_link(state, &refreshed).await?;
+        self.verify_fork_time(refreshed.hash).await?;
         snapshot.phase = TrustPhase::Ready;
         snapshot.trusted_consensus_head = snapshot.committed_head.clone();
         snapshot.reason = None;

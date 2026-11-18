@@ -91,8 +91,9 @@ pub trait LandingSource: Send + Sync {
         Ok(snapshot.genesis.genesis_height == 0 ||
             snapshot.checkpoint_height != snapshot.genesis.genesis_height)
     }
-    /// Retain raw Anchor proxy state at S for the first switching proof; the builder verifies it.
-    async fn start_anchor_witness(
+    /// Retain raw L2 SignalService proxy state at S for the first switching proof; the builder
+    /// verifies it.
+    async fn start_signal_service_witness(
         &self,
         _snapshot: &LandingSnapshot,
     ) -> Result<Option<AccountWitness>> {
@@ -406,14 +407,14 @@ impl LandingSource for RpcLandingSource {
     }
 
     /// Hash-pin the EIP-1186 read to S and retain every MPT node for the external proof backend.
-    async fn start_anchor_witness(
+    async fn start_signal_service_witness(
         &self,
         snapshot: &LandingSnapshot,
     ) -> Result<Option<AccountWitness>> {
-        let anchor = alethia_reth_primitives::addresses::get_treasury_address(snapshot.l2_chain_id);
+        let signal_service = abci::l2_signal_service_address(snapshot.l2_chain_id);
         let response = self
             .l2
-            .get_proof(anchor, vec![crate::types::ANCHOR_IMPLEMENTATION_SLOT])
+            .get_proof(signal_service, vec![crate::types::IMPLEMENTATION_SLOT])
             .block_id(BlockId::hash_canonical(snapshot.genesis.genesis_hash))
             .await
             .map_err(rpc_error)?;
@@ -435,7 +436,7 @@ impl LandingSource for RpcLandingSource {
                 .collect(),
         };
         let parent = self.parent_header(snapshot).await?;
-        crate::types::verify_start_anchor_witness(
+        crate::types::verify_start_signal_service_witness(
             snapshot,
             &parent.header,
             &self.params,

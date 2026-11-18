@@ -6,3 +6,4 @@
 pub mod anchor;
 pub mod inbox;
 pub mod preconf_whitelist;
+pub mod signal_service;

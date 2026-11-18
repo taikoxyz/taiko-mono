@@ -1257,18 +1257,18 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         }
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(&snapshot, &schedule, &mut committees).await?;
-        let start_anchor_witness = if self.params.switch.is_some() &&
+        let start_signal_service_witness = if self.params.switch.is_some() &&
             snapshot.checkpoint_height == snapshot.genesis.genesis_height
         {
-            self.l1.start_anchor_witness(&snapshot).await?
+            self.l1.start_signal_service_witness(&snapshot).await?
         } else {
             None
         };
-        crate::types::verify_start_anchor_witness(
+        crate::types::verify_start_signal_service_witness(
             &snapshot,
             &start.parent.header,
             &self.params,
-            start_anchor_witness.as_ref(),
+            start_signal_service_witness.as_ref(),
         )?;
         let start_val_state = self.start_val_state(&snapshot, &schedule, &committees).await?;
         let selected = selected.filter(|selected| {
@@ -1382,7 +1382,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             batch: PreparedBatch {
                 snapshot,
                 parent_header: start.parent.header.clone(),
-                start_anchor_witness,
+                start_signal_service_witness,
                 execution_history: start.history.clone(),
                 grandparent_timestamp: start.parent.grandparent_timestamp,
                 parent_anchor,

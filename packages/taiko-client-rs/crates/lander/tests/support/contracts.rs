@@ -25,7 +25,12 @@ use test_harness::{StandaloneAnvil, StandaloneReth, ValidatorKey, dev_signer, mi
 sol!(EtnaInboxBootstrap, "../../crates/lander/tests/fixtures/contracts/EtnaInboxBootstrap.json");
 sol!(EtnaInbox, "../../crates/lander/tests/fixtures/contracts/EtnaInbox.json");
 sol!(EtnaStakingRegistry, "../../crates/lander/tests/fixtures/contracts/EtnaStakingRegistry.json");
-sol!(SignalService, "../../crates/lander/tests/fixtures/contracts/SignalService.json");
+/// Kept apart from EtnaInbox: both ABIs declare `ICheckpointStore`, which the Inbox's
+/// `saveCheckpoint` takes.
+mod signal_service {
+    alloy::sol!(SignalService, "../../crates/lander/tests/fixtures/contracts/SignalService.json");
+}
+pub use signal_service::SignalService;
 sol!(ERC1967Proxy, "../../crates/lander/tests/fixtures/contracts/ERC1967Proxy.json");
 sol!(
     MockLandProofVerifier,
@@ -244,6 +249,8 @@ impl ContractFixture {
                 authorizedSyncer: inbox,
                 remoteSignalService: Address::repeat_byte(0xdd),
                 _pauser: owner,
+                // Zero on L1 (START-10-5).
+                _beaconRootsFrom: 0,
             }
             .abi_encode(),
         )

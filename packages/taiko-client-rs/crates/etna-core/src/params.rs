@@ -20,8 +20,10 @@ pub struct SwitchConfig {
     pub unzen_inbox: Address,
     /// Shared Unzen cutoff and Etna activation timestamp, in Unix seconds.
     pub fork_timestamp: u64,
-    /// Etna Anchor implementation expected in the L2 proxy's EIP-1967 slot at S.
-    pub anchor_implementation: Address,
+    /// Etna L2 SignalService implementation built into the client: the L2 SignalService proxy's
+    /// EIP-1967 slot holds it at S, and its `beaconRootsFrom()` equals `fork_timestamp`
+    /// (SYNC-9-5a, PARAM-11-12a).
+    pub signal_service_implementation: Address,
 }
 
 /// Per-chain constants consumed by consensus.
@@ -55,9 +57,11 @@ pub struct ChainParams {
 /// Invalid consensus deployment parameters.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ParamsError {
-    /// A switch requires a nonzero Unzen Inbox, fork timestamp and Anchor implementation.
+    /// A switch requires a nonzero Unzen Inbox, fork timestamp and L2 SignalService
+    /// implementation.
     #[error(
-        "switch configuration requires nonzero Unzen Inbox, fork timestamp and Anchor implementation"
+        "switch configuration requires nonzero Unzen Inbox, fork timestamp and L2 SignalService \
+         implementation"
     )]
     InvalidSwitch,
     /// U must be a [`GRID_INTERVAL`] multiple within the protocol unsettled-depth bounds.
@@ -103,7 +107,7 @@ impl ChainParams {
         if self.switch.as_ref().is_some_and(|switch| {
             switch.unzen_inbox.is_zero() ||
                 switch.fork_timestamp == 0 ||
-                switch.anchor_implementation.is_zero()
+                switch.signal_service_implementation.is_zero()
         }) {
             return Err(ParamsError::InvalidSwitch);
         }

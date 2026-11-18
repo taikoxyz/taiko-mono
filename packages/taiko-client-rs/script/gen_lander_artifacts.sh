@@ -7,7 +7,7 @@
 # the committed files.
 set -euo pipefail
 
-PINNED_REVISION=c8c2e7c5e67945eafc37e7846d8fe03fece68bdd
+PINNED_REVISION=4c6424bc97b226d100cc9ce9dc828c9567acef4e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROTOCOL_CHECKOUT="$(cd "${1:?usage: gen_lander_artifacts.sh <taiko-mono-checkout>}" && pwd)"
@@ -27,7 +27,6 @@ if [[ "${PNPM_OFFLINE:-0}" == 1 ]]; then INSTALL_FLAGS+=(--offline); fi
     contracts/layer1/etna/impl/EtnaInboxBootstrap.sol \
     contracts/layer1/etna/impl/EtnaStakingRegistry.sol \
     contracts/layer1/core/impl/InboxWithEtnaCutoffs.sol \
-    contracts/shared/signal/SignalServiceL1.sol \
     contracts/shared/signal/SignalService.sol test/layer1/etna/EtnaInboxTestBase.sol \
     --build-info)
 
@@ -47,7 +46,6 @@ artifacts = {
     "EtnaStakingRegistry": "EtnaStakingRegistry.sol/EtnaStakingRegistry.json",
     "EtnaInboxBootstrap": "EtnaInboxBootstrap.sol/EtnaInboxBootstrap.json",
     "SignalService": "SignalService.sol/SignalService.json",
-    "SignalServiceL1": "SignalServiceL1.sol/SignalServiceL1.json",
     "InboxWithEtnaCutoffs": "InboxWithEtnaCutoffs.sol/InboxWithEtnaCutoffs.json",
     "ERC1967Proxy": "ERC1967Proxy.sol/ERC1967Proxy.json",
     "MockLandProofVerifier": "EtnaInboxTestBase.sol/MockLandProofVerifier.json",

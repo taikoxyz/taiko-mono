@@ -10,9 +10,9 @@ and switch deployment remain separate work.
 Use alethia-reth revision `398702f29917534a4d696d022336787156e0ffa9` or a compatible release.
 Its Unzen and Etna Engine methods are forkchoiceUpdatedV3/getPayloadV5/newPayloadV4. Configure
 the same Etna timestamp on the EL and in the client deployment configuration. Existing L2
-history and state stay in place. Etna-aware Anchor/SignalService and EIP-4788/2935 code must
-already be present. Retain S's state until the first landing, or provide its verifiable historical
-state proofs through the own EL.
+history and state stay in place. The Etna L2 SignalService implementation and the EIP-4788/2935
+code must already be present. Retain S's state until the first landing, or provide its
+verifiable historical state proofs through the own EL.
 
 The current built-in Etna parameters are devnet-only. Supply the usual devnet `--chain-config`
 with the correct Inbox, registry and consensus parameters and an additional table:
@@ -21,17 +21,18 @@ with the correct Inbox, registry and consensus parameters and an additional tabl
 [switch]
 unzen_inbox = "0x0000000000000000000000000000000000000001"
 fork_timestamp = 1800000000
-anchor_implementation = "0x0000000000000000000000000000000000000002"
+signal_service_implementation = "0x0000000000000000000000000000000000000002"
 ```
 
 Addresses and timestamp above are placeholders. `unzen_inbox` must equal `--shasta.inbox`;
-`anchor_implementation` is the expected implementation, not the proxy. The configuration file
-does not authenticate S. While S is the latest landing checkpoint, the app verifies the
-Anchor proxy's implementation proof at S, then calls `etnaTimestamp()` through the own EL
-at that same canonical block hash. Signing stays closed if the timestamp is unavailable,
-and a mismatch with `fork_timestamp` halts the app. Set the EL's fork schedule to the same
-timestamp as part of the deployment. Formal network parameters must be compiled into their
-chain configuration.
+`signal_service_implementation` is the Etna L2 SignalService implementation, not the proxy. The
+configuration file does not authenticate S. While S is the latest landing checkpoint, the app
+verifies the L2 SignalService proxy's implementation proof at S (SYNC-9-5a). Before every trust
+grant, whatever the latest checkpoint, it also calls `beaconRootsFrom()` on that implementation
+address, not through the proxy, in its own EL's state at the checkpoint block. Signing stays
+closed if that value is unavailable, and a mismatch with `fork_timestamp` halts the app. Set the
+EL's fork schedule to the same timestamp as part of the deployment. Formal network parameters
+must be compiled into their chain configuration.
 
 ## Starting the staged runtime
 
@@ -83,12 +84,13 @@ against that hash and the recorded state root. It reads these facts at one canon
 after fork-cutoff and start-block finality. Pending nonce and receipt reconciliation continues
 independently of this gate.
 
-The first proof request retains and host-verifies an EIP-1186 proof of the Anchor proxy's
-EIP-1967 implementation slot under S's state root. Keep S's state available until the first
-landing. The included DummyProofProvider remains suitable only for development deployments;
-a real backend must verify this witness as well as the remaining private inputs.
+The first proof request retains and host-verifies an EIP-1186 proof of the L2 SignalService
+proxy's EIP-1967 implementation slot under S's state root (PROOF-6.2-46a). Keep S's state
+available until the first landing. The included DummyProofProvider remains suitable only for
+development deployments; a real backend must verify this witness as well as the remaining
+private inputs.
 
-Lander journal schema 17 includes this witness. Older journals are refused, never rewritten.
+Lander journal schema 18 includes this witness. Older journals are refused, never rewritten.
 Resolve outstanding signed jobs with their compatible lander before upgrading. Nonzero-S
 [checkpoint import/export](checkpoint-import.md) preserves the fixed Comet genesis and uses the
 original EL block-zero chainspec independently of the Etna start hash at S.

@@ -18,12 +18,13 @@ use crate::{
 };
 
 /// EIP-1967 implementation key, shared by the switch's proxy-state checks and proof input.
-pub(crate) const ANCHOR_IMPLEMENTATION_SLOT: B256 =
+pub(crate) const IMPLEMENTATION_SLOT: B256 =
     alloy_primitives::b256!("360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc");
 
-/// Authenticate the first proof's raw Anchor implementation witness against the fixed S header.
-/// Later parents must not carry a replacement witness for the already-settled start.
-pub(crate) fn verify_start_anchor_witness(
+/// Authenticate the first proof's raw L2 SignalService implementation witness against the fixed
+/// S header (PROOF-6.2-46a). Later parents must not carry a replacement witness for the
+/// already-settled start.
+pub(crate) fn verify_start_signal_service_witness(
     snapshot: &LandingSnapshot,
     parent_header: &Header,
     params: &abci::ChainParams,
@@ -35,38 +36,39 @@ pub(crate) fn verify_start_anchor_witness(
         .filter(|_| snapshot.checkpoint_height == snapshot.genesis.genesis_height)
     else {
         if witness.is_some() {
-            return Err(LanderError::Safety("unexpected start Anchor witness".into()));
+            return Err(LanderError::Safety("unexpected start SignalService witness".into()));
         }
         return Ok(());
     };
     let witness = witness.ok_or_else(|| {
         LanderError::Unavailable(
-            "first landing requires the Anchor implementation proof at S".into(),
+            "first landing requires the L2 SignalService implementation proof at S".into(),
         )
     })?;
     if parent_header.number != snapshot.genesis.genesis_height ||
         parent_header.hash_slow() != snapshot.genesis.genesis_hash ||
         parent_header.state_root != snapshot.genesis.genesis_state_root ||
         parent_header.timestamp >= config.fork_timestamp ||
-        witness.address !=
-            alethia_reth_primitives::addresses::get_treasury_address(params.l2_chain_id)
+        witness.address != abci::l2_signal_service_address(params.l2_chain_id)
     {
         return Err(LanderError::Safety(
-            "start Anchor witness contradicts the S header or account".into(),
+            "start SignalService witness contradicts the S header or account".into(),
         ));
     }
     let storage = abci::l1::mpt::verify_account_witness(
         parent_header.state_root,
         witness,
-        &[ANCHOR_IMPLEMENTATION_SLOT],
+        &[IMPLEMENTATION_SLOT],
     )
-    .map_err(|error| LanderError::Safety(format!("start Anchor implementation proof: {error}")))?;
-    let value = storage.get(ANCHOR_IMPLEMENTATION_SLOT).expect("verified implementation slot");
+    .map_err(|error| {
+        LanderError::Safety(format!("start SignalService implementation proof: {error}"))
+    })?;
+    let value = storage.get(IMPLEMENTATION_SLOT).expect("verified implementation slot");
     if value >> 160 != U256::ZERO ||
-        Address::from_word(B256::from(value)) != config.anchor_implementation
+        Address::from_word(B256::from(value)) != config.signal_service_implementation
     {
         return Err(LanderError::Safety(
-            "start Anchor implementation differs from switch configuration".into(),
+            "start L2 SignalService implementation differs from switch configuration".into(),
         ));
     }
     Ok(())
@@ -350,9 +352,10 @@ pub struct PreparedBatch {
     /// ancestry.
     #[serde(with = "rlp_serde")]
     pub starting_inbox_witness: AnchorWitness,
-    /// Raw EIP-1186 Anchor proxy implementation proof under S's state root, retained only for
-    /// a switching batch whose parent is S. A real proof backend must verify this private input.
-    pub start_anchor_witness: Option<AccountWitness>,
+    /// Raw EIP-1186 L2 SignalService proxy implementation proof under S's state root, retained
+    /// only for a switching batch whose parent is S. A real proof backend must verify this
+    /// private input (PROOF-6.2-46a).
+    pub start_signal_service_witness: Option<AccountWitness>,
     /// Exact complete block/commit pairs in increasing height order. Only execution blocks are
     /// published; original envelopes, headers, evidence and signatures remain private.
     pub blocks: Vec<CertifiedBlock>,

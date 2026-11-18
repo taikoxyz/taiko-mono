@@ -99,7 +99,7 @@ pub use server::{
     SAFETY_HALT_EXIT_CODE, ServerError, serve, serve_with,
 };
 pub use store::{AppState, CommitteeState, ExecutionFloor, Store, StoreError};
-pub use switch::SwitchOrigin;
+pub use switch::{SwitchOrigin, l2_signal_service_address};
 pub use types::{
     AccountWitness, AnchorState, CommitteeRecord, GenesisRecord, InboxFacts, Member, ParentInfo,
     RegistryEntry, StorageProof,

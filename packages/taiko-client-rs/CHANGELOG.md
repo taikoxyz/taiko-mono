@@ -4,8 +4,8 @@
 
 ### Protocol artifact alignment
 
-- Align the protocol pin, ABI/artifact provenance and shared schema-7 vectors with the published switch contracts in PR #22286.
-- Regenerate Inbox, Anchor and PreconfWhitelist bindings with workspace Alloy; remove the retired, unused LookaheadStore binding.
+- Align the protocol pin, ABI/artifact provenance and shared schema-7 vectors with the published switch contracts in PR #22286 at `4c6424bc`, which closes the L2 checkpoint store with `beaconRootsFrom` and removes `SignalServiceL1`.
+- Regenerate Inbox, Anchor, PreconfWhitelist and SignalService bindings with workspace Alloy; remove the retired, unused LookaheadStore binding.
 - Reproduction checks now include the legacy generated bindings. Signed journals and persisted app state are unchanged.
 
 ### Unzen driver and Etna handoff
@@ -13,19 +13,19 @@
 - Restore the Unzen sync/derivation driver and its CLI, protocol/RPC dependencies and generated bindings.
 - Add `etna-handoff` to drain finalized Unzen derivation before serving Etna ABCI at S+1.
 - Add authenticated nonzero ABCI starts with committee 0 and the unchanged global epoch schedule.
-- Keep signing closed at the Unzen-to-Etna handoff until the Anchor fork timestamp at S matches the client configuration.
+- Authenticate the switch with the L2 SignalService proxy's implementation slot at S, and check before every trust grant that the built-in implementation's `beaconRootsFrom()` equals the configured fork time (SYNC-9-5a). The `[switch]` key `anchor_implementation` is now `signal_service_implementation`.
 - Add the shared `--engine-control-dir` Engine writer lease. Mount the same directory for every local controller of one EL.
 - Pin alethia-reth to PR #248 merge commit `398702f2` with OP Reth `op-v2.7.0-1`.
 - Support nonzero-S landing, S-relative cut leaves and overlaps, committee 0 bootstrap and authenticated Unzen ancestry.
-- Wait for terminal Unzen finalization and the matching SignalService checkpoint before preparing the first landing; retain its raw Anchor implementation witness for the proof backend.
+- Wait for terminal Unzen finalization and the matching SignalService checkpoint before preparing the first landing; retain its raw L2 SignalService implementation witness for the proof backend.
 - Support nonzero-S checkpoint import/export, deriving the original EL block-zero identity from the operator-selected runtime chainspec.
-- Bump lander journals from schema 16 to 17 for the additional private proof witness. Older journals are refused without migration; resolve outstanding signed transactions with the compatible lander before upgrading.
+- Bump lander journals from schema 16 to 18 for the additional private proof witness, the L2 SignalService implementation proof at S. Older journals, including schema 17's Anchor witness, are refused without migration; resolve outstanding signed transactions with the compatible lander before upgrading.
 
 
 ### ⚠ BREAKING CHANGES
 
 Etna is unlaunched, so start a fresh devnet: the app state (schema 19), validator-state records,
-lander journals (17), private trust control (schema 1) and the signer's state layout are new, and
+lander journals (18), private trust control (schema 1) and the signer's state layout are new, and
 older stores are refused, never migrated (START-10-24).
 
 - The lander's `--max-blobs` (`LANDER_MAX_BLOBS`) and the app's `--l1.archive`

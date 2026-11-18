@@ -1,14 +1,14 @@
 {
   "contracts": {
     "Anchor": {
-      "abiSha256": "1ee414405ec0fe1d502a414bc9757efecfc98f7b18a4a8a256bda338b37f038a",
+      "abiSha256": "ed2e62adffebdecb003313a42518062e86fe195d539da836a6c328ce917223fa",
       "compiler": {
         "version": "0.8.30+commit.73712a01"
       },
       "sources": {
         "contracts/layer2/core/Anchor.sol": {
-          "keccak256": "0x4f27119941c6da44fe94fc6999fd4c2dd044197ce6ae573009822eaab30336d5",
-          "sha256": "77295e20330e75989f5e1b6ad886549f1045a4555ab47205a3c136edc44efb72"
+          "keccak256": "0xe7bf93e77abbda060b7c09aab80ad08adec1dcc1e457c6bb988423ad28a9058b",
+          "sha256": "db897eacdb095f717d6995ade542d5238f8c793ed7b82e59c2f5ce0410739255"
         },
         "contracts/layer2/core/Anchor_Layout.sol": {
           "keccak256": "0xe7450e755f951159dbdf802501e69cba30ae8ede05376fd4c72da49a69263b2e",
@@ -29,10 +29,6 @@
         "contracts/shared/signal/ICheckpointStore.sol": {
           "keccak256": "0xc2b266d09797c0aa58421ff048d89406cc5c15a7b7d4f1589dd2a3a9bf42097c",
           "sha256": "cdc68b035819049e3f6bfd3d9a9f371f74e629e4585c339ed2a12c9625db30e3"
-        },
-        "contracts/shared/signal/IL1StateRootProvider.sol": {
-          "keccak256": "0x8ca838060c99b1fbb491fad895c02f6572a189b62077ad99d79fbd177bb8f095",
-          "sha256": "5d600ec6ef66c79160e97016dce8efc3fd3b83ae8dbdaabd3d5b18a9969af3be"
         },
         "node_modules/@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol": {
           "keccak256": "0x9140dabc466abab21b48b72dbda26736b1183a310d0e677d3719d201df026510",
@@ -191,8 +187,8 @@
           "sha256": "cdc68b035819049e3f6bfd3d9a9f371f74e629e4585c339ed2a12c9625db30e3"
         },
         "contracts/shared/signal/ISignalService.sol": {
-          "keccak256": "0x08526146023ce0d947736aa90a4e602e1ae42153e70cd2d056b7059cedfe64c0",
-          "sha256": "69e30e32e4df5b19ee108d34575222095eb9b69a43bc389cc789d22999f37e27"
+          "keccak256": "0xef4b686eab30d1085acf6ff8e8f13742071f0ef0bcb985cdedc5b0284e7ee990",
+          "sha256": "0a5ba86a09147a68f78ab82c21748259c829265b66ac92df4d2a64d96a3d180b"
         },
         "node_modules/@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol": {
           "keccak256": "0x9140dabc466abab21b48b72dbda26736b1183a310d0e677d3719d201df026510",
@@ -359,16 +355,125 @@
           "sha256": "51c993d87ee6096af06f8701d8497272751c8cc9c9c2b31e67a3087d5f2302df"
         }
       }
+    },
+    "SignalService": {
+      "abiSha256": "cb95c8fc4c1e59397cfda3c828793313c8b7c9cadb31369fc91344ac31324e0e",
+      "compiler": {
+        "version": "0.8.30+commit.73712a01"
+      },
+      "sources": {
+        "contracts/shared/common/EssentialContract.sol": {
+          "keccak256": "0x5e1a130be6a89b167b9d7bc2df23edc752a6cc804c721f23eac90fd08e166e45",
+          "sha256": "7f727d9b16b1580f444c76de785c678953751209fbc26dbeec24fd552df92561"
+        },
+        "contracts/shared/common/IResolver.sol": {
+          "keccak256": "0x01273635aa0be2ad8d6218ad520f824f2003eab82be1d14c46da58f2516a48dd",
+          "sha256": "fa56bf3205f0f8a1f777452b3110fc6a92b3adb3aef365d56bbeaede731c6104"
+        },
+        "contracts/shared/libs/LibTrieProof.sol": {
+          "keccak256": "0x6296e2d8403ca52256b836cf3fb0128c221a923cfee5ba14b003fcbf64920738",
+          "sha256": "45b4e8ee0d0bec7ef33ee6f59a568a3a5f44bc9c780e66ea0e6f767ccf7a250e"
+        },
+        "contracts/shared/signal/ICheckpointStore.sol": {
+          "keccak256": "0xc2b266d09797c0aa58421ff048d89406cc5c15a7b7d4f1589dd2a3a9bf42097c",
+          "sha256": "cdc68b035819049e3f6bfd3d9a9f371f74e629e4585c339ed2a12c9625db30e3"
+        },
+        "contracts/shared/signal/ISignalService.sol": {
+          "keccak256": "0xef4b686eab30d1085acf6ff8e8f13742071f0ef0bcb985cdedc5b0284e7ee990",
+          "sha256": "0a5ba86a09147a68f78ab82c21748259c829265b66ac92df4d2a64d96a3d180b"
+        },
+        "contracts/shared/signal/SignalService.sol": {
+          "keccak256": "0x1e7d5feb623f2990f1743d184f8d48187fe9f64dcd11b44bea4d9c2203c9b260",
+          "sha256": "3e935aec31f9a616aca57b8fac6b0c6fb0f9c2619e4650e92449c9893cc287e9"
+        },
+        "contracts/shared/signal/SignalService_Layout.sol": {
+          "keccak256": "0x8a5d0d5adbf8721026495f953484f3bee66d58fe47c49ec92381742dca7d9ac5",
+          "sha256": "880345245d6e8a343eb4f5109ae1bdbdc826bbfe92f7344ae70c942df1ffdbec"
+        },
+        "node_modules/@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol": {
+          "keccak256": "0x9140dabc466abab21b48b72dbda26736b1183a310d0e677d3719d201df026510",
+          "sha256": "5b09a7e7eff282611c720db320b07279eeb8093f3e03df65c011c727d5c3bfaa"
+        },
+        "node_modules/@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol": {
+          "keccak256": "0x359a1ab89b46b9aba7bcad3fb651924baf4893d15153049b9976b0fc9be1358e",
+          "sha256": "2d9e57d2a4b0775334be2968019c1939377d45b69e8b724fe6bb80af47e28419"
+        },
+        "node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol": {
+          "keccak256": "0x89be10e757d242e9b18d5a32c9fbe2019f6d63052bbe46397a430a1d60d7f794",
+          "sha256": "a2c4e5c274a586f145d278293ae33198cd8f412ab7e6d26f2394c8949b32b24b"
+        },
+        "node_modules/@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol": {
+          "keccak256": "0x9c80f545915582e63fe206c6ce27cbe85a86fc10b9cd2a0e8c9488fb7c2ee422",
+          "sha256": "db92fc1b515decad3a783b1422190877d2d70b907c6e36fb0998d9465aee42db"
+        },
+        "node_modules/@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol": {
+          "keccak256": "0x75097e35253e7fb282ee4d7f27a80eaacfa759923185bf17302a89cbc059c5ef",
+          "sha256": "2d3d7dc6e116cb8ebb8517208141cb3d0950b337a285f15f8476ec3df29d824e"
+        },
+        "node_modules/@openzeppelin/contracts/interfaces/IERC1967.sol": {
+          "keccak256": "0x3cbef5ebc24b415252e2f8c0c9254555d30d9f085603b4b80d9b5ed20ab87e90",
+          "sha256": "dddc79fd955a7dbf954b63358f67be734da61a406bc610a90c91821a2ff84bc6"
+        },
+        "node_modules/@openzeppelin/contracts/interfaces/draft-IERC1822.sol": {
+          "keccak256": "0x1d4afe6cb24200cc4545eed814ecf5847277dfe5d613a1707aad5fceecebcfff",
+          "sha256": "38728bce05e2b518d0ef66d514dbfcdee5555aeac2d57729480bf1409ee63630"
+        },
+        "node_modules/@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol": {
+          "keccak256": "0x3b21ae06bf5957f73fa16754b0669c77b7abd8ba6c072d35c3281d446fdb86c2",
+          "sha256": "05f8710ad6a17e156b51e2c5baa87fd6281c4be50a891ad717d6cfa628301da8"
+        },
+        "node_modules/@openzeppelin/contracts/proxy/beacon/IBeacon.sol": {
+          "keccak256": "0xd50a3421ac379ccb1be435fa646d66a65c986b4924f0849839f08692f39dde61",
+          "sha256": "6afea1d83856ed8e0495fe78109f674f925cfdc79fe2e24e854b1237e742f011"
+        },
+        "node_modules/@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol": {
+          "keccak256": "0xc6619957bcc6641fe8984bfaf9ff11a9e4b97d8149c0495f608f9a2416d7c5cf",
+          "sha256": "81fd7eff33a96b439a265d21a3244b4cfc2b674493420ae02e1f44088a8c84fc"
+        },
+        "node_modules/@openzeppelin/contracts/utils/Address.sol": {
+          "keccak256": "0x006dd67219697fe68d7fbfdea512e7c4cb64a43565ed86171d67e844982da6fa",
+          "sha256": "8b85a2463eda119c2f42c34fa3d942b61aee65df381f48ed436fe8edb3a7d602"
+        },
+        "node_modules/@openzeppelin/contracts/utils/StorageSlot.sol": {
+          "keccak256": "0xf09e68aa0dc6722a25bc46490e8d48ed864466d17313b8a0b254c36b54e49899",
+          "sha256": "51c993d87ee6096af06f8701d8497272751c8cc9c9c2b31e67a3087d5f2302df"
+        },
+        "node_modules/optimism/packages/contracts-bedrock/src/libraries/Bytes.sol": {
+          "keccak256": "0x827f47d123b0fdf3b08816d5b33831811704dbf4e554e53f2269354f6bba8859",
+          "sha256": "c766c5343b32068e893f81d2f5dbe8e7c48bb8680d1c9b5e1368c74538500cf1"
+        },
+        "node_modules/optimism/packages/contracts-bedrock/src/libraries/rlp/RLPErrors.sol": {
+          "keccak256": "0x2b7fa174e6c62962f7c3ce1960298d325ed0e5ff4ee3fd426848e88b4500eb26",
+          "sha256": "c775036bad8a0e00beeeae9fd20c733dcfdc2ddc57464d70299cb5c148aeec60"
+        },
+        "node_modules/optimism/packages/contracts-bedrock/src/libraries/rlp/RLPReader.sol": {
+          "keccak256": "0x27cbbc74d603b301e0e4bc4d33bbbeb88e369f1a91191a33d89ea52360e003db",
+          "sha256": "22442da9dd37265ed8d2e4be8ae7db02445ed841b93fae6555b5b1448893b367"
+        },
+        "node_modules/optimism/packages/contracts-bedrock/src/libraries/rlp/RLPWriter.sol": {
+          "keccak256": "0x60ac401490f321c9c55e996a2c65151cd5e60de5f8f297e7c94d541c29820bb6",
+          "sha256": "b8cfaea3c14d42152fb63fd73262d1454ce8717bd4901a2fa07b947d7326ae5d"
+        },
+        "node_modules/optimism/packages/contracts-bedrock/src/libraries/trie/MerkleTrie.sol": {
+          "keccak256": "0xf8ba770ee6666e73ae43184c700e9c704b2c4ace71f9e3c2227ddc11a8148b4c",
+          "sha256": "20032d733b9ba7eef71bfdaade1b08991e9766f792dda675c1420bb9bc91b09d"
+        },
+        "node_modules/optimism/packages/contracts-bedrock/src/libraries/trie/SecureMerkleTrie.sol": {
+          "keccak256": "0xeaff8315cfd21197bc6bc859c2decf5d4f4838c9c357c502cdf2b1eac863d288",
+          "sha256": "d12c9cf8d20681bd38d6ca8d6baf37344fbb489a042e14544b10f78451dcecec"
+        }
+      }
     }
   },
   "files": {
     "Cargo.toml": "244923482f90da5db5ede551d5602ca529bc51023f389a82d66121559366cf7d",
-    "src/anchor.rs": "8a96ff3cbb2759cc5e28f34293b0ff5a9e417e58053c5f8abf1862b39436889f",
+    "src/anchor.rs": "242c4462064966c4e56f7b02b31b9f5ade9e6c25f3d87e65e9c7ff46ee8a6cb5",
     "src/inbox.rs": "2b0b4cea4eb30c5e716bb49b741b29335b0bbb747d4f356e79b006abe5029030",
-    "src/lib.rs": "aca21e641ba36497b8fa37a02a58e31c11b7115952936d8ca0ed7d7161becfca",
-    "src/preconf_whitelist.rs": "ddc304900edfa442c9d27aa9350201f73b5b6546e09893742614c0f8f4da8a73"
+    "src/lib.rs": "ee7f8156bb0194e91ab95c796d9d978c2bf6e36e521f31adfa3dc31798b97c08",
+    "src/preconf_whitelist.rs": "ddc304900edfa442c9d27aa9350201f73b5b6546e09893742614c0f8f4da8a73",
+    "src/signal_service.rs": "c2cce7f58e893f0eb66ef0c13caac423359ba1790762a05383c44d26546ff10d"
   },
   "foundryVersion": ["Commit SHA: 4072e48705af9d93e3c0f6e29e93b5e9a40caed8"],
   "generator": "script/gen_bindings.sh",
-  "protocolRevision": "c8c2e7c5e67945eafc37e7846d8fe03fece68bdd"
+  "protocolRevision": "4c6424bc97b226d100cc9ce9dc828c9567acef4e"
 }

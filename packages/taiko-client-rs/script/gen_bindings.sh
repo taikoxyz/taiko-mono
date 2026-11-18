@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Regenerate the remaining Unzen/Anchor bindings from the Etna artifacts' protocol pin.
+# Regenerate the Unzen/Anchor bindings and the SignalService getters the Etna switch check reads,
+# from the Etna artifacts' protocol pin.
 # Generated crate files are replaced only after builds and code generation succeed.
 set -euo pipefail
 
@@ -31,9 +32,10 @@ CRATE_VERSION="$(python3 -c 'import sys,tomllib; print(tomllib.load(open(sys.arg
     contracts/layer1/preconf/impl/PreconfWhitelist.sol)
 (cd "$PROTOCOL_DIR" && FOUNDRY_PROFILE=layer2 forge build \
     --out "$BUILD_DIR/artifacts" --cache-path "$BUILD_DIR/cache/layer2" \
-    contracts/layer2/core/Anchor.sol)
+    contracts/layer2/core/Anchor.sol \
+    contracts/shared/signal/SignalService.sol)
 forge bind --root "$PROTOCOL_DIR" --out "$BUILD_DIR/artifacts" --skip-build \
-    --select '^Inbox$' --select '^Anchor$' --select '^PreconfWhitelist$' \
+    --select '^Inbox$' --select '^Anchor$' --select '^PreconfWhitelist$' --select '^SignalService$' \
     --bindings-path "$BUILD_DIR/bindings" --crate-name bindings \
     --crate-version "$CRATE_VERSION" --overwrite --alloy-version "$ALLOY_VERSION"
 
@@ -72,7 +74,7 @@ manifest = {
     "foundryVersion": [line for line in subprocess.check_output(["forge", "--version"], text=True).splitlines() if line.startswith("Commit SHA:")],
     "contracts": {},
 }
-for name in ["Anchor", "Inbox", "PreconfWhitelist"]:
+for name in ["Anchor", "Inbox", "PreconfWhitelist", "SignalService"]:
     artifact = json.loads((build / "artifacts" / (name + ".sol") / (name + ".json")).read_text())
     metadata = json.loads(artifact["rawMetadata"])
     if any(pathlib.Path(source).is_absolute() or ".." in pathlib.Path(source).parts for source in metadata["sources"]):
@@ -98,5 +100,5 @@ shutil.copytree(staged / "src", destination / "src")
 shutil.copyfile(staged / "Cargo.toml", destination / "Cargo.toml")
 (destination / "protocol-manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 subprocess.run(["pnpm", "exec", "prettier", "--write", str(destination / "protocol-manifest.json")], cwd=protocol.parents[1], check=True)
-print("regenerated Inbox, Anchor and PreconfWhitelist bindings from", revision)
+print("regenerated Inbox, Anchor, PreconfWhitelist and SignalService bindings from", revision)
 PYTHON

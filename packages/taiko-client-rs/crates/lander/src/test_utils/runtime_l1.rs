@@ -696,7 +696,7 @@ fn nonzero_etna_start_requires_switch_configuration() {
     configured.switch = Some(abci::SwitchConfig {
         unzen_inbox: alloy_primitives::Address::repeat_byte(0x41),
         fork_timestamp: 100,
-        anchor_implementation: alloy_primitives::Address::repeat_byte(0x42),
+        signal_service_implementation: alloy_primitives::Address::repeat_byte(0x42),
     });
     let decoded = decode(&configured).unwrap();
     assert_eq!(decoded.genesis.genesis_height, start);

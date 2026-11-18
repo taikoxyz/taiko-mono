@@ -8,13 +8,14 @@ use super::{
 use crate::{
     GRID_INTERVAL,
     app::trust::TrustPhase,
+    config::SwitchConfig,
     envelope::EtnaEnvelope,
     l1::L1Error,
     store::Record,
     test_utils::{InboxStorage, L1Call},
     valstate::{ValState, spec_41a_state, stock_lookup},
 };
-use alloy_primitives::{B256, keccak256};
+use alloy_primitives::{Address, B256, keccak256};
 
 /// Provides real proofs at the exact finalized snapshot. A committed `height` lands with the
 /// app's own Comet and validator-state hashes, the next height with those [`next_envelope`]
@@ -665,6 +666,44 @@ async fn ready_session_keeps_fixed_target_and_labels_valid_candidates_safe() {
     assert!(snapshot.is_ready());
     assert_eq!(snapshot.target.unwrap().height, 0);
     assert_eq!(snapshot.trusted_consensus_head.unwrap().hash, hash);
+}
+
+/// On a switching network every trust grant checks the built-in L2 SignalService
+/// implementation's fork time in the state at its checkpoint, not only while that is S
+/// (SYNC-9-5a): missing evidence keeps trust closed, a different value halts.
+#[tokio::test]
+async fn switching_trust_checks_the_fork_time_at_a_later_checkpoint() {
+    let mut fx = Fixture::genesis(1);
+    let implementation = Address::with_last_byte(0x55);
+    let fork_timestamp = fx.el_chain[0].timestamp + 1;
+    fx.params.switch = Some(SwitchConfig {
+        unzen_inbox: Address::with_last_byte(1),
+        fork_timestamp,
+        signal_service_implementation: implementation,
+    });
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    commit_to(&mut app, &fx, GRID_INTERVAL).await;
+    let hash = app.engine().state().chain[&GRID_INTERVAL].hash_slow();
+    target(&app, &fx, GRID_INTERVAL, hash);
+    app.refresh_trust().await.unwrap();
+    let snapshot = app.trust.snapshot();
+    assert!(!snapshot.is_ready());
+    assert!(snapshot.reason.unwrap().contains("fork time is unavailable"));
+    app.engine().state().beacon_roots_from = Some((implementation, fork_timestamp));
+    app.refresh_trust().await.unwrap();
+    assert!(app.trust.snapshot().is_ready(), "{:?}", app.trust.snapshot().reason);
+
+    let mut restarted =
+        app_with(fx.l1(), app.engine().reopen(), fx.params.clone(), dir.path(), Default::default());
+    restarted.engine().state().beacon_roots_from = Some((implementation, fork_timestamp + 1));
+    target(&restarted, &fx, GRID_INTERVAL, hash);
+    let result = restarted.refresh_trust().await;
+    assert!(
+        matches!(result, Err(AbciError::SafetyHalt(ref reason)) if reason.contains("fork time")),
+        "{result:?}"
+    );
+    assert!(!restarted.trust.snapshot().is_ready());
 }
 
 #[tokio::test]

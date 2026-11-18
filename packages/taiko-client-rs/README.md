@@ -147,11 +147,12 @@ implement at R. Rules scheduled after R do not change that fixed recovery origin
 The ABCI app supports new networks with Etna start S = 0 and authenticated nonzero starts
 through [the restored Unzen driver handoff](docs/unzen-etna-handoff.md). The standalone lander
 supports the S-relative landing grid, committee 0 bootstrap and first-landing switch checks.
-It retains the raw Anchor implementation proof at S for the proof backend. The supplied backend
-still emits dummy proofs; real proving and switch deployment remain separate work.
+It retains the raw L2 SignalService implementation proof at S for the proof backend. The
+supplied backend still emits dummy proofs; real proving and switch deployment remain separate
+work.
 [Checkpoint import](docs/checkpoint-import.md) supports nonzero starts using a separately obtained
 offline EL dataset and the operator's original EL chainspec. Public EL snapshot tooling remains
-separate work. App state uses schema 19; lander journals use schema 17.
+separate work. App state uses schema 19; lander journals use schema 18.
 Older stores and witnesses are refused without rewriting signed jobs or FilePV state.
 
 ## Forced inclusion
@@ -303,7 +304,7 @@ the Inbox's `VERSION`, initialization, L2 chain id, registry, committee config h
 `GRID_INTERVAL` and `maxBatchBlocks`. Before signing or first scheduling a broadcast it
 rechecks the checkpoint frontier and the reference block.
 
-`lander-state.json` uses schema 17 and is protected by `lander.lock`; other schemas are refused
+`lander-state.json` uses schema 18 and is protected by `lander.lock`; other schemas are refused
 and left intact. The journal is verified once at startup (statement hash, blob and KZG binding,
 signed bytes); later writes are not re-verified. Signed bytes and blob sidecars are durably
 written before broadcast. For an original range (p,h] and competing checkpoint p<=c<h, the
