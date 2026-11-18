@@ -317,13 +317,15 @@ def check_predeploy_code(config, predeploys, artifacts, l1_signal_service, beaco
             ("Anchor", "checkpointStore", address_word(addresses["SignalService"])),
             ("Anchor", "l1ChainId", "0x" + format(config["l1ChainId"], "064x")),
         )),
+        # `beaconRootsFrom` first: an alloc generated with the checkpoint-only default is named
+        # by the immutable that keeps the checkpoint store open, whatever else differs.
         ("SignalServiceImpl", "SignalService", (
+            ("SignalService", "beaconRootsFrom", "0x" + format(beacon_roots_from, "064x")),
             ("UUPSUpgradeable", "__self", address_word(addresses["SignalServiceImpl"])),
             ("EssentialContract", "__resolver", address_word(addresses["SharedResolver"])),
             ("SignalService", "_authorizedSyncer", address_word(addresses["TaikoAnchor"])),
             ("SignalService", "_remoteSignalService", address_word(l1_signal_service)),
             ("SignalService", "pauser", ZERO_WORD),
-            ("SignalService", "beaconRootsFrom", "0x" + format(beacon_roots_from, "064x")),
         )),
     )
     for name, contract, immutables in expected:
