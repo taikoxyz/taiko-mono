@@ -2,13 +2,14 @@ package processor
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 const (
@@ -37,7 +38,7 @@ var (
 	errNoSettledL2Block    = errors.New("no settled L2 block below the head")
 	errMalformedEtnaHeader = errors.New("malformed Etna L2 header")
 	errAnchorTooOld        = errors.New("L1 anchor is too old for eth_getProof")
-	errOracleRootMismatch  = errors.New("getL1StateRoot does not match the L2 header root")
+	errOracleRootMismatch  = errors.New("EIP-4788 root does not match the L2 header root")
 	errL1StateRootMismatch = errors.New("L1 block state root does not match the L2 header")
 )
 
@@ -94,14 +95,17 @@ func (p *Processor) etnaAnchorFor(
 
 	root := *block.ParentBeaconRoot
 
-	// The claim reads the root through the same call, so this also catches an Anchor without
-	// the Etna upgrade, a missing EIP-4788 contract, or an overwritten EIP-4788 entry.
-	oracleRoot, err := p.destAnchor.GetL1StateRoot(&bind.CallOpts{Context: ctx}, block.Time)
+	// SignalService queries EIP-4788 with the timestamp as a 32-byte word.
+	// Reading it at the current head also detects missing or overwritten entries.
+	var timestamp [32]byte
+	binary.BigEndian.PutUint64(timestamp[24:], block.Time)
+
+	oracleRoot, err := p.readDestinationWord(ctx, params.BeaconRootsAddress, timestamp[:])
 	if err != nil {
-		return nil, fmt.Errorf("getL1StateRoot(%d): %w", block.Time, err)
+		return nil, fmt.Errorf("EIP-4788 root at timestamp %d: %w", block.Time, err)
 	}
 
-	if common.Hash(oracleRoot) != root {
+	if oracleRoot != root {
 		return nil, fmt.Errorf("%w: timestamp %d", errOracleRootMismatch, block.Time)
 	}
 

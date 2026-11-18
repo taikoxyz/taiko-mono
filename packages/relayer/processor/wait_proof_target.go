@@ -164,7 +164,7 @@ func warnUnlessDone(ctx context.Context, msg string, args ...any) {
 // carried a legacy proof and the destination has since reached the Etna fork, or with
 // errEtnaForkUnknown when that cannot be read. The guard keeps legacy proofs away from the fork,
 // but a claim can still outlive it: a send with no timeout can keep resubmitting past the fork,
-// and a cached read can say the Anchor has no Etna timestamp for up to a minute after its upgrade.
+// and a cached read can miss the destination SignalService upgrade for up to a minute.
 // Both marks are transient, so the message is proven again rather than dead-lettered.
 func (p *Processor) claimError(ctx context.Context, etnaProof bool, err error) error {
 	if etnaProof {

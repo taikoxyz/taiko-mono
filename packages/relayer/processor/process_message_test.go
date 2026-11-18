@@ -898,19 +898,19 @@ func TestGenerateEncodedSignalProofRejectsAnL1ReorgAfterTheWait(t *testing.T) {
 }
 
 func Test_ProcessMessage_retriesALegacyProofThatOutlivedTheFork(t *testing.T) {
-	p, _, _, destAnchor := etnaFixture(testEtnaTimestamp)
+	p, _, _, destEtna := etnaFixture(testEtnaTimestamp)
 	p.destBridge = &mock.Bridge{MessageNotReceived: true}
 
-	// The Anchor was upgraded moments before the fork, but the cache still holds the read from
+	// The SignalService was upgraded moments before the fork, but the cache still holds the read from
 	// before the upgrade. The wait therefore takes the legacy path, and the destination, now past
 	// the fork, cannot verify the legacy proof.
-	destAnchor.etnaErr = errors.New("execution reverted")
+	destEtna.etnaErr = errors.New("execution reverted")
 
 	_, supported, err := p.etnaTimestamp(context.Background())
 	require.NoError(t, err)
 	require.False(t, supported)
 
-	destAnchor.etnaErr = nil
+	destEtna.etnaErr = nil
 
 	body, err := json.Marshal(queue.QueueMessageSentBody{Event: newProcessMessageEvent(1)})
 	require.NoError(t, err)

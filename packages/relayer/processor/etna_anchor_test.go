@@ -23,7 +23,7 @@ const testAnchorBase = uint64(1000)
 // is the last header, unless heads is set: then each head read takes the next entry, and the last
 // one stays. reads counts every HeaderByNumber call, headReads only the head reads among them.
 type l2Chain struct {
-	mock.EthClient
+	*etnaRPC
 	headers   []*types.Header
 	heads     []*types.Header
 	headErr   error
@@ -129,24 +129,24 @@ func etnaHeader(number, timestamp, anchor uint64, root common.Hash) *types.Heade
 // etna on, where block i anchors to L1 block testAnchorBase + i with root testRoot(i). Every root
 // is recorded by EIP-4788 and matches L1, and the L1 head is two blocks past the newest anchor.
 // The processor's clock reads the head's time.
-func etnaFixture(etna uint64) (*Processor, *l2Chain, *l1Chain, *fakeAnchor) {
-	l2 := &l2Chain{}
+func etnaFixture(etna uint64) (*Processor, *l2Chain, *l1Chain, *etnaRPC) {
+	rpc := &etnaRPC{etnaTimestamp: etna, roots: map[uint64]common.Hash{}}
+	l2 := &l2Chain{etnaRPC: rpc}
 	l1 := &l1Chain{head: testAnchorBase + 11, roots: map[uint64]common.Hash{}}
-	anchor := &fakeAnchor{etnaTimestamp: etna, roots: map[uint64]common.Hash{}}
 
 	for i := uint64(0); i < 10; i++ {
 		header := etnaHeader(i, etna+2*i, testAnchorBase+i, testRoot(i))
 		l2.headers = append(l2.headers, header)
-		anchor.roots[header.Time] = testRoot(i)
+		rpc.roots[header.Time] = testRoot(i)
 		l1.roots[testAnchorBase+i] = testRoot(i)
 	}
 
 	p := newTestProcessor(false)
 	p.destEthClient = l2
-	p.destAnchor = anchor
+	p.destBridgeAddress = testDestBridge
 	atTime(p, l2.headers[len(l2.headers)-1].Time)
 
-	return p, l2, l1, anchor
+	return p, l2, l1, rpc
 }
 
 func TestEtnaAnchorForUsesTheNewestSettledBlock(t *testing.T) {
@@ -229,7 +229,7 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		mutate   func(l2 *l2Chain, l1 *l1Chain, anchor *fakeAnchor)
+		mutate   func(l2 *l2Chain, l1 *l1Chain, anchor *etnaRPC)
 		etna     uint64
 		blockNum uint64
 		// wantErr is the sentinel the error wraps; wantErrText is matched when there is none.
@@ -240,18 +240,18 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 		{
 			// The first blocks after the fork: block 3 predates it.
 			name:     "settled block before the fork",
-			mutate:   func(*l2Chain, *l1Chain, *fakeAnchor) {},
+			mutate:   func(*l2Chain, *l1Chain, *etnaRPC) {},
 			etna:     testEtnaTimestamp + 7,
 			blockNum: testAnchorBase,
 		},
 		{
 			name:     "anchor below the message block",
-			mutate:   func(*l2Chain, *l1Chain, *fakeAnchor) {},
+			mutate:   func(*l2Chain, *l1Chain, *etnaRPC) {},
 			blockNum: testAnchorBase + 4,
 		},
 		{
 			name: "extraData without the anchor number",
-			mutate: func(l2 *l2Chain, _ *l1Chain, _ *fakeAnchor) {
+			mutate: func(l2 *l2Chain, _ *l1Chain, _ *etnaRPC) {
 				l2.headers[3].Extra = l2.headers[3].Extra[:7]
 			},
 			blockNum: testAnchorBase,
@@ -259,7 +259,7 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 		},
 		{
 			name: "zero parentBeaconBlockRoot",
-			mutate: func(l2 *l2Chain, _ *l1Chain, _ *fakeAnchor) {
+			mutate: func(l2 *l2Chain, _ *l1Chain, _ *etnaRPC) {
 				l2.headers[3].ParentBeaconRoot = &common.Hash{}
 			},
 			blockNum: testAnchorBase,
@@ -267,7 +267,7 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 		},
 		{
 			name: "no parentBeaconBlockRoot",
-			mutate: func(l2 *l2Chain, _ *l1Chain, _ *fakeAnchor) {
+			mutate: func(l2 *l2Chain, _ *l1Chain, _ *etnaRPC) {
 				l2.headers[3].ParentBeaconRoot = nil
 			},
 			blockNum: testAnchorBase,
@@ -275,7 +275,7 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 		},
 		{
 			name: "anchor older than maxAnchorAge",
-			mutate: func(_ *l2Chain, l1 *l1Chain, _ *fakeAnchor) {
+			mutate: func(_ *l2Chain, l1 *l1Chain, _ *etnaRPC) {
 				l1.head = testAnchorBase + 3 + maxAnchorAge + 1
 			},
 			blockNum: testAnchorBase,
@@ -283,15 +283,31 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 		},
 		{
 			name: "EIP-4788 has no entry",
-			mutate: func(_ *l2Chain, _ *l1Chain, anchor *fakeAnchor) {
+			mutate: func(_ *l2Chain, _ *l1Chain, anchor *etnaRPC) {
 				delete(anchor.roots, testEtnaTimestamp+6)
 			},
 			blockNum:    testAnchorBase,
-			wantErrText: "getL1StateRoot",
+			wantErrText: "EIP-4788 root at timestamp",
+		},
+		{
+			name: "EIP-4788 contract has no code",
+			mutate: func(_ *l2Chain, _ *l1Chain, rpc *etnaRPC) {
+				rpc.beaconWord = []byte{}
+			},
+			blockNum: testAnchorBase,
+			wantErr:  errEmptyContractResult,
+		},
+		{
+			name: "EIP-4788 returns malformed data",
+			mutate: func(_ *l2Chain, _ *l1Chain, rpc *etnaRPC) {
+				rpc.beaconWord = []byte{1}
+			},
+			blockNum:    testAnchorBase,
+			wantErrText: "expected 32 return bytes",
 		},
 		{
 			name: "EIP-4788 holds another root",
-			mutate: func(_ *l2Chain, _ *l1Chain, anchor *fakeAnchor) {
+			mutate: func(_ *l2Chain, _ *l1Chain, anchor *etnaRPC) {
 				anchor.roots[testEtnaTimestamp+6] = otherRoot
 			},
 			blockNum: testAnchorBase,
@@ -299,7 +315,7 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 		},
 		{
 			name: "L1 anchor block reorged",
-			mutate: func(_ *l2Chain, l1 *l1Chain, _ *fakeAnchor) {
+			mutate: func(_ *l2Chain, l1 *l1Chain, _ *etnaRPC) {
 				l1.roots[testAnchorBase+3] = otherRoot
 			},
 			blockNum: testAnchorBase,
@@ -326,7 +342,6 @@ func TestEtnaAnchorForWaitsOrFails(t *testing.T) {
 				require.ErrorIs(t, err, tt.wantErr)
 			case tt.wantErrText != "":
 				require.ErrorContains(t, err, tt.wantErrText)
-				// errOracleRootMismatch names getL1StateRoot too, and is not this error.
 				require.NotErrorIs(t, err, errOracleRootMismatch)
 			default:
 				require.NoError(t, err)
