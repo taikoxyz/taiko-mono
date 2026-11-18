@@ -227,7 +227,7 @@ def verify_sources(root, source, module, pins, used):
     return [source.as_posix(), *dependencies]
 
 
-def verify_observation(root, row, observation, sources, pins, predecessor):
+def verify_observation(root, row, observation, sources, pins, predecessor, *, module):
     text = read_observation(root, observation)
     if observation == SIGNER_NOTE:
         for label, digest in (
@@ -250,11 +250,10 @@ def verify_observation(root, row, observation, sources, pins, predecessor):
         )
     config = Path(row["config"])
     if observation.name != "README.md":
-        # Registry uses filenames; FI and proving use configuration stems.
+        label = config.name if module == "EtnaRegistry" else config.stem
         require(
             any(
-                (line.startswith(f"- `{config.name}`:") or line.startswith(f"- `{config.stem}`:"))
-                and row["config_sha256"] in line
+                line.startswith(f"- `{label}`:") and row["config_sha256"] in line
                 for line in text.splitlines()
             ),
             f"historical observation disagrees with config SHA-256: {config}",
@@ -378,7 +377,7 @@ def check(root):
             require_string(row[field], f"{name} {field}")
         sources = verify_sources(root, source, module, pins, used_sources)
         require(row["sources"] == sources, f"historical source association mismatch: {name}")
-        verify_observation(root, row, observation, sources, pins, predecessor)
+        verify_observation(root, row, observation, sources, pins, predecessor, module=module)
         used_observations.add(observation.as_posix())
     require(counts == expected_counts, f"unexpected archive family counts: {dict(counts)}")
     require_keys(pins, used_sources, "source_sha256")

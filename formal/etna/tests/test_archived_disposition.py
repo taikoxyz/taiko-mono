@@ -175,6 +175,20 @@ class ArchivedDispositionTests(unittest.TestCase):
         (self.root / MANIFEST).write_text(manifest.replace(old, new), encoding="utf-8")
         self.assert_rejected("unreviewed archive for config:")
 
+    def test_registry_note_does_not_accept_a_full_filename_as_a_stem(self):
+        renamed = RAW_REGISTRY + ".cfg"
+        (self.root / RAW_REGISTRY).rename(self.root / renamed)
+        manifest = self.read_manifest()
+        self.row(manifest, RAW_REGISTRY)["config"] = renamed
+        self.write_manifest(manifest)
+        guide = self.root / GUIDE
+        original = guide.read_text(encoding="utf-8")
+        self.assertIn(f"({RAW_REGISTRY})", original)
+        guide.write_text(
+            original.replace(f"({RAW_REGISTRY})", f"({renamed})"), encoding="utf-8"
+        )
+        self.assert_rejected("historical observation disagrees with config SHA-256: " + renamed)
+
     def test_guide_cannot_drop_an_exact_config_link(self):
         path = self.root / GUIDE
         original = path.read_text(encoding="utf-8")
