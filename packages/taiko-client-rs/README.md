@@ -73,7 +73,7 @@ Fresh deployment starts at generation zero; it migrates no earlier state format.
 [governance recovery](docs/governance-recovery.md) authenticates a later generation and
 creates fresh app/Comet stores while preserving registered signing authority and old history. It is aligned with the protocol revision `PINNED_REVISION` in
 `script/gen_lander_artifacts.sh` (the Inbox, staking registry and the pinned contract artifacts)
-and alethia-reth commit `efc3c162ad54760a84c561da03f44af9c2adffdd`. Start the EL and verify its block 0 before the Inbox
+and alethia-reth commit `398702f29917534a4d696d022336787156e0ffa9`. Start the EL and verify its block 0 before the Inbox
 is initialized (spec section 10, Startup and deployment). The proof provider is a dummy `0x00`,
 so run the client only on disposable development chains.
 
@@ -109,6 +109,19 @@ restarts and records the first safety failure, such as an unknown-execution-stat
 (`-38100`); repair its cause before restarting. An L1 header shape the node cannot parse makes
 `ProcessProposal` reject and `FinalizeBlock` wait, without a safety halt: upgrade the client.
 
+The app fsyncs a checksummed RLP execution body before acknowledging each finalized block,
+then publishes the committed AppState through the existing atomic barrier. After an EL restart,
+startup and proposal retries can re-feed a lost suffix from these local bodies without peers.
+Recovery authenticates the chain backward from the committed EL hash and replays forward with
+bounded memory; it never makes an uncommitted proposal canonical. Keep `execution-block-*.bin`
+alongside the app data. Bodies are retained for the full generation above its origin or imported
+execution floor: a landing alone does not prove the EL has flushed that checkpoint to disk.
+A fresh recovery or checkpoint import establishes a new boundary in a fresh app directory; keep
+older directories under the existing recovery retention policy. Existing app stores remain
+compatible, but heights committed before these bodies were recorded still need EL peer sync or
+operator-restored execution data. Missing or corrupt auxiliary bodies keep the request pending;
+missing state at the generation origin or import floor must be restored separately.
+
 Each landing record also holds the hash of the CometBFT validator state after its height: the
 validator set that signs the next height and the one after it, with their voting powers,
 proposer priorities and stored proposers (spec appendix A). The app computes that state with
@@ -133,10 +146,12 @@ implement at R. Rules scheduled after R do not change that fixed recovery origin
 
 The ABCI app supports new networks with Etna start S = 0 and authenticated nonzero starts
 through [the restored Unzen driver handoff](docs/unzen-etna-handoff.md). The standalone lander
-still restricts settlement to S = 0; nonzero-S landing and the complete switch deployment remain
-follow-up work. [Checkpoint import](docs/checkpoint-import.md) uses a separately obtained offline
-EL dataset; its nonzero-start path and public EL snapshot tooling are separate work.
-App state uses schema 19; lander journals use schema 16.
+supports the S-relative landing grid, committee 0 bootstrap and first-landing switch checks.
+It retains the raw Anchor implementation proof at S for the proof backend. The supplied backend
+still emits dummy proofs; real proving and switch deployment remain separate work.
+[Checkpoint import](docs/checkpoint-import.md) supports nonzero starts using a separately obtained
+offline EL dataset and the operator's original EL chainspec. Public EL snapshot tooling remains
+separate work. App state uses schema 19; lander journals use schema 17.
 Older stores and witnesses are refused without rewriting signed jobs or FilePV state.
 
 ## Forced inclusion
@@ -193,6 +208,14 @@ Serves the ABCI++ application to a CometBFT node.
 | `--metrics.enabled` / `.addr` / `.port` | `METRICS_*`            | Prometheus metrics server (default off, `0.0.0.0:9090`)                        |
 | `-v`, `--verbosity`                     | `VERBOSITY`            | Log level, 0 = error … 4 = trace (default 2); `RUST_LOG` overrides it          |
 
+Proposal preparation first builds and checks the size of a mandatory-only envelope. The
+execution block uses an explicit empty transaction list or a due, eligible forced transaction
+alone. This also establishes any legal singleton skip. Early inclusion of an entry that is not
+yet due and ordinary mempool work use the remaining preparation budget. If optional work times
+out or exceeds the size limit, the proposer returns the checked minimum envelope with its
+witnesses. Missing mandatory evidence or an over-budget mandatory build still prevents a
+proposal. Configure preparation and Comet propose deadlines for the target hardware.
+
 The four timeouts accept 1 to 3600 seconds. The L2 chain id is read from `--l2.http` and
 selects the built-in chain parameters. Only the internal devnet (chain id `167001`) has Etna PoS
 parameters so far; on other chains `abci` refuses to start. The `--chain-config` TOML uses the
@@ -206,16 +229,18 @@ All nodes must use the same chain parameters: genesis and every restart check th
 Inbox's committee configuration hash. The Inbox address
 is also required in persisted state and checked again on restart. Fresh `InitChain` requires
 the exact L1_0 genesis time, canonical representable CometBFT consensus parameters, and an EL
-genesis header whose hash and state root match H* and S*. Recovered `InitChain` independently
+header at the Etna start S whose hash and state root match the start hash and the start state
+root. Recovered `InitChain` independently
 verifies its authenticated c/R origin and generation genesis; see the
 [recovery runbook](docs/governance-recovery.md).
 
 A safety halt (a committed block or the execution engine contradicting the app state) exits the
-process with status 2; investigate before restarting. Liveness halts (anchor not final, anchor
+process with status 2; investigate before restarting. Liveness pauses (anchor not final, anchor
 older than `maxAnchorAge`, back-pressure, committee discovery unavailable, a due forced
 inclusion event unavailable; spec section 8, Halts and recovery) keep the process running and
 CometBFT rounding; the ABCI query
-`/status` reports the head, epoch, generation and halt reason. A superseded generation is
+`/status` reports the head, epoch, generation and, as `halt_reason`, the cause of the current
+liveness pause. A superseded generation is
 permanent. A proposal whose anchor shows a higher Inbox `recoveryGeneration` is refused and trust
 is revoked while the process keeps running. A decided block carrying such an anchor, or a startup
 or signer-session trust check finding a different generation, is a safety halt. Restart only
@@ -275,10 +300,10 @@ The public blob payload carries execution blocks only (spec section 5.2, Blob pa
 `--sidecar eip4844` or `eip7594` selects the sidecar format for the same payload. The `land`
 input and statement are spec section 6.1 (land). At startup and for each batch the lander reads
 the Inbox's `VERSION`, initialization, L2 chain id, registry, committee config hash,
-`GRID_INTERVAL` and `maxBatchBlocks`. Before signing or resending it rechecks the checkpoint
-frontier and the reference block.
+`GRID_INTERVAL` and `maxBatchBlocks`. Before signing or first scheduling a broadcast it
+rechecks the checkpoint frontier and the reference block.
 
-`lander-state.json` uses schema 16 and is protected by `lander.lock`; other schemas are refused
+`lander-state.json` uses schema 17 and is protected by `lander.lock`; other schemas are refused
 and left intact. The journal is verified once at startup (statement hash, blob and KZG binding,
 signed bytes); later writes are not re-verified. Signed bytes and blob sidecars are durably
 written before broadcast. For an original range (p,h] and competing checkpoint p<=c<h, the
@@ -286,14 +311,22 @@ original input, leaves, proof, blobs, nonce and signed bytes remain unchanged. A
 never-broadcast work can finish; possibly-broadcast work remains pending until canonical
 receipt/nonce reconciliation.
 An ambiguous send or dropped transaction never authorizes recycling its nonce.
-If a transaction remains dropped or underpriced, the lander keeps its original signed bytes
-and nonce and waits; restarting cannot repair it. Investigate the account and journal using
+When the RPC no longer knows a pending transaction and both account nonce views still match
+its nonce, the lander rebroadcasts the identical persisted bytes, including after competing
+checkpoint progress or reference expiry and across restart. A canonical revert can then resolve
+the outstanding nonce. It never signs a replacement or raises the original fee caps. A known
+or underpriced transaction can still require operator reconciliation; investigate the account and
+journal using
 the [nonce reconciliation procedure](docs/governance-recovery.md#5-start-the-new-services)
 before any operator action; never delete the journal or allocate a replacement nonce to bypass it.
 
-A canonical revert that leaves the checkpoint unchanged, out-of-gas included, persists Idle and
-stops; restart after fixing the cause (a deterministic revert then stops at gas estimation, before
-signing). A revert where a competing landing moved the parent settles and continues.
+A canonical revert where a competing landing moved the checkpoint settles and continues. With the
+checkpoint unchanged, the lander also continues if the signed reference had expired in the receipt's
+block and the L1 RPC's `debug_traceTransaction` with `callTracer` confirms `ReferenceBlockUnavailable`
+as the top-level revert. It persists Idle, builds a fresh job and signs at the next nonce. Temporary
+trace RPC errors leave the transaction in Confirming for retry. A missing tracing capability, an
+inconclusive trace or another revert such as out-of-gas persists Idle and stops the lander. Restart
+after fixing the cause. A deterministic revert then stops at gas estimation before signing.
 An authenticated unsupported ruleset pauses preparation until the software is upgraded. The
 log reports `software upgrade required`, and
 `lander_retries_total{reason="unsupported_ruleset"}` records this separately from RPC or
@@ -313,6 +346,9 @@ stores with one `import` command, published together as `ROOT/ready/{app,comet,e
 grid preimage archive and startup. An import grants no signing readiness. A registered validator
 resumes with its registered key and the same chain_id's HRS after matching its own finalized
 target.
+The EL helper derives the original block-zero hash from the operator's `--el-chain` using
+`etna-el-import chain-identity --chain PATH --chain-id N`. Import pins the install and its receipt
+to that identity, independently of the Inbox's Etna start hash H\* at S.
 The [client rule inventory](docs/etna-conformance.md) and
 [local resource measurements](docs/checkpoint-import-resources.md) describe the reproducible checks.
 
@@ -684,7 +720,7 @@ committing those values to the Inbox.
   outage would leave every later L1 read failing until a restart.
 - **Every node** reads L1 headers and the `finalized` block from its own L1 node to check that
   anchored L1 headers are canonical and final. Full nodes also run the background prefetches
-  validators use for committee switch witnesses, so give them the same L1 proof access.
+  validators use for committee witnesses, so give them the same L1 proof access.
   Proposers also need exact-block historical admission logs for pending forced entries.
 - **Validators** also build proposals, so their L1 node must serve `eth_getProof` (EIP-1186) for
   historical blocks. A proposal proves Inbox storage at its anchor, the own L1 node's
@@ -708,11 +744,11 @@ committing those values to the Inbox.
   not live when the anchor was adopted, or restarted since, still needs historical state. The own
   L1 node behind `--l1.http` is the only source of these reads (spec SYNC-9-16), so configure its
   historical proof/state retention to cover the required history.
-- Fully verified switch witnesses acquired locally or received in valid proposals are kept in
+- Fully verified committee witnesses acquired locally or received in valid proposals are kept in
   memory only; nothing is written to the app data directory. Every node discovers the upcoming
-  switch witness in the background under each committed anchor that can still be `D(t)`'s,
+  committee witness in the background under each committed anchor that can still be `D(t)`'s,
   starting with the live `Commit` of the block adopting it, and keeps it while the anchor stays.
-  Every `PrepareProposal` and `ProcessProposal`, empty proposals included, and every live
+  Every `PrepareProposal` and `ProcessProposal`, placeholder proposals included, and every live
   `Commit` start a missing discovery and restart a failed one, from scratch, once its backoff has
   passed (2 s, doubling per failure under the same anchor up to 60 s, so an L1 that cannot serve
   the state or rate-limits it sees one attempt per pause). A running discovery is never
@@ -781,11 +817,27 @@ committing those values to the Inbox.
   request: the new handshake's `Info` waits until the request in progress has been answered.
   On a validator a CometBFT restart also reconnects `etna-signer`, and every new trust session
   re-checks the committed head before signing reopens.
-- If alethia-reth restarted or crashed while the app kept running, it may come back without its
-  last blocks: restart the app and CometBFT so the next handshake re-checks it. Until then
-  `FinalizeBlock` keeps retrying a block alethia-reth cannot execute, logging at ERROR after a
-  minute. Restarting CometBFT alone does not help here: the retrying `FinalizeBlock` holds the
-  app, the new handshake's `Info` waits behind it, and only an app restart cancels it.
+- If alethia-reth loses its recent execution tail while the app remains running, preparation,
+  proposal validation and cold/cached finalization repair the committed parent before retrying
+  execution. Startup `Info` uses the same local execution archive before peer sync. A Prepare
+  deadline cancels only its waiter: context-bound payload recovery continues across rounds.
+  The owned task never sends forkchoice; a live handler checks its result and canonicalizes the
+  committed head. Commit, context replacement and app drop abort obsolete work. Retries are
+  logged with backoff. `ProcessProposal` points forkchoice only at the trusted committed head;
+  it never makes an undecided peer proposal canonical to repair missing history.
+- Every successful finalization fsyncs its exact checksum-framed RLP execution body to
+  `execution-block-<height>.bin` before its AppState can be committed. Preserve these files with
+  the app store. Recovery authenticates the suffix backward from the committed hash, then
+  re-feeds it in bounded memory from a surviving ancestor whose execution state is available.
+  The archive grows with this generation's execution history above its authenticated origin or
+  import floor; ordinary landings do not authorize pruning it, because even a recently landed
+  checkpoint may still be volatile in the EL. Reclaim history only across a separately installed
+  authenticated origin/import boundary with retained execution state.
+- Existing stores without these auxiliary bodies keep the peer-sync path. Missing/corrupt bodies
+  or unavailable origin/import state remain missing data, not permission to invent payloads or
+  reset Comet/FilePV state. If no peer retains the data, restore a verified execution dataset and
+  its state boundary; restarting alone cannot recreate lost data. No signed journal or AppState
+  schema is migrated by this recovery path.
 - Replay and block sync need the own L1 node. For each block the node never judged whose
   envelope carries an anchor witness, `FinalizeBlock` requires the own L1 to have finalized that
   very header (plus the extra finality depth), as `ProcessProposal` does. So the L1 node must
@@ -917,7 +969,7 @@ contract harness.
 - `just test` runs the serial Docker integration scenarios in `crates/abci/tests`,
   `crates/lander/tests`, `crates/test-harness/tests` and `bin/client/tests`. ABCI scenarios cover single validator,
   anchor finality, restart and lost-state replay, epoch switch with and without landing, back-pressure, generation
-  bump, calldata inclusion, invalid-byte skips, canonical skips, and unavailable-history
+  bump, calldata inclusion, ineligible-byte skips, canonical skips, and unavailable-history
   retry/recovery, plus an L1 finality stall that pauses and resumes L2. The history test emulates
   the source-backed unavailable-build RPC shape through a delegating Engine adapter; it does not
   actually prune Reth state. Lander scenarios cover actual Inbox blob
@@ -983,8 +1035,19 @@ formats generated JSON, and records ABI/bytecode/compiler provenance. It also co
 vectors shared with the contracts (`testdata/etna_vectors`, which the `abci` and `lander` unit
 tests read) from that revision and records their hashes. Run it twice and require identical
 generated output.
+The export includes the switching SignalService and an ABI-only Unzen cutoff artifact, whose
+external library references are recorded in the manifest rather than exposing unlinked deployment
+bytecode. Shared vectors follow the pinned contracts' schema 7. Test adapter updates and execution
+are separate from this artifact refresh.
+
+Regenerate the legacy Inbox, Anchor and PreconfWhitelist Rust bindings with
+`PROTOCOL_DIR=/path/to/pinned-protocol/packages/protocol script/gen_bindings.sh`.
+It uses the same protocol pin and the workspace's Alloy dependency, records source/ABI/generated
+file hashes in `crates/bindings/protocol-manifest.json`, and removes the retired LookaheadStore
+module. Generated binding sources and their manifest must not be edited or formatted manually.
 `just check-lander-artifacts` (the CI job "Lander artifacts") runs it on the pinned revision in a
-temporary git worktree and fails unless every generated file equals the committed one.
+temporary git worktree, regenerates both the Etna artifacts and legacy bindings, and fails unless
+every generated file equals the committed one.
 Regenerate test-only `InboxSetter`, `ZkGasFixture` and `FeeRoutingFixture` artifacts with
 `script/gen_test_harness_artifacts.sh /path/to/alethia-reth`; it verifies compiler settings and source hashes and records
 bytecode provenance. Run that generator twice with identical output as well.

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "log.log2.topics_underflow_word_rounding",
+  "layer": "harness",
+  "cells": ["log.topics.memory_range_halt_before_underflow_preserve"],
+  "description": "LOG2 of 32 bytes at offset 2^64 - 33 (rounds up to 2^64 bytes) with no topics on the stack, frame gas 100,000: it pays 375 + 2 * 375 + 8 * 32, then the memory halt keeps the remaining gas.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x602067ffffffffffffffdfa200"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0xb12",
+    "status": "halt"
+  }
+}

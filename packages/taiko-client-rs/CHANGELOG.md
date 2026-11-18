@@ -2,19 +2,30 @@
 
 ## Unreleased
 
+### Protocol artifact alignment
+
+- Align the protocol pin, ABI/artifact provenance and shared schema-7 vectors with the published switch contracts in PR #22286.
+- Regenerate Inbox, Anchor and PreconfWhitelist bindings with workspace Alloy; remove the retired, unused LookaheadStore binding.
+- Reproduction checks now include the legacy generated bindings. Signed journals and persisted app state are unchanged.
+
 ### Unzen driver and Etna handoff
 
 - Restore the Unzen sync/derivation driver and its CLI, protocol/RPC dependencies and generated bindings.
 - Add `etna-handoff` to drain finalized Unzen derivation before serving Etna ABCI at S+1.
 - Add authenticated nonzero ABCI starts with committee 0 and the unchanged global epoch schedule.
+- Keep signing closed at the Unzen-to-Etna handoff until the Anchor fork timestamp at S matches the client configuration.
 - Add the shared `--engine-control-dir` Engine writer lease. Mount the same directory for every local controller of one EL.
-- Pin alethia-reth to PR #248 head `efc3c162`, including its legacy proposal-index coexistence fixes.
+- Pin alethia-reth to PR #248 merge commit `398702f2` with OP Reth `op-v2.7.0-1`.
+- Support nonzero-S landing, S-relative cut leaves and overlaps, committee 0 bootstrap and authenticated Unzen ancestry.
+- Wait for terminal Unzen finalization and the matching SignalService checkpoint before preparing the first landing; retain its raw Anchor implementation witness for the proof backend.
+- Support nonzero-S checkpoint import/export, deriving the original EL block-zero identity from the operator-selected runtime chainspec.
+- Bump lander journals from schema 16 to 17 for the additional private proof witness. Older journals are refused without migration; resolve outstanding signed transactions with the compatible lander before upgrading.
 
 
 ### ⚠ BREAKING CHANGES
 
 Etna is unlaunched, so start a fresh devnet: the app state (schema 19), validator-state records,
-lander journals (16), private trust control (schema 1) and the signer's state layout are new, and
+lander journals (17), private trust control (schema 1) and the signer's state layout are new, and
 older stores are refused, never migrated (START-10-24).
 
 - The lander's `--max-blobs` (`LANDER_MAX_BLOBS`) and the app's `--l1.archive`
@@ -64,6 +75,12 @@ older stores are refused, never migrated (START-10-24).
   the setting (START-10-6). An imported store also re-checks that the own EL serves the block and
   state at `execution_floor` at every CometBFT handshake, not once per app process, so that state
   must stay readable across Comet restarts.
+- Metric and reason names follow the Etna spec's terms; update dashboards and alerts. The counter
+  `abci_proposals_empty_total` is now `abci_proposals_placeholder_total`. In the `reason` label
+  of `abci_process_rejected_total` and in `/status` `halt_reason`, `empty_proposal` is now
+  `placeholder_proposal` and `landing_capacity` is now `block_size_bound`.
+  The `trigger` field of the lander's "batch collection threshold reached" log line is now
+  `back-pressure` where it was `backpressure`.
 
 ### Features
 
@@ -103,7 +120,7 @@ older stores are refused, never migrated (START-10-24).
   Recovery keeps the registered key, every older chain_id's HRS state, old Comet history and
   immutable pending lander bytes, and the new generation's chain_id gets its own HRS state from
   `etna-signer init-state` (RECOV-8.2-5). See the [recovery runbook](docs/governance-recovery.md).
-  The lander still uses dummy proofs; real proving, Unzen switching, public EL snapshot
+  The lander still uses dummy proofs; real proving, public EL snapshot
   distribution and production deployment acceptance are outside this change.
 - Keep one stock HRS state per full chain_id in the signer, listed in a domains log on another
   volume, so a lost state or log is refused with exit 3 instead of looking like a fresh start.
@@ -140,7 +157,7 @@ older stores are refused, never migrated (START-10-24).
   Comet can trigger, instead of waiting forever for trust.
 - Recovery InitChain also requires the EL to serve the origin's state and waits with trust
   closed while it is missing, instead of reporting Ready and halting on the first block.
-- Halt when the own L1's registry proof fails under its own state root, in switch-witness
+- Halt when the own L1's registry proof fails under its own state root, in committee-witness
   discovery or in a re-proof under the candidate anchor (SYNC-9-7); a peer's failing proof still
   only rejects its proposal. A background discovery's own-L1 integrity failure is kept and halts
   whichever handler sees it first, not only a waiting proposer.

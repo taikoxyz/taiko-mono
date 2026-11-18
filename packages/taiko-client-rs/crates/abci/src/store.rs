@@ -27,6 +27,9 @@ use crate::{
     valstate::ValState,
 };
 
+/// Checksummed execution payloads retained for local EL crash recovery.
+mod execution;
+
 /// File name of the persisted state inside the data directory.
 pub const STATE_FILE: &str = "abci-state.json";
 
@@ -78,7 +81,8 @@ pub struct AppState {
     pub inbox: Address,
     /// The Etna genesis record verified at `InitChain`.
     pub genesis: GenesisRecord,
-    /// Logical EL boundary (== `parent.number`); B* or c before the first generation commit.
+    /// Logical EL boundary (== `parent.number`); the Etna start S or c before the first generation
+    /// commit.
     pub last_height: u64,
     /// Exact new-generation Comet block ID; zero before the first generation commit.
     pub last_comet_hash: B256,
@@ -199,6 +203,9 @@ pub enum StoreError {
     /// Replaying a committed height produced a different Comet block ID.
     #[error("conflicting durable Comet block hash at height {0}")]
     CometConflict(u64),
+    /// Replaying a finalized height produced a different execution block.
+    #[error("conflicting durable execution block at height {0}")]
+    ExecutionConflict(u64),
     /// Replaying the origin or a committed grid height produced a different validator state.
     #[error("conflicting durable validator state at height {0}")]
     ValStateConflict(u64),

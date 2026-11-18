@@ -56,7 +56,7 @@ pub struct BlockRef {
     pub hash: B256,
 }
 
-/// Local trust phase, separate from consensus validity and liveness halt labels.
+/// Local trust phase, separate from consensus validity and liveness pause labels.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TrustPhase {
@@ -591,8 +591,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let mut slots = inbox::landing_slots(facts.last_checkpoint_height).to_vec();
         slots.extend([
             inbox::slot(inbox::GENESIS_PACKED),
-            inbox::slot(inbox::GENESIS_BLOCK_HASH),
-            inbox::slot(inbox::GENESIS_STATE_ROOT),
+            inbox::slot(inbox::START_BLOCK_HASH),
+            inbox::slot(inbox::START_STATE_ROOT),
         ]);
         let landing = within(
             "trust landing proof",
@@ -613,10 +613,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
             storage.get(inbox::slot(inbox::GENESIS_PACKED)).expect("verified genesis slot");
         let start_height = word_u48(genesis_word, 0);
         let start_hash = B256::from(
-            storage.get(inbox::slot(inbox::GENESIS_BLOCK_HASH)).expect("verified genesis slot"),
+            storage.get(inbox::slot(inbox::START_BLOCK_HASH)).expect("verified genesis slot"),
         );
         let start_root = B256::from(
-            storage.get(inbox::slot(inbox::GENESIS_STATE_ROOT)).expect("verified genesis slot"),
+            storage.get(inbox::slot(inbox::START_STATE_ROOT)).expect("verified genesis slot"),
         );
         let is_start = facts.last_checkpoint_height == start_height;
         let parent = word_u48(packed, 0);

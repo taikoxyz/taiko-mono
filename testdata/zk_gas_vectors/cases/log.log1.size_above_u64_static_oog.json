@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "log.log1.size_above_u64_static_oog",
+  "layer": "harness",
+  "cells": ["log.logn.static_oog_spend_all"],
+  "description": "LOG1 with a length of 2^64 and 374 gas left: the static gas cannot be paid, so the step spends all remaining gas.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x60a0680100000000000000005fa100"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x17e",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x4be",
+    "status": "halt"
+  }
+}

@@ -222,7 +222,7 @@ async fn independently_derived_pending_set_mismatch_is_authenticated_safety_erro
 }
 
 #[tokio::test]
-async fn missing_required_switch_witness_halts_only_when_the_landed_chain_contains_it() {
+async fn missing_required_committee_witness_halts_only_when_the_landed_chain_contains_it() {
     for landed in [true, false] {
         let mut fx = Fixture::with_epoch(18, 18, 0, 13);
         let package = import_package(&fx, 18).await;

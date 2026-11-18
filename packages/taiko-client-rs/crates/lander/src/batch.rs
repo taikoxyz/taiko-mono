@@ -60,8 +60,8 @@ pub struct BatchObservation {
     /// selection budgets.
     pub publishable_blocks: usize,
     /// The decided tip's authenticated anchor puts its unsettled depth at `U - 1` or more.
-    pub force_backpressure: bool,
-    /// An unlanded switch witness exists anywhere in the decided backlog.
+    pub force_back_pressure: bool,
+    /// An unlanded committee witness exists anywhere in the decided backlog.
     pub force_epoch: bool,
 }
 
@@ -389,7 +389,6 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         if snapshot.l2_chain_id != self.params.l2_chain_id ||
             snapshot.inbox != self.params.inbox ||
             snapshot.registry != self.params.registry ||
-            snapshot.genesis.genesis_height != 0 ||
             snapshot.genesis.genesis_cutoff >= snapshot.genesis.l1_0 ||
             snapshot.genesis.genesis_hash.is_zero() ||
             snapshot.genesis.genesis_state_root.is_zero() ||
@@ -421,9 +420,9 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 status.height, snapshot.checkpoint_height
             )));
         }
-        if status.height - snapshot.checkpoint_height > self.params.unsettled_cap() {
+        if status.height - snapshot.checkpoint_height > self.params.unsettled_limit() {
             return Err(LanderError::Temporary(
-                "Comet tip exceeds this operational checkpoint's unsettled cap; refresh coherent Inbox snapshot".into(),
+                "Comet tip exceeds this operational checkpoint's unsettled-block limit; refresh coherent Inbox snapshot".into(),
             ));
         }
         Ok(status)
@@ -552,6 +551,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                     derivation_parent.as_ref(),
                     &schedule,
                     snapshot.recovery.as_ref(),
+                    snapshot.genesis.genesis_height,
                 )?
             };
         if anchor.number < snapshot_number {
@@ -599,8 +599,12 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         schedule: &Schedule,
         committees: &mut BTreeMap<u64, AuthenticatedCommittee>,
     ) -> Result<Arc<BatchStart>> {
-        let required =
-            history::requirements(snapshot.checkpoint_height, schedule, snapshot.origin_height())?;
+        let required = history::requirements_with_initial(
+            snapshot.checkpoint_height,
+            schedule,
+            snapshot.origin_height(),
+            initial_committee_epoch(snapshot),
+        )?;
         let identity = CheckpointIdentity::from_snapshot(snapshot);
         if snapshot.recovery.is_some() {
             self.check_proving_anchor_canonicality(&recovery_anchor(snapshot)?).await?;
@@ -678,7 +682,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             history::check_header_capacity(&header)?;
             headers.push(header);
         }
-        let derivations = history::verify(
+        let derivations = history::verify_at_origin(
             history::HistoryInput {
                 recovery: snapshot.recovery.as_ref(),
                 height: snapshot.checkpoint_height,
@@ -687,6 +691,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 schedule,
             },
             &headers,
+            snapshot.origin_height(),
+            initial_committee_epoch(snapshot),
         )?;
         parent.grandparent_timestamp = headers.get(1).map_or(0, |h| h.timestamp);
         if parent.header.number != snapshot.checkpoint_height ||
@@ -702,7 +708,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         let embedded_number = if let Some(origin) = snapshot.recovery.as_ref().filter(|_| at_origin)
         {
             origin.l1_number
-        } else if parent.header.number == 0 {
+        } else if parent.header.number == snapshot.genesis.genesis_height {
             snapshot.genesis.l1_0
         } else {
             rules::decode_extra_data(&parent.header.extra_data)
@@ -1081,7 +1087,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             committee.provenance = Some(CommitteeContext {
                 anchor: facts.anchor.clone(),
                 derivation_parent: Some(state.header.clone()),
-                witness: facts.envelope.committee.clone().expect("verified switch witness"),
+                witness: facts.envelope.committee.clone().expect("verified committee witness"),
             });
             committees.entry(epoch).or_insert(committee);
         }
@@ -1131,7 +1137,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         for pair in blocks {
             self.authenticate_block(snapshot, schedule, &mut state, committees, pair).await?;
             anchors.push(state.anchor.clone());
-            if state.parent.number.is_multiple_of(GRID_INTERVAL) &&
+            if snapshot.genesis.is_grid_height(state.parent.number) &&
                 blocks
                     .last()
                     .is_some_and(|last| last.block.header.height.value() != state.parent.number)
@@ -1242,12 +1248,28 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         selected: Option<ObservedPrefix>,
     ) -> Result<Option<ProofRequest>> {
         let schedule = self.schedule(&snapshot)?;
+        if !self.l1.first_landing_ready(&snapshot).await? {
+            return Ok(None);
+        }
         let status = self.status(&snapshot).await?;
         if status.height == snapshot.checkpoint_height {
             return Ok(None);
         }
         let mut committees = BTreeMap::new();
         let start = self.checkpoint(&snapshot, &schedule, &mut committees).await?;
+        let start_anchor_witness = if self.params.switch.is_some() &&
+            snapshot.checkpoint_height == snapshot.genesis.genesis_height
+        {
+            self.l1.start_anchor_witness(&snapshot).await?
+        } else {
+            None
+        };
+        crate::types::verify_start_anchor_witness(
+            &snapshot,
+            &start.parent.header,
+            &self.params,
+            start_anchor_witness.as_ref(),
+        )?;
         let start_val_state = self.start_val_state(&snapshot, &schedule, &committees).await?;
         let selected = selected.filter(|selected| {
             selected.snapshot == snapshot &&
@@ -1314,6 +1336,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 provenance.derivation_parent.as_ref(),
                 &schedule,
                 snapshot.recovery.as_ref(),
+                snapshot.genesis.genesis_height,
             )?
         };
         if active_snapshot != active_committee.state.record.cutoff_l1_block ||
@@ -1324,6 +1347,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             ));
         }
         let input = LandInput {
+            // Proof origin p: the latest checkpoint c of the snapshot this batch is built on.
             parentHeight: U256::from(snapshot.checkpoint_height),
             activeCommitteeSnapshot: U256::from(active_snapshot),
             lastHeight: U256::from(last.number),
@@ -1358,6 +1382,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             batch: PreparedBatch {
                 snapshot,
                 parent_header: start.parent.header.clone(),
+                start_anchor_witness,
                 execution_history: start.history.clone(),
                 grandparent_timestamp: start.parent.grandparent_timestamp,
                 parent_anchor,
@@ -1398,11 +1423,13 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
     async fn observe(&self, snapshot: &LandingSnapshot) -> Result<BatchPreview> {
         let schedule = self.schedule(snapshot)?;
         let status = self.status(snapshot).await?;
-        if status.height == snapshot.checkpoint_height {
+        if status.height == snapshot.checkpoint_height ||
+            !self.l1.first_landing_ready(snapshot).await?
+        {
             return Ok(BatchPreview::from_observation(BatchObservation {
                 decided_height: status.height,
                 publishable_blocks: 0,
-                force_backpressure: false,
+                force_back_pressure: false,
                 force_epoch: false,
             }));
         }
@@ -1413,9 +1440,9 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         let observation = BatchObservation {
             decided_height: status.height,
             publishable_blocks: prefix.blocks.len(),
-            force_backpressure: status.height.saturating_sub(anchor.inbox.last_checkpoint_height) >=
-                self.params.unsettled_cap().saturating_sub(1),
-            // A decided switch witness justifies publication even outside this prefix.
+            force_back_pressure: status.height.saturating_sub(anchor.inbox.last_checkpoint_height) >=
+                self.params.unsettled_limit().saturating_sub(1),
+            // A decided committee witness justifies publication even outside this prefix.
             force_epoch: force_epoch(&schedule, status.height, snapshot.checkpoint_height),
         };
         Ok(BatchPreview {
@@ -1448,9 +1475,20 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
 
 /// Selects the committee activated after this generation's origin on the unchanged epoch grid.
 fn committee_epoch(snapshot: &LandingSnapshot, schedule: &Schedule, height: u64) -> Result<u64> {
-    schedule.active_committee_epoch(height, snapshot.origin_height()).ok_or_else(|| {
-        LanderError::Safety("committee height does not follow generation origin".into())
-    })
+    schedule
+        .active_committee_epoch_with_initial(
+            height,
+            snapshot.origin_height(),
+            initial_committee_epoch(snapshot),
+        )
+        .ok_or_else(|| {
+            LanderError::Safety("committee height does not follow generation origin".into())
+        })
+}
+
+/// Original deployments use committee zero regardless of S's global epoch; recovery uses R's set.
+fn initial_committee_epoch(snapshot: &LandingSnapshot) -> u64 {
+    snapshot.initial_committee().map_or(0, |committee| committee.record.target_epoch)
 }
 
 /// CometBFT's genesis validator state at the generation origin `o` (ENC-A-29a, PROOF-6.2-41a):
@@ -2421,11 +2459,11 @@ mod tests {
             let observed =
                 builder(fixture.clone(), limits(20)).observe(&fixture.snapshot).await.unwrap();
             assert!(!observed.observation.force_epoch, "{checkpoint}");
-            assert!(!observed.observation.force_backpressure, "{checkpoint}");
+            assert!(!observed.observation.force_back_pressure, "{checkpoint}");
         }
     }
 
-    /// Observation verifies no certificate or switch witness of a decided block past its
+    /// Observation verifies no certificate or committee witness of a decided block past its
     /// publishable prefix, so such a block never stops the prefix from landing (BATCH-6.3-12a);
     /// `prepare` still refuses it once a batch includes it.
     #[tokio::test]
@@ -2473,7 +2511,7 @@ mod tests {
             builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await.unwrap();
         assert_eq!(observed.observation.publishable_blocks, 0);
         assert!(observed.observation.force_epoch);
-        assert!(observed.observation.force_backpressure);
+        assert!(observed.observation.force_back_pressure);
     }
 
     /// An unavailable lookup above a remembered tip yields the checkpoint's anchor without
@@ -2936,8 +2974,17 @@ mod tests {
 
     #[tokio::test]
     async fn batch_input_and_statement_carry_the_stored_forced_head() {
-        let fixture = Arc::new(Fixture::new(0, 6));
-        let snapshot = fixture.snapshot_with_forced_queue(fixture.snapshot.genesis.clone(), 3, 9);
+        let fixture = Arc::new(Fixture::with_forced(
+            6,
+            12,
+            crate::test_utils::consensus_mpt::ForcedPlan {
+                entries: vec![(10, 5); 9],
+                consume_at: vec![2, 3, 4],
+                ..Default::default()
+            },
+        ));
+        let snapshot = fixture.snapshot.clone();
+        assert_eq!((snapshot.forced_inclusion_head, snapshot.forced_inclusion_tail), (3, 9));
         let request = builder(fixture, limits(6)).prepare(snapshot.clone()).await.unwrap().unwrap();
         let batch = &request.batch;
         assert_eq!(batch.input.forcedInclusionHead, U256::from(3));
@@ -3377,11 +3424,28 @@ mod tests {
             assert_eq!((consumed.index, consumed.tx.is_empty()), (0, false));
             assert_eq!(envelope(&request, 2).forced, None);
 
-            // A stored head past the entry block 2 consumes contradicts the decided chain.
+            // The start record must retain head zero even after an entry is admitted.
             let snapshot = fixture.snapshot_with_forced_queue(snapshot.genesis.clone(), 1, 1);
             let error = builder(fixture.clone(), limits(6)).prepare(snapshot).await.unwrap_err();
             assert!(matches!(error, LanderError::Safety(_)), "{error}");
-            assert!(error.to_string().contains(&ForcedError::UnexpectedWitness.to_string()));
+            assert!(error.to_string().contains("invalid checkpoint landing record"), "{error}");
+
+            // A later checkpoint may carry a nonzero head, but it cannot skip the entry that
+            // the decided successor still witnesses and block 8 consumes.
+            let fixture = Arc::new(Fixture::with_forced(
+                6,
+                12,
+                ForcedPlan { entries: vec![(10, 5)], consume_at: vec![8], ..Default::default() },
+            ));
+            let snapshot =
+                fixture.snapshot_with_forced_queue(fixture.snapshot.genesis.clone(), 1, 1);
+            crate::l1::authenticate_snapshot(&snapshot, &fixture.params).unwrap();
+            let error = builder(fixture, limits(6)).prepare(snapshot).await.unwrap_err();
+            assert!(matches!(error, LanderError::Safety(_)), "{error}");
+            assert!(
+                error.to_string().contains(&ForcedError::UnexpectedWitness.to_string()),
+                "{error}"
+            );
         }
 
         /// Review Focus 4: the cut starts while an entry is pending, so its first block peeks.

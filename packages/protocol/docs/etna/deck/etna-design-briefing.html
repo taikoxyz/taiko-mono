@@ -1,0 +1,1670 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}</style>
+<title>Etna Design Briefing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600;700&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600;700&display=swap"></noscript>
+<style>
+  /* Layout: a vertical deck of 16:9 slides. Each slide is a container and its type scales with
+     the slide's width, so a slide looks the same at any size. On phones slides become reading cards. */
+  :root {
+    --bg: #E9EDF2;
+    --slide: #FFFFFF;
+    --fg: #16202C;
+    --muted: #566376;
+    --line: #D3DAE3;
+    --etna: #C4127A;
+    --etna-soft: #FBE9F3;
+    --based: #2B5BC7;
+    --based-soft: #E8EEFB;
+    --code-bg: #EEF1F5;
+    --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+    --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0D1116; --slide: #161B22; --fg: #E6EBF1; --muted: #98A5B5; --line: #2A3340;
+      --etna: #FF6DBB; --etna-soft: #3A1830; --based: #86A9FF; --based-soft: #18243F;
+      --code-bg: #1F2630; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0D1116; --slide: #161B22; --fg: #E6EBF1; --muted: #98A5B5; --line: #2A3340;
+    --etna: #FF6DBB; --etna-soft: #3A1830; --based: #86A9FF; --based-soft: #18243F;
+    --code-bg: #1F2630; color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    padding-block: 24px 88px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .deck { display: flex; flex-direction: column; gap: 28px; max-width: 1200px; margin-inline: auto; }
+
+  .slide {
+    container-type: inline-size;
+    aspect-ratio: 16 / 9;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--slide);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    scroll-margin-top: calc(12px + env(safe-area-inset-top, 0px));
+  }
+  .slide-in {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25em;
+    padding: 3em 3.6em 1.9em;
+    font-size: clamp(8.5px, 1.5cqw, 21px);
+    line-height: 1.45;
+  }
+
+  .kicker {
+    margin: 0 0 .55em;
+    font-size: .78em; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  h1, h2 { font-family: var(--font-display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+  h1 { font-size: 3.5em; line-height: 1.04; font-weight: 700; }
+  h2 { font-size: 2.05em; line-height: 1.12; font-weight: 600; }
+  .lede { margin: .6em 0 0; font-size: 1.08em; color: var(--muted); max-width: 46em; }
+  p { margin: 0; }
+  code {
+    font-family: var(--font-mono); font-size: .9em;
+    background: var(--code-bg); padding: .08em .32em; border-radius: 3px;
+  }
+
+  .body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 1.1em; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 2.6em; }
+  .cols.wide-left { grid-template-columns: 1.25fr 1fr; }
+  .cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2em; }
+  .cols > *, .cols3 > * { min-width: 0; }
+
+  ul.pts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .6em; }
+  ul.pts li { position: relative; padding-left: 1.15em; }
+  ul.pts li::before {
+    content: ""; position: absolute; left: 0; top: .58em;
+    width: .42em; height: .42em; background: var(--muted);
+  }
+  .etna ul.pts li::before, ul.pts.etna li::before { background: var(--etna); }
+  .based ul.pts li::before, ul.pts.based li::before { background: var(--based); }
+  ol.steps { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: .55em; }
+  ol.steps li::marker { font-family: var(--font-display); font-weight: 600; color: var(--etna); }
+
+  .tag {
+    display: inline-flex; align-items: center; gap: .5em;
+    margin-bottom: .8em;
+    font-family: var(--font-display); font-weight: 600; font-size: 1.02em;
+  }
+  .tag::before { content: ""; width: .7em; height: .7em; border-radius: 50%; background: var(--muted); }
+  .etna .tag { color: var(--etna); } .etna .tag::before { background: var(--etna); }
+  .based .tag { color: var(--based); } .based .tag::before { background: var(--based); }
+  .col-rule { border-left: 1px solid var(--line); padding-left: 2.6em; margin-left: -1.3em; }
+
+  .src {
+    margin-top: auto; padding-top: .9em;
+    display: flex; justify-content: space-between; gap: 1em;
+    font-size: .74em; color: var(--muted); border-top: 1px solid var(--line);
+  }
+  .src .n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* Title slide */
+  .title-slide .slide-in { justify-content: center; gap: 1.6em; }
+  .title-slide .lede { font-size: 1.3em; max-width: 30em; color: var(--fg); }
+  .legend { display: flex; flex-wrap: wrap; gap: .6em 2em; font-size: .95em; }
+  .legend span { display: inline-flex; align-items: center; gap: .5em; }
+  .legend i { width: .8em; height: .8em; border-radius: 50%; display: inline-block; }
+  .legend .b i { background: var(--based); } .legend .e i { background: var(--etna); }
+  .note { font-size: .86em; color: var(--muted); max-width: 52em; }
+
+  /* Summary */
+  blockquote {
+    margin: 0; padding: .9em 1.2em; font-size: 1.12em; line-height: 1.4;
+    background: var(--etna-soft); border-radius: 4px;
+  }
+  .shifts { display: grid; grid-template-columns: 8.5em 1fr 1fr; gap: 0; font-size: .95em; }
+  .shifts > div { padding: .5em .8em .5em 0; border-bottom: 1px solid var(--line); min-width: 0; }
+  .shifts .hd { font-size: .8em; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+  .shifts .k { font-family: var(--font-display); font-weight: 600; }
+  .shifts .hd.b { color: var(--based); } .shifts .hd.e { color: var(--etna); }
+
+  /* Finality bands */
+  .bands { display: flex; flex-direction: column; gap: .9em; }
+  .band { padding: .9em 1.1em; border-radius: 4px; border: 1px solid var(--line); }
+  .band.l2 { background: var(--etna-soft); border-color: transparent; }
+  .band.l1 { background: var(--based-soft); border-color: transparent; }
+  .band h3 { margin: 0 0 .3em; font-family: var(--font-display); font-size: 1.12em; font-weight: 600; }
+  .band h3 small { font-family: var(--font-body); font-weight: 500; font-size: .78em; color: var(--muted); margin-left: .6em; }
+
+  /* Statement card, limits grid, reading list */
+  .card { border: 1px solid var(--line); border-radius: 4px; padding: 1em 1.15em; }
+  .card h3, .mini h3 { margin: 0 0 .5em; font-family: var(--font-display); font-size: 1.02em; font-weight: 600; }
+  .card p { font-size: .92em; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.1em 1.6em; }
+  .mini { border-top: 2px solid var(--fg); padding-top: .6em; min-width: 0; }
+  .mini p { font-size: .9em; color: var(--muted); }
+
+  /* extraData bytes */
+  .bytes { display: flex; font-family: var(--font-mono); font-size: .82em; text-align: center; }
+  .bytes div { padding: .55em .3em; border: 1px solid var(--fg); min-width: 0; }
+  .bytes div + div { border-left: 0; }
+  .bytes .b1 { flex: 1.4; } .bytes .b6 { flex: 6; }
+  .bytes .hl { background: var(--etna-soft); }
+  .cap { font-size: .8em; color: var(--muted); margin-top: .45em; }
+  .cap code { overflow-wrap: anywhere; }
+
+  /* Diagrams */
+  figure { margin: 0; }
+  .scroller { overflow-x: auto; }
+  .dg { display: block; width: 100%; height: auto; color: var(--fg); }
+  .dg text { font-family: var(--font-body); fill: currentColor; }
+  .dg .t1 { font-size: 13px; font-weight: 600; }
+  .dg .t2 { font-size: 11.5px; fill: var(--muted); }
+  .dg .mono { font-family: var(--font-mono); font-size: 14px; font-weight: 600; }
+  .dg .lane { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+  .dg .lane.b { fill: var(--based); } .dg .lane.e { fill: var(--etna); }
+  .dg .flag { font-size: 11.5px; font-weight: 600; fill: var(--etna); }
+  .dg .box { fill: var(--slide); stroke: currentColor; stroke-width: 1.2; }
+  .dg .box-l1 { fill: var(--based-soft); stroke: var(--based); stroke-width: 1.5; }
+  .dg .arr { stroke: currentColor; stroke-width: 1.3; fill: none; }
+  .dg .ah { fill: currentColor; }
+  .dg .sep { stroke: var(--line); stroke-width: 1; stroke-dasharray: 4 4; }
+  .dg .axis { stroke: currentColor; stroke-width: 1.2; }
+  .dg .old { stroke: var(--muted); stroke-width: 6; opacity: .45; }
+  .dg .new { stroke: var(--etna); stroke-width: 6; }
+  .dg .leaf { fill: var(--slide); stroke: currentColor; stroke-width: 1.2; }
+  .dg .leaf-c { fill: var(--etna); stroke: var(--etna); }
+  .dg .brk { stroke: currentColor; stroke-width: 1.1; fill: none; }
+  .dg .brk-e { stroke: var(--etna); stroke-width: 1.3; fill: none; }
+  figcaption { font-size: .86em; color: var(--muted); margin-top: .7em; max-width: 60em; }
+
+  /* Deck navigation */
+  .nav {
+    position: fixed; z-index: 5;
+    right: max(16px, env(safe-area-inset-right, 0px));
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    display: flex; align-items: center; gap: 2px;
+    background: var(--slide); border: 1px solid var(--line); border-radius: 999px; padding: 4px;
+    font-size: 13px;
+  }
+  .nav button {
+    width: 34px; height: 34px; border: 0; border-radius: 50%; background: transparent; color: var(--fg);
+    font-size: 18px; line-height: 1; cursor: pointer;
+  }
+  .nav button:hover { background: var(--code-bg); }
+  .nav button:focus-visible, .slide:focus-visible { outline: 2px solid var(--etna); outline-offset: 2px; }
+  .nav .count { min-width: 4.4em; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* Slide numbers */
+  .deck { counter-reset: s; }
+  .slide { counter-increment: s; }
+  .src .n::after { content: counter(s) " / " var(--total, "43"); }
+
+  /* Added components for the long version */
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1em 1.8em; }
+  .grid3 > * { min-width: 0; }
+  .tbl-wrap { overflow-x: auto; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: .84em; }
+  .tbl th {
+    text-align: left; font-weight: 600; color: var(--muted); font-size: .84em; letter-spacing: .06em;
+    text-transform: uppercase; padding: .2em .9em .45em 0; border-bottom: 1px solid var(--fg);
+  }
+  .tbl td { padding: .36em .9em .36em 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .tbl td:first-child { white-space: nowrap; font-weight: 600; }
+  pre.code {
+    margin: 0; font-family: var(--font-mono); font-size: .74em; line-height: 1.55;
+    background: var(--code-bg); padding: 1em 1.2em; border-radius: 4px; overflow-x: auto; white-space: pre;
+  }
+  .flowrow { display: flex; flex-wrap: wrap; align-items: stretch; gap: .45em; }
+  .chip { flex: 1 1 0; min-width: 7.2em; border: 1px solid var(--fg); border-radius: 3px; padding: .55em .7em; font-size: .86em; }
+  .chip b { display: block; font-family: var(--font-display); font-weight: 600; }
+  .chip span { color: var(--muted); font-size: .92em; }
+  .chip.hl { background: var(--etna-soft); border-color: var(--etna); }
+  .chip.l1 { background: var(--based-soft); border-color: var(--based); }
+  .arrow { align-self: center; color: var(--muted); font-size: 1.1em; }
+  .meter { display: flex; height: 2.1em; border: 1px solid var(--fg); border-radius: 3px; overflow: hidden; font-size: .82em; }
+  .meter div { display: flex; align-items: center; padding-inline: .7em; white-space: nowrap; min-width: 0; }
+  .meter .m1 { flex: 900; background: var(--etna-soft); }
+  .meter .m2 { flex: 2700; background: var(--code-bg); }
+  .parts { display: grid; grid-auto-flow: column; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, auto); gap: 0 2.6em; }
+  .parts a { display: block; padding: .6em 0; border-top: 1px solid var(--line); color: inherit; text-decoration: none; }
+  .parts a:hover b { color: var(--etna); }
+  .parts b { display: block; font-family: var(--font-display); font-weight: 600; }
+  .parts span { font-size: .9em; color: var(--muted); }
+  .cells { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .cells > div { border: 1px solid var(--fg); padding: .7em .8em; min-width: 0; }
+  .cells > div + div { border-left: 0; }
+  .cells b { display: block; font-family: var(--font-mono); font-size: .95em; margin-bottom: .3em; }
+  .cells span { font-size: .86em; color: var(--muted); display: block; }
+  .reads { display: grid; grid-template-columns: auto 1fr; gap: .32em 1em; font-size: .9em; }
+  .reads b { font-family: var(--font-mono); font-weight: 600; font-size: .92em; white-space: nowrap; }
+  /* Phone layout. Keep this block after every base rule it overrides. */
+  @media (max-width: 720px) {
+    .deck { gap: 16px; }
+    .slide { aspect-ratio: auto; }
+    .slide-in { font-size: 15px; padding: 1.5em 1.15em 1.1em; }
+    h1 { font-size: 2.3em; } h2 { font-size: 1.5em; }
+    .cols, .cols.wide-left, .cols3 { grid-template-columns: 1fr; gap: 1.4em; }
+    .grid4 { grid-template-columns: 1fr 1fr; }
+    .col-rule { border-left: 0; padding-left: 0; margin-left: 0; border-top: 1px solid var(--line); padding-top: 1.2em; }
+    .shifts { grid-template-columns: 1fr; }
+    .shifts .hd { display: none; }
+    .shifts > div { border-bottom: 0; padding: .1em 0; }
+    .shifts .k { margin-top: .7em; border-top: 1px solid var(--line); padding-top: .6em; }
+    .shifts .from::before { content: "Today: "; color: var(--based); font-weight: 600; }
+    .shifts .to::before { content: "Etna: "; color: var(--etna); font-weight: 600; }
+    .dg.flow { min-width: 700px; }
+    .dg.range { min-width: 440px; }
+    .grid3, .parts { grid-template-columns: 1fr; }
+    .parts { grid-auto-flow: row; grid-template-rows: none; }
+    .cells { grid-template-columns: 1fr 1fr; }
+    .cells > div:nth-child(odd) { border-left: 1px solid var(--fg); }
+    .cells > div:nth-child(n+3) { border-top: 0; }
+    .arrow { display: none; }
+    .tbl { min-width: 520px; }
+  }
+
+  /* Printing gives one 16:9 slide per page. */
+  @media print {
+    @page { size: 1280px 720px; margin: 0; }
+    html, body { background: #fff; }
+    body { padding: 0; }
+    .deck { display: block; max-width: none; margin: 0; }
+    .slide { width: 1280px; height: 720px; aspect-ratio: auto; border: 0; border-radius: 0; break-after: page; break-inside: avoid; overflow: hidden; }
+    .slide:last-child { break-after: auto; }
+    .nav { display: none; }
+  }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+</head>
+<body>
+<main class="deck" id="deck">
+
+  <section class="slide title-slide" id="title" tabindex="-1">
+    <div class="slide-in">
+      <div>
+        <p class="kicker">Taiko protocol · design briefing</p>
+        <h1>Etna for based-rollup engineers</h1>
+      </div>
+      <p class="lede">What changes when transaction ordering moves from Ethereum to a staked committee, and Ethereum keeps data availability, proof verification and settlement.</p>
+      <div class="legend">
+        <span class="b"><i></i>Today: the based design (Shasta and Unzen)</span>
+        <span class="e"><i></i>Etna: PoS + ZK, with anchorless blocks</span>
+      </div>
+      <p class="note">Source: <code>packages/protocol/docs/etna</code> on taiko-mono main at <code>5c281b2</code>. This deck covers the design in the spec, not implementation status. The Etna fork is not scheduled.</p>
+    </div>
+  </section>
+
+  <section class="slide" id="summary" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">The short version</p>
+        <h2>Ethereum stops sequencing and keeps settling</h2>
+      </header>
+      <div class="body">
+        <blockquote>A committee of TAIKO stakers produces blocks with stock CometBFT and finalizes them instantly; anyone can land a proven batch on L1, and funds on L1 recognize only landed checkpoints.</blockquote>
+        <div class="shifts">
+          <div class="hd"></div><div class="hd b">Today</div><div class="hd e">Etna</div>
+          <div class="k">Ordering</div><div class="from">L1 inclusion of proposals</div><div class="to">A staked committee running stock CometBFT</div>
+          <div class="k">Finality</div><div class="from">One notion, tied to L1</div><div class="to">Two: committed in seconds, landed on L1 later</div>
+          <div class="k">Settlement</div><div class="from"><code>prove</code> finalizes proposals, with bonds and a proving window</div><div class="to"><code>land</code>: permissionless, two proofs, no bonds, no reward</div>
+          <div class="k">Anchoring</div><div class="from"><code>anchorV4</code> runs as transaction 0</div><div class="to">The block header commits to the L1 anchor</div>
+          <div class="k">Trust</div><div class="from">L1 ordering and liveness</div><div class="to">An online, honest supermajority, and the DAO for recovery</div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md, opening summary and section 1</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="agenda" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">Contents</p>
+        <h2>How this deck is organized</h2>
+      </header>
+      <div class="body">
+        <div class="parts">
+          <a href="#ordering"><b>1 · Sequencing and blocks</b><span>Who orders, the engine, the header, the envelope, the validity rules</span></a>
+          <a href="#anchorless"><b>2 · Anchoring and the bridge</b><span>No anchor transaction, EIP-4788, upgrade order on L2</span></a>
+          <a href="#registry"><b>3 · Staking and committees</b><span>The registry, bond lifecycle, selection, slashing</span></a>
+          <a href="#finality"><b>4 · Settlement</b><span>Finality, <code>land</code>, the grid, proofs, data, back-pressure</span></a>
+          <a href="#fi-submit"><b>5 · Forced inclusion</b><span>The queue, and how the proof enforces it</span></a>
+          <a href="#stops"><b>6 · Halts, recovery and upgrades</b><span>Pauses, governance recovery, generations, rule upgrades</span></a>
+          <a href="#trust"><b>7 · Nodes</b><span>Trust from L1, guarded signing, three ways to start</span></a>
+          <a href="#params"><b>8 · Reference</b><span>Parameters, trade-offs, known limits, the switch</span></a>
+        </div>
+      </div>
+      <footer class="src"><span>Each slide names its spec section in the footer</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="unchanged" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">Framing</p>
+        <h2>What does not change</h2>
+      </header>
+      <div class="body">
+        <div class="grid3">
+          <div class="mini"><h3>Execution</h3><p>The same EVM on alethia-reth, with EIP-4396 base fees and zk gas recorded in <code>difficulty</code>, as in Unzen.</p></div>
+          <div class="mini"><h3>Proof rule</h3><p>Two proofs per settlement, at least one ZK, through the same <code>ZkRequiredVerifier</code> contract as today.</p></div>
+          <div class="mini"><h3>Data availability</h3><p>Block data goes to L1 in blobs, using Unzen's blob encoding.</p></div>
+          <div class="mini"><h3>Bridge model</h3><p>L1 holds L2 checkpoints in the SignalService. L2 verifies L1 storage proofs against an L1 state root.</p></div>
+          <div class="mini"><h3>Forced inclusion</h3><p>Still a paid queue on the Inbox, with a fee that grows with the backlog.</p></div>
+          <div class="mini"><h3>Governance</h3><p>The DAO owns the upgradeable proxies. Block numbers continue: Etna's first block is S + 1.</p></div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 1, 3.1, 5.2 and 6.2</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="security" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">Framing</p>
+        <h2>The security model in one slide</h2>
+      </header>
+      <div class="body">
+        <div class="grid3">
+          <div class="mini"><h3>Funds</h3><p>L1 recognizes only landed checkpoints, each with two proofs. A fully malicious committee cannot take funds on L1.</p></div>
+          <div class="mini"><h3>Finality</h3><p>A commit is final while Byzantine voting power stays below 1/3. Governance recovery can discard blocks above the latest checkpoint.</p></div>
+          <div class="mini"><h3>Liveness</h3><p>Needs more than 2/3 of voting power online, L1 finalizing, and landings continuing.</p></div>
+          <div class="mini"><h3>Censorship resistance</h3><p>A due forced inclusion must be included or legally skipped, or the block cannot be proven. There is no wall-clock deadline.</p></div>
+          <div class="mini"><h3>Upgrade trust</h3><p>The Inbox, registry, L1 SignalService and Bridge are DAO-owned proxies. An upgrade can bypass any rule in the spec.</p></div>
+          <div class="mini"><h3>Proof assumptions</h3><p>Verifier soundness is assumed. So is completeness: every valid block must be provable, or settlement stalls.</p></div>
+        </div>
+        <p class="note">Target: Stage 0. Stage 1 is not a goal for now. Out of scope: PoS issuance rewards.</p>
+      </div>
+      <footer class="src"><span>SPEC.md section 1</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="ordering" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">1 · Sequencing and blocks</p>
+        <h2>Who orders transactions</h2>
+      </header>
+      <div class="body">
+        <div class="cols">
+          <div class="based">
+            <div class="tag">Today</div>
+            <ul class="pts">
+              <li>A proposer posts a proposal with blobs to the L1 Inbox by calling <code>propose</code>.</li>
+              <li>L1 inclusion fixes the order. Every node derives the same L2 blocks from L1 data.</li>
+              <li>Preconfirmations are layered on top, through whitelisted preconfers and a lookahead.</li>
+            </ul>
+          </div>
+          <div class="etna col-rule">
+            <div class="tag">Etna</div>
+            <ul class="pts">
+              <li>The spec calls it "a PoS-sequenced validity rollup, not a based rollup".</li>
+              <li>A committee of TAIKO stakers runs stock CometBFT v0.40.0. The engine is not forked.</li>
+              <li>CometBFT's mempool is off. Transactions travel over the EL's devp2p and the proposer's EL picks them.</li>
+              <li>Each CometBFT block carries one envelope. Its height is the EL block number. The target interval is about 4 s.</li>
+              <li>Ethereum provides blobs for data, proof verification, settlement and the bridge's anchor.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 1 and 3.1 · IInbox.sol (Shasta)</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="lifecycle" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">1 · Sequencing and blocks</p>
+        <h2>L1 moves from the start of the pipeline to the end</h2>
+      </header>
+      <div class="body">
+        <figure>
+          <div class="scroller">
+            <svg class="dg flow" viewBox="0 0 1000 300" role="img" aria-label="Today a block's order is fixed when its proposal is included on L1, before nodes derive it. In Etna a block is final on L2 after the CometBFT commit, and L1 only sees it later when a lander calls land.">
+              <defs>
+                <marker id="ah1" markerWidth="9" markerHeight="8" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 z" class="ah"/></marker>
+              </defs>
+              <rect x="800" y="2" width="14" height="14" class="box-l1"/>
+              <text x="822" y="14" class="t2">happens on Ethereum L1</text>
+
+              <text x="0" y="66" class="lane b">Today</text>
+              <text x="0" y="84" class="t2">based</text>
+              <rect x="100" y="40" width="160" height="60" rx="3" class="box"/>
+              <text x="180" y="66" text-anchor="middle" class="t1">Preconfer builds</text>
+              <text x="180" y="85" text-anchor="middle" class="t2">soft preconfirmation</text>
+              <line x1="260" y1="70" x2="280" y2="70" class="arr" marker-end="url(#ah1)"/>
+              <rect x="282" y="40" width="160" height="60" rx="3" class="box-l1"/>
+              <text x="362" y="66" text-anchor="middle" class="t1">propose</text>
+              <text x="362" y="85" text-anchor="middle" class="t2">blobs to the L1 Inbox</text>
+              <line x1="442" y1="70" x2="462" y2="70" class="arr" marker-end="url(#ah1)"/>
+              <rect x="464" y="40" width="160" height="60" rx="3" class="box"/>
+              <text x="544" y="66" text-anchor="middle" class="t1">Nodes derive blocks</text>
+              <text x="544" y="85" text-anchor="middle" class="t2">from L1 data</text>
+              <line x1="624" y1="70" x2="644" y2="70" class="arr" marker-end="url(#ah1)"/>
+              <rect x="646" y="40" width="160" height="60" rx="3" class="box-l1"/>
+              <text x="726" y="66" text-anchor="middle" class="t1">prove</text>
+              <text x="726" y="85" text-anchor="middle" class="t2">a batch of proposals</text>
+              <line x1="806" y1="70" x2="826" y2="70" class="arr" marker-end="url(#ah1)"/>
+              <rect x="828" y="40" width="160" height="60" rx="3" class="box-l1"/>
+              <text x="908" y="66" text-anchor="middle" class="t1">Checkpoint</text>
+              <text x="908" y="85" text-anchor="middle" class="t2">in SignalService</text>
+              <text x="362" y="120" text-anchor="middle" class="flag">order is fixed here</text>
+              <text x="726" y="120" text-anchor="middle" class="flag">finalized here</text>
+
+              <line x1="0" y1="150" x2="1000" y2="150" class="sep"/>
+
+              <text x="0" y="206" class="lane e">Etna</text>
+              <text x="0" y="224" class="t2">PoS + ZK</text>
+              <rect x="100" y="180" width="160" height="60" rx="3" class="box"/>
+              <text x="180" y="206" text-anchor="middle" class="t1">Proposer builds</text>
+              <text x="180" y="225" text-anchor="middle" class="t2">from its EL txpool</text>
+              <line x1="260" y1="210" x2="280" y2="210" class="arr" marker-end="url(#ah1)"/>
+              <rect x="282" y="180" width="160" height="60" rx="3" class="box"/>
+              <text x="362" y="206" text-anchor="middle" class="t1">CometBFT commit</text>
+              <text x="362" y="225" text-anchor="middle" class="t2">more than 2/3 of power</text>
+              <line x1="442" y1="210" x2="462" y2="210" class="arr" marker-end="url(#ah1)"/>
+              <rect x="464" y="180" width="160" height="60" rx="3" class="box"/>
+              <text x="544" y="206" text-anchor="middle" class="t1">Lander batches</text>
+              <text x="544" y="225" text-anchor="middle" class="t2">up to a grid point</text>
+              <line x1="624" y1="210" x2="644" y2="210" class="arr" marker-end="url(#ah1)"/>
+              <rect x="646" y="180" width="160" height="60" rx="3" class="box-l1"/>
+              <text x="726" y="206" text-anchor="middle" class="t1">land</text>
+              <text x="726" y="225" text-anchor="middle" class="t2">blobs + two proofs</text>
+              <line x1="806" y1="210" x2="826" y2="210" class="arr" marker-end="url(#ah1)"/>
+              <rect x="828" y="180" width="160" height="60" rx="3" class="box-l1"/>
+              <text x="908" y="206" text-anchor="middle" class="t1">Checkpoint</text>
+              <text x="908" y="225" text-anchor="middle" class="t2">in SignalService</text>
+              <text x="362" y="260" text-anchor="middle" class="flag">final on L2 here, about 4 s</text>
+              <text x="726" y="260" text-anchor="middle" class="flag">settled on L1 here</text>
+            </svg>
+          </div>
+          <figcaption>Today L1 fixes the order before a block is canonical. In Etna, L1 first sees a block after it is already final on L2, when someone lands a proven batch.</figcaption>
+        </figure>
+      </div>
+      <footer class="src"><span>SPEC.md sections 3 and 6 · Derivation.md</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="components" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">1 · Sequencing and blocks</p>
+        <h2>The cast changes</h2>
+        <p class="lede">Today: proposers and preconfers, provers, and drivers that derive from L1. In Etna:</p>
+      </header>
+      <div class="body">
+        <div class="cols etna">
+          <div>
+            <div class="tag">Off chain</div>
+            <ul class="pts">
+              <li><strong>Validator.</strong> Stakes TAIKO and registers a key. Runs CometBFT, the ABCI application, alethia-reth, its own L1 node and an external signer.</li>
+              <li><strong>Full node.</strong> The same stack without a registered key. Validates every block.</li>
+              <li><strong>EL-only backend.</strong> An EL that imports only landed blocks, for RPC and indexing.</li>
+              <li><strong>Lander.</strong> Permissionless. Builds batches, obtains two proofs and calls <code>land</code>.</li>
+              <li><strong>Prover.</strong> Produces the two proofs for a batch.</li>
+            </ul>
+          </div>
+          <div class="col-rule">
+            <div class="tag">On L1</div>
+            <ul class="pts">
+              <li><strong>EtnaInbox.</strong> Genesis parameters, <code>land</code>, checkpoints, the forced-inclusion queue and its fees, the rules schedule, and <code>recover</code>.</li>
+              <li><strong>EtnaStakingRegistry.</strong> Stake, top-ups, exits, withdrawals, double-sign slashing and DAO forfeiture.</li>
+              <li><strong>SignalService.</strong> Stores the checkpoints the Inbox writes, so the bridge can verify L2 to L1 messages.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md section 2</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="engine" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">1 · Sequencing and blocks</p>
+        <h2>The consensus engine is stock CometBFT</h2>
+      </header>
+      <div class="body etna">
+        <div class="cols">
+          <ul class="pts">
+            <li>CometBFT v0.40.0 runs in its own process and drives the application over an ABCI++ socket. Proposer selection, timeouts and locking are stock.</li>
+            <li>Keys are <code>secp256k1eth</code>. Sign-bytes are hashed with keccak256, and the validator address is an Ethereum address, so L1 can check any vote with <code>ecrecover</code>.</li>
+            <li>The chain id binds the deployment and the recovery generation.</li>
+            <li>Consensus starts at S + 1. Each block's <code>Data.Txs</code> holds exactly one item, the envelope.</li>
+          </ul>
+          <ul class="pts">
+            <li><code>app_hash</code> is the hash of the executed EL block. The transaction result is a fixed value, and consensus parameters are never updated.</li>
+            <li>CometBFT evidence enters blocks as usual, but the application does not punish on it. Slashing happens only on L1.</li>
+            <li>Proposer-based timestamps are not enabled. Block time is BFT time.</li>
+            <li>The block interval comes from <code>timeout_commit</code>: about 4 s, sized for roughly 128 validators.</li>
+          </ul>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 3.1 and 3.4</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="el" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">1 · Sequencing and blocks</p>
+        <h2>The application drives the EL through the Engine API</h2>
+      </header>
+      <div class="body etna">
+        <div class="cols">
+          <div>
+            <div class="tag">Calls</div>
+            <ul class="pts">
+              <li><code>engine_forkchoiceUpdatedV3</code>, <code>engine_getPayloadV5</code> and <code>engine_newPayloadV4</code>, plus the pinned EL's extensions for a given transaction list and a byte limit.</li>
+              <li>The proposer builds with the derived header values. Other nodes recompute the header and require <code>newPayload</code> to return VALID.</li>
+              <li>The EL's <code>finalized</code> block is the last checkpoint shown by the anchor.</li>
+            </ul>
+          </div>
+          <div class="col-rule">
+            <div class="tag">zk gas and fees</div>
+            <ul class="pts">
+              <li>zk gas is a separate block budget, recorded in <code>difficulty</code>.</li>
+              <li>While building, a transaction that exceeds the zk budget is discarded whole and pays nothing.</li>
+              <li>Validation never discards. If any listed transaction exceeds the budget, the whole block is invalid.</li>
+              <li>Fees use ordinary EVM gas. All base fees and tips go to the block's beneficiary.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 3.1, 3.4 and 9</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="header" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">1 · Sequencing and blocks</p>
+        <h2>Every header field but one is derived</h2>
+        <p class="lede">The proposer builds with these values. Other nodes recompute them and compare field by field.</p>
+      </header>
+      <div class="body">
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Field</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td><code>number</code>, <code>parentHash</code></td><td>The height, and the hash of the committed parent</td></tr>
+              <tr><td><code>timestamp</code></td><td>max(parent timestamp + 1, BFT time rounded down, anchor timestamp)</td></tr>
+              <tr><td><code>beneficiary</code></td><td>The proposer's choice. Not checked. It receives all base fees and tips of the block</td></tr>
+              <tr><td><code>extraData</code></td><td>13 bytes: 100, the generation, the anchor block number</td></tr>
+              <tr><td><code>parentBeaconBlockRoot</code></td><td>The anchor's L1 state root</td></tr>
+              <tr><td><code>gasLimit</code></td><td>A chain constant</td></tr>
+              <tr><td><code>baseFeePerGas</code></td><td>EIP-4396 from the parent, clamped between the chain minimum and 1 gwei</td></tr>
+              <tr><td><code>mixHash</code></td><td>Computed from the parent's <code>difficulty</code> and the height, with the Unzen formula</td></tr>
+              <tr><td><code>difficulty</code></td><td>The zk gas of the included transactions, checked by the EL</td></tr>
+              <tr><td>Others</td><td>Empty withdrawals, zero blob gas, empty requests, empty ommers, zero nonce</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md section 3.2</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="envelope" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">1 · Sequencing and blocks</p>
+        <h2>One envelope per block, private to the consensus network</h2>
+      </header>
+      <div class="body">
+        <p><code>envelope = 0x06 || rlp([block, anchor, committee, forced])</code></p>
+        <div class="cells">
+          <div><b>block</b><span>The EL header and the ordered transactions. Always present.</span></div>
+          <div><b>anchor</b><span>The raw L1 header plus Inbox proofs. Present when the anchor moves, and in a generation's first block.</span></div>
+          <div><b>committee</b><span>The committee record, registry proofs and entries. Present only at an epoch's switch block.</span></div>
+          <div><b>forced</b><span>The queue entry's proof and the transaction. Present while the queue has an unconsumed entry.</span></div>
+        </div>
+        <ul class="pts etna">
+          <li>The CometBFT header commits to the envelope through <code>data_hash</code>. It never goes to L1.</li>
+          <li>The anchor witness proves five Inbox slots: the generation, the last checkpoint (two slots), the queue head and tail, and the rules schedule.</li>
+          <li>Decoding is strict and identical for nodes and guests. Any violation makes the proposal invalid.</li>
+        </ul>
+      </div>
+      <footer class="src"><span>SPEC.md sections 3.3 and 5.1, appendix A</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="validity" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">1 · Sequencing and blocks</p>
+        <h2>Nine validity rules, applied in order</h2>
+      </header>
+      <div class="body">
+        <div class="cols wide-left">
+          <ol class="steps">
+            <li>The height is the parent's plus one, and <code>parentHash</code> links.</li>
+            <li>The anchor witness is present when required, and verifies.</li>
+            <li>The anchor does not regress and is not before the generation's L1 origin.</li>
+            <li>The chain id recomputed from <code>extraData</code>'s generation matches this chain.</li>
+            <li>Back-pressure: the height is at most U past the checkpoint the anchor proves.</li>
+            <li>A committee witness appears only at a switch block.</li>
+            <li>The header matches field by field; the anchor is fresh.</li>
+            <li>The forced-inclusion rules hold.</li>
+            <li>The EL's <code>newPayload</code> returns VALID for the full list.</li>
+          </ol>
+          <div class="etna">
+            <ul class="pts">
+              <li>ProcessProposal and FinalizeBlock apply the same rules.</li>
+              <li>The execution block is at most 124,000 bytes uncompressed, so each block fits in one blob.</li>
+              <li>If more than 2/3 of malicious power decides an invalid block, honest nodes halt for safety, and only governance recovery fixes it.</li>
+              <li>These are the rules of the block's ruleset, which its anchor selects.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md section 3.4</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="anchorless" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">2 · Anchoring and the bridge</p>
+        <h2>The anchor transaction is gone</h2>
+      </header>
+      <div class="body">
+        <div class="cols">
+          <div class="based">
+            <div class="tag">Today</div>
+            <ul class="pts">
+              <li><code>anchorV4</code> runs as transaction 0 of every block, sent by the golden touch address with a fixed-k signature.</li>
+              <li>It saves the L1 checkpoint into the L2 SignalService.</li>
+              <li>Execution engines, block-shape rules and the guests all carry special cases for it.</li>
+            </ul>
+          </div>
+          <div class="etna col-rule">
+            <div class="tag">Etna</div>
+            <ul class="pts">
+              <li>The header commits to the anchor. <code>parentBeaconBlockRoot</code> holds the L1 block's state root, and <code>extraData</code> holds its number.</li>
+              <li>The standard EIP-4788 call records the root under the L2 timestamp. No Taiko-specific system call is added.</li>
+              <li>The only Taiko-specific execution rule left is header validation.</li>
+            </ul>
+            <div style="margin-top:1em">
+              <div class="bytes"><div class="b1">100</div><div class="b6">generation · 6 bytes</div><div class="b6 hl">anchor block number · 6 bytes</div></div>
+              <p class="cap"><code>extraData</code>, 13 bytes. The first byte is the base-fee sharing percentage and is always 100.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>ANCHORLESS.md sections 1 to 3 · SPEC.md section 3.2</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="anchor-rules" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">2 · Anchoring and the bridge</p>
+        <h2>Every block reads L1 through a finalized anchor</h2>
+      </header>
+      <div class="body etna">
+        <div class="cols">
+          <ul class="pts">
+            <li>A block either carries an anchor witness or inherits its parent's anchor.</li>
+            <li>The proposer picks the later of the parent's anchor and its own L1 <code>finalized</code> block.</li>
+            <li>Validators check with their own L1 node that the anchor header is canonical and finalized.</li>
+            <li>Freshness is judged against the candidate block's timestamp: <code>timestamp − anchor.timestamp ≤ maxAnchorAge</code>. A locked block proposed again in a later round stays valid.</li>
+          </ul>
+          <ul class="pts">
+            <li>L1 headers are read by position: only <code>parentHash</code>, <code>stateRoot</code>, <code>number</code> and <code>timestamp</code>. Fields an L1 fork appends are accepted without an upgrade.</li>
+            <li>When the anchor moves, a node compares the checkpoint it proves with its own chain, and rejects a mismatch.</li>
+            <li>No usable anchor, no block. If L1 stops finalizing, L2 pauses until an anchor is fresh enough again.</li>
+          </ul>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 3.3 and 3.4</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="bridge" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">2 · Anchoring and the bridge</p>
+        <h2>The bridge after Etna</h2>
+      </header>
+      <div class="body etna">
+        <div class="cols">
+          <div>
+            <div class="tag">L1 to L2</div>
+            <ul class="pts">
+              <li><code>SignalServiceL2</code> asks the <code>Anchor</code> for the root. From the fork on, the <code>Anchor</code> reads EIP-4788 by L2 timestamp.</li>
+              <li>A proof sets <code>blockId</code> to an L2 timestamp and <code>rootHash</code> to that block's <code>parentBeaconBlockRoot</code>.</li>
+              <li>An entry stays readable for at least 8,191 s, about 2.3 hours. A newer L1 root proves everything an older one did.</li>
+              <li>No new checkpoints are saved on L2 after the fork.</li>
+            </ul>
+          </div>
+          <div class="col-rule">
+            <div class="tag">L2 to L1</div>
+            <ul class="pts">
+              <li><code>land</code> writes the height, block hash and state root into the L1 SignalService.</li>
+              <li>Withdrawals use that checkpoint directly, with no extra root, delay or veto.</li>
+              <li>A message therefore waits for a landing. The operating target is one landing every 20 minutes.</li>
+              <li><code>land</code> is not affected by pause. If both proof systems fail, losses are contained by pausing the SignalService and Bridge.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>ANCHORLESS.md sections 4 and 5 · SPEC.md sections 1 and 6.2</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="l2-order" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">2 · Anchoring and the bridge</p>
+        <h2>The anchorless fork has a strict upgrade order</h2>
+      </header>
+      <div class="body">
+        <div class="cols wide-left">
+          <ol class="steps">
+            <li>Every execution engine makes the EIP-4788 and EIP-2935 calls identically when building and importing. This ships without a fork.</li>
+            <li>Deploy EIP-2935, then EIP-4788, on L2. A new network puts both in genesis.</li>
+            <li>Guests learn to read both layouts of the L2 SignalService.</li>
+            <li>One DAO proposal trusts the new guest images and upgrades the L2 <code>Anchor</code> and SignalService in one batch.</li>
+            <li>Relayers and the bridge UI switch to proofs keyed by L2 timestamp.</li>
+            <li>The switch itself.</li>
+          </ol>
+          <div class="etna">
+            <ul class="pts">
+              <li>The <code>anchorV4</code> gate is required. The golden touch key is public, so without the gate anyone could save a forged checkpoint in the first anchorless block.</li>
+              <li><code>SignalServiceL2</code> uses a new storage namespace. Old L2 checkpoints and cached signals become unreadable, and must never be revived by a rollback.</li>
+              <li>If EIP-4788 has no code at the fork, uncached L1 to L2 proofs fail closed.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>ANCHORLESS.md sections 7 and 8</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="registry" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">3 · Staking and committees</p>
+        <h2>The staking registry lives on L1</h2>
+      </header>
+      <div class="body etna">
+        <div class="cols">
+          <ul class="pts">
+            <li><code>register(publicKey, amount, popSig)</code> needs at least <code>minStake</code>. The key is a 33-byte compressed secp256k1 key.</li>
+            <li>The proof of possession binds the L1 chain id, the registry and the sender. A key can be registered once, ever.</li>
+            <li>The owner is the sender and cannot change. Keys cannot be rotated in place: exit, withdraw, register again.</li>
+            <li>The registry fixes the Inbox address at deployment.</li>
+          </ul>
+          <ul class="pts">
+            <li>There are 4,096 slots. Bond ids count up and are never reused.</li>
+            <li>A registration takes the slot with the smallest balance and must stake more than it. A bond already there is displaced: it loses the slot and exits, but keeps its funds until withdrawal.</li>
+            <li>Top-ups are owner-only and delayed. One may be pending at a time.</li>
+            <li>Every L1 block that changes a slot ends with a checkpoint of the entries root. Nodes verify snapshots against it.</li>
+          </ul>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md section 4.1</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="bond-life" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">3 · Staking and committees</p>
+        <h2>The life of a bond</h2>
+      </header>
+      <div class="body">
+        <div class="flowrow">
+          <div class="chip"><b>register</b><span>stake and key</span></div><span class="arrow" aria-hidden="true">→</span>
+          <div class="chip"><b>active</b><span>after <code>activationDelay</code></span></div><span class="arrow" aria-hidden="true">→</span>
+          <div class="chip"><b>requestExit</b><span>takes effect after <code>exitDelay</code></span></div><span class="arrow" aria-hidden="true">→</span>
+          <div class="chip hl"><b>confirmExit</b><span>needs a landing</span></div><span class="arrow" aria-hidden="true">→</span>
+          <div class="chip"><b>wait</b><span><code>withdrawalDelay</code></span></div><span class="arrow" aria-hidden="true">→</span>
+          <div class="chip"><b>withdraw</b><span>owner only</span></div>
+        </div>
+        <ul class="pts etna">
+          <li>All delays count L1 blocks.</li>
+          <li><code>confirmExit</code> succeeds only when the committee that signed a landed block was selected after the exit took effect. The evidence window starts there, so a long halt cannot use it up in advance.</li>
+          <li><code>withdrawalDelay</code> is no shorter than the double-sign evidence window. The suggestion is at least 7 days.</li>
+          <li>An exit only ever moves earlier, through slashing, forfeiture, displacement or a recovery exclusion.</li>
+          <li>A bond stays slashable until it is withdrawn. If the Inbox cannot land, exits cannot be confirmed without a governance upgrade.</li>
+        </ul>
+      </div>
+      <footer class="src"><span>SPEC.md sections 4.1 and 12</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="committee" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">3 · Staking and committees</p>
+        <h2>One selection rule, driven only by L1 state</h2>
+      </header>
+      <div class="body">
+        <div class="cols wide-left">
+          <div>
+            <ol class="steps">
+              <li>Verify the complete entries and root of the latest registry checkpoint at the snapshot.</li>
+              <li>Keep entries that are active, not exited, and hold at least <code>max(s_min, vp_unit)</code>.</li>
+              <li>Sort by stake, largest first, with a fixed key hash as tie-break. Take the first <code>n_max</code>.</li>
+              <li>Voting power is stake divided by <code>vp_unit</code>, rounded down. The total must fit CometBFT's cap.</li>
+            </ol>
+            <p class="cap" style="margin-top:.8em">The same rule selects committee 0, every rotation and every recovery.</p>
+          </div>
+          <div class="etna">
+            <div class="tag">Rotation</div>
+            <ul class="pts">
+              <li>An epoch is L blocks. Epoch t starts at height H(t) = 1 + t·L. The suggested L is 900.</li>
+              <li>The switch block is H(t) − 2. It carries the committee witness, and its FinalizeBlock returns the updates.</li>
+              <li>CometBFT applies updates two heights later, so the new committee signs from H(t).</li>
+              <li>The snapshot is the later of two L1 blocks: the anchor of D(t) = H(t) − 3 and the generation's origin block. When D(t) ≤ S it is the origin block alone.</li>
+              <li>There is no limit on power change per rotation and no automatic eviction for being offline.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 4.2 and 4.3</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="slashing" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">3 · Staking and committees</p>
+        <h2>Double signing is slashed on L1, by anyone</h2>
+      </header>
+      <div class="body etna">
+        <div class="cols">
+          <div>
+            <div class="tag"><code>slashDoubleSign(bondId, voteA, voteB)</code></div>
+            <ul class="pts">
+              <li>Valid evidence is two votes of the same type, height, round and generation for different block ids.</li>
+              <li>The registry recomputes the chain id from its own deployment values, rebuilds CometBFT's sign-bytes, and requires both signatures to recover the bond's key.</li>
+              <li>The caller cannot choose a chain id or an Inbox.</li>
+              <li>Committee membership need not be proven. Only the key holder can produce the signatures.</li>
+            </ul>
+          </div>
+          <div class="col-rule">
+            <div class="tag">Consequences and limits</div>
+            <ul class="pts">
+              <li>The whole principal is slashed. The reporter receives a bounty (suggested 10%) and the rest goes to a sink.</li>
+              <li>Evidence from past generations stays admissible until withdrawal.</li>
+              <li>Only same-round double signing is covered. Conflicting votes across rounds are not.</li>
+              <li>A slashed member keeps its voting power until a committee that excludes it takes effect.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 4.1 and 12</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="forfeit" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">3 · Staking and committees</p>
+        <h2>Offline is a governance matter, and nobody is paid to stake</h2>
+      </header>
+      <div class="body etna">
+        <div class="cols">
+          <div>
+            <div class="tag">DAO responsibility forfeiture</div>
+            <ul class="pts">
+              <li>Going offline or withholding signatures is not slashed automatically.</li>
+              <li>The DAO may call <code>forfeit</code> on a bond. It deducts a fixed share of the remaining principal, once per key, and forces an exit.</li>
+              <li>The registry checks authority, identity and expiry. It does not check that the attribution is right.</li>
+              <li>There is no waiting or appeal period, and an unexecuted authorization cannot be revoked before it expires.</li>
+            </ul>
+          </div>
+          <div class="col-rule">
+            <div class="tag">Money flows</div>
+            <ul class="pts">
+              <li>There is no PoS issuance. A proposer earns the base fees and tips of its own blocks.</li>
+              <li>Forced-inclusion fees stay in the Inbox. Anyone can sweep them to the DAO treasury.</li>
+              <li>Landing earns nothing. Proving and landing costs are paid from DAO operating funds.</li>
+              <li>The minimum total stake comes from a capital target that is not pinned yet.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 1, 4.4, 7.1 and 12, appendix C</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="finality" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">4 · Settlement</p>
+        <h2>There are now two kinds of final</h2>
+      </header>
+      <div class="body">
+        <div class="cols wide-left">
+          <div class="bands">
+            <div class="band l2">
+              <h3>Committed <small>CometBFT commit · about 4 s</small></h3>
+              <p>Final while Byzantine voting power stays below 1/3. Consensus never rolls it back. The one exception is governance recovery, which discards blocks above the latest checkpoint.</p>
+            </div>
+            <div class="band l1">
+              <h3>Landed <small>L1 checkpoint · two proofs</small></h3>
+              <p>Nothing at or below a checkpoint can be rolled back, except by a DAO upgrade after a verifier failure.</p>
+            </div>
+          </div>
+          <div>
+            <ul class="pts">
+              <li>Funds on L1 recognize only landed checkpoints. Even a fully malicious committee cannot take funds on L1.</li>
+              <li>The spec's advice: exchanges and bridges should rely on checkpoints.</li>
+              <li>Today there is one notion. Order is fixed by L1 inclusion and finalized by <code>prove</code>.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md section 1</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="land" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">4 · Settlement</p>
+        <h2>Settlement is one permissionless call: <code>land</code></h2>
+      </header>
+      <div class="body">
+        <div class="cols">
+          <div class="etna">
+            <ul class="pts">
+              <li>Anyone can call it. It pays no protocol reward; landers are funded by the DAO.</li>
+              <li>The proposer bond, liveness bond and proving window of today's Inbox are gone.</li>
+              <li>Two proofs, at least one of them ZK. This is the same <code>ZkRequiredVerifier</code> rule as today.</li>
+              <li>One to six blobs carry every execution block in the range.</li>
+              <li>Landings end only on a grid of every K blocks, with K between 1 and 6.</li>
+            </ul>
+          </div>
+          <figure>
+            <div class="scroller">
+              <svg class="dg range" viewBox="0 0 540 250" role="img" aria-label="One landing transaction proves the range from p to h and settles only the part from the latest checkpoint c to h.">
+                <path d="M40,98 V86 H500 V98" class="brk"/>
+                <text x="270" y="74" text-anchor="middle" class="t1">proven by this transaction: (p, h]</text>
+                <text x="212.5" y="120" text-anchor="middle" class="t2">leaf at c must equal L1's record</text>
+                <line x1="40" y1="140" x2="500" y2="140" class="axis"/>
+                <line x1="40" y1="140" x2="212.5" y2="140" class="old"/>
+                <line x1="212.5" y1="140" x2="500" y2="140" class="new"/>
+                <circle cx="40" cy="140" r="5" class="leaf"/>
+                <circle cx="97.5" cy="140" r="4" class="leaf"/>
+                <circle cx="155" cy="140" r="4" class="leaf"/>
+                <circle cx="212.5" cy="140" r="5.5" class="leaf-c"/>
+                <circle cx="270" cy="140" r="4" class="leaf"/>
+                <circle cx="327.5" cy="140" r="4" class="leaf"/>
+                <circle cx="385" cy="140" r="4" class="leaf"/>
+                <circle cx="442.5" cy="140" r="4" class="leaf"/>
+                <circle cx="500" cy="140" r="5" class="leaf"/>
+                <text x="40" y="166" text-anchor="middle" class="mono">p</text>
+                <text x="212.5" y="166" text-anchor="middle" class="mono">c</text>
+                <text x="500" y="166" text-anchor="middle" class="mono">h</text>
+                <text x="26" y="184" class="t2">proof origin</text>
+                <text x="212.5" y="184" text-anchor="middle" class="t2">latest checkpoint</text>
+                <text x="514" y="184" text-anchor="end" class="t2">terminal height</text>
+                <path d="M385,152 V157 H442.5 V152" class="brk"/>
+                <text x="413.75" y="171" text-anchor="middle" class="t2">K blocks</text>
+                <path d="M212.5,204 V214 H500 V204" class="brk-e"/>
+                <text x="356" y="234" text-anchor="middle" class="flag">settled now: (c, h]</text>
+                <text x="110" y="214" text-anchor="middle" class="t2">already settled</text>
+              </svg>
+            </div>
+            <figcaption>A proof is made without knowing where c will be at execution. The transaction carries one leaf per grid point, so the contract can check the proof's chain at c and settle only the new part. A competitor landing first does not invalidate it.</figcaption>
+          </figure>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 6.1 to 6.3</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="land-checks" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">4 · Settlement</p>
+        <h2>What <code>land</code> checks, in order</h2>
+      </header>
+      <div class="body">
+        <div class="cols wide-left">
+          <ol class="steps">
+            <li><strong>Range and grid.</strong> The origin p is at or below the checkpoint c, c is below h, and both ends are grid points.</li>
+            <li><strong>Origin.</strong> p has a retained landing record in the current generation.</li>
+            <li><strong>Leaves.</strong> One per grid point inside the range. If c is above p, the leaf at c equals the one from c's record.</li>
+            <li><strong>Queue head.</strong> It only advances, never past the tail, and by at most h − c.</li>
+            <li><strong>Reference and blobs.</strong> The reference block's hash is readable on chain; one to six blobs.</li>
+            <li><strong>Proofs.</strong> Compute the cut hash, build the statement, verify both proofs.</li>
+            <li><strong>Update.</strong> Checkpoint, active committee snapshot, queue head, landing record and SignalService, atomically.</li>
+          </ol>
+          <div class="etna">
+            <ul class="pts">
+              <li>All checks come before any state change. The leaf checks come before proof verification.</li>
+              <li>If c has already reached h, the call reverts as already settled.</li>
+              <li>The new landing record's parent is the actual c, never the proof origin p.</li>
+              <li>The reference hash comes from <code>blockhash</code> (256 blocks) or EIP-2935 (8,191 blocks).</li>
+              <li>On a switching network, the first landing also requires Unzen's own proof of the start block.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md section 6.1, reference Solidity</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="grid" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">4 · Settlement</p>
+        <h2>Why landings end only at grid points</h2>
+      </header>
+      <div class="body etna">
+        <div class="cols">
+          <div>
+            <div class="tag">Why check c at all</div>
+            <ul class="pts">
+              <li>A proof may start from an older p while c advances through other landings.</li>
+              <li>If more than 1/3 of the power double-signs, one height can have two valid blocks.</li>
+              <li>Without checking that the proof's chain at c is the block L1 recorded, L1 could settle one fork and then attach the other. The bridge could be double-spent.</li>
+              <li>Requiring p = c would avoid the check, but every competing landing would force a new proof.</li>
+            </ul>
+          </div>
+          <div class="col-rule">
+            <div class="tag">Why a grid, and how wide</div>
+            <ul class="pts">
+              <li>A proof is made without knowing c, so it must commit to every possible c. On a grid that list is short enough to carry in full.</li>
+              <li>The contract does one hash and one indexed comparison. The guest builds no Merkle tree.</li>
+              <li>A grid segment must always fit one transaction. A block fits one blob and a transaction carries six, so K is at most 6.</li>
+              <li>A 300-block batch at K = 6 carries 49 leaves, 1,568 bytes of calldata.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md section 6.3</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="proof" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">4 · Settlement</p>
+        <h2>Consensus moves inside the proof</h2>
+        <p class="lede">Today the guests prove derivation from L1 data plus execution. In Etna they must also prove that the committee decided each block.</p>
+      </header>
+      <div class="body etna">
+        <div class="cols">
+          <ul class="pts">
+            <li>Each commit carries more than 2/3 of the voting power of the right committee, under this generation's chain id.</li>
+            <li>That committee is derived from the L1 registry through storage proofs. The prover does not supply it.</li>
+            <li>CometBFT headers link from the origin to the terminal block, and each validator-set hash matches the schedule.</li>
+            <li>Each envelope matches its header, and its witnesses satisfy the block rules.</li>
+          </ul>
+          <ul class="pts">
+            <li>Execution runs from the origin's hash to the terminal hash and state root. An over-limit block is never shortened to a provable prefix.</li>
+            <li>The execution part equals the blob payload byte for byte, and the blobs match the transaction's blob hashes.</li>
+            <li>Forced inclusions are consumed exactly and in order.</li>
+            <li>Every L1 anchor lies on a header chain ending at the reference block.</li>
+          </ul>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md section 6.2, items 1 to 10</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="statement" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">4 · Settlement</p>
+        <h2>The statement: 23 words that both proofs sign off on</h2>
+      </header>
+      <div class="body">
+<pre class="code">cutLeaf(x) = keccak256(abi.encode(x, blockHash, cometHash, forcedHead, valStateHash))
+
+cutHash    = keccak256(abi.encode(bytes32("ETNA_LAND_CUTS_V1"), generation, p, h,
+                                  keccak256(abi.encodePacked(leaves))))
+
+statement  = keccak256(abi.encode(bytes32("TAIKO_ETNA_LAND_V1"),
+               l1ChainId, l2ChainId, inbox, registry, generation,
+               parentHeight, parentHash, parentCometHash, parentValStateHash,
+               committeeConfigHash,
+               lastHeight, lastBlockHash, lastCometHash, lastValStateHash, lastStateRoot,
+               l1ReferenceBlockNumber, l1ReferenceBlockHash,
+               keccak256(abi.encodePacked(blobHashes)),
+               forcedInclusionHeadBefore, forcedInclusionHeadAfter,
+               activeCommitteeSnapshot, cutHash))</pre>
+        <ul class="pts etna">
+          <li>The contract fills the origin fields from its own record at p, and reads the reference hash and blob hashes itself.</li>
+          <li><code>valStateHash</code> commits to CometBFT's validator sets with their proposer priorities, so a node can start from a checkpoint.</li>
+        </ul>
+      </div>
+      <footer class="src"><span>SPEC.md appendix A</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="data" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">4 · Settlement</p>
+        <h2>Only execution blocks are published</h2>
+        <p class="lede">Today all block data is in L1 blobs before a block is canonical.</p>
+      </header>
+      <div class="body">
+        <div class="cols">
+          <div class="based">
+            <div class="tag">Public, in blobs at landing</div>
+            <ul class="pts">
+              <li><code>0x06 || zlib(rlp([executionBlock, …]))</code>, where each block is its EL header and transactions.</li>
+              <li>One to six blobs per batch, with Unzen's blob encoding.</li>
+              <li>With a sound proof and a finalized checkpoint, blobs plus the starting state rebuild the landed EL chain.</li>
+            </ul>
+          </div>
+          <div class="etna col-rule">
+            <div class="tag">Private, never on L1</div>
+            <ul class="pts">
+              <li>CometBFT headers, envelopes, commits and signatures, witnesses, registry entries, and the raw bytes of a skipped forced transaction.</li>
+              <li>They are proof inputs. The guest ties each envelope to its header, then to the blob.</li>
+              <li>Unlanded blocks, proving, replay and double-sign evidence all depend on archives of this history.</li>
+              <li>Blobs alone cannot bootstrap CometBFT.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 5.1, 5.2 and 9.1</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="backpressure" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">4 · Settlement</p>
+        <h2>Back-pressure caps the unsettled chain at U blocks</h2>
+      </header>
+      <div class="body">
+        <div>
+          <div class="meter"><div class="m1">about 900 in normal operation</div><div class="m2">about 2,700 of margin, roughly 3 hours</div></div>
+          <p class="cap">U = 3,600 unsettled blocks at the target deployment, about 4 hours at 4 s per block.</p>
+        </div>
+        <div class="cols etna">
+          <ul class="pts">
+            <li>The rule: a block's height is at most U above the checkpoint its anchor proves.</li>
+            <li>U is a circuit breaker for settlement failure, not the pace of settlement. It also caps what a recovery can discard.</li>
+            <li>Inclusion on L1 does not release the pause. The landing must finalize and be adopted by a new anchor.</li>
+          </ul>
+          <ul class="pts">
+            <li>The 900 comes from three 20-minute legs: the gap between landings, proving and inclusion, then finality and anchor adoption.</li>
+            <li>At one landing every 20 minutes, a batch covers about 300 blocks.</li>
+            <li>Landers should prove continuously. One producible height left is an alarm, not a start signal.</li>
+            <li>These figures are targets that still await acceptance testing.</li>
+          </ul>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md section 6.4</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="fi-submit" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">5 · Forced inclusion</p>
+        <h2>Forced inclusion is enforced by the proof</h2>
+      </header>
+      <div class="body">
+        <div class="cols">
+          <div class="based">
+            <div class="tag">Today</div>
+            <ul class="pts">
+              <li>Proposers must process due entries from the Inbox's queue.</li>
+              <li>If an entry gets too old, proposing becomes permissionless. L1 is the escape hatch.</li>
+            </ul>
+          </div>
+          <div class="etna col-rule">
+            <div class="tag">Etna</div>
+            <ul class="pts">
+              <li>There is no permissionless proposing.</li>
+              <li><code>saveForcedInclusion(tx)</code> accepts at most 8,192 bytes. The fee is <code>fee × (threshold + pending) / threshold</code>.</li>
+              <li>The Inbox stores only the hash, the L1 timestamp and the L1 block. The raw bytes are in the event.</li>
+              <li>The fee buys a place in the queue, not execution. It is never refunded and never paid to a lander.</li>
+              <li>A due entry at the head of the queue must be included or legally skipped. Otherwise the block is invalid and cannot be proven.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 7.1 and 7.3 · IInbox.sol (Shasta)</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="fi-rules" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">5 · Forced inclusion</p>
+        <h2>How a block consumes the queue</h2>
+        <p class="lede">Each block may consume one entry, the one at the cursor. An entry is due when <code>anchor.timestamp ≥ entry.timestamp + forcedInclusionDelay</code>.</p>
+      </header>
+      <div class="body">
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Case</th><th>Result</th></tr></thead>
+            <tbody>
+              <tr><td>Transaction 0 is the entry</td><td>Included, cursor + 1, whether due or not. An ordinary revert still counts as inclusion.</td></tr>
+              <tr><td>Not included, not due</td><td>Cursor unchanged.</td></tr>
+              <tr><td>Not included, due, bytes not eligible</td><td>Skipped, cursor + 1. No EL run is needed.</td></tr>
+              <tr><td>Not included, due, bytes eligible</td><td>Skippable only if a complete build of that transaction alone, on the parent, yields an empty block.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ul class="pts etna">
+          <li>Eligible means exactly one canonical, non-blob transaction for this chain, with a valid signature and gas within the block limit.</li>
+          <li>Entries never expire. Any valid block with a timestamp at least <code>forcedInclusionDelay + maxAnchorAge</code> after the entry sees it as due.</li>
+          <li>That bound is in block time. There is no wall-clock deadline.</li>
+        </ul>
+      </div>
+      <footer class="src"><span>SPEC.md sections 7.2 and 7.3</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="stops" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">6 · Halts, recovery and upgrades</p>
+        <h2>A pause loses nothing; a halt needs a person</h2>
+        <p class="lede">Today the chain advances whenever L1 includes a proposal.</p>
+      </header>
+      <div class="body etna">
+        <div class="cols">
+          <div>
+            <div class="tag">Liveness pause</div>
+            <ul class="pts">
+              <li>The process keeps running, CometBFT keeps rounding, and production resumes by itself. No blocks are lost.</li>
+              <li>Causes: an anchor that is not final or too old, back-pressure, missing witness data, a ruleset the node does not implement, or a lagging L1 node.</li>
+              <li>To make this work with stock CometBFT, the application never returns an error. It proposes an empty placeholder that validators reject.</li>
+            </ul>
+          </div>
+          <div class="col-rule">
+            <div class="tag">Safety halt</div>
+            <ul class="pts">
+              <li>The process exits and needs investigation.</li>
+              <li>Causes: a decided block that breaks the rules or contradicts local state or the EL, fork evidence, or unverifiable data from the node's own L1 or EL.</li>
+              <li>If 1/3 or more of the power is offline, consensus halts. Members return, or the DAO recovers.</li>
+              <li>A settlement stall lets L2 produce at most U more blocks.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md section 8</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="recovery" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">6 · Halts, recovery and upgrades</p>
+        <h2>Governance recovery, step by step</h2>
+        <p class="lede"><code>recover(expectedGeneration, expectedC, expectedRecoveryNonce, validUntil, exclusions, fiToClear, rules)</code></p>
+      </header>
+      <div class="body">
+        <div class="cols wide-left">
+          <ol class="steps">
+            <li>Validate every list and the expected state. One transaction, all or nothing.</li>
+            <li>Exclusions: listed bonds are forced to exit. Recovery itself does not slash.</li>
+            <li>Blanking: listed forced-inclusion entries that cannot be proven are emptied.</li>
+            <li>The generation increments and a fixed origin is recorded: the checkpoint c and the L1 block R that ran the call.</li>
+            <li>Nodes rebuild the EL at c and select the committee from the registry at R.</li>
+            <li>Only the unsettled blocks above c are discarded. Users resubmit those transactions.</li>
+          </ol>
+          <div class="etna">
+            <ul class="pts">
+              <li>Only the DAO can call it. It is for a long landing stall, a structural upgrade, or replacing a ruleset. Slow progress is never a reason.</li>
+              <li>The expected checkpoint is fixed at authorization, so any landing in between voids the call.</li>
+              <li>Before authorizing, landers settle up to the last provable grid point.</li>
+              <li>There is no recovery queue or timer. Timing is the DAO's own process.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 8, 8.1 and 8.3</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="generations" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">6 · Halts, recovery and upgrades</p>
+        <h2>Each recovery starts a new generation</h2>
+      </header>
+      <div class="body etna">
+        <p class="cap" style="margin:0"><code>chain_id = "etna-" + base64url(keccak256(abi.encode(bytes32("ETNA_COMET_DOMAIN_V1"), l1ChainId, l2ChainId, inbox, generation)))</code>, 48 ASCII bytes</p>
+        <div class="cols">
+          <ul class="pts">
+            <li>The generation is part of the chain id, so every vote is bound to it. Old votes cannot authorize the new chain.</li>
+            <li>Signing the same height in two generations is not a double sign.</li>
+            <li>The new CometBFT genesis has <code>initial_height = c + 1</code>, <code>genesis_time = R.timestamp</code>, and an <code>app_hash</code> equal to the EL hash at c.</li>
+            <li>Its validators are selected from the registry at R. Pending updates from the old generation are dropped.</li>
+          </ul>
+          <ul class="pts">
+            <li>The first block carries a finalized anchor no earlier than R.</li>
+            <li>The origin record is written once per generation. A proof cannot cross generations.</li>
+            <li>The signer keeps separate anti-double-sign state for each chain id, and never resets it.</li>
+            <li>A validator signs for the new generation only after its own finalized L1 view authenticates the recovery. It then refuses the old one.</li>
+          </ul>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 3.1, 8.2 and 8.4</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="verifier-failure" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">6 · Halts, recovery and upgrades</p>
+        <h2>A verifier failure takes a different path</h2>
+        <p class="lede">Both proofs accepting a wrong result is outside the threat model. If it happens, <code>recover</code> cannot repair it.</p>
+      </header>
+      <div class="body etna">
+        <div class="cols">
+          <div>
+            <div class="tag">Contain, then roll back</div>
+            <ul class="pts">
+              <li>First pause the L1 SignalService and the Bridge, and rely on quota limits. <code>land</code> and the registry are not pausable.</li>
+              <li>One DAO upgrade replaces the verifier and restores the checkpoint, queue head and active committee snapshot to the last trusted landing.</li>
+              <li>It voids later landing records and the SignalService checkpoints they wrote.</li>
+            </ul>
+          </div>
+          <div class="col-rule">
+            <div class="tag">Side effects the upgrade must handle</div>
+            <ul class="pts">
+              <li>Signals cached, and bridge messages left retriable, since the first bad landing become unusable until proven again.</li>
+              <li>The registry checks every exit confirmation again against the restored snapshot.</li>
+              <li>The recovery nonce increments, so old recovery authorizations die.</li>
+              <li>Bridge payments or stake already withdrawn on a bad checkpoint cannot be recovered.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 1 and 8</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="upgrades" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">6 · Halts, recovery and upgrades</p>
+        <h2>Two kinds of protocol upgrade</h2>
+      </header>
+      <div class="body etna">
+        <div class="cols">
+          <div>
+            <div class="tag">Rule upgrade: no stop</div>
+            <ul class="pts">
+              <li>The DAO calls <code>scheduleRules(rules, time)</code>. One Inbox slot holds the active ruleset, the next one and its start time.</li>
+              <li>A block uses the next ruleset once its timestamp reaches that time, read at the block's own anchor.</li>
+              <li>The time must be at least <code>maxAnchorAge</code> ahead, so every later block's anchor already shows it.</li>
+              <li>A node without the ruleset pauses instead of forking. A guest image proves only rulesets it implements.</li>
+            </ul>
+          </div>
+          <div class="col-rule">
+            <div class="tag">Structural upgrade: stop and recover</div>
+            <ul class="pts">
+              <li>Needed for anything L1 checks or stores: the statement, <code>land</code>, K, U, the registry. Also the envelope framing, the block size bound, CometBFT's version and the chain id.</li>
+              <li><code>scheduleStop(time, grid)</code> ends production at a grid point. Landers settle up to it.</li>
+              <li>One DAO transaction upgrades the contracts and calls <code>recover</code> with the new ruleset.</li>
+              <li>Registering a new guest image alone is not an upgrade.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md section 10.1</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="trust" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">7 · Nodes</p>
+        <h2>L1 is the trust anchor, and signing waits for it</h2>
+      </header>
+      <div class="body etna">
+        <div class="cols">
+          <ul class="pts">
+            <li>L1 replaces a weak-subjectivity checkpoint. Every node start, and every signer session, begins untrusted.</li>
+            <li>A node becomes trusted once it reaches the Inbox's latest checkpoint, seen in its own finalized L1 view, with matching EL hash, CometBFT hash and validator-state hash.</li>
+            <li>Missing data keeps the node untrusted and retrying. A contradiction halts it for safety.</li>
+            <li>The EL treats the last checkpoint as finalized, so a history forged with old keys can run at most U blocks past its fork point.</li>
+          </ul>
+          <ul class="pts">
+            <li>Every signature, nil votes included, needs the application to confirm the node is trusted.</li>
+            <li>The key sits in an external signer with its own anti-double-sign state, outside CometBFT's home directory.</li>
+            <li>A refusing signer answers with an explicit error. A supervisor restarts CometBFT automatically once trust returns.</li>
+            <li>Exchanges, bridges and public RPC must read the application's trust status, not CometBFT's <code>catching_up</code>.</li>
+          </ul>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md section 9</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="start-node" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">7 · Nodes</p>
+        <h2>Three ways to start a node</h2>
+      </header>
+      <div class="body">
+        <div class="grid3">
+          <div class="mini">
+            <h3>Replay from the fixed genesis</h3>
+            <p>Replay the current generation from its origin. Always available, and the only way to check every block yourself. It needs the archived consensus history.</p>
+          </div>
+          <div class="mini">
+            <h3>Checkpoint import</h3>
+            <p>A validator or full node starts at a landed checkpoint without executing earlier blocks. It authenticates the checkpoint from its own L1, verifies a bounded window of blocks and commits, installs the landed validator sets, then syncs from the next height.</p>
+          </div>
+          <div class="mini">
+            <h3>EL-only snapshot sync</h3>
+            <p>An EL starts from a public snapshot at a settled checkpoint and imports only landed blocks. It serves data up to its last matched checkpoint and never signs.</p>
+          </div>
+        </div>
+        <ul class="pts etna">
+          <li>Signer state is never imported. Finishing an import grants no signing authority.</li>
+          <li>An imported node has not executed the earlier blocks, so it cannot detect a bad landing at or below its starting point.</li>
+          <li>Operators must keep a public snapshot path, the genesis state and the generation's origin state available.</li>
+        </ul>
+      </div>
+      <footer class="src"><span>SPEC.md sections 5.3, 5.4 and 8.4</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="params" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">8 · Reference</p>
+        <h2>Parameters, and where each one is fixed</h2>
+        <p class="lede">Anything that could split nodes comes from L1 or is built into the client. Local configuration cannot change consensus.</p>
+      </header>
+      <div class="body">
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Parameter</th><th>Fixed in</th><th>Reference value</th></tr></thead>
+            <tbody>
+              <tr><td>K, grid interval</td><td>Protocol constant in the Inbox and both guests</td><td>Between 1 and 6, not fixed yet</td></tr>
+              <tr><td>U, unsettled-block limit</td><td>Config hash</td><td>3,600 blocks, about 4 hours</td></tr>
+              <tr><td>L, epoch length</td><td>Inbox initialization</td><td>900 blocks, about 60 minutes</td></tr>
+              <tr><td><code>maxAnchorAge</code></td><td>Inbox initialization</td><td>At least 1,152 s</td></tr>
+              <tr><td><code>n_max</code>, <code>vp_unit</code>, <code>s_min</code></td><td>Config hash</td><td><code>n_max</code> up to 4,096; <code>vp_unit</code> at least 867,361,738</td></tr>
+              <tr><td>Block size bound</td><td>Rule</td><td>124,000 bytes</td></tr>
+              <tr><td><code>minStake</code>, registry delays</td><td>Registry immutables</td><td>Withdrawal delay at least 7 days suggested</td></tr>
+              <tr><td>Slash bounty, forfeiture rate</td><td>Registry immutables</td><td>Bounty 10% suggested; rate not pinned</td></tr>
+              <tr><td>Gas and zk-gas limits</td><td>Client, per chain id and ruleset</td><td>Published with the pinned EL</td></tr>
+              <tr><td>Block interval</td><td>CometBFT <code>timeout_commit</code></td><td>About 4 s, an operating target</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 10 and 11</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="tradeoffs" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">8 · Reference</p>
+        <h2>What Etna buys, and what it costs</h2>
+      </header>
+      <div class="body">
+        <div class="cols">
+          <div class="etna">
+            <div class="tag">Gains</div>
+            <ul class="pts">
+              <li>Finality in seconds, without a preconfirmation layer.</li>
+              <li>Simpler derivation: no proposal manifests, no anchor transaction, no golden touch key.</li>
+              <li>No proposer bonds, proving windows or liveness-bond settlement.</li>
+              <li>Stock CometBFT, and an EL whose only Taiko-specific execution rule is header validation.</li>
+            </ul>
+          </div>
+          <div class="col-rule">
+            <div class="tag">Costs</div>
+            <ul class="pts">
+              <li>Ordering and liveness no longer come from L1. They need an honest, online supermajority.</li>
+              <li>Censorship resistance has no wall-clock bound and no permissionless proposing.</li>
+              <li>The DAO is the only way out of a stalled committee, and recovery discards unsettled blocks.</li>
+              <li>Landing earns nothing, so operations depend on DAO funding.</li>
+              <li>Consensus history is private and must be archived.</li>
+              <li>The target is Stage 0. Stage 1 is not a goal for now.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md sections 1 and 12 · ANCHORLESS.md</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="limits" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">8 · Reference</p>
+        <h2>Limits the spec states about itself</h2>
+      </header>
+      <div class="body">
+        <div class="grid4">
+          <div class="mini"><h3>No inclusion deadline</h3><p>Forced inclusion has no wall-clock bound.</p></div>
+          <div class="mini"><h3>Offline quorum</h3><p>Only DAO recovery replaces members who stay offline.</p></div>
+          <div class="mini"><h3>Narrow slashing</h3><p>Only double signing in the same round is slashed by evidence.</p></div>
+          <div class="mini"><h3>Rotation</h3><p>No limit on how much voting power can change at a rotation.</p></div>
+          <div class="mini"><h3>New key type</h3><p>secp256k1eth arrived in CometBFT v0.40.0 and is less tested than Ed25519.</p></div>
+          <div class="mini"><h3>Unpinned values</h3><p>K, the capital target and the forfeiture rate are not fixed. Latency figures await acceptance tests.</p></div>
+          <div class="mini"><h3>Upgrades</h3><p>They depend on the DAO and on validators upgrading in time.</p></div>
+          <div class="mini"><h3>Switch origin</h3><p>A multisig writes the Etna start. A wrong value stops Etna but cannot reach funds.</p></div>
+        </div>
+      </div>
+      <footer class="src"><span>SPEC.md section 12</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+  <section class="slide" id="switch" tabindex="-1">
+    <div class="slide-in">
+      <header>
+        <p class="kicker">8 · Reference</p>
+        <h2>The one-time switch from Unzen</h2>
+      </header>
+      <div class="body">
+        <div class="cols wide-left">
+          <div>
+            <ol class="steps">
+              <li>One DAO proposal upgrades the Unzen Inbox, the L1 SignalService and the L2 contracts, and trusts the new guest images.</li>
+              <li>The Unzen Inbox stops accepting proposals shortly before <code>ETNA_FORK_TIME</code>. Its last block is S.</li>
+              <li>Once L1 has finalized past the fork time, a multisig writes S, its hash and its state root, once.</li>
+              <li>Nodes build the CometBFT genesis and produce S + 1. Etna does not wait for Unzen's final proofs.</li>
+              <li>The first landing requires the Unzen Inbox to have finalized through S with the same hash.</li>
+            </ol>
+            <p class="cap" style="margin-top:.9em">The outage runs from step 2 until the first Etna block in step 4.</p>
+          </div>
+          <div class="card">
+            <h3>Where to read more</h3>
+            <div class="reads">
+              <b>SPEC §1</b><span>Security model</span>
+              <b>SPEC §3</b><span>Consensus and blocks</span>
+              <b>SPEC §4</b><span>Staking and committees</span>
+              <b>SPEC §6</b><span>Landing and proofs</span>
+              <b>SPEC §7–9</b><span>Forced inclusion, recovery, sync</span>
+              <b>SPEC §12</b><span>Known limitations</span>
+              <b>ANCHORLESS</b><span>The anchorless design</span>
+              <b>SWITCH</b><span>The switch procedure</span>
+              <b>ACCEPTANCE</b><span>The launch checklist</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <footer class="src"><span>SWITCH.md · README.md reading map</span><span class="n"></span></footer>
+    </div>
+  </section>
+
+</main>
+
+<nav class="nav" aria-label="Slide navigation">
+  <button type="button" id="nav-prev" aria-label="Previous slide">&#8249;</button>
+  <span id="nav-count" class="count">1 / 43</span>
+  <button type="button" id="nav-next" aria-label="Next slide">&#8250;</button>
+</nav>
+
+<script>
+(function () {
+  var slides = Array.from(document.querySelectorAll('.slide'));
+  // The slide footers read the total from here, so it follows the number of slides.
+  document.documentElement.style.setProperty('--total', '"' + slides.length + '"');
+  var count = document.getElementById('nav-count');
+  var current = 0;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function nearest() {
+    var best = 0, bestDistance = Infinity;
+    // The same offset the slides scroll to, including any safe-area inset.
+    var offset = parseFloat(getComputedStyle(slides[0]).scrollMarginTop) || 0;
+    slides.forEach(function (slide, i) {
+      var distance = Math.abs(slide.getBoundingClientRect().top - offset);
+      if (distance < bestDistance) { bestDistance = distance; best = i; }
+    });
+    return best;
+  }
+  function show() { count.textContent = (current + 1) + ' / ' + slides.length; }
+  function go(i) {
+    current = Math.max(0, Math.min(slides.length - 1, i));
+    slides[current].scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    show();
+  }
+
+  document.getElementById('nav-prev').addEventListener('click', function () { go(nearest() - 1); });
+  document.getElementById('nav-next').addEventListener('click', function () { go(nearest() + 1); });
+  document.addEventListener('keydown', function (event) {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (event.target.closest && event.target.closest('.scroller, .tbl-wrap, pre')) return;
+    var key = event.key;
+    if (key === 'ArrowRight' || key === 'PageDown') { event.preventDefault(); go(nearest() + 1); }
+    else if (key === 'ArrowLeft' || key === 'PageUp') { event.preventDefault(); go(nearest() - 1); }
+    else if (key === 'Home') { event.preventDefault(); go(0); }
+    else if (key === 'End') { event.preventDefault(); go(slides.length - 1); }
+  });
+
+  var ticking = false;
+  window.addEventListener('scroll', function () {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(function () { current = nearest(); show(); ticking = false; });
+  }, { passive: true });
+  current = nearest();
+  show();
+})();
+</script>
+</body>
+</html>

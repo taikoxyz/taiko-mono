@@ -25,13 +25,15 @@ pub mod inbox {
     pub const LAST_CHECKPOINT_HEIGHT: u64 = 270;
     /// `lastCheckpoint.blockHash`: `bytes32`.
     pub const LAST_CHECKPOINT_HASH: u64 = 271;
-    /// Activation record, packed: `genesisHeight` (B*, bits 0–47), `l1Block` (L1_0, bits 48–95),
-    /// `epochLenL2` (L, bits 96–143); higher bits are reserved.
+    /// Activation record, packed: `genesisHeight` (the Etna start S, bits 0–47), `l1Block` (L1_0,
+    /// bits 48–95), `epochLenL2` (L, bits 96–143); higher bits are reserved.
     pub const GENESIS_PACKED: u64 = 272;
-    /// Activation record: `genesisBlockHash` (H*), `bytes32`.
-    pub const GENESIS_BLOCK_HASH: u64 = 273;
-    /// Activation record: `genesisStateRoot` (S*), `bytes32`.
-    pub const GENESIS_STATE_ROOT: u64 = 274;
+    /// Etna start record: Solidity `startBlockHash`, the start hash (the Etna start block's hash),
+    /// `bytes32`.
+    pub const START_BLOCK_HASH: u64 = 273;
+    /// Etna start record: Solidity `startStateRoot`, the start state root (the Etna start block's
+    /// state root), `bytes32`.
+    pub const START_STATE_ROOT: u64 = 274;
     /// Authenticated parent-anchor derivation configuration hash.
     pub const COMMITTEE_CONFIG_HASH: u64 = 269;
     /// The single bootstrap committee record hash; future committees are never published.
@@ -126,8 +128,8 @@ pub mod inbox {
             STATUS,
             RECOVERY_GENERATION,
             GENESIS_PACKED,
-            GENESIS_BLOCK_HASH,
-            GENESIS_STATE_ROOT,
+            START_BLOCK_HASH,
+            START_STATE_ROOT,
             GENESIS_CUTOFF,
             GENESIS_COMMITTEE_HASH,
             COMMITTEE_CONFIG_HASH,
@@ -277,8 +279,8 @@ mod tests {
                 "last_checkpoint_height" => inbox::LAST_CHECKPOINT_HEIGHT,
                 "last_checkpoint_hash" => inbox::LAST_CHECKPOINT_HASH,
                 "genesis_packed" => inbox::GENESIS_PACKED,
-                "genesis_block_hash" => inbox::GENESIS_BLOCK_HASH,
-                "genesis_state_root" => inbox::GENESIS_STATE_ROOT,
+                "genesis_block_hash" => inbox::START_BLOCK_HASH,
+                "genesis_state_root" => inbox::START_STATE_ROOT,
                 "genesis_committee_record_hash" => inbox::GENESIS_COMMITTEE_HASH,
                 "genesis_cutoff" => inbox::GENESIS_CUTOFF,
                 "forced_inclusion_queue" => inbox::FORCED_INCLUSION_QUEUE,

@@ -229,7 +229,7 @@ pub(crate) struct InboxStorage {
 
 impl InboxStorage {
     /// An Inbox right after genesis: `ETNA_ACTIVE`, generation 0, last checkpoint = the
-    /// genesis anchor `(B*, H*)`, an empty forced inclusion queue and
+    /// Etna start block (S, the start hash), an empty forced inclusion queue and
     /// `committee[e_0] = committee_e0`.
     pub(crate) fn genesis(genesis: GenesisRecord, committee_e0: B256) -> Self {
         Self {
@@ -286,8 +286,8 @@ impl InboxStorage {
                 (U256::from(a.epoch_len) << 96);
             slots.extend([
                 (inbox::slot(inbox::GENESIS_PACKED), packed),
-                (inbox::slot(inbox::GENESIS_BLOCK_HASH), a.genesis_hash.into()),
-                (inbox::slot(inbox::GENESIS_STATE_ROOT), a.genesis_state_root.into()),
+                (inbox::slot(inbox::START_BLOCK_HASH), a.genesis_hash.into()),
+                (inbox::slot(inbox::START_STATE_ROOT), a.genesis_state_root.into()),
                 (inbox::slot(inbox::GENESIS_CUTOFF), U256::from(a.genesis_cutoff)),
                 (inbox::slot(inbox::COMMITTEE_CONFIG_HASH), a.committee_config_hash.into()),
                 (
@@ -742,8 +742,8 @@ mod tests {
         assert_eq!(word_u48(packed, 48), genesis.l1_0);
         assert_eq!(word_u48(packed, 96), genesis.epoch_len);
         assert_eq!(packed >> 192, U256::ZERO);
-        assert_eq!(B256::from(at(inbox::GENESIS_BLOCK_HASH)), genesis.genesis_hash);
-        assert_eq!(B256::from(at(inbox::GENESIS_STATE_ROOT)), genesis.genesis_state_root);
+        assert_eq!(B256::from(at(inbox::START_BLOCK_HASH)), genesis.genesis_hash);
+        assert_eq!(B256::from(at(inbox::START_STATE_ROOT)), genesis.genesis_state_root);
         assert_eq!(word_u64(at(inbox::GENESIS_CUTOFF), 0), genesis.genesis_cutoff);
         assert_eq!(at(inbox::GENESIS_CUTOFF) >> 64, U256::ZERO);
         let forced_config = at(inbox::FORCED_INCLUSION_CONFIG);

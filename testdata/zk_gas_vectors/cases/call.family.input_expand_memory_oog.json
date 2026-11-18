@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "call.family.input_expand_memory_oog",
+  "layer": "harness",
+  "cells": ["call.family.input_memory_oog_preserve"],
+  "description": "As call.family.input_expand_exact_gas with 102 gas left: the input expansion cannot be paid and the step keeps its last 2 gas (100 measured).",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f5f60205f5f62c0ffee5ff100"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x76",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x888",
+    "status": "halt"
+  }
+}

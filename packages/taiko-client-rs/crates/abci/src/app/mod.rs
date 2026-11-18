@@ -38,8 +38,10 @@ use crate::{
 
 /// Checkpoint ancestry of anchor witnesses against the local chain.
 mod checkpoint;
-/// In-memory retention of independently verified switch witnesses.
+/// In-memory retention of independently verified committee witnesses.
 mod committee_cache;
+/// Recovery of committed execution payloads after an EL restart.
+mod execution_recovery;
 /// The `FinalizeBlock` and `Commit` handlers.
 mod finalize;
 /// `Info`, `Query` and `CheckTx` handlers.
@@ -145,9 +147,9 @@ pub struct Status {
     /// ([`AppState::execution_floor`]); absent for a store `InitChain` started.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub execution_floor: Option<u64>,
-    /// Last committed height (== L2 block number); `B*` right after `InitChain`.
+    /// Last committed height (== L2 block number); the Etna start S right after `InitChain`.
     pub head: u64,
-    /// Epoch of the head (`e_0` while the head is still the genesis anchor `B*`).
+    /// Epoch of the head (`e_0` while the head is still the Etna start block).
     pub epoch: u64,
     /// Recovery generation of the running chain.
     pub generation: u64,
@@ -155,11 +157,14 @@ pub struct Status {
     pub last_checkpoint_height: u64,
     /// L1 block number of the head's anchor.
     pub anchor: u64,
-    /// Why the app currently refuses to make progress (liveness halt), if it does.
+    /// Why the app currently refuses to make progress, if it does: the label of the last refused
+    /// proposal or failed build. The process keeps running: in the spec's terms (section 8) this
+    /// is a liveness pause. Despite the field's name, a safety halt is never reported here: it
+    /// stops the node.
     pub halt_reason: Option<String>,
     /// Whether L1 records a larger recovery generation than the running chain's.
     pub superseded: bool,
-    /// Node-local checkpoint phase, separate from the proposal liveness halt. Only
+    /// Node-local checkpoint phase, separate from the proposal liveness pause. Only
     /// [`trust::TrustPhase::Ready`] means trusted (SYNC-9-15).
     pub trust_phase: trust::TrustPhase,
     /// Own-finalized checkpoint pinned for this startup attempt.
@@ -289,7 +294,7 @@ pub struct App<L: L1Source, E: Engine> {
     /// judged here ([`App::confirm_anchor`]).
     l1: Arc<L>,
     /// The execution engine.
-    engine: E,
+    engine: Arc<E>,
     /// The chain parameters (validated).
     params: ChainParams,
     /// Where [`App::state`] is persisted.
@@ -326,11 +331,13 @@ pub struct App<L: L1Source, E: Engine> {
     /// facts. These reads are proposer-independent; expected headers, builds and singleton
     /// verdicts are derived anew for every request's certified proposer.
     preparation_cache: Arc<Mutex<preparation_cache::PreparationCache>>,
+    /// One context-bound Prepare parent replay surviving cancellation of its waiting round.
+    execution_repair: Mutex<Option<execution_recovery::OwnedExecutionRepair>>,
     /// Whether the block `FinalizeBlock` last decided was judged here (its `ProcessProposal`
     /// verdict was cached), rather than replayed or block-synced; gates `Commit`'s prefetches.
     decided_live: bool,
-    /// The label of the last proposal rejection or failed build (a liveness halt), reported by
-    /// `/status`; an empty proposal does not replace a recorded label. Cleared by the next
+    /// The label of the last proposal rejection or failed build (a liveness pause), reported by
+    /// `/status`; a placeholder proposal does not replace a recorded label. Cleared by the next
     /// accepted or built proposal and by `Commit`.
     halt: Option<String>,
     /// Whether L1 records a larger recovery generation than the running chain's.
@@ -422,6 +429,7 @@ pub(super) fn classify(error: &AbciError) -> ErrorClass {
         AbciError::Store(
             StoreError::Corrupt { .. } |
             StoreError::CometConflict(_) |
+            StoreError::ExecutionConflict(_) |
             StoreError::ValStateConflict(_) |
             StoreError::ValUpdatesConflict(_) |
             StoreError::BootstrapConflict,
@@ -524,7 +532,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let trust = trust::TrustHandle::new(state.as_ref())?;
         let app = Self {
             l1: Arc::new(l1),
-            engine,
+            engine: Arc::new(engine),
             params,
             store,
             opts,
@@ -535,6 +543,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             committee_cache: Mutex::default(),
             committee_prefetch: Mutex::default(),
             preparation_cache: Arc::default(),
+            execution_repair: Mutex::default(),
             decided_live: false,
             halt: None,
             superseded: false,
@@ -582,7 +591,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// The execution engine.
     pub fn engine(&self) -> &E {
-        &self.engine
+        self.engine.as_ref()
     }
 
     /// The chain parameters.
@@ -675,9 +684,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// see [`Rejection::logs_at_error`], WARN otherwise), keeps its label as the halt reason for
     /// `/status`, and sets the `superseded` status when the Inbox proved a later generation.
     ///
-    /// An [`Rejection::EmptyProposal`] never replaces a reason already recorded: it is how a
-    /// halted proposer (this node included) proposes nothing, so the reason recorded earlier at
-    /// the height (e.g. this node's own failed build) is the one that explains the halt.
+    /// A [`Rejection::PlaceholderProposal`] never replaces a reason already recorded: it is how a
+    /// paused proposer (this node included) proposes nothing, so the reason recorded earlier at
+    /// the height (e.g. this node's own failed build) is the one that explains the pause.
     fn note_rejection(&mut self, method: &'static str, height: u64, rejection: &Rejection) {
         let reason = rejection.label();
         if rejection.logs_at_error() {
@@ -696,7 +705,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 tracing::error!(%error, "could not persist the supersession fatal evidence; the halt stands");
             }
         }
-        if matches!(rejection, Rejection::EmptyProposal) && self.halt.is_some() {
+        if matches!(rejection, Rejection::PlaceholderProposal) && self.halt.is_some() {
             return;
         }
         self.halt = Some(reason.to_string());
@@ -708,7 +717,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.committee_cache.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// The switch-witness prefetch slot, which holds no invariant a panicking holder could break.
+    /// The committee-witness prefetch slot, which holds no invariant a panicking holder could
+    /// break.
     fn committee_prefetch(&self) -> MutexGuard<'_, Option<CommitteePrefetch>> {
         self.committee_prefetch.lock().unwrap_or_else(PoisonError::into_inner)
     }
@@ -729,12 +739,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
         within(
             what,
             opts.elsync_timeout.saturating_add(http_timeout_for(opts.engine_timeout)),
-            ensure_block(&self.engine, number, hash, opts.elsync_timeout, ELSYNC_POLL),
+            ensure_block(self.engine(), number, hash, opts.elsync_timeout, ELSYNC_POLL),
         )
         .await
     }
 
-    /// Clears the liveness-halt reason after an accepted or built proposal or a commit.
+    /// Clears the liveness-pause reason after an accepted or built proposal or a commit.
     fn clear_halt(&mut self) {
         self.halt = None;
         AbciMetrics::halted().set(0);
@@ -945,8 +955,9 @@ fn unix_secs(time: Time) -> u64 {
 
 /// `h` as a CometBFT height.
 ///
-/// Every height the app stores fits: `InitChain` takes `B*` from CometBFT's `initial_height - 1`,
-/// later heights are CometBFT heights, and [`App::new`] rejects a loaded state that does not fit.
+/// Every height the app stores fits: `InitChain` takes the Etna start S from CometBFT's
+/// `initial_height - 1`, later heights are CometBFT heights, and [`App::new`] rejects a loaded
+/// state that does not fit.
 fn cometbft_height(h: u64) -> Height {
     Height::try_from(h).expect("stored heights fit a CometBFT height (checked at InitChain/load)")
 }

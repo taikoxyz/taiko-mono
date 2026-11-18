@@ -104,9 +104,13 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
         let mut min_required = height;
         for next in [height + 1, height + 2] {
             let epoch = schedule
-                .active_committee_epoch(next, origin)
+                .active_committee_epoch_with_initial(
+                    next,
+                    origin,
+                    fixed.committee.record.target_epoch,
+                )
                 .ok_or_else(|| bad("invalid committee schedule"))?;
-            if epoch != origin / schedule.epoch_len {
+            if epoch != fixed.committee.record.target_epoch {
                 let switch = schedule
                     .checked_h_first(epoch)
                     .and_then(|h| h.checked_sub(2))

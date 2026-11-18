@@ -49,7 +49,7 @@ taiko-client abci-import import --l1.http http://127.0.0.1:8545 --l2.chain-id 16
   --comet-config /srv/etna/config/full-node.toml
 ```
 
-- `--el-chain` is the EL chain JSON of the **original deployment**, even when the recovery origin is not zero.
+- `--el-chain` is the operator-selected EL chain JSON of the **original deployment**, including when Etna starts at a nonzero S or the selected generation is a recovery. The helper derives the original block-zero identity from this configuration; the Inbox's start hash H\* identifies the block at S separately.
 - `--comet-config` is the stock `config.toml`. It is copied verbatim to `ready/comet/config/config.toml`. Its `db_backend` must be absent or `goleveldb`. Set listeners, peers and any `priv_validator_laddr` here.
 - No input may lie inside `--root`.
 
@@ -61,7 +61,7 @@ taiko-client abci-import import --l1.http http://127.0.0.1:8545 --l2.chain-id 16
 4. Otherwise it discards any earlier `ROOT/stage` and starts a new private one.
 5. Authenticates the package against your own finalized L1 (DATA-5.4-2): the original genesis and generation, the landing at the selected height, and every block, commit, link, validator set and envelope of the window. The frames it verifies are written, as it verifies them, to the stage's stock directory. The package is not read again.
 6. Installs the stock Comet stores (`etna-comet-import`), or at the generation origin only the original `genesis.json`.
-7. Installs the EL store once from `--el-source` (`etna-el-import`), with every authenticated header from the header floor through the checkpoint.
+7. Reads the original runtime chain identity with `etna-el-import chain-identity --chain PATH --chain-id N`, then installs the EL store once from `--el-source`, with every authenticated header from the header floor through the checkpoint. Both operations use the same operator-selected `--el-chain` and pinned runtime chainspec. The install requires that block-zero hash and checks it again; imported metadata never selects it.
 8. Installs the app store at the checkpoint, with its execution floor. At the generation origin it writes only the recovery bootstrap, if any: InitChain builds the origin state (DATA-5.4-1).
 9. Makes `stage/ready` and ROOT traverse-only (0711), fsyncs them, and publishes `stage/ready` as `ROOT/ready` by one rename. `ready/app`, `ready/el`, the stage, `import.lock` and `halted.json` stay owner-only.
 

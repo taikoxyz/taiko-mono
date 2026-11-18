@@ -4,7 +4,8 @@ use std::{io::Read, path::Path};
 
 use alloy::{
     signers::{Signer, local::PrivateKeySigner},
-    sol_types::SolCall,
+    sol_types::{SolCall, SolError},
+    transports::{RpcError, TransportErrorKind},
 };
 use alloy_consensus::{
     SignableTransaction, Transaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar,
@@ -21,7 +22,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    contracts::IEtnaInbox::landCall,
+    contracts::IEtnaInbox::{ReferenceBlockUnavailable, landCall},
     error::{LanderError, Result, sanitized_rpc_error},
     proof::ProofRequest,
     types::PreparedBatch,
@@ -142,6 +143,15 @@ pub struct LandingReceipt {
     pub success: bool,
 }
 
+/// The root call's execution failure and return data from a transaction trace.
+#[derive(Debug, Deserialize)]
+struct RevertTrace {
+    /// Execution result category in the call tracer response.
+    error: Option<String>,
+    /// Raw EVM return data, carrying the ABI error for a revert.
+    output: Option<Bytes>,
+}
+
 /// Account nonce view; both values are read before deciding whether identical rebroadcast is safe.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NonceState {
@@ -177,6 +187,12 @@ pub trait TransactionTransport: Send + Sync {
     async fn broadcast(&self, transaction: &SignedTransaction) -> Result<B256>;
     /// Lookup a mined receipt; absence is not proof that a transaction was never broadcast.
     async fn receipt(&self, hash: B256) -> Result<Option<LandingReceipt>>;
+    /// Identify the exact `ReferenceBlockUnavailable` root revert for the mined transaction.
+    /// Returns false when tracing is unsupported or the cause is inconclusive. The caller
+    /// establishes canonical inclusion and checks the reference's age at that block.
+    async fn reference_unavailable_revert(&self, _hash: B256) -> Result<bool> {
+        Ok(false)
+    }
     /// Whether the endpoint currently knows this exact transaction.
     async fn known(&self, hash: B256) -> Result<bool>;
     /// Read latest and pending nonce state for the configured sender.
@@ -309,6 +325,53 @@ impl TransactionTransport for RpcTransactionTransport {
                 })
             })
             .transpose()
+    }
+
+    /// Replay the mined transaction with only its outer call frame and compare raw error bytes.
+    async fn reference_unavailable_revert(&self, hash: B256) -> Result<bool> {
+        let options = serde_json::json!({
+            "tracer": "callTracer",
+            "tracerConfig": {"onlyTopCall": true},
+        });
+        let trace: Option<RevertTrace> = match self
+            .provider
+            .raw_request("debug_traceTransaction".into(), (hash, options))
+            .await
+        {
+            Ok(trace) => trace,
+            Err(error) => {
+                let unavailable = match &error {
+                    RpcError::ErrorResp(response) => {
+                        matches!(response.code, -32601 | -32602 | -32004) ||
+                            // Geth reports pruned state with the same error code as transient
+                            // failures. Only its specific retention errors rule out tracing.
+                            (response.code == -32000 &&
+                                (response.message == "historical state is not available" ||
+                                    response.message.starts_with(
+                                        "required historical state unavailable (reexec=",
+                                    )))
+                    }
+                    RpcError::UnsupportedFeature(_) |
+                    RpcError::DeserError { .. } |
+                    RpcError::NullResp => true,
+                    RpcError::Transport(TransportErrorKind::HttpError(response)) => {
+                        matches!(response.status, 401 | 403 | 404 | 405 | 501)
+                    }
+                    _ => false,
+                };
+                if !unavailable {
+                    return Err(sanitized_rpc_error("L1 landing transaction trace", error));
+                }
+                tracing::warn!(transaction_hash=%hash, "lander could not verify revert cause using the L1 transaction trace");
+                return Ok(false);
+            }
+        };
+        Ok(trace.is_some_and(|frame| {
+            frame.error.as_deref() == Some("execution reverted") &&
+                frame
+                    .output
+                    .is_some_and(|output| output.as_ref() == ReferenceBlockUnavailable::SELECTOR)
+        }))
     }
 
     async fn known(&self, hash: B256) -> Result<bool> {

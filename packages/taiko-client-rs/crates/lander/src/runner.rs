@@ -4,7 +4,7 @@ use crate::{
     batch::BatchSource,
     config::BatchPolicy,
     error::{LanderError, Result},
-    l1::LandingSource,
+    l1::{LandingSource, reference_expired},
     metrics::{LanderMetrics, TransactionPhase},
     proof::{ProofError, ProofProvider},
     store::{JournalIdentity, JournalState, ProvedJob, Store},
@@ -238,7 +238,7 @@ impl Runner {
                 if observation.publishable_blocks == 0 ||
                     (observation.publishable_blocks < self.config.batch_policy.min_blocks &&
                         elapsed < self.config.batch_policy.max_wait &&
-                        !observation.force_backpressure &&
+                        !observation.force_back_pressure &&
                         !observation.force_epoch)
                 {
                     return Ok(StepOutcome::Waiting);
@@ -250,14 +250,14 @@ impl Runner {
                 let elapsed = self.wait_elapsed();
                 if request.batch.blocks.len() < self.config.batch_policy.min_blocks &&
                     elapsed < self.config.batch_policy.max_wait &&
-                    !observation.force_backpressure &&
+                    !observation.force_back_pressure &&
                     !observation.force_epoch
                 {
                     // The decided tip can regress between observation and full construction.
                     return Ok(StepOutcome::Waiting);
                 }
-                let trigger = if observation.force_backpressure {
-                    "backpressure"
+                let trigger = if observation.force_back_pressure {
+                    "back-pressure"
                 } else if observation.force_epoch {
                     "epoch"
                 } else if request.batch.blocks.len() >= self.config.batch_policy.min_blocks {
@@ -508,20 +508,9 @@ impl Runner {
             tracing::info!(transaction_hash=%transaction.hash,pending_nonce=transaction.nonce,"lander waiting for outstanding nonce; no fee replacement");
             return Ok(StepOutcome::Waiting);
         }
-        if !overlapping_frontier(&snapshot, &job.request.batch)? {
-            // Already-attempted bytes may still exist at another peer. Allocate no new nonce and
-            // avoid spending gas rebroadcasting a job that the current checkpoint made obsolete.
-            tracing::warn!(transaction_hash=%transaction.hash,pending_nonce=transaction.nonce,"lander outstanding nonce unresolved after competing checkpoint; operator reconciliation may be required");
-            return Ok(StepOutcome::Waiting);
-        }
-        let (number, hash) = job_reference(&job.request.batch)?;
-        if let Err(error) = self.l1.validate_reference(&snapshot, number, hash).await {
-            if matches!(error, LanderError::Stale(_)) {
-                tracing::warn!(transaction_hash=%transaction.hash,pending_nonce=transaction.nonce,"lander dropped transaction has expired reference; outstanding nonce requires operator reconciliation");
-                return Ok(StepOutcome::Waiting);
-            }
-            return Err(error);
-        }
+        // Pending owns this nonce even if another landing completed the job or its reference
+        // expired. Resubmit only the journal's identical bytes: a canonical revert spends the
+        // nonce safely, while a crash before the first send must not strand it forever.
         self.broadcast(&transaction).await?;
         Ok(StepOutcome::Waiting)
     }
@@ -572,6 +561,32 @@ impl Runner {
         if snapshot.l1_block_number < required {
             return Ok(StepOutcome::Waiting);
         }
+        let batch = &job.request.batch;
+        let unchanged_revert =
+            !receipt.success && CheckpointId::of(&snapshot) == CheckpointId::of(&batch.snapshot);
+        let expired_reference_revert = if unchanged_revert &&
+            reference_expired(
+                crate::types::protocol_u48(batch.input.l1ReferenceBlockNumber)?,
+                receipt.block_number,
+            ) {
+            // Earlier Inbox checks or out-of-gas can fail even with an expired reference.
+            // Require the mined transaction's exact revert data before recovering the job.
+            let reference_unavailable = timeout(
+                self.config.receipt_timeout,
+                self.transactions.reference_unavailable_revert(transaction.hash),
+            )
+            .await
+            .map_err(|_| {
+                LanderError::Temporary("landing revert trace deadline exceeded".into())
+            })??;
+            if self.l1.canonical_hash(receipt.block_number).await? != receipt.block_hash {
+                self.transition(JournalState::Pending { job, transaction })?;
+                return Ok(StepOutcome::Progress);
+            }
+            reference_unavailable
+        } else {
+            false
+        };
         if self.l1.canonical_hash(snapshot.l1_block_number).await? != snapshot.l1_block_hash {
             return Err(LanderError::Temporary(
                 "receipt reconciliation snapshot was reorganized; retry a coherent checkpoint"
@@ -586,10 +601,10 @@ impl Runner {
                     "successful canonical receipt did not advance the Inbox checkpoint".into(),
                 ));
             }
-        } else if CheckpointId::of(&snapshot) == CheckpointId::of(&job.request.batch.snapshot) {
+        } else if unchanged_revert && !expired_reference_revert {
             // The revert is canonical at the confirmation depth, so its nonce is spent and
-            // nothing of this job can land any more. Every such revert, out-of-gas included,
-            // stops the runner. Persist Idle first: a restart then rebuilds from the current
+            // nothing of this job can land any more. Persist Idle before stopping on an
+            // unclassified revert: a restart then rebuilds from the current
             // checkpoint (a deterministic revert stops again at gas estimation, before signing)
             // instead of re-reading this receipt forever.
             self.transition(JournalState::Idle)?;
@@ -598,8 +613,12 @@ impl Runner {
                 transaction.hash, transaction.nonce, snapshot.checkpoint_height
             )));
         }
-        tracing::info!(transaction_hash=%transaction.hash,landed_height=snapshot.checkpoint_height,success=receipt.success,"lander canonical transaction settled");
         self.transition(JournalState::Idle)?;
+        if expired_reference_revert {
+            tracing::warn!(transaction_hash=%transaction.hash, nonce=transaction.nonce,
+                receipt_block=receipt.block_number, "lander settled landing with expired L1 reference; rebuilding");
+        }
+        tracing::info!(transaction_hash=%transaction.hash,landed_height=snapshot.checkpoint_height,success=receipt.success,"lander canonical transaction settled");
         Ok(StepOutcome::Settled)
     }
 }
@@ -627,6 +646,10 @@ fn observe_state(state: &JournalState) {
 
 /// Accept only an authenticated frontier on the immutable job's original proof interval.
 /// Interior progress must equal the corresponding signed cut leaf; nothing is rewritten.
+///
+/// The same `checkpoint_*` field names mean two things here: in `current` they are the latest
+/// checkpoint c, in `prepared` (the snapshot the job was built on) the job's proof origin p. The
+/// frontier overlaps while the generation is unchanged and `p <= c < lastHeight`.
 fn overlapping_frontier(
     current: &LandingSnapshot,
     batch: &crate::types::PreparedBatch,
@@ -654,7 +677,7 @@ fn overlapping_frontier(
             ));
         }
     } else {
-        if !current.checkpoint_height.is_multiple_of(abci::GRID_INTERVAL) {
+        if !prepared.genesis.is_grid_height(current.checkpoint_height) {
             return Err(LanderError::Safety("checkpoint is not a grid endpoint".into()));
         }
         let index =

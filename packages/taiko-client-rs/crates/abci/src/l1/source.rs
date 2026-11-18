@@ -161,6 +161,13 @@ pub trait L1Source: Send + Sync + 'static {
         Ok(None)
     }
 
+    /// Read a contract at exactly one canonical own-L1 hash. Sources without call support
+    /// remain unavailable rather than substituting latest state for switch authentication.
+    async fn call_at(&self, address: Address, input: Bytes, hash: B256) -> Result<Bytes, L1Error> {
+        let _ = (address, input, hash);
+        Err(L1Error::Rpc("hash-pinned contract calls are unavailable".into()))
+    }
+
     /// The calldata transaction emitted by exactly one `ForcedInclusionSaved` event from
     /// `inbox` for `index` in the proven L1 block `l1_block`. Acquisition failures are errors;
     /// callers must additionally authenticate the returned bytes against the proven hash.
@@ -380,6 +387,20 @@ impl L1Source for RpcL1Source {
             return Err(L1Error::MalformedResponse("Unzen finalized block hash is zero".into()));
         }
         Ok(Some(finalized))
+    }
+
+    /// Preserve a hash-canonical eth_call pin for shared switch checkpoint authentication.
+    async fn call_at(&self, address: Address, input: Bytes, hash: B256) -> Result<Bytes, L1Error> {
+        self.provider
+            .raw_request(
+                "eth_call".into(),
+                (
+                    serde_json::json!({ "to": address, "data": input }),
+                    BlockId::hash_canonical(hash),
+                ),
+            )
+            .await
+            .map_err(|error| L1Error::Rpc(format!("contract call at {hash}: {error}")))
     }
 
     /// Fetches and validates one exact-block calldata forced inclusion event.

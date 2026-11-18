@@ -18,8 +18,7 @@ use alloy::primitives::{
 use alloy_consensus::TxEnvelope;
 use alloy_provider::ProviderBuilder;
 use alloy_rpc_types::eth::Block as RpcBlock;
-use alloy_rpc_types_engine::PayloadId;
-use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
+use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
 use alloy_transport::mock::Asserter;
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -71,6 +70,7 @@ pub(crate) fn sample_payload(block_number: u64) -> TaikoPayloadAttributes {
         block_metadata,
         l1_origin,
         anchor_transaction: None,
+        max_block_bytes: None,
     }
 }
 

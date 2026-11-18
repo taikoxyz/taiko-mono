@@ -10,8 +10,10 @@ use std::{
 use tokio::process::Command;
 
 async fn run(args: &[&str]) -> Output {
+    let workdir = tempfile::tempdir().expect("CLI working directory");
     Command::new(env!("CARGO_BIN_EXE_taiko-client"))
         .env_clear()
+        .current_dir(workdir.path())
         .args(args)
         .output()
         .await
@@ -300,6 +302,57 @@ async fn recovery_app_refuses_external_owner_before_rpc() {
     .await;
     assert!(!output.status.success());
     assert!(stderr(&output).contains("ownership is busy"), "{}", stderr(&output));
+}
+
+/// Independent ELs progress while another Engine domain is held; the same domain stays exclusive.
+#[tokio::test]
+async fn engine_control_excludes_same_domain_and_allows_independent_engine() {
+    use abci::ownership::{ComponentLease, ComponentRole};
+    let root = tempfile::tempdir().unwrap();
+    let shared = root.path().join("shared-engine");
+    let independent = root.path().join("independent-engine");
+    let endpoint = rpc("0x100028c59").await;
+    let owner = ComponentLease::standalone(ComponentRole::App, &shared.join("writer")).unwrap();
+    let args = |control: &std::path::Path| {
+        vec![
+            "abci".to_owned(),
+            "--l1.http".into(),
+            endpoint.url.clone(),
+            "--l2.http".into(),
+            endpoint.url.clone(),
+            "--l2.auth".into(),
+            endpoint.url.clone(),
+            "--jwt.secret".into(),
+            "/not-read".into(),
+            "--data-dir".into(),
+            root.path().join("app").display().to_string(),
+            "--engine-control-dir".into(),
+            control.display().to_string(),
+            "--fee-recipient".into(),
+            "0x7777777777777777777777777777777777777777".into(),
+        ]
+    };
+    let shared_args = args(&shared);
+    let shared_args = shared_args.iter().map(String::as_str).collect::<Vec<_>>();
+    let blocked = run(&shared_args).await;
+    assert!(!blocked.status.success());
+    assert!(stderr(&blocked).contains("ownership is busy"), "{}", stderr(&blocked));
+    assert!(endpoint.methods.lock().unwrap().is_empty(), "busy Engine must fail before RPC");
+    assert!(!root.path().join("app").exists(), "busy Engine must not acquire app storage");
+
+    let independent_args = args(&independent);
+    let independent_args = independent_args.iter().map(String::as_str).collect::<Vec<_>>();
+    let progresses = run(&independent_args).await;
+    assert!(!progresses.status.success());
+    assert!(stderr(&progresses).contains("4295134297"), "{}", stderr(&progresses));
+    assert_eq!(*endpoint.methods.lock().unwrap(), ["eth_chainId"]);
+
+    drop(owner);
+    endpoint.methods.lock().unwrap().clear();
+    let released = run(&shared_args).await;
+    assert!(!released.status.success());
+    assert!(stderr(&released).contains("4295134297"), "{}", stderr(&released));
+    assert_eq!(*endpoint.methods.lock().unwrap(), ["eth_chainId"]);
 }
 
 #[tokio::test]

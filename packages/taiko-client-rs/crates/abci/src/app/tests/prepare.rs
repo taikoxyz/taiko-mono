@@ -118,6 +118,25 @@ async fn envelope_above_max_tx_bytes_is_not_proposed() {
     assert_eq!(prepare(&mut app, req).await.len(), 1);
 }
 
+#[tokio::test]
+async fn proposal_fallback_survives_optional_candidate_above_comet_limit() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let minimum = propose(&mut app).await;
+    let mut optional = minimum.block.clone();
+    optional.transactions = vec![sample_transactions()[0].encoded_2718().into()];
+    optional.header.transactions_root =
+        alloy_consensus::proofs::ordered_trie_root_encoded(&optional.transactions);
+    app.engine().state().build_script.extend([Ok(minimum.block.clone()), Ok(optional)]);
+
+    let bytes = minimum.encode();
+    let mut req = prepare_req(next_height(&app), bft_time(&app));
+    req.max_tx_bytes = i64::try_from(bytes.len()).unwrap();
+    assert_eq!(prepare(&mut app, req).await, [bytes]);
+    accept_and_commit(&mut app, &minimum).await;
+}
+
 /// An EL that builds a block whose compressed envelope cannot fit one landing gets nothing
 /// proposed, though the envelope fits `max_tx_bytes`; a zero-heavy block several times larger
 /// is proposed.
@@ -131,12 +150,12 @@ async fn prepare_does_not_propose_an_oversized_block() {
     let mut random = built.clone();
     random.transactions.push(incompressible(800_000));
     app.engine().state().build_script.push_back(Ok(random));
-    assert_eq!(refused(&mut app).await, "landing_capacity");
+    assert_eq!(refused(&mut app).await, "block_size_bound");
 
     let mut zeros = built;
     zeros.transactions.push(vec![0u8; 5_000_000].into());
     app.engine().state().build_script.push_back(Ok(zeros.clone()));
-    assert_eq!(refused(&mut app).await, "landing_capacity");
+    assert_eq!(refused(&mut app).await, "block_size_bound");
 }
 
 #[tokio::test]
@@ -238,9 +257,9 @@ async fn proposer_never_anchors_below_the_parent() {
 async fn failing_pre_checks_propose_nothing() {
     let fx = Fixture::genesis(1);
 
-    // Back-pressure: the checkpoint is a full cap behind the next height.
+    // Back-pressure: the checkpoint is a full unsettled limit behind the next height.
     let dir = tempfile::tempdir().unwrap();
-    let mut app = mid_epoch(&fx, dir.path(), fx.params.unsettled_cap()).await;
+    let mut app = mid_epoch(&fx, dir.path(), fx.params.unsettled_limit()).await;
     assert_eq!(refused(&mut app).await, "back_pressure");
     assert!(app.engine().calls().iter().all(|c| !matches!(c, EngineCall::BuildBlock { .. })));
 
@@ -361,7 +380,7 @@ fn registry_reads(app: &App<MockL1, MockEngine>) -> usize {
 }
 
 /// An app whose next height is switch 2, anchored at the finalized L1 block 70 where the
-/// checkpoint is within the cap: the proposer there discovers the committee of epoch 2.
+/// checkpoint is within the unsettled limit: the proposer there discovers the committee of epoch 2.
 async fn before_switch(fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
     let mut app = initialized(fx, dir).await;
     let h_e = app.state().unwrap().schedule().h_first(2) - 2;
@@ -399,12 +418,12 @@ async fn a_second_round_at_a_switch_reuses_the_committee_witness() {
     assert!(app.committee_cache.lock().unwrap().is_none(), "Commit drops the cached witness");
 }
 
-/// A validator at `D(t)` discovers, verifies and retains (in memory) the switch witness in the
-/// background as soon as it handles any round, an empty proposal included, before a proposal
+/// A validator at `D(t)` discovers, verifies and retains (in memory) the committee witness in the
+/// background as soon as it handles any round, a placeholder proposal included, before a proposal
 /// needs it. Once its L1 has pruned the parent anchor's state (after a stall longer than its
 /// proof window), it still proposes `S(t)` from that witness, without an archive.
 #[tokio::test]
-async fn the_switch_witness_is_prefetched_before_the_parent_anchor_state_is_pruned() {
+async fn the_committee_witness_is_prefetched_before_the_parent_anchor_state_is_pruned() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;
@@ -427,11 +446,11 @@ async fn the_switch_witness_is_prefetched_before_the_parent_anchor_state_is_prun
     assert_eq!(registry_reads(&app), 0, "{:?}", app.l1().calls());
 }
 
-/// The switch witness lives in memory only: a validator restarted after committing `D(t)`
+/// The committee witness lives in memory only: a validator restarted after committing `D(t)`
 /// re-discovers it from its own L1 at the parent anchor (SYNC-9-16), and writes nothing beside
 /// the app state.
 #[tokio::test]
-async fn restart_rediscovers_the_switch_witness_from_own_l1() {
+async fn restart_rediscovers_the_committee_witness_from_own_l1() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
@@ -452,8 +471,14 @@ async fn restart_rediscovers_the_switch_witness_from_own_l1() {
     assert_eq!(app.cached_committee_witness(&state, target), witness, "and retained it");
 
     let App { l1, engine, params, store, opts, .. } = app;
-    let mut restarted =
-        App::new(Arc::try_unwrap(l1).expect("sole L1 owner"), engine, params, store, opts).unwrap();
+    let mut restarted = App::new(
+        Arc::try_unwrap(l1).expect("sole L1 owner"),
+        Arc::try_unwrap(engine).expect("sole EL owner"),
+        params,
+        store,
+        opts,
+    )
+    .unwrap();
     assert_eq!(restarted.cached_committee_witness(&state, target), None, "nothing is reloaded");
     restarted.l1().state().calls.clear();
     assert_eq!(propose(&mut restarted).await.committee, witness);
@@ -469,10 +494,10 @@ async fn restart_rediscovers_the_switch_witness_from_own_l1() {
     assert!(!dir.path().join("abci-committee-witness.json").exists());
 }
 
-/// A live `Commit` of `D(t)` starts the switch-witness discovery on its own, before any round at
+/// A live `Commit` of `D(t)` starts the committee-witness discovery on its own, before any round at
 /// `S(t)` (which an anchor freshness stall could keep from ever reaching it).
 #[tokio::test]
-async fn committing_the_derivation_parent_prefetches_the_switch_witness() {
+async fn committing_the_derivation_parent_prefetches_the_committee_witness() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
@@ -518,11 +543,11 @@ fn d_2(fx: &Fixture) -> u64 {
     fx.schedule().derivation_parent_height(2).unwrap()
 }
 
-/// The live `Commit` of the block adopting an anchor discovers the switch witness under it right
+/// The live `Commit` of the block adopting an anchor discovers the committee witness under it right
 /// away, while its L1 state is recent: when L1 finality then stalls, that anchor stays until
 /// `D(t)` and the L1 node prunes its state, yet `S(t)` is still proposed without an archive.
 #[tokio::test]
-async fn committing_a_new_anchor_prefetches_the_switch_witness_it_may_have_to_prove() {
+async fn committing_a_new_anchor_prefetches_the_committee_witness_it_may_have_to_prove() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_anchor_adoption(&fx, dir.path(), d_2(&fx) - 5).await;
@@ -569,12 +594,12 @@ fn registry_reads_at(app: &App<MockL1, MockEngine>, block: u64) -> (usize, usize
     (count(false), count(true))
 }
 
-/// A switch-witness discovery its L1 keeps failing (a rate limit, a proof window too short) is
+/// A committee-witness discovery its L1 keeps failing (a rate limit, a proof window too short) is
 /// restarted only once its backoff has passed since it failed: 2 s, doubling per failure up to
 /// 60 s, however many rounds and commits come in between. Each restart reads afresh, and once
 /// the L1 serves proofs again the next attempt succeeds.
 #[tokio::test(start_paused = true)]
-async fn a_failing_switch_witness_prefetch_is_restarted_after_a_growing_backoff() {
+async fn a_failing_committee_witness_prefetch_is_restarted_after_a_growing_backoff() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_anchor_adoption(&fx, dir.path(), d_2(&fx) - 5).await;
@@ -612,7 +637,7 @@ async fn a_failing_switch_witness_prefetch_is_restarted_after_a_growing_backoff(
 
 /// Commits the block adopting anchor 70 at `D(t)-2` (see [`before_anchor_adoption`]), that block
 /// `age` seconds after anchor 70 when given, and answers whether its `Commit` started the
-/// switch-witness discovery.
+/// committee-witness discovery.
 async fn adopting_anchor_70_prefetches(last_checkpoint: u64, age: Option<u64>) -> bool {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
@@ -626,15 +651,15 @@ async fn adopting_anchor_70_prefetches(last_checkpoint: u64, age: Option<u64>) -
     app.committee_prefetch().is_some()
 }
 
-/// Adopting an anchor discovers the switch witness exactly while `D(t)` can still carry that
+/// Adopting an anchor discovers the committee witness exactly while `D(t)` can still carry that
 /// anchor: within back-pressure of its last checkpoint and within its freshness, every height
 /// adding at least a second. Otherwise a newer anchor comes first, and nothing is read.
 #[tokio::test]
 async fn adopting_an_anchor_prefetches_only_while_the_derivation_parent_can_carry_it() {
     let fx = Fixture::genesis(3);
-    let (d_t, cap, max_age) = (d_2(&fx), fx.params.unsettled_cap(), fx.genesis.max_anchor_age);
-    assert!(adopting_anchor_70_prefetches(d_t - cap, None).await, "D(t) at the cap");
-    assert!(!adopting_anchor_70_prefetches(d_t - cap - 1, None).await, "D(t) past the cap");
+    let (d_t, limit, max_age) = (d_2(&fx), fx.params.unsettled_limit(), fx.genesis.max_anchor_age);
+    assert!(adopting_anchor_70_prefetches(d_t - limit, None).await, "D(t) at the limit");
+    assert!(!adopting_anchor_70_prefetches(d_t - limit - 1, None).await, "D(t) past the limit");
     // `D(t)` is two heights, so at least two seconds, after the adopting block.
     assert!(adopting_anchor_70_prefetches(d_t - 5, Some(max_age - 2)).await, "D(t) at maxAge");
     assert!(!adopting_anchor_70_prefetches(d_t - 5, Some(max_age - 1)).await, "D(t) past maxAge");
@@ -678,14 +703,14 @@ async fn a_committee_witness_judged_at_a_switch_is_reused_by_the_next_proposer()
     assert_eq!(own.committee, Some(witness));
 }
 
-/// A validator at `D(t)` that holds no switch-witness discovery (as one that reached `D(t)`
+/// A validator at `D(t)` that holds no committee-witness discovery (as one that reached `D(t)`
 /// without a live `Commit`, a reopened one say) gets it from the first `S(t)` `PrepareProposal`,
 /// which starts the background discovery at the committed parent anchor (COMM-4.3-11) and waits
 /// for it within its deadline. With a fast L1 it proposes from it in that round, and later rounds
 /// read nothing more. With a slow L1 the round ends empty (RECOV-8-4) while the discovery keeps
 /// reading past its deadline, and the next round proposes from it without repeating a read.
 #[tokio::test(start_paused = true)]
-async fn prepare_starts_the_switch_discovery_when_none_runs() {
+async fn prepare_starts_the_committee_witness_discovery_when_none_runs() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;
@@ -719,13 +744,13 @@ async fn prepare_starts_the_switch_discovery_when_none_runs() {
     );
 }
 
-/// Malformed data from the own L1 during the switch-witness discovery (here the entries read
+/// Malformed data from the own L1 during the committee-witness discovery (here the entries read
 /// answering for other slots) halts the proposer for safety with durable fatal evidence
 /// (SYNC-9-7), as it does anywhere else in a proposal. The failure keeps its class through the
 /// backoff: a round within it observes the same failed discovery, without a new read, and halts
 /// again rather than pausing.
 #[tokio::test(start_paused = true)]
-async fn a_malformed_own_l1_answer_during_switch_discovery_halts() {
+async fn a_malformed_own_l1_answer_during_committee_witness_discovery_halts() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;
@@ -743,7 +768,7 @@ async fn a_malformed_own_l1_answer_during_switch_discovery_halts() {
     }
 }
 
-/// A background switch-witness discovery that met malformed own-L1 data halts whichever request
+/// A background committee-witness discovery that met malformed own-L1 data halts whichever request
 /// first sees it, not only a proposer waiting on it (SYNC-9-7). A node that only validates and
 /// commits sees it at its next ProcessProposal, and the failure is never restarted after its
 /// backoff or dropped, so a later request halts as well, without new registry reads.
@@ -778,7 +803,7 @@ async fn a_malformed_own_l1_answer_in_the_background_discovery_halts_any_handler
 /// The same failure in a peer's proposal only rejects it
 /// (`forged_committee_witnesses_are_rejected`).
 #[tokio::test(start_paused = true)]
-async fn an_own_l1_proof_failing_under_its_own_root_during_switch_discovery_halts() {
+async fn an_own_l1_proof_failing_under_its_own_root_during_committee_witness_discovery_halts() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;
@@ -847,12 +872,12 @@ async fn an_own_l1_proof_read_before_its_anchor_was_final_pauses() {
     assert!(app.store.fatal_evidence().unwrap().is_none());
 }
 
-/// A switch-witness discovery that fails on an unavailable own L1 (here a rate limit) leaves the
+/// A committee-witness discovery that fails on an unavailable own L1 (here a rate limit) leaves the
 /// witness unavailable: a liveness pause (RECOV-8-4, RECOV-8-5) labelled as the L1 error, never
 /// a halt. A round within its backoff proposes nothing at once and reads nothing; the first round
 /// past it restarts the discovery.
 #[tokio::test(start_paused = true)]
-async fn an_unavailable_own_l1_during_switch_discovery_pauses_proposals() {
+async fn an_unavailable_own_l1_during_committee_witness_discovery_pauses_proposals() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = before_switch(&fx, dir.path()).await;
@@ -905,14 +930,15 @@ async fn refused_at_once(app: &mut App<MockL1, MockEngine>) -> String {
 
 /// At `H(t)-2` the cheap candidate checks run before the proposal waits for the committee
 /// witness: a block that cannot be proposed anyway (back-pressure, a superseded generation, a
-/// stale anchor) is refused for that reason at once, however long the switch-witness discovery
+/// stale anchor) is refused for that reason at once, however long the committee-witness discovery
 /// takes. The round still starts that discovery in the background, as every `ProcessProposal`
 /// does, so it is under way once the cause clears.
 #[tokio::test(start_paused = true)]
 async fn failing_pre_checks_refuse_before_waiting_for_the_committee_witness() {
     let fx = Fixture::genesis(3);
 
-    // Back-pressure: the checkpoint is still at B*, more than the cap below h_first(1).
+    // Back-pressure: the checkpoint is still at the Etna start S, more than the unsettled limit
+    // below h_first(1).
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let h_e = app.state().unwrap().schedule().h_first(2) - 2;
@@ -1106,6 +1132,24 @@ async fn unavailable_admission_bytes_block_only_due_proposals() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn proposal_fallback_is_ready_before_optional_pre_due_admission() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let raw: Bytes = sample_transactions()[0].encoded_2718().into();
+    plant_input(&fx, &app, raw, false);
+    app.l1().state().forced_transaction_delay = Some(Duration::from_millis(2500));
+    app.engine().state().delay_script.extend([Duration::ZERO, Duration::from_millis(1700)]);
+    app.engine().state().ordinary_build_delay = Some(Duration::from_secs(3));
+
+    let env = propose(&mut app).await;
+    assert!(env.block.transactions.is_empty());
+    assert!(env.forced.as_ref().unwrap().tx.is_empty());
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 0);
+}
+
+#[tokio::test(start_paused = true)]
 async fn slow_pre_due_admission_read_leaves_time_for_ordinary_build_and_is_reused() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
@@ -1113,7 +1157,7 @@ async fn slow_pre_due_admission_read_leaves_time_for_ordinary_build_and_is_reuse
     let raw: Bytes = sample_transactions()[0].encoded_2718().into();
     plant_input(&fx, &app, raw.clone(), false);
     app.l1().state().forced_transaction_delay = Some(Duration::from_millis(2500));
-    app.engine().state().delay = Some(Duration::from_secs(1));
+    app.engine().state().delay = Some(Duration::from_millis(500));
     let start = tokio::time::Instant::now();
     let env = propose(&mut app).await;
     assert!(start.elapsed() < app.opts.prepare_timeout);
@@ -1146,7 +1190,6 @@ async fn canonical_skip_reuses_confirmation_after_restoring_the_ordinary_budget(
         alloy_consensus::proofs::ordered_trie_root_encoded(&ordinary.transactions);
     app.engine().state().build_script.extend([
         Ok(empty.clone()),
-        Ok(empty.clone()),
         Ok(ordinary.clone()),
         Err(EngineError::Transport("a repeated singleton check is unavailable".into())),
     ]);
@@ -1160,8 +1203,12 @@ async fn canonical_skip_reuses_confirmation_after_restoring_the_ordinary_budget(
             _ => None,
         })
         .collect::<Vec<_>>();
-    assert_eq!(lists.len(), 3);
-    assert!(lists[0].is_some() && lists[1].is_some() && lists[2].is_none());
+    assert_eq!(lists.len(), 2, "one singleton probe and one ordinary build");
+    assert!(lists[0].is_some() && lists[1].is_none());
+    assert!(
+        calls.iter().all(|call| !matches!(call, EngineCall::PoolTransactions(_))),
+        "a proven skip does not spend a mixed-selection budget"
+    );
     assert_eq!(app.state().unwrap().forced_cursor, 0);
 }
 
@@ -1293,9 +1340,11 @@ async fn preparation_proposer_change_rebuilds_for_payout_and_reuses_raw_proofs()
                 _ => None,
             })
             .collect();
-        assert_eq!(builds.len(), 1, "even equal payout addresses require a fresh build");
-        assert_eq!(builds[0].payload_attributes.suggested_fee_recipient, recipient);
-        assert_eq!(builds[0].block_metadata.beneficiary, recipient);
+        assert!(!builds.is_empty(), "even equal payout addresses require fresh builds");
+        for build in builds {
+            assert_eq!(build.payload_attributes.suggested_fee_recipient, recipient);
+            assert_eq!(build.block_metadata.beneficiary, recipient);
+        }
         assert!(
             app.l1().calls().iter().all(|call| match call {
                 L1Call::ForcedTransaction { .. } => false,
@@ -1380,4 +1429,69 @@ async fn review_own_l1_invalid_mpt_proof_halts_durably() {
         App::new(fx.l1(), fx.engine(), fx.params.clone(), app.store.clone(), AppOptions::default()),
         Err(AbciError::SafetyHalt(_))
     ));
+}
+
+/// Slow optional pool execution must not turn every consensus round into a placeholder.
+#[tokio::test(start_paused = true)]
+async fn slow_pool_build_falls_back_to_a_valid_empty_execution_envelope() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    app.engine().state().ordinary_build_delay = Some(Duration::from_millis(2500));
+    let started = tokio::time::Instant::now();
+    let req = prepare_req(6, bft_time(&app));
+    let txs = prepare(&mut app, req).await;
+    assert_eq!(txs.len(), 1, "resource pressure must still yield an execution envelope");
+    assert!(started.elapsed() <= app.opts.prepare_timeout);
+    let env = EtnaEnvelope::decode(&txs[0]).unwrap();
+    assert!(env.block.transactions.is_empty());
+    app.engine().state().ordinary_build_delay = None;
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().last_height, 6);
+}
+
+/// The optional forced-first pool tail cannot consume the budget for mandatory inclusion.
+#[tokio::test(start_paused = true)]
+async fn slow_forced_pool_selection_falls_back_to_a_valid_singleton() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let tx = Bytes::from(sample_transactions()[0].encoded_2718());
+    plant_input(&fx, &app, tx.clone(), true);
+    app.engine().state().pool_selection_delay = Some(Duration::from_millis(2500));
+    let started = tokio::time::Instant::now();
+    let req = prepare_req(6, bft_time(&app));
+    let txs = prepare(&mut app, req).await;
+    assert_eq!(txs.len(), 1, "optional work must not starve due forced inclusion");
+    assert!(started.elapsed() <= app.opts.prepare_timeout);
+    let env = EtnaEnvelope::decode(&txs[0]).unwrap();
+    assert_eq!(env.block.transactions, [tx]);
+    app.engine().state().pool_selection_delay = None;
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 1);
+}
+
+/// A legal singleton skip remains available even when the ordinary pool build never finishes.
+#[tokio::test(start_paused = true)]
+async fn slow_pool_after_a_legal_skip_returns_the_completed_singleton() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    let tx = Bytes::from(sample_transactions()[0].encoded_2718());
+    plant_input(&fx, &app, tx.clone(), true);
+    let anchor = Some(fx.anchor_witness(app.l1(), 66));
+    let empty = super::proposal::hand_envelope(&app, anchor, None).block;
+    app.engine().state().build_script.extend([Ok(empty.clone()), Ok(empty)]);
+    app.engine().state().ordinary_build_delay = Some(Duration::from_millis(2500));
+    let started = tokio::time::Instant::now();
+    let req = prepare_req(6, bft_time(&app));
+    let txs = prepare(&mut app, req).await;
+    assert_eq!(txs.len(), 1, "a completed legal skip must survive optional build timeout");
+    assert!(started.elapsed() <= app.opts.prepare_timeout);
+    let env = EtnaEnvelope::decode(&txs[0]).unwrap();
+    assert!(env.block.transactions.is_empty());
+    assert_eq!(env.forced.as_ref().unwrap().tx, tx);
+    app.engine().state().ordinary_build_delay = None;
+    accept_and_commit(&mut app, &env).await;
+    assert_eq!(app.state().unwrap().forced_cursor, 1);
 }

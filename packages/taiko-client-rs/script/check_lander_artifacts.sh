@@ -19,6 +19,7 @@ REVISION="$(sed -n 's/^PINNED_REVISION=//p' "$SCRIPT_DIR/gen_lander_artifacts.sh
 MANIFEST="$CLIENT_DIR/crates/lander/tests/fixtures/contracts/manifest.json"
 GENERATED=(
     packages/taiko-client-rs/crates/lander/tests/fixtures/contracts
+    packages/taiko-client-rs/crates/bindings
     testdata/etna_vectors
 )
 
@@ -52,6 +53,7 @@ if ! git -C "$REPO_ROOT" cat-file -e "$REVISION^{commit}" 2>/dev/null; then
 fi
 git -C "$REPO_ROOT" worktree add --quiet --detach "$PROTOCOL" "$REVISION"
 "$SCRIPT_DIR/gen_lander_artifacts.sh" "$PROTOCOL"
+PROTOCOL_DIR="$PROTOCOL/packages/protocol" "$SCRIPT_DIR/gen_bindings.sh"
 
 if [[ -n "$(git -C "$REPO_ROOT" status --porcelain -- "${GENERATED[@]}")" ]]; then
     echo "gen_lander_artifacts.sh on $REVISION does not reproduce the committed files:" >&2

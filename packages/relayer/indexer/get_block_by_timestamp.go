@@ -7,11 +7,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-const avgBlockTime = 12 // Ethereum average block time in seconds
-
 // getBlockByTimestamp returns the last block whose timestamp is <= the target timestamp.
-// It uses estimation based on average block time (~12s) followed by binary search
-// for efficient lookup with minimal RPC calls.
+// Targets before block 1 return block 1. The full block range is searched because
+// variable block times can make an average-based estimate exclude the correct block.
 func (i *Indexer) getBlockByTimestamp(ctx context.Context, targetTimestamp uint64) (uint64, error) {
 	// 1. Get latest block header
 	latestHeader, err := i.srcEthClient.HeaderByNumber(ctx, nil)
@@ -36,28 +34,9 @@ func (i *Indexer) getBlockByTimestamp(ctx context.Context, targetTimestamp uint6
 		return 1, nil
 	}
 
-	// 3. Estimate target block
-	timeDiff := latestTimestamp - targetTimestamp
-	estimatedBlocksBack := timeDiff / avgBlockTime
-
-	// Prevent underflow: if estimation suggests going back further than the chain exists,
-	// clamp to block 1. Binary search will still find the correct block.
-	var estimatedBlock uint64 = 1
-	if estimatedBlocksBack < latestBlock {
-		estimatedBlock = latestBlock - estimatedBlocksBack
-	}
-
-	// 4. Define search range
-	searchMargin := uint64(1000)
+	// 3. Binary search the full range to avoid assumptions about block times.
 	low := uint64(1)
-
-	if estimatedBlock > searchMargin {
-		low = estimatedBlock - searchMargin
-	}
-
-	high := min(estimatedBlock+searchMargin, latestBlock)
-
-	// 5. Binary search
+	high := latestBlock
 	result := low
 
 	for low <= high {

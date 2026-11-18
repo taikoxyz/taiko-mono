@@ -15,12 +15,12 @@ const BACK_PRESSURE: &str = "back_pressure";
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn back_pressure_stops_at_the_unsettled_cap() -> anyhow::Result<()> {
+async fn back_pressure_stops_at_the_unsettled_limit() -> anyhow::Result<()> {
     let started = Instant::now();
     let spec = DevnetSpec::default();
     let devnet = Devnet::start(spec.clone()).await?;
-    let cap = devnet.params().unsettled_cap();
-    assert_eq!(cap, spec.unsettled_limit);
+    let limit = devnet.params().unsettled_limit();
+    assert_eq!(limit, spec.unsettled_limit);
     devnet.wait_for_height(0, 8, Duration::from_secs(60)).await?;
 
     // Freeze lastCheckpoint: pause the lander (waiting out a landing in flight).
@@ -32,18 +32,18 @@ async fn back_pressure_stops_at_the_unsettled_cap() -> anyhow::Result<()> {
         "lander paused: lastCheckpoint {frozen}, CometBFT height {paused_at}, after {:?}",
         started.elapsed()
     );
-    assert!(paused_at < frozen + cap, "the chain is already at the cap");
+    assert!(paused_at < frozen + limit, "the chain is already at the unsettled limit");
 
-    // The chain runs up to `frozen + cap` and stops there.
-    let stop = frozen + cap;
+    // The chain runs up to `frozen + limit` and stops there.
+    let stop = frozen + limit;
     let reached = devnet.wait_for_height(0, stop, Duration::from_secs(40)).await?;
-    assert_eq!(reached, stop, "the chain passed the unsettled cap");
+    assert_eq!(reached, stop, "the chain passed the unsettled limit");
     let hold_end = Instant::now() + spec.stall_hold();
     let mut reasons = BTreeSet::new();
     let mut status = devnet.abci_status(0).await?;
     while Instant::now() < hold_end {
         let height = devnet.cmt(0).latest_height().await?;
-        assert_eq!(height, stop, "CometBFT moved past the unsettled cap");
+        assert_eq!(height, stop, "CometBFT moved past the unsettled limit");
         status = devnet.abci_status(0).await?;
         reasons.extend(status.halt_reason.clone());
         tokio::time::sleep(Duration::from_millis(250)).await;
@@ -53,15 +53,15 @@ async fn back_pressure_stops_at_the_unsettled_cap() -> anyhow::Result<()> {
     assert_eq!(reasons, BTreeSet::from([BACK_PRESSURE.to_string()]), "/status halt reasons");
     assert_eq!(status.head, stop);
     assert_eq!(status.last_checkpoint_height, frozen, "the head's anchored lastCheckpoint");
-    assert_eq!(status.head - status.last_checkpoint_height, cap, "unsettled depth at the stall");
+    assert_eq!(status.head - status.last_checkpoint_height, limit, "unsettled depth at the stall");
     assert_eq!(devnet.l2_provider(0).get_block_number().await?, stop, "the EL moved");
     assert_eq!(devnet.app_halt(0), None);
 
-    // A landed checkpoint lifts the cap.
+    // A landed checkpoint lifts the back-pressure.
     devnet.lander_resume();
     let resumed = Instant::now();
     devnet.wait_for_height(0, stop + 3, Duration::from_secs(30)).await?;
-    eprintln!("past the cap {:?} after resuming the lander", resumed.elapsed());
+    eprintln!("past the unsettled limit {:?} after resuming the lander", resumed.elapsed());
     let status = devnet.abci_status(0).await?;
     assert!(status.last_checkpoint_height > frozen, "lastCheckpoint did not advance");
     assert_eq!(devnet.app_halt(0), None);

@@ -13,7 +13,7 @@
 //! `H_0`. Each block inherits the parent's anchor or moves it forward, and takes an
 //! honest action legal for the entry at the committed cursor: an ordinary block before the entry
 //! is due (with or without its optional preimage), an inclusion at position zero (with or without
-//! the preimage and later mempool transactions), a due invalid-bytes skip, or a due canonical
+//! the preimage and later mempool transactions), a due ineligible-bytes skip, or a due canonical
 //! skip whose singleton probe includes nothing. A run ending on a canonical skip decides one more
 //! block, at the next cursor. The cold node may also crash after `FinalizeBlock`, before
 //! `Commit`, and replay the block after a restart.
@@ -45,7 +45,7 @@ use crate::{
 const ANCHORS: [u64; 4] = [66, 67, 68, 69];
 
 /// The most blocks a scenario decides from `H_0`: with the block after a final canonical skip,
-/// every height stays below the first switch height and within the back-pressure cap of its
+/// every height stays below the first switch height and within the unsettled limit of its
 /// anchor's last checkpoint.
 const MAX_BLOCKS: usize = 10;
 
@@ -112,7 +112,7 @@ enum Action {
     /// Includes the entry's canonical transaction at position zero.
     Include,
     /// Skips a due entry whose bytes are not one canonical transaction.
-    SkipInvalid,
+    SkipIneligible,
     /// Skips a due canonical transaction that a singleton build on the parent leaves out.
     SkipCanonical,
 }
@@ -206,7 +206,7 @@ impl Run {
         // A skip carries the entry's exact bytes; other blocks may omit them.
         let forced = pending.map(|entry| {
             let carried =
-                matches!(action, Action::SkipInvalid | Action::SkipCanonical) || choice.preimage;
+                matches!(action, Action::SkipIneligible | Action::SkipCanonical) || choice.preimage;
             let tx = if carried { entry.bytes.clone() } else { Bytes::new() };
             self.fx.forced_witness(self.hot.l1(), anchor, cursor, tx)
         });
@@ -216,7 +216,7 @@ impl Run {
                 txs.insert(0, decode_canonical(&entry.bytes).expect("a canonical entry"));
                 ForcedDecision::Included(cursor)
             }
-            (Action::SkipInvalid, Some(_)) => ForcedDecision::SkippedInvalid(cursor),
+            (Action::SkipIneligible, Some(_)) => ForcedDecision::SkippedIneligible(cursor),
             (Action::SkipCanonical, Some(entry)) => {
                 ForcedDecision::NeedsSkip { index: cursor, tx: entry.bytes.clone() }
             }
@@ -390,13 +390,13 @@ impl Run {
 
 /// The honest actions on a pending entry. Before it is due, a block may stay ordinary or include a
 /// canonical transaction at position zero; once due, it must include or skip a canonical
-/// transaction, and skip invalid bytes.
+/// transaction, and skip ineligible bytes.
 fn legal_actions(canonical: bool, due: bool) -> &'static [Action] {
     match (canonical, due) {
         (true, false) => &[Action::Ordinary, Action::Include],
         (false, false) => &[Action::Ordinary],
         (true, true) => &[Action::Include, Action::SkipCanonical],
-        (false, true) => &[Action::SkipInvalid],
+        (false, true) => &[Action::SkipIneligible],
     }
 }
 

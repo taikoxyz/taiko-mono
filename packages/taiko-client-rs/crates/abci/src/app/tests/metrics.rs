@@ -74,19 +74,19 @@ async fn refusals_count_by_reason_and_raise_halted() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
-    let empty = AbciMetrics::proposals_empty().get();
-    let empty_proposals = rejected("empty_proposal");
+    let placeholders = AbciMetrics::proposals_placeholder().get();
+    let placeholder_proposals = rejected("placeholder_proposal");
     let processed = AbciMetrics::process_seconds().get_sample_count();
 
     app.l1().state().fail = Some(L1Error::Rpc("down".into()));
     let req = prepare_req(next_height(&app), bft_time(&app));
     assert!(prepare(&mut app, req).await.is_empty());
-    assert_eq!(AbciMetrics::proposals_empty().get(), empty + 1);
+    assert_eq!(AbciMetrics::proposals_placeholder().get(), placeholders + 1);
     assert_eq!(AbciMetrics::halted().get(), 1);
 
     let req = process_req(&app, next_height(&app), bft_time(&app), vec![]);
     assert_eq!(process(&mut app, req).await, response::ProcessProposal::Reject);
-    assert_eq!(rejected("empty_proposal"), empty_proposals + 1);
+    assert_eq!(rejected("placeholder_proposal"), placeholder_proposals + 1);
     assert_eq!(AbciMetrics::process_seconds().get_sample_count(), processed + 1);
     assert_eq!(AbciMetrics::halted().get(), 1);
 

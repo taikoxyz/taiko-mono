@@ -28,8 +28,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Handles `Info`: the last committed height and its EL block hash.
     ///
     /// Reports 0 and an empty hash before `InitChain` and while the state is still at the
-    /// generation origin B* or c (no new-generation block committed): CometBFT's store is empty and
-    /// only accepts an app at height 0, to which it re-sends `InitChain`.
+    /// generation origin, the Etna start S or c (no new-generation block committed): CometBFT's
+    /// store is empty and only accepts an app at height 0, to which it re-sends `InitChain`.
     ///
     /// With a state, the first `Info` on a new set of ABCI connections (CometBFT's handshake)
     /// first reconciles the EL with it ([`App::reconcile_el_once`]), so the handshake replays on
@@ -114,6 +114,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             ))),
             None => {
                 tracing::info!(number, %hash, "execution engine lacks the committed head; syncing");
+                self.restore_committed_execution(state).await?;
                 self.sync_el_to("EL sync to the committed head", number, hash).await
             }
         }
@@ -157,7 +158,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// preimage of [`App::val_state_preimage`]. Anything else (an unknown path, epoch or height,
     /// or any query before `InitChain`) answers code [`CODE_REJECTED`] with the reason in `log`.
     /// `height` is the last committed height. Callers authenticate the answers themselves.
-    pub(super) fn query(&self, req: request::Query) -> response::Query {
+    pub(super) fn query(&self, req: crate::wire::request::Query) -> response::Query {
         let height =
             self.state.as_ref().map_or(Height::from(0u32), |s| cometbft_height(s.last_height));
         match self.query_value(&req.path) {

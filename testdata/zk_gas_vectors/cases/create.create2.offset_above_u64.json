@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "create.create2.offset_above_u64",
+  "layer": "harness",
+  "cells": ["create.family.offset_above_u64_preserve_after_initcode"],
+  "description": "CREATE2 of 49,152 bytes at offset 2^64: the 3,072 initcode gas is paid, then the offset operand halts keeping the remaining gas: 3,072 measured.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f61c000680100000000000000005ff500"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0xc73",
+    "status": "halt"
+  }
+}

@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "id": "copy.block.failure_classes",
+  "layer": "block",
+  "cells": [
+    "copy.calldatacopy.memory_oog_preserve",
+    "copy.calldatacopy.copy_oog_spend_all",
+    "copy.codecopy.offset_above_u64_preserve",
+    "copy.returndatacopy.copy_oog_spend_all",
+    "copy.returndatacopy.out_of_bounds_preserve",
+    "copy.extcodecopy.cold_success",
+    "copy.extcodecopy.cold_surcharge_oog_spend_all"
+  ],
+  "description": "The anchor, then 7 txs from signer 1, each calling its own contract with tx gas 21,000 plus the frame gas of the named harness vector: three CALLDATACOPYs with the last one 1 gas short of its expansion, then of its copy cost (copy.calldatacopy.expand_memory_oog, copy.calldatacopy.copy_oog); CODECOPY to memory offset 2^64 (copy.codecopy.offset_above_u64); a STATICCALL to a helper returning 64 bytes, then RETURNDATACOPYs with the last one 1 gas short of its copy cost (copy.returndatacopy.copy_oog), and a RETURNDATACOPY one byte past the end of the return data (copy.returndatacopy.range_past_end); and EXTCODECOPY of the cold helper with exactly enough gas, then 1 gas short of its cold surcharge (copy.extcodecopy.cold_exact_gas, copy.extcodecopy.cold_surcharge_oog).",
+  "input": {
+    "env": {
+      "chain_id": "0x28c59",
+      "number": "0x1",
+      "timestamp": "0xc",
+      "base_fee": "0x17d7840",
+      "coinbase": "0x0000000000000000000000000000000000c0ffee",
+      "gas_limit": "0x2faf080",
+      "prev_randao": "0x2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+      "extra_data": "0x4b000000000001"
+    },
+    "alloc": {
+      "0x1670010000000000000000000000000000010001": {
+        "balance": "0x0",
+        "code": "0x00"
+      },
+      "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf": {
+        "balance": "0xde0b6b3a7640000"
+      },
+      "0x0000000000000000000000000000000000c0ffee": {
+        "balance": "0x1"
+      },
+      "0x000000000000000000000000000000000000c0d1": {
+        "balance": "0x0",
+        "code": "0x60405f60203760205f5f376114005f60603700"
+      },
+      "0x000000000000000000000000000000000000c0d2": {
+        "balance": "0x0",
+        "code": "0x60405f60203760205f5f376114005f60603700"
+      },
+      "0x000000000000000000000000000000000000c0d3": {
+        "balance": "0x0",
+        "code": "0x60015f680100000000000000003900"
+      },
+      "0x000000000000000000000000000000000000c0d4": {
+        "balance": "0x0",
+        "code": "0x5f5f5f5f61da7a5afa5060405f60203e602060205f3e60405f60603e00"
+      },
+      "0x000000000000000000000000000000000000c0d5": {
+        "balance": "0x0",
+        "code": "0x5f5f5f5f61da7a5afa50602060215f3e00"
+      },
+      "0x000000000000000000000000000000000000c0d6": {
+        "balance": "0x0",
+        "code": "0x60405f602061da7a3c00"
+      },
+      "0x000000000000000000000000000000000000c0d7": {
+        "balance": "0x0",
+        "code": "0x60405f602061da7a3c00"
+      },
+      "0x000000000000000000000000000000000000da7a": {
+        "balance": "0x0",
+        "code": "0x7f0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f205f5260405ff3"
+      }
+    },
+    "txs": [
+      {
+        "signer": "golden_touch",
+        "nonce": "0x0",
+        "to": "0x1670010000000000000000000000000000010001",
+        "gas": "0xf4240",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x523e6854"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x0",
+        "to": "0x000000000000000000000000000000000000c0d1",
+        "gas": "0x562c",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x1",
+        "to": "0x000000000000000000000000000000000000c0d2",
+        "gas": "0x5419",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x2",
+        "to": "0x000000000000000000000000000000000000c0d3",
+        "gas": "0x1d8a8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x3",
+        "to": "0x000000000000000000000000000000000000c0d4",
+        "gas": "0x5c8a",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x4",
+        "to": "0x000000000000000000000000000000000000c0d5",
+        "gas": "0x1d8a8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x5",
+        "to": "0x000000000000000000000000000000000000c0d6",
+        "gas": "0x5c4a",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x6",
+        "to": "0x000000000000000000000000000000000000c0d7",
+        "gas": "0x5c49",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      }
+    ]
+  },
+  "expected": {
+    "raw_txs": [
+      "0x02f86e83028c59808084017d7840830f42409416700100000000000000000000000000000100018084523e6854c001a077c9819ad91bc8c341abbd41d41d41b851bf4cade2dd943fdf421e796b952ce3a0653034f4ffd280ca8ca71f966f2ee2e7a2f59e6ee0ba1be905805cc46c399718",
+      "0x02f86983028c59808084017d784082562c94000000000000000000000000000000000000c0d18080c001a0e90e87da058d3a89dcf0fb42837a23c3c45249680d7ecebeb9605655b5342520a06f5d574595cf95b891fd63e0062873dd7ff999c28721d776c5b62e463d5f55e1",
+      "0x02f86983028c59018084017d784082541994000000000000000000000000000000000000c0d28080c080a0ccd9661ec2f64d7a869a45d14f0ef3f9d7eb55ff3d7b3824422571aeef4b377fa07daf71a611bbff2c7308e636ea0e1a87105273fcd4ff8df850f10cb4ff734cf0",
+      "0x02f86a83028c59028084017d78408301d8a894000000000000000000000000000000000000c0d38080c080a0a89c27688f1f5a61bc8e00dca309fb4591cfa25b0e721eb7e048682228dbf26ca007a0cd9049c7b58fd3f6b8b2f9bc24db7202dfab362aa42aa519c5f0de4e4d93",
+      "0x02f86983028c59038084017d7840825c8a94000000000000000000000000000000000000c0d48080c001a003064673c785d36ff44cfb22c9381c28b2344b43e70d93d7acb37fe1926e8bada07d292d00069bc124823fc9544c150526377c4c325648508faf4957e70ad51c3a",
+      "0x02f86a83028c59048084017d78408301d8a894000000000000000000000000000000000000c0d58080c001a001aa2eb4a71fdcb1eb35bf297c1512614629c2ce59fd34e4f9125f818aa0d38da07cddaec5249fe0587ee59a5cd73245fae4055aedaafb762a1363ba9f02a0082b",
+      "0x02f86983028c59058084017d7840825c4a94000000000000000000000000000000000000c0d68080c080a0c81adc70e8c9f84271c23f078104ad14c41f8acb0efc07f25dacba1f0788fb67a00fbf528f39c0da83171fe3b92d7a35569aab031669b853aeb787211fa5d20176",
+      "0x02f86983028c59068084017d7840825c4994000000000000000000000000000000000000c0d78080c080a0a64632b72088ab6690f39100569936c21906172ba7337199f4cc3212e1e3d0bfa063d2b6b366b4946cca0e2ed390eddc0377260891e4ea075c918747b0608f0859"
+    ],
+    "included": [0, 1, 2, 3, 4, 5, 6, 7],
+    "truncated_at": null,
+    "cumulative_zk_gas": [
+      "0x3b538",
+      "0x7851b",
+      "0xb54f1",
+      "0xf0acd",
+      "0x13fe89",
+      "0x18f083",
+      "0x1cceff",
+      "0x20ad77"
+    ],
+    "block_zk_gas": "0x20ad77",
+    "state_root": "0x00abf7623ecb0d5ece7ba93204835cdbfb5f193db985c86867e243a3478452c7",
+    "import_built": "accept",
+    "import_extended": null,
+    "import_wrong_difficulty": "reject"
+  }
+}

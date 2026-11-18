@@ -178,6 +178,7 @@ async fn derive_case(case: &Value) -> Result<Value> {
         min_base_fee_to_clamp: min_base_fee_for_chain(chain_id),
         chain_id,
         initial_proposal_id: U256::ZERO,
+        replay_parent: None,
     };
     let mut source_events = Vec::new();
     let mut blob_responses = HashMap::new();

@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "id": "metering.block.opcode_reaches_limit",
+  "layer": "block",
+  "cells": [
+    "metering.opcode.limit_exact_committed",
+    "metering.anchor.intrinsic_charged"
+  ],
+  "description": "The anchor, then signer 1 calls a contract whose last opcode charge (a PUSH0) brings the block zk gas to exactly the limit; the anchor's intrinsic zk gas counts toward it.",
+  "input": {
+    "env": {
+      "chain_id": "0x28c59",
+      "number": "0x1",
+      "timestamp": "0xc",
+      "base_fee": "0x17d7840",
+      "coinbase": "0x0000000000000000000000000000000000c0ffee",
+      "gas_limit": "0x2faf080",
+      "prev_randao": "0x2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+      "extra_data": "0x4b000000000001"
+    },
+    "alloc": {
+      "0x1670010000000000000000000000000000010001": {
+        "balance": "0x0",
+        "code": "0x00"
+      },
+      "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf": {
+        "balance": "0xde0b6b3a7640000"
+      },
+      "0x0000000000000000000000000000000000c0ffee": {
+        "balance": "0x1"
+      },
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x6000600060006000600a6201c42afa505f5f5f5f5f5f5f5f5f5f5f5f5f5f5f600060006000600060006000600060005f00"
+      }
+    },
+    "txs": [
+      {
+        "signer": "golden_touch",
+        "nonce": "0x0",
+        "to": "0x1670010000000000000000000000000000010001",
+        "gas": "0xf4240",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x523e6854"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x0",
+        "to": "0x000000000000000000000000000000000000c0de",
+        "gas": "0x493e0",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      }
+    ]
+  },
+  "expected": {
+    "raw_txs": [
+      "0x02f86e83028c59808084017d7840830f42409416700100000000000000000000000000000100018084523e6854c001a077c9819ad91bc8c341abbd41d41d41b851bf4cade2dd943fdf421e796b952ce3a0653034f4ffd280ca8ca71f966f2ee2e7a2f59e6ee0ba1be905805cc46c399718",
+      "0x02f86a83028c59808084017d7840830493e094000000000000000000000000000000000000c0de8080c080a0cb4eb4d49477a769de4c08774aa7591e899abdddad3a4658147012883bc72c8da07310916233416efb09484fd1a48fdb37d38a1d83f8f9dfd93aaba82f45f4273d"
+    ],
+    "included": [0, 1],
+    "truncated_at": null,
+    "cumulative_zk_gas": ["0x3b538", "0x5f5e100"],
+    "block_zk_gas": "0x5f5e100",
+    "state_root": "0x73dd2e3a50af22aae6a15f23cdd26d0d72809a6791c41ad27a1ee91b6fe357b5",
+    "import_built": "accept",
+    "import_extended": null,
+    "import_wrong_difficulty": "reject"
+  }
+}

@@ -72,7 +72,7 @@
 </script>
 
 {#if (activeStep !== ClaimSteps.CONFIRM || claimingDone) && !hideContinueButton}
-  <div class="h-sep" />
+  <div class="h-sep"></div>
   <ActionButton onPopup priority="primary" disabled={isNextStepDisabled} {loading} on:click={handleNextStep}>
     {nextStepButtonText}
   </ActionButton>

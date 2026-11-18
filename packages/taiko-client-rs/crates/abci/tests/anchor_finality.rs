@@ -1,7 +1,7 @@
 //! Docker scenario: no block anchors above anvil's `finalized`, and an epoch boundary does not
 //! wait for L1: with L1 paused, the chain enters the next epoch on anchors L1 already finalized.
 //!
-//! A legal independent unsettled cap `U = 18` leaves room across `L = 20`, so the fake
+//! A legal independent unsettled limit `U = 18` leaves room across `L = 20`, so the fake
 //! lander's `lastCheckpoint`, frozen with L1 and trailing the head by a few blocks, does not stop
 //! the chain before it passes the boundary.
 
@@ -37,11 +37,11 @@ async fn an_epoch_boundary_does_not_wait_for_l1() -> anyhow::Result<()> {
         started.elapsed()
     );
     ensure!(status.head < boundary, "the chain reached the boundary before L1 paused");
-    let cap = devnet.params().unsettled_cap();
+    let limit = devnet.params().unsettled_limit();
     ensure!(
-        status.last_checkpoint_height + cap > boundary,
+        status.last_checkpoint_height + limit > boundary,
         "back-pressure would stop the chain at {} before the boundary {boundary}",
-        status.last_checkpoint_height + cap
+        status.last_checkpoint_height + limit
     );
 
     // The chain keeps producing on the frozen anchor through the boundary.

@@ -49,8 +49,8 @@ fn safety_halt(result: Result<response::FinalizeBlock, AbciError>) -> String {
     }
 }
 
-/// A mid-epoch app (next height `B* + 6`) whose own L1 finalized block 66 with the last
-/// checkpoint at `B* + 3`, so its next proposal moves the anchor and carries a witness.
+/// A mid-epoch app (next height `S + 6`, S the Etna start) whose own L1 finalized block 66 with
+/// the last checkpoint at `S + 3`, so its next proposal moves the anchor and carries a witness.
 async fn anchor_moving(fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
     let app = mid_epoch(fx, dir, 5).await;
     let inbox = fx.inbox_with(fx.genesis.genesis_height + 3);
@@ -59,7 +59,7 @@ async fn anchor_moving(fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
 }
 
 /// Checkpoint trust never reads a Comet block ID below the committed anchor's checkpoint, so
-/// the commit that moves that checkpoint to `B* + 3` deletes the IDs below it and keeps the rest.
+/// the commit that moves that checkpoint to `S + 3` deletes the IDs below it and keeps the rest.
 #[tokio::test]
 async fn commit_prunes_comet_history_below_the_committed_anchor_checkpoint() {
     let fx = Fixture::genesis(2);
@@ -242,10 +242,10 @@ async fn cold_finalize_points_an_el_missing_the_checkpoint_block_at_the_committe
         let mut engine = validator.engine().state();
         let lost = engine.chain.split_off(&checkpoint_height);
         assert!(lost.contains_key(&checkpoint_height), "the checkpoint block is lost");
-        assert!(!engine.known.contains_key(&parent), "the EL does not hold the committed parent");
         for header in lost.values() {
             engine.known.remove(&header.hash_slow());
         }
+        assert!(!engine.known.contains_key(&parent), "the EL does not hold the committed parent");
         engine.backfill = lost;
         engine.forkchoice_script.push_back(Err(EngineError::Transport("down".into())));
     }
@@ -263,8 +263,10 @@ async fn cold_finalize_points_an_el_missing_the_checkpoint_block_at_the_committe
         engine_calls_since(&validator, before),
         [
             EngineCall::HeaderByNumber(checkpoint_height),
+            EngineCall::HeaderByNumber(validator.state().unwrap().last_height),
             nudge.clone(),
             EngineCall::HeaderByNumber(checkpoint_height),
+            EngineCall::HeaderByNumber(validator.state().unwrap().last_height),
             nudge,
             EngineCall::HeaderByNumber(checkpoint_height),
             EngineCall::NewPayload(hash),
@@ -418,7 +420,7 @@ async fn forkchoice_finalizes_the_anchored_checkpoint() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
 
-    // At H_0 the anchored checkpoint is the genesis anchor (B*, H*).
+    // At H_0 the anchored checkpoint is the Etna start block (S, the start hash).
     let mut app = initialized(&fx, dir.path()).await;
     let before = app.engine().calls().len();
     let env = step(&mut app).await;
@@ -1310,7 +1312,13 @@ async fn cold_forced_skip_failures_retry_or_halt() {
             Err(EngineError::BuildNotStarted(crate::engine::PayloadVerdict::Syncing)),
         ]);
         engine.build_script.push_back(Ok(env.block.clone()));
-        engine.delay_script.extend([Duration::ZERO, Duration::ZERO, slow]);
+        engine.delay_script.extend([
+            Duration::ZERO,
+            Duration::ZERO,
+            Duration::ZERO,
+            Duration::ZERO,
+            slow,
+        ]);
     }
     let parent = app.state().unwrap().parent.clone();
     let on_parent = format!("parent {} ({})", parent.number, parent.hash);
@@ -1481,7 +1489,7 @@ async fn finalize_before_init_chain_is_an_error() {
     assert!(matches!(err, AbciError::Uninitialized("FinalizeBlock")), "{err:?}");
 }
 
-/// A genesis with `L = 4` and an unsettled cap of 1 (`D_MAX = 3`, `MARGIN_V = 2`).
+/// A genesis with `L = 4` and an unsettled limit of 1 (`D_MAX = 3`, `MARGIN_V = 2`).
 pub(super) fn short_epochs() -> Fixture {
     let mut spec = GenesisSpec::new(3);
     spec.epoch_len = 4;
@@ -1493,7 +1501,7 @@ pub(super) fn short_epochs() -> Fixture {
 /// from `H_0` on a [`short_epochs`] fixture; returns the app and every decided height's
 /// `FinalizeBlock` request and response.
 ///
-/// With a cap of 1 every height needs a new checkpoint, so before each height after `H_0` the
+/// With a limit of 1 every height needs a new checkpoint, so before each height after `H_0` the
 /// own L1 finalizes one more block (`L1_0 + k`) whose Inbox records the last committed block as
 /// checkpoint; settlement advances only checkpoint facts. A fourth validator registers at
 /// L1 block `L1_0 + 2`. Committee 1 selects its earlier committed parent; committees 2 and 3

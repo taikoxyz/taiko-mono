@@ -495,12 +495,12 @@ fn anchor_progress_rejects_an_anchor_before_activation() {
 
 #[test]
 fn back_pressure_boundary() {
-    check_back_pressure(110, 100, 10).expect("depth == cap is allowed");
+    check_back_pressure(110, 100, 10).expect("depth == limit is allowed");
     assert_eq!(
         check_back_pressure(111, 100, 10),
-        Err(RuleViolation::BackPressure { depth: 11, cap: 10 })
+        Err(RuleViolation::BackPressure { depth: 11, limit: 10 })
     );
-    check_back_pressure(100, 100, 0).expect("depth 0 with cap 0");
+    check_back_pressure(100, 100, 0).expect("depth 0 with limit 0");
     check_back_pressure(90, 100, 0).expect("a checkpoint ahead of the height saturates to 0");
 }
 
@@ -527,7 +527,7 @@ fn checkpoint_hash_differing_from_the_local_block_is_rejected() {
     let violation = check_checkpoint(10, 6, proven, local).unwrap_err();
     assert_eq!(violation, RuleViolation::CheckpointConflict { height: 6, proven, local });
     assert!(violation.is_checkpoint_conflict());
-    assert!(!RuleViolation::BackPressure { depth: 1, cap: 0 }.is_checkpoint_conflict());
+    assert!(!RuleViolation::BackPressure { depth: 1, limit: 0 }.is_checkpoint_conflict());
 }
 
 #[test]
@@ -595,11 +595,12 @@ fn every_violation() -> Vec<RuleViolation> {
         RuleViolation::HeaderField { field: "number", expected: "1".into(), got: "2".into() },
         RuleViolation::ExtraDataOverflow { field: "generation", value: u64::MAX },
         RuleViolation::ExtraDataLength { len: 7 },
+        RuleViolation::ExtraDataEncoding("invalid encoding".into()),
         RuleViolation::BaseFeeUnavailable { parent: 1 },
         RuleViolation::AnchorRegressed { parent: 2, anchor: 1 },
         RuleViolation::AnchorBeforeActivation { anchor: 1, origin: 2 },
         RuleViolation::AnchorTooOld { age: 7_201, max: 7_200 },
-        RuleViolation::BackPressure { depth: 11, cap: 10 },
+        RuleViolation::BackPressure { depth: 11, limit: 10 },
         RuleViolation::GenerationMismatch { chain: 1, extra: 2 },
         RuleViolation::GenerationAhead { chain: 2, inbox: 1 },
         RuleViolation::InvalidChainId { chain_id: "x".into(), l2_chain_id: 1 },
@@ -618,6 +619,7 @@ fn every_violation() -> Vec<RuleViolation> {
             RuleViolation::HeaderField { .. } |
             RuleViolation::ExtraDataOverflow { .. } |
             RuleViolation::ExtraDataLength { .. } |
+            RuleViolation::ExtraDataEncoding(_) |
             RuleViolation::BaseFeeUnavailable { .. } |
             RuleViolation::AnchorRegressed { .. } |
             RuleViolation::AnchorBeforeActivation { .. } |

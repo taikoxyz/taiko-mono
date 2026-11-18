@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerates testdata/etna_vectors/vectors.json (schema "6").
+"""Regenerates testdata/etna_vectors/vectors.json (schema "7").
 
 Run from the repository root with Foundry's `cast` and Go on PATH and the workspace's pnpm
 dependencies installed (the output is formatted with the repository's prettier):
@@ -1052,13 +1052,13 @@ VOTE_TIME = (1_700_000_000, 123)
 # backdate both votes of a double sign.
 MIN_VOTE_SECONDS = -62_135_596_800
 MAX_VOTE_SECONDS = 253_402_300_799
-# Block ids as (hash, part set total, part set hash); a zero hash is absent, as in appendix A.
+# Block ids as (hash, part set total, part set hash). Only "0x" is absent; zero32 is present.
 BLOCK_A = ("0x" + "aa" * 32, 1, "0x" + "ab" * 32)
 BLOCK_B = ("0x" + "bb" * 32, 2, "0x" + "bc" * 32)
-BLOCK_NIL = (word(0), 0, word(0))
-BLOCK_PARTIAL = (word(0), 1, "0x" + "ab" * 32)
+BLOCK_NIL = ("0x", 0, "0x")
+BLOCK_PARTIAL = ("0x", 1, "0x" + "ab" * 32)
 # A hash with an all-zero part set header: CometBFT writes the empty header as `12 00`.
-BLOCK_HASH_ONLY = (BLOCK_A[0], 0, word(0))
+BLOCK_HASH_ONLY = (BLOCK_A[0], 0, "0x")
 BLOCK_MAX = (BLOCK_A[0], 2**32 - 1, BLOCK_A[2])
 
 # name, type, round, block id, generation, Inbox; height VOTE_HEIGHT and time VOTE_TIME unless
@@ -1087,6 +1087,12 @@ VOTE_CASES = (
     ("max_timestamp_seconds", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
     ("precommit_a_backdated", PRECOMMIT, 0, BLOCK_A, 0, DEPLOYMENT["inbox"]),
     ("precommit_b_backdated", PRECOMMIT, 0, BLOCK_B, 0, DEPLOYMENT["inbox"]),
+    ("precommit_zero_block_hash", PRECOMMIT, 0, (word(0), 1, BLOCK_A[2]), 0, DEPLOYMENT["inbox"]),
+    ("precommit_zero_parts_hash", PRECOMMIT, 0, (BLOCK_A[0], 1, word(0)), 0, DEPLOYMENT["inbox"]),
+    ("precommit_zero_both_hashes", PRECOMMIT, 0, (word(0), 1, word(0)), 0, DEPLOYMENT["inbox"]),
+    ("zero_hashes_zero_total", PRECOMMIT, 0, (word(0), 0, word(0)), 0, DEPLOYMENT["inbox"]),
+    ("zero_block_hash_only", PRECOMMIT, 0, (word(0), 0, "0x"), 0, DEPLOYMENT["inbox"]),
+    ("zero_parts_hash_only", PRECOMMIT, 0, ("0x", 0, word(0)), 0, DEPLOYMENT["inbox"]),
 )
 VOTE_OVERRIDES = {
     "precommit_a_late": {"time": (1_700_000_001, 0)},
@@ -1128,6 +1134,12 @@ VOTE_PAIRS = (
     ("different_height", "precommit_a", "precommit_b_h1001", 0, "different_height"),
     # Backdated votes still count in CometBFT commits, so they are slashable evidence.
     ("backdated_conflict", "precommit_a_backdated", "precommit_b_backdated", 0, "double_sign"),
+    ("zero_block_hash_conflict", "precommit_a", "precommit_zero_block_hash", 0, "double_sign"),
+    ("zero_parts_hash_conflict", "precommit_a", "precommit_zero_parts_hash", 0, "double_sign"),
+    ("zero_both_hashes_conflict", "precommit_nil", "precommit_zero_both_hashes", 0, "double_sign"),
+    ("zero_hashes_zero_total_conflict", "precommit_nil", "zero_hashes_zero_total", 0, "double_sign"),
+    ("zero_block_hash_only_conflict", "precommit_nil", "zero_block_hash_only", 0, "double_sign"),
+    ("zero_parts_hash_only_conflict", "precommit_nil", "zero_parts_hash_only", 0, "double_sign"),
 )
 
 
@@ -1156,8 +1168,8 @@ def length_delimited(tag_byte, payload):
 def vote_sign_bytes(vote, chain_id):
     """Appendix A `voteSignBytes`, written from the spec text alone (not from CometBFT).
 
-    Bracketed fields are omitted when zero or empty; an all-zero 32-byte hash counts as empty, and
-    a nil vote (hash, total and parts hash all zero) omits the whole block id. Timestamp seconds
+    Numeric fields are omitted when zero; hash fields only when empty. A nil vote (both hashes
+    empty and total zero) omits the whole block id. Timestamp seconds
     are a signed int64 (`timestampSecondsU64` is their two's-complement pattern).
     """
     vote_type, height, round_ = (int(vote[k]) for k in ("voteType", "height", "round"))
@@ -1168,16 +1180,15 @@ def vote_sign_bytes(vote, chain_id):
     assert vote_type in (PREVOTE, PRECOMMIT) and 0 <= height < 2**63 and 0 <= round_ < 2**31
     assert 0 <= total < 2**32 and MIN_VOTE_SECONDS <= seconds <= MAX_VOTE_SECONDS
     assert int(vote["timestampSecondsU64"]) == seconds % 2**64 and 0 <= nanos < 10**9
-    assert len(block_hash) == len(parts_hash) == 32 and len(chain_id) == 48
-    zero = bytes(32)
+    assert len(block_hash) in (0, 32) and len(parts_hash) in (0, 32) and len(chain_id) == 48
 
     psh = (b"\x08" + uvarint(total) if total else b"") + (
-        length_delimited(0x12, parts_hash) if parts_hash != zero else b""
+        length_delimited(0x12, parts_hash) if parts_hash else b""
     )
-    block_id = (length_delimited(0x0A, block_hash) if block_hash != zero else b"") + (
+    block_id = (length_delimited(0x0A, block_hash) if block_hash else b"") + (
         length_delimited(0x12, psh)
     )
-    is_nil = block_hash == zero and total == 0 and parts_hash == zero
+    is_nil = not block_hash and total == 0 and not parts_hash
     timestamp = (b"\x08" + varint_int64(seconds) if seconds else b"") + (
         b"\x10" + uvarint(nanos) if nanos else b""
     )
@@ -1338,8 +1349,26 @@ def votes(key_list, domains):
             ],
             "cases": cases,
             "pairs": pairs,
+            "slash_abi": slash_vote_abi(by_name),
         }
     )
+
+
+def slash_vote_abi(cases):
+    """Pin the registry ABI, including present zero32 and empty dynamic hash fields."""
+    vote_type = "(uint8,uint64,uint32,bytes,uint32,bytes,uint64,uint32,uint48,bytes)"
+    signature = "slashDoubleSign(uint256," + vote_type + "," + vote_type + ")"
+    a, b = "precommit_a", "precommit_zero_parts_hash"
+
+    def argument(case):
+        vote = case["vote"]
+        fields = ("voteType", "height", "round", "blockHash", "partsTotal", "partsHash",
+                  "timestampSecondsU64", "timestampNanos", "generation")
+        return "(" + ",".join(vote[field] for field in fields) + "," + case["signature"] + ")"
+
+    return {"signature": signature, "selector": cast("sig", signature), "bond_id": "0",
+            "a": a, "b": b,
+            "calldata": cast("calldata", signature, 0, argument(cases[a]), argument(cases[b]))}
 
 
 # --- validator-state chains: CometBFT v0.40.0 (ENC-A-29a, PROOF-6.2-41a) ------------------------
@@ -2747,7 +2776,7 @@ def main():
     statements = land_statements(config, cut_vectors)
     domains = chain_domains()
     vectors = {
-        "schema_version": "6",
+        "schema_version": "7",
         "deployment": deployment(),
         "keys": key_list,
         "key_decompression": key_decompression(key_list),

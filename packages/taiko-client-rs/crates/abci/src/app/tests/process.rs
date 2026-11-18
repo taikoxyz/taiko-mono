@@ -81,7 +81,7 @@ async fn transaction_count_and_garbage_are_rejected() {
     let (h, t) = (next_height(&app), bft_time(&app));
 
     let cases: [(Vec<Bytes>, &str, &str); 4] = [
-        (vec![], "zero txs", "empty_proposal"),
+        (vec![], "zero txs", "placeholder_proposal"),
         (vec![env.encode(), env.encode()], "two txs", "envelope"),
         (vec![Bytes::from_static(&[0x01, 0xff, 0x00])], "garbage", "envelope"),
         (vec![Bytes::from_static(&[0x02, 0xc0])], "wrong version", "envelope"),
@@ -104,23 +104,23 @@ async fn transaction_count_and_garbage_are_rejected() {
     );
 }
 
-/// A halted proposer proposes no block; rejecting that empty proposal must not mask
+/// A paused proposer proposes no block; rejecting that placeholder proposal must not mask
 /// the reason this node recorded at the height, which `/status` reports.
 #[tokio::test]
-async fn empty_proposal_keeps_the_recorded_halt_reason() {
+async fn placeholder_proposal_keeps_the_recorded_halt_reason() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let (h, t) = (next_height(&app), bft_time(&app));
     let reject = response::ProcessProposal::Reject;
 
-    // Nothing recorded yet: the empty proposal itself is the reason.
+    // Nothing recorded yet: the placeholder proposal itself is the reason.
     let req = process_req(&app, h, t, vec![]);
     assert_eq!(process(&mut app, req).await, reject);
-    assert_eq!(app.status().unwrap().halt_reason.as_deref(), Some("empty_proposal"));
+    assert_eq!(app.status().unwrap().halt_reason.as_deref(), Some("placeholder_proposal"));
 
-    // The node's own build fails, so it proposes nothing; judging that empty proposal keeps the
-    // build's reason.
+    // The node's own build fails, so it proposes nothing; judging that placeholder proposal
+    // keeps the build's reason.
     app.l1().state().fail = Some(L1Error::Rpc("down".into()));
     assert!(prepare(&mut app, prepare_req(h, t)).await.is_empty());
     assert_eq!(app.halt.as_deref(), Some("l1_error"));
@@ -400,7 +400,11 @@ async fn checkpoint_lookup_failures_wait_without_a_false_rejection() {
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
     assert!(app.engine().state().delay_script.is_empty(), "the first read ran out of time");
     // The mock records a read once its delay ends, so the timed-out one is not listed.
-    assert_eq!(header_reads_since(&app, before), [3, 3, 3], "missing, down, then served");
+    assert_eq!(
+        header_reads_since(&app, before),
+        [5, 5, 5, 3],
+        "timed-out checkpoint, missing parent, recovery read down, parent and checkpoint served"
+    );
 }
 
 #[tokio::test]
@@ -459,23 +463,23 @@ async fn unexpected_witnesses_are_rejected() {
 #[tokio::test]
 async fn back_pressure_boundary() {
     let fx = Fixture::genesis(1);
-    let cap = fx.params.unsettled_cap();
+    let limit = fx.params.unsettled_limit();
     let dir = tempfile::tempdir().unwrap();
 
-    // Depth exactly the cap (the anchored last checkpoint is B*).
-    let mut app = mid_epoch(&fx, dir.path(), cap - 1).await;
-    assert_eq!(next_height(&app) - fx.genesis.genesis_height, cap);
+    // Depth exactly the limit (the anchored last checkpoint is the Etna start S).
+    let mut app = mid_epoch(&fx, dir.path(), limit - 1).await;
+    assert_eq!(next_height(&app) - fx.genesis.genesis_height, limit);
     let env = propose(&mut app).await;
     let (resp, _) = super::proposal::judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 
-    // One more is over the cap.
+    // One more is over the limit.
     let other_dir = tempfile::tempdir().unwrap();
-    let mut app = mid_epoch(&fx, other_dir.path(), cap).await;
+    let mut app = mid_epoch(&fx, other_dir.path(), limit).await;
     let env = hand_envelope(&app, None, None);
     assert_eq!(
         validate(&app, &env).map(|_| ()),
-        Err(Rejection::Rule(RuleViolation::BackPressure { depth: cap + 1, cap }))
+        Err(Rejection::Rule(RuleViolation::BackPressure { depth: limit + 1, limit }))
     );
     assert_eq!(rejected(&mut app, &env).await, "back_pressure");
 }
@@ -705,7 +709,7 @@ async fn process_rejects_a_block_that_cannot_fit_one_landing() {
     let dir = tempfile::tempdir().unwrap();
     let (mut app, mut env) = plain(&fx, dir.path()).await;
     env.block.transactions.push(incompressible(124_001));
-    assert!(matches!(validate(&app, &env), Err(Rejection::LandingCapacity { max: 124_000, .. })));
+    assert!(matches!(validate(&app, &env), Err(Rejection::BlockSizeBound { max: 124_000, .. })));
     assert!(env.block.length() > 124_000);
     let before = app.engine().calls().len();
     let (response, req) = judge(&mut app, &env).await;
@@ -731,7 +735,7 @@ async fn process_accepts_a_zero_heavy_block() {
     assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
     env.block.transactions[0] = Bytes::from(vec![0; 123_001 + padding]);
     assert_eq!(env.block.length(), 124_001);
-    assert_eq!(rejected(&mut app, &env).await, "landing_capacity");
+    assert_eq!(rejected(&mut app, &env).await, "block_size_bound");
 }
 
 #[tokio::test]

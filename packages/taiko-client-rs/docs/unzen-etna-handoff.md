@@ -2,12 +2,12 @@
 
 The restored `driver` command synchronizes existing Unzen history. `etna-handoff` uses that
 complete driver until the finalized L1 view closes Unzen proposals, then serves Etna ABCI on
-the same EL. This revision covers driver/bootstrap handoff; the lander's nonzero-S path,
-real proving integration and switch deployment are separate work.
+the same EL. The standalone lander supports the same nonzero start. Real proving integration
+and switch deployment remain separate work.
 
 ## Required deployment inputs
 
-Use alethia-reth revision `efc3c162ad54760a84c561da03f44af9c2adffdd` or a compatible release.
+Use alethia-reth revision `398702f29917534a4d696d022336787156e0ffa9` or a compatible release.
 Its Unzen and Etna Engine methods are forkchoiceUpdatedV3/getPayloadV5/newPayloadV4. Configure
 the same Etna timestamp on the EL and in the client deployment configuration. Existing L2
 history and state stay in place. Etna-aware Anchor/SignalService and EIP-4788/2935 code must
@@ -26,7 +26,12 @@ anchor_implementation = "0x0000000000000000000000000000000000000002"
 
 Addresses and timestamp above are placeholders. `unzen_inbox` must equal `--shasta.inbox`;
 `anchor_implementation` is the expected implementation, not the proxy. The configuration file
-does not authenticate S. Formal network parameters must be compiled into their chain configuration.
+does not authenticate S. While S is the latest landing checkpoint, the app verifies the
+Anchor proxy's implementation proof at S, then calls `etnaTimestamp()` through the own EL
+at that same canonical block hash. Signing stays closed if the timestamp is unavailable,
+and a mismatch with `fork_timestamp` halts the app. Set the EL's fork schedule to the same
+timestamp as part of the deployment. Formal network parameters must be compiled into their
+chain configuration.
 
 ## Starting the staged runtime
 
@@ -65,6 +70,28 @@ Start the existing guarded signer/Comet configuration with that fixed genesis af
 The ABCI server is exposed only after the driver has drained. The command holds the Engine
 lease throughout both stages. Unzen tail proving may continue independently using retained
 history and blobs. No signing state is reset by this command.
+
+## First landing
+
+Run the lander with the same switching chain configuration and public L1/L2 endpoints. Its
+landing endpoints are S+nK, where K is GRID_INTERVAL; global epoch boundaries remain unchanged.
+The initial validators are committee 0 until an actual post-S switch takes effect.
+
+While the Inbox checkpoint is S, the lander waits for every accepted Unzen proposal to finalize,
+checks that Unzen's terminal hash equals ELHash(S), and checks the SignalService checkpoint at S
+against that hash and the recorded state root. It reads these facts at one canonical L1 snapshot
+after fork-cutoff and start-block finality. Pending nonce and receipt reconciliation continues
+independently of this gate.
+
+The first proof request retains and host-verifies an EIP-1186 proof of the Anchor proxy's
+EIP-1967 implementation slot under S's state root. Keep S's state available until the first
+landing. The included DummyProofProvider remains suitable only for development deployments;
+a real backend must verify this witness as well as the remaining private inputs.
+
+Lander journal schema 17 includes this witness. Older journals are refused, never rewritten.
+Resolve outstanding signed jobs with their compatible lander before upgrading. Nonzero-S
+[checkpoint import/export](checkpoint-import.md) preserves the fixed Comet genesis and uses the
+original EL block-zero chainspec independently of the Etna start hash at S.
 
 ## Restart behavior
 

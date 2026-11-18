@@ -165,11 +165,15 @@ fn validate_selected_landing(
     origin: u64,
     latest: u64,
 ) -> Result<(), ImportError> {
+    // Recovery origins are themselves on the S-relative grid, so rebasing at o preserves it.
+    let on_grid = |height: u64| {
+        height.checked_sub(origin).is_some_and(|offset| offset.is_multiple_of(abci::GRID_INTERVAL))
+    };
     // An absent future record cannot yet be distinguished from a landing awaiting finality.
     // A populated historical record above the rolled-back frontier is already disqualified.
     if record.height > latest &&
         record.height <= abci::schedule::UINT48_MAX &&
-        record.height.is_multiple_of(abci::GRID_INTERVAL) &&
+        on_grid(record.height) &&
         record.parent_height == 0 &&
         record.generation == 0 &&
         record.forced_cursor == 0 &&
@@ -181,12 +185,12 @@ fn validate_selected_landing(
     }
     if record.height < origin ||
         record.height > latest ||
-        !record.height.is_multiple_of(abci::GRID_INTERVAL) ||
+        !on_grid(record.height) ||
         record.el_hash.is_zero() ||
         (record.height > origin &&
             (record.generation != generation ||
                 record.parent_height >= record.height ||
-                !record.parent_height.is_multiple_of(abci::GRID_INTERVAL) ||
+                !on_grid(record.parent_height) ||
                 record.parent_height < origin ||
                 record.comet_hash.is_zero() ||
                 record.val_state_hash.is_zero()))

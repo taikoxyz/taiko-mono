@@ -17,6 +17,61 @@ use crate::{
     error::{LanderError, Result},
 };
 
+/// EIP-1967 implementation key, shared by the switch's proxy-state checks and proof input.
+pub(crate) const ANCHOR_IMPLEMENTATION_SLOT: B256 =
+    alloy_primitives::b256!("360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc");
+
+/// Authenticate the first proof's raw Anchor implementation witness against the fixed S header.
+/// Later parents must not carry a replacement witness for the already-settled start.
+pub(crate) fn verify_start_anchor_witness(
+    snapshot: &LandingSnapshot,
+    parent_header: &Header,
+    params: &abci::ChainParams,
+    witness: Option<&AccountWitness>,
+) -> Result<()> {
+    let Some(config) = params
+        .switch
+        .as_ref()
+        .filter(|_| snapshot.checkpoint_height == snapshot.genesis.genesis_height)
+    else {
+        if witness.is_some() {
+            return Err(LanderError::Safety("unexpected start Anchor witness".into()));
+        }
+        return Ok(());
+    };
+    let witness = witness.ok_or_else(|| {
+        LanderError::Unavailable(
+            "first landing requires the Anchor implementation proof at S".into(),
+        )
+    })?;
+    if parent_header.number != snapshot.genesis.genesis_height ||
+        parent_header.hash_slow() != snapshot.genesis.genesis_hash ||
+        parent_header.state_root != snapshot.genesis.genesis_state_root ||
+        parent_header.timestamp >= config.fork_timestamp ||
+        witness.address !=
+            alethia_reth_primitives::addresses::get_treasury_address(params.l2_chain_id)
+    {
+        return Err(LanderError::Safety(
+            "start Anchor witness contradicts the S header or account".into(),
+        ));
+    }
+    let storage = abci::l1::mpt::verify_account_witness(
+        parent_header.state_root,
+        witness,
+        &[ANCHOR_IMPLEMENTATION_SLOT],
+    )
+    .map_err(|error| LanderError::Safety(format!("start Anchor implementation proof: {error}")))?;
+    let value = storage.get(ANCHOR_IMPLEMENTATION_SLOT).expect("verified implementation slot");
+    if value >> 160 != U256::ZERO ||
+        Address::from_word(B256::from(value)) != config.anchor_implementation
+    {
+        return Err(LanderError::Safety(
+            "start Anchor implementation differs from switch configuration".into(),
+        ));
+    }
+    Ok(())
+}
+
 /// Decode a protocol uint48 carried in an ABI uint256 without truncation.
 pub fn protocol_u48(value: U256) -> Result<u64> {
     if value >= U256::from(1u64 << 48) {
@@ -70,6 +125,11 @@ impl Limits {
 }
 
 /// Current Inbox facts pinned to `l1_block_hash`, with separate finalized recovery evidence.
+///
+/// The `checkpoint_*` fields hold the latest checkpoint c at `l1_block_hash`. A
+/// [`PreparedBatch`] keeps the snapshot it was built on, and there the same fields are the
+/// batch's proof origin p (`LandInput.parentHeight` and the statement's parent words): p stays
+/// fixed while c may advance on L1 before the landing executes (LAND-6.1-2..4, PROOF-6.2-8).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LandingSnapshot {
     /// L1 state block hash to which all Inbox reads are pinned.
@@ -92,15 +152,18 @@ pub struct LandingSnapshot {
     /// Canonical RLP recovery evidence retained with the immutable proof request.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_witness: Option<Bytes>,
-    /// Latest landed L2 height.
+    /// Latest landed L2 height: the latest checkpoint c when this snapshot was read, and the
+    /// proof origin p of a batch built on it.
     pub checkpoint_height: u64,
-    /// Latest landed L2 hash.
+    /// Latest landed L2 hash, at the same height (c when read, proof origin p in a batch).
     pub checkpoint_hash: B256,
-    /// Authenticated Comet hash from the retained landing record at the checkpoint.
+    /// Authenticated Comet hash from the retained landing record at the checkpoint (c when read,
+    /// proof origin p in a batch).
     pub checkpoint_comet_hash: B256,
     /// Validator-state hash (appendix A's `valStateHash`, slot 285 word 4) from the retained
-    /// landing record at the checkpoint: 0 in the start record, and at a recovery origin the
-    /// old generation's value, which the statement binds as stored but no replay starts from.
+    /// landing record at the checkpoint (c when read, proof origin p in a batch): 0 in the start
+    /// record, and at a recovery origin the old generation's value, which the statement binds as
+    /// stored but no replay starts from.
     pub checkpoint_val_state_hash: B256,
     /// Forced inclusion queue `head` (slot 281, bits 0–47): the next entry not yet settled on L1.
     pub forced_inclusion_head: u64,
@@ -272,7 +335,8 @@ impl From<CertifiedBlock> for CertifiedBlockWire {
 /// Immutable public inputs and authenticated host context of a prepared landing job.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PreparedBatch {
-    /// Coherent Inbox state from which this batch extends.
+    /// Coherent Inbox state from which this batch extends. Its `checkpoint_*` fields are this
+    /// batch's proof origin p, not the latest checkpoint c at execution.
     pub snapshot: LandingSnapshot,
     /// Public EL parent header, verified against the checkpoint height and hash.
     pub parent_header: Header,
@@ -286,6 +350,9 @@ pub struct PreparedBatch {
     /// ancestry.
     #[serde(with = "rlp_serde")]
     pub starting_inbox_witness: AnchorWitness,
+    /// Raw EIP-1186 Anchor proxy implementation proof under S's state root, retained only for
+    /// a switching batch whose parent is S. A real proof backend must verify this private input.
+    pub start_anchor_witness: Option<AccountWitness>,
     /// Exact complete block/commit pairs in increasing height order. Only execution blocks are
     /// published; original envelopes, headers, evidence and signatures remain private.
     pub blocks: Vec<CertifiedBlock>,
@@ -349,8 +416,8 @@ impl PreparedBatch {
         }
         if parent != self.snapshot.checkpoint_height ||
             parent >= last ||
-            !parent.is_multiple_of(GRID_INTERVAL) ||
-            !last.is_multiple_of(GRID_INTERVAL) ||
+            !self.snapshot.genesis.is_grid_height(parent) ||
+            !self.snapshot.genesis.is_grid_height(last) ||
             self.blocks.len() as u64 != last - parent
         {
             return Err(LanderError::Journal("job has an invalid V1 grid interval".into()));

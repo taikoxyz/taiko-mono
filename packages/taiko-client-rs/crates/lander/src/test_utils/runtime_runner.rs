@@ -2,17 +2,23 @@ use crate::{
     LanderError, Result,
     batch::{BatchObservation, BatchPreview, BatchSource},
     config::BatchPolicy,
+    contracts::IEtnaInbox::ReferenceBlockUnavailable,
     l1::{LandingSource, ParentContext},
     proof::{ProofError, ProofProvider, ProofRequest},
     runner::{Runner, RunnerConfig, StepOutcome},
     store::{JournalIdentity, JournalState, ProvedJob, Store},
     test_utils::runtime::{request, signed, signed_by, signer},
-    tx::{LandingReceipt, NonceState, SignedTransaction, TransactionTransport},
+    tx::{
+        FeeCaps, LandingReceipt, NonceState, RpcTransactionTransport, SignedTransaction,
+        TransactionTransport,
+    },
     types::LandingSnapshot,
 };
 use abci::{AnchorState, l1::header::RawL1Header};
+use alloy::sol_types::SolError;
 use alloy_primitives::{Address, B256, Bytes};
 use async_trait::async_trait;
+use serde_json::{Value, json};
 use std::{
     sync::{Arc, Mutex},
     time::Duration,
@@ -20,9 +26,11 @@ use std::{
 
 struct Control {
     snapshot: LandingSnapshot,
+    next_request: Option<ProofRequest>,
     snapshot_rpc: Option<Arc<crate::l1::RpcLandingSource>>,
     reference_current: bool,
     receipt: Option<LandingReceipt>,
+    trace_transport: Option<RpcTransactionTransport>,
     canonical_receipt: B256,
     canonical_snapshot: Option<B256>,
     nonce: NonceState,
@@ -35,7 +43,7 @@ struct Control {
     proofs: usize,
     decided_height: u64,
     publishable_blocks: usize,
-    force_backpressure: bool,
+    force_back_pressure: bool,
     force_epoch: bool,
     observation_error: bool,
     checkpoint_error: bool,
@@ -55,9 +63,11 @@ impl Fixture {
         let request = request();
         let control = Control {
             snapshot: request.batch.snapshot.clone(),
+            next_request: None,
             snapshot_rpc: None,
             reference_current: true,
             receipt: None,
+            trace_transport: None,
             canonical_receipt: B256::repeat_byte(30),
             canonical_snapshot: None,
             nonce: NonceState { confirmed: 0, pending: 0 },
@@ -70,7 +80,7 @@ impl Fixture {
             proofs: 0,
             decided_height: 2,
             publishable_blocks: 2,
-            force_backpressure: false,
+            force_back_pressure: false,
             force_epoch: false,
             observation_error: false,
             checkpoint_error: false,
@@ -149,21 +159,43 @@ impl Fixture {
         control.snapshot.checkpoint_val_state_hash = val_state_hash(&self.request, height);
     }
     fn mine(&self, transaction: &SignedTransaction, success: bool) {
+        self.mine_at(transaction, success, 30);
+    }
+    fn mine_at(&self, transaction: &SignedTransaction, success: bool, block_number: u64) {
         let mut control = self.control.lock().unwrap();
         control.receipt = Some(LandingReceipt {
             transaction_hash: transaction.hash,
-            block_number: 30,
+            block_number,
             block_hash: control.canonical_receipt,
             success,
         });
         control.nonce =
             NonceState { confirmed: transaction.nonce + 1, pending: transaction.nonce + 1 };
-        control.snapshot.l1_block_number = 30;
+        control.snapshot.l1_block_number = block_number;
         control.snapshot.l1_block_hash = control.canonical_receipt;
         if success {
             control.snapshot.checkpoint_height = self.request.batch.input.lastHeight.to::<u64>();
             control.snapshot.checkpoint_hash = self.request.batch.input.lastBlockHash;
         }
+    }
+    async fn trace(
+        &self,
+        handler: impl Fn(&Value) -> Value + Send + Sync + 'static,
+    ) -> crate::l1::tests::RpcFixture {
+        let rpc = crate::l1::tests::rpc(handler).await;
+        self.control.lock().unwrap().trace_transport = Some(
+            RpcTransactionTransport::new(
+                rpc.provider.clone(),
+                signer(),
+                FeeCaps {
+                    max_fee_per_gas: 10,
+                    max_priority_fee_per_gas: 1,
+                    max_fee_per_blob_gas: 10,
+                },
+            )
+            .unwrap(),
+        );
+        rpc
     }
 }
 struct MockBatch {
@@ -180,7 +212,7 @@ impl BatchSource for MockBatch {
         Ok(BatchPreview::from_observation(BatchObservation {
             decided_height: control.decided_height,
             publishable_blocks: control.publishable_blocks,
-            force_backpressure: control.force_backpressure,
+            force_back_pressure: control.force_back_pressure,
             force_epoch: control.force_epoch,
         }))
     }
@@ -189,6 +221,9 @@ impl BatchSource for MockBatch {
         control.prepares += 1;
         if control.prepare_empty {
             return Ok(None);
+        }
+        if let Some(request) = &control.next_request {
+            return Ok(Some(request.clone()));
         }
         Ok((snapshot.checkpoint_height == self.request.batch.snapshot.checkpoint_height)
             .then(|| self.request.clone()))
@@ -246,11 +281,14 @@ impl LandingSource for MockL1 {
     }
     async fn canonical_hash(&self, number: u64) -> Result<B256> {
         let control = self.control.lock().unwrap();
-        Ok(if number == 30 {
-            control.canonical_receipt
-        } else {
-            control.canonical_snapshot.unwrap_or(control.snapshot.l1_block_hash)
-        })
+        Ok(
+            if number == 30 || control.receipt.is_some_and(|receipt| receipt.block_number == number)
+            {
+                control.canonical_receipt
+            } else {
+                control.canonical_snapshot.unwrap_or(control.snapshot.l1_block_hash)
+            },
+        )
     }
     async fn validate_reference(&self, _: &LandingSnapshot, _: u64, _: B256) -> Result<()> {
         if self.control.lock().unwrap().reference_current {
@@ -320,6 +358,13 @@ impl TransactionTransport for MockTx {
         let mut control = self.control.lock().unwrap();
         control.events.push("receipt");
         Ok(control.receipt)
+    }
+    async fn reference_unavailable_revert(&self, hash: B256) -> Result<bool> {
+        let transport = self.control.lock().unwrap().trace_transport.clone();
+        match transport {
+            Some(transport) => transport.reference_unavailable_revert(hash).await,
+            None => Ok(false),
+        }
     }
     async fn known(&self, _: B256) -> Result<bool> {
         let mut control = self.control.lock().unwrap();
@@ -565,6 +610,147 @@ async fn unchanged_checkpoint_revert_stops_once_but_competing_revert_can_settle(
 }
 
 #[tokio::test]
+async fn expired_reference_revert_settles_and_lands_fresh_job_with_next_nonce() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    for _ in 0..3 {
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    }
+    let expired = pending_transaction(&runner);
+    let trace = fixture.trace(|_| reference_unavailable_trace()).await;
+    let reference_number = fixture.request.batch.input.l1ReferenceBlockNumber.to::<u64>();
+    let receipt_number = reference_number + 8192;
+    fixture.mine_at(&expired, false, receipt_number);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+    assert!(trace.requests.lock().unwrap().is_empty());
+    fixture.control.lock().unwrap().snapshot.l1_block_number += 1;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Settled);
+    assert_eq!(runner.state(), &JournalState::Idle);
+    let journal = fixture.directory.path().join("lander-state.json");
+    let saved: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(journal).unwrap()).unwrap();
+    assert_eq!(saved["state"]["phase"], "idle");
+    {
+        let requests = trace.requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0]["method"], "debug_traceTransaction");
+        assert_eq!(
+            requests[0]["params"],
+            json!([expired.hash, {
+                "tracer": "callTracer", "tracerConfig": {"onlyTopCall": true},
+            }])
+        );
+    }
+
+    let mut fresh = fixture.request.clone();
+    let reference = RawL1Header::from(&alloy_consensus::Header {
+        number: receipt_number,
+        ..Default::default()
+    });
+    fresh.batch.input.l1ReferenceBlockNumber = alloy_primitives::U256::from(receipt_number);
+    fresh.batch.reference_headers = vec![reference.raw().clone()];
+    fresh.batch.statement_hash = crate::statement::hash(
+        &fresh.batch.snapshot,
+        &fresh.batch.input,
+        reference.hash(),
+        &fresh.batch.blobs.versioned_hashes,
+        &fresh.batch.leaves,
+    );
+    fixture.control.lock().unwrap().next_request = Some(fresh.clone());
+    for _ in 0..3 {
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    }
+    let rebuilt = pending_transaction(&runner);
+    assert_eq!(rebuilt.nonce, expired.nonce + 1);
+    rebuilt.validate(&fresh, &Bytes::from_static(&[0])).unwrap();
+    fixture.mine_at(&rebuilt, true, receipt_number + 2);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    fixture.control.lock().unwrap().snapshot.l1_block_number += 1;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Settled);
+    let control = fixture.control.lock().unwrap();
+    assert_eq!(control.signs, 2);
+    assert_eq!(control.broadcasts, [expired.network_bytes, rebuilt.network_bytes]);
+}
+
+fn reference_unavailable_trace() -> Value {
+    json!({"error": "execution reverted", "output": Bytes::copy_from_slice(&ReferenceBlockUnavailable::SELECTOR)})
+}
+
+#[tokio::test]
+async fn expired_reference_does_not_recover_unknown_or_out_of_gas_reverts() {
+    for (age, trace_response, trace_called) in [
+        (8191, reference_unavailable_trace(), false),
+        (8192, json!({"error": "out of gas"}), true),
+        (8192, json!({"error": "execution reverted", "output": "0x12345678"}), true),
+        (
+            8192,
+            json!({"error": "execution reverted", "calls": [reference_unavailable_trace()]}),
+            true,
+        ),
+        (8192, json!({"__rpc_error": {"code": -32601, "message": "unsupported method"}}), true),
+        (
+            8192,
+            json!({"__rpc_error": {"code": -32000, "message": "historical state is not available"}}),
+            true,
+        ),
+        (
+            8192,
+            json!({"__rpc_error": {"code": -32000, "message": "required historical state unavailable (reexec=128)"}}),
+            true,
+        ),
+    ] {
+        let fixture = Fixture::new();
+        let mut runner = fixture.runner();
+        for _ in 0..3 {
+            runner.step().await.unwrap();
+        }
+        let trace = fixture.trace(move |_| trace_response.clone()).await;
+        let tx = pending_transaction(&runner);
+        let reference_number = fixture.request.batch.input.l1ReferenceBlockNumber.to::<u64>();
+        fixture.mine_at(&tx, false, reference_number + age);
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+        fixture.control.lock().unwrap().snapshot.l1_block_number += 1;
+        assert!(matches!(runner.step().await, Err(LanderError::Reverted(_))));
+        assert_eq!(runner.state(), &JournalState::Idle);
+        assert_eq!(trace.requests.lock().unwrap().len(), usize::from(trace_called));
+        assert_eq!(fixture.control.lock().unwrap().signs, 1);
+    }
+}
+
+#[tokio::test]
+async fn expired_reference_trace_failure_or_reorg_keeps_the_pending_transaction() {
+    let fixture = Fixture::new();
+    let mut runner = fixture.runner();
+    for _ in 0..3 {
+        runner.step().await.unwrap();
+    }
+    let tx = pending_transaction(&runner);
+    let reference_number = fixture.request.batch.input.l1ReferenceBlockNumber.to::<u64>();
+    fixture.mine_at(&tx, false, reference_number + 8192);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    fixture.control.lock().unwrap().snapshot.l1_block_number += 1;
+    let _unavailable = fixture
+        .trace(|_| json!({"__rpc_error": {"code": -32000, "message": "temporarily unavailable"}}))
+        .await;
+    assert!(matches!(runner.step().await, Err(LanderError::Temporary(_))));
+    assert!(matches!(runner.state(), JournalState::Confirming { .. }));
+    assert_eq!(pending_transaction(&runner), tx);
+
+    let control = fixture.control.clone();
+    let _reorg = fixture
+        .trace(move |_| {
+            control.lock().unwrap().canonical_receipt = B256::repeat_byte(31);
+            reference_unavailable_trace()
+        })
+        .await;
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    assert!(matches!(runner.state(), JournalState::Pending { .. }));
+    assert_eq!(pending_transaction(&runner), tx);
+    assert_eq!(fixture.control.lock().unwrap().signs, 1);
+}
+
+#[tokio::test]
 async fn dropped_transaction_is_identically_rebroadcast_after_receipt_and_nonce_reads() {
     let fixture = Fixture::new();
     let mut runner = fixture.runner();
@@ -582,6 +768,72 @@ async fn dropped_transaction_is_identically_rebroadcast_after_receipt_and_nonce_
     assert_eq!(control.events, vec!["receipt", "nonce", "known", "broadcast"]);
     assert_eq!(control.broadcasts[0], control.broadcasts[1]);
     assert_eq!(control.signs, 1);
+}
+
+#[tokio::test]
+async fn obsolete_pending_bytes_rebroadcast_after_restart_then_reverted_receipt_frees_nonce() {
+    for before_first_send in [false, true] {
+        for checkpoint in [0, 6, 12] {
+            let fixture = Fixture::new();
+            let (transaction, signs, previous_sends) = if before_first_send {
+                let proof = Bytes::from_static(&[0]);
+                let transaction = signed(&fixture.request, &proof, 0).await;
+                let store = Store::open(fixture.directory.path(), fixture.identity()).unwrap();
+                store
+                    .save(&JournalState::Pending {
+                        job: Box::new(ProvedJob { request: fixture.request.clone(), proof }),
+                        transaction: transaction.clone(),
+                    })
+                    .unwrap();
+                (transaction, 0, 0)
+            } else {
+                let mut runner = fixture.runner();
+                for _ in 0..3 {
+                    runner.step().await.unwrap();
+                }
+                (pending_transaction(&runner), 1, 1)
+            };
+            if checkpoint != 0 {
+                fixture.compete(checkpoint);
+            }
+            {
+                let mut control = fixture.control.lock().unwrap();
+                control.reference_current = false;
+                control.known = false;
+                control.nonce =
+                    NonceState { confirmed: transaction.nonce, pending: transaction.nonce };
+                control.events.clear();
+            }
+            let journal = fixture.directory.path().join("lander-state.json");
+            let original = std::fs::read(&journal).unwrap();
+            let mut runner = fixture.runner();
+            assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
+            assert_eq!(pending_transaction(&runner), transaction);
+            assert_eq!(std::fs::read(&journal).unwrap(), original);
+            {
+                let control = fixture.control.lock().unwrap();
+                assert_eq!(control.events, vec!["receipt", "nonce", "known", "broadcast"]);
+                assert_eq!(control.signs, signs);
+                assert_eq!(control.broadcasts.len(), previous_sends + 1);
+                assert!(control.broadcasts.iter().all(|bytes| bytes == &transaction.network_bytes));
+            }
+            fixture.mine(&transaction, false);
+            assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+            fixture.control.lock().unwrap().snapshot.l1_block_number = 31;
+            let outcome = runner.step().await;
+            if checkpoint == 0 {
+                assert!(matches!(outcome, Err(LanderError::Reverted(_))), "{outcome:?}");
+            } else {
+                assert_eq!(outcome.unwrap(), StepOutcome::Settled);
+            }
+            assert_eq!(runner.state(), &JournalState::Idle);
+            drop(runner);
+            assert_eq!(fixture.runner().state(), &JournalState::Idle);
+            let control = fixture.control.lock().unwrap();
+            assert_eq!(control.signs, signs);
+            assert_eq!(control.nonce.confirmed, transaction.nonce + 1);
+        }
+    }
 }
 
 #[tokio::test(start_paused = true)]
@@ -621,7 +873,7 @@ async fn partial_or_full_checkpoint_after_dropped_send_never_spends_a_new_nonce(
         assert!(matches!(runner.state(), JournalState::Pending { .. }));
         let control = fixture.control.lock().unwrap();
         assert_eq!(control.signs, 1);
-        assert_eq!(control.broadcasts.len(), if height == 6 { 2 } else { 1 });
+        assert_eq!(control.broadcasts.len(), 2);
     }
 }
 
@@ -816,7 +1068,7 @@ async fn consensus_pressure_and_epoch_progress_bypass_high_threshold_and_long_wa
         let policy = BatchPolicy { min_blocks: 100, max_wait: Duration::from_secs(3600) };
         {
             let mut control = fixture.control.lock().unwrap();
-            control.force_backpressure = !force_epoch;
+            control.force_back_pressure = !force_epoch;
             control.force_epoch = force_epoch;
         }
         let mut runner = fixture.with_policy(policy);
@@ -1157,7 +1409,7 @@ async fn v1_completed_settlement_keeps_pending_nonce_across_restart_until_canoni
     let mut runner = fixture.runner();
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Waiting);
     assert_eq!(runner.state(), &original);
-    assert_eq!(fixture.control.lock().unwrap().broadcasts.len(), 1);
+    assert_eq!(fixture.control.lock().unwrap().broadcasts.len(), 2);
     fixture.mine(&transaction, false);
     assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
     fixture.control.lock().unwrap().snapshot.l1_block_number = 31;

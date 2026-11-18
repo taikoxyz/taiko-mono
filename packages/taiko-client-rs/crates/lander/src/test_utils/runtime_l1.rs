@@ -508,7 +508,7 @@ async fn snapshot_head_proof_that_never_verifies_is_safety_after_the_grace() {
 
 #[test]
 fn snapshot_decoding_returns_the_planted_forced_inclusion_head_and_tail() {
-    let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(6, 12);
     assert_eq!(
         (fixture.snapshot.forced_inclusion_head, fixture.snapshot.forced_inclusion_tail),
         (0, 0)
@@ -659,9 +659,9 @@ fn snapshot_decodes_the_shared_landing_word_and_rejects_each_contradictory_field
     }
 }
 
-/// A valid switching deployment is unsupported by this release, not proof of a chain fault.
+/// A switching deployment needs explicit configuration; its absence is not a chain fault.
 #[test]
-fn nonzero_etna_start_is_an_unsupported_configuration() {
+fn nonzero_etna_start_requires_switch_configuration() {
     use abci::l1::layout::inbox;
     let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
     let start = 1000;
@@ -674,21 +674,34 @@ fn nonzero_etna_start_is_an_unsupported_configuration() {
         ),
         (inbox::origin_slots(0)[0], U256::from(start)),
         (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(start)),
-        (landing[0], U256::ZERO),
+        (landing[0], U256::from(start)),
         (landing[1], g.genesis_hash.into()),
         (landing[2], U256::ZERO),
         (landing[3], U256::ZERO),
     ]);
-    let error = super::decode_snapshot(
-        planted.l1_header,
-        planted.inbox_witness,
-        planted.l1_chain_id,
-        planted.l2_chain_id,
-        &fixture.params,
-    )
-    .unwrap_err();
+    let decode = |params: &ChainParams| {
+        super::decode_snapshot(
+            planted.l1_header.clone(),
+            planted.inbox_witness.clone(),
+            planted.l1_chain_id,
+            planted.l2_chain_id,
+            params,
+        )
+    };
+    let error = decode(&fixture.params).unwrap_err();
     assert!(matches!(error, LanderError::Configuration(_)), "{error}");
-    assert!(error.to_string().contains("start") && error.to_string().contains("1000"), "{error}");
+    assert!(error.to_string().contains("switch configuration"), "{error}");
+
+    let mut configured = fixture.params.clone();
+    configured.switch = Some(abci::SwitchConfig {
+        unzen_inbox: alloy_primitives::Address::repeat_byte(0x41),
+        fork_timestamp: 100,
+        anchor_implementation: alloy_primitives::Address::repeat_byte(0x42),
+    });
+    let decoded = decode(&configured).unwrap();
+    assert_eq!(decoded.genesis.genesis_height, start);
+    assert_eq!(decoded.checkpoint_height, start);
+    assert_eq!(decoded.checkpoint_hash, g.genesis_hash);
 }
 
 #[test]

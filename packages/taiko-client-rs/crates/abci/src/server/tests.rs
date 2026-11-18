@@ -198,6 +198,92 @@ async fn answers_echo_and_info_over_tcp() {
     assert!(halts.try_recv().is_err(), "no halt");
 }
 
+#[tokio::test]
+async fn query_ignores_non_path_fields_and_keeps_the_socket_open() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path());
+    app.handle(Request::InitChain(fx.request.clone())).await.unwrap();
+    let (hook, mut halts) = recording_hook();
+    let (server, mut stream) = start(app, hook).await;
+    let mut buf = Vec::new();
+    for path in ["/status", "/trust", "/unknown"] {
+        for height in [i64::MIN, -1, i64::MAX] {
+            let query = pb::Request {
+                value: Some(pb::request::Value::Query(pb::RequestQuery {
+                    path: path.into(),
+                    height,
+                    data: vec![255].into(),
+                    prove: true,
+                })),
+            };
+            send(&mut stream, &[query, pb_echo("alive"), pb_flush()]).await;
+            let pb::response::Value::Query(answer) = recv_value(&mut stream, &mut buf).await else {
+                panic!("Query response");
+            };
+            assert_eq!(answer.code, if path == "/unknown" { 1 } else { 0 }, "{path}");
+            if path != "/unknown" {
+                assert!(serde_json::from_slice::<serde_json::Value>(&answer.value).is_ok());
+            }
+            assert!(matches!(recv_value(&mut stream, &mut buf).await,
+                pb::response::Value::Echo(value) if value.message == "alive"));
+            assert!(matches!(
+                recv_value(&mut stream, &mut buf).await,
+                pb::response::Value::Flush(_)
+            ));
+        }
+    }
+    assert!(halts.try_recv().is_err());
+    server.abort();
+}
+
+#[tokio::test]
+async fn snapshot_stubs_ignore_unrepresentable_fields_and_keep_the_socket_open() {
+    let dir = tempfile::tempdir().unwrap();
+    let (hook, mut halts) = recording_hook();
+    let (server, mut stream) = start(fixture_app(dir.path()), hook).await;
+    let mut buf = Vec::new();
+    let requests = [
+        pb::request::Value::OfferSnapshot(pb::RequestOfferSnapshot::default()),
+        pb::request::Value::OfferSnapshot(pb::RequestOfferSnapshot {
+            snapshot: Some(pb::Snapshot { height: u64::MAX, ..Default::default() }),
+            ..Default::default()
+        }),
+        pb::request::Value::LoadSnapshotChunk(pb::RequestLoadSnapshotChunk {
+            height: u64::MAX,
+            format: u32::MAX,
+            chunk: u32::MAX,
+        }),
+        pb::request::Value::ApplySnapshotChunk(pb::RequestApplySnapshotChunk {
+            index: u32::MAX,
+            chunk: vec![255].into(),
+            sender: "peer".into(),
+        }),
+    ];
+    for request in requests {
+        let expected = match &request {
+            pb::request::Value::OfferSnapshot(_) => {
+                pb::response::Value::OfferSnapshot(Default::default())
+            }
+            pb::request::Value::LoadSnapshotChunk(_) => {
+                pb::response::Value::LoadSnapshotChunk(Default::default())
+            }
+            pb::request::Value::ApplySnapshotChunk(_) => {
+                pb::response::Value::ApplySnapshotChunk(Default::default())
+            }
+            _ => unreachable!(),
+        };
+        send(&mut stream, &[pb::Request { value: Some(request) }, pb_echo("alive"), pb_flush()])
+            .await;
+        assert_eq!(recv_value(&mut stream, &mut buf).await, expected);
+        assert!(matches!(recv_value(&mut stream, &mut buf).await,
+            pb::response::Value::Echo(value) if value.message == "alive"));
+        assert!(matches!(recv_value(&mut stream, &mut buf).await, pb::response::Value::Flush(_)));
+    }
+    assert!(halts.try_recv().is_err());
+    server.abort();
+}
+
 /// Every accepted ABCI connection bumps the app's connection count, so a CometBFT that
 /// reconnects under the running app handshakes on a new count (CONS-3.1-9); requests on an
 /// open connection, such as RPC `/abci_info` calls, leave it unchanged.

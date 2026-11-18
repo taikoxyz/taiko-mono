@@ -2,7 +2,7 @@
 #![cfg_attr(test, allow(missing_docs, clippy::missing_docs_in_private_items))]
 //! Permissionless Etna landing: authenticated batches, bound blobs and durable submission.
 
-/// Blob sidecars sharing the protocol's Kona-compatible payload encoding.
+/// Blob sidecars in Unzen's blob encoding (DATA-5.2-2), shared with the `protocol` crate.
 pub mod blob;
 /// Canonical execution-only public DA with bounded private certificate projection.
 pub mod codec;

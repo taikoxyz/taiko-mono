@@ -28,7 +28,8 @@ func TestGuardedFilePVMatchesCanonicalVoteVectors(t *testing.T) {
 		t.Fatal(err)
 	}
 	var fixture struct {
-		Votes struct {
+		SchemaVersion string `json:"schema_version"`
+		Votes         struct {
 			Key struct {
 				Private string `json:"private_key"`
 				Public  string `json:"public_key"`
@@ -46,8 +47,48 @@ func TestGuardedFilePVMatchesCanonicalVoteVectors(t *testing.T) {
 	if err = json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	if len(fixture.Votes.Cases) != 23 {
-		t.Fatal("missing vote fixtures")
+	if fixture.SchemaVersion != "7" {
+		t.Fatalf("vote fixture schema: got %q, want 7", fixture.SchemaVersion)
+	}
+	wantCases := map[string]bool{
+		"precommit_a":                true,
+		"precommit_nil":              true,
+		"precommit_b":                true,
+		"precommit_a_late":           true,
+		"prevote_a_r1":               true,
+		"prevote_b_r1":               true,
+		"prevote_b_r2":               true,
+		"precommit_b_r1":             true,
+		"gen1_precommit_a":           true,
+		"gen1_precommit_b":           true,
+		"gen2_precommit_a":           true,
+		"gen2_precommit_b":           true,
+		"other_inbox_precommit_b":    true,
+		"partial_block_id":           true,
+		"max_values":                 true,
+		"precommit_b_h1001":          true,
+		"hash_only_block_id":         true,
+		"zero_timestamp":             true,
+		"negative_timestamp":         true,
+		"min_timestamp":              true,
+		"max_timestamp_seconds":      true,
+		"precommit_a_backdated":      true,
+		"precommit_b_backdated":      true,
+		"precommit_zero_block_hash":  true,
+		"precommit_zero_parts_hash":  true,
+		"precommit_zero_both_hashes": true,
+		"zero_hashes_zero_total":     true,
+		"zero_block_hash_only":       true,
+		"zero_parts_hash_only":       true,
+	}
+	if len(fixture.Votes.Cases) != len(wantCases) {
+		t.Fatalf("schema 7 vote fixtures: got %d, want %d", len(fixture.Votes.Cases), len(wantCases))
+	}
+	for _, c := range fixture.Votes.Cases {
+		if !wantCases[c.Name] {
+			t.Fatalf("unexpected or duplicate vote fixture %q", c.Name)
+		}
+		delete(wantCases, c.Name)
 	}
 	for _, c := range fixture.Votes.Cases {
 		t.Run(c.Name, func(t *testing.T) {
@@ -59,15 +100,14 @@ func TestGuardedFilePVMatchesCanonicalVoteVectors(t *testing.T) {
 				return v
 			}
 			vote := &tm.Vote{Type: tm.SignedMsgType(number("voteType")), Height: number("height"), Round: int32(number("round")), Timestamp: time.Unix(number("timestampSeconds"), number("timestampNanos"))}
-			// The pinned oracle maps its all-zero fixture hashes to absent proto bytes.
-			optionalHash := func(field string) []byte {
-				raw := fromHex(t, c.Vote[field])
-				if bytes.Equal(raw, make([]byte, 32)) {
-					return nil
-				}
-				return raw
+			// Schema 7 uses "0x" for absence; 32 zero bytes remain present protobuf bytes.
+			vote.BlockID = tm.BlockID{
+				Hash: fromHex(t, c.Vote["blockHash"]),
+				PartSetHeader: tm.PartSetHeader{
+					Total: uint32(number("partsTotal")),
+					Hash:  fromHex(t, c.Vote["partsHash"]),
+				},
 			}
-			vote.BlockID = tm.BlockID{Hash: optionalHash("blockHash"), PartSetHeader: tm.PartSetHeader{Total: uint32(number("partsTotal")), Hash: optionalHash("partsHash")}}
 
 			if !bytes.Equal(types.VoteSignBytes(c.Chain, vote), fromHex(t, c.SignBytes)) {
 				t.Fatal("canonical Comet sign bytes mismatch")

@@ -7,7 +7,7 @@
 # the committed files.
 set -euo pipefail
 
-PINNED_REVISION=35e2f8f191132e87d9a223554d0b699f4203f2e3
+PINNED_REVISION=c8c2e7c5e67945eafc37e7846d8fe03fece68bdd
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROTOCOL_CHECKOUT="$(cd "${1:?usage: gen_lander_artifacts.sh <taiko-mono-checkout>}" && pwd)"
@@ -19,13 +19,15 @@ fi
 git -C "$PROTOCOL_CHECKOUT" diff --quiet HEAD -- packages/protocol/contracts packages/protocol/test packages/protocol/foundry.toml pnpm-lock.yaml testdata/etna_vectors
 # Dependencies must be installed before invoking Foundry. Offline regeneration is supported
 # with PNPM_OFFLINE=1 after the pinned lockfile's dependencies have been cached.
-INSTALL_FLAGS=(--frozen-lockfile --ignore-scripts)
+INSTALL_FLAGS=(--filter @taiko/protocol --frozen-lockfile --ignore-scripts)
 if [[ "${PNPM_OFFLINE:-0}" == 1 ]]; then INSTALL_FLAGS+=(--offline); fi
 (cd "$PROTOCOL_CHECKOUT" && pnpm install "${INSTALL_FLAGS[@]}")
 (cd "$PROTOCOL_CHECKOUT/packages/protocol" && FOUNDRY_PROFILE=layer1 forge build \
     contracts/layer1/etna/impl/EtnaInbox.sol \
     contracts/layer1/etna/impl/EtnaInboxBootstrap.sol \
     contracts/layer1/etna/impl/EtnaStakingRegistry.sol \
+    contracts/layer1/core/impl/InboxWithEtnaCutoffs.sol \
+    contracts/shared/signal/SignalServiceL1.sol \
     contracts/shared/signal/SignalService.sol test/layer1/etna/EtnaInboxTestBase.sol \
     --build-info)
 
@@ -45,6 +47,8 @@ artifacts = {
     "EtnaStakingRegistry": "EtnaStakingRegistry.sol/EtnaStakingRegistry.json",
     "EtnaInboxBootstrap": "EtnaInboxBootstrap.sol/EtnaInboxBootstrap.json",
     "SignalService": "SignalService.sol/SignalService.json",
+    "SignalServiceL1": "SignalServiceL1.sol/SignalServiceL1.json",
+    "InboxWithEtnaCutoffs": "InboxWithEtnaCutoffs.sol/InboxWithEtnaCutoffs.json",
     "ERC1967Proxy": "ERC1967Proxy.sol/ERC1967Proxy.json",
     "MockLandProofVerifier": "EtnaInboxTestBase.sol/MockLandProofVerifier.json",
     "TestERC20": "TestERC20.sol/TestERC20.json",
@@ -78,15 +82,19 @@ for name, relative in artifacts.items():
         if digest.lower() != info["keccak256"].lower():
             raise SystemExit(f"stale compiled source: {source_path}")
         sources[source_path] = {"keccak256": digest, "sha256": hashlib.sha256(contents).hexdigest()}
+    # The cutoff implementation uses Unzen's external libraries. The client consumes its ABI,
+    # not an unlinked deployment image; preserve those references explicitly in provenance.
+    abi_only = name == "InboxWithEtnaCutoffs"
     for bytecode in [artifact["bytecode"], artifact["deployedBytecode"]]:
-        if bytecode.get("linkReferences"):
+        if bytecode.get("linkReferences") and not abi_only:
             raise SystemExit(f"unresolved library links in {name}")
     exported = {
         "contractName": name,
         "abi": artifact["abi"],
-        "bytecode": {"object": artifact["bytecode"]["object"]},
-        "deployedBytecode": {"object": artifact["deployedBytecode"]["object"]},
     }
+    if not abi_only:
+        exported["bytecode"] = {"object": artifact["bytecode"]["object"]}
+        exported["deployedBytecode"] = {"object": artifact["deployedBytecode"]["object"]}
     encoded = (json.dumps(exported, indent=2, sort_keys=True) + "\n").encode()
     destination = output / f"{name}.json"
     destination.write_bytes(encoded)
@@ -99,6 +107,12 @@ for name, relative in artifacts.items():
         "settings": settings,
         "sources": sources,
     }
+    if abi_only:
+        manifest["artifacts"][name]["abiOnly"] = True
+        manifest["artifacts"][name]["linkReferences"] = {
+            "bytecode": artifact["bytecode"].get("linkReferences", {}),
+            "deployedBytecode": artifact["deployedBytecode"].get("linkReferences", {}),
+        }
 # The shared vectors: a byte-identical copy at the same repository path, stale files removed.
 vectors_dir = "testdata/etna_vectors"
 source_vectors, client_vectors = checkout / vectors_dir, client.parents[1] / vectors_dir
