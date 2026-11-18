@@ -232,4 +232,19 @@ def Certificate (env : Protocol.Environment) (w : Protocol.World) (d : Statement
     Batch (Protocol.policy env (Protocol.certificateWorld env w d.input.l1ReferenceBlockNumber)
       archive d.input.l1ReferenceBlockNumber) addressOf hash p bs d.blobHashes supplied final
 
+/-- Guest soundness with validator replay: in the shape of `Protocol.VerifierSound`, a sound
+backend's accepted proof for an accepted landing certifies its statement with a batch that also
+replays the validator state, under the deployment's key-to-address map `addressOf` and snapshot
+hash `hash`. H1–H4 do not assume it: the joint H1–H4 witnesses would then need H4's
+`ProofComplete` for replayed batches, and the recovery path would have to build them. -/
+def ReplaySound (env : Protocol.Environment) (initial : Protocol.World) (addressOf : Hash → Nat)
+    (hash : Snapshot → Hash) : Prop :=
+  ∃ sound : Backend → Prop,
+    (∀ proofs, dualOK proofs = true → ∃ backend ∈ proofs, sound backend.1) ∧
+    ∀ w, Protocol.Trace env initial w → ∀ a t proof, Protocol.land env w a = some t → proof ∈ a.proofs →
+      sound proof.backend →
+      env.verify w.verifier proof.backend proof.image proof.bytes (Protocol.statement env w a) = true →
+      ∃ archive p bs supplied final,
+        Certificate env w (Protocol.statement env w a) archive p bs addressOf hash supplied final
+
 end Etna.Design.Current.ValidatorState

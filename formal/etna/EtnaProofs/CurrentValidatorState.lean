@@ -1,4 +1,5 @@
 import EtnaModel.CurrentValidatorState
+import EtnaProofs.CurrentReference
 
 namespace Etna.Design.Current.ValidatorState
 
@@ -142,6 +143,60 @@ theorem checked_run_records {r : Blocks.Policy} {addressOf : Hash → Nat}
     · exact ⟨s,t,head,(commit_pipeline step).1.trans height.symm,hashed⟩
     · exact ih tail b later
 
+/-- A checked block's signing set, the CometBFT set the replay holds for its height, is the
+registry committee active at that height. -/
+theorem checked_block_signers {r : Blocks.Policy} {addressOf : Hash → Nat} {hash : Snapshot → Hash}
+    {s t : CommitState} {b : Blocks.Block} (ok : checkBlock r addressOf hash s b = some t) :
+    membership s.current = membership ⟨selected r.consensus addressOf
+      (Consensus.activeAt r.consensus b.header.height),none⟩ := by
+  unfold checkBlock at ok
+  split at ok
+  next => contradiction
+  next guard =>
+    by_cases same : membership s.current = membership ⟨selected r.consensus addressOf
+        (Consensus.activeAt r.consensus b.header.height),none⟩
+    · exact same
+    · exact False.elim (guard (Or.inr (Or.inr (Or.inl same))))
+
+/-- In an accepted replay every block was signed by the registry committee active at its
+height, and its committed hash is that of its own computed state. -/
+theorem checked_run_signers {r : Blocks.Policy} {addressOf : Hash → Nat}
+    {hash : Snapshot → Hash} {s final : CommitState} {bs : List Blocks.Block}
+    (ok : checkRun r addressOf hash s bs = some final) :
+    ∀ b ∈ bs, ∃ before after,
+      checkBlock r addressOf hash before b = some after ∧
+      membership before.current = membership ⟨selected r.consensus addressOf
+        (Consensus.activeAt r.consensus b.header.height),none⟩ ∧
+      after.height = b.header.height ∧ hash (snapshot after) = b.header.valStateHash := by
+  induction bs generalizing s with
+  | nil => simp
+  | cons a rest ih =>
+    obtain ⟨t,head,tail⟩ := Option.bind_eq_some_iff.mp ok
+    obtain ⟨step,height,hashed⟩ := checked_block head
+    intro b member
+    rcases List.mem_cons.mp member with rfl | later
+    · exact ⟨s,t,head,checked_block_signers head,(commit_pipeline step).1.trans height.symm,hashed⟩
+    · exact ih tail b later
+
+/-- A nonempty replay ends in the state of its last block: the batch's terminal header carries
+that state's height and hash. -/
+theorem checked_run_terminal {r : Blocks.Policy} {addressOf : Hash → Nat}
+    {hash : Snapshot → Hash} {s final : CommitState} {bs : List Blocks.Block}
+    (ok : checkRun r addressOf hash s bs = some final) (nonempty : bs ≠ []) (p : Blocks.Header) :
+    hash (snapshot final) = (Blocks.terminal p bs).valStateHash ∧
+      final.height = (Blocks.terminal p bs).height := by
+  induction bs generalizing s p with
+  | nil => exact absurd rfl nonempty
+  | cons b rest ih =>
+    obtain ⟨t,head,tail⟩ := Option.bind_eq_some_iff.mp ok
+    cases rest with
+    | nil =>
+      have equal : t = final := Option.some.inj tail
+      subst equal
+      obtain ⟨step,height,hashed⟩ := checked_block head
+      exact ⟨hashed,(commit_pipeline step).1.trans height.symm⟩
+    | cons c more => exact ih tail (List.cons_ne_nil c more) b.header
+
 theorem batch_refines {r : Blocks.Policy} {addressOf : Hash → Nat} {hash : Snapshot → Hash}
     {p : Blocks.Header} {bs : List Blocks.Block} {blobs : List Hash} {supplied final : CommitState}
     (ok : Batch r addressOf hash p bs blobs supplied final) : Blocks.BatchValid r p bs blobs :=
@@ -174,5 +229,57 @@ theorem trust_cut_after_origin (origin : Nat) (h : Blocks.Header) (cp : Checkpoi
       h.elHash = cp.elHash ∧ h.cometHash = cp.cometHash ∧ h.cursor = cp.cursor ∧
         h.valStateHash = cp.valStateHash := by
   simp [Protocol.trustCut,height]
+
+/-- With validator replay in the guest (`ReplaySound`), an accepted landing's certificate
+replays the validator state from its generation's genesis or retained preimage: the checkpoint
+the landing writes commits to the final replayed state at its own height, and every landed block
+was signed by the registry committee active at its height. -/
+theorem accepted_replay {env : Protocol.Environment} {initial w t : Protocol.World}
+    {a : Protocol.Landing} {addressOf : Hash → Nat} {hash : Snapshot → Hash}
+    (soundness : ReplaySound env initial addressOf hash) (reach : Protocol.Trace env initial w)
+    (ok : Protocol.land env w a = some t) :
+    ∃ archive p bs supplied final,
+      Certificate env w (Protocol.statement env w a) archive p bs addressOf hash supplied final ∧
+      hash (snapshot final) = t.inbox.checkpoint.valStateHash ∧
+      final.height = t.inbox.checkpoint.height ∧
+      ∀ b ∈ bs, ∃ before after : CommitState,
+        membership before.current = membership ⟨selected
+          (Protocol.policy env (Protocol.certificateWorld env w a.input.l1ReferenceBlockNumber) archive
+            a.input.l1ReferenceBlockNumber).consensus addressOf
+          (Consensus.activeAt (Protocol.policy env (Protocol.certificateWorld env w a.input.l1ReferenceBlockNumber)
+            archive a.input.l1ReferenceBlockNumber).consensus b.header.height),none⟩ ∧
+        after.height = b.header.height ∧ hash (snapshot after) = b.header.valStateHash := by
+  obtain ⟨sound,cover,verify⟩ := soundness
+  obtain ⟨checks,rfl⟩ := Protocol.land_success ok
+  obtain ⟨item,member,good⟩ := cover _ checks.proofs
+  obtain ⟨proof,present,rfl⟩ := List.mem_map.mp member
+  have all : ∀ x ∈ a.proofs.map (fun p => (p.backend,
+      decide (p.image ∈ w.images) && env.verify w.verifier p.backend p.image p.bytes (Protocol.statement env w a))),
+      x.2 = true := by
+    have accepted := checks.proofs
+    simp only [Protocol.proofsAccepted,dualOK,Bool.and_eq_true,List.all_eq_true] at accepted
+    exact accepted.1.1.2
+  have verified := all _ (List.mem_map_of_mem present)
+  have bytes : env.verify w.verifier proof.backend proof.image proof.bytes (Protocol.statement env w a) = true := by
+    simp only [Bool.and_eq_true] at verified
+    exact verified.2
+  obtain ⟨archive,p,bs,supplied,final,cert⟩ := verify w reach a _ proof ok present good bytes
+  obtain ⟨_,fresh,start,_,_,run⟩ := cert.2
+  have input := congrArg StatementData.input cert.1.1.2.2.1
+  have parent : a.input.parentHeight = p.height := congrArg LandInput.parentHeight input
+  have last : a.input.lastHeight = (Blocks.terminal p bs).height := congrArg LandInput.lastHeight input
+  have valState : a.input.lastValStateHash = (Blocks.terminal p bs).valStateHash :=
+    congrArg LandInput.lastValStateHash input
+  have nonempty : bs ≠ [] := by
+    rintro rfl
+    have progress := checks.progress
+    have frontier := checks.parentBeforeFrontier
+    change a.input.lastHeight = p.height at last
+    omega
+  obtain ⟨hashed,height⟩ := checked_run_terminal run nonempty p
+  refine ⟨archive,p,bs,supplied,final,cert,hashed.trans valState.symm,height.trans last.symm,?_⟩
+  intro b present
+  obtain ⟨before,after,_,signers,afterHeight,afterHash⟩ := checked_run_signers run b present
+  exact ⟨before,after,signers,afterHeight,afterHash⟩
 
 end Etna.Design.Current.ValidatorState

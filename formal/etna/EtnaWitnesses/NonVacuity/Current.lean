@@ -3,6 +3,7 @@ import EtnaProofs.CurrentEncoding
 import EtnaProofs.CurrentEconomics
 import EtnaProofs.CurrentMetadata
 import EtnaProofs.CurrentCoherentCustody
+import EtnaModel.CurrentValidatorState
 
 /-! A finite accepting deployment with globally sound fixed proof bytes. The commitments
 encode the complete closed state. They are ideal unbounded Nat commitments, not Keccak. -/
@@ -923,6 +924,75 @@ theorem verifier_sound : VerifierSound env (empty env registry) := by
     · exact template_image_certifies trace ordinary
     · exact recovered_image_certifies trace recovered
 
+/-! Validator replay (`ValidatorState.ReplaySound`): key 7 is its own address and the snapshot
+hash is 300 plus the height, which the two certified blocks commit to (301 and 302). -/
+
+def replayHash (s : ValidatorState.Snapshot) : Hash := 300+s.height
+/-- Genesis for the one-seat committee {key 7, power 1} at `height`. -/
+def replayGenesis (height : Nat) : ValidatorState.CommitState :=
+  ⟨height,⟨[⟨7,7,1,0⟩],some 7⟩,⟨[⟨7,7,1,0⟩],some 7⟩,⟨[],none⟩⟩
+/-- Its state after one block without scheduled changes. -/
+def replayed (height : Nat) : ValidatorState.CommitState :=
+  ⟨height+1,⟨[⟨7,7,1,0⟩],some 7⟩,⟨[⟨7,7,1,0⟩],some 7⟩,⟨[⟨7,7,1,0⟩],some 7⟩⟩
+
+private theorem source_replay : ValidatorState.Batch (policy env (certificateWorld env (source env) 2) archive 2)
+    id replayHash genesis [block] template.blobHashes (replayGenesis 0) (replayed 0) :=
+  ⟨source_pure_certificate.1.2.1,replayGenesis 0,replayGenesis 0,by decide +kernel,by decide,by decide +kernel⟩
+
+private theorem recovered_replay : ValidatorState.Batch
+    (policy env (certificateWorld env (recoveredSource env) 4) recoveredArchive 4)
+    id replayHash first [recoveredBlock] recoveredTemplate.blobHashes (replayGenesis 1) (replayed 1) :=
+  ⟨recovered_pure_certificate.1.2.1,replayGenesis 1,replayGenesis 1,by decide +kernel,by decide,by decide +kernel⟩
+
+private theorem template_replays {w : World} {a : Landing}
+    (trace : Trace env (empty env registry) w) (same : statement env w a = template) :
+    ∃ archive p bs supplied final, ValidatorState.Certificate env w (statement env w a) archive p bs
+      id replayHash supplied final := by
+  have context := template_context trace same
+  have prefixSame : referencePrefix (source env) 2 = referencePrefix w 2 :=
+    reference_hash_binds_prefix reference_binding (source_reference.trans context.reference.symm)
+  have viewSame := certificate_world_of_prefix (env := env) prefixSame
+  refine ⟨archive,genesis,[block],replayGenesis 0,replayed 0,?_,?_⟩
+  · rw [same]
+    exact batch_certificate_transport prefixSame source_pure_certificate
+  · rw [same]
+    change ValidatorState.Batch (policy env (certificateWorld env w 2) archive 2) id replayHash genesis [block]
+      template.blobHashes (replayGenesis 0) (replayed 0)
+    rw [← viewSame]
+    exact source_replay
+
+private theorem recovered_replays {w : World} {a : Landing}
+    (trace : Trace env (empty env registry) w) (same : statement env w a = recoveredTemplate) :
+    ∃ archive p bs supplied final, ValidatorState.Certificate env w (statement env w a) archive p bs
+      id replayHash supplied final := by
+  have context := recovered_context trace same
+  have prefixSame : referencePrefix (recoveredSource env) 4 = referencePrefix w 4 :=
+    reference_hash_binds_prefix reference_binding (recovered_reference.trans context.reference.symm)
+  have viewSame := certificate_world_of_prefix (env := env) prefixSame
+  refine ⟨recoveredArchive,first,[recoveredBlock],replayGenesis 1,replayed 1,?_,?_⟩
+  · rw [same]
+    exact batch_certificate_transport prefixSame recovered_pure_certificate
+  · rw [same]
+    change ValidatorState.Batch (policy env (certificateWorld env w 4) recoveredArchive 4) id replayHash first
+      [recoveredBlock] recoveredTemplate.blobHashes (replayGenesis 1) (replayed 1)
+    rw [← viewSame]
+    exact recovered_replay
+
+/-- The verifier above also meets the validator-replay refinement: each statement it accepts is
+certified by a batch that replays the one-seat validator state. -/
+theorem replay_sound : ValidatorState.ReplaySound env (empty env registry) id replayHash := by
+  refine ⟨fun _ => True,?_,?_⟩
+  · intro proofs accepted
+    cases proofs with
+    | nil => simp [dualOK] at accepted
+    | cons proof rest => exact ⟨proof,List.mem_cons_self,True.intro⟩
+  · intro w trace a t proof accepted present sound verified
+    change decide (proof.image = 11 ∧ (statement env w a = template ∨ statement env w a = recoveredTemplate)) = true at verified
+    obtain ⟨_,same⟩ := of_decide_eq_true verified
+    rcases same with ordinary | recovered
+    · exact template_replays trace ordinary
+    · exact recovered_replays trace recovered
+
 theorem premises : Etna.Statements.Current.Premises env registry engine := by
   refine ⟨⟨primitives,verifier_sound,reference_binding,registry_genesis,?_⟩,rfl,signature_refinement,
     by decide,fun w _ => codec_sound w,fun w _ => vote_attribution w,fun _ _ h => h,?_,
@@ -933,6 +1003,15 @@ theorem premises : Etna.Statements.Current.Premises env registry engine := by
     have same : selected = definition := by simpa [env,baseEnv] using present.symm
     subst selected
     rfl
+
+/-- The validator-replay refinement holds together with H1–H3's premises at this accepting
+deployment, so `ValidatorState.accepted_replay` applies to an accepted landing in it. -/
+theorem replay_satisfiable :
+    ∃ e registry engine addressOf hash w t a, Etna.Statements.Current.Premises e registry engine ∧
+      ValidatorState.ReplaySound e (empty e registry) addressOf hash ∧
+      Trace e (empty e registry) w ∧ land e w a = some t :=
+  ⟨env,registry,engine,id,replayHash,source env,landed (source env) landing,landing,premises,replay_sound,
+    source_reachable env,source_landing_accepted⟩
 
 def AcceptingDeployment : Prop :=
   ∃ e registry engine w t a, Etna.Statements.Current.Premises e registry engine ∧

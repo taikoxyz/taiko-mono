@@ -672,9 +672,11 @@
         "Etna.Design.Current.ValidatorState.origin_uses_genesis",
         "Etna.Design.Current.ValidatorState.later_origin_authenticates",
         "Etna.Design.Current.ValidatorState.checked_run_prefix",
-        "Etna.Design.Current.ValidatorState.batch_records"
+        "Etna.Design.Current.ValidatorState.batch_records",
+        "Etna.Design.Current.ValidatorState.checked_run_signers",
+        "Etna.Design.Current.ValidatorState.accepted_replay"
       ],
-      "reason": "Concrete Batch/Certificate refinements compute genesis or authenticate a later preimage, then check each block against separately normalized per-height updates. Existing H1–H4 certificates do not yet require this refinement; hash/ABI/key bindings remain external."
+      "reason": "Concrete Batch/Certificate refinements compute genesis or authenticate a later preimage, then check each block against separately normalized per-height updates. Under the ReplaySound guest refinement, accepted_replay ties this to the protocol trace: an accepted landing's checkpoint commits to the final replayed state, and every landed block's signing set is the registry committee active at its height; NonVacuity.replay_satisfiable shows it holds with H1–H3's premises. H1–H4 do not assume ReplaySound (H4's ProofComplete does not cover replayed batches); hash/ABI/key bindings remain external."
     },
     "SYNC-9-5": {
       "clause": "LIVE_EN-2b31e997f0d3114c",

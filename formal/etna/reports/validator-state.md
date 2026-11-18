@@ -40,6 +40,14 @@ References: [validator sets](https://github.com/cometbft/cometbft/blob/0880b4d37
   refinement of the existing decoded batch/closed-prefix certificate.
 - `trust_cut_at_origin` and `trust_cut_after_origin`: exact scope of the actual
   decoded node-trust comparison exception.
+- `checked_block_signers`, `checked_run_signers`, `checked_run_terminal`: each checked
+  block's signing set is the registry committee active at its height, and a nonempty
+  replay ends in the state whose hash and height the terminal header carries.
+- `accepted_replay`: under `ReplaySound`, the guest obligation in `VerifierSound`'s
+  shape, every accepted landing in a protocol trace has a replayed certificate whose
+  final state's hash and height are those of the checkpoint the landing writes.
+  `NonVacuity.replay_satisfiable` realizes `ReplaySound` together with H1–H3's
+  `Premises` at the accepting witness.
 
 `validState` refuses empty/unordered sets, invalid numeric values, duplicate keys
 or addresses, and missing/nonmember stored proposers before preimage admission.
@@ -93,7 +101,9 @@ comparison or reintroduce the old origin hash through archive authentication; th
 The existing H1–H4 `VerifierSound`, `ImageCertifies` and `BatchCertificate` still use
 the original decoded validity relation. They are not silently strengthened by the
 new `ValidatorState.Certificate`; guest/client adoption is a further integration
-obligation. This patch supplies executable semantics and proofs to discharge that
+obligation. `ReplaySound` is not an H1–H4 premise: the joint H1–H4 witnesses would
+also need H4's `ProofComplete` for replayed batches, so H4's recovery path would have to
+build batches whose replay agrees with `Consensus.activeAt`, which is not yet proved. This patch supplies executable semantics and proofs to discharge that
 obligation, not a proof that production guests already do so.
 
 The snapshot keeps ordered key identities, powers, signed priorities and stored

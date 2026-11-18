@@ -5086,6 +5086,30 @@
       "scope": "Restricted joint-fifteen-premise realization or witness plumbing. Exact fixed interpreters, empty archive priors, vacuous Unzen extension, genesis-only risk and self-chain honest agreement limitations are documented in reports/review-round-five.md; no standalone rule credit."
     },
     {
+      "declaration": "Etna.Design.Current.Protocol.NonVacuity.replay_satisfiable",
+      "module": "EtnaWitnesses.NonVacuity.Current",
+      "role": "regression",
+      "type": "∃ e registry engine addressOf hash w t a,\n  Etna.Statements.Current.Premises e registry engine ∧\n    Etna.Design.Current.ValidatorState.ReplaySound e (Etna.Design.Current.Protocol.empty e registry) addressOf hash ∧\n      Etna.Design.Current.Protocol.Trace e (Etna.Design.Current.Protocol.empty e registry) w ∧\n        Etna.Design.Current.Protocol.land e w a = Option.some t",
+      "assumptions": [
+        "Concrete restricted new-network interpreter; globally injective ideal commitments, standard-token deployment and exact signature adapters are constructed, not assumed. This witness is not a production cryptographic/EL or switching-margin realization."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": [],
+      "scope": "Restricted validator-replay realization at the accepting witness: the one-seat committee {key 7} replays its genesis, addressOf is the identity and the snapshot hash is 300 plus the height. Ideal adapters, not CometBFT key derivation or ABI/Keccak; no standalone rule credit."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.NonVacuity.replay_sound",
+      "module": "EtnaWitnesses.NonVacuity.Current",
+      "role": "regression",
+      "type": "Etna.Design.Current.ValidatorState.ReplaySound Etna.Design.Current.Protocol.NonVacuity.env\n  (Etna.Design.Current.Protocol.empty Etna.Design.Current.Protocol.NonVacuity.env\n    Etna.Design.Current.Protocol.NonVacuity.registry)\n  id Etna.Design.Current.Protocol.NonVacuity.replayHash",
+      "assumptions": [
+        "Concrete restricted new-network interpreter; globally injective ideal commitments, standard-token deployment and exact signature adapters are constructed, not assumed. This witness is not a production cryptographic/EL or switching-margin realization."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": [],
+      "scope": "Restricted validator-replay realization at the accepting witness: the one-seat committee {key 7} replays its genesis, addressOf is the identity and the snapshot hash is 300 plus the height. Ideal adapters, not CometBFT key derivation or ABI/Keccak; no standalone rule credit."
+    },
+    {
       "declaration": "Etna.Design.Current.Protocol.NonVacuity.rollback_then_landing_accepted",
       "module": "EtnaWitnesses.NonVacuity.Current",
       "role": "regression",
@@ -8478,6 +8502,58 @@
       "role": "supporting",
       "sources": ["LIVE_EN-2b31e997f0d3114c"],
       "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: trust_cut_after_origin. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.checked_block_signers",
+      "type": "∀ {r : Blocks.Policy} {addressOf : Hash → Nat} {hash : Snapshot → Hash}\n    {s t : CommitState} {b : Blocks.Block} (ok : checkBlock r addressOf hash s b = some t),\n    membership s.current = membership ⟨selected r.consensus addressOf\n      (Consensus.activeAt r.consensus b.header.height),none⟩",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": ["LIVE_EN-2096743a5d399f16"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: checked_block_signers. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.checked_run_signers",
+      "type": "∀ {r : Blocks.Policy} {addressOf : Hash → Nat}\n    {hash : Snapshot → Hash} {s final : CommitState} {bs : List Blocks.Block}\n    (ok : checkRun r addressOf hash s bs = some final), ∀ b ∈ bs, ∃ before after,\n      checkBlock r addressOf hash before b = some after ∧\n      membership before.current = membership ⟨selected r.consensus addressOf\n        (Consensus.activeAt r.consensus b.header.height),none⟩ ∧\n      after.height = b.header.height ∧ hash (snapshot after) = b.header.valStateHash",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-2096743a5d399f16"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: checked_run_signers. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.checked_run_terminal",
+      "type": "∀ {r : Blocks.Policy} {addressOf : Hash → Nat}\n    {hash : Snapshot → Hash} {s final : CommitState} {bs : List Blocks.Block}\n    (ok : checkRun r addressOf hash s bs = some final) (nonempty : bs ≠ []) (p : Blocks.Header),\n    hash (snapshot final) = (Blocks.terminal p bs).valStateHash ∧\n      final.height = (Blocks.terminal p bs).height",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "Concrete Batch/Certificate is an additional refinement obligation; H1–H4 retain their original abstract statements."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-2096743a5d399f16"],
+      "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: checked_run_terminal. No Go implementation refinement, raw ABI/Keccak proof, durable store proof or automatic strengthening of H1–H4."
+    },
+    {
+      "module": "EtnaProofs.CurrentValidatorState",
+      "declaration": "Etna.Design.Current.ValidatorState.accepted_replay",
+      "type": "∀ {env : Protocol.Environment} {initial w t : Protocol.World}\n    {a : Protocol.Landing} {addressOf : Hash → Nat} {hash : Snapshot → Hash}\n    (soundness : ReplaySound env initial addressOf hash) (reach : Protocol.Trace env initial w)\n    (ok : Protocol.land env w a = some t),\n    ∃ archive p bs supplied final,\n      Certificate env w (Protocol.statement env w a) archive p bs addressOf hash supplied final ∧\n      hash (snapshot final) = t.inbox.checkpoint.valStateHash ∧\n      final.height = t.inbox.checkpoint.height ∧\n      ∀ b ∈ bs, ∃ before after : CommitState,\n        membership before.current = membership ⟨selected\n          (Protocol.policy env (Protocol.certificateWorld env w a.input.l1ReferenceBlockNumber) archive\n            a.input.l1ReferenceBlockNumber).consensus addressOf\n          (Consensus.activeAt (Protocol.policy env (Protocol.certificateWorld env w a.input.l1ReferenceBlockNumber)\n            archive a.input.l1ReferenceBlockNumber).consensus b.header.height),none⟩ ∧\n        after.height = b.header.height ∧ hash (snapshot after) = b.header.valStateHash",
+      "assumptions": [
+        "Decoded authenticated key identities and secp256k1eth addresses; canonical snapshot hash/ABI binding remains external.",
+        "ReplaySound is a guest-soundness refinement premise in the shape of VerifierSound; H1–H4 do not assume it, and H4's ProofComplete does not cover replayed batches."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": ["LIVE_EN-2096743a5d399f16", "LIVE_EN-2b31e997f0d3114c"],
+      "scope": "Accepted-landing validator replay under the ReplaySound refinement premise: the written checkpoint's validator-state hash and height are those of the final replayed state, and every landed block's signing set is the registry committee active at its height. Exact result: accepted_replay. Not part of H1–H4; no Go implementation refinement, raw ABI/Keccak proof or durable store proof."
     }
   ]
 }

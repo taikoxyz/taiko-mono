@@ -390,7 +390,16 @@ concrete new-generation genesis state.
 
 This is an additional refinement layer, not a restatement of H1–H4. Their
 `currentVerifierSound` and `currentCodec` premises remain unchanged and do not yet
-require `ValidatorState.Certificate`. Adoption by a guest/client, raw key/address
+require `ValidatorState.Certificate`. `ValidatorState.ReplaySound` states the guest
+obligation in `VerifierSound`'s shape: a sound backend's accepted proof certifies its
+statement with a replayed `Certificate`. From it, `ValidatorState.accepted_replay`
+derives, on the actual protocol trace, that every accepted landing's checkpoint commits
+to the hash and height of the final replayed state, and that every landed block's
+signing set is the registry committee active at its height.
+`NonVacuity.replay_satisfiable` shows `ReplaySound` holding with H1–H3's `Premises` at
+the accepting witness. It is not an H1–H4 premise: the joint H1–H4 witnesses would
+also need H4's `ProofComplete` for replayed batches, so the recovery path would have to
+build batches whose replay agrees with `Consensus.activeAt`, which is not yet proved. Adoption by a guest/client, raw key/address
 binding, the precise ENC-A-29a ABI/Keccak encoder, durable SYNC-9-5c records and stock
 CometBFT store/Go implementation refinement remain separate obligations. Hashing a
 concrete snapshot does not by itself prove those implementations.
