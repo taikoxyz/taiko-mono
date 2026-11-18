@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "call.self_delegate.staticcall.zk_limit_short",
+  "layer": "harness",
+  "cells": [
+    "call.self_delegate.cold_exact_spawn",
+    "metering.opcode.limit_exceeded_aborted"
+  ],
+  "description": "staticcall.zk_limit_short: 0xfa enters its step with 3000 gas; the EIP-7702 target delegates to itself. Initial warmth is preserved in the trace and target/delegate aliasing is explicit.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x10",
+        "code": "0x5f5f5f5f60425ffa00"
+      },
+      "0x0000000000000000000000000000000000000042": {
+        "balance": "0x1",
+        "code": "0xef01000000000000000000000000000000000000000042"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0xbc5",
+    "zk_block_limit": "0x13b10",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": null,
+    "status": "zk_limit"
+  }
+}

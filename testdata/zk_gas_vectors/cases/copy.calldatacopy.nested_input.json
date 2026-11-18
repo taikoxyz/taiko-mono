@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "copy.calldatacopy.nested_input",
+  "layer": "harness",
+  "cells": ["copy.calldatacopy.shared_buffer_success"],
+  "description": "The contract STATICCALLs a helper with 64 bytes of its memory as input (first byte 0x07); the helper CALLDATACOPYs them and MSTORE8s at 32 times the first copied byte.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x7f07000000000000000000000000000000000000000000000000000000001122335f527f0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f206020525f5f60405f61da7b5afa00"
+      },
+      "0x000000000000000000000000000000000000da7b": {
+        "balance": "0x0",
+        "code": "0x60405f5f375f5f5160f81c60051b5300"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x1401c",
+    "status": "success"
+  }
+}

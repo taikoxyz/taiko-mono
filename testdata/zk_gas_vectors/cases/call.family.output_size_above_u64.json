@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "call.family.output_size_above_u64",
+  "layer": "harness",
+  "cells": ["call.family.output_size_above_u64_keeps_input_charge"],
+  "description": "CALL with input 0..32 and an output length of 2^64: halts after the 100 static gas and the 3 input expansion.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x680100000000000000005f60205f5f62c0ffee5ff100"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x8d1",
+    "status": "halt"
+  }
+}

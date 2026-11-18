@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "id": "create.block.failure_classes",
+  "layer": "block",
+  "cells": [
+    "create.tx.initcode_steps_metered",
+    "create.create.new_frame_spawn_estimate",
+    "create.create2.new_frame_spawn_estimate",
+    "create.create2.salt_underflow_after_charges_preserve",
+    "create.family.static_frame_halt_preserve",
+    "create.family.collision_spawn_estimate",
+    "create.family.insufficient_balance_spawn_estimate",
+    "create.family.initcode_above_limit_preserve",
+    "create.create.base_oog_spend_all",
+    "create.family.nonce_overflow_spawn_estimate"
+  ],
+  "description": "The anchor, then nine txs from signer 1: a contract-creation tx whose initcode runs PUSH1 1, PUSH1 2, ADD, POP and deploys one byte; a CREATE and a CREATE2 of a small initcode; a CREATE2 with three stack items (the tx halts); a STATICCALL to a helper whose CREATE halts on the static check; a CREATE into an address holding a nonce; a CREATE of value 1 without balance; a CREATE of 49,153 bytes (the tx halts); a CREATE with 20,000 gas left (the base cannot be paid, the tx halts); a CREATE2 from an account with nonce 2^64 - 1.",
+  "input": {
+    "env": {
+      "chain_id": "0x28c59",
+      "number": "0x1",
+      "timestamp": "0xc",
+      "base_fee": "0x17d7840",
+      "coinbase": "0x0000000000000000000000000000000000c0ffee",
+      "gas_limit": "0x2faf080",
+      "prev_randao": "0x2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+      "extra_data": "0x4b000000000001"
+    },
+    "alloc": {
+      "0x1670010000000000000000000000000000010001": {
+        "balance": "0x0",
+        "code": "0x00"
+      },
+      "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf": {
+        "balance": "0xde0b6b3a7640000"
+      },
+      "0x0000000000000000000000000000000000c0ffee": {
+        "balance": "0x1"
+      },
+      "0x000000000000000000000000000000000000b001": {
+        "balance": "0x0",
+        "code": "0x656001600201005f526006601a5ff050602a6006601a5ff55000"
+      },
+      "0x000000000000000000000000000000000000b002": {
+        "balance": "0x0",
+        "code": "0x6104005f5ff500"
+      },
+      "0x000000000000000000000000000000000000b003": {
+        "balance": "0x0",
+        "code": "0x5f5f5f5f61da7161fffffa5000"
+      },
+      "0x000000000000000000000000000000000000da71": {
+        "balance": "0x0",
+        "code": "0x60205f5ff000"
+      },
+      "0x000000000000000000000000000000000000b004": {
+        "balance": "0x0",
+        "code": "0x5f5f5ff05000"
+      },
+      "0x65df3b6bfe4b6232705bc555edbed39c54f92a0c": {
+        "balance": "0x0",
+        "nonce": "0x1"
+      },
+      "0x000000000000000000000000000000000000b005": {
+        "balance": "0x0",
+        "code": "0x5f5f6001f05000"
+      },
+      "0x000000000000000000000000000000000000b006": {
+        "balance": "0x0",
+        "code": "0x61c0015f5ff000"
+      },
+      "0x000000000000000000000000000000000000b007": {
+        "balance": "0x0",
+        "code": "0x60205f5ff000"
+      },
+      "0x000000000000000000000000000000000000b008": {
+        "balance": "0x0",
+        "nonce": "0xffffffffffffffff",
+        "code": "0x5f5f5f5ff55000"
+      }
+    },
+    "txs": [
+      {
+        "signer": "golden_touch",
+        "nonce": "0x0",
+        "to": "0x1670010000000000000000000000000000010001",
+        "gas": "0xf4240",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x523e6854"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x0",
+        "to": null,
+        "gas": "0x186a0",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x60016002015060015ff3"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x1",
+        "to": "0x000000000000000000000000000000000000b001",
+        "gas": "0x30d40",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x2",
+        "to": "0x000000000000000000000000000000000000b002",
+        "gas": "0x186a0",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x3",
+        "to": "0x000000000000000000000000000000000000b003",
+        "gas": "0x186a0",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x4",
+        "to": "0x000000000000000000000000000000000000b004",
+        "gas": "0x186a0",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x5",
+        "to": "0x000000000000000000000000000000000000b005",
+        "gas": "0x186a0",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x6",
+        "to": "0x000000000000000000000000000000000000b006",
+        "gas": "0x186a0",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x7",
+        "to": "0x000000000000000000000000000000000000b007",
+        "gas": "0xa02f",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x8",
+        "to": "0x000000000000000000000000000000000000b008",
+        "gas": "0x186a0",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      }
+    ]
+  },
+  "expected": {
+    "raw_txs": [
+      "0x02f86e83028c59808084017d7840830f42409416700100000000000000000000000000000100018084523e6854c001a077c9819ad91bc8c341abbd41d41d41b851bf4cade2dd943fdf421e796b952ce3a0653034f4ffd280ca8ca71f966f2ee2e7a2f59e6ee0ba1be905805cc46c399718",
+      "0x02f86083028c59808084017d7840830186a080808a60016002015060015ff3c001a06b1af53f3541b6c6e4455447cbc4115ec648180c467adcde2f59aa5bcd590d07a0353f217f0d7fcfc4925be9f1f10b4a6e94e5495776ea1beb36d6bb154f8755bb",
+      "0x02f86a83028c59018084017d784083030d4094000000000000000000000000000000000000b0018080c001a0844b764c785d580fe36ec1c7974a7a698d2a88daceae7135762dd7fa2ee374aea05bb75b7e1230667e3223f16c7e52e819d9476b8bc98448461dde21e9199cfd44",
+      "0x02f86a83028c59028084017d7840830186a094000000000000000000000000000000000000b0028080c080a048a257262161a22bed7eb57c7d6b49b40d1ce5599fd1816d31461742743d42eaa01894b958b47bbe67cc4e3d9bcb9f032650465ea091dab88a4f4cadc930f70996",
+      "0x02f86a83028c59038084017d7840830186a094000000000000000000000000000000000000b0038080c001a04a520484a0d67f13bb2cb57ea10378f7ced805e007e5a553755e92d94ce5e964a00d8ad06ce1bd472bce09111994135a9936e06686ac249038e92de42e4c86bae1",
+      "0x02f86a83028c59048084017d7840830186a094000000000000000000000000000000000000b0048080c001a07db6c15e4a0e02c5e1e3fdc0f7e24708ac85b8bcb7deea5bf5da0c9de45d93dda0604a6174ed3a0f3d03efdf03ded235bb3d7ae94f7cc778e5c3920a59c5420d9e",
+      "0x02f86a83028c59058084017d7840830186a094000000000000000000000000000000000000b0058080c001a033c9b1a51287415f12ce0e8596bfa9a07baddbeab595498231e9735e7e749211a04e3728ccf0d57c16a7dac358e85ba314b282cd3e08f2600781a28232970670a2",
+      "0x02f86a83028c59068084017d7840830186a094000000000000000000000000000000000000b0068080c080a0f4b4864aaea88b1f6841272673946db119da91f73dfedee5cc1e8fbca2b51e30a01db2d0dd5d09c1d729e7b28e1d58fbe42436d7428c9331695d8d577792cf13be",
+      "0x02f86983028c59078084017d784082a02f94000000000000000000000000000000000000b0078080c001a084beb0825f77ea691c4dd007b213c186c6f1fcc36cc742e6687d4550b1bfd5afa051a68717e2e19dcde71c5cc9de1b8c4f15b86d26ab551fb817da7031c0ca6398",
+      "0x02f86a83028c59088084017d7840830186a094000000000000000000000000000000000000b0088080c080a054cdadf55c720ad21544f7d30cd226706a1703661f6981097b87fa2fb98e9107a07e7a4c76d8c946e80a04e3ad7e18008e861cae830dbf88f8465ce89759c1a4d8"
+    ],
+    "included": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    "truncated_at": null,
+    "cumulative_zk_gas": [
+      "0x3b538",
+      "0x76b28",
+      "0xc6169",
+      "0x10178f",
+      "0x150836",
+      "0x194e58",
+      "0x1d947b",
+      "0x2149ff",
+      "0x254da6",
+      "0x29b12e"
+    ],
+    "block_zk_gas": "0x29b12e",
+    "state_root": "0x84627bafbb943dc6fcd61bd2f8f1eaad89ca095cc9a68fb123d5ec2343bc49ea",
+    "import_built": "accept",
+    "import_extended": null,
+    "import_wrong_difficulty": "reject"
+  }
+}

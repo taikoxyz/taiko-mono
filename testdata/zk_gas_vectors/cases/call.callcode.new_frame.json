@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "call.callcode.new_frame",
+  "layer": "harness",
+  "cells": ["call.callcode.new_frame_spawn_estimate"],
+  "description": "CALLCODE to a contract running PUSH1 1, PUSH1 2, ADD, STOP: the CALLCODE step is charged its spawn estimate and the child's 111 zk gas is added.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f5f5f5f5f61c0d161fffff25000"
+      },
+      "0x000000000000000000000000000000000000c0d1": {
+        "balance": "0x0",
+        "code": "0x600160020100"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x3d1c5",
+    "status": "success"
+  }
+}

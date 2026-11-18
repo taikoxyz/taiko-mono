@@ -202,7 +202,7 @@
       </ul>
     </div>
   </div>
-  <button class="overlay-backdrop" data-modal-uuid={id} />
+  <button aria-label={$t('common.close')} class="overlay-backdrop" data-modal-uuid={id}></button>
 </dialog>
 
 <OnAccount change={onAccountChange} />

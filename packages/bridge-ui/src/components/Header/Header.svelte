@@ -46,7 +46,7 @@
     <div class="f-row">
       <ConnectButton connected={$account?.isConnected} class="justify-self-end" />
       <div class="hidden lg:inline-flex">
-        <div class="v-sep my-auto mx-[8px] h-[24px]" />
+        <div class="v-sep my-auto mx-[8px] h-[24px]"></div>
         <ThemeButton />
       </div>
     </div>

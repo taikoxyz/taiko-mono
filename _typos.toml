@@ -14,6 +14,8 @@ extend-ignore-identifiers-re = [
   "TTKOt",
   "J64QPL3oYpZ75230YMfbLfKcUEqlIyWW8",
   "consts",
+  # EVM opcode-family notation and the pluralized RETURN opcode.
+  '\b(?:DUPn|SWAPn|RETURNs)\b',
 ]
 
 [files]

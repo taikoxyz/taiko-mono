@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "call.value.insufficient_balance",
+  "layer": "harness",
+  "cells": ["call.value.insufficient_balance_no_frame"],
+  "description": "A contract with no balance CALLs and CALLCODEs a contract with value 1 and CALLs identity (0x04) with value 1: each step is charged its spawn estimate, the contract's code never runs and identity is not charged.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f5f5f5f600161c0d161fffff1505f5f5f5f600161c0d161fffff2505f5f60205f6001600461fffff15000"
+      },
+      "0x000000000000000000000000000000000000c0d1": {
+        "balance": "0x0",
+        "code": "0x600160020100"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0xb7409",
+    "status": "success"
+  }
+}

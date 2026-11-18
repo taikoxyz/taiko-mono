@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "call.depth.limit_at_1024",
+  "layer": "harness",
+  "cells": [
+    "call.depth.deepest_frame_created",
+    "call.depth.limit_short_circuit_spawn_estimate"
+  ],
+  "description": "The contract CALLs itself with all its gas until the call depth limit: frames at depths 0 to 1024 run; the CALL at depth 1024 is charged the spawn estimate and fails, so only that frame takes the failure branch (PUSH1 1, PUSH1 2, ADD, POP).",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f5f5f5f5f305af1601257600160020150005b00"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x10000000000",
+    "zk_block_limit": "0x10000000000",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0xf4a8e1e",
+    "status": "success"
+  }
+}

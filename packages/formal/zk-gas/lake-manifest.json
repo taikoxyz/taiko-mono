@@ -1,0 +1,8 @@
+{
+  "version": "1.2.0",
+  "packagesDir": ".lake/packages",
+  "packages": [],
+  "name": "zk_gas",
+  "lakeDir": ".lake",
+  "fixedToolchain": false
+}

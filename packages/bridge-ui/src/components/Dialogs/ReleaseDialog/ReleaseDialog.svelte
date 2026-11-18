@@ -242,7 +242,7 @@
       <CloseButton onClick={closeDialog} />
       <h3 class="title-body-bold">{$t('transactions.release.title')}</h3>
     </div>
-    <div class="h-sep mx-[-24px] mt-[20px]" />
+    <div class="h-sep mx-[-24px] mt-[20px]"></div>
     <div class="w-full h-full f-col">
       {#if recallState !== 'enabled' && !releasing && !releaseTxPending && !releasingDone}
         <p class="mt-[20px]" role="status">
