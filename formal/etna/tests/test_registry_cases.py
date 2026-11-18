@@ -11,7 +11,10 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from test_comet_signed import input_map_mutations, signed_execution_record
+if __package__:
+    from .test_comet_signed import input_map_mutations, signed_execution_record
+else:
+    from test_comet_signed import input_map_mutations, signed_execution_record
 
 ROOT = Path(__file__).resolve().parents[1] / "conformance"
 SPEC = importlib.util.spec_from_file_location("etna_registry_cases", ROOT / "run_registry_cases.py")
