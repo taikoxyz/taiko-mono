@@ -4008,3 +4008,62 @@ P01/P02/Q01/Q02 and D01 retain OPEN/WAITING status. No unavailable interface was
 invented to close them. Draft/worktree/ledger/raw artifacts are preserved for
 review; hourly monitoring returns to feedback-only after final readbacks.
 No sixth increment, merge/ready, production/SPEC/Notion or live action is authorized.
+
+## N01 public signed-consumer gate
+
+The authorized next-five public-consumer batch is in progress. N01 is complete
+for its selected stock signed-vote API boundary at implementation
+`feaecb47dfa4e039e0426e37fbb8941c94e8d6ed` plus reviewed repair
+`d7bfe629ceda37ce580afceeff38ef59c0a42b91`. N02–N05 remain pending. See the
+[five-task plan](../../docs/superpowers/plans/2026-11-18-etna-public-consumer-conformance.md)
+and [scope, inputs and invocation](conformance/COMET_SIGNED.md).
+
+Actual pinned stock CometBFT verifies all 23 unchanged public signatures and
+matches all 23 published canonical byte strings. Structural validation accepts 21
+and refuses exactly the two incomplete BlockIDs. The 45 native cases include
+strict 2/3 refusal, 3/4 acceptance, below-threshold and nonzero-index controls,
+valid nil verification with zero nonnil-commit power, duplicate/conflict policy,
+domain/address/index/step refusals and genuine round 1/2 POL. One public signer
+with synthetic weighted/absent profiles tests these APIs; it is not an Etna
+launch committee, full consensus execution or a latency benchmark.
+
+The author's same-copy source fault changes the final single-verifier quorum
+comparison. Fresh normal and restored phases each pass 45; exactly the intended
+threshold leaf fails under mutation. A separately chosen independent source
+fault incorrectly counts valid nil signatures toward the nonnil target: again
+45/44+one intended failure/45, with all other literal receipts unchanged.
+Both faults retain raw execution, full 1659-file guards, positive controls and
+restoration. These controls are separate from the historical shared 80 inventory.
+
+Independent review found two verification defects after native behavior passed:
+missing required Go event classifications and oversized receipt fragments could
+qualify as exact evidence, and two recoverable I/O paths could skip restoration
+of the disposable private fault copy. The repair enforces actual event-kind
+presence and the pinned 1024-byte framing, validates elapsed metadata, and
+protects mutation before its first write while restoring original bytes and
+mode even after partial writes or failed readback. Real-file I/O probes and
+eight changes to actual raw streams independently validate these corrections.
+The first real run also exposed legitimate 1024+286-byte POL log fragmentation;
+the failed adapter run remains retained rather than counted as a full campaign.
+
+The corrected head passed nonauthor source review and independent behavioral
+verification, including the actual distinct nil fault. The managed-Python
+ordinary cohorts passed 67+166+20=253 tests, zero skips/errors/failures. No model
+or baseline executable input changed; the 493 default model outcomes and shared 80
+mutation results remain previous evidence until separately refreshed.
+
+| Retained artifact identity                           | SHA256                                                             |
+| ---------------------------------------------------- | ------------------------------------------------------------------ |
+| Public projection                                    | `34932f8ddf991ae41eb1be94c873e99524f51cf96d427faed4a1bfc443dc960e` |
+| Corrected author campaign summary                    | `97349715780130ca0cc361bf73a1847cd45c6a904a5daffbddb04b112eb5cb06` |
+| Independent nil campaign summary                     | `2bcc30fae51febde58b62654e2b4ec2371c504660e0335c6b4d38c980ed4ae05` |
+| Independent correction audit                         | `454f4eca284968fffb180a1a1ef492bdc249adee084fa25e72c6e3e99a4a9c92` |
+| Source review and scoped recheck                     | `224fed5380b5208ccf267b243d39911fa96bc81ed781b7368d38e0ff02dc6f5c` |
+| Independent behavioral report and correction recheck | `808950dbac7c7dcbb2907ded301ac3351411a896b67fd14ce8a28d489c303614` |
+
+Common published-fixture provenance and the configured offline dependency cache
+remain premises. Selected Go executables/VERSION and actual Comet/input bytes
+are pinned; this is not a full SDK/cache content audit. Authenticated committees,
+proposals, locks, finalization, P2P and missing actual client/EL/guest consumers
+remain K02/E01 and their related OPEN/WAITING obligations. No natural protocol
+defect was established by this selected gate.

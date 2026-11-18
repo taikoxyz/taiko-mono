@@ -262,3 +262,21 @@ Inventory80 and original75/native/Forge historical evidence remain distinct;
 four unassessed and19 archived incomplete entries are not closed by these counts.
 The existing draft and artifacts stay available. Feedback-only monitoring
 continues; another group requires direct authorization.
+
+## Active N01–N05 public-consumer batch
+
+The user authorized the next five increments on 2026-11-18. The
+[public-consumer plan](../../docs/superpowers/plans/2026-11-18-etna-public-consumer-conformance.md)
+selects N01 stock signed admission/quorum/POL, N02 Solidity bytes and real
+double-sign effects, N03 Registry exit/withdraw/reuse, N04 late transfer
+failure/retry, and N05 exact 19 archived dispositions. N05 can close disposition
+acceptance X01 only after independent audit; all 19 historic searches remain INCONCLUSIVE.
+
+N01's [selected signed API gate](conformance/COMET_SIGNED.md) is complete after
+independent source and actual behavioral verification, with verification-tool
+findings fixed at d7bfe629c. Its [report](REPORT.md#n01-public-signed-consumer-gate)
+records genuine public signatures, strict weighted thresholds and distinct
+actual nil sensitivity. K02 remains OPEN for full authenticated multi-height
+consensus/locks/finalization; E01 remains WAITING for all actual consumers.
+N02–N05 and the accumulated final gate remain unfinished. Stop after five,
+preserve historical evidence and keep feedback first.
