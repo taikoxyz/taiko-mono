@@ -222,6 +222,56 @@ class DisplacementReceipts(unittest.TestCase):
                     CASES.require_forge_outcomes(raw[:-2], 0, CASES.DISPLACEMENT_SUITE,
                                                  {leaf: self.expected[leaf]})
 
+    def native_fixture(self, leaf):
+        # Freeze the execution side before changing any copy of the typed oracle.
+        oracle = copy.deepcopy(self.pins["displacement"][leaf])
+        payload = CASES.DISPLACEMENT_SCHEMA + b"".join(
+            self.encode(step) for step in oracle["journal"])
+        native = row(payload)
+        native["logs"] = oracle["setupLogs"] + oracle["actionLogs"] + native["logs"]
+        return json.dumps({CASES.DISPLACEMENT_SUITE:
+                           dict(duration="2ms", test_results={leaf: native})})
+
+    def test_rejects_pin_only_history_root_height_count_and_order_changes(self):
+        for leaf in CASES.DISPLACEMENT_TESTS:
+            raw = self.native_fixture(leaf)
+            for field in ("root", "height", "count", "order"):
+                changed = copy.deepcopy(self.pins["displacement"][leaf])
+                if field == "order":
+                    changed["history"][0], changed["history"][1] = changed["history"][1], changed["history"][0]
+                elif field == "root":
+                    changed["history"][-1][field] = "0x" + "00" * 32
+                else:
+                    changed["history"][-1][field] += 1
+                # Equal row counts pass preflight; native bytes remain untouched.
+                leaves = copy.deepcopy(self.pins["displacement"])
+                leaves[leaf] = changed
+                CASES.require_displacement_oracle(leaves)
+                expected = {leaf: lambda receipt, logs: CASES.displacement_receipt(receipt, logs, changed)}
+                with self.subTest(leaf=leaf, field=field), self.assertRaisesRegex(ValueError, "history"):
+                    CASES.require_forge_outcomes(raw, 0, CASES.DISPLACEMENT_SUITE, expected)
+
+    def test_history_coalesces_same_block_writes_to_last_observed_checkpoint(self):
+        for leaf, heights in ((CASES.DISPLACEMENT_PRIMARY, [10, 14, 15, 17]),
+                              (CASES.DISPLACEMENT_OPPOSITE, [10, 14, 15, 17, 18, 19])):
+            with self.subTest(leaf=leaf):
+                raw = self.native_fixture(leaf)
+                oracle = self.pins["displacement"][leaf]
+                got = CASES.require_forge_outcomes(raw, 0, CASES.DISPLACEMENT_SUITE,
+                                                   {leaf: self.expected[leaf]})[leaf]["history"]
+                self.assertEqual([item["height"] for item in got], heights)
+                self.assertEqual([item["count"] for item in got], [2] * len(heights))
+                self.assertEqual(got, oracle["history"])
+                self.assertIsNot(got, oracle["history"])
+                checkpoints = [log for log in json.loads(raw)[CASES.DISPLACEMENT_SUITE]["test_results"][leaf]["logs"]
+                               if log["topics"][0] == CASES.CHECKPOINT_TOPIC]
+                # Registration overwrites index 0 in both schedules; replacement
+                # also overwrites index 3 in the primary schedule.
+                self.assertEqual(len(checkpoints), len(got) + (2 if leaf == CASES.DISPLACEMENT_PRIMARY else 1))
+                self.assertNotEqual(checkpoints[0]["data"][-64:], checkpoints[1]["data"][-64:])
+                self.assertEqual(got[0]["root"], "0x" + checkpoints[1]["data"][-64:])
+                self.assertEqual(got[-1]["root"], "0x" + checkpoints[-1]["data"][-64:])
+
     def test_rejects_omitted_duplicate_missing_reordered_displacement_logs(self):
         leaf = CASES.DISPLACEMENT_PRIMARY
         oracle = self.pins["displacement"][leaf]

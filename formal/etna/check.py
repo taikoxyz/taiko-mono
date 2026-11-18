@@ -138,6 +138,7 @@ def main(argv=None):
         parser.error(str(error))
     if not inputs_unchanged(snapshot):
         parser.error("model/configuration changed while preparing the run")
+    args.output_dir = args.output_dir.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     run_dir = Path(tempfile.mkdtemp(prefix="etna-tlc-", dir=args.output_dir))
     results = []

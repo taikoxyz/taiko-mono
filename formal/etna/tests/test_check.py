@@ -190,6 +190,37 @@ class ConfigDirectoryTests(unittest.TestCase):
         self.assertTrue(result["inputs_unchanged"])
         self.assertEqual(result["config_sha256"], CHECK.hashlib.sha256(self.config.read_bytes()).hexdigest())
 
+    def test_relative_output_uses_caller_directory_and_cleans_actual_child_states(self):
+        # Keep both possible destinations inside a disposable tree. The child
+        # creates state relative to its actual cwd, just as TLC does.
+        model_root = self.caller / "model"
+        model_root.mkdir()
+        module = model_root / "EtnaProvingProgress.tla"
+        module.write_text("temporary local model; never executed")
+        child_states = []
+
+        def create_states_then_pass(command, *, cwd, **kwargs):
+            requested = Path(command[command.index("-metadir") + 1])
+            actual = (Path(cwd) / requested).resolve()
+            actual.mkdir(parents=True)
+            (actual / "state-file").write_bytes(b"temporary state database")
+            child_states.append((requested, actual))
+            return self.passed(command, **kwargs)
+
+        with mock.patch.object(CHECK, "__file__", str(model_root / "check.py")):
+            result, _ = self.run_checker(
+                ["--config-dir", "selected", "--output-dir", "results"], create_states_then_pass)
+        self.assertEqual(result, 0)
+        requested, actual = child_states[0]
+        self.assertTrue(requested.is_absolute())
+        self.assertTrue(actual.is_relative_to(self.output))
+        self.assertFalse(actual.exists())
+        self.assertEqual(set(model_root.iterdir()), {module})
+        report = self.read_result()
+        self.assertTrue(report["ok"])
+        log, = self.output.glob("etna-tlc-*/one/tlc.log")
+        self.assertEqual(log.read_text(), PASS)
+
     def test_absolute_directory_is_selected(self):
         result, run = self.run_checker(["--config-dir", str(self.configs)], self.passed)
         self.assertEqual(result, 0)

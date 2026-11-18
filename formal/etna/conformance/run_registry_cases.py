@@ -411,8 +411,32 @@ def displacement_receipt(receipt, logs, oracle):
         log_offset = end
     if offset != len(receipt) or log_offset != len(oracle["actionLogs"]):
         raise ValueError("extra displacement receipt words or unbound action logs")
+    # _commit appends a checkpoint at a new height and overwrites the last
+    # index on another write in that same block. Publish those observed rows,
+    # rather than projecting the separately pinned typed history verbatim.
+    history = []
+    for log in logs:
+        if not log["topics"] or log["topics"][0] != CHECKPOINT_TOPIC:
+            continue
+        data = hex_bytes(log["data"])
+        if log["address"] != PROXY or len(log["topics"]) != 2 or len(data) != 96:
+            raise ValueError("wrong displacement checkpoint history event")
+        index = int.from_bytes(hex_bytes(log["topics"][1], 32), "big")
+        height = int.from_bytes(data[:32], "big")
+        count = int.from_bytes(data[32:64], "big")
+        if height >= 1 << 48 or count >= 1 << 48:
+            raise ValueError("wrong displacement checkpoint history field width")
+        checkpoint = dict(height=height, count=count, root=hex_data(data[64:]))
+        if index == len(history) and (not history or height > history[-1]["height"]):
+            history.append(checkpoint)
+        elif history and index == len(history) - 1 and height == history[-1]["height"]:
+            history[-1] = checkpoint
+        else:
+            raise ValueError("wrong displacement checkpoint history index or height")
+    if history != oracle["history"]:
+        raise ValueError("wrong displacement checkpoint history")
     return dict(schema="etna-registry-displacement-2", journal=journal,
-                history=oracle["history"], finalCash=oracle["finalCash"])
+                history=history, finalCash=oracle["finalCash"])
 
 
 def displacement_failure(oracle):

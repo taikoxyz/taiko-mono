@@ -253,7 +253,11 @@ The opposite schedule withdraws A at 18 before C registers at 19. Withdrawal
 really clears the old slot and commits the hashed all-zero used entry, writing
 checkpoint 4 after the slash checkpoint 3. C takes a genuine vacancy without
 `BondDisplaced`, writes checkpoint 5 and activates at 21. The different closed
-histories and activation times are expected. Both schedules retain the old
+histories and activation times are expected. The collector derives each published
+history row from admitted native `CheckpointWritten` logs, keeping the last write
+to the same index in the same block, and compares the complete ordered history
+with the pin. Pin-only changes to a root, height, count or row order are refused.
+Both schedules retain the old
 lifetime key and withdrawn bond, clear its owner/confirmation, and leave the
 forfeiture flag false. Total deposits 17 equal vault 8, reporter 2 and sink 7;
 owner balance/allowance are 83, payee receives 0 and six transfers occur.
