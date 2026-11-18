@@ -58,7 +58,7 @@ L1 actions, which take effect when the proposal executes:
    - `propose` reverts when `block.timestamp >= ETNA_FORK_TIME − PROPOSE_MARGIN`.
    - `saveForcedInclusion` reverts when `block.timestamp >= ETNA_FORK_TIME − FI_MARGIN`.
    - `prove` and the bond functions are unchanged, so Unzen's remaining proposals can still be proven and bonds withdrawn.
-   - `prove` saves its checkpoint through the EtnaInbox (action 4) instead of in the SignalService directly. The new implementation's `signalService` immutable, which `prove` uses only for `saveCheckpoint`, names the EtnaInbox proxy, so `getConfig().signalService` reports the EtnaInbox from then on.
+   - `prove` saves its checkpoint through the EtnaInbox (action 4) instead of in the SignalService directly. The new implementation's `signalService` immutable, which `prove` uses only for `saveCheckpoint`, names the EtnaInbox proxy, so `getConfig().signalService` reports the EtnaInbox from then on. Tooling that prepares this upgrade from the live Unzen Inbox's `getConfig()` must accept two states and tell them apart: before this proposal executes, `signalService` is the L1 SignalService proxy; once it has executed, as when a replacement proposal is prepared ([section 7](#moving-the-fork-time)), it is the EtnaInbox proxy. In both, the new implementation names the EtnaInbox proxy and every other `getConfig()` field equals the live one.
 2. **L1 SignalService upgrade** (START-10-5).
    - Deploy the shared SignalService implementation with immutable `_authorizedSyncer` set to the EtnaInbox and `beaconRootsFrom = 0`, the configuration of a new L1 network. It accepts checkpoints only from the EtnaInbox and reads no Inbox state.
    - `VERSION` stays 1: checkpoints are stored under `_checkpoints[VERSION]`, so a new version would hide every checkpoint the Unzen Inbox saved, including the one at S. That would break L2 → L1 claims for Unzen blocks and the first-landing check.
@@ -166,7 +166,7 @@ Every step completes before the old propose cutoff, and the new `ETNA_FORK_TIME`
 1. Deploy a new Etna L2 `SignalService` implementation with the new `beaconRootsFrom`, an immutable.
 2. Rebuild clients and guests with the new `SignalService` implementation address, and release clients with the new fork time before the old `ETNA_FORK_TIME`.
 3. Pass a replacement DAO proposal:
-   - upgrade the Unzen Inbox's cutoffs, keeping the EtnaInbox as its checkpoint store;
+   - upgrade the Unzen Inbox's cutoffs, keeping the EtnaInbox as its checkpoint store. The original proposal has already installed it, so the live `getConfig().signalService` names the EtnaInbox, not the L1 SignalService ([section 3](#3-the-dao-proposal), action 1);
    - upgrade the EtnaInbox implementation with the new `ETNA_FORK_TIME`, which START-10-16a allows before the start write, keeping its checkpoint forwarder;
    - have the EtnaInbox's sub-verifiers trust the new Etna guest images;
    - send the L2 message that installs the new `SignalService` implementation. Its implementation precondition lists the superseded Etna implementation, so a superseded message relayed later reverts;
