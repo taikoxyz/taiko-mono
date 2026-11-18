@@ -231,7 +231,7 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
 
     /// @dev Deploys a SignalService proxy that accepts checkpoints only from `_inbox`.
     function _deploySignalService(address _inbox) internal returns (SignalService) {
-        SignalService impl = new SignalService(_inbox, REMOTE_SIGNAL_SERVICE, address(0));
+        SignalService impl = new SignalService(_inbox, REMOTE_SIGNAL_SERVICE, address(0), 0);
         return SignalService(
             address(
                 new ERC1967Proxy(address(impl), abi.encodeCall(SignalService.init, (address(this))))

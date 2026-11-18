@@ -159,10 +159,6 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
     function test_bootstrap_SetsOwnerAndReportsUninitialized() external view {
         assertEq(EssentialContract(inboxProxy).owner(), address(this), "owner");
         assertFalse(IEtnaInbox(inboxProxy).isInitialized(), "uninitialized");
-        // START-10-5: the SignalService may read the start before the upgrade to `EtnaInbox`.
-        (uint48 startHeight, bytes32 startHash) = IEtnaInbox(inboxProxy).etnaStart();
-        assertEq(startHeight, 0, "no start height");
-        assertEq(startHash, 0, "no start hash");
         assertEq(
             uint256(vm.load(inboxProxy, bytes32(INITIALIZATION_STATUS_SLOT))),
             0,

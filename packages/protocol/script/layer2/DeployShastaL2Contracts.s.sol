@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { Anchor } from "src/layer2/core/Anchor.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-import { SignalServiceL2 } from "src/shared/signal/SignalServiceL2.sol";
+import { SignalService } from "src/shared/signal/SignalService.sol";
 import "test/shared/DeployCapability.sol";
 
 /// @title DeployShastaL2Contracts
-/// @notice Base contract for deploying Shasta L2 contracts with configurable parameters.
+/// @notice Deploys the Etna L2 SignalService implementation without upgrading the proxy: the shared
+/// SignalService with the `Anchor` proxy as its syncer and `beaconRootsFrom` set to the Etna fork
+/// time (Etna SPEC START-10-5). The `Anchor` needs no Etna change, so the DAO proposal's L2 message
+/// upgrades only the SignalService proxy (Etna SWITCH.md section 3).
 abstract contract DeployShastaL2Contracts is DeployCapability {
     struct DeploymentConfig {
         uint64 l1ChainId;
@@ -15,7 +16,7 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         address l2SignalService;
         address anchorProxy;
         address signalServicePauser;
-        uint64 etnaTimestamp;
+        uint64 etnaForkTime;
         uint64 l2ChainId;
     }
 
@@ -41,12 +42,13 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         require(config.l1SignalService != address(0), "L1_SIGNAL_SERVICE not set");
         require(config.l2SignalService != address(0), "L2_SIGNAL_SERVICE not set");
         require(config.anchorProxy != address(0), "ANCHOR_PROXY not set");
-        // A script run against another network would otherwise deploy an Anchor whose checkpoint
-        // store has no code, and every anchorV4 would revert once the DAO batch installs it.
+        // A script run against another network would otherwise deploy a SignalService that
+        // accepts checkpoints from an address that is not this network's Anchor.
         require(block.chainid == config.l2ChainId, "Wrong L2 chain");
         require(config.l2SignalService.code.length != 0, "L2_SIGNAL_SERVICE has no code");
         require(config.anchorProxy.code.length != 0, "ANCHOR_PROXY has no code");
-        // The live Anchor already saves into this SignalService for this L1; the new one must too.
+        // The new SignalService accepts checkpoints only from this Anchor, which must already save
+        // into this SignalService for this L1.
         require(
             _readWord(config.anchorProxy, "checkpointStore()")
                 == uint256(uint160(config.l2SignalService)),
@@ -56,13 +58,13 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
             _readWord(config.anchorProxy, "l1ChainId()") == config.l1ChainId,
             "ANCHOR_PROXY L1 chain id mismatch"
         );
-        // On a running network the gate must lie in the future, or anchorV4 would already revert.
-        // This checks only deploy time. The DAO proposal's single L2 batch upgrades this Anchor
-        // and SignalServiceL2 together and must execute well before the Unzen propose cutoff, so
-        // the Anchor at the Etna start S is already this one (Etna SWITCH.md section 3).
-        require(config.etnaTimestamp > block.timestamp, "ETNA_TIMESTAMP not in the future");
+        // On a running network the fork time must lie in the future, or the upgrade would close
+        // the checkpoint store at once and every anchorV4 would revert. This checks only deploy
+        // time. The DAO proposal's L2 message must execute well before the Unzen propose cutoff,
+        // so the first Etna block already sees the cutoff (Etna SWITCH.md section 3).
+        require(config.etnaForkTime > block.timestamp, "ETNA_FORK_TIME not in the future");
         // ETNA_FORK_TIME is a uint48 in the EtnaInbox; a larger value could never match it.
-        require(config.etnaTimestamp <= type(uint48).max, "ETNA_TIMESTAMP above 2^48 - 1");
+        require(config.etnaForkTime <= type(uint48).max, "ETNA_FORK_TIME above 2^48 - 1");
     }
 
     /// @dev Reads one 32-byte word from a getter of a live contract.
@@ -105,28 +107,21 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         return abi.decode(ret, (address));
     }
 
-    /// @dev Deploys the two implementations without upgrading the proxies: the Anchor saves
-    /// checkpoints into the L2 SignalService proxy, and SignalServiceL2 accepts them only from the
-    /// Anchor proxy.
+    /// @dev Deploys the SignalService implementation without upgrading the proxy: it accepts
+    /// checkpoints only from the Anchor proxy until the fork time, proves against the L1
+    /// SignalService and resolves roots through EIP-4788 from the fork time on.
     /// @param config The validated deployment configuration.
-    /// @return anchorImpl_ The new Anchor implementation.
-    /// @return signalServiceImpl_ The new SignalServiceL2 implementation.
-    function _deploy(DeploymentConfig memory config)
-        internal
-        returns (address anchorImpl_, address signalServiceImpl_)
-    {
-        anchorImpl_ = address(
-            new Anchor(
-                ICheckpointStore(config.l2SignalService), config.l1ChainId, config.etnaTimestamp
-            )
-        );
-        console2.log("New anchorImpl deployed:", anchorImpl_);
-
+    /// @return signalServiceImpl_ The new SignalService implementation.
+    function _deploy(DeploymentConfig memory config) internal returns (address signalServiceImpl_) {
         signalServiceImpl_ = address(
-            new SignalServiceL2(
-                config.anchorProxy, config.l1SignalService, config.signalServicePauser
+            new SignalService(
+                config.anchorProxy,
+                config.l1SignalService,
+                config.signalServicePauser,
+                config.etnaForkTime
             )
         );
         console2.log("New signalServiceImpl deployed:", signalServiceImpl_);
+        console2.log("beaconRootsFrom:", config.etnaForkTime);
     }
 }

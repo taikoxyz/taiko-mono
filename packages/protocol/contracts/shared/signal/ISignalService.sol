@@ -30,7 +30,7 @@ interface ISignalService is ICheckpointStore {
         /// @dev Checkpoint proofs use a block at or after the signal was sent. Etna L2 proofs use
         /// the timestamp of the L2 block that recorded the L1 anchor state root.
         uint64 blockId;
-        /// @notice The source-chain state root authenticated by the checkpoint or L2 oracle.
+        /// @notice The source-chain state root, authenticated by a checkpoint or by EIP-4788.
         /// @dev Must match the root resolved for blockId.
         bytes32 rootHash;
         /// @notice Options to cache either the state roots or signal roots of middle-hops to the

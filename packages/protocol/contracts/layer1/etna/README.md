@@ -7,8 +7,9 @@ checkpoints. These are its L1 contracts; the L2 changes are listed under
 [Etna PoS + ZK design specification](../../../docs/etna/SPEC.md); appendix A is its
 encodings and appendix B its L1 storage layout.
 
-The current specification baseline is main at `d18357214fab30ea512ae9858a11699806d72ba1`
-([#22348](https://github.com/taikoxyz/taiko-mono/pull/22348)).
+The current specification baseline is main at `9c832234b4681fbc5eccdbaf9c9303b7869f91f4`
+([#22410](https://github.com/taikoxyz/taiko-mono/pull/22410)), which moves the L2 fork boundary
+into the shared SignalService's `beaconRootsFrom`.
 It also clarifies the distinction between empty and present zero-filled vote hashes in
 STAKE-4.1-31 and ENC-A-44/45, matching stock CometBFT's protobuf encoding.
 
@@ -18,8 +19,7 @@ STAKE-4.1-31 and ENC-A-44/45, matching stock CometBFT's protobuf encoding.
   5-5b), `land` (6.1), the forced inclusion queue and the protocol fee sweep (7.1), governance
   `recover` (8, 8.3, 8.4), the rules schedule (10.1) and Inbox slots 258–293 (appendix B).
 - `impl/EtnaInboxBootstrap.sol`: the Inbox proxy's first implementation; it only sets the owner,
-  so the proxy address exists before the registry that fixes it (10 step 1), and reports no
-  Etna start, so the L1 SignalService can read it at any time.
+  so the proxy address exists before the registry that fixes it (10 step 1).
 - `iface/IEtnaStakingRegistry.sol`, `impl/EtnaStakingRegistry.sol`: registration and admission
   by displacement, exits, withdrawals, double-sign slashing, recovery's forced exits and
   per-block checkpoints (4.1).
@@ -51,8 +51,13 @@ STAKE-4.1-31 and ENC-A-44/45, matching stock CometBFT's protobuf encoding.
   272–274 (L1_0 = its own block), generation 0's origin, the checkpoint (S, hash) and S's landing
   record, emits `StartWritten` and opens the forced inclusion queue. It writes no SignalService
   checkpoint: the one at S is the Unzen Inbox's.
-- `etnaStart()`: (S, start hash), or (0, 0) before the start write; never reverts. The L1
-  SignalService reads it to reject Unzen Inbox checkpoints above S. `generationStartHeight()` and
+- `saveCheckpoint(checkpoint)`: on a switching network, forwards the Unzen Inbox's checkpoints to
+  the L1 SignalService, which accepts checkpoints only from this Inbox (START-10-5). Only
+  `unzenInbox` may call it; it accepts any height before the start write and heights at or below S
+  once slot 273 is nonzero, reading S from slot 272, so a START-10-5c rewrite moves the bound. It
+  passes the checkpoint unchanged and ignores pause, initialization and the registry lock, so it
+  reverts only for these checks and the SignalService's own.
+- `etnaStart()`: (S, start hash), or (0, 0) before the start write. `generationStartHeight()` and
   `recoverySnapshot()`, which read the current generation's origin record, instead revert with
   `StartNotWritten` before the start write, since no record exists yet (spec 8.4).
 - `land(input, leaves, proof)`: the spec 6.1 reference Solidity, check for check, plus the shared
@@ -247,9 +252,10 @@ forge script $S --sig 'deployInbox()' --rpc-url "$L1_RPC" --broadcast
 
 The L2 genesis of a new network needs the Etna L2 predeploys. In
 `test/genesis/data/genesis_config.js` set `chainId` to the L2 chain id, `l1ChainId`,
-`etnaTimestamp: "0x0"` (every block is an Etna block, so `anchorV4` must never be callable; the
-golden touch key is public) and `remoteSignalService` to SIGNAL_SERVICE, then run
-`pnpm genesis:gen` and build the genesis from the base JSON:
+`beaconRootsFrom` to max(1, t) as a hex string, where t is the base genesis timestamp (every block
+after genesis is an Etna block, so the L2 SignalService must accept no checkpoint there; the
+golden touch key is public, and zero would keep the checkpoint path), and `remoteSignalService` to
+SIGNAL_SERVICE, then run `pnpm genesis:gen` and build the genesis from the base JSON:
 
 ```bash
 python3 script/layer2/build_etna_genesis.py --base <genesis.json> \
@@ -258,23 +264,23 @@ python3 script/layer2/build_etna_genesis.py --base <genesis.json> \
   --l1-signal-service "$SIGNAL_SERVICE" --output <file>
 ```
 
-The builder refuses any other `etnaTimestamp`, a `remoteSignalService` other than SIGNAL_SERVICE,
+The builder refuses any other `beaconRootsFrom`, a `remoteSignalService` other than SIGNAL_SERVICE,
 another chain id and predeploys without the Anchor or SignalService. Because the checked-in
 `genesis_config.json` can disagree with a gitignored `genesis_alloc.json`, it checks the same values
 in the emitted bytecode too, against the `out/layer2` artifacts of the same `pnpm genesis:gen` run
 (`--artifacts` overrides the directory): both proxy accounts must hold exactly the compiled
 `ERC1967Proxy` runtime and point at their implementations, whose code must be the compiled
-`Anchor` and `SignalServiceL2` runtimes (neither links a library), with the Anchor's
-`etnaTimestamp` 0 and `checkpointStore` the SignalService proxy, and SignalServiceL2's syncer the
-Anchor proxy and its remote SIGNAL_SERVICE. Every other immutable of the two implementations is
-pinned to the generator's value (UUPS `__self` the implementation itself, the configured
-`l1ChainId`, SignalServiceL2's `pauser` zero), and an immutable it does not know is refused. The
-proxies may hold only the storage the generator writes (initialized, not paused, the configured
-owner, the implementation), so a seeded signal or checkpoint is refused. No root-path address nor
-SIGNAL_SERVICE may be a precompile or system contract address, and SIGNAL_SERVICE may not be an L2
-predeploy. If `out/layer2` no longer matches the alloc, for example after a rebuild from other
-sources or without the AST, it refuses until `pnpm genesis:gen` reruns. It replaces the base's
-accounts at the predeploy addresses with the generated ones, keeping only the account fields
+`Anchor` and `SignalService` runtimes (neither links a library), with the SignalService's
+`beaconRootsFrom` max(1, t), its syncer the Anchor proxy and its remote SIGNAL_SERVICE, and the
+Anchor's `checkpointStore` the SignalService proxy. Every other immutable of the two
+implementations is pinned to the generator's value (UUPS `__self` the implementation itself, the
+configured `l1ChainId`, the SignalService's `pauser` zero), and an immutable it does not know is
+refused. The proxies may hold only the storage the generator writes (initialized, not paused, the
+configured owner, the implementation), so a seeded signal or checkpoint is refused. No root-path
+address nor SIGNAL_SERVICE may be a precompile or system contract address, and SIGNAL_SERVICE may
+not be an L2 predeploy. If `out/layer2` no longer matches the alloc, for example after a rebuild
+from other sources or without the AST, it refuses until `pnpm genesis:gen` reruns. It replaces the
+base's accounts at the predeploy addresses with the generated ones, keeping only the account fields
 execution clients accept, and adds the EIP-4788 and EIP-2935 system contracts (spec 10 step 3).
 Outside `alloc` it only drops the base's derived `stateRoot`; the 100% base-fee share is the
 per-block `extraData[0] = 100` rule that nodes and guests enforce, not a genesis field. It needs
@@ -283,11 +289,12 @@ failed run leaves no genesis behind. `pnpm genesis:test` (CI's genesis job) runs
 generator output: the default alloc and a config edited without regenerating must fail, and an
 alloc generated with `GENESIS_CONFIG` pointing at an Etna configuration must pass.
 `generate.ts` exits non-zero on failure, so a failed run cannot leave an older config/alloc pair
-behind unnoticed. After booting the EL on the genesis, also check the Anchor proxy
-(`contractAddresses.TaikoAnchor` in the generated config) at block 0:
+behind unnoticed. After booting the EL on the genesis, also check the SignalService proxy
+(`contractAddresses.SignalService` in the generated config) at block 0:
 
 ```bash
-cast call --rpc-url "$L2_RPC" --block 0 "$TAIKO_ANCHOR" 'etnaTimestamp()(uint64)' # must print 0
+# Must print max(1, genesis timestamp).
+cast call --rpc-url "$L2_RPC" --block 0 "$L2_SIGNAL_SERVICE" 'beaconRootsFrom()(uint64)'
 ```
 
 `deployInbox()` deploys the `EtnaInbox` implementation over SIGNAL_SERVICE, then upgrades and
@@ -318,19 +325,23 @@ automatically enough for forfeiture execution. See SPEC 4.4/8.3/11 and ACCEPTANC
 
 These implement [ANCHORLESS.md](../../../docs/etna/ANCHORLESS.md) sections 4 and 8.
 
-- `layer2/core/Anchor.sol`: `anchorV4` reverts from the immutable `etnaTimestamp` on;
-  `getL1StateRoot(blockId)` reads the checkpoint store before it and the EIP-4788 root for an L2
-  timestamp at or after it. `etnaTimestamp` is `ETNA_FORK_TIME` on a switching network and 0 on a
-  new one.
-- `shared/signal/SignalServiceL2.sol`: the L2 SignalService; it resolves proof roots through the
-  Anchor and adds no storage. Both SignalServices keep checkpoints and cached signals under
-  `VERSION`; `_authorizeCheckpoint` is the hook the L1 two-syncer upgrade overrides. Bumping
-  `VERSION` hides every checkpoint and cached signal at once, including the checkpoints a
-  verifier-failure rollback must keep usable, so RECOV-8-27 rules out a rollback that only moves
-  the whole checkpoint mapping to a new version.
-- `script/layer2/DeployShastaL2Contracts.s.sol` deploys both implementations for a switching
-  network from ETNA_TIMESTAMP without upgrading the proxies; the DAO proposal's single L2 batch
-  upgrades them (SWITCH.md section 3).
+- `shared/signal/SignalService.sol`: one contract for L1 and L2, with one syncer each and the
+  immutable `beaconRootsFrom`: 0 on L1, `ETNA_FORK_TIME` on a switching L2 and max(1, L2 genesis
+  timestamp) on a new one. While `beaconRootsFrom` is 0 or `block.timestamp` is before it, proofs
+  resolve their root from the checkpoint store (`blockId` an L1 block number bounded to `uint48`).
+  From it on, `saveCheckpoint` reverts with `SS_CHECKPOINTS_CLOSED`, so the public golden touch key
+  cannot save a forged checkpoint through `anchorV4`, and proofs resolve their root only through
+  EIP-4788 (`blockId` an L2 timestamp at or after `beaconRootsFrom`); a missing, overwritten or
+  zero root reverts, with no fallback to checkpoints. It reads no Inbox state and adds no storage.
+  Checkpoints and cached signals stay under `VERSION`. Bumping `VERSION` hides every checkpoint and
+  cached signal at once, including the checkpoints a verifier-failure rollback must keep usable,
+  so RECOV-8-27 rules out a rollback that only moves the whole checkpoint mapping to a new
+  version.
+- `layer2/core/Anchor.sol` needs no Etna change (ANCHORLESS.md section 8).
+- `script/layer2/DeployShastaL2Contracts.s.sol` deploys the L2 SignalService implementation for a
+  switching network from ETNA_FORK_TIME without upgrading the proxy; the DAO proposal's L2 message
+  upgrades only the SignalService proxy and ends by checking `beaconRootsFrom() == ETNA_FORK_TIME`
+  (SWITCH.md section 3).
 
 ## Tests
 
@@ -339,7 +350,7 @@ Run from `packages/protocol`:
 ```bash
 pnpm test:l1 --match-contract 'Etna|LibEntriesTree|LibEtnaKeys|LibCometVote'
 FOUNDRY_INVARIANT_RUNS=256 pnpm test:l1 --match-contract 'Etna.*Invariant'
-pnpm test:l2 --match-contract 'EtnaGenesisTest|Anchor|DeployShastaL2Config'
+pnpm test:l2 --match-contract 'EtnaGenesisTest|DeployShastaL2Config'
 pnpm test:shared --match-contract 'SignalService'
 python3 -m unittest discover -s test/layer2/core -p 'test_etna_genesis.py'
 python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
@@ -352,9 +363,11 @@ python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
 [The switch preparation scripts](../../../script/layer1/etna/README.md) retain the existing L1
 SignalService and deploy the Etna bootstrap, registry, dedicated verifier instances and replacement
 implementations without upgrading live proxies. `InboxWithEtnaCutoffs` preserves Unzen's configuration
-and storage while applying immutable proposal and FI cutoffs. `SignalServiceL1` keeps VERSION=1 and
-the shared signal/checkpoint storage, authorizes both Inboxes and rejects Unzen checkpoints above S
-once the Etna start is written. Existing first-landing checks use the real six-word Unzen CoreState ABI.
+and storage while applying immutable proposal and FI cutoffs; its `signalService` names the Etna
+Inbox proxy, so Unzen `prove` saves its checkpoints through `EtnaInbox.saveCheckpoint`. The L1
+SignalService upgrade is the shared implementation with the Etna Inbox as its only syncer and
+`beaconRootsFrom = 0`, keeping VERSION=1 and the shared signal/checkpoint storage. Existing
+first-landing checks use the real six-word Unzen CoreState ABI.
 
 ## Out of scope
 
@@ -368,8 +381,9 @@ once the Etna start is written. Existing first-landing checks use the real six-w
 - DAO proposal construction and installation, including the start rewrite of spec 10 step 5c,
   the correcting Inbox upgrade, L1 proposal lead/time cross-checks and L2 batch guards.
 - Snapshot verification and checkpoint import are client work. Missing-data retry rules and
-  originWriter finality, timestamp and Anchor identity duties belong to clients and operations;
-  the contract enforces its observable gates. Switch deployment rehearsal remains outstanding.
+  originWriter finality, timestamp and L2 SignalService identity duties belong to clients and
+  operations; the contract enforces its observable gates. Switch deployment rehearsal remains
+  outstanding.
 - Real proving guests. Tests use mock verifiers, so they show contract behaviour, not proof
   soundness; production needs a verifier that requires two proofs, at least one ZK (6.2).
 

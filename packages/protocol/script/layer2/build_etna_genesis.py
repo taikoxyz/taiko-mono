@@ -6,26 +6,27 @@ fields remain identical to the base genesis JSON. The alloc gains the Taiko L2 p
 `pnpm genesis:gen` generated for the Etna network, replacing any account at the same address, and
 the canonical EIP-4788 and EIP-2935 system contracts.
 
-The predeploy configuration must give the Anchor `etnaTimestamp` 0x0: on a new network every block
-is an Etna block, and an Anchor without that gate keeps `anchorV4` callable with the public golden
-touch key, which would let anyone save a forged L1 checkpoint. Its `remoteSignalService` must be
-the deployed L1 SignalService passed as `--l1-signal-service`, which `SignalServiceL2` proves
-against. Predeploy accounts are reduced to the fields execution clients accept (balance, nonce,
-code, storage), dropping the generator's `contractName`, with storage keys and values written as
-32-byte words.
+The predeploy configuration must give the L2 SignalService `beaconRootsFrom` = max(1, t), where t
+is the base genesis timestamp (Etna SPEC START-10-5): on a new network every block after genesis is
+an Etna block, and a SignalService whose checkpoint store is still open there lets anyone save a
+forged L1 checkpoint through `anchorV4` with the public golden touch key. Zero would keep the
+checkpoint path, hence at least 1. Its `remoteSignalService` must be the deployed L1 SignalService
+passed as `--l1-signal-service`, which the L2 SignalService proves against. Predeploy accounts are
+reduced to the fields execution clients accept (balance, nonce, code, storage), dropping the
+generator's `contractName`, with storage keys and values written as 32-byte words.
 
 The configuration file can disagree with the alloc, for example when it was edited without rerunning
 the generator, so the same values are also checked in the emitted bytecode, against the artifacts in
 `--artifacts` (`out/layer2`, written with their AST by `pnpm genesis:gen`). The Anchor and
 SignalService proxy accounts must hold exactly the compiled `ERC1967Proxy` runtime and point at
 their implementations. Each implementation's code must be the runtime of the compiled `Anchor` or
-`SignalServiceL2`, differing only in immutables; these contracts link no library, so an artifact
+`SignalService`, differing only in immutables; these contracts link no library, so an artifact
 with a library link is refused. Then the immutables are read at the compiler's offsets: the
-Anchor's `etnaTimestamp` must be 0 and its `checkpointStore` the SignalService proxy, and
-SignalServiceL2's `_authorizedSyncer` must be the Anchor proxy and its `_remoteSignalService` the
-L1 SignalService. Every other immutable of both implementations is pinned to the value the
+SignalService's `beaconRootsFrom` must be max(1, t), its `_authorizedSyncer` the Anchor proxy and
+its `_remoteSignalService` the L1 SignalService, and the Anchor's `checkpointStore` must be the
+SignalService proxy. Every other immutable of both implementations is pinned to the value the
 generator writes (UUPS `__self` the implementation's own address, the Anchor's `l1ChainId` the
-configured one, its resolver zero, SignalServiceL2's resolver the SharedResolver proxy and its
+configured one, its resolver zero, the SignalService's resolver the SharedResolver proxy and its
 `pauser` zero), and an immutable the builder does not know is refused. The proxies' storage may
 hold only what the generator initializes: initialized, not paused, the configured owner and the
 implementation slot. No root-path address, nor the L1 SignalService, may be a precompile or system
@@ -54,8 +55,8 @@ ZERO_ADDRESS = "0x" + "00" * 20
 # 1e25b4849259320fca1123de362bc38b0b090ece:crates/node/tests/fixtures/etna-genesis.json.
 ROOTS_RUNTIME = "0x3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500"
 HISTORY_RUNTIME = "0x3373fffffffffffffffffffffffffffffffffffffffe14604657602036036042575f35600143038111604257611fff81430311604257611fff9006545f5260205ff35b5f5ffd5b5f35611fff60014303065500"
-# Predeploys the Etna root path depends on: the Anchor gates anchorV4 and resolves L1 state roots,
-# and SignalServiceL2 proves L1 signals against them.
+# Predeploys the Etna root path depends on: the Anchor saves checkpoints before the fork, and the
+# SignalService closes its checkpoint store and proves L1 signals against EIP-4788 roots from it.
 REQUIRED_PREDEPLOYS = ("TaikoAnchor", "TaikoAnchorImpl", "SignalService", "SignalServiceImpl")
 # Genesis account fields execution clients accept; alethia-reth rejects any other key.
 ACCOUNT_FIELDS = ("balance", "nonce", "code", "storage")
@@ -145,16 +146,31 @@ def normalized_alloc(alloc, label):
     return result
 
 
+def genesis_timestamp(base):
+    """Return the base genesis timestamp; execution clients read a missing one as 0."""
+    value = base.get("timestamp", "0x0")
+    if isinstance(value, str) and re.fullmatch(r"0x[0-9a-fA-F]{1,16}", value):
+        return int(value, 16)
+    if isinstance(value, int) and not isinstance(value, bool) and 0 <= value < 2**64:
+        return value
+    raise ValueError("base genesis: timestamp must be a uint64, as a 0x-prefixed hex string or "
+                     "an integer")
+
+
 def check_predeploy_config(config, base, predeploys, l1_signal_service):
-    """Check that the generator configuration describes an Etna network matching the base."""
-    etna_timestamp = config.get("etnaTimestamp")
-    if not isinstance(etna_timestamp, str) or not re.fullmatch(r"0x[0-9a-fA-F]+", etna_timestamp):
-        raise ValueError("predeploy config: etnaTimestamp must be a 0x-prefixed hex string")
-    if int(etna_timestamp, 16) != 0:
+    """Check that the generator configuration describes an Etna network matching the base, and
+    return the `beaconRootsFrom` it must give the SignalService."""
+    expected = max(1, genesis_timestamp(base))
+    beacon_roots_from = config.get("beaconRootsFrom")
+    if not isinstance(beacon_roots_from, str) or not re.fullmatch(r"0x[0-9a-fA-F]+",
+                                                                   beacon_roots_from):
+        raise ValueError("predeploy config: beaconRootsFrom must be a 0x-prefixed hex string")
+    if int(beacon_roots_from, 16) != expected:
         raise ValueError(
-            "predeploy config: etnaTimestamp must be 0x0 on a new Etna network, or anchorV4 "
-            "stays callable with the public golden touch key; set it in "
-            "test/genesis/data/genesis_config.js and rerun `pnpm genesis:gen`"
+            "predeploy config: beaconRootsFrom must be " + hex(expected) + ", max(1, base "
+            "genesis timestamp), on a new Etna network, or the checkpoint store stays open to the "
+            "public golden touch key; set it in test/genesis/data/genesis_config.js and rerun "
+            "`pnpm genesis:gen`"
         )
     l1 = check_not_reserved(l1_signal_service, "--l1-signal-service")
     if l1 in predeploys:
@@ -182,6 +198,7 @@ def check_predeploy_config(config, base, predeploys, l1_signal_service):
         account = predeploys.get(address(addresses[name]))
         if not account or not account.get("code", "0x").removeprefix("0x"):
             raise ValueError("predeploys: no code at the configured " + name + " address")
+    return expected
 
 
 def address_word(value):
@@ -284,7 +301,7 @@ def check_proxy_storage(name, account, implementation, owner):
                              + actual + ", not " + wanted + " as `pnpm genesis:gen` writes it")
 
 
-def check_predeploy_code(config, predeploys, artifacts, l1_signal_service):
+def check_predeploy_code(config, predeploys, artifacts, l1_signal_service, beacon_roots_from):
     """Check the Etna root path in the emitted bytecode rather than in the configuration."""
     addresses = {name: address(config["contractAddresses"][name])
                  for name in REQUIRED_PREDEPLOYS + ("SharedResolver",)}
@@ -299,14 +316,14 @@ def check_predeploy_code(config, predeploys, artifacts, l1_signal_service):
             ("EssentialContract", "__resolver", ZERO_WORD),
             ("Anchor", "checkpointStore", address_word(addresses["SignalService"])),
             ("Anchor", "l1ChainId", "0x" + format(config["l1ChainId"], "064x")),
-            ("Anchor", "etnaTimestamp", ZERO_WORD),
         )),
-        ("SignalServiceImpl", "SignalServiceL2", (
+        ("SignalServiceImpl", "SignalService", (
             ("UUPSUpgradeable", "__self", address_word(addresses["SignalServiceImpl"])),
             ("EssentialContract", "__resolver", address_word(addresses["SharedResolver"])),
             ("SignalService", "_authorizedSyncer", address_word(addresses["TaikoAnchor"])),
             ("SignalService", "_remoteSignalService", address_word(l1_signal_service)),
             ("SignalService", "pauser", ZERO_WORD),
+            ("SignalService", "beaconRootsFrom", "0x" + format(beacon_roots_from, "064x")),
         )),
     )
     for name, contract, immutables in expected:
@@ -339,8 +356,10 @@ def build(base, predeploys, predeploy_config, l1_signal_service, artifacts=DEFAU
         key: genesis_account(account, "predeploy " + key)
         for key, account in normalized_alloc(copy.deepcopy(predeploys), "predeploy").items()
     }
-    check_predeploy_config(predeploy_config, genesis, overlay, l1_signal_service)
-    check_predeploy_code(predeploy_config, overlay, Artifacts(artifacts), l1_signal_service)
+    beacon_roots_from = check_predeploy_config(predeploy_config, genesis, overlay,
+                                               l1_signal_service)
+    check_predeploy_code(predeploy_config, overlay, Artifacts(artifacts), l1_signal_service,
+                         beacon_roots_from)
     alloc.update(overlay)
     for target, deployed in ((ROOTS, ROOTS_RUNTIME), (HISTORY, HISTORY_RUNTIME)):
         alloc[target] = {"balance": "0x0", "nonce": "0x1", "code": deployed}

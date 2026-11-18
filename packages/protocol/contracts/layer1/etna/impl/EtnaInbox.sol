@@ -344,6 +344,25 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         _writeStart(_height, _blockHash, _stateRoot);
     }
 
+    /// @notice Forwards a checkpoint from the Unzen Inbox's `prove` to the SignalService on a
+    /// switching network (spec 10 step 5). The L1 SignalService accepts checkpoints only from
+    /// this Inbox, so the Unzen Inbox's final checkpoints, including the one at S, reach it here.
+    /// @dev Accepts calls only from `unzenInbox`, so it always reverts on a new network. Accepts
+    /// any height before the start write and heights at or below S once it is written (slot 273
+    /// nonzero, S in slot 272), so a START-10-5c rewrite moves the bound with it. Passes the
+    /// checkpoint unchanged and reverts for no other reason than these checks and the
+    /// SignalService's own: it ignores pause, initialization and the registry lock.
+    /// @param _checkpoint The checkpoint the Unzen Inbox's `prove` saves.
+    function saveCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
+        external
+        onlyFrom(unzenInbox)
+    {
+        if (_genesis.startBlockHash != 0) {
+            require(_checkpoint.blockNumber <= _genesis.genesisHeight, CheckpointAboveStart());
+        }
+        _signalService.saveCheckpoint(_checkpoint);
+    }
+
     /// @inheritdoc IEtnaInbox
     /// @dev Follows the spec 6.1 reference Solidity: its checks in its order, all before any
     /// write. Before the start write it needs no extra check: c = 0 forces p = 0, and the

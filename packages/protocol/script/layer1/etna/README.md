@@ -7,9 +7,10 @@ deployment or upgrade is performed merely by compiling these scripts.
 
 This implements the contract preparation in [SWITCH.md](../../../docs/etna/SWITCH.md). DAO batch
 construction, start correction upgrades, real guests/provers and switch rehearsal are separate work.
-The existing L2 implementation deployment is
+The L2 SignalService implementation deployment is
 [`DeployShastaL2Contracts`](../../layer2/DeployShastaL2Contracts.s.sol), including its chain-specific
-mainnet/Hoodi entry points. EIP-2935 and EIP-4788 must already be installed on L2.
+mainnet/Hoodi entry points; the `Anchor` needs no Etna change. EIP-2935 and EIP-4788 must already be
+installed on L2.
 
 ## Inputs and deployment order
 
@@ -19,7 +20,10 @@ scripts and dedicated-verifier script never default ownership to the deployment 
 devnet-only script retains its deployer fallback. Use the existing
 Unzen proxy as `UNZEN_INBOX` and its existing L1 SignalService proxy as `SIGNAL_SERVICE`.
 The scripts reject implementation addresses in place of these proxies and require VERSION=1.
-They read the live Unzen `getConfig()` and six-word `getCoreState()` ABI.
+They read the live Unzen `getConfig()` and six-word `getCoreState()` ABI. The live
+`getConfig().signalService` may be `SIGNAL_SERVICE`, before the DAO proposal executes, or
+`INBOX_PROXY`, after it (for example when a replacement proposal is prepared, SWITCH.md section 7);
+any other value is refused.
 The live Unzen Inbox and SignalService, new Inbox proxy, registry and every enabled Etna
 image-trusting verifier must have that owner installed and no pending ownership transfer.
 
@@ -32,16 +36,20 @@ image-trusting verifier must have that owner installed and no pending ownership 
    `ETNA_PROOF_VERIFIER`. The new SGX, RISC0 and SP1 instances are separate from Unzen's image-trusting
    instances. Configure the new instances and image/program trust separately before using them.
 4. Set `ETNA_FORK_TIME`, `PROPOSE_MARGIN`, `FI_MARGIN`, `ORIGIN_WRITER` and `L2_CHAIN_ID` consistently
-   with the planned L2 Anchor upgrade. Call `deployUnzenInboxImplementation()` and export the
-   returned address as `UNZEN_INBOX_IMPLEMENTATION`.
+   with the planned L2 SignalService's `beaconRootsFrom`. Call `deployUnzenInboxImplementation()`
+   and export the returned address as `UNZEN_INBOX_IMPLEMENTATION`. Its configuration is the live
+   one with `signalService` set to `INBOX_PROXY`, so `prove` saves its checkpoints through the Etna
+   Inbox (START-10-5d).
 5. Set `REMOTE_SIGNAL_SERVICE` to the existing L2 SignalService proxy; its address must match the
-   chain's canonical predeploy. Call `deploySignalServiceImplementation()`. Its immutable pauser
-   is read from the existing proxy, including zero for a pre-pauser implementation.
+   chain's canonical predeploy. Call `deploySignalServiceImplementation()`: the shared
+   SignalService with `INBOX_PROXY` as its only syncer and `beaconRootsFrom = 0` (START-10-5). Its
+   immutable pauser is read from the existing proxy, including zero for a pre-pauser
+   implementation.
 6. Set the remaining Inbox/committee/FI parameters documented for `DeployEtnaDevnet` and call
-   `deployInbox()`. The prepared cutoff implementation must have the same configuration as the
-   live Unzen Inbox and the same fork time as Etna. The registry must name this Etna proxy and L2
-   chain. The Etna composite and every enabled image-trusting sub-verifier must be separate from
-   Unzen's, with the same L2 chain id; Unzen must expose the existing ComposeVerifier getters.
+   `deployInbox()`. The prepared cutoff implementation must have the live Unzen Inbox's
+   configuration with `signalService` set to `INBOX_PROXY`, and the same fork time as Etna. The
+   registry must name this Etna proxy and L2 chain. The Etna composite and every enabled
+   image-trusting sub-verifier must be separate from Unzen's, with the same L2 chain id; Unzen must expose the existing ComposeVerifier getters.
    Before broadcasting, the script also compares the Etna verifier's runtime bytecode against
    this build's ZkRequiredVerifier with those exact immutable addresses. A same-shaped AnyVerifier
    or a differently built policy is refused. The comparison instance exists only in the script's
@@ -51,8 +59,10 @@ The `DeployEtnaSwitch` initialization data uses zero genesis hash and state root
 `GENESIS_BLOCK_HASH` or `GENESIS_STATE_ROOT`. The inherited `ownerInitCall(implementation)` returns
 the owner installation/initialization calldata for review; no switch entry point sends it. The
 actual DAO batch, including time/implementation guards and L1/L2 fork-time cross-checks, remains
-outside this preparation. Install and initialize the Etna implementation atomically. Until that
-point the bootstrap's `etnaStart()` reports an unwritten start, so Unzen proofs can continue.
+outside this preparation. Install and initialize the Etna implementation atomically. The Unzen
+Inbox, L1 SignalService and Etna Inbox upgrades must execute in the same proposal: once the
+SignalService accepts checkpoints only from the Etna Inbox, Unzen proofs need the Etna Inbox's
+`saveCheckpoint` forwarder, which the bootstrap does not have.
 Keep the bootstrap under direct DAO control from its creation. Check its creation receipt,
 initializer owner and complete upgrade/ownership history before installation; current ownership
 alone cannot prove that an earlier privileged implementation left no mapping entries behind.
@@ -65,7 +75,8 @@ point. This task did not execute these scripts or broadcast transactions.
 
 ## Cutoffs and retained state
 
-`InboxWithEtnaCutoffs` keeps Unzen's complete existing configuration and storage. It rejects
+`InboxWithEtnaCutoffs` keeps Unzen's existing storage and configuration, except that
+`signalService` names the Etna Inbox proxy. It rejects
 proposals at or after `ETNA_FORK_TIME - PROPOSE_MARGIN` and forced submissions at or after
 `ETNA_FORK_TIME - FI_MARGIN`. Proving and bond operations remain available. Its constructor requires
 `PROPOSE_MARGIN >= 12`, `FI_MARGIN > PROPOSE_MARGIN + forcedInclusionDelay`, and
@@ -73,14 +84,16 @@ proposals at or after `ETNA_FORK_TIME - PROPOSE_MARGIN` and forced submissions a
 buffer; operators must choose a buffer at least the longest expected proposal gap and satisfy
 the full timestamp-lead bound for short L1 slots described in SWITCH.md.
 
-`SignalServiceL1` adds no storage and keeps VERSION=1. Both Inbox proxies can save checkpoints;
-once a nonzero Etna start hash is written, Unzen cannot save above S. It reads the current start
-on every Unzen write and fails closed if that read fails. It preserves existing checkpoints and
-proof/cache behavior and never initializes or replaces the existing L1 proxy's storage.
+The L1 SignalService upgrade adds no storage and keeps VERSION=1. It accepts checkpoints only
+from the Etna Inbox and reads no Inbox state. The Etna Inbox's `saveCheckpoint` forwards the Unzen
+Inbox's checkpoints: any height before the start write, at most S once a nonzero start hash is
+written. The upgrade preserves existing checkpoints and proof/cache behavior and never initializes
+or replaces the existing L1 proxy's storage.
 
 The scripts do not call `setOrigin`. The originWriter must wait for the post-fork finalized L1
 observation, derive the complete last Unzen proposal, verify S's hash/state root, pre-fork
-timestamp and Anchor implementation, and wait for the start write to finalize before node startup.
+timestamp and L2 SignalService implementation, and wait for the start write to finalize before node
+startup.
 Etna can start before the last Unzen proof; its first landing still waits for that proof and
 Unzen's matching SignalService checkpoint at S. Those EtnaInbox guards already use the live Unzen ABI.
 

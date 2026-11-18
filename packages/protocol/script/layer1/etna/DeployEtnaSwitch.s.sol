@@ -15,7 +15,6 @@ import { ComposeVerifier } from "src/layer1/verifiers/compose/ComposeVerifier.so
 import { ZkRequiredVerifier } from "src/layer1/verifiers/compose/ZkRequiredVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
-import { SignalServiceL1 } from "src/shared/signal/SignalServiceL1.sol";
 
 /// @notice Chain identity shared by the SGX, RISC0 and SP1 sub-verifiers.
 /// @custom:security-contact security@taiko.xyz
@@ -30,11 +29,14 @@ interface IEtnaVerifierIdentity {
 /// @dev Reuses the new-network registry and initialization parameters. Additional environment:
 /// UNZEN_INBOX, SIGNAL_SERVICE (the existing L1 proxy), ORIGIN_WRITER, ETNA_FORK_TIME,
 /// PROPOSE_MARGIN and FI_MARGIN. Export the deployed cutoff implementation as
-/// UNZEN_INBOX_IMPLEMENTATION before deployInbox. REMOTE_SIGNAL_SERVICE is the existing L2 proxy. GENESIS_BLOCK_HASH
-/// and GENESIS_STATE_ROOT are not read: the start remains unwritten until setOrigin. Deploy the
-/// bootstrap, then its registry, dedicated verifiers, and the three implementations. All four
-/// deployment entry points only create contracts; installation/DAO batches and setOrigin are
-/// separate operations. Inherited deployRegistry likewise creates only a new registry proxy.
+/// UNZEN_INBOX_IMPLEMENTATION before deployInbox. REMOTE_SIGNAL_SERVICE is the existing L2 proxy.
+/// GENESIS_BLOCK_HASH and GENESIS_STATE_ROOT are not read: the start remains unwritten until
+/// setOrigin. Deploy the bootstrap, then its registry, dedicated verifiers, and the three
+/// implementations. All four deployment entry points only create contracts; installation/DAO
+/// batches and setOrigin are separate operations. Inherited deployRegistry likewise creates only
+/// a new registry proxy. The live Unzen Inbox may be in either switch state (Etna SWITCH.md
+/// section 3): before the DAO proposal executes it saves checkpoints in SIGNAL_SERVICE, after it
+/// through INBOX_PROXY, as when a replacement proposal is prepared.
 /// @custom:security-contact security@taiko.xyz
 contract DeployEtnaSwitch is DeployEtnaDevnet {
     // ---------------------------------------------------------------
@@ -75,10 +77,11 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         );
     }
 
-    /// @notice Deploys the Unzen cutoff implementation with the live Inbox's unchanged config.
+    /// @notice Deploys the Unzen cutoff implementation with the live Inbox's config, except that
+    /// `prove` saves its checkpoints through the Etna Inbox proxy (START-10-5d).
     /// @return inboxImpl_ Upgrade-compatible implementation; the existing proxy is untouched.
     function deployUnzenInboxImplementation() external returns (address inboxImpl_) {
-        IInbox.Config memory config = _liveUnzenConfig();
+        IInbox.Config memory config = _cutoffConfig();
         uint48 forkTime = _forkTime();
         uint48 proposeMargin = SafeCast.toUint48(vm.envUint("PROPOSE_MARGIN"));
         uint48 fiMargin = SafeCast.toUint48(vm.envUint("FI_MARGIN"));
@@ -91,20 +94,22 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         console2.log("FI_CUTOFF:", InboxWithEtnaCutoffs(inboxImpl_).FI_CUTOFF());
     }
 
-    /// @notice Deploys the storage-compatible L1 dual-syncer implementation without upgrading it.
+    /// @notice Deploys the shared SignalService implementation in its L1 configuration, without
+    /// upgrading the proxy: the Etna Inbox proxy as its only syncer and `beaconRootsFrom = 0`
+    /// (START-10-5). It keeps `VERSION`, so the Unzen Inbox's checkpoints stay readable.
     /// @return signalImpl_ New implementation, preserving the existing extra pause authority.
     function deploySignalServiceImplementation() external returns (address signalImpl_) {
         _liveUnzenConfig();
         address proxy = vm.envAddress("INBOX_PROXY");
+        _requireProxy(proxy);
         address remote = vm.envAddress("REMOTE_SIGNAL_SERVICE");
         require(
             remote == l2SignalServiceAddress(_envUint64("L2_CHAIN_ID")),
             RemoteSignalServiceMismatch()
         );
         address pauser = _signalPauser(vm.envAddress("SIGNAL_SERVICE"));
-        address unzen = vm.envAddress("UNZEN_INBOX");
         vm.startBroadcast(_privateKey());
-        signalImpl_ = address(new SignalServiceL1(unzen, proxy, remote, pauser));
+        signalImpl_ = address(new SignalService(proxy, remote, pauser, 0));
         vm.stopBroadcast();
         console2.log("L1 SignalService implementation (VERSION=1):", signalImpl_);
         console2.log("Existing pauser:", pauser);
@@ -139,8 +144,10 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         return super._registryConfig();
     }
 
-    /// @dev Opens the existing Unzen proxy and SignalService, never a fresh replacement store.
-    /// @return config_ Unchanged constructor configuration to carry into the cutoff implementation.
+    /// @dev Opens the existing Unzen proxy and SignalService, never a fresh replacement store. The
+    /// live `signalService` is SIGNAL_SERVICE before the DAO proposal executes and INBOX_PROXY
+    /// after it (SWITCH.md section 3); any other value is refused.
+    /// @return config_ The live Unzen Inbox configuration, unchanged.
     function _liveUnzenConfig() private view returns (IInbox.Config memory config_) {
         _owner(0);
         require(vm.envUint("L1_CHAIN_ID") == block.chainid, L1ChainIdMismatch());
@@ -152,16 +159,29 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         _requireOwner(signal);
         config_ = IInbox(unzen).getConfig();
         require(
-            config_.signalService == signal && SignalService(signal).VERSION() == 1,
+            SignalService(signal).VERSION() == 1
+                && (config_.signalService == signal
+                    || (vm.envExists("INBOX_PROXY")
+                        && config_.signalService == vm.envAddress("INBOX_PROXY"))),
             SwitchIdentityMismatch()
         );
         require(IInbox(unzen).getCoreState().nextProposalId != 0, SwitchIdentityMismatch());
     }
 
+    /// @dev The cutoff implementation's configuration: the live one with `signalService` set to
+    /// the Etna Inbox proxy, through which `prove` then saves its checkpoints (START-10-5d).
+    /// @return config_ The configuration to construct `InboxWithEtnaCutoffs` with.
+    function _cutoffConfig() private view returns (IInbox.Config memory config_) {
+        config_ = _liveUnzenConfig();
+        address proxy = vm.envAddress("INBOX_PROXY");
+        _requireProxy(proxy);
+        config_.signalService = proxy;
+    }
+
     /// @dev Checks the switching identities and that every Etna verifier instance is isolated.
     /// @return config_ Etna configuration with all three switching immutables populated.
     function _inboxConfig() internal view override returns (IEtnaInbox.Config memory config_) {
-        IInbox.Config memory unzenConfig = _liveUnzenConfig();
+        IInbox.Config memory cutoffConfig = _cutoffConfig();
         config_ = super._inboxConfig();
         address proxy = vm.envAddress("INBOX_PROXY");
         _requireProxy(proxy);
@@ -174,7 +194,7 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
             InboxWithEtnaCutoffs(vm.envAddress("UNZEN_INBOX_IMPLEMENTATION"));
         require(
             address(cutoff).code.length != 0 && cutoff.ETNA_FORK_TIME() == config_.etnaForkTime
-                && keccak256(abi.encode(cutoff.getConfig())) == keccak256(abi.encode(unzenConfig)),
+                && keccak256(abi.encode(cutoff.getConfig())) == keccak256(abi.encode(cutoffConfig)),
             SwitchIdentityMismatch()
         );
         require(
@@ -186,7 +206,7 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
                 && IEtnaStakingRegistry(config_.stakingRegistry).l2ChainId() == config_.l2ChainId,
             SwitchIdentityMismatch()
         );
-        _checkVerifiers(config_.proofVerifier, unzenConfig.proofVerifier, config_.l2ChainId);
+        _checkVerifiers(config_.proofVerifier, cutoffConfig.proofVerifier, config_.l2ChainId);
     }
 
     /// @dev Requires a separate ZkRequiredVerifier topology and no shared image-trusting instances.

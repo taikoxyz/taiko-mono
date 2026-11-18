@@ -469,8 +469,8 @@ interface IEtnaInbox {
     /// @return The start record; only L before the start write, zero before initialization.
     function genesis() external view returns (GenesisRecord memory);
 
-    /// @notice Returns the Etna start, which the L1 SignalService reads (spec 10 step 5).
-    /// @dev Never reverts.
+    /// @notice Returns the Etna start: the slots `saveCheckpoint` reads to bound the Unzen Inbox's
+    /// checkpoints (spec 10 step 5).
     /// @return height_ S (slot 272).
     /// @return blockHash_ The EL block hash of S (slot 273); zero exactly before the start write.
     function etnaStart() external view returns (uint48 height_, bytes32 blockHash_);
@@ -630,6 +630,8 @@ interface IEtnaInbox {
     /// @notice The SignalService checkpoint at S (not the landed checkpoint) differs from the
     /// start's hash or state root.
     error StartCheckpointMismatch();
+    /// @notice The Unzen Inbox forwarded a checkpoint above S after the start write.
+    error CheckpointAboveStart();
     /// @notice The landed checkpoint's height (`lastCheckpoint().height`) minus S is not a
     /// multiple of K.
     error CheckpointOffGrid();

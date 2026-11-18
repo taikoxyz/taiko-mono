@@ -5,16 +5,19 @@ import { Inbox } from "./Inbox.sol";
 
 /// @title InboxWithEtnaCutoffs
 /// @notice Stops Unzen proposals and forced inclusion submissions before the Etna fork.
-/// @dev Upgrade the live Unzen Inbox proxy to this implementation using its existing configuration.
-/// All switch parameters are immutable, so the inherited storage layout, proof verification, bond
-/// accounting and core-state numbering are unchanged (START-10-5d).
+/// @dev Upgrade the live Unzen Inbox proxy to this implementation using its existing configuration,
+/// except that `signalService` names the Etna Inbox proxy: `prove` then saves its checkpoints
+/// through the Etna Inbox, which forwards them to the L1 SignalService, and `getConfig()` reports
+/// the Etna Inbox. All switch parameters are immutable, so the inherited storage layout, proof
+/// verification, bond accounting and core-state numbering are unchanged (START-10-5d).
 /// @custom:security-contact security@taiko.xyz
 contract InboxWithEtnaCutoffs is Inbox {
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
 
-    /// @notice Canonical Etna fork timestamp, shared with the Etna Inbox and L2 Anchor.
+    /// @notice Canonical Etna fork timestamp, shared with the Etna Inbox and the L2 SignalService's
+    /// `beaconRootsFrom`.
     uint48 public immutable ETNA_FORK_TIME;
 
     /// @notice Time before the fork at which Unzen proposals stop being accepted.
@@ -38,7 +41,8 @@ contract InboxWithEtnaCutoffs is Inbox {
     /// slots need a larger margin that covers the accumulated L2 timestamp lead. The FI margin
     /// includes the forced inclusion delay and a nonzero buffer; deployment must choose a buffer
     /// at least as long as the longest expected gap between proposals.
-    /// @param _config The unchanged configuration of the live Unzen Inbox.
+    /// @param _config The live Unzen Inbox's configuration with `signalService` set to the Etna
+    /// Inbox proxy.
     /// @param _etnaForkTime The canonical Etna fork timestamp.
     /// @param _proposeMargin Seconds between the proposal cutoff and the fork.
     /// @param _fiMargin Seconds between the forced inclusion submission cutoff and the fork.

@@ -97,14 +97,35 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         alloc = self._build()["alloc"]
         self.assertEqual(alloc[anchor], self.predeploys[anchor])
 
-    def test_rejects_an_anchor_without_the_etna_gate(self):
-        for value in ("0xffffffffffffffff", "0x1"):
-            self.config["etnaTimestamp"] = value
-            with self.assertRaisesRegex(ValueError, "etnaTimestamp must be 0x0.*genesis_config.js"):
+    def test_rejects_a_signal_service_without_the_etna_cutoff(self):
+        # Vector 5.ab: with genesis timestamp 0, zero would keep the checkpoint path open.
+        for value in ("0x0", "0x2", "0xffffffffffffffff"):
+            self.config["beaconRootsFrom"] = value
+            with self.assertRaisesRegex(ValueError,
+                                        "beaconRootsFrom must be 0x1, .*genesis_config.js"):
                 self._build()
-        for value in (0, "0", "", None):
-            self.config["etnaTimestamp"] = value
-            with self.assertRaisesRegex(ValueError, "0x-prefixed hex string"):
+        for value in (1, "1", "", None):
+            self.config["beaconRootsFrom"] = value
+            with self.assertRaisesRegex(ValueError, "beaconRootsFrom must be a 0x-prefixed hex"):
+                self._build()
+
+    def test_beacon_roots_from_follows_the_base_genesis_timestamp(self):
+        # Vector 5.aa uses max(1, 0) = 1; a later genesis timestamp is used as it is.
+        self.base["timestamp"] = "0x64"
+        with self.assertRaisesRegex(ValueError, "beaconRootsFrom must be 0x64"):
+            self._build()
+        self.config["beaconRootsFrom"] = "0x64"
+        self.predeploys = self.fixture.predeploys(beaconRootsFrom=self.fixture.word(100))
+        self._build()
+        # Execution clients read a missing timestamp as 0, and an integer one as it is.
+        self.base["timestamp"] = 100
+        self._build()
+        del self.base["timestamp"]
+        with self.assertRaisesRegex(ValueError, "beaconRootsFrom must be 0x1,"):
+            self._build()
+        for value in ("0x", "100", True, -1, 2**64, "0x" + "f" * 17):
+            self.base["timestamp"] = value
+            with self.assertRaisesRegex(ValueError, "base genesis: timestamp must be a uint64"):
                 self._build()
 
     def test_rejects_a_missing_or_other_l1_signal_service(self):
@@ -187,11 +208,11 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate predeploy address"):
             self._build()
 
-    def test_rejects_an_ungated_anchor_in_the_bytecode_when_the_config_says_0(self):
-        # A config file edited to 0x0 next to an alloc generated with the "never" default.
-        never = self.fixture.word(2**64 - 1)
-        self.predeploys = self.fixture.predeploys(etnaTimestamp=never)
-        with self.assertRaisesRegex(ValueError, "TaikoAnchorImpl etnaTimestamp is " + never):
+    def test_rejects_an_open_checkpoint_store_in_the_bytecode_when_the_config_says_1(self):
+        # A config file edited to 0x1 next to an alloc generated with the checkpoint-only default.
+        zero = self.fixture.word(0)
+        self.predeploys = self.fixture.predeploys(beaconRootsFrom=zero)
+        with self.assertRaisesRegex(ValueError, "SignalServiceImpl beaconRootsFrom is " + zero):
             self._build()
 
     def test_rejects_wrong_root_path_immutables(self):
@@ -204,12 +225,13 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
                                 ("l1ChainId", "TaikoAnchorImpl"),
                                 ("_authorizedSyncer", "SignalServiceImpl"),
                                 ("_remoteSignalService", "SignalServiceImpl"),
-                                ("pauser", "SignalServiceImpl")):
+                                ("pauser", "SignalServiceImpl"),
+                                ("beaconRootsFrom", "SignalServiceImpl")):
             self.predeploys = self.fixture.predeploys(**{immutable: other})
             with self.assertRaisesRegex(ValueError, name + " " + immutable + " is " + other
                                         + ".*rerun `pnpm genesis:gen`"):
                 self._build()
-        # Each implementation's `__self` is its own address, and only SignalServiceL2 has a
+        # Each implementation's `__self` is its own address, and only the SignalService has a
         # resolver.
         anchor_self = self.fixture.address_word(self.addresses["TaikoAnchorImpl"])
         self.predeploys = self.fixture.predeploys(__self=anchor_self, __resolver=self.fixture.word(0))
@@ -291,17 +313,23 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             self._build(config=config)
 
     def test_rejects_an_immutable_with_two_values(self):
-        # The stand-in Anchor reads etnaTimestamp at bytes 34 and 100; set only the second.
-        self._set_code_byte("TaikoAnchorImpl", 131, 1)
-        with self.assertRaisesRegex(ValueError, "etnaTimestamp differs between its offsets"):
+        # The stand-in SignalService reads beaconRootsFrom at bytes 34 and 133; change only the
+        # second.
+        self._set_code_byte("SignalServiceImpl", 140, 1)
+        with self.assertRaisesRegex(ValueError, "beaconRootsFrom differs between its offsets"):
             self._build()
 
     def test_rejects_proxy_code_that_is_not_the_compiled_proxy(self):
-        # Calls land at the proxy: an ungated Anchor runtime there, still pointing at a gated
-        # implementation, would keep anchorV4 open at the Anchor address.
-        ungated = self.fixture.predeploys(etnaTimestamp=self.fixture.word(2**64 - 1))
+        # Calls land at the proxy: a SignalService runtime there with an open checkpoint store,
+        # still pointing at a checked implementation, would accept forged checkpoints.
+        open_store = self.fixture.predeploys(beaconRootsFrom=self.fixture.word(0))
+        self.predeploys[self.addresses["SignalService"]]["code"] = (
+            open_store[self.addresses["SignalServiceImpl"]]["code"])
+        with self.assertRaisesRegex(ValueError, "SignalService is not the compiled ERC1967Proxy"):
+            self._build()
+        self.setUp()
         self.predeploys[self.addresses["TaikoAnchor"]]["code"] = (
-            ungated[self.addresses["TaikoAnchorImpl"]]["code"])
+            self.predeploys[self.addresses["TaikoAnchorImpl"]]["code"])
         with self.assertRaisesRegex(ValueError, "TaikoAnchor is not the compiled ERC1967Proxy"):
             self._build()
         self.setUp()
@@ -315,23 +343,25 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
 
     def test_rejects_root_path_artifacts_that_link_a_library(self):
         # A linked library would be a call target the immutable check does not cover.
-        signal = self.fixture.artifacts()["SignalServiceL2"]
+        signal = self.fixture.artifacts()["SignalService"]
         signal["deployedBytecode"]["linkReferences"] = {
-            "contracts/Lib.sol": {"Lib": [{"start": 132, "length": 20}]}}
-        self.fixture.write_artifacts(self.artifacts, {"SignalServiceL2": signal})
-        with self.assertRaisesRegex(ValueError, "SignalServiceL2 links a library"):
+            "contracts/Lib.sol": {"Lib": [{"start": 232, "length": 20}]}}
+        self.fixture.write_artifacts(self.artifacts, {"SignalService": signal})
+        with self.assertRaisesRegex(ValueError, "SignalService links a library"):
             self._build()
 
     def test_rejects_an_immutable_that_is_not_32_bytes(self):
-        anchor = self.fixture.artifacts()["Anchor"]
-        anchor["deployedBytecode"]["immutableReferences"]["12"][0]["length"] = 20
-        self.fixture.write_artifacts(self.artifacts, {"Anchor": anchor})
-        with self.assertRaisesRegex(ValueError, "etnaTimestamp is not a 32-byte immutable"):
+        signal = self.fixture.artifacts()["SignalService"]
+        # A uint64 read as its low 8 bytes only, so the code still matches the artifact.
+        signal["deployedBytecode"]["immutableReferences"]["24"][0]["start"] += 24
+        signal["deployedBytecode"]["immutableReferences"]["24"][0]["length"] = 8
+        self.fixture.write_artifacts(self.artifacts, {"SignalService": signal})
+        with self.assertRaisesRegex(ValueError, "beaconRootsFrom is not a 32-byte immutable"):
             self._build()
 
     def test_rejects_code_that_is_not_the_compiled_runtime(self):
         for name, contract, offset in (("TaikoAnchorImpl", "Anchor", 0),
-                                       ("SignalServiceImpl", "SignalServiceL2", 33)):
+                                       ("SignalServiceImpl", "SignalService", 33)):
             self.setUp()
             self._set_code_byte(name, offset, 0xFE)
             # The message names the artifacts directory and how to point at the right one.
@@ -339,21 +369,17 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
                                         + " runtime in " + re.escape(str(self.artifacts))
                                         + ".*--artifacts"):
                 self._build()
-        # A trailing byte, and the base SignalService instead of SignalServiceL2.
+        # A trailing byte, and the Anchor's runtime in place of the SignalService's.
         self.setUp()
         account = self.predeploys[self.addresses["TaikoAnchorImpl"]]
         account["code"] += "00"
         with self.assertRaisesRegex(ValueError, "TaikoAnchorImpl is not the compiled Anchor"):
             self._build()
         self.setUp()
-        base_runtime = self.fixture.runtime(self.fixture.artifacts()["SignalService"], {
-            "_authorizedSyncer": self.fixture.address_word(self.addresses["TaikoAnchor"]),
-            "_remoteSignalService": self.fixture.address_word(self.l1_signal_service),
-            "pauser": self.fixture.word(0),
-        })
-        self.predeploys[self.addresses["SignalServiceImpl"]]["code"] = base_runtime
+        self.predeploys[self.addresses["SignalServiceImpl"]]["code"] = (
+            self.predeploys[self.addresses["TaikoAnchorImpl"]]["code"])
         with self.assertRaisesRegex(ValueError,
-                                    "SignalServiceImpl is not the compiled SignalServiceL2"):
+                                    "SignalServiceImpl is not the compiled SignalService"):
             self._build()
 
     def test_rejects_a_proxy_that_points_elsewhere(self):
@@ -382,14 +408,14 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         anchor = json.loads(json.dumps(contracts["Anchor"]))
         anchor["ast"]["nodes"][0]["nodes"][1]["mutability"] = "mutable"
         self.fixture.write_artifacts(self.artifacts, {"Anchor": anchor})
-        with self.assertRaisesRegex(ValueError, "Anchor declares no immutable etnaTimestamp"):
+        with self.assertRaisesRegex(ValueError, "Anchor declares no immutable l1ChainId"):
             self._build()
         # An immutable the runtime never reads cannot carry the checked value. Its bytes are then
         # ordinary code, zero in the artifact.
-        signal = json.loads(json.dumps(contracts["SignalServiceL2"]))
+        signal = json.loads(json.dumps(contracts["SignalService"]))
         del signal["deployedBytecode"]["immutableReferences"]["22"]
         self.fixture.write_artifacts(self.artifacts, {"Anchor": contracts["Anchor"],
-                                                      "SignalServiceL2": signal})
+                                                      "SignalService": signal})
         self.predeploys = self.fixture.predeploys(_remoteSignalService=self.fixture.word(0))
         with self.assertRaisesRegex(ValueError, "_remoteSignalService has no offsets"):
             self._build()
@@ -413,16 +439,16 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             expected = (json.dumps(self._build(), sort_keys=True, indent=2) + "\n").encode()
             self.assertEqual(output.read_bytes(), expected)
 
-    def test_cli_rejects_an_ungated_anchor_without_output(self):
-        self.config["etnaTimestamp"] = "0xffffffffffffffff"
-        self._assert_cli_rejected(json.dumps(self.base), "etnaTimestamp must be 0x0")
-        self.config["etnaTimestamp"] = "0x0"
-        self.predeploys = self.fixture.predeploys(etnaTimestamp=self.fixture.word(1))
-        self._assert_cli_rejected(json.dumps(self.base), "TaikoAnchorImpl etnaTimestamp is")
+    def test_cli_rejects_an_open_checkpoint_store_without_output(self):
+        self.config["beaconRootsFrom"] = "0x0"
+        self._assert_cli_rejected(json.dumps(self.base), "beaconRootsFrom must be 0x1")
+        self.config["beaconRootsFrom"] = "0x1"
+        self.predeploys = self.fixture.predeploys(beaconRootsFrom=self.fixture.word(0))
+        self._assert_cli_rejected(json.dumps(self.base), "SignalServiceImpl beaconRootsFrom is")
 
     def test_cli_failure_prints_one_line_and_removes_old_output(self):
         # A failed run leaves no genesis behind, not even the one an earlier run wrote.
-        self.config["etnaTimestamp"] = "0x1"
+        self.config["beaconRootsFrom"] = "0x2"
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "genesis.json"
             output.write_text("{}")
@@ -431,7 +457,7 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             self.assertFalse(output.exists(), "the earlier output must be gone")
             self.assertNotIn("Traceback", result.stderr)
             self.assertRegex(result.stderr.strip(), r"^build_etna_genesis.py: error: predeploy "
-                             r"config: etnaTimestamp must be 0x0[^\n]*$")
+                             r"config: beaconRootsFrom must be 0x1,[^\n]*$")
             self.assertEqual(sorted(p.name for p in Path(directory).iterdir()),
                              ["base.json", "genesis_alloc.json", "genesis_config.json"],
                              "no temporary file left")

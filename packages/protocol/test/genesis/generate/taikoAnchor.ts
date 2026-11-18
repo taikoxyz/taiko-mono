@@ -15,22 +15,22 @@ export async function deployTaikoAnchor(
     config: Config,
     result: Result,
 ): Promise<Result> {
-    const { contractOwner, l1ChainId, etnaTimestamp, chainId, seedAccounts } =
+    const { contractOwner, l1ChainId, beaconRootsFrom, chainId, seedAccounts } =
         config;
 
-    // An unpatched immutable stays 0 in the genesis bytecode, which would disable anchorV4 from
-    // genesis.
-    if (etnaTimestamp === undefined) {
-        throw new Error("genesis config: etnaTimestamp is not set");
+    // The SignalService's `beaconRootsFrom` immutable: 0 keeps checkpoints as its only root
+    // source, and a new Etna network needs max(1, genesis timestamp) (Etna SPEC START-10-5).
+    if (beaconRootsFrom === undefined) {
+        throw new Error("genesis config: beaconRootsFrom is not set");
     }
     // The immutable is a uint64; a wider value would leave dirty high bits in the patched word.
     if (
-        typeof etnaTimestamp !== "string" ||
-        !/^0x[0-9a-fA-F]+$/.test(etnaTimestamp) ||
-        ethers.BigNumber.from(etnaTimestamp).gt("0xffffffffffffffff")
+        typeof beaconRootsFrom !== "string" ||
+        !/^0x[0-9a-fA-F]+$/.test(beaconRootsFrom) ||
+        ethers.BigNumber.from(beaconRootsFrom).gt("0xffffffffffffffff")
     ) {
         throw new Error(
-            "genesis config: etnaTimestamp must be a 0x-prefixed hex string of at most 2^64 - 1",
+            "genesis config: beaconRootsFrom must be a 0x-prefixed hex string of at most 2^64 - 1",
         );
     }
 
@@ -59,7 +59,7 @@ export async function deployTaikoAnchor(
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
         l1ChainId,
-        etnaTimestamp,
+        beaconRootsFrom,
         chainId,
         config.contractAddresses,
         config.param1559,
@@ -135,7 +135,7 @@ export async function deployTaikoAnchor(
 async function generateContractConfigs(
     contractOwner: string,
     l1ChainId: number,
-    etnaTimestamp: string,
+    beaconRootsFrom: string,
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
@@ -157,10 +157,7 @@ async function generateContractConfigs(
             path.join(ARTIFACTS_PATH, "./ERC1155Vault.sol/ERC1155Vault.json"),
         ),
         SignalServiceImpl: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./SignalServiceL2.sol/SignalServiceL2.json",
-            ),
+            path.join(ARTIFACTS_PATH, "./SignalService.sol/SignalService.json"),
         ),
         SharedResolverImpl: require(
             path.join(
@@ -224,11 +221,7 @@ async function generateContractConfigs(
     );
     const taikoAnchorReferencesMap: any = Object.assign(
         {},
-        getImmutableReference("Anchor", [
-            "checkpointStore",
-            "l1ChainId",
-            "etnaTimestamp",
-        ]),
+        getImmutableReference("Anchor", ["checkpointStore", "l1ChainId"]),
     );
     const bridgeReferencesMap: any = getImmutableReference("Bridge", [
         "signalService",
@@ -246,8 +239,8 @@ async function generateContractConfigs(
         ["erc1155Vault"],
     );
     const signalServiceReferencesMap: any = getImmutableReference(
-        "SignalServiceL2",
-        ["_authorizedSyncer", "_remoteSignalService"],
+        "SignalService",
+        ["_authorizedSyncer", "_remoteSignalService", "beaconRootsFrom"],
     );
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
@@ -613,6 +606,15 @@ async function generateContractConfigs(
                         id: signalServiceReferencesMap._remoteSignalService.id,
                         value: ethers.utils.hexZeroPad(remoteSignalService, 32),
                     },
+                    {
+                        id: signalServiceReferencesMap.beaconRootsFrom.id,
+                        value: ethers.utils.hexZeroPad(
+                            ethers.BigNumber.from(
+                                beaconRootsFrom,
+                            ).toHexString(),
+                            32,
+                        ),
+                    },
                 ]),
                 addressMap,
             ),
@@ -661,13 +663,6 @@ async function generateContractConfigs(
                         id: taikoAnchorReferencesMap.l1ChainId.id,
                         value: ethers.utils.hexZeroPad(
                             ethers.utils.hexlify(l1ChainId),
-                            32,
-                        ),
-                    },
-                    {
-                        id: taikoAnchorReferencesMap.etnaTimestamp.id,
-                        value: ethers.utils.hexZeroPad(
-                            ethers.BigNumber.from(etnaTimestamp).toHexString(),
                             32,
                         ),
                     },

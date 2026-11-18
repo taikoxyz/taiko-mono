@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { EtnaInboxSwitchTestBase } from "./EtnaInboxSwitchTestBase.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
+import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
@@ -185,6 +186,73 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
     }
 
     // ---------------------------------------------------------------
+    // The Unzen checkpoint forwarder (START-10-5, vectors 5.n-5.r)
+    // ---------------------------------------------------------------
+
+    /// @dev 5.p: before the start write the Inbox forwards an Unzen checkpoint at any height,
+    /// unchanged.
+    function test_saveCheckpoint_ForwardsAnyHeightBeforeTheStart() external {
+        _forwardUnzenCheckpoint(S + 600, bytes32(uint256(1)), bytes32(uint256(2)));
+        _forwardUnzenCheckpoint(1, bytes32(uint256(3)), bytes32(uint256(4)));
+
+        _assertCheckpoint(S + 600, bytes32(uint256(1)), bytes32(uint256(2)));
+        _assertCheckpoint(1, bytes32(uint256(3)), bytes32(uint256(4)));
+    }
+
+    /// @dev 5.o and 5.n: once the start is written, the checkpoint at exactly S passes and one
+    /// above S reverts, saving nothing.
+    function test_saveCheckpoint_BoundsHeightsByTheStartOnceWritten() external {
+        _writeStart();
+        _forwardUnzenCheckpoint(S, _startHash(), _startStateRoot());
+        _forwardUnzenCheckpoint(S - 1, bytes32(uint256(1)), bytes32(uint256(2)));
+        _assertCheckpoint(S, _startHash(), _startStateRoot());
+        _assertCheckpoint(S - 1, bytes32(uint256(1)), bytes32(uint256(2)));
+
+        vm.expectRevert(IEtnaInbox.CheckpointAboveStart.selector);
+        _forwardUnzenCheckpoint(S + 1, bytes32(uint256(1)), bytes32(uint256(2)));
+        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
+        signalService.getCheckpoint(uint48(S + 1));
+    }
+
+    /// @dev 5.r: only the Unzen Inbox may call it; the Inbox's owner and the originWriter may
+    /// not, and on a new network nobody may.
+    function test_saveCheckpoint_RevertWhen_CallerIsNotTheUnzenInbox() external {
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: uint48(S), blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
+        });
+        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
+        EtnaInbox(inboxProxy).saveCheckpoint(checkpoint);
+        vm.prank(Carol);
+        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
+        EtnaInbox(inboxProxy).saveCheckpoint(checkpoint);
+
+        _deployFreshInbox(true);
+        vm.prank(address(unzen));
+        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
+        EtnaInbox(inboxProxy).saveCheckpoint(checkpoint);
+    }
+
+    /// @dev 5.q: it reverts for no reason besides its own checks and the SignalService's: not
+    /// while paused, while the registry holds its lock or before `init`.
+    function test_saveCheckpoint_IgnoresPauseRegistryLockAndInitialization() external {
+        EssentialContract(inboxProxy).pause();
+        _mockRegistryLocked();
+        _forwardUnzenCheckpoint(S, _startHash(), _startStateRoot());
+        _assertCheckpoint(S, _startHash(), _startStateRoot());
+
+        // A fresh proxy upgraded to the switching implementation but not yet initialized.
+        _deployFreshInbox(_switchConfig(), _switchInitParams(), false);
+        EssentialContract(inboxProxy).upgradeTo(address(inboxImpl));
+        assertFalse(_inbox().isInitialized(), "uninitialized");
+        _forwardUnzenCheckpoint(S, _startHash(), _startStateRoot());
+        _assertCheckpoint(S, _startHash(), _startStateRoot());
+
+        // The SignalService's own checks still apply.
+        vm.expectRevert(SignalService.SS_INVALID_CHECKPOINT.selector);
+        _forwardUnzenCheckpoint(S, 0, _startStateRoot());
+    }
+
+    // ---------------------------------------------------------------
     // The grid counted from S (LAND-6.1-5, vectors 5.f and 5.g)
     // ---------------------------------------------------------------
 
@@ -317,6 +385,20 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         assertEq(_inboxWord(GENESIS_PACKED_SLOT), before[0], "272 unchanged");
         assertEq(_inboxWord(LAST_CHECKPOINT_HEIGHT_SLOT), before[1], "270 unchanged");
         assertEq(_inboxWord(_originSlot(0) + 1), before[2], "origins(0) unchanged");
+    }
+
+    /// @dev Checks the SignalService checkpoint at `_height`.
+    function _assertCheckpoint(
+        uint256 _height,
+        bytes32 _blockHash,
+        bytes32 _stateRoot
+    )
+        private
+        view
+    {
+        ICheckpointStore.Checkpoint memory checkpoint = signalService.getCheckpoint(uint48(_height));
+        assertEq(checkpoint.blockHash, _blockHash, "checkpoint hash");
+        assertEq(checkpoint.stateRoot, _stateRoot, "checkpoint state root");
     }
 
     /// @dev Checks `etnaStart()` and slot 273.

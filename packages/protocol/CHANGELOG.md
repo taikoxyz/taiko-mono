@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Etna: `SignalService` takes a fourth constructor argument, `beaconRootsFrom`: 0 on L1, the Etna
+  fork time on a switching L2 and max(1, L2 genesis timestamp) on a new one. From it on, the
+  SignalService rejects every checkpoint (`SS_CHECKPOINTS_CLOSED`) and resolves proof roots only
+  through EIP-4788, with `blockId` an L2 timestamp. The `Anchor` is unchanged, and the switching
+  L1 SignalService accepts checkpoints only from the Etna Inbox, which forwards the Unzen Inbox's.
 - Fix Etna double-sign evidence encoding for present all-zero BlockID hashes. Vote hashes now use
   `bytes` of length 0 or 32, changing the `slashDoubleSign` ABI; clients must refresh it and the
   schema-7 shared vectors.

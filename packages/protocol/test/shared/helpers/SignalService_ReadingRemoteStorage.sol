@@ -18,7 +18,7 @@ contract SignalService_ReadingRemoteStorage is SignalService {
         address remoteSignalService,
         address _pauser
     )
-        SignalService(authorizedSyncer, remoteSignalService, _pauser)
+        SignalService(authorizedSyncer, remoteSignalService, _pauser, 0)
     { }
 
     /// @inheritdoc ISignalService

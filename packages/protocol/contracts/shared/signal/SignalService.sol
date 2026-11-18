@@ -42,6 +42,10 @@ contract SignalService is EssentialContract, ISignalService {
     /// @notice Address authorized to pause/unpause alongside the owner. Optional (may be zero).
     address public immutable pauser;
 
+    /// @notice Zero on L1. On L2, the Etna fork time: from it on, the checkpoint store accepts no
+    /// checkpoint and proof roots come only from EIP-4788.
+    uint64 public immutable beaconRootsFrom;
+
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -52,6 +56,10 @@ contract SignalService is EssentialContract, ISignalService {
     /// Etna verifier-failure rollback must keep usable; that rollback therefore cannot be only a
     /// bump (Etna spec RECOV-8-27).
     uint256 public constant VERSION = 1;
+
+    /// @notice The canonical EIP-4788 beacon roots contract. From the Etna fork on, it records each
+    /// L2 block's `parentBeaconBlockRoot`, the execution state root of the block's L1 anchor.
+    address public constant BEACON_ROOTS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
 
     // ---------------------------------------------------------------
     // Storage variables
@@ -85,13 +93,21 @@ contract SignalService is EssentialContract, ISignalService {
     /// @param remoteSignalService Address of the remote signal service.
     /// @param _pauser Address authorized to pause/unpause alongside the owner. Optional (may be
     /// zero).
-    constructor(address authorizedSyncer, address remoteSignalService, address _pauser) {
+    /// @param _beaconRootsFrom Zero on L1; on L2, the Etna fork time, or max(1, genesis timestamp)
+    /// on a network that starts on Etna.
+    constructor(
+        address authorizedSyncer,
+        address remoteSignalService,
+        address _pauser,
+        uint64 _beaconRootsFrom
+    ) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
         require(remoteSignalService != address(0), ZERO_ADDRESS());
 
         _authorizedSyncer = authorizedSyncer;
         _remoteSignalService = remoteSignalService;
         pauser = _pauser;
+        beaconRootsFrom = _beaconRootsFrom;
     }
 
     /// @notice Initializes the SignalService contract for upgradeable deployments.
@@ -173,8 +189,11 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ICheckpointStore
+    /// @dev From `beaconRootsFrom` on, rejects every checkpoint, so the public golden touch key
+    /// cannot save a forged one through `anchorV4` once blocks no longer carry the anchor.
     function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
-        _authorizeCheckpoint(_checkpoint);
+        if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
+        if (!_checkpointsOpen()) revert SS_CHECKPOINTS_CLOSED();
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
         if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
 
@@ -202,21 +221,32 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
     function _authorizePause(address, bool) internal view override onlyFromOwnerOr(pauser) { }
 
-    /// @dev Reverts unless `msg.sender` may save the checkpoint passed to `saveCheckpoint`. The
-    /// base accepts only the authorized syncer. An implementation with more syncers, such as the
-    /// L1 SignalService that accepts checkpoints from both the Unzen Inbox and the EtnaInbox (Etna
-    /// SWITCH.md section 3), overrides this hook and keeps the base, and so `SignalServiceL2`,
-    /// unchanged.
-    function _authorizeCheckpoint(Checkpoint calldata) internal view virtual {
-        if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
+    /// @dev Resolves the state root against which a signal proof is checked: a saved checkpoint
+    /// while the checkpoint store is open, then the EIP-4788 root recorded at an L2 timestamp.
+    /// There is no fallback from one source to the other.
+    /// @param _blockId A source-chain block number while checkpoints are open, an L2 timestamp
+    /// afterwards.
+    /// @return stateRoot_ The authenticated, nonzero state root.
+    function _getStateRoot(uint64 _blockId) private view returns (bytes32 stateRoot_) {
+        if (_checkpointsOpen()) {
+            if (_blockId > type(uint48).max) revert SS_INVALID_BLOCK_ID();
+            stateRoot_ = _getCheckpoint(uint48(_blockId)).stateRoot;
+        } else {
+            if (_blockId < beaconRootsFrom) revert SS_INVALID_BLOCK_ID();
+            // The whole calldata is the 32-byte timestamp, with no selector. A missing or
+            // overwritten entry reverts, and a call to an address without code succeeds with no
+            // return data.
+            (bool ok, bytes memory ret) = BEACON_ROOTS.staticcall(abi.encode(uint256(_blockId)));
+            if (!ok || ret.length != 32) revert SS_STATE_ROOT_NOT_FOUND();
+            stateRoot_ = abi.decode(ret, (bytes32));
+        }
+        if (stateRoot_ == bytes32(0)) revert SS_STATE_ROOT_NOT_FOUND();
     }
 
-    /// @dev Returns the authenticated state root for a checkpoint proof.
-    /// @param _blockId Source block number.
-    /// @return stateRoot_ State root saved in the checkpoint.
-    function _getStateRoot(uint64 _blockId) internal view virtual returns (bytes32 stateRoot_) {
-        if (_blockId > type(uint48).max) revert SS_INVALID_BLOCK_ID();
-        return _getCheckpoint(uint48(_blockId)).stateRoot;
+    /// @dev Whether the checkpoint store is still the root source: always on L1, before
+    /// `beaconRootsFrom` on L2.
+    function _checkpointsOpen() private view returns (bool) {
+        return beaconRootsFrom == 0 || block.timestamp < beaconRootsFrom;
     }
 
     /// @dev Gets a checkpoint by block number
@@ -269,7 +299,7 @@ contract SignalService is EssentialContract, ISignalService {
         }
     }
 
-    /// @dev Verifies a cached signal or a proof against the implementation's authenticated root.
+    /// @dev Verifies a cached signal, or a proof against the root `_getStateRoot` resolves.
     /// @param _chainId Source chain ID.
     /// @param _app Source application that sent the signal.
     /// @param _signal Signal being proven.
@@ -316,10 +346,12 @@ contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
 
     error SS_CHECKPOINT_NOT_FOUND();
+    error SS_CHECKPOINTS_CLOSED();
     error SS_EMPTY_PROOF();
     error SS_INVALID_BLOCK_ID();
     error SS_INVALID_CHECKPOINT();
     error SS_INVALID_PROOF_LENGTH();
     error SS_SIGNAL_NOT_RECEIVED();
+    error SS_STATE_ROOT_NOT_FOUND();
     error SS_UNAUTHORIZED();
 }

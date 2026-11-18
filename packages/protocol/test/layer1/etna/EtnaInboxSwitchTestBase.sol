@@ -5,6 +5,7 @@ import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
 import { EtnaLandTestBase } from "./EtnaLandTestBase.sol";
 import { MockUnzenInbox } from "./MockUnzenInbox.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
+import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title EtnaInboxSwitchTestBase
@@ -79,7 +80,7 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
     }
 
     /// @dev The Unzen Inbox has finalized proposals 1 to 7 up to S, whose checkpoint its final
-    /// proof saved in the SignalService (modelled by saving it as the SignalService's syncer).
+    /// proof saved through the Inbox's `saveCheckpoint` forwarder.
     function _finalizeUnzen() internal {
         unzen.setCoreState(8, 7, _startHash());
         _saveUnzenCheckpoint(_startHash(), _startStateRoot());
@@ -87,11 +88,23 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
 
     /// @dev Saves the SignalService checkpoint at S as the Unzen Inbox's final proof would.
     function _saveUnzenCheckpoint(bytes32 _blockHash, bytes32 _stateRoot) internal {
-        vm.prank(inboxProxy);
-        signalService.saveCheckpoint(
-            ICheckpointStore.Checkpoint({
-                blockNumber: uint48(S), blockHash: _blockHash, stateRoot: _stateRoot
-            })
-        );
+        _forwardUnzenCheckpoint(S, _blockHash, _stateRoot);
+    }
+
+    /// @dev Calls the Inbox's `saveCheckpoint` as the Unzen Inbox's `prove` does.
+    function _forwardUnzenCheckpoint(
+        uint256 _height,
+        bytes32 _blockHash,
+        bytes32 _stateRoot
+    )
+        internal
+    {
+        vm.prank(address(unzen));
+        EtnaInbox(inboxProxy)
+            .saveCheckpoint(
+                ICheckpointStore.Checkpoint({
+                    blockNumber: uint48(_height), blockHash: _blockHash, stateRoot: _stateRoot
+                })
+            );
     }
 }

@@ -26,7 +26,7 @@ contract TestGenerateGenesis is Test {
         vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_alloc.json"));
     address private contractOwner = configJSON.readAddress(".contractOwner");
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
-    uint256 private etnaTimestamp = configJSON.readUint(".etnaTimestamp");
+    uint256 private beaconRootsFrom = configJSON.readUint(".beaconRootsFrom");
 
     function testSharedContractsDeployment() public {
         assertEq(block.chainid, 167);
@@ -114,8 +114,6 @@ contract TestGenerateGenesis is Test {
 
         assertEq(contractOwner, taikoAnchorProxy.owner());
         assertEq(l1ChainId, taikoAnchorProxy.l1ChainId());
-        // An unpatched immutable would read 0 and disable anchorV4 from genesis.
-        assertEq(etnaTimestamp, taikoAnchorProxy.etnaTimestamp());
         assertEq(
             getPredeployedContractAddress("SignalService"),
             address(taikoAnchorProxy.checkpointStore())
@@ -128,8 +126,7 @@ contract TestGenerateGenesis is Test {
                 address(
                     new Anchor(
                         ICheckpointStore(getPredeployedContractAddress("SignalService")),
-                        uint64(l1ChainId),
-                        uint64(etnaTimestamp)
+                        uint64(l1ChainId)
                     )
                 )
             );
@@ -314,6 +311,8 @@ contract TestGenerateGenesis is Test {
         assertEq(contractOwner, signalServiceProxy.owner());
 
         assertEq(signalServiceProxy.VERSION(), 1);
+        // An unpatched immutable would read 0 and keep checkpoints open on an Etna network.
+        assertEq(beaconRootsFrom, signalServiceProxy.beaconRootsFrom());
 
         signalServiceProxy.sendSignal(keccak256(abi.encodePacked(block.prevrandao)));
 

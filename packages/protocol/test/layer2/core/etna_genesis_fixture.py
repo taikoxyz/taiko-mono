@@ -1,6 +1,6 @@
 """Synthetic inputs for the Etna genesis builder tests (stdlib only).
 
-The predeploys are stand-in Anchor and SignalServiceL2 implementations behind stand-in ERC-1967
+The predeploys are stand-in Anchor and SignalService implementations behind stand-in ERC-1967
 proxies. Each account's code is a small artifact's runtime with its immutables filled in the way
 `pnpm genesis:gen` fills them, so the builder can check the emitted bytecode against the
 artifacts. Run as a script, it writes the inputs to a temporary directory and runs the builder
@@ -30,9 +30,11 @@ ADDRESSES = {
 # AST ids of the stand-in immutables: UUPS `__self`, EssentialContract `__resolver`, the Anchor's
 # and SignalService's own.
 IDS = {
-    "checkpointStore": 11, "etnaTimestamp": 12, "__self": 13, "__resolver": 14, "l1ChainId": 15,
-    "_authorizedSyncer": 21, "_remoteSignalService": 22, "pauser": 23,
+    "checkpointStore": 11, "__self": 13, "__resolver": 14, "l1ChainId": 15,
+    "_authorizedSyncer": 21, "_remoteSignalService": 22, "pauser": 23, "beaconRootsFrom": 24,
 }
+# max(1, base genesis timestamp) for the base genesis `main` writes, whose timestamp is 0.
+BEACON_ROOTS_FROM = 1
 
 
 def word(value):
@@ -75,30 +77,25 @@ def _artifact(name, declared, layout, bases=(), body="00"):
 
 
 def artifacts():
-    """The stand-in ERC1967Proxy, UUPSUpgradeable, EssentialContract, Anchor, SignalService and
-    SignalServiceL2 artifacts. The proxy has no immutables, both implementations also carry the
-    inherited `__self` and `__resolver`, the Anchor reads `etnaTimestamp` twice, and
-    SignalServiceL2 inherits SignalService's immutables."""
+    """The stand-in ERC1967Proxy, UUPSUpgradeable, EssentialContract, Anchor and SignalService
+    artifacts. The proxy has no immutables, both implementations also carry the inherited `__self`
+    and `__resolver`, and the SignalService reads `beaconRootsFrom` twice."""
     return {
         "ERC1967Proxy": _artifact("ERC1967Proxy", (), (), body="363d3d373d3d3d363d00"),
         "UUPSUpgradeable": _artifact("UUPSUpgradeable", ("__self",), ("__self",)),
         "EssentialContract": _artifact("EssentialContract", ("__resolver",), ("__resolver",),
                                        bases=("UUPSUpgradeable",)),
         "Anchor": _artifact(
-            "Anchor", ("checkpointStore", "etnaTimestamp", "l1ChainId"),
-            ("checkpointStore", "etnaTimestamp", "__self", "etnaTimestamp", "__resolver",
-             "l1ChainId"),
+            "Anchor", ("checkpointStore", "l1ChainId"),
+            ("checkpointStore", "__self", "__resolver", "l1ChainId"),
             bases=("EssentialContract",),
         ),
         "SignalService": _artifact(
-            "SignalService", ("_authorizedSyncer", "_remoteSignalService", "pauser"),
-            ("_authorizedSyncer", "_remoteSignalService", "pauser"),
+            "SignalService",
+            ("_authorizedSyncer", "_remoteSignalService", "pauser", "beaconRootsFrom"),
+            ("_authorizedSyncer", "beaconRootsFrom", "_remoteSignalService", "pauser",
+             "beaconRootsFrom", "__self", "__resolver"),
             bases=("EssentialContract",),
-        ),
-        "SignalServiceL2": _artifact(
-            "SignalServiceL2", (), ("_authorizedSyncer", "_remoteSignalService", "pauser",
-                                    "_remoteSignalService", "__self", "__resolver"),
-            bases=("SignalService",),
         ),
     }
 
@@ -134,11 +131,11 @@ def predeploys(**overrides):
     immutable words replaced by name from `overrides` in both implementations."""
     shared = {
         "checkpointStore": address_word(ADDRESSES["SignalService"]),
-        "etnaTimestamp": word(0),
         "l1ChainId": word(L1_CHAIN_ID),
         "_authorizedSyncer": address_word(ADDRESSES["TaikoAnchor"]),
         "_remoteSignalService": address_word(L1_SIGNAL_SERVICE),
         "pauser": word(0),
+        "beaconRootsFrom": word(BEACON_ROOTS_FROM),
     }
     anchor = dict(shared, __self=address_word(ADDRESSES["TaikoAnchorImpl"]), __resolver=word(0))
     signal = dict(shared, __self=address_word(ADDRESSES["SignalServiceImpl"]),
@@ -154,7 +151,7 @@ def predeploys(**overrides):
             "balance": "0x0", "code": runtime(stand_ins["Anchor"], anchor)},
         ADDRESSES["SignalService"]: proxy(ADDRESSES["SignalServiceImpl"]),
         ADDRESSES["SignalServiceImpl"]: {
-            "balance": "0x0", "code": runtime(stand_ins["SignalServiceL2"], signal)},
+            "balance": "0x0", "code": runtime(stand_ins["SignalService"], signal)},
     }
 
 
@@ -164,7 +161,7 @@ def config():
         "contractOwner": OWNER,
         "chainId": CHAIN_ID,
         "l1ChainId": L1_CHAIN_ID,
-        "etnaTimestamp": "0x0",
+        "beaconRootsFrom": hex(BEACON_ROOTS_FROM),
         "remoteSignalService": L1_SIGNAL_SERVICE,
         "contractAddresses": dict(ADDRESSES),
     }
