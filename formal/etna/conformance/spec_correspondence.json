@@ -7,10 +7,10 @@
     "sha256": "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b"
   },
   "reviewedWorkspace": {
-    "commit": "991e06f6d94842b2f57c67a4a8ba254b3c5a8830",
-    "blob": "af8c32cc1e8af7eade999040747d074d429df2bc",
-    "sha256": "753d3188055cfef7cd7868e6abe954fbffd5115babca96b74602b54603bcfc32"
+    "commit": "9c832234b4681fbc5eccdbaf9c9303b7869f91f4",
+    "blob": "033f7ffd28ab9c3de7188948fb67eabfe9d180e6",
+    "sha256": "7875c10373114ca5eaa7b164d2bfa844b4f5bbbede2ebfa252bb59246efd96de"
   },
   "classification": "reviewed-scoped-correspondence",
-  "rationale": "Independent exact-source review permits continued selected historical/bounded verification only. START-10-5's normative shared SignalService deployment refactor leaves the consumed registry initialization clause and bounded historical L1 checkpoint save/get behavior unchanged. Contracts89f419915de4b73bb57c53bf970f6dea9e8e8c8c and canonical consumer pins remain historical; H01-H05 do not execute the new shared-provider deployment. Same-code L1/L2 configuration, local uint48 versus provider uint64 root lookup, provider failure/zero/missing-return rejection without local fallback, legacy cutoff/no L2 Inbox reads, atomic Anchor/provider cross-check/retry and configuration preservation remain unverified. This is not editorial or whole-SPEC equivalence and does not cover future revisions."
+  "rationale": "Exact-source scoped review of main9c832234 after #22410 supersedes the prior reviewed workspace991e06f6; the historical authority and consumer pins remain unchanged. SPEC_CORRESPONDENCE.md maps all amended clauses to the selected historical consumers. The registry initialization tail, stock Comet vote/sign-bytes/FilePV/handler rules, selected Registry lifecycle and ordinary L1 checkpoint save/get behavior remain within the historical bounded scope. This does not validate the new SignalService deployment, L1 Unzen checkpoint forwarding/cutoff, L2 EIP-4788 root lookup/store closure, implementation proof at S, or the additional beaconRootsFrom-versus-local-fork-time check at every trust target. Abstract trusted-state premises and mocked Registry snapshot/generation inputs do not establish those checks. This is neither editorial nor whole-SPEC equivalence, does not cover future bytes, and cannot make historical native results evidence of the amended paths."
 }

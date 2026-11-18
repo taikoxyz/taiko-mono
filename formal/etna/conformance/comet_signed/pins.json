@@ -31,7 +31,7 @@
     "blob": "649548c58d6629dd85143b33efd3644a3bb71509",
     "sha256": "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b"
   },
-  "specCorrespondenceSha256": "4ff5a6afa68b8ed0ba4202c621fb99d016aff529492491ab7b696c94cc770c4e",
+  "specCorrespondenceSha256": "cc0d530e9c22c0d44ee23ac92d327d023ad473c6c7d3497e803aaa9a08c68e5f",
   "wire": {
     "precommit_a": {
       "bytes": 147,

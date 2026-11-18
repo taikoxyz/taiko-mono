@@ -2,11 +2,11 @@
   "schema": "etna-registry-cases-pins-1",
   "inputsSha256": {
     "pins.json": "6b48158f184f3daa83118edf02ba82e0c480ee9ff75f775b5bccea7d831ea00d",
-    "spec_correspondence.json": "4ff5a6afa68b8ed0ba4202c621fb99d016aff529492491ab7b696c94cc770c4e",
+    "spec_correspondence.json": "cc0d530e9c22c0d44ee23ac92d327d023ad473c6c7d3497e803aaa9a08c68e5f",
     "manifests/contracts.json": "028393e722e7706407581fb4288bd4ee8def03803b11cc4006326cfaf7167c34",
     "registry_public/registration.json": "e441ece5cd83e70c2008da00b144f3411a1009dda3e18ce8cda9a4bebb208cdf",
     "comet_signed/public-votes.json": "34932f8ddf991ae41eb1be94c873e99524f51cf96d427faed4a1bfc443dc960e",
-    "comet_signed/pins.json": "56ea3af21fc1cb358f5951dabd8cb3c14dc7f60f3f7c74212477111c470b23b1",
+    "comet_signed/pins.json": "79cf7750de9d547f205e2bc9e33709d4e14b7be128bd0030a6dd6aee67ad2850",
     "solidity/EtnaRegistryPublicReplay.t.sol": "a44ac6d6ae69afdffd6cb9c1bed303a4d4ce16dd2c4565fa4febfb1f9ae75ae9",
     "run_isolated.py": "e02887f87ef2cb697b3885e3113a9387cd8ccbaf47817f753f939553e4a8b907",
     "../sensitivity/run.py": "b125a37c77415c994ff2bd63256217deacb16ea79e1e4b491da8207935535a68"
