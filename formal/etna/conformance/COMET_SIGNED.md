@@ -46,10 +46,24 @@ APIs. A signed second of -1 retains the uint64 word 18446744073709551615.
 | Round 1 and 2                          | `HeightVoteSet.AddVote/POLInfo`        | Genuine prevotes select (1,A) then (2,B) at power 3 of 4, retaining the earlier vote. Both admit at exactly two thirds with no POL.                                                       |
 | POL controls                           | `HeightVoteSet.AddVote/POLInfo`        | Wrong height refuses. Invalid type adds nothing. R2 signature rebound to R1 refuses. A genuine precommit remains in its separate bucket.                                                  |
 
-The public receipt records actual sign bytes, signatures, key/address,
-validator order and powers, vote slot bits, native power, majority BlockIDs,
-POL rounds and exact diagnostic. The first smoke selects only genuine
-`precommit_a`; the full campaign runs 45 leaves per phase. A unique source
+Wire receipts include the actual sign bytes, signature, signer key and address,
+and submitted height, round, type and index. Other receipts bind each submitted
+vote to its chain ID, height, round, type, index, address, exact signature and
+SHA256 of the stock canonical sign bytes. The recorded digest identifies the
+canonical encoding of the submission even when admission stops before signature
+verification. Refusal receipts also give the native VoteSet step and, where
+applicable, the second attempt with a matching step. Replay receipts identify
+both submissions. Commit receipts include the VoteSet submission, the vote
+reconstructed from the actual signature slot, and the target height and block
+passed to `VerifyCommit`. POL receipts identify each submitted vote and the
+active height and round of its HeightVoteSet. The oracle derives these fields
+from named public vectors, the specified edits and independent protobuf
+encoding. The collector still checks the existing outcomes, validator order and
+powers, vote slot bits, native power, majority BlockIDs, POL rounds and exact
+fault diagnostic.
+
+The first smoke selects only genuine `precommit_a`. The full campaign runs
+45 leaves per phase. A unique source
 fault changes the final threshold from `<=` to `<` inside
 `verifyCommitSingle` on the same private copy used before and after the
 fault. Only `commit-exact-two-thirds` is expected to fail under that

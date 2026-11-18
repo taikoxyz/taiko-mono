@@ -192,7 +192,10 @@ def frozen_expectations(projection, pins):
         fields(oracle, ("bytes", "validateBasic"), "wire oracle")
         if type(oracle["bytes"]) is not int or len(hex_field(case["sign_bytes"])) != oracle["bytes"]:
             raise ValueError("incorrect wire oracle byte count for " + name)
+        vote = case["vote"]
         expected[name] = dict(address=projection["voteKey"]["signer"], key=projection["voteKey"]["public_key"],
+                              height=int(vote["height"]), round=int(vote["round"]),
+                              type=int(vote["voteType"]), index=0,
                               chain=case["chain_id"], signBytes=case["sign_bytes"], signature=case["signature"],
                               validateBasic=oracle["validateBasic"], verify="accept")
     if set(expected) != set(pins["wire"]) or set(expected) & pins["native"].keys():

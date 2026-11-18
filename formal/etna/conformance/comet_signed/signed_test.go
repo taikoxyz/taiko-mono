@@ -2,6 +2,7 @@ package cometsigned
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -172,7 +173,8 @@ func wireCase(t *testing.T, r row, pub secp256k1eth.PubKey) {
 		basic = "incomplete-block-id"
 	}
 	receipt(t, observation{
-		"address": hexString(pub.Address()), "key": hexString(pub.Bytes()), "chain": r.ChainID,
+		"address": hexString(vote.ValidatorAddress), "key": hexString(pub.Bytes()), "chain": r.ChainID,
+		"height": vote.Height, "round": vote.Round, "type": vote.Type, "index": vote.ValidatorIndex,
 		"signBytes": hexString(actual), "signature": hexString(vote.Signature),
 		"validateBasic": basic, "verify": signatureResult(verify),
 	})
@@ -215,6 +217,26 @@ func slotPower(vals *cmt.ValidatorSet) []observation {
 
 func setFor(r row, vote *cmt.Vote, vals *cmt.ValidatorSet) *cmt.VoteSet {
 	return cmt.NewVoteSet(r.ChainID, vote.Height, vote.Round, vote.Type, vals)
+}
+
+func voteInput(chain string, vote *cmt.Vote) observation {
+	signBytes := cmt.VoteSignBytes(chain, vote.ToProto())
+	digest := sha256.Sum256(signBytes)
+	return observation{
+		"chain": chain, "height": vote.Height, "round": vote.Round, "type": vote.Type,
+		"index": vote.ValidatorIndex, "address": hexString(vote.ValidatorAddress),
+		"signBytesSha256": hex.EncodeToString(digest[:]), "signature": hexString(vote.Signature),
+	}
+}
+
+func observeAddVote(set *cmt.VoteSet, vote *cmt.Vote) (bool, error, observation) {
+	input := voteInput(set.ChainID(), vote)
+	added, err := set.AddVote(vote)
+	return added, err, input
+}
+
+func voteSetStep(set *cmt.VoteSet) observation {
+	return observation{"chain": set.ChainID(), "height": set.GetHeight(), "round": set.GetRound(), "type": set.Type()}
 }
 
 func blockID(id cmt.BlockID) observation {
@@ -264,7 +286,7 @@ func (s setup) commitCase(t *testing.T, test commitCase) {
 		vote.Signature = decodeHex(t, base.Signature)
 	}
 	set := setFor(r, vote, vals)
-	added, addErr := set.AddVote(vote)
+	added, addErr, voteAttempt := observeAddVote(set, vote)
 	addCode := signatureResult(addErr)
 	check(t, added == !test.wrongSignature && (test.wrongSignature && addCode == "signature" || !test.wrongSignature && addErr == nil),
 		"unexpected VoteSet addition: %t %v", added, addErr)
@@ -280,9 +302,11 @@ func (s setup) commitCase(t *testing.T, test commitCase) {
 	slots[commitIndex] = vote.CommitSig()
 	commit := &cmt.Commit{Height: vote.Height, Round: vote.Round, BlockID: target.BlockID, Signatures: slots}
 	check(t, commit.ValidateBasic() == nil, "invalid basic test commit shape")
-	check(t, bytes.Equal(commit.VoteSignBytes(base.ChainID, commitIndex), decodeHex(t, r.SignBytes)),
+	chain := base.ChainID
+	check(t, bytes.Equal(commit.VoteSignBytes(chain, commitIndex), decodeHex(t, r.SignBytes)),
 		"commit signature slot canonicalization differs")
-	err := vals.VerifyCommit(base.ChainID, target.BlockID, target.Height, commit)
+	commitAttempt := voteInput(chain, commit.GetVote(commitIndex))
+	err := vals.VerifyCommit(chain, target.BlockID, target.Height, commit)
 	result := signatureResult(err)
 	var got, needed int64
 	var insufficient cmt.ErrNotEnoughVotingPowerSigned
@@ -309,6 +333,8 @@ func (s setup) commitCase(t *testing.T, test commitCase) {
 		"added": added, "addResult": addCode, "commit": result, "got": got, "needed": needed,
 		"commitFlags": flags, "validators": slotPower(vals), "index": signerIndex,
 		"target": blockID(commit.BlockID), "state": voteSetState(set, vals.Size()),
+		"voteInput": voteAttempt, "voteSetStep": voteSetStep(set), "commitInput": commitAttempt,
+		"verifyHeight": target.Height, "verifyTarget": blockID(target.BlockID),
 	})
 	if test.name == "commit-exact-two-thirds" && err == nil {
 		t.Error("signed-commit-threshold id=commit-exact-two-thirds expected=insufficient-power got=accept wantGot=2 wantNeeded=2")
@@ -333,12 +359,12 @@ func (s setup) replayCase(t *testing.T, test replayCase) {
 	second := nativeVote(t, s.rows[test.row], s.signer, 0)
 	vals := s.validators(t, 2, 1)
 	set := setFor(r, first, vals)
-	check(t, first.Verify(r.ChainID, s.signer) == nil, "first genuine replay vote refused")
-	check(t, second.Verify(r.ChainID, s.signer) == nil, "second genuine replay vote refused")
-	added, err := set.AddVote(first)
+	check(t, first.Verify(set.ChainID(), s.signer) == nil, "first genuine replay vote refused")
+	check(t, second.Verify(set.ChainID(), s.signer) == nil, "second genuine replay vote refused")
+	added, err, firstInput := observeAddVote(set, first)
 	check(t, added && err == nil, "initial vote addition: %v", err)
 	before := voteSetState(set, vals.Size())
-	added, err = set.AddVote(second)
+	added, err, secondInput := observeAddVote(set, second)
 	code := signatureResult(err)
 	check(t, !added && code == test.want, "wrong replay result %t %v", added, err)
 	if code == "conflict" {
@@ -352,6 +378,7 @@ func (s setup) replayCase(t *testing.T, test replayCase) {
 		"first": blockID(first.BlockID), "second": blockID(second.BlockID),
 		"trackedSecondBlock": set.BitArrayByBlockID(second.BlockID) != nil,
 		"retained":           hexString(retained.Signature),
+		"firstInput":         firstInput, "secondInput": secondInput, "voteSetStep": voteSetStep(set),
 	})
 }
 
@@ -361,7 +388,6 @@ func (s setup) rejectedVote(t *testing.T, name string) {
 	vals := s.validators(t, 3, 1)
 	original := setFor(r, vote, vals)
 	direct, expected := "signature", "step"
-	var matched *cmt.VoteSet
 	chain := r.ChainID
 	switch name {
 	case "vote-wrong-generation":
@@ -387,28 +413,43 @@ func (s setup) rejectedVote(t *testing.T, name string) {
 		original = cmt.NewVoteSet(chain, vote.Height, vote.Round, vote.Type, vals)
 	}
 	check(t, vote.ValidateBasic() == nil, "refusal shape ValidateBasic rejected")
-	directCode := signatureResult(vote.Verify(chain, s.signer))
-	added, err := original.AddVote(vote)
+	directCode := signatureResult(vote.Verify(original.ChainID(), s.signer))
+	added, err, input := observeAddVote(original, vote)
 	addCode := signatureResult(err)
 	check(t, !added && direct == directCode && expected == addCode,
 		"native refusal id=%s direct=%s add=%t/%v", name, directCode, added, err)
 	var matchedCode string
+	var matchedStep, matchedInput observation
 	if expected == "step" {
-		matched = setFor(r, vote, vals)
-		matchedAdded, matchedErr := matched.AddVote(vote)
+		matched := setFor(r, vote, vals)
+		matchedAdded, matchedErr, attempt := observeAddVote(matched, vote)
 		matchedCode = signatureResult(matchedErr)
+		matchedStep, matchedInput = voteSetStep(matched), attempt
 		check(t, !matchedAdded && matchedCode == "signature" && len(matched.List()) == 0,
 			"signed metadata mismatch did not reach native signature refusal: %v", matchedErr)
 	}
 	receipt(t, observation{
 		"added": added, "voteSet": addCode, "verify": directCode, "matchingStepVoteSet": matchedCode,
-		"state": voteSetState(original, vals.Size()),
+		"state": voteSetState(original, vals.Size()), "input": input,
+		"voteSetStep": voteSetStep(original), "matchingStep": matchedStep, "matchingStepInput": matchedInput,
 	})
 }
 
 func pol(set *ct.HeightVoteSet) observation {
 	round, id := set.POLInfo()
 	return observation{"round": round, "block": blockID(id)}
+}
+
+func observeAddPOLVote(set *ct.HeightVoteSet, vote *cmt.Vote) (bool, error, observation) {
+	// The round buckets share the height set's chain ID. Even a type that
+	// cannot reach a bucket has a well-defined submitted canonical encoding.
+	round := set.Round()
+	input := observation{
+		"vote":   voteInput(set.Prevotes(round).ChainID(), vote),
+		"height": set.Height(), "round": round,
+	}
+	added, err := set.AddVote(vote, "", false)
+	return added, err, input
 }
 
 func (s setup) polCase(t *testing.T, power int64) {
@@ -418,17 +459,18 @@ func (s setup) polCase(t *testing.T, power int64) {
 	b := nativeVote(t, r2, s.signer, 0)
 	hvs := ct.NewHeightVoteSet(r1.ChainID, a.Height, vals)
 	hvs.SetRound(1)
-	added, err := hvs.AddVote(a, "", false)
+	added, err, round1Input := observeAddPOLVote(hvs, a)
 	check(t, added && err == nil, "round 1 prevote admission: %v", err)
 	before := pol(hvs)
 	first := voteSetState(hvs.Prevotes(1), vals.Size())
 	hvs.SetRound(2)
-	added, err = hvs.AddVote(b, "", false)
+	added, err, round2Input := observeAddPOLVote(hvs, b)
 	check(t, added && err == nil, "round 2 prevote admission: %v", err)
 	check(t, hvs.Prevotes(1).GetByIndex(0) == a && hvs.Prevotes(2).GetByIndex(0) == b, "genuine prevotes not retained")
 	receipt(t, observation{
 		"afterRound1": before, "afterRound2": pol(hvs), "round1Before": first,
 		"round1After": voteSetState(hvs.Prevotes(1), vals.Size()), "round2": voteSetState(hvs.Prevotes(2), vals.Size()),
+		"round1Input": round1Input, "round2Input": round2Input,
 	})
 }
 
@@ -441,22 +483,24 @@ func (s setup) polControls(t *testing.T) {
 
 	wrongHeight := *vote
 	wrongHeight.Height++
-	heightAdded, heightErr := hvs.AddVote(&wrongHeight, "", false)
+	heightAdded, heightErr, heightInput := observeAddPOLVote(hvs, &wrongHeight)
 	invalidType := *vote
 	invalidType.Type = pb.UnknownType
-	typeAdded, typeErr := hvs.AddVote(&invalidType, "", false)
+	typeAdded, typeErr, typeInput := observeAddPOLVote(hvs, &invalidType)
 	wrongRoundSignature := nativeVote(t, s.rows["prevote_b_r2"], s.signer, 0)
 	wrongRoundSignature.Round = 1
-	rebound, reboundErr := hvs.AddVote(wrongRoundSignature, "", false)
+	rebound, reboundErr, reboundInput := observeAddPOLVote(hvs, wrongRoundSignature)
 	precommit := nativeVote(t, s.rows["precommit_b_r1"], s.signer, 0)
-	precommitAdded, precommitErr := hvs.AddVote(precommit, "", false)
+	precommitAdded, precommitErr, precommitInput := observeAddPOLVote(hvs, precommit)
 	receipt(t, observation{
 		"heightAdded": heightAdded, "heightResult": signatureResult(heightErr),
 		"invalidTypeAdded": typeAdded, "invalidTypeResult": signatureResult(typeErr),
 		"reboundRoundAdded": rebound, "reboundRoundResult": signatureResult(reboundErr),
 		"precommitAdded": precommitAdded, "precommitResult": signatureResult(precommitErr),
 		"pol": pol(hvs), "prevotes": voteSetState(hvs.Prevotes(1), vals.Size()),
-		"precommits": voteSetState(hvs.Precommits(1), vals.Size()),
+		"precommits":  voteSetState(hvs.Precommits(1), vals.Size()),
+		"heightInput": heightInput, "invalidTypeInput": typeInput,
+		"reboundRoundInput": reboundInput, "precommitInput": precommitInput,
 	})
 }
 

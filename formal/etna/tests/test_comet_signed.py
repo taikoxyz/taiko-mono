@@ -45,7 +45,7 @@ class SignedBoundary(unittest.TestCase):
                     changed["voteCases"][0]["vote"]["generation"] = "1"
                 SIGNED.load_projection(json.dumps(changed).encode())
 
-    def stream(self, expected, fail=False):
+    def stream(self, expected, fail=False, split_receipt=False):
         leaf = SIGNED.PARENT + "/" + next(iter(expected))
         status = "fail" if fail else "pass"
         rows = []
@@ -65,8 +65,10 @@ class SignedBoundary(unittest.TestCase):
         append("output", SIGNED.PARENT, "=== RUN   " + SIGNED.PARENT + "\n", "frame")
         append("run", leaf)
         append("output", leaf, "=== RUN   " + leaf + "\n", "frame")
-        append("output", leaf, "    signed_test.go:12: receipt=" +
-               json.dumps(next(iter(expected.values()))) + "\n")
+        receipt = "    signed_test.go:12: receipt=" + json.dumps(next(iter(expected.values()))) + "\n"
+        size = SIGNED.GO_OUTPUT_BUFFER if split_receipt else len(receipt)
+        for offset in range(0, len(receipt), size):
+            append("output", leaf, receipt[offset:offset + size])
         if fail:
             append("output", leaf, "    signed_test.go:13: " + SIGNED.FAULT_DIAGNOSTIC + "\n", "error")
         for name in (leaf, SIGNED.PARENT):
@@ -97,6 +99,24 @@ class SignedBoundary(unittest.TestCase):
             self.parse(rows, expected, "smoke", 1)
         with self.assertRaises(ValueError):
             self.parse(rows, {"precommit_a": {"verified": 1}}, "smoke", 0)
+
+    def test_equal_outcome_refusals_reject_a_different_attempt(self):
+        fixture = ROOT / "comet_signed"
+        projection = SIGNED.load_projection((fixture / "public-votes.json").read_bytes())
+        pins = SIGNED.strict_json((fixture / "pins.json").read_bytes())
+        expected = SIGNED.frozen_expectations(projection, pins)
+        pairs = (("vote-wrong-generation", "vote-wrong-inbox"),
+                 ("vote-height", "vote-round"), ("vote-round", "vote-type"))
+        for left, right in pairs:
+            for name, other in ((left, right), (right, left)):
+                with self.subTest(name=name, other=other):
+                    target = {name: expected[name]}
+                    identity = SIGNED.PARENT + "/" + name
+                    self.assertEqual(self.parse(self.stream(target, split_receipt=True), target, "normal", 0),
+                                     {identity: "pass"})
+                    alias = self.stream({name: expected[other]}, split_receipt=True)
+                    with self.assertRaisesRegex(ValueError, "wrong native observation for " + identity):
+                        self.parse(alias, target, "normal", 0)
 
     def test_fragmented_receipt_stays_in_the_exact_leaf(self):
         expected = {"pol-above": {"block": "ab" * 650}}
