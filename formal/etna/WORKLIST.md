@@ -320,3 +320,27 @@ independent old/new early-transfer comparison. It sharpens N04's runtime evidenc
 R01 and the other larger obligations retain their current statuses. Completed
 N01–N05 is not restarted. The deferred qualified-unittest import limitation and
 all historical evidence remain. Current-head CI is tracked separately.
+
+## Active O01–O05 durability and asynchronous compositions
+
+The user authorized the next five increments after the completed N01–N05 batch
+and N04 evidence repair. External reviewer confirmation is not a waiting gate;
+independent source and behavioral verification remain required. See the
+[design](../../docs/superpowers/specs/2026-11-18-etna-durability-compositions-design.md)
+and [plan](../../docs/superpowers/plans/2026-11-18-etna-durability-compositions.md).
+The starting head is `fe04c11223dbaeae408dc1581d1756c8a11207e1`.
+
+| Increment | Selected obligation and evidence boundary                                                                                 | Status                                                  |
+| --------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| O01       | C01: public FilePV persistence, actual cross-process disk decode and safe cached replay; no private loader or new signing | ACTIVE: import prerequisite, then native implementation |
+| O02       | C01: actual stock signer-handler response/refusal and cached retry, no transport/session/WAL claim                        | PENDING                                                 |
+| O03       | R01: mature top-up, forced exit/historical slash, held-zero displacement and old zero-withdrawal preserving replacement   | PENDING                                                 |
+| O04       | P01: free capacity-one/two resource/completion/publication/overlap graph under explicit bounds                            | PENDING                                                 |
+| O05       | C01: free two-rank Nil/value/two-salt crash/retry and live-recovery graph                                                 | PENDING                                                 |
+
+The larger model products use an explicit opt-in config directory and need their
+own exhaustive/witness records; default CI does not imply they ran. This table
+records selected work, not completion of C01/R01/P01 or the 19 archived searches.
+No new engine evidence is claimed at plan publication. All prior completion and
+remaining-obligation statuses stay as recorded. Stop after these five, with no
+automatic sixth. Preserve the existing draft and raw evidence.
