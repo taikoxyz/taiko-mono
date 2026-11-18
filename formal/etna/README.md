@@ -803,3 +803,14 @@ records four actual reverted Registry writes before the token call. Its
 independent earlier-transfer control passes the old evidence gate and is refused
 by the new write witness, with unchanged underlying journals/events. This is a
 scoped feedback repair after the completed batch; larger obligations stay open.
+
+### O01–O05 durability and asynchronous compositions
+
+The next [five-increment plan](../../docs/superpowers/plans/2026-11-18-etna-durability-compositions.md)
+starts with [public FilePV disk handoff and cached replay](conformance/COMET_FILEPV.md).
+The first gate checks actual files between separate processes, exact cached
+signatures and HRS refusals, including independent timestamp and attempted-input
+controls. Its [evidence and limits](REPORT.md#o01-public-filepv-disk-handoff-and-cached-replay)
+leave the larger signer, Registry and proving obligations open. The qualified
+Registry unittest import is fixed. Larger model products later in this plan use
+their own explicit configuration directory and are not inferred from default CI.

@@ -4541,3 +4541,87 @@ tracked at its own exact head. Review 5951543725 externally confirms the earlier
 N01 correction, without implying PR approval or resolution of the new thread.
 The existing draft and raw evidence remain; monitoring returns to feedback-only
 after publication, with no new batch.
+
+## O01: public FilePV disk handoff and cached replay
+
+Implementation `57c6c41633999a2698056476b0b215f7b26d5cd1` completes the
+first selected increment in the
+[durability/composition plan](../../docs/superpowers/plans/2026-11-18-etna-durability-compositions.md).
+The [public FilePV lane](conformance/COMET_FILEPV.md) exercises pinned stock
+CometBFT source through two separately supervised processes. The writer injects
+an existing public signature at actual `saveSigned`. After writer exit the host
+reads and checks the actual ordered stock JSON and mode `0600`. The later reader
+opens those same bytes, uses the stock decoder and constructs fresh FilePV state
+with a nil private key. It binds the actual attempted request before mutation,
+response, complete selected HRS/bytes and actual disk-buffer identity.
+
+The public seeds are nil precommit H1000/R0/step3 and A prevote H1000/R1/step2.
+Their literal disk artifacts are 319/487 bytes, respectively, SHA-256
+`4e9095589653586cf29a7c84c61c247561981e2f8ef5d74e1113342f67183215`
+and `6b1560e11d90e0670101afc0351568cdacab9dbc478e7774ecd411b5dd8037aa`.
+The 11 reader leaves cover three genuine cached replies, A/B conflict and wrong
+chain, H/R/step regressions, two explicit incomplete-memory cases and advancing
+CheckHRS eligibility. Only the designated CheckHRS call catches its documented
+incomplete-state panic. No advancing SignVote or non-nil precommit extension
+signing is attempted. The writer supplies public bytes rather than producing a
+new signature, and the reader does not call the private-key loader.
+
+| Exact committed-byte phase |       Writer leaves | Reader leaves |
+| -------------------------- | ------------------: | ------------: |
+| Smoke                      |              1 pass |        1 pass |
+| Original                   |              2 pass |       11 pass |
+| Omit actual Save call      | 2 intended failures |             0 |
+| Restored                   |              2 pass |       11 pass |
+
+The omission still updates every selected in-memory field, but both fresh paths
+are absent and both named missing-state diagnostics occur. No reader starts on
+that failed handoff. The full same-private-copy tree is restored to all 1,659
+manifest entries, with actual file bytes and mode `0444`. Original/restored raw
+results match their frozen public-derived oracles. Each invocation binds the
+actual same-directory named source and adapter, all seven staged/effective Go
+inputs, reviewed offline mounts/tools and the original physical build lock.
+The formatted artifacts supersede the separately retained pre-format runs.
+
+Independent behavioral verification ran eight scoped invocations against the
+exact committed export. Suppressing only stock timestamp restoration yields an
+actual 124→124 reply with the cached signature and failed public verification,
+while exact replay remains valid. It reaches the exact cached-time diagnostic;
+the unchanged ordinary receipt oracle also refuses its raw observation.
+Restoring the same source restores genuine 124→123 replay. A separate adapter
+control makes the actual request at 125 but still receives the same verified 123
+reply: native leaves pass and the ordinary oracle refuses the changed attempt.
+A hard link to the actual writer file preserves its bytes/mode but gives two
+links; the production ownership guard refuses before reader invocation. After
+unlinking it, normal replay passes on that same writer artifact. Negative-control
+expectations are explicitly labeled and do not change the production collector.
+
+Two preparation attempts remain separately failed with zero detection credit:
+an outer sandbox mount refusal before Go, and an independent observer that
+incorrectly compared access time after one stock writer. The observer was fixed
+to compare content and stable descriptor/path identity, excluding read-updated
+atime, before the final approved run. Those are setup/observer failures, not
+natural protocol findings. The final independent run has zero timeouts/skips.
+
+Fresh final-byte ordinary checks pass 322 tests (136/166/20), with no
+errors/failures/skips. Both package-qualified and discovery Registry unittest
+invocations pass 30; the previously deferred sibling-import issue is fixed by a
+package-aware import without masking dependency errors. It is a prerequisite
+repair, not an extra increment. Independent source review reports no findings;
+the behavioral gate independently reads actual source/staging/raw/disk artifacts.
+
+| Retained record                | SHA-256                                                            |
+| ------------------------------ | ------------------------------------------------------------------ |
+| Committed-byte smoke summary   | `b95caeb21ade6d62e447cdc08d7501bc151c4bf8dad6c97ed13877ad82c0729d` |
+| Committed-byte full summary    | `f1f916018965baf708888224d78eb1e80a5b83bdf386d815b9c7fc27be28cf12` |
+| Independent behavioral summary | `16da155bb3d379eb0b481ffbb341456b56c8f3f9a5c5e36df3fa52f11f420637` |
+| Independent source review      | `a881444c41a1d5fe778393f7b19263e5ecdb9da978ace642e9eeed5b64fe1816` |
+| Independent behavioral report  | `9141693aad13c05293dae226f98aafc2981e4fa9098741eb76bf0adb50db25a9` |
+
+C01 remains OPEN. These are selected public-signature storage/replay boundaries,
+not production key loading, new-sign-before-persist/expose ordering, consensus
+WAL/supervisor/session behavior, abrupt-write crashes, power loss or failover.
+The prior 493 default TLC configurations and operational models are unchanged
+and were not rerun locally for O01; exact publication CI is recorded separately.
+All 19 archived searches and other OPEN/WAITING obligations retain their status.
+The existing five-increment batch continues with O02; no external-review wait,
+new batch, production/SPEC/Notion edit or merge is implied.
