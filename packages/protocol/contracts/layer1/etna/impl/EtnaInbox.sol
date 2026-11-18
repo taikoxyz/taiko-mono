@@ -289,6 +289,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// nonce 0, an empty queue and rules schedule 0).
     function init(InitParams calldata _params) external reinitializer(2) onlyOwner {
         _checkRegistryUnlocked();
+        _validateInitialState();
         _validateInitParams(_params);
 
         bytes32 configHash = _hashCommitteeConfig(_params.committeeConfig);
@@ -392,12 +393,11 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(_genesis.startBlockHash != 0, StartNotWritten());
         require(_tx.length <= MAX_FORCED_TX_BYTES, ForcedTransactionTooLarge());
 
-        uint256 feeWei =
-            uint256(
-                    _forcedInclusions.currentFee(
-                        forcedInclusionFeeInGwei, forcedInclusionFeeDoubleThreshold
-                    )
-                ) * 1 gwei;
+        uint256 feeWei = uint256(
+            _forcedInclusions.currentFee(
+                forcedInclusionFeeInGwei, forcedInclusionFeeDoubleThreshold
+            )
+        ) * 1 gwei;
         require(msg.value >= feeWei, InsufficientFee());
 
         uint48 index = _forcedInclusions.tail;
@@ -1069,10 +1069,43 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
         // The registry must be this Inbox's before its checkpoints are trusted (spec 4.1).
         require(
-            _stakingRegistry.inbox() == address(this) && _stakingRegistry.l2ChainId() == l2ChainId,
+            _stakingRegistry.inbox() == address(this) && _stakingRegistry.l2ChainId() == l2ChainId
+                && EssentialContract(address(_stakingRegistry)).owner() == owner()
+                && EssentialContract(address(_stakingRegistry)).pendingOwner() == address(0)
+                && pendingOwner() == address(0),
             RegistryMismatch()
         );
         require(_isValidGenesisCutoff(_params.genesisCutoff), InvalidGenesisCutoff());
+    }
+
+    /// @dev Rejects finite preexisting Etna state before initializing a bootstrap proxy. This
+    /// does not prove every mapping entry empty: deployment provenance and DAO control must
+    /// exclude arbitrary historic writes by earlier implementations.
+    function _validateInitialState() private view {
+        require(
+            _initStatus == 0 && _recoveryGeneration == 0 && _committeeConfigHash == 0
+                && _lastCheckpoint.height == 0 && _lastCheckpoint.blockHash == 0
+                && _genesis.genesisHeight == 0 && _genesis.l1Block == 0 && _genesis.epochLenL2 == 0
+                && _genesis.startBlockHash == 0 && _genesis.startStateRoot == 0
+                && _genesisCommitteeRecordHash == 0 && _genesisCutoff == 0,
+            DirtyInitialState()
+        );
+        require(
+            _forcedInclusions.head == 0 && _forcedInclusions.tail == 0
+                && _forcedInclusionConfig.delay == 0 && _forcedInclusionConfig.maxAnchorAge == 0
+                && _activeCommitteeSnapshot == 0 && _recoveryNonce == 0
+                && _rulesSchedule.activeRules == 0 && _rulesSchedule.nextRules == 0
+                && _rulesSchedule.rulesTime == 0 && _rulesSchedule.stopTime == 0
+                && _rulesSchedule.stopGrid == 0,
+            DirtyInitialState()
+        );
+        for (uint256 generation; generation < 2; ++generation) {
+            Origin storage origin = _origins[generation];
+            require(
+                origin.startHeight == 0 && origin.l1BlockNumber == 0 && origin.l1Timestamp == 0,
+                DirtyInitialState()
+            );
+        }
     }
 
     /// @dev Returns whether `_cutoff` is a past L1 block at or after the registry's first
@@ -1128,4 +1161,10 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     function _checkRegistryUnlocked() private view {
         require(!EssentialContract(address(_stakingRegistry)).inNonReentrant(), RegistryLocked());
     }
+
+    // ---------------------------------------------------------------
+    // Custom Errors
+    // ---------------------------------------------------------------
+
+    error DirtyInitialState();
 }

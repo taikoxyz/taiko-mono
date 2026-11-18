@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { DeployEtnaSwitchScenario } from "./DeployEtnaSwitchScenario.sol";
+import { DeployEtnaSwitchScenarios } from "./DeployEtnaSwitchScenarios.sol";
 import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
 import { LibEtnaLandStatement } from "./LibEtnaLandStatement.sol";
 import { VmSafe } from "forge-std/src/Vm.sol";
@@ -56,6 +57,11 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     /// the gas suites measure the contracts.
     function test_deployment_OrderAndRejections() external {
         vm.pauseGasMetering();
+        DeployEtnaSwitchScenarios switching = DeployEtnaSwitchScenarios(
+            deployCode("DeployEtnaSwitchScenarios.sol:DeployEtnaSwitchScenarios")
+        );
+        switching.setUp();
+        switching.run();
         _deploysTheBootstrapProxyFirst();
         _deploysTheRegistryFixedToTheProxy();
         _registersThenOwnerInitializesAndLandsBlockSix();

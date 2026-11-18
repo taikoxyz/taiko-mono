@@ -397,6 +397,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         string memory j = LibEtnaVectors.load();
         string memory p = ".committee_config.inputs.";
         IEtnaStakingRegistry at = _etchVectorRegistry(j);
+        EtnaStakingRegistry(address(at)).init(address(this));
         assertEq(_address(j, p, "registry"), address(at), "registry");
 
         string memory control = ".register_digests[0].";

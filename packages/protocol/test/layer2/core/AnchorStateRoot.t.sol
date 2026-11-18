@@ -27,6 +27,13 @@ contract AnchorStateRootTest is AnchorTestBase {
         assertEq(_anchor.getL1StateRoot(blockNumber), L1_STATE_ROOT);
     }
 
+    function test_getL1StateRoot_ReturnsCheckpointRootWithZeroCurrentExecutionRoot() external {
+        _checkpointStore.saveCheckpoint(_checkpoint(1000, 123, uint256(L1_STATE_ROOT)));
+        _recordBeaconRoot(ETNA_TIMESTAMP - 1, bytes32(0));
+
+        assertEq(_anchor.getL1StateRoot(1000), L1_STATE_ROOT);
+    }
+
     function test_getL1StateRoot_ReturnsExecutionStateRootAtEtna() external {
         _recordBeaconRoot(ETNA_TIMESTAMP, L1_STATE_ROOT);
 
@@ -74,8 +81,27 @@ contract AnchorStateRootTest is AnchorTestBase {
         uint48 blockNumber = 1000;
         _checkpointStore.saveCheckpoint(_checkpoint(blockNumber, 123, uint256(L1_STATE_ROOT)));
         _recordBeaconRoot(ETNA_TIMESTAMP, bytes32(uint256(123)));
+        vm.warp(ETNA_TIMESTAMP + 1);
 
         assertEq(_getL1StateRoot(anchor, blockNumber), L1_STATE_ROOT);
+    }
+
+    function test_getL1StateRoot_UsesExecutionRootWhenForkPrecedesAnchorImmutable() external {
+        Anchor anchor = _deployAnchor(_checkpointStore, ETNA_TIMESTAMP + 100);
+        _checkpointStore.saveCheckpoint(_checkpoint(uint48(ETNA_TIMESTAMP), 123, 0xBAD));
+        _recordBeaconRoot(ETNA_TIMESTAMP, L1_STATE_ROOT);
+
+        assertEq(_getL1StateRoot(anchor, ETNA_TIMESTAMP), L1_STATE_ROOT);
+    }
+
+    function test_getL1StateRoot_RevertWhen_LegacyCheckpointQueriedAfterEarlyExecutionFork()
+        external
+    {
+        Anchor anchor = _deployAnchor(_checkpointStore, ETNA_TIMESTAMP + 100);
+        _checkpointStore.saveCheckpoint(_checkpoint(1000, 123, 0xBAD));
+        _recordBeaconRoot(ETNA_TIMESTAMP, L1_STATE_ROOT);
+
+        _expectGetterRevert(anchor, 1000);
     }
 
     function test_getL1StateRoot_RevertWhen_PreEtnaBlockNumberWouldTruncate() external {
@@ -166,14 +192,7 @@ contract AnchorStateRootTest is AnchorTestBase {
         _expectGetterRevert(_anchor, ETNA_TIMESTAMP);
     }
 
-    function _getL1StateRoot(
-        Anchor _provider,
-        uint64 _blockId
-    )
-        private
-        view
-        returns (bytes32)
-    {
+    function _getL1StateRoot(Anchor _provider, uint64 _blockId) private view returns (bytes32) {
         (bool ok, bytes memory result) = address(_provider)
             .staticcall(abi.encodeWithSignature("getL1StateRoot(uint64)", _blockId));
         assertTrue(ok, "state root getter reverted");
@@ -185,14 +204,7 @@ contract AnchorStateRootTest is AnchorTestBase {
         _expectGetterRevert(_provider, _blockId, bytes4(keccak256("L1StateRootNotFound()")));
     }
 
-    function _expectGetterRevert(
-        Anchor _provider,
-        uint64 _blockId,
-        bytes4 _error
-    )
-        private
-        view
-    {
+    function _expectGetterRevert(Anchor _provider, uint64 _blockId, bytes4 _error) private view {
         (bool ok, bytes memory result) = address(_provider)
             .staticcall(abi.encodeWithSignature("getL1StateRoot(uint64)", _blockId));
         assertFalse(ok, "state root getter accepted invalid input");

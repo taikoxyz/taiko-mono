@@ -115,6 +115,17 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
     // Internal & Private Functions
     // ---------------------------------------------------------------
 
+    /// @dev Production deployments require an explicit owner, independently of the broadcast key.
+    /// @return owner_ The configured non-zero DAO owner.
+    function _owner(uint256) internal view override returns (address owner_) {
+        require(
+            vm.envExists("CONTRACT_OWNER") && bytes(vm.envString("CONTRACT_OWNER")).length != 0,
+            ExplicitOwnerRequired()
+        );
+        owner_ = vm.envAddress("CONTRACT_OWNER");
+        require(owner_ != address(0), ExplicitOwnerRequired());
+    }
+
     /// @dev Validates the target L1 and bootstrap before preparing a registry that fixes its Inbox.
     /// @return config_ The unchanged new-network registry parameters for this switching proxy.
     function _registryConfig()
@@ -125,17 +136,21 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
     {
         _liveUnzenConfig();
         _requireProxy(vm.envAddress("INBOX_PROXY"));
+        _requireOwner(vm.envAddress("INBOX_PROXY"));
         return super._registryConfig();
     }
 
     /// @dev Opens the existing Unzen proxy and SignalService, never a fresh replacement store.
     /// @return config_ Unchanged constructor configuration to carry into the cutoff implementation.
     function _liveUnzenConfig() private view returns (IInbox.Config memory config_) {
+        _owner(0);
         require(vm.envUint("L1_CHAIN_ID") == block.chainid, L1ChainIdMismatch());
         address unzen = vm.envAddress("UNZEN_INBOX");
         address signal = vm.envAddress("SIGNAL_SERVICE");
         _requireProxy(unzen);
         _requireProxy(signal);
+        _requireOwner(unzen);
+        _requireOwner(signal);
         config_ = IInbox(unzen).getConfig();
         require(
             config_.signalService == signal && SignalService(signal).VERSION() == 1,
@@ -151,6 +166,8 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         config_ = super._inboxConfig();
         address proxy = vm.envAddress("INBOX_PROXY");
         _requireProxy(proxy);
+        _requireOwner(proxy);
+        _requireOwner(config_.stakingRegistry);
         config_.originWriter = vm.envAddress("ORIGIN_WRITER");
         config_.unzenInbox = vm.envAddress("UNZEN_INBOX");
         config_.etnaForkTime = _forkTime();
@@ -211,6 +228,7 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         }
         for (uint256 i; i < next.length; ++i) {
             if (next[i] == address(0)) continue;
+            _requireOwner(next[i]);
             require(
                 next[i].code.length != 0
                     && IEtnaVerifierIdentity(next[i]).taikoChainId() == _chainId,
@@ -271,9 +289,21 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         );
     }
 
+    /// @dev Requires installed ownership, with no in-flight transfer, on every mutable control
+    /// surface the switch will rely on. Both proxy and verifier owners expose these selectors.
+    /// @param _controlled The Inbox, registry, SignalService or image-trusting verifier.
+    function _requireOwner(address _controlled) private view {
+        require(
+            EssentialContract(_controlled).owner() == _owner(0)
+                && EssentialContract(_controlled).pendingOwner() == address(0),
+            SwitchIdentityMismatch()
+        );
+    }
+
     // ---------------------------------------------------------------
     // Custom Errors
     // ---------------------------------------------------------------
 
     error SwitchIdentityMismatch();
+    error ExplicitOwnerRequired();
 }

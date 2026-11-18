@@ -94,6 +94,7 @@ contract DeployEtnaSwitchScenario is InboxTestBase {
     /// @dev Exports only the inputs consumed by the SignalService implementation deployment.
     function _setEnvironment() private {
         vm.setEnv("PRIVATE_KEY", vm.toString(_DEPLOYER_PK));
+        vm.setEnv("CONTRACT_OWNER", vm.toString(address(this)));
         vm.setEnv("L1_CHAIN_ID", vm.toString(block.chainid));
         vm.setEnv("UNZEN_INBOX", vm.toString(address(inbox)));
         vm.setEnv("SIGNAL_SERVICE", vm.toString(address(signalService)));

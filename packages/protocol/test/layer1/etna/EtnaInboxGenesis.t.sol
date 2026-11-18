@@ -330,6 +330,51 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         _assertInitAccepts(_newInboxImpl(cfg), params);
     }
 
+    function test_init_RevertWhen_RegistryOwnerDiffersFromInboxOwner() external {
+        registry.transferOwnership(Bob);
+        vm.prank(Bob);
+        registry.acceptOwnership();
+
+        vm.expectRevert(IEtnaInbox.RegistryMismatch.selector);
+        _upgradeAndInit(inboxImpl, _defaultInitParams());
+        assertFalse(IEtnaInbox(inboxProxy).isInitialized());
+    }
+
+    function test_init_RevertWhen_RegistryOwnershipTransferIsPending() external {
+        registry.transferOwnership(Bob);
+
+        vm.expectRevert(IEtnaInbox.RegistryMismatch.selector);
+        _upgradeAndInit(inboxImpl, _defaultInitParams());
+        assertFalse(IEtnaInbox(inboxProxy).isInitialized());
+    }
+
+    /// @dev Each seeded field survives init today; upgrading an unrelated proxy must not make
+    /// its old generation, authorization, queue, schedule or start look like fresh Etna state.
+    function test_init_RevertWhen_ReliedOnInitialStorageIsDirty() external {
+        uint256[15] memory slots =
+            [uint256(258), 268, 269, 270, 271, 272, 273, 274, 278, 279, 281, 282, 284, 292, 293];
+        for (uint256 i; i < slots.length; ++i) {
+            uint256 snapshot = vm.snapshotState();
+            vm.store(inboxProxy, bytes32(slots[i]), bytes32(uint256(1)));
+            vm.expectRevert(bytes4(keccak256("DirtyInitialState()")));
+            _upgradeAndInit(inboxImpl, _defaultInitParams());
+            assertEq(vm.load(inboxProxy, bytes32(slots[i])), bytes32(uint256(1)));
+            assertTrue(vm.revertToState(snapshot));
+        }
+    }
+
+    function test_init_RevertWhen_InitialOriginIsDirty() external {
+        for (uint256 generation; generation < 2; ++generation) {
+            uint256 originSlot = uint256(keccak256(abi.encode(generation, ORIGINS_SLOT)));
+            for (uint256 i; i < 3; ++i) {
+                vm.store(inboxProxy, bytes32(originSlot + i), bytes32(uint256(1)));
+                vm.expectRevert(bytes4(keccak256("DirtyInitialState()")));
+                _upgradeAndInit(inboxImpl, _defaultInitParams());
+                vm.store(inboxProxy, bytes32(originSlot + i), 0);
+            }
+        }
+    }
+
     function test_init_RevertWhen_RegistryL2ChainIdMismatch() external {
         // The implementation's chain id differs from the registry's.
         IEtnaInbox.Config memory cfg = _defaultConfig();
@@ -548,12 +593,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
 
     /// @dev Expects `init(_params)` through the owner's upgrade to `inboxImpl` to revert with
     /// `_selector`.
-    function _assertInitRejects(
-        IEtnaInbox.InitParams memory _params,
-        bytes4 _selector
-    )
-        private
-    {
+    function _assertInitRejects(IEtnaInbox.InitParams memory _params, bytes4 _selector) private {
         vm.expectRevert(_selector);
         _upgradeAndInit(inboxImpl, _params);
     }
@@ -565,12 +605,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
 
     /// @dev Initializes through `_impl` with `_params`, checks the stored parameters, then
     /// restores the uninitialized state.
-    function _assertInitAccepts(
-        EtnaInbox _impl,
-        IEtnaInbox.InitParams memory _params
-    )
-        private
-    {
+    function _assertInitAccepts(EtnaInbox _impl, IEtnaInbox.InitParams memory _params) private {
         uint256 fresh = vm.snapshotState();
         _upgradeAndInit(_impl, _params);
         IEtnaInbox inbox = IEtnaInbox(inboxProxy);

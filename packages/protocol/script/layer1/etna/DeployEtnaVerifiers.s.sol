@@ -11,8 +11,8 @@ import { ZkRequiredVerifier } from "src/layer1/verifiers/compose/ZkRequiredVerif
 /// @title DeployEtnaVerifiers
 /// @notice Deploys dedicated Etna SGX, RISC0 and SP1 verifier instances and their ZK-required
 /// composition, keeping Etna image trust separate from the Unzen Inbox's verifier instances.
-/// @dev Reads PRIVATE_KEY and optional CONTRACT_OWNER (the deployer when unset or empty; an
-/// explicit zero address is rejected), L1_CHAIN_ID (must match the connected chain), L2_CHAIN_ID
+/// @dev Reads PRIVATE_KEY and required non-zero CONTRACT_OWNER, L1_CHAIN_ID (must match the
+/// connected chain), L2_CHAIN_ID
 /// (uint64, greater than 1 and different from L1), DCAP_ATTESTATION, SGX_REGISTRAR (zero allows
 /// permissionless registration), SGX_INSTANCE_VALIDITY_DELAY (uint64 seconds, positive and at
 /// most SecureSgxVerifier.INSTANCE_EXPIRY), R0_GROTH16_VERIFIER and SP1_PLONK_VERIFIER. The DCAP
@@ -53,7 +53,7 @@ contract DeployEtnaVerifiers is Script {
     function run() external returns (VerifierAddresses memory verifiers_) {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, InvalidPrivateKey());
-        DeploymentConfig memory config = _loadConfig(privateKey);
+        DeploymentConfig memory config = _loadConfig();
 
         vm.startBroadcast(privateKey);
         verifiers_.sgxReth = address(
@@ -96,22 +96,17 @@ contract DeployEtnaVerifiers is Script {
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Reads deployment parameters without defaults for required variables. Optional owner
-    /// parsing is strict: only an unset or empty variable falls back to the deployer.
-    /// @param _privateKey The deployment key, used to derive the default owner.
+    /// @dev Reads deployment parameters without defaults, including the required explicit owner.
     /// @return config_ Validated addresses, chain id and the range-checked validity delay.
-    function _loadConfig(uint256 _privateKey)
-        private
-        view
-        returns (DeploymentConfig memory config_)
-    {
+    function _loadConfig() private view returns (DeploymentConfig memory config_) {
         require(vm.envUint("L1_CHAIN_ID") == block.chainid, L1ChainIdMismatch());
         config_.l2ChainId = SafeCast.toUint64(vm.envUint("L2_CHAIN_ID"));
         require(config_.l2ChainId > 1 && config_.l2ChainId != block.chainid, InvalidL2ChainId());
-        config_.owner = vm.envExists("CONTRACT_OWNER")
-            && bytes(vm.envString("CONTRACT_OWNER")).length != 0
-            ? vm.envAddress("CONTRACT_OWNER")
-            : vm.addr(_privateKey);
+        require(
+            vm.envExists("CONTRACT_OWNER") && bytes(vm.envString("CONTRACT_OWNER")).length != 0,
+            InvalidOwner()
+        );
+        config_.owner = vm.envAddress("CONTRACT_OWNER");
         require(config_.owner != address(0), InvalidOwner());
         config_.dcapAttestation = _contractAddress("DCAP_ATTESTATION");
         config_.sgxRegistrar = vm.envAddress("SGX_REGISTRAR");
