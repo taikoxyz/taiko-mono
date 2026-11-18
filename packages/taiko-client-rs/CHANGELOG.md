@@ -15,7 +15,7 @@
 - Add authenticated nonzero ABCI starts with committee 0 and the unchanged global epoch schedule.
 - Authenticate the switch with the L2 SignalService proxy's implementation slot at S, and check before every trust grant that the built-in implementation's `beaconRootsFrom()` equals the configured fork time (SYNC-9-5a). The `[switch]` key `anchor_implementation` is now `signal_service_implementation`.
 - Add the shared `--engine-control-dir` Engine writer lease. Mount the same directory for every local controller of one EL.
-- Pin alethia-reth to PR #248 merge commit `398702f2` with OP Reth `op-v2.7.0-1`.
+- Pin alethia-reth to PR #248 head `53f33b70` with OP Reth `op-v2.7.0-1`.
 - Support nonzero-S landing, S-relative cut leaves and overlaps, committee 0 bootstrap and authenticated Unzen ancestry.
 - Wait for terminal Unzen finalization and the matching SignalService checkpoint before preparing the first landing; retain its raw L2 SignalService implementation witness for the proof backend.
 - Support nonzero-S checkpoint import/export, deriving the original EL block-zero identity from the operator-selected runtime chainspec.

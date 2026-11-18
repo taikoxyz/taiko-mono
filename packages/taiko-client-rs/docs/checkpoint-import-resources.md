@@ -33,7 +33,7 @@ The EL account state is a small real devnet alloc with 64 accounts, 95 storage s
 
 ## Measurements
 
-Host Mac16,8, 14 logical CPUs, 24 GiB RAM, macOS 27.0.1. Rust 1.95.0 compiled the resource fixture in release mode and the native EL runtime/importer in their normal local debug profiles. Go 1.27.2 built the release-style stock v0.40.0 helper. Alethia revision `6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4` uses reth `d9bd9875fe88dcc0183d78b187ce2ceab0c93e93`. These are historical measurements; the current source pin is `398702f29917534a4d696d022336787156e0ffa9` with Rust 1.99 and reth `ed91041f36b973eda3521ff90b3a25165087c133`. Single observations on a shared development machine include concurrent development/process tests. They do not establish latency percentiles.
+Host Mac16,8, 14 logical CPUs, 24 GiB RAM, macOS 27.0.1. Rust 1.95.0 compiled the resource fixture in release mode and the native EL runtime/importer in their normal local debug profiles. Go 1.27.2 built the release-style stock v0.40.0 helper. Alethia revision `6ac93d4b38e1cd72b993cef1ed1dc2cb0affa7b4` uses reth `d9bd9875fe88dcc0183d78b187ce2ceab0c93e93`. These are historical measurements; the current source pin is `53f33b708d869cfb3f8cccd597381fa2e92a5be5` with Rust 1.99 and reth `ed91041f36b973eda3521ff90b3a25165087c133`. Single observations on a shared development machine include concurrent development/process tests. They do not establish latency percentiles.
 
 Measured scopes as seconds wall / seconds CPU (user + system) / peak RSS MiB. Elapsed time includes local filesystem work; CPU and RSS are per process. The stock installer reopens every native record before returning.
 

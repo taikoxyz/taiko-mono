@@ -184,7 +184,7 @@ export ANVIL_IMAGE=${ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.5.1}
 export LANDER_ANVIL_IMAGE=${LANDER_ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.8.5}
 # Without an explicit override, build the pinned EL source into a local image once; it is reused
 # while present and never pulled. A set CARGO_BUILD_JOBS reaches that in-Docker cargo build.
-default_el_image=alethia-reth:etna-398702f29917534a4d696d022336787156e0ffa9
+default_el_image=alethia-reth:etna-53f33b708d869cfb3f8cccd597381fa2e92a5be5
 if [[ -z "${ALETHIA_RETH_IMAGE:-}" ]]; then
     export ALETHIA_RETH_IMAGE="$default_el_image"
     if ! docker image inspect "$ALETHIA_RETH_IMAGE" > /dev/null 2>&1; then
