@@ -278,5 +278,11 @@ findings fixed at d7bfe629c. Its [report](REPORT.md#n01-public-signed-consumer-g
 records genuine public signatures, strict weighted thresholds and distinct
 actual nil sensitivity. K02 remains OPEN for full authenticated multi-height
 consensus/locks/finalization; E01 remains WAITING for all actual consumers.
-N02–N05 and the accumulated final gate remain unfinished. Stop after five,
+N02's [actual evidence gate](conformance/REGISTRY_CASES.md) is also complete
+after independent source and behavioral rechecks, including actual ordered ABI
+input binding and an independent payout fault. Its
+[report](REPORT.md#n02-actual-signed-evidence-and-input-binding) records the
+selected 42-case scope and documented private-cancellation limit. R01 stays OPEN
+and E01 stays WAITING for the larger lifecycle/consumer obligations.
+N03–N05 and the accumulated final gate remain unfinished. Stop after five,
 preserve historical evidence and keep feedback first.

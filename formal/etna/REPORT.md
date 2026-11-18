@@ -4067,3 +4067,70 @@ are pinned; this is not a full SDK/cache content audit. Authenticated committees
 proposals, locks, finalization, P2P and missing actual client/EL/guest consumers
 remain K02/E01 and their related OPEN/WAITING obligations. No natural protocol
 defect was established by this selected gate.
+
+## N02 actual signed evidence and input binding
+
+N02's selected actual-contract gate is complete at implementation
+`3d453ec859dcf6e4f148dd465308d6f15087abe6` plus reviewed input-binding repair
+`ca8e4315fe010ef5ce966a0cd8020681cf6d3134`. This completes two of the five
+authorized increments. N03–N05 and the accumulated final gate remain pending.
+The [shared fixture and invocation](conformance/REGISTRY_CASES.md) use the same
+published public inputs as N01 and the original pinned 564-file contract source.
+
+All 42 actual Forge leaves pass original and restored execution: five domains,
+23 canonical encodings and 14 fresh double-sign pairs. Each full phase adds
+23 comparisons against the accepted actual Go outputs. The pair outcomes are
+six slashes, six NotDoubleSign refusals, one FutureGeneration and one
+InvalidSignature. Valid slashes debit all eight units, including four pending,
+pay reporter two and sink six, and preserve the expected lifetime identity,
+roots and checkpoint history. Exact evidence replay refuses NothingToSlash,
+with no second payout. Both attempts of each refusal retain the selected raw
+state, cash and history. Mock Inbox state and exact-transfer token behavior are
+explicit fixture premises.
+
+The actual same-BlockID guard omission causes exactly the intended wrong
+slashing failure, with the attempted checkpoint/two transfers/slash event;
+41 other leaves pass. A separately chosen production arithmetic change makes
+the six lawful slashes pay one/seven instead of two/six. Independent execution
+observes those six exact failures and 36 unchanged controls, then all 42 pass
+after restoring the same private source copy. Original source bytes and modes
+remain unchanged. These controls are separate from the historical shared 80.
+
+Independent review found that correct result words could alias different pair
+inputs: ordinary/backdated and round/height-mismatch evidence produced identical
+old receipts. The repair binds each case name and both actual delegate-frame
+calls to independently encoded, named public vote tuples. Each call contains
+996 canonical ABI bytes, including both signatures, timestamp bits, generation,
+order and bond ID. Native token-emitter checks now use an independently derived
+CREATE identity. The independent verifier reconstructs all 14 named pairs
+(13 distinct calldata values; historical/current contexts legitimately share
+one pair), five domains, selectors, PoP digest and both entry roots.
+
+A separate real fixture experiment keeps the backdated name but submits ordinary
+A/B. Forge still passes the numerical checks; the corrected collector rejects
+the actual wrong inputs and accepts the restored fixture. Seventeen independent
+changes to actual raw rows/calldata/retries/emitter are rejected. Nonauthor
+source review and behavioral rechecks pass. Ordinary Python cohorts pass
+80+166+20=266, with zero skips/errors/failures. Setup, discovery and observer
+failures remain retained with no acceptance credit.
+
+| Retained artifact identity              | SHA256                                                             |
+| --------------------------------------- | ------------------------------------------------------------------ |
+| Corrected author campaign summary       | `b835d8a704a249947a7d11d3a41c1203161d60a63c020e8291b885774d5ecaf5` |
+| Corrected source restoration            | `cf866e57ea4f6d21e8da1f7d2a3064981167978e24629378acf2f553814efd6b` |
+| Independent ABI/input audit             | `2d8c05957d52f1e3f76cbc16973dcf26888649abcba61ca07290077f8161b82e` |
+| Independent source review and recheck   | `a68059ddb8644abee22e0e7ce4feecf3603fc3cb2e213265f3d96335b247f050` |
+| Independent behavior report and recheck | `85eb7289cb464a30590d5899b41ccf2198d66db7898b68591751c27efb575dc8` |
+
+One bounded private Forge cache is reused within each three-phase run; the
+existing physical lock serializes execution. The old written cache is preserved
+outside the mounts, at the cost of a small cold compile per run. Restoration
+covers handled exceptions and completed or cooperatively supervised phases.
+Abrupt termination between phases can retain an unfinished private snapshot
+without a PASS summary; canonical source stays untouched. Local execution logs
+are not chain transaction receipts. Full capacity, real Inbox recovery,
+production token/deployment and the other actual E01 consumers remain open.
+No natural protocol defect was established. The unchanged model/default and
+shared inventory evidence remain separately attributed; hosted N01 job
+44213808947 at 6aa1cab2a completed successfully with exact-head/job-step readback,
+without a deep audit of its hosted archives in this check.
