@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "selfdestruct.new_account.child_charge_oog",
+  "layer": "harness",
+  "cells": [
+    "selfdestruct.selfdestruct.failed_step_leaves_beneficiary_cold",
+    "selfdestruct.new_account.charge_oog_spend_all"
+  ],
+  "description": "The contract CALLs a helper (balance 1) with 32,602 gas whose SELFDESTRUCT to cold account 0xdead loads the beneficiary but is 1 gas short of 2,600 + 25,000 and halts; the contract's own BALANCE of 0xdead afterwards is still cold.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f5f5f5f5f61da7a617f5af15061dead3100"
+      },
+      "0x000000000000000000000000000000000000da7a": {
+        "balance": "0x1",
+        "code": "0x61deadff"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x3fa26",
+    "status": "success"
+  }
+}

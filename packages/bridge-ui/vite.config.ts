@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { sveltekit } from '@sveltejs/kit/vite';
 import dotenv from 'dotenv';
 import { defineConfig } from 'vite';

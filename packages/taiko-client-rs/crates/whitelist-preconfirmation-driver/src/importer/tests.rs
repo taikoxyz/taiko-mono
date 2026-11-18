@@ -54,7 +54,7 @@ fn sample_execution_payload_with_transactions(
             gas_limit: 30_000_000,
             gas_used: 21_000,
             timestamp: 1_735_000_000,
-            extra_data: Bytes::from(vec![0x55u8; 8]),
+            extra_data: Bytes::from_static(&[0, 0, 0, 0, 0, 0, 1]),
             base_fee_per_gas: U256::from(1_000_000_000u64),
             block_hash: B256::from([0x15u8; 32]),
             transactions,
@@ -374,23 +374,48 @@ fn validate_payload_rejects_zero_base_fee() {
 }
 
 #[test]
-fn validate_payload_rejects_empty_extra_data() {
+fn validate_payload_rejects_malformed_extra_data() {
     let anchor_address = sample_anchor_address();
     let mut envelope =
         sample_execution_payload_with_transactions(vec![valid_anchor_tx_list(anchor_address)]);
-    envelope.execution_payload.extra_data = Bytes::new();
 
-    let err = validate_execution_payload_for_preconf(
-        &envelope.execution_payload,
-        TEST_CHAIN_ID,
-        anchor_address,
-    )
-    .expect_err("empty extra data payload must be rejected");
-    assert!(matches!(
-        err,
-        WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("empty extra data")
-    ));
+    for (extra_data, expected_error) in [
+        (&[0, 0, 0, 0, 0, 1][..], "invalid Shasta extra data length"),
+        (&[0, 0, 0, 0, 0, 0, 0, 1][..], "invalid Shasta extra data length"),
+        (&[101, 0, 0, 0, 0, 0, 1][..], "base fee sharing percentage"),
+        (&[][..], "invalid Shasta extra data length"),
+    ] {
+        envelope.execution_payload.extra_data = Bytes::copy_from_slice(extra_data);
+        let err = validate_execution_payload_for_preconf(
+            &envelope.execution_payload,
+            TEST_CHAIN_ID,
+            anchor_address,
+        )
+        .expect_err("malformed extra data must be rejected");
+        assert!(
+            matches!(err, WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+                if msg.contains(expected_error)),
+            "expected {expected_error} for {extra_data:?}",
+        );
+    }
+}
+
+#[test]
+fn validate_payload_accepts_extra_data_percentage_boundaries() {
+    let anchor_address = sample_anchor_address();
+    let mut envelope =
+        sample_execution_payload_with_transactions(vec![valid_anchor_tx_list(anchor_address)]);
+
+    for percentage in [0, 100] {
+        envelope.execution_payload.extra_data =
+            Bytes::copy_from_slice(&[percentage, 0, 0, 0, 0, 0, 1]);
+        validate_execution_payload_for_preconf(
+            &envelope.execution_payload,
+            TEST_CHAIN_ID,
+            anchor_address,
+        )
+        .expect("valid base fee sharing percentage must be accepted");
+    }
 }
 
 #[test]

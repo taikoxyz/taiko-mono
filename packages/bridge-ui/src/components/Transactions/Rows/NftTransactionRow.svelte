@@ -150,7 +150,6 @@
   $: imgUrl = token?.metadata?.image || placeholderUrl;
 </script>
 
-<!-- svelte-ignore a11y-no-static-element-interactions -->
 <div class={containerClasses} on:click={openDetails} {...attrs}>
   <!-- Mobile -->
   {#if $isMobile}

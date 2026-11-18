@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "copy.extcodecopy.warm_memory_oog",
+  "layer": "harness",
+  "cells": ["copy.extcodecopy.memory_oog_preserve"],
+  "description": "copy.extcodecopy.warm_exact_gas with 1 gas less: the warm EXTCODECOPY pays its copy cost, cannot pay the expansion and halts keeping the remaining gas.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x61da7a3b5060405f602061da7a3c00"
+      },
+      "0x000000000000000000000000000000000000da7a": {
+        "balance": "0x0",
+        "code": "0x7f0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f205f5260405ff3"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0xaaa",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x2adc",
+    "status": "halt"
+  }
+}

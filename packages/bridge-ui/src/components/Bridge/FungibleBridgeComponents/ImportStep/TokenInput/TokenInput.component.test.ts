@@ -145,6 +145,17 @@ describe('token switching', () => {
 });
 
 describe('fungible amount input', () => {
+  it('preserves all 18 decimal places without coercing the input to a number', async () => {
+    selectedToken.set({ ...usdc, decimals: 18 });
+    await tick();
+
+    await type('1.000000000000000001');
+
+    expect(get(enteredAmount)).toBe(1000000000000000001n);
+    expect(target.querySelector('input')?.value).toBe('1.000000000000000001');
+    expect(errorShown()).toBe(false);
+  });
+
   it('accepts an amount at the token precision', async () => {
     await type('1.234567');
     expect(get(enteredAmount)).toBe(BigInt(1234567));

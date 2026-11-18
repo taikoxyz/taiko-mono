@@ -1,8 +1,8 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import path from 'path';
-import { defineProject } from 'vitest/config';
+import { defineConfig } from 'vitest/config';
 
-export default defineProject({
+export default defineConfig({
   // Lets tests mount real components; Svelte files are otherwise not transformed here
   plugins: [svelte({ hot: false })],
   test: {

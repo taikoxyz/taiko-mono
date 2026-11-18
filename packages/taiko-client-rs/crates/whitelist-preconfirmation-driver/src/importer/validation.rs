@@ -1,5 +1,6 @@
 //! Payload-level validation for preconfirmation import compatibility.
 
+use alethia_reth_primitives::SHASTA_EXTRA_DATA_LEN;
 use alloy_consensus::TxEnvelope;
 use alloy_eips::Decodable2718;
 use alloy_primitives::Address;
@@ -44,8 +45,18 @@ pub(crate) fn validate_execution_payload_for_preconf(
         ));
     }
 
-    if payload.extra_data.is_empty() {
-        return Err(WhitelistPreconfirmationDriverError::invalid_payload("empty extra data"));
+    if payload.extra_data.len() != SHASTA_EXTRA_DATA_LEN {
+        return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+            "invalid Shasta extra data length: got {}, want {SHASTA_EXTRA_DATA_LEN}",
+            payload.extra_data.len(),
+        )));
+    }
+
+    let percentage = payload.extra_data[0];
+    if percentage > 100 {
+        return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+            "invalid Shasta base fee sharing percentage: {percentage} exceeds 100"
+        )));
     }
 
     if payload.transactions.len() != 1 {

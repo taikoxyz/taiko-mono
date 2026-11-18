@@ -4,6 +4,21 @@ dotenv.config({ path: './.env.test' });
 
 vi.mock('@wagmi/core');
 
+// jsdom does not implement matchMedia, which Svelte's motion runtime reads at import time.
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn((media: string) => ({
+    matches: false,
+    media,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(() => true),
+  })),
+});
+
 // Source: https://github.com/vitest-dev/vitest/issues/4043#issuecomment-1905172846
 // This snippet is needed in order to support Uint8Array with vitest and jsdom.
 if (process.env.VITEST === 'true') {
