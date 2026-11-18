@@ -4182,3 +4182,65 @@ under their original, narrower attribution. Existing synthetic-validator and
 offline-cache premises and full consensus/client/EL/proving limits remain.
 Hosted run 44224189515 passed every job/step at the earlier `b9240431` head;
 that status is not evidence for this later repair until its own CI is read back.
+
+## N03 actual exit, withdrawal and slot reuse
+
+Implementation `00c5a1f30a9e1e96ac75dbeb8d2a03245199211f` completes the selected
+actual Registry two-cycle lifecycle gate. Three of the five authorized increments
+are complete; N04/N05 and final accumulated gates remain. This is the same pinned
+564-file contract source, public registration projection, initialized/unlocked
+Inbox fixture and exact-transfer token used by N02.
+
+The 16-step journal binds each actual caller, EVM block number, active snapshot,
+checked delegated calldata, result and selected state/history/ledger commitment.
+Two h10 deposits are followed by h12 pending principal, h13 exit and h14 mature
+activation refusal. Snapshot 14 refuses confirmation; exact snapshot 15 confirms
+at h16. Identical withdrawal bytes refuse at 17 and pay 8 at 18. The retired key's
+valid alternate-owner PoP reaches KeyAlreadyUsed. At 20, new bond 2 reuses slot 0
+while bond 1 stays in slot 1 and entryCount stays 2. The second exit/confirmation/
+withdrawal at 23/26/28 pays 4. Total deposits 16, payout 12, custody 4. Six historical
+checkpoints retain their exact packed words and roots. The empty slot 0 is its
+canonical hashed zero-field entry alongside live slot 1, with count 2; it is not a
+padding leaf, empty Registry or zero root.
+
+Original and restored native runs pass the same complete journal and 23 ordered
+action logs. Removing the actual activateTopUp exit guard produces the intended
+h14 semantic failure, with its independently predicted checkpoint/activation
+trace and no final receipt. An independent actual cleanup change uses bondID
+where slotID is required. Its first withdrawal is unchanged; its second still
+pays 4 and emits the same 23 logs, but slot 0 retains occupancy 3. The native test
+returns success and the external collector rejects the final withdraw_reused
+state exactly. Independent calculation predicts the changed 75-word commitment;
+all first 15 steps and other final fields are unchanged. Restoring the same copy
+recovers the original journal and source bytes/mode.
+
+The N01 feedback repair changed its metadata pin, leaving the published 05ab head
+with a stale N02 dependency. The producer-only checks before that push missed
+this integration failure. This commit precisely updates the consumer reference
+to reviewed 56ea3af metadata; public 34932f bytes and consumer semantics stay fixed.
+Corrected N01 normal evidence is accepted and old outcome-only evidence refuses.
+Fresh affected N02 original/fault/restored passes 42, has exactly the intended
+one failure, then passes 42; each phase matches all 23 Go wire rows. The 05ab head
+itself is not credited as a passing N02 head.
+
+Independent source and behavior review pass. Both independently reconstruct the
+16 contexts, selected state and history, ABI/results and exact token ledger.
+Raw context/state substitutions and trace/padding changes are rejected.
+All 272 ordinary Python regressions pass 86/166/20 with zero skipped/errors/failures.
+One nonblocking CLI-test output issue is retained for N04: capture expected
+argparse stderr and assert its specific missing --go-normal reason.
+
+| Retained artifact                 | SHA256                                                             |
+| --------------------------------- | ------------------------------------------------------------------ |
+| Author lifecycle campaign summary | `3e49bf8acdfd25d13fbeddf206473f5a50bccc2762aed9acd06bcc8ef57721ed` |
+| Affected N02 campaign summary     | `1565829d1e2f79e408371f0b9815d302f6aab6def2f5039ef286add56b343fa8` |
+| Independent wrong-ID native raw   | `281665d0d274f3de58c3b68b76fd6196c58b81504c44069f214eb64397590e92` |
+| Independent source report         | `0717a33175393746d0bff52d7be2ed9a8f5e340fab5a5c84d4a5eaaa1e7f7142` |
+| Independent behavioral report     | `9d35e977aa934d0ffeed236200f95f2715e7a252b803d315a3ad5c88c67a2fa0` |
+
+These are selected real-consumer traces and source controls, separate from 493
+model/default outcomes and the historical 80 shared mutation inventory. Full 4096
+capacity, arbitrary lifecycle combinations, real Inbox/token/deployment and
+client/EL/guest consumers remain open. Restoration has the documented handled/
+cooperative boundary; abrupt between-phase termination may retain an unfinished
+private copy with no PASS. No natural protocol defect was established.
