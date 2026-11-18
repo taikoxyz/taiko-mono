@@ -213,5 +213,59 @@ class Restoration(unittest.TestCase):
                 self.assertEqual(CASES.EXEC.read_json(base / "restoration.json")["mode"], "0o444")
 
 
+class LifecycleBoundary(unittest.TestCase):
+    def setUp(self):
+        self.oracle = CASES.EXEC.read_json(CASES.PIN_PATH)["lifecycle"]
+        self.leaf = "test_exit_withdraw_and_reuse()"
+        self.expected = {self.leaf: lambda receipt, logs: CASES.lifecycle_receipt(receipt, logs, self.oracle)}
+
+    def check(self, native_row, *, fault=False):
+        suite = CASES.LIFECYCLE_SUITE
+        raw = json.dumps({suite: dict(duration="2ms", test_results={self.leaf: native_row})})
+        failure = CASES.lifecycle_failure(self.oracle) if fault else None
+        return CASES.require_forge_outcomes(raw, int(fault), suite, self.expected, failure=failure)
+
+    def test_rejects_missing_lifecycle_receipt(self):
+        with self.assertRaisesRegex(ValueError, "missing, extra or misplaced receipt"):
+            self.check(row(None))
+
+    def test_rejects_unrelated_lifecycle_mutation_diagnostic(self):
+        with self.assertRaisesRegex(ValueError, "wrong Forge fault diagnostic"):
+            self.check(row(None, reason="lifecycle: unrelated setup failure"), fault=True)
+
+    def test_rejects_correct_lifecycle_diagnostic_without_expected_trace(self):
+        failure = CASES.lifecycle_failure(self.oracle)
+        with self.assertRaisesRegex(ValueError, "wrong ordered lifecycle action logs"):
+            self.check(row(None, reason=failure[1]), fault=True)
+
+    def test_binds_lifecycle_receipt_to_every_observed_context(self):
+        steps = self.oracle["journal"]
+        observed = row(b"".join(map(CASES.lifecycle_binding, steps)))
+        observed["logs"][0:0] = self.oracle["setupLogs"] + self.oracle["actionLogs"]
+        self.assertIn(self.leaf, self.check(observed))
+        for name, field, value in (
+            ("withdraw_early", "height", 16),
+            ("confirm_uncovered", "snapshot", 15),
+            ("exit_other_owner", "actor", "0x" + "aa" * 20),
+            ("withdraw_reused", "calldata", steps[-1]["calldata"][:-65] + "1" + steps[-1]["calldata"][-64:]),
+            ("reuse_slot", "afterState", "0x" + "ff" * 32),
+            ("confirm_exact", "logCount", 0),
+        ):
+            with self.subTest(step=name, field=field), self.assertRaisesRegex(ValueError, "lifecycle receipt"):
+                changed = [step | {field: value} if step["name"] == name else step for step in steps]
+                bad = copy.deepcopy(observed)
+                bad["logs"][-1] = native_log(b"".join(map(CASES.lifecycle_binding, changed)))
+                self.check(bad)
+
+    def test_lifecycle_does_not_require_stock_go_evidence(self):
+        args = ["--scenario", "lifecycle", "--runtime", "runtime", "--output", "output"]
+        with patch.object(CASES, "run") as run:
+            self.assertEqual(CASES.main(args), 0)
+        self.assertIsNone(run.call_args.args[0].go_normal)
+        with self.assertRaises(SystemExit) as exited:
+            CASES.main(args[:1] + ["double-sign"] + args[2:])
+        self.assertEqual(exited.exception.code, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

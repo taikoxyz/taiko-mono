@@ -30,6 +30,17 @@ SOLIDITY_FILES = (
 CONTRACT = "EtnaRegistryDoubleSignReplayTest"
 SUITE = f"{TEST_ROOT}/{SOLIDITY_FILES[-1]}:{CONTRACT}"
 FAULT_PATH = "packages/protocol/contracts/layer1/etna/impl/EtnaStakingRegistry.sol"
+LIFECYCLE_FILE = "EtnaRegistryLifecycleCases.t.sol"
+LIFECYCLE_CONTRACT = "EtnaRegistryLifecycleCasesTest"
+LIFECYCLE_SUITE = f"{TEST_ROOT}/{LIFECYCLE_FILE}:{LIFECYCLE_CONTRACT}"
+LIFECYCLE_TEST = "test_exit_withdraw_and_reuse()"
+LIFECYCLE_FAULT_FUNCTION = b"function activateTopUp("
+LIFECYCLE_FAULT_BEFORE = (
+    b"        require(entry.exitEffectiveL1 == NO_EXIT, ExitAlreadySet());\n"
+    b"        TopUp memory pending = _topUpsStorage().topUps[_bondId];\n"
+)
+LIFECYCLE_FAULT_AFTER = b"        TopUp memory pending = _topUpsStorage().topUps[_bondId];\n"
+LIFECYCLE_FAULT_DIAGNOSTIC = "N03 activate_mature_exiting: expected ExitAlreadySet, got success"
 FAULT_FUNCTION = b"function slashDoubleSign("
 FAULT_BEFORE = (
     b"                && !LibCometVote.sameBlockId(voteA, voteB),\n"
@@ -265,8 +276,59 @@ def pair_receipt(receipt, logs, case, pins, name, calldata):
                 actionLogs=native_logs)
 
 
-def inputs():
-    pins = EXEC.read_json(PIN_PATH)
+def lifecycle_binding(step):
+    """Exact framing of one observed action, its context and its selected raw state."""
+    call = abi_bytes(hex_bytes(step["calldata"]))
+    result = abi_bytes(b"" if step["result"] == "0x" else hex_bytes(step["result"]))
+    body = b"".join((
+        step["name"].encode("ascii").ljust(32, b"\0"), word(step["height"]),
+        word(step["snapshot"]), address_word(step["actor"]), address_word(PROXY),
+        word(int(step["ok"])), hex_bytes(step["beforeState"], 32), hex_bytes(step["afterState"], 32),
+        word(step["logCount"]), word(11 * 32), word(11 * 32 + len(call)), call, result,
+    ))
+    return word(len(body)) + body
+
+
+def require_lifecycle_logs(logs, expected):
+    if logs != expected:
+        raise ValueError("wrong ordered lifecycle action logs")
+
+
+def lifecycle_receipt(receipt, logs, oracle):
+    """Check each full ABI step and identify the first mismatched action."""
+    action_logs = oracle["actionLogs"]
+    require_lifecycle_logs(logs, oracle["setupLogs"] + action_logs)
+    offset = 0
+    log_offset = 0
+    journal = []
+    for step in oracle["journal"]:
+        expected = lifecycle_binding(step)
+        if receipt[offset:offset + len(expected)] != expected:
+            raise ValueError("wrong lifecycle receipt at " + step["name"])
+        offset += len(expected)
+        end = log_offset + step["logCount"]
+        journal.append(step | {"proxy": PROXY, "actionLogs": action_logs[log_offset:end]})
+        log_offset = end
+    if offset != len(receipt) or log_offset != len(action_logs):
+        raise ValueError("extra lifecycle receipt words or unbound action logs")
+    return dict(journal=journal)
+
+
+def lifecycle_failure(oracle):
+    def require_activation_trace(logs):
+        require_lifecycle_logs(logs, oracle["setupLogs"] + oracle["faultLogs"])
+
+    return LIFECYCLE_TEST, LIFECYCLE_FAULT_DIAGNOSTIC, require_activation_trace
+
+
+def solidity_files(scenario):
+    if scenario == "lifecycle":
+        return (*SOLIDITY_FILES[:2], LIFECYCLE_FILE)
+    return SOLIDITY_FILES
+
+
+def inputs(scenario="double-sign"):
+    pins = STOCK.strict_json(PIN_PATH.read_bytes())
     if pins["schema"] != "etna-registry-cases-pins-1":
         raise ValueError("wrong Registry case pin schema")
     watched = {ROOT / path: require_hash(ROOT / path, digest)
@@ -303,7 +365,14 @@ def inputs():
         raise ValueError("wrong frozen domain/wire/pair partition")
     authored_paths = [Path(__file__), PIN_PATH, ROOT / "REGISTRY_CASES.md",
                       ROOT.parent / "tests/test_registry_cases.py"]
-    authored_paths += [ROOT / "solidity" / name for name in SOLIDITY_FILES]
+    if scenario == "lifecycle":
+        lifecycle = pins["lifecycle"]
+        journal = lifecycle["journal"]
+        if (len(journal) != 16 or len({step["name"] for step in journal}) != 16
+                or sum(step["logCount"] for step in journal) != len(lifecycle["actionLogs"])):
+            raise ValueError("wrong frozen lifecycle journal inventory")
+        expected = {LIFECYCLE_TEST: lambda receipt, logs: lifecycle_receipt(receipt, logs, lifecycle)}
+    authored_paths += [ROOT / "solidity" / name for name in solidity_files(scenario)]
     watched.update({path: EXEC.sha(path) for path in authored_paths})
     return pins, expected, watched | stock_watch, stock_pins, stock_oracles, authority
 
@@ -346,16 +415,22 @@ def source_snapshot(source, manifest):
 
 
 @contextmanager
-def private_source_fault(source, manifest, artifact):
+def private_source_fault(source, manifest, artifact, *, scenario="double-sign"):
     """Restore private bytes and mode after completed or cooperatively interrupted phases."""
     path = source / FAULT_PATH
     mode = stat.S_IMODE(path.stat().st_mode)
     original = path.read_bytes()
+    function, before, after = (
+        (LIFECYCLE_FAULT_FUNCTION, LIFECYCLE_FAULT_BEFORE, LIFECYCLE_FAULT_AFTER)
+        if scenario == "lifecycle" else (FAULT_FUNCTION, b"\n" + FAULT_BEFORE, FAULT_AFTER)
+    )
     if (STOCK.COMET.file_entry(original) != manifest["files"][FAULT_PATH]
-            or original.count(FAULT_FUNCTION) != 1 or original.count(FAULT_BEFORE) != 1
-            or original.find(FAULT_FUNCTION) >= original.find(FAULT_BEFORE)):
+            or original.count(function) != 1 or original.count(before) != 1
+            or original.find(function) >= original.find(before)):
         raise ValueError("original branch hash or unique fault context differs")
-    mutant = original.replace(b"\n" + FAULT_BEFORE, FAULT_AFTER, 1)
+    if scenario == "lifecycle" and original.find(before) >= original.find(b"\n    }", original.find(function)):
+        raise ValueError("original branch hash or unique fault context differs")
+    mutant = original.replace(before, after, 1)
     if mutant == original:
         raise ValueError("contextual source mutation did not apply")
     altered = manifest | {"files": manifest["files"] | {FAULT_PATH: STOCK.COMET.file_entry(mutant)}}
@@ -438,7 +513,7 @@ def runtime_inputs(runtime_path, pins):
     return source, paths, lock, runtime["timeout"], tool_hashes, dep_files
 
 
-def stage_inputs(output, source, manifest, paths, dep_files):
+def stage_inputs(output, source, manifest, paths, dep_files, *, scenario="double-sign"):
     """Copy only pinned source and explicit public test/fixture files."""
     private = output / "private-contracts"
     for name, entry in manifest["files"].items():
@@ -455,7 +530,7 @@ def stage_inputs(output, source, manifest, paths, dep_files):
 
     test_dir = output / "public-tests"
     test_dir.mkdir()
-    for name in SOLIDITY_FILES:
+    for name in solidity_files(scenario):
         origin = ROOT / "solidity" / name
         shutil.copyfile(origin, test_dir / name)
         require_hash(test_dir / name, EXEC.sha(origin))
@@ -477,7 +552,8 @@ def stage_inputs(output, source, manifest, paths, dep_files):
     return private, test_dir, dependency_dir, config
 
 
-def isolation_command(output, private, tests, dependencies, config, paths, selected, timeout):
+def isolation_command(output, private, tests, dependencies, config, paths, selected, timeout, *,
+                      scenario="double-sign"):
     """Rebuild explicit isolated argv. The external routing template cannot inject a command."""
     source = "/tmp/registry-case/source"
     protocol = source + "/packages/protocol"
@@ -510,19 +586,21 @@ def isolation_command(output, private, tests, dependencies, config, paths, selec
     for name, value in env.items():
         argv += ["--env", name + "=" + value]
     pattern = "^(" + "|".join(re.escape(name) for name in selected) + ")$"
+    path, contract = (LIFECYCLE_FILE, LIFECYCLE_CONTRACT) if scenario == "lifecycle" else (SOLIDITY_FILES[-1], CONTRACT)
     return argv + ["--", tools + "/forge", "test", "--root", protocol, "--config-path",
                    protocol + "/foundry.toml", "--offline", "--use", tools + "/solc-0.8.30",
-                   "--match-path", TEST_ROOT + "/" + SOLIDITY_FILES[-1], "--match-contract",
-                   "^" + CONTRACT + "$", "--match-test", pattern, "--json", "--threads", "2", "-vv"]
+                   "--match-path", TEST_ROOT + "/" + path, "--match-contract",
+                   "^" + contract + "$", "--match-test", pattern, "--json", "--threads", "2", "-vv"]
 
 
-def phase(name, output, staged, paths, watch, manifest, expectations, comparison, timeout, failure=None):
+def phase(name, output, staged, paths, watch, manifest, expectations, comparison, timeout, failure=None, *,
+          scenario="double-sign"):
     private, tests, dependencies, config = staged
     source_before = source_snapshot(private, manifest)
     STOCK.require_stable(watch, "original and staged Registry inputs before Forge")
     directory = output / name
     directory.mkdir()
-    command = isolation_command(output, *staged, paths, expectations, timeout)
+    command = isolation_command(output, *staged, paths, expectations, timeout, scenario=scenario)
     result = EXEC.execute_logged(command, directory, timeout + 10, directory, 0)
     raw = result["output"]
     record = EXEC.finish_record(result, directory, 0)
@@ -532,7 +610,8 @@ def phase(name, output, staged, paths, watch, manifest, expectations, comparison
     STOCK.write_json(directory / "0-result.json", record)
     if record["timeout"]:
         raise ValueError("Forge timed out")
-    outcomes = require_forge_outcomes(raw, record["returncode"], SUITE, expectations, failure=failure)
+    suite = LIFECYCLE_SUITE if scenario == "lifecycle" else SUITE
+    outcomes = require_forge_outcomes(raw, record["returncode"], suite, expectations, failure=failure)
     common = {key: outcomes[key]["bytes"] for key in comparison if key in outcomes}
     if common != {key: value for key, value in comparison.items() if key in expectations}:
         raise ValueError("stock Go and actual Solidity canonical byte observations differ")
@@ -542,9 +621,12 @@ def phase(name, output, staged, paths, watch, manifest, expectations, comparison
 
 
 def run(args):
-    pins, expectations, watch, stock_pins, stock_oracles, authority = inputs()
-    comparison, go_watch = stock_evidence(args.go_normal.resolve(strict=True), stock_pins,
-                                          stock_oracles, pins["wire"])
+    scenario = args.scenario
+    pins, expectations, watch, stock_pins, stock_oracles, authority = inputs(scenario)
+    comparison, go_watch = {}, {}
+    if scenario == "double-sign":
+        comparison, go_watch = stock_evidence(args.go_normal.resolve(strict=True), stock_pins,
+                                              stock_oracles, pins["wire"])
     runtime_path = args.runtime.resolve(strict=True)
     source, paths, lock_path, limit, tool_watch, deps = runtime_inputs(runtime_path, pins)
     timeout = limit if args.timeout is None else args.timeout
@@ -559,7 +641,7 @@ def run(args):
     if any(output == root or output.is_relative_to(root) for root in protected):
         raise ValueError("output overlaps original checkout, source, tools or cache")
     output.mkdir()
-    staged = stage_inputs(output, source, manifest, paths, deps)
+    staged = stage_inputs(output, source, manifest, paths, deps, scenario=scenario)
     private, tests, libraries, config = staged
     scratch = output / "forge-work/empty-scripts"
     scratch.mkdir(parents=True)
@@ -588,24 +670,28 @@ def run(args):
             guards()
             common = (output, staged, paths, watch, manifest)
             if args.smoke:
-                selected = {SMOKE_TEST: expectations[SMOKE_TEST]}
-                result = {"smoke": phase("smoke", *common, selected, comparison, timeout)}
+                leaf = LIFECYCLE_TEST if scenario == "lifecycle" else SMOKE_TEST
+                selected = {leaf: expectations[leaf]}
+                result = {"smoke": phase("smoke", *common, selected, comparison, timeout, scenario=scenario)}
             else:
-                pre_root = hex_bytes(pins["effects"]["preRoot"], 32)
-                post_root = hex_bytes(pins["effects"]["postRoot"], 32)
-                fault_event = pins["pairs"]["precommit_conflict"]["event"]
+                if scenario == "lifecycle":
+                    failure = lifecycle_failure(pins["lifecycle"])
+                else:
+                    pre_root = hex_bytes(pins["effects"]["preRoot"], 32)
+                    post_root = hex_bytes(pins["effects"]["postRoot"], 32)
+                    fault_event = pins["pairs"]["precommit_conflict"]["event"]
 
-                def detect_fault(logs):
-                    require_pair_logs(logs, pre_root, post_root, fault_event)
+                    def detect_fault(logs):
+                        require_pair_logs(logs, pre_root, post_root, fault_event)
 
-                result = {"original": phase("original", *common, expectations, comparison, timeout)}
+                    failure = (FAULT_TEST, FAULT_DIAGNOSTIC, detect_fault)
+                result = {"original": phase("original", *common, expectations, comparison, timeout, scenario=scenario)}
                 guards()
-                with private_source_fault(private, manifest, output) as mutant:
+                with private_source_fault(private, manifest, output, scenario=scenario) as mutant:
                     result["fault"] = phase("fault", output, staged, paths, watch, mutant,
-                                            expectations, comparison, timeout,
-                                            (FAULT_TEST, FAULT_DIAGNOSTIC, detect_fault))
+                                            expectations, comparison, timeout, failure, scenario=scenario)
                 guards()
-                result["restored"] = phase("restored", *common, expectations, comparison, timeout)
+                result["restored"] = phase("restored", *common, expectations, comparison, timeout, scenario=scenario)
                 if result["original"]["outcomes"] != result["restored"]["outcomes"]:
                     raise ValueError("original/restored case receipts differ")
         finally:
@@ -627,13 +713,15 @@ def run(args):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scenario", choices=("double-sign",), required=True)
+    parser.add_argument("--scenario", choices=("double-sign", "lifecycle"), required=True)
     parser.add_argument("--runtime", type=Path, required=True)
-    parser.add_argument("--go-normal", type=Path, required=True)
+    parser.add_argument("--go-normal", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--timeout", type=int)
     parser.add_argument("--smoke", action="store_true")
     args = parser.parse_args(argv)
+    if args.scenario == "double-sign" and args.go_normal is None:
+        parser.error("--go-normal is required for double-sign")
     try:
         run(args)
     except (OSError, ValueError, KeyError, TypeError) as error:

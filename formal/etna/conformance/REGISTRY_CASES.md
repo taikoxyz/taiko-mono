@@ -17,7 +17,7 @@ offline compiler selection, FFI disabled, and an empty script directory. It
 holds the existing physical cache lock to serialize Forge execution. Each
 campaign compiles into a fresh private output and cache and reuses them for its
 three phases. The existing shared cache contents are outside the mounts. This
-adds a bounded cold compile and private artifacts. The runner accepts `double-sign`.
+adds a bounded cold compile and private artifacts. The runner accepts `double-sign` and `lifecycle`.
 
 The 42 individually selected tests are five domain cases, 23 canonical byte
 cases and 14 actual evidence pairs. Published bytes/domain literals and
@@ -76,3 +76,47 @@ The Registry gate exercises signed evidence with published public inputs,
 the pinned historical contracts and fixture prerequisites. It leaves real Inbox
 recovery, production token behavior, deployment and full 4096-slot capacity open.
 The source control is a separately attributed validation case.
+
+## Ordinary exit, withdrawal and slot reuse
+
+Run the same offline Forge configuration without a Go execution directory.
+
+```sh
+python -B formal/etna/conformance/run_registry_cases.py \
+  --scenario lifecycle --runtime "$forge_runtime" \
+  --output "$case_output" --timeout 180
+```
+
+The single actual test registers two distinct published keys at block 10.
+It deposits a top-up at 12, requests exit at 13 with exit effective at 15,
+and refuses activation at its exact readiness block 14. Snapshot 14 refuses
+confirmation at 16. Snapshot 15 confirms at the same height. Withdrawal at 17
+refuses and withdrawal at 18 pays effective 4 plus pending 4. The retired
+key remains registered after withdrawal, including when its alternate owner
+presents an otherwise valid published PoP.
+
+A distinct key registers at 20 as bond 2 in vacant slot 0. Bond 1 remains in
+slot 1. The entry count stays 2 and the historical block-18 checkpoint retains
+the nonzero root over the hashed all-zero entry in slot 0 and the surviving
+slot 1. The second cycle requests exit at 23, confirms at 26 with snapshot
+25, and withdraws at 28 for 4. Deposits total 16, payouts 12 and vault principal 4. The query surface and pinned raw words distinguish IDs 0 and 2 from their
+shared slot 0 and check both retired keys and the surviving bond.
+
+The exact Forge suite and leaf emit a final journal of 16 ordered actions.
+The receipt binds each actual EVM block height, Inbox snapshot, inherited
+delegated caller, proxy, delegated calldata, raw return bytes, trace count
+and pre/post raw state commitments. The state commitment covers six historical
+checkpoint records, both entries, the Merkle nodes, both slot-to-bond
+mappings, the affected admission path, all three selected bonds and lifetime
+key mappings, principal/owner/confirmation/top-up fields and the token ledger.
+On refusal the wider fixture digest additionally checks rollback across all
+8192 admission cells and the bounded fixture storage. The collector compares
+the entire typed journal and all native logs to the frozen independent oracle.
+
+The private-source control removes the exit guard only from
+`activateTopUp`. It must reach the exact activation error diagnostic and the
+unexpected checkpoint and activation event, then restore source bytes and
+mode and repeat the full positive. `--smoke` selects the same single positive
+without mutation. The gate uses an initialized/unlocked Inbox fixture and
+exact-transfer test token. Full 4096-slot capacity, deployment, production
+token behavior and other lifecycle products remain open.
