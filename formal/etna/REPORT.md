@@ -4456,3 +4456,88 @@ it contains no measured proving latency result and closes no P02 acceptance.
 The five-increment batch stops here. Preserve the existing draft, worktree and
 raw ledger. Hourly checks continue in feedback-only mode; another group needs
 direct user authorization.
+
+## N04 feedback: pre-token Registry write observations
+
+[Review 4609790258](https://github.com/taikoxyz/taiko-mono/pull/22387#discussion_r4609790258)
+identified a coverage gap in the published N04 evidence. The failed token call,
+reverted allowance write and equal Registry pre/post commitment could also
+occur if the token call ran before the Registry writes. Source inspection
+established the pinned implementation's ordering, but the original receipt did
+not independently record those attempts. Implementation
+`7e9d84af2b394325b0909bfe3d722d0e80eff6e5` repairs the existing N04 witness.
+This is one scoped feedback repair; completed N01–N05 remains complete.
+
+The version-2 atomicity receipt records every write to four selected slot keys
+across the ordered action, with the actual enclosing frame, frame/storage
+ordinals, storage account, previous/new value and revert flag. Raw before and
+restored words are read outside the recorder. The collector requires the four
+observations in the proxy's delegated execution before the unique nested token
+call. The producer does not discard wrong-context, duplicate or late writes.
+The complete selected rollback digest and original token/refusal/retry checks
+remain. No production contract or normative SPEC is changed.
+
+| Selected word         | Before | Attempted | Restored |
+| --------------------- | -----: | --------: | -------: |
+| Bond 0 pending        |      0 |         4 |        0 |
+| Bond 0 ready          |      0 |        14 |        0 |
+| Admission leaf 4096   |  16384 |     32768 |    16384 |
+| Admission parent 2048 |  16384 |     16385 |    16384 |
+
+The four slot/value predictions were derived before execution. Native
+calibration observed DelegateCall frame 2, Resume frame 4 and token Call frame 5,
+with selected storage ordinals 9/11/15/18. The frame code account is the
+implementation; its inherited accessor is owner A and its storage account is
+the Registry proxy. Frame/depth/ordinal constants are limited to this pinned
+Forge 1.4.2/solc0.8.30 fixture; independent context and ordering relations are also
+checked. Node 1024's existing empty-slot minimum does not change. These are four
+selected writes, while the existing full selected observer covers all 8192
+admission cells and the other bounded fixture state.
+
+The ordinary author gate passes the actual two leaves through original,
+omitted-transfer fault and restored phases at native return 0/1/0. Register
+remains a successful control; the fault preserves its designated top-up
+unexpected-success diagnostic before any missing-witness check. Original and
+restored complete outcomes match and include all four reverted writes.
+
+The independent verifier then ran old producer plus old collector at e7bd3d91b
+and new producer plus new collector at 7e9d84af on identical private source edits
+moving only the genuine transfer before those writes. Both revisions produced
+two native Success leaves in each original/early/restored phase, return 0/0/0.
+The old collector accepted the edited execution. The new raw witness retained
+the genuine token refusal and rollback but contained zero selected writes; the
+unchanged corrected collector refused it with the exact Registry-write-witness
+diagnostic. The control's labeled collectorRejection is an expected negative,
+not normal scenario acceptance. Both complete legacy journals and every event
+matched byte-for-byte across all six phases after stripping only the new schema
+and witness. The early-transfer variant is a coverage counterfactual; no natural
+protocol defect is inferred from it.
+
+Independent source review reports no findings. Independent ABI decoding verifies
+four writes in normal/restored traces and zero in the early control. All 17
+altered-witness checks refuse. Fresh managed-Python discovery passes 317 tests
+(131/166/20), zero errors/failures/skips; the focused Registry suite passes 30.
+Retained N02/N03 results are exactly preserved without relaunching their native
+programs. Old N04 receipts remain historical and fail the new schema, which is
+separate from actual early-transfer discrimination. The configured omission
+control and the independent ordering control retain exact source restoration,
+all 564 manifest entries, mode 0664, pinned tools/dependencies/public projections
+and the original physical serial lock. No optional native branch ran.
+
+| Retained record                     | SHA-256                                                            |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| Author full campaign summary        | `85708686b296866a15a3022c32152888bccf91995e6f0e280d8198992d33f3d1` |
+| Independent old early-control audit | `f88acb708dec8c13b4ebb376f9e8e0c4a4032b2cd133398fcef2cbf011a0cf85` |
+| Independent new early-control audit | `2757d5b7432ffab00926d409b0189b68c0f8e8b8a5b8ab2b637f16371b4f626d` |
+| Independent source review           | `c2b1cc683d142e3613296aa6eb3d129607fd37e4430a6b3285194d501493d3cb` |
+| Independent behavior verification   | `88c251e6b1028308be91db912858d58950c20e038944f9e57311604e76a3734c` |
+
+[The single repair plan](../../docs/superpowers/plans/2026-11-18-etna-topup-rollback-observations.md)
+and [current runtime scope](conformance/REGISTRY_CASES.md#late-token-refusal-and-identical-calldata-retry)
+retain the bounded token, proxy/Inbox and storage premises. The prior qualified
+unittest-import convenience issue remains deferred. The previous 493 TLC input
+set is unchanged and was not rerun locally for this repair. Publication CI is
+tracked at its own exact head. Review 5951543725 externally confirms the earlier
+N01 correction, without implying PR approval or resolution of the new thread.
+The existing draft and raw evidence remain; monitoring returns to feedback-only
+after publication, with no new batch.

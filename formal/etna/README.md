@@ -797,3 +797,9 @@ The [current worklist](WORKLIST.md#active-n01n05-public-consumer-batch) and
 [completed final gate](REPORT.md#n01n05-accumulated-final-gate-and-retrospective),
 including the final independent evidence-consumer corrections. Full consensus,
 concrete client/EL/guest/proving, real Inbox/token/deployment, capacity and arbitrary lifecycle products remain open.
+
+The [N04 review follow-up](REPORT.md#n04-feedback-pre-token-registry-write-observations)
+records four actual reverted Registry writes before the token call. Its
+independent earlier-transfer control passes the old evidence gate and is refused
+by the new write witness, with unchanged underlying journals/events. This is a
+scoped feedback repair after the completed batch; larger obligations stay open.

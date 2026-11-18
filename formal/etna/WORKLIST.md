@@ -311,3 +311,12 @@ Nonblocking deferred test convenience: use the documented unittest discovery
 entrypoint for Registry cases. The dotted module invocation currently cannot
 import its shared helper; CI and runtime evidence are unaffected. This is a
 named follow-up, not an extra automatically authorized increment.
+
+## N04 review follow-up
+
+[Feedback 4609790258](REPORT.md#n04-feedback-pre-token-registry-write-observations)
+is addressed by actual selected pre-token Registry-write observations and an
+independent old/new early-transfer comparison. It sharpens N04's runtime evidence;
+R01 and the other larger obligations retain their current statuses. Completed
+N01–N05 is not restarted. The deferred qualified-unittest import limitation and
+all historical evidence remain. Current-head CI is tracked separately.
