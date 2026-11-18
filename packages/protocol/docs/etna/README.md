@@ -17,6 +17,7 @@ The Etna fork includes two designs, both in this directory:
 | [ACCEPTANCE.md](ACCEPTANCE.md) | The acceptance and launch checklist for SPEC.md                                   |
 | [rules/](rules/README.md)      | Stable rule references for SPEC.md, with vectors and review questions             |
 | [CLAUDE.md](CLAUDE.md)         | Guidance for AI agents editing SPEC.md and rules/; `AGENTS.md` is a symlink to it |
+| [deck/](deck/)                 | A slide deck that introduces Etna to engineers who know the based design          |
 
 The Etna block-production and validation rules are in
 [SPEC.md section 3](SPEC.md#3-consensus-and-blocks). Its header encoding is also recorded in
@@ -24,19 +25,19 @@ The Etna block-production and validation rules are in
 
 ## Anchorless design
 
-| Section                                                                                     | Covers                                                                  |
-| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| [1. The anchor transaction before Etna](ANCHORLESS.md#1-the-anchor-transaction-before-etna) | What the anchor transaction does and the parts that exist only for it   |
-| [2. Header](ANCHORLESS.md#2-header)                                                         | `parentBeaconBlockRoot` and `extraData` from Etna on, inherited anchors |
-| [3. Recording through EIP-4788](ANCHORLESS.md#3-recording-through-eip-4788)                 | How the anchor state root is recorded on L2                             |
-| [4. Bridge verification](ANCHORLESS.md#4-bridge-verification)                               | `Anchor.getL1StateRoot` and `SignalServiceL2`                           |
-| [5. Liveness](ANCHORLESS.md#5-liveness)                                                     | Why recent roots are always available                                   |
-| [6. Why the state root](ANCHORLESS.md#6-why-the-state-root-rather-than-the-block-hash)      | State root versus block hash in the header                              |
-| [7. EIP-4788 and EIP-2935 on L2](ANCHORLESS.md#7-prerequisite-eip-4788-and-eip-2935-on-l2)  | Deploying the system contracts before the fork                          |
-| [8. Fork and migration](ANCHORLESS.md#8-fork-and-migration)                                 | Activation, the `anchorV4` gate, checkpoints and the upgrade order      |
-| [9. Changes by component](ANCHORLESS.md#9-changes-by-component)                             | Contracts, execution engines, clients, provers, relayer and other tools |
-| [10. Security considerations](ANCHORLESS.md#10-security-considerations)                     | Root authentication, proof checks and the fork boundary                 |
-| [11. Open questions](ANCHORLESS.md#11-open-questions)                                       | Fork scheduling and other consumers of the anchor transaction           |
+| Section                                                                                     | Covers                                                                             |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [1. The anchor transaction before Etna](ANCHORLESS.md#1-the-anchor-transaction-before-etna) | What the anchor transaction does and the parts that exist only for it              |
+| [2. Header](ANCHORLESS.md#2-header)                                                         | `parentBeaconBlockRoot` and `extraData` from Etna on, inherited anchors            |
+| [3. Recording through EIP-4788](ANCHORLESS.md#3-recording-through-eip-4788)                 | How the anchor state root is recorded on L2                                        |
+| [4. Bridge verification](ANCHORLESS.md#4-bridge-verification)                               | `Anchor.getL1StateRoot` and the shared `SignalService` root-provider configuration |
+| [5. Liveness](ANCHORLESS.md#5-liveness)                                                     | Why recent roots are always available                                              |
+| [6. Why the state root](ANCHORLESS.md#6-why-the-state-root-rather-than-the-block-hash)      | State root versus block hash in the header                                         |
+| [7. EIP-4788 and EIP-2935 on L2](ANCHORLESS.md#7-prerequisite-eip-4788-and-eip-2935-on-l2)  | Deploying the system contracts before the fork                                     |
+| [8. Fork and migration](ANCHORLESS.md#8-fork-and-migration)                                 | Activation, the `anchorV4` gate, checkpoints and the upgrade order                 |
+| [9. Changes by component](ANCHORLESS.md#9-changes-by-component)                             | Contracts, execution engines, clients, provers, relayer and other tools            |
+| [10. Security considerations](ANCHORLESS.md#10-security-considerations)                     | Root authentication, proof checks and the fork boundary                            |
+| [11. Open questions](ANCHORLESS.md#11-open-questions)                                       | Fork scheduling and other consumers of the anchor transaction                      |
 
 ## PoS + ZK design
 

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "account.balance.warm_static_oog",
+  "layer": "harness",
+  "cells": ["account.access.static_oog_spend_all"],
+  "description": "account.balance.warm_exact_gas with 1 gas less: the second BALANCE cannot pay its 100 static gas and spends all remaining gas.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x61beef315061beef3100"
+      },
+      "0x000000000000000000000000000000000000beef": {
+        "balance": "0x1"
+      },
+      "0x000000000000000000000000000000000000da7a": {
+        "balance": "0x0",
+        "code": "0x5f5f00"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0xa93",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x2a70",
+    "status": "halt"
+  }
+}

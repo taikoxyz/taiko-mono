@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "sstore.dynamic.child_oog_leaves_slot_cold",
+  "layer": "harness",
+  "cells": [
+    "sstore.dynamic.failed_store_leaves_slot_cold",
+    "sstore.dynamic.oog_spend_all"
+  ],
+  "description": "The contract DELEGATECALLs a helper with 22,104 gas whose SSTORE of 1 into cold zero slot 0 of the contract's storage is 1 gas short of 100 + 2,100 + 19,900 and halts; the contract's own SLOAD of slot 0 afterwards is still cold.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f5f5f5f61da7a615658f4505f5400"
+      },
+      "0x000000000000000000000000000000000000da7a": {
+        "balance": "0x0",
+        "code": "0x60015f5500"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x2b1a2",
+    "status": "success"
+  }
+}

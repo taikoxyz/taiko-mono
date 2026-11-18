@@ -1,0 +1,5 @@
+{"e":"step","d":1,"pc":0,"op":96,"gas":"0x42","static":false,"sl":0,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x3f","spawn":false,"zk":"0x1b","ok":true,"charged":true}
+{"e":"step","d":1,"pc":2,"op":96,"gas":"0x3f","static":false,"sl":1,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x3c","spawn":false,"zk":"0x1b","ok":true,"charged":true}
+{"e":"step","d":1,"pc":4,"op":10,"gas":"0x3c","static":false,"sl":2,"stack":["0x2","0xff"],"mem":"0x0","facts":{},"gas_after":"0x0","spawn":false,"zk":"0x4ec","ok":true,"charged":true}
+{"e":"step","d":1,"pc":5,"op":0,"gas":"0x0","static":false,"sl":1,"stack":[],"mem":"0x0","facts":{},"gas_after":"0x0","spawn":false,"zk":"0x0","ok":true,"charged":true}
+{"e":"frame_end","status":"success","frame_zk":"0x522"}

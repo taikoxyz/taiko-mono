@@ -148,7 +148,7 @@
   <ChainSelector type={ChainSelectorType.COMBINED} />
 </div>
 
-<div class="h-sep" />
+<div class="h-sep"></div>
 
 {#if $selectedImportMethod === ImportMethod.MANUAL}
   <ManualImport bind:this={manualImportComponent} bind:validating />

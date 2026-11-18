@@ -72,7 +72,7 @@ jobs:
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@d70510b174a1244958df0b03166a54912811f3e6 # v1
+        uses: anthropics/claude-code-action@4d75e5f390ee76b2e09c1980ecc99ff3a2e088c8 # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # SECURITY: use the job's least-privilege token rather than the Claude App token.
@@ -98,6 +98,7 @@ jobs:
           # PR base) allows go/forge/pnpm tests, git, rm and WebFetch, so project and local settings
           # are excluded; user settings are the ones the action writes (enableAllProjectMcpServers only).
           claude_args: |
+            --permission-mode default
             --setting-sources user
             --allowedTools "
               Read,

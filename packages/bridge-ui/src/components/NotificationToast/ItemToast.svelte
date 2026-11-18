@@ -7,7 +7,7 @@
 
   export let type: TypeToast = 'unknown';
   export let title = '';
-  export let message: string | undefined;
+  export let message: string | undefined = undefined;
   export let close: () => void = noop;
 
   const iconTypeMap: Record<TypeToast, IconType> = {

@@ -13,8 +13,9 @@ import (
 
 // mockEthClientWithBlocks allows custom block/timestamp configuration for testing
 type mockEthClientWithBlocks struct {
-	blocks map[uint64]*types.Header
-	latest uint64
+	blocks    map[uint64]*types.Header
+	latest    uint64
+	timestamp func(uint64) uint64
 }
 
 func (m *mockEthClientWithBlocks) ChainID(ctx context.Context) (*big.Int, error) {
@@ -61,8 +62,13 @@ func (m *mockEthClientWithBlocks) TransactionByHash(
 }
 
 func (m *mockEthClientWithBlocks) calculateTimestamp(blockNum uint64) uint64 {
+	if m.timestamp != nil {
+		return m.timestamp(blockNum)
+	}
+
 	// Simulate 12s block time from genesis
 	genesisTime := m.blocks[1].Time
+
 	return genesisTime + (blockNum-1)*12
 }
 
@@ -74,7 +80,6 @@ func Test_getBlockByTimestamp(t *testing.T) {
 		genesisTime     uint64
 		targetTimestamp uint64
 		wantBlock       uint64
-		wantDelta       float64 // tolerance for binary search
 		wantErr         bool
 	}{
 		{
@@ -84,7 +89,6 @@ func Test_getBlockByTimestamp(t *testing.T) {
 			genesisTime:     0,
 			targetTimestamp: 0,
 			wantBlock:       1,
-			wantDelta:       0,
 			wantErr:         false,
 		},
 		{
@@ -94,7 +98,6 @@ func Test_getBlockByTimestamp(t *testing.T) {
 			genesisTime:     0,
 			targetTimestamp: 100,
 			wantBlock:       9,
-			wantDelta:       10,
 			wantErr:         false,
 		},
 		{
@@ -104,7 +107,6 @@ func Test_getBlockByTimestamp(t *testing.T) {
 			genesisTime:     0,
 			targetTimestamp: 5988, // ~500 blocks
 			wantBlock:       500,
-			wantDelta:       10,
 			wantErr:         false,
 		},
 		{
@@ -114,7 +116,6 @@ func Test_getBlockByTimestamp(t *testing.T) {
 			genesisTime:     0,
 			targetTimestamp: 11988,
 			wantBlock:       1000,
-			wantDelta:       0,
 			wantErr:         false,
 		},
 		{
@@ -124,7 +125,6 @@ func Test_getBlockByTimestamp(t *testing.T) {
 			genesisTime:     100,
 			targetTimestamp: 50,
 			wantBlock:       1,
-			wantDelta:       0,
 			wantErr:         false,
 		},
 		{
@@ -134,7 +134,6 @@ func Test_getBlockByTimestamp(t *testing.T) {
 			genesisTime:     0,
 			targetTimestamp: 118788, // ~100 blocks back
 			wantBlock:       9900,
-			wantDelta:       10,
 			wantErr:         false,
 		},
 		{
@@ -144,7 +143,6 @@ func Test_getBlockByTimestamp(t *testing.T) {
 			genesisTime:     100,
 			targetTimestamp: 100,
 			wantBlock:       1,
-			wantDelta:       0,
 			wantErr:         false,
 		},
 		{
@@ -154,7 +152,6 @@ func Test_getBlockByTimestamp(t *testing.T) {
 			genesisTime:     0,
 			targetTimestamp: 0,
 			wantBlock:       1,
-			wantDelta:       0,
 			wantErr:         false,
 		},
 	}
@@ -187,14 +184,8 @@ func Test_getBlockByTimestamp(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				// Allow tolerance for binary search
-				if tt.wantDelta > 0 {
-					assert.InDelta(t, tt.wantBlock, result, tt.wantDelta,
-						"Expected block ~%d, got %d", tt.wantBlock, result)
-				} else {
-					assert.Equal(t, tt.wantBlock, result,
-						"Expected block %d, got %d", tt.wantBlock, result)
-				}
+				assert.Equal(t, tt.wantBlock, result,
+					"Expected block %d, got %d", tt.wantBlock, result)
 				// Verify result is in valid range
 				assert.GreaterOrEqual(t, result, uint64(1), "Result should be >= 1")
 				assert.LessOrEqual(t, result, tt.latestBlock, "Result should be <= latestBlock")
@@ -319,4 +310,99 @@ func Test_getBlockByTimestamp_EdgeCases(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(1), result, "Should return block 1 for genesis timestamp")
 	})
+}
+
+func Test_getBlockByTimestamp_NonUniformBlockTimes(t *testing.T) {
+	skippedSlots := func(block uint64) uint64 {
+		// Skip one 12-second slot after every 50 produced blocks.
+		return (block-1)*12 + ((block-1)/50)*12
+	}
+	fastBlocks := func(block uint64) uint64 {
+		return (block - 1) * 6
+	}
+	slowBlocks := func(block uint64) uint64 {
+		return (block - 1) * 24
+	}
+	longDelay := func(block uint64) uint64 {
+		timestamp := (block - 1) * 12
+		if block >= 50000 {
+			timestamp += 86400
+		}
+
+		return timestamp
+	}
+
+	tests := []struct {
+		name            string
+		timestamp       func(uint64) uint64
+		targetTimestamp uint64
+		wantBlock       uint64
+	}{
+		{
+			name:            "skipped slots accumulate beyond search margin",
+			timestamp:       skippedSlots,
+			targetTimestamp: 122376,
+			wantBlock:       10000,
+		},
+		{
+			name:            "target falls in a skipped slot",
+			timestamp:       skippedSlots,
+			targetTimestamp: 122388,
+			wantBlock:       10000,
+		},
+		{
+			name:            "faster blocks put the answer below the estimated range",
+			timestamp:       fastBlocks,
+			targetTimestamp: 59994,
+			wantBlock:       10000,
+		},
+		{
+			name:            "slower blocks clamp the estimate far below the answer",
+			timestamp:       slowBlocks,
+			targetTimestamp: 239976,
+			wantBlock:       10000,
+		},
+		{
+			name:            "long delay after the target block",
+			timestamp:       longDelay,
+			targetTimestamp: 119988,
+			wantBlock:       10000,
+		},
+		{
+			name:            "target falls inside a long delay",
+			timestamp:       longDelay,
+			targetTimestamp: 643176,
+			wantBlock:       49999,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const latestBlock = uint64(100000)
+
+			mockClient := &mockEthClientWithBlocks{
+				blocks: map[uint64]*types.Header{
+					1: {
+						Number: big.NewInt(1),
+						Time:   tt.timestamp(1),
+					},
+					latestBlock: {
+						Number: new(big.Int).SetUint64(latestBlock),
+						Time:   tt.timestamp(latestBlock),
+					},
+				},
+				latest:    latestBlock,
+				timestamp: tt.timestamp,
+			}
+			indexer := &Indexer{srcEthClient: mockClient}
+
+			result, err := indexer.getBlockByTimestamp(context.Background(), tt.targetTimestamp)
+
+			if assert.NoError(t, err) {
+				assert.Equal(t, tt.wantBlock, result)
+				assert.LessOrEqual(t, tt.timestamp(result), tt.targetTimestamp)
+				assert.Greater(t, tt.timestamp(result+1), tt.targetTimestamp)
+			}
+		})
+	}
 }

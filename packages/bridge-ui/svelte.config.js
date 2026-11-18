@@ -5,7 +5,12 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
   // Consult https://kit.svelte.dev/docs/integrations#preprocessors
   // for more information about preprocessors
-  preprocess: vitePreprocess(),
+  preprocess: vitePreprocess({ script: true }),
+
+  compilerOptions: {
+    // Preserve the component constructor, $set, and $on APIs during the Svelte 5 upgrade.
+    compatibility: { componentApi: 4 },
+  },
 
   kit: {
     adapter: adapter({

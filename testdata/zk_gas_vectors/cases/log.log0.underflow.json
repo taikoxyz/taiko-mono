@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "log.log0.underflow",
+  "layer": "harness",
+  "cells": ["log.logn.stack_underflow_preserve"],
+  "description": "LOG0 with one stack item, frame gas 100,000: it pays its 375 static gas, then halts on the offset and length pops keeping the remaining gas.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x6020a000"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x480",
+    "status": "halt"
+  }
+}

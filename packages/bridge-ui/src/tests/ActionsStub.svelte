@@ -22,4 +22,4 @@
   data-approving={approving}
   data-bridging={bridging}
   data-checking={checking}
-  data-resetting={resetting} />
+  data-resetting={resetting}></span>

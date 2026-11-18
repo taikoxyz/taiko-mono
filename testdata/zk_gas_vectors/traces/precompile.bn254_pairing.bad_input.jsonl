@@ -1,0 +1,15 @@
+{"e":"step","d":1,"pc":0,"op":97,"gas":"0xf4240","static":false,"sl":0,"stack":[],"mem":"0x0","facts":{},"gas_after":"0xf423d","spawn":false,"zk":"0x18","ok":true,"charged":true}
+{"e":"step","d":1,"pc":3,"op":97,"gas":"0xf423d","static":false,"sl":1,"stack":[],"mem":"0x0","facts":{},"gas_after":"0xf423a","spawn":false,"zk":"0x18","ok":true,"charged":true}
+{"e":"step","d":1,"pc":6,"op":95,"gas":"0xf423a","static":false,"sl":2,"stack":[],"mem":"0x0","facts":{},"gas_after":"0xf4238","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":7,"op":57,"gas":"0xf4238","static":false,"sl":3,"stack":["0x0","0x16","0xc0"],"mem":"0x0","facts":{},"gas_after":"0xf4211","spawn":false,"zk":"0x1d4","ok":true,"charged":true}
+{"e":"step","d":1,"pc":8,"op":95,"gas":"0xf4211","static":false,"sl":0,"stack":[],"mem":"0xc0","facts":{},"gas_after":"0xf420f","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":9,"op":95,"gas":"0xf420f","static":false,"sl":1,"stack":[],"mem":"0xc0","facts":{},"gas_after":"0xf420d","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":10,"op":96,"gas":"0xf420d","static":false,"sl":2,"stack":[],"mem":"0xc0","facts":{},"gas_after":"0xf420a","spawn":false,"zk":"0x1b","ok":true,"charged":true}
+{"e":"step","d":1,"pc":12,"op":95,"gas":"0xf420a","static":false,"sl":3,"stack":[],"mem":"0xc0","facts":{},"gas_after":"0xf4208","spawn":false,"zk":"0x1a","ok":true,"charged":true}
+{"e":"step","d":1,"pc":13,"op":96,"gas":"0xf4208","static":false,"sl":4,"stack":[],"mem":"0xc0","facts":{},"gas_after":"0xf4205","spawn":false,"zk":"0x1b","ok":true,"charged":true}
+{"e":"step","d":1,"pc":15,"op":98,"gas":"0xf4205","static":false,"sl":5,"stack":[],"mem":"0xc0","facts":{},"gas_after":"0xf4202","spawn":false,"zk":"0x1b","ok":true,"charged":true}
+{"e":"step","d":1,"pc":19,"op":250,"gas":"0xf4202","static":false,"sl":6,"stack":["0x1bd50","0x8","0x0","0xc0","0x0","0x0"],"mem":"0xc0","facts":{"account_warm":true,"account_empty":true,"delegate_warm":null},"gas_after":"0xd844e","spawn":true,"zk":"0x13a74","ok":true,"charged":true}
+{"e":"precompile","addr":"0x0000000000000000000000000000000000000008","supplied":"0x1bd50","left":"0x0","success":false,"zk":"0x5deee0","ok":true}
+{"e":"step","d":1,"pc":20,"op":80,"gas":"0xd844e","static":false,"sl":1,"stack":["0x0"],"mem":"0xc0","facts":{},"gas_after":"0xd844c","spawn":false,"zk":"0x14","ok":true,"charged":true}
+{"e":"step","d":1,"pc":21,"op":0,"gas":"0xd844c","static":false,"sl":0,"stack":[],"mem":"0xc0","facts":{},"gas_after":"0xd844c","spawn":false,"zk":"0x0","ok":true,"charged":true}
+{"e":"frame_end","status":"success","frame_zk":"0x5f2c25"}

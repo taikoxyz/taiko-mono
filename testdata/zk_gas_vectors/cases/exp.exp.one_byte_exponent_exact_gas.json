@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "exp.exp.one_byte_exponent_exact_gas",
+  "layer": "harness",
+  "cells": ["exp.exp.one_byte_exponent_success"],
+  "description": "2 EXP 0xff with frame gas exactly 66: EXP pays static 10 plus 50 for the one exponent byte.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x60ff60020a00"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x42",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x522",
+    "status": "success"
+  }
+}
