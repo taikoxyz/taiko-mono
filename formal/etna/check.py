@@ -109,6 +109,7 @@ def main(argv=None):
     parser.add_argument("--java", default="java", help="Java 17+ executable")
     parser.add_argument("--tlc-jar", required=True, type=Path, help="official tla2tools.jar")
     parser.add_argument("--output-dir", required=True, type=Path, help="parent for unique run directories")
+    parser.add_argument("--config-dir", type=Path, help="configuration directory (default: script-relative configs/)")
     parser.add_argument("--case", action="append", help="configuration stem; repeat to select cases")
     parser.add_argument("--timeout", type=positive_int, default=45, help="seconds per configuration")
     parser.add_argument("--heap-mb", type=positive_int, default=512)
@@ -117,7 +118,10 @@ def main(argv=None):
     jar = args.tlc_jar.resolve()
     if not jar.is_file():
         parser.error("--tlc-jar must name an existing file")
-    configs = sorted((root / "configs").glob("*.cfg"))
+    config_dir = args.config_dir.resolve() if args.config_dir is not None else root / "configs"
+    if not config_dir.is_dir():
+        parser.error("--config-dir must name an existing directory")
+    configs = sorted(config_dir.glob("*.cfg"))
     if args.case:
         selected = set(args.case)
         unknown = selected - {path.stem for path in configs}
