@@ -400,3 +400,24 @@ shortcut and the documented non1 first-block stop. The AppHash source fault and
 restoration are checked independently of persistence. Unsigned storage fixtures
 and mock Info/replay callbacks do not establish valid history or real App/EL
 recovery; the concrete handler for the known first-block stop remains open.
+
+## Selected public signed consumers and Registry cases
+
+[COMET_SIGNED.md](COMET_SIGNED.md) documents the separate offline stock Comet
+signed-admission/quorum/POL runner and its public-only projection.
+[REGISTRY_CASES.md](REGISTRY_CASES.md) documents the actual Solidity byte,
+double-sign, exit/withdraw/reuse, and late-token-failure retry scenarios. Use each
+runner's documented CLI and explicit existing tool/source/dependency paths;
+outputs must be fresh. Double-sign comparisons consume the corrected Comet
+normal receipt, while lifecycle and atomicity need no Go receipt.
+
+These N01–N04 campaigns use a fresh small private Forge output/cache directory
+per campaign under the existing physical serial lock. The three phases share
+only that campaign's private source/cache, with exact restoration checks. The
+older replay's cache policy remains specific to its own runner. Public-only
+read mounts exclude the mixed signing artifact; no key generation or signing is
+performed. Native receipts bind actual attempted bytes and context. Calibrated
+reverted logs are execution traces, and the selected exact-transfer-token/mock
+Inbox traces do not establish deployment or arbitrary production-token behavior.
+Historical shared source-control inventory is separate from these new native
+controls; neither current all-consumer equivalence nor full consensus follows.

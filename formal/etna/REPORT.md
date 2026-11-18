@@ -4314,3 +4314,48 @@ it does not establish arbitrary token callbacks, real transaction deployment,
 withdrawal custody, full-capacity admission, gas or proving behavior. R01 and
 full cross-consumer E01 remain open. No natural protocol defect was established;
 source controls are separately attributed from the historical 80 inventory.
+
+## N05 exact archived-disposition acceptance
+
+Implementation `c90220a1e4af4148674d9954b37f1dc9f82607c9` completes the
+selected X01 disposition audit after two independent review/fix rounds. The
+[semantic guide](ARCHIVED_DISPOSITION.md) and [manifest](archived_disposition.json)
+bind all 19 archived configurations, 13 local model paths and their 32 byte
+identities. The checker discovers the actual archive inventory, verifies family
+layout and the guide's exact membership, and checks immutable historical notes,
+source paths, current evidence links and outstanding obligation status. It also
+runs on a Git-free source export. No archived config, model or observation file
+changes, and none of these 19 incomplete searches is rerun or credited as PASS.
+
+The audit distinguishes missing products from source-version hazards. FI Budget
+already preserves the prune halt across recovery; Projected adds explicit halt
+observations, canonical blank bytes and a narrower build projection. Current,
+FI-archive and rollback-archive EtnaSettlement bases have the same byte digest;
+the wrapper and observer differences are the relevant historical differences.
+The signer progress note attests an unavailable predecessor digest, while the
+available parameterized source has its own verified digest. Three configurations
+without historical config-digest attestations have explicit retained-cohort pins;
+these identify audited files and do not authenticate missing predecessor inputs.
+The other 16 identities are corroborated by their exact immutable notes.
+
+Independent checks exposed defects in the first disposition checker: coordinated
+path/digest edits could redefine the intended cohort, note substring checks could
+misattribute historical source roles or per-profile outcomes, and a compound
+WAITING-COMPLETE token could masquerade as an open obligation. The first repair
+bound the audited notes, missing config identities, exact layout and full status
+tokens. The second removed a residual Registry filename/stem alias: a renamed
+`.cfg.cfg` file with synchronized manifest and guide cannot reuse the original
+note's filename. Family-specific historical labels preserve the real cohort.
+Focused regressions demonstrate these refusals while the unmodified archive and
+future mutable REPORT/WORKLIST/README publication remain accepted.
+
+All 31 focused tests and the standalone checker pass. Independent source review
+reads all 19 config/source associations; independent behavior checks challenge
+missing, added, duplicated, stale, rebound and mislabeled inputs in source
+exports. Root publication is separately checked after updating X01 and links.
+C01, R01 and P01 remain OPEN; F01 and Q02 remain WAITING. X01 closes only the
+disposition acceptance, not graph exhaustion, broad interleaving reductions,
+actual STF/proving/rollback implementation, consensus or client correspondence.
+No natural protocol defect is established by this audit. The retained notes,
+32 config/model pins and provenance distinctions are enumerated in the guide
+and manifest; immutable local review reports remain alongside the plan ledger.

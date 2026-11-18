@@ -775,3 +775,24 @@ native/Forge evidence remains historical and four entries remain unassessed.
 Original35 models/423 defaults/529 code inputs are unchanged. Real client/EL/guest/
 upgrade and deployment correspondence remain partial/OPEN/WAITING. The draft and
 all evidence are retained; hourly monitoring returns to feedback-only, no sixth.
+
+### N01–N05 public-consumer and disposition gates
+
+The [public-consumer plan](../../docs/superpowers/plans/2026-11-18-etna-public-consumer-conformance.md)
+adds four selected real-consumer gates and one archived acceptance audit.
+[Stock signed Comet APIs](conformance/COMET_SIGNED.md) consume genuine public
+signatures across 23 wire rows and 45 admission/quorum/POL leaves.
+[Registry cases](conformance/REGISTRY_CASES.md) cover 42 byte/evidence leaves,
+16 lifecycle actions, and two late-transfer failure/retry leaves with seven
+Registry/external actions. Exact actual inputs and intermediate state commitments
+prevent equal native outcomes from hiding an omitted input or incorrect state.
+Independent source faults distinguish payout, reused-slot and admission-parent
+errors from complete normal/restored runs.
+
+The [19 archived dispositions](ARCHIVED_DISPOSITION.md) close X01's acceptance
+review only. Every search remains INCONCLUSIVE, with missing products and named
+open obligations preserved. No historical model/config/note bytes change.
+The [current worklist](WORKLIST.md#active-n01n05-public-consumer-batch) and
+[report](REPORT.md#n05-exact-archived-disposition-acceptance) track the accumulated
+final gate separately. Full consensus, concrete client/EL/guest/proving, real
+Inbox/token/deployment, capacity and arbitrary lifecycle products remain open.
