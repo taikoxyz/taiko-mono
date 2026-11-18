@@ -1,0 +1,208 @@
+{
+  "schema": "etna-registry-cases-pins-1",
+  "inputsSha256": {
+    "pins.json": "6b48158f184f3daa83118edf02ba82e0c480ee9ff75f775b5bccea7d831ea00d",
+    "spec_correspondence.json": "4ff5a6afa68b8ed0ba4202c621fb99d016aff529492491ab7b696c94cc770c4e",
+    "manifests/contracts.json": "028393e722e7706407581fb4288bd4ee8def03803b11cc4006326cfaf7167c34",
+    "registry_public/registration.json": "e441ece5cd83e70c2008da00b144f3411a1009dda3e18ce8cda9a4bebb208cdf",
+    "comet_signed/public-votes.json": "34932f8ddf991ae41eb1be94c873e99524f51cf96d427faed4a1bfc443dc960e",
+    "comet_signed/pins.json": "6a004e991ecfe5b405d7d603246dddfaa714ab7cd3470df87a0710dbfa3fca8a",
+    "solidity/EtnaRegistryPublicReplay.t.sol": "a44ac6d6ae69afdffd6cb9c1bed303a4d4ce16dd2c4565fa4febfb1f9ae75ae9",
+    "run_isolated.py": "e02887f87ef2cb697b3885e3113a9387cd8ccbaf47817f753f939553e4a8b907",
+    "../sensitivity/run.py": "b125a37c77415c994ff2bd63256217deacb16ea79e1e4b491da8207935535a68"
+  },
+  "runtime": {
+    "forge": "4a8c9a3e1954c8afb8a3021c07bf5a4a89a8940c7e78079baff82c547240774b",
+    "solc-0.8.30": "f3e987dc6ecebd4bd350c48edcbc320b46cf9e3109bd3fc3d88f1acaf4c428f7",
+    "forge-std": {
+      "solidityFiles": 26,
+      "sha256": "ae745ea431b51fe736c11995879359b2b1211ccf04192910a27bd61dc807dca4"
+    },
+    "openzeppelin-contracts": {
+      "solidityFiles": 187,
+      "sha256": "32393b71ef8d4e9fd107fe9e9b9d7de42992586db0f2e61b7c2379e31c7e04eb"
+    },
+    "openzeppelin-upgradeable": {
+      "solidityFiles": 182,
+      "sha256": "ce71fa1e770673ba4a27d74b1d01085cb8947977cde972a5ec2b3ba7e41cc2a8"
+    },
+    "optimism": {
+      "solidityFiles": 135,
+      "sha256": "01abd81af4f3711c07eeda67b6f244ebfe1efab4d67a27716b7eaab1fb7a5a5e"
+    },
+    "ds-test": {
+      "solidityFiles": 2,
+      "sha256": "a0d291f5d63a7e051a9578620147153fdf6ab0c60f8f1c325d6039aacbb5d7c7"
+    },
+    "solady": {
+      "solidityFiles": 264,
+      "sha256": "61e459eae89ef25f34fee760df1f06116f37e2b1fc6aada759f856e309db173b"
+    }
+  },
+  "domains": [
+    "local_generation_0",
+    "local_generation_1",
+    "local_generation_2",
+    "local_generation_max",
+    "foreign_inbox"
+  ],
+  "wire": {
+    "precommit_a": 147,
+    "precommit_nil": 72,
+    "precommit_b": 147,
+    "precommit_a_late": 145,
+    "prevote_a_r1": 156,
+    "prevote_b_r1": 156,
+    "prevote_b_r2": 156,
+    "precommit_b_r1": 156,
+    "gen1_precommit_a": 147,
+    "gen1_precommit_b": 147,
+    "gen2_precommit_a": 147,
+    "gen2_precommit_b": 147,
+    "other_inbox_precommit_b": 147,
+    "partial_block_id": 112,
+    "max_values": 165,
+    "precommit_b_h1001": 147,
+    "hash_only_block_id": 110,
+    "zero_timestamp": 139,
+    "negative_timestamp": 152,
+    "min_timestamp": 150,
+    "max_timestamp_seconds": 146,
+    "precommit_a_backdated": 150,
+    "precommit_b_backdated": 150
+  },
+  "pairs": {
+    "precommit_conflict": {
+      "a": "precommit_a",
+      "b": "precommit_b",
+      "currentGeneration": 0,
+      "result": "slash",
+      "event": {
+        "generation": 0,
+        "height": 1000,
+        "round": 0,
+        "voteType": 2
+      }
+    },
+    "precommit_vs_nil": {
+      "a": "precommit_a",
+      "b": "precommit_nil",
+      "currentGeneration": 0,
+      "result": "slash",
+      "event": {
+        "generation": 0,
+        "height": 1000,
+        "round": 0,
+        "voteType": 2
+      }
+    },
+    "prevote_conflict_round_1": {
+      "a": "prevote_a_r1",
+      "b": "prevote_b_r1",
+      "currentGeneration": 0,
+      "result": "slash",
+      "event": {
+        "generation": 0,
+        "height": 1000,
+        "round": 1,
+        "voteType": 1
+      }
+    },
+    "same_block_later_time": {
+      "a": "precommit_a",
+      "b": "precommit_a_late",
+      "currentGeneration": 0,
+      "result": "NotDoubleSign"
+    },
+    "different_round": {
+      "a": "prevote_b_r1",
+      "b": "prevote_b_r2",
+      "currentGeneration": 0,
+      "result": "NotDoubleSign"
+    },
+    "different_type": {
+      "a": "prevote_a_r1",
+      "b": "precommit_b_r1",
+      "currentGeneration": 0,
+      "result": "NotDoubleSign"
+    },
+    "generation_1_conflict": {
+      "a": "gen1_precommit_a",
+      "b": "gen1_precommit_b",
+      "currentGeneration": 1,
+      "result": "slash",
+      "event": {
+        "generation": 1,
+        "height": 1000,
+        "round": 0,
+        "voteType": 2
+      }
+    },
+    "historical_generation_conflict": {
+      "a": "precommit_a",
+      "b": "precommit_b",
+      "currentGeneration": 1,
+      "result": "slash",
+      "event": {
+        "generation": 0,
+        "height": 1000,
+        "round": 0,
+        "voteType": 2
+      }
+    },
+    "future_generation": {
+      "a": "gen2_precommit_a",
+      "b": "gen2_precommit_b",
+      "currentGeneration": 1,
+      "result": "FutureGeneration"
+    },
+    "other_deployment": {
+      "a": "precommit_a",
+      "b": "other_inbox_precommit_b",
+      "currentGeneration": 0,
+      "result": "InvalidSignature"
+    },
+    "different_round_conflicting_blocks": {
+      "a": "prevote_a_r1",
+      "b": "prevote_b_r2",
+      "currentGeneration": 0,
+      "result": "NotDoubleSign"
+    },
+    "different_generation": {
+      "a": "precommit_a",
+      "b": "gen1_precommit_b",
+      "currentGeneration": 1,
+      "result": "NotDoubleSign"
+    },
+    "different_height": {
+      "a": "precommit_a",
+      "b": "precommit_b_h1001",
+      "currentGeneration": 0,
+      "result": "NotDoubleSign"
+    },
+    "backdated_conflict": {
+      "a": "precommit_a_backdated",
+      "b": "precommit_b_backdated",
+      "currentGeneration": 0,
+      "result": "slash",
+      "event": {
+        "generation": 0,
+        "height": 1000,
+        "round": 0,
+        "voteType": 2
+      }
+    }
+  },
+  "effects": {
+    "preRoot": "0x127f676de3068bcb8bf2dce40cc698fb6b1ca017ca1c81f2e71a0d6ac49f9813",
+    "postRoot": "0x966d420734f3bd7301e9c5432191a6ec82bb3367c615ca4282ba7bbe41dce959",
+    "before": [8, 0, 0, 92, 92, 2, 0, 0, 4, 14, 32768],
+    "slashed": [0, 2, 6, 92, 92, 4, 4, 0, 0, 0, 0]
+  },
+  "selectors": {
+    "NotDoubleSign": "0x1ecb6f40",
+    "FutureGeneration": "0xb4ab02d2",
+    "InvalidSignature": "0x8baa579f",
+    "NothingToSlash": "0x38fbeb34"
+  }
+}
