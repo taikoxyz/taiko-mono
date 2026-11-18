@@ -100,8 +100,7 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
     /// @return signalImpl_ New implementation, preserving the existing extra pause authority.
     function deploySignalServiceImplementation() external returns (address signalImpl_) {
         _liveUnzenConfig();
-        address proxy = vm.envAddress("INBOX_PROXY");
-        _requireProxy(proxy);
+        address proxy = _etnaProxy();
         address remote = vm.envAddress("REMOTE_SIGNAL_SERVICE");
         require(
             remote == l2SignalServiceAddress(_envUint64("L2_CHAIN_ID")),
@@ -139,14 +138,14 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         returns (IEtnaStakingRegistry.Config memory config_)
     {
         _liveUnzenConfig();
-        _requireProxy(vm.envAddress("INBOX_PROXY"));
-        _requireOwner(vm.envAddress("INBOX_PROXY"));
+        _etnaProxy();
         return super._registryConfig();
     }
 
     /// @dev Opens the existing Unzen proxy and SignalService, never a fresh replacement store. The
     /// live `signalService` is SIGNAL_SERVICE before the DAO proposal executes and INBOX_PROXY
-    /// after it (SWITCH.md section 3); any other value is refused.
+    /// after it (SWITCH.md section 3); any other value is refused. After it, SIGNAL_SERVICE must
+    /// be the store the installed Etna Inbox saves into, the one holding Unzen's checkpoints.
     /// @return config_ The live Unzen Inbox configuration, unchanged.
     function _liveUnzenConfig() private view returns (IInbox.Config memory config_) {
         _owner(0);
@@ -158,14 +157,28 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         _requireOwner(unzen);
         _requireOwner(signal);
         config_ = IInbox(unzen).getConfig();
+        require(SignalService(signal).VERSION() == 1, SwitchIdentityMismatch());
+        if (config_.signalService != signal) {
+            require(
+                vm.envExists("INBOX_PROXY") && config_.signalService == _etnaProxy()
+                    && IEtnaInbox(config_.signalService).signalService() == signal,
+                SwitchIdentityMismatch()
+            );
+        }
+        require(IInbox(unzen).getCoreState().nextProposalId != 0, SwitchIdentityMismatch());
+    }
+
+    /// @dev Checks INBOX_PROXY before anything that names it is prepared: a DAO-owned proxy with
+    /// no pending transfer, distinct from the Unzen Inbox and the retained SignalService.
+    /// @return proxy_ The Etna Inbox proxy.
+    function _etnaProxy() private view returns (address proxy_) {
+        proxy_ = vm.envAddress("INBOX_PROXY");
+        _requireProxy(proxy_);
+        _requireOwner(proxy_);
         require(
-            SignalService(signal).VERSION() == 1
-                && (config_.signalService == signal
-                    || (vm.envExists("INBOX_PROXY")
-                        && config_.signalService == vm.envAddress("INBOX_PROXY"))),
+            proxy_ != vm.envAddress("UNZEN_INBOX") && proxy_ != vm.envAddress("SIGNAL_SERVICE"),
             SwitchIdentityMismatch()
         );
-        require(IInbox(unzen).getCoreState().nextProposalId != 0, SwitchIdentityMismatch());
     }
 
     /// @dev The cutoff implementation's configuration: the live one with `signalService` set to
@@ -173,9 +186,7 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
     /// @return config_ The configuration to construct `InboxWithEtnaCutoffs` with.
     function _cutoffConfig() private view returns (IInbox.Config memory config_) {
         config_ = _liveUnzenConfig();
-        address proxy = vm.envAddress("INBOX_PROXY");
-        _requireProxy(proxy);
-        config_.signalService = proxy;
+        config_.signalService = _etnaProxy();
     }
 
     /// @dev Checks the switching identities and that every Etna verifier instance is isolated.
@@ -183,9 +194,7 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
     function _inboxConfig() internal view override returns (IEtnaInbox.Config memory config_) {
         IInbox.Config memory cutoffConfig = _cutoffConfig();
         config_ = super._inboxConfig();
-        address proxy = vm.envAddress("INBOX_PROXY");
-        _requireProxy(proxy);
-        _requireOwner(proxy);
+        address proxy = cutoffConfig.signalService;
         _requireOwner(config_.stakingRegistry);
         config_.originWriter = vm.envAddress("ORIGIN_WRITER");
         config_.unzenInbox = vm.envAddress("UNZEN_INBOX");
@@ -197,10 +206,7 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
                 && keccak256(abi.encode(cutoff.getConfig())) == keccak256(abi.encode(cutoffConfig)),
             SwitchIdentityMismatch()
         );
-        require(
-            config_.originWriter != address(0) && proxy != config_.unzenInbox,
-            SwitchIdentityMismatch()
-        );
+        require(config_.originWriter != address(0), SwitchIdentityMismatch());
         require(
             IEtnaStakingRegistry(config_.stakingRegistry).inbox() == proxy
                 && IEtnaStakingRegistry(config_.stakingRegistry).l2ChainId() == config_.l2ChainId,

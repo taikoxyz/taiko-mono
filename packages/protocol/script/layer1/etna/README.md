@@ -12,6 +12,14 @@ The L2 SignalService implementation deployment is
 mainnet/Hoodi entry points; the `Anchor` needs no Etna change. EIP-2935 and EIP-4788 must already be
 installed on L2.
 
+Because the L2 message upgrades only the SignalService, the `Anchor` keeps its Unzen implementation
+and has no Etna getter. Rehearse or run the switch only with clients whose trust check follows
+SYNC-9-5a: compare the L2 SignalService proxy's EIP-1967 implementation slot at S with the built-in
+Etna implementation, from EL state or an `eth_getProof` at S checked against S's stateRoot
+(SYNC-9-16), and compare that implementation's `beaconRootsFrom()` with the node's own fork time.
+A client that still checks the `Anchor` implementation or an `Anchor` fork-time getter cannot
+become trusted at S.
+
 ## Inputs and deployment order
 
 Use the same L1 RPC and `L1_CHAIN_ID` for every step. `PRIVATE_KEY` selects the deployer;
@@ -23,7 +31,10 @@ The scripts reject implementation addresses in place of these proxies and requir
 They read the live Unzen `getConfig()` and six-word `getCoreState()` ABI. The live
 `getConfig().signalService` may be `SIGNAL_SERVICE`, before the DAO proposal executes, or
 `INBOX_PROXY`, after it (for example when a replacement proposal is prepared, SWITCH.md section 7);
-any other value is refused.
+any other value is refused. After it, `SIGNAL_SERVICE` must also be the installed Etna Inbox's
+`signalService()`, so a replacement keeps saving into the store that holds Unzen's checkpoints.
+`INBOX_PROXY` must differ from `UNZEN_INBOX` and `SIGNAL_SERVICE`; every entry point that depends
+on it checks this, and its ownership, before deploying anything.
 The live Unzen Inbox and SignalService, new Inbox proxy, registry and every enabled Etna
 image-trusting verifier must have that owner installed and no pending ownership transfer.
 

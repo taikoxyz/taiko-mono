@@ -77,6 +77,24 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         address signalImpl = _switch.deploySignalServiceImplementation();
         assertEq(SignalService(signalImpl).beaconRootsFrom(), 0);
         assertEq(SignalService(signalImpl).VERSION(), 1);
+
+        // Before the first proposal executes, every preparer refuses an Etna target that is the
+        // Unzen Inbox or the retained store, or that the DAO does not own without a pending
+        // transfer.
+        address[2] memory wrongTargets = [address(inbox), address(signalService)];
+        for (uint256 i; i < wrongTargets.length; ++i) {
+            vm.setEnv("INBOX_PROXY", vm.toString(wrongTargets[i]));
+            _assertPreparersRefuse();
+        }
+        vm.setEnv("INBOX_PROXY", vm.toString(proxy));
+        uint256 ownerSnapshot = vm.snapshotState();
+        EssentialContract(proxy).transferOwnership(Bob);
+        _assertPreparersRefuse();
+        vm.prank(Bob);
+        EssentialContract(proxy).acceptOwnership();
+        _assertPreparersRefuse();
+        assertTrue(vm.revertToState(ownerSnapshot));
+
         _switchAndProve(proxy, cutoff, signalImpl, implementation);
 
         // Once the proposal has executed, the live Unzen Inbox reports the Etna Inbox, and a
@@ -89,6 +107,24 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         vm.expectRevert(DeployEtnaSwitch.SwitchIdentityMismatch.selector);
         _switch.deployUnzenInboxImplementation();
         vm.setEnv("INBOX_PROXY", vm.toString(proxy));
+        // So is another DAO-owned version-1 store: the installed Etna Inbox saves into the
+        // retained one.
+        vm.setEnv("SIGNAL_SERVICE", vm.toString(address(_deploySignalService(proxy))));
+        _assertPreparersRefuse();
+        vm.setEnv("SIGNAL_SERVICE", vm.toString(address(signalService)));
+    }
+
+    /// @dev Every preparer that depends on INBOX_PROXY and SIGNAL_SERVICE refuses them before
+    /// broadcasting.
+    function _assertPreparersRefuse() private {
+        vm.expectRevert(DeployEtnaSwitch.SwitchIdentityMismatch.selector);
+        _switch.deployRegistry();
+        vm.expectRevert(DeployEtnaSwitch.SwitchIdentityMismatch.selector);
+        _switch.deployUnzenInboxImplementation();
+        vm.expectRevert(DeployEtnaSwitch.SwitchIdentityMismatch.selector);
+        _switch.deploySignalServiceImplementation();
+        vm.expectRevert(DeployEtnaSwitch.SwitchIdentityMismatch.selector);
+        _switch.deployInbox();
     }
 
     /// @dev Models the DAO proposal's L1 actions 1, 2 and 4 (SWITCH.md section 3), without the
