@@ -8,6 +8,28 @@ import { PublicReplayToken } from "./EtnaRegistryPublicReplay.t.sol";
 
 /// @notice Late token failures and identical retries through the actual Registry proxy.
 contract EtnaRegistryAtomicityCasesTest is EtnaRegistryCasesBase {
+    // All positions are zero-based offsets in the VM recorder's ordered arrays.
+    struct TraceFrame {
+        uint256 index;
+        VmSafe.AccountAccessKind kind;
+        address account;
+        address accessor;
+        uint64 depth;
+        bool reverted;
+    }
+
+    struct TraceWrite {
+        TraceFrame frame;
+        uint256 index;
+        address account;
+        bytes32 slot;
+        bytes32 previousValue;
+        bytes32 newValue;
+        bool reverted;
+    }
+
+    bytes32 private constant RECEIPT_SCHEMA = "etna-registry-atomicity-2";
+
     struct Observation {
         bytes32 name;
         uint256 height;
@@ -72,7 +94,7 @@ contract EtnaRegistryAtomicityCasesTest is EtnaRegistryCasesBase {
         _requireCheckpoint(1, 11, 2, root);
         require(_balance(REGISTRY) == 8 && _transfers() == 2, "N04 register: exact vault and transfer count");
 
-        emit RegistryCaseReceipt(_journal);
+        emit RegistryCaseReceipt(bytes.concat(RECEIPT_SCHEMA, _journal));
     }
 
     function test_topup_balance_rollback_and_retry() external {
@@ -116,7 +138,7 @@ contract EtnaRegistryAtomicityCasesTest is EtnaRegistryCasesBase {
         require(pending == 0 && ready == 0, "N04 activation: consumed pending");
         require(_balance(REGISTRY) == 12 && _transfers() == 3, "N04 topUp: exact vault and transfer count");
 
-        emit RegistryCaseReceipt(_journal);
+        emit RegistryCaseReceipt(bytes.concat(RECEIPT_SCHEMA, _journal));
     }
 
     /// @notice Emit one trace entry then revert for the local recorder calibration.
@@ -153,6 +175,14 @@ contract EtnaRegistryAtomicityCasesTest is EtnaRegistryCasesBase {
         private
     {
         Observation memory obs = _observeBefore(_name, _actor);
+        bytes32[4] memory slots;
+        bytes32[4] memory beforeWords;
+        if (_name == "topup_refusal") {
+            uint256 pending = _mapSlot(TOP, 0);
+            slots = [bytes32(pending), bytes32(pending + 1), bytes32(_mapSlot(R + 3, 4096)),
+                bytes32(_mapSlot(R + 3, 2048))];
+            beforeWords = _readRegistryWords(slots);
+        }
         CallResult memory result = _callRegistry(_actor, _call);
         if (_name == "topup_refusal") {
             require(!result.ok, "N04 topup_refusal: expected token balance, got success");
@@ -172,6 +202,55 @@ contract EtnaRegistryAtomicityCasesTest is EtnaRegistryCasesBase {
             _requireRefusal(result, _return, obs.beforeState, obs.afterState, _traceEvents);
         }
         _append(obs, observedCall, result.data, observedTokenCall);
+        if (_name == "topup_refusal") {
+            _appendTopUpWitness(result.accesses, slots, beforeWords);
+        }
+    }
+
+    /// @dev Raw reads run outside the action recorder.
+    function _readRegistryWords(bytes32[4] memory _slots) private view returns (bytes32[4] memory words) {
+        for (uint256 i; i < _slots.length; ++i) {
+            words[i] = _raw(uint256(_slots[i]));
+        }
+    }
+
+    /// @dev Capture all writes to the selected slot keys across the ordered action.
+    /// The collector checks the storage account, frame context, order and values.
+    function _appendTopUpWitness(
+        Vm.AccountAccess[] memory _accesses,
+        bytes32[4] memory _slots,
+        bytes32[4] memory _beforeWords
+    )
+        private
+    {
+        TraceFrame memory delegateFrame;
+        TraceFrame memory tokenFrame;
+        bytes memory writes;
+        for (uint256 i; i < _accesses.length; ++i) {
+            Vm.AccountAccess memory access = _accesses[i];
+            TraceFrame memory frame =
+                TraceFrame(i, access.kind, access.account, access.accessor, access.depth, access.reverted);
+            // The earlier exact frame checks bind these two boundaries to the attempted calls.
+            if (access.kind == VmSafe.AccountAccessKind.DelegateCall && access.account == implementation) {
+                delegateFrame = frame;
+            }
+            if (access.kind == VmSafe.AccountAccessKind.Call && access.account == address(token)) {
+                tokenFrame = frame;
+            }
+            for (uint256 j; j < access.storageAccesses.length; ++j) {
+                Vm.StorageAccess memory store = access.storageAccesses[j];
+                bytes32 slot = store.slot;
+                if (!store.isWrite || (slot != _slots[0] && slot != _slots[1] && slot != _slots[2] && slot != _slots[3])) {
+                    continue;
+                }
+                TraceWrite memory write = TraceWrite(
+                    frame, j, store.account, slot, store.previousValue, store.newValue, store.reverted
+                );
+                writes = bytes.concat(writes, abi.encode(write));
+            }
+        }
+        bytes memory witness = abi.encode(delegateFrame, tokenFrame, _beforeWords, _readRegistryWords(_slots), writes);
+        _journal = bytes.concat(_journal, abi.encodePacked(witness.length), witness);
     }
 
     function _observeTokenFrame(

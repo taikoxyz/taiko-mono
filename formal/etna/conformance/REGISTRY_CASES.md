@@ -147,14 +147,40 @@ The second test begins with both bonds at block 10. At block 12 and
 snapshot 9, the first bond's owner has allowance 4 and balance 0. The
 nested token frame records a reverted allowance write from 4 to 0 before
 `Error("token balance")` propagates through the Registry call. The allowance
-returns to 4 and the full selected state equals the pre-call state. The
-test driver mints 4 to the owner and leaves the allowance at 4. The same
+returns to 4 and the full selected state equals the pre-call state.
+The test driver mints 4 to the owner and leaves the allowance at 4. The same
 caller retries the same top-up at block 12. The retry transfers 4 once and
 raises the pending principal and admission value. The neighbor's state,
 the target's effective stake, the entry tree and the block-10 checkpoint
 stay unchanged through retry. At block 14 actual activation consumes the
 pending amount, increases effective stake to 8 and writes checkpoint 1.
 The original checkpoint remains readable.
+
+The refusal receipt binds four reverted Registry writes before that token call.
+
+| Registry slot         | Before | Attempted | Restored |
+| --------------------- | -----: | --------: | -------: |
+| Bond 0 pending amount |      0 |         4 |        0 |
+| Bond 0 readiness      |      0 |        14 |        0 |
+| Admission leaf 4096   |  16384 |     32768 |    16384 |
+| Admission parent 2048 |  16384 |     16385 |    16384 |
+
+The producer records every write to those four raw slot keys across the
+action, including the storage account, old and attempted values, revert
+flag and positions in the ordered account and storage access arrays. The
+collector requires one write per slot in the Registry proxy's delegated
+execution, each before the unique nested token call. It binds the observed
+delegated and token call frames and the raw values read before and after
+recording. The pinned recorder places all four writes in the delegated
+context's resume segment after the Inbox call and before the token call. The frame positions
+are specific to the pinned Forge fixture. Admission node 1024 retains key 2 from the empty slot, so the
+four explicit writes stop at parent 2048. The existing full selected state
+commitment still covers the upper nodes and the adjacent leaf.
+
+Atomicity receipts carry schema `etna-registry-atomicity-2`. The top-up
+refusal includes the ordered write witness in addition to the existing
+action fields. Earlier N04 receipts are historical and fail the current
+schema check.
 
 Both leaves use the same ordered raw rollback observer. It covers inherited
 Registry words 0–250 and its ERC1967 implementation pointer, the packed

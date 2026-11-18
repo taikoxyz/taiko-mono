@@ -402,7 +402,24 @@ class AtomicityBoundary(unittest.TestCase):
             name="topup_retry", ok=True, afterState="0x" + "34" * 32,
             tokenReverted=False, result="0x",
         )
-        self.oracle = dict(journal=[self.refusal, self.retry], setupLogs=[], actionLogs=[])
+        frames = dict(
+            delegate=[1, 1, "0x" + "44" * 20, self.refusal["actor"], 2, True],
+            token=[4, 0, token, target, 3, True],
+        )
+        resumed = [3, 6, frames["delegate"][2], self.refusal["actor"], 2, True]
+        transitions = (
+            ("9ec5706da37609ac710f31f391f514e2721a7d03114dd165392f232cefc7074a", 0, 4),
+            ("9ec5706da37609ac710f31f391f514e2721a7d03114dd165392f232cefc7074b", 0, 14),
+            ("47815a5b6cc18ba684fce844040895d6aad392a3de9e10ad601cd48bc4875b84", 16384, 32768),
+            ("bf413d0ecf5c801a2029e0accdcc0c0daa3d0a93324b144d16c809b7a830f7e4", 16384, 16385),
+        )
+        self.witness = frames | dict(
+            before=[0, 0, 16384, 16384], restored=[0, 0, 16384, 16384],
+            writes=[[resumed.copy(), index, target, "0x" + slot, old, new, True]
+                    for index, (slot, old, new) in enumerate(transitions)],
+        )
+        self.oracle = dict(journal=[self.refusal, self.retry], setupLogs=[], actionLogs=[],
+                           topUpWitness=copy.deepcopy(self.witness))
 
     def encode(self, step):
         # Independent framing of the fixed head and three dynamic byte strings.
@@ -421,6 +438,25 @@ class AtomicityBoundary(unittest.TestCase):
         body = b"".join(head) + tail
         return word(len(body)) + body
 
+    def encode_witness(self, witness):
+        # Independently encode the static tuples and one dynamic byte string.
+        def encode(fields):
+            return b"".join(
+                int(field, 16).to_bytes(32, "big") if isinstance(field, str)
+                else int(field).to_bytes(32, "big")
+                for field in fields
+            )
+        observed = [*witness["delegate"], *witness["token"],
+                    *witness["before"], *witness["restored"]]
+        writes = b"".join(encode([*frame, *storage]) for frame, *storage in witness["writes"])
+        return encode([22 * 32 + len(writes), *observed, 21 * 32, len(writes)]) + writes
+
+    def receipt(self, *, refusal=None, retry=None, witness=None):
+        return (b"etna-registry-atomicity-2".ljust(32, b"\0")
+                + (self.encode(self.refusal) if refusal is None else refusal)
+                + (self.encode_witness(self.witness) if witness is None else witness)
+                + (self.encode(self.retry) if retry is None else retry))
+
     def check(self, receipt):
         suite = "test/layer1/etna/conformance/EtnaRegistryAtomicityCases.t.sol:EtnaRegistryAtomicityCasesTest"
         leaf = "test_topup_balance_rollback_and_retry()"
@@ -430,9 +466,49 @@ class AtomicityBoundary(unittest.TestCase):
         )[leaf]["journal"]
 
     def test_accepts_exact_atomicity_journal(self):
-        journal = self.check(self.encode(self.refusal) + self.encode(self.retry))
+        journal = self.check(self.receipt())
         self.assertEqual(journal[0]["allowanceWrite"], [1, 4, 0])
+        self.assertEqual(journal[0]["topUpWitness"], self.witness)
         self.assertEqual(journal[1]["calldata"], journal[0]["calldata"])
+
+    def test_rejects_legacy_atomicity_receipt(self):
+        # The legacy receipt has the same token failure, raw rollback and retry.
+        with self.assertRaisesRegex(ValueError, "atomicity receipt schema"):
+            self.check(self.encode(self.refusal) + self.encode(self.retry))
+
+    def test_rejects_missing_duplicate_or_reordered_registry_writes_on_native_success(self):
+        writes = self.witness["writes"]
+        for altered in ([], writes[1:], writes + writes[:1], writes[1::-1] + writes[2:]):
+            with self.subTest(altered=altered), self.assertRaisesRegex(ValueError, "Registry write witness"):
+                self.check(self.receipt(witness=self.encode_witness(self.witness | {"writes": altered})))
+        with self.assertRaisesRegex(ValueError, "Registry write witness"):
+            self.check(self.receipt(witness=b""))
+
+    def test_rejects_altered_witness_fields_on_native_success(self):
+        for index, value in (
+            (1, 99), (2, "0x" + "77" * 20), (3, "0x" + "ff" * 32),
+            (4, 9), (5, 9), (6, False),
+        ):
+            witness = copy.deepcopy(self.witness)
+            witness["writes"][0][index] = value
+            with self.subTest(index=index), self.assertRaisesRegex(ValueError, "Registry write witness"):
+                self.check(self.receipt(witness=self.encode_witness(witness)))
+
+        for index, value in (
+            (0, self.witness["token"][0]), (0, self.witness["token"][0] + 1),
+            (1, 3), (2, "0x" + "77" * 20),
+            (3, "0x" + "77" * 20), (4, 3), (5, False),
+        ):
+            witness = copy.deepcopy(self.witness)
+            witness["writes"][0][0][index] = value
+            with self.subTest(frame_index=index), self.assertRaisesRegex(ValueError, "Registry write witness"):
+                self.check(self.receipt(witness=self.encode_witness(witness)))
+
+        for field, index, value in (("before", 0, 1), ("restored", 1, 14), ("token", 0, 2), ("delegate", 4, 3)):
+            witness = copy.deepcopy(self.witness)
+            witness[field][index] = value
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "Registry write witness"):
+                self.check(self.receipt(witness=self.encode_witness(witness)))
 
     def test_rejects_wrong_nested_token_refusal(self):
         for field, value in (
@@ -440,14 +516,14 @@ class AtomicityBoundary(unittest.TestCase):
             ("tokenReverted", False), ("result", "0x08c379a1"), ("allowanceWrite", [0, 0, 0]),
         ):
             with self.subTest(field=field), self.assertRaisesRegex(ValueError, "topup_refusal"):
-                self.check(self.encode(self.refusal | {field: value}) + self.encode(self.retry))
+                self.check(self.receipt(refusal=self.encode(self.refusal | {field: value})))
 
     def test_rejects_missing_or_changed_rollback_post_state(self):
         step = self.encode(self.refusal)
         offset = 32 + 7 * 32
         for post in (b"", bytes(32)):
             with self.subTest(post=post), self.assertRaisesRegex(ValueError, "topup_refusal"):
-                self.check(step[:offset] + post + step[offset + 32:] + self.encode(self.retry))
+                self.check(self.receipt(refusal=step[:offset] + post + step[offset + 32:]))
 
     def test_rejects_nonidentical_retry(self):
         for field, value in (
@@ -455,7 +531,16 @@ class AtomicityBoundary(unittest.TestCase):
             ("snapshot", 8), ("actor", "0x" + "bb" * 20), ("beforeState", "0x" + "66" * 32),
         ):
             with self.subTest(field=field), self.assertRaisesRegex(ValueError, "topup_retry"):
-                self.check(self.encode(self.refusal) + self.encode(self.retry | {field: value}))
+                self.check(self.receipt(retry=self.encode(self.retry | {field: value})))
+
+    def test_validates_frozen_atomicity_context(self):
+        pins, expected, *_ = CASES.inputs("atomicity")
+        self.assertEqual(set(expected), {CASES.ATOMICITY_REGISTER, CASES.ATOMICITY_TOPUP})
+        leaves = copy.deepcopy(pins["atomicity"])
+        witness = leaves[CASES.ATOMICITY_TOPUP]["topUpWitness"]
+        witness["writes"][0][0][0] = witness["token"][0]
+        with self.assertRaisesRegex(ValueError, "token boundary"):
+            CASES.require_atomicity_oracle(leaves)
 
     def test_atomicity_does_not_require_stock_go_evidence(self):
         args = ["--scenario", "atomicity", "--runtime", "runtime", "--output", "output", "--smoke"]

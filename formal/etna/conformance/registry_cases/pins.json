@@ -901,6 +901,92 @@
       ]
     },
     "test_topup_balance_rollback_and_retry()": {
+      "topUpWitness": {
+        "delegate": [
+          2,
+          1,
+          "0xf62849f9a0b5bf2913b396098f7c7019b51a820a",
+          "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          2,
+          true
+        ],
+        "token": [
+          5,
+          0,
+          "0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f",
+          "0x2222222222222222222222222222222222222222",
+          3,
+          true
+        ],
+        "before": [0, 0, 16384, 16384],
+        "restored": [0, 0, 16384, 16384],
+        "writes": [
+          [
+            [
+              4,
+              6,
+              "0xf62849f9a0b5bf2913b396098f7c7019b51a820a",
+              "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              2,
+              true
+            ],
+            9,
+            "0x2222222222222222222222222222222222222222",
+            "0x9ec5706da37609ac710f31f391f514e2721a7d03114dd165392f232cefc7074a",
+            0,
+            4,
+            true
+          ],
+          [
+            [
+              4,
+              6,
+              "0xf62849f9a0b5bf2913b396098f7c7019b51a820a",
+              "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              2,
+              true
+            ],
+            11,
+            "0x2222222222222222222222222222222222222222",
+            "0x9ec5706da37609ac710f31f391f514e2721a7d03114dd165392f232cefc7074b",
+            0,
+            14,
+            true
+          ],
+          [
+            [
+              4,
+              6,
+              "0xf62849f9a0b5bf2913b396098f7c7019b51a820a",
+              "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              2,
+              true
+            ],
+            15,
+            "0x2222222222222222222222222222222222222222",
+            "0x47815a5b6cc18ba684fce844040895d6aad392a3de9e10ad601cd48bc4875b84",
+            16384,
+            32768,
+            true
+          ],
+          [
+            [
+              4,
+              6,
+              "0xf62849f9a0b5bf2913b396098f7c7019b51a820a",
+              "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              2,
+              true
+            ],
+            18,
+            "0x2222222222222222222222222222222222222222",
+            "0xbf413d0ecf5c801a2029e0accdcc0c0daa3d0a93324b144d16c809b7a830f7e4",
+            16384,
+            16385,
+            true
+          ]
+        ]
+      },
       "journal": [
         {
           "name": "topup_refusal",

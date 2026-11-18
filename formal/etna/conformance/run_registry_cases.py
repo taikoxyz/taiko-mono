@@ -96,6 +96,7 @@ SCENARIOS = {
     "lifecycle": (LIFECYCLE_FILE, LIFECYCLE_CONTRACT, LIFECYCLE_TEST),
     "atomicity": (ATOMICITY_FILE, ATOMICITY_CONTRACT, ATOMICITY_REGISTER),
 }
+ATOMICITY_RECEIPT_SCHEMA = b"etna-registry-atomicity-2".ljust(32, b"\0")
 ATOMICITY_STEPS = {
     ATOMICITY_REGISTER: ("register_refusal", "approve_retry", "register_retry"),
     ATOMICITY_TOPUP: ("topup_refusal", "fund_retry", "topup_retry", "activate_topup"),
@@ -378,12 +379,38 @@ def atomicity_binding(step):
     return word(len(body)) + body
 
 
+def atomicity_frame_binding(frame):
+    index, kind, account, accessor, depth, reverted = frame
+    return b"".join((word(index), word(kind), address_word(account), address_word(accessor),
+                     word(depth), word(int(reverted))))
+
+
+def require_topup_witness(receipt, witness):
+    """Compare the recorded frame and SSTORE tuples to the frozen fixture oracle."""
+    writes = b"".join(
+        atomicity_frame_binding(frame) + word(index) + address_word(account) + hex_bytes(slot, 32)
+        + word(before) + word(attempted) + word(int(reverted))
+        for frame, index, account, slot, before, attempted, reverted in witness["writes"]
+    )
+    body = b"".join((
+        atomicity_frame_binding(witness["delegate"]), atomicity_frame_binding(witness["token"]),
+        *map(word, witness["before"]), *map(word, witness["restored"]), word(21 * 32), abi_bytes(writes),
+    ))
+    expected = word(len(body)) + body
+    if not receipt.startswith(expected):
+        raise ValueError("wrong atomicity topup_refusal Registry write witness")
+    return len(expected), witness
+
+
 def atomicity_receipt(receipt, logs, oracle):
     """Admit only the independently pinned journal and native trace sequence."""
     action_logs = oracle["actionLogs"]
     if logs != oracle["setupLogs"] + action_logs:
         raise ValueError("wrong ordered atomicity trace logs")
-    offset = log_offset = 0
+    if not receipt.startswith(ATOMICITY_RECEIPT_SCHEMA):
+        raise ValueError("wrong atomicity receipt schema")
+    offset = len(ATOMICITY_RECEIPT_SCHEMA)
+    log_offset = 0
     journal = []
     for step in oracle["journal"]:
         expected = atomicity_binding(step)
@@ -391,7 +418,12 @@ def atomicity_receipt(receipt, logs, oracle):
             raise ValueError("wrong atomicity receipt at " + step["name"])
         offset += len(expected)
         end = log_offset + step["logCount"]
-        journal.append(step | {"traceLogs": action_logs[log_offset:end]})
+        observed = step | {"traceLogs": action_logs[log_offset:end]}
+        if step["name"] == "topup_refusal":
+            length, witness = require_topup_witness(receipt[offset:], oracle["topUpWitness"])
+            offset += length
+            observed["topUpWitness"] = witness
+        journal.append(observed)
         log_offset = end
     if offset != len(receipt) or log_offset != len(action_logs):
         raise ValueError("extra atomicity receipt words or unbound trace logs")
@@ -404,6 +436,38 @@ def atomicity_failure(oracle):
             raise ValueError("wrong ordered atomicity fault trace logs")
 
     return ATOMICITY_TOPUP, ATOMICITY_FAULT_DIAGNOSTIC, require_missing_transfer_trace
+
+
+def require_topup_context(oracle, refusal):
+    """Check the fixture's delegated/resumed context and relative write positions."""
+    witness = oracle["topUpWitness"]
+    delegate_index, kind, implementation, accessor, depth, reverted = witness["delegate"]
+    token_index, token_kind, target, token_accessor, token_depth, token_reverted = witness["token"]
+    # Setup etches the constructor proxy's runtime code at REGISTRY. The
+    # constructor's exactly pinned Upgraded log names the implementation.
+    upgrades = [row["topics"][1] for row in oracle["setupLogs"] if row["topics"][0] == UPGRADED_TOPIC]
+    # AccountAccessKind values from the pinned Vm interface: Call=0, DelegateCall=1, Resume=6.
+    if (kind != 1 or upgrades != [hex_data(address_word(implementation))]
+            or accessor != refusal["actor"] or not reverted
+            or token_kind != 0 or target != refusal["tokenTarget"] or token_accessor != PROXY
+            or token_depth != depth + 1 or not token_reverted):
+        raise ValueError("wrong frozen top-up delegated or nested token context")
+
+    positions, slots, previous = [], set(), []
+    for frame, index, storage_account, slot, before, _, write_reverted in witness["writes"]:
+        frame_index, frame_kind, account, caller, frame_depth, frame_reverted = frame
+        if (frame != witness["delegate"]
+                and (frame_index <= delegate_index or frame_kind != 6
+                     or (account, caller, frame_depth, frame_reverted) != (implementation, accessor, depth, reverted))):
+            raise ValueError("wrong frozen top-up write context")
+        if storage_account != PROXY or not write_reverted or not delegate_index <= frame_index < token_index:
+            raise ValueError("wrong frozen top-up write origin, revert or token boundary")
+        positions.append((frame_index, index))
+        slots.add(slot)
+        previous.append(before)
+    if (len(positions) != 4 or len(slots) != 4 or positions != sorted(set(positions))
+            or previous != witness["before"] or previous != witness["restored"]):
+        raise ValueError("wrong frozen top-up write count, order or raw words")
 
 
 def require_atomicity_oracle(leaves):
@@ -426,6 +490,8 @@ def require_atomicity_oracle(leaves):
                 or external["afterState"] != retry["beforeState"]
                 or any(external[field] != retry[field] for field in ("height", "snapshot"))):
             raise ValueError("wrong frozen atomicity refusal, context or retry")
+        if leaf == ATOMICITY_TOPUP:
+            require_topup_context(oracle, refusal)
 
 
 def solidity_files(scenario):
