@@ -205,7 +205,7 @@ contract EtnaRegistryDoubleSignReplayTest is EtnaRegistryCasesBase {
     }
 
     /// @dev Apply two exact calls against fresh legal stake and record independent observations.
-    function _pair(EvidenceCase memory _case) private {
+    function _pair(string memory _name, EvidenceCase memory _case) private {
         PublicPoP memory pop = _prepare(_case.current);
         PairReceipt memory receipt;
         receipt.generation = inbox.recoveryGeneration();
@@ -215,7 +215,8 @@ contract EtnaRegistryDoubleSignReplayTest is EtnaRegistryCasesBase {
             0, _vote(_rowPath(".voteCases", _case.first)), _vote(_rowPath(".voteCases", _case.second))
         ));
         CallResult memory first = _callRegistry(REPORTER, action);
-        receipt.firstProxy = _registryFrame(first, REPORTER, action);
+        bytes memory observedFirst;
+        (receipt.firstProxy, observedFirst) = _registryFrame(first, REPORTER, action);
         receipt.firstResult = bytes4(first.data);
         receipt.firstLogs = first.logs.length;
         if (_case.first == 0 && _case.second == 3) {
@@ -233,7 +234,8 @@ contract EtnaRegistryDoubleSignReplayTest is EtnaRegistryCasesBase {
                 new bytes32[](0));
         }
         CallResult memory repeat = _callRegistry(REPORTER, action);
-        receipt.repeatProxy = _registryFrame(repeat, REPORTER, action);
+        bytes memory observedRepeat;
+        (receipt.repeatProxy, observedRepeat) = _registryFrame(repeat, REPORTER, action);
         receipt.repeatResult = bytes4(repeat.data);
         receipt.repeatLogs = repeat.logs.length;
         receipt.repeatState = _stateDigest();
@@ -251,7 +253,7 @@ contract EtnaRegistryDoubleSignReplayTest is EtnaRegistryCasesBase {
         receipt.pending = uint256(_rawMap(TOP, 0));
         receipt.ready = uint256(_raw(_mapSlot(TOP, 0) + 1));
         receipt.admission = uint256(_rawMap(R + 3, 4096));
-        emit RegistryCaseReceipt(abi.encode(receipt));
+        emit RegistryCaseReceipt(bytes.concat(abi.encode(receipt), abi.encode(_name, observedFirst, observedRepeat)));
     }
 
     /// @dev Actual domain and canonical-byte leaves are individually selected by exact identity.
@@ -288,45 +290,45 @@ contract EtnaRegistryDoubleSignReplayTest is EtnaRegistryCasesBase {
 
     /// @dev Each leaf deploys a fresh Registry and executes the exact same evidence twice.
     function test_pair_precommit_conflict() external {
-        _pair(EvidenceCase(0, 2, 0, bytes4(0), 0, 0, 2));
+        _pair("precommit_conflict", EvidenceCase(0, 2, 0, bytes4(0), 0, 0, 2));
     }
     function test_pair_precommit_vs_nil() external {
-        _pair(EvidenceCase(0, 1, 0, bytes4(0), 0, 0, 2));
+        _pair("precommit_vs_nil", EvidenceCase(0, 1, 0, bytes4(0), 0, 0, 2));
     }
     function test_pair_prevote_conflict_round_1() external {
-        _pair(EvidenceCase(4, 5, 0, bytes4(0), 0, 1, 1));
+        _pair("prevote_conflict_round_1", EvidenceCase(4, 5, 0, bytes4(0), 0, 1, 1));
     }
     function test_pair_same_block_later_time() external {
-        _pair(EvidenceCase(0, 3, 0, _NOT_DOUBLE_SIGN, 0, 0, 0));
+        _pair("same_block_later_time", EvidenceCase(0, 3, 0, _NOT_DOUBLE_SIGN, 0, 0, 0));
     }
     function test_pair_different_round() external {
-        _pair(EvidenceCase(5, 6, 0, _NOT_DOUBLE_SIGN, 0, 0, 0));
+        _pair("different_round", EvidenceCase(5, 6, 0, _NOT_DOUBLE_SIGN, 0, 0, 0));
     }
     function test_pair_different_type() external {
-        _pair(EvidenceCase(4, 7, 0, _NOT_DOUBLE_SIGN, 0, 0, 0));
+        _pair("different_type", EvidenceCase(4, 7, 0, _NOT_DOUBLE_SIGN, 0, 0, 0));
     }
     function test_pair_generation_1_conflict() external {
-        _pair(EvidenceCase(8, 9, 1, bytes4(0), 1, 0, 2));
+        _pair("generation_1_conflict", EvidenceCase(8, 9, 1, bytes4(0), 1, 0, 2));
     }
     function test_pair_historical_generation_conflict() external {
-        _pair(EvidenceCase(0, 2, 1, bytes4(0), 0, 0, 2));
+        _pair("historical_generation_conflict", EvidenceCase(0, 2, 1, bytes4(0), 0, 0, 2));
     }
     function test_pair_future_generation() external {
-        _pair(EvidenceCase(10, 11, 1, _FUTURE, 0, 0, 0));
+        _pair("future_generation", EvidenceCase(10, 11, 1, _FUTURE, 0, 0, 0));
     }
     function test_pair_other_deployment() external {
-        _pair(EvidenceCase(0, 12, 0, _SIGNATURE, 0, 0, 0));
+        _pair("other_deployment", EvidenceCase(0, 12, 0, _SIGNATURE, 0, 0, 0));
     }
     function test_pair_different_round_conflicting_blocks() external {
-        _pair(EvidenceCase(4, 6, 0, _NOT_DOUBLE_SIGN, 0, 0, 0));
+        _pair("different_round_conflicting_blocks", EvidenceCase(4, 6, 0, _NOT_DOUBLE_SIGN, 0, 0, 0));
     }
     function test_pair_different_generation() external {
-        _pair(EvidenceCase(0, 9, 1, _NOT_DOUBLE_SIGN, 0, 0, 0));
+        _pair("different_generation", EvidenceCase(0, 9, 1, _NOT_DOUBLE_SIGN, 0, 0, 0));
     }
     function test_pair_different_height() external {
-        _pair(EvidenceCase(0, 15, 0, _NOT_DOUBLE_SIGN, 0, 0, 0));
+        _pair("different_height", EvidenceCase(0, 15, 0, _NOT_DOUBLE_SIGN, 0, 0, 0));
     }
     function test_pair_backdated_conflict() external {
-        _pair(EvidenceCase(21, 22, 0, bytes4(0), 0, 0, 2));
+        _pair("backdated_conflict", EvidenceCase(21, 22, 0, bytes4(0), 0, 0, 2));
     }
 }

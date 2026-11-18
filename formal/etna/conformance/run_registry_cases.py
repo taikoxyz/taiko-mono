@@ -42,6 +42,10 @@ SMOKE_TEST = "test_pair_precommit_conflict()"
 
 # Pinned Forge's standard test deployment address, corroborated by prior native traces.
 TEST_DRIVER = "0x7fa9385be102ac3eac297483dd6233d62b3e1496"
+# First CREATE at nonce 1 from the test driver deploys PublicReplayToken.
+TOKEN = "0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f"
+SLASH_SELECTOR = bytes.fromhex("f66189c3")
+PAIR_RESULT_BYTES = 21 * 32
 PROXY = "0x" + "22" * 20
 REPORTER = "0x" + "00" * 18 + "4444"
 SINK = "0x" + "00" * 18 + "5555"
@@ -75,6 +79,37 @@ def word(value):
 
 def hex_bytes(value, size=None):
     return STOCK.hex_field(value, size)
+
+
+def abi_bytes(value):
+    """Canonical length word and padded body of a dynamic ABI bytes/string value."""
+    return word(len(value)) + value.ljust((len(value) + 31) // 32 * 32, b"\0")
+
+
+def vote_tuple(row):
+    """Encode the public Vote tuple in ABI declaration order."""
+    vote = row["vote"]
+    return b"".join((
+        word(int(vote["voteType"])), word(int(vote["height"])), word(int(vote["round"])),
+        hex_bytes(vote["blockHash"], 32), word(int(vote["partsTotal"])),
+        hex_bytes(vote["partsHash"], 32), word(int(vote["timestampSecondsU64"])),
+        word(int(vote["timestampNanos"])), word(int(vote["generation"])),
+        word(10 * 32), abi_bytes(hex_bytes(row["signature"], 65)),
+    ))
+
+
+def slash_calldata(first, second):
+    """Encode literal bond 0 and two named signed tuples for the pinned Registry ABI."""
+    first = vote_tuple(first)
+    second = vote_tuple(second)
+    return SLASH_SELECTOR + word(0) + word(3 * 32) + word(3 * 32 + len(first)) + first + second
+
+
+def pair_binding(name, calldata):
+    """Expected canonical binding of the case identity and both attempted calls."""
+    name = abi_bytes(name.encode("ascii"))
+    action = abi_bytes(calldata)
+    return word(96) + word(96 + len(name)) + word(96 + len(name) + len(action)) + name + action * 2
 
 
 def address_word(value):
@@ -173,8 +208,7 @@ def require_pair_logs(logs, pre_root, post_root, event):
                 {CHECKPOINT_TOPIC, TRANSFER_TOPIC, SLASH_TOPIC}]
     if len(observed) != (7 if event else 3):
         raise ValueError("pair receipt: wrong count of checkpoint/transfer/slash logs")
-    token = observed[1]["address"]
-    if token in (PROXY, OWNER_A, REPORTER, SINK, "0x" + "00" * 20):
+    if any(log["address"] != TOKEN for log in observed if log["topics"][0] == TRANSFER_TOPIC):
         raise ValueError("pair receipt: wrong token emitter")
 
     def checkpoint(index, at, root):
@@ -182,7 +216,7 @@ def require_pair_logs(logs, pre_root, post_root, event):
                     data=hex_data(word(at) + word(1) + root))
 
     def transfer(source, target, amount):
-        return dict(address=token,
+        return dict(address=TOKEN,
                     topics=[TRANSFER_TOPIC, hex_data(address_word(source)), hex_data(address_word(target))],
                     data=hex_data(word(amount)))
 
@@ -200,13 +234,14 @@ def require_pair_logs(logs, pre_root, post_root, event):
     return observed
 
 
-def pair_receipt(receipt, logs, case, pins):
+def pair_receipt(receipt, logs, case, pins, name, calldata):
+    body, binding = receipt[:PAIR_RESULT_BYTES], receipt[PAIR_RESULT_BYTES:]
+    if binding != pair_binding(name, calldata):
+        raise ValueError(f"pair receipt: wrong case identity or ordered call data: {name}")
     effects = pins["effects"]
     pre_root = hex_bytes(effects["preRoot"], 32)
     post_root = hex_bytes(effects["postRoot"], 32)
-    if len(receipt) != 21 * 32:
-        raise ValueError("pair receipt: wrong size")
-    fields = [receipt[i:i + 32] for i in range(0, len(receipt), 32)]
+    fields = [body[i:i + 32] for i in range(0, PAIR_RESULT_BYTES, 32)]
     success = case["result"] == "slash"
     selectors = pins["selectors"]
     result = b"" if success else hex_bytes(selectors[case["result"]], 4)
@@ -221,7 +256,8 @@ def pair_receipt(receipt, logs, case, pins):
                        *map(word, effects["slashed" if success else "before"])]:
         raise ValueError("pair receipt: wrong root/principal/cash words")
     native_logs = require_pair_logs(logs, pre_root, post_root, case.get("event"))
-    return dict(result=case["result"], first=hex_data(result), repeat=hex_data(repeat),
+    return dict(case=name, calldata=hex_data(calldata), result=case["result"],
+                first=hex_data(result), repeat=hex_data(repeat),
                 proxy=PROXY, currentGeneration=case["currentGeneration"],
                 beforeState=hex_data(before), afterState=hex_data(after), repeatState=hex_data(replay),
                 preRoot=hex_data(fields[8]), postRoot=hex_data(fields[9]),
@@ -249,13 +285,17 @@ def inputs():
         expected[f'test_wire_{row["name"]}()'] = literal
     if list(pins["pairs"]) != [pair["name"] for pair in votes["votePairs"]]:
         raise ValueError("wrong frozen pair identity sequence")
+    by_name = {row["name"]: row for row in votes["voteCases"]}
     for pair in votes["votePairs"]:
-        oracle = pins["pairs"][pair["name"]]
+        name = pair["name"]
+        oracle = pins["pairs"][name]
         if (oracle["a"], oracle["b"], str(oracle["currentGeneration"]), oracle["result"] == "slash") != (
                 pair["a"], pair["b"], pair["current_generation"], pair["double_sign"]):
             raise ValueError("published pair disagrees with explicit SPEC oracle")
-        expected[f'test_pair_{pair["name"]}()'] = (
-            lambda receipt, logs, case=oracle: pair_receipt(receipt, logs, case, pins)
+        calldata = slash_calldata(by_name[oracle["a"]], by_name[oracle["b"]])
+        expected[f"test_pair_{name}()"] = (
+            lambda receipt, logs, case=oracle, case_name=name, call=calldata:
+                pair_receipt(receipt, logs, case, pins, case_name, call)
         )
     partition = Counter(row["result"] for row in pins["pairs"].values())
     if (len(expected) != 42 or len(pins["domains"]) != 5 or len(pins["wire"]) != 23
@@ -307,7 +347,7 @@ def source_snapshot(source, manifest):
 
 @contextmanager
 def private_source_fault(source, manifest, artifact):
-    """Change one private source branch and always restore original bytes and mode."""
+    """Restore private bytes and mode after completed or cooperatively interrupted phases."""
     path = source / FAULT_PATH
     mode = stat.S_IMODE(path.stat().st_mode)
     original = path.read_bytes()

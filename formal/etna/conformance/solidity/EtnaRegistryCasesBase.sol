@@ -189,7 +189,7 @@ abstract contract EtnaRegistryCasesBase {
     function _registryFrame(CallResult memory _result, address _actor, bytes memory _calldata)
         internal
         view
-        returns (address proxy)
+        returns (address proxy, bytes memory observedData)
     {
         bytes32 dataHash = keccak256(_calldata);
         uint256 frames;
@@ -212,6 +212,7 @@ abstract contract EtnaRegistryCasesBase {
                         && access.reverted != _result.ok && keccak256(access.data) == dataHash,
                     "registry origin: exact delegated implementation call"
                 );
+                observedData = access.data;
                 ++frames;
             }
         }

@@ -64,8 +64,10 @@ class ForgeBoundary(unittest.TestCase):
             self.check()
 
     def test_rejects_wrong_revert_origin(self):
-        pins = CASES.EXEC.read_json(CASES.PIN_PATH)
-        case = pins["pairs"]["same_block_later_time"]
+        pins, expected, *_ = CASES.inputs()
+        name = "same_block_later_time"
+        case = pins["pairs"][name]
+        call = self.pair_call(case)
         bad_proxy = bytes.fromhex("33" * 20).rjust(32, b"\0")
         selector = CASES.hex_bytes(pins["selectors"][case["result"]], 4).ljust(32, b"\0")
         payload = b"".join(
@@ -74,10 +76,51 @@ class ForgeBoundary(unittest.TestCase):
             + [CASES.hex_bytes(pins["effects"]["preRoot"])]
             + [CASES.word(n) for n in pins["effects"]["before"]]
         )
-        self.tests[REFUSAL] = row(payload)
-        self.expected[REFUSAL] = lambda receipt, logs: CASES.pair_receipt(receipt, logs, case, pins)
+        self.tests[REFUSAL] = row(payload + CASES.pair_binding(name, call))
+        self.expected[REFUSAL] = expected[f"test_pair_{name}()"]
         with self.assertRaisesRegex(ValueError, "exact revert origin"):
             self.check()
+
+    def pair_call(self, case, *, swap=False):
+        projection = CASES.STOCK.load_projection((ROOT / "comet_signed/public-votes.json").read_bytes())
+        votes = {row["name"]: row for row in projection["voteCases"]}
+        first, second = votes[case["a"]], votes[case["b"]]
+        return CASES.slash_calldata(second, first) if swap else CASES.slash_calldata(first, second)
+
+    def test_pair_binding_rejects_other_evidence_under_the_same_leaf(self):
+        pins, expected, *_ = CASES.inputs()
+        for name, other in (("precommit_conflict", "backdated_conflict"),
+                            ("different_round", "different_height")):
+            self.expected[REFUSAL] = expected[f"test_pair_{name}()"]
+            primary = self.pair_call(pins["pairs"][name])
+            for case_id, action in ((other, primary), (name, self.pair_call(pins["pairs"][other])),
+                                    (name, self.pair_call(pins["pairs"][name], swap=True))):
+                with self.subTest(name=name, case_id=case_id), self.assertRaisesRegex(ValueError, "ordered call data"):
+                    binding = CASES.pair_binding(case_id, action)
+                    self.tests[REFUSAL] = row(bytes(CASES.PAIR_RESULT_BYTES) + binding)
+                    self.check()
+
+    def test_pair_binding_rejects_modified_signed_metadata_or_signature(self):
+        pins, expected, *_ = CASES.inputs()
+        name = "backdated_conflict"
+        self.expected[REFUSAL] = expected[f"test_pair_{name}()"]
+        exact = self.pair_call(pins["pairs"][name])
+        tuple_start = 4 + 3 * 32
+        for offset in (0, 4 + 31, tuple_start + 6 * 32 + 31,
+                       tuple_start + 8 * 32 + 31, tuple_start + 11 * 32):
+            with self.subTest(offset=offset), self.assertRaisesRegex(ValueError, "ordered call data"):
+                wrong = bytearray(exact)
+                wrong[offset] ^= 1
+                binding = CASES.pair_binding(name, bytes(wrong))
+                self.tests[REFUSAL] = row(bytes(CASES.PAIR_RESULT_BYTES) + binding)
+                self.check()
+
+    def test_native_token_emitter_cannot_be_substituted_consistently(self):
+        address = "0x" + "88" * 20
+        logs = [{"address": address, "topics": [topic], "data": "0x"}
+                for topic in (CASES.CHECKPOINT_TOPIC, CASES.TRANSFER_TOPIC, CASES.TRANSFER_TOPIC)]
+        with self.assertRaisesRegex(ValueError, "wrong token emitter"):
+            CASES.require_pair_logs(logs, bytes(32), bytes(32), None)
 
     def test_forge_allows_empty_data_for_indexed_only_events(self):
         log = {"address": EMITTER, "topics": [CASES.RECEIPT_TOPIC], "data": "0x"}
