@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "create.family.spawn_exceeds_limit",
+  "layer": "harness",
+  "cells": ["create.family.spawn_limit_exceeded_aborted"],
+  "description": "As create.family.spawn_reaches_limit under a limit of 37,077: the spawn estimate exceeds it by 1 and the tx aborts.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x5f5f5ff000"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x90d5",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": null,
+    "status": "zk_limit"
+  }
+}

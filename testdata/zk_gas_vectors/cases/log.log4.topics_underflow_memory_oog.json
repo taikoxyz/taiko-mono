@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "log.log4.topics_underflow_memory_oog",
+  "layer": "harness",
+  "cells": ["log.topics.memory_oog_before_underflow_preserve"],
+  "description": "log.log4.topics_underflow with 2,392 gas left at LOG4, 1 short of its charges: the expansion cannot be paid, so it halts on memory before the topics, keeping the remaining gas.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x60405fa400"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x95d",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x12db",
+    "status": "halt"
+  }
+}

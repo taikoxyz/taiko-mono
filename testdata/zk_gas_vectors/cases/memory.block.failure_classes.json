@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "id": "memory.block.failure_classes",
+  "layer": "block",
+  "cells": [
+    "memory.mload.memory_oog_preserve",
+    "memory.mstore.memory_oog_preserve",
+    "memory.mcopy.copy_oog_spend_all",
+    "memory.mload.offset_above_u64_preserve",
+    "memory.mstore8.offset_above_u64_preserve",
+    "memory.mcopy.size_above_u64_preserve"
+  ],
+  "description": "The anchor, then 6 txs from signer 1, each calling its own contract with tx gas 21,000 plus the frame gas of the named harness vector: three MLOADs and three MSTOREs, each with the last one 1 gas short of its expansion (memory.mload.expand_memory_oog, memory.mstore.expand_memory_oog); three MCOPYs with the last one 1 gas short of its copy cost (memory.mcopy.copy_oog); and MLOAD and MSTORE8 at offset 2^64 and MCOPY of 2^64 bytes (memory.mload.offset_above_u64, memory.mstore8.offset_above_u64, memory.mcopy.size_above_u64).",
+  "input": {
+    "env": {
+      "chain_id": "0x28c59",
+      "number": "0x1",
+      "timestamp": "0xc",
+      "base_fee": "0x17d7840",
+      "coinbase": "0x0000000000000000000000000000000000c0ffee",
+      "gas_limit": "0x2faf080",
+      "prev_randao": "0x2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+      "extra_data": "0x4b000000000001"
+    },
+    "alloc": {
+      "0x1670010000000000000000000000000000010001": {
+        "balance": "0x0",
+        "code": "0x00"
+      },
+      "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf": {
+        "balance": "0xde0b6b3a7640000"
+      },
+      "0x0000000000000000000000000000000000c0ffee": {
+        "balance": "0x1"
+      },
+      "0x000000000000000000000000000000000000c0d1": {
+        "balance": "0x0",
+        "code": "0x61800051505f515061fc005100"
+      },
+      "0x000000000000000000000000000000000000c0d2": {
+        "balance": "0x0",
+        "code": "0x60ab60405260cd5f5260ef615a005200"
+      },
+      "0x000000000000000000000000000000000000c0d3": {
+        "balance": "0x0",
+        "code": "0x602060405f5e60205f60205e61030061100060605e00"
+      },
+      "0x000000000000000000000000000000000000c0d4": {
+        "balance": "0x0",
+        "code": "0x680100000000000000005100"
+      },
+      "0x000000000000000000000000000000000000c0d5": {
+        "balance": "0x0",
+        "code": "0x6001680100000000000000005300"
+      },
+      "0x000000000000000000000000000000000000c0d6": {
+        "balance": "0x0",
+        "code": "0x680100000000000000005f5f5e00"
+      }
+    },
+    "txs": [
+      {
+        "signer": "golden_touch",
+        "nonce": "0x0",
+        "to": "0x1670010000000000000000000000000000010001",
+        "gas": "0xf4240",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x523e6854"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x0",
+        "to": "0x000000000000000000000000000000000000c0d1",
+        "gas": "0x88c8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x1",
+        "to": "0x000000000000000000000000000000000000c0d2",
+        "gas": "0x5e8b",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x2",
+        "to": "0x000000000000000000000000000000000000c0d3",
+        "gas": "0x5280",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x3",
+        "to": "0x000000000000000000000000000000000000c0d4",
+        "gas": "0x1d8a8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x4",
+        "to": "0x000000000000000000000000000000000000c0d5",
+        "gas": "0x1d8a8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      },
+      {
+        "signer": 1,
+        "nonce": "0x5",
+        "to": "0x000000000000000000000000000000000000c0d6",
+        "gas": "0x1d8a8",
+        "max_fee": "0x17d7840",
+        "max_priority_fee": "0x0",
+        "value": "0x0",
+        "data": "0x"
+      }
+    ]
+  },
+  "expected": {
+    "raw_txs": [
+      "0x02f86e83028c59808084017d7840830f42409416700100000000000000000000000000000100018084523e6854c001a077c9819ad91bc8c341abbd41d41d41b851bf4cade2dd943fdf421e796b952ce3a0653034f4ffd280ca8ca71f966f2ee2e7a2f59e6ee0ba1be905805cc46c399718",
+      "0x02f86983028c59808084017d78408288c894000000000000000000000000000000000000c0d18080c080a0fe6cd53bb414c4a6aadf5a12dcc544c43c0bbf148ba84bdc824c28408dda1400a07f7953569ad4b07406653e2fc871927ad776e04c4e4bec089d03f438800760ce",
+      "0x02f86983028c59018084017d7840825e8b94000000000000000000000000000000000000c0d28080c001a0cfd728ed9721b58299f048794cad775709f159c35f51db0278b36fc5c45faae1a05f5c2920f72579b70c030ea22c4a10f62bb4d9c693bf95e8771dc7dc79dc30aa",
+      "0x02f86983028c59028084017d784082528094000000000000000000000000000000000000c0d38080c001a05dafa52fa62a1460b022c8353942ab1c046c870ccee7bcfd150189416c9a352da014e83dc6e52c737bcb594e0274dac61e3128fd1749c5caeee827032ffd2994c0",
+      "0x02f86a83028c59038084017d78408301d8a894000000000000000000000000000000000000c0d48080c080a0cbf2168c9d5b6c341cbdd15b0e5a77e69a9bb234b7cfb59a29026a1688677700a044767fa127343b9e66d5b51a25f57709d06cc6cef813dbe89a44c96f7601db9e",
+      "0x02f86a83028c59048084017d78408301d8a894000000000000000000000000000000000000c0d58080c001a001aa2eb4a71fdcb1eb35bf297c1512614629c2ce59fd34e4f9125f818aa0d38da07cddaec5249fe0587ee59a5cd73245fae4055aedaafb762a1363ba9f02a0082b",
+      "0x02f86a83028c59058084017d78408301d8a894000000000000000000000000000000000000c0d68080c001a02a1cff8aa0852a1d37f79e4c45e0f634868569b13c4fad7cb70658dbda6713cea062a0be6b83b21279cebfebaa1ade14371091b3e350cea4f5f0844f89d7bd11c9"
+    ],
+    "included": [0, 1, 2, 3, 4, 5, 6],
+    "truncated_at": null,
+    "cumulative_zk_gas": [
+      "0x3b538",
+      "0x8d402",
+      "0xc8be2",
+      "0x104381",
+      "0x13f916",
+      "0x17aeae",
+      "0x1b644d"
+    ],
+    "block_zk_gas": "0x1b644d",
+    "state_root": "0x5fc573b130bafcbd8b5820ff6fde52ef35aa6da01253f30478c6db0075304817",
+    "import_built": "accept",
+    "import_extended": null,
+    "import_wrong_difficulty": "reject"
+  }
+}

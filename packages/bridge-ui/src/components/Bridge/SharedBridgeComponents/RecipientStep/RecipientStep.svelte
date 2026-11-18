@@ -24,7 +24,7 @@
   <DestOwner bind:this={destOwnerComponent} />
   <ProcessingFee bind:this={processingFeeComponent} bind:hasEnoughEth />
 </div>
-<div class="h-sep my-[30px]" />
+<div class="h-sep my-[30px]"></div>
 
 {#if needsManualRecipientConfirmation}
   <Alert type="warning">{$t('bridge.alerts.smart_contract_wallet')}</Alert>

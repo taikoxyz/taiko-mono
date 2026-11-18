@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "log.log3.word_rounding_data_oog",
+  "layer": "harness",
+  "cells": ["log.logn.data_oog_before_memory_checks_spend_all"],
+  "description": "LOG3 of 2^40 bytes at offset 2^64 - 2^40 - 1 (offset + length is 2^64 - 1, which rounds up to 2^64), frame gas 100,000: the data cost cannot be paid and spends all remaining gas.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x60a260a160a06501000000000067fffffeffffffffffa300"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x186a0",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x30dc4",
+    "status": "halt"
+  }
+}

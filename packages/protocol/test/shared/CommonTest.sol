@@ -23,6 +23,7 @@ import "src/shared/vault/BridgedERC721.sol";
 import "src/shared/vault/ERC1155Vault.sol";
 import "src/shared/vault/ERC20Vault.sol";
 import "src/shared/vault/ERC721Vault.sol";
+import "test/shared/helpers/SignalService_ReadingRemoteStorage.sol";
 import "test/shared/helpers/SignalService_WithoutProofVerification.sol";
 
 abstract contract CommonTest is Test, Script {
@@ -189,6 +190,33 @@ abstract contract CommonTest is Test, Script {
             })
         );
         return registerSignalService(proxy);
+    }
+
+    /// @dev Deploys a signal service on the current chain that reads `_remote`'s storage in place
+    /// of verifying proofs, and upgrades `_remote` to read the new one back. Once linked, each of
+    /// the two receives a signal only if the other one really sent it. The caller must own
+    /// `_remote`.
+    function deployLinkedSignalService(
+        SignalService _remote,
+        address _owner
+    )
+        internal
+        returns (SignalService linked_)
+    {
+        linked_ = registerSignalService(
+            SignalService(
+                deploy({
+                    name: "",
+                    impl: _newSignalServiceReadingRemoteStorage(address(_remote)),
+                    data: abi.encodeCall(SignalService.init, (_owner))
+                })
+            )
+        );
+        _remote.upgradeTo(_newSignalServiceReadingRemoteStorage(address(linked_)));
+    }
+
+    function _newSignalServiceReadingRemoteStorage(address _remote) private returns (address) {
+        return address(new SignalService_ReadingRemoteStorage(address(this), _remote, address(0)));
     }
 
     function deployTaikoToken() internal returns (TaikoToken) {

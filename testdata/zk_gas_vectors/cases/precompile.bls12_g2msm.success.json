@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "precompile.bls12_g2msm.success",
+  "layer": "harness",
+  "cells": ["precompile.bls12_g2msm.success_gas_used"],
+  "description": "STATICCALL to bls12_g2msm (0x0e) with a valid 288-byte input and 23,500 gas: it uses 22,500 gas, charged x 71, plus the STATICCALL spawn estimate.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x6101206100165f395f5f6101205f600e615bccfa500000000000000000000000000000000000103121a2ceaae586d240843a398967325f8eb5a93e8fea99b62b9f88d8556c80dd726a4b30e84a36eeabaf3592937f2700000000000000000000000000000000086b990f3da2aeac0a36143b7d7c824428215140db1bb859338764cb58458f081d92664f9053b50b3fbd2e4723121b68000000000000000000000000000000000f9e7ba9a86a8f7624aa2b42dcc8772e1af4ae115685e60abc2c9b90242167acef3d0be4050bf935eed7c3b6fc7ba77e000000000000000000000000000000000d22c3652d0dc6f0fc9316e14268477c2049ef772e852108d269d9c38dba1d4802e8dae479818184c08f9a569d87845173eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0xf4240",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x199e53",
+    "status": "success"
+  }
+}

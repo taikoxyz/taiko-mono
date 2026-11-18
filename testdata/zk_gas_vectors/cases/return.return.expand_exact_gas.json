@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "return.return.expand_exact_gas",
+  "layer": "harness",
+  "cells": ["return.return.expansion_success"],
+  "description": "MSTORE8 at 0x100 (9 words), then RETURN of 0x200 bytes at 0x10 (memory grows to 17 words); frame gas is exactly enough.",
+  "input": {
+    "alloc": {
+      "0x000000000000000000000000000000000000c0de": {
+        "balance": "0x0",
+        "code": "0x60ab610100536102006010f3"
+      }
+    },
+    "caller": "0x000000000000000000000000000000000000ca11",
+    "to": "0x000000000000000000000000000000000000c0de",
+    "frame_gas": "0x42",
+    "zk_block_limit": "0x5f5e100",
+    "number": "0x1",
+    "timestamp": "0xc",
+    "coinbase": "0x0000000000000000000000000000000000c0ffee"
+  },
+  "expected": {
+    "frame_zk_gas": "0x192",
+    "status": "success"
+  }
+}
