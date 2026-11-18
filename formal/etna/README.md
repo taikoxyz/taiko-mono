@@ -851,3 +851,11 @@ delivery ordering. Distinct actual reuse/conflict source mutations fail precise
 independent audits and restore to exhaustive positives. [O05 evidence](REPORT.md#o05-free-two-rank-signer-crash-retry-and-recovery)
 keeps process-crash/trust abstractions and concrete C01 gaps explicit. These nine
 configs are opt-in via the same checker; default CI does not imply execution.
+
+All five selected increments and the [accumulated final gates](REPORT.md#o01-o05-accumulated-final-gate-and-retrospective)
+are complete. The final independent review repaired typed checkpoint-history
+binding and caller-relative TLC output paths. Current356 ordinary tests and six
+actual new-checker profile outputs pass independent source/raw rechecks. Original
+full-product/native evidence keeps its historical execution versions. The worktree
+and raw evidence are retained; hourly checks return to feedback-only. Broader
+C01/R01/P01 and deployment/trust obligations retain their recorded open boundaries.

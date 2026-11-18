@@ -322,7 +322,7 @@ R01 and the other larger obligations retain their current statuses. Completed
 N01–N05 is not restarted. The deferred qualified-unittest import limitation and
 all historical evidence remain. Current-head CI is tracked separately.
 
-## Active O01–O05 durability and asynchronous compositions
+## Completed O01–O05 durability and asynchronous compositions
 
 The user authorized the next five increments after the completed N01–N05 batch
 and N04 evidence repair. External reviewer confirmation is not a waiting gate;
@@ -366,11 +366,20 @@ The two finite free capacity graphs and ten named witnesses have independent
 source/raw gates and two distinct actual-source controls. Default CI does not
 execute this opt-in product; recovery/recapture, proving runtime/fairness and
 wider P01 remain OPEN. The other29 remaining acceptance requirements and separate
-operating O01 are preserved. O05 continues within these same five.
+operating O01 are preserved. O05 completes the same five; broader P01 remains OPEN.
 
 O05 selected evidence is recorded in [the report](REPORT.md#o05-free-two-rank-signer-crash-retry-and-recovery).
 The finite joint signer graph, six named witnesses and two distinct actual-source
 controls pass independent source/raw gates. C01 remains OPEN for concrete
 FilePV/WAL/supervisor, trust/deployment, power-loss and failover correspondence.
-All30 acceptance requirements and operating O01 are preserved; accumulated final
-gates and publication remain required before recording this whole batch complete.
+All30 acceptance requirements and operating O01 are preserved. Accumulated final
+gates and normal fast-forward publication are complete.
+
+The [accumulated final gate](REPORT.md#o01-o05-accumulated-final-gate-and-retrospective)
+completes this group after one consolidated repair: typed history is derived
+from native events and compared to pins; caller-relative output resolves before
+TLC cwd changes. Same-author source recheck, separate raw/native-consumption
+recheck,356 ordinary tests and six actual new-checker outputs pass. Original
+full14/9 products and source controls retain their exact historical versions.
+Monitoring is feedback-only; another batch requires direct user authorization.
+No broader module or archived search is closed by this selected five.

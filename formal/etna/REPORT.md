@@ -5059,3 +5059,129 @@ retain their previous scope; accumulated five-increment final gates follow.
 | Independent behavioral report            | `ce68fe313d1b12c8387ca5f70867e30441740693177e2f7948465eb067f6b815` |
 | Root independent raw readback            | `e083c078a79b5d375ab9851ba4d0d6f470eddda6890f283cfda381637844d487` |
 | Implementation source review             | `7ec1e609221e41358551770fe88c48572df4de40becd2ac6f35bdae3f58619d1` |
+
+## O01-O05 accumulated final gate and retrospective
+
+All five selected increments and their accumulated independent source/raw gates
+are complete. Final code repair `9688066f32f230b8c7684be88a0f56bb9cd273f6` and
+O05's closing evidence were normally fast-forward pushed to the existing draft;
+PR22387/issue22355 bodies were read back byte-for-byte with all five selected
+checkboxes complete. The PR remains OPEN/DRAFT. Final documentation publication
+is recorded separately by head; hosted CI is not assumed green for a new head.
+No sixth increment starts automatically. Authorized hourly monitoring now returns
+to feedback-only, preserving the worktree, raw evidence and review ledger.
+
+The final most-capable independent source review covered the entire
+`fe04c11223dbaeae408dc1581d1756c8a11207e1`→`b69d7adbc02d8e54c80d89bf5161f5ea6412ec5d`
+range (12 commits/53 files), rather than reviewing only the last implementation.
+A separate fresh raw auditor checked31 evidence groups/5106 files, regenerated
+all8192-admission/six-bond state commitments, decoded the actual four N04 reverted
+Registry writes before the token call, and replayed every O05 source transition.
+Its first fresh ordinary gate passed353 tests. These raw measurements and current
+pins agreed, but source review still found one material consumer defect and one
+inherited caller-path defect. Both were fixed together in the single final wave.
+
+### What self-checks had missed
+
+The P2 was a separate typed output: displacement history was copied verbatim
+from the pin after only checking row count. Full journals, native events and wide
+state digests were already checked, yet no assertion connected that typed list
+to those events. With the authentic native receipt/log unchanged, replacing only
+the pin's final height17 root with zero still returned Success and reported that
+wrong root. Existing negatives mostly changed runtime bytes against an intact
+expected pin. They did not change only the independent metadata output.
+
+The collector now reconstructs each history row from admitted native
+CheckpointWritten events, validates uint48 fields and append/same-block-overwrite
+geometry, retains the last event for the block's index and compares the entire
+ordered history with the pin. It returns newly observed rows, without aliasing
+the pin. The original source finding author withdrew P2 after the unchanged
+real native log reconstructed both four/six-row histories and all root/height/
+count/order pin-only changes refused. A separate raw recheck preserved eight
+actual positive leaves from author/independent original/restored executions and
+rejected32 pin-only corruptions against those same unchanged native executions.
+Existing off-path and withdrawal source-fault controls still reach their exact
+intended results. Actual checkpoint history and old measurements were correct;
+the defect was future false typed-output admission.
+
+The P3 was caller-relative output under a changed Java cwd. On Python3.11,
+mkdtemp could return a relative path. The old checker passed a `-metadir` argument
+that resolved under the model cwd while cleanup targeted the caller cwd. That
+pre-fix observation used a mock child; all archived actual runs used absolute
+paths and were unaffected. The checker now resolves output at the caller before
+constructing run paths. A disposable different-cwd regression actually creates the mock
+child's state file at its effective path and verifies deletion, results/log
+placement and no model-directory writes. The independent tester additionally
+checks timeout cleanup. Configuration resolution, exact result classification,
+input drift checks and all other checker functions are unchanged.
+
+These findings came from tracing every reported field to an independent
+observation and varying caller context/expected metadata, rather than counting
+more successful cases. Earlier O02's real nine-fragment receipt-cap defect and
+O03's success-observer gap show the same limit: checks can agree while omitting
+a dimension. No natural protocol defect is established by these tool repairs.
+
+### Rechecks and exact execution versions
+
+The final ordinary suites pass170 formal/166 conformance/20 sensitivity
+(356 total, zero skips/errors/failures); three new regression methods account for
+the increase from353. The68 focused checks are included, not added. The same
+finding author inspected the complete five-file112-line repair and withdrew
+both findings. A separate actual raw recheck verified the repair and all fresh
+runtime outputs; no finding or relevant validation failure remains unresolved.
+
+Old O04/O05 full14/9 profiles and actual-source controls retain their original
+checker SHA283f2fea and exact executed-input maps. Old Go/Forge outputs likewise
+retain their authentic execution metadata. Re-consuming them with the corrected
+history collector is labeled new consumption of OLD native execution, with no
+new Forge/Go claim. Models, configs, harnesses and public input pins were not
+changed by the repair. The new checker SHA96215826 differs only by the caller
+output resolve line; every other function's AST, all29 root TLA files and all23
+opt-in configs match the reviewed preceding tree.
+
+The new checker actually ran one smoke and five selected profiles in offline
+isolation with separate RO model/caller/JRE/jar/managed-environment bindings and
+one fresh RW output. Caller cwd and Java model cwd differ; both config and output
+are relative caller arguments. The old interpretation would target /etna-output;
+the corrected run targets the bound /tmp/etna-output. These two stable paths are
+part of this isolation interface. All62 watched inputs and RO trees stay fixed,
+state DBs are removed, and no owned engine/jail remains. Bounds/heap/deadlines
+remain those reviewed for the preceding products.
+
+| Fresh new-checker profile      | Generated | Distinct | Queued | Seconds |
+| ------------------------------ | --------: | -------: | -----: | ------: |
+| Proving cap1 normal            |   312,919 |   17,284 |      0 |  14.154 |
+| Proving cap2 normal            |   364,487 |   20,804 |      0 |  16.577 |
+| Signer joint normal            |   516,325 |   98,229 |      0 |  13.759 |
+| Proving overlap/resume witness |   376,741 |   22,606 |  1,309 |  18.406 |
+| Signer Nil retry witness       |    91,372 |   27,567 |  7,340 |   2.644 |
+
+The proving witness replays full publication, overlapping settlement with retained
+prefix, finality, anchor and actual height3 production. The signer witness
+replays all21-field frames, PRE saved Nil/salt0 versus incoming salt1, and actual
+idempotent repeated return/delivery. The smoke separately reaches actual proving
+arrival and same-tuple completion (628/108/67). Named counterexamples remain
+reachability evidence; only the three normal rows are exhaustive queue0 results.
+All results/argv/input maps were independently read back.
+
+The pre-batch706-file snapshot still has693 identical files and exactly the13
+explicitly authorized older-file changes. All27 original root modules and493
+default cfgs are byte-identical; the two new wrappers/23 opt-in cfgs do not run
+in default CI. All30 master acceptance rows remain: only D01's intentional early
+refresh reflects the reviewed SignalService amendments. Operating O01 remains
+WAITING; C01/R01/P01 remain OPEN and D01 WAITING. All19 archived searches remain
+INCONCLUSIVE. Actual client/Comet/EL integration, real proving, concrete
+WAL/supervisor/power-loss/failover, genuine recovery/committee derivation and
+new SignalService/every-target local fork checks remain outside completed scope.
+The selected five count is not an overall protocol-completion percentage.
+
+| Retained accumulated record                | SHA-256                                                            |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| Initial complete source review             | `a3a4d9f43a9681d027b1668b8edeb81a09c60faf7a1f1bdb2980de93b2b36a5d` |
+| Initial raw/ordinary audit                 | `6c31360bc31e2bae09b8e72cf850c8aaddab174469426b83c9ed1846838fd55a` |
+| Same-author source fix recheck             | `8655b9f8bbd15cee022aab7da19c6513dfe0f1a3165f9fbe95eaa41e3fd2d004` |
+| Independent final raw/runtime recheck      | `0429825af6725a142363ccb21fea2968df0608594f4fbee5585d51c401d4626f` |
+| New-checker static packet                  | `13a95b13d48f93aec0499813633a7b18aa08d296a25b8150a5414e4db532d9e3` |
+| Six actual new-checker outputs             | `a3ed112925c7fa4d8cbf20ad892f8585f4a8ebeed9b9c0769b7fbb2de2e5e838` |
+| Root independent five-profile raw readback | `97425de76f0668de9bcb613bfc2f09fc776c67be8608fb5295ca6a4bc322d622` |
+| Final baseline/status readback             | `bad0394c57f1c9a30462251bf457e2f70cf7d0e88a333b29a98c79537367e558` |

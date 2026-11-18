@@ -98,8 +98,15 @@ Modify `formal/etna/tests/test_registry_cases.py` only for its known import issu
 
 ## Root-owned final gate (part of these five)
 
-- [ ] Evaluate latest head/all feedback/CI first and before publication; fix confirmed scoped issues without waiting for external confirmation.
-- [ ] Complete per-task independent source and actual behavioral gates, ordinary checks and selected full product/native controls; preserve pre-batch executable/config snapshot and all failed/raw evidence.
-- [ ] Most-capable independent accumulated new-batch review and separate raw-artifact/behavior audit; one consolidated final repair wave, same finding authors recheck fixes.
-- [ ] Synchronize shared report/worklist/readme and exact checkbox evidence, explicitly distinguish default CI from opt-in products, fix known import limitation and retain underlying OPEN/WAITING statuses. Commit/push only reviewed draft changes, read back current head/draft/bodies/CI.
-- [ ] Record five complete only after actual evidence/publication; report all rulings/costs and realistic progress. Preserve worktree/raw ledger and return feedback-only, no automatic sixth.
+- [x] Evaluate latest head/all feedback/CI first and before publication; fix confirmed scoped issues without waiting for external confirmation.
+- [x] Complete per-task independent source and actual behavioral gates, ordinary checks and selected full product/native controls; preserve pre-batch executable/config snapshot and all failed/raw evidence.
+- [x] Most-capable independent accumulated new-batch review and separate raw-artifact/behavior audit; one consolidated final repair wave, same finding authors recheck fixes.
+- [x] Synchronize shared report/worklist/readme and exact checkbox evidence, explicitly distinguish default CI from opt-in products, fix known import limitation and retain underlying OPEN/WAITING statuses. Commit/push only reviewed draft changes, read back current head/draft/bodies/CI.
+- [x] Record five complete only after actual evidence/publication; report all rulings/costs and realistic progress. Preserve worktree/raw ledger and return feedback-only, no automatic sixth.
+
+Final technical/source/raw gates and code publication complete at `9688066f32f230b8c7684be88a0f56bb9cd273f6`.
+The single final repair corrected observed-history binding and inherited relative
+output handling, with356 ordinary tests and a new-checker smoke plus five actual
+selected replays. Existing PR/issue bodies were read back for all five; final
+documentation head/CI readback is recorded separately. Preserve evidence and
+return to feedback-only; no sixth increment is authorized.
