@@ -2,11 +2,14 @@
 """Exercise pinned stock Comet signed admission with public inputs and offline isolation."""
 import argparse
 import base64
+from contextlib import contextmanager
 import importlib.util
 import json
+import math
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import sys
 
@@ -27,6 +30,7 @@ FAULT_DIAGNOSTIC = (
     "expected=insufficient-power got=accept wantGot=2 wantNeeded=2"
 )
 FAULT_PATH = "types/validation.go"
+GO_OUTPUT_BUFFER = 1024
 FAULT_FUNCTION = b"func verifyCommitSingle("
 FAULT_BEFORE = (
     b"\tif got, needed := talliedVotingPower, votingPowerNeeded; got <= needed {\n"
@@ -210,9 +214,13 @@ def parse_events(raw):
             raise ValueError("invalid Go JSON stream") from error
         if (type(value) is not dict or value.get("Package") != PACKAGE
                 or set(value) - {"Time", "Elapsed", "Action", "Package", "Test", "Output", "OutputType"}
-                or ("Elapsed" in value and type(value["Elapsed"]) not in (int, float))
                 or ("Time" in value and type(value["Time"]) is not str)):
             raise ValueError("unexpected Go event fields or package")
+        if "Elapsed" in value:
+            elapsed = value["Elapsed"]
+            if (value.get("Action") not in ("pass", "fail") or type(elapsed) not in (int, float)
+                    or elapsed < 0 or (type(elapsed) is float and not math.isfinite(elapsed))):
+                raise ValueError("invalid native Elapsed metadata")
         rows.append(value)
     return iter(rows)
 
@@ -232,10 +240,14 @@ def require_go_outcomes(raw, returncode, phase, expected):
         if (row.get("Action") != action or ("Test" in row) != (identity is not None)
                 or row.get("Test") != identity or ("Output" in row) != has_output):
             raise ValueError("missing, extra or wrongly ordered native event: " + str(identity))
-        if "OutputType" in row and (not has_output or row["OutputType"] != kind):
+        if ("OutputType" in row) != (kind is not None) or row.get("OutputType") != kind:
             raise ValueError("wrong native OutputType")
-        if has_output and type(row["Output"]) is not str:
-            raise ValueError("wrong native output type")
+        if has_output:
+            output = row["Output"]
+            if type(output) is not str:
+                raise ValueError("wrong native output type")
+            if kind is None and len(output.encode("utf-8")) > GO_OUTPUT_BUFFER:
+                raise ValueError("ordinary native output exceeds the Go buffer")
         return row.get("Output")
 
     def require_event(action, identity=None, pattern=None, kind=None, exact=None):
@@ -247,7 +259,7 @@ def require_go_outcomes(raw, returncode, phase, expected):
             # Only the expected receipt may span consecutive same-leaf output events.
             fragments = [payload]
             while not fragments[-1].endswith("\n"):
-                if len(fragments[-1].encode()) != 1024 or len(fragments) == 4:
+                if len(fragments[-1].encode()) != GO_OUTPUT_BUFFER or len(fragments) == 4:
                     raise ValueError("truncated or excessive native receipt: " + str(identity))
                 fragments.append(event("output", identity, True, kind))
             payload = "".join(fragments)
@@ -278,7 +290,7 @@ def require_go_outcomes(raw, returncode, phase, expected):
     for name, receipt in expected.items():
         identity = PARENT + "/" + name
         frames_start(identity)
-        require_event("output", identity, typed_line + r"receipt=(.+)\n", "", receipt)
+        require_event("output", identity, typed_line + r"receipt=(.+)\n", exact=receipt)
         result = "pass"
         if fault and name == FAULT_LEAF:
             require_event("output", identity, typed_line + re.escape(FAULT_DIAGNOSTIC + "\n"), "error")
@@ -288,7 +300,7 @@ def require_go_outcomes(raw, returncode, phase, expected):
     frames_end(PARENT, outcome)
     require_event("output", pattern=outcome.upper() + r"\n", kind="frame")
     prefix = ("FAIL\t" if fault else "ok  \t") + PACKAGE + "\t"
-    require_event("output", pattern=re.escape(prefix) + duration + r"\n", kind="frame")
+    require_event("output", pattern=re.escape(prefix) + duration + r"\n", kind="frame" if fault else None)
     require_event(outcome)
     if next(rows, None) is not None or list(results.values()).count("fail") != int(fault) or not results:
         raise ValueError("missing fault or extra native events")
@@ -337,19 +349,47 @@ def inputs():
     return pins, manifest, watched, frozen_expectations(projection, pins), correspondence
 
 
-def detect_and_write_fault(path, manifest):
+@contextmanager
+def private_source_fault(private, manifest, restoration):
+    """Apply the threshold fault only while guarded by same-copy restoration."""
+    path = private / FAULT_PATH
+    original_mode = stat.S_IMODE(path.stat().st_mode)
     original = path.read_bytes()
     if (COMET.file_entry(original) != manifest["files"][FAULT_PATH]
             or original.count(FAULT_FUNCTION) != 1 or original.count(FAULT_BEFORE) != 1
             or original.index(FAULT_BEFORE) <= original.index(FAULT_FUNCTION)):
         raise ValueError("single verifier fault selector or original source differs")
     mutant = original.replace(FAULT_BEFORE, FAULT_AFTER, 1)
-    path.chmod(0o644)
-    path.write_bytes(mutant)
     changed = dict(manifest)
     changed["files"] = dict(manifest["files"])
     changed["files"][FAULT_PATH] = COMET.file_entry(mutant)
-    return original, changed
+
+    applied = False
+    writable = original_mode | stat.S_IWUSR
+    try:
+        path.chmod(writable)
+        if path.write_bytes(mutant) != len(mutant):
+            raise OSError("incomplete private source fault write")
+        applied = True
+        yield changed
+    finally:
+        try:
+            if applied and path.read_bytes() != mutant:
+                raise ValueError("private fault bytes drifted before restoration")
+        finally:
+            # Attempt to recover the original bytes and mode even when application
+            # or the pre-restore readback raised an exception.
+            try:
+                path.chmod(writable)
+                if path.write_bytes(original) != len(original):
+                    raise OSError("incomplete private source restoration")
+            finally:
+                path.chmod(original_mode)
+            restored = COMET.verify_snapshot(private, manifest, manifest["commit"])
+            restored_mode = stat.S_IMODE(path.stat().st_mode)
+            if restored_mode != original_mode:
+                raise ValueError("private source mode drifted during restoration")
+            write_json(restoration, restored | {"mode": format(restored_mode, "04o")})
 
 
 def write_json(path, value):
@@ -481,20 +521,13 @@ def main(argv=None):
                 reports = [trial("smoke", private, manifest, args, pins, watched, tools, {SMOKE: expected[SMOKE]})]
             else:
                 reports = [trial("normal", private, manifest, args, pins, watched, tools, expected)]
-                fault_path = private / FAULT_PATH
-                original, mutant = detect_and_write_fault(fault_path, manifest)
-                try:
+                restoration = args.output / "actual-restoration.json"
+                with private_source_fault(private, manifest, restoration) as mutant:
                     write_json(args.output / "mutant-manifest.json", mutant)
-                    (args.output / "mutant-validation.go").write_bytes(fault_path.read_bytes())
+                    (args.output / "mutant-validation.go").write_bytes((private / FAULT_PATH).read_bytes())
                     mutant_expected = expected | {FAULT_LEAF: expected[FAULT_LEAF] | {"commit": "accept", "got": 0, "needed": 0}}
                     reports.append(trial("mutant", private, mutant, args, pins, watched, tools, mutant_expected))
-                finally:
-                    fault_drift = COMET.file_entry(fault_path.read_bytes()) != mutant["files"][FAULT_PATH]
-                    fault_path.write_bytes(original)
-                    restored = COMET.verify_snapshot(private, manifest, pins["source"]["commit"])
-                    write_json(args.output / "actual-restoration.json", restored)
-                    if fault_drift:
-                        raise ValueError("private fault bytes drifted before restoration")
+                restored = strict_json(restoration.read_bytes())
                 reports.append(trial("restored", private, manifest, args, pins, watched, tools, expected))
             require_stable(watched | tools, "campaign runner, public inputs or Go toolchain")
             source_after = COMET.verify_snapshot(args.source, manifest, pins["source"]["commit"])
