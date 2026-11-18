@@ -17,7 +17,7 @@ offline compiler selection, FFI disabled, and an empty script directory. It
 holds the existing physical cache lock to serialize Forge execution. Each
 campaign compiles into a fresh private output and cache and reuses them for its
 three phases. The existing shared cache contents are outside the mounts. This
-adds a bounded cold compile and private artifacts. The runner accepts `double-sign`, `lifecycle` and `atomicity`.
+adds a bounded cold compile and private artifacts. The runner accepts `double-sign`, `lifecycle`, `atomicity` and `displacement`.
 
 The 42 individually selected tests are five domain cases, 23 canonical byte
 cases and 14 actual evidence pairs. Published bytes/domain literals and
@@ -214,3 +214,92 @@ still passes in the fault phase. The runner restores the private source
 bytes and mode and repeats both positives. The evidence covers the
 selected rollback state and the exact-transfer fixture. Token callbacks,
 withdrawal custody, gas and full-capacity admission are outside this gate.
+
+## Occupied-zero displacement and late public withdrawal
+
+```sh
+python -B formal/etna/conformance/run_registry_cases.py \
+  --scenario displacement --runtime "$forge_runtime" \
+  --output "$case_output" --timeout 120
+```
+
+`--smoke` selects `test_held_zero_displacement_then_withdraw()`. The full gate
+also selects `test_zero_withdraw_then_vacant_reuse()`, and repeats both against
+the original, selected faulty private source and restored source. It uses the
+unchanged default 5000-bps Registry fixture, public PoP rows 0/2/4 and the
+published generation-0 double-sign pair at vote rows 0/2. No signing occurs.
+The shared `_publicVote(projection, rowPath)` decoder also serves N02 through
+its unchanged `_vote` wrapper; no fixture or recorder behavior changes.
+
+Both schedules register A4/B4 at 10, deposit A5 at 12, observe the actual
+readiness refusal at 13 and activate A9 at 14. The actual Inbox caller forces
+exit at 15. Explicit mock setters supply snapshot 14 (real coverage refusal),
+then snapshot 15 and confirmation at 16; generation advances to 1 afterward.
+Historical generation-0 evidence at 17 slashes 9, paying reporter 2 and sink 7,
+while retaining exit 15 and first confirmation 16. Withdrawal at 17 refuses.
+These explicit mock premises do not establish authentic recovery or committee
+selection.
+
+The primary schedule registers C4 at 17 into occupied-zero slot 0. Actual
+`BondDisplaced(0,0,2)` clears old A's holds bit; slot 0 contains new ID 2,
+active at 19. This works with unused capacity because the held-zero slot wins
+the admission minimum. The intermediate slash checkpoint and the replacement
+checkpoint both have index 3 at block 17. The journal observes the intermediate
+root before coalescence; all four closed checkpoint records remain bound.
+Reporter zero-withdraws old A at 18 with a nonzero payee argument, emitting
+only `StakeWithdrawn(0,address(0),0)` and preserving C, history and admission.
+
+The opposite schedule withdraws A at 18 before C registers at 19. Withdrawal
+really clears the old slot and commits the hashed all-zero used entry, writing
+checkpoint 4 after the slash checkpoint 3. C takes a genuine vacancy without
+`BondDisplaced`, writes checkpoint 5 and activates at 21. The different closed
+histories and activation times are expected. Both schedules retain the old
+lifetime key and withdrawn bond, clear its owner/confirmation, and leave the
+forfeiture flag false. Total deposits 17 equal vault 8, reporter 2 and sink 7;
+owner balance/allowance are 83, payee receives 0 and six transfers occur.
+
+Version `etna-registry-displacement-2` carries 15 length-framed typed actions.
+Each binds the actual call target, delegated or direct caller, height,
+pre-action snapshot/generation, success/return/error bytes, calldata, full
+selected pre/post commitments and ordered trace-log count. Three direct Inbox
+setters are explicitly journaled; their post-premises appear in post-state.
+Chain 1 and timestamp 1000 are asserted for every action. The fixed 83-word
+state projection includes eight raw checkpoint records, two entries, Merkle
+nodes, both occupants, the complete changed admission path and adjacent leaf,
+three packed bonds with owners/confirmations/pending/readiness/lifetime keys/
+forfeiture flags, packed Inbox context and cash. Every action also binds the existing wider raw observer before and after
+execution, including six bonds/keys, eight checkpoints, bounded Merkle words,
+all 8192 admission cells, inherited storage, ERC1967 implementation, Inbox and
+seven token actors. Refusals reuse those same complete commitments for rollback
+equality. All observers run outside the action recorder. Expected commitments, calldata and every native setup/action log were
+derived before native execution and independently compared.
+
+Each full scan runs through a self-only external call to the same test harness,
+wrapping the unchanged base observer. This gives each scan a fresh EVM memory
+frame; both calls occur outside the action recorders. The observer reads fixed
+Registry, Inbox and token actors, so the self-call does not change its inputs or
+commitments. A separate marker-only diagnostic found that keeping all scans in
+one frame accumulated about 42 MB before vote decoding and exhausted
+memory-expansion gas. This was a test-harness resource failure; no Registry
+slash call had started. Diagnostic marker logs receive no ordinary case credit.
+No compiler, fixture, gas limit or memory limit changes are needed.
+
+The complete journal is 11296 bytes per schedule. The collector admits the
+entire strict JSON envelope using the existing logged-process collector; it
+does not use the Go receipt-fragment scanner. Focused tests exercise the
+largest full journal, canonical offsets/framing, truncation, extra words,
+missing/duplicate/reordered logs, wrong displaced/replacement IDs, context and
+same-outcome input aliases. It never treats a terminal balance match as trace
+identity.
+
+The author source control omits only `displaced.holdsSlot = false` in actual
+`_takeSlot`. The primary must fail immediately after actual replacement with
+`O03 replace: old holdsSlot still set`, its exact preceding native logs and no
+receipt. The opposite schedule must remain accepted. The independent control
+removes only withdrawal's holds-slot guard and must instead detect
+`O03 withdraw: replacement slot erased` after the old public withdrawal;
+its opposite schedule must still pass. Exact private source bytes/mode and
+original positive receipts must be restored. Setup errors or timeouts have
+no semantic detection credit. R01 remains open: positive-principal full
+capacity, authentic recovery, production token behavior and deployment are
+outside this gate.

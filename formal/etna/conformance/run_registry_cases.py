@@ -62,6 +62,19 @@ FAULT_TEST = "test_pair_same_block_later_time()"
 FAULT_DIAGNOSTIC = "N02 same_block_later_time: expected NotDoubleSign, got success"
 SMOKE_TEST = "test_pair_precommit_conflict()"
 
+DISPLACEMENT_FILE = "EtnaRegistryDisplacementCases.t.sol"
+DISPLACEMENT_CONTRACT = "EtnaRegistryDisplacementCasesTest"
+DISPLACEMENT_SUITE = f"{TEST_ROOT}/{DISPLACEMENT_FILE}:{DISPLACEMENT_CONTRACT}"
+DISPLACEMENT_PRIMARY = "test_held_zero_displacement_then_withdraw()"
+DISPLACEMENT_OPPOSITE = "test_zero_withdraw_then_vacant_reuse()"
+DISPLACEMENT_TESTS = (DISPLACEMENT_PRIMARY, DISPLACEMENT_OPPOSITE)
+DISPLACEMENT_SCHEMA = b"etna-registry-displacement-2".ljust(32, b"\0")
+DISPLACEMENT_FAULT_FUNCTION = b"function _takeSlot("
+DISPLACEMENT_FAULT_BEFORE = b"            displaced.holdsSlot = false;\n"
+DISPLACEMENT_FAULT_AFTER = b""
+DISPLACEMENT_FAULT_DIAGNOSTIC = "O03 replace: old holdsSlot still set"
+DISPLACED_TOPIC = "0x6880ea53ef6a506cdb9366a32d91976e38bb1dc92293b42b33744a8c8ed29a88"
+
 # Pinned Forge's standard test deployment address, corroborated by prior native traces.
 TEST_DRIVER = "0x7fa9385be102ac3eac297483dd6233d62b3e1496"
 # First CREATE at nonce 1 from the test driver deploys PublicReplayToken.
@@ -95,6 +108,7 @@ SCENARIOS = {
     "double-sign": (SOLIDITY_FILES[-1], CONTRACT, SMOKE_TEST),
     "lifecycle": (LIFECYCLE_FILE, LIFECYCLE_CONTRACT, LIFECYCLE_TEST),
     "atomicity": (ATOMICITY_FILE, ATOMICITY_CONTRACT, ATOMICITY_REGISTER),
+    "displacement": (DISPLACEMENT_FILE, DISPLACEMENT_CONTRACT, DISPLACEMENT_PRIMARY),
 }
 ATOMICITY_RECEIPT_SCHEMA = b"etna-registry-atomicity-2".ljust(32, b"\0")
 ATOMICITY_STEPS = {
@@ -363,6 +377,76 @@ def lifecycle_failure(oracle):
     return LIFECYCLE_TEST, LIFECYCLE_FAULT_DIAGNOSTIC, require_activation_trace
 
 
+def displacement_binding(step):
+    """Canonical version-2 action binding, including explicit pre-action external premises."""
+    call = abi_bytes(hex_bytes(step["calldata"]))
+    result = abi_bytes(b"" if step["result"] == "0x" else hex_bytes(step["result"]))
+    body = b"".join((
+        step["name"].encode("ascii").ljust(32, b"\0"), word(step["height"]),
+        word(step["snapshot"]), word(step["generation"]), address_word(step["actor"]),
+        address_word(step["target"]), word(int(step["ok"])),
+        hex_bytes(step["beforeState"], 32), hex_bytes(step["afterState"], 32),
+        hex_bytes(step["beforeFullState"], 32), hex_bytes(step["afterFullState"], 32),
+        word(step["logCount"]), word(14 * 32), word(14 * 32 + len(call)), call, result,
+    ))
+    return word(len(body)) + body
+
+
+def displacement_receipt(receipt, logs, oracle):
+    """Compare complete histories, action inputs/outputs and every ordered native log."""
+    if logs != oracle["setupLogs"] + oracle["actionLogs"]:
+        raise ValueError("wrong ordered displacement trace logs")
+    if not receipt.startswith(DISPLACEMENT_SCHEMA):
+        raise ValueError("wrong displacement receipt schema")
+    offset = len(DISPLACEMENT_SCHEMA)
+    log_offset = 0
+    journal = []
+    for step in oracle["journal"]:
+        expected = displacement_binding(step)
+        if receipt[offset:offset + len(expected)] != expected:
+            raise ValueError("wrong displacement receipt at " + step["name"])
+        offset += len(expected)
+        end = log_offset + step["logCount"]
+        journal.append(step | {"traceLogs": oracle["actionLogs"][log_offset:end]})
+        log_offset = end
+    if offset != len(receipt) or log_offset != len(oracle["actionLogs"]):
+        raise ValueError("extra displacement receipt words or unbound action logs")
+    return dict(schema="etna-registry-displacement-2", journal=journal,
+                history=oracle["history"], finalCash=oracle["finalCash"])
+
+
+def displacement_failure(oracle):
+    def require_actual_replacement(logs):
+        steps = oracle["journal"]
+        end = next(i + 1 for i, step in enumerate(steps) if step["name"] == "replace_held_zero")
+        count = sum(step["logCount"] for step in steps[:end])
+        if logs != oracle["setupLogs"] + oracle["actionLogs"][:count]:
+            raise ValueError("wrong ordered displacement fault trace logs")
+
+    return DISPLACEMENT_PRIMARY, DISPLACEMENT_FAULT_DIAGNOSTIC, require_actual_replacement
+
+
+def require_displacement_oracle(leaves):
+    common = ("register_a", "register_b", "topup_a", "activate_early", "activate_a",
+              "force_exit_a", "snapshot_uncovered", "confirm_uncovered", "snapshot_covered",
+              "confirm_a", "generation_advance", "slash_historical", "withdraw_early")
+    tails = {DISPLACEMENT_PRIMARY: ("replace_held_zero", "zero_withdraw"),
+             DISPLACEMENT_OPPOSITE: ("zero_withdraw", "replace_vacancy")}
+    if set(leaves) != set(DISPLACEMENT_TESTS):
+        raise ValueError("wrong frozen displacement leaf inventory")
+    for leaf, oracle in leaves.items():
+        journal = oracle["journal"]
+        if (tuple(step["name"] for step in journal) != common + tails[leaf]
+                or sum(step["logCount"] for step in journal) != len(oracle["actionLogs"])
+                or oracle["finalCash"] != [83, 83, 8, 2, 7, 0, 6]
+                or len(oracle["history"]) != (4 if leaf == DISPLACEMENT_PRIMARY else 6)):
+            raise ValueError("wrong frozen displacement schedule, cash or history")
+        for step in journal:
+            if not step["ok"] and (step["beforeState"] != step["afterState"]
+                                   or step["beforeFullState"] != step["afterFullState"]):
+                raise ValueError("wrong frozen displacement refusal equality")
+
+
 def atomicity_binding(step):
     """Exact call, token frame, allowance write and full selected pre/post observations."""
     dynamic = [abi_bytes(b"" if step[field] == "0x" else hex_bytes(step[field]))
@@ -543,6 +627,13 @@ def inputs(scenario="double-sign"):
                 or sum(step["logCount"] for step in journal) != len(lifecycle["actionLogs"])):
             raise ValueError("wrong frozen lifecycle journal inventory")
         expected = {LIFECYCLE_TEST: lambda receipt, logs: lifecycle_receipt(receipt, logs, lifecycle)}
+    elif scenario == "displacement":
+        leaves = pins["displacement"]
+        require_displacement_oracle(leaves)
+        expected = {
+            leaf: lambda receipt, logs, oracle=oracle: displacement_receipt(receipt, logs, oracle)
+            for leaf, oracle in leaves.items()
+        }
     elif scenario == "atomicity":
         leaves = pins["atomicity"]
         require_atomicity_oracle(leaves)
@@ -600,6 +691,7 @@ def private_source_fault(source, manifest, artifact, *, scenario="double-sign"):
         "double-sign": (FAULT_FUNCTION, b"\n" + FAULT_BEFORE, FAULT_AFTER),
         "lifecycle": (LIFECYCLE_FAULT_FUNCTION, LIFECYCLE_FAULT_BEFORE, LIFECYCLE_FAULT_AFTER),
         "atomicity": (ATOMICITY_FAULT_FUNCTION, ATOMICITY_FAULT_BEFORE, ATOMICITY_FAULT_AFTER),
+        "displacement": (DISPLACEMENT_FAULT_FUNCTION, DISPLACEMENT_FAULT_BEFORE, DISPLACEMENT_FAULT_AFTER),
     }[scenario]
     if (STOCK.COMET.file_entry(original) != manifest["files"][FAULT_PATH]
             or original.count(function) != 1 or original.count(before) != 1
@@ -854,6 +946,8 @@ def run(args):
             else:
                 if scenario == "lifecycle":
                     failure = lifecycle_failure(pins["lifecycle"])
+                elif scenario == "displacement":
+                    failure = displacement_failure(pins["displacement"][DISPLACEMENT_PRIMARY])
                 elif scenario == "atomicity":
                     failure = atomicity_failure(pins["atomicity"][ATOMICITY_TOPUP])
                 else:

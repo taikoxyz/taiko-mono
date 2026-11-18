@@ -156,6 +156,34 @@ abstract contract EtnaRegistryCasesBase {
         );
     }
 
+    /// @dev Decode only the allowlisted public vote projection, preserving exact uint64 timestamp bits.
+    function _publicVote(string memory _projection, string memory _row)
+        internal
+        view
+        returns (IEtnaStakingRegistry.Vote memory vote)
+    {
+        string memory p = string.concat(_row, ".vote");
+        vote.voteType = uint8(_publicVoteNumber(_projection, p, ".voteType"));
+        vote.height = uint64(_publicVoteNumber(_projection, p, ".height"));
+        vote.round = uint32(_publicVoteNumber(_projection, p, ".round"));
+        vote.blockHash = VM.parseJsonBytes32(_projection, string.concat(p, ".blockHash"));
+        vote.partsTotal = uint32(_publicVoteNumber(_projection, p, ".partsTotal"));
+        vote.partsHash = VM.parseJsonBytes32(_projection, string.concat(p, ".partsHash"));
+        vote.timestampSeconds = uint64(_publicVoteNumber(_projection, p, ".timestampSecondsU64"));
+        vote.timestampNanos = uint32(_publicVoteNumber(_projection, p, ".timestampNanos"));
+        vote.generation = uint48(_publicVoteNumber(_projection, p, ".generation"));
+        vote.signature = VM.parseJsonBytes(_projection, string.concat(_row, ".signature"));
+    }
+
+    /// @dev Parse the projection's decimal strings before the pinned caller narrows their widths.
+    function _publicVoteNumber(string memory _projection, string memory _row, string memory _field)
+        private
+        view
+        returns (uint256)
+    {
+        return VM.parseUint(VM.parseJsonString(_projection, string.concat(_row, _field)));
+    }
+
     /// @dev Use a genuine public proof with the actual register entry point.
     function _register(PublicPoP memory _pop, uint256 _amount) internal returns (uint256) {
         VM.prank(_pop.owner);

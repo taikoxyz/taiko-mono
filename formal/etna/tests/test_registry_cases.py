@@ -173,6 +173,165 @@ class ForgeBoundary(unittest.TestCase):
             CASES.require_hash(fixture, "0" * 64)
 
 
+class DisplacementReceipts(unittest.TestCase):
+    def setUp(self):
+        self.pins, self.expected, *_ = CASES.inputs("displacement")
+
+    def encode(self, step, *, full=True):
+        # Independent ABI encoder, including offsets rather than sharing collector framing.
+        uint = lambda n: int(n).to_bytes(32, "big")
+        address = lambda a: bytes.fromhex(a[2:]).rjust(32, b"\0")
+        words = [step["name"].encode().ljust(32, b"\0"), uint(step["height"]),
+                 uint(step["snapshot"]), uint(step["generation"]), address(step["actor"]),
+                 address(step["target"]), uint(step["ok"]), bytes.fromhex(step["beforeState"][2:]),
+                 bytes.fromhex(step["afterState"][2:])]
+        if full:
+            words += [bytes.fromhex(step["beforeFullState"][2:]), bytes.fromhex(step["afterFullState"][2:])]
+        words += [uint(step["logCount"])]
+        tail = b""
+        for field in ("calldata", "result"):
+            words.append(uint((14 if full else 12) * 32 + len(tail)))
+            data = bytes.fromhex(step[field][2:])
+            tail += uint(len(data)) + data.ljust((len(data) + 31) // 32 * 32, b"\0")
+        body = b"".join(words) + tail
+        return uint(len(body)) + body
+
+    def check(self, leaf, oracle=None, logs=None):
+        oracle = self.pins["displacement"][leaf] if oracle is None else oracle
+        payload = CASES.DISPLACEMENT_SCHEMA + b"".join(
+            self.encode(step) for step in oracle["journal"])
+        expected = self.pins["displacement"][leaf]
+        return CASES.displacement_receipt(payload, oracle["setupLogs"] + oracle["actionLogs"]
+                                          if logs is None else logs, expected)
+
+    def test_exact_two_schedules_and_longest_complete_native_receipt(self):
+        self.assertEqual(set(self.expected), set(CASES.DISPLACEMENT_TESTS))
+        for leaf in self.expected:
+            with self.subTest(leaf=leaf):
+                oracle = self.pins["displacement"][leaf]
+                payload = CASES.DISPLACEMENT_SCHEMA + b"".join(
+                    self.encode(step) for step in oracle["journal"])
+                native = row(payload)
+                native["logs"] = oracle["setupLogs"] + oracle["actionLogs"] + native["logs"]
+                raw = json.dumps({CASES.DISPLACEMENT_SUITE: dict(duration="2ms", test_results={leaf: native})})
+                got = CASES.require_forge_outcomes(raw, 0, CASES.DISPLACEMENT_SUITE,
+                                                   {leaf: self.expected[leaf]})
+                self.assertEqual(len(got[leaf]["journal"]), 15)
+                self.assertGreater(len(payload), 10000)
+                with self.assertRaises(ValueError):
+                    CASES.require_forge_outcomes(raw[:-2], 0, CASES.DISPLACEMENT_SUITE,
+                                                 {leaf: self.expected[leaf]})
+
+    def test_rejects_omitted_duplicate_missing_reordered_displacement_logs(self):
+        leaf = CASES.DISPLACEMENT_PRIMARY
+        oracle = self.pins["displacement"][leaf]
+        exact = oracle["setupLogs"] + oracle["actionLogs"]
+        index = next(i for i, log in enumerate(exact) if log["topics"][0] == CASES.DISPLACED_TOPIC)
+        for bad in (exact[:index] + exact[index + 1:], exact[:index] + [exact[index]] + exact[index:],
+                    exact[:index] + [exact[index + 1], exact[index]] + exact[index + 2:]):
+            with self.subTest(logs=len(bad)), self.assertRaisesRegex(ValueError, "ordered displacement"):
+                self.check(leaf, logs=bad)
+        for topic in (1, 3):
+            bad = copy.deepcopy(exact)
+            bad[index]["topics"][topic] = "0x" + format(1, "064x")
+            with self.subTest(topic=topic), self.assertRaisesRegex(ValueError, "ordered displacement"):
+                self.check(leaf, logs=bad)
+
+    def test_every_action_binds_full_fixture_beyond_the_named_projection(self):
+        for leaf, oracle in self.pins["displacement"].items():
+            for step in oracle["journal"]:
+                self.assertEqual(len(CASES.hex_bytes(step["beforeFullState"], 32)), 32)
+                self.assertEqual(len(CASES.hex_bytes(step["afterFullState"], 32)), 32)
+            for field in ("beforeFullState", "afterFullState"):
+                bad = copy.deepcopy(oracle)
+                # Preserve every selected83 word: only the full observer differs.
+                bad["journal"][0][field] = "0x" + "fa" * 32
+                with self.subTest(leaf=leaf, field=field), self.assertRaisesRegex(ValueError, "displacement receipt"):
+                    self.check(leaf, oracle=bad)
+
+    def test_source_derived_offpath_words_cannot_hide_behind_same_selected_state(self):
+        # Source-derived final raw-word alternatives: admission[4098]=1 and bond[3].entry.ckX=1.
+        # Independently derived from the wider observer; this is collector sensitivity,
+        # not credited as actual native source-fault detection.
+        alternatives = (
+            "0x81d810f78b0ad79a333e417b7721b4f9edda34af62ef5ca2ce3b7dc550285233",
+            "0x316afbd631fcc6e6c26de223d340208a04a16f145726f50207f86a0d5f9db6d0",
+        )
+        leaf = CASES.DISPLACEMENT_PRIMARY
+        for full_hash in alternatives:
+            bad = copy.deepcopy(self.pins["displacement"][leaf])
+            before = bad["journal"][-1]["afterState"]
+            bad["journal"][-1]["afterFullState"] = full_hash
+            self.assertEqual(before, self.pins["displacement"][leaf]["journal"][-1]["afterState"])
+            with self.subTest(full_hash=full_hash), self.assertRaisesRegex(ValueError, "zero_withdraw"):
+                self.check(leaf, oracle=bad)
+
+    def test_rejects_old_projection_only_receipts_under_both_schema_labels(self):
+        leaf = CASES.DISPLACEMENT_PRIMARY
+        oracle = self.pins["displacement"][leaf]
+        logs = oracle["setupLogs"] + oracle["actionLogs"]
+        legacy = b"".join(self.encode(step, full=False) for step in oracle["journal"])
+        for label in (b"etna-registry-displacement-1".ljust(32, b"\0"), CASES.DISPLACEMENT_SCHEMA):
+            with self.subTest(label=label), self.assertRaisesRegex(ValueError, "displacement receipt"):
+                CASES.displacement_receipt(label + legacy, logs, oracle)
+
+    def test_fault_requires_real_complete_replacement_trace_and_precise_diagnostic(self):
+        leaf = CASES.DISPLACEMENT_PRIMARY
+        oracle = self.pins["displacement"][leaf]
+        failure = CASES.displacement_failure(oracle)
+        complete = oracle["setupLogs"] + oracle["actionLogs"][:-1]
+        native = row(None, reason=failure[1])
+        native["logs"] = complete
+        def check():
+            raw = json.dumps({CASES.DISPLACEMENT_SUITE: dict(duration="1ms", test_results={leaf: native})})
+            return CASES.require_forge_outcomes(raw, 1, CASES.DISPLACEMENT_SUITE,
+                                               {leaf: self.expected[leaf]}, failure=failure)
+        self.assertEqual(check()[leaf]["reason"], CASES.DISPLACEMENT_FAULT_DIAGNOSTIC)
+        for logs in (complete[:-1], complete + complete[-1:], []):
+            native["logs"] = logs
+            with self.assertRaisesRegex(ValueError, "fault trace logs"):
+                check()
+        native["logs"] = complete
+        native["reason"] = "setup failure"
+        with self.assertRaisesRegex(ValueError, "fault diagnostic"):
+            check()
+
+    def test_schema_padding_dynamic_offsets_and_trailing_words_are_exact(self):
+        leaf = CASES.DISPLACEMENT_PRIMARY
+        oracle = self.pins["displacement"][leaf]
+        payload = CASES.DISPLACEMENT_SCHEMA + b"".join(map(self.encode, oracle["journal"]))
+        logs = oracle["setupLogs"] + oracle["actionLogs"]
+        for bad in (payload[32:], payload + bytes(32), payload[:-1],
+                    payload[:32 + 32 + 12 * 32] + CASES.word(15 * 32) + payload[32 + 32 + 13 * 32:]):
+            with self.subTest(length=len(bad)), self.assertRaises(ValueError):
+                CASES.displacement_receipt(bad, logs, oracle)
+
+    def test_rejects_context_state_same_outcome_and_same_block_aliases(self):
+        leaf = CASES.DISPLACEMENT_PRIMARY
+        for action, field, value in (
+            ("replace_held_zero", "afterState", "0x" + "11" * 32),
+            ("slash_historical", "generation", 0),
+            ("confirm_a", "snapshot", 14),
+            ("zero_withdraw", "actor", CASES.OWNER_A),
+            ("zero_withdraw", "calldata", "0x12345678"),
+            ("replace_held_zero", "name", "replace_vacancy"),
+            ("replace_held_zero", "height", 18),
+        ):
+            bad = copy.deepcopy(self.pins["displacement"][leaf])
+            next(step for step in bad["journal"] if step["name"] == action)[field] = value
+            with self.subTest(action=action, field=field), self.assertRaisesRegex(ValueError, "displacement receipt"):
+                self.check(leaf, oracle=bad)
+        primary = self.pins["displacement"][leaf]
+        other = self.pins["displacement"][CASES.DISPLACEMENT_OPPOSITE]
+        self.assertNotEqual(primary["journal"][-1]["afterState"], other["journal"][-1]["afterState"])
+        for index, log in enumerate(primary["actionLogs"]):
+            if log["topics"][0] == CASES.CHECKPOINT_TOPIC and int(log["topics"][1], 16) == 3:
+                bad = copy.deepcopy(primary["setupLogs"] + primary["actionLogs"])
+                bad[len(primary["setupLogs"]) + index]["topics"][1] = "0x" + format(4, "064x")
+                with self.assertRaisesRegex(ValueError, "ordered displacement"):
+                    self.check(leaf, logs=bad)
+
+
 class StockEvidence(unittest.TestCase):
     def test_stock_comparison_requires_exact_executed_build_maps(self):
         pins = CASES.STOCK.strict_json((ROOT / "comet_signed/pins.json").read_bytes())

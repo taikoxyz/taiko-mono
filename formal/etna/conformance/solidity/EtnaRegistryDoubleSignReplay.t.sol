@@ -87,17 +87,7 @@ contract EtnaRegistryDoubleSignReplayTest is EtnaRegistryCasesBase {
 
     /// @dev Return the exact uint64 timestamp bits separately from the signed projection field.
     function _vote(string memory _row) private view returns (IEtnaStakingRegistry.Vote memory vote) {
-        string memory p = string.concat(_row, ".vote");
-        vote.voteType = uint8(_number(p, ".voteType"));
-        vote.height = uint64(_number(p, ".height"));
-        vote.round = uint32(_number(p, ".round"));
-        vote.blockHash = VM.parseJsonBytes32(_votes, string.concat(p, ".blockHash"));
-        vote.partsTotal = uint32(_number(p, ".partsTotal"));
-        vote.partsHash = VM.parseJsonBytes32(_votes, string.concat(p, ".partsHash"));
-        vote.timestampSeconds = uint64(_number(p, ".timestampSecondsU64"));
-        vote.timestampNanos = uint32(_number(p, ".timestampNanos"));
-        vote.generation = uint48(_number(p, ".generation"));
-        vote.signature = VM.parseJsonBytes(_votes, string.concat(_row, ".signature"));
+        return _publicVote(_votes, _row);
     }
 
     /// @dev N01 hashes and strict adapter bounds protect the narrowing conversions.
