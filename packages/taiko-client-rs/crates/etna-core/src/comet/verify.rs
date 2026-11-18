@@ -258,7 +258,7 @@ pub fn verify_body_at_origin<'a>(
                 return Err(BftError::Commitment("genesis last commit"));
             }
         }
-        Some(last) if expected_height > first_height => {
+        Some(last) => {
             if expected_height.checked_sub(1) != Some(last.height.value()) ||
                 block.header.last_block_id != Some(last.block_id) ||
                 block.header.last_commit_hash != Some(commit_hash(last))
@@ -266,16 +266,19 @@ pub fn verify_body_at_origin<'a>(
                 return Err(BftError::Commitment("last commit"));
             }
         }
-        Some(_) => return Err(BftError::Commitment("nonempty initial last commit")),
         None => return Err(BftError::Commitment("missing last commit")),
     }
     if block.header.app_hash.as_bytes() != parent_el_hash.as_slice() {
         return Err(BftError::Commitment("parent execution app hash"));
     }
-    match block.data.as_slice() {
-        [transaction] => Ok(transaction),
-        other => Err(BftError::TransactionCount(other.len())),
+    let [transaction] = block.data.as_slice() else {
+        return Err(BftError::TransactionCount(block.data.len()));
+    };
+    // Check the committed body before reporting forbidden generation-start ancestry.
+    if expected_height == first_height && block.last_commit.is_some() {
+        return Err(BftError::Commitment("missing or conflicting previous block/commit"));
     }
+    Ok(transaction)
 }
 
 /// Verifies one body's commitments plus its BFT ancestry against the preceding certificate.
