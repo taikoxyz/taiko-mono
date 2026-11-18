@@ -1,0 +1,892 @@
+{
+  "schema": "etna-comet-signed-pins-1",
+  "source": {
+    "commit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+    "files": 1659,
+    "goModSum": "h1:3z+Aq3BSkwNKw+Z40yPUTxtSRIpQa0w2PyCwyaxxHeU=",
+    "goModuleSum": "h1:0+zc7FlcnonFfMwzhyDCd5vK/fHZqz0RfRyTCxZsFPU=",
+    "license": "Apache-2.0",
+    "manifestSha256": "627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c",
+    "module": "github.com/cometbft/cometbft",
+    "officialTree": "083ecc3cf413b6333ffe47c2b0ce1d91ce84a259",
+    "version": "v0.40.0"
+  },
+  "inputsSha256": {
+    "go.mod": "efbc3190ad9cd882d03f9559c5d0b334b97ff50eabef1d7ecca1f2121230d400",
+    "go.sum": "f79af3ec03edcbd7f173a87cca9318677d139fda4f3cb629873546b3ec71842a",
+    "public-votes.json": "34932f8ddf991ae41eb1be94c873e99524f51cf96d427faed4a1bfc443dc960e",
+    "signed_test.go": "af643bc905e5282eb79c80710cbd28d8d72d4251230230d95c3ab376cda3edc9"
+  },
+  "goToolSha256": {
+    "VERSION": "28ff77ac2178f2faca8a4f535e60b1738e397c9086b3ecfc18c9955abe75634a",
+    "bin/go": "de0ae3e082ce7599eae4fb69fa2ef1e43b8f31ffd3fce62cdf81930aa9005050",
+    "pkg/tool/linux_amd64/asm": "a67997d99985e3ef3ecd30f029685d67d778a0c8f78b852396ef7738426c04b5",
+    "pkg/tool/linux_amd64/compile": "40307e5f5c65a4b4220bbf35dbe014348780589ea2964003f0bf318fa14640e1",
+    "pkg/tool/linux_amd64/link": "e2248a29fbbf15dac1fe72c9d646776dbcd38c9813b78182fe01a4a47f3299c3",
+    "pkg/tool/linux_amd64/vet": "d8a579657a9222c8e69e19e3f9783d5694976b2a0bbf39cda12e90e49944ba52"
+  },
+  "registrationSha256": "e441ece5cd83e70c2008da00b144f3411a1009dda3e18ce8cda9a4bebb208cdf",
+  "specAuthority": {
+    "commit": "d18357214fab30ea512ae9858a11699806d72ba1",
+    "blob": "649548c58d6629dd85143b33efd3644a3bb71509",
+    "sha256": "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b"
+  },
+  "specCorrespondenceSha256": "4ff5a6afa68b8ed0ba4202c621fb99d016aff529492491ab7b696c94cc770c4e",
+  "wire": {
+    "precommit_a": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "precommit_nil": {
+      "bytes": 72,
+      "validateBasic": "accept"
+    },
+    "precommit_b": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "precommit_a_late": {
+      "bytes": 145,
+      "validateBasic": "accept"
+    },
+    "prevote_a_r1": {
+      "bytes": 156,
+      "validateBasic": "accept"
+    },
+    "prevote_b_r1": {
+      "bytes": 156,
+      "validateBasic": "accept"
+    },
+    "prevote_b_r2": {
+      "bytes": 156,
+      "validateBasic": "accept"
+    },
+    "precommit_b_r1": {
+      "bytes": 156,
+      "validateBasic": "accept"
+    },
+    "gen1_precommit_a": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "gen1_precommit_b": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "gen2_precommit_a": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "gen2_precommit_b": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "other_inbox_precommit_b": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "partial_block_id": {
+      "bytes": 112,
+      "validateBasic": "incomplete-block-id"
+    },
+    "max_values": {
+      "bytes": 165,
+      "validateBasic": "accept"
+    },
+    "precommit_b_h1001": {
+      "bytes": 147,
+      "validateBasic": "accept"
+    },
+    "hash_only_block_id": {
+      "bytes": 110,
+      "validateBasic": "incomplete-block-id"
+    },
+    "zero_timestamp": {
+      "bytes": 139,
+      "validateBasic": "accept"
+    },
+    "negative_timestamp": {
+      "bytes": 152,
+      "validateBasic": "accept"
+    },
+    "min_timestamp": {
+      "bytes": 150,
+      "validateBasic": "accept"
+    },
+    "max_timestamp_seconds": {
+      "bytes": 146,
+      "validateBasic": "accept"
+    },
+    "precommit_a_backdated": {
+      "bytes": 150,
+      "validateBasic": "accept"
+    },
+    "precommit_b_backdated": {
+      "bytes": 150,
+      "validateBasic": "accept"
+    }
+  },
+  "native": {
+    "commit-exact-two-thirds": {
+      "added": true,
+      "addResult": "accept",
+      "commit": "insufficient-power",
+      "got": 2,
+      "needed": 2,
+      "commitFlags": [2, 1],
+      "validators": [
+        {
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "power": 2
+        },
+        {
+          "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+          "power": 1
+        }
+      ],
+      "index": 0,
+      "target": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "state": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      }
+    },
+    "commit-above": {
+      "added": true,
+      "addResult": "accept",
+      "commit": "accept",
+      "got": 0,
+      "needed": 0,
+      "commitFlags": [2, 1],
+      "validators": [
+        {
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "power": 3
+        },
+        {
+          "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+          "power": 1
+        }
+      ],
+      "index": 0,
+      "target": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "state": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:3/4(0.750)",
+        "majority": true,
+        "majorityBlock": {
+          "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "parts": "0xabababababababababababababababababababababababababababababababab",
+          "total": 1
+        },
+        "anyQuorum": true
+      }
+    },
+    "commit-below": {
+      "added": true,
+      "addResult": "accept",
+      "commit": "insufficient-power",
+      "got": 2,
+      "needed": 3,
+      "commitFlags": [2, 1, 1, 1],
+      "validators": [
+        {
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "power": 2
+        },
+        {
+          "address": "0x2174ca3ee9ace7dd8c946c97054c72f2b384c4c2",
+          "power": 1
+        },
+        {
+          "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+          "power": 1
+        },
+        {
+          "address": "0x681ce2f439fdc80e70c1eea8b8a085dfb976d32a",
+          "power": 1
+        }
+      ],
+      "index": 0,
+      "target": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "state": {
+        "count": 1,
+        "slots": [true, false, false, false],
+        "nativePower": "Votes:2/5(0.400)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      }
+    },
+    "commit-nonzero-index": {
+      "added": true,
+      "addResult": "accept",
+      "commit": "insufficient-power",
+      "got": 1,
+      "needed": 2,
+      "commitFlags": [1, 2],
+      "validators": [
+        {
+          "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+          "power": 2
+        },
+        {
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "power": 1
+        }
+      ],
+      "index": 1,
+      "target": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "state": {
+        "count": 1,
+        "slots": [false, true],
+        "nativePower": "Votes:1/3(0.333)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      }
+    },
+    "commit-valid-nil": {
+      "added": true,
+      "addResult": "accept",
+      "commit": "insufficient-power",
+      "got": 0,
+      "needed": 2,
+      "commitFlags": [3, 1],
+      "validators": [
+        {
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "power": 3
+        },
+        {
+          "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+          "power": 1
+        }
+      ],
+      "index": 0,
+      "target": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "state": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:3/4(0.750)",
+        "majority": true,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": true
+      }
+    },
+    "commit-invalid-nil": {
+      "added": false,
+      "addResult": "signature",
+      "commit": "signature",
+      "got": 0,
+      "needed": 0,
+      "commitFlags": [3, 1],
+      "validators": [
+        {
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "power": 3
+        },
+        {
+          "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+          "power": 1
+        }
+      ],
+      "index": 0,
+      "target": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      }
+    },
+    "commit-wrong-slot": {
+      "added": true,
+      "addResult": "accept",
+      "commit": "address",
+      "got": 0,
+      "needed": 0,
+      "commitFlags": [1, 2],
+      "validators": [
+        {
+          "address": "0xd2431ca38735c2fd438e2caa23f094191d89675b",
+          "power": 3
+        },
+        {
+          "address": "0x612b7be154a64292aae070aaa86fcd66ba218071",
+          "power": 1
+        }
+      ],
+      "index": 0,
+      "target": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "state": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:3/4(0.750)",
+        "majority": true,
+        "majorityBlock": {
+          "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "parts": "0xabababababababababababababababababababababababababababababababab",
+          "total": 1
+        },
+        "anyQuorum": true
+      }
+    },
+    "duplicate": {
+      "added": false,
+      "result": "accept",
+      "before": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "after": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "first": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "second": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "trackedSecondBlock": true,
+      "retained": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+    },
+    "conflict-same-block-later": {
+      "added": false,
+      "result": "nondeterministic",
+      "before": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "after": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "first": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "second": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "trackedSecondBlock": true,
+      "retained": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+    },
+    "conflict-a-b": {
+      "added": false,
+      "result": "conflict",
+      "before": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "after": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "first": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "second": {
+        "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "parts": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+        "total": 2
+      },
+      "trackedSecondBlock": false,
+      "retained": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+    },
+    "conflict-a-nil": {
+      "added": false,
+      "result": "conflict",
+      "before": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "after": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "first": {
+        "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parts": "0xabababababababababababababababababababababababababababababababab",
+        "total": 1
+      },
+      "second": {
+        "hash": "0x",
+        "parts": "0x",
+        "total": 0
+      },
+      "trackedSecondBlock": false,
+      "retained": "0xeba2dc2bfbdd9f2cf5e81ab0ed444fd9032b8ae334cc70e289a7c034de5285901b756c8594d3b2e2fd3f11b1d5367441b7e042ac09dc3e047bc0109fe45fff4300"
+    },
+    "vote-wrong-generation": {
+      "added": false,
+      "voteSet": "signature",
+      "verify": "signature",
+      "matchingStepVoteSet": "",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      }
+    },
+    "vote-wrong-inbox": {
+      "added": false,
+      "voteSet": "signature",
+      "verify": "signature",
+      "matchingStepVoteSet": "",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      }
+    },
+    "vote-address": {
+      "added": false,
+      "voteSet": "address",
+      "verify": "address",
+      "matchingStepVoteSet": "",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      }
+    },
+    "vote-index-outside": {
+      "added": false,
+      "voteSet": "index",
+      "verify": "accept",
+      "matchingStepVoteSet": "",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      }
+    },
+    "vote-index-mismatch": {
+      "added": false,
+      "voteSet": "address",
+      "verify": "accept",
+      "matchingStepVoteSet": "",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      }
+    },
+    "vote-height": {
+      "added": false,
+      "voteSet": "step",
+      "verify": "signature",
+      "matchingStepVoteSet": "signature",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      }
+    },
+    "vote-round": {
+      "added": false,
+      "voteSet": "step",
+      "verify": "signature",
+      "matchingStepVoteSet": "signature",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      }
+    },
+    "vote-type": {
+      "added": false,
+      "voteSet": "step",
+      "verify": "signature",
+      "matchingStepVoteSet": "signature",
+      "state": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      }
+    },
+    "pol-above": {
+      "afterRound1": {
+        "round": 1,
+        "block": {
+          "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "parts": "0xabababababababababababababababababababababababababababababababab",
+          "total": 1
+        }
+      },
+      "afterRound2": {
+        "round": 2,
+        "block": {
+          "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "parts": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+          "total": 2
+        }
+      },
+      "round1Before": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:3/4(0.750)",
+        "majority": true,
+        "majorityBlock": {
+          "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "parts": "0xabababababababababababababababababababababababababababababababab",
+          "total": 1
+        },
+        "anyQuorum": true
+      },
+      "round1After": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:3/4(0.750)",
+        "majority": true,
+        "majorityBlock": {
+          "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "parts": "0xabababababababababababababababababababababababababababababababab",
+          "total": 1
+        },
+        "anyQuorum": true
+      },
+      "round2": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:3/4(0.750)",
+        "majority": true,
+        "majorityBlock": {
+          "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "parts": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+          "total": 2
+        },
+        "anyQuorum": true
+      }
+    },
+    "pol-exact": {
+      "afterRound1": {
+        "round": -1,
+        "block": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        }
+      },
+      "afterRound2": {
+        "round": -1,
+        "block": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        }
+      },
+      "round1Before": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "round1After": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "round2": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:2/3(0.667)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      }
+    },
+    "pol-controls": {
+      "heightAdded": false,
+      "heightResult": "step",
+      "invalidTypeAdded": false,
+      "invalidTypeResult": "accept",
+      "reboundRoundAdded": false,
+      "reboundRoundResult": "signature",
+      "precommitAdded": true,
+      "precommitResult": "accept",
+      "pol": {
+        "round": -1,
+        "block": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        }
+      },
+      "prevotes": {
+        "count": 0,
+        "slots": [false, false],
+        "nativePower": "Votes:0/4(0.000)",
+        "majority": false,
+        "majorityBlock": {
+          "hash": "0x",
+          "parts": "0x",
+          "total": 0
+        },
+        "anyQuorum": false
+      },
+      "precommits": {
+        "count": 1,
+        "slots": [true, false],
+        "nativePower": "Votes:3/4(0.750)",
+        "majority": true,
+        "majorityBlock": {
+          "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "parts": "0xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+          "total": 2
+        },
+        "anyQuorum": true
+      }
+    }
+  },
+  "expectedLeaves": [
+    "precommit_a",
+    "precommit_nil",
+    "precommit_b",
+    "precommit_a_late",
+    "prevote_a_r1",
+    "prevote_b_r1",
+    "prevote_b_r2",
+    "precommit_b_r1",
+    "gen1_precommit_a",
+    "gen1_precommit_b",
+    "gen2_precommit_a",
+    "gen2_precommit_b",
+    "other_inbox_precommit_b",
+    "partial_block_id",
+    "max_values",
+    "precommit_b_h1001",
+    "hash_only_block_id",
+    "zero_timestamp",
+    "negative_timestamp",
+    "min_timestamp",
+    "max_timestamp_seconds",
+    "precommit_a_backdated",
+    "precommit_b_backdated",
+    "commit-exact-two-thirds",
+    "commit-above",
+    "commit-below",
+    "commit-nonzero-index",
+    "commit-valid-nil",
+    "commit-invalid-nil",
+    "commit-wrong-slot",
+    "duplicate",
+    "conflict-same-block-later",
+    "conflict-a-b",
+    "conflict-a-nil",
+    "vote-wrong-generation",
+    "vote-wrong-inbox",
+    "vote-address",
+    "vote-index-outside",
+    "vote-index-mismatch",
+    "vote-height",
+    "vote-round",
+    "vote-type",
+    "pol-above",
+    "pol-exact",
+    "pol-controls"
+  ]
+}

@@ -1,0 +1,144 @@
+"""Focused regression tests for N01 input and output boundaries."""
+import copy
+import importlib.util
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[1] / "conformance"
+SPEC = importlib.util.spec_from_file_location("etna_comet_signed", ROOT / "run_comet_signed.py")
+SIGNED = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(SIGNED)
+
+
+class SignedBoundary(unittest.TestCase):
+    def test_projection_exact_types_and_fields(self):
+        case_dir = ROOT / "comet_signed"
+        data = SIGNED.load_projection((case_dir / "public-votes.json").read_bytes())
+        self.assertEqual(tuple(map(len, (data["voteCases"], data["votePairs"],
+                                        data["chainDomains"], data["spectators"]))), (23, 14, 5, 3))
+        raw = json.dumps(data).encode()
+        with self.assertRaises(ValueError):
+            SIGNED.load_projection(b'{"schema":"duplicate",' + raw[1:])
+        for field, value in (("height", True), ("height", "9223372036854775808"),
+                             ("round", "01"), ("partsTotal", 1),
+                             ("timestampSeconds", "-0"), ("timestampSecondsU64", "0"),
+                             ("timestampNanos", "1000000000"), ("unexpected", None)):
+            with self.subTest(field=field, value=value), self.assertRaises(ValueError):
+                changed = copy.deepcopy(data)
+                changed["voteCases"][0]["vote"][field] = value
+                SIGNED.load_projection(json.dumps(changed).encode())
+        for mutation in ("repeated-case", "missing-pair", "dangling-reference", "wrong-domain"):
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                changed = copy.deepcopy(data)
+                if mutation == "repeated-case":
+                    changed["voteCases"][1]["name"] = changed["voteCases"][0]["name"]
+                elif mutation == "missing-pair":
+                    changed["votePairs"].pop()
+                elif mutation == "dangling-reference":
+                    changed["votePairs"][0]["a"] = "missing"
+                else:
+                    changed["voteCases"][0]["vote"]["generation"] = "1"
+                SIGNED.load_projection(json.dumps(changed).encode())
+
+    def stream(self, expected, fail=False):
+        leaf = SIGNED.PARENT + "/" + next(iter(expected))
+        status = "fail" if fail else "pass"
+        rows = []
+
+        def append(action, name=None, payload=None, kind=None):
+            item = {"Package": SIGNED.PACKAGE, "Action": action}
+            if name is not None:
+                item["Test"] = name
+            if payload is not None:
+                item.update(Output=payload, OutputType=kind)
+            rows.append(item)
+
+        append("start")
+        append("run", SIGNED.PARENT)
+        append("output", SIGNED.PARENT, "=== RUN   " + SIGNED.PARENT + "\n", "frame")
+        append("run", leaf)
+        append("output", leaf, "=== RUN   " + leaf + "\n", "frame")
+        append("output", leaf, "    signed_test.go:12: receipt=" +
+               json.dumps(next(iter(expected.values()))) + "\n", "")
+        if fail:
+            append("output", leaf, "    signed_test.go:13: " + SIGNED.FAULT_DIAGNOSTIC + "\n", "error")
+        for name in (leaf, SIGNED.PARENT):
+            append("output", name, f"--- {status.upper()}: {name} (0.00s)\n", "frame")
+            append(status, name)
+        append("output", payload=status.upper() + "\n", kind="frame")
+        prefix = "FAIL\t" if fail else "ok  \t"
+        append("output", payload=f"{prefix}{SIGNED.PACKAGE}\t0.001s\n", kind="frame")
+        append(status)
+        return rows
+
+    def parse(self, rows, expected, phase, returncode):
+        raw = "\n".join(json.dumps(row) for row in rows).encode()
+        return SIGNED.require_go_outcomes(raw, returncode, phase, expected)
+
+    def test_exact_native_lifecycle(self):
+        expected = {"precommit_a": {"verified": True}}
+        rows = self.stream(expected)
+        self.assertEqual(len(self.parse(rows, expected, "smoke", 0)), 1)
+        for changed in (rows[:8] + rows[9:], rows + [rows[-1]], rows[:4] + rows[5:],
+                        rows[:4] + [dict(rows[4], Test="unexpected")] + rows[5:],
+                        rows[:5] + [dict(rows[5], Output="unrelated\n")] + rows[6:],
+                        rows[:7] + [dict(rows[7], Action="skip")] + rows[8:],
+                        rows[:8] + [rows[8], rows[7]] + rows[9:]):
+            with self.assertRaises(ValueError):
+                self.parse(changed, expected, "smoke", 0)
+        with self.assertRaises(ValueError):
+            self.parse(rows, expected, "smoke", 1)
+        with self.assertRaises(ValueError):
+            self.parse(rows, {"precommit_a": {"verified": 1}}, "smoke", 0)
+
+    def test_fragmented_receipt_stays_in_the_exact_leaf(self):
+        expected = {"pol-above": {"block": "ab" * 650}}
+        rows = self.stream(expected)
+        payload = rows[5]["Output"]
+        chunks = [dict(rows[5], Output=payload[:1024]), dict(rows[5], Output=payload[1024:])]
+        fragmented = rows[:5] + chunks + rows[6:]
+        self.assertEqual(len(self.parse(fragmented, expected, "normal", 0)), 1)
+        for bad in (dict(chunks[1], Test=SIGNED.PARENT),
+                    dict(chunks[1], OutputType="error"),
+                    dict(chunks[1], OutputType="frame"),
+                    dict(chunks[1], Output=chunks[1]["Output"] + "extraneous\n")):
+            with self.assertRaises(ValueError):
+                self.parse(rows[:5] + [chunks[0], bad] + rows[6:], expected, "normal", 0)
+        for sequence in ([chunks[0], *chunks], [*chunks, chunks[1]]):
+            with self.assertRaises(ValueError):
+                self.parse(rows[:5] + sequence + rows[6:], expected, "normal", 0)
+        with self.assertRaises(ValueError):
+            truncated = dict(chunks[0], Output=chunks[0]["Output"][:-1])
+            self.parse(rows[:5] + [truncated, chunks[1]] + rows[6:], expected, "normal", 0)
+
+    def test_wrong_fault_diagnostic_and_unrelated_output_refused(self):
+        expected = {SIGNED.FAULT_LEAF: {"commit": "accept"}}
+        rows = self.stream(expected, fail=True)
+        self.assertEqual(len(self.parse(rows, expected, "mutant", 1)), 1)
+        fault = 6
+        for changed in (rows[:fault] + rows[fault+1:],
+                        rows[:fault] + [dict(rows[fault], Output="    signed_test.go:13: other\n")] + rows[fault+1:],
+                        rows[:fault] + [rows[fault]] + rows[fault:],
+                        rows[:fault] + [dict(rows[fault], OutputType="")] + rows[fault+1:]):
+            with self.assertRaises(ValueError):
+                self.parse(changed, expected, "mutant", 1)
+
+    def test_frozen_input_drift_and_missing_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "watched"
+            path.write_bytes(b"frozen")
+            watched = {path: SIGNED.COMET.digest(b"frozen")}
+            SIGNED.require_stable(watched, "fixture")
+            path.write_bytes(b"changed")
+            with self.assertRaisesRegex(ValueError, "changed"):
+                SIGNED.require_stable(watched, "fixture")
+            path.unlink()
+            with self.assertRaisesRegex(ValueError, "changed"):
+                SIGNED.require_stable(watched, "fixture")
+
+
+if __name__ == "__main__":
+    unittest.main()
