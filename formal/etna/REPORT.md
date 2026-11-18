@@ -4946,3 +4946,116 @@ and operating O01 retain their prior scope/status.
 | Independent final raw receipt            | `6438f956c87ee780c458c0963034bf227dc89f341c5a09c283e700a75e788594` |
 | Root separate independent raw readback   | `a979085979733e9d75d345adaa5ad0ee429264d2300a87aaa09fd45d57f05282` |
 | Implementation source review             | `7f87e0bcf750dd4c9d72004587bbbc5a4744e0f248ff1a425319bab2bddaab42` |
+
+## O05: free two-rank signer crash, retry and recovery
+
+Implementation `27b6fc6097f93bb1c439ed6f483ac27af60d9c02` completes the fifth
+selected increment. The [free signer product](SIGNER_ASYNC_PRODUCT.md) imports
+unchanged EtnaSignerCrash. It starts at actual empty Init and offers all26
+Request tuples: domain0 rank1/2 × A/B/Nil × salt0/1 × both application replies,
+plus fresh domain1/rank1/A/salt0 with both replies. Both Expose replies, both
+Trust domains, Connect, Persist, arbitrary Crash/Restart, every queued Deliver
+and uncertainty interleave freely. Recovery is optional and at most once, gated
+only by actual eligibility and prior everFloor0; private Computed and Persisted
+work remain eligible. Old-domain offers are retained after recovery. No expected
+floor/conflict result selects actual calls. Symbolic salts/bytes are abstract
+records, with no new cryptographic signing or key use.
+
+Literal independent initial records and complete21-field source-state equations
+check all changed and unchanged fields. The Request comparator checks actual
+ENABLED in both directions for all26 offers; separate equations cover every
+other action. Same-rank/same-payload retry compares pending against PRE durable
+bytes, ignoring incoming salt for byte selection. Actual call capture retains
+the incoming salt and reply because inherited actualRequest contains only
+domain/rank/payload. Repeated Expose/Deliver are observed on their actual branch
+even when their set unions do not change. Normal observer fields remain constant
+except sticky failures; each witness activates only its own finite phase fields.
+
+| Actual graph/profile | Generated | Distinct | Queued | Seconds |
+| -------------------- | --------: | -------: | -----: | ------: |
+| Joint normal         |   516,325 |   98,229 |      0 |  14.406 |
+| Request audit        |   516,325 |   98,229 |      0 |  11.567 |
+| PRE-byte reuse audit |   516,325 |   98,229 |      0 |   9.417 |
+
+The two focused positives repeat the same graph with selected invariants and
+are not additional distinct state coverage. Six separate exact named witness
+profiles reach lower-rank and same-rank value→Nil/Nil→value refusal boundaries,
+uncertainty across crash/restart, persisted Nil with different-salt retry, and
+both live private recovery cuts. Their counterexamples establish reachability,
+not exhaustive safety or fair progress. The15-state retry path saves
+`<<0,1,Nil,0>>`, crashes before return, restarts, actually requests salt1 and
+returns the exact saved salt0 bytes. It then actually repeats the same request
+and exposure with unchanged returned/network sets, first-delivers the saved
+record and repeats Deliver with unchanged delivered set. TLC may label a source
+stutter as AsyncNext, and the repeated witnessCall value can be identical; the
+phase7→8 update on the actual Deliver branch binds that repeated invocation.
+
+The16/17-state recovery witnesses start with old Nil already queued but NOT
+delivered and old rank2/B/salt0 private work Computed/Persisted respectively.
+Actual recovery cancels pending work while preserving precise durable/writes
+state, then actual Crash/Restart resets/reloads the persistent floor. New trust,
+connection, domain1 request/persistence and actual return precede the FIRST
+old-domain delivery. Independent raw replay checks complete21-field successors
+from actual Init, including durable-only old work, exact queued identity and
+first-delivery order. Uncertainty survives actual crash/restart and refuses all
+26 Request and both Expose choices; already-queued delivery remains legal.
+
+The author changes only actual Request's reuse branch to recompute the incoming
+salt's bytes, with the focused config's EXPECT metadata selecting its existing
+AsyncExactReuse invariant. The exact7-state counterexample captures actual
+request `(0,1,A,1,TRUE)` and full PRE state with saved A/salt0. Actual pending
+becomes A/salt1 while durable remains A/salt0: exact PRE-byte reuse fails after
+218 generated/127 distinct/68 queued in0.861s. Finally-restored original source
+SHAc9487869/mode0664 passes the focused graph queue0 in9.553s and a genuine
+15-state Nil-retry witness again in2.796s. All other candidate/source/tool bytes
+stay fixed.
+
+Independent behavioral verification exports41 exact committed blobs read-only
+without Git metadata. Exactly three isolated checker invocations execute five
+TLC profiles: original Request audit plus Nil-conflict witness, actual inherited
+conflict conjunct replaced ONLY with TRUE and private EXPECT selecting existing
+AsyncRequestEnabled, then finally-restored audit plus the same witness. Both
+positive audits exhaust516325/98229/queue0 in11.473/11.208s; both actual Nil
+witnesses match172/98/51 and the exact named invariant. The actual conflict fault
+SHA35c59c4c yields exact AsyncRequestEnabled in0.841s (131/58/22). Its6-state
+healthy history is Init→Trust0→Connect→Request(0,1,A,0,TRUE)→Persist→Expose.
+At Idle with durable rank1/A/salt0, actual offered `(0,1,B,0,TRUE)` differs only
+in payload: every non-conflict guard passes, original eligibility is false and
+mutant eligibility true. All26 literal queries and preceding21-field successors
+are independently checked. This reachable discriminator replaces an assumed
+particular payload ordering; no scheduler or oracle is weakened. Source/cfg
+restore to c9487869/e90b2685 with their frozen0600 modes, all other private/export/
+support/tool identities stay unchanged, and no owned process/jail/metadir remains.
+
+The same existing exact checker runs nine opt-in configs; O04's interface and all
+493 default configs/28 prior root modules remain byte-identical. Default CI does
+not execute this product, though the new wrapper joins the root hash inventory.
+The pinned offline JRE/jar/managed environment and model are read-only with one
+fresh private output. Author caps are checker280/isolation290/supervisor300/outer
+310 seconds; independent caps are130 per profile with the same parents. Heap is
+1024MiB. No engine parse/setup error, timeout, input drift or semantic reduction
+occurred. A blocked initial file write, missing-import probe, static metadata
+correction and reader-only source-stutter interpretation correction retain zero
+behavior/fault-detection credit; engine outputs were retained.
+
+Ordinary managed-Python suites pass167 formal/166 conformance/20 sensitivity
+(353 total), including seven focused static interface/profile checks. Independent
+source and actual-source behavior gates pass. C01 remains OPEN: one serialized
+key owner, lexicographic-rank abstraction, process-crash durable marker, one
+recovery, reduced fresh tuple and authenticated trust/recovery are premises.
+This does not establish concrete FilePV/WAL/session/supervisor, power-loss,
+failover or fairness equivalence. New SignalService/fork-time acceptance remains
+D01 WAITING; all19 archived cases remain INCONCLUSIVE. No natural protocol
+defect is established. All30 remaining acceptance requirements and operating O01
+retain their previous scope; accumulated five-increment final gates follow.
+
+| Retained record                          | SHA-256                                                            |
+| ---------------------------------------- | ------------------------------------------------------------------ |
+| Final author static packet               | `d3faec1f0dd68b9e867d9b7a960d2c4d25189fa8c67ad27dc1a476065d9870b5` |
+| Root author full/raw readback            | `2868ba636b464b0184288bed51f89148132d762d886c30b1a45d02f1d9da997c` |
+| Independent committed export attestation | `274ae172a6ba33388affde7059b247a76e68e56861359f78e5261196f9712e28` |
+| Independent actual-source packet         | `02f055dd3b40f16b2591f14f52e1c4f0600d480f942b9a5190047b7baa108d4d` |
+| Independent full runtime manifest        | `91e92de7ee47f1d207c462a1fe6208be763d6b0f8387f065332e6e78302c3792` |
+| Independent behavioral report            | `ce68fe313d1b12c8387ca5f70867e30441740693177e2f7948465eb067f6b815` |
+| Root independent raw readback            | `e083c078a79b5d375ab9851ba4d0d6f470eddda6890f283cfda381637844d487` |
+| Implementation source review             | `7ec1e609221e41358551770fe88c48572df4de40becd2ac6f35bdae3f58619d1` |

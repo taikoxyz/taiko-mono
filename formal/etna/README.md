@@ -842,3 +842,12 @@ classification via `check.py --config-dir`; default493 configs are unchanged
 and do not run this product. [O04 evidence](REPORT.md#o04-free-proving-arrival-and-full-range-capacity)
 records full original-data/both-proof binding, overlap/prefix/finality/anchor/
 production observations and the limits on proving performance/fairness. P01 stays OPEN.
+
+The fifth gate adds the [free two-rank signer product](SIGNER_ASYNC_PRODUCT.md).
+The joint26-offer graph exhausts98,229 distinct states. Six exact witnesses
+separately bind saved Nil/different-salt retry, actual idempotent repeated returns
+and delivery, both live private recovery cuts and fresh-return-before-first-old-
+delivery ordering. Distinct actual reuse/conflict source mutations fail precise
+independent audits and restore to exhaustive positives. [O05 evidence](REPORT.md#o05-free-two-rank-signer-crash-retry-and-recovery)
+keeps process-crash/trust abstractions and concrete C01 gaps explicit. These nine
+configs are opt-in via the same checker; default CI does not imply execution.
