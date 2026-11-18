@@ -104,6 +104,8 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         address unzen = vm.envAddress("UNZEN_INBOX");
         _requireProxy(proxy);
         require(proxy != unzen, SwitchIdentityMismatch());
+        // The Etna proxy becomes the syncer whose checkpoints have no height bound.
+        _requireOwner(proxy);
         vm.startBroadcast(_privateKey());
         signalImpl_ = address(new SignalService(proxy, remote, pauser, address(0), unzen));
         vm.stopBroadcast();

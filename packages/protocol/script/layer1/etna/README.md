@@ -79,8 +79,9 @@ the full timestamp-lead bound for short L1 slots described in SWITCH.md.
 The shared `SignalService` adds no storage and keeps VERSION=1. The switch implementation uses
 `stateRootProvider = address(0)`, the Etna Inbox proxy as its primary syncer and the live Unzen
 Inbox proxy as `unzenInbox`. Read back the primary syncer with `authorizedSyncer()`. Deployment
-requires distinct Inbox proxies and checks that the Etna Inbox exposes `etnaStart()`. Both Inbox
-proxies can save checkpoints. After deployment, only Unzen writes read the current start, and
+requires distinct Inbox proxies, an Etna Inbox proxy owned by `CONTRACT_OWNER` with no pending
+ownership transfer, and an Etna Inbox that exposes `etnaStart()`. Both Inbox proxies can save
+checkpoints. After deployment, only Unzen writes read the current start, and
 they fail if the read fails or if they write above S after a nonzero start hash is written. The
 upgrade preserves existing checkpoints and proof/cache behavior in the existing L1 proxy.
 

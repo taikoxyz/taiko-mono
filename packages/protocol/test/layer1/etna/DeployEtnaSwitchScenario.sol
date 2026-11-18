@@ -90,6 +90,13 @@ contract DeployEtnaSwitchScenario is InboxTestBase {
 
         _expectInvalidInbox(address(inbox));
         _expectInvalidInbox(address(_etnaImplementation));
+
+        // The Etna proxy becomes the unbounded syncer, so it must stay with the DAO owner.
+        _etna.transferOwnership(Bob);
+        _expectInvalidInbox(address(_etna));
+        vm.prank(Bob);
+        _etna.acceptOwnership();
+        _expectInvalidInbox(address(_etna));
     }
 
     /// @dev Exports only the inputs consumed by the SignalService implementation deployment.
@@ -107,7 +114,8 @@ contract DeployEtnaSwitchScenario is InboxTestBase {
     }
 
     /// @dev Identity validation must precede even private-key validation and startBroadcast.
-    /// @param _inbox An Unzen proxy or a bare implementation, neither a valid Etna proxy.
+    /// @param _inbox An Unzen proxy, a bare implementation, or an Etna proxy whose ownership is
+    /// pending or held outside the DAO; none is a valid Etna proxy.
     function _expectInvalidInbox(address _inbox) private {
         vm.setEnv("INBOX_PROXY", vm.toString(_inbox));
         vm.setEnv("PRIVATE_KEY", "0");
