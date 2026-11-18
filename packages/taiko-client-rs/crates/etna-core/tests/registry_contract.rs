@@ -47,7 +47,7 @@ struct AuthenticatedWords {
     words: Vec<U256>,
     root: B256,
     index: u64,
-    has_next: bool,
+    supplied_count: usize,
 }
 impl RegistryProof for AuthenticatedWords {
     type Error = &'static str;
@@ -55,11 +55,11 @@ impl RegistryProof for AuthenticatedWords {
         Address::ZERO
     }
     fn storage_proof_count(&self) -> usize {
-        if self.has_next { 4 } else { 3 }
+        self.supplied_count
     }
     fn authenticate_storage(&self, root: B256, slots: &[B256]) -> Result<Vec<U256>, Self::Error> {
         assert_eq!(root, self.root, "the proving root must reach the authentication backend");
-        assert_eq!(slots, etna_core::committee::snapshot_slots(self.index, self.has_next));
+        assert_eq!(slots, etna_core::committee::snapshot_slots(self.index, self.words.len() == 4));
         Ok(self.words.clone())
     }
 }
@@ -70,7 +70,7 @@ fn cutoff_selection_is_checked_after_backend_authentication() {
         words: vec![U256::from(2), U256::from(10), U256::ZERO, U256::from(20)],
         root: B256::repeat_byte(9),
         index: 0,
-        has_next: true,
+        supplied_count: 4,
     };
     let snapshot = verify_snapshot(proof.root, Address::ZERO, 0, &[], &proof, 19).unwrap();
     assert_eq!(snapshot.l1_block, 10);
@@ -83,11 +83,30 @@ fn cutoff_selection_is_checked_after_backend_authentication() {
         Err(CommitteeError::NextCheckpointNotAfterCutoff { .. })
     ));
     let no_successor =
-        AuthenticatedWords { words: proof.words[..3].to_vec(), has_next: false, ..proof };
+        AuthenticatedWords { words: proof.words[..3].to_vec(), supplied_count: 3, ..proof };
     assert!(matches!(
         verify_snapshot(no_successor.root, Address::ZERO, 0, &[], &no_successor, 19),
         Err(CommitteeError::NextCheckpointMismatch { .. })
     ));
+}
+
+#[test]
+fn malformed_supplied_proof_counts_are_rejected_even_with_valid_checkpoint_words() {
+    let mut proof = AuthenticatedWords {
+        words: vec![U256::from(1), U256::from(10), U256::ZERO],
+        root: B256::repeat_byte(9),
+        index: 0,
+        supplied_count: 3,
+    };
+    let snapshot = verify_snapshot(proof.root, Address::ZERO, 0, &[], &proof, 10).unwrap();
+    assert_eq!(snapshot.l1_block, 10);
+    for count in [5, 0, 1, 2] {
+        proof.supplied_count = count;
+        assert_eq!(
+            verify_snapshot(proof.root, Address::ZERO, 0, &[], &proof, 10),
+            Err(CommitteeError::InvalidStorageProofCount { got: count }),
+        );
+    }
 }
 
 #[test]
@@ -112,7 +131,7 @@ fn oversized_uint48_entry_counts_are_rejected_without_pointer_width_truncation()
                 ],
                 root: B256::repeat_byte(9),
                 index: 0,
-                has_next: false,
+                supplied_count: 3,
             };
             assert_eq!(
                 verify_snapshot(proof.root, Address::ZERO, 0, &entries, &proof, 10),

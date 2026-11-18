@@ -56,6 +56,12 @@ pub enum CommitteeError<E = Infallible> {
         /// The address the witness proves.
         got: Address,
     },
+    /// The witness must carry three storage proofs, or four with a successor checkpoint.
+    #[error("registry witness carries {got} storage proofs, expected three or four")]
+    InvalidStorageProofCount {
+        /// Number of storage proofs present in the supplied witness.
+        got: usize,
+    },
     /// Backend authentication failed; legacy spelling preserves native error matching.
     #[error(transparent)]
     Mpt(E),
@@ -190,6 +196,9 @@ impl CommitteeError {
             CommitteeError::WrongContract { expected, got } => {
                 CommitteeError::WrongContract { expected, got }
             }
+            CommitteeError::InvalidStorageProofCount { got } => {
+                CommitteeError::InvalidStorageProofCount { got }
+            }
             CommitteeError::AuthenticatedWordCountMismatch { expected, got } => {
                 CommitteeError::AuthenticatedWordCountMismatch { expected, got }
             }
@@ -242,9 +251,11 @@ pub trait RegistryProof {
     type Error;
     /// Account address carried by the actual supplied evidence, not configured expectations.
     fn address(&self) -> Address;
-    /// Actual storage-proof count; the verifier checks the successor hint against proven length.
+    /// Number of storage proofs present in the supplied witness.
+    /// The verifier requires three or four and checks successor presence against proven length.
     fn storage_proof_count(&self) -> usize;
-    /// Authenticates all `expected_slots` and returns exactly one word per slot in that order.
+    /// Requires supplied storage proofs to match `expected_slots` exactly in length, slot
+    /// identity and order. Authenticates them and returns one word per slot in that order.
     fn authenticate_storage(
         &self,
         state_root: B256,
@@ -367,8 +378,9 @@ pub fn snapshot_slots(i: u64, has_next: bool) -> Vec<B256> {
 }
 
 /// Authenticates the latest registry checkpoint at `cutoff` and every captured entry.
-/// Contract address is checked first, followed by exact slots, adapter word count, checkpoint
-/// bounds, successor/cutoff inequalities, entry count and complete entry root, in that order.
+/// The verifier checks the contract address, supplied proof count, exact slot authentication,
+/// returned word count, checkpoint bounds, successor/cutoff inequalities, entry count and
+/// complete entry root, in that order.
 pub fn verify_snapshot<P: RegistryProof>(
     state_root: B256,
     registry: Address,
@@ -380,7 +392,11 @@ pub fn verify_snapshot<P: RegistryProof>(
     if proof.address() != registry {
         return Err(CommitteeError::WrongContract { expected: registry, got: proof.address() });
     }
-    let has_next = proof.storage_proof_count() == 4;
+    let has_next = match proof.storage_proof_count() {
+        3 => false,
+        4 => true,
+        got => return Err(CommitteeError::InvalidStorageProofCount { got }),
+    };
     let slots = snapshot_slots(index, has_next);
     let storage = proof.authenticate_storage(state_root, &slots).map_err(CommitteeError::Mpt)?;
     if storage.len() != slots.len() {
