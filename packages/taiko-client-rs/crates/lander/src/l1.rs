@@ -55,6 +55,12 @@ const BLOCKHASH_WINDOW: u64 = 256;
 /// Bounds a long-outage reference chain before allocating or issuing its reads.
 const MAX_REFERENCE_HEADERS: u64 = 131_072;
 
+/// Whether the reference is older than the pinned Inbox's EIP-2935 window at this L1 block.
+/// The caller separately checks that a reference is in the past and its hash is readable.
+pub(crate) fn reference_expired(reference: u64, at_block: u64) -> bool {
+    at_block.saturating_sub(reference) > REFERENCE_WINDOW
+}
+
 /// Execution parent plus the timestamp needed by the Etna base-fee rule.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParentContext {
@@ -606,8 +612,7 @@ impl LandingSource for RpcLandingSource {
         number: u64,
         hash: B256,
     ) -> Result<()> {
-        if number >= snapshot.l1_block_number ||
-            snapshot.l1_block_number - number > REFERENCE_WINDOW
+        if number >= snapshot.l1_block_number || reference_expired(number, snapshot.l1_block_number)
         {
             return Err(LanderError::Stale(format!(
                 "L1 reference {number} is unavailable at L1 {}",

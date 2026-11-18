@@ -320,9 +320,13 @@ journal using
 the [nonce reconciliation procedure](docs/governance-recovery.md#5-start-the-new-services)
 before any operator action; never delete the journal or allocate a replacement nonce to bypass it.
 
-A canonical revert that leaves the checkpoint unchanged, out-of-gas included, persists Idle and
-stops; restart after fixing the cause (a deterministic revert then stops at gas estimation, before
-signing). A revert where a competing landing moved the parent settles and continues.
+A canonical revert where a competing landing moved the checkpoint settles and continues. With the
+checkpoint unchanged, the lander also continues if the signed reference had expired in the receipt's
+block and the L1 RPC's `debug_traceTransaction` with `callTracer` confirms `ReferenceBlockUnavailable`
+as the top-level revert. It persists Idle, builds a fresh job and signs at the next nonce. Temporary
+trace RPC errors leave the transaction in Confirming for retry. A missing tracing capability, an
+inconclusive trace or another revert such as out-of-gas persists Idle and stops the lander. Restart
+after fixing the cause. A deterministic revert then stops at gas estimation before signing.
 An authenticated unsupported ruleset pauses preparation until the software is upgraded. The
 log reports `software upgrade required`, and
 `lander_retries_total{reason="unsupported_ruleset"}` records this separately from RPC or

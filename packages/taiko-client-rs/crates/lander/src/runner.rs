@@ -4,7 +4,7 @@ use crate::{
     batch::BatchSource,
     config::BatchPolicy,
     error::{LanderError, Result},
-    l1::LandingSource,
+    l1::{LandingSource, reference_expired},
     metrics::{LanderMetrics, TransactionPhase},
     proof::{ProofError, ProofProvider},
     store::{JournalIdentity, JournalState, ProvedJob, Store},
@@ -561,6 +561,32 @@ impl Runner {
         if snapshot.l1_block_number < required {
             return Ok(StepOutcome::Waiting);
         }
+        let batch = &job.request.batch;
+        let unchanged_revert =
+            !receipt.success && CheckpointId::of(&snapshot) == CheckpointId::of(&batch.snapshot);
+        let expired_reference_revert = if unchanged_revert &&
+            reference_expired(
+                crate::types::protocol_u48(batch.input.l1ReferenceBlockNumber)?,
+                receipt.block_number,
+            ) {
+            // Earlier Inbox checks or out-of-gas can fail even with an expired reference.
+            // Require the mined transaction's exact revert data before recovering the job.
+            let reference_unavailable = timeout(
+                self.config.receipt_timeout,
+                self.transactions.reference_unavailable_revert(transaction.hash),
+            )
+            .await
+            .map_err(|_| {
+                LanderError::Temporary("landing revert trace deadline exceeded".into())
+            })??;
+            if self.l1.canonical_hash(receipt.block_number).await? != receipt.block_hash {
+                self.transition(JournalState::Pending { job, transaction })?;
+                return Ok(StepOutcome::Progress);
+            }
+            reference_unavailable
+        } else {
+            false
+        };
         if self.l1.canonical_hash(snapshot.l1_block_number).await? != snapshot.l1_block_hash {
             return Err(LanderError::Temporary(
                 "receipt reconciliation snapshot was reorganized; retry a coherent checkpoint"
@@ -575,10 +601,10 @@ impl Runner {
                     "successful canonical receipt did not advance the Inbox checkpoint".into(),
                 ));
             }
-        } else if CheckpointId::of(&snapshot) == CheckpointId::of(&job.request.batch.snapshot) {
+        } else if unchanged_revert && !expired_reference_revert {
             // The revert is canonical at the confirmation depth, so its nonce is spent and
-            // nothing of this job can land any more. Every such revert, out-of-gas included,
-            // stops the runner. Persist Idle first: a restart then rebuilds from the current
+            // nothing of this job can land any more. Persist Idle before stopping on an
+            // unclassified revert: a restart then rebuilds from the current
             // checkpoint (a deterministic revert stops again at gas estimation, before signing)
             // instead of re-reading this receipt forever.
             self.transition(JournalState::Idle)?;
@@ -587,8 +613,12 @@ impl Runner {
                 transaction.hash, transaction.nonce, snapshot.checkpoint_height
             )));
         }
-        tracing::info!(transaction_hash=%transaction.hash,landed_height=snapshot.checkpoint_height,success=receipt.success,"lander canonical transaction settled");
         self.transition(JournalState::Idle)?;
+        if expired_reference_revert {
+            tracing::warn!(transaction_hash=%transaction.hash, nonce=transaction.nonce,
+                receipt_block=receipt.block_number, "lander settled landing with expired L1 reference; rebuilding");
+        }
+        tracing::info!(transaction_hash=%transaction.hash,landed_height=snapshot.checkpoint_height,success=receipt.success,"lander canonical transaction settled");
         Ok(StepOutcome::Settled)
     }
 }
