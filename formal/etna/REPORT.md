@@ -5806,3 +5806,104 @@ trust gating, supervisor/WAL restart, fresh signing, failover and live productio
 remain WAITING under C01. No natural protocol defect was confirmed. Five selected
 deliverables are available; W06/W07 and the combined final gate continue, with
 W02 broader horizon3/8 exhaustive acceptance still OPEN R01.
+
+## W06 current proof ranges and recovery
+
+Code `b8c6a618d83ebd574832b757f65ffe2d97a2916b` adds23 files under a
+separate current-rule namespace. The model SHA-256 is
+`d7fab401dec4daefe84e4e88bdb027862156b260a6e86e93fad2f8a5492b5667`.
+Free actions produce, capture immutable jobs, vary resources, complete either
+backend from an actual selected source, publish full/suffix data, land, finalize,
+publish anchors and execute a trusted completed recovery macro. Two slots reserve
+fresh work; a separate two-old profile uses both before recovery. No three-job
+claim follows. Historical modules/configs are unchanged.
+
+The byte adapter encodes height/EL/Comet/FI cuts (128bytes), their range commitment
+(160bytes), and the21-word statement (672bytes). It checks ordered interior leaves,
+empty single-block interiors, index c-p-1 and latest-c/FI consistency. Actual raw
+Capture, source-selected proofs and full original publications drive concrete
+replay. Land has no local L2 head/fork dependency. Verified backend statements,
+guest-valid blocks and authenticated fixture inputs are premises, not real proofs.
+
+| Primary profile                                          | Native | Generated / distinct / queued | Scope                       |
+| -------------------------------------------------------- | -----: | ----------------------------- | --------------------------- |
+| Fixed long and shortest competition                      |      0 | 14 /9 /0                      | Complete fixed companion    |
+| Two-old free safety                                      |      0 | 1,148,153 /69,808 /0          | Depth2/time1                |
+| Small free recovery                                      |      0 | 557,041 /35,904 /0            | Depth1/produces2/time3      |
+| Authority original/restored                              |   0 /0 | 3,801 /472 /0 each            | Same-copy restoration       |
+| Two-old short then long                                  |     12 | 22,022 /1,797 /97             | 17 complete transitions     |
+| Recovery c7 and fresh landing                            |     12 | 25,090 /2,865 /46             | 19 complete transitions     |
+| Recovery c6 through fresh landing and further production |     12 | 70,533 /7,207 /156            | 22 complete transitions     |
+| Actual generation guard removed                          |     12 | 2,744 /402 /64                | 11 complete transitions     |
+| Full free depth3/produces5/time5                         |    124 | Not exhausted                 | 280.0715s timeout; P01 OPEN |
+
+Unit/delayed Capture and six additional fixed witnesses also passed. The twelve
+named primary traces contain98 complete independently re-read transitions.
+Native12 establishes existence, even when its search queue happens to be zero.
+Only native0 with completed queue0 establishes a profile's bounded safety.
+
+The large graph's last periodic sample, about243s into execution, was11,451,711
+generated /1,113,943 distinct /476,896 queued. These are not counts at termination.
+There is no Finished/exhaustion marker; immutable-input/tool/mode postchecks passed.
+No retry, changed bound or replacement graph was used. Independent verification
+reports **TEST BLOCKED for full-domain acceptance**, with PASS for selected finite
+evidence. This checkpoint does not close P01 or W02's original broader OPEN R01.
+
+The fixed transaction retains p6→h10/ref0 and its entire original publication.
+Shortest competitors use each retained parent's causal inclusion block as their
+reference. U=4 makes the headroom attainable; the original long reference stays
+readable. At c9, long p6/ref0 and exact-short p9/ref3 have identical storage effects.
+Both actual complete jobs, backend pairs and publications are now recorded and
+checked against independent literal attempts. No fairness or proving-latency
+claim follows from this conditional progress.
+
+Primary original/fault/restored use the same physical source/mode, changing only
+ReadyAt's generation conjunct. The fault admits a fully prepared stale job with
+every other tested guard satisfied. Ordinary byte Land refuses it; changing only
+the executing generation back admits it. This is an abstract wrong-generation
+statement-verification defect, not a claim about deleting one standalone Solidity
+require. Original/restored exhaust and reproduce their outcomes.
+
+Independent native controls alter actual Recover to clear only available backendA
+from a genuinely proved/published old-job prestate, then separately remove actual
+Capture dispatch. The first triplet detects the complete frame change. For the
+second, original/restored reach fresh Land/finality/anchor/further Produce; the
+omitted graph exhausts5,521/648/0 without progress. All six readbacks pass with
+same-file/mode restoration and byte-identical semantic restored logs. Independent
+Python at heights37–41 checks all ABI words and38 expected refusals, including
+isolated Comet/FI changes with unrelated guards satisfied. All17 completed primary
+results were independently reconsumed; the timeout was separately qualified.
+
+Pre-run review repaired snapshot0 instead of R, mutable/bool Job aliases, missing
+uint48 bounds and monotonic anchor floors, infeasible fixed headroom/reference
+timing and same-outcome transaction/offer blindness. RED17/18 intended failures
+and GREEN22 passed. Earlier parser150, sandbox RMI EPERM before Init, and
+FixedInit75/zero-state attempts have zero semantic credit. Lexical separators
+and explicit bad=FALSE fixed the startup defects. The later unused free smoke
+was NOT_RUN. Exact committed-source review passes all23 files.
+
+Branch and genuine merge with main479bc3db6 each pass437 ordinary checks
+(251/166/20, zero errors/failures/skips), all1799 frozen inputs stable. Merge tree
+`bef20818e9dc357c030c7d7903318b5f206660b8` leaves the real index unchanged.
+All579 old model/config files remain unchanged; no local default TLC rerun is
+claimed. Prior609ab8609's hosted gate was read back SUCCESS; a new publication
+needs its own exact-head CI readback.
+
+| Evidence                      | SHA-256                                                            |
+| ----------------------------- | ------------------------------------------------------------------ |
+| Cut adapter                   | `263831199a00c6dd8d8633ca831f6d372a053336947183b5aec6e84e1b939647` |
+| Raw receiver                  | `524789b787eb14f1eb655bdf3a63f3a18613de4d3741a654869075da9e86722d` |
+| Primary packet                | `55ec191ed585148182e6a516080421d1400658c333e651d605f31f9e456c76a2` |
+| All primary result digests    | `388d2c772a73186542ebafd1a7d88451e7612c298cdfe50e1812e96e47100dc2` |
+| Large timeout raw log         | `8041826a5ba5c173d005b569ea8dfb64ff9c85dcfb778b57d7efdb5224baec37` |
+| Independent native packet     | `ca00a450f9aa48bef49b212a18c8d29de8fc68968092e184fc85390bcf087241` |
+| Independent17-result readback | `cc1e35782ddfccbdcdb0562ef09a23dd57d68ce3cdf1647ed67de882f17a07ff` |
+| Exact-source review           | `19482f0cea8d9cf71cca62a1ccefae661197b73c0f9466994d0bb1b5de2796e8` |
+| Independent verification      | `ad525e2e8de3710004144e30396e35363cbead69eac39bfe9fc4c73fe89d3e59` |
+
+Physical S6 is an offset fixture: switching-network Unzen finality, SignalService
+start and authenticated guest-origin checks are premises (LAND6.1-8a/PROOF6.2-46a).
+W07 separately checks recovery authorization/reset; W06's macro proves neither.
+Current client/EL/guest/proving, full Q01/P02 and deployment remain WAITING.
+No natural protocol defect is confirmed. Six selected outputs are available,
+with unrestricted W06 safety OPEN; W07 and the combined final gate continue.

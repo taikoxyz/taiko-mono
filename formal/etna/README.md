@@ -899,3 +899,11 @@ actual new-checker profile outputs pass independent source/raw rechecks. Origina
 full-product/native evidence keeps its historical execution versions. The worktree
 and raw evidence are retained; hourly checks return to feedback-only. Broader
 C01/R01/P01 and deployment/trust obligations retain their recorded open boundaries.
+
+The [current proof-range/recovery product](conformance/PROVING_RECOVERY_PRODUCT.md)
+uses four-field cuts and actual captured jobs, backend statements and full original
+publications. Small free graphs and overlap/fresh-generation witnesses passed
+independent replay and source controls. Its depth3 free graph timed out at280s,
+leaving unrestricted safety OPEN P01. Recovery authorization is separate W07;
+real proving/client/EL execution remains WAITING. See
+[W06 evidence](REPORT.md#w06-current-proof-ranges-and-recovery).
