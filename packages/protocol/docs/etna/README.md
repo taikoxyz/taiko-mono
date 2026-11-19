@@ -9,15 +9,15 @@ The Etna fork includes two designs, both in this directory:
   and finalizes them instantly; anyone can land a proven batch on L1, and funds
   on L1 recognize only landed checkpoints. The target is Stage 0.
 
-| File                           | Contents                                                                                                                                                                                                                               |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [ANCHORLESS.md](ANCHORLESS.md) | The anchorless design: header, contract changes, fork and upgrade order                                                                                                                                                                |
-| [SPEC.md](SPEC.md)             | The PoS + ZK design specification, sections 1–12 and appendices A–C                                                                                                                                                                    |
-| [SWITCH.md](SWITCH.md)         | The one-time switch from Unzen to Etna: DAO proposal, switch day, first landing                                                                                                                                                        |
-| [ACCEPTANCE.md](ACCEPTANCE.md) | The acceptance and launch checklist for SPEC.md                                                                                                                                                                                        |
-| [rules/](rules/README.md)      | Stable rule references for SPEC.md, with vectors and review questions                                                                                                                                                                  |
-| [CLAUDE.md](CLAUDE.md)         | Guidance for AI agents editing SPEC.md and rules/; `AGENTS.md` is a symlink to it                                                                                                                                                      |
-| [deck/](deck/)                 | A slide deck that introduces Etna to engineers who know the based design. It shows an earlier revision: its slides still have the landing grid, registry displacement and the landed validator-state hash, which SPEC.md no longer has |
+| File                           | Contents                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [ANCHORLESS.md](ANCHORLESS.md) | The anchorless design: header, contract changes, fork and upgrade order                                                                                                                                                                                                                                                     |
+| [SPEC.md](SPEC.md)             | The PoS + ZK design specification, sections 1–12 and appendices A–C                                                                                                                                                                                                                                                         |
+| [SWITCH.md](SWITCH.md)         | The one-time switch from Unzen to Etna: DAO proposal, switch day, first landing                                                                                                                                                                                                                                             |
+| [ACCEPTANCE.md](ACCEPTANCE.md) | The acceptance and launch checklist for SPEC.md                                                                                                                                                                                                                                                                             |
+| [rules/](rules/README.md)      | Stable rule references for SPEC.md, with vectors and review questions                                                                                                                                                                                                                                                       |
+| [CLAUDE.md](CLAUDE.md)         | Guidance for AI agents editing SPEC.md and rules/; `AGENTS.md` is a symlink to it                                                                                                                                                                                                                                           |
+| [deck/](deck/)                 | A slide deck that introduces Etna to engineers who know the based design. It shows an earlier revision: its switch slides still show a multisig origin written before the final Unzen proof, and other slides have the landing grid, registry displacement and the landed validator-state hash, which SPEC.md no longer has |
 
 The Etna block-production and validation rules are in
 [SPEC.md section 3](SPEC.md#3-consensus-and-blocks). Its header encoding is also recorded in
@@ -64,7 +64,7 @@ The Etna block-production and validation rules are in
 
 ### Key review points
 
-- **Snapshot startup:** EL-only backends, validators and full nodes may start from authenticated checkpoint snapshots at launch or later. App nodes also install the proposer priorities from the validator state that the checkpoint header's `app_hash` commits and authenticate only a bounded window of consensus history ending at the checkpoint, without pre-checkpoint EL execution or a scan from genesis, then use stock CometBFT P2P from s+1. Fixed genesis, latest-checkpoint trust and signer HRS remain mandatory. The validator state is not settled on L1: the app computes it at every height (never from stock CometBFT's historical lookup) and commits it in `app_hash`, which stock CometBFT compares at every block. Keep genesis and the current origin publicly recoverable, keep the full consensus history archived so fixed-genesis replay stays possible, and preserve complete EL/app snapshot-to-latest paths; full genesis blob replay is optional (5.3, 5.4, 6.2, 8.4, 9.1).
+- **Snapshot startup:** EL-only backends, validators and full nodes may start from authenticated checkpoint snapshots at launch or later. App nodes also install the proposer priorities from the validator state that the checkpoint header's `app_hash` commits and authenticate only a bounded window of consensus history ending at the checkpoint, without pre-checkpoint EL execution or a scan from genesis, then use stock CometBFT P2P from s+1. Validators also retain the external signer state. If they rebuild consensus stores after signing, they recover their WAL and lock or remain fenced until a committed chain covers their last signed height and the durable signing floor excludes that height (8.2). The import window covers committee and anchor history. Blocks carry zero evidence bytes; vote collectors retain conflicting votes for L1 slashing (3.1, 9.1). The validator state is not settled on L1: the app computes it at every height (never from stock CometBFT's historical lookup) and commits it in `app_hash`, which stock CometBFT compares at every block. Keep genesis and the current origin publicly recoverable, keep the full consensus history archived so fixed-genesis replay stays possible, and preserve complete EL/app snapshot-to-latest paths; full genesis blob replay is optional (5.3, 5.4, 6.2, 8.4, 9.1).
 - **Consensus and signing:** stock CometBFT v0.40.0 with secp256k1eth keys, a
   signing domain bound to the deployment and recovery generation, committee
   changes activated two heights after they are derived, and an external signer
@@ -84,11 +84,11 @@ The Etna block-production and validation rules are in
   inclusion fees stay in the Inbox, and anyone may sweep its ETH balance to the
   fixed DAO treasury. Landing earns no protocol reward.
 - **Staking and economic security:** delayed owner-funded top-ups reuse existing
-  bonds. Registration requires at least minStake and an empty slot, and no bond
+  bonds. Registration and committee eligibility use the same minStake. Admission requires an empty slot, and no bond
   is moved or removed to admit another. Deployment sets 4096 × minStake above
   TAIKO's fixed supply, so bonds that still hold the stake they registered with
   cannot hold every slot (section 12, item 11). Bond ids are never reused, and
-  unissued ids cannot be confirmed, withdrawn or excluded through recovery. The launch
+  forfeiture and recovery exclusions identify an issued bond by that id alone. The launch
   checklist derives S_MIN_TOTAL from an independent capital target and
   conservative price, while operating shortfalls trigger disclosure
   and replenishment without blocking recovery. The DAO may immediately forfeit a
@@ -111,8 +111,9 @@ The Etna block-production and validation rules are in
   ones still on the settled chain then complete without paying a fee twice, and
   the L1 `SignalService` and Bridge stay paused until it executes.
 - **Upgrades:** rule changes take effect at an L2 timestamp from one Inbox slot
-  that only the DAO writes, at least `maxAnchorAge` ahead, so every later block's
-  anchor shows it. Nodes and guests select each block's ruleset from its anchor
+  that only the DAO writes. Each call to schedule or cancel names the current
+  recovery generation. The lead time of at least `maxAnchorAge` ensures that
+  every block at or after activation sees the schedule in its anchor. Nodes and guests select each block's ruleset from its anchor
   and refuse rulesets they do not implement, so the accepted image set stays flat
   and production does not stop. Structural changes stop production at a
   scheduled time and restart through `recover`.
