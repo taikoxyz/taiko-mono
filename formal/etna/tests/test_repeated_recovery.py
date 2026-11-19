@@ -356,3 +356,67 @@ class RepeatedRecovery(unittest.TestCase):
         self.assertEqual(result["args"][1]["nonce"], result["pre"]["nonce"])
         self.assertNotEqual(result["args"][1]["generation"], result["pre"]["generation"])
         self.assertFalse(result["accepted"])
+
+    def _assert_fatal_receipt_diagnostics(self, case):
+        from unittest.mock import patch
+
+        recovery = importlib.import_module("repeated_recovery")
+        scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(scratch.cleanup)
+        staged = Path(scratch.name)
+        formal = ROOT / "formal/etna"
+        module, config = recovery.MODULE, case + ".cfg"
+        for name, source in ((module, formal / module),
+                             (config, formal / "products/repeated-recovery" / config)):
+            (staged / name).write_bytes(source.read_bytes())
+        named = case == "progress"
+        text = (recovery.TLC_BANNER + "\nParsing file /tmp/etna-model/" + module + "\n"
+                "Semantic processing of module EtnaRepeatedRecovery\n")
+        text += ("Error: Invariant NoProgress is violated.\n"
+                 "Error: The behavior up to this point is:\n" + raw(sample())) if named else (
+                 "Model checking completed. No error has been found.\n")
+        original = (text + "100 states generated, 50 distinct states found, 0 states left on queue.\n"
+                    "The depth of the complete state graph search is 40.\n"
+                    "Finished in 00s at (2000-01-01 00:00:00)\n").encode()
+        record = dict(schema="etna-repeated-recovery-execution-1", case=case,
+                      argv=["/tmp/etna-jre/bin/java", "-Xmx1024m", "-XX:+UseParallelGC", "-cp",
+                            "/tmp/etna-tools/tla2tools.jar", "tlc2.TLC", "-workers", "1", "-seed", "1",
+                            "-deadlock", "-metadir", "/tmp/etna-out/states", "-config", config, module],
+                      cwd="/tmp/etna-model", returncode=12 if named else 0, timedOut=False,
+                      rawSha256=hashlib.sha256(original).hexdigest(),
+                      inputSha256={name: hashlib.sha256((staged / name).read_bytes()).hexdigest()
+                                   for name in (module, config)})
+
+        def consume(body):
+            metadata = dict(record, rawSha256=hashlib.sha256(body).hexdigest())
+            return recovery.current_receipt(ROOT, case, body, execution=json.dumps(metadata).encode(),
+                                            staged_model=staged)
+
+        diagnostics = (
+            b"java.lang.Exception: parser fixture\n",
+            b"java.lang.Error: parser fixture\n",
+            b'Exception in thread "main" java.lang.IllegalStateException: parser fixture\n',
+            b"java.lang.OutOfMemoryError: parser fixture\n",
+            b"\tat tlc2.tool.fixture.run(Fixture.java:1)\n",
+            b"panic: parser fixture\n",
+            b"Traceback (most recent call last):\n",
+            b"FATAL: parser fixture\n",
+            b"# A fatal error has been detected by the Java Runtime Environment:\n",
+        )
+        # Parser fixture only: stub final scope classification, not actual
+        # capture/raw/status/source/argv checks. Acceptance is not native evidence.
+        with patch.object(recovery, "reviewed_boundary", return_value={}):
+            for diagnostic in diagnostics:
+                with self.subTest(diagnostic=diagnostic):
+                    healthy = consume(original)
+                    self.assertEqual(healthy["outcome"],
+                                     "NAMED_WITNESS_REPLAYED" if named else "FINITE_SAFETY_EXHAUSTED")
+                    poisoned = original.replace(b"\n", b"\n" + diagnostic, 1)
+                    with self.assertRaisesRegex(ValueError, "fatal native diagnostic"):
+                        consume(poisoned)
+
+    def test_fatal_diagnostics_are_refused_at_safety_receipt(self):
+        self._assert_fatal_receipt_diagnostics("safety")
+
+    def test_fatal_diagnostics_are_refused_at_named_receipt(self):
+        self._assert_fatal_receipt_diagnostics("progress")

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import re
 
-from boundary_scope import require_tlc_argv, reviewed_boundary
+from boundary_scope import require_healthy_native, require_tlc_argv, reviewed_boundary
 from current_settlement import Context, capture, land, word
 from current_spec import _unique_object
 from proving_recovery import FOOTER, STATE, blob, raw_cut, same, trace_packets
@@ -325,6 +325,7 @@ def _execution(record, case, raw):
 
 def _native_result(raw, case, cwd):
     text = raw.decode("utf-8")
+    require_healthy_native(text)
     lines = text.splitlines()
     _require(lines[:1] == [TLC_BANNER] and lines.count(TLC_BANNER) == 1
              and lines.count("Semantic processing of module EtnaRepeatedRecovery") == 1,

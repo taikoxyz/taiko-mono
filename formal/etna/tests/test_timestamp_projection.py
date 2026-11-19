@@ -271,6 +271,35 @@ class TimestampProjection(unittest.TestCase):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 self.receipt(emit, checkout, staged, argv=argv)
 
+    def test_fatal_native_diagnostics_are_refused_at_projection_receipt(self):
+        from unittest.mock import patch
+
+        projection = self.projection()
+        checkout = self.checkout()
+        staged = self.staged_model(checkout)
+        diagnostics = (
+            b"java.lang.Exception: parser fixture\n",
+            b"java.lang.Error: parser fixture\n",
+            b'Exception in thread "main" java.lang.IllegalStateException: parser fixture\n',
+            b"java.lang.OutOfMemoryError: parser fixture\n",
+            b"\tat tlc2.tool.fixture.run(Fixture.java:1)\n",
+            b"panic: parser fixture\n",
+            b"Traceback (most recent call last):\n",
+            b"FATAL: parser fixture\n",
+            b"# A fatal error has been detected by the Java Runtime Environment:\n",
+        )
+        # Parser fixtures stub only final scope classification so historical and
+        # current checkouts exercise the same actual source/raw/status/argv API.
+        # This acceptance is not trusted native collection or execution evidence.
+        with patch.object(projection, "reviewed_boundary", return_value={}):
+            for diagnostic in diagnostics:
+                with self.subTest(diagnostic=diagnostic):
+                    healthy = self.receipt(projection.projection_receipt, checkout, staged)
+                    self.assertEqual(healthy["outcome"], "FINITE_SAFETY_EXHAUSTED")
+                    poisoned = COMPLETE.replace(b"\n", b"\n" + diagnostic, 1)
+                    with self.assertRaisesRegex(ValueError, "fatal native diagnostic"):
+                        self.receipt(projection.projection_receipt, checkout, staged, raw=poisoned)
+
 
 if __name__ == "__main__":
     unittest.main()

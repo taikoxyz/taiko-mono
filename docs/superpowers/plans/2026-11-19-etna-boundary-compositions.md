@@ -64,11 +64,11 @@
 
 **Interfaces:** source claim `mixed-rule-landing`; `resolve_blocks(blocks, authenticated_views) -> tuple[int,...]` derives each block's rule from its own anchor. `audit(text, case)` validates actual schedule/produce/pause/capture/backend/publication/landing frames and ordered range statements.
 
-- [ ] Freeze M=1296/U=4, writes2304→3600 and3888→5184, a valid prior parent3598, four EL times3599/3600/3601/5184 and anchors3456/3456/3600/5184. Attempt the first rule1 block3600 with software0: actual unsupported refusal preserves all live fields. Resume with finalized/retained anchor3456 after software upgrade; the following BFT3600/anchor3600 make literal parent+1=3601. Record witness carry/inherit flags, monotone finalized anchors, full-range reference>=all anchors and landing block>reference. Do not scale away the +1/activation−1 edge. Per-family adjacent-image aggregation/whole-range proving is an explicit premise, not a flat capability union or three-fork ELF requirement.
-- [ ] RED: latest-slot historical reinterpretation, endpoint-only backend check, capability-union substitution, lossy pause and illegal anchor/reference/time choices.
-- [ ] Implement separately versioned current-rule product and per-backend complete ordered range validation. Guest implementation/proof generation remain outside it.
-- [ ] Root packet/smoke/full: actual two activations, unsupported-rule pause/resume, full original range and successful Land; actual one-backend interior-rule fault/restored and different independent latest-anchor/dispatch control.
-- [ ] Independent trace/ABI observations and focused regressions, commit/publication; actual client/EL/guest/FI/Unzen deployment vectors remain WAITING.
+- [x] Freeze M=1296/U=4, writes2304→3600 and3888→5184, a valid prior parent3598, four EL times3599/3600/3601/5184 and anchors3456/3456/3600/5184. Attempt the first rule1 block3600 with software0: actual unsupported refusal preserves all live fields. Resume with finalized/retained anchor3456 after software upgrade; the following BFT3600/anchor3600 make literal parent+1=3601. Record witness carry/inherit flags, monotone finalized anchors, full-range reference>=all anchors and landing block>reference. Do not scale away the +1/activation−1 edge. Per-family adjacent-image aggregation/whole-range proving is an explicit premise, not a flat capability union or three-fork ELF requirement.
+- [x] RED: latest-slot historical reinterpretation, endpoint-only backend check, capability-union substitution, lossy pause and illegal anchor/reference/time choices.
+- [x] Implement separately versioned current-rule product and per-backend complete ordered range validation. Guest implementation/proof generation remain outside it.
+- [x] Root packet/smoke/full: actual two activations, unsupported-rule pause/resume, full original range and successful Land; actual one-backend interior-rule fault/restored and different independent latest-anchor/dispatch control.
+- [x] Independent trace/ABI observations and focused regressions, commit/publication; actual client/EL/guest/FI/Unzen deployment vectors remain WAITING.
 
 ### Task 4: Y04 real funded pending forfeiture component
 
@@ -141,3 +141,7 @@ boundary_scope.py, consumed by timestamp_projection.py and repeated_recovery.py.
 Companion Y01 path-substitution tests and authentic archived execution readback
 are within Y02 repair scope. Preserve old model/config and native raw bytes,
 current-only source selection and the trusted execution-collector premise.
+
+## Execution ordering refinement after Y03 native parse failure
+
+For remaining coherent models/native fixtures, perform an isolated bounded native syntax/type/compile check before expanding their adapter tests. Inspect and pin that compile entrypoint and inputs first; this does not bypass source review, behavioral verification, cache ownership, or final gates. Preserve every earlier failed run as INCONCLUSIVE at its original source identity.

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import re
 
-from boundary_scope import require_tlc_argv, reviewed_boundary
+from boundary_scope import require_healthy_native, require_tlc_argv, reviewed_boundary
 from current_spec import _unique_object
 from proving_recovery import FOOTER
 
@@ -57,6 +57,7 @@ def audit_projection_source(product_bytes: bytes, wrapper_bytes: bytes) -> dict:
 
 def _audit_completion(raw, cwd):
     text = raw.decode("utf-8")
+    require_healthy_native(text)
     lines = text.splitlines()
     banner = [line for line in lines if line.startswith("TLC2 Version ")]
     if lines[:1] != [TLC_BANNER] or banner != [TLC_BANNER]:

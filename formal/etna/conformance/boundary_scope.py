@@ -2,8 +2,33 @@
 
 import json
 from pathlib import Path
+import re
 
 import current_spec
+
+
+_FATAL_NATIVE_DIAGNOSTIC = re.compile(
+    r"^(?:\s*(?:Exception in thread\b|Exception:|Caused by:|Suppressed:|"
+    r"(?:[A-Za-z_$][\w$]*\.)+(?:Exception|Error)\b|"
+    r"(?:[A-Za-z_$][\w$]*\.)*[A-Za-z_$][\w$]*(?:Exception|Error)\b)|"
+    r"\s+at\s+(?:[\w.$-]+(?:@[\w.-]+)?/)?(?:[A-Za-z_$][\w$]*\.)+"
+    r"[\w$<>]+\([^\n)]*\)|\s*File \"[^\n\"]+\", line \d+|"
+    r"\s*(?:panic(?:\[[^\n\]]+\])?:|Traceback \(most recent call last\):|"
+    r"fatal(?:\s+error|\s+runtime)?\b)|"
+    r"#\s*(?:A fatal error\b|(?:SIGSEGV|SIGBUS|SIGILL|SIGFPE)\b))",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+
+def require_healthy_native(text: str) -> None:
+    """Refuse fatal runtime/stack diagnostics before native outcome attribution.
+
+    Expected TLC `Error: Invariant ...` lines remain for each producer's exact
+    named-outcome checks. This guard does not authenticate capture metadata;
+    producers still require a trusted same-run collector and pinned inputs.
+    """
+    if type(text) is not str or _FATAL_NATIVE_DIAGNOSTIC.search(text):
+        raise ValueError("unexpected fatal native diagnostic")
 
 
 def reviewed_boundary(workspace_root: Path, fixed_claim_id: str) -> dict:
