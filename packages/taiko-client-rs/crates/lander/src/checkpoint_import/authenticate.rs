@@ -830,7 +830,6 @@ fn check_metadata(
         anchor.inbox.rules_schedule,
         &parent_info(parent, 0)?,
         env.block.header.timestamp,
-        state.genesis.genesis_height,
     )
     .map_err(|e| match e {
         // As in FinalizeBlock, a ruleset this software lacks needs an upgrade, not a new source.

@@ -128,7 +128,7 @@ pub enum RuleViolation {
         /// Ruleset selected by this block's anchor and timestamp.
         rules: u64,
     },
-    /// The committed parent reached the authenticated planned-stop grid and time.
+    /// The committed parent's timestamp reached the authenticated planned-stop time.
     #[error("planned stop reached at parent height {parent_height}")]
     PlannedStop {
         /// Last producible L2 block height.

@@ -99,7 +99,7 @@ fn v1_registry_and_committee_roots_match_schema5() {
 }
 
 #[test]
-fn displaced_and_reused_entries_hash_the_slot_instead_of_the_permanent_bond_id() {
+fn reused_slot_entries_hash_the_slot_instead_of_the_permanent_bond_id() {
     for case in vectors()["registry_entries"]["bond_slots"].as_array().unwrap() {
         let raw = &case["entry"];
         let consensus_key = key(raw);
@@ -219,7 +219,7 @@ fn registry_state(storage: &RegistryStorage) -> TestState {
 }
 
 #[test]
-fn displacement_and_empty_slots_preserve_historical_authenticated_committees() {
+fn reused_and_empty_slots_preserve_historical_authenticated_committees() {
     let old = sample_entries(3);
     let replacement = sample_entries(4).pop().unwrap();
     let mut current = old.clone();

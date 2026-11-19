@@ -4,7 +4,6 @@ use super::{
     native::{Block, Commit, CommitSig, RawBlock, evidence::Sum as RawEvidence},
 };
 use alloc::{collections::BTreeSet, format, string::String, vec::Vec};
-use alloy_primitives::B256;
 use prost::Message;
 use sha2::{Digest, Sha256};
 use tendermint::{
@@ -82,6 +81,11 @@ pub fn header_hash(header: &tendermint::block::Header) -> Hash {
 /// Verify the native certificate against keys/powers bound by this header, independently of
 /// whether the registry switch choosing the historical set is inside the import window.
 /// The caller must independently authorize the supplied set for this epoch and generation.
+///
+/// A landing proof of (p,h] needs this only for the commit of h and of each block in (p,h)
+/// whose successor a different committee signs; the last_block_id links of the other blocks
+/// reach one of those (PROOF-6.2-16, PROOF-6.2-17). Any commit for the block's BlockID serves,
+/// such as its successor's LastCommit.
 pub fn verify_native_commit(
     commit: &Commit,
     header: &tendermint::block::Header,
@@ -211,11 +215,10 @@ pub fn block_parts(block: &RawBlock) -> Result<tendermint::block::parts::Header,
 /// header's roots, not an arbitrary body an RPC response happens to return beside it.
 ///
 /// The header's app_hash, which commits the validator state as well as the parent EL hash, is
-/// not checked (PROOF-6.2-42), so `_parent_el_hash` is unused.
+/// not checked (PROOF-6.2-42).
 pub fn verify_body_at_origin<'a>(
     pair: CertifiedBlockRef<'a>,
     expected_height: u64,
-    _parent_el_hash: B256,
     origin_height: u64,
 ) -> Result<&'a [u8], BftError> {
     let block = &pair.block;
@@ -289,9 +292,8 @@ pub fn verify_structure<'a>(
     pair: CertifiedBlockRef<'a>,
     previous: Option<CertifiedBlockRef<'_>>,
     expected_height: u64,
-    parent_el_hash: B256,
 ) -> Result<&'a [u8], BftError> {
-    verify_structure_at_origin(pair, previous, expected_height, parent_el_hash, 0)
+    verify_structure_at_origin(pair, previous, expected_height, 0)
 }
 
 /// Verifies BFT ancestry with an empty LastCommit only at the authenticated generation start.
@@ -299,10 +301,9 @@ pub fn verify_structure_at_origin<'a>(
     pair: CertifiedBlockRef<'a>,
     previous: Option<CertifiedBlockRef<'_>>,
     expected_height: u64,
-    parent_el_hash: B256,
     origin_height: u64,
 ) -> Result<&'a [u8], BftError> {
-    let envelope = verify_body_at_origin(pair, expected_height, parent_el_hash, origin_height)?;
+    let envelope = verify_body_at_origin(pair, expected_height, origin_height)?;
     match (&pair.block.last_commit, previous) {
         (None, None) => {}
         (Some(last), Some(previous)) if last.block_id == previous.commit.block_id => {}

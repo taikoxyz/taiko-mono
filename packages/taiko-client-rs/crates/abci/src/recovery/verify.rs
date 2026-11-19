@@ -29,9 +29,6 @@ pub(super) struct Observation {
     pub(super) el_hash: B256,
     /// Original landing Comet hash.
     pub(super) comet_hash: B256,
-    /// Original landing validator-state hash (word 4): the original generation's state, never
-    /// compared with this generation's.
-    pub(super) val_state_hash: B256,
     /// Actual previous checkpoint of the retained landing.
     pub(super) parent_height: u64,
     /// Generation that originally created the retained landing, possibly far older.
@@ -108,7 +105,7 @@ pub(super) fn observation(
     let (height, number, timestamp) =
         (height.to::<u64>(), number.to::<u64>(), timestamp.to::<u64>());
     let rules = word(&storage, inbox::slot(inbox::RULES_SCHEDULE));
-    if rules >> 240 != U256::ZERO {
+    if rules >> inbox::RulesSchedule::RESERVED_BIT != U256::ZERO {
         return Err(invalid("reserved rules schedule bits"));
     }
     if header.number() == number {
@@ -121,37 +118,25 @@ pub(super) fn observation(
         number < w.genesis.l1_header.number() ||
         timestamp == 0 ||
         height != c ||
-        !height
-            .checked_sub(start)
-            .is_some_and(|offset| offset.is_multiple_of(crate::GRID_INTERVAL))
+        height < start
     {
         return Err(invalid("missing or inconsistent fixed origin"));
     }
-    let [packed, el_hash, comet_hash, val_state_hash] =
-        inbox::landing_slots(c).map(|s| word(&storage, s));
-    if packed >> 144 != U256::ZERO {
-        return Err(invalid("reserved landing bits"));
-    }
-    let parent = word_u48(packed, 0);
-    let landing_generation = word_u48(packed, 48);
-    let cursor = word_u48(packed, 96);
-    let el_hash = B256::from(el_hash);
-    let comet_hash = B256::from(comet_hash);
-    let val_state_hash = B256::from(val_state_hash);
+    let inbox::LandingRecord {
+        parent_height: parent,
+        generation: landing_generation,
+        forced_head: cursor,
+        el_hash,
+        comet_hash,
+    } = inbox::LandingRecord::decode(inbox::landing_record_slots(c).map(|s| word(&storage, s)))
+        .ok_or_else(|| invalid("reserved landing bits"))?;
     if el_hash.is_zero() ||
         landing_generation >= w.generation ||
-        (c > start &&
-            (parent >= c ||
-                !parent
-                    .checked_sub(start)
-                    .is_some_and(|offset| offset.is_multiple_of(crate::GRID_INTERVAL)) ||
-                comet_hash.is_zero()))
+        (c > start && (parent >= c || parent < start || comet_hash.is_zero()))
     {
         return Err(invalid("invalid retained landing"));
     }
-    if c == start &&
-        (parent != start || cursor != 0 || !comet_hash.is_zero() || !val_state_hash.is_zero())
-    {
+    if c == start && (parent != start || cursor != 0 || !comet_hash.is_zero()) {
         return Err(invalid("invalid genesis landing"));
     }
     let checkpoint = word(&storage, inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT));
@@ -176,7 +161,6 @@ pub(super) fn observation(
         timestamp,
         el_hash,
         comet_hash,
-        val_state_hash,
         parent_height: parent,
         landing_generation,
         cursor,
@@ -272,7 +256,6 @@ pub(crate) fn verify_recovery(
             el_hash: origin.el_hash,
             state_root: w.el_header.state_root,
             comet_hash: origin.comet_hash,
-            val_state_hash: origin.val_state_hash,
             forced_cursor: origin.cursor,
             committee: CommitteeState { record, members },
         },

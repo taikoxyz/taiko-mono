@@ -934,7 +934,6 @@ pub fn authenticate_snapshot(snapshot: &LandingSnapshot, params: &ChainParams) -
                 (origin.height == snapshot.checkpoint_height &&
                     (origin.el_hash != snapshot.checkpoint_hash ||
                         origin.comet_hash != snapshot.checkpoint_comet_hash ||
-                        origin.val_state_hash != snapshot.checkpoint_val_state_hash ||
                         origin.forced_cursor != snapshot.forced_inclusion_head))
             {
                 return Err(LanderError::Safety(

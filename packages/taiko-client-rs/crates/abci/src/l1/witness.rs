@@ -90,7 +90,7 @@ pub fn verify_anchor_witness(
     let storage = verify_account_witness(header.state_root(), &w.inbox, &inbox::anchor_slots())?;
     let head_tail = inbox_word(&storage, inbox::FORCED_INCLUSION_HEAD_TAIL);
     let rules_schedule = inbox_word(&storage, inbox::RULES_SCHEDULE);
-    if rules_schedule >> 240 != U256::ZERO {
+    if rules_schedule >> inbox::RulesSchedule::RESERVED_BIT != U256::ZERO {
         return Err(WitnessError::ReservedBits { slot: inbox::RULES_SCHEDULE });
     }
     let facts = InboxFacts {
@@ -249,7 +249,6 @@ mod tests {
             last_checkpoint_height: 0x4567_89ab_cdef,
             last_checkpoint_hash: B256::repeat_byte(0xc4),
             last_checkpoint_comet_hash: B256::ZERO,
-            last_checkpoint_val_state_hash: B256::ZERO,
             forced_inclusion_head: 0x0000_8765_4321_0fed,
             forced_inclusion_tail: 0x0000_ffff_ffff_fffe,
             forced_inclusion_queue: vec![],
@@ -291,8 +290,7 @@ mod tests {
                     ("active_rules", 7),
                     ("next_rules", 8),
                     ("rules_time", max48),
-                    ("stop_time", 123),
-                    ("stop_grid", 6),
+                    ("stop_time", max48),
                 ],
             ),
             packed(
@@ -351,8 +349,7 @@ mod tests {
                 rules_schedule: U256::from(7) |
                     (U256::from(8) << 48) |
                     (U256::from(max48) << 96) |
-                    (U256::from(123) << 144) |
-                    (U256::from(6) << 192),
+                    (U256::from(max48) << 144),
                 recovery_generation: ((1u64 << 48) - 1) - 1,
                 last_checkpoint_height: 0x4567_89ab_cdef,
                 last_checkpoint_hash: B256::repeat_byte(0xc4),
@@ -450,6 +447,35 @@ mod tests {
         assert_eq!(facts.last_checkpoint_height, 77);
         assert_eq!(facts.last_checkpoint_hash, B256::ZERO);
         assert_eq!((facts.forced_inclusion_head, facts.forced_inclusion_tail), (4, 6));
+    }
+
+    /// STOR-B-15a, STOR-B-24: slot 293 packs four uint48 fields, so `stopTime` ends at bit 191
+    /// and every bit from 192 up is reserved, where the retired `stopGrid` was.
+    #[test]
+    fn anchor_rejects_reserved_rules_schedule_bits_above_stop_time() {
+        for (word, accepted) in [
+            (U256::from((1u64 << 48) - 1) << 144, true),
+            (U256::from(1) << 192, false),
+            (U256::from(6) << 192, false),
+            (U256::from(1) << 255, false),
+        ] {
+            let mut accounts = filler_accounts();
+            let mut account = crate::test_utils::inbox_account(INBOX, &live_storage());
+            account.4.push((inbox::slot(inbox::RULES_SCHEDULE), word));
+            accounts.push(account);
+            let state = TestState::new(accounts);
+            let w = anchor_witness_in(&state, INBOX, l1_header(9, 99));
+            match verify_anchor_witness(&w, INBOX) {
+                Ok(anchor) => {
+                    assert!(accepted, "{word:#x} sets a reserved bit");
+                    assert_eq!(anchor.inbox.rules_schedule, word);
+                }
+                Err(error) => {
+                    assert!(!accepted, "{word:#x}: {error}");
+                    assert_eq!(error, WitnessError::ReservedBits { slot: inbox::RULES_SCHEDULE });
+                }
+            }
+        }
     }
 
     #[test]

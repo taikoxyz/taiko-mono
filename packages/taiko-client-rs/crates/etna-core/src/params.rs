@@ -6,10 +6,6 @@ use serde::Deserialize;
 /// The largest committee size accepted by the registry discovery and consensus bounds.
 pub const MAX_N_MAX: usize = 4096;
 
-/// `K`, the landing grid interval in L2 blocks (the Inbox's `GRID_INTERVAL`): every landed
-/// checkpoint and batch boundary is S plus a multiple of it; unsettled limit U is a multiple.
-pub const GRID_INTERVAL: u64 = 6;
-
 /// Deployment constants for authenticating an Unzen to Etna switch (SPEC PARAM-11-12a).
 /// Production networks compile these values into their chain parameters; private devnets may
 /// set the explicit `[switch]` TOML table before creating the signing domain.
@@ -64,8 +60,8 @@ pub enum ParamsError {
          implementation"
     )]
     InvalidSwitch,
-    /// U must be a [`GRID_INTERVAL`] multiple within the protocol unsettled-depth bounds.
-    #[error("unsettled_limit must be a multiple of {k} in {k}..=65536", k = GRID_INTERVAL)]
+    /// U must lie within the protocol unsettled-depth bounds (BACKP-6.4-2).
+    #[error("unsettled_limit must be in 1..=65536")]
     InvalidUnsettledLimit,
     /// Voting power units must respect the token-supply safety bound.
     #[error("vp_unit must be at least 867361738 base units")]
@@ -100,9 +96,9 @@ impl ChainParams {
         self.unsettled_limit
     }
 
-    /// Checks [`GRID_INTERVAL`] grid depth bounds, token-supply voting-power safety, committee
-    /// capacity, positive block gas limit and s_min >= vp_unit. Returns the first invalid
-    /// deployment parameter.
+    /// Checks the unsettled-depth bounds, token-supply voting-power safety, committee capacity,
+    /// positive block gas limit and s_min >= vp_unit. Returns the first invalid deployment
+    /// parameter.
     pub fn validate(&self) -> Result<(), ParamsError> {
         if self.switch.as_ref().is_some_and(|switch| {
             switch.unzen_inbox.is_zero() ||
@@ -111,9 +107,7 @@ impl ChainParams {
         }) {
             return Err(ParamsError::InvalidSwitch);
         }
-        if !(GRID_INTERVAL..=65_536).contains(&self.unsettled_limit) ||
-            !self.unsettled_limit.is_multiple_of(GRID_INTERVAL)
-        {
+        if !(1..=65_536).contains(&self.unsettled_limit) {
             return Err(ParamsError::InvalidUnsettledLimit);
         }
         if self.vp_unit < U256::from(867_361_738) {
@@ -132,5 +126,31 @@ impl ChainParams {
             return Err(ParamsError::SMinBelowVpUnit { s_min: self.s_min, vp_unit: self.vp_unit });
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// BACKP-6.4-2, PARAM-11-8: U is any integer in 1..=65,536, not only a multiple of a grid
+    /// interval.
+    #[test]
+    fn unsettled_limit_is_any_value_from_one_to_65536() {
+        let base = crate::test_utils::params();
+        for limit in [1, 5, 6, 7, 3600, 65_536] {
+            assert_eq!(
+                ChainParams { unsettled_limit: limit, ..base.clone() }.validate(),
+                Ok(()),
+                "U={limit}"
+            );
+        }
+        for limit in [0, 65_537, u64::MAX] {
+            assert_eq!(
+                ChainParams { unsettled_limit: limit, ..base.clone() }.validate(),
+                Err(ParamsError::InvalidUnsettledLimit),
+                "U={limit}"
+            );
+        }
     }
 }

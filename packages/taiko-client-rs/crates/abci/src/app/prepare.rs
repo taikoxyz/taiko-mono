@@ -137,7 +137,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 unix_secs(req.time),
                 anchor_state.timestamp,
             ),
-            state.genesis.genesis_height,
         )?;
         let expected = expected_header(
             &state.chain_context(),

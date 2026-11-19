@@ -48,8 +48,9 @@ pub struct AccountWitness {
 /// One staking-registry entry as captured by a registry checkpoint (layout in
 /// [`l1::layout::registry`](crate::l1::layout::registry)).
 ///
-/// Entries are indexed by slot number, independently of permanent bond IDs. Displacement
-/// replaces a slot's entry; historical checkpoints retain the original occupant.
+/// Entries are indexed by slot number, independently of permanent bond IDs. A registration
+/// takes the lowest-numbered empty slot (STAKE-4.1-14a), so a slot freed by a withdrawal can
+/// hold a later bond's entry; historical checkpoints retain the earlier occupant.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
 #[serde(deny_unknown_fields)]
 pub struct RegistryEntry {
@@ -163,7 +164,10 @@ pub struct GenesisRecord {
 }
 
 impl GenesisRecord {
-    /// Whether `height` is an Etna checkpoint grid point: height >= S and (height-S) mod K = 0.
+    /// Whether `height` is a point of the retired landing grid: height >= S and
+    /// (height-S) mod [`GRID_INTERVAL`](crate::GRID_INTERVAL) = 0. A landing may now end at any
+    /// height (LAND-6.1-5), and no consensus rule of the app uses this. It remains only for the
+    /// lander, and for the validator-state archive R4 replaces, until R5 removes it.
     pub fn is_grid_height(&self, height: u64) -> bool {
         height
             .checked_sub(self.genesis_height)

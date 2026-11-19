@@ -573,6 +573,35 @@ fn generation_matrix() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// planned stop
+// ---------------------------------------------------------------------------------------------
+
+/// START-10.1-14d: with `stopTime` set at its anchor, a block is invalid exactly when its
+/// parent's timestamp is at least `stopTime`, at any height.
+#[test]
+fn planned_stop_boundary() {
+    let stop_time = 1_760_000_100;
+    let schedule = U256::from(stop_time) << 144;
+    for number in [7, 13, 1_000_001] {
+        let mut parent = parent(number);
+        parent.timestamp = stop_time;
+        assert_eq!(
+            check_rules_schedule(schedule, &parent, stop_time + 1),
+            Err(RuleViolation::PlannedStop { parent_height: number }),
+            "parent {number} at stopTime"
+        );
+        parent.timestamp = stop_time - 1;
+        assert_eq!(
+            check_rules_schedule(schedule, &parent, stop_time),
+            Ok(()),
+            "parent {number} at stopTime - 1"
+        );
+    }
+    // stopTime 0 means no stop.
+    assert_eq!(check_rules_schedule(U256::ZERO, &parent(7), BFT_SECS), Ok(()));
+}
+
+// ---------------------------------------------------------------------------------------------
 // chain id
 // ---------------------------------------------------------------------------------------------
 

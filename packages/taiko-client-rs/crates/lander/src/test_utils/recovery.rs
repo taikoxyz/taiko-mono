@@ -271,7 +271,6 @@ async fn recovered_origin_starts_from_genesis_but_binds_the_stored_parent_word()
         let members = origin.committee.members.iter().map(|m| (m.pubkey, m.power));
         let genesis = ValState::genesis(6, &members.collect::<Vec<_>>()).unwrap();
         let stored = f.snapshot.checkpoint_val_state_hash;
-        assert_eq!(stored, origin.val_state_hash);
         assert!(!stored.is_zero());
         assert_ne!(stored, genesis.hash());
 

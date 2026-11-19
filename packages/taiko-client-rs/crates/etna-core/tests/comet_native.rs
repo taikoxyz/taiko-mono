@@ -23,7 +23,7 @@ fn public_validator_slots_reject_unchecked_power_and_duplicate_authority() {
     assert_eq!(valid.total_voting_power(), 1);
 }
 
-use alloy_primitives::{B256, keccak256};
+use alloy_primitives::keccak256;
 use etna_core::comet::{
     codec::{checked_block_proto, decode_canonical_block, decode_canonical_commit},
     native::{Block, Commit, CommitSig, RawBlock, RawCommit, RawCommitSig},
@@ -158,13 +158,8 @@ fn offline_stock_go_vectors_preserve_wire_qc_body_and_foreign_evidence() {
             bytes(&v["evidence_hash"]),
             "{name}"
         );
-        let tx = verify_body_at_origin(
-            view(&raw, &block, &commit),
-            block.header.height.value(),
-            B256::ZERO,
-            0,
-        )
-        .unwrap_or_else(|e| panic!("{name}: {e}"));
+        let tx = verify_body_at_origin(view(&raw, &block, &commit), block.header.height.value(), 0)
+            .unwrap_or_else(|e| panic!("{name}: {e}"));
         assert_eq!(tx, block.data[0], "{name}");
     }
 }
@@ -205,7 +200,7 @@ fn native_qc_checks_full_parts_validator_hash_and_late_nil_signatures() {
             )
             .is_err()
         );
-        assert!(verify_body_at_origin(view(&raw, &block, &changed), 1, B256::ZERO, 0).is_err());
+        assert!(verify_body_at_origin(view(&raw, &block, &changed), 1, 0).is_err());
     }
     let mut header = block.header.clone();
     header.validators_hash = Hash::Sha256([9; 32]);
@@ -255,18 +250,18 @@ fn empty_ancestry_is_authorized_only_at_checked_nonzero_origin_plus_one() {
     block.header.height = 42u32.into();
     let raw = rebind_block(&mut proto, &block, &mut commit, &validators, &keys);
     let first = view(&raw, &block, &commit);
-    assert_eq!(verify_body_at_origin(first, 42, B256::ZERO, 41).unwrap(), block.data[0]);
-    assert!(verify_structure_at_origin(first, None, 42, B256::ZERO, 41).is_ok());
+    assert_eq!(verify_body_at_origin(first, 42, 41).unwrap(), block.data[0]);
+    assert!(verify_structure_at_origin(first, None, 42, 41).is_ok());
     for wrong_origin in [0, 42, u64::MAX] {
-        assert!(verify_body_at_origin(first, 42, B256::ZERO, wrong_origin).is_err());
-        assert!(verify_structure_at_origin(first, None, 42, B256::ZERO, wrong_origin).is_err());
+        assert!(verify_body_at_origin(first, 42, wrong_origin).is_err());
+        assert!(verify_structure_at_origin(first, None, 42, wrong_origin).is_err());
     }
 
     block.header.last_block_id = Some(commit.block_id);
     let raw = rebind_block(&mut proto, &block, &mut commit, &validators, &keys);
     let first = view(&raw, &block, &commit);
-    assert!(verify_body_at_origin(first, 42, B256::ZERO, 41).is_err());
-    assert!(verify_structure_at_origin(first, None, 42, B256::ZERO, 41).is_err());
+    assert!(verify_body_at_origin(first, 42, 41).is_err());
+    assert!(verify_structure_at_origin(first, None, 42, 41).is_err());
 }
 
 #[test]
@@ -287,21 +282,18 @@ fn nonempty_ancestry_requires_a_successor_after_generation_start() {
     let raw = rebind_block(&mut proto, &block, &mut commit, &validators, &keys);
     let successor = view(&raw, &block, &commit);
 
-    assert!(verify_body_at_origin(successor, 43, B256::ZERO, 41).is_ok());
-    assert!(verify_structure_at_origin(successor, Some(previous), 43, B256::ZERO, 41).is_ok());
-    assert!(verify_structure_at_origin(successor, None, 43, B256::ZERO, 41).is_err());
+    assert!(verify_body_at_origin(successor, 43, 41).is_ok());
+    assert!(verify_structure_at_origin(successor, Some(previous), 43, 41).is_ok());
+    assert!(verify_structure_at_origin(successor, None, 43, 41).is_err());
 
     let mut mismatched = previous_commit.clone();
     mismatched.block_id.part_set_header.total += 1;
     let wrong_previous = view(&previous_raw, &previous_block, &mismatched);
-    assert!(
-        verify_structure_at_origin(successor, Some(wrong_previous), 43, B256::ZERO, 41).is_err()
-    );
+    assert!(verify_structure_at_origin(successor, Some(wrong_previous), 43, 41).is_err());
 
     for wrong_origin in [42, 43, u64::MAX] {
-        let body = verify_body_at_origin(successor, 43, B256::ZERO, wrong_origin);
-        let structure =
-            verify_structure_at_origin(successor, Some(previous), 43, B256::ZERO, wrong_origin);
+        let body = verify_body_at_origin(successor, 43, wrong_origin);
+        let structure = verify_structure_at_origin(successor, Some(previous), 43, wrong_origin);
         assert!(
             body.is_err() && structure.is_err(),
             "origin {wrong_origin} accepted nonempty ancestry: body={}, structure={}",
@@ -380,7 +372,7 @@ fn body_enforces_single_transaction_before_any_envelope_interpretation() {
         let raw = proto.encode_to_vec();
         commit.block_id.part_set_header = block_parts(&proto).unwrap();
         assert!(matches!(
-            verify_body_at_origin(view(&raw, &block, &commit), 1, B256::ZERO, 0),
+            verify_body_at_origin(view(&raw, &block, &commit), 1, 0),
             Err(etna_core::comet::verify::BftError::TransactionCount(_))
         ));
     }

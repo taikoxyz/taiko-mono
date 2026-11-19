@@ -7,8 +7,9 @@ use serde::{Deserialize, Deserializer, de};
 /// The largest committee size accepted by the registry discovery and consensus bounds.
 pub const MAX_N_MAX: usize = 4096;
 
-/// `K`, the landing grid interval in L2 blocks (the Inbox's `GRID_INTERVAL`): every landed
-/// checkpoint and batch boundary is S plus a multiple of it; unsettled limit U is a multiple.
+/// `K`, the retired landing grid interval in L2 blocks (the older Inbox's `GRID_INTERVAL`). The
+/// app no longer uses it: a landing may end at any height (LAND-6.1-5) and U need not be a
+/// multiple of it. It remains only for the lander until R5 removes it.
 pub const GRID_INTERVAL: u64 = 6;
 
 /// Deployment constants for authenticating an Unzen to Etna switch (SPEC PARAM-11-12a).
@@ -91,8 +92,8 @@ pub enum ConfigError {
          implementation"
     )]
     InvalidSwitch,
-    /// U must be a [`GRID_INTERVAL`] multiple within the protocol unsettled-depth bounds.
-    #[error("unsettled_limit must be a multiple of {k} in {k}..=65536", k = GRID_INTERVAL)]
+    /// U must lie within the protocol unsettled-depth bounds (BACKP-6.4-2).
+    #[error("unsettled_limit must be in 1..=65536")]
     InvalidUnsettledLimit,
     /// Voting power units must respect the token-supply safety bound.
     #[error("vp_unit must be at least 867361738 base units")]
@@ -187,9 +188,9 @@ impl ChainParams {
         self.unsettled_limit
     }
 
-    /// Checks [`GRID_INTERVAL`] grid depth bounds, token-supply voting-power safety, committee
-    /// capacity, positive block gas limit and s_min >= vp_unit. Returns the first invalid
-    /// deployment parameter.
+    /// Checks the unsettled-depth bounds, token-supply voting-power safety, committee capacity,
+    /// positive block gas limit and s_min >= vp_unit. Returns the first invalid deployment
+    /// parameter.
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.switch.as_ref().is_some_and(|switch| {
             switch.unzen_inbox.is_zero() ||
@@ -198,9 +199,7 @@ impl ChainParams {
         }) {
             return Err(ConfigError::InvalidSwitch);
         }
-        if !(GRID_INTERVAL..=65_536).contains(&self.unsettled_limit) ||
-            !self.unsettled_limit.is_multiple_of(GRID_INTERVAL)
-        {
+        if !(1..=65_536).contains(&self.unsettled_limit) {
             return Err(ConfigError::InvalidUnsettledLimit);
         }
         if self.vp_unit < U256::from(867_361_738) {
@@ -348,16 +347,19 @@ mod tests {
 mod v1_deployment_bounds {
     use super::*;
     #[test]
-    fn grid_and_voting_power_deployment_bounds() {
+    fn unsettled_limit_and_voting_power_deployment_bounds() {
         let base = ChainParams::builtin(TAIKO_DEVNET_CHAIN_ID).unwrap();
-        for limit in [0, 1, 5, 7, 65_536, 65_538] {
+        for limit in [0, 65_537, u64::MAX] {
             assert!(
                 ChainParams { unsettled_limit: limit, ..base.clone() }.validate().is_err(),
                 "U={limit}"
             );
         }
-        for limit in [6, 12, 3600, 65_532] {
-            assert!(ChainParams { unsettled_limit: limit, ..base.clone() }.validate().is_ok());
+        for limit in [1, 5, 6, 7, 3600, 65_536] {
+            assert!(
+                ChainParams { unsettled_limit: limit, ..base.clone() }.validate().is_ok(),
+                "U={limit}"
+            );
         }
         assert!(
             ChainParams { vp_unit: U256::from(867_361_737), ..base.clone() }.validate().is_err()

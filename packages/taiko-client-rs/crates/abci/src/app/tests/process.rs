@@ -33,10 +33,9 @@ async fn authenticated_rules_schedule_controls_proposal_admission() {
     use crate::test_utils::{
         TestState, anchor_witness_in, filler_accounts, inbox_account, l1_header,
     };
-    for (word, label) in [
-        (U256::from(1) << 48, "unsupported_ruleset"),
-        ((U256::from(1) << 144) | (U256::from(6) << 192), "planned_stop"),
-    ] {
+    for (word, label) in
+        [(U256::from(1) << 48, "unsupported_ruleset"), (U256::from(1) << 144, "planned_stop")]
+    {
         let fx = Fixture::genesis(1);
         let dir = tempfile::tempdir().unwrap();
         let mut app = mid_epoch(&fx, dir.path(), 6).await;

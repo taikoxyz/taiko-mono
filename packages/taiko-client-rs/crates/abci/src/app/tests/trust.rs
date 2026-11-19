@@ -10,16 +10,17 @@ use crate::{
     app::trust::TrustPhase,
     config::SwitchConfig,
     envelope::EtnaEnvelope,
-    l1::L1Error,
-    store::Record,
-    test_utils::{InboxStorage, L1Call},
-    valstate::{ValState, spec_41a_state, stock_lookup},
+    l1::{L1Error, layout::inbox},
+    test_utils::{
+        InboxStorage, L1Call, TestState, filler_accounts, inbox_account, l1_header,
+        registry_account,
+    },
 };
-use alloy_primitives::{Address, B256, keccak256};
+use alloy_primitives::{Address, B256, U256};
 
 /// Provides real proofs at the exact finalized snapshot. A committed `height` lands with the
-/// app's own Comet and validator-state hashes, the next height with those [`next_envelope`]
-/// decides, and any other height with placeholders.
+/// app's own Comet hash, the next height with the one [`next_envelope`] decides, and any other
+/// height with a placeholder.
 fn target(app: &App<MockL1, MockEngine>, fx: &Fixture, height: u64, hash: B256) {
     let next = || height == next_height(app);
     let inbox = InboxStorage {
@@ -39,13 +40,6 @@ fn target(app: &App<MockL1, MockEngine>, fx: &Fixture, height: u64, hash: B256) 
                 }
             })
         },
-        last_checkpoint_val_state_hash: if height == 0 {
-            B256::ZERO
-        } else if next() {
-            next_val_state_hash(app)
-        } else {
-            app.val_state_preimage(height).map_or(B256::repeat_byte(8), keccak256)
-        },
         ..fx.inbox.clone()
     };
     fx.plant_l1_block(app.l1(), 100, &inbox, &fx.registry);
@@ -57,16 +51,6 @@ fn target(app: &App<MockL1, MockEngine>, fx: &Fixture, height: u64, hash: B256) 
 fn next_envelope(app: &App<MockL1, MockEngine>, fx: &Fixture) -> EtnaEnvelope {
     let first = app.state().expect("initialized").last_height == 0;
     hand_envelope(app, first.then(|| fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None)
-}
-
-/// The validator-state hash the app holds after the committed grid `height`.
-fn val_state_hash(app: &App<MockL1, MockEngine>, height: u64) -> B256 {
-    keccak256(app.val_state_preimage(height).expect("a retained grid height"))
-}
-
-/// The validator-state hash after the next height, which changes no validator in these tests.
-fn next_val_state_hash(app: &App<MockL1, MockEngine>) -> B256 {
-    app.state().expect("initialized").val_state.advance(&[]).expect("advances").hash()
 }
 
 /// Commits blocks up to `height`, the first one anchored at the genesis L1 block.
@@ -252,7 +236,6 @@ async fn target_is_pinned_until_match_then_refresh_can_extend_catchup() {
         last_checkpoint_height: 2 * GRID_INTERVAL,
         last_checkpoint_hash: B256::repeat_byte(8),
         last_checkpoint_comet_hash: B256::repeat_byte(8),
-        last_checkpoint_val_state_hash: B256::repeat_byte(8),
         ..fx.inbox.clone()
     };
     fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
@@ -550,7 +533,6 @@ async fn own_finality_before_the_inbox_genesis_waits_instead_of_halting() {
         last_checkpoint_height: 0,
         last_checkpoint_hash: B256::ZERO,
         last_checkpoint_comet_hash: B256::ZERO,
-        last_checkpoint_val_state_hash: B256::ZERO,
         forced_inclusion_head: 0,
         forced_inclusion_tail: 0,
         forced_inclusion_queue: vec![],
@@ -991,12 +973,11 @@ async fn commit_next(app: &mut App<MockL1, MockEngine>, fx: &Fixture, anchor: Op
     B256::from_slice(req.hash.as_bytes())
 }
 
-/// The Inbox storage landing the committed `height` with the app's own EL, Comet and
-/// validator-state hashes there.
+/// The Inbox storage landing the committed `height` with the app's own EL and Comet hashes
+/// there.
 fn landed(app: &App<MockL1, MockEngine>, fx: &Fixture, height: u64) -> InboxStorage {
     InboxStorage {
         last_checkpoint_comet_hash: app.store.load_comet_hash(height).unwrap().expect("committed"),
-        last_checkpoint_val_state_hash: val_state_hash(app, height),
         ..fx.inbox_at_checkpoint(height, app.engine().state().chain[&height].hash_slow())
     }
 }
@@ -1047,7 +1028,6 @@ async fn pinned_target_below_the_comet_history_floor_is_reacquired() {
     let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     let inbox = InboxStorage {
         last_checkpoint_comet_hash: B256::from_slice(req.hash.as_bytes()),
-        last_checkpoint_val_state_hash: next_val_state_hash(&app),
         ..fx.inbox_at_checkpoint(GRID_INTERVAL, env.block.header.hash_slow())
     };
     fx.advance_l1(app.l1(), 65, &inbox, &fx.registry);
@@ -1071,104 +1051,51 @@ async fn pinned_target_below_the_comet_history_floor_is_reacquired() {
     assert_eq!(snapshot.target.unwrap().height, 2 * GRID_INTERVAL);
 }
 
-/// SYNC-9-5b: a landed validator-state hash that differs from the state the node's own
-/// replica holds after that height, from the head state or from the grid sidecar, is an
-/// authenticated contradiction: trust halts for safety and records the fatal evidence.
+/// Plants L1 block 100 holding `inbox` with its Inbox storage word at `slot` set to `word`
+/// afterwards, and makes it final.
+fn finalize_inbox_with_word(
+    app: &App<MockL1, MockEngine>,
+    fx: &Fixture,
+    inbox: &InboxStorage,
+    slot: B256,
+    word: U256,
+) {
+    let mut account = inbox_account(fx.params.inbox, inbox);
+    account.4.push((slot, word));
+    let mut accounts = filler_accounts();
+    accounts.extend([account, registry_account(fx.params.registry, &fx.registry)]);
+    app.l1().insert_block(l1_header(100, Fixture::l1_timestamp(100)), TestState::new(accounts));
+    app.l1().set_finalized(100);
+}
+
+/// SYNC-9-5 5.h: trust needs only the EL and Comet hashes of the three-word slot 285 record
+/// (STOR-B-9). It compares no validator state, at a checkpoint below the head that was never a
+/// grid point or at the head, and it reads no fourth word, as an older record kept one.
 #[tokio::test]
-async fn trust_halts_on_a_landed_validator_state_mismatch() {
-    for head in [GRID_INTERVAL, GRID_INTERVAL + 1] {
+async fn trust_is_ready_on_a_three_word_record_without_a_validator_state_comparison() {
+    for (checkpoint, fourth_word) in [(7, U256::ZERO), (8, U256::from_be_bytes([0x5a; 32]))] {
         let fx = Fixture::genesis(1);
         let dir = tempfile::tempdir().unwrap();
         let mut app = initialized(&fx, dir.path()).await;
-        commit_to(&mut app, &fx, head).await;
-        let inbox = InboxStorage {
-            last_checkpoint_val_state_hash: B256::repeat_byte(0x5a),
-            ..landed(&app, &fx, GRID_INTERVAL)
-        };
-        fx.advance_l1(app.l1(), 100, &inbox, &fx.registry);
-        let error = app.refresh_trust().await.unwrap_err();
-        assert!(matches!(error, AbciError::SafetyHalt(_)), "head {head}: {error}");
-        assert!(error.to_string().contains("validator_state_mismatch"), "head {head}: {error}");
-        assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
-        let evidence = std::fs::read_to_string(dir.path().join("fatal-evidence.txt")).unwrap();
-        assert!(evidence.contains("validator_state_mismatch"), "head {head}: {evidence}");
+        commit_to(&mut app, &fx, 8).await;
+        let [.., comet_slot] = inbox::landing_record_slots(checkpoint);
+        let after_record = B256::from(U256::from_be_bytes(comet_slot.0) + U256::from(1));
+        finalize_inbox_with_word(
+            &app,
+            &fx,
+            &landed(&app, &fx, checkpoint),
+            after_record,
+            fourth_word,
+        );
+        app.refresh_trust().await.unwrap();
+        let snapshot = app.trust.snapshot();
+        assert!(snapshot.is_ready(), "checkpoint {checkpoint}: {:?}", snapshot.reason);
+        let target = snapshot.target.unwrap();
+        assert_eq!(target.height, checkpoint);
+        assert_eq!(target.hash, app.engine().state().chain[&checkpoint].hash_slow());
+        assert_eq!(target.comet_hash, app.store.load_comet_hash(checkpoint).unwrap().unwrap());
+        assert!(app.store.fatal_evidence().unwrap().is_none());
     }
-}
-
-/// A landed record whose EL hash and validator-state hash both differ from the node's own
-/// halts naming the EL divergence: the ancestry walk precedes the validator-state comparison.
-#[tokio::test]
-async fn trust_names_an_el_divergence_before_a_validator_state_mismatch() {
-    let fx = Fixture::genesis(1);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    commit_to(&mut app, &fx, GRID_INTERVAL + 1).await;
-    let inbox = InboxStorage {
-        last_checkpoint_hash: B256::repeat_byte(0x33),
-        last_checkpoint_val_state_hash: B256::repeat_byte(0x5a),
-        ..landed(&app, &fx, GRID_INTERVAL)
-    };
-    fx.advance_l1(app.l1(), 100, &inbox, &fx.registry);
-    let error = app.refresh_trust().await.unwrap_err();
-    assert!(matches!(error, AbciError::SafetyHalt(_)), "{error}");
-    let reason = error.to_string();
-    assert!(
-        reason.contains(&format!("committed checkpoint hash mismatch at {GRID_INTERVAL}")),
-        "{reason}"
-    );
-    assert!(!reason.contains("validator_state_mismatch"), "{reason}");
-    assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
-}
-
-/// Commits through `2K + 1`, the last block anchored at L1 block 66, which lands `2K` with the
-/// node's own EL and Comet hashes and `val_state_hash` (by default the node's own); block 65
-/// lands `K`. The trust target `2K` is then the Comet history floor, and retention keeps the
-/// record of `K` below it as the recompute base (the origin's is pruned).
-async fn commit_past_the_floor(
-    app: &mut App<MockL1, MockEngine>,
-    fx: &Fixture,
-    val_state_hash: Option<B256>,
-) {
-    let grid = 2 * GRID_INTERVAL;
-    commit_to(app, fx, grid).await;
-    finalize_landing(app, fx, 65, GRID_INTERVAL);
-    let landing = landed(app, fx, grid);
-    let inbox = InboxStorage {
-        last_checkpoint_val_state_hash: val_state_hash
-            .unwrap_or(landing.last_checkpoint_val_state_hash),
-        ..landing
-    };
-    fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
-    commit_next(app, fx, Some(66)).await;
-    let state = app.state().unwrap();
-    assert_eq!((state.last_height, state.comet_history_floor()), (grid + 1, grid));
-    assert_eq!(app.store.val_state_heights().unwrap(), [GRID_INTERVAL, grid]);
-}
-
-/// A node committed past the floor (see [`commit_past_the_floor`]) and restarted.
-async fn restarted_at_the_floor(fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
-    let mut app = initialized(fx, dir).await;
-    commit_past_the_floor(&mut app, fx, None).await;
-    restart(app, fx, dir)
-}
-
-/// `app` restarted over its store in `dir`, its EL and its own L1 node, which keep their
-/// blocks.
-fn restart(app: App<MockL1, MockEngine>, fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
-    let (engine, l1) = (app.engine().reopen(), MockL1::default());
-    {
-        let (old, mut new) = (app.l1().state(), l1.state());
-        new.headers = old.headers.clone();
-        new.states = old.states.clone();
-        new.finalized = old.finalized;
-    }
-    drop(app);
-    app_with(l1, engine, fx.params.clone(), dir, AppOptions::default())
-}
-
-/// The validator-state record of `height` in `dir`.
-fn val_state_record(dir: &Path, height: u64) -> std::path::PathBuf {
-    dir.join(format!("val-state-{height}.bin"))
 }
 
 /// Asserts that `app`'s trust is ready at the target `height`.
@@ -1178,165 +1105,16 @@ fn assert_ready_at(app: &App<MockL1, MockEngine>, height: u64) {
     assert_eq!(snapshot.target.unwrap().height, height);
 }
 
-/// Asserts that `error` and `app`'s trust and fatal evidence are a validator-state halt.
-fn assert_val_state_halt(app: &App<MockL1, MockEngine>, error: &AbciError) {
-    assert!(matches!(error, AbciError::SafetyHalt(_)), "{error}");
-    assert!(error.to_string().contains("validator_state_mismatch"), "{error}");
-    assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
-    let evidence = app.store.fatal_evidence().unwrap().expect("fatal evidence");
-    assert!(evidence.contains("validator_state_mismatch"), "{evidence}");
-}
-
-/// SYNC-9-5c 5c.d, at the history floor: a node that lost the record of its trust target
-/// recomputes it from the base `K` below the floor and the updates since, compares that, and
-/// records it again.
+/// STOR-B-23/24: a slot 285 record whose word 1 sets a reserved bit, from bit 144 up, is
+/// malformed L1 data and halts, as a nonzero Comet hash in the start record does.
 #[tokio::test]
-async fn trust_recomputes_a_lost_record_from_an_earlier_one() {
-    let fx = Fixture::genesis(1);
-    let dir = tempfile::tempdir().unwrap();
-    let grid = 2 * GRID_INTERVAL;
-    let mut app = restarted_at_the_floor(&fx, dir.path()).await;
-    let record = val_state_record(dir.path(), grid);
-    let recorded = std::fs::read(&record).unwrap();
-    std::fs::remove_file(&record).unwrap();
-    app.refresh_trust().await.unwrap();
-    assert_ready_at(&app, grid);
-    assert_eq!(std::fs::read(&record).unwrap(), recorded);
-}
-
-/// SYNC-9-5c 5c.d/5c.f: a record whose bytes changed fails its checksum. It is missing data,
-/// not a mismatch: the node sets it aside, recomputes the state and trusts, with no fatal
-/// evidence.
-#[tokio::test]
-async fn trust_treats_a_corrupt_record_as_missing_not_as_a_mismatch() {
-    let fx = Fixture::genesis(1);
-    let dir = tempfile::tempdir().unwrap();
-    let grid = 2 * GRID_INTERVAL;
-    let mut app = restarted_at_the_floor(&fx, dir.path()).await;
-    let record = val_state_record(dir.path(), grid);
-    let recorded = std::fs::read(&record).unwrap();
-    // The low byte of the first entry's proposer priority: after the 32-byte checksum, the six
-    // head words, the first set's length word and the entry's first three words.
-    let mut flipped = recorded.clone();
-    flipped[32 + 32 * (6 + 1 + 3) + 31] ^= 1;
-    std::fs::write(&record, &flipped).unwrap();
-    app.refresh_trust().await.unwrap();
-    assert_ready_at(&app, grid);
-    assert!(!dir.path().join("fatal-evidence.txt").exists());
-    assert_eq!(std::fs::read(&record).unwrap(), recorded);
-    let set_aside = dir.path().join(format!("val-state-{grid}.bin.corrupt"));
-    assert_eq!(std::fs::read(set_aside).unwrap(), flipped);
-}
-
-/// SYNC-9-5c 5c.e/5c.f: without the target's record and the base below the floor to recompute
-/// it from (retention already pruned the origin's), the target's validator state is missing
-/// data: trust stays closed and retrying, never halted and without fatal evidence, and opens
-/// once the record is back.
-#[tokio::test]
-async fn trust_waits_while_the_record_cannot_be_recomputed() {
-    let fx = Fixture::genesis(1);
-    let dir = tempfile::tempdir().unwrap();
-    let grid = 2 * GRID_INTERVAL;
-    let mut app = restarted_at_the_floor(&fx, dir.path()).await;
-    let Record::Valid(original) = app.store.load_val_state(grid).unwrap() else {
-        panic!("the target is recorded")
-    };
-    for height in [GRID_INTERVAL, grid] {
-        std::fs::remove_file(val_state_record(dir.path(), height)).unwrap();
-    }
-    app.refresh_trust().await.unwrap();
-    let snapshot = app.trust.snapshot();
-    assert!(!snapshot.is_ready());
-    assert_ne!(snapshot.phase, TrustPhase::Halted);
-    let reason = snapshot.reason.unwrap();
-    assert!(reason.contains(&format!("validator state unavailable at {grid}")), "{reason}");
-    assert!(app.store.fatal_evidence().unwrap().is_none());
-    assert!(!dir.path().join("fatal-evidence.txt").exists());
-    app.store.save_val_state(&original).unwrap();
-    app.refresh_trust().await.unwrap();
-    assert_ready_at(&app, grid);
-}
-
-/// SYNC-9-5b 5b.a: a well-formed record whose state differs from the landed one is an
-/// authenticated contradiction, not missing data: trust halts for safety with fatal evidence.
-#[tokio::test]
-async fn trust_halts_on_a_well_formed_record_that_differs() {
-    let fx = Fixture::genesis(1);
-    let dir = tempfile::tempdir().unwrap();
-    let grid = 2 * GRID_INTERVAL;
-    let mut app = restarted_at_the_floor(&fx, dir.path()).await;
-    let Record::Valid(mut other) = app.store.load_val_state(grid).unwrap() else {
-        panic!("the target is recorded")
-    };
-    other.next.entries[0].priority += 1;
-    std::fs::remove_file(val_state_record(dir.path(), grid)).unwrap();
-    app.store.save_val_state(&other).unwrap();
-    let error = app.refresh_trust().await.unwrap_err();
-    assert_val_state_halt(&app, &error);
-}
-
-/// ACCEPTANCE §7.7, SYNC-9-5c 5c.a/5c.b: after a restart above its target, the node compares
-/// the record it made there, never what stock CometBFT's stored-set lookup rebuilds. Here the
-/// record holds `x + 2` of PROOF-6.2-41a's state `x`, two per-height increments, and the
-/// lookup's one two-step increment from the full set stored at `x` differs from it: a landing
-/// of the record's hash is trusted after a restart, and one of the lookup's hash halts.
-#[tokio::test]
-async fn restart_above_target_compares_the_record_not_a_stock_rebuild() {
-    let fx = Fixture::genesis(1);
-    let dir = tempfile::tempdir().unwrap();
-    let grid = 2 * GRID_INTERVAL;
-    let x = spec_41a_state(grid - 2);
-    let record = x.advance(&[]).unwrap().advance(&[]).unwrap();
-    let stock = ValState { next: stock_lookup(&x.next, 2), ..record.clone() };
-    assert_ne!(stock.hash(), record.hash());
-
-    let mut app = initialized(&fx, dir.path()).await;
-    commit_past_the_floor(&mut app, &fx, Some(record.hash())).await;
-    std::fs::remove_file(val_state_record(dir.path(), grid)).unwrap();
-    app.store.save_val_state(&record).unwrap();
-    let mut app = restart(app, &fx, dir.path());
-    app.refresh_trust().await.unwrap();
-    assert_ready_at(&app, grid);
-
-    let mut app = restart(app, &fx, dir.path());
-    let inbox =
-        InboxStorage { last_checkpoint_val_state_hash: stock.hash(), ..landed(&app, &fx, grid) };
-    fx.advance_l1(app.l1(), 100, &inbox, &fx.registry);
-    let error = app.refresh_trust().await.unwrap_err();
-    assert_val_state_halt(&app, &error);
-}
-
-/// A landed validator-state hash equal to the replica's after that height, from the head
-/// state or from the grid sidecar, lets trust open.
-#[tokio::test]
-async fn trust_accepts_a_matching_validator_state() {
-    for head in [GRID_INTERVAL, GRID_INTERVAL + 1] {
-        let fx = Fixture::genesis(1);
-        let dir = tempfile::tempdir().unwrap();
-        let mut app = initialized(&fx, dir.path()).await;
-        commit_to(&mut app, &fx, head).await;
-        finalize_landing(&app, &fx, 100, GRID_INTERVAL);
-        app.refresh_trust().await.unwrap();
-        let snapshot = app.trust.snapshot();
-        assert!(snapshot.is_ready(), "head {head}: {:?}", snapshot.reason);
-        let target = snapshot.target.unwrap();
-        assert_eq!(target.height, GRID_INTERVAL);
-        assert_eq!(target.val_state_hash, val_state_hash(&app, GRID_INTERVAL));
-    }
-}
-
-/// STOR-B-9: the start write records validator-state hash 0, so a start record with any other
-/// word 4 is malformed L1 data and halts, as a nonzero Comet hash there does.
-#[tokio::test]
-async fn start_record_with_nonzero_val_state_is_invalid() {
+async fn landing_record_with_a_reserved_bit_is_invalid() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let inbox = InboxStorage {
-        last_checkpoint_val_state_hash: B256::repeat_byte(0x77),
-        ..fx.inbox.clone()
-    };
-    fx.advance_l1(app.l1(), 100, &inbox, &fx.registry);
+    let height = fx.inbox.last_checkpoint_height;
+    let packed = U256::from(height) | (U256::from(1) << inbox::LandingRecord::RESERVED_BIT);
+    finalize_inbox_with_word(&app, &fx, &fx.inbox, inbox::landing_record_slots(height)[0], packed);
     let error = app.refresh_trust().await.unwrap_err();
     assert!(matches!(error, AbciError::SafetyHalt(_)), "{error}");
     assert!(error.to_string().contains("invalid checkpoint landing record"), "{error}");
@@ -1344,10 +1122,10 @@ async fn start_record_with_nonzero_val_state_is_invalid() {
 }
 
 /// A pinned target's landing record cannot change: a later proof of the same height whose
-/// only difference is the validator-state hash halts, both on the refresh after the link
-/// check and against the floor a reconnect keeps.
+/// only difference is the Comet hash halts, both on the refresh after the link check and
+/// against the floor a reconnect keeps.
 #[tokio::test]
-async fn pinned_target_changing_only_val_state_is_rejected() {
+async fn pinned_target_changing_only_the_comet_hash_is_rejected() {
     for (reconnect, reason) in [
         (false, "authenticated checkpoint changed at the same height"),
         (true, "authenticated checkpoint conflicts with retained floor"),
@@ -1364,7 +1142,7 @@ async fn pinned_target_changing_only_val_state_is_rejected() {
         finalize(&mut app, finalize_req(&req)).await.unwrap();
         commit(&mut app).await.unwrap();
         let changed = InboxStorage {
-            last_checkpoint_val_state_hash: B256::repeat_byte(0x5a),
+            last_checkpoint_comet_hash: B256::repeat_byte(0x5a),
             ..landed(&app, &fx, GRID_INTERVAL)
         };
         fx.advance_l1(app.l1(), 101, &changed, &fx.registry);
@@ -1376,35 +1154,6 @@ async fn pinned_target_changing_only_val_state_is_rejected() {
         assert!(error.to_string().contains(reason), "{error}");
         assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
     }
-}
-
-/// A decided block at the pinned target height whose validator state differs from the landed
-/// one halts before it settles, even though its EL and Comet hashes match.
-#[tokio::test]
-async fn check_trust_candidate_compares_val_state() {
-    let fx = Fixture::genesis(1);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    commit_to(&mut app, &fx, GRID_INTERVAL - 1).await;
-    let env = next_envelope(&app, &fx);
-    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
-    let inbox = InboxStorage {
-        last_checkpoint_comet_hash: B256::from_slice(req.hash.as_bytes()),
-        last_checkpoint_val_state_hash: B256::repeat_byte(0x5a),
-        ..fx.inbox_at_checkpoint(GRID_INTERVAL, env.block.header.hash_slow())
-    };
-    fx.advance_l1(app.l1(), 100, &inbox, &fx.registry);
-    app.refresh_trust().await.unwrap();
-    assert_eq!(app.trust.snapshot().target.unwrap().height, GRID_INTERVAL);
-    let calls = app.engine().calls().len();
-    let error = finalize(&mut app, finalize_req(&req)).await.unwrap_err();
-    assert!(matches!(error, AbciError::SafetyHalt(_)), "{error}");
-    assert!(error.to_string().contains("validator_state_mismatch"), "{error}");
-    assert!(app.pending.is_none());
-    assert_eq!(app.engine().calls().len(), calls);
-    assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
-    let evidence = app.store.fatal_evidence().unwrap().expect("fatal evidence");
-    assert!(evidence.contains("validator_state_mismatch"), "{evidence}");
 }
 
 /// Restarts `app` in place as a process over its store that a checkpoint import installed at

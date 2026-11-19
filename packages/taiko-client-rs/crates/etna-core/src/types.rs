@@ -6,8 +6,9 @@ use serde::{Deserialize, Serialize};
 /// One staking-registry entry as captured by a registry checkpoint (layout in
 /// [`crate::registry`]).
 ///
-/// Entries are indexed by slot number, independently of permanent bond IDs. Displacement
-/// replaces a slot's entry; historical checkpoints retain the original occupant.
+/// Entries are indexed by slot number, independently of permanent bond IDs. A registration
+/// takes the lowest-numbered empty slot (STAKE-4.1-14a), so a slot freed by a withdrawal can
+/// hold a later bond's entry; historical checkpoints retain the earlier occupant.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
 #[serde(deny_unknown_fields)]
 pub struct RegistryEntry {
@@ -96,15 +97,6 @@ pub struct GenesisRecord {
     /// `maxAnchorAge` (`M`, slot 282 bits 48–95), in seconds: a block's timestamp may exceed
     /// its anchor's by at most `M`. Validated `>= 1152`.
     pub max_anchor_age: u64,
-}
-
-impl GenesisRecord {
-    /// Whether `height` is an Etna checkpoint grid point: height >= S and (height-S) mod K = 0.
-    pub fn is_grid_height(&self, height: u64) -> bool {
-        height
-            .checked_sub(self.genesis_height)
-            .is_some_and(|offset| offset.is_multiple_of(crate::GRID_INTERVAL))
-    }
 }
 
 /// One epoch's committee: its record (as deterministically derived from a fixed L1 snapshot) and

@@ -53,12 +53,13 @@ pub mod inbox {
     /// Proof-bound active committee snapshot: `uint64` L1 block number, bits 0–63.
     #[cfg(test)]
     pub const ACTIVE_COMMITTEE_SNAPSHOT: u64 = 284;
-    /// Checkpoint landing records, keyed by endpoint height, four words each; see
-    /// [`landing_slots`].
+    /// Checkpoint landing records, keyed by endpoint height, three words each (STOR-B-9); see
+    /// [`landing_record_slots`] and [`LandingRecord`].
     pub const LANDINGS: u64 = 285;
     /// Immutable generation origins, keyed by generation, three words each.
     pub const ORIGINS: u64 = 290;
-    /// Five packed uint48 fields: active rules, next rules, rules time, stop time and stop grid.
+    /// Four packed uint48 fields: active rules, next rules, rules time and stop time
+    /// (STOR-B-15a); see [`RulesSchedule`].
     pub const RULES_SCHEDULE: u64 = 293;
 
     /// Returns the `N` consecutive words at a Solidity mapping element: `base =
@@ -72,11 +73,92 @@ pub mod inbox {
         std::array::from_fn(|offset| B256::from(base.wrapping_add(U256::from(offset))))
     }
 
-    /// Packed parent/generation/head, EL hash, Comet hash and validator-state hash (appendix
-    /// A's `valStateHash`) for a landed endpoint. The start record holds Comet and
-    /// validator-state hashes 0.
+    /// The three words of the slot 285 record of the landed endpoint `height` (STOR-B-9,
+    /// ENC-A-3): packed parent/generation/head, EL hash and Comet hash. [`LandingRecord`]
+    /// decodes them.
+    pub fn landing_record_slots(height: u64) -> [B256; 3] {
+        mapping_words(LANDINGS, height)
+    }
+
+    /// The three [`landing_record_slots`] and the word after them, which held the retired
+    /// `valStateHash` in the older four-word record. It remains only for the lander's
+    /// validator-state reads until R4 and R5 remove them; the app reads three words.
     pub fn landing_slots(height: u64) -> [B256; 4] {
         mapping_words(LANDINGS, height)
+    }
+
+    /// One decoded slot 285 record (STOR-B-9, ENC-A-3). Word 1 packs, from bit 0, the
+    /// actual parent height, the generation that wrote the record and the forced inclusion
+    /// head, 48 bits each, and its bits from 144 up are zero (STOR-B-23, STOR-B-24); words 2
+    /// and 3 are the EL and Comet hashes. The start write records parent S, generation 0,
+    /// head 0 and Comet hash 0.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct LandingRecord {
+        /// The actual parent checkpoint height c the landing settled from.
+        pub parent_height: u64,
+        /// The recovery generation that wrote the record.
+        pub generation: u64,
+        /// The forced inclusion queue head after the landed height.
+        pub forced_head: u64,
+        /// The landed height's EL block hash.
+        pub el_hash: B256,
+        /// The landed height's Comet block ID hash.
+        pub comet_hash: B256,
+    }
+
+    impl LandingRecord {
+        /// The lowest reserved bit of word 1.
+        pub const RESERVED_BIT: usize = 144;
+
+        /// Decodes the words at [`landing_record_slots`], in order, or `None` when word 1 sets
+        /// a reserved bit.
+        pub fn decode([packed, el_hash, comet_hash]: [U256; 3]) -> Option<Self> {
+            (packed >> Self::RESERVED_BIT == U256::ZERO).then(|| Self {
+                parent_height: super::word_u48(packed, 0),
+                generation: super::word_u48(packed, 48),
+                forced_head: super::word_u48(packed, 96),
+                el_hash: el_hash.into(),
+                comet_hash: comet_hash.into(),
+            })
+        }
+    }
+
+    /// Decoded slot 293, the rules schedule (START-10.1-3e, STOR-B-15a): `activeRules`,
+    /// `nextRules`, `rulesTime` and `stopTime`, 48 bits each from bit 0 (STOR-B-23). Bits from
+    /// [`RulesSchedule::RESERVED_BIT`] up are zero (STOR-B-24).
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+    pub struct RulesSchedule {
+        /// The ruleset a block runs under before `rules_time`.
+        pub active_rules: u64,
+        /// The ruleset a block runs under from `rules_time` on.
+        pub next_rules: u64,
+        /// The block timestamp, in Unix seconds, from which `next_rules` applies.
+        pub rules_time: u64,
+        /// The planned stop time in Unix seconds; 0 means no stop (START-10.1-14d).
+        pub stop_time: u64,
+    }
+
+    impl RulesSchedule {
+        /// The lowest reserved bit of slot 293. Anchor witness verification rejects a word that
+        /// sets it or any bit above it.
+        pub const RESERVED_BIT: usize = 192;
+
+        /// Decodes the four fields of slot 293's `word`. It reads no bit from
+        /// [`Self::RESERVED_BIT`] up; checking those is the L1 witness verifier's job.
+        pub fn decode(word: U256) -> Self {
+            Self {
+                active_rules: super::word_u48(word, 0),
+                next_rules: super::word_u48(word, 48),
+                rules_time: super::word_u48(word, 96),
+                stop_time: super::word_u48(word, 144),
+            }
+        }
+
+        /// The ruleset of a block whose timestamp is `timestamp`, in Unix seconds:
+        /// `next_rules` from `rules_time` on, `active_rules` before (START-10.1-3f).
+        pub fn rules_at(&self, timestamp: u64) -> u64 {
+            if timestamp >= self.rules_time { self.next_rules } else { self.active_rules }
+        }
     }
 
     /// Fixed start height, L1 block number and L1 timestamp for a generation.
@@ -95,7 +177,7 @@ pub mod inbox {
             slot(RULES_SCHEDULE),
         ]);
         slots.extend(origin_slots(generation));
-        slots.extend(landing_slots(height));
+        slots.extend(landing_record_slots(height));
         slots
     }
 
@@ -307,10 +389,11 @@ mod tests {
         assert!(!inbox::anchor_slots().contains(&inbox::slot(292)));
         let origin_slots: fn(u64) -> Vec<B256> =
             |generation| inbox::origin_slots(generation).into();
-        let landing_slots: fn(u64) -> Vec<B256> = |height| inbox::landing_slots(height).into();
-        for (table, key, slots_fn, words) in [
-            ("origin_slots", "generation", origin_slots, 3),
-            ("landing_slots", "height", landing_slots, 4),
+        let landing_slots: fn(u64) -> Vec<B256> =
+            |height| inbox::landing_record_slots(height).into();
+        for (table, key, slots_fn) in [
+            ("origin_slots", "generation", origin_slots),
+            ("landing_slots", "height", landing_slots),
         ] {
             for case in vectors::at(&format!("/layout/inbox/{table}")).as_array().unwrap() {
                 let index = case[key].as_str().unwrap().parse().unwrap();
@@ -320,9 +403,84 @@ mod tests {
                     .iter()
                     .map(|v| v.as_str().unwrap().parse().unwrap())
                     .collect();
-                assert_eq!(expected.len(), words, "{table} {index}");
-                assert_eq!(slots_fn(index), expected);
+                // Until the shared vectors are regenerated they list the older four-word slot
+                // 285 record, whose first three words are the three-word record's.
+                assert!(expected.len() >= 3, "{table} {index}");
+                assert_eq!(slots_fn(index), expected[..3], "{table} {index}");
             }
+        }
+    }
+
+    /// STOR-B-9, STOR-B-23/24: slot 285's record is three words; word 1 packs parent height,
+    /// generation and forced inclusion head, 48 bits each from bit 0, and its bits from 144 up
+    /// are reserved. Words after the third are not part of the record.
+    #[test]
+    fn landing_record_decodes_three_words_and_rejects_reserved_bits() {
+        let max48 = (1u64 << 48) - 1;
+        let packed = U256::from(max48) | (U256::from(max48 - 1) << 48) | (U256::from(7) << 96);
+        let el = U256::from_be_bytes([0xe1; 32]);
+        let comet = U256::from_be_bytes([0xc1; 32]);
+        assert_eq!(
+            inbox::LandingRecord::decode([packed, el, comet]),
+            Some(inbox::LandingRecord {
+                parent_height: max48,
+                generation: max48 - 1,
+                forced_head: 7,
+                el_hash: B256::repeat_byte(0xe1),
+                comet_hash: B256::repeat_byte(0xc1),
+            })
+        );
+        assert_eq!(
+            inbox::LandingRecord::decode([U256::from(max48) << 96, el, comet])
+                .map(|record| record.forced_head),
+            Some(max48)
+        );
+        for bit in [144, 200, 255] {
+            assert_eq!(inbox::LandingRecord::decode([U256::from(1) << bit, el, comet]), None);
+        }
+        let [first, second, third] = inbox::landing_record_slots(12);
+        assert_eq!(inbox::landing_slots(12)[..3], [first, second, third]);
+        assert_eq!(
+            U256::from_be_bytes(second.0),
+            U256::from_be_bytes(first.0).wrapping_add(U256::from(1))
+        );
+        assert_eq!(
+            U256::from_be_bytes(third.0),
+            U256::from_be_bytes(first.0).wrapping_add(U256::from(2))
+        );
+    }
+
+    /// STOR-B-15a, START-10.1-3f: slot 293 packs `activeRules`, `nextRules`, `rulesTime` and
+    /// `stopTime`, 48 bits each from bit 0; a block's ruleset is `nextRules` from `rulesTime` on.
+    #[test]
+    fn rules_schedule_decodes_four_fields() {
+        let max48 = (1u64 << 48) - 1;
+        let word = U256::from(2) |
+            (U256::from(3) << 48) |
+            (U256::from(100) << 96) |
+            (U256::from(max48) << 144) |
+            (U256::from(9) << inbox::RulesSchedule::RESERVED_BIT);
+        let schedule = inbox::RulesSchedule::decode(word);
+        assert_eq!(
+            schedule,
+            inbox::RulesSchedule {
+                active_rules: 2,
+                next_rules: 3,
+                rules_time: 100,
+                stop_time: max48
+            }
+        );
+        assert_eq!((schedule.rules_at(99), schedule.rules_at(100)), (2, 3));
+        assert_eq!(inbox::RulesSchedule::RESERVED_BIT, 192);
+        assert_eq!(inbox::RulesSchedule::decode(U256::ZERO), inbox::RulesSchedule::default());
+        assert_eq!(inbox::RulesSchedule::default().rules_at(0), 0);
+        // The shared packing table names the same offsets for the four fields.
+        for (name, offset) in
+            [("active_rules", 0), ("next_rules", 48), ("rules_time", 96), ("stop_time", 144)]
+        {
+            let field = format!("/layout/inbox/packing/rules_schedule/{name}");
+            assert_eq!(vectors::u64_at(&format!("{field}/offset")), offset, "{name}");
+            assert_eq!(vectors::u64_at(&format!("{field}/bits")), 48, "{name}");
         }
     }
 

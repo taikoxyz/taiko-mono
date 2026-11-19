@@ -540,7 +540,6 @@ fn check_candidate(
         anchor.inbox.rules_schedule,
         chain.parent,
         rules::block_timestamp(chain.parent.timestamp, bft_secs, anchor.timestamp),
-        chain.genesis.genesis_height,
     )?;
     let committee = verify_candidate_committee(chain, params, height, c.committee, &anchor)?;
     let facts = finish_candidate(chain, height, committee.as_ref(), anchor)?;

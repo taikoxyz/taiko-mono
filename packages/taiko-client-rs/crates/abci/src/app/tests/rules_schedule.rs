@@ -30,10 +30,9 @@ fn install_schedule(
 
 #[tokio::test]
 async fn prepare_returns_placeholder_for_unknown_rules_and_planned_stop() {
-    for (word, label) in [
-        (U256::from(1) << 48, "unsupported_ruleset"),
-        ((U256::from(1) << 144) | (U256::from(6) << 192), "planned_stop"),
-    ] {
+    for (word, label) in
+        [(U256::from(1) << 48, "unsupported_ruleset"), (U256::from(1) << 144, "planned_stop")]
+    {
         let fx = Fixture::genesis(1);
         let dir = tempfile::tempdir().unwrap();
         let mut app = mid_epoch(&fx, dir.path(), 6).await;
@@ -73,7 +72,7 @@ async fn decided_planned_stop_violation_is_a_safety_halt() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 6).await;
-    let witness = install_schedule(&fx, &app, (U256::from(1) << 144) | (U256::from(6) << 192));
+    let witness = install_schedule(&fx, &app, U256::from(1) << 144);
     let env = hand_envelope(&app, Some(witness), None);
     let (_, req) = judge(&mut app, &env).await;
     assert!(

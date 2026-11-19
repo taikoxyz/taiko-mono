@@ -210,8 +210,6 @@ pub(crate) struct InboxStorage {
     pub(crate) last_checkpoint_hash: B256,
     /// Authenticated Comet block hash in the checkpoint landing record.
     pub(crate) last_checkpoint_comet_hash: B256,
-    /// Validator-state hash in the checkpoint landing record (word 4; zero at the start).
-    pub(crate) last_checkpoint_val_state_hash: B256,
     /// Slot 281, `uint48` at bits 0–47.
     pub(crate) forced_inclusion_head: u64,
     /// Slot 281, `uint48` at bits 48–95.
@@ -238,7 +236,6 @@ impl InboxStorage {
             last_checkpoint_height: genesis.genesis_height,
             last_checkpoint_hash: genesis.genesis_hash,
             last_checkpoint_comet_hash: B256::ZERO,
-            last_checkpoint_val_state_hash: B256::ZERO,
             forced_inclusion_head: 0,
             forced_inclusion_tail: 0,
             forced_inclusion_queue: vec![],
@@ -261,7 +258,7 @@ impl InboxStorage {
                     (U256::from(self.forced_inclusion_tail) << 48),
             ),
         ];
-        let landing = inbox::landing_slots(self.last_checkpoint_height);
+        let landing = inbox::landing_record_slots(self.last_checkpoint_height);
         slots.extend([
             (
                 landing[0],
@@ -271,7 +268,6 @@ impl InboxStorage {
             ),
             (landing[1], self.last_checkpoint_hash.into()),
             (landing[2], self.last_checkpoint_comet_hash.into()),
-            (landing[3], self.last_checkpoint_val_state_hash.into()),
         ]);
         if let Some(a) = &self.genesis {
             let origins = inbox::origin_slots(0);
@@ -717,7 +713,6 @@ mod tests {
             last_checkpoint_height: ((1u64 << 48) - 1) - 7,
             last_checkpoint_hash: B256::repeat_byte(0xa3),
             last_checkpoint_comet_hash: B256::ZERO,
-            last_checkpoint_val_state_hash: B256::ZERO,
             forced_inclusion_head: (1 << 48) - 2,
             forced_inclusion_tail: (1 << 48) - 1,
             forced_inclusion_queue: vec![],
@@ -755,7 +750,7 @@ mod tests {
             B256::from(word(&slots, inbox::slot(inbox::GENESIS_COMMITTEE_HASH))),
             B256::repeat_byte(0xa4)
         );
-        assert_eq!(slots.len(), 5 + 4 + 3 + 6 + 1);
+        assert_eq!(slots.len(), 5 + 3 + 3 + 6 + 1);
     }
 
     /// Hand-written storage words (as a Solidity contract would write them) equal the packing.
@@ -783,7 +778,6 @@ mod tests {
             last_checkpoint_height: 0x0a0b_0c0d,
             last_checkpoint_hash: B256::repeat_byte(0x77),
             last_checkpoint_comet_hash: B256::ZERO,
-            last_checkpoint_val_state_hash: B256::ZERO,
             forced_inclusion_head: 0x03,
             forced_inclusion_tail: 0x09,
             forced_inclusion_queue: vec![],
@@ -821,7 +815,7 @@ mod tests {
             at(inbox::FORCED_INCLUSION_CONFIG),
             b256!("0000000000000000000000000000000000000000000000001c20000000000e10")
         );
-        assert_eq!(slots.len(), 5 + 4 + 3 + 6);
+        assert_eq!(slots.len(), 5 + 3 + 3 + 6);
     }
 
     /// A queue entry packs into its two slots like Solidity writes `queue[i]`.
@@ -859,7 +853,7 @@ mod tests {
             [258u64, 268, 270, 271, 281]
                 .map(inbox::slot)
                 .into_iter()
-                .chain(inbox::landing_slots(0))
+                .chain(inbox::landing_record_slots(0))
                 .collect::<Vec<_>>()
         );
     }

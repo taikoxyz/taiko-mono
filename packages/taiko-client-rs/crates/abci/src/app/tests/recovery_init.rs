@@ -170,7 +170,7 @@ async fn recovery_init_accepts_zero_origin_without_changing_deployment_genesis()
     assert_eq!(app.state().unwrap().genesis, fx.genesis);
     assert_eq!(app.state().unwrap().anchor.number, 64);
     assert_eq!(info(&mut app).await.unwrap().last_block_height.value(), 0);
-    checkpoint(&fx, app.l1(), &w, 0, [w.el_header.hash_slow(), B256::ZERO, B256::ZERO], 1);
+    checkpoint(&fx, app.l1(), &w, 0, [w.el_header.hash_slow(), B256::ZERO], 1);
     let env = super::proposal::propose(&mut app).await;
     assert_eq!(env.block.header.number, 1);
     assert_eq!(env.block.header.base_fee_per_gas, Some(25_000_000));
@@ -180,22 +180,21 @@ async fn recovery_init_accepts_zero_origin_without_changing_deployment_genesis()
     assert_eq!(info(&mut app).await.unwrap().last_block_height.value(), 1);
 }
 
-/// The EL, Comet and validator-state hashes of the retained landing at c > 0 in
-/// [`recovery_fixture`].
-fn retained(w: &RecoveryWitness) -> [B256; 3] {
-    [w.el_header.hash_slow(), B256::repeat_byte(0xcc), B256::repeat_byte(0xdd)]
+/// The EL and Comet hashes of the retained landing at c > 0 in [`recovery_fixture`].
+fn retained(w: &RecoveryWitness) -> [B256; 2] {
+    [w.el_header.hash_slow(), B256::repeat_byte(0xcc)]
 }
 
 /// Changes only the current observation; immutable R evidence stays intact. The checkpoint
-/// `height` gets the EL hash `hash`, and a `height` above the origin a landing record with the
-/// EL, Comet and validator-state hashes `[hash, comet, val_state]`; at the origin the retained
-/// record stays.
+/// `height` gets the EL hash `hash`, and a `height` above the origin a three-word landing
+/// record with the EL and Comet hashes `[hash, comet]`; at the origin the retained record
+/// stays.
 fn checkpoint(
     fx: &Fixture,
     l1: &MockL1,
     w: &RecoveryWitness,
     height: u64,
-    [hash, comet, val_state]: [B256; 3],
+    [hash, comet]: [B256; 2],
     generation: u64,
 ) {
     use crate::{
@@ -215,11 +214,10 @@ fn checkpoint(
         ),
     ]);
     if height > w.el_header.number {
-        words.extend(inbox::landing_slots(height).into_iter().zip([
+        words.extend(inbox::landing_record_slots(height).into_iter().zip([
             U256::from(w.el_header.number) | (U256::from(generation) << 48) | (U256::from(3) << 96),
             hash.into(),
             comet.into(),
-            val_state.into(),
         ]));
     }
     let mut accounts = filler_accounts();
@@ -248,34 +246,6 @@ async fn recovery_init_origin_trust_uses_retained_boundary_without_fabricating_c
     assert!(!app.trust.snapshot().is_ready());
 }
 
-/// SYNC-9-5: the record at the generation's start height does not hold this generation's
-/// validator state, so its word 4 is never compared with the node's: generation 0's start
-/// record holds 0, and recovery origin c's keeps the original generation's value.
-#[tokio::test]
-async fn trust_skips_the_validator_state_at_the_generation_origin() {
-    let fx = Fixture::genesis(1);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    fx.advance_l1(app.l1(), 100, &fx.inbox, &fx.registry);
-    assert_eq!(fx.inbox.last_checkpoint_val_state_hash, B256::ZERO);
-    assert_ne!(app.state().unwrap().val_state.hash(), B256::ZERO);
-    app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().is_ready(), "{:?}", app.trust.snapshot().reason);
-    assert_eq!(app.trust.snapshot().target.unwrap().val_state_hash, B256::ZERO);
-
-    let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
-    checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
-    init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
-    let origin = app.state().unwrap().recovery.clone().unwrap();
-    assert_eq!(origin.val_state_hash, retained(&w)[2]);
-    assert_ne!(app.state().unwrap().val_state.hash(), origin.val_state_hash);
-    app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().is_ready(), "{:?}", app.trust.snapshot().reason);
-    assert_eq!(app.trust.snapshot().target.unwrap().val_state_hash, origin.val_state_hash);
-}
-
 #[tokio::test]
 async fn recovery_init_future_target_requires_replay_and_both_committed_hashes() {
     use super::proposal::{decide, judge, propose};
@@ -294,7 +264,6 @@ async fn recovery_init_future_target_requires_replay_and_both_committed_hashes()
     }
     let target_hash = app.state().unwrap().parent.hash;
     let target_comet = app.state().unwrap().last_comet_hash;
-    let target_val_state = app.state().unwrap().val_state.hash();
     let (_, l1, engine, _) = recovery_fixture(1, 6, 1);
     // Replay the exact anchor history while own finality reports the later landing.
     checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
@@ -304,7 +273,7 @@ async fn recovery_init_future_target_requires_replay_and_both_committed_hashes()
     let mut replay =
         app_with(l1, engine, fx.params.clone(), replay_dir.path(), AppOptions::default());
     init_chain(&mut replay, request(&document(&fx, &w))).await.unwrap();
-    checkpoint(&fx, replay.l1(), &w, 12, [target_hash, target_comet, target_val_state], 1);
+    checkpoint(&fx, replay.l1(), &w, 12, [target_hash, target_comet], 1);
     // Move changed target to 121 and restore the immutable block-120 anchor.
     let current_state = replay.l1().state().states[&120].clone();
     replay
@@ -357,14 +326,7 @@ async fn recovery_genesis_is_identical_when_latest_admission_target_advances() {
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
     let first = crate::build_recovery_genesis(&l1, &engine, &fx.params, 1).await.unwrap();
     assert_eq!(first, document(&fx, &w));
-    checkpoint(
-        &fx,
-        &l1,
-        &w,
-        18,
-        [B256::repeat_byte(0x18), B256::repeat_byte(0x19), B256::repeat_byte(0x1a)],
-        1,
-    );
+    checkpoint(&fx, &l1, &w, 18, [B256::repeat_byte(0x18), B256::repeat_byte(0x19)], 1);
     let next = crate::build_recovery_genesis(&l1, &engine, &fx.params, 1).await.unwrap();
     assert_eq!(first.to_json_pretty(), next.to_json_pretty());
     let dir = tempfile::tempdir().unwrap();
@@ -563,14 +525,7 @@ async fn recovery_init_restart_reuses_authenticated_historical_sidecar_when_stat
     let first = init_chain(&mut app, req.clone()).await.unwrap();
     drop(app);
     let (_, l1, engine, _) = recovery_fixture(1, 6, 1);
-    checkpoint(
-        &fx,
-        &l1,
-        &w,
-        18,
-        [B256::repeat_byte(0x18), B256::repeat_byte(0x19), B256::repeat_byte(0x1a)],
-        1,
-    );
+    checkpoint(&fx, &l1, &w, 18, [B256::repeat_byte(0x18), B256::repeat_byte(0x19)], 1);
     l1.state().states.remove(&64);
     let mut app = app_with(l1, engine, fx.params, dir.path(), AppOptions::default());
     let repeated =

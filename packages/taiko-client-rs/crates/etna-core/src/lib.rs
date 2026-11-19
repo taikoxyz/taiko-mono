@@ -44,4 +44,3 @@ pub mod types;
 pub mod validator;
 /// Stock per-height validator-state transitions and canonical preimages.
 pub mod valstate;
-pub use params::GRID_INTERVAL;
