@@ -5624,9 +5624,11 @@ PyCryptodome Keccak; no third-party installation was performed.
   sets the state header version too; no handshake runs and genesis results stay nil.
 - At checkpoint6, a detached pre-6 set preimage matches frozen header6's AppHash
   and validator hashes. One stock update derives the complete post-6 state.
-  Actual fresh Store.Bootstrap/close/reopen installs markers8/7; continuation7/8
-  uses exactly the uninterrupted frozen Header/BlockID and compares the complete
-  state with only those two markers normalized. Full rows6/7/8 and sparse9/10,
+  The harness sets the validator-change and consensus-parameter change heights
+  to 8 and 7 on that state. Stock Store.Bootstrap persists the supplied state,
+  writes full validator rows and uses the supplied consensus-parameter marker.
+  After reopening, continuation7/8 uses the uninterrupted frozen Header/BlockID
+  and compares the complete state with only those two markers normalized. Full rows6/7/8 and sparse9/10,
   plus final close/reopen bytes, are checked. The bound preimage is reference
   fixture data, not an authenticated DATA-5.4 import package.
 

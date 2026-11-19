@@ -14,7 +14,16 @@ The state includes full original cuts at p through h. Its structural 21-word sta
 
 `current_settlement.py` encodes each raw Cut(height, EL, Comet, FI) in four standard static ABI words. It uses the existing legacy Keccak-256 implementation from `run_comet_apphash.py`. Each leaf covers one cut. The range commitment encodes the right-padded ETNA_LAND_CUTS_V1 tag, generation, p, h and the hash of the concatenated interior leaf hashes. A single-block interval has zero calldata leaves. For c > p, the current checkpoint occupies zero-based leaf index c − p − 1. The 21-word TAIKO_ETNA_LAND_V1 statement binds the supplied original data, endpoints, range, reference and authenticated committee snapshot. Capture validates the bounded lengths before materializing inputs and stores immutable copies. Land independently rebuilds the bound statement from the supplied complete original hashes and current origin. Its caller supplies the latest specific L1 checkpoint and FI cursor. Local head/fork data do not enter this interface.
 
-`proving_recovery.py CASE NATIVE_LOG` decodes the ordered raw TLC frames for the live witnesses. It checks complete Init and adjacent frames, re-captures actual produced ranges with the byte implementation, assigns concrete statements from the source chosen by each observed backend result and uses actual publications on Land. At overlap, the suffix alone must fail, and a later successful Land must match the full actual record. On a stale-generation fault, ordinary byte Land must refuse. Rebinding only the generation on that PRE demonstrates that every other tested admission condition holds. Concrete coverage applies to the decoded synthetic inputs of the replayed traces. It does not establish binding for all possible byte inputs, authenticates no real block or KZG sidecar, and does not measure a guest or run an EL, verifier or contract.
+Run `python -B proving_recovery.py CASE NATIVE_LOG --workspace-root WORKSPACE` to
+emit a JSON receipt for the fixed `proof-progress-model/arbitrary-height-landing`
+claim. The emitter reads the exact SPEC, ACCEPTANCE and SWITCH bytes in WORKSPACE,
+requires the reviewed current bundle and records all three identities, the
+selected scope, case, raw-log SHA-256 and verified transition count. The optional
+`--expect-claim` asserts the expected claim ID. The receipt covers the observed
+trace. Queue exhaustion, source restoration and engine status require their
+separate native records.
+
+The source-independent `audit(text, case)` decodes the ordered raw TLC frames for the live witnesses. It checks complete Init and adjacent frames, reconstructs each numeric milestone and verifies the named endpoint against the final state. It re-captures actual produced ranges with the byte implementation, assigns concrete statements from the source chosen by each observed backend result and uses actual publications on Land. At overlap, the suffix alone must fail, and a later successful Land must match the full actual record. On a stale-generation fault, ordinary byte Land must refuse. Rebinding only the generation on that PRE demonstrates that every other tested admission condition holds. Concrete coverage applies to the decoded synthetic inputs of the replayed traces. It does not establish binding for all possible byte inputs, authenticates no real block or KZG sidecar, and does not measure a guest or run an EL, verifier or contract.
 
 ## Profiles
 

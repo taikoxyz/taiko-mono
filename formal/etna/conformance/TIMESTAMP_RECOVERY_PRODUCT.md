@@ -35,6 +35,18 @@ stop. Every captured block is independently replayed at its own anchor schedule;
 using a current schedule to reinterpret history is rejected. Real EL execution,
 FI trials, guest implementations, consensus quorum and proving remain premises.
 
+For a named witness, run `python -B timestamp_recovery.py CASE NATIVE_LOG
+--workspace-root WORKSPACE`. The JSON receipt contains the fixed
+`rules-schedule-model/timestamp-stop` scope, exact current SPEC, ACCEPTANCE
+and SWITCH identities, case, raw-log SHA-256 and verified transition count.
+The optional `--expect-claim` asserts the expected claim ID. The receipt covers
+the named raw witness. Queue exhaustion, source restoration and engine status
+require their separate native records. The pure `audit(text, case)` also
+accepts raw frame sequences for source-control inspection. Replay checks every
+attempt against the selected profile's actual offers. In particular, Recover
+receives the authorization stored in its PRE frame, including its exact deadline.
+The general contract adapter accepts a genuinely fresh caller authorization.
+
 ## Numeric representation
 
 The pinned TLC engine uses bounded machine integers. Native `FieldLimit=999` and

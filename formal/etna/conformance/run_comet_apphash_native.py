@@ -125,9 +125,16 @@ def main(argv=None):
         parser.add_argument('--'+n,required=True)
     parser.add_argument('--smoke-only',action='store_true')
     args=parser.parse_args(argv);args.timeout=100
+    projection_name = 'comet_signed/public-votes.json'
+    projection = (ROOT / projection_name).read_bytes()
+    if hashlib.sha256(projection).hexdigest() != APP.PROJECTION_SHA:
+        raise ValueError('public-votes.json differs from the reviewed public projection')
     pins=APP.read_json((PROFILE/'pins.json').read_bytes())
     expected_inputs={'comet_handover/apphash/'+n for n in ('apphash_test.go','programs.json','go.mod','go.sum','bridge.go.txt')}
     expected_inputs.update(('run_comet_apphash.py','run_comet_apphash_native.py','COMET_APPHASH.md'))
+    expected_inputs.add(projection_name)
+    if pins.get('inputsSha256', {}).get(projection_name) != APP.PROJECTION_SHA:
+        raise ValueError('public-votes.json profile pin differs from reviewed projection')
     if pins.get('schema')!='etna-comet-apphash-pins-1' or set(pins.get('inputsSha256',{}))!=expected_inputs:
         raise ValueError('wrong/omitted pinned profile input inventory')
     manifest=APP.read_json((ROOT/'manifests/comet.json').read_bytes())
@@ -193,7 +200,9 @@ def main(argv=None):
             COMET.verify_snapshot(private,expected_manifest,pins['sourceCommit'])
             trial=args.output/phase;inputs=trial/'inputs';inputs.mkdir(parents=True)
             for n in ('apphash_test.go','programs.json','go.mod','go.sum'): shutil.copy2(PROFILE/n,inputs/n)
-            shutil.copy2(ROOT/'comet_signed/public-votes.json',inputs/'public-votes.json')
+            staged_projection = inputs / 'public-votes.json'
+            staged_projection.write_bytes(projection)
+            staged_projection.chmod(0o444)
             modfiles=trial/'modfiles';modfiles.mkdir()
             (modfiles/'go.mod').write_bytes((PROFILE/'go.mod').read_bytes()+b'\nreplace github.com/cometbft/cometbft => /tmp/upstream\n')
             shutil.copy2(PROFILE/'go.sum',modfiles/'go.sum')
@@ -208,6 +217,8 @@ def main(argv=None):
             check_identity()
             for p,d in watched.items():
                 if sha(p)!=d: raise ValueError('watched input changed before phase')
+            if sha(staged_projection) != APP.PROJECTION_SHA:
+                raise ValueError('staged public-votes.json differs from the reviewed public projection')
             result=COMET.EXECUTION.execute(cmd,ROOT,110)
             raw=result['output'].encode();(trial/'combined.log').write_bytes(raw)
             report=dict(phase=phase,command=cmd,supervisorCommand=result['supervisor_argv'],returncode=result['returncode'],timedOut=result['timeout'],combinedOutputSha256=hashlib.sha256(raw).hexdigest(),outputDecoding='utf-8-errors-replace',sourceManifest=expected_manifest,sourceInventory=phase_inventory,generatedInputsBefore={'inputs':in_inv,'modfiles':mod_inv},toolsSha256=tool_hashes)

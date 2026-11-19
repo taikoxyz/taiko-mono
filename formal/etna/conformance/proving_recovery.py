@@ -1,7 +1,5 @@
 """Replay raw TLC witness states through the offline four-word settlement adapter."""
-import argparse
 import re
-from pathlib import Path
 
 from current_settlement import Context, Cut, capture, land, uint, word
 
@@ -45,6 +43,7 @@ class Reader:
             entries = {}
             while True:
                 key = self.value()
+                require(type(key) is int and key >= 1, "noninteger or nonpositive sequence key")
                 self.take(":>")
                 require(key not in entries, "duplicate function key")
                 entries[key] = self.value()
@@ -72,29 +71,64 @@ class Reader:
         self.take(close)
         if token == "[":
             return fields
-        return frozenset(values) if token == "{" else tuple(values)
+        if token == "{":
+            try:
+                unique = frozenset(values)
+            except TypeError as error:
+                raise ValueError("unsupported native set member") from error
+            require(len(unique) == len(values), "duplicate or aliased native set member")
+            return unique
+        return tuple(values)
 
 
-def states(text, *, allow_fault=False, fixed_calls=None):
-    markers = list(STATE.finditer(text))
-    require(bool(markers), "missing native TLC states")
-    result = []
+# Only the final native statistics trailer is outside the last variable value.
+# Raw prefixes without a trailer are also used to inspect a control's good edges.
+FOOTER = re.compile(
+    r"^\d+(?:,\d{3})* states generated, \d+(?:,\d{3})* distinct states found, \d+(?:,\d{3})* states left on queue\.\n"
+    r"The depth of the complete state graph search is \d+\.\n"
+    r"(?:The average outdegree of the complete state graph is \d+ \(minimum is \d+, "
+    r"the maximum \d+ and the 95th percentile is \d+\)\.\n)?"
+    r"Finished in [^\n]+ at \([^\n]+\)\s*\Z", re.M)
+
+
+def trace_packets(text):
+    footer = FOOTER.search(text)
+    body = text[:footer.start()] if footer else text
+    markers = list(STATE.finditer(body))
+    require(markers, "missing native TLC states")
     for i, marker in enumerate(markers):
         require(int(marker[1]) == i + 1, "nonconsecutive TLC trace")
-        chunk = text[marker.end():markers[i + 1].start() if i + 1 < len(markers) else None]
-        fields = {m[1]: Reader(chunk[m.end():]).value() for m in ASSIGN.finditer(chunk)}
+        end = markers[i+1].start() if i+1 < len(markers) else len(body)
+        chunk = body[marker.end():end]
+        assignments = list(ASSIGN.finditer(chunk))
+        require(assignments and not chunk[:assignments[0].start()].strip(),
+                "unexpected input before native state variables")
+        fields = {}
+        for j, assignment in enumerate(assignments):
+            name = assignment[1]
+            require(name not in fields, "duplicate native state variable")
+            stop = assignments[j+1].start() if j+1 < len(assignments) else len(chunk)
+            reader = Reader(chunk[assignment.end():stop])
+            fields[name] = reader.value()
+            require(not reader.text[reader.pos:].strip(), "trailing TLC terms after " + name)
+        yield fields
+
+
+def states(text, *, allow_fault=False, fixed_calls=None, milestones=None):
+    packets = list(trace_packets(text))
+    result = []
+    for i, fields in enumerate(packets):
         require(set(fields) == {"s", "bad", "milestone"} and type(fields["bad"]) is bool
                 and type(fields["milestone"]) is (tuple if fixed_calls is not None else int),
                 "invalid trace variables")
-        require(not fields["bad"] or (allow_fault and i + 1 == len(markers)),
-                "raw frame records a diagnostic failure")
-        if allow_fault and i + 1 == len(markers):
-            require(fields["bad"] is True, "fault was not detected on the landing frame")
+        require(fields["bad"] is (allow_fault and i == len(packets)-1),
+                "unexpected diagnostic flag on native frame")
         if fixed_calls is not None:
             fixed_calls.append(fields["milestone"])
+        if milestones is not None:
+            milestones.append(fields["milestone"])
         result.append(fields["s"])
     return result
-
 
 def raw_cut(value):
     require(type(value) is tuple and len(value) == 4, "invalid raw cut")
@@ -197,7 +231,8 @@ def replay(frames, *, capacity, max_time, max_produces, overlap=False, allow_sta
             event = ("recover", c, pre["head"])
         elif "producedCount" in changed:
             h, g, a = pre["head"] + 1, pre["generation"], post["parentAnchor"]
-            require(pre["producedCount"] < max_produces and h <= S + depth and a in pre["anchors"]
+            require(pre["producedCount"] < max_produces and h <= S + depth
+                    and any(same(a, anchor) for anchor in pre["anchors"])
                     and a[2] >= pre["dependency"]
                     and (pre["head"] == pre["start"] or a[2] >= pre["parentAnchor"][2])
                     and a[0] == g and 0 <= pre["now"] - a[2] <= 4 and h <= a[1] + 2,
@@ -234,10 +269,11 @@ def replay(frames, *, capacity, max_time, max_produces, overlap=False, allow_sta
                     require(jobs[j] is not None, "published absent job")
                     data = pre["jobs"][j]["data"]
                     suffix = data[max(0, pre["included"]-jobs[j].cuts[0].height):]
-                    require(value == data or value == suffix, "invalid publication")
+                    full = same(value, data)
+                    require(full or same(value, suffix), "invalid publication")
                     exp["published"] = updated(pre["published"], j, value)
-                    event = ("publish", j, value == data)
-                    if value != data and proofs[j] == [jobs[j].statement] * 2:
+                    event = ("publish", j, full)
+                    if not full and proofs[j] == [jobs[j].statement] * 2:
                         require(rejected(j, post, jobs, proofs, capacity), "suffix-only landing accepted")
         elif "included" in changed:
             c, h = pre["included"], post["included"]
@@ -268,7 +304,8 @@ def replay(frames, *, capacity, max_time, max_produces, overlap=False, allow_sta
             event = ("tick", exp["now"])
         elif "finalizedBlock" in changed:
             b = post["finalizedBlock"]
-            require(pre["finalizedBlock"] < b < pre["now"], "invalid finalization block")
+            require(type(b) is int and pre["finalizedBlock"] < b < pre["now"],
+                    "invalid finalization block")
             top = max(i+S for i,r in enumerate(pre["records"]) if r and r[3] <= b)
             exp.update(finalized=top, finalizedBlock=b)
             event = ("finalize", top, b)
@@ -359,6 +396,52 @@ def fixed_audit(frames, calls):
     return events
 
 
+def check_milestones(frames, events, milestones, case):
+    expected = 0
+    require(milestones[0] == expected, "incorrect initial milestone")
+    for pre, event, observed in zip(frames, events, milestones[1:]):
+        if event[0] == "recover" and pre["head"] >= S+2 and pre["jobs"][0]:
+            job = pre["jobs"][0]
+            if (pre["included"] == S and job["cuts"][-1][0] == S+2
+                    and same(pre["published"][0], job["data"])
+                    and same(pre["proofs"][0], (job["statement"],)*2)):
+                expected = 1
+            elif pre["included"] == S+1:
+                expected = 2
+        elif case == "two-old-overlap" and event[0] == "publish":
+            _, slot, full = event
+            job = pre["jobs"][slot]
+            if (not full and pre["included"] == S+1 and job["cuts"][0][0] == S
+                    and len(job["data"]) == 2
+                    and same(pre["proofs"][slot], (job["statement"],)*2)):
+                expected = 3
+        require(observed == expected, "incorrect witness milestone on native edge")
+
+
+def named_endpoint(case, end, milestone):
+    c = end["included"]
+    record = end["records"][c-S]
+    old, fresh = end["jobs"]
+    fresh_land = (end["generation"] == 1 and fresh and c >= S+2
+                  and record[0] == 1 and fresh["generation"] == 1)
+    if case == "recovery-c0":
+        return (milestone == 1 and fresh_land and end["start"] == S and end["finalized"] == S+2
+                and end["parentAnchor"][:2] == (1, S+2) and end["head"] == S+3)
+    if case == "recovery-c1":
+        return (milestone == 2 and fresh_land and end["start"] == S+1 and end["records"][1][0] == 0)
+    if case == "old-authority-fault":
+        return (milestone == 1 and end["generation"] == 1 and old and old["generation"] == 0
+                and end["privateHistory"] and end["available"] == (True, True)
+                and c > end["start"] and record[2][1] < 100)
+    if case == "two-old-overlap":
+        return milestone == 3 and c == S+2 and record[1] == S+1
+    if case == "unit":
+        return c == S+1 and record[1] == S
+    if case == "late-capture":
+        return old and old["reference"] > 0 and old["generation"] == 0
+    raise ValueError("unknown proving witness")
+
+
 def audit(text, case):
     fixed = {"fixed-7": "NoFrontier7", "fixed-8": "NoFrontier8", "fixed-9": "NoFrontier9",
              "fixed-interior-long": "NoInteriorLong", "fixed-last-long": "NoLastLong",
@@ -385,11 +468,13 @@ def audit(text, case):
         "unit": ("NoSingle", 1, 1, 1),
         "late-capture": ("NoLateCapture", 1, 1, 1),
     }
+    require(case in settings, "unknown proving witness")
     name, cap, horizon, budget = settings[case]
     require(re.findall(r"^Error: Invariant (\w+) is violated\.$", text, re.M) == [name],
             "wrong native witness")
     fault = case == "old-authority-fault"
-    frames = states(text, allow_fault=fault)
+    milestones = []
+    frames = states(text, allow_fault=fault, milestones=milestones)
     depth = {"recovery-c0": 3, "recovery-c1": 2, "two-old-overlap": 2,
              "old-authority-fault": 2, "unit": 1, "late-capture": 1}[case]
     require(len(frames[0]["canonical"]) == depth + 1, "wrong native profile depth")
@@ -398,7 +483,9 @@ def audit(text, case):
         events = require_fresh_progress(frames, **args)
     else:
         events = replay(frames, overlap=case == "two-old-overlap", allow_stale=fault, **args)
+    check_milestones(frames, events, milestones, case)
     end = frames[-1]
+    require(named_endpoint(case, end, milestones[-1]), "final state misses named witness")
     if case in ("recovery-c0", "old-authority-fault"):
         i = next(i for i, e in enumerate(events) if e[0] == "recover")
         pre = frames[i]
@@ -434,10 +521,11 @@ def audit(text, case):
     return events
 
 
+def current_receipt(workspace_root, case, raw, *, expected_claim=None):
+    from product_claim import emit
+    return emit("proving", workspace_root, case, raw, expected_claim=expected_claim)
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("case")
-    parser.add_argument("log", type=Path)
-    args = parser.parse_args()
-    trace = audit(args.log.read_text(), args.case)
-    print(f"{args.case} verified {len(trace)} complete transitions")
+    from product_claim import command
+    command(current_receipt, __doc__)

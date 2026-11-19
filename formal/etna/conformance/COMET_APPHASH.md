@@ -39,11 +39,17 @@ synthetic inputs to the stock state transition, not authenticated blocks.
 
 After real Save/close/reopen, full persistent State bytes and raw ValidatorsInfo
 rows are compared. At s=6, a detached pre-s validator-state preimage is bound to
-the frozen synthetic header and advanced once. A real fresh `Store.Bootstrap`
-sets the two stock storage markers to s+2 and s+1, closes/reopens and continues
-using the same full frozen header/BlockID. All other State bytes must match the
-uninterrupted run. This tests local arithmetic and store semantics. It does not
+the frozen synthetic header and advanced once. The harness sets
+`LastHeightValidatorsChanged` to s+2 and `LastHeightConsensusParamsChanged` to
+s+1 on the derived State. Stock `Store.Bootstrap` persists the supplied State,
+writes the full last/current/next validator rows and uses the supplied consensus
+parameter marker. After reopening the store, the harness continues using the
+same full frozen header/BlockID. All other State bytes must match the uninterrupted run. This tests local arithmetic and store semantics. It does not
 authenticate a checkpoint or implement DATA-5.4 import/evidence/EL storage.
+
+The driver checks the source public-votes bytes against the independent projection
+digest before staging and rechecks the staged file before invoking Go. The Go
+fixture hashes the bytes it actually reads before decoding JSON.
 
 The native driver requires prepared source, SDK, module cache, an existing shared
 physical build cache and lock, and a fresh output directory. All paths are CLI

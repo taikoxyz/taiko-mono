@@ -64,6 +64,21 @@ def entries(state):
     return result
 
 
+def _register_at(pre, post, call, slot):
+    bond, key = pre["nextId"], call["key"]
+    amount, actor, now, cash = call["amount"], call["actor"], pre["now"], post["cash"]
+    post["bonds"][bond] = dict(issued=True, withdrawn=False, key=key, owner=actor,
+                               eff=amount, pending=0, active=now + 1, exit=NO_EXIT,
+                               confirmed=0, holds=True, slot=slot, ready=0)
+    post["slots"][slot] = dict(occupied=True, bond=bond)
+    post["keys"][key] = dict(registered=True, bond=bond)
+    post["nextId"] += 1
+    post["reuse"] += int(pre["uses"][slot] > 0)
+    post["uses"][slot] += 1
+    cash["deposited"] += amount
+    cash["held"] += amount
+
+
 def expected_transition(pre, call, *, max_time=8):
     """Independently evaluate one canonical funded call, including exact refusal."""
     post = deepcopy(pre)
@@ -73,23 +88,13 @@ def expected_transition(pre, call, *, max_time=8):
     cash = post["cash"]
 
     if name == "Register":
-        key, amount = call["key"], call["amount"]
+        key = call["key"]
         vacant = next((i for i in SLOTS if not pre["slots"][i]["occupied"]), None)
-        bond = pre["nextId"]
         if not _register_is_offered(pre, call):
             raise OutOfProfile("registration outside finite key, reuse, and amount choices")
         if pre["keys"][key]["registered"] or vacant is None:
             return False, post
-        post["bonds"][bond] = dict(issued=True, withdrawn=False, key=key, owner=actor,
-                                   eff=amount, pending=0, active=now + 1, exit=NO_EXIT,
-                                   confirmed=0, holds=True, slot=vacant, ready=0)
-        post["slots"][vacant] = dict(occupied=True, bond=bond)
-        post["keys"][key] = dict(registered=True, bond=bond)
-        post["nextId"] += 1
-        post["reuse"] += int(pre["uses"][vacant] > 0)
-        post["uses"][vacant] += 1
-        cash["deposited"] += amount
-        cash["held"] += amount
+        _register_at(pre, post, call, vacant)
 
     elif name == "Tick":
         capture = call["capture"]
@@ -456,6 +461,19 @@ def _fault_shape(fault, pre, last, actual, expected, eligible):
                  "not full refusal with illegal ID, key and cash changes")
     else:
         raise ValueError("unknown source fault")
+
+    faulted = deepcopy(pre)
+    if fault == "refusal":
+        key, amount = call["key"], call["amount"]
+        _require(key == pre["nextId"], "refusal fault requires fresh next ID")
+        faulted["nextId"] += 1
+        faulted["keys"][key] = dict(registered=True, bond=key)
+        faulted["cash"]["deposited"] += amount
+        faulted["cash"]["held"] += amount
+    else:
+        _register_at(pre, faulted, call, 0 if fault == "held-zero" else 1)
+        faulted["dirty"] = pre["dirty"] or entries(pre) != entries(faulted)
+    _require(not _differences(faulted, actual), "incorrect complete faulted Registry POST")
 
 
 def audit_trace(log, invariant, *, max_time=8, capture_history=False, fault=None,

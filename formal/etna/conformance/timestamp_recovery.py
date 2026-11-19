@@ -179,6 +179,7 @@ def require_progress(receipts):
         require(type(receipt["accepted"]) is bool, "invalid acceptance observation")
         k, a, pre, post, ok = (receipt[name] for name in ("operation", "input", "before", "after", "accepted"))
         require(previous is None or same(previous, pre), "disconnected transition sequence")
+        check_offer("structural", pre, k, a)
         check_transition(pre, post, k, a, ok, (5, 4, 4, 1))
         previous = post
         operations.append((k, ok))
@@ -503,6 +504,62 @@ def event(pre, k, a, accepted):
     return tuple(after(pre, k, a)["schedule"][name] for name in ("active", "next", "time", "stop")) if accepted and k in (1, 2, 5) else 0
 
 
+def check_offer(case, pre, kind, args):
+    """Check the selected native scenario's offers independently of admission."""
+    from itertools import product
+    require(case in LIMITS and type(kind) is int and 1 <= kind <= 14 and type(args) is tuple,
+            "invalid timestamp profile or call")
+    require(type(pre) is dict and set(pre) == STATE_FIELDS, "incomplete native PRE frame")
+    smoke = case in ("smoke", "small-safety")
+    dispatch = case == "schedule-safety"
+    reset = case == "reset-safety"
+    structural = not (smoke or dispatch)
+    require(not (dispatch and kind not in (1, 2, 6) or reset and kind not in (2, 3, 5)),
+            "operation outside profile offer domain")
+    owners = (False, True)
+    full = frozenset({0, 1, 2})
+    images = (full,) if structural else (frozenset({0}), full)
+    slots = (1, 2)
+    heights = range(LIMITS[case][1]+1)
+    indices = range(pre["index"]+1)
+    if kind == 1:
+        offers = () if structural or smoke else product(range(3), (0, 102, 103, 104, 106, 999), owners)
+    elif kind == 2:
+        if smoke or case == "general-recovery":
+            offers = ()
+        else:
+            offers = ((103, True),) if structural else product((0, 102, 103, 104, 106), owners)
+    elif kind == 3:
+        offers = () if smoke or pre["generation"] != 0 else (
+            ((1, 108),) if structural else product(range(3), (101, 104, 106, 108)))
+    elif kind == 4:
+        offers = () if structural or smoke else product(range(3), owners)
+    elif kind == 5:
+        offers = () if smoke or pre["generation"] != 0 else product(
+            (pre["auth"],), (True,) if structural else owners)
+    elif kind in (6, 8):
+        offers = ((),)
+    elif kind == 7:
+        offers = ((pre["index"]-1,),) if structural else product(indices)
+    elif kind == 9:
+        offers = product(images)
+    elif kind == 10:
+        origin = pre["origins"][pre["generation"]]
+        clocks = (origin["timestamp"], 101, 103, 104, 105) if structural else range(100, 107)
+        offers = product(indices, clocks, (pre["software"],))
+    elif kind == 11:
+        if structural:
+            origin = pre["origins"][1]
+            offers = ((1, 0, 2, 1),) + (((2, 2, 3, origin["index"]),) if origin else ())
+        else:
+            offers = product(slots, heights, heights, indices)
+    elif kind == 12:
+        offers = product(slots, slots, images)
+    else:
+        offers = product(slots)
+    require(any(same(args, offer) for offer in offers), "arguments outside profile offer domain")
+
+
 def check_transition(pre, post, k, a, accepted, limits):
     require(type(pre) is dict and set(pre) == STATE_FIELDS and type(post) is dict and set(post) == STATE_FIELDS,
             "incomplete before/after transaction frame")
@@ -572,22 +629,13 @@ def seen_after(seen, pre, post, k, a, accepted, limits):
 
 
 def audit(text, case):
-    import re
-    from proving_recovery import Reader, STATE, ASSIGN
+    from proving_recovery import trace_packets
     require(case in LIMITS, "unknown timestamp profile")
     limits = LIMITS[case]
-    markers = list(STATE.finditer(text))
-    require(markers, "missing genuine native trace")
-    packets = []
-    for i, marker in enumerate(markers):
-        require(int(marker[1]) == i+1, "nonconsecutive native trace")
-        chunk = text[marker.end():markers[i+1].start() if i+1 < len(markers) else None]
-        assignments = list(ASSIGN.finditer(chunk))
-        require(len({m[1] for m in assignments}) == len(assignments), "duplicate native state variable")
-        fields = {m[1]: Reader(chunk[m.end():]).value() for m in assignments}
+    packets = list(trace_packets(text))
+    for fields in packets:
         require(set(fields) == {"s", "bad", "last", "seen"} and fields["bad"] is False,
                 "invalid or failed native frame")
-        packets.append(fields)
     require(same(packets[0]["s"], initial(limits)) and same(packets[0]["last"], (0, (), False, ())),
             "native initialization differs from configured profile")
     expected_seen = dict(terminal=0, stopRefused=False, recovered=False, fresh=0, stale=False, noStop=False, distinctClocks=False)
@@ -598,6 +646,7 @@ def audit(text, case):
         call = after_packet["last"]
         require(type(call) is tuple and len(call) == 4, "incomplete actual call receipt")
         k, a, accepted, observed_event = call
+        check_offer(case, pre, k, a)
         check_transition(pre, post, k, a, accepted, limits)
         require(same(observed_event, event(pre, k, a, accepted)), "actual event or candidate outputs differ")
         expected_seen = seen_after(expected_seen, pre, post, k, a, accepted, limits)
@@ -615,3 +664,32 @@ def audit(text, case):
     elif case == "general-recovery":
         require(expected_seen["noStop"], "no actual recovery without planned stop")
     return receipts
+
+
+def audit_named(text, case):
+    """A source-bound receipt needs the selected native witness and its endpoint."""
+    import re
+    names = {"structural": "NoStructural", "terminal": "NoTerminal",
+             "fresh-land": "NoFreshLand", "stale-checkpoint": "NoStale",
+             "general-recovery": "NoGeneralRecovery", "reset-safety": "NoResetReached"}
+    require(case in names, "timestamp claim requires a named witness")
+    require(re.findall(r"^Error: Invariant (\w+) is violated\.$", text, re.M) == [names[case]],
+            "wrong native timestamp witness")
+    edges = audit(text, case)
+    require(edges, "missing timestamp witness transitions")
+    if case == "reset-safety":
+        end = edges[-1]["after"]
+        require(end["generation"] == 1 and end["writes"] == 1
+                and same(end["schedule"], dict(active=1, next=1, time=0, stop=0)),
+                "missing successful nonzero-rules reset")
+    return edges
+
+
+def current_receipt(workspace_root, case, raw, *, expected_claim=None):
+    from product_claim import emit
+    return emit("timestamp", workspace_root, case, raw, expected_claim=expected_claim)
+
+
+if __name__ == "__main__":
+    from product_claim import command
+    command(current_receipt, __doc__)

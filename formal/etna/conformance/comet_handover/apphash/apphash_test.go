@@ -91,12 +91,18 @@ func hexBytes(t *testing.T, s string) []byte {
 
 func hexOf(b []byte) string { return hex.EncodeToString(b) }
 
-func readJSON(t *testing.T, path string, dst any) string {
+const publicProjectionSHA = "34932f8ddf991ae41eb1be94c873e99524f51cf96d427faed4a1bfc443dc960e"
+
+func readJSON(t *testing.T, path, expectedSHA string, dst any) string {
 	t.Helper()
 	raw, err := os.ReadFile(path)
 	check(t, err)
+	digest := fmt.Sprintf("%x", sha256.Sum256(raw))
+	if expectedSHA != "" && digest != expectedSHA {
+		t.Fatalf("unexpected SHA-256 for %s", path)
+	}
 	check(t, json.Unmarshal(raw, dst))
-	return fmt.Sprintf("%x", sha256.Sum256(raw))
+	return digest
 }
 
 func load(t *testing.T, name string) environment {
@@ -105,7 +111,7 @@ func load(t *testing.T, name string) environment {
 		Schema string             `json:"schema"`
 		Cases  map[string]program `json:"cases"`
 	}
-	programSHA := readJSON(t, "programs.json", &programs)
+	programSHA := readJSON(t, "programs.json", "", &programs)
 	selected, ok := programs.Cases[name]
 	if !ok || programs.Schema != "etna-comet-apphash-programs-1" ||
 		selected.Initial <= 0 || selected.End < selected.Initial || selected.End-selected.Initial >= 16 {
@@ -127,7 +133,7 @@ func load(t *testing.T, name string) environment {
 			ChainID    string `json:"chain_id"`
 		} `json:"chainDomains"`
 	}
-	projectionSHA := readJSON(t, "public-votes.json", &public)
+	projectionSHA := readJSON(t, "public-votes.json", publicProjectionSHA, &public)
 	if public.Schema != "etna-public-votes-1" {
 		t.Fatal("wrong public projection")
 	}
