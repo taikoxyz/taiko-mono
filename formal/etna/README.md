@@ -26,6 +26,14 @@ producers. The original source guard remains unchanged. See the
 [W01 report](REPORT.md#w01-current-document-bundle-and-evidence-boundaries).
 These checks do not establish CometBFT, cryptographic or deployment correctness.
 
+The separately named [current Registry vacancy model](conformance/REGISTRY_VACANCY.md)
+checks held-zero occupancy, lowest-empty admission, lifetime-key refusal and
+successive reuse with full action frames. Its two-block ordinary profile exhausted;
+three-block searches timed out and eight-block exhaustive safety remains open.
+Longer actual traces establish selected reachability only. See the
+[W02 report](REPORT.md#w02-current-registry-vacancy-and-lifetime-reuse).
+Native current Registry correspondence remains WAITING.
+
 ## Run
 
 The draft-enabled [TLC/Python workflow](../../.github/workflows/protocol--etna-tlc.yml)

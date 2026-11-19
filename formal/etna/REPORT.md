@@ -5276,3 +5276,164 @@ empty-slot lifecycle checks; W03–W07 and the final combined independent review
 remain. The thirty broader master obligations and nineteen archived
 INCONCLUSIVE results retain their existing scopes. No overall completion
 percentage or newly verified deployment is inferred from these counts.
+
+## W02 current Registry vacancy and lifetime reuse
+
+W02 adds a distinctly named current-rule component model, literal full-state
+observer and eleven opt-in profiles. Authority is the exact W01 three-document
+bundle at `2e6763e21bc236cfcda6011d164b32040f9e0c8d`; the observer selects the
+`registry-vacancy-model/lowest-empty-slot` claim. Historical Registry models,
+native fixtures and all default TLC configurations retain their original bytes
+and meanings. [The guide](conformance/REGISTRY_VACANCY.md) maps each selected rule,
+input restriction and external premise.
+
+The graph freely offers local lifecycle calls, funded registrations and duplicate
+keys. Occupied-zero slots remain held until withdrawal. Exact presence flags
+keep slot 0, bond 0 and key 0 separate from absence. The literal admission audit
+independently tests the actual offered success/refusal relation over sixteen
+registration calls. Each displayed action is independently replayed from its
+entire raw PRE state and checked against every Registry POST field, including
+unchanged Registry fields and canonical unused input cells.
+
+### Actual results and limits
+
+| Selected execution                      | Observation                                                                                                                                                                                       |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unviewed ordinary horizon 2             | Native success; 254,992 generated, 17,463 distinct, zero queued. Full frames, cash/lifetime and two-way admission checks.                                                                         |
+| Unviewed ordinary horizon 3             | Both separately bounded 180 s and 285 s searches timed out. INCONCLUSIVE; no third retry.                                                                                                         |
+| Unviewed ordinary horizon 8             | Not executed; exhaustive safety remains OPEN.                                                                                                                                                     |
+| Held-zero / partial forfeiture          | Three and four displayed transitions respectively; a fresh registration skips held-zero slot 0, and partial forfeiture retains effective plus pending principal.                                  |
+| Full refusal / public zero release      | Seven and eight displayed transitions; full refusal changes no ID, key or cash. A covering landing, first confirmation and elapsed block precede a public zero withdrawal and fresh slot-0 reuse. |
+| Two distinct old slots, then two reuses | Twenty displayed transitions. IDs 0 and 1 held distinct slots together, both actually withdrew, both holes existed, then fresh IDs 2 and 3 took slots 0 and 1. Final use counts are 2/2.          |
+| Withdrawn-key refusal                   | Twenty-one displayed transitions; the old key refuses and a distinct fresh key succeeds from the same unchanged prestate.                                                                         |
+| Captured historical checkpoint          | Thirty-nine displayed transitions across horizon 8; effective stake is captured while a top-up is pending, activation follows, then withdrawal/reuse preserves the old identity and powers.       |
+
+The selected long witnesses are genuine fixed-seed stock TLC simulations of the
+same unrestricted operational `Next`, with full state frames. They are existence
+evidence, with no queue, exhaustion, probability or liveness claim. Long frame-only
+profiles omit the expensive universal admission diagnostic; the ordinary profile
+and separate actual offer controls cover that diagnostic. The historical run used
+at most 8192 traces, depth 96, seed 1 and a 180 s budget, and found its named
+witness in about five seconds. Earlier bounded no-hit/timeout attempts remain
+retained and inconclusive.
+
+The witness-only VIEW used by shorter breadth-first runs keeps the entire
+operational record, frame flag, marks, every endpoint truth that reads the prior
+call and the one prior-call discriminator used by future marks. It preserves the
+selected successors and first bad writes. Raw logs retain all four variables;
+there is no claim to enumerate every diagnostic label or use this VIEW for
+arbitrary future observers/mutations. Ordinary profiles use no VIEW.
+
+The final observer re-consumed twenty genuine author counterexample logs and
+checked 196 displayed transitions, including original/fault/restored repetitions.
+This is a new read of retained native output, not twenty new engine runs, and the
+counts are not unique histories. The author reader checks witness marks on
+matching frames; it does not assert marks on the final divergent source-fault
+frame. Its negative verdict binds the exact Registry difference and input, rather
+than every diagnostic cell. The one exhaustive ordinary execution is separate. Four same-log mode/seed/footer corruptions were rejected. Older executed
+reader identities remain recorded rather than being relabeled as the final one.
+
+### Verification defects found and repaired
+
+Independent review found real blind spots in the first verification draft:
+
+- Canonical key selection had also excluded duplicates in the operational guard,
+  so removing the lifetime-key lookup could not change behavior. Canonicalization
+  now belongs only to fresh offers; issued duplicate keys reach the actual guard.
+- The operational and enabledness checks shared an offer restriction, and a
+  hypothetical acceptance test could miss an omitted real call. A separate
+  sixteen-call literal domain now tests the actual offered transition relation.
+- Public zero withdrawal and later slot-0 reuse needed one joined trace. The
+  witness and complete raw-history checks now require both in that trace.
+- The raw adapter previously accepted forged unused action cells. It now checks
+  exact typed call envelopes and allows a rejected edge only for Register.
+- Finite issuance, reuse and repeated-top-up cutoffs are input-domain limits,
+  with a distinct out-of-profile result, rather than protocol refusal evidence.
+- The first raw two-reuse endpoint admitted a legal alternate history using only
+  slot 0 twice. A 3/1 use-count regression now rejects it; the selected positive
+  requires both original distinct holders, both withdrawals and 2/2 final uses.
+
+Actual operational source controls separately detect mistaken held-zero vacancy,
+wrong lowest slot after both withdrawals, writes during full refusal, a missing
+full-capacity refusal offer, Slash clearing occupancy, a missing accepted owner/
+amount offer and withdrawn-key acceptance. Each uses successful original and
+restored companion execution. A zero queue at a named violation gives fault
+evidence only. The independent oracle uses its own full-frame equations and
+does not call the candidate observer for expected results.
+
+Independent action-omission controls also ran as two complete original/fault/
+restored triplets. Suppressing only Land in the actual Next relation reached a
+six-frame held-zero/full-refusal endpoint at time 3, with exit 1, coverage 0 and
+no confirmation. The intrinsic covering action was enabled but absent from the
+offered transition relation, and withdrawal remained disabled. Suppressing only
+Withdraw reached an eight-frame endpoint with coverage 1, first confirmation 2
+and a due public zero withdrawal absent from actual Next; fresh registration
+still refused atomically because both slots were held. Each original/restored
+companion performed actual Land, Confirm, elapsed Tick, public Withdraw and
+fresh admission in eight displayed transitions. All six runs had native status
+12 at their exact named invariant, independent audit status 0 and stable source/
+mode guards. Restored audit bytes matched each original exactly. These are
+conditional action-availability checks, not liveness proofs.
+
+Together the four author source-fault triplets and five independent source-fault
+triplets comprise 27 actual original/fault/restored phases. They target nine
+concrete altered operational behaviors. The selected original witnesses and
+restored repetitions are separate from exhaustive ordinary safety.
+
+These are verification defects and deliberate source faults, not newly confirmed
+natural protocol defects. Failed parse/config preparation, the corrected private
+oracle reporting variable, original safety timeouts and finite no-hit searches
+retain zero protocol-failure or completion credit.
+
+### Boundaries and retained evidence
+
+This component has two slots, four lifetime identities, at most two reuses and
+one accepted top-up per identity. Deposits are locally funded premises; W03 owns
+closed supply. One immutable historical sample is modeled, rather than all
+history retrieval/compression. The symbolic exit sentinel is above all modeled
+times; no uint48 overflow, Merkle packing or ABI claim follows. Ticks close blocks
+1–7 and leave block 8 open. Valid PoP/evidence, DAO authority, transfer success and
+initialized Inbox are premises.
+
+Land consumes an external successful covering-settlement premise. A local sample
+cannot advance coverage, but the two-slot trace may require an ambient committee
+to make that external landing possible. It proves no whole-chain/committee
+reachability. Actual current Registry implementation, fixed-supply deployment,
+cryptography, client/EL/guest execution and 4096-slot gas acceptance remain
+WAITING. No older displacement implementation is current-rule conformance.
+
+Root ordinary verification passed 193 main, 166 conformance and 20 sensitivity
+checks in each of the canonical branch and effective-merge uncommitted overlay
+(379 per context; zero skips, errors or failures). All 1693 frozen input hashes
+were unchanged. The baseline was 368 per context. Default historical 493 TLC
+outcomes were not newly executed for W02; they remain historical evidence.
+
+| Retained evidence                            | SHA-256                                                            |
+| -------------------------------------------- | ------------------------------------------------------------------ |
+| Operational model                            | `a4fe47dd5cb109c75308bf52e235e2083cb9bf95a22e67f8b2d90f0512fc5f80` |
+| Witness VIEW module                          | `590c5603841c7cb90dcd633b7ec2118fbf9021bc78b056115c8bc17fe91e3a97` |
+| Final raw observer                           | `f80fd718a673bf9ef0038cbe014bf1ee325e41d4b742e4e66003505f65463c0a` |
+| Final focused regression tests               | `9a90452db5d9866c48b94eccf493ce8ee9f45ab35616a3dad57e17f6ca27db3a` |
+| Final twenty-log re-consumption              | `4bedfbdb9ab83715f7a6bd070b885c30b26a7fb61c2f6c16033456b1f25b1fea` |
+| Actual two-reuse raw log                     | `6c731b03961cb8b80eaa2301e3f76773aa86308bbf31101f45c71f64ab317840` |
+| Actual captured-history raw log              | `bf0ca2ffd65c2f9a30671866ba8c5301569e22f462649a0e8a730c891a7bef6f` |
+| Independent accepted-offer positive/readback | `4fa3db657c8d5216fa2b0d5f7bb6947eafdb110491b9db0e9486a74a3a817e16` |
+| Independent withdrawn-key positive/readback  | `012fdbb9a4fc479c52aa323e87efcfe2a205aa36764d1d0e9cc45550025d41d2` |
+
+Implementation `29d4a35932b0e8e65378cec128ed1b9756f34ac8` delivers the W02
+selected finite checkpoint after independent adversarial review and scoped
+behavioral verification. This checkpoint closes only horizon-2 universal checks, the
+six grouped lifecycle/progress witness obligations and their sensitivity controls.
+The original broader horizon-3 and horizon-8 exhaustive acceptance remains
+OPEN under R01; it is not counted as complete. W03–W07 and the combined
+independent final review remain. The thirty master
+obligations and nineteen previously archived INCONCLUSIVE results retain their
+scopes; the W02 timeouts are additional current-rule searches. No protocol-wide
+completion percentage is inferred.
+
+The amended independent selected-scope verification report is
+`948dd1ca37d06ccc29cbb6e1cb03e8a1f9d44dc0a441d8d07193a92ce746ba4e`.
+Its retained pre-split broad TEST BLOCKED report is
+`08b000925a3c5b695552cf11d601afacde1a517bbcabfd6fe3bdb58ed969a565`.
+The split changes reporting acceptance, not any executed source, result or limit.
+Root tracks exact draft publication and effective-merge readback separately.

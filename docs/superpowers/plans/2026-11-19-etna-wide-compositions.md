@@ -54,11 +54,14 @@
 
 **Interfaces:** Operational `Register`, `TopUp`, `Activate`, exit/punishment/confirmation/withdraw/tick actions; separate full PRE/POST transition observations and two-way admission enabledness. Consume W01 source identity; produce opt-in safety/witness results and exact current-rule mapping for W03.
 
-- [ ] Audit actual new rules and freeze two-slot/four-ID/time1..8 funded-call scope, complete state fields and independent literal transition equations.
-- [ ] Add failing static/observer tests for occupied-zero mistaken vacancy, two-hole order, full refusal identity/cash mutation and unchanged closed snapshots.
-- [ ] Implement free current-rule lifecycle with no expected masks/scripts selecting actions; preserve issued/lifetime/slot identity through two reuse events.
-- [ ] After exact static packet/source review, run one smoke then bounded original/source-fault/restored safety/witness profiles; independent tester uses a different actual guard fault and action omission.
-- [ ] Verify every selected witness/action frame, queue-zero ordinary profiles and source restoration; independent review, focused ordinary regressions, commit and root publication. Keep native current Registry WAITING.
+- [x] Audit actual new rules and freeze two-slot/four-ID/time1..8 funded-call scope, complete state fields and independent literal transition equations.
+- [x] Add failing static/observer tests for occupied-zero mistaken vacancy, two-hole order, full refusal identity/cash mutation and unchanged closed snapshots.
+- [x] Implement free current-rule lifecycle with no expected masks/scripts selecting actions; preserve issued/lifetime/slot identity through two reuse events.
+- [x] After exact static packet/source review, run one smoke then bounded original/source-fault/restored safety/witness profiles; independent tester uses a different actual guard fault and action omission.
+- [x] Selected finite checkpoint: verify every selected Registry witness/action frame, horizon-2 queue-zero ordinary checks and source restoration; independent review, focused ordinary regressions and implementation commit `29d4a3593`. Root tracks exact draft publication in the ledger. Keep native current Registry WAITING. Author negative-reader diagnostic marks on the final bad frame are outside its asserted Registry frame.
+- [ ] R01 broader acceptance remains OPEN: exhaust the unchanged unviewed horizon-3 and horizon-8 ordinary profiles. The 180s/285s horizon-3 timeouts are INCONCLUSIVE; horizon 8 is unrun. These are carried-forward obligations, excluded from the selected-checkpoint delivery count. No third retry, expanded automatic search or new batch is authorized by this split.
+
+Root acceptance split: the design requires the represented time1..8 envelope and concrete lifecycle correctness/progress, but does not require exhaustion at every horizon. Under the existing bounded-resource reduction rule, the selected checkpoint closes horizon-2 universal checks and six grouped witnesses (held-zero, full refusal, paired reuses, public zero release, withdrawn-key refusal, immutable historical sample; partial forfeiture is an additional check). It explicitly leaves the original broader exhaustive acceptance open. The independent tester must issue separate dispositions for the selected checkpoint and the broad obligation.
 
 ### Task 3: W03 closed-supply capacity and stalled release
 
