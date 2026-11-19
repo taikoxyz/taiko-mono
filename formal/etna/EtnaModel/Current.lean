@@ -84,40 +84,32 @@ structure State where
   minStake : Nat := 1
   activationDelay : Nat := 1
 
-/-- A vacant slot has value zero; pending deposits count for admission, not elections. -/
-def slotValue (s : State) (slot : Nat) : Nat :=
-  match s.slots slot with
-  | none => 0
-  | some id => ((s.bonds id).map (fun b => b.value.balance)).getD 0
+/-- The first of `count` slots from `slot` that no bond holds. Occupancy alone decides;
+a held slot stays held whatever its bond's balance, including zero. -/
+def firstEmpty (s : State) (slot : Nat) : Nat → Option Nat
+  | 0 => none
+  | count+1 => if s.slots slot = none then some slot else firstEmpty s (slot+1) count
 
-def search (s : State) (best : Nat) : List Nat → Nat
-  | [] => best
-  | slot :: rest => if slotValue s best = 0 then best else
-      search s (if slotValue s slot < slotValue s best then slot else best) rest
-
-def admissionSlot (s : State) : Nat := search s 0 (List.range' 1 4095)
+/-- STAKE-4.1-14a: the lowest-numbered empty slot of 4096, or none when every slot is held. -/
+def admissionSlot (s : State) : Option Nat := firstEmpty s 0 4096
 
 def updateBond (s : State) (id : Nat) (bond : Bond) : State :=
   { s with bonds := fun i => if i = id then some bond else s.bonds i }
 
-/-- Successful issuance never reuses an id. Displacement changes only slot ownership
-and the old bond's exit; the old principal and key remain reachable by its lifetime id. -/
+/-- Successful issuance never reuses an id. Admission takes the lowest empty slot and never
+moves or removes another bond; with every slot held, registration fails whatever the amount. -/
 def register (s : State) (key owner amount now : Nat) : Option (State × Nat) :=
-  let slot := admissionSlot s
-  if s.keyId key = none ∧ key ≠ 0 ∧ s.minStake ≤ amount ∧
-      slotValue s slot < amount ∧ amount < limit256 ∧
-      0 < s.activationDelay ∧ now+s.activationDelay < Staking.noExit then
-    let displaced := match s.slots slot with
-      | none => s
-      | some id => match s.bonds id with
-        | none => s
-        | some b => updateBond s id ⟨Staking.exclude b.value now,none⟩
-    let fresh : Bond := ⟨⟨key,owner,amount,now+s.activationDelay,Staking.noExit,false,none,0,0⟩,some slot⟩
-    some ({ updateBond displaced s.nextId fresh with
-      nextId := s.nextId+1,
-      slots := fun i => if i = slot then some s.nextId else s.slots i,
-      keyId := fun k => if k = key then some s.nextId else s.keyId k },s.nextId)
-  else none
+  match admissionSlot s with
+  | none => none
+  | some slot =>
+    if s.keyId key = none ∧ key ≠ 0 ∧ s.minStake ≤ amount ∧ amount < limit256 ∧
+        0 < s.activationDelay ∧ now+s.activationDelay < Staking.noExit then
+      let fresh : Bond := ⟨⟨key,owner,amount,now+s.activationDelay,Staking.noExit,false,none,0,0⟩,some slot⟩
+      some ({ updateBond s s.nextId fresh with
+        nextId := s.nextId+1,
+        slots := fun i => if i = slot then some s.nextId else s.slots i,
+        keyId := fun k => if k = key then some s.nextId else s.keyId k },s.nextId)
+    else none
 
 /-- Every mutation, including internal recovery exclusions, authenticates issued ids. -/
 def modify (s : State) (id : Nat) (f : Bond → Option Bond) : Option State :=
@@ -125,8 +117,8 @@ def modify (s : State) (id : Nat) (f : Bond → Option Bond) : Option State :=
     (s.bonds id).bind fun b => (f b).map (updateBond s id)
   else none
 
-/-- This primitive changes only the bond. Withdrawal additionally clears its own slot;
-it must never erase a replacement bond's slot after displacement. -/
+/-- This primitive changes only the bond. Withdrawal additionally clears its own slot, the
+only way a bond leaves its slot; it never erases another bond's slot. -/
 def withdrawn (b : Bond) : Bond :=
   ⟨{ b.value with owner := 0, stake := 0, pendingTopUp := 0, topUpReadyAtL1 := 0, released := true, confirmedAt := none },none⟩
 

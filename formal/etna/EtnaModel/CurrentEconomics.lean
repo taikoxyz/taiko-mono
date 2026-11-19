@@ -4,7 +4,7 @@ import EtnaModel.CurrentProtocolFinality
 namespace Etna.Design.Current.Economics
 open Protocol
 
-/-- Outstanding permanent-bond liabilities include displaced bonds and pending top-ups. -/
+/-- Outstanding permanent-bond liabilities include pending top-ups. -/
 def reserve (s : Registry.State) : Nat :=
   RegistryMachine.reserve s
 

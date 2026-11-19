@@ -123,7 +123,7 @@ theorem shared_prefix_agreement {cfg : Config} {registryA registryB : RegistryMa
   exact Locking.commit_agreement rules minority (Locking.commitValid_bridge attributedA validA) lowerB
 
 /-- Evidence remains executable against every future issued bond carrying this key,
-including positive displaced or forfeited bonds and bonds in later recovery generations. -/
+including positive forfeited bonds and bonds in later recovery generations. -/
 theorem evidence_future_liability {first : RegistryMachine.World} {key : Hash}
     {a b : Staking.Vote} {sa sb : Hash}
     (initialized : first.inbox.initialized = true)

@@ -1,40 +1,46 @@
 import EtnaModel.CurrentRegistryPayments
 import EtnaVectors.Json
 
-/-! Executable current displacement vectors (`testdata/etna_current_conformance`).
-Key numbers denote valid distinct test keys; PoP and token adapters have their stated meanings. -/
+/-! Executable current admission vectors (`testdata/etna_current_conformance`).
+Key numbers denote valid distinct test keys; PoP, vote signatures and token adapters have their
+stated meanings. -/
 namespace Etna.Vectors.CurrentRegistry
 open Etna.Design Etna.Design.Current
 
+/-- Opening bonds 0 to `bonds - 1` hold the slots with the same numbers. Bond `low` has
+`lowStake` and `pending`; it is withdrawn when `vacant`, or slashed to zero when `slashed`. -/
 structure Seed where
+  bonds : Nat := 4096
   low : Nat := 4095
   lowStake : Nat := 10
   pending : Nat := 0
-  second : Option Nat := none
   vacant : Bool := false
+  slashed : Bool := false
+
+def minStake : Nat := 10
 
 def initialBond (seed : Seed) (i : Nat) : Registry.Bond :=
-  let selected := i = seed.low ∨ seed.second = some i
   let pending := if i = seed.low then seed.pending else 0
   let value : Staking.Bond :=
-    ⟨i+1,7,(if selected then seed.lowStake else 20),1,Staking.noExit,false,none,
+    ⟨i+1,7,(if i = seed.low then seed.lowStake else 20),1,Staking.noExit,false,none,
       pending,(if pending = 0 then 0 else 2)⟩
   ⟨value,some i⟩
 
 def ledger (seed : Seed) : Registry.State :=
-  { nextId := 4096,
-    bonds := fun i => if i < 4096 then some (initialBond seed i) else none,
-    slots := fun i => if i < 4096 then some i else none,
-    keyId := fun k => if 0 < k ∧ k ≤ 4096 then some (k-1) else none }
+  { nextId := seed.bonds,
+    bonds := fun i => if i < seed.bonds then some (initialBond seed i) else none,
+    slots := fun i => if i < seed.bonds then some i else none,
+    keyId := fun k => if 0 < k ∧ k ≤ seed.bonds then some (k-1) else none,
+    minStake := minStake }
 
 def registry (seed : Seed) : RegistryMachine.State :=
   let raw : RegistryMachine.State :=
     { ledger := ledger seed,config := { inbox := 3,withdrawalDelay := 3 },
-      verify := fun _ _ _ => false,registerAuth := fun _ _ _ _ => true }
+      verify := fun _ _ _ => true,registerAuth := fun _ _ _ _ => true }
   { raw with history := [⟨0,RegistryMachine.entries raw⟩] }
 
 def funded (seed : Seed) : RegistryPayments.State :=
-  let reserve := (List.range 4096).foldl (fun total i => total+(initialBond seed i).value.balance) 0
+  let reserve := (List.range seed.bonds).foldl (fun total i => total+(initialBond seed i).value.balance) 0
   ⟨registry seed,⟨fun a => if a = 4 then reserve else if a = 8 then 100 else 0,
     fun payer recipient => if payer = 8 ∧ recipient = 4 then 100 else 0⟩⟩
 
@@ -54,10 +60,21 @@ def vacancyWithdrawal (seed : Seed) :=
     RegistryPayments.executeTransaction (RegistryPayments.standardEnvironment 4 5)
       s (view 2) 5 7 (.withdraw seed.low 7 7)
 
-/-- The vacant-slot fixture uses actual exit, confirmation and paid withdrawal calls.
-The regression checks each success, retained lifetime identity, metadata and reserve. -/
+/-- Two precommits by one key for different blocks at one height and round, in the
+deployment's own domain and generation. -/
+def slashVote (blockId : Nat) : Staking.Vote := ⟨⟨1,2,3,4⟩,0,5,0,2,blockId⟩
+
+/-- Reporter 6 slashes bond `low` at block 1. -/
+def slashing (seed : Seed) :=
+  RegistryPayments.executeTransaction (RegistryPayments.standardEnvironment 4 5)
+    (funded seed) (view 0) 1 6 (.slash seed.low (slashVote 1) (slashVote 2) (seed.low+1) (seed.low+1))
+
+/-- The vacant-slot and slashed fixtures use actual exit, confirmation, paid withdrawal and
+slashing calls. The regression checks each success, retained lifetime identity, metadata and
+reserve. -/
 def opening (seed : Seed) : RegistryPayments.State :=
   if seed.vacant then ((vacancyWithdrawal seed).map Prod.fst).getD (funded seed)
+  else if seed.slashed then ((slashing seed).map Prod.fst).getD (funded seed)
   else funded seed
 
 def optionNat : Option Nat → JVal
@@ -71,33 +88,47 @@ def renderBond (b : Registry.Bond) : JVal := jObj [
   ("released",jBool b.value.released),("confirmedAt",optionNat b.value.confirmedAt),
   ("readyAt",jNat b.value.topUpReadyAtL1),("slot",optionNat b.slot)]
 
+def renderVote (v : Staking.Vote) : JVal := jObj [
+  ("generation",jNat v.generation),("height",jNat v.height),("round",jNat v.round),
+  ("kind",jNat v.kind),("blockId",jNat v.blockId)]
+
+def lowBond (before : RegistryPayments.State) (seed : Seed) : JVal :=
+  match before.registry.ledger.bonds seed.low with
+  | none => jNull
+  | some b => renderBond b
+
 def vector (name : String) (seed : Seed) (amount : Nat) : JVal :=
   let before := opening seed
-  let slot := Registry.admissionSlot before.registry.ledger
-  let occupant := before.registry.ledger.slots slot
+  let id := before.registry.ledger.nextId
   let snapshot := if seed.vacant then 2 else 0
   let result := RegistryPayments.executeTransaction (RegistryPayments.standardEnvironment 4 5)
     before (view snapshot) 10 8 (.register 9000 8 amount 9000)
   jObj [
     ("id",jStr name),("rules",jRow [jStr "STAKE-4.1-13a",jStr "STAKE-4.1-14a"]),
-    ("setup",jObj [("slotCount",jNat 4096),("defaultStake",jNat 20),
+    ("setup",jObj [("slotCount",jNat 4096),("openingBonds",jNat seed.bonds),
+      ("minStake",jNat minStake),("defaultStake",jNat 20),
       ("lowIndex",jNat seed.low),("lowStake",jNat seed.lowStake),("lowPending",jNat seed.pending),
-      ("secondLowIndex",optionNat seed.second),("vacantLow",jBool seed.vacant),
+      ("secondLowIndex",jNull),("vacantLow",jBool seed.vacant),("slashedLow",jBool seed.slashed),
       ("landedSnapshot",jNat snapshot),
       ("vacancyLifecycle",if seed.vacant then jObj [
         ("requestBlock",jNat 1),("exitAt",jNat 2),("confirmBlock",jNat 2),
         ("withdrawBlock",jNat 5),("recipient",jNat 7),
-        ("withdrawnBond",match before.registry.ledger.bonds seed.low with
-          | none => jNull | some b => renderBond b)] else jNull)]),
+        ("withdrawnBond",lowBond before seed)] else jNull),
+      ("slashLifecycle",if seed.slashed then jObj [
+        ("block",jNat 1),("reporter",jNat 6),("voteA",renderVote (slashVote 1)),
+        ("voteB",renderVote (slashVote 2)),("slashedBond",lowBond before seed)] else jNull)]),
     ("call",jObj [("fn",jStr "register"),("block",jNat 10),("caller",jNat 8),
       ("key",jNat 9000),("amount",jNat amount)]),
     ("expect",match result with
       | none => jObj [("revert",jBool true),("stateUnchanged",jBool true)]
-      | some (after,receipts) => jObj [
-        ("revert",jBool false),("selectedSlot",jNat slot),("bondId",jNat before.registry.ledger.nextId),
+      | some (after,receipts) =>
+        let slot := (after.registry.ledger.bonds id).bind Registry.Bond.slot
+        let occupant := slot.bind before.registry.ledger.slots
+        jObj [
+        ("revert",jBool false),("selectedSlot",optionNat slot),("bondId",jNat id),
         ("oldBondId",optionNat occupant),
         ("oldBond",match occupant.bind after.registry.ledger.bonds with | none => jNull | some b => renderBond b),
-        ("newBond",match after.registry.ledger.bonds before.registry.ledger.nextId with | none => jNull | some b => renderBond b),
+        ("newBond",match after.registry.ledger.bonds id with | none => jNull | some b => renderBond b),
         ("nextId",jNat after.registry.ledger.nextId),
         ("slot4096",optionNat (after.registry.ledger.slots 4096)),
         ("callerBalance",jNat (after.token.balances 8)),("registryBalance",jNat (after.token.balances 4)),
@@ -107,18 +138,17 @@ def vector (name : String) (seed : Seed) (amount : Nat) : JVal :=
 def file : String :=
   jObj [
     ("schema",jStr "etna-current-registry-admission-1"),
-    ("authorityCommit",jStr "9c832234b4681fbc5eccdbaf9c9303b7869f91f4"),
+    ("authorityCommit",jStr "2e6763e21bc236cfcda6011d164b32040f9e0c8d"),
     ("model",jStr "Etna.Design.Current.RegistryPayments.executeTransaction"),
-    ("keyMeaning",jStr "Distinct valid test keys with valid PoP; numbers are fixture identities, not raw public-key bytes."),
+    ("keyMeaning",jStr "Distinct valid test keys with valid PoP and valid vote signatures; numbers are fixture identities, not raw public-key bytes."),
     ("vectors",jArr [
-      vector "last-slot-minimum-displacement" {} 11,
-      vector "strict-equal-minimum-rejected" {} 10,
-      vector "below-minimum-rejected" {} 9,
-      vector "nonzero-tied-minimum-lowest-index" {low := 17,second := some 4095} 11,
-      vector "pending-principal-changes-minimum" {low := 17,pending := 1,second := some 4095} 11,
-      vector "all-positive-tie-slot-zero" {lowStake := 20} 21,
-      vector "empty-last-slot" {vacant := true} 1,
-      vector "displaced-pending-principal-retained" {lowStake := 7,pending := 3} 11])
+      vector "empty-last-slot" {vacant := true} 10,
+      vector "lowest-empty-slot" {bonds := 4,low := 1,vacant := true} 10,
+      vector "full-registry-rejected" {} 21,
+      vector "zero-balance-bond-not-replaced" {low := 17,slashed := true} 21,
+      vector "withdrawn-slot-reused" {low := 17,vacant := true} 10,
+      vector "pending-topup-irrelevant" {bonds := 4,low := 1,pending := 3} 10,
+      vector "below-minimum-rejected" {bonds := 4,low := 1} 9])
   ] 0 ++ "\n"
 
 end Etna.Vectors.CurrentRegistry

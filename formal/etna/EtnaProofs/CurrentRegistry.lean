@@ -185,36 +185,19 @@ theorem update_reserve (s : Registry.State) (id : Nat) (value old : Registry.Bon
 theorem registration_reserve {s t : Registry.State} {key caller amount now id : Nat}
     (ok : Registry.register s key caller amount now = some (t,id)) : reserve t = reserve s+amount := by
   unfold Registry.register at ok
+  split at ok
+  · cases ok
   dsimp only at ok
   split at ok
   · obtain ⟨rfl,rfl⟩ := Prod.mk.inj (Option.some.inj ok)
     unfold reserve
     simp only [sumBalances]
-    have unchanged : ∀ i, i < s.nextId →
-        (((match s.slots (Registry.admissionSlot s) with
-          | none => s
-          | some old => match s.bonds old with
-            | none => s
-            | some bond => Registry.updateBond s old ⟨Staking.exclude bond.value now,none⟩).bonds i).map
-              (fun b : Registry.Bond => b.value.balance)).getD 0 =
-          ((s.bonds i).map (fun b : Registry.Bond => b.value.balance)).getD 0 := by
-      intro i _
-      cases slot : s.slots (Registry.admissionSlot s) with
-      | none => simp [slot]
-      | some old =>
-        cases found : s.bonds old with
-        | none => simp [slot,found]
-        | some bond =>
-          by_cases same : i = old
-          · subst i; simp [slot,found,Registry.updateBond,Staking.exclude,Staking.Bond.balance]
-          · simp [slot,found,Registry.updateBond,same]
     simp only [Registry.updateBond,ite_true,Option.map_some,Option.getD_some,
       Staking.Bond.balance,Nat.add_zero]
     apply congrArg (fun x => x+amount)
     apply sumBalances_congr
     intro i bound
     simp only [Nat.ne_of_lt bound,ite_false]
-    exact unchanged i bound
   · cases ok
 
 theorem bondEdit_balance {s : State} {v : InboxView} {now : Nat} {b value : Staking.Bond}
@@ -337,7 +320,7 @@ theorem rechecked_reserve (s : State) (cutoff : Nat) :
     · rfl
 
 /-- Every principal reduction is exactly a withdrawal or specified punishment amount;
-displacement, recovery and rollback cannot silently consume deposited principal. -/
+recovery and rollback cannot silently consume deposited principal. -/
 theorem execute_reserve {s t : State} {v : InboxView} {now : Nat} {action : Action}
     (ok : execute s v now action = some t) :
     reserve t.ledger+outgoing s action = reserve s.ledger+incoming action := by
@@ -435,23 +418,14 @@ theorem registration_clock {s t : Registry.State} {key caller amount now fresh i
     ∃ retained, id < t.nextId ∧ t.bonds id = some retained ∧ retained.value.released = false ∧
       ∀ atL1, retained.value.confirmedAt = some atL1 → since ≤ atL1 := by
   unfold Registry.register at ok
+  split at ok
+  · cases ok
   dsimp only at ok
   split at ok
   · obtain ⟨rfl,rfl⟩ := Prod.mk.inj (Option.some.inj ok)
     have different : id ≠ s.nextId := by omega
     simp only [Registry.updateBond,different,ite_false]
-    cases slot : s.slots (Registry.admissionSlot s) with
-    | none => exact ⟨bond,by omega,by simp [slot,found],live,clock⟩
-    | some old =>
-      cases prior : s.bonds old with
-      | none => exact ⟨bond,by omega,by simp [slot,prior,found],live,clock⟩
-      | some previous =>
-        by_cases same : id = old
-        · subst old
-          have equal : previous = bond := Option.some.inj (prior.symm.trans found)
-          subst previous
-          exact ⟨⟨Staking.exclude bond.value now,none⟩,by omega,by simp [slot,prior,Registry.updateBond],live,clock⟩
-        · exact ⟨bond,by omega,by simp [slot,prior,Registry.updateBond,same,found],live,clock⟩
+    exact ⟨bond,by omega,found,live,clock⟩
   · cases ok
 
 theorem withdrawal_clock {s t : Registry.State} {target caller now delay payout id since : Nat}
@@ -587,33 +561,20 @@ theorem edit_stable {s t : State} {id : Nat} {f : Staking.Bond → Option Stakin
 theorem registration_stable {s t : Registry.State} {key caller amount now id : Nat}
     (ok : Registry.register s key caller amount now = some (t,id)) : LedgerStable s t := by
   unfold Registry.register at ok
+  split at ok
+  · simp at ok
   dsimp only at ok
   split at ok
   next guard =>
     obtain ⟨rfl,rfl⟩ := Prod.mk.inj (Option.some.inj ok)
-    refine ⟨Nat.le_succ _,?_,?_,?_,?_⟩
-    · cases hs : s.slots (Registry.admissionSlot s) <;> simp [hs,Registry.updateBond]
-      split <;> rfl
-    · cases hs : s.slots (Registry.admissionSlot s) <;> simp [hs,Registry.updateBond]
-      split <;> rfl
+    refine ⟨Nat.le_succ _,rfl,rfl,?_,?_⟩
     · intro k old hk
       have ne : k ≠ key := by intro eq; subst k; simp [guard.1] at hk
       simp [ne,hk]
     · intro old b bound found
       have ne : old ≠ s.nextId := by omega
       simp only [Registry.updateBond,ne,↓reduceIte]
-      cases hs : s.slots (Registry.admissionSlot s)
-      · exact ⟨b,by simp [hs,found],rfl⟩
-      · rename_i displaced
-        cases hd : s.bonds displaced
-        · exact ⟨b,by simp [hs,hd,found],rfl⟩
-        · rename_i d
-          by_cases eq : old = displaced
-          · subst old
-            have hb : b = d := Option.some.inj (found.symm.trans hd)
-            subst b
-            exact ⟨⟨Staking.exclude d.value now,none⟩,by simp [hs,hd,Registry.updateBond],rfl⟩
-          · exact ⟨b,by simp [hs,hd,Registry.updateBond,eq,found],rfl⟩
+      exact ⟨b,found,rfl⟩
   next => simp at ok
 
 theorem withdrawal_stable {s t : Registry.State} {id caller now delay payout : Nat}
@@ -726,7 +687,7 @@ theorem trace_closed_history {first later : World} (run : Trace first later)
     exact one.trans ih
 
 /-- The evidence window starts no earlier than a real confirmation. All closed registry
-steps, including slashing, forfeiture, displacement and rollback, retain an initially
+steps, including slashing, forfeiture and rollback, retain an initially
 unconfirmed bond until the complete delay after the initial observation has elapsed. -/
 theorem trace_evidence_clock {first later : World} (run : Trace first later)
     {id since : Nat} (old : EvidenceClock first.registry id since) (time : since ≤ first.now)
@@ -761,6 +722,8 @@ theorem registration_slots_issued {s t : Registry.State} {key caller amount now 
     (old : SlotsIssued s) (ok : Registry.register s key caller amount now = some (t,id)) :
     SlotsIssued t := by
   unfold Registry.register at ok
+  split at ok
+  · cases ok
   dsimp only at ok
   split at ok
   · obtain ⟨rfl,rfl⟩ := Prod.mk.inj (Option.some.inj ok)
@@ -1003,6 +966,8 @@ theorem used_key_rejected {s : State} (v : InboxView) (now key caller amount pop
     (used : s.ledger.keyId key = some id) :
     execute s v now (.register key caller amount pop) = none := by
   simp [execute,Registry.register,used]
+  intro _ _
+  split <;> rfl
 
 /-- STAKE-4.1-13a: every bond edit (exit request, top-up, activation, confirmation, slash and
 forfeit) taking an unissued id reverts, whatever default storage holds at that id. -/

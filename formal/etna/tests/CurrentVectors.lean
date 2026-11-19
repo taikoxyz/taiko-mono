@@ -26,6 +26,18 @@ example : (opening {vacant := true}).registry.ledger.keyId 4096 = some 4095 ∧
     (opening {vacant := true}).registry.ledger.slots 4095 = none := by decide +kernel
 example : (opening {vacant := true}).token.balances 7 = 10 ∧
     (opening {vacant := true}).token.balances 4 = 81900 := by decide +kernel
+example : (vacancyWithdrawal {low := 17}).isSome = true ∧
+    (vacancyWithdrawal {bonds := 4,low := 1}).isSome = true := by decide +kernel
+
+-- The slash is a real call: the slashed bond keeps its slot with zero balance, and the
+-- reporter and slash sink receive its principal.
+example : (slashing {low := 17}).isSome = true := by decide +kernel
+example : (opening {low := 17,slashed := true}).registry.ledger.bonds 17 =
+    some ⟨⟨18,7,0,1,1,false,none,0,0⟩,some 17⟩ ∧
+    (opening {low := 17,slashed := true}).registry.ledger.slots 17 = some 17 := by decide +kernel
+example : (opening {low := 17,slashed := true}).token.balances 6 = 1 ∧
+    (opening {low := 17,slashed := true}).token.balances 5 = 9 ∧
+    (opening {low := 17,slashed := true}).token.balances 4 = 81900 := by decide +kernel
 
 -- A registration at block 0 activates at 1; top-up is permitted only then and
 -- becomes ready at 2. The seeded pending fields must match that real operation.
@@ -39,19 +51,19 @@ instance (snapshot : Nat) (b : Staking.Bond) : Decidable (StakeRisk.BondMetadata
   infer_instance
 
 /-- Reinstating a synthetic released/no-exit bond breaks the actual model invariant.
-Check every issued bond in each of the eight executable openings, including funding. -/
+Check every issued bond in each of the seven executable openings, including funding. -/
 def openingValid (seed : Seed) : Bool :=
   let before := opening seed
   let snapshot := if seed.vacant then 2 else 0
-  (List.range 4096).all (fun id =>
+  (List.range seed.bonds).all (fun id =>
     ((before.registry.ledger.bonds id).map fun b =>
       decide (StakeRisk.BondMetadata snapshot b.value)).getD false) &&
     decide (RegistryMachine.reserve before.registry.ledger = before.token.balances 4) &&
     decide (before.token.allowances 4 4 = 0)
 
-example : ([{}, {}, {}, {low := 17,second := some 4095},
-    {low := 17,pending := 1,second := some 4095}, {lowStake := 20},
-    {vacant := true}, {lowStake := 7,pending := 3}] : List Seed).all openingValid = true := by
+example : ([{vacant := true}, {bonds := 4,low := 1,vacant := true}, {},
+    {low := 17,slashed := true}, {low := 17,vacant := true}, {bonds := 4,low := 1,pending := 3},
+    {bonds := 4,low := 1}] : List Seed).all openingValid = true := by
   decide +kernel
 
 end CurrentVectorTests

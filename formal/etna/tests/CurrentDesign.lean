@@ -51,39 +51,43 @@ def firstRegistry : Registry.State := ((Registry.register emptyRegistry 11 7 10 
 theorem bond_zero_is_present : firstRegistry.nextId = 1 ∧ firstRegistry.keyId 11 = some 0 ∧
     firstRegistry.slots 0 = some 0 := by decide +kernel
 
-def displacedBond : Registry.Bond := ⟨⟨11,7,10,2,Etna.Design.Staking.noExit,false,none,3,20⟩,some 0⟩
-def fullRegistry : Registry.State := ⟨4096,fun id => if id = 0 then some displacedBond else
+def lowBond : Registry.Bond := ⟨⟨11,7,10,2,Etna.Design.Staking.noExit,false,none,3,20⟩,some 17⟩
+def fullRegistry : Registry.State := ⟨4096,fun id => if id = 17 then some lowBond else
     some ⟨⟨100+id,8,100,2,Etna.Design.Staking.noExit,false,none,0,0⟩,some id⟩,
-  fun slot => some slot,fun key => if key = 11 then some 0 else none,1,1⟩
-def replacement : Registry.State := ((Registry.register fullRegistry 55 9 14 20).getD (emptyRegistry,0)).1
+  fun slot => some slot,fun key => if key = 11 then some 17 else none,1,1⟩
 
-theorem pending_counts_and_ties_keep_low_slot : Registry.admissionSlot fullRegistry = 0 ∧
-    Registry.register fullRegistry 55 9 13 20 = none := by decide +kernel
+theorem full_registry_admits_nobody : Registry.admissionSlot fullRegistry = none ∧
+    Registry.register fullRegistry 55 9 1000 20 = none := by decide +kernel
 
-theorem displacement_keeps_liability :
-    ((replacement.bonds 0).map (fun b => (b.value.key,b.value.owner,b.value.balance,b.value.exitAt,b.slot))) =
-      some (11,7,13,20,none) ∧ replacement.slots 0 = some 4096 ∧ replacement.keyId 11 = some 0 ∧
-      replacement.nextId = 4097 := by decide +kernel
+def slashedRegistry : Registry.State := (Registry.slash fullRegistry true true 17 20 1000).getD emptyRegistry
 
-def confirmedReplacement : Registry.State :=
-  (Registry.confirm replacement true 20 0 21).getD emptyRegistry
+theorem zero_balance_keeps_slot :
+    ((slashedRegistry.bonds 17).map (fun b => (b.value.balance,b.value.exitAt,b.slot))) = some (0,20,some 17) ∧
+    slashedRegistry.slots 17 = some 17 ∧ Registry.register slashedRegistry 55 9 1000 21 = none := by decide +kernel
 
-theorem init_without_origin_can_confirm_displaced_bond :
-    ((confirmedReplacement.bonds 0).map (fun b => b.value.confirmedAt)) = some (some 21) ∧
-    Registry.confirm replacement false 20 0 21 = none := by decide +kernel
+def confirmedRegistry : Registry.State :=
+  (Registry.confirm slashedRegistry true 20 17 21).getD emptyRegistry
 
+theorem init_without_origin_can_confirm_exited_bond :
+    ((confirmedRegistry.bonds 17).map (fun b => b.value.confirmedAt)) = some (some 21) ∧
+    Registry.confirm slashedRegistry false 20 17 21 = none := by decide +kernel
+
+-- Anyone may withdraw a zero-balance bond; withdrawal frees its own slot and no other.
 def withdrawnRegistry : Registry.State :=
-  ((Registry.withdraw confirmedReplacement 0 7 31 10).getD (emptyRegistry,0)).1
+  ((Registry.withdraw confirmedRegistry 17 99 31 10).getD (emptyRegistry,0)).1
 
-theorem withdrawn_id_and_replacement_survive :
-    ((withdrawnRegistry.bonds 0).map (fun b => (b.value.key,b.value.exitAt,b.value.released))) = some (11,20,true) ∧
-    withdrawnRegistry.slots 0 = some 4096 ∧ withdrawnRegistry.keyId 11 = some 0 ∧
-    (Registry.exclude withdrawnRegistry 0 11 40).isSome = true ∧
+theorem withdrawn_id_survives_and_slot_frees :
+    ((withdrawnRegistry.bonds 17).map (fun b => (b.value.key,b.value.exitAt,b.value.released,b.slot))) =
+      some (11,20,true,none) ∧
+    withdrawnRegistry.slots 17 = none ∧ withdrawnRegistry.slots 0 = some 0 ∧ withdrawnRegistry.keyId 11 = some 17 ∧
+    (Registry.exclude withdrawnRegistry 17 11 40).isSome = true ∧
     Registry.exclude withdrawnRegistry 4097 0 40 = none := by decide +kernel
 
-theorem displaced_slash_still_applies :
-    (((Registry.slash replacement true true 0 20 1000).getD emptyRegistry).bonds 0).map
-      (fun b => b.value.balance) = some 0 := by decide +kernel
+def reused : Registry.State := ((Registry.register withdrawnRegistry 55 9 14 32).getD (emptyRegistry,0)).1
+
+theorem withdrawn_slot_reused : Registry.admissionSlot withdrawnRegistry = some 17 ∧
+    reused.slots 17 = some 4096 ∧ reused.nextId = 4097 ∧
+    ((reused.bonds 17).map (fun b => b.slot)) = some none := by decide +kernel
 
 theorem recover_number_and_pending_schedule :
     Rules.recover ⟨1,2,100,80,3⟩ 2 = none ∧
@@ -168,11 +172,11 @@ namespace Etna.CurrentRegression
 open Etna.Design.Current
 
 theorem unissued_default_storage_cannot_authenticate :
-    Registry.exclude { emptyRegistry with bonds := fun _ => some displacedBond } 0 11 40 = none := by decide +kernel
+    Registry.exclude { emptyRegistry with bonds := fun _ => some lowBond } 0 11 40 = none := by decide +kernel
 
-def tiedRegistry : Registry.State := { fullRegistry with bonds := fun id => some ⟨{ displacedBond.value with key := 100+id },some id⟩ }
+def gapRegistry : Registry.State := { fullRegistry with slots := fun slot => if slot = 1 ∨ 4 ≤ slot then none else some slot }
 
-theorem equal_value_admission_uses_lowest_slot : Registry.admissionSlot tiedRegistry = 0 := by decide +kernel
+theorem lowest_empty_slot_wins : Registry.admissionSlot gapRegistry = some 1 := by decide +kernel
 
 theorem field_overflow_and_cancellation :
     Rules.scheduleRules ⟨true,7,10,3⟩ ⟨0,0,0,0,0⟩ 7 0 1 Etna.Design.limit48 = none ∧

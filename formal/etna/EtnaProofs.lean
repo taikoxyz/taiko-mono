@@ -1,7 +1,6 @@
 import EtnaProofs.CurrentBridge
 import EtnaProofs.CurrentCandidate
 import EtnaProofs.CurrentValidatorState
-import EtnaProofs.CurrentAdmission
 import EtnaProofs.CurrentArchive
 import EtnaProofs.CurrentLookback
 import EtnaProofs.CurrentCertificate

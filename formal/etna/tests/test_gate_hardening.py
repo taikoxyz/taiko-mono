@@ -777,9 +777,9 @@ class FreshReplayTests(unittest.TestCase):
             (root/'Helper.lean').write_text(
                 'import Lean\nset_option debug.skipKernelTC true in\nrun_elab Lean.addDecl (.thmDecl { name := `Helper.bad, '
                 'levelParams := [], type := Lean.mkConst ``False, value := Lean.mkConst ``True.intro })\n')
-            admission = root/'EtnaProofs/CurrentAdmission.lean'
-            edit(admission, 'import EtnaProofs.Current', 'import Helper\nimport EtnaProofs.Current')
-            admission.write_text(admission.read_text()+'\nnamespace Etna.Design.Current.Registry\n'
+            contracts = root/'EtnaProofs/Contracts.lean'
+            edit(contracts, 'import EtnaModel.Committee', 'import Helper\nimport EtnaModel.Committee')
+            contracts.write_text(contracts.read_text()+'\nnamespace Etna.Design.Current.Registry\n'
                                  'theorem pwned : False := Helper.bad\nend Etna.Design.Current.Registry\n')
             self.assertTrue(LINT.lint(root))
             AUDIT.run(['lake', 'build', 'Helper', *AUDIT.GRAPH.declared_libraries(root)], cwd=root)

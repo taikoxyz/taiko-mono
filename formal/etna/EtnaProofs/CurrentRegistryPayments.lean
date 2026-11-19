@@ -118,7 +118,7 @@ theorem standard_environment_eq {env : PaymentEnvironment}
   rfl
 
 /-- Deposits increase the actual reserve, and each liability reduction has the exact
-atomic payout receipts. This includes pending principal and displaced permanent bonds. -/
+atomic payout receipts. This includes pending principal. -/
 theorem transaction_conserves_principal {env : PaymentEnvironment} {s t : State}
     {v : RegistryMachine.InboxView} {now caller : Nat} {a : RegistryMachine.Action}
     {receipts : List Payment}

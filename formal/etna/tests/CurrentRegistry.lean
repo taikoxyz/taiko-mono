@@ -42,9 +42,9 @@ def populated : Registry.State :=
 def initial : RegistryMachine.State :=
   { ledger := populated,config := {withdrawalDelay := 2},
     verify := fun key _ sig => key == sig,registerAuth := fun _ _ _ _ => true }
-def registered : RegistryMachine.State := (execute initial view 10 (.register 9000 8 11 9000)).getD initial
--- Small explicit post-displacement fixture; independent of subsequent slash semantics.
-def displaced : RegistryMachine.State :=
+-- Small explicit fixture: unreleased bond 0 holds no slot and bond 1 holds slot 0. No current
+-- operation produces it (a bond leaves its slot only by withdrawal); edits ignore slot possession.
+def unslotted : RegistryMachine.State :=
   { initial with ledger := { nextId := 2, bonds := fun i => if i = 0 then some ⟨{(bond 1 10 none).value with exitAt := 10},none⟩
         else if i = 1 then some (bond 9000 11 (some 0)) else none, slots := fun i => if i = 0 then some 1 else none, keyId := fun k => if k = 1 then some 0 else if k = 9000 then some 1 else none } }
 
@@ -52,16 +52,17 @@ def keyAt (s : RegistryMachine.State) (id : Nat) : Option Hash := (s.ledger.bond
 def stakeAt (s : RegistryMachine.State) (id : Nat) : Option Nat := (s.ledger.bonds id).map (fun b => b.value.stake)
 def resultStake (r : Option RegistryMachine.State) (id : Nat) : Option Nat := r.bind (fun s => stakeAt s id)
 
--- Real admission displaces bond zero but retains its permanent liability.
-example : ((registered.ledger.bonds 0).map (fun b => b.slot)) = some none := by decide
-example : keyAt displaced 0 = some 1 := by decide
-example : resultStake (execute displaced view 11 (.slash 0 voteA voteB 1 1)) 0 = some 0 := by decide
+-- A full registry admits nobody, whatever the amount; bond zero keeps slot 0.
+example : (execute initial view 10 (.register 9000 8 11 9000)).isNone = true := by decide
+example : ((initial.ledger.bonds 0).map (fun b => b.slot)) = some (some 0) := by decide
+example : keyAt unslotted 0 = some 1 := by decide
+example : resultStake (execute unslotted view 11 (.slash 0 voteA voteB 1 1)) 0 = some 0 := by decide
 -- The old-generation evidence remains admissible; a foreign deployment does not.
-example : resultStake (execute displaced view 11 (.slash 0 {voteA with generation := 8} voteB 1 1)) 0 = none := by decide
-example : resultStake (execute displaced view 11 (.slash 0 {voteA with domain := ⟨9,2,3,4⟩} voteB 1 1)) 0 = none := by decide
-example : resultStake (execute displaced view 11 (.slash 0 voteA voteB 999 1)) 0 = none := by decide
+example : resultStake (execute unslotted view 11 (.slash 0 {voteA with generation := 8} voteB 1 1)) 0 = none := by decide
+example : resultStake (execute unslotted view 11 (.slash 0 {voteA with domain := ⟨9,2,3,4⟩} voteB 1 1)) 0 = none := by decide
+example : resultStake (execute unslotted view 11 (.slash 0 voteA voteB 999 1)) 0 = none := by decide
 
-def forfeited : RegistryMachine.State := (execute displaced view 11 (.forfeit 0 1 1 99 100)).getD displaced
+def forfeited : RegistryMachine.State := (execute unslotted view 11 (.forfeit 0 1 1 99 100)).getD unslotted
 example : stakeAt forfeited 0 = some 9 := by decide
 example : resultStake (execute forfeited view 12 (.slash 0 voteA voteB 1 1)) 0 = some 0 := by decide
 example : (execute forfeited view 12 (.forfeit 0 1 1 100 100)).isNone = true := by decide
@@ -69,7 +70,7 @@ example : (execute forfeited view 12 (.forfeit 0 1 1 100 100)).isNone = true := 
 def slashed : RegistryMachine.State := (execute forfeited view 12 (.slash 0 voteA voteB 1 1)).getD forfeited
 example : (execute slashed view 13 (.slash 0 voteA voteB 1 1)).isNone = true := by decide
 
-def confirmed : RegistryMachine.State := (execute displaced view 12 (.confirm 0)).getD displaced
+def confirmed : RegistryMachine.State := (execute unslotted view 12 (.confirm 0)).getD unslotted
 def withdrawn : RegistryMachine.State := (execute confirmed view 14 (.withdraw 0 4 8)).getD confirmed
 example : (execute confirmed view 13 (.withdraw 0 4 8)).isNone = true := by decide
 example : ((execute confirmed view 13 (.confirm 0)).bind fun s =>
@@ -84,8 +85,8 @@ example : (execute withdrawn view 15 (.exclude 2 5 [(6000,0)])).isNone = true :=
 -- Atomic list validation: the valid first identity is not changed if a later one is absent.
 example : (execute withdrawn view 15 (.exclude 2 5 [(0,1),(6000,0)])).isNone = true := by decide
 -- Actual initialization, not an archival origin, gates evidence and confirmation.
-example : (execute displaced {view with initialized := false} 12 (.slash 0 voteA voteB 1 1)).isNone = true := by decide
-example : (execute displaced {view with initialized := false} 12 (.confirm 0)).isNone = true := by decide
+example : (execute unslotted {view with initialized := false} 12 (.slash 0 voteA voteB 1 1)).isNone = true := by decide
+example : (execute unslotted {view with initialized := false} 12 (.confirm 0)).isNone = true := by decide
 -- Trusted rollback rechecks against the restored snapshot, not confirmation block time.
 example : ((execute confirmed view 13 (.recheck 2 5)).bind fun s =>
     (s.ledger.bonds 0).map (fun b => b.value.confirmedAt)) = some none := by decide
@@ -114,7 +115,7 @@ def topped : RegistryMachine.State :=
 example : stakeAt topped 0 = some 10 := by decide
 example : resultStake (execute topped {view with initialized := false} 11 (.activateTopUp 0)) 0 = some 15 := by decide
 example : (execute topped view 10 (.activateTopUp 0)).isNone = true := by decide
-example : (execute displaced view 12 (.topUp 0 4 5)).isNone = true := by decide
+example : (execute unslotted view 12 (.topUp 0 4 5)).isNone = true := by decide
 example : (execute active {view with entered := true} 12 (.requestExit 0 4)).isNone = true := by decide
 -- STAKE-4.1-13a: an unissued id denotes no bond, even where default storage would pass every
 -- check of the action; the same bond under an issued id can request its exit.
@@ -122,8 +123,8 @@ def phantomActive : RegistryMachine.State := { active with ledger := { active.le
 example : (execute phantomActive view 12 (.requestExit 0 4)).isNone = true ∧
     (execute active view 12 (.requestExit 0 4)).isSome = true := by decide
 -- Metadata-only confirmations must not add an election checkpoint.
-example : confirmed.history = displaced.history := by decide
+example : confirmed.history = unslotted.history := by decide
 -- Generic checkpoint replacement holds with slot-projected current entries as payloads.
 example : RegistryHistory.recordSnapshot 10 (entries active)
-    [⟨10,entries displaced⟩,⟨9,[]⟩] = [⟨10,entries active⟩,⟨9,[]⟩] := rfl
+    [⟨10,entries unslotted⟩,⟨9,[]⟩] = [⟨10,entries active⟩,⟨9,[]⟩] := rfl
 end CurrentRegistryTests

@@ -1,5 +1,5 @@
-"""Current displacement cases do not silently inherit historical full-registry rejection, and the
-validator-state cases follow stock CometBFT v0.40.0 arithmetic."""
+"""Current admission cases take the lowest empty slot and reject a full registry without
+displacement, and the validator-state cases follow stock CometBFT v0.40.0 arithmetic."""
 import importlib.util
 import json
 from pathlib import Path
@@ -22,23 +22,35 @@ class CurrentVectorTests(unittest.TestCase):
     def test_current_vectors_are_fresh(self):
         self.assertEqual(vectors.check(), 2)
 
-    def test_current_displacement_observables(self):
+    def test_current_admission_observables(self):
         data = json.loads((vectors.DIRECTORY/'registry_admission.json').read_text())
         self.assertEqual(data['schema'], 'etna-current-registry-admission-1')
-        self.assertEqual(len(data['vectors']), 8)
+        self.assertEqual(data['authorityCommit'], '2e6763e21bc236cfcda6011d164b32040f9e0c8d')
+        self.assertEqual([v['id'] for v in data['vectors']], [
+            'empty-last-slot', 'lowest-empty-slot', 'full-registry-rejected',
+            'zero-balance-bond-not-replaced', 'withdrawn-slot-reused', 'pending-topup-irrelevant',
+            'below-minimum-rejected'])
         rows = {v['id']:v['expect'] for v in data['vectors']}
-        last = rows['last-slot-minimum-displacement']
-        self.assertFalse(last['revert'])
-        self.assertEqual((last['selectedSlot'],last['bondId'],last['slot4096']), (4095,4096,None))
-        self.assertEqual((last['oldBond']['slot'],last['oldBond']['balance'],last['oldBond']['exitAt']),
-                         (None,10,10))
-        self.assertTrue(rows['strict-equal-minimum-rejected']['revert'])
-        self.assertTrue(rows['below-minimum-rejected']['revert'])
-        self.assertEqual(rows['nonzero-tied-minimum-lowest-index']['selectedSlot'],17)
-        self.assertEqual(rows['pending-principal-changes-minimum']['selectedSlot'],4095)
-        self.assertEqual(rows['all-positive-tie-slot-zero']['selectedSlot'],0)
-        self.assertIsNone(rows['empty-last-slot']['oldBondId'])
-        vacant = next(v['setup'] for v in data['vectors'] if v['id'] == 'empty-last-slot')
+        setups = {v['id']:v['setup'] for v in data['vectors']}
+        for name, slot, bond in [('empty-last-slot',4095,4096), ('lowest-empty-slot',1,4),
+                                 ('withdrawn-slot-reused',17,4096), ('pending-topup-irrelevant',4,4)]:
+            row = rows[name]
+            self.assertFalse(row['revert'], name)
+            self.assertEqual((row['selectedSlot'],row['bondId'],row['nextId']), (slot,bond,bond+1), name)
+            self.assertIsNone(row['oldBondId'], name)
+            self.assertIsNone(row['oldBond'], name)
+            self.assertEqual((row['newBond']['slot'],row['newBond']['stake']), (slot,10), name)
+            self.assertIsNone(row['slot4096'], name)
+        for name in ['full-registry-rejected', 'zero-balance-bond-not-replaced', 'below-minimum-rejected']:
+            self.assertEqual(rows[name], {'revert':True, 'stateUnchanged':True}, name)
+        # A held slot with zero balance after a slash is not empty.
+        slash = setups['zero-balance-bond-not-replaced']['slashLifecycle']
+        self.assertEqual((slash['slashedBond']['slot'],slash['slashedBond']['balance'],
+                          slash['slashedBond']['released']), (17,0,False))
+        self.assertEqual(setups['full-registry-rejected']['openingBonds'], 4096)
+        self.assertEqual(setups['below-minimum-rejected']['openingBonds'], 4)
+        self.assertEqual(setups['pending-topup-irrelevant']['lowPending'], 3)
+        vacant = setups['empty-last-slot']
         self.assertEqual(vacant['landedSnapshot'], 2)
         lifecycle = vacant['vacancyLifecycle']
         self.assertEqual((lifecycle['requestBlock'], lifecycle['exitAt'], lifecycle['confirmBlock'],
@@ -46,8 +58,6 @@ class CurrentVectorTests(unittest.TestCase):
         self.assertEqual(lifecycle['withdrawnBond'], {
             'key':4096, 'owner':0, 'stake':0, 'pending':0, 'balance':0, 'activeFrom':1,
             'exitAt':2, 'released':True, 'confirmedAt':None, 'readyAt':0, 'slot':None})
-        pending = rows['displaced-pending-principal-retained']['oldBond']
-        self.assertEqual((pending['stake'],pending['pending'],pending['balance'],pending['readyAt']), (7,3,10,2))
 
     def test_current_validator_state_observables(self):
         data = json.loads((vectors.DIRECTORY/'validator_state.json').read_text())

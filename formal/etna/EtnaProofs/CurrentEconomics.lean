@@ -13,7 +13,7 @@ theorem protocol_closed_history {env : Environment} {first later : World}
   RegistryMachine.trace_closed_history (ProtocolFinality.registry_trace run) closed
 
 /-- Empty raw genesis storage plus actual registry calls eliminates phantom historical
-committee identities, including entries later displaced, punished or withdrawn. -/
+committee identities, including entries later punished or withdrawn. -/
 theorem history_issued {env : Environment} {registry : RegistryMachine.State} {w : World}
     (genesis : RegistryMachine.Genesis registry) (run : Trace env (empty env registry) w) :
     RegistryMachine.SlotsIssued w.registry.registry.ledger ∧ RegistryMachine.HistoryIssued w.registry.registry :=

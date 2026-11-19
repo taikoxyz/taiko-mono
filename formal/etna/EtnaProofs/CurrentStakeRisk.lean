@@ -96,6 +96,8 @@ private theorem registration_metadata {s t : Registry.State} {key caller amount 
     (ok : Registry.register s key caller amount now = some (t,fresh)) :
     ∀ id b, t.bonds id = some b → BondMetadata snapshot b.value := by
   unfold Registry.register at ok
+  split at ok
+  · cases ok
   dsimp only at ok
   split at ok
   · obtain ⟨rfl,rfl⟩ := Prod.mk.inj (Option.some.inj ok)
@@ -106,18 +108,7 @@ private theorem registration_metadata {s t : Registry.State} {key caller amount 
       cases Option.some.inj found
       simp [BondMetadata,Staking.Bond.balance]
     · simp only [Registry.updateBond,fresh,ite_false] at found
-      cases slot : s.slots (Registry.admissionSlot s) with
-      | none => exact old id bond (by simpa [slot] using found)
-      | some displaced =>
-        cases was : s.bonds displaced with
-        | none => exact old id bond (by simpa [slot,was] using found)
-        | some previous =>
-          by_cases same : id = displaced
-          · subst displaced
-            simp only [slot,was,ite_true] at found
-            cases Option.some.inj found
-            exact exclude_metadata (old id previous was)
-          · exact old id bond (by simpa [slot,was,Registry.updateBond,same] using found)
+      exact old id bond found
   · cases ok
 
 private theorem withdrawal_metadata {s t : Registry.State} {target caller now delay payout snapshot : Nat}
@@ -278,28 +269,18 @@ private theorem registration_retained {s t : Registry.State} {key caller amount 
     (ok : Registry.register s key caller amount now = some (t,fresh))
     {bond : Registry.Bond} (issued : id < s.nextId) (found : s.bonds id = some bond)
     (live : bond.value.released = false) (clock : bond.value.confirmedAt = none)
-    (exit : cutoff < bond.value.exitAt) (time : cutoff < now) :
+    (exit : cutoff < bond.value.exitAt) :
     ∃ retained, id < t.nextId ∧ t.bonds id = some retained ∧ retained.value.key = bond.value.key ∧
       retained.value.released = false ∧ retained.value.confirmedAt = none ∧ cutoff < retained.value.exitAt := by
   unfold Registry.register at ok
+  split at ok
+  · cases ok
   dsimp only at ok
   split at ok
   · obtain ⟨rfl,rfl⟩ := Prod.mk.inj (Option.some.inj ok)
     have different : id ≠ s.nextId := by omega
     simp only [Registry.updateBond,different,ite_false]
-    cases slot : s.slots (Registry.admissionSlot s) with
-    | none => exact ⟨bond,by omega,by simp [found],rfl,live,clock,exit⟩
-    | some old =>
-      cases prior : s.bonds old with
-      | none => exact ⟨bond,by omega,by simp [prior,found],rfl,live,clock,exit⟩
-      | some previous =>
-        by_cases same : id = old
-        · subst old
-          have equal : previous = bond := Option.some.inj (prior.symm.trans found)
-          subst previous
-          exact ⟨⟨Staking.exclude bond.value now,none⟩,by omega,
-            by simp [prior],rfl,live,clock,by simpa [Staking.exclude] using (show cutoff < min bond.value.exitAt now by omega)⟩
-        · exact ⟨bond,by omega,by simp [prior,same,found],rfl,live,clock,exit⟩
+    exact ⟨bond,by omega,found,rfl,live,clock,exit⟩
   · cases ok
 
 private theorem withdrawal_retained {s t : Registry.State} {target caller now delay payout id : Nat}
@@ -339,7 +320,7 @@ theorem execute_retained {s t : RegistryMachine.State} {v : InboxView} {now cuto
       split at checked
       · obtain ⟨⟨ledger,fresh⟩,registered,rfl⟩ := Option.map_eq_some_iff.mp checked
         obtain ⟨bond,issued,found,key,live,clock,exit⟩ := old
-        obtain ⟨kept,ki,kf,kk,kl,kc,ke⟩ := registration_retained registered issued found live clock exit time
+        obtain ⟨kept,ki,kf,kk,kl,kc,ke⟩ := registration_retained registered issued found live clock exit
         exact ⟨kept,ki,kf,kk.trans key,kl,kc,ke⟩
       · cases checked
     | withdraw target caller to =>

@@ -46,7 +46,7 @@ example : (executeTransaction env initial view 10 1 forfeiture).map Prod.snd =
     some [⟨100,200,1,false⟩] := by decide
 example : (transact env initial view 10 1 forfeiture).registry.forfeited = [1] := by decide
 
--- Displacement changes slot ownership, never withdrawal destination or principal ownership.
+-- Withdrawal pays the whole principal to the named recipient.
 example : (executeTransaction env initial view 10 4 (.withdraw 0 4 9)).map Prod.snd =
     some [⟨100,9,10,false⟩] := by decide
 example : (transact env initial view 10 4 (.withdraw 0 4 9)).token.balances 9 = 10 := by decide

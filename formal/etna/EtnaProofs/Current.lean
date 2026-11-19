@@ -89,6 +89,8 @@ theorem registration_issues_fresh {s t : State} {key owner amount now id : Nat}
     (ok : register s key owner amount now = some (t,id)) :
     id = s.nextId ∧ t.nextId = s.nextId+1 ∧ t.keyId key = some id := by
   unfold register at ok
+  split at ok
+  · simp at ok
   dsimp only at ok
   split at ok
   next =>
@@ -261,6 +263,8 @@ theorem registration_retains_keys {s t : State} {key owner amount now id oldKey 
     (ok : register s key owner amount now = some (t,id))
     (registered : s.keyId oldKey = some oldId) : t.keyId oldKey = some oldId := by
   unfold register at ok
+  split at ok
+  · simp at ok
   dsimp only at ok
   split at ok
   next guard =>
@@ -280,18 +284,77 @@ theorem trace_keys_permanent {s t : State} (trace : Trace s t) (key id : Nat)
   | modification _ _ _ ok ih => simpa [(modify_preserves_identity_counter ok).2] using ih
   | withdrawal _ _ _ _ _ _ ok ih => simpa [(withdrawal_preserves_counter ok).2] using ih
 
-theorem displacement_keeps_old_bond {s t : State} {key owner amount now id oldId : Nat}
-    {old : Bond} (ok : register s key owner amount now = some (t,id))
-    (slot : s.slots (admissionSlot s) = some oldId) (bond : s.bonds oldId = some old)
-    (issued : oldId < s.nextId) :
-    t.bonds oldId = some ⟨Staking.exclude old.value now,none⟩ := by
+private theorem firstEmpty_some {s : State} : ∀ {count slot found : Nat},
+    firstEmpty s slot count = some found →
+      slot ≤ found ∧ found < slot+count ∧ s.slots found = none ∧
+        ∀ lower, slot ≤ lower → lower < found → s.slots lower ≠ none
+  | 0, _, _, ok => by simp [firstEmpty] at ok
+  | count+1, slot, found, ok => by
+    unfold firstEmpty at ok
+    split at ok
+    next empty =>
+      cases Option.some.inj ok
+      exact ⟨Nat.le_refl _,by omega,empty,fun _ low high => by omega⟩
+    next held =>
+      obtain ⟨low,high,empty,lower⟩ := firstEmpty_some ok
+      refine ⟨by omega,by omega,empty,fun i above below => ?_⟩
+      by_cases same : i = slot
+      · subst i; exact held
+      · exact lower i (by omega) below
+
+private theorem firstEmpty_none {s : State} : ∀ {count slot : Nat},
+    firstEmpty s slot count = none → ∀ i, slot ≤ i → i < slot+count → s.slots i ≠ none
+  | 0, _, _, _, _, high => by omega
+  | count+1, slot, ok, i, low, high => by
+    unfold firstEmpty at ok
+    split at ok
+    next => simp at ok
+    next held =>
+      by_cases same : i = slot
+      · subst i; exact held
+      · exact firstEmpty_none ok i (by omega) (by omega)
+
+private theorem firstEmpty_full {s : State} : ∀ {count slot : Nat},
+    (∀ i, slot ≤ i → i < slot+count → s.slots i ≠ none) → firstEmpty s slot count = none
+  | 0, _, _ => rfl
+  | count+1, slot, full => by
+    unfold firstEmpty
+    rw [ite_eq_right (full slot (Nat.le_refl _) (by omega))]
+    exact firstEmpty_full fun i low high => full i (by omega) (by omega)
+
+/-- STAKE-4.1-14a: admission finds no slot exactly when all 4096 slots are held. -/
+theorem admission_none_iff_full (s : State) :
+    admissionSlot s = none ↔ ∀ slot, slot < 4096 → s.slots slot ≠ none :=
+  ⟨fun none slot bound => firstEmpty_none none slot (Nat.zero_le _) (by omega),
+   fun full => firstEmpty_full fun i _ bound => full i (by omega)⟩
+
+/-- STAKE-4.1-14a, LIMIT-12-11: with every slot held, registration fails whatever the amount,
+also when a holder's balance is zero; it replaces nobody. -/
+theorem register_full_rejected (s : State) (key owner amount now : Nat)
+    (full : ∀ slot, slot < 4096 → s.slots slot ≠ none) : register s key owner amount now = none := by
+  unfold register
+  rw [(admission_none_iff_full s).mpr full]
+
+/-- STAKE-4.1-14a: a successful registration takes a slot below 4096 that was empty before the
+call while every lower slot was held. The new bond holds it, and every other slot and bond is
+unchanged: admission never moves or removes another bond. -/
+theorem register_takes_lowest_empty {s t : State} {key owner amount now id : Nat}
+    (ok : register s key owner amount now = some (t,id)) :
+    ∃ slot, slot < 4096 ∧ s.slots slot = none ∧ (∀ lower, lower < slot → s.slots lower ≠ none) ∧
+      t.slots slot = some id ∧ (t.bonds id).map Bond.slot = some (some slot) ∧
+      (∀ other, other ≠ slot → t.slots other = s.slots other) ∧
+      (∀ other, other ≠ id → t.bonds other = s.bonds other) := by
   unfold register at ok
+  split at ok
+  · simp at ok
+  rename_i slot found
   dsimp only at ok
   split at ok
   next =>
     obtain ⟨rfl,rfl⟩ := Prod.mk.inj (Option.some.inj ok)
-    have ne : oldId ≠ s.nextId := by omega
-    simp [slot,bond,updateBond,ne]
+    obtain ⟨_,bound,empty,lower⟩ := firstEmpty_some found
+    exact ⟨slot,by omega,empty,fun i below => lower i (Nat.zero_le _) below,by simp,
+      by simp [updateBond],fun other ne => by simp [ne],fun other ne => by simp [updateBond,ne]⟩
   next => simp at ok
 end Etna.Design.Current.Registry
 

@@ -18,7 +18,7 @@ def slashReceipts (env : Environment) (w : World) (caller : Nat) (bond : Registr
 
 /-- Executable outer transactions, including token transfers and concrete receipt append.
 Every issued positive unwithdrawn bond of the evidenced key is quantified at the future
-state, even if displaced or in a later generation. -/
+state, even in a later generation. -/
 def PaidFutureLiability (env : Environment) (first : World) (key : Hash)
     (a b : Staking.Vote) (sa sb : Hash) : Prop :=
   ∀ later, Trace env first later → ∀ id current caller,

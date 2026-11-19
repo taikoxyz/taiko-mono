@@ -12,38 +12,49 @@ lake exe etna-vectors --write ../../testdata/etna_current_conformance
 python3 scripts/check_current_vectors.py
 ```
 
-The eight case IDs are:
+The seven case IDs are:
 
-- `last-slot-minimum-displacement`: the minimum at slot 4095 is displaced.
-- `strict-equal-minimum-rejected`: an amount equal to the minimum is rejected.
-- `below-minimum-rejected`: an amount below the minimum is rejected.
-- `nonzero-tied-minimum-lowest-index`: a nonzero lowest-index tie wins.
-- `pending-principal-changes-minimum`: pending principal changes the selected slot.
-- `all-positive-tie-slot-zero`: an all-positive tie selects slot zero.
-- `empty-last-slot`: a withdrawn bond leaves the final slot vacant.
-- `displaced-pending-principal-retained`: displaced pending principal is retained.
+- `empty-last-slot`: a withdrawn bond leaves the final slot empty; the registration takes it.
+- `lowest-empty-slot`: slots 0, 2 and 3 are held and slots 1 and 4 to 4095 are empty; the
+  registration takes slot 1.
+- `full-registry-rejected`: every slot is held; an amount above every balance is rejected
+  and no bond is replaced.
+- `zero-balance-bond-not-replaced`: every slot is held and the bond in slot 17 was slashed to
+  zero balance; the registration is rejected and that bond keeps its slot.
+- `withdrawn-slot-reused`: withdrawal frees slot 17; the registration takes it with a fresh id.
+- `pending-topup-irrelevant`: a pending top-up on a held slot does not change the choice of the
+  lowest empty slot, 4.
+- `below-minimum-rejected`: an amount below minStake is rejected although slots are empty.
 
 Expected values come from `RegistryPayments.executeTransaction`, including actual payment and
-the new registry checkpoint; they are not handwritten verdicts.
+the new registry checkpoint; they are not handwritten verdicts. Admission takes the
+lowest-numbered empty slot by occupancy, never by balance, and fails when all 4096 slots are
+held (STAKE-4.1-14a); a bond leaves its slot only by withdrawal (LIMIT-12-11). On success
+`oldBondId` and `oldBond` are null because the selected slot had no holder.
 
-`setup` describes a 4096-identity current registry opening. Bond/slot i uses test key
-i+1 and owner 7; ordinary effective principal is 20, with the listed low overrides.
-All registrations occurred at block 0 with activation delay 1. A listed pending top-up
-was paid at block 1, after activation, and matures at block 2. In `empty-last-slot`, the old owner
-requests exit at block 1 (effective at 2), confirms at block 2 against landed snapshot
-2, and withdraws to owner 7 at block 5 after the full three-block delay. These are
-successful model transactions with an actual token payout. Withdrawal clears the slot,
-owner, principal and confirmation, retaining the permanent bond's key, activation and
-effective exit; it never erases the lifetime key/id mapping. `vacancyLifecycle` records
-these calls and the withdrawn bond. `landedSnapshot` is 2 for this case and 0 otherwise.
-The opening retains the block-0 entries checkpoint and, for the vacancy, the actual
-exit and withdrawal checkpoints at blocks 1 and 5. The registry holds exactly all
-outstanding principal; the withdrawn 10 units are held by owner 7. Caller 8 has balance
-and allowance 100; registry address is 4, Inbox 3,
-slash sink 5 and the fresh registration uses key 9000 at block 10.
+`setup` describes a registry of `slotCount` (4096) slots and minStake `minStake` (10). The
+opening registers `openingBonds` bonds; bond/slot i uses test key i+1 and owner 7, and
+ordinary effective principal is 20. Bond `lowIndex` has principal `lowStake` and pending
+top-up `lowPending`; `secondLowIndex` is null in every case and is kept so that the schema's
+field names do not change. All registrations occurred at block 0 with activation delay 1. A listed
+pending top-up was paid at block 1, after activation, and matures at block 2. When
+`vacantLow`, the low bond's owner requests exit at block 1 (effective at 2), confirms at block 2
+against landed snapshot 2, and withdraws to owner 7 at block 5 after the full three-block
+delay. These are successful model transactions with an actual token payout. Withdrawal clears
+the slot, owner, principal and confirmation, retaining the permanent bond's key, activation
+and effective exit; it never erases the lifetime key/id mapping. `vacancyLifecycle` records
+these calls and the withdrawn bond. When `slashedLow`, reporter 6 slashes the low bond at
+block 1 with the two listed precommits (same height and round, different block ids, the
+deployment's own domain, generation 0), each validly signed by the bond's key. The reporter
+receives the 10% bounty and slash sink 5 the rest; the bond keeps its slot with zero balance
+and exit 1. `slashLifecycle` records the call and the slashed bond. `landedSnapshot` is 2 for
+the vacancies and 0 otherwise. The opening retains the block-0 entries checkpoint and the
+actual checkpoints of its later calls. The registry holds exactly all outstanding principal;
+withdrawn principal is held by owner 7. Caller 8 has balance and allowance 100; registry
+address is 4, Inbox 3, slash sink 5 and the fresh registration uses key 9000 at block 10.
 
-Key numbers identify distinct valid fixture keys with valid PoP, rather than raw
-compressed public-key bytes. A consumer harness must materialize the setup using its
+Key numbers identify distinct valid fixture keys with valid PoP and vote signatures, rather
+than raw compressed public-key bytes. A consumer harness must materialize the setup using its
 own real keys/storage and standard token, then compare the listed observables. The
 contracts PR (#22286) consumes a byte-identical copy in
 `packages/protocol/test/layer1/etna/conformance/EtnaCurrentRegistryConformance.t.sol`;

@@ -1,4 +1,4 @@
-"""All 4096 registry slots participate; FI fee tests are a separate subsystem."""
+"""All 4096 registry slots, and no others, are candidates for the lowest empty slot."""
 from pathlib import Path
 import subprocess
 import tempfile
@@ -24,16 +24,12 @@ def layers():
     model += '\nend Etna.Design.Current.RegistrySlotMutation\n'
     old_proofs = 'namespace Etna.Design.Current.RegistrySlotMutation\n'
     old_proofs += registry_part(ROOT/'EtnaProofs/Current.lean')
-    whole = (ROOT/'EtnaProofs/Current.lean').read_text()
-    old_proofs += 'theorem displacement_keeps_old_bond' + whole.split(
-        'theorem displacement_keeps_old_bond',1)[1].split('\nend Etna.Design.Current.Registry',1)[0]
     old_proofs += '\nend Etna.Design.Current.RegistrySlotMutation\n'
-    new_proofs = (ROOT/'EtnaProofs/CurrentAdmission.lean').read_text()
-    new_proofs = new_proofs.replace('import EtnaProofs.Current', '')
-    new_proofs = new_proofs.replace('namespace Etna.Design.Current.Registry',
-                                    'namespace Etna.Design.Current.RegistrySlotMutation')
-    new_proofs = new_proofs.replace('end Etna.Design.Current.Registry',
-                                    'end Etna.Design.Current.RegistrySlotMutation')
+    whole = (ROOT/'EtnaProofs/Current.lean').read_text()
+    new_proofs = 'namespace Etna.Design.Current.RegistrySlotMutation\n'
+    new_proofs += whole.split('namespace Etna.Design.Current.Registry\n',1)[1].split(
+        '\nend Etna.Design.Current.Registry',1)[0]
+    new_proofs += '\nend Etna.Design.Current.RegistrySlotMutation\n'
     return model, old_proofs, new_proofs
 
 
@@ -51,7 +47,7 @@ class CurrentAdmissionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
         self.assertEqual(result.stdout+result.stderr, '')
 
-    def test_endpoint_pending_and_nonzero_tie_fixtures(self):
+    def test_full_gap_and_last_slot_fixtures(self):
         result = subprocess.run(['lake','env','lean','tests/CurrentAdmission.lean'], cwd=ROOT,
                                 capture_output=True,text=True,timeout=240)
         self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
@@ -59,9 +55,9 @@ class CurrentAdmissionTests(unittest.TestCase):
 
     def reject_length(self, length):
         model, old_proofs, new_proofs = layers()
-        anchor = "List.range' 1 4095"
+        anchor = "firstEmpty s 0 4096"
         self.assertEqual(model.count(anchor), 1)
-        model = model.replace(anchor, "List.range' 1 "+str(length))
+        model = model.replace(anchor, "firstEmpty s 0 "+str(length))
         # Both mutations compile the executable model AND all prior registry proofs.
         result = self.compile(model+'\n'+old_proofs)
         self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
@@ -74,10 +70,10 @@ class CurrentAdmissionTests(unittest.TestCase):
             self.assertNotIn(accidental,errors[0])
 
     def test_omitting_slot_4095_is_rejected(self):
-        self.reject_length(4094)
+        self.reject_length(4095)
 
     def test_including_slot_4096_is_rejected(self):
-        self.reject_length(4096)
+        self.reject_length(4097)
 
 
 if __name__ == '__main__':
