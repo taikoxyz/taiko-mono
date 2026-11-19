@@ -108,6 +108,8 @@ regexes = ['''^(0x)?(0[23])?[a-fA-F0-9]{64}$''']
 paths = [
   '''^testdata/etna_vectors/vectors\.json$''',
   '''^packages/taiko-client-rs/crates/abci/testdata/comet-wire\.json$''',
+  # etna-core's byte-identical copy of the abci wire vectors (#22398).
+  '''^packages/taiko-client-rs/crates/etna-core/testdata/comet-wire\.json$''',
   # Removed from HEAD, but repo--secret-scan.yml scans every PR commit where it still exists.
   '''^packages/taiko-client-rs/crates/abci/testdata/v1-vectors\.json$''',
 ]
