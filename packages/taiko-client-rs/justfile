@@ -64,6 +64,8 @@ unit *ARGS:
   else
     cargo nextest run "${targets[@]}" "$@"
   fi
+  # The shared core's Docker-free integration vectors are outside the filtered nextest targets.
+  cargo test -p etna-core --all-targets
   cargo test -p abci --doc
 
 # Four representative Docker scenarios for local iteration. Use `test` for subsets
