@@ -43,7 +43,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
         with:
-          version: nightly-2cb875799419c907cc3709e586ece2559e6b340e
+          version: v1.4.2
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
@@ -105,7 +105,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
         with:
-          version: nightly-2cb875799419c907cc3709e586ece2559e6b340e
+          version: v1.4.2
           # SECURITY: no cache. Jobs in this PR share a cache scope, so the build job could plant
           # an entry, and restoring it can write anywhere, including .git/hooks and git config.
           cache: false
