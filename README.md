@@ -55,7 +55,8 @@ If you find a bug or have a feature request, please [open an issue](https://gith
 
 ## Development prerequisites
 
-Use the Node.js version pinned in [`.nvmrc`](./.nvmrc) and pnpm 9 for local development and CI.
+Use the Node.js version pinned in [`.nvmrc`](./.nvmrc) and the pnpm version pinned in
+[`package.json`](./package.json) for local development and CI.
 Node.js 22.23.4 includes the [October 2026 security fixes](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases).
 
 From the repository root:
@@ -63,7 +64,7 @@ From the repository root:
 ```bash
 nvm install
 nvm use
-npm install --global pnpm@9
+corepack enable pnpm
 pnpm install
 ```
 

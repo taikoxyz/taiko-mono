@@ -2,6 +2,7 @@
   "name": "taiko-mono",
   "version": "0.23.0",
   "private": true,
+  "packageManager": "pnpm@12.21.0",
   "scripts": {
     "postinstall": "bash scripts/setup-local-ignores.sh",
     "setup:ignores": "bash scripts/setup-local-ignores.sh",
