@@ -9,15 +9,15 @@ The Etna fork includes two designs, both in this directory:
   and finalizes them instantly; anyone can land a proven batch on L1, and funds
   on L1 recognize only landed checkpoints. The target is Stage 0.
 
-| File                           | Contents                                                                          |
-| ------------------------------ | --------------------------------------------------------------------------------- |
-| [ANCHORLESS.md](ANCHORLESS.md) | The anchorless design: header, contract changes, fork and upgrade order           |
-| [SPEC.md](SPEC.md)             | The PoS + ZK design specification, sections 1–12 and appendices A–C               |
-| [SWITCH.md](SWITCH.md)         | The one-time switch from Unzen to Etna: DAO proposal, switch day, first landing   |
-| [ACCEPTANCE.md](ACCEPTANCE.md) | The acceptance and launch checklist for SPEC.md                                   |
-| [rules/](rules/README.md)      | Stable rule references for SPEC.md, with vectors and review questions             |
-| [CLAUDE.md](CLAUDE.md)         | Guidance for AI agents editing SPEC.md and rules/; `AGENTS.md` is a symlink to it |
-| [deck/](deck/)                 | A slide deck that introduces Etna to engineers who know the based design          |
+| File                           | Contents                                                                                                                                                                                                                               |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [ANCHORLESS.md](ANCHORLESS.md) | The anchorless design: header, contract changes, fork and upgrade order                                                                                                                                                                |
+| [SPEC.md](SPEC.md)             | The PoS + ZK design specification, sections 1–12 and appendices A–C                                                                                                                                                                    |
+| [SWITCH.md](SWITCH.md)         | The one-time switch from Unzen to Etna: DAO proposal, switch day, first landing                                                                                                                                                        |
+| [ACCEPTANCE.md](ACCEPTANCE.md) | The acceptance and launch checklist for SPEC.md                                                                                                                                                                                        |
+| [rules/](rules/README.md)      | Stable rule references for SPEC.md, with vectors and review questions                                                                                                                                                                  |
+| [CLAUDE.md](CLAUDE.md)         | Guidance for AI agents editing SPEC.md and rules/; `AGENTS.md` is a symlink to it                                                                                                                                                      |
+| [deck/](deck/)                 | A slide deck that introduces Etna to engineers who know the based design. It shows an earlier revision: its slides still have the landing grid, registry displacement and the landed validator-state hash, which SPEC.md no longer has |
 
 The Etna block-production and validation rules are in
 [SPEC.md section 3](SPEC.md#3-consensus-and-blocks). Its header encoding is also recorded in
