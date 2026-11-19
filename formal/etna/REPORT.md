@@ -5579,3 +5579,125 @@ were pre-implementation RED checks, not protocol defects. Source and independent
 behavioral gates passed. Root records full committed branch/effective-merge
 validation and exact draft publication separately. W04–W07 and the combined
 final gate continue under the same seven-item authorization.
+
+## W04 running validator state and application commitment
+
+Implementation `7c4658c7acd773565225df02036e914cc1f0c19c` adds a separately
+pinned public stock-Comet profile, a complete Python commitment/state/frame
+verifier and an offline native driver. Historical handover/source/public corpus
+bytes remain unchanged. Current source selection is the reviewed exact
+three-document bundle `2e6763e21`; executed stock source remains
+`0880b4d378f347ab16e54ec677ff50d803f37d62`. Selection conveys no execution result.
+
+The hand-derived late-rescale witness starts at height1 with powers1/36/156,
+updates at1 to80/19/1 and continues through8. It was frozen before execution;
+no exhaustive4096-program search is claimed. The second public constructor starts
+at21, inserts a member and then removes another. The selected initial sets,
+ordered compressed public keys, positive powers, signed int64 priorities and
+stored proposer indices are observed from actual stock state. Native Legacy
+Keccak and a separate Python implementation bind the complete six-word-head
+validator ABI, both dynamic tails and the separate three-word application ABI.
+An independent oracle uses separate integer/protobuf logic and installed
+PyCryptodome Keccak; no third-party installation was performed.
+
+### Real source, store and initial block observations
+
+- Actual continuous running effective-height5 priorities are28/24/-52. A real
+  Save/close/reopen and sparse `LoadValidators(5)` return77/29/-105. Keys,
+  addresses, order, powers, stored proposer and validator Merkle root agree.
+  This demonstrates why a hash-matching historical lookup cannot supply running
+  priorities; it is specified behavior, not a newly discovered protocol defect.
+- Real public `State.MakeBlock` and `State.ValidateBlock` execute seven initial
+  cases per program: one matching and six exact AppHash refusals. Current/next
+  priority and stored-proposer changes preserve member Merkle hashes; the EL-only
+  case preserves the validator ABI. The height-path case changes committed height
+  and its fixture-derived EL hash together. Each fresh block changes only AppHash
+  from the baseline; complete Header and Block protobuf bytes and exact real guard
+  errors are retained. There are two initial positive cases and twelve negative
+  cases, not later-height signed validation.
+- All later headers and part IDs are explicitly synthetic inputs to stock
+  `updateState`. Complete input Header/BlockID and persistent State protobufs bind
+  chain, height, version, time, parent, all three sets, results and application hash.
+  Stock updateState leaves AppHash nil; this reference harness assigns its computed
+  commitment. No live Etna ABCI app is executed. Stock default parameters are used
+  except the key type and AppVersion1. A local Info-shaped version assignment
+  sets the state header version too; no handshake runs and genesis results stay nil.
+- At checkpoint6, a detached pre-6 set preimage matches frozen header6's AppHash
+  and validator hashes. One stock update derives the complete post-6 state.
+  Actual fresh Store.Bootstrap/close/reopen installs markers8/7; continuation7/8
+  uses exactly the uninterrupted frozen Header/BlockID and compares the complete
+  state with only those two markers normalized. Full rows6/7/8 and sparse9/10,
+  plus final close/reopen bytes, are checked. The bound preimage is reference
+  fixture data, not an authenticated DATA-5.4 import package.
+
+### Executed controls and independent review
+
+A positive cached-tool smoke completed both programs. The final actual native
+campaign ran original, priority-two and same-copy restored. All three Go commands
+exited0, and the complete expected parent/leaves/receipt diagnostics were checked.
+The source variation changes only stock updateState's actual increment1 to2.
+The native producer still succeeds; the independently derived consumer rejects
+its actual observed result at
+`$.observations[1].next.members[0].priority`. The values are17/97/17 at effective
+height3, with unchanged membership/power/Merkle. The same private source copy is
+restored including mode; all four original/restored JSON streams are byte-identical.
+
+The independent verifier also executed an original/substitution/restored triplet
+through a separate Go leaf, native exits0/1/0. Only the candidate commitment source
+changes from actual running NextValidators to actual reopened LoadValidators(5).
+The unchanged synthetic height4 input supplies the canonical reference hash.
+Exactly ABI priority words23/27/31 differ, while keys, powers, order, Merkle,
+proposer, EL word and effective height remain fixed. The designated publication
+comparison rejects the substituted candidate with the exact expected hash error;
+original and restored complete candidate receipts agree. Five independent
+metadata-only changes also refuse with actual ABI/input bytes unchanged.
+
+A separately isolated independent Python pass re-read all12 genuine primary
+JSONs from the original/two-increment/restored runs against independent1/2/1
+integer, ABI/Keccak, store and full-wire oracles. Every projection, raw DB row,
+initial Header/Block, full State/Header/BlockID, Bootstrap and continuation field
+matched; four original/restored pairs matched byte for byte. The earlier two
+synthetic projection checks remain labeled synthetic rather than native evidence.
+
+Independent source review found and fixed real verification blind spots: incomplete
+state/input projections; filenames not bound to their own selected programs;
+integer-only decoding of fractional Go elapsed metadata; unordered lifecycle
+acceptance; and tool/digest provenance derived from supplied inputs alone. Final
+receivers bind program/filename, same-buffer bytes/length/digest, closed ordered
+native events, exact diagnostics and the existing six pinned SDK tools. The
+native driver uses the existing physical shared cache lock via O_NOFOLLOW and
+open-descriptor/path inode checks; source paths/bytes/modes, generated modfiles,
+inputs and tools remain stable. Source and behavior reviewers independently passed.
+
+Ten focused ordinary tests passed, including duplicate/substituted file pairs,
+full-state-byte corruption, malformed frames, lifecycle reordering, unrelated
+output, fractional/invalid elapsed and changed producer digest. Final committed
+branch and actual merge with main479bc3db6 each passed400 ordinary tests
+(214/166/20, no skips/errors/failures). All1739 frozen inputs remained unchanged;
+real Git index was unchanged and the private merge tree is
+`fd4e2fe80902e1a67ca97a5c0243e4e4477ec898`. The579 historical model/config bytes
+are retained. The default historical TLC suite was not rerun locally for W04.
+The actual main target479 was checked separately from PR's older saved base5c;
+baseRef.target and Git's advertised main agreed. The last published3672 hosted
+exact gate succeeded; new publication CI requires its own head readback.
+
+| Retained W04 evidence                                  | SHA-256                                                            |
+| ------------------------------------------------------ | ------------------------------------------------------------------ |
+| Native producer                                        | `f1d6fb7784a53872b67cef891ccafce4559c289ec105d410b83844e585f3cf25` |
+| Complete passive verifier                              | `a74059bbc0be7182d9a671c16b52aa3e6fe641e156fe717d8e3163fbf7f9655d` |
+| Native driver                                          | `414744de7880ead81df69fd9fbc5c2c6ff82b184fecf273aa7d5b8c0e9c3a3b6` |
+| Ten focused tests                                      | `513b64bf18d2c3a7a4ce1157a9abf0aa07c34274175e6ae0001135e57caf1297` |
+| Original late projection                               | `e7f9524ba6312ae2a4512a7f0a7344a143ef9d287915811e0486a0e1dc3efdbe` |
+| Original late full frames                              | `087bf3ae0d9abc0643c4146fa6dda1b6fc3293b1fc0b90b164a5cd34bba5e200` |
+| Original recovery projection                           | `34bafa09d550a17766608d98654d9ebdb7c4fae8b25d43cecbd493224c6fabac` |
+| Original recovery full frames                          | `884ed44eb0184add9f69a099bdcb78bf1fbf525cda9633751bab3c2db3fbb047` |
+| Independent original/restored source-selection receipt | `75e6639ca0a587538a28bcbc8aa7af69a766983f6271011179abde4cc89780ee` |
+| Independent twelve-file readback packet                | `ec106720f1562e1d8e3dd75b3dd83e79b886a78354d1c5f397741b73ea40f794` |
+| Independent source report                              | `e3dfc464c3154bcd96e50beb7b3bb05f1a1acb8141e3896579976e6a815922bb` |
+| Independent behavioral report                          | `67d8b9bc0be1b05cf95274c7e11e8e73e5fec52946b430c11b09a5a950e6082f` |
+
+Current real app/import/EL/guest execution, authenticated history, noninitial signed
+admission, consensus progress, evidence import and deployment remain WAITING.
+No natural protocol defect was confirmed. Exactly four selected deliverables
+are available; W05–W07 and the combined independent final gate continue. W02's
+original horizon3/8 exhaustive obligation remains OPEN under R01.

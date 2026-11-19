@@ -40,6 +40,15 @@ recovery versus the covering landing required for exit confirmation. Its
 seven-block no-penalty profile exhausted; six free-action witnesses and
 independent transition controls cover the selected circulation and release paths.
 See the [W03 report](REPORT.md#w03-closed-supply-capacity-and-covering-landing).
+
+The [public stock AppHash component](conformance/COMET_APPHASH.md) observes
+running-versus-sparse priorities, complete application commitments, public
+initial-block validation and real Store/Bootstrap continuation. Three primary
+native phases and an independent wrong-source triplet passed their named
+controls; an independent wire oracle checked all twelve genuine primary JSONs.
+Later transition inputs are synthetic; actual Etna app/import remains WAITING.
+See [W04 evidence](REPORT.md#w04-running-validator-state-and-application-commitment).
+
 These results do not close W02's broader exhaustive obligations or deployment checks.
 
 ## Run

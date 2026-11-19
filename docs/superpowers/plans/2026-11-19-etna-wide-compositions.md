@@ -77,15 +77,15 @@ Root acceptance split: the design requires the represented time1..8 envelope and
 
 ### Task 4: W04 running validator state, sparse lookup and appHash
 
-**Files:** Add a separately pinned nested profile under `formal/etna/conformance/comet_handover/apphash/` and a new `formal/etna/conformance/run_comet_apphash.py`; create `formal/etna/conformance/COMET_APPHASH.md` and `formal/etna/tests/test_comet_apphash.py`. Preserve the old `run_comet_handover.py`, old public corpus, pins and source manifest. This is the recorded isolated-entrypoint ruling, with no scope change.
+**Files:** Add a separately pinned nested profile under `formal/etna/conformance/comet_handover/apphash/` and new `formal/etna/conformance/run_comet_apphash.py` and `run_comet_apphash_native.py`; create `formal/etna/conformance/COMET_APPHASH.md` and `formal/etna/tests/test_comet_apphash.py`. Preserve the old `run_comet_handover.py`, old public corpus, pins and source manifest. This is the recorded isolated-entrypoint ruling, with no scope change.
 
 **Interfaces:** Existing stock MakeGenesisState/private updateState bridge/Store Save-LoadValidators-Bootstrap. New independently derived valStateHash/appHash encoder consumes observed current/next members and stored proposer indices; returns complete ABI bytes and hashes. Sparse lookup is an observation, never running-state oracle.
 
-- [ ] Inspect named stock source/dependencies and bound pure-integer witness search4096 programs/four public members/16 steps; freeze a genesis/update-reachable late-rescale witness before native execution. If unavailable, keep that claim open and record honest narrower evidence.
-- [ ] Add RED encoding and receipt binding controls: signed int64 priorities, exact order/indices, identical Merkle hash with changed priority/proposer, header(s) versus post-s AppHash, pin-only corruption.
-- [ ] Implement public-only selected native programs and independent Python integer/ABI oracle; observe actual running and reopened sparse/full store rows plus actual stock header AppHash validation.
-- [ ] Obtain root packet/smoke/full GO; run original/exact priority or AppHash-guard fault/restored. Independent tester substitutes a different wrong running-state source while retaining keys/powers, and verifies actual bytes with metadata changed.
-- [ ] Verify every native/input/source identity and selected Bootstrap continuation, focused ordinary checks, independent source/behavior gates, commit/publication. Real Etna app/import/EL remains WAITING.
+- [x] Inspect named stock source/dependencies and bound pure-integer witness search4096 programs/four public members/16 steps; freeze a genesis/update-reachable late-rescale witness before native execution. If unavailable, keep that claim open and record honest narrower evidence.
+- [x] Add RED encoding and receipt binding controls: signed int64 priorities, exact order/indices, identical Merkle hash with changed priority/proposer, header(s) versus post-s AppHash, pin-only corruption.
+- [x] Implement public-only selected native programs and independent Python integer/ABI oracle; observe actual running and reopened sparse/full store rows plus actual stock header AppHash validation.
+- [x] Obtain root packet/smoke/full GO; run original/exact priority or AppHash-guard fault/restored. Independent tester substitutes a different wrong running-state source while retaining keys/powers, and verifies actual bytes with metadata changed.
+- [x] Verify every native/input/source identity and selected Bootstrap continuation, focused ordinary checks, independent source/behavior gates, commit/publication. Real Etna app/import/EL remains WAITING.
 
 ### Task 5: W05 actual cached signer framing and retry
 
