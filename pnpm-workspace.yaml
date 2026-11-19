@@ -12,5 +12,6 @@ allowBuilds:
   secp256k1: true
   svelte-preprocess: true
   utf-8-validate: true
+
+# Keep Bridge UI's engine check. pnpm 12 only supports this setting workspace-wide.
 engineStrict: true
-resolutionMode: highest
