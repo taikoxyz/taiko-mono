@@ -220,6 +220,9 @@ def initializeWith (e : Environment) (r : RegistryMachine.State) :=
 example : (initializeWith env zeroDelay).isSome = true := by decide +kernel
 example : ¬ (0 < env.evidenceWindow ∧ env.evidenceWindow ≤ zeroDelay.config.withdrawalDelay) := by
   decide +kernel
+-- A statement about the model's `config.valid` only, not a permitted deployment: the contract
+-- constructor and deployment checks require 4096 × minStake > 10^27 (STAKE-4.1-14a, START-10-12),
+-- which the model's `config.valid` does not check, so it accepts minStake = 0.
 example : zeroMinimum.config.valid zeroMinimum.ledger = true := by decide +kernel
 example : (initializeWith env zeroMinimum).isSome = true := by decide +kernel
 example : (initializeWith env noActivation).isNone = true := by decide +kernel

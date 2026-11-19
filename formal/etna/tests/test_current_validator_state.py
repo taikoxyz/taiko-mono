@@ -34,13 +34,6 @@ class ValidatorStateTests(unittest.TestCase):
              'truncate (xs.map Validator.priority).sum xs.length'),
             ('switch_height', 'if (s.height+2) % c.epochLen = 0 then',
              'if (s.height+1) % c.epochLen = 0 then'),
-            ('per_block_hash', 'if hash (snapshot after) = b.header.valStateHash then',
-             'if True then'),
-            ('origin_exception', 'if height = origin then', 'if height ≤ origin then'),
-            ('stale_genesis', 'then some fresh else none', 'then some supplied else none'),
-            ('later_preimage', 'hash (snapshot supplied) = stored then', 'stored = stored then'),
-            ('stored_proposer', 's.proposer.any (fun address => s.members.any (·.address == address))',
-             'true'),
         ]
         for name, old, new in mutants:
             with self.subTest(name=name):

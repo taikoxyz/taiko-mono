@@ -14,13 +14,8 @@ _spec.loader.exec_module(JUDGE)
 
 
 class ReviewSurfaceJudgeTests(unittest.TestCase):
-    def test_validator_state_semantics_are_lock_roots(self):
-        required = {
-            'Etna.Design.Current.ValidatorState.hplus2',
-            'Etna.Design.Current.ValidatorState.checked_run_prefix',
-            'Etna.Design.Current.ValidatorState.certificate_refines',
-        }
-        self.assertTrue(required.issubset(set(JUDGE.roots())))
+    def test_validator_state_arithmetic_is_a_lock_root(self):
+        self.assertIn('Etna.Design.Current.ValidatorState.hplus2', JUDGE.roots())
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

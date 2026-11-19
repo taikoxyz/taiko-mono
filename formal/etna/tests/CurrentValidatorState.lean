@@ -44,4 +44,22 @@ example : ((increment historical 1).bind fun s => increment s 1) =
 example : increment historical 2 =
     some ⟨[⟨3,3,3,4⟩,⟨2,2,2,3⟩,⟨1,1,1,-5⟩],some 3⟩ := by decide +kernel
 
+open Etna.Design Etna.Design.Current
+
+-- A recovery generation from origin 8 with epoch length 10: S(1) = 9 and H(1) = 11.
+def context : Consensus.Context :=
+  ⟨⟨1,2,3,4⟩,1,8,5,0,10,1,1,3,
+    (fun cut => if cut = 5 then [⟨10,3,0,100⟩]
+      else [⟨30,2,0,100⟩]),fun _ => 6⟩
+def addressOf (key : Hash) : Nat := if key = 10 then 2 else if key = 20 then 1 else 3
+def recovered : CommitState := (genesisFor context addressOf).getD default
+
+-- Only FinalizeBlock at S(1) = 9 (committed on the state at 8) returns the epoch-1 selection,
+-- and committing it leaves height 10 with the old set and makes the new set sign H(1) = 11.
+example : scheduled context addressOf recovered = [⟨30,3,2⟩,⟨10,2,0⟩] ∧
+    scheduled context addressOf {recovered with height := 7} = [] ∧
+    scheduled context addressOf {recovered with height := 9} = [] := by decide +kernel
+example : (commit recovered (scheduled context addressOf recovered)).map (fun s => (s.current,s.next)) =
+    some (recovered.next,⟨[⟨30,3,2,0⟩],some 3⟩) := by decide +kernel
+
 end Etna.ValidatorStateRegression

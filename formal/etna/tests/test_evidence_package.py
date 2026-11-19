@@ -15,10 +15,10 @@ spec.loader.exec_module(coverage)
 class EvidencePackageTests(unittest.TestCase):
     def test_claim_pairs_have_reviewed_edges(self):
         rows = coverage.inventory()
-        self.assertEqual(len([r for r in rows if r['language'] in ('live_en', 'live_acceptance')]),362)
+        self.assertEqual(len([r for r in rows if r['language'] in ('live_en', 'live_acceptance')]),360)
         self.assertEqual(len([r for r in rows if r['language'] == 'live_anchorless']),101)
         self.assertEqual(len([r for r in rows if r['language'] == 'live_switch']),117)
-        self.assertEqual(len(rows),580)
+        self.assertEqual(len(rows),578)
         # inventory() checks each explicit claim edge and its general-property role.
 
     def test_clause_ids_survive_line_insertion(self):
@@ -63,13 +63,13 @@ class EvidencePackageTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             hashes = json.loads((Path(tmp)/'coverage.json').read_text())['source_sha256']
             self.assertEqual(hashes['packages/protocol/docs/etna/SPEC.md'],
-                             '7875c10373114ca5eaa7b164d2bfa844b4f5bbbede2ebfa252bb59246efd96de')
+                             'b331b3af7b42a4645ebe3e2b4f42e912e33508893a091c3c3c289c8fdbd53a70')
             self.assertEqual(hashes['packages/protocol/docs/etna/ACCEPTANCE.md'],
-                             '3f7cd89485283e964789b589bab02034134933c95955a26cecb35787e906e5e7')
+                             '525a2c06ed1b369fe53ee546c16fd181e7429b036dfeb121e1d51fa964543ade')
             self.assertEqual(hashes['packages/protocol/docs/etna/ANCHORLESS.md'],
                              '4566a331893f1220459ef6a809d57140e1834403f2f5ae73a4e418e7ab0d7578')
             self.assertEqual(hashes['packages/protocol/docs/etna/SWITCH.md'],
-                             'f32205895baa0a74c7e91ffc124a4553a6841dc1bd7f77f4abc789835f56b0c0')
+                             'c9cd828d7e227fe5a9478de4b075a0b07e4c46e4ccce26905a3f2dd06e11ace3')
             self.assertNotIn('packages/protocol/docs/etna/sources/manifest.json', hashes)
 
     def test_generator_detects_stale_outputs(self):

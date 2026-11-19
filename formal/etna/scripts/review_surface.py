@@ -2,8 +2,8 @@
 """Lock the review surface: the headline/witness statements and every definition they mean.
 
 The review surface starts at the five headline theorems (the conjunction and H1-H4), their three
-deployed-history forms (DEPLOYED_HEADLINES), the eight joint-premise witnesses and the trap
-witnesses (audit_proofs.CURRENT_*). From their kernel types it
+deployed-history forms (DEPLOYED_HEADLINES), the eight joint-premise witnesses
+(audit_proofs.CURRENT_*) and the validator-state H+2 theorem. From their kernel types it
 follows every Etna constant they use: definitions, inductives, constructors and recursors
 contribute their type and value; theorems contribute their type only, so proofs never enter the
 surface. Init/Std constants are recorded by name (the toolchain is pinned). Each constant's
@@ -48,12 +48,10 @@ SURFACE_PATHS = (LOCK_PATH, ':(glob)formal/etna/*.lean', ':(glob)formal/etna/Etn
 DEPLOYED_HEADLINES = ('Etna.Design.Current.Headlines.deployed_claims',
                       'Etna.Design.Current.Headlines.deployed_rollback_free',
                       'Etna.Design.Current.Headlines.deployed_recoverability')
-VALIDATOR_STATE_ROOTS = ('Etna.Design.Current.ValidatorState.hplus2',
-                         'Etna.Design.Current.ValidatorState.checked_run_prefix',
-                         'Etna.Design.Current.ValidatorState.certificate_refines')
+VALIDATOR_STATE_ROOTS = ('Etna.Design.Current.ValidatorState.hplus2',)
 SCOPE = ('Kernel terms of the headline/witness statements and of every Etna definition they use; '
-         'also the concrete validator-state refinement; theorem proofs are excluded. A change '
-         'here changes what H1-H4, the witnesses or the validator-state refinement mean.')
+         'also the concrete validator-state arithmetic; theorem proofs are excluded. A change '
+         'here changes what H1-H4, the witnesses or the validator-state arithmetic mean.')
 
 PROGRAM = r'''import Lean
 import EtnaModel
@@ -110,8 +108,7 @@ def _audit():
 def roots():
     audit = _audit()
     return [audit.CURRENT_CLAIMS[0], *audit.CURRENT_HEADLINES, *DEPLOYED_HEADLINES,
-            audit.CURRENT_ACCEPTING_WITNESS, *audit.CURRENT_PROFILE_WITNESSES,
-            *audit.CURRENT_TRAP_WITNESSES, *VALIDATOR_STATE_ROOTS]
+            audit.CURRENT_ACCEPTING_WITNESS, *audit.CURRENT_PROFILE_WITNESSES, *VALIDATOR_STATE_ROOTS]
 
 
 def lean_string(text):

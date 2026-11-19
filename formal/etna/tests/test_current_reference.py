@@ -81,8 +81,8 @@ class CurrentReferenceTests(unittest.TestCase):
       List.range (d.input.l1ReferenceBlockNumber+1)''', 'True')
 
     def test_statement_generation_binds_reference_to_live_generation(self):
-        self.reject('⟨w.inbox.domain,w.inbox.generation,w.inbox.committeeConfig,origin.elHash,origin.cometHash,origin.valStateHash,',
-                    '⟨w.inbox.domain,0,w.inbox.committeeConfig,origin.elHash,origin.cometHash,origin.valStateHash,')
+        self.reject('⟨w.inbox.domain,w.inbox.generation,w.inbox.committeeConfig,origin.elHash,origin.cometHash,\n',
+                    '⟨w.inbox.domain,0,w.inbox.committeeConfig,origin.elHash,origin.cometHash,\n')
 
     def test_image_certificate_has_no_live_storage_premise(self):
         model = (ROOT / 'EtnaModel/CurrentProtocol.lean').read_text()

@@ -2,20 +2,20 @@
   "schema_version": 2,
   "spec": {
     "path": "packages/protocol/docs/etna/SPEC.md",
-    "revision": "2026-11-18",
-    "commit": "9c832234b4681fbc5eccdbaf9c9303b7869f91f4",
-    "sha256": "7875c10373114ca5eaa7b164d2bfa844b4f5bbbede2ebfa252bb59246efd96de"
+    "revision": "2026-11-19",
+    "commit": "2e6763e21bc236cfcda6011d164b32040f9e0c8d",
+    "sha256": "b331b3af7b42a4645ebe3e2b4f42e912e33508893a091c3c3c289c8fdbd53a70"
   },
   "index": {
     "path": "packages/protocol/docs/etna/rules/INDEX.md",
-    "revision": "2026-11-18",
-    "commit": "9c832234b4681fbc5eccdbaf9c9303b7869f91f4",
-    "sha256": "661775729a11c74c0335037ab349508e75ed151791d08cf2aa6cd1d0fe0394b7"
+    "revision": "2026-11-19",
+    "commit": "2e6763e21bc236cfcda6011d164b32040f9e0c8d",
+    "sha256": "973c7acfeb03285c81f8b1e03764712ff8c935e89431ac9921a4c056d1a48b20"
   },
   "evidence": {
     "CONS-3.2-2": {
       "theorems": ["Etna.Design.Current.Protocol.Recovery.segment"],
-      "reason": "Recovery.segment builds the K blocks after a plain recovery with header heights parent + 1 and parentHash the parent's EL hash, linked from c's hash-bound header; an existence result for that segment, not a check that every valid header is built this way."
+      "reason": "Recovery.segment builds the one block after a plain recovery with header height parent + 1 and parentHash the parent's EL hash, linked from c's hash-bound header; an existence result for that block, not a check that every valid header is built this way."
     },
     "CONS-3.4-2": {
       "theorems": ["Etna.Design.Current.Blocks.chain_parent_hashes"],
@@ -38,11 +38,11 @@
         "Etna.Design.Current.Import.committee_conflict_halts",
         "Etna.Design.Current.Import.invalid_data_rejected",
         "Etna.Design.Current.Import.invalid_val_state_rejected",
-        "Etna.Design.Current.Import.next_validators_conflict_halts",
+        "Etna.Design.Current.Import.validator_sets_conflict_halts",
         "Etna.Design.Current.Import.publish_boundary",
         "Etna.Design.Current.Import.unfinalized_checkpoint_retries"
       ],
-      "reason": "Finalized authenticated disagreement halts (the imported envelope EL hash; for s > o also the validator-state preimage's set for s + 1, or a derived committee against that preimage); for s > o an unmatched preimage rejects; an unfinalized checkpoint record retries; decoded candidate inspection only, no alert or store implementation proof."
+      "reason": "Finalized authenticated disagreement halts (the imported envelope EL hash; for s > o also a validator-state preimage that gives header(s)'s app_hash but whose sets differ from header(s)'s validators_hash or next_validators_hash, or a derived committee against the set derived from that preimage); for s > o a preimage that does not give header(s)'s app_hash rejects; an unfinalized checkpoint record retries; decoded candidate inspection only, no alert or store implementation proof."
     },
     "DATA-5.4-7": {
       "theorems": [
@@ -198,29 +198,29 @@
       "reason": "The decoded forfeiture intent sends the entire penalty to slashSink with no bounty; principal deduction order is not this conclusion."
     },
     "LAND-6.1-3": {
-      "clause": "LIVE_EN-4217c5498e2e83a4",
+      "clause": "LIVE_EN-3d0fb99927ba67de",
       "theorems": [
         "Etna.Design.Current.Protocol.accepted_suffix_from_certificate"
       ],
       "reason": "An actual accepted landing with its certificate yields a decoded valid Suffix whose parent height/cut are the execution-time current checkpoint and whose terminal fields equal the landing target. This is the precise (c,h] suffix extraction; custody-chain invariants alone do not conclude atomic frontier selection or new-suffix settlement. Raw Solidity/storage/guest refinement remains separate."
     },
     "LAND-6.1-5": {
-      "theorems": ["Etna.Design.Current.Start.grid_offset"],
-      "reason": "Decoded grid acceptance uses the Etna-start offset; exact guard projection only."
+      "theorems": ["Etna.Design.Current.Protocol.land_single_block"],
+      "reason": "A landing of the single block p+1 carries no leaves and land accepts it whenever the checks that do not read the leaves pass; decoded land only. That every height above c can end a landing is not shown generally."
     },
     "LAND-6.1-6": {
       "theorems": ["Etna.Design.Current.Protocol.land_success"],
       "reason": "Accepted decoded landing checks and resulting atomic state value; exact transcription, not Solidity order proof."
     },
     "LAND-6.1-8": {
-      "clause": "LIVE_EN-4217c5498e2e83a4",
+      "clause": "LIVE_EN-3d0fb99927ba67de",
       "theorems": [
         "Etna.Design.Current.Protocol.accepted_certificate_checkpoint_split"
       ],
       "reason": "An actual accepted landing and certificate identify the physical archive header at execution-time c with the stored checkpoint hash, via the authenticated frontier cut. This is decoded frontier binding only, not the other ordered guards or Solidity execution order."
     },
     "LAND-6.1-8a": {
-      "clause": "LIVE_EN-4217c5498e2e83a4",
+      "clause": "LIVE_EN-3d0fb99927ba67de",
       "theorems": [
         "Etna.Design.Current.Protocol.Custody.path_rooted",
         "Etna.Design.Current.Protocol.Custody.pending_parent_fence",
@@ -231,7 +231,7 @@
       "reason": "The first switching landing checks all three LAND-6.1-8a conditions: every Unzen proposal finalized, the last finalized hash equal to the start hash, and the Unzen proof's SignalService checkpoint at height S with the start hash and stateRoot (the model keeps the latest Unzen checkpoint, with its height). After closure no ordinary modeled Unzen proof can progress, and retained legacy/Etna heights remain on their respective sides of S. Existing Unzen proof/header extension and pure guest soundness are explicit primitive boundaries."
     },
     "LAND-6.1-9": {
-      "clause": "LIVE_EN-4217c5498e2e83a4",
+      "clause": "LIVE_EN-3d0fb99927ba67de",
       "theorems": [
         "Etna.Design.Current.Protocol.land_success",
         "Etna.Design.Current.Protocol.Custody.landing_snapshot_saved"
@@ -257,7 +257,7 @@
       "reason": "Exact decoded committee cutoff/provenance derivation; raw origin/header/snapshot adapters remain external."
     },
     "PROOF-6.2-13": {
-      "clause": "LIVE_EN-4b408fa419d8782a",
+      "clause": "LIVE_EN-cc34fca3e258c580",
       "theorems": [
         "Etna.Design.Current.Archive.actual_linked",
         "Etna.Design.Current.Archive.actual_body_parent",
@@ -271,7 +271,7 @@
       "reason": "Full semantic archive ancestry binds the real parent/batch/checkpoint and uniquely fixes the decoded ancestral cutoff. A separately extracted ordinary decision suffix preserves physical links and exact post-origin cutoff and has at most L+2 headers. The accepted certificate still requires complete ancestry: refinement to an L+2-only guest, byte decoding and separate L1/recovery material budgets remain deferred."
     },
     "PROOF-6.2-14": {
-      "clause": "LIVE_EN-4b408fa419d8782a",
+      "clause": "LIVE_EN-cc34fca3e258c580",
       "theorems": ["Etna.Design.Current.Protocol.certificate_origin_present"],
       "reason": "Supporting pure guest certificate constraint: its actual closed-prefix fixed-origin record lookup is present. It does not prove exact c/R/timestamp construction, R registry selection, storage proofs or production recovery authentication."
     },
@@ -313,7 +313,7 @@
       "reason": "Valid decoded chains have exactly consecutive heights from the parent through the terminal height; this is the height-continuity fragment of cut coverage, not full cuts authentication."
     },
     "PROOF-6.2-41": {
-      "clause": "LIVE_EN-2096743a5d399f16",
+      "clause": "LIVE_EN-6c59150df089c846",
       "theorems": [
         "Etna.Design.Current.Blocks.valid_cursor_step",
         "Etna.Design.Current.Blocks.chain_cursor_steps",
@@ -323,7 +323,7 @@
     },
     "PROOF-6.2-42": {
       "theorems": ["Etna.Design.Current.Blocks.statement_endpoints"],
-      "reason": "Exact decoded terminal EL hash, CometBFT hash, validator-state hash and FI cursor equal statement fields; no authenticated-origin hashes or first-cut cursor conclusion."
+      "reason": "Exact decoded terminal EL hash, CometBFT hash and FI cursor equal statement fields; the statement carries no validator-state hash. No authenticated-origin hashes or first-cut cursor conclusion."
     },
     "PROOF-6.2-45a": {
       "theorems": [
@@ -403,10 +403,10 @@
     },
     "RECOV-8-47a": {
       "theorems": ["Etna.Design.Current.Rules.recover_clears_stop"],
-      "reason": "Successful decoded recovery clears stopTime and stopGrid; not a fee/refund or complete rules-installation proof."
+      "reason": "Successful decoded recovery clears stopTime; not a fee/refund or complete rules-installation proof."
     },
     "RECOV-8-48": {
-      "clause": "LIVE_EN-e4d5ea9bf749c3f7",
+      "clause": "LIVE_EN-8ef06591adea330d",
       "theorems": [
         "Etna.Design.Current.Protocol.Governance.recover_origin_exact",
         "Etna.Design.Current.Protocol.Governance.recovery_preserves_head"
@@ -419,7 +419,7 @@
     },
     "RECOV-8.4-13": {
       "theorems": ["Etna.Design.Current.Protocol.Recovery.segment"],
-      "reason": "Every block of the K-block segment the recovery path builds anchors at the recovery block R exactly, so none uses an anchor earlier than R; shown for that segment, not required of every block of the new generation."
+      "reason": "The block the recovery path builds anchors at the recovery block R exactly, so it uses no anchor earlier than R; shown for that block, not required of every block of the new generation."
     },
     "RECOV-8.4-3": {
       "clause": "LIVE_EN-1d7a0cb1eb3d5efb",
@@ -442,7 +442,6 @@
       "theorems": [
         "Etna.Design.Current.Economics.committee_issued",
         "Etna.Design.Current.Economics.historical_stake_funded",
-        "Etna.Design.Current.Registry.displacement_keeps_old_bond",
         "Etna.Design.Current.Registry.registration_issues_fresh",
         "Etna.Design.Current.Registry.registration_retains_keys",
         "Etna.Design.Current.Registry.unissued_withdraw_rejected",
@@ -453,26 +452,16 @@
         "Etna.Design.Current.RegistryMachine.unissued_edit_rejected",
         "Etna.Design.Current.RegistryMachine.used_key_rejected"
       ],
-      "reason": "Permanent issued bond/key identity and displacement preservation only; no 4096-slot admission algorithm verification."
+      "reason": "Permanent issued bond/key identity only; no 4096-slot admission conclusion."
     },
     "STAKE-4.1-14a": {
-      "clause": "LIVE_EN-4eeb66cec75465ce",
+      "clause": "LIVE_EN-dff27e7057a061cd",
       "theorems": [
-        "Etna.Design.Current.Registry.admission_minimum",
-        "Etna.Design.Current.Registry.admission_lowest_tie",
-        "Etna.Design.Current.Registry.displacement_selects_global_minimum"
+        "Etna.Design.Current.Registry.register_takes_lowest_empty",
+        "Etna.Design.Current.Registry.register_full_rejected",
+        "Etna.Design.Current.Registry.admission_none_iff_full"
       ],
-      "reason": "The actual search covers slots 0..4095, chooses the global least balance (effStake+pending), breaks ties by lowest index and, for a successful occupied-slot registration, requires a strictly larger amount. These theorems do not independently establish minStake rejection, full rejected-state atomicity, PoP or gas/index feasibility."
-    },
-    "STAKE-4.1-14b": {
-      "clause": "LIVE_EN-4eeb66cec75465ce",
-      "theorems": [
-        "Etna.Design.Current.Registry.displacement_selects_global_minimum",
-        "Etna.Design.Current.Registry.displacement_keeps_old_bond",
-        "Etna.Design.Current.Economics.closed_registry_history",
-        "Etna.Design.Current.Economics.temporal_committee_agreement"
-      ],
-      "reason": "A successful actual displacement replaces the globally minimum slot, clears the displaced bond slot association, preserves its key/owner/full principal and sets exit=min(old,current block). Closed historical selection history/committee authority is preserved. BondDisplaced event emission and full production lifecycle/index implementation remain separate."
+      "reason": "Lowest-empty-slot admission is modelled: a successful registration takes a slot below 4096 that was empty while every lower slot was held, and changes no other slot or bond; with every slot held, admission finds no slot and every registration is rejected, whatever its amount and also when a holder has zero balance. The deployment bound 4096 × minStake > 10^27 is enforced by the contract constructor and deployment checks, not by the model's config.valid. These theorems do not establish minStake rejection, PoP or gas."
     },
     "STAKE-4.1-16": {
       "clause": "LIVE_EN-ab1db15120198ccd",
@@ -509,7 +498,7 @@
       "reason": "Already authenticated keyed historical evidence retains executable paid liability against each issued positive unreleased balance. In the separately stated rollback-free candidate scope, overlap identity/live status and a fresh full evidence window are derived, with exhausted-or-funded slash outcomes. Generic conservation and a current-positive/current-live hypothesis alone are not credited as retention."
     },
     "STAKE-4.1-25": {
-      "clause": "LIVE_EN-443baffea980ec5b",
+      "clause": "LIVE_EN-27f6a5d40d0ce55d",
       "theorems": [
         "Etna.Design.Current.RegistryMachine.withdrawal_window",
         "Etna.Design.Current.RegistryMachine.trace_evidence_clock",
@@ -518,7 +507,7 @@
       "reason": "The successful withdrawal theorem derives a real confirmation-clock origin and waited duration; closed traces retain a live observed unconfirmed bond through that duration. This is the confirmation-clock/evidence-window component, not a proof of every confirmation guard, first-write/idempotence or exact selection eligibility."
     },
     "STAKE-4.1-26": {
-      "clause": "LIVE_EN-443baffea980ec5b",
+      "clause": "LIVE_EN-27f6a5d40d0ce55d",
       "theorems": [
         "Etna.Design.Current.RegistryMachine.confirm_blocked_above_snapshot",
         "Etna.Design.Current.StakeRisk.selected_unconfirmed",
@@ -529,7 +518,7 @@
       "reason": "The decoded confirm action rejects when actual landed snapshot is below effective exit; actual ordinary-history selected overlap bonds are consequently derived unconfirmed. Other confirmation guards and first/idempotent clock writes are separate obligations. The whole valid candidate committee, independent of overlap/round, is retained under rollback-free fresh-deployment execution; no post-rollback restart or original-amount guarantee is asserted."
     },
     "STAKE-4.1-27": {
-      "clause": "LIVE_EN-8863d8019505caf8",
+      "clause": "LIVE_EN-66d59803d30c85d4",
       "theorems": [
         "Etna.Design.Current.RegistryMachine.withdrawal_window",
         "Etna.Design.Current.RegistryMachine.trace_evidence_clock",
@@ -539,7 +528,7 @@
       "reason": "Actual successful withdrawal waits from a recorded confirmation, and ordinary trace clock retention prevents earlier release; the exact positive-balance payment intent pays the full balance to to. Owner/zero-balance authorization, all state clearing and production token transfer semantics are not concluded by these links."
     },
     "STAKE-4.1-28": {
-      "clause": "LIVE_EN-8863d8019505caf8",
+      "clause": "LIVE_EN-66d59803d30c85d4",
       "theorems": [
         "Etna.Design.Current.Registry.withdrawal_identity",
         "Etna.Design.Current.Registry.withdrawal_preserves_counter",
@@ -551,7 +540,7 @@
       "reason": "Exact primitive withdrawal identity/released/slot effects and lifetime counter/key preservation; separately, current eligible selected bonds are derived unreleased/unconfirmed and retain the evidence window in the stated ordinary-history scope. This does not prove every withdrawal-cleared field, full mapping permanence, or recovery of already paid bad-checkpoint withdrawals."
     },
     "STAKE-4.1-29": {
-      "clause": "LIVE_EN-8863d8019505caf8",
+      "clause": "LIVE_EN-66d59803d30c85d4",
       "theorems": [
         "Etna.Design.Current.CheckpointRisk.RollbackFreeRun.normal",
         "Etna.Design.Current.CheckpointRisk.candidate_snapshot_bound",
@@ -624,7 +613,7 @@
       "reason": "Decoded start correction (Protocol.correctStart) follows no landing, opens the next generation and appends its origin after the retained earlier ones; the start freezes once something lands. No slot 272-274 storage, R-snapshot committee or broad SignalService implementation claim."
     },
     "START-10.1-3d": {
-      "clause": "LIVE_EN-95576d90354f3a45",
+      "clause": "LIVE_EN-bb8d2af49a890370",
       "theorems": [
         "Etna.Design.Current.Economics.trace_same_generation_parameters",
         "Etna.Design.Current.Protocol.closed_generation_parameters"
@@ -644,7 +633,7 @@
         "Etna.Design.Current.Rules.schedule_stop_result",
         "Etna.Design.Current.Rules.stop_requires_owner"
       ],
-      "reason": "Accepted stop scheduling fields, ownership, grid and deadline checks only."
+      "reason": "Accepted stop scheduling fields, ownership and deadline checks only."
     },
     "START-10.1-5c": {
       "theorems": [
@@ -666,30 +655,26 @@
       "theorems": ["Etna.Design.Current.ValidatorState.hplus2"],
       "reason": "Concrete two-set commit pipeline: H changes leave H+1 unchanged and become H+2 current state. This does not prove stock CometBFT implements the decoded machine."
     },
-    "PROOF-6.2-41a": {
-      "clause": "LIVE_EN-2096743a5d399f16",
-      "theorems": [
-        "Etna.Design.Current.ValidatorState.origin_uses_genesis",
-        "Etna.Design.Current.ValidatorState.later_origin_authenticates",
-        "Etna.Design.Current.ValidatorState.checked_run_prefix",
-        "Etna.Design.Current.ValidatorState.batch_records",
-        "Etna.Design.Current.ValidatorState.checked_run_signers",
-        "Etna.Design.Current.ValidatorState.accepted_replay"
-      ],
-      "reason": "Concrete Batch/Certificate refinements compute genesis or authenticate a later preimage, then check each block against separately normalized per-height updates. Under the ReplaySound guest refinement, accepted_replay ties this to the protocol trace: an accepted landing's checkpoint commits to the final replayed state, and every landed block's signing set is the registry committee active at its height; NonVacuity.replay_satisfiable shows it holds with H1–H3's premises. H1–H4 do not assume ReplaySound (H4's ProofComplete does not cover replayed batches); hash/ABI/key bindings remain external."
-    },
-    "SYNC-9-5": {
-      "clause": "LIVE_EN-2b31e997f0d3114c",
-      "theorems": [
-        "Etna.Design.Current.ValidatorState.trust_cut_at_origin",
-        "Etna.Design.Current.ValidatorState.trust_cut_after_origin"
-      ],
-      "reason": "The actual nodeTrust predicate uses trustCut: only the validator-state field is exempted at the current-generation origin. This is a guard theorem, not a complete node/store refinement."
-    },
     "SYNC-9-5c": {
-      "clause": "LIVE_EN-2b31e997f0d3114c",
-      "theorems": ["Etna.Design.Current.ValidatorState.checked_run_prefix"],
-      "reason": "Every concrete checked prefix identifies the exact per-height state whose hash matches that block. Durable record storage, historical lookup implementation and node/guest adoption remain external."
+      "clause": "LIVE_EN-5822dd8d7b64f579",
+      "theorems": [
+        "Etna.Design.Current.ValidatorState.commit_pipeline",
+        "Etna.Design.Current.ValidatorState.replay_append",
+        "Etna.Design.Current.ValidatorState.replay_height"
+      ],
+      "reason": "Concrete CometBFT v0.40.0 per-height arithmetic only: one commit makes the next set current and applies the block's updates and one priority increment to form the new next set, and replaying per-height update lists composes and advances the height by one per block. The app's durable record, its commitment in app_hash and the stored-set lookup are not modelled; validator state is outside settlement."
+    },
+    "LAND-6.1-7": {
+      "theorems": ["Etna.Design.Current.Protocol.land_overlap_at_p_succ"],
+      "reason": "For the inner list of (p,h), the leaf count is h-p-1 whatever c is, and when c = p+1 the frontier check reads index 0, which holds cutLeaf(p+1); the inner-list construction and its index arithmetic only, not land's other checks."
+    },
+    "BATCH-6.3-10": {
+      "theorems": ["Etna.Design.Current.Protocol.land_overlap_at_p_succ"],
+      "reason": "After a competing landing moves c to p+1, the original transaction's leaf count and frontier leaf still match; leaf checks only, not its proofs, blobs, reference or the other landing checks."
+    },
+    "ENC-A-32": {
+      "theorems": ["Etna.Design.Current.Protocol.land_single_block"],
+      "reason": "With h = p+1 every cut table gives the empty inner list, which land accepts with zero leaves; the keccak256(\"\") encoding of that list is not modelled."
     }
   }
 }

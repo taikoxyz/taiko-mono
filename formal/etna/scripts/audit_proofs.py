@@ -66,14 +66,6 @@ CURRENT_PROFILE_WITNESSES = (
     'Etna.Design.Current.Protocol.RecoveryNonVacuity.all_premises_satisfiable',
     'Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.all_premises_satisfiable',
 )
-# Mandatory trap witnesses: reachable states that only a particular recovery leaves, and the way
-# out of them that the spec allows (H4's path takes it through LiveRules' second case), in
-# environments that realize no premise record (so they are not premise profiles, and H4 does not
-# apply there).
-CURRENT_TRAP_WITNESSES = (
-    'Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_trap',
-    'Etna.Design.Current.Protocol.RollbackGridTrap.rollback_grid_escape',
-)
 PREMISE_USE = re.compile(r'^premise use: (\S+) <- (.+)$', re.MULTILINE)
 NAME = re.compile(r'^[A-Za-z_][A-Za-z_0-9]*(\.[A-Za-z_][A-Za-z_0-9]*)*$')
 ANY_NAME = re.compile(r"^[A-Za-z_][A-Za-z_0-9'!?]*(\.[A-Za-z_][A-Za-z_0-9'!?]*)*$")
@@ -150,7 +142,7 @@ def validate_contract(manifest, root=ROOT):
     validate_entries(manifest['theorems'])
     names = {e['declaration'] for e in manifest['theorems']}
     for name in (CURRENT_CLAIMS[0], *CURRENT_HEADLINES, CURRENT_ACCEPTING_WITNESS,
-                 *CURRENT_PROFILE_WITNESSES, *CURRENT_TRAP_WITNESSES, *COVERAGE.UNSOURCED):
+                 *CURRENT_PROFILE_WITNESSES, *COVERAGE.UNSOURCED):
         if name not in names:
             raise ValueError('missing manifest entry: '+name)
 
@@ -388,7 +380,6 @@ def main():
                       headline=dict(claims=' : '.join(CURRENT_CLAIMS), theorems=CURRENT_HEADLINES,
                                     accepting_witness=CURRENT_ACCEPTING_WITNESS,
                                     profile_witnesses=CURRENT_PROFILE_WITNESSES,
-                                    trap_witnesses=CURRENT_TRAP_WITNESSES,
                                     premise_use=uses),
                       vectors='testdata/etna_current_conformance equals a fresh lake exe etna-vectors run',
                       axioms=sorted(ALLOWED_AXIOMS),scope='conditional decoded specification only')

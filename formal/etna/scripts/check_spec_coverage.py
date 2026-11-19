@@ -68,7 +68,7 @@ UNSOURCED = {name: SHARED_REASON for name in (
     'Etna.Design.Contracts.election_eq',
     'Etna.Design.Contracts.forced_fee_eq',
     'Etna.Design.Contracts.committee_schedule_eq',
-    'Etna.Design.gridLeaves_getD',
+    'Etna.Design.innerLeaves_getD',
     'Etna.Design.Committee.chosen_eligible',
     'Etna.Design.Staking.fraction_bounded',
     'Etna.Design.Forced.step_one_or_zero',

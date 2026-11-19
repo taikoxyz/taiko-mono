@@ -42,7 +42,7 @@ class RuleCoverageTests(unittest.TestCase):
     def test_shared_clause_does_not_cover_unlisted_neighbor(self):
         rows = {r['rule']:r for r in self.rows(edit_config=self.exact)}
         self.assertEqual(rows['STAKE-4.1-13a']['status'], 'partial')
-        for rule in ('STAKE-4.1-14a','STAKE-4.1-14b'):
+        for rule in ('STAKE-4.1-14a',):
             self.assertEqual(rows[rule]['status'], 'deferred')
             self.assertEqual(rows[rule]['theorems'], [])
 
@@ -149,7 +149,7 @@ class RuleCoverageTests(unittest.TestCase):
         self.assertEqual(set(rows['DATA-5.4-5']['theorems']), {
             prefix+'Import.authenticated_conflict_halts', prefix+'Import.committee_conflict_halts',
             prefix+'Import.invalid_data_rejected', prefix+'Import.invalid_val_state_rejected',
-            prefix+'Import.next_validators_conflict_halts', prefix+'Import.publish_boundary',
+            prefix+'Import.validator_sets_conflict_halts', prefix+'Import.publish_boundary',
             prefix+'Import.unfinalized_checkpoint_retries'})
         self.assertEqual(set(rows['DATA-5.4-7']['theorems']), {
             prefix+'Import.publish_boundary', prefix+'QueueIntegrity.node_import_closed'})

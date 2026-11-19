@@ -1,12 +1,10 @@
-"""The current non-vacuity and trap witnesses build and are audited.
+"""The current non-vacuity witnesses build and are audited.
 
 `EtnaWitnesses/NonVacuity` shows the current headline premise record and the switch, risk,
 import and honest-agreement profiles are jointly satisfiable by concrete accepting runs, and
 (`NonVacuity/CurrentRecovery`, and `NonVacuity/CurrentRecoverySwitch` for a switching network)
 that one environment meets H1-H3's and H4's premises together, where H4's proof reaches an
-accepted landing;
-`EtnaWitnesses/Traps/RollbackGrid` reaches the rollback-across-K-change trap and leaves it by a
-structural recovery. Every module builds without warnings, and every public theorem in them has
+accepted landing. Every module builds without warnings, and every public theorem in them has
 a `regression` manifest entry (so none backs a proof claim or changes a clause's status) that
 passes the proof audit's exact-type and transitive-axiom checks. The facts each witness exists
 to show are pinned by the kernel-replayed tests/Current*.lean files (for example
@@ -31,10 +29,9 @@ def load(name, path):
 AUDIT = load('witnesses_audit', 'scripts/audit_proofs.py')
 
 MODULES = [*(f'EtnaWitnesses.NonVacuity.{n}' for n in ('Current', 'CurrentAgreement', 'CurrentRecovery',
-                                                          'CurrentRecoverySwitch', 'CurrentRisk', 'CurrentSwitch')),
-           'EtnaWitnesses.Traps.RollbackGrid']
-# The accepting witness and the profile and trap witnesses the proof audit requires.
-EXPECTED = {AUDIT.CURRENT_ACCEPTING_WITNESS, *AUDIT.CURRENT_PROFILE_WITNESSES, *AUDIT.CURRENT_TRAP_WITNESSES}
+                                                          'CurrentRecoverySwitch', 'CurrentRisk', 'CurrentSwitch'))]
+# The accepting witness and the profile witnesses the proof audit requires.
+EXPECTED = {AUDIT.CURRENT_ACCEPTING_WITNESS, *AUDIT.CURRENT_PROFILE_WITNESSES}
 
 
 def witness_entries():
