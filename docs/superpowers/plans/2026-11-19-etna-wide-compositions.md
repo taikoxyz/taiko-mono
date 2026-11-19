@@ -122,14 +122,24 @@ for that domain). Smaller graphs and existential witnesses do not close it.
 
 **Interfaces:** Separately versioned ScheduleRules/ScheduleStop/Produce/Land/Recover actions for current START10.1 and RECOV8; no stopGrid/K in operational state or admission. Consume W06 reviewed unit-height/proof observations where compatible, without copying old schedule implementation. Use one authoritative generation/c/nonce/authorization/deadline/actual execution R, not two copied states. W06 uses a trusted completed-recovery macro only; W07 must actually check expectedC/generation/nonce/deadline and reset schedule on the transaction state.
 
-- [ ] Map exact current timestamp/anchor lead-time/rules/terminal-parent/settlement/recovery rules and current ACCEPTANCE section6 upgrade vectors; freeze finite free interleavings and full phase/frame observations. Bind every covered block to its own historical anchor schedule, actual R and separate observation time. Do not invent a planned-stop prerequisite for general recover.
-- [ ] Add RED controls for first-crossing stop, later production refusal, terminal-height landing regardless old grid, nonzero rules recovery and fresh first-block/landing reachability. Require real terminal landing then matching authorized recovery/reset; include stale expectedC transaction-order refusal and correct distinct fresh EL/BFT clocks.
-- [ ] Implement minimal separately named current schedule engine and product, keeping old schedule evidence historical and untouched.
-- [ ] Root packet/source review→smoke→original/actual parent-time or recovery-reset fault/restored; independent tester mutates a different schedule/terminal-height guard and omits a required progress action.
-- [ ] Verify full traces, queue-zero safety, source restoration, focused ordinary regressions and independent gates, commit/publication. Then root performs accumulated final source/raw review and current-merge/CI/body readbacks.
+- [x] Map exact current timestamp/anchor lead-time/rules/terminal-parent/settlement/recovery rules and current ACCEPTANCE section6 upgrade vectors; freeze finite free interleavings and full phase/frame observations. Bind every covered block to its own historical anchor schedule, actual R and separate observation time. Do not invent a planned-stop prerequisite for general recover.
+- [x] Add RED controls for first-crossing stop, later production refusal, terminal-height landing regardless old grid, nonzero rules recovery and fresh first-block/landing reachability. Require real terminal landing then matching authorized recovery/reset; include stale expectedC transaction-order refusal and correct distinct fresh EL/BFT clocks.
+- [x] Implement minimal separately named current schedule engine and product, keeping old schedule evidence historical and untouched.
+- [x] Root packet/source review→smoke→original/actual parent-time or recovery-reset fault/restored; independent tester mutates a different schedule/terminal-height guard and omits a required progress action.
+- [x] Verify full traces, queue-zero safety, source restoration, focused ordinary regressions, independent gates and implementation commit. Publication and its readbacks are the external final step below.
+
+Root acceptance split: primary13 plus six independently designed native controls and strict raw replay close the selected timestamp composition. The two larger ordinary safety attempts retain their actual per-profile outcomes and unrestricted safety stays OPEN P01; actual end-to-end runtime acceptance remains WAITING Q01/U03.
 
 ## Accumulated final gate
 
-- [ ] Fresh most-capable whole-range source reviewer and separate behavioral/raw auditor inspect all seven outputs, all root rulings and complete shared diffs; resolve one consolidated final repair wave if needed.
-- [ ] Verify final ordinary suites, relevant bounded actual outputs/restoration, unchanged historical baselines, current SPEC/main/PR head and effective-merge boundary. No generated/pin data stands in for a new engine execution.
-- [ ] Root reviews all changes and independent verdicts, normal-pushes existing draft, reads back head/PR/issue bodies and exact CI status, records all seven as selected completion and returns feedback-only. Preserve worktree/raw ledger; no eighth.
+- [x] Fresh most-capable whole-range source reviewer and separate behavioral/raw auditor inspect all seven outputs, all root rulings and complete shared diffs; resolve one consolidated final repair wave if needed.
+- [x] Verify final ordinary suites, relevant bounded actual outputs/restoration, unchanged historical baselines, current SPEC/main/PR head and effective-merge boundary. No generated/pin data stands in for a new engine execution.
+- [x] Root reviews all changes and independent verdicts and prepares the existing draft for normal publication. Preserve worktree/raw ledger; no eighth.
+
+Code anchors: W07 `ba3d2dab24bcfadb2b7cc2e29f34c89a8d92991c`; consolidated
+verification repair `ae0a14ecaa133379d0b965eb7d65fdc651b246db`. Independent source
+and behavioral rechecks passed. Actual branch and current-main479 merge each
+pass470 ordinary checks. Publication is pending at this documentation checkpoint.
+After the normal push, the live PR/worklist and private ledger record its exact
+head/body readback and CI outcome; only then does the batch return to feedback-only.
+No new eighth task is authorized.

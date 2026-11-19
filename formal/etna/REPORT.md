@@ -5907,5 +5907,128 @@ Physical S6 is an offset fixture: switching-network Unzen finality, SignalServic
 start and authenticated guest-origin checks are premises (LAND6.1-8a/PROOF6.2-46a).
 W07 separately checks recovery authorization/reset; W06's macro proves neither.
 Current client/EL/guest/proving, full Q01/P02 and deployment remain WAITING.
-No natural protocol defect is confirmed. Six selected outputs are available,
-with unrestricted W06 safety OPEN; W07 and the combined final gate continue.
+At the W06 publication checkpoint, six selected outputs were available and
+unrestricted W06 safety remained OPEN. The subsequent W07 and combined final
+gates are recorded below.
+
+## W07 timestamp stops, recovery and fresh settlement
+
+Thirteen primary TLC runs completed against the W07 product at `ba3d2dab24bcfadb2b7cc2e29f34c89a8d92991c`. The reviewed protocol bundle is `2e6763e21bc236cfcda6011d164b32040f9e0c8d`. The structural witness has 28 actual transitions. A terminal block lands at height 2, its stop prevents the next production attempt, and an owner-authorized recovery clears the stop. After observing the recovery block on finalized L1, the first fresh block has distinct BFT and EL times. Both modeled backends complete the fresh range, the selected job data is published in the model, and it lands at height 3. These transitions do not publish actual DA bytes or generate real proofs. The next block actually uses an anchor carrying that newly finalized checkpoint.
+
+| Primary phases                                      | Native result                                                      | What the retained output establishes                                                                                                                                                                                 |
+| --------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reset original and restored (2)                     | Both exit 0, 33 generated, 14 distinct, queue 0                    | The finite reset safety graph exhausts in both runs.                                                                                                                                                                 |
+| Reset witness and restored witness (2)              | Both exit 12, 3 edges each                                         | At L1 number 32, time 101, the stored authorization has generation, checkpoint and nonce 0, deadline 108 and rules 1. The scheduled stop changes from 103 to 0.                                                      |
+| Reset fault (1)                                     | Exit 12, `Frames`, 3 edges                                         | The same accepted Recover retains stop 103. Full-state replay detects the erroneous write on that transition.                                                                                                        |
+| Schedule original and restored (2)                  | Both exit 0, 28,765 generated, 612 distinct, queue 0               | The fixed-clock, one-write dispatch graph exhausts in both runs.                                                                                                                                                     |
+| Schedule omission (1)                               | Exit 12, initial `ScheduleDispatch` violation                      | Removing the Rules operation from actual `Next` suppresses the eligible owner call for rule 1 at 103. Its expected slot limbs are (0, 1, 103, 0).                                                                    |
+| Terminal, general recovery and stale checkpoint (3) | Exit 12 on their named invariants, respectively 10, 2 and 10 edges | A terminal block lands, recovery succeeds with no scheduled stop, and an attempted recovery fails solely on its stale expected checkpoint. These are three separate traces.                                          |
+| Fresh landing and structural continuation (2)       | Both exit 12, respectively 25 and 28 edges                         | The fresh proof lands in the first trace. The second reaches the subsequent block using the fresh finalized anchor. TLC stopped at the structural witness with 4,427,120 generated, 109,024 distinct and 572 queued. |
+
+The reset control changed only the nonzero recovery branch in the schedule source. The dispatch control changed only the range of operations offered by the product. Each private file retained its identity and mode across original, changed and restored runs. The restored bytes match the originals. The five named reachability profiles omit the previous attempt receipt from state fingerprinting and retain the full attempted inputs and resulting frames in their raw traces. Only the two ordinary graph pairs above showed queue exhaustion. Structural raw-log SHA-256 is `1c8cc15bef7e257fa60fde6b878757568cfbc355a3b0b10380e4427c64f91b75`.
+
+The product represents storage and time with finite integers, including 999 for rules-time cancellation and 9 for the native nonce limit. Full-width arithmetic and packed schedule words were exercised in the concrete adapter. L1 authentication, valid execution and proof data, and owner-call legitimacy remain premises. Actual client, EL, guest, proving, contract and deployment acceptance remain waiting.
+
+The six independently designed native controls also completed. At the locked
+pending stop, the original and restored runs reject the attempted new stop106;
+the source fault changes only `<` to `<=` and admits it. Each named output has
+three actual transitions. A separate omission removes Land from actual Next.
+Original and restored reach the same28-edge structural trajectory; the omitted
+graph exhausts1,521,757 generated /40,806 distinct /queue0 without the target.
+Both same-file identities and modes restore exactly. Independent strict readback
+reconstructs the entire final divergent state, event and fresh finalized anchor;
+its transcript SHA-256 is
+`0b3ca36f80925fff12c30ba8849afc929e33f0d0bfefa35d5b1d0eb96cc3d0d4`.
+
+The two larger ordinary profiles were each attempted once at the fixed280-second
+budget. Their results are separate from smoke, the smaller safety graphs and
+existential witnesses. No budget extension or smaller replacement closes them.
+
+| Larger profile       | Native | Seconds | Result                                                                                               | Raw SHA-256                                                        |
+| -------------------- | -----: | ------: | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| structural-safety    |    124 | 280.072 | INCONCLUSIVE / OPEN P01; last periodic sample 8,044,841 / 319,235 / 110,143 (not termination counts) | `8b067cc8b7951abc0a346bd0e80b78811e66bc226e9c50953229de19b17d974e` |
+| wide-schedule-safety |      0 |  64.847 | Completed finite profile: 916877 / 19508 / 0                                                         | `3803b828ffb973e12acd4568087596d4e5bbb866422ffbcb3c829917351ef59c` |
+
+## W01-W07 final gate and retrospective
+
+The final source review identified six verification defects. The repair is `ae0a14ecaa133379d0b965eb7d65fdc651b246db`. The structural and protocol sources used by the recorded TLC runs retain their original identities.
+
+| Finding                             | Repair and discriminator                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| W04 public projection admission     | The driver hashes the original public bytes before staging, stages the admitted buffer and rechecks the actual staged file before invoking Go. Go hashes its own read buffer before JSON decoding. A public projection with one appended newline exercises the digest check without introducing another fixture.                                                                                       |
+| W07 recovery input identity         | Replay checks every attempted call against the selected scenario's offers. Substituting deadline 109 for the offered 108 produces the same successful contract outcome, but the trace now fails the offer check. The contract adapter still accepts a genuinely fresh authorization.                                                                                                                   |
+| W06 witness state and typed choices | Replay reads each variable once to the end of its value, reconstructs every numeric milestone from Init onward and checks the named final-state predicate. It preserves exact types in native sets, function keys, anchor membership, finalization indices and publication choices. A cleared overlap milestone or an integer-zero anchor component replaced by FALSE invalidates its genuine witness. |
+| W02 fault classification            | The observer constructs the complete expected divergent Registry POST for held-zero slot selection, wrong vacancy order and full refusal. An extra change to coverage or to an incumbent owner invalidates the fault result. The final divergent frame's diagnostic marks remain outside this comparison.                                                                                              |
+| W06/W07 current claims              | Each documented emitter reads the exact SPEC, ACCEPTANCE and SWITCH bytes, selects its fixed consumer and claim, and binds the raw digest and transition count. Historical, mixed, unknown and swapped claims refuse. A complete named run also requires the expected engine diagnostics and final native trailer. Raw prefix helpers remain available for inspecting control transitions.             |
+| W04 Bootstrap attribution           | The harness sets the validator-change and consensus-parameter change markers. Stock Bootstrap persists the supplied State, writes full validator rows and uses the supplied consensus-parameter marker. Close/reopen and continuation compare the resulting actual state.                                                                                                                              |
+
+The earlier self-checks compared outputs that can coincide for distinct inputs or histories. A changed deadline can yield the same recovery, a copied observed anchor can hide a Boolean/integer alias, and the intended fault can coexist with an unrelated Registry write. A digest verified after execution and markers read after reopening likewise establish an outcome while leaving its point of admission or construction unidentified. The repaired checks observe those points directly.
+
+The final focused run passed all 67 tests and consumed 12 genuine W06 and six genuine W07 named witnesses. The W07 set comprises the five progress witnesses and the reset-control witness. The original source reviewer withdrew the final typed-choice finding after examining the 12-file repair. Focused test transcript SHA-256 is `84beaee1a99e99c8f816fe38ec2f4d325d67bab1c8e0ecaa76e2443b0ba932bc`.
+
+The repaired W04 native smoke and all three full phases ran both Go leaves. The positive and restored phases produced identical bytes for all four receipts. The priority variation still produced receipts, and their consumer rejected the first differing next-validator priority. Independently presenting Go with the public fixture plus one newline gave package exit 1, both expected leaf digest refusals and zero receipts. Full campaign summary SHA-256 is `a8c28a3d6ed4d0d791ae454996a1f8659fb70c8e4bd493e456d208985df11486`. The public-input negative transcript SHA-256 is `2016d8341dd12c3bed5a5895aed09d84399a066a9739bb4ddf42bdddc40353f8`.
+
+## Chronological decisions and costs
+
+| Ledger order | Decision                                                                                                                                                                                                                                | Cost or evidence limit                                                                                                                 |
+| -----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+|            1 | Continue the explicitly authorized seven items and delegate routine execution choices.                                                                                                                                                  | A scope error costs rework. Authority covers verification work.                                                                        |
+|            2 | Use W01 to map the current sources first because admission, landing-grid and appHash rules changed.                                                                                                                                     | Additional mapping work. Older implementations retain historical credit.                                                               |
+|            3 | Put new rules in separate current-rule namespaces and keep historical engines, configurations and raw data.                                                                                                                             | Both versions need maintenance. Current Registry and schedule implementations remain unverified.                                       |
+|            4 | Keep the existing draft worktree, caches, raw ledger and single writer.                                                                                                                                                                 | Retained evidence occupies disk and implementation edits are serialized.                                                               |
+|            5 | Review exact inputs, run a smoke, then authorize a bounded full run and independent checks.                                                                                                                                             | Adds bounded execution time and source and raw-output review.                                                                          |
+|            6 | Preserve the three-argument historical source guard and bind exact source bundles to closed claims at actual receipt producers.                                                                                                         | Requires new metadata and integration tests against the effective merge bytes.                                                         |
+|            7 | Include FilePV receipt and test routing in W01 because the hosted merge suite exercises its direct inputs.                                                                                                                              | Adds one existing consumer integration. FilePV signing behavior stays outside that change.                                             |
+|            8 | Bound W02 with canonical unused-key symmetry, one top-up per identity, one freely captured historical sample and complete current block-end entries.                                                                                    | All-history retrieval, compression and unlimited top-ups remain outside the model.                                                     |
+|            9 | Exclude exhausted fresh-ID and reuse offers from the finite domain while keeping duplicate keys offered. Use 11 as the symbolic no-exit sentinel.                                                                                       | Enabledness applies to the selected domain. The sentinel gives no ABI overflow evidence.                                               |
+|           10 | Use a witness-only W02 view that retains the Registry, frame status, marks and the previous-call information read by witness targets.                                                                                                   | Full raw variables and an unviewed pilot are required. Exhaustive actor or attempted-label coverage remains unclaimed.                 |
+|           11 | Give unchanged W02 horizon 3 one 285-second retry after the 180-second timeout and observed queue progress.                                                                                                                             | Costs one bounded retry. Its second timeout leaves the graph open.                                                                     |
+|           12 | Extend the W02 witness view only to individually reviewed structural source variations with equivalent future calls and first bad writes.                                                                                               | Every prefix and the exact first discrepancy must be replayed. Other variations and output-only faults remain outside that argument.   |
+|           13 | Use bounded, seeded stock TLC simulation for long existential W02 witnesses under the same free action relation.                                                                                                                        | Only emitted edges establish reachability. A missed target gives no absence, probability or fairness result.                           |
+|           14 | Allow long witness profiles to retain `FramesExact` and their named target while omitting the universal admission diagnostic.                                                                                                           | Those runs add no universal offer coverage. Ordinary admission and omission controls remain separate.                                  |
+|           15 | Permit one horizon-8 historical sampling expansion after the shorter horizon left little time for confirmation and withdrawal.                                                                                                          | Budgeted 8,192 traces, depth 96, seed 1, one worker and 180 seconds. A missed target gives no absence result or automatic extension.   |
+|           16 | Accept the scoped W02 lifecycle result using horizon-2 exhaustion and the selected witnesses and source faults.                                                                                                                         | The independent broad safety verdict remains blocked. Horizon 3 timed out and horizon 8 safety was unrun under R01.                    |
+|           17 | Give W04 a separately pinned appHash profile and entrypoints alongside the historical handover runner.                                                                                                                                  | The new profile owns its full input pins and provenance. Default CI coverage remains as previously scoped.                             |
+|           18 | After repeated implementation-runner failures, assign W04 implementation to the coordinator and retain independent source and behavioral review. Use stock validation for genuine initial blocks and synthetic later transition inputs. | Requires full independent review of coordinator-authored code. Later-height signed header authentication remains outside this fixture. |
+|           19 | Read the effective target from the current base ref and Git in addition to the PR's saved base OID.                                                                                                                                     | Costs one additional bounded read and avoids validating against a stale target.                                                        |
+
+## Final integration and remaining scope
+
+Exact repair commit `ae0a14ecaa133379d0b965eb7d65fdc651b246db` and its genuine
+merge with current main `479bc3db6b5341b72b6e7b9233be5b53d64a574a` each pass470
+ordinary checks:284 main,166 conformance and20 sensitivity. All six suite
+processes exited0 with zero errors, failures or skips. These are the three
+ordinary `unittest` discovery suites, run through the inspected offline isolation
+entrypoint with managed Python; no native engine was substituted for a Python
+check. Effective merge tree is `e1acb8596911d9677677914f9d472379666e9142` and
+the real index was unchanged. Independent readback checks all1,833 frozen
+SHA/mode rows, actual logs/counts, Git blobs and current three-document merge
+identity. All579 pre-batch TLA/config paths, modes and contents remain unchanged.
+No default493-case TLC rerun is claimed locally for this batch. Hosted results
+must be read at their own exact publication head.
+
+Independent final source report SHA-256 is
+`c9b5bdc615c6d89266fea157fb6830b188a08996e46e78364de41085557adf87`;
+independent behavioral report SHA-256 is
+`71dc59f37b1478a0d682cc74f57cb6abcf45de749d2df82b770a1073c7f9e971`.
+
+The independent final source review covered the entire seven-item diff and
+rechecked the consolidated repair. The separate behavioral reviewer replayed
+the original acceptances and repaired refusals, genuine native results and
+restoration, then independently inspected the actual committed/merged ordinary
+outputs. Neither a passing test nor agreement with the author replaced the
+source review. All six final verification findings are resolved; no natural
+protocol defect is confirmed. The source-selection receipts retain
+`NOT_EVALUATED` for execution attribution, separate from observed native status.
+
+All seven selected outputs and technical final gates are delivered. Publication
+is pending at this documentation checkpoint. After the normal draft push, the
+live PR/worklist and private ledger record exact head/body readbacks and the CI
+outcome. W02 R01 remains
+open at its original horizons3/8. W06 P01 remains open after its280-second
+full-depth run, and the larger W07 outcomes above retain their stated scope.
+C01, real prover measurements, current Registry/client/EL/guest/contract and
+end-to-end recovery/deployment acceptance remain OPEN or WAITING as indexed.
+The nineteen archived searches remain INCONCLUSIVE. The worktree, raw evidence
+and ledgers are retained. After publication readback, hourly checks return to
+feedback-only mode; no eighth item or next batch starts automatically.

@@ -907,3 +907,17 @@ independent replay and source controls. Its depth3 free graph timed out at280s,
 leaving unrestricted safety OPEN P01. Recovery authorization is separate W07;
 real proving/client/EL execution remains WAITING. See
 [W06 evidence](REPORT.md#w06-current-proof-ranges-and-recovery).
+
+The [current timestamp recovery product](conformance/TIMESTAMP_RECOVERY_PRODUCT.md)
+connects terminal landing, exact frozen authorization, recovery reset, fresh
+landing and a later block using that freshly finalized anchor. Thirteen primary
+and six different independent native phases passed their selected outcomes.
+Larger ordinary safety attempts retain the separately recorded limits in the
+[W07 evidence](REPORT.md#w07-timestamp-stops-recovery-and-fresh-settlement).
+The [seven-item final review](REPORT.md#w01-w07-final-gate-and-retrospective)
+repaired six verification defects in input admission, exact attempted inputs,
+complete typed frames, source claims and Bootstrap attribution. Final code and
+actual current-main merge each pass470 ordinary checks (284/166/20), with all1,833
+frozen inputs stable and579 historical model/config streams unchanged. Seven
+selected deliveries do not establish protocol completeness. Broader C01/R01/P01,
+actual client/EL/guest/proving and deployment acceptance remain OPEN or WAITING.

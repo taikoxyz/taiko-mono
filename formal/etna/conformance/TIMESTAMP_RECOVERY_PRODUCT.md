@@ -121,11 +121,14 @@ restored phases must use the same private source inode and modes. Setup errors,
 timeouts and missing reachability are not semantic detections. Native0 with queue0
 gives only that finite graph's safety result; named native12 is existence only.
 
-Current status: static implementation and focused interpreter validation only;
-native profiles, source controls, restorations and independent raw readback have
-not yet run. The initial21-test RED and GREEN precede the combined unknown-rule/
+At the initial pre-native checkpoint, only static implementation and focused
+interpreter validation had run. Native profiles, source controls, restorations
+and independent raw readback were still pending. The initial21-test RED and GREEN precede the combined unknown-rule/
 stop regression; that regression exposed a verification-mode label defect. These
 are verification-tool findings, not a confirmed natural protocol flaw.
+
+The subsequent [W07 results](../REPORT.md#w07-timestamp-stops-recovery-and-fresh-settlement)
+record the completed native runs, independent controls and larger-search limits.
 
 ACCEPTANCE6's actual client/EL/two-guest shared vectors, real rule upgrades,
 one-third software pauses, FI singleton trials, mixed two/three-ruleset landing,
