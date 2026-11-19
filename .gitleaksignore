@@ -25,3 +25,8 @@
 # Exact J02 false positive: fixed event label "EvidenceB1Exact" in a literal
 # schedule, not a credential. Only this historical commit/file/rule/line.
 1d399f051efaefcd94aeaf04ac375e7eb654ea94:formal/etna/EtnaTrustSupersession.tla:generic-api-key:14
+
+# Exact Y04 false positive: SHA-256 of public LibEtnaKeys.sol source,
+# matched to the retained contract manifest and compiled source bytes.
+# Only this historical commit/file/rule/line; no broader exemption.
+ee18ad8e1ebe2248bf901884409a73a8e7bbe0a0:formal/etna/conformance/registry_funding/pins.json:generic-api-key:79
