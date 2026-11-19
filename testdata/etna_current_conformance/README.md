@@ -34,7 +34,7 @@ held (STAKE-4.1-14a); a bond leaves its slot only by withdrawal (LIMIT-12-11). O
 `oldBondId` and `oldBond` are null because the selected slot had no holder.
 
 Token amounts are integers in base units (10^18 per TAIKO), written as plain JSON integers
-of up to 24 digits. Every amount except the below-minimum amount is a multiple of one unit,
+of up to 28 digits. Every amount except the below-minimum amount is a multiple of one unit,
 25,000 TAIKO (25000 × 10^18 base units). `minStake` is 10 units, 250,000 TAIKO
 (250000000000000000000000), so 4096 × minStake > 10^27 and a registry deployed with it meets
 the deployment bound of STAKE-4.1-14a and PARAM-11-11. Every successful registration pays

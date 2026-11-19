@@ -160,20 +160,19 @@
               <h3>Recoverability</h3>
               <p>
                 From every reachable, initialized state that meets the per-state
-                hypotheses, a sequence of calls with no rollback, no exclusions,
-                no forced-inclusion blanking and no structural change other than
-                K reaches an accepted landing, above the starting checkpoint
-                whenever something had landed. Off the grid, the recovery
-                installs K = 1 in a new ruleset. The K blocks and their
-                certificate are constructed; proof completeness is assumed.
+                hypotheses, a sequence of calls with no rollback, no
+                forced-inclusion blanking and no structural upgrade reaches an
+                accepted landing. Its one recovery is plain and may exclude the
+                members that LiveAt names. It then lands the single block c + 1,
+                where c is the checkpoint height, so the landing ends above the
+                starting checkpoint whenever something had landed. The block and
+                its certificate are constructed; proof completeness is assumed.
               </p>
               <p class="caveat">
                 An existence result with every caller cooperating. It does not
                 show normal-operation liveness, resistance to adversarial
                 scheduling or when the DAO should recover. Its premises assume a
-                sound verifier, so it says nothing after a verifier failure,
-                such as the trap that the model reaches after a rollback across
-                a K change.
+                sound verifier, so it says nothing after a verifier failure.
               </p>
               <div class="actions">
                 <a href="#decl=Etna.Statements.Current.RecoverableAt"
