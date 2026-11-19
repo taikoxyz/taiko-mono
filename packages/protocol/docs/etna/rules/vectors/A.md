@@ -4,7 +4,7 @@
 
 `accept` means the described encoding satisfies the rule cited. `reject` means a stated requirement is violated. Appendix A states one consequence: ENC-A-16's "any violation makes the proposal invalid". It covers the envelope grammar (ENC-A-11–ENC-A-15) and the strict-decoding conditions (ENC-A-16–ENC-A-22), so those reject rows say "proposal invalid (ENC-A-16)". Rows elsewhere say "violates ENC-A-N" where the text states no consequence. Where a definition spans several lines, the marker and the ID sit above its first line, and the ID cites the whole definition (see [../README.md](../README.md#how-far-an-id-extends)).
 
-**Scope note.** Appendix A's grammar — `chainDomain`, `chain_id`, `extraData`, the envelope and payload layouts, `AccountWitness`, `cutLeaf`, `valStateHash`, `cutHash`, `statement`, `committeeConfigHash`, `regLeaf`, `entriesRoot`, `setKey`/`setLeaf`/`setNode`/`record`, `voteSignBytes`, registration and the `recover` interface — sits inside four fenced blocks in appendix A. Under the `code-before` exception in [../README.md](../README.md), ENC-A-6–ENC-A-50 mark the definition lines (ENC-A-51–ENC-A-55 are a separate supplement); each marker is a new `// [ID]` line above an unchanged governed line. Lines in those blocks that carry no ID remain uncited. The form question (whether to restructure the blocks into prose or tables) is still [Q-A-1](../review/A.md#q-a-1).
+**Scope note.** Appendix A's grammar — `chainDomain`, `chain_id`, `extraData`, the envelope and payload layouts, `AccountWitness`, `cutLeaf`, `valStateHash`, `appHash`, `cutHash`, `statement`, `committeeConfigHash`, `regLeaf`, `entriesRoot`, `setKey`/`setLeaf`/`setNode`/`record`, `voteSignBytes`, registration and the `recover` interface — sits inside four fenced blocks in appendix A. Under the `code-before` exception in [../README.md](../README.md), ENC-A-6–ENC-A-50 mark the definition lines (ENC-A-51–ENC-A-55 are a separate supplement); each marker is a new `// [ID]` line above an unchanged governed line. Lines in those blocks that carry no ID remain uncited. The form question (whether to restructure the blocks into prose or tables) is still [Q-A-1](../review/A.md#q-a-1).
 
 ## ENC-A-1
 
@@ -33,14 +33,14 @@ _Which seven words, and which five fields: [Q-A-1](../review/A.md#q-a-1)._
 
 ## ENC-A-3
 
-| Vector     | Setup                                                              | Expected                         |
-| ---------- | ------------------------------------------------------------------ | -------------------------------- |
-| 3.a accept | the slot-285 record at any height is four words                    | matches                          |
-| 3.b accept | the start record at S (block 0 on a new network) is four words     | matches (no exemption is stated) |
-| 3.c reject | a slot-285 record of three words, without the validator-state hash | violates ENC-A-3                 |
-| 3.d reject | a slot-285 record of five words                                    | violates ENC-A-3                 |
+| Vector     | Setup                                                                    | Expected                         |
+| ---------- | ------------------------------------------------------------------------ | -------------------------------- |
+| 3.a accept | the slot-285 record at any height is three words                         | matches                          |
+| 3.b accept | the start record at S (block 0 on a new network) is three words          | matches (no exemption is stated) |
+| 3.c reject | a slot-285 record of four words, for example with a validator-state hash | violates ENC-A-3                 |
+| 3.d reject | a slot-285 record of two words                                           | violates ENC-A-3                 |
 
-_Which fields occupy the four words: [STOR-B-9](B.md#stor-b-9)._
+_Which fields occupy the three words: [STOR-B-9](B.md#stor-b-9)._
 
 ## ENC-A-4a
 
@@ -321,14 +321,13 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 ## ENC-A-29
 
-| Vector      | Setup                                                                                                       | Expected                                             |
-| ----------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| 29.a accept | `keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x), forcedHead(x), valStateHash(x)))`, five words | matches                                              |
-| 29.b reject | four or six words, for example a leaf without `valStateHash(x)`                                             | violates ENC-A-29                                    |
-| 29.c reject | order is `(blockHash(x), uint256(x), ...)`                                                                  | violates ENC-A-29                                    |
-| 29.d reject | blockHash, cometHash, forcedHead or valStateHash is taken at a height other than `x`                        | violates ENC-A-29 (all at height x)                  |
-| 29.e reject | `x` or `forcedHead(x)` is encoded in fewer than 32 bytes (for example packed as uint48)                     | violates ENC-A-29 (`uint256(x)`, five 32-byte words) |
-| 29.f accept | S = 1000, `K = 3`: grid points are 1000, 1003, 1006, …                                                      | matches ("heights count from the Etna start S")      |
+| Vector      | Setup                                                                                      | Expected                                             |
+| ----------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| 29.a accept | `keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x), forcedHead(x)))`, four words | matches                                              |
+| 29.b reject | three or five words, for example a leaf that appends `valStateHash(x)`                     | violates ENC-A-29                                    |
+| 29.c reject | order is `(blockHash(x), uint256(x), ...)`                                                 | violates ENC-A-29                                    |
+| 29.d reject | blockHash, cometHash or forcedHead is taken at a height other than `x`                     | violates ENC-A-29 (all at height x)                  |
+| 29.e reject | `x` or `forcedHead(x)` is encoded in fewer than 32 bytes (for example packed as uint48)    | violates ENC-A-29 (`uint256(x)`, four 32-byte words) |
 
 ## ENC-A-29a
 
@@ -346,8 +345,21 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 | 29a.j reject | a proposer index counts from the set-key order instead of the set's own order                                                                                                                                                                                                                                                                                                                                                                                               | violates ENC-A-29a                                                                  |
 | 29a.k accept | x = o, a generation's start height: current(o) and next(o) are the two sets CometBFT builds from that generation's genesis                                                                                                                                                                                                                                                                                                                                                  | matches                                                                             |
 | 29a.l accept | x = 6; current = [(2, 0x0000000000000000000000000000000000000000000000000000000000000001, 10, −5), (3, 0x0000000000000000000000000000000000000000000000000000000000000002, 10, 5)] with currentProposer 1; next = [(2, 0x0000000000000000000000000000000000000000000000000000000000000001, 10, 5), (3, 0x0000000000000000000000000000000000000000000000000000000000000002, 10, −5)] with nextProposer 0; the encoding is 768 bytes (six head words, then 9 words per array) | valStateHash = `0x368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b` |
+| 29a.m reject | a cut leaf, a slot 285 record or the statement carries `valStateHash`                                                                                                                                                                                                                                                                                                                                                                                                       | violates ENC-A-29a ("no L1 record, cut or statement holds valStateHash")            |
 
 _29a.l checks only the byte encoding of the entries as given; whether that order is CometBFT's set order depends on the real addresses of the keys._
+
+## ENC-A-29b
+
+| Vector       | Setup                                                                                                                                                  | Expected                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| 29b.a accept | `keccak256(abi.encode(bytes32("ETNA_APP_HASH_V1"), blockHash(x), valStateHash(x)))`, three words                                                       | matches                                                                        |
+| 29b.b reject | the app returns `blockHash(x)` alone as `app_hash`                                                                                                     | violates ENC-A-29b (and CONS-3.1-8)                                            |
+| 29b.c reject | `blockHash(x)` is paired with `valStateHash(x - 1)` or `valStateHash(x + 1)`                                                                           | violates ENC-A-29b (both at height x)                                          |
+| 29b.d accept | header x + 1 carries appHash(x) as its AppHash                                                                                                         | matches                                                                        |
+| 29b.e accept | x = o, a generation's start height: InitChain returns appHash(o), from the origin's EL hash and the genesis validator state of ENC-A-29a               | matches                                                                        |
+| 29b.f reject | the tag word is omitted, or the tag is `ETNA_APP_HASH_V2`                                                                                              | violates ENC-A-29b (and ENC-A-1)                                               |
+| 29b.g accept | x = 6; blockHash(6) = `0x1111111111111111111111111111111111111111111111111111111111111111`; valStateHash(6) is 29a.l's value; the encoding is 96 bytes | appHash = `0x381ceb5a317bd34b0b19b9972191a994c384b4873a3694cfd46cb155c7d8b451` |
 
 _Reproduce 29a.l with Foundry's `cast`: `cast keccak $(cast abi-encode 'f(bytes32,uint256,(uint8,bytes32,uint64,int64)[],uint256,(uint8,bytes32,uint64,int64)[],uint256)' $(cast format-bytes32-string ETNA_VAL_STATE_V1) 6 '[(2,K1,10,-5),(3,K2,10,5)]' 1 '[(2,K1,10,5),(3,K2,10,-5)]' 0)`, with K1 and K2 the two 32-byte values in the row._
 
@@ -364,57 +376,54 @@ _Reproduce 29a.l with Foundry's `cast`: `cast keccak $(cast abi-encode 'f(bytes3
 
 ## ENC-A-31
 
-| Vector      | Setup                                                                                              | Expected                               |
-| ----------- | -------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 31.a accept | list length `(h-p)/K - 1`; leaves are cutLeaf(p+K) through cutLeaf(h-K) in increasing height order | matches                                |
-| 31.b reject | the list includes cutLeaf(p) or cutLeaf(h)                                                         | violates ENC-A-31 ("strictly between") |
-| 31.c reject | list length is off by one                                                                          | violates ENC-A-31                      |
-| 31.d reject | leaves are out of height order                                                                     | violates ENC-A-31                      |
-| 31.e accept | `h = p + 2K`: exactly one leaf, cutLeaf(p + K)                                                     | matches the formula                    |
-| 31.f reject | leaves are spaced by K + 1                                                                         | violates ENC-A-31 (grid points)        |
+| Vector      | Setup                                                                                        | Expected                                                  |
+| ----------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| 31.a accept | list length `h-p-1`; leaves are cutLeaf(p+1) through cutLeaf(h-1) in increasing height order | matches                                                   |
+| 31.b reject | the list includes cutLeaf(p) or cutLeaf(h)                                                   | violates ENC-A-31 ("strictly between")                    |
+| 31.c reject | list length is off by one                                                                    | violates ENC-A-31                                         |
+| 31.d reject | leaves are out of height order                                                               | violates ENC-A-31                                         |
+| 31.e accept | `h = p + 2`: exactly one leaf, cutLeaf(p + 1)                                                | matches the formula                                       |
+| 31.f reject | leaves are spaced by 2, skipping every other height                                          | violates ENC-A-31 (every height strictly between p and h) |
 
 ## ENC-A-32
 
 | Vector      | Setup                                                              | Expected          |
 | ----------- | ------------------------------------------------------------------ | ----------------- |
-| 32.a accept | `h = p + K`: the inner list is empty and hashed as `keccak256("")` | matches           |
-| 32.b reject | `h = p + K` and the list holds one leaf                            | violates ENC-A-32 |
-| 32.c reject | `h = p + K` and the empty list is hashed as `keccak256(0xc0)`      | violates ENC-A-32 |
-| 32.d reject | `h = p + K` and the empty list is hashed as a zero `bytes32`       | violates ENC-A-32 |
+| 32.a accept | `h = p + 1`: the inner list is empty and hashed as `keccak256("")` | matches           |
+| 32.b reject | `h = p + 1` and the list holds one leaf                            | violates ENC-A-32 |
+| 32.c reject | `h = p + 1` and the empty list is hashed as `keccak256(0xc0)`      | violates ENC-A-32 |
+| 32.d reject | `h = p + 1` and the empty list is hashed as a zero `bytes32`       | violates ENC-A-32 |
 
 ## ENC-A-33
 
-| Vector      | Setup                                                                           | Expected                               |
-| ----------- | ------------------------------------------------------------------------------- | -------------------------------------- |
-| 33.a accept | `(p - S) % K == 0`, `(h - S) % K == 0`, `leaves.length == (h-p)/K - 1`, `c < h` | checks pass                            |
-| 33.b reject | `S = 0`, `K = 3`, `p = 1`                                                       | violates ENC-A-33 (`(p - S) % K == 0`) |
-| 33.c reject | `S = 0`, `K = 3`, `h = 10`                                                      | violates ENC-A-33 (`(h - S) % K == 0`) |
-| 33.d reject | `leaves.length = (h-p)/K` (one too many)                                        | violates ENC-A-33                      |
-| 33.e reject | `c >= h`                                                                        | rejected as already settled (stated)   |
-| 33.f accept | `S = 1000`, `K = 3`, `p = 1000`, `h = 1006`, one leaf                           | checks pass                            |
-| 33.g reject | `S = 1000`, `K = 3`, `h = 1005`                                                 | violates ENC-A-33 (`(h - S) % K == 0`) |
+| Vector      | Setup                                          | Expected                             |
+| ----------- | ---------------------------------------------- | ------------------------------------ |
+| 33.a accept | `leaves.length == h-p-1`, `c < h`              | checks pass                          |
+| 33.d reject | `leaves.length = h-p` (one too many)           | violates ENC-A-33                    |
+| 33.e reject | `c >= h`                                       | rejected as already settled (stated) |
+| 33.f accept | `S = 1000`, `p = 1000`, `h = 1003`, two leaves | checks pass                          |
+| 33.g reject | `p = 1000`, `h = 1003`, one leaf               | violates ENC-A-33                    |
 
 ## ENC-A-34
 
-| Vector      | Setup                                                                                | Expected                       |
-| ----------- | ------------------------------------------------------------------------------------ | ------------------------------ |
-| 34.a accept | `c > p`: `leaves[(c-p)/K - 1]` equals `cutLeaf(c)` computed from c's slot 285 record | matches                        |
-| 34.b reject | `c > p` and the leaf equals `cutLeaf(c')` for another height `c'`                    | violates ENC-A-34              |
-| 34.c reject | `c > p` and the leaf is computed from a record other than c's slot 285               | violates ENC-A-34              |
-| 34.d accept | `c == p`: the overlap check does not apply                                           | the text conditions on `c > p` |
-| 34.e reject | `c > p` and the indexed leaf is not the required one                                 | violates ENC-A-34              |
+| Vector      | Setup                                                                          | Expected                       |
+| ----------- | ------------------------------------------------------------------------------ | ------------------------------ |
+| 34.a accept | `c > p`: `leaves[c-p-1]` equals `cutLeaf(c)` computed from c's slot 285 record | matches                        |
+| 34.b reject | `c > p` and the leaf equals `cutLeaf(c')` for another height `c'`              | violates ENC-A-34              |
+| 34.c reject | `c > p` and the leaf is computed from a record other than c's slot 285         | violates ENC-A-34              |
+| 34.d accept | `c == p`: the overlap check does not apply                                     | the text conditions on `c > p` |
+| 34.e reject | `c > p` and the indexed leaf is not the required one                           | violates ENC-A-34              |
 
 ## ENC-A-35
 
-| Vector      | Setup                                                                                                                                                                                  | Expected                                                  |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| 35.a accept | `keccak256(abi.encode(...))` with the 23 static ABI words of the definition, 736 bytes                                                                                                 | matches                                                   |
-| 35.b reject | the preimage has 21 or 22 words, for example without `parentValStateHash` or `lastValStateHash`                                                                                        | violates ENC-A-35 (23 words, 736 bytes)                   |
-| 35.c reject | `TAIKO_ETNA_LAND_V1` is replaced by a V2 tag                                                                                                                                           | violates ENC-A-35 (and ENC-A-1)                           |
-| 35.d reject | `blobHashes` are hashed with `abi.encode` instead of `abi.encodePacked`                                                                                                                | violates ENC-A-35                                         |
-| 35.e reject | `l2ChainId` precedes `l1ChainId`                                                                                                                                                       | violates ENC-A-35 (field order)                           |
-| 35.f reject | `lastValStateHash` follows `lastStateRoot` instead of `lastCometHash`                                                                                                                  | violates ENC-A-35 (field order)                           |
-| 35.g reject | p is a recovery generation's start height, whose origin record holds the old generation's validator-state hash, and `parentValStateHash` is replaced by 0 instead of that stored value | violates ENC-A-35 ("the origin record's value as stored") |
+| Vector      | Setup                                                                                               | Expected                                |
+| ----------- | --------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| 35.a accept | `keccak256(abi.encode(...))` with the 21 static ABI words of the definition, 672 bytes              | matches                                 |
+| 35.b reject | the preimage has 22 or 23 words, for example with a `parentValStateHash` or `lastValStateHash` word | violates ENC-A-35 (21 words, 672 bytes) |
+| 35.c reject | `TAIKO_ETNA_LAND_V1` is replaced by a V2 tag                                                        | violates ENC-A-35 (and ENC-A-1)         |
+| 35.d reject | `blobHashes` are hashed with `abi.encode` instead of `abi.encodePacked`                             | violates ENC-A-35                       |
+| 35.e reject | `l2ChainId` precedes `l1ChainId`                                                                    | violates ENC-A-35 (field order)         |
+| 35.f reject | `lastStateRoot` precedes `lastCometHash`                                                            | violates ENC-A-35 (field order)         |
 
 ## ENC-A-36
 
@@ -428,16 +437,16 @@ _Reproduce 29a.l with Foundry's `cast`: `cast keccak $(cast abi-encode 'f(bytes3
 
 ## ENC-A-37
 
-| Vector       | Setup                                                                                                   | Expected                                                                                                                             |
-| ------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 37.a pending | `keccak256(abi.encode("ETNA_REG_ENTRY_V1", j, ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1))` | no conformance verdict; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
-| 37.b reject  | tag is `ETNA_REG_ENTRY_V2`                                                                              | violates ENC-A-37                                                                                                                    |
-| 37.c reject  | `j` or `exitEffectiveL1` is omitted                                                                     | violates ENC-A-37                                                                                                                    |
-| 37.d reject  | `ckX` precedes `ckPrefix`                                                                               | violates ENC-A-37 (order)                                                                                                            |
-| 37.e accept  | bond 4096 replaces the bond in slot 7; its entry is hashed into `entriesRoot`                           | `j = 7`; the other entry fields come from bond 4096 (STAKE-4.1-13a, STOR-B-21)                                                       |
-| 37.f reject  | the same replacement entry is hashed with `j = 4096`                                                    | violates STAKE-4.1-13a and ENC-A-37; `j` is the slot number, not the bond id                                                         |
-| 37.g accept  | bonds 0 and 1 hold slots 0 and 1; bond 0 is withdrawn; the next registration creates bond 2 in slot 0   | the new entry uses `j = 0` even before any bond id reaches 4096                                                                      |
-| 37.h reject  | the new entry for bond 2 in slot 0 uses `j = 2`                                                         | violates STAKE-4.1-13a and ENC-A-37                                                                                                  |
+| Vector       | Setup                                                                                                                                                      | Expected                                                                                                                             |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 37.a pending | `keccak256(abi.encode("ETNA_REG_ENTRY_V1", j, ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1))`                                                    | no conformance verdict; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
+| 37.b reject  | tag is `ETNA_REG_ENTRY_V2`                                                                                                                                 | violates ENC-A-37                                                                                                                    |
+| 37.c reject  | `j` or `exitEffectiveL1` is omitted                                                                                                                        | violates ENC-A-37                                                                                                                    |
+| 37.d reject  | `ckX` precedes `ckPrefix`                                                                                                                                  | violates ENC-A-37 (order)                                                                                                            |
+| 37.e accept  | slots 0 to 6 are held and the bond in slot 7 has been withdrawn; the next registration creates bond 4096 in slot 7; its entry is hashed into `entriesRoot` | `j = 7`; the other entry fields come from bond 4096 (STAKE-4.1-13a, STOR-B-21)                                                       |
+| 37.f reject  | the same entry is hashed with `j = 4096`                                                                                                                   | violates STAKE-4.1-13a and ENC-A-37; `j` is the slot number, not the bond id                                                         |
+| 37.g accept  | bonds 0 and 1 hold slots 0 and 1; bond 0 is withdrawn; the next registration creates bond 2 in slot 0                                                      | the new entry uses `j = 0` even before any bond id reaches 4096                                                                      |
+| 37.h reject  | the new entry for bond 2 in slot 0 uses `j = 2`                                                                                                            | violates STAKE-4.1-13a and ENC-A-37                                                                                                  |
 
 ## ENC-A-38
 
@@ -621,19 +630,16 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 
 ## ENC-A-55
 
-| Vector      | Setup                                                                                                        | Expected                                                                                                                       |
-| ----------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| 55.a accept | the registry owner forfeits a `bondId`/`entryKey` once, then never again for that `entryKey`                 | conforms                                                                                                                       |
-| 55.b reject | the DAO's execution address calls `forfeit` while the registry owner is a different address                  | violates ENC-A-55 (registry-owner-only); FORF-4.4-1 names one caller, "the registry owner, the DAO's actual execution address" |
-| 55.c reject | a second `forfeit` for the same lifetime `entryKey`                                                          | violates ENC-A-55 (once per lifetime entryKey)                                                                                 |
-| 55.d reject | any call that attempts to revoke or reset a forfeiture via a nonce                                           | violates ENC-A-55 (no forfeiture nonce or revocation)                                                                          |
-| 55.e accept | bond 12 is displaced from slot 7 by bond 4096                                                                | emits `BondDisplaced(12, 7, 4096)` with all three uint256 fields indexed                                                       |
-| 55.f reject | `BondDisplaced` omits a field, swaps the displaced and replacement bond ids, or leaves the bond id unindexed | violates ENC-A-55 and STAKE-4.1-14b                                                                                            |
-| 55.g reject | registration takes an empty slot and emits `BondDisplaced`                                                   | violates STAKE-4.1-14b (no displaced bond)                                                                                     |
-| 55.h accept | key K belongs to bond 0 in slot 0; query `bondForKey(ckAddr(K))`, `bondInSlot(0)` and `slotOfBond(0)`        | each returns `(true, 0)` under the specified external-view ABI                                                                 |
-| 55.i accept | query an unused key, an empty slot or an unissued bond id through its corresponding lookup                   | returns `(false, 0)`; the read does not allocate or confirm a bond                                                             |
-| 55.j accept | withdraw bond 0, then query its key and `slotOfBond(0)`                                                      | key lookup returns `(true, 0)`; slot lookup returns `(false, 0)`                                                               |
-| 55.k reject | `bondInSlot(4096)` or a higher slot is queried                                                               | the lookup reverts (ENC-A-55)                                                                                                  |
+| Vector      | Setup                                                                                                 | Expected                                                                                                                       |
+| ----------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 55.a accept | the registry owner forfeits a `bondId`/`entryKey` once, then never again for that `entryKey`          | conforms                                                                                                                       |
+| 55.b reject | the DAO's execution address calls `forfeit` while the registry owner is a different address           | violates ENC-A-55 (registry-owner-only); FORF-4.4-1 names one caller, "the registry owner, the DAO's actual execution address" |
+| 55.c reject | a second `forfeit` for the same lifetime `entryKey`                                                   | violates ENC-A-55 (once per lifetime entryKey)                                                                                 |
+| 55.d reject | any call that attempts to revoke or reset a forfeiture via a nonce                                    | violates ENC-A-55 (no forfeiture nonce or revocation)                                                                          |
+| 55.h accept | key K belongs to bond 0 in slot 0; query `bondForKey(ckAddr(K))`, `bondInSlot(0)` and `slotOfBond(0)` | each returns `(true, 0)` under the specified external-view ABI                                                                 |
+| 55.i accept | query an unused key, an empty slot or an unissued bond id through its corresponding lookup            | returns `(false, 0)`; the read does not allocate or confirm a bond                                                             |
+| 55.j accept | withdraw bond 0, then query its key and `slotOfBond(0)`                                               | key lookup returns `(true, 0)`; slot lookup returns `(false, 0)`                                                               |
+| 55.k reject | `bondInSlot(4096)` or a higher slot is queried                                                        | the lookup reverts (ENC-A-55)                                                                                                  |
 
 ## Not covered
 
