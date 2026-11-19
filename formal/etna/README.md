@@ -75,6 +75,13 @@ Observe dispatch controls distinguish failures and restore. See
 [Y02 evidence](REPORT.md#y02-repeated-recovery-at-a-fixed-nonzero-checkpoint);
 real recovery/proving and full acceptance remain OPEN/WAITING.
 
+The [ordered-rule range product](conformance/RULE_RANGE.md) composes two ordinary
+activations, a lossless unsupported-rule pause, historical anchors and the full
+original range for each proof family. Its selected finite graph exhausted1,153
+states; actual endpoint-only family and latest-slot capture controls were detected
+and restored. Whole-range proof aggregation and authenticated execution remain
+premises. See [Y03 evidence](REPORT.md#y03-ordered-rule-ranges-and-lossless-pause).
+
 ## Run
 
 The draft-enabled [TLC/Python workflow](../../.github/workflows/protocol--etna-tlc.yml)

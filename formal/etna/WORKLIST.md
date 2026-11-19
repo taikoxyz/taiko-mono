@@ -53,7 +53,7 @@ retain the frozen bounds, independent gates and explicit runtime premises.
 | --- | --- | --- |
 | Y01 | Same-domain timestamp safety projection and fixed source scopes | COMPLETE selected code `717b6f426`; exact 5/4/4/1 quotient exhausted, source proof and independent controls passed; original unviewed timeout retained. |
 | Y02 | Repeated recovery at one nonzero checkpoint | COMPLETE selected code `e7d6128a1`; finite safety, full g2 progress, actual origin fault/restoration and independent dispatch omission passed. |
-| Y03 | Full ordered rule range and lossless software pause | NEXT; two ordinary rule writes and whole-range two-family premise. |
+| Y03 | Full ordered rule range and lossless software pause | COMPLETE selected code `9585e3fff`; finite safety, actual pause/full Land and both distinct rule-range faults/restorations passed. |
 | Y04 | Actual funded pending forfeiture component | PENDING; closed fixture accounting, public PoPs and real withdrawal. |
 | Y05 | Positional registry snapshots and final-R selection | PENDING; width/holes, bond lifetime and block-close snapshots. |
 | Y06 | Actual terminal seen-commit reconstruction | PENDING; public signed votes, stock constructor/verifier/successor distinction. |
@@ -71,7 +71,16 @@ adds repeated recovery at c6, generation-only and nonce-only refusal, actual
 g2 landing/finality, source-fault restoration and an independent actual Next
 omission. Three source/attribution defects were repaired. Candidate/main-merge
 ordinary checks each pass506; wider recovery and runtime obligations remain
-OPEN/WAITING. Y01–Y02 are selected complete; five increments and final gates remain.
+OPEN/WAITING. The following increment extends ordinary rule-range coverage.
+
+[Y03 evidence](REPORT.md#y03-ordered-rule-ranges-and-lossless-pause) adds actual
+two-rule activation, lossless pause/retry, full original(6,10] statement and separate
+per-family coverage. The1,153-state graph exhausted; endpoint-only family and
+latest-slot capture source faults were independently observed and restored.
+Native diagnostic attribution, impossible initial committee labels and lexical
+syntax were corrected. Final candidate/main-merge checks each pass538; no actual
+proof/client/EL/deployment claim follows. Y01–Y03 are selected complete; four
+increments and the combined final gates remain, with no automatic eighth.
 
 ## Completed W01–W07 batch
 

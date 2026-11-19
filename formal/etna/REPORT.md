@@ -6234,3 +6234,93 @@ policy or ACCEPTANCE §2/Q01 completion follows. W02 R01, W06 P01 and all ninete
 archived INCONCLUSIVE searches remain open at their original scopes. No natural
 protocol defect was confirmed. This completes selected Y02; Y03–Y07 and the
 combined final gates remain unfinished, with no automatic eighth item.
+
+
+## Y03 ordered rule ranges and lossless pause
+
+Date: 2026-11-19. Selected code `9585e3fff74d8a02d4a17a26c4d24f447c7e4a61`. Current normative bundle
+`2e6763e21bc236cfcda6011d164b32040f9e0c8d`; actual main
+`ce6d1887955343395305b5b1d89901816bd61a07`. Model SHA-256
+`76652808179b021627da02d0bee0b3df0114232df1fd15b196599d12e3000fb0`.
+See [source mapping and exact profiles](conformance/RULE_RANGE.md).
+
+This product models ordinary rule writes at L1 times2304 and3888, activations3600
+and5184, and original range(6,10] with ordered rules(0,1,1,2). It preserves the
+literal EL times3599/3600/3601/5184, own historical anchors, U4 and M1296. Software0
+actually refuses retained block8 without changing live state; upgrade1 retries
+the same proposal. Capture retains four blocks/blobs, five cuts, three interior
+leaves and the existing21-word ABI statement; reference433 precedes Land434.
+The ordinary initial committee has origin25/time300, past cutoff24 and L16;
+a valid nonempty registry prehistory with elapsed activation delays is a premise.
+
+| Actual native profile | Required and observed result |
+| --- | --- |
+| Primary original/restored safety and independent safety | Native0, Finished, 3,620 generated, 1,153 distinct, queue0 |
+| Independent original/restored full progress | Native12 NoProgress, 35 fully replayed transitions each; restored complete path equals original |
+| Primary actual family1 endpoint-only guard | Native12 BackendRulesBound, 33 full transitions; one incomplete family1 result and a separate complete family2 result |
+| Independent actual latest-slot capture | Native12 HistoricalRulesBound, 31 full transitions; captured rules change to(1,1,1,2) after the real produced prefix |
+
+The primary mutation changes only family1's actual FamilyCovers quantifier to
+check endpoints. Family2 still covers the entire ordered range, is designated ZK,
+and binds the same complete statement. The independent mutation changes actual
+RuleVector to use the latest mutable slot; its invariant derives expected rules
+from immutable historical writes and each block's own anchor. Both controls retain
+actual schedule writes, unsupported refusal, upgrade, complete capture and every
+adjacent state. Exact original bytes, inode and mode are restored in both copies.
+These are deliberately introduced verification controls, not protocol defects.
+
+An independent literal oracle reconsumed all genuine primary outputs, including
+all33 faulty transitions and the original35-transition progress capture. Closed
+execution/before/after/supervisor records, actual argv/cwd, raw hashes, source/tool
+identities and complete typed Init/PRE/POST fields were checked separately from
+the author's observer. The author's ordinary receipt API also reconsumed that
+genuine progress through an explicit closed-schema adaptation preserving its
+original metadata; this was Python-only, not another Java run. All successful
+native phases used pinned TLC2.19/JRE17, heap1024MiB, one worker and seed1, with
+offline namespaces, read-only inputs and disposable outputs.
+
+Three verification defects were repaired before publication. Fatal native
+exception/panic preludes could be ignored; one shared guard now protects Y01,
+Y02 and Y03 receipt producers, including qualified base Exception/Error as well
+as subclasses. The initial committee cutoff had equaled its origin; explicit
+initial-compatibility checks and a past cutoff fix that impossible scenario.
+Seven equality/sequence lexical sites needed whitespace before actual TLC could
+parse the model. Static review and Python fixtures had missed this syntax error.
+Diagnostic samples had omitted base classes, and literal fixtures had repeated
+the same invalid initial labels. Focused RED/GREEN and actual native parsing now
+cover these failure modes; later native fixtures compile earlier in the workflow.
+
+The parser failure(native150) and a subsequent outer-sandbox RMI startup
+failure(native255) remain INCONCLUSIVE with no behavior credit. The latter was
+resolved by the required outer execution context while retaining the inner offline
+namespace. Seven later native phases passed their exact outcomes; no timeout,
+automatic retry or budget expansion is counted. Final targeted checks passed64
+canonical tests,10 complete attribution controls and6 unchanged genuine Y01/Y02
+archive readbacks. Synthetic parser diagnostics are regression inputs, not
+executed native exception evidence. Trusted genuine same-run capture is a caller
+precondition, not an attestation property of metadata.
+
+Fresh complete ordinary checks passed538 per context(352/166/20), with no
+failures/errors/skips, on candidate tree
+`5c9ede5c4d4df857c2ea2425d8c6c66f2fb0c35e` and actual-main merge tree
+`75ea0f46586e21d91d14ca31c1cf64bce31326df`. All1,887 staged source/harness identities
+and modes stayed stable; all631 pre-Y model/config identities and earlier
+published model/config bytes remain unchanged. Ordinary readback SHA-256:
+`c14899ff48ffe448315e47e8a7591e2b06b44eead0bf732e550c1ceb13374bff`.
+Source rereview `9a12d6cddd7555d95c46852427b65a2e690421a33c01ae7832c48e49a85d4bd8`;
+lexical rereview `3de5971ab71f42b887937f23f90aafbdd55c30470673695f3dab2e1b29ce8b10`;
+independent final report `ffc007dab374b706d4fad624df1efda009313fc36288e07a3f1077713b19ba0d`.
+Primary fault raw `c48764b6417c927785d2e6a777997a5099f743aba094723e24fe85011a8614c9`;
+independent fault raw `b44ce0a0da6d67d920b9acdf7289c3e4b53918e0297650fb28b605b8cac5ec6b`;
+independent primary replay `8ec54254132208f115a57537da78be99ca3e57ae9b43fad12d6217f55c35b7f5`.
+Local commits use LEFTHOOK=0 with these explicit checks because the worktree's
+prettier executable is unavailable; the hook is not claimed to pass.
+
+Native0/Finished/queue0 establishes only this finite offered-call graph;
+named12 establishes existence, not universal progress. Each family's adjacent-image
+whole-range aggregation availability, authenticated L1/registry history and valid
+EL/committee/FI execution remain premises. This does not generate proofs, require
+a three-fork ELF, or verify actual client/EL/guest/import/deployment behavior.
+W02 R01, W06 P01, full recovery Q01 and all19 archived INCONCLUSIVE searches retain
+their original OPEN/WAITING boundaries. No natural protocol defect was confirmed.
+Selected Y01-Y03 are complete; Y04-Y07 and the combined final gates remain.
