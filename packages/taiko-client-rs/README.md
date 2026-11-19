@@ -90,21 +90,19 @@ Never reset signed state or Comet history to force a start. The app writes
 `comet-hash-{height}.json`, the committed Comet block ID that checkpoint trust compares with a
 landed checkpoint, before each commit. Trust never reads one below the committed anchor's last
 checkpoint, so commits delete those; back-pressure keeps at most `unsettled_limit + 1` files.
-Do not delete the others by hand. At each grid height (a multiple of 6) the app also writes
+Do not delete the others by hand. At every committed height the app also writes
 `val-state-{height}.bin`, its record of the validator state CometBFT holds after that height;
-`InitChain` records the generation's start state the same way, and a checkpoint import the
-state at its checkpoint. At every epoch switch height it writes `val-updates-{height}.bin`, the
+`InitChain` records the generation's start state the same way, and a checkpoint import at s the
+states after s − 1 and s. At every epoch switch height it writes `val-updates-{height}.bin`, the
 validator updates that height returned, an empty list included. Each record starts with the
-keccak256 checksum of the rest. Below the same checkpoint the app keeps only the newest valid
-state record, as the base to recompute from, and the update records above it. A missing record,
-or one that fails its checksum or decoding (set aside as `val-state-{height}.bin.corrupt`), is
-recomputed with CometBFT's per-height arithmetic from an earlier record and the update records
-since, and written again (spec SYNC-9-5c). Do not delete these by hand either: without those
-inputs, checkpoint trust at that height waits instead of completing, and the node cannot serve
-as a lander's source there. The lander queries the app at the checkpoint a batch starts from,
-for the starting state (except at the generation's start height, where it uses the genesis
-state), and at the batch's last height, to check its own replay; it builds no batch while either
-query fails, but keeps following a landing it already sent. `fatal-evidence.txt` survives
+keccak256 checksum of the rest. The app keeps the state records from one height below the
+checkpoint its committed anchor proves; below that it keeps only the newest valid one, as the base
+to recompute from, and the update records above it. A missing record, or one that fails its
+checksum or decoding (set aside as `val-state-{height}.bin.corrupt`), is recomputed with
+CometBFT's per-height arithmetic from an earlier record and the update records since, and
+written again (spec SYNC-9-5c). Do not delete these by hand either: without those inputs the
+node cannot serve the state at that height to `abci-import export`, whose package at s carries
+the state after s − 1. `fatal-evidence.txt` survives
 restarts and records the first safety failure, such as an unknown-execution-state Engine error
 (`-38100`); repair its cause before restarting. An L1 header shape the node cannot parse makes
 `ProcessProposal` reject and `FinalizeBlock` wait, without a safety halt: upgrade the client.
@@ -117,42 +115,42 @@ bounded memory; it never makes an uncommitted proposal canonical. Keep `executio
 alongside the app data. Bodies are retained for the full generation above its origin or imported
 execution floor: a landing alone does not prove the EL has flushed that checkpoint to disk.
 A fresh recovery or checkpoint import establishes a new boundary in a fresh app directory; keep
-older directories under the existing recovery retention policy. Existing app stores remain
-compatible, but heights committed before these bodies were recorded still need EL peer sync or
-operator-restored execution data. Missing or corrupt auxiliary bodies keep the request pending;
-missing state at the generation origin or import floor must be restored separately.
+older directories under the existing recovery retention policy. Missing or corrupt auxiliary
+bodies keep the request pending; missing state at the generation origin or import floor must be
+restored separately.
 
-Each landing record also holds the hash of the CometBFT validator state after its height: the
-validator set that signs the next height and the one after it, with their voting powers,
-proposer priorities and stored proposers (spec appendix A). The app computes that state with
-stock CometBFT v0.40.0's per-height arithmetic from the validator updates it returns, and
-checkpoint trust compares the hash of the record it made when it committed the target height
-with the landed one (spec section 9, Sync and weak subjectivity). The landing record at the
-generation's own start height does not hold this generation's state and is not compared. A
-mismatch is a safety halt whose reason starts with `validator_state_mismatch`: either this node's state or the landed value is wrong, and a wrong
-landed value means the proofs accepted a wrong result. The ABCI query `/val_state/<height>`,
-with a decimal height, returns the raw state encoding at a grid height from the latest
-checkpoint the committed anchor proves through the head. It refuses other heights, and the
-generation's start height once a block follows it. Do not substitute CometBFT's `/validators` RPC: away from the heights where
-CometBFT stores a set in full, it rebuilds the proposer priorities in one bulk step, which can
-differ from the live state.
+The `app_hash` the app returns for each height x is appHash(x) =
+keccak256(abi.encode(bytes32("ETNA_APP_HASH_V1"), ELHash(x), valStateHash(x))) (spec CONS-3.1-8,
+ENC-A-29b). valStateHash covers the CometBFT validator state after x: the validator set that
+signs the next height and the one after it, with their voting powers, proposer priorities and
+stored proposers (spec appendix A). The app computes that state with stock CometBFT v0.40.0's
+per-height arithmetic from the validator updates it returns. Landing records hold no validator
+state, and checkpoint trust compares only the landed EL and Comet hashes (spec SYNC-9-5). Stock
+CometBFT compares each header's app_hash with its own app's, so a block whose app_hash commits
+another validator state stops this node's consensus without a process exit (spec SYNC-9-5c). The
+ABCI query `/val_state/<height>`, with a decimal height, returns the raw state encoding at any
+height from one below the checkpoint the committed anchor proves (never below the generation's
+start height) through the head. Do not substitute CometBFT's `/validators` RPC: away from the
+heights where CometBFT stores a set in full, it rebuilds the proposer priorities in one bulk
+step, which can differ from the live state.
 
 The client implements ruleset 0 and authenticates the rules schedule in Inbox slot 293 at
 each block's carried or inherited anchor. It selects rules by the block timestamp, refuses
 to propose or accept an unsupported ruleset, and waits for upgraded software during replay.
-An authenticated planned stop permits the stopping grid block and refuses its successor;
-governance recovery clears the stop. Recovery preparation also refuses rules it cannot
-implement at R. Rules scheduled after R do not change that fixed recovery origin.
+An authenticated planned stop refuses every block whose parent's timestamp is at or after the
+stop time, at any height; governance recovery clears the stop. Recovery preparation also
+refuses rules it cannot implement at R. Rules scheduled after R do not change that fixed
+recovery origin.
 
 The ABCI app supports new networks with Etna start S = 0 and authenticated nonzero starts
 through [the restored Unzen driver handoff](docs/unzen-etna-handoff.md). The standalone lander
-supports the S-relative landing grid, committee 0 bootstrap and first-landing switch checks.
-It retains the raw L2 SignalService implementation proof at S for the proof backend. The
+lands batches ending at any height above S, with committee 0 bootstrap and first-landing switch
+checks. It retains the raw L2 SignalService implementation proof at S for the proof backend. The
 supplied backend still emits dummy proofs; real proving and switch deployment remain separate
 work.
 [Checkpoint import](docs/checkpoint-import.md) supports nonzero starts using a separately obtained
 offline EL dataset and the operator's original EL chainspec. Public EL snapshot tooling remains
-separate work. App state uses schema 19; lander journals use schema 19.
+separate work. App state uses schema 20; lander journals use schema 19.
 Older stores and witnesses are refused without rewriting signed jobs or FilePV state.
 
 ## Forced inclusion
@@ -275,10 +273,11 @@ lander reads the Inbox's `maxBatchBlocks` and caps every batch at the lower of `
 and `maxBatchBlocks` (logging when the Inbox lowers it). Each landing carries at most six
 blobs, a fixed constant (LAND-6.1 step 5).
 `--min-blocks` defaults to 1 and `--max-batch-wait` to 30 seconds. The minimum is 1 through
-that batch cap: the lander refuses to start with a higher one, which no batch could reach. Wait expiry or consensus pressure can flush an available
-complete prefix below it. The wait is kept in memory from the first backlog this process sees at
-the current checkpoint; a restart starts it again. Batches can cross epoch transitions; batch
-timing and back-pressure follow spec sections 6.3 (Batches) and 6.4 (Back-pressure).
+that batch cap: the lander refuses to start with a higher one, which no batch could reach. Wait
+expiry or consensus pressure can flush an available complete prefix below it. The wait is kept
+in memory from the first backlog this process sees at the current checkpoint; a restart starts
+it again. Batches can cross epoch transitions; batch timing and back-pressure follow spec
+sections 6.3 (Batches) and 6.4 (Back-pressure).
 
 `--chain-config` uses the same authenticated parameters as ABCI. L1 identity is read as full
 uint256 from the actual endpoint; an explicit `l1_chain_id` must match. L2 IDs above uint64 are
@@ -341,9 +340,9 @@ Export a landed Etna checkpoint package, then import it into fresh app, stock Co
 stores with one `import` command, published together as `ROOT/ready/{app,comet,el}`. Plain
 `abci`, the EL and stock Comet then run those stores. See the
 [checkpoint import runbook](docs/checkpoint-import.md) for the stopped EL source, original genesis,
-grid preimage archive and startup. An import grants no signing readiness. A registered validator
-resumes with its registered key and the same chain_id's HRS after matching its own finalized
-target.
+validator-state preimage archive and startup. An import grants no signing readiness. A
+registered validator resumes with its registered key and the same chain_id's HRS after matching
+its own finalized target.
 The EL helper derives the original block-zero hash from the operator's `--el-chain` using
 `etna-el-import chain-identity --chain PATH --chain-id N`. Import pins the install and its receipt
 to that identity, independently of the Inbox's Etna start hash H\* at S.
@@ -616,7 +615,7 @@ committing those values to the Inbox.
    handshake can proceed. Each proposal, prevote or precommit (including nil votes, locked
    blocks, retained proposals and already signed retries) needs a fresh bounded CheckSession
    reply for the transport's current session that names the served chain ID and phase `ready`;
-   the app reports `ready` only after its checkpoint, validator-state and InitChain checks.
+   the app reports `ready` only after its checkpoint and InitChain checks.
    Unavailable or malformed control, a closed or halted phase and a stale session deny signing
    without touching FilePV. The helper locks the existing state against a second helper
    process. No local signing fallback exists in the validator startup recipe.
@@ -985,7 +984,7 @@ contract harness.
   and the recovery test image) and `devnet` (all other scenarios); set
   `TAIKO_CLIENT_RS_TEST_LANE` to run one locally. Extra arguments go to `cargo nextest run`,
   e.g. `just test restart` runs one scenario. Pull requests
-  skip the L1 finality stall and the L=7 recovery grid (L=6 covers the same grid case);
+  skip the L1 finality stall and the L=7 recovery (L=6 and L=8 cover the same recovery path);
   `just test-full` runs every scenario, as CI does on main, nightly and on manual dispatch.
   `tests/entrypoint.sh` lists selected cases before Docker checks and builds only the native
   helpers they need, including the recovery image for its Linux consumer. On an ubuntu or
@@ -1035,7 +1034,7 @@ tests read) from that revision and records their hashes. Run it twice and requir
 generated output.
 The export includes the switching SignalService and an ABI-only Unzen cutoff artifact, whose
 external library references are recorded in the manifest rather than exposing unlinked deployment
-bytecode. Shared vectors follow the pinned contracts' schema 7. Test adapter updates and execution
+bytecode. Shared vectors follow the pinned contracts' schema 8. Test adapter updates and execution
 are separate from this artifact refresh.
 
 Regenerate the legacy Inbox, Anchor and PreconfWhitelist Rust bindings with

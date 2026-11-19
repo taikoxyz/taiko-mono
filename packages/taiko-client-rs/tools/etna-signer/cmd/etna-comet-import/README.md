@@ -30,7 +30,10 @@ this helper. The helper does not check any of those again.
 
 - `genesis.json`: the original stock GenesisDoc, with Etna's fixed consensus
   parameters and its original positive `initial_height`.
-- `validator-state.bin`: the raw canonical appendix-A preimage at s.
+- `validator-state.bin`: the raw canonical appendix-A encoding of the validator
+  state after s. Rust derives it (DATA-5.4-3) from the package's preimage after
+  s-1, which it has checked against header(s)'s app_hash, and the validator
+  updates of block s. It is not the package's preimage.
 - `blocks.jsonl`: one JSON object per line, ascending from w+1 to s:
 
 ```json
@@ -65,9 +68,10 @@ under `data/` (DATA-5.4-3):
 - Stock `Bootstrap` installs the post-s state (DATA-5.4-4): LastBlockHeight s,
   the terminal BlockID and time, Last/Current/NextValidators with the
   preimage's priorities and stored proposers, LastHeightValidatorsChanged s+2,
-  LastHeightConsensusParamsChanged s+1, AppHash `--app-hash` (the terminal
-  header's AppHash still identifies s-1), the fixed LastResultsHash and the
-  original InitialHeight. `SetOfflineStateSyncHeight(s)` follows.
+  LastHeightConsensusParamsChanged s+1, AppHash `--app-hash` (appHash of
+  ELHash(s) and that state; the terminal header's AppHash commits s-1), the
+  fixed LastResultsHash and the original InitialHeight.
+  `SetOfflineStateSyncHeight(s)` follows.
 
 The helper then fsyncs every file and directory, reopens the databases
 read-only and checks them against a second read of the stock dir: the state

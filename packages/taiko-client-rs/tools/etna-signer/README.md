@@ -204,8 +204,8 @@ has one schema, 1, and the signer reads only `schema_version`, `session_id`, `ch
 `phase` from it: it signs only when the reply is for the transport's current session, names
 the served chain ID and reports phase `ready`. Keys match exactly, so a case variant such as
 `Phase` is just another field. Every other field, known or unknown, is ignored; the app
-reports `ready` only after its own checkpoint target, validator-state and InitChain checks
-(SYNC-9-5, RECOV-8.2-4). A reply for another session also drops the armed session. A
+reports `ready` only after its own checkpoint target and InitChain checks (SYNC-9-5,
+RECOV-8.2-4). A reply for another session also drops the armed session. A
 missing, null or empty session, a missing or null phase, a null, empty or other chain ID,
 another schema, a malformed, oversize or duplicate-key reply, an absent app and a timeout all
 deny (SYNC-9-11). Denial never invokes FilePV signing. Only stock FilePV writes signing state

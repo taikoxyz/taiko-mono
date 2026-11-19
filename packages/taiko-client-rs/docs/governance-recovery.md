@@ -18,14 +18,14 @@ builds the same genesis (RECOV-8.4-7..9):
 
 - `chain_id` is the full chain ID of the new generation;
 - `initial_height = c+1` and `genesis_time = R.timestamp`;
-- InitChain returns `app_hash = ELHash(c)`, and the EL state must match c's authenticated hash
-  and state root;
+- InitChain returns `app_hash` = appHash of ELHash(c) and the genesis validator state
+  (CONS-3.1-8), and the EL state must match c's authenticated hash and state root;
 - the validators are the committee selected on R's registry snapshot for epoch `floor(c/L)`.
 
 The first block uses stock genesis's empty LastBlockID/LastCommit (RECOV-8.4-10). The FI cursor
 starts at the authenticated origin head (RECOV-8.4-11). Every anchor and L1 root the new
-generation uses is at or after R (RECOV-8.4-12/13). The global epoch schedule and checkpoint
-grid continue unchanged, and old pending committee updates are discarded. Votes in different
+generation uses is at or after R (RECOV-8.4-12/13). The global epoch schedule continues
+unchanged, and old pending committee updates are discarded. Votes in different
 generations use different signing domains and are not double signs; the new generation keeps
 its own HRS state from c+1 (RECOV-8.2-5/6). The app's InitChain repeats every check `prepare`
 makes, against its own L1 and EL.
