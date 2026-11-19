@@ -7,8 +7,8 @@ the composed checkpoint-identity model.
 The [completed F01-F05 gate and retrospective](#five-increment-batch-final-gate-and-retrospective)
 records that batch's369-config/65-obligation gate and its independent audits.
 The [coverage-closure CI increment](#coverage-closure-batch--g01-exact-outcome-ci)
-records subsequent current-byte CI validation; the new five-item batch remains
-in progress under the [remaining-work index](WORKLIST.md).
+records subsequent current-byte CI validation. Later completed groups and the
+current authorized work are indexed in [WORKLIST.md](WORKLIST.md).
 Earlier sections preserve historical inputs and explicitly corrected claims;
 their intermediate counts and positive tuples are not the current result.
 
@@ -6032,3 +6032,124 @@ end-to-end recovery/deployment acceptance remain OPEN or WAITING as indexed.
 The nineteen archived searches remain INCONCLUSIVE. The worktree, raw evidence
 and ledgers are retained. After publication readback, hourly checks return to
 feedback-only mode; no eighth item or next batch starts automatically.
+
+
+## Y01 same-domain timestamp safety projection
+
+Code: `717b6f426240a2cc181a634b49bade5fd9f3799f`. This is the first selected
+increment of the new Y01–Y07 boundary-composition group. The other six increments
+and the accumulated final review remain pending. Prior batches are not restarted.
+The selected-item count is not a protocol-completion percentage.
+
+The new [wrapper and source argument](conformance/TIMESTAMP_SAFETY_PROJECTION.md)
+inherits the unchanged W07 product and fingerprints `(s,bad)`. It keeps every
+original offered call, admission/frame/event comparison, primed receipt and the
+four invariants `Frames`, `Typed`, `Prefix`, `ScheduleDispatch`. Source review
+proved both directions of the reachable-edge lifting, including each reachable
+representative's observation update and the actual `ENABLED Next` dispatch query.
+The view does not cover observer-dependent witnesses or liveness. All three
+selected profiles omit rules-write offers and required rules-write dispatch;
+this result does not exercise `scheduleRules`.
+
+### Observed native outcomes
+
+All runs used the existing pinned TLC jar, Java 17, one worker, seed 1 and at most
+1 GiB heap. Source, configuration, tool and mode custody was checked before and
+after execution. Table entries count exact finite graphs, not production states.
+
+| Profile | Exact bounds `(MaxL1, MaxHeight, MaxProduces, MaxWrites)` | Result | Generated / distinct / queued |
+| --- | --- | --- | --- |
+| Original Small | `2/1/1/0` | Native 0, Finished 41 s | `1532273 / 24847 / 0` |
+| Projected Small | `2/1/1/0` | Native 0, Finished 1 s | `26689 / 438 / 0` |
+| Original Reset | `1/0/0/1` | Native 0, Finished | `33 / 14 / 0` |
+| Projected Reset | `1/0/0/1` | Native 0, Finished | `16 / 7 / 0` |
+| Projected StructuralSafety | **`5/4/4/1`** | Native 0, Finished 126 s, depth 28 | **`3137073 / 77334 / 0`** |
+
+StructuralSafety retained the original bounds, scenario, call alphabet and four
+invariants. Its collector measured 127.185 s under the initially fixed 280-second
+native limit, with 292-second isolation and 300-second outer limits. No retry,
+smaller replacement, additional heap or domain pruning established this result.
+The completed quotient and reviewed lifting argument support those four safety
+predicates on that same finite domain. The old unviewed execution still has its
+original **INCONCLUSIVE** timeout disposition; this is no claim that its full
+observation/receipt state space was exhausted.
+
+### Discriminating progress, controls and restoration
+
+The primary source control ran one accepted Produce and then an actual refused
+Produce with the same arguments `(0,100,{0})`. Only the actual event reason was
+changed after real progress. The complete refused business state and observations
+were unchanged, `bad` became true, and the native result was exactly exit 12 /
+`Frames`: observed event `(0,0,100,101)` versus the unchanged literal oracle's
+`(0,1,100,101)`. The exact product inode and modes were restored, and the same
+projected Small invocation completed again with `26689/438/0`.
+
+An independent control added `~s.ready` only to actual `Can(8)`. The empty-argument
+already-ready Observe became a wrong refusal, with equal PRE/POST business state
+and observations and `bad` changing false to true. Exit 12 / `Frames` and complete
+raw replay established this error edge. Its nonempty queue is existence evidence,
+not exhaustion. The independent positive Produce witness and both original versus
+projected small comparisons were checked separately.
+
+The first independent replay helper omitted the empty actual argument tuple in
+its `seen_after` call and stopped with `TypeError` after native detection. This
+was a temporary verification-harness defect, not a semantic success. Its logs
+were preserved, the source was restored on exit, and a one-line helper repair
+replayed the archived native trace without repeating the fault. The later native
+restoration used the same inode, modes and Java argv and completed normally.
+Independent full-frame readback also verified the primary source control and the
+StructuralSafety input maps, actual limits, collector record and terminal footer.
+
+### Verification findings repaired before publication
+
+Independent source review found two defects in the new verification tooling:
+
+- A genuine completed log from one profile could be combined with another
+  profile's otherwise consistent argv and configuration. TLC stdout does not name
+  its config. The producer now requires one closed, typed execution record made
+  by the trusted same-run collector, binding actual argv, native cwd, exit status,
+  timeout, raw digest and the four staged input digests. Archive replay checks the
+  exact record and raw bytes together. This prevents accidental bundle mixing;
+  it is not cryptographic authentication against joint fabrication.
+- The new Y01 scope included `START-10.1-5a`, although all three profiles omit
+  rules writes. That ID was removed only from the new claim. Old claim values,
+  all bundle pins and the legacy source guard remain unchanged.
+
+Both findings had focused failing regressions before the repair and were
+rechecked by the same independent reviewer. Twelve independent metadata negatives
+refused, including intact Small stdout with the authentic Reset execution record.
+The authentic pairs succeeded. Intact Structural stdout with the genuine Small
+record also refused for the raw digest mismatch. The generic source selector
+still accepts another reviewed claim as `NOT_EVALUATED`; fixed producers cannot
+relabel their result. Merely selecting a source never yields execution success.
+
+### Recorded identities and ordinary regression evidence
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Unchanged original product | `d1f46b2ef4543620f7777882c3190bfc4f5e4c4b4f74fd4ec02ee86e741a2e59` |
+| New safety wrapper | `e5071ca484c4d2aa2d92b57b4e2eb190d8c1d0b9a9f1de1db8db2991a8bdebee` |
+| StructuralSafety raw stdout | `5a552ff16a838a095d97206e837d0e2a64c6f112b52ff9040eb6fc396a1493a1` |
+| StructuralSafety same-run execution record | `9f3d5992e7ed0fc24fd20e36143da07d82a0b023cedda2662e752400fea0bd84` |
+| Primary refused-event raw | `0ebff9efff6f252cfcd834ef93a3ab471f92abbaa9d02f5dbd8c174c90d21eda` |
+| Independent refused-Observe raw | `26f051b7cf346bc64777c56b624e0da027599402c9f86bcf5df1a29f04196512` |
+| Independent primary/wide raw readback | `b735acc1ecbece3d082884007d335533dcf076db4856e0b3a5f08db72e51858b` |
+| Independent genuine-pair metadata controls | `5f1190e3396dfbed1b84db2dd831247ecf80243f21cb568b716168fec9cf86e3` |
+
+The v3 focused suites passed 51 checks in each workspace context. Fresh complete
+ordinary suites passed **485 per context**: main 299, conformance 166, sensitivity
+20, with no failures, errors or skips. The candidate tree was
+`8241ff09804c5387fd1ff3aabfeb8138cf4910c7`; the actual main
+`ce6d1887955343395305b5b1d89901816bd61a07` merge tree was
+`91d6486385664a8a9467cab0ee5aac336f8b493d`. All 1851 staged input/harness digests
+and modes stayed stable, the real Git index was preserved while preparing the
+merge, and all 631 pre-Y TLA/config identities were unchanged. The ordinary
+readback SHA-256 is
+`1d35acd984db7949fff5442d4000dc779a37bb2559f0e8dac7df119ace64bc5a`.
+Source review and independent behavioral verification passed separately.
+
+W02's original horizon-3/8 safety, W06's full depth-3 search, unrestricted
+compositions, actual current Registry/client/EL/guest behavior, proving and
+end-to-end recovery/deployment retain their OPEN or WAITING status. No natural
+protocol defect is confirmed by this increment. Remaining Y02–Y07 scopes are in
+[the current worklist](WORKLIST.md) and require their own evidence and final gates.

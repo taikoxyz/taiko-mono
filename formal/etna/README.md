@@ -59,6 +59,14 @@ response, caller and durable-state observations restore exactly. Production
 
 These results do not close W02's broader exhaustive obligations or deployment checks.
 
+The new [timestamp safety projection](conformance/TIMESTAMP_SAFETY_PROJECTION.md)
+keeps the original 5/4/4/1 bounds, calls and four safety invariants while omitting
+only historical observations from TLC fingerprints. The quotient exhausted
+77,334 distinct states; source lifting, two actual faults/restorations and
+independent genuine-run attribution checks passed. The original unviewed timeout
+remains inconclusive. See [Y01 results](REPORT.md#y01-same-domain-timestamp-safety-projection)
+and the [next six boundary increments](WORKLIST.md#current-y01y07-boundary-composition-batch).
+
 ## Run
 
 The draft-enabled [TLC/Python workflow](../../.github/workflows/protocol--etna-tlc.yml)
