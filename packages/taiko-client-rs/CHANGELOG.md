@@ -109,10 +109,11 @@ refuse CometBFT's default evidence limits (START-10-21).
   [checkpoint import runbook](docs/checkpoint-import.md).
 - Verify imported validator signing and subsequent landing from both latest and older checkpoints,
   cold forced-inclusion replay, and native finalized ancestry beyond the BLOCKHASH window.
-  Measure signed evidence windows with `just checkpoint-import-resources`.
-- Preserve the landed future validator sets, priorities and stored proposers, distinguish
-  authenticated contradictions from incomplete input or subprocess failures, and retain an
-  optional immutable preimage archive beyond live sidecar pruning.
+  Measure signed import windows, which the latest anchor bounds, with
+  `just checkpoint-import-resources`.
+- Derive the future validator sets, priorities and stored proposers from the authenticated
+  s − 1 preimage, distinguish authenticated contradictions from incomplete input or subprocess
+  failures, and retain an optional immutable preimage archive beyond live record pruning.
 - Verify historical committee witnesses under the switch block's own anchor root while keeping
   the derivation parent's selected snapshot, including pending committees and recovery.
 - Track the CometBFT validator state. The app computes stock CometBFT v0.40.0's validator
@@ -146,7 +147,8 @@ refuse CometBFT's default evidence limits (START-10-21).
 ### Bug Fixes
 
 - Re-pin the [conformance record](docs/etna-conformance.md) to the Etna specification at
-  `d18357214fab30ea512ae9858a11699806d72ba1` (protocol #22348) and align with it. `Info`
+  `d18357214fab30ea512ae9858a11699806d72ba1` (protocol #22348; superseded by `2e6763e21b`,
+  #22412, above) and align with it. `Info`
   re-checks the EL at every CometBFT handshake, the first `Info` on each new set of ABCI
   connections, so a CometBFT restart under a running app never sees a height the EL does not
   hold (CONS-3.1-9). `etna-signer --trust-timeout` is at most 2 s, so a refusal is answered

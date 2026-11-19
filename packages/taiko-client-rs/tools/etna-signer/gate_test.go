@@ -113,7 +113,7 @@ func recoveredSnapshot(g uint64) map[string]any {
 	hash, comet := "0x"+strings.Repeat("b", 64), "0x"+strings.Repeat("c", 64)
 	value := snapshot(true)
 	value["generation"] = g
-	value["target"] = map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 6, "hash": hash, "comet_hash": comet, "val_state_hash": "0x" + strings.Repeat("e", 64), "generation": g, "inbox": "0x" + strings.Repeat("1", 40)}
+	value["target"] = map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 6, "hash": hash, "comet_hash": comet, "generation": g, "inbox": "0x" + strings.Repeat("1", 40)}
 	value["committed_head"] = map[string]any{"height": 6, "hash": hash}
 	value["trusted_consensus_head"] = map[string]any{"height": 6, "hash": hash}
 	value["recovery_origin"] = map[string]any{"generation": g, "height": 6, "l1_number": 9, "l1_hash": "0x" + strings.Repeat("a", 64), "l1_timestamp": 100, "el_hash": hash, "comet_hash": comet, "forced_cursor": 0, "committee_hash": "0x" + strings.Repeat("d", 64)}
