@@ -101,7 +101,7 @@ example : Etna.QueueMutation.enqueue inbox 1 ''' + str(paid) + ' ' + str(refund)
         result = self.compile('''import EtnaModel.CurrentProtocol
 open Etna.Design Etna.Design.Current.Protocol
 example : Parameters.valid
-    ⟨1,10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,2,1152,10,0,1,9⟩ = false := by decide
+    ⟨10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,2,1152,10,0,1,9⟩ = false := by decide
 ''')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout + result.stderr, '')
