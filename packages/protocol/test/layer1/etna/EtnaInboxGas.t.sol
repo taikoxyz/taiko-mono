@@ -335,7 +335,7 @@ contract EtnaInboxLandFromStartGasTest is EtnaInboxGasBase {
         super.setUp();
         IEtnaInbox.LandInput memory input = _input(0, 6);
         landVerifier.setExpectedStatementHash(
-            _statement(input, _inbox().landings(0), _cutHash(input, new bytes32[](0)))
+            _statement(input, _inbox().landings(0), _cutHash(input, _leaves(0, 6)))
         );
     }
 
@@ -347,7 +347,7 @@ contract EtnaInboxLandFromStartGasTest is EtnaInboxGasBase {
     function test_gas_LandFromStart() external {
         EtnaInbox target = EtnaInbox(inboxProxy);
         IEtnaInbox.LandInput memory input = _input(0, 6);
-        bytes32[] memory leaves = new bytes32[](0);
+        bytes32[] memory leaves = _leaves(0, 6);
         bytes memory proof = PROOF;
         vm.blobhashes(blobHashes);
         vm.startPrank(Bob);
@@ -369,14 +369,14 @@ contract EtnaInboxLandFromUnzenStartGasTest is EtnaInboxSwitchTestBase {
         _finalizeUnzen();
         IEtnaInbox.LandInput memory input = _input(S, S + 6);
         landVerifier.setExpectedStatementHash(
-            _statement(input, _inbox().landings(S), _cutHash(input, new bytes32[](0)))
+            _statement(input, _inbox().landings(S), _cutHash(input, _leaves(S, S + 6)))
         );
     }
 
     function test_gas_LandFromUnzenStart() external {
         EtnaInbox target = EtnaInbox(inboxProxy);
         IEtnaInbox.LandInput memory input = _input(S, S + 6);
-        bytes32[] memory leaves = new bytes32[](0);
+        bytes32[] memory leaves = _leaves(S, S + 6);
         bytes memory proof = PROOF;
         vm.blobhashes(blobHashes);
         vm.startPrank(Bob);

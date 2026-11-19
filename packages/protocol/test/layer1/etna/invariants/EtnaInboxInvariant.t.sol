@@ -8,25 +8,26 @@ import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title EtnaInboxInvariantTest
-/// @notice Grid landings, landing records, recovery generations, the fee balance, the forced
+/// @notice Landings, landing records, recovery generations, the fee balance, the forced
 /// inclusion queue, the active committee snapshot and the reserved slots under random sequences of
 /// saves, landings, recoveries, sweeps, force-sent ETH and L1 time.
 /// @dev Foundry runs a separate campaign per invariant function and asserts only that function
 /// in it, so every invariant also asserts that the handler saw no violation of any kind.
-/// The Inbox lands at most 64 blocks per batch, 60 on the grid, so landings reach back over
+/// The Inbox lands at most 64 blocks per batch, so landings reach back over
 /// several checkpoints; Bob and Carol register next to Alice so recoveries have three bonds to
 /// force out.
 /// forge-config: default.invariant.depth = 50
 /// forge-config: default.invariant.fail_on_revert = true
 contract EtnaInboxInvariantTest is EtnaInboxTestBase {
-    /// @dev `K`, the landing grid interval.
-    uint256 internal constant K = 6;
+    /// @dev The step between the heights the handler lands: 1, since a landing may end at any
+    /// height above the checkpoint.
+    uint256 internal constant K = 1;
 
     /// @dev The L1 head the Inbox is initialized at, so EIP-2935 references of up to 8191 blocks
     /// exist.
     uint256 internal constant L1_HEAD = 20_000;
 
-    /// @dev `maxBatchBlocks` of the campaign's Inbox; not a multiple of K.
+    /// @dev `maxBatchBlocks` of the campaign's Inbox.
     uint64 internal constant BATCH_LIMIT = 64;
 
     uint256 internal constant BOB_PK = 0xB0B;
@@ -99,16 +100,15 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         return false;
     }
 
-    /// @notice 1. The checkpoint c is a grid point and the last landed height; landed heights
-    /// strictly increase, one per successful landing; slots 270-271 hold c; the SignalService
-    /// holds the block hash and state root of every landed height, genesis included.
-    function invariant_checkpointOnGridAndOnlyForward() external view {
+    /// @notice 1. The checkpoint c is the last landed height; landed heights strictly increase,
+    /// one per successful landing; slots 270-271 hold c; the SignalService holds the block hash
+    /// and state root of every landed height, genesis included.
+    function invariant_checkpointOnlyForward() external view {
         _assertModelHeld();
         uint256 count = handler.checkpointCount();
         assertEq(count, handler.landings() + 1, "one landed height per successful landing");
         uint256 c = handler.checkpointAt(count - 1);
         IEtnaInbox.LandedCheckpoint memory checkpoint = inbox.lastCheckpoint();
-        assertEq(checkpoint.height % K, 0, "c is a grid point");
         assertEq(checkpoint.height, c, "c is the last landed height");
         assertEq(checkpoint.blockHash, handler.cutAt(c).elHash, "c's block hash");
         assertEq(uint256(_word(LAST_CHECKPOINT_HEIGHT_SLOT)), c, "slot 270");
@@ -125,9 +125,9 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
     }
 
     /// @notice 2. Following `parentHeight` from c reaches block 0 through every landed height in
-    /// reverse order: each record is on the grid, its parent below it and its fields (actual
-    /// parent c, generation, queue head, EL, Comet and validator-state hashes) the model's, through
-    /// the getter and the four slot 285 words. No other grid point up to c + 60 has a record.
+    /// reverse order: each record's parent is below it and its fields (actual parent c,
+    /// generation, queue head, EL and Comet hashes) the model's, through the getter and the three
+    /// slot 285 words. No other height up to c + 64 has a record.
     function invariant_landingRecordsFormTheActualChain() external view {
         _assertModelHeld();
         uint256 remaining = handler.checkpointCount();
@@ -137,7 +137,6 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
             assertGt(remaining, 0, "more records than landings");
             --remaining;
             assertEq(x, handler.checkpointAt(remaining), "the chain visits every landed height");
-            assertEq(x % K, 0, "record on the grid");
             IEtnaInbox.Landing memory record = inbox.landings(x);
             _assertRecord(x, record, handler.recordAt(x));
             if (x == 0) break;
@@ -267,7 +266,7 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         }
     }
 
-    /// @dev Checks a landing record through the getter and its four slot 285 words.
+    /// @dev Checks a landing record through the getter and its three slot 285 words.
     function _assertRecord(
         uint256 _height,
         IEtnaInbox.Landing memory _record,
@@ -281,7 +280,6 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         assertEq(_record.head, _expected.head, "record head");
         assertEq(_record.elHash, _expected.elHash, "record elHash");
         assertEq(_record.cometHash, _expected.cometHash, "record cometHash");
-        assertEq(_record.valStateHash, _expected.valStateHash, "record valStateHash");
         uint256 slot = uint256(keccak256(abi.encode(_height, LANDINGS_SLOT)));
         assertEq(
             uint256(_word(slot)),
@@ -291,7 +289,7 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         );
         assertEq(_word(slot + 1), _expected.elHash, "slot 285 word 2");
         assertEq(_word(slot + 2), _expected.cometHash, "slot 285 word 3");
-        assertEq(_word(slot + 3), _expected.valStateHash, "slot 285 word 4");
+        assertEq(_word(slot + 3), 0, "no slot 285 word 4");
     }
 
     /// @dev Checks a generation's origin through the getter and its three slot 290 words.

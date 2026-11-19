@@ -38,8 +38,8 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint48 maxAnchorAge;
     }
 
-    /// @dev The 23 static words of the landing statement in appendix A order; its ABI encoding is
-    /// the 736-byte statement preimage.
+    /// @dev The 21 static words of the landing statement in appendix A order; its ABI encoding is
+    /// the 672-byte statement preimage.
     struct LandStatement {
         bytes32 tag;
         uint256 l1ChainId;
@@ -50,12 +50,10 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint256 parentHeight;
         bytes32 parentHash;
         bytes32 parentCometHash;
-        bytes32 parentValStateHash;
         bytes32 committeeConfigHash;
         uint256 lastHeight;
         bytes32 lastBlockHash;
         bytes32 lastCometHash;
-        bytes32 lastValStateHash;
         bytes32 lastStateRoot;
         uint256 l1ReferenceBlockNumber;
         bytes32 l1ReferenceBlockHash;
@@ -69,9 +67,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
-
-    /// @notice `K`: landings end only at heights h with h - S a multiple of this (spec 6.1).
-    uint256 public constant GRID_INTERVAL = 6;
 
     /// @notice The landing statement version emitted by `Landed`.
     uint8 public constant VERSION = 1;
@@ -101,7 +96,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev The maximum `n_max`, the registry's capacity.
     uint256 private constant _MAX_COMMITTEE_SIZE = 4096;
 
-    /// @dev The maximum `U`, the largest multiple of K below 2^16 (spec 10).
+    /// @dev The maximum `U` (spec 10).
     uint256 private constant _MAX_UNSETTLED_LIMIT = 65_532;
 
     /// @dev The maximum `maxBatchBlocks` (spec 11). L2 height never exceeds c + U (spec 6.4), so a
@@ -241,7 +236,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @notice Sets the implementation's immutable parameters.
     /// @param _config The configuration: non-zero addresses and L2 chain id, `maxBatchBlocks` in
-    /// [K, 65,532], non-zero forced inclusion fee parameters, and either no switching parameters
+    /// [1, 65,532], non-zero forced inclusion fee parameters, and either no switching parameters
     /// (a new network) or all three with an Unzen Inbox that has code (a switching network).
     constructor(Config memory _config) {
         bool switching = _config.unzenInbox != address(0);
@@ -257,8 +252,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(_config.protocolFeeRecipient != address(0), ZERO_ADDRESS());
         require(_config.l2ChainId != 0, ZERO_VALUE());
         require(
-            _config.maxBatchBlocks >= GRID_INTERVAL
-                && _config.maxBatchBlocks <= _MAX_BATCH_BLOCKS_LIMIT,
+            _config.maxBatchBlocks != 0 && _config.maxBatchBlocks <= _MAX_BATCH_BLOCKS_LIMIT,
             InvalidMaxBatchBlocks()
         );
         require(_config.forcedInclusionFeeInGwei != 0, ForcedInclusionFeeZero());
@@ -444,7 +438,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @inheritdoc IEtnaInbox
     /// @dev The Inbox makes all of its own checks (initialization, the start write, the expected
-    /// values, the grid, the 48-bit bounds, the ruleset and both lists) before any effect. The new
+    /// values, the 48-bit bounds, the ruleset and both lists) before any effect. The new
     /// generation's origin is always unwritten: only the start write (generation 0) and this
     /// function (generation + 1) write origins, and the generation only grows by one. The effects
     /// then run in this order: `forceExit` per exclusion, the blanking, the generation, nonce and
@@ -524,7 +518,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
         if (schedule.stopTime != 0) require(earliest < schedule.stopTime, StopLocked());
         if (_time != 0 || _grid != 0) {
-            require(_time >= earliest && _grid != 0 && _grid % GRID_INTERVAL == 0, InvalidStop());
+            require(_time >= earliest && _grid != 0, InvalidStop());
         }
 
         schedule.stopTime = _time;
@@ -703,10 +697,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Spec 6.1 steps 1 and 2: generationStartHeight() <= p <= c < h < 2^48, p - S and h - S
-    /// on the grid, h - p <= maxBatchBlocks, a retained origin record in the current generation
-    /// unless p is the generation's start height, and the Unzen start check while c is S on a
-    /// switching network.
+    /// @dev Spec 6.1 steps 1 and 2: generationStartHeight() <= p <= c < h < 2^48,
+    /// h - p <= maxBatchBlocks, a retained origin record in the current generation unless p is the
+    /// generation's start height, and the Unzen start check while c is S on a switching network.
     /// @param _input The landing inputs.
     /// @param _c The checkpoint height.
     /// @param _generation The recovery generation.
@@ -727,8 +720,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
         require(_c < h, AlreadySettled());
         require(startHeight <= p && p <= _c && h < _HEIGHT_LIMIT, InvalidRange());
-        // No underflow: every generation starts at or above S.
-        require((p - s) % GRID_INTERVAL == 0 && (h - s) % GRID_INTERVAL == 0, OffGrid());
         require(h - p <= maxBatchBlocks, BatchTooLarge());
 
         origin_ = _landings[p];
@@ -763,11 +754,11 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
     }
 
-    /// @dev Spec 6.1 steps 3 and 4: exactly the (h - p) / K - 1 grid-point leaves, c's recorded
-    /// queue head equal to the queue head, the leaf at c equal to cutLeaf(c) over c's record if
-    /// c > p, and a new queue head in [head, tail] at most h - c past the head.
+    /// @dev Spec 6.1 steps 3 and 4: exactly the h - p - 1 leaves of the heights strictly inside
+    /// (p, h), c's recorded queue head equal to the queue head, the leaf at c equal to cutLeaf(c)
+    /// over c's record if c > p, and a new queue head in [head, tail] at most h - c past the head.
     /// @param _input The landing inputs.
-    /// @param _leaves The cut leaves at the grid points in (p, h).
+    /// @param _leaves The cut leaves of the heights p + 1, ..., h - 1.
     /// @param _c The checkpoint height.
     /// @return headAfter_ The new queue head.
     function _checkLeavesAndHead(
@@ -781,15 +772,15 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     {
         uint256 p = _input.parentHeight;
         uint256 h = _input.lastHeight;
-        require(_leaves.length == (h - p) / GRID_INTERVAL - 1, LeafCountMismatch());
+        // No underflow: the range check gives p < h.
+        require(_leaves.length == h - p - 1, LeafCountMismatch());
 
         Landing storage cur = _landings[_c];
         uint256 head = cur.head;
         require(head == _forcedInclusions.head, ForcedInclusionHeadMismatch());
         if (_c > p) {
             require(
-                _leaves[(_c - p) / GRID_INTERVAL - 1]
-                    == keccak256(abi.encode(_c, cur.elHash, cur.cometHash, head, cur.valStateHash)),
+                _leaves[_c - p - 1] == keccak256(abi.encode(_c, cur.elHash, cur.cometHash, head)),
                 FrontierLeafMismatch()
             );
         }
@@ -804,7 +795,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @dev Spec 10 step 5b: the start write. Writes slot 272 as (S, L1_0 = block.number, L),
     /// slots 273/274, generation 0's origin (S, L1_0, block.timestamp), the checkpoint (S, hash)
-    /// and landings[S] = (S, 0, 0, hash, 0, 0), and emits `StartWritten`. Callers check that S,
+    /// and landings[S] = (S, 0, 0, hash, 0), and emits `StartWritten`. Callers check that S,
     /// block.number and block.timestamp fit 48 bits.
     /// @param _height The Etna start S.
     /// @param _blockHash The EL block hash of S.
@@ -822,21 +813,14 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             startHeight: _height, l1BlockNumber: block.number, l1Timestamp: block.timestamp
         });
         _lastCheckpoint = LandedCheckpoint({ height: s, blockHash: _blockHash });
-        _landings[_height] = Landing({
-            parentHeight: s,
-            generation: 0,
-            head: 0,
-            elHash: _blockHash,
-            cometHash: 0,
-            valStateHash: 0
-        });
+        _landings[_height] =
+            Landing({ parentHeight: s, generation: 0, head: 0, elHash: _blockHash, cometHash: 0 });
         emit StartWritten(_height, _blockHash, _stateRoot);
     }
 
     /// @dev Spec 8.3: the Inbox is initialized and its start written, the expected generation,
-    /// checkpoint and nonce are current, c - S is a multiple of K, the authorization has not
-    /// expired, and the new generation, block.number and block.timestamp fit 48 bits (c already
-    /// does).
+    /// checkpoint and nonce are current, the authorization has not expired, and the new
+    /// generation, block.number and block.timestamp fit 48 bits (c already does).
     /// @param _expectedGeneration The authorized generation.
     /// @param _expectedC The authorized checkpoint height.
     /// @param _expectedRecoveryNonce The authorized nonce.
@@ -859,7 +843,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         require(_expectedGeneration == generation, GenerationMismatch());
         c_ = _lastCheckpoint.height;
         require(_expectedC == c_, CheckpointMismatch());
-        require((_expectedC - _genesis.genesisHeight) % GRID_INTERVAL == 0, CheckpointOffGrid());
         require(_expectedRecoveryNonce == _recoveryNonce, RecoveryNonceMismatch());
         require(block.timestamp <= _validUntil, AuthorizationExpired());
         newGeneration_ = _toUint48(uint256(generation) + 1);
@@ -929,12 +912,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
     }
 
-    /// @dev Builds the landing statement (appendix A) and hashes its 23 words. Runs spec 6.1
+    /// @dev Builds the landing statement (appendix A) and hashes its 21 words. Runs spec 6.1
     /// step 5: reads the reference block hash and the blob hashes, reverting if either is
     /// unavailable. A separate frame keeps `land` within the non-IR compiler's stack limit.
     /// @param _input The landing inputs.
-    /// @param _origin The landing record at p: the source of parentHash, parentCometHash,
-    /// parentValStateHash and headBefore.
+    /// @param _origin The landing record at p: the source of parentHash, parentCometHash and
+    /// headBefore.
     /// @param _generation The recovery generation.
     /// @param _cutHash The cut hash.
     /// @return The statement hash.
@@ -958,12 +941,10 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         statement.parentHeight = _input.parentHeight;
         statement.parentHash = _origin.elHash;
         statement.parentCometHash = _origin.cometHash;
-        statement.parentValStateHash = _origin.valStateHash;
         statement.committeeConfigHash = _committeeConfigHash;
         statement.lastHeight = _input.lastHeight;
         statement.lastBlockHash = _input.lastBlockHash;
         statement.lastCometHash = _input.lastCometHash;
-        statement.lastValStateHash = _input.lastValStateHash;
         statement.lastStateRoot = _input.lastStateRoot;
         statement.l1ReferenceBlockNumber = _input.l1ReferenceBlockNumber;
         statement.l1ReferenceBlockHash = _readL1ReferenceBlockHash(_input.l1ReferenceBlockNumber);
@@ -1004,8 +985,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             generation: _generation,
             head: uint48(_headAfter),
             elHash: lastBlockHash,
-            cometHash: _input.lastCometHash,
-            valStateHash: _input.lastValStateHash
+            cometHash: _input.lastCometHash
         });
 
         _signalService.saveCheckpoint(
@@ -1137,15 +1117,13 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @dev Returns whether the committee configuration is within the spec 10 bounds:
-    /// K <= U <= 65,532 with U a multiple of K, vp_unit >= 867,361,738, s_min >= vp_unit and
-    /// 1 <= n_max <= 4096.
+    /// 1 <= U <= 65,532, vp_unit >= 867,361,738, s_min >= vp_unit and 1 <= n_max <= 4096.
     /// @param _config The committee configuration.
     /// @return Whether the configuration is valid.
     function _isValidCommitteeConfig(CommitteeConfig calldata _config) private pure returns (bool) {
         uint256 unsettledLimit = _config.unsettledLimit;
-        return unsettledLimit >= GRID_INTERVAL && unsettledLimit <= _MAX_UNSETTLED_LIMIT
-            && unsettledLimit % GRID_INTERVAL == 0 && _config.vpUnit >= _MIN_VP_UNIT
-            && _config.sMin >= _config.vpUnit && _config.nMax != 0
+        return unsettledLimit != 0 && unsettledLimit <= _MAX_UNSETTLED_LIMIT
+            && _config.vpUnit >= _MIN_VP_UNIT && _config.sMin >= _config.vpUnit && _config.nMax != 0
             && _config.nMax <= _MAX_COMMITTEE_SIZE;
     }
 

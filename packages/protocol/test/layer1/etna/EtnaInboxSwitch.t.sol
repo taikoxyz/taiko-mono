@@ -253,19 +253,17 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
     }
 
     // ---------------------------------------------------------------
-    // The grid counted from S (LAND-6.1-5, vectors 5.f and 5.g)
+    // Any height above S (LAND-6.1-5)
     // ---------------------------------------------------------------
 
-    /// @dev With S = 1000 and K = 6, grid points are 1000, 1006, 1012, ...: 1002 and 1008 (a
-    /// multiple of 6 counted from block 0) are off the grid.
-    function test_land_GridCountsFromTheStart() external {
+    /// @dev With S = 1000, landings end at any height above the checkpoint: 1002 and 1008 land.
+    function test_land_AnyHeightFromTheStart() external {
         _writeStart();
         _finalizeUnzen();
-        _expectLandRevert(_input(S, S + 2), new bytes32[](0), IEtnaInbox.OffGrid.selector);
-        _land(S, S + 6);
-        _expectLandRevert(_input(S + 6, S + 8), new bytes32[](0), IEtnaInbox.OffGrid.selector);
-        _land(S + 6, S + 18);
-        _assertLanding(S + 18, _record(S + 6, 0, 0, S + 18));
+        _land(S, S + 2);
+        _land(S + 2, S + 8);
+        _land(S + 8, S + 18);
+        _assertLanding(S + 18, _record(S + 8, 0, 0, S + 18));
     }
 
     // ---------------------------------------------------------------
@@ -336,29 +334,6 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         unzen.setCoreState(8, 7, _startHash());
         _land(S, S + 6);
         assertEq(_inbox().landings(S + 6).generation, 1, "generation 1 landing");
-    }
-
-    // ---------------------------------------------------------------
-    // recover from S (RECOV-8.3-3a, vector 3a.c)
-    // ---------------------------------------------------------------
-
-    /// @dev expectedC - S, not expectedC, must be a multiple of K: with S = 1000 a planted c of
-    /// 1204 passes and 1206 does not.
-    function test_recover_GridCountsFromTheStart() external {
-        _writeStart();
-        _storeInboxWord(LAST_CHECKPOINT_HEIGHT_SLOT, bytes32(uint256(S + 206)));
-        vm.expectRevert(IEtnaInbox.CheckpointOffGrid.selector);
-        _inbox()
-            .recover(
-                0, S + 206, 0, type(uint256).max, new IEtnaInbox.Exclusion[](0), new uint256[](0), 0
-            );
-
-        _storeInboxWord(LAST_CHECKPOINT_HEIGHT_SLOT, bytes32(uint256(S + 204)));
-        _inbox()
-            .recover(
-                0, S + 204, 0, type(uint256).max, new IEtnaInbox.Exclusion[](0), new uint256[](0), 0
-            );
-        assertEq(_inbox().generationStartHeight(), S + 204, "recovered at 1204");
     }
 
     // ---------------------------------------------------------------

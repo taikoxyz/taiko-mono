@@ -499,15 +499,14 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(checkpoint.stateRoot, GENESIS_STATE_ROOT, "block-0 checkpoint root");
     }
 
-    /// @dev Carol lands (0, 6] with no cut leaves and one blob; the mock verifier must receive the
-    /// appendix A statement rebuilt from the environment.
+    /// @dev Carol lands (0, 6] with five zero cut leaves and one blob; the mock verifier must
+    /// receive the appendix A statement rebuilt from the environment.
     function _landBlockSix(EtnaInbox _inbox, SignalService _signals, uint256 _cutoff) private {
         IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
             parentHeight: 0,
             lastHeight: 6,
             lastBlockHash: keccak256("Etna L2 block 6"),
             lastCometHash: keccak256("Etna Comet block 6"),
-            lastValStateHash: 0,
             lastStateRoot: keccak256("Etna L2 state 6"),
             l1ReferenceBlockNumber: block.number - 1,
             forcedInclusionHead: 0,
@@ -523,7 +522,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
             abi.encodeCall(IProofVerifier.verifyProof, (0, statement, _PROOF))
         );
         vm.prank(Carol);
-        _inbox.land(input, new bytes32[](0), _PROOF);
+        _inbox.land(input, new bytes32[](5), _PROOF);
 
         IEtnaInbox.LandedCheckpoint memory landed = _inbox.lastCheckpoint();
         assertEq(landed.height, 6, "block six landed");
@@ -535,7 +534,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     }
 
     /// @dev The landing statement of `_input` over `landings(0)`, with a reference hash set for
-    /// its block and no cut leaves.
+    /// its block and five zero cut leaves.
     function _statement(
         EtnaInbox _inbox,
         IEtnaInbox.LandInput memory _input,
@@ -547,7 +546,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         bytes32 referenceHash = keccak256("Etna L1 reference block");
         vm.setBlockhash(_input.l1ReferenceBlockNumber, referenceHash);
         return keccak256(
-            LibEtnaLandStatement.preimage(
+            LibEtnaLandStatement.statement(
                 LibEtnaLandStatement.Context({
                     l2ChainId: L2_CHAIN_ID,
                     inbox: address(_inbox),
@@ -559,7 +558,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
                 _inbox.landings(0),
                 referenceHash,
                 _blobs,
-                LibEtnaLandStatement.cutHash(0, 0, 6, new bytes32[](0))
+                LibEtnaLandStatement.cutHash(0, 0, 6, new bytes32[](5))
             )
         );
     }

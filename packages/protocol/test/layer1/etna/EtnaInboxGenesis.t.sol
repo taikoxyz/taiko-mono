@@ -239,7 +239,6 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(landing.head, 0, "landings(0).head");
         assertEq(landing.elHash, GENESIS_BLOCK_HASH, "landings(0).elHash");
         assertEq(landing.cometHash, 0, "landings(0).cometHash");
-        assertEq(landing.valStateHash, 0, "landings(0).valStateHash");
         assertEq(
             vm.load(
                 inboxProxy, bytes32(uint256(keccak256(abi.encode(uint256(0), LANDINGS_SLOT))) + 3)

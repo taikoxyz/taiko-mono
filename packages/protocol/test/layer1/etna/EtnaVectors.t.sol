@@ -180,7 +180,6 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
             vm.store(inboxProxy, first, _bytes32(j, w, "word"));
             vm.store(inboxProxy, _next(first, 1), _probe(string.concat("elHash", p)));
             vm.store(inboxProxy, _next(first, 2), _probe(string.concat("cometHash", p)));
-            vm.store(inboxProxy, _next(first, 3), _probe(string.concat("valStateHash", p)));
 
             IEtnaInbox.Landing memory landing = inbox.landings(height);
             assertEq(landing.parentHeight, _uint(j, w, "parent_height"), "parentHeight");
@@ -188,7 +187,6 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
             assertEq(landing.head, _uint(j, w, "head"), "head");
             assertEq(landing.elHash, _probe(string.concat("elHash", p)), "elHash");
             assertEq(landing.cometHash, _probe(string.concat("cometHash", p)), "cometHash");
-            assertEq(landing.valStateHash, _probe(string.concat("valStateHash", p)), "valStateHash");
         }
 
         string memory origins = ".layout.inbox.origin_slots";
@@ -675,7 +673,6 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         (toTwelve.parentHeight, toTwelve.lastHeight) = (6, 12);
         toTwelve.lastBlockHash = _bytes32(j, row12, "block_hash");
         toTwelve.lastCometHash = _bytes32(j, row12, "comet_hash");
-        toTwelve.lastValStateHash = _bytes32(j, row12, "val_state_hash");
         toTwelve.lastStateRoot = keccak256("state root 12");
         toTwelve.forcedInclusionHead = _uint(j, row12, "forced_head");
         vm.blobhashes(_bytes32Array(j, input, "blob_hashes"));
@@ -684,13 +681,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         assertEq(twelve.parentHeight, 6, "record at 12 settled on 6");
         assertEq(
             keccak256(
-                abi.encode(
-                    uint256(12),
-                    twelve.elHash,
-                    twelve.cometHash,
-                    uint256(twelve.head),
-                    twelve.valStateHash
-                )
+                abi.encode(uint256(12), twelve.elHash, twelve.cometHash, uint256(twelve.head))
             ),
             _bytes32(j, row12, "leaf"),
             "the record at 12 is the table's cut at 12"
@@ -1232,7 +1223,7 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         );
     }
 
-    /// @dev The statement inputs at `_in` as `land`'s nine public inputs.
+    /// @dev The statement inputs at `_in` as `land`'s eight public inputs.
     function _landInput(
         string memory _j,
         string memory _in
@@ -1246,7 +1237,6 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
             lastHeight: _uint(_j, _in, "last_height"),
             lastBlockHash: _bytes32(_j, _in, "last_block_hash"),
             lastCometHash: _bytes32(_j, _in, "last_comet_hash"),
-            lastValStateHash: _bytes32(_j, _in, "last_val_state_hash"),
             lastStateRoot: _bytes32(_j, _in, "last_state_root"),
             l1ReferenceBlockNumber: _uint(_j, _in, "l1_reference_block_number"),
             forcedInclusionHead: _uint(_j, _in, "forced_inclusion_head_after"),
@@ -1359,11 +1349,6 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         vm.store(_target, slots[0], bytes32(_head << 96));
         vm.store(_target, slots[1], _el);
         vm.store(_target, slots[2], _comet);
-        vm.store(
-            _target,
-            slots[3],
-            _cutValStateHash(_uint(_j, _at(".layout.inbox.landing_slots", _index), "height"))
-        );
     }
 
     /// @dev Writes origin (`_startHeight`, 18,990,000, 1,700,000,000) for `_generation` at the

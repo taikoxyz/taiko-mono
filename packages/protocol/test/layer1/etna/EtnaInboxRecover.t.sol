@@ -283,16 +283,6 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _assertOrigin(1, 6, _LEAN_R, _LEAN_R_TIMESTAMP);
     }
 
-    /// @dev RECOV-8.3-3a: expectedC - S must be a multiple of K. `land` keeps every checkpoint on
-    /// the grid, so an off-grid c only arises from a structural upgrade that changes K; the test
-    /// plants one in slot 270. The grid is checked before the lists.
-    function test_recover_RevertWhen_CheckpointOffGrid() external {
-        _storeInboxWord(LAST_CHECKPOINT_HEIGHT_SLOT, bytes32(uint256(4)));
-        _expectRecoverRevert(
-            0, 4, _unsortedExclusions(), _indices(2, 1), IEtnaInbox.CheckpointOffGrid.selector
-        );
-    }
-
     /// @dev Lean `repeated_recovery_at_same_c_needs_new_generation`: replaying an executed
     /// recovery fails on its stale generation; one authorized for generation 1 at the same c
     /// writes origins(2) and keeps origins(1).
@@ -346,7 +336,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         uint48 bobExit = registry.bondAt(1).entry.exitEffectiveL1;
         IEtnaInbox.LandInput memory input = _input(0, 6);
         input.activeCommitteeSnapshot = bobExit;
-        _land(input, new bytes32[](0));
+        _land(input, _leaves(0, 6));
         registry.confirmExit(1);
         vm.roll(block.number + WITHDRAWAL_DELAY);
         vm.prank(Bob);
@@ -645,14 +635,14 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _land(0, 6);
         _land(6, 12);
         IEtnaInbox.LandInput memory input = _input(12, 18);
-        bytes32[] memory none = new bytes32[](0);
+        bytes32[] memory leaves = _leaves(12, 18);
         bytes32 generation0Statement =
-            _statement(input, _inbox().landings(12), _cutHash(input, none));
+            _statement(input, _inbox().landings(12), _cutHash(input, leaves));
 
         _recover(0, 12, _noExclusions(), _noIndices());
         assertEq(_inbox().generationStartHeight(), 12, "start height");
 
-        bytes32 cutHash = _cutHash(input, none);
+        bytes32 cutHash = _cutHash(input, leaves);
         assertEq(
             cutHash,
             keccak256(
@@ -661,7 +651,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
                     uint256(1),
                     uint256(12),
                     uint256(18),
-                    keccak256("")
+                    keccak256(abi.encodePacked(leaves))
                 )
             ),
             "generation-1 cut hash"
@@ -671,7 +661,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         landVerifier.setExpectedStatementHash(statement);
 
         // `_land` expects `Landed(12, 12, 18, cutHash, 4, 1)`.
-        assertEq(_land(input, none), statement, "statement over landings(12)");
+        assertEq(_land(input, leaves), statement, "statement over landings(12)");
         _assertLanding(18, _record(12, 1, 3, 18));
         _assertCheckpoint(18, bytes32(uint256(1118)));
         _assertQueue(3, LEAN_FORCED_INCLUSIONS);
@@ -697,23 +687,17 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
 
         IEtnaInbox.LandInput memory input = _input(12, 24);
         bytes32[] memory leaves = _leaves(12, 24);
-        assertEq(leaves.length, 1, "one grid point inside (12, 24)");
+        assertEq(leaves.length, 11, "eleven heights inside (12, 24)");
         assertEq(
-            leaves[0],
+            leaves[5],
             keccak256(
-                abi.encode(
-                    uint256(18),
-                    bytes32(uint256(1118)),
-                    bytes32(uint256(1218)),
-                    uint256(3),
-                    _valStateHash(18)
-                )
+                abi.encode(uint256(18), bytes32(uint256(1118)), bytes32(uint256(1218)), uint256(3))
             ),
             "the leaf at 18 from the generation-1 record"
         );
 
-        bytes32[] memory discarded = new bytes32[](1);
-        discarded[0] = _leafOf(18, bytes32(uint256(118)), bytes32(uint256(218)), 3);
+        bytes32[] memory discarded = _leaves(12, 24);
+        discarded[5] = _leafOf(18, bytes32(uint256(118)), bytes32(uint256(218)), 3);
         _expectLandRevert(input, discarded, IEtnaInbox.FrontierLeafMismatch.selector);
         _expectLandRevert(_input(6, 24), _leaves(6, 24), IEtnaInbox.InvalidRange.selector);
         _expectLandRevert(_input(0, 24), _leaves(0, 24), IEtnaInbox.InvalidRange.selector);
@@ -751,20 +735,20 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _land(0, 6);
         _land(6, 12);
         IEtnaInbox.LandInput memory input = _input(12, 18);
-        bytes32[] memory none = new bytes32[](0);
+        bytes32[] memory leaves = _leaves(12, 18);
         bytes32 generation0Statement =
-            _statement(input, _inbox().landings(12), _cutHash(input, none));
+            _statement(input, _inbox().landings(12), _cutHash(input, leaves));
 
         _recover(0, 12, _noExclusions(), _noIndices());
         bytes32 generation1Statement =
-            _statement(input, _inbox().landings(12), _cutHash(input, none));
+            _statement(input, _inbox().landings(12), _cutHash(input, leaves));
         assertNotEq(generation1Statement, generation0Statement, "statements differ");
 
         landVerifier.setExpectedStatementHash(generation0Statement);
-        _expectLandRevert(input, none, MockLandProofVerifier.ProofRejected.selector);
+        _expectLandRevert(input, leaves, MockLandProofVerifier.ProofRejected.selector);
 
         landVerifier.setExpectedStatementHash(generation1Statement);
-        assertEq(_land(input, none), generation1Statement, "generation-1 proof");
+        assertEq(_land(input, leaves), generation1Statement, "generation-1 proof");
     }
 
     /// @dev The recovery origin's record stays as generation 0 wrote it, with its Comet hash, through
@@ -774,7 +758,6 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _land(6, 12);
         IEtnaInbox.Landing memory atOrigin = _record(6, 0, 2, 12);
         assertEq(atOrigin.cometHash, bytes32(uint256(212)), "generation-0 Comet hash");
-        assertEq(atOrigin.valStateHash, _valStateHash(12), "retained validator state");
         _assertLanding(12, atOrigin);
 
         _recover(0, 12, _noExclusions(), _noIndices());
@@ -908,7 +891,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     /// @dev The settled state with the chain landed to 12: slots 258-284 except the generation,
     /// landings 0, 6 and 12, origins(0) and the SignalService checkpoints at 0, 6 and 12.
     function _settledWords() private view returns (bytes32[] memory words_) {
-        words_ = new bytes32[](26 + 12 + 9 + 3);
+        words_ = new bytes32[](26 + 9 + 9 + 3);
         uint256 n;
         for (
             uint256 slot = INITIALIZATION_STATUS_SLOT;
@@ -920,7 +903,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             }
         }
         for (uint256 h; h <= 12; h += K) {
-            for (uint256 w; w < 4; ++w) {
+            for (uint256 w; w < 3; ++w) {
                 words_[n++] = _inboxWord(_landingSlot(h) + w);
             }
             ICheckpointStore.Checkpoint memory saved = signalService.getCheckpoint(uint48(h));

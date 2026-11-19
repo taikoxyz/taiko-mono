@@ -9,7 +9,7 @@ import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 
 /// @title EtnaLandTestBase
-/// @notice Lands grid batches on an Inbox set up like the Lean example chain
+/// @notice Lands batches on an Inbox set up like the Lean example chain
 /// (`Etna.Design.Examples`): genesis hash `bytes32(100)`, initialized at L1 block 2 with genesis
 /// cutoff 1, three forced inclusions saved, L1 at block 11 with reference block 10 hashing to
 /// `bytes32(999)`, and every landing proving snapshot 4.
@@ -20,7 +20,7 @@ import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 /// the contract; they read only the stored generation and committee configuration hash and the
 /// immutable L2 chain id and registry through the Inbox getters.
 abstract contract EtnaLandTestBase is EtnaInboxTestBase {
-    /// @dev `K`, the landing grid interval.
+    /// @dev The committed chain consumes one forced inclusion every `K` blocks.
     uint256 internal constant K = 6;
 
     /// @dev The proof bytes of every landing; the mock verifier ignores them.
@@ -72,17 +72,12 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         return (bytes32(100 + _x), _x == 0 ? bytes32(0) : bytes32(200 + _x), _x / K);
     }
 
-    /// @dev An opaque validator-state commitment, zero only at the Etna start.
-    function _valStateHash(uint256 _x) internal pure virtual returns (bytes32) {
-        return _x == 0 ? bytes32(0) : bytes32(400 + _x);
-    }
-
     /// @dev The EL state root at height `_x`.
     function _stateRoot(uint256 _x) internal pure virtual returns (bytes32) {
         return bytes32(300 + _x);
     }
 
-    /// @dev `cutLeaf(x) = keccak256(abi.encode(x, blockHash, cometHash, forcedHead, valStateHash))`.
+    /// @dev `cutLeaf(x) = keccak256(abi.encode(x, blockHash, cometHash, forcedHead))`.
     function _leafOf(
         uint256 _x,
         bytes32 _el,
@@ -93,7 +88,7 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         pure
         returns (bytes32)
     {
-        return LibEtnaLandStatement.leaf(_x, _el, _comet, _head, _valStateHash(_x));
+        return LibEtnaLandStatement.cutLeaf(_x, _el, _comet, _head);
     }
 
     /// @dev The cut leaf of the committed chain at height `_x`.
@@ -102,11 +97,11 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         return _leafOf(_x, el, comet, head);
     }
 
-    /// @dev The committed chain's leaves at the grid points strictly between `_p` and `_h`.
+    /// @dev The committed chain's leaves at every height strictly between `_p` and `_h`.
     function _leaves(uint256 _p, uint256 _h) internal pure returns (bytes32[] memory leaves_) {
-        leaves_ = new bytes32[]((_h - _p) / K - 1);
+        leaves_ = new bytes32[](_h - _p - 1);
         for (uint256 i; i < leaves_.length; ++i) {
-            leaves_[i] = _leaf(_p + K * (i + 1));
+            leaves_[i] = _leaf(_p + i + 1);
         }
     }
 
@@ -126,7 +121,6 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
             lastHeight: _h,
             lastBlockHash: el,
             lastCometHash: comet,
-            lastValStateHash: _valStateHash(_h),
             lastStateRoot: _stateRoot(_h),
             l1ReferenceBlockNumber: l1ReferenceBlockNumber,
             forcedInclusionHead: head,
@@ -152,8 +146,7 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
             generation: uint48(_generation),
             head: uint48(_head),
             elHash: el,
-            cometHash: comet,
-            valStateHash: _valStateHash(_x)
+            cometHash: comet
         });
     }
 
@@ -176,9 +169,8 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         );
     }
 
-    /// @dev The landing statement: keccak256 of the 23 appendix A words (736 bytes), with
-    /// parentHash, parentCometHash, parentValStateHash and headBefore from `_origin`, the reference hash
-    /// `l1ReferenceBlockHash` and the hash of `blobHashes`.
+    /// @dev The landing statement: keccak256 of the 21 appendix A words (672 bytes) that
+    /// `_statementPreimage` returns.
     function _statement(
         IEtnaInbox.LandInput memory _in,
         IEtnaInbox.Landing memory _origin,
@@ -188,7 +180,23 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         view
         returns (bytes32)
     {
-        bytes memory preimage = LibEtnaLandStatement.preimage(
+        bytes memory preimage = _statementPreimage(_in, _origin, _cutHashValue);
+        assertEq(preimage.length, 672, "21 statement words");
+        return keccak256(preimage);
+    }
+
+    /// @dev The 21 appendix A statement words, with parentHash, parentCometHash and headBefore
+    /// from `_origin`, the reference hash `l1ReferenceBlockHash` and the hash of `blobHashes`.
+    function _statementPreimage(
+        IEtnaInbox.LandInput memory _in,
+        IEtnaInbox.Landing memory _origin,
+        bytes32 _cutHashValue
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
+        return LibEtnaLandStatement.statement(
             LibEtnaLandStatement.Context({
                 l2ChainId: _inbox().l2ChainId(),
                 inbox: inboxProxy,
@@ -202,8 +210,6 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
             blobHashes,
             _cutHashValue
         );
-        assertEq(preimage.length, 736, "23 statement words");
-        return keccak256(preimage);
     }
 
     // ---------------------------------------------------------------
@@ -259,12 +265,12 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
     )
         internal
     {
-        bytes32[10] memory before = _landingState(_in.lastHeight);
+        bytes32[9] memory before = _landingState(_in.lastHeight);
         vm.blobhashes(blobHashes);
         vm.expectRevert(_selector);
         vm.prank(Bob);
         _inbox().land(_in, _leafList, PROOF);
-        bytes32[10] memory afterRevert = _landingState(_in.lastHeight);
+        bytes32[9] memory afterRevert = _landingState(_in.lastHeight);
         for (uint256 i; i < before.length; ++i) {
             assertEq(afterRevert[i], before[i], "no state change");
         }
@@ -348,7 +354,7 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         vm.store(inboxProxy, bytes32(_slot), _word);
     }
 
-    /// @dev The first of the four slot 285 words of `landings[_height]`.
+    /// @dev The first of the three slot 285 words of `landings[_height]`.
     function _landingSlot(uint256 _height) internal pure returns (uint256) {
         return uint256(keccak256(abi.encode(_height, LANDINGS_SLOT)));
     }
@@ -380,7 +386,6 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         );
         _storeInboxWord(slot + 1, _landing.elHash);
         _storeInboxWord(slot + 2, _landing.cometHash);
-        _storeInboxWord(slot + 3, _landing.valStateHash);
     }
 
     /// @dev Writes `_generation` as the recovery generation with origin `(_startHeight, block.number,
@@ -398,7 +403,8 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         _storeInboxWord(FORCED_INCLUSION_HEAD_TAIL_SLOT, bytes32(_head | (_tail << 48)));
     }
 
-    /// @dev Checks `landings(_height)` through the getter and its four raw slot 285 words.
+    /// @dev Checks `landings(_height)` through the getter and its three raw slot 285 words, and
+    /// that the word after them is empty.
     function _assertLanding(
         uint256 _height,
         IEtnaInbox.Landing memory _expected
@@ -412,7 +418,6 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         assertEq(landing.head, _expected.head, "landing head");
         assertEq(landing.elHash, _expected.elHash, "landing elHash");
         assertEq(landing.cometHash, _expected.cometHash, "landing cometHash");
-        assertEq(landing.valStateHash, _expected.valStateHash, "landing valStateHash");
         uint256 slot = _landingSlot(_height);
         assertEq(
             _inboxWord(slot),
@@ -421,7 +426,7 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         );
         assertEq(_inboxWord(slot + 1), _expected.elHash, "slot 285 word 2");
         assertEq(_inboxWord(slot + 2), _expected.cometHash, "slot 285 word 3");
-        assertEq(_inboxWord(slot + 3), _expected.valStateHash, "slot 285 word 4");
+        assertEq(_inboxWord(slot + 3), 0, "no slot 285 word 4");
     }
 
     /// @dev Checks the checkpoint through the getter and slots 270/271.
@@ -444,8 +449,8 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
     // Private helpers
     // ---------------------------------------------------------------
 
-    /// @dev Slots 268-271, 281, 284 and the four words of `landings[_height]`.
-    function _landingState(uint256 _height) private view returns (bytes32[10] memory words_) {
+    /// @dev Slots 268-271, 281, 284 and the three words of `landings[_height]`.
+    function _landingState(uint256 _height) private view returns (bytes32[9] memory words_) {
         words_[0] = _inboxWord(RECOVERY_GENERATION_SLOT);
         words_[1] = _inboxWord(COMMITTEE_CONFIG_HASH_SLOT);
         words_[2] = _inboxWord(LAST_CHECKPOINT_HEIGHT_SLOT);
@@ -456,6 +461,5 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         words_[6] = _inboxWord(slot);
         words_[7] = _inboxWord(slot + 1);
         words_[8] = _inboxWord(slot + 2);
-        words_[9] = _inboxWord(slot + 3);
     }
 }

@@ -16,8 +16,7 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 /// cursor 0 throughout and Comet hash 0 at S. `_writeStart` has Carol write S at `FORK_TIME`;
 /// `_finalizeUnzen` makes the Unzen side pass the first-landing check (spec 6.1 LAND-6.1-8a).
 abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
-    /// @dev The Etna start, the last Unzen block; not a multiple of K, so the grid counted from S
-    /// differs from the one counted from block 0.
+    /// @dev The Etna start, the last Unzen block.
     uint256 internal constant S = 1000;
 
     /// @dev `ETNA_FORK_TIME`.
@@ -33,11 +32,6 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
         vm.roll(LEAN_REFERENCE_BLOCK + 1);
         _setReference(LEAN_REFERENCE_BLOCK, LEAN_REFERENCE_HASH);
         _setBlobCount(2);
-    }
-
-    /// @dev The switching start also has a zero validator-state commitment.
-    function _valStateHash(uint256 _x) internal pure override returns (bytes32) {
-        return _x == S ? bytes32(0) : bytes32(400 + _x);
     }
 
     /// @dev The base's chain with forced inclusion cursor and start Comet hash zero.

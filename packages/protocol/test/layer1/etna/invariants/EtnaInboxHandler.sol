@@ -10,7 +10,7 @@ import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
 /// @title EtnaInboxHandler
-/// @notice Drives the Etna Inbox through forced inclusion saves, grid landings, governance
+/// @notice Drives the Etna Inbox through forced inclusion saves, landings, governance
 /// recoveries, fee sweeps, force-sent ETH and L1 time, and keeps an independent model of the
 /// state each action must leave behind.
 /// @dev Every landing and recovery is valid or broken in exactly one named way. The handler
@@ -18,7 +18,7 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// disagrees. It checks only what an action changes outside the model (the saver's refund, the
 /// lander's balance, the SignalService at a rejected height); the invariants compare the Inbox's
 /// storage with the model after every call. The honest chain is a ghost cut table: a landing
-/// attempt draws the cuts of its new grid points and the table keeps them once it lands.
+/// attempt draws the cuts of its new heights and the table keeps them once it lands.
 contract EtnaInboxHandler is CommonBase {
     // ---------------------------------------------------------------
     // Types
@@ -52,12 +52,11 @@ contract EtnaInboxHandler is CommonBase {
         uint256 genesisCutoff;
     }
 
-    /// @dev The honest chain at a grid point: EL hash, Comet hash, forced inclusion cursor and
-    /// state root.
+    /// @dev The honest chain at a height: EL hash, Comet hash, forced inclusion cursor and state
+    /// root.
     struct Cut {
         bytes32 elHash;
         bytes32 cometHash;
-        bytes32 valStateHash;
         uint48 head;
         bytes32 stateRoot;
     }
@@ -103,25 +102,25 @@ contract EtnaInboxHandler is CommonBase {
     // Constants
     // ---------------------------------------------------------------
 
-    /// @dev `K`, the landing grid interval.
-    uint256 internal constant K = 6;
+    /// @dev The step between the heights the handler lands and records: 1, since a landing may
+    /// end at any height above the checkpoint.
+    uint256 internal constant K = 1;
 
     /// @dev The landing defects: valid, or broken in exactly one way.
     uint256 internal constant VALID = 0;
     uint256 internal constant ALREADY_SETTLED = 1;
     uint256 internal constant OUT_OF_RANGE = 2;
-    uint256 internal constant OFF_GRID = 3;
-    uint256 internal constant TOO_LONG = 4;
-    uint256 internal constant MISSING_ORIGIN = 5;
-    uint256 internal constant LEAF_COUNT = 6;
-    uint256 internal constant FRONTIER_LEAF = 7;
-    uint256 internal constant HEAD_BOUND = 8;
-    uint256 internal constant REFERENCE = 9;
-    uint256 internal constant BLOB_COUNT = 10;
-    uint256 internal constant INTERIOR_LEAF = 11;
-    uint256 internal constant FALSE_INPUT = 12;
-    uint256 internal constant REJECTED_PROOF = 13;
-    uint256 internal constant LAND_MODES = 14;
+    uint256 internal constant TOO_LONG = 3;
+    uint256 internal constant MISSING_ORIGIN = 4;
+    uint256 internal constant LEAF_COUNT = 5;
+    uint256 internal constant FRONTIER_LEAF = 6;
+    uint256 internal constant HEAD_BOUND = 7;
+    uint256 internal constant REFERENCE = 8;
+    uint256 internal constant BLOB_COUNT = 9;
+    uint256 internal constant INTERIOR_LEAF = 10;
+    uint256 internal constant FALSE_INPUT = 11;
+    uint256 internal constant REJECTED_PROOF = 12;
+    uint256 internal constant LAND_MODES = 13;
 
     /// @dev The recovery defects: valid, or broken in exactly one way.
     uint256 internal constant NOT_OWNER = 1;
@@ -162,7 +161,7 @@ contract EtnaInboxHandler is CommonBase {
     uint64 public immutable forcedInclusionFeeInGwei;
     uint64 public immutable forcedInclusionFeeDoubleThreshold;
     bytes32 public immutable committeeConfigHash;
-    /// @dev The longest grid-aligned `h - p`, the largest multiple of K within `maxBatchBlocks`.
+    /// @dev The longest `h - p`, `maxBatchBlocks`.
     uint256 public immutable maxSpan;
 
     address[] internal _senders;
@@ -178,7 +177,7 @@ contract EtnaInboxHandler is CommonBase {
     /// @dev Every landed checkpoint height in order, genesis first.
     uint256[] internal _checkpoints;
     mapping(uint256 height => IEtnaInbox.Landing) internal _records;
-    /// @dev The honest chain at every settled grid point.
+    /// @dev The honest chain at every settled height.
     mapping(uint256 height => Cut) internal _cuts;
 
     uint48 public ghostGeneration;
@@ -259,7 +258,6 @@ contract EtnaInboxHandler is CommonBase {
         _cuts[0] = Cut({
             elHash: _deployment.genesisBlockHash,
             cometHash: 0,
-            valStateHash: 0,
             head: 0,
             stateRoot: _deployment.genesisStateRoot
         });
@@ -285,7 +283,7 @@ contract EtnaInboxHandler is CommonBase {
     }
 
     /// @notice Lands the honest chain from an origin p of the current generation (its start
-    /// height or a later checkpoint) to a later grid point h within `maxBatchBlocks`, consuming
+    /// height or a later checkpoint) to a later height h within `maxBatchBlocks`, consuming
     /// a legal number of pending forced inclusions, with a planted reference block and one to six
     /// blobs. About one call in three is broken in exactly one way instead.
     function land(uint256 _seed) external {
@@ -529,7 +527,7 @@ contract EtnaInboxHandler is CommonBase {
     // ---------------------------------------------------------------
 
     /// @dev Draws the honest landing: origin, terminal height, new queue head, the cuts of the
-    /// new grid points (c, h], the leaves of (p, h), a planted reference block, the snapshot and
+    /// new heights (c, h], the leaves of (p, h), a planted reference block, the snapshot and
     /// the blobs.
     function _shapeLanding(LandAttempt memory _attempt, uint256 _seed) internal {
         uint256 c = _attempt.c;
@@ -557,7 +555,7 @@ contract EtnaInboxHandler is CommonBase {
             uint256 x = p + K * (i + 1);
             Cut memory cut = _cutAt(_attempt, x);
             _attempt.leaves[i] =
-                LibEtnaLandStatement.leaf(x, cut.elHash, cut.cometHash, cut.head, cut.valStateHash);
+                LibEtnaLandStatement.cutLeaf(x, cut.elHash, cut.cometHash, cut.head);
         }
 
         Cut memory last = _attempt.newCuts[_attempt.newCuts.length - 1];
@@ -568,7 +566,6 @@ contract EtnaInboxHandler is CommonBase {
             lastHeight: h,
             lastBlockHash: last.elHash,
             lastCometHash: last.cometHash,
-            lastValStateHash: last.valStateHash,
             lastStateRoot: last.stateRoot,
             l1ReferenceBlockNumber: referenceNumber,
             forcedInclusionHead: headAfter,
@@ -605,7 +602,7 @@ contract EtnaInboxHandler is CommonBase {
         return _checkpoints[n - 1 - (_seed >> 2) % reachable];
     }
 
-    /// @dev The generation's honest cut at the new grid point `_x` in (c, h]: hashes that differ
+    /// @dev The generation's honest cut at the new height `_x` in (c, h]: hashes that differ
     /// per generation, and a cursor that advances at most once per block towards `_headAfter`.
     function _newCut(
         uint256 _x,
@@ -620,13 +617,12 @@ contract EtnaInboxHandler is CommonBase {
         return Cut({
             elHash: keccak256(abi.encode("etna el", ghostGeneration, _x)),
             cometHash: keccak256(abi.encode("etna comet", ghostGeneration, _x)),
-            valStateHash: keccak256(abi.encode("etna validators", ghostGeneration, _x)),
             head: uint48(_min(_headAfter, _head + (_x - _c))),
             stateRoot: keccak256(abi.encode("etna state", ghostGeneration, _x))
         });
     }
 
-    /// @dev A copy of the honest cut at grid point `_x`: settled at or below c, drawn by this
+    /// @dev A copy of the honest cut at height `_x`: settled at or below c, drawn by this
     /// attempt above it.
     function _cutAt(
         LandAttempt memory _attempt,
@@ -641,7 +637,6 @@ contract EtnaInboxHandler is CommonBase {
         return Cut({
             elHash: drawn.elHash,
             cometHash: drawn.cometHash,
-            valStateHash: drawn.valStateHash,
             head: drawn.head,
             stateRoot: drawn.stateRoot
         });
@@ -651,7 +646,7 @@ contract EtnaInboxHandler is CommonBase {
     /// the ghost record at p and the independently derived committee configuration hash.
     function _honestStatement(LandAttempt memory _attempt) internal returns (bytes32) {
         IEtnaInbox.LandInput memory input = _attempt.input;
-        bytes memory preimage = LibEtnaLandStatement.preimage(
+        bytes memory preimage = LibEtnaLandStatement.statement(
             LibEtnaLandStatement.Context({
                 l2ChainId: l2ChainId,
                 inbox: address(inbox),
@@ -667,7 +662,7 @@ contract EtnaInboxHandler is CommonBase {
                 ghostGeneration, input.parentHeight, input.lastHeight, _attempt.leaves
             )
         );
-        if (preimage.length != 736) _violate(Property.Checkpoint, "the statement is not 23 words");
+        if (preimage.length != 672) _violate(Property.Checkpoint, "the statement is not 21 words");
         return keccak256(preimage);
     }
 
@@ -693,13 +688,6 @@ contract EtnaInboxHandler is CommonBase {
         } else if (defect == OUT_OF_RANGE) {
             _breakRange(_attempt, _seed);
             selector = IEtnaInbox.InvalidRange.selector;
-        } else if (defect == OFF_GRID) {
-            if (_seed % 2 == 0 && input.parentHeight < c) {
-                input.parentHeight += 1 + (_seed >> 1) % (K - 1);
-            } else {
-                input.lastHeight -= 1 + (_seed >> 1) % (K - 1);
-            }
-            selector = IEtnaInbox.OffGrid.selector;
         } else if (defect == TOO_LONG) {
             input.lastHeight = input.parentHeight + maxSpan + K * (1 + _seed % 3);
             selector = IEtnaInbox.BatchTooLarge.selector;
@@ -753,7 +741,7 @@ contract EtnaInboxHandler is CommonBase {
         }
     }
 
-    /// @dev Moves p to a grid point of the current generation in reach of h that has no landing
+    /// @dev Moves p to a height of the current generation in reach of h that has no landing
     /// record; false if there is none.
     function _breakOrigin(
         LandAttempt memory _attempt,
@@ -802,7 +790,7 @@ contract EtnaInboxHandler is CommonBase {
     }
 
     /// @dev Replaces leaf `_index` with the leaf of a wrong height, EL hash, Comet hash or
-    /// cursor at the same grid point.
+    /// cursor at the same height.
     function _breakLeaf(
         LandAttempt memory _attempt,
         uint256 _index,
@@ -813,14 +801,13 @@ contract EtnaInboxHandler is CommonBase {
     {
         uint256 x = _attempt.input.parentHeight + K * (_index + 1);
         Cut memory cut = _cutAt(_attempt, x);
-        uint256 mode = _seed % 5;
-        if (mode == 0) x += 1 + (_seed >> 2) % (K - 1);
+        uint256 mode = _seed % 4;
+        if (mode == 0) x += 1 + (_seed >> 2) % 5;
         else if (mode == 1) cut.elHash = keccak256(abi.encode(cut.elHash));
         else if (mode == 2) cut.cometHash = keccak256(abi.encode(cut.cometHash));
-        else if (mode == 3) cut.head += 1;
-        else cut.valStateHash = keccak256(abi.encode(cut.valStateHash));
+        else cut.head += 1;
         _attempt.leaves[_index] =
-            LibEtnaLandStatement.leaf(x, cut.elHash, cut.cometHash, cut.head, cut.valStateHash);
+            LibEtnaLandStatement.cutLeaf(x, cut.elHash, cut.cometHash, cut.head);
     }
 
     /// @dev Breaks a leaf other than the one at c; false if there is none.
@@ -881,11 +868,10 @@ contract EtnaInboxHandler is CommonBase {
 
     /// @dev A public input other than the proven one: the state root, Comet hash or snapshot.
     function _breakInput(IEtnaInbox.LandInput memory _input, uint256 _seed) internal pure {
-        uint256 mode = _seed % 4;
+        uint256 mode = _seed % 3;
         if (mode == 0) _input.lastStateRoot = keccak256(abi.encode(_input.lastStateRoot));
         else if (mode == 1) _input.lastCometHash = keccak256(abi.encode(_input.lastCometHash));
-        else if (mode == 2) _input.activeCommitteeSnapshot += 1;
-        else _input.lastValStateHash = keccak256(abi.encode(_input.lastValStateHash));
+        else _input.activeCommitteeSnapshot += 1;
     }
 
     function _submitLanding(LandAttempt memory _attempt) internal {
@@ -926,8 +912,7 @@ contract EtnaInboxHandler is CommonBase {
             generation: ghostGeneration,
             head: uint48(input.forcedInclusionHead),
             elHash: input.lastBlockHash,
-            cometHash: input.lastCometHash,
-            valStateHash: input.lastValStateHash
+            cometHash: input.lastCometHash
         });
         _checkpoints.push(input.lastHeight);
         ghostHead = uint48(input.forcedInclusionHead);

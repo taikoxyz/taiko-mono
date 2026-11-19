@@ -3,11 +3,10 @@ pragma solidity ^0.8.26;
 
 /// @title IEtnaInbox
 /// @notice The L1 Inbox of an Etna PoS chain: it records the Etna start S, lands proven batches
-/// that end at grid points, keeps the forced inclusion queue and the rules schedule and runs
-/// governance recovery.
+/// that end at any height above the checkpoint, keeps the forced inclusion queue and the rules
+/// schedule and runs governance recovery.
 /// @dev Section numbers refer to the Etna specification. S is block 0 on a new network and the last
-/// Unzen block on a network that switches from Unzen. K is the grid interval (spec 6.1), 6 in this
-/// implementation (`GRID_INTERVAL`). Nodes, guests and landers read the storage
+/// Unzen block on a network that switches from Unzen. Nodes, guests and landers read the storage
 /// layout of spec appendix B (slots 258-293) with EIP-1186 proofs; each struct names the slots it
 /// occupies. Every packed word lays its fields out in declaration order from the
 /// least-significant bit. This file has no imports so clients can copy it as is.
@@ -27,8 +26,7 @@ interface IEtnaInbox {
         address stakingRegistry;
         /// @notice The chain id of the Etna L2; non-zero.
         uint64 l2ChainId;
-        /// @notice The maximum `h - p` of one landing; at least K, one grid segment, and at most
-        /// 65,532, so that the leaf calldata fits one transaction (spec 11).
+        /// @notice The maximum `h - p` of one landing; at least 1 and at most 65,532 (spec 11).
         uint64 maxBatchBlocks;
         /// @notice The forced inclusion fee in Gwei with an empty queue (spec 7.1); non-zero.
         uint64 forcedInclusionFeeInGwei;
@@ -59,7 +57,7 @@ interface IEtnaInbox {
         uint256 sMin;
         /// @notice `n_max`: the maximum committee size, in [1, 4096].
         uint256 nMax;
-        /// @notice `U`: the maximum number of unsettled L2 blocks, a multiple of K in [K, 65,532].
+        /// @notice `U`: the maximum number of unsettled L2 blocks, in [1, 65,532].
         uint256 unsettledLimit;
     }
 
@@ -87,18 +85,16 @@ interface IEtnaInbox {
         uint256 maxAnchorAge;
     }
 
-    /// @notice The public inputs of `land` (spec 6.1).
+    /// @notice The public inputs of `land` (spec 6.1): eight fields.
     struct LandInput {
-        /// @notice `p`: the proof origin, a retained checkpoint and grid point at or below `c`.
+        /// @notice `p`: the proof origin, a retained checkpoint at or below `c`.
         uint256 parentHeight;
-        /// @notice `h`: the terminal height, a grid point above `c`.
+        /// @notice `h`: the terminal height, any height above `c`.
         uint256 lastHeight;
         /// @notice The EL block hash at `h`.
         bytes32 lastBlockHash;
         /// @notice The CometBFT block hash at `h`.
         bytes32 lastCometHash;
-        /// @notice The opaque validator-state hash at `h` (appendix A).
-        bytes32 lastValStateHash;
         /// @notice The EL state root at `h`.
         bytes32 lastStateRoot;
         /// @notice The L1 block whose header chain holds every anchor and proving root used.
@@ -152,13 +148,13 @@ interface IEtnaInbox {
         uint48 rulesTime;
         /// @notice The planned stop time; zero means no stop.
         uint48 stopTime;
-        /// @notice The planned stop's grid, a positive multiple of K when a stop is set.
+        /// @notice The planned stop's grid, non-zero when a stop is set.
         uint48 stopGrid;
     }
 
-    /// @notice The landing record of a checkpoint height (slot 285 mapping, four words); the
+    /// @notice The landing record of a checkpoint height (slot 285 mapping, three words); the
     /// first word packs `parentHeight`, `generation` and `head`.
-    /// @dev The start write records S as (S, 0, 0, start hash, 0, 0). Records are never pruned
+    /// @dev The start write records S as (S, 0, 0, start hash, 0). Records are never pruned
     /// (spec 8.4).
     struct Landing {
         /// @notice The actual checkpoint `c` the landing settled on, never the proof origin.
@@ -173,8 +169,6 @@ interface IEtnaInbox {
         bytes32 elHash;
         /// @notice The CometBFT block hash at this height; zero for the start S.
         bytes32 cometHash;
-        /// @notice The opaque validator-state hash; zero for the start S.
-        bytes32 valStateHash;
     }
 
     /// @notice The fixed per-generation origin record (slot 290 mapping, three words: startHeight,
@@ -242,7 +236,8 @@ interface IEtnaInbox {
     /// @param parentHeight `p`, the proof origin.
     /// @param checkpointHeight `c`, the checkpoint the landing settled on.
     /// @param lastHeight `h`, the new checkpoint.
-    /// @param cutHash The hash over the cut leaves at the grid points in `(p, h)` (appendix A).
+    /// @param cutHash The hash over the cut leaves of the heights strictly inside `(p, h)`
+    /// (appendix A).
     /// @param activeCommitteeSnapshot The selection snapshot of the committee signing `h`.
     /// @param version The landing statement version, 1.
     event Landed(
@@ -314,7 +309,7 @@ interface IEtnaInbox {
     /// and block.number and block.timestamp below 2^48. A new-network Inbox has no originWriter,
     /// so every call reverts there. The start write sets slot 272 to (S, L1_0 = block.number, L),
     /// slots 273/274 to the hash and state root, origins[0] = (S, L1_0, block.timestamp), the
-    /// checkpoint to (S, hash) and landings[S] = (S, 0, 0, hash, 0, 0), opens the forced inclusion
+    /// checkpoint to (S, hash) and landings[S] = (S, 0, 0, hash, 0), opens the forced inclusion
     /// queue and emits `StartWritten`. It writes no SignalService checkpoint: the one at S is the
     /// Unzen Inbox's, which `land` checks while c is S.
     /// @param _height The Etna start S, the last Unzen block.
@@ -324,38 +319,36 @@ interface IEtnaInbox {
 
     /// @notice Lands a proven batch: settles `(c, h]` with a proof covering `(p, h]` (spec 6.1).
     /// @dev Permissionless and nonpayable; shares `recover`'s reentrancy lock. Before the start
-    /// write no landing passes check 2, because landings[0] is unwritten. With K = 6, S the Etna
-    /// start and `c` the latest checkpoint height read at execution, it requires, before any state
-    /// change:
-    /// 1. generationStartHeight() <= p <= c < h < 2^48 (c >= h means already settled), p - S and
-    ///    h - S multiples of K, and h - p <= maxBatchBlocks;
+    /// write no landing passes check 2, because landings[0] is unwritten. With S the Etna start and
+    /// `c` the latest checkpoint height read at execution, it requires, before any state change:
+    /// 1. generationStartHeight() <= p <= c < h < 2^48 (c >= h means already settled) and
+    ///    h - p <= maxBatchBlocks;
     /// 2. landings[p].elHash != 0, and landings[p].generation == recoveryGeneration unless p is
     ///    the current generation's start height; on a switching network while c == S, the Unzen
     ///    Inbox's getCoreState() shows nextProposalId == lastFinalizedProposalId + 1 and
     ///    lastFinalizedBlockHash == landings[c].elHash, and the SignalService checkpoint at S
     ///    holds that hash and the start's state root;
-    /// 3. _leaves.length == (h - p) / K - 1 and landings[c].head equal to the queue head; if
-    ///    c > p, _leaves[(c - p) / K - 1] == keccak256(abi.encode(c, elHash, cometHash,
-    ///    uint256(head), valStateHash)) over landings[c];
+    /// 3. _leaves.length == h - p - 1 and landings[c].head equal to the queue head; if c > p,
+    ///    _leaves[c - p - 1] == keccak256(abi.encode(c, elHash, cometHash, uint256(head))) over
+    ///    landings[c];
     /// 4. head <= forcedInclusionHead <= tail and forcedInclusionHead - head <= h - c;
     /// 5. l1ReferenceBlockNumber < block.number with a non-zero hash from `blockhash` (256 blocks)
     ///    or the EIP-2935 history contract (8191 blocks), and 1 to 6 blobs;
     /// 6. proofVerifier.verifyProof(0, statement, _proof) succeeds.
     /// cutHash = keccak256(abi.encode(bytes32("ETNA_LAND_CUTS_V1"), uint256(generation), p, h,
-    /// keccak256(abi.encodePacked(_leaves)))). The statement is the keccak256 of 23 static ABI
-    /// words (736 bytes): bytes32("TAIKO_ETNA_LAND_V1"), block.chainid, l2ChainId, this proxy,
-    /// stakingRegistry, generation, p, parentHash, parentCometHash, parentValStateHash,
-    /// committeeConfigHash, h, lastBlockHash, lastCometHash, lastValStateHash, lastStateRoot,
-    /// l1ReferenceBlockNumber, its block hash, keccak256(abi.encodePacked(blobHashes)),
-    /// headBefore, forcedInclusionHead, activeCommitteeSnapshot and cutHash, where parentHash,
-    /// parentCometHash, parentValStateHash and headBefore are the elHash, cometHash, valStateHash
-    /// and head of landings[p] (appendix A). It then sets the checkpoint to (h, lastBlockHash),
-    /// activeCommitteeSnapshot, the queue head and landings[h] = (c, generation,
-    /// forcedInclusionHead, lastBlockHash, lastCometHash, lastValStateHash), saves the
-    /// SignalService checkpoint (h, lastBlockHash, lastStateRoot) and emits `Landed`. It pays no
-    /// fee.
+    /// keccak256(abi.encodePacked(_leaves)))), where an empty list (h = p + 1) hashes as
+    /// keccak256(""). The statement is the keccak256 of 21 static ABI words (672 bytes):
+    /// bytes32("TAIKO_ETNA_LAND_V1"), block.chainid, l2ChainId, this proxy, stakingRegistry,
+    /// generation, p, parentHash, parentCometHash, committeeConfigHash, h, lastBlockHash,
+    /// lastCometHash, lastStateRoot, l1ReferenceBlockNumber, its block hash,
+    /// keccak256(abi.encodePacked(blobHashes)), headBefore, forcedInclusionHead,
+    /// activeCommitteeSnapshot and cutHash, where parentHash, parentCometHash and headBefore are
+    /// the elHash, cometHash and head of landings[p] (appendix A). It then sets the checkpoint to
+    /// (h, lastBlockHash), activeCommitteeSnapshot, the queue head and landings[h] = (c,
+    /// generation, forcedInclusionHead, lastBlockHash, lastCometHash), saves the SignalService
+    /// checkpoint (h, lastBlockHash, lastStateRoot) and emits `Landed`. It pays no fee.
     /// @param _input The batch's public inputs.
-    /// @param _leaves The cut leaves at the grid points p + K, ..., h - K, in height order.
+    /// @param _leaves The cut leaves of the heights p + 1, ..., h - 1, in height order.
     /// @param _proof The two sub-proofs (spec 6.2).
     function land(
         LandInput calldata _input,
@@ -381,16 +374,16 @@ interface IEtnaInbox {
     /// @dev Only the owner; shares `land`'s reentrancy lock and is atomic: any failure reverts
     /// every effect. Reverts `NotInitialized` before `init` and `StartNotWritten` before the
     /// start write. Requires _expectedGeneration == recoveryGeneration() (`GenerationMismatch`),
-    /// _expectedC == lastCheckpoint().height (`CheckpointMismatch`) with _expectedC - S a
-    /// multiple of K (`CheckpointOffGrid`), an exact recovery nonce (`RecoveryNonceMismatch`)
-    /// and block.timestamp <= _validUntil (`AuthorizationExpired`). A non-zero _rules must equal
-    /// the schedule's nextRules + 1 (`InvalidRules`). Increments the authorization nonce without
-    /// wrapping on success. The new generation, block.number and block.timestamp each below 2^48
-    /// (`ValueOverflow`); exclusions sorted strictly by bond id and fiToClear strictly increasing
-    /// within [head, tail). With R = block.number, the registry checks each exclusion's entry key
-    /// and sets its exitEffectiveL1 to min(existing, R) (`IEtnaStakingRegistry.forceExit`), so
-    /// any otherwise valid exclusion reverts `InvalidEventBlock` at block.number == 2^48 - 1, the
-    /// registry's no-exit sentinel. Each listed queue entry's txHash becomes keccak256("").
+    /// _expectedC == lastCheckpoint().height (`CheckpointMismatch`), an exact recovery nonce
+    /// (`RecoveryNonceMismatch`) and block.timestamp <= _validUntil (`AuthorizationExpired`).
+    /// A non-zero _rules must equal the schedule's nextRules + 1 (`InvalidRules`). Increments the
+    /// authorization nonce without wrapping on success. The new generation, block.number and
+    /// block.timestamp each below 2^48 (`ValueOverflow`); exclusions sorted strictly by bond id
+    /// and fiToClear strictly increasing within [head, tail). With R = block.number, the registry
+    /// checks each exclusion's entry key and sets its exitEffectiveL1 to min(existing, R)
+    /// (`IEtnaStakingRegistry.forceExit`), so any otherwise valid exclusion reverts
+    /// `InvalidEventBlock` at block.number == 2^48 - 1, the registry's no-exit sentinel. Each
+    /// listed queue entry's txHash becomes keccak256("").
     /// Increments the generation, writes origins[generation] = (c, R, block.timestamp) once
     /// (`OriginAlreadyWritten` if that record already exists) and emits `Recovered`. It then
     /// clears the planned stop and, for a non-zero _rules, sets activeRules = nextRules = _rules
@@ -429,7 +422,7 @@ interface IEtnaInbox {
     /// @dev Owner only after initialization, under the Inbox lock. With M = maxAnchorAge(): if a
     /// stop is set it requires block.timestamp + M < stopTime (`StopLocked`). It then requires
     /// (_time, _grid) to be (0, 0), which cancels the stop, or _time >= block.timestamp + M with
-    /// _grid a positive multiple of K (`InvalidStop`), sets stopTime and stopGrid and emits
+    /// a non-zero _grid (`InvalidStop`), sets stopTime and stopGrid and emits
     /// `RulesScheduleUpdated`.
     /// @param _time The stop time.
     /// @param _grid The stop grid.
@@ -632,9 +625,6 @@ interface IEtnaInbox {
     error StartCheckpointMismatch();
     /// @notice The Unzen Inbox forwarded a checkpoint above S after the start write.
     error CheckpointAboveStart();
-    /// @notice The landed checkpoint's height (`lastCheckpoint().height`) minus S is not a
-    /// multiple of K.
-    error CheckpointOffGrid();
     /// @notice The ruleset is neither `nextRules` nor `nextRules + 1`, or not `nextRules + 1` in
     /// `recover`.
     error InvalidRules();
@@ -644,8 +634,8 @@ interface IEtnaInbox {
     error RulesLocked();
     /// @notice The planned stop can no longer be changed.
     error StopLocked();
-    /// @notice The stop is neither (0, 0) nor a time at least `maxAnchorAge` ahead with a positive
-    /// multiple of K as its grid.
+    /// @notice The stop is neither (0, 0) nor a time at least `maxAnchorAge` ahead with a non-zero
+    /// grid.
     error InvalidStop();
     /// @notice The expected recovery nonce differs from the current one.
     error RecoveryNonceMismatch();
@@ -653,7 +643,7 @@ interface IEtnaInbox {
     error AuthorizationExpired();
     /// @notice The staking registry holds its reentrancy lock.
     error RegistryLocked();
-    /// @notice `maxBatchBlocks` is below K or above 65,532.
+    /// @notice `maxBatchBlocks` is zero or above 65,532.
     error InvalidMaxBatchBlocks();
     /// @notice The forced inclusion fee is zero.
     error ForcedInclusionFeeZero();
@@ -683,8 +673,6 @@ interface IEtnaInbox {
     error AlreadySettled();
     /// @notice The proof origin is outside [generationStartHeight(), c] or `h` reaches 2^48.
     error InvalidRange();
-    /// @notice `p - S` or `h - S` is not a multiple of K.
-    error OffGrid();
     /// @notice `h - p` exceeds `maxBatchBlocks`.
     error BatchTooLarge();
     /// @notice The proof origin `p` (`LandInput.parentHeight`) has no landing record (slot 285);
@@ -692,7 +680,7 @@ interface IEtnaInbox {
     error MissingOrigin();
     /// @notice The proof origin's record belongs to another generation.
     error ForeignGeneration();
-    /// @notice The number of cut leaves is not `(h - p) / K - 1`.
+    /// @notice The number of cut leaves is not `h - p - 1`.
     error LeafCountMismatch();
     /// @notice The forced-inclusion cursor in the checkpoint's landing record (`Landing.head`, the
     /// spec's "FI cursor") differs from the Inbox queue head (slot 281), which must equal it once

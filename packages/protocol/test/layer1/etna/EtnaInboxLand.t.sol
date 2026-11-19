@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { MockLandProofVerifier } from "./EtnaInboxTestBase.sol";
 import { EtnaLandTestBase } from "./EtnaLandTestBase.sol";
+import { LibEtnaLandStatement } from "./LibEtnaLandStatement.sol";
 import { VmSafe } from "forge-std/src/Vm.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
@@ -44,43 +45,172 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     uint256 private constant _TWO_POW_48 = 2 ** 48;
 
     // ---------------------------------------------------------------
+    // Any height, one leaf per height
+    // ---------------------------------------------------------------
+
+    /// @dev A one-block landing (h = p + 1) carries no leaves, its cutHash hashes the empty list
+    /// as keccak256(""), and landings[h] holds three words.
+    function test_land_singleBlock_noLeaves() external {
+        IEtnaInbox.LandInput memory input = _input(0, 1);
+        bytes32[] memory none = _leaves(0, 1);
+        assertEq(none.length, 0, "no leaves");
+        bytes32 cutHash = _cutHash(input, none);
+        assertEq(
+            cutHash,
+            keccak256(
+                abi.encode(
+                    bytes32("ETNA_LAND_CUTS_V1"), uint256(0), uint256(0), uint256(1), keccak256("")
+                )
+            ),
+            "cut hash over the empty list"
+        );
+
+        _land(input, none);
+
+        _assertCheckpoint(1, bytes32(uint256(101)));
+        uint256 slot = _landingSlot(1);
+        assertEq(_inboxWord(slot), _landingWord1(0, 0, 0), "word 1: parent, generation, head");
+        assertEq(_inboxWord(slot + 1), bytes32(uint256(101)), "word 2: EL hash");
+        assertEq(_inboxWord(slot + 2), bytes32(uint256(201)), "word 3: Comet hash");
+        assertEq(_inboxWord(slot + 3), 0, "no fourth word");
+        assertEq(signalService.getCheckpoint(1).stateRoot, bytes32(uint256(301)), "state root");
+
+        // The next block lands on its own from the new checkpoint.
+        _land(1, 2);
+        _assertCheckpoint(2, bytes32(uint256(102)));
+        assertEq(_inboxWord(_landingSlot(2)), _landingWord1(1, 0, 0), "parent 1");
+    }
+
+    /// @dev A competitor settles p + 1 first, a height that was never a grid point. The original
+    /// transaction proving (p, p + 3] still lands unchanged: its leaf at index c - p - 1 = 0 is
+    /// cutLeaf(p + 1) over the competitor's record, and the verifier accepts only its statement.
+    function test_land_overlapAtPPlusOne() external {
+        uint256 p = 2;
+        _land(0, p);
+        IEtnaInbox.LandInput memory original = _input(p, p + 3);
+        bytes32[] memory leaves = _leaves(p, p + 3);
+        assertEq(leaves.length, 2, "the leaves of p + 1 and p + 2");
+        bytes32 statement = _statement(original, _inbox().landings(p), _cutHash(original, leaves));
+
+        _land(p, p + 1);
+        _assertCheckpoint(p + 1, bytes32(uint256(100 + p + 1)));
+        IEtnaInbox.Landing memory atC = _inbox().landings(p + 1);
+        assertEq(
+            leaves[0],
+            LibEtnaLandStatement.cutLeaf(p + 1, atC.elHash, atC.cometHash, atC.head),
+            "leaves[0] is cutLeaf(p + 1)"
+        );
+
+        landVerifier.setExpectedStatementHash(statement);
+        assertEq(_land(original, leaves), statement, "the original statement");
+        _assertCheckpoint(p + 3, bytes32(uint256(100 + p + 3)));
+        assertEq(_inboxWord(_landingSlot(p + 3)), _landingWord1(p + 1, 0, 0), "parent is c");
+    }
+
+    /// @dev `leaves.length` must be exactly h - p - 1.
+    function test_land_revertsOnWrongLeafCount() external {
+        _expectLandRevert(_input(0, 3), new bytes32[](1), IEtnaInbox.LeafCountMismatch.selector);
+        _expectLandRevert(_input(0, 3), new bytes32[](3), IEtnaInbox.LeafCountMismatch.selector);
+        _expectLandRevert(_input(0, 1), new bytes32[](1), IEtnaInbox.LeafCountMismatch.selector);
+        _land(0, 2);
+        _expectLandRevert(_input(2, 7), _leaves(2, 6), IEtnaInbox.LeafCountMismatch.selector);
+        _expectLandRevert(_input(0, 7), _leaves(2, 7), IEtnaInbox.LeafCountMismatch.selector);
+    }
+
+    /// @dev With c = 4 and p = 2 the leaf at index c - p - 1 = 1 must match c's record; altering
+    /// it reverts before the proof is verified, while altering another index leaves the decision
+    /// to the proof.
+    function test_land_revertsOnLeafMismatchAtC() external {
+        _land(0, 2);
+        _land(2, 4);
+        IEtnaInbox.LandInput memory input = _input(2, 7);
+        bytes32[] memory leaves = _leaves(2, 7);
+        assertEq(leaves[1], _leaf(4), "index c - p - 1 holds the leaf of c");
+
+        // The verifier rejects every proof, so a leaf check after it would fail as the proof.
+        landVerifier.setRejects(true);
+        leaves[1] = keccak256("not the leaf of c");
+        _expectLandRevert(input, leaves, IEtnaInbox.FrontierLeafMismatch.selector);
+
+        leaves = _leaves(2, 7);
+        leaves[0] = keccak256("not checked");
+        leaves[2] = keccak256("not checked");
+        _expectLandRevert(input, leaves, MockLandProofVerifier.ProofRejected.selector);
+
+        landVerifier.setRejects(false);
+        _land(input, _leaves(2, 7));
+        _assertCheckpoint(7, bytes32(uint256(107)));
+    }
+
+    /// @dev The statement preimage is the 21 static ABI words of ENC-A-35 in order, 672 bytes, and
+    /// the Inbox verifies exactly its keccak256.
+    function test_statement_is672Bytes() external {
+        IEtnaInbox.LandInput memory input = _input(0, 3);
+        bytes32[] memory leaves = _leaves(0, 3);
+        bytes32 cutHash = _cutHash(input, leaves);
+        IEtnaInbox.Landing memory origin = _inbox().landings(0);
+        bytes memory preimage = _statementPreimage(input, origin, cutHash);
+        assertEq(preimage.length, 672, "672 bytes");
+
+        bytes32[21] memory words = [
+            bytes32("TAIKO_ETNA_LAND_V1"),
+            bytes32(block.chainid),
+            bytes32(uint256(L2_CHAIN_ID)),
+            bytes32(uint256(uint160(inboxProxy))),
+            bytes32(uint256(uint160(address(registry)))),
+            bytes32(0),
+            bytes32(0),
+            bytes32(uint256(100)),
+            bytes32(0),
+            _inbox().committeeConfigHash(),
+            bytes32(uint256(3)),
+            bytes32(uint256(103)),
+            bytes32(uint256(203)),
+            bytes32(uint256(303)),
+            bytes32(LEAN_REFERENCE_BLOCK),
+            LEAN_REFERENCE_HASH,
+            keccak256(abi.encodePacked(blobHashes)),
+            bytes32(0),
+            bytes32(0),
+            bytes32(LEAN_SNAPSHOT),
+            cutHash
+        ];
+        for (uint256 i; i < words.length; ++i) {
+            assertEq(_word(preimage, i), words[i], string.concat("word ", vm.toString(i)));
+        }
+
+        assertEq(_land(input, leaves), keccak256(preimage), "the Inbox verifies this statement");
+    }
+
+    /// @dev `cutLeaf(x) = keccak256(abi.encode(x, blockHash, cometHash, forcedHead))`, four words,
+    /// and the Inbox accepts exactly that leaf at c.
+    function test_cutLeaf_fourWords() external {
+        uint256 x = 5;
+        bytes32 bh = keccak256("block hash");
+        bytes32 ch = keccak256("comet hash");
+        uint256 head = 7;
+        assertEq(abi.encode(x, bh, ch, head).length, 128, "four words");
+        assertEq(
+            LibEtnaLandStatement.cutLeaf(x, bh, ch, head),
+            keccak256(abi.encode(x, bh, ch, head)),
+            "cutLeaf"
+        );
+
+        _land(0, 1);
+        bytes32[] memory leaves = new bytes32[](1);
+        leaves[0] = keccak256(
+            abi.encode(uint256(1), bytes32(uint256(101)), bytes32(uint256(201)), uint256(0))
+        );
+        _land(_input(0, 2), leaves);
+        _assertCheckpoint(2, bytes32(uint256(102)));
+    }
+
+    // ---------------------------------------------------------------
     // Landing and its writes
     // ---------------------------------------------------------------
 
-    /// @dev The terminal opaque commitment occupies the fourth mapping word.
-    function test_land_ValidatorStateFourthWord() external {
-        _land(0, 6);
-        assertEq(_inboxWord(_landingSlot(6) + 3), bytes32(uint256(406)), "terminal validator state");
-    }
-
-    /// @dev A hash-only frontier mismatch is rejected before proof verification.
-    function test_land_ValidatorStateOnlyFrontierMismatch() external {
-        _land(0, 6);
-        _storeInboxWord(_landingSlot(6) + 3, bytes32(uint256(9999)));
-        vm.expectCall(
-            address(landVerifier), abi.encodePacked(IProofVerifier.verifyProof.selector), 0
-        );
-        _expectLandRevert(_input(0, 12), _leaves(0, 12), IEtnaInbox.FrontierLeafMismatch.selector);
-    }
-
-    /// @dev Both opaque commitments are proof inputs.
-    function test_land_ValidatorStateStatementMutations() external {
-        _land(0, 6);
-        IEtnaInbox.LandInput memory input = _input(6, 12);
-        bytes32[] memory none = new bytes32[](0);
-        bytes32 expected = _statement(input, _inbox().landings(6), _cutHash(input, none));
-        landVerifier.setExpectedStatementHash(expected);
-        input.lastValStateHash = keccak256("changed terminal validator state");
-        _expectLandRevert(input, none, MockLandProofVerifier.ProofRejected.selector);
-        input = _input(6, 12);
-        _storeInboxWord(_landingSlot(6) + 3, keccak256("changed parent validator state"));
-        _expectLandRevert(input, none, MockLandProofVerifier.ProofRejected.selector);
-        _storeInboxWord(_landingSlot(6) + 3, _valStateHash(6));
-        _land(input, none);
-    }
-
-    /// @dev A downstream checkpoint failure rolls back the fourth word already written by land.
-    function test_land_ValidatorStateRollbackAfterCheckpointFailure() external {
+    /// @dev A downstream checkpoint failure rolls back the record already written by land.
+    function test_land_RollbackAfterCheckpointFailure() external {
         vm.mockCallRevert(
             address(signalService),
             abi.encodeWithSelector(SignalService.saveCheckpoint.selector),
@@ -89,38 +219,25 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         IEtnaInbox.LandInput memory input = _input(0, 6);
         vm.blobhashes(blobHashes);
         vm.expectRevert(abi.encode("checkpoint failed"));
-        _inbox().land(input, new bytes32[](0), PROOF);
-        assertEq(_inboxWord(_landingSlot(6) + 3), 0, "fourth word rolled back");
+        _inbox().land(input, _leaves(0, 6), PROOF);
+        for (uint256 w; w < 3; ++w) {
+            assertEq(_inboxWord(_landingSlot(6) + w), 0, "record rolled back");
+        }
         _assertCheckpoint(0, bytes32(uint256(100)));
         _assertQueue(0, LEAN_FORCED_INCLUSIONS);
         assertEq(_inbox().activeCommitteeSnapshot(), registryCheckpointBlock);
     }
 
-    /// @dev The first segment writes the terminal record and retains the start record.
-    function test_land_LandsFirstGridSegment() external {
+    /// @dev The first batch writes the terminal record and retains the start record.
+    function test_land_LandsFirstBatch() external {
         IEtnaInbox.LandInput memory input = _input(0, 6);
-        bytes32[] memory none = new bytes32[](0);
-        bytes32 cutHash = _cutHash(input, none);
-        assertEq(
-            cutHash,
-            keccak256(
-                abi.encode(
-                    bytes32("ETNA_LAND_CUTS_V1"), uint256(0), uint256(0), uint256(6), keccak256("")
-                )
-            ),
-            "cut hash over the empty list"
-        );
-        // The `g0_p0_h6` vector.
-        assertEq(
-            cutHash,
-            0xcf8e3c664c50dae3ca433e951161604725515156d44722b20b12c56e002d3715,
-            "cut hash vector"
-        );
+        bytes32[] memory leaves = _leaves(0, 6);
+        assertEq(leaves.length, 5, "the leaves of 1 to 5");
         assertEq(_inbox().l2ChainId(), L2_CHAIN_ID, "statement L2 chain id");
         assertEq(_inbox().stakingRegistry(), address(registry), "statement registry");
 
         // `_land` expects `Landed(0, 0, 6, cutHash, 4, 1)` and one verifier call.
-        _land(input, none);
+        _land(input, leaves);
 
         _assertCheckpoint(6, bytes32(uint256(106)));
         _assertLanding(6, _record(0, 0, 1, 6));
@@ -135,15 +252,14 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         assertEq(saved.stateRoot, bytes32(uint256(306)), "signal state root");
     }
 
-    /// @dev Proving (0, 12] after (0, 6] landed: parentHash, parentCometHash, parentValStateHash
-    /// and headBefore come from `landings(0)`, not from the checkpoint at 6; the new record's
-    /// parent is the actual c.
+    /// @dev Proving (0, 12] after (0, 6] landed: parentHash, parentCometHash and headBefore come
+    /// from `landings(0)`, not from the checkpoint at 6; the new record's parent is the actual c.
     function test_land_StatementBindsOriginNotCheckpoint() external {
         _land(0, 6);
         IEtnaInbox.LandInput memory input = _input(0, 12);
         bytes32[] memory leaves = _leaves(0, 12);
-        assertEq(leaves.length, 1, "one grid point inside (0, 12)");
-        assertEq(leaves[0], _leaf(6), "the leaf at 6");
+        assertEq(leaves.length, 11, "eleven heights inside (0, 12)");
+        assertEq(leaves[5], _leaf(6), "the leaf at 6");
 
         bytes32 cutHash = _cutHash(input, leaves);
         bytes32 fromOrigin = _statement(input, _inbox().landings(0), cutHash);
@@ -168,15 +284,14 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     /// @dev Spec 6.1 step 7 stores the snapshot as proven, with no bound against the stored one
     /// or the reference block: `land` adds no snapshot check to the reference Solidity.
     function test_land_StoresTheProvenSnapshotWithoutBounds() external {
-        bytes32[] memory none = new bytes32[](0);
         IEtnaInbox.LandInput memory input = _input(0, 6);
         input.activeCommitteeSnapshot = 0;
-        _land(input, none);
+        _land(input, _leaves(0, 6));
         assertEq(_inbox().activeCommitteeSnapshot(), 0, "below the stored snapshot");
 
         input = _input(6, 12);
         input.activeCommitteeSnapshot = type(uint256).max;
-        _land(input, none);
+        _land(input, _leaves(6, 12));
         assertEq(
             uint256(_inboxWord(ACTIVE_COMMITTEE_SNAPSHOT_SLOT)),
             type(uint256).max,
@@ -208,7 +323,7 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     }
 
     // ---------------------------------------------------------------
-    // Step 1: range and grid
+    // Step 1: range
     // ---------------------------------------------------------------
 
     function test_land_RevertWhen_AlreadySettled() external {
@@ -240,86 +355,71 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         _expectLandRevert(_input(0, 18), _leaves(0, 18), IEtnaInbox.InvalidRange.selector);
     }
 
-    /// @dev `h < 2^48` is part of the range check: 2^48 + 2, the first grid point at or above
-    /// 2^48, is rejected by the range check before the batch size check, even at the largest
-    /// allowed batch size, and from a checkpoint just below the limit only 2^48 - 4 lands.
+    /// @dev `h < 2^48` is part of the range check: 2^48 is rejected by the range check before the
+    /// batch size check, even at the largest allowed batch size, and from a checkpoint just below
+    /// the limit 2^48 - 1 lands.
     function test_land_RevertWhen_HeightReaches2Pow48() external {
         bytes32[] memory none = new bytes32[](0);
-        uint256 h = _TWO_POW_48 + 2;
-        assertEq(h % K, 0, "2^48 + 2 is a grid point");
+        uint256 h = _TWO_POW_48;
         _upgradeWithMaxBatchBlocks(65_532);
         _expectLandRevert(_input(0, h), none, IEtnaInbox.InvalidRange.selector);
-        // The range check runs before the grid check.
-        _expectLandRevert(_input(0, _TWO_POW_48), none, IEtnaInbox.InvalidRange.selector);
 
         uint256 p = _TWO_POW_48 - 10;
-        assertEq(p % K, 0, "2^48 - 10 is a grid point");
         IEtnaInbox.Landing memory near = IEtnaInbox.Landing({
             parentHeight: 0,
             generation: 0,
             head: 0,
             elHash: keccak256("el near 2^48"),
-            cometHash: keccak256("comet near 2^48"),
-            valStateHash: keccak256("validator near 2^48")
+            cometHash: keccak256("comet near 2^48")
         });
         _plantLanding(p, near);
         _storeInboxWord(LAST_CHECKPOINT_HEIGHT_SLOT, bytes32(p));
         _storeInboxWord(LAST_CHECKPOINT_HASH_SLOT, near.elHash);
 
-        _expectLandRevert(_input(p, h), new bytes32[](1), IEtnaInbox.InvalidRange.selector);
+        _expectLandRevert(_input(p, h), _leaves(p, h), IEtnaInbox.InvalidRange.selector);
         _assertCheckpoint(p, near.elHash);
 
-        IEtnaInbox.LandInput memory input = _input(p, _TWO_POW_48 - 4);
+        IEtnaInbox.LandInput memory input = _input(p, _TWO_POW_48 - 1);
         input.forcedInclusionHead = 0;
-        _land(input, none);
-        _assertCheckpoint(_TWO_POW_48 - 4, input.lastBlockHash);
+        _land(input, _leaves(p, _TWO_POW_48 - 1));
+        _assertCheckpoint(_TWO_POW_48 - 1, input.lastBlockHash);
         _assertLanding(
-            _TWO_POW_48 - 4,
+            _TWO_POW_48 - 1,
             IEtnaInbox.Landing({
                 parentHeight: uint48(p),
                 generation: 0,
                 head: 0,
                 elHash: input.lastBlockHash,
-                cometHash: input.lastCometHash,
-                valStateHash: input.lastValStateHash
+                cometHash: input.lastCometHash
             })
         );
         assertEq(
-            signalService.getCheckpoint(uint48(_TWO_POW_48 - 4)).stateRoot,
+            signalService.getCheckpoint(uint48(_TWO_POW_48 - 1)).stateRoot,
             input.lastStateRoot,
             "signal checkpoint"
         );
     }
 
-    function test_land_RevertWhen_OffGrid() external {
-        bytes32[] memory none = new bytes32[](0);
-        _expectLandRevert(_input(0, 13), new bytes32[](1), IEtnaInbox.OffGrid.selector);
-        _land(0, 12);
-        _expectLandRevert(_input(7, 18), none, IEtnaInbox.OffGrid.selector);
-        _expectLandRevert(_input(6, 13), none, IEtnaInbox.OffGrid.selector);
-        _expectLandRevert(_input(12, 15), none, IEtnaInbox.OffGrid.selector);
-    }
-
-    /// @dev `h - p <= maxBatchBlocks`, inclusive: with the minimum of one segment (0, 6] lands and
-    /// (0, 12] does not; with 1000, 996 lands and 1002 does not.
+    /// @dev `h - p <= maxBatchBlocks`, inclusive: with the minimum of one block (0, 1] lands and
+    /// (0, 2] does not; with 1000, 1000 lands and 1001 does not.
     function test_land_RevertWhen_BatchTooLarge() external {
         assertEq(MAX_BATCH_BLOCKS, 1000, "maxBatchBlocks");
-        _expectLandRevert(_input(0, 1002), _leaves(0, 1002), IEtnaInbox.BatchTooLarge.selector);
+        _expectLandRevert(_input(0, 1001), _leaves(0, 1001), IEtnaInbox.BatchTooLarge.selector);
 
-        _upgradeWithMaxBatchBlocks(6);
-        _expectLandRevert(_input(0, 12), _leaves(0, 12), IEtnaInbox.BatchTooLarge.selector);
-        _land(0, 6);
+        _upgradeWithMaxBatchBlocks(1);
+        _expectLandRevert(_input(0, 2), _leaves(0, 2), IEtnaInbox.BatchTooLarge.selector);
+        _land(0, 1);
         // The bound is on the proven range (p, h], not on the settled suffix (c, h].
-        _expectLandRevert(_input(0, 12), _leaves(0, 12), IEtnaInbox.BatchTooLarge.selector);
-        _land(6, 12);
+        _expectLandRevert(_input(0, 2), _leaves(0, 2), IEtnaInbox.BatchTooLarge.selector);
+        _land(1, 2);
 
         _upgradeWithMaxBatchBlocks(MAX_BATCH_BLOCKS);
-        IEtnaInbox.LandInput memory input = _input(0, 996);
+        IEtnaInbox.LandInput memory input = _input(0, 1000);
         input.forcedInclusionHead = LEAN_FORCED_INCLUSIONS;
-        bytes32[] memory leaves = _leaves(0, 996);
-        assertEq(leaves.length, 165, "165 leaves");
+        bytes32[] memory leaves = _leaves(0, 1000);
+        assertEq(leaves.length, 999, "999 leaves");
         _land(input, leaves);
-        _assertCheckpoint(996, bytes32(uint256(1096)));
+        _assertCheckpoint(1000, bytes32(uint256(1100)));
     }
 
     // ---------------------------------------------------------------
@@ -360,15 +460,18 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     /// @dev Unreachable through `land` and `recover`: c's recorded head always equals the queue
     /// head. The queue head is planted on either side of it.
     function test_land_RevertWhen_ForcedInclusionHeadMismatch() external {
-        bytes32[] memory none = new bytes32[](0);
         _land(0, 6);
         _plantQueue(0, LEAN_FORCED_INCLUSIONS);
-        _expectLandRevert(_input(6, 12), none, IEtnaInbox.ForcedInclusionHeadMismatch.selector);
+        _expectLandRevert(
+            _input(6, 12), _leaves(6, 12), IEtnaInbox.ForcedInclusionHeadMismatch.selector
+        );
         _plantQueue(2, LEAN_FORCED_INCLUSIONS);
-        _expectLandRevert(_input(6, 12), none, IEtnaInbox.ForcedInclusionHeadMismatch.selector);
+        _expectLandRevert(
+            _input(6, 12), _leaves(6, 12), IEtnaInbox.ForcedInclusionHeadMismatch.selector
+        );
     }
 
-    /// @dev The leaf at c must match c's record in all five words; it is checked while the
+    /// @dev The leaf at c must match c's record in all four words; it is checked while the
     /// verifier rejects everything, so the leaf check runs before the proof.
     function test_land_RevertWhen_FrontierLeafDiffers() external {
         _land(0, 6);
@@ -376,19 +479,19 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         IEtnaInbox.LandInput memory input = _input(0, 12);
         (bytes32 el, bytes32 comet, uint256 head) = _cut(6);
         bytes32 wrong = bytes32(uint256(999));
-        bytes32[] memory leaves = new bytes32[](1);
+        bytes32[] memory leaves = _leaves(0, 12);
 
-        leaves[0] = _leafOf(6, el, wrong, head);
+        leaves[5] = _leafOf(6, el, wrong, head);
         _expectLandRevert(input, leaves, IEtnaInbox.FrontierLeafMismatch.selector);
-        leaves[0] = _leafOf(6, wrong, comet, head);
+        leaves[5] = _leafOf(6, wrong, comet, head);
         _expectLandRevert(input, leaves, IEtnaInbox.FrontierLeafMismatch.selector);
-        leaves[0] = _leafOf(7, el, comet, head);
+        leaves[5] = _leafOf(7, el, comet, head);
         _expectLandRevert(input, leaves, IEtnaInbox.FrontierLeafMismatch.selector);
-        leaves[0] = _leafOf(6, el, comet, head + 1);
+        leaves[5] = _leafOf(6, el, comet, head + 1);
         _expectLandRevert(input, leaves, IEtnaInbox.FrontierLeafMismatch.selector);
 
         // With the honest leaf only the proof fails.
-        leaves[0] = _leaf(6);
+        leaves[5] = _leaf(6);
         _expectLandRevert(input, leaves, MockLandProofVerifier.ProofRejected.selector);
     }
 
@@ -399,21 +502,21 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
 
         _land(0, 6);
         bytes32[] memory leaves = _leaves(0, 18);
-        leaves[1] = garbage;
+        leaves[11] = garbage;
         _land(_input(0, 18), leaves);
         _assertCheckpoint(18, bytes32(uint256(118)));
 
         vm.revertToState(fresh);
         _land(0, 12);
         leaves = _leaves(0, 18);
-        leaves[0] = garbage;
+        leaves[5] = garbage;
         _land(_input(0, 18), leaves);
         _assertCheckpoint(18, bytes32(uint256(118)));
 
         vm.revertToState(fresh);
         _land(0, 12);
         leaves = _leaves(0, 18);
-        leaves[1] = garbage;
+        leaves[11] = garbage;
         _expectLandRevert(_input(0, 18), leaves, IEtnaInbox.FrontierLeafMismatch.selector);
     }
 
@@ -422,49 +525,48 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     // ---------------------------------------------------------------
 
     function test_land_RevertWhen_ForcedInclusionHeadOutOfBounds() external {
-        bytes32[] memory none = new bytes32[](0);
+        bytes32[] memory leaves = _leaves(6, 12);
         _land(0, 6);
         IEtnaInbox.LandInput memory input = _input(6, 12);
 
         input.forcedInclusionHead = 0;
-        _expectLandRevert(input, none, IEtnaInbox.InvalidForcedInclusionHead.selector);
+        _expectLandRevert(input, leaves, IEtnaInbox.InvalidForcedInclusionHead.selector);
         input.forcedInclusionHead = LEAN_FORCED_INCLUSIONS + 1;
-        _expectLandRevert(input, none, IEtnaInbox.InvalidForcedInclusionHead.selector);
+        _expectLandRevert(input, leaves, IEtnaInbox.InvalidForcedInclusionHead.selector);
 
         // Both ends are inclusive: no advance, and an advance to the tail.
         uint256 beforeLanding = vm.snapshotState();
         input.forcedInclusionHead = 1;
-        _land(input, none);
+        _land(input, leaves);
         _assertQueue(1, LEAN_FORCED_INCLUSIONS);
         vm.revertToState(beforeLanding);
         input.forcedInclusionHead = LEAN_FORCED_INCLUSIONS;
-        _land(input, none);
+        _land(input, leaves);
         _assertQueue(LEAN_FORCED_INCLUSIONS, LEAN_FORCED_INCLUSIONS);
         vm.revertToState(beforeLanding);
 
         // An advance beyond h - c = 6 with enough entries queued.
         _saveForcedInclusions(5);
         input.forcedInclusionHead = 8;
-        _expectLandRevert(input, none, IEtnaInbox.InvalidForcedInclusionHead.selector);
+        _expectLandRevert(input, leaves, IEtnaInbox.InvalidForcedInclusionHead.selector);
         input.forcedInclusionHead = 7;
-        _land(input, none);
+        _land(input, leaves);
         _assertQueue(7, 8);
     }
 
     /// @dev c = 6 with head 0, h = 12 and tail 10, proved from p = 0: the advance is bounded by
     /// h - c = 6, not h - p = 12.
     function test_land_HeadAdvanceIsBoundedByHMinusC() external {
-        bytes32[] memory none = new bytes32[](0);
         _saveForcedInclusions(7);
         IEtnaInbox.LandInput memory first = _input(0, 6);
         first.forcedInclusionHead = 0;
-        _land(first, none);
+        _land(first, _leaves(0, 6));
         _assertQueue(0, 10);
 
         IEtnaInbox.LandInput memory input = _input(0, 12);
         (bytes32 el, bytes32 comet,) = _cut(6);
-        bytes32[] memory leaves = new bytes32[](1);
-        leaves[0] = _leafOf(6, el, comet, 0);
+        bytes32[] memory leaves = _leaves(0, 12);
+        leaves[5] = _leafOf(6, el, comet, 0);
 
         input.forcedInclusionHead = 7;
         _expectLandRevert(input, leaves, IEtnaInbox.InvalidForcedInclusionHead.selector);
@@ -522,18 +624,18 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         _setReference(L1_HEAD - 8192, keccak256("too old"));
         _plantHistory(L1_HEAD - 8192, keccak256("too old"));
         _expectLandRevert(
-            _input(0, 6), new bytes32[](0), IEtnaInbox.ReferenceBlockUnavailable.selector
+            _input(0, 6), _leaves(0, 6), IEtnaInbox.ReferenceBlockUnavailable.selector
         );
     }
 
     function test_land_RevertWhen_ReferenceNotInThePast() external {
         _setReference(block.number, keccak256("current"));
         _expectLandRevert(
-            _input(0, 6), new bytes32[](0), IEtnaInbox.ReferenceBlockUnavailable.selector
+            _input(0, 6), _leaves(0, 6), IEtnaInbox.ReferenceBlockUnavailable.selector
         );
         _setReference(block.number + 1, keccak256("future"));
         _expectLandRevert(
-            _input(0, 6), new bytes32[](0), IEtnaInbox.ReferenceBlockUnavailable.selector
+            _input(0, 6), _leaves(0, 6), IEtnaInbox.ReferenceBlockUnavailable.selector
         );
     }
 
@@ -544,14 +646,14 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         vm.setBlockhash(recent, keccak256("recent"));
         _setReference((uint256(1) << 64) + recent, keccak256("recent"));
         _expectLandRevert(
-            _input(0, 6), new bytes32[](0), IEtnaInbox.ReferenceBlockUnavailable.selector
+            _input(0, 6), _leaves(0, 6), IEtnaInbox.ReferenceBlockUnavailable.selector
         );
     }
 
     function test_land_RevertWhen_BlockhashIsZero() external {
         _setReference(block.number - 2, 0);
         _expectLandRevert(
-            _input(0, 6), new bytes32[](0), IEtnaInbox.ReferenceBlockUnavailable.selector
+            _input(0, 6), _leaves(0, 6), IEtnaInbox.ReferenceBlockUnavailable.selector
         );
     }
 
@@ -560,7 +662,7 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         _setReference(L1_HEAD - 300, 0);
         _plantHistory(L1_HEAD - 300, 0);
         _expectLandRevert(
-            _input(0, 6), new bytes32[](0), IEtnaInbox.ReferenceBlockUnavailable.selector
+            _input(0, 6), _leaves(0, 6), IEtnaInbox.ReferenceBlockUnavailable.selector
         );
     }
 
@@ -569,16 +671,16 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         vm.roll(L1_HEAD);
         _setReference(L1_HEAD - 300, keccak256("unavailable"));
         _expectLandRevert(
-            _input(0, 6), new bytes32[](0), IEtnaInbox.ReferenceBlockUnavailable.selector
+            _input(0, 6), _leaves(0, 6), IEtnaInbox.ReferenceBlockUnavailable.selector
         );
     }
 
     function test_land_RevertWhen_BlobCountOutsideOneToSix() external {
-        bytes32[] memory none = new bytes32[](0);
+        bytes32[] memory leaves = _leaves(0, 6);
         _setBlobCount(0);
-        _expectLandRevert(_input(0, 6), none, IEtnaInbox.InvalidBlobCount.selector);
+        _expectLandRevert(_input(0, 6), leaves, IEtnaInbox.InvalidBlobCount.selector);
         _setBlobCount(7);
-        _expectLandRevert(_input(0, 6), none, IEtnaInbox.InvalidBlobCount.selector);
+        _expectLandRevert(_input(0, 6), leaves, IEtnaInbox.InvalidBlobCount.selector);
 
         _setBlobCount(1);
         _land(0, 6);
@@ -589,9 +691,9 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     /// @dev The statement binds every blob hash in index order: a reordered or shorter list is a
     /// different statement.
     function test_land_BindsEveryBlobHashInOrder() external {
-        bytes32[] memory none = new bytes32[](0);
+        bytes32[] memory leaves = _leaves(0, 6);
         IEtnaInbox.LandInput memory input = _input(0, 6);
-        bytes32 cutHash = _cutHash(input, none);
+        bytes32 cutHash = _cutHash(input, leaves);
         IEtnaInbox.Landing memory origin = _inbox().landings(0);
 
         _setBlobCount(3);
@@ -604,11 +706,11 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         assertNotEq(_statement(input, origin, cutHash), inOrder, "third blob bound");
 
         landVerifier.setExpectedStatementHash(inOrder);
-        _expectLandRevert(input, none, MockLandProofVerifier.ProofRejected.selector);
+        _expectLandRevert(input, leaves, MockLandProofVerifier.ProofRejected.selector);
         blobHashes = reversed;
-        _expectLandRevert(input, none, MockLandProofVerifier.ProofRejected.selector);
+        _expectLandRevert(input, leaves, MockLandProofVerifier.ProofRejected.selector);
         _setBlobCount(3);
-        assertEq(_land(input, none), inOrder, "three blobs in order");
+        assertEq(_land(input, leaves), inOrder, "three blobs in order");
     }
 
     // ---------------------------------------------------------------
@@ -618,16 +720,14 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     function test_land_RevertWhen_ProofRejected_RollsBackEverything() external {
         landVerifier.setRejects(true);
         IEtnaInbox.LandInput memory input = _input(0, 6);
-        _expectLandRevert(input, new bytes32[](0), MockLandProofVerifier.ProofRejected.selector);
+        _expectLandRevert(input, _leaves(0, 6), MockLandProofVerifier.ProofRejected.selector);
 
         _assertCheckpoint(0, bytes32(uint256(100)));
         assertEq(_inbox().activeCommitteeSnapshot(), registryCheckpointBlock, "snapshot");
         _assertQueue(0, LEAN_FORCED_INCLUSIONS);
         _assertLanding(
             6,
-            IEtnaInbox.Landing({
-                parentHeight: 0, generation: 0, head: 0, elHash: 0, cometHash: 0, valStateHash: 0
-            })
+            IEtnaInbox.Landing({ parentHeight: 0, generation: 0, head: 0, elHash: 0, cometHash: 0 })
         );
         vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
         signalService.getCheckpoint(6);
@@ -692,7 +792,7 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         vm.blobhashes(blobHashes);
         vm.startStateDiffRecording();
         vm.prank(Bob);
-        _inbox().land(input, new bytes32[](0), PROOF);
+        _inbox().land(input, _leaves(0, 6), PROOF);
         VmSafe.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
 
         uint256 seen;
@@ -735,5 +835,19 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     function _plantHistory(uint256 _number, bytes32 _hash) private {
         vm.etch(HISTORY_STORAGE, HISTORY_STORAGE_CODE);
         vm.store(HISTORY_STORAGE, bytes32(_number % 8191), _hash);
+    }
+
+    /// @dev Word `_i` of `_data`.
+    function _word(
+        bytes memory _data,
+        uint256 _i
+    )
+        private
+        pure
+        returns (bytes32 word_)
+    {
+        assembly {
+            word_ := mload(add(_data, add(32, mul(_i, 32))))
+        }
     }
 }

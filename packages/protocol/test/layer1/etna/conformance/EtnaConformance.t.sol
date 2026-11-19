@@ -461,7 +461,6 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
             lastHeight: _u(_j, _a, ".lastHeight"),
             lastBlockHash: bytes32(_u(_j, _a, ".lastBlockHash")),
             lastCometHash: bytes32(_u(_j, _a, ".lastCometHash")),
-            lastValStateHash: 0,
             lastStateRoot: bytes32(_u(_j, _a, ".lastStateRoot")),
             l1ReferenceBlockNumber: _u(_j, _a, ".l1ReferenceBlockNumber"),
             forcedInclusionHead: _u(_j, _a, ".forcedInclusionHead"),
@@ -488,8 +487,8 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         if (ok_ && input.lastHeight > maxLanded) maxLanded = input.lastHeight;
     }
 
-    /// @dev A cut leaf is cutLeaf(x) = keccak256(abi.encode(x, elHash, cometHash, head, bytes32(0))); a word
-    /// is `bytes32(word)`.
+    /// @dev A cut leaf is cutLeaf(x) = keccak256(abi.encode(x, elHash, cometHash, head)); a word is
+    /// `bytes32(word)`.
     function _leaves(
         string memory _j,
         string memory _path
@@ -504,11 +503,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
             leaves_[i] = raw[i].cut
                 ? keccak256(
                     abi.encode(
-                        raw[i].height,
-                        bytes32(raw[i].el),
-                        bytes32(raw[i].comet),
-                        raw[i].head,
-                        bytes32(0)
+                        raw[i].height, bytes32(raw[i].el), bytes32(raw[i].comet), raw[i].head
                     )
                 )
                 : bytes32(raw[i].word);
