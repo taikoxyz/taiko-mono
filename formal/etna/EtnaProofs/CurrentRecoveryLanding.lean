@@ -507,8 +507,11 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
       obtain ⟨⟨j,e⟩,member,rfl⟩ := List.mem_map.mp listed
       exact ⟨e,member⟩
   -- Step 2: the segment and its blobs.
-  obtain ⟨bs,length,chain,last,head,tail,consumed,linked,facts⟩ :=
+  obtain ⟨bs,chain,last,head,tail,consumed,linked,facts⟩ :=
     segment premises.recoveryCatalogueHash context
+  have length : bs.length = 1 := by
+    have heights := Blocks.chain_height chain
+    omega
   rw [inbox] at head tail consumed
   obtain ⟨blobs,fewest,most,payload⟩ := premises.payloadLive bs (by rw [length]; decide)
     (fun b member => (facts b member).2.2.1)

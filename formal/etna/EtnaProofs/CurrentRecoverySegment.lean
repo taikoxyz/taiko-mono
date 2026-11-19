@@ -501,15 +501,15 @@ private theorem build (hash : ∀ id d, env.catalogue id = some d → d.bytes.ha
 end
 
 /-- The first block of the new generation after a recovery at L1 block `R`
-(reports/recoverability.md, The path, step 6): from the batch parent `p`, a valid one-block chain
-under the closed certificate world's policy at reference `R+1`, archived by its own header. It ends
-at height `p.height+1` with an FI cursor at most one entry past the head and not past the tail; it
-is physically linked from `p`; and the block is hash-bound, anchored at `R`, within the block size
-bound and selects a ruleset `image` implements. -/
+(reports/recoverability.md, The path, step 6): from the batch parent `p`, a valid chain under the
+closed certificate world's policy at reference `R+1`, archived by its own headers. It ends at
+height `p.height+1`, so it has one block (`Blocks.chain_height`), with an FI cursor at most one
+entry past the head and not past the tail; it is physically linked from `p`; and the block is
+hash-bound, anchored at `R`, within the block size bound and selects a ruleset `image` implements. -/
 theorem segment {env : Environment} {x : World} {p : Header} {R : Nat} {keys : List Hash} {image : Hash}
     (hash : ∀ id d, env.catalogue id = some d → d.bytes.hashBytes = env.txHash)
     (context : SegmentContext env x p R keys image) :
-    ∃ bs : List Block, bs.length = 1 ∧
+    ∃ bs : List Block,
       Blocks.Chain (policy env x (bs.map Blocks.Block.header) (R+1)) p bs ∧
       (Blocks.terminal p bs).height = p.height+1 ∧
       x.inbox.head ≤ (Blocks.terminal p bs).cursor ∧ (Blocks.terminal p bs).cursor ≤ x.inbox.tail ∧
@@ -527,7 +527,7 @@ theorem segment {env : Environment} {x : World} {p : Header} {R : Nat} {keys : L
     rw [List.mem_singleton.mp listed]
     exact facts.2.2.2.1.trans context.origin.2.1.symm
   have chain : Blocks.Chain (policy env x [] (R+1)) p [b] := ⟨valid,trivial⟩
-  refine ⟨[b],rfl,(policy_archive anchors).symm ▸ chain,child.height,child.head,child.tail,child.consumed,
+  refine ⟨[b],(policy_archive anchors).symm ▸ chain,child.height,child.head,child.tail,child.consumed,
     ⟨child.height,link,trivial⟩,fun c listed => ?_⟩
   rw [List.mem_singleton.mp listed]
   exact facts

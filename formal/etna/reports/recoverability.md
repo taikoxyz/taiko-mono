@@ -391,20 +391,18 @@ Commitments are ideal unbounded Nat codes, not Keccak.
 - **Claim.** `CURRENT-H4` in `spec-coverage.json` cites the clauses of the section 1
   liveness bullet and of LIMIT-12-2, under a new `recovery` boundary that lists the premises,
   hypotheses and limits above.
-- **Supporting rule edges.** CONS-3.2-2 (block number and parent hash) and RECOV-8.4-13
-  (anchors no earlier than R) cite `Recovery.segment`. Each is an existence result about the
-  path's own block, not a check on every block. Since #22412 the segment is one block, so the
-  conclusion includes `bs.length = 1`, which names none of the theorem's arguments; the audit's
-  Rule P then classes `segment` as supporting, not property, and both rules, which were narrow
-  partial, are supporting. `segment` was also the only property citing sixteen clauses of SPEC
-  3.2, 3.3, 3.4, 4.3, 6.2, 6.4 and 8.4, which are now deferred.
+- **Narrow rule edges.** CONS-3.2-2 (block number and parent hash) and RECOV-8.4-13 (anchors no
+  earlier than R) cite `Recovery.segment`. Each is an existence result about the path's own
+  block, not a check on every block. Since #22412 the segment is one block. `segment` states its
+  terminal height p + 1 but not its length, since `bs.length = 1` names none of its arguments and
+  would fail the audit's Rule P; H4's proof derives the length with `Blocks.chain_height`.
 - **RECOV-8.3-3a is retired** by #22412, with the grid it checked.
 - **Totals.** 60 partial / 508 deferred clauses (38 / 530 before H4), and 43 narrow partial /
   37 supporting / 528 deferred binding rules (41 / 36 / 531 before H4), plus 32 deferred
   assumption and limitation rows. H4 itself added 2 narrow partial rules; the extra supporting
   rule is RECOV-8-28, from H1's rollback-target duty (`Governance.rollback_target_unique`).
-  At the #22412 pin the package has 52 partial / 526 deferred clauses and 43 narrow partial /
-  44 supporting / 517 deferred binding rules, plus the same 32 rows.
+  At the #22412 pin the package has 68 partial / 510 deferred clauses and 45 narrow partial /
+  43 supporting / 516 deferred binding rules, plus the same 32 rows.
 
 H4 adds no evidence for these:
 

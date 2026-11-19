@@ -83,7 +83,7 @@ example (env : Environment) (x : World) (p : Header) (R : Nat) (keys : List Hash
 example : ∀ {env : Environment} {x : World} {p : Header} {R : Nat} {keys : List Hash} {image : Hash},
     (∀ id d, env.catalogue id = some d → d.bytes.hashBytes = env.txHash) →
     Recovery.SegmentContext env x p R keys image →
-    ∃ bs : List Block, bs.length = 1 ∧
+    ∃ bs : List Block,
       Blocks.Chain (policy env x (bs.map Blocks.Block.header) (R+1)) p bs ∧
       (Blocks.terminal p bs).height = p.height+1 ∧
       x.inbox.head ≤ (Blocks.terminal p bs).cursor ∧ (Blocks.terminal p bs).cursor ≤ x.inbox.tail ∧

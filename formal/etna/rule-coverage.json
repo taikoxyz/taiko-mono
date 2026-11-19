@@ -655,6 +655,13 @@
       "theorems": ["Etna.Design.Current.ValidatorState.hplus2"],
       "reason": "Concrete two-set commit pipeline: H changes leave H+1 unchanged and become H+2 current state. This does not prove stock CometBFT implements the decoded machine."
     },
+    "SYNC-9-5": {
+      "clause": "LIVE_EN-5822dd8d7b64f579",
+      "theorems": [
+        "Etna.Design.Current.QueueIntegrity.node_trust_matches_checkpoint"
+      ],
+      "reason": "The actual nodeTrust predicate targets the Inbox's latest checkpoint and requires the node's own chain to reach that height with a header whose EL hash and Comet hash equal the slot 285 record's, so a mismatch refuses trust; the model also compares the record's FI cursor. A projection of the decoded trust predicate; the node's own L1 finality view, SYNC-9-5a's switching checks and the stock store are not modelled."
+    },
     "SYNC-9-5c": {
       "clause": "LIVE_EN-5822dd8d7b64f579",
       "theorems": [

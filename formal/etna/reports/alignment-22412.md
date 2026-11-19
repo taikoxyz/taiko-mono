@@ -28,6 +28,9 @@ report lists what #22412 changed and what each change did to the model.
   - Model: `Cut`, `Checkpoint`, `LandInput`, `StatementData` and `BlockValidity.Header` lose
     their validator-state fields, and node trust (`trustCut`) compares the EL hash, the Comet
     hash and the FI cursor, as before, with no validator-state exception at the origin.
+    `QueueIntegrity.node_trust_matches_checkpoint` states that comparison for SYNC-9-5: a
+    trusted node's own chain reaches the Inbox's latest checkpoint with a header that matches
+    the record in all three.
   - The replay-soundness layer that rested on those hashes is deleted: `checkBlock`,
     `checkRun`, `Batch`, `Certificate`, `ReplaySound`, `accepted_replay`, the `checked_run_*`,
     `batch_*` and `certificate_refines` lemmas, `trust_cut_at_origin`,
@@ -114,38 +117,39 @@ SPEC goes from 315 to 313 clauses (64 identities gone, 62 new), ACCEPTANCE keeps
 goes from 580 to 578 clauses. Nineteen changed SPEC clauses carry theorem edges; each edge
 moves to the new identity and still holds as written:
 
-| Old clause                 | New clause                 | Rules                   | Text change                                         | Edges                                                                           |
-| -------------------------- | -------------------------- | ----------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `LIVE_EN-4eeb66cec75465ce` | `LIVE_EN-dff27e7057a061cd` | STAKE-4.1-13a, 14a      | lowest empty slot; no displacement                  | 22, the displacement theorems replaced by the three admission theorems          |
-| `LIVE_EN-443baffea980ec5b` | `LIVE_EN-27f6a5d40d0ce55d` | STAKE-4.1-25, 26        | exit causes lose displacement                       | eight, among them `confirm_blocked_above_snapshot`                              |
-| `LIVE_EN-8863d8019505caf8` | `LIVE_EN-66d59803d30c85d4` | STAKE-4.1-27 to 29      | withdrawal always leaves the slot empty             | sixteen, among them `withdrawal_identity`                                       |
-| `LIVE_EN-255e96e167914963` | `LIVE_EN-1d6f17bd21c3404a` | STAKE-4.1-36            | no displacement checkpoint                          | `execute_history_origin_exact`                                                  |
-| `LIVE_EN-598126cd6d0d70f0` | `LIVE_EN-8943613d8a93c4ca` | DATA-5.4-1              | no record validator-state check                     | `genesis_path_ignores_val_state`                                                |
-| `LIVE_EN-5197fc5f88162605` | `LIVE_EN-0f8e196ab4a6954b` | DATA-5.4-4              | post-s app hash from the derived state              | `import_complete_range`, `node_import_closed`                                   |
-| `LIVE_EN-87331d19f043f44c` | `LIVE_EN-4266dc92f72e00d9` | DATA-5.4-5              | preimage checked against header(s)                  | seven, `next_validators_conflict_halts` renamed `validator_sets_conflict_halts` |
-| `LIVE_EN-4217c5498e2e83a4` | `LIVE_EN-3d0fb99927ba67de` | LAND-6.1-1 to 9, 8a     | any end height; inner leaves; leaf at c             | nineteen, among them `land_single_block`, `land_overlap_at_p_succ`              |
-| `LIVE_EN-4b408fa419d8782a` | `LIVE_EN-cc34fca3e258c580` | PROOF-6.2-12 to 16      | commits only for the last block of each committee   | seventeen committee-derivation theorems                                         |
-| `LIVE_EN-af33164a1858c781` | `LIVE_EN-16923cd8df6a0d78` | PROOF-6.2-17 to 19      | commit of h and of each committee's last block      | `Recovery.segment`                                                              |
-| `LIVE_EN-2096743a5d399f16` | `LIVE_EN-6c59150df089c846` | PROOF-6.2-39 to 47      | inner cuts only; app_hash outside the statement     | ten, among them `statement_endpoints`, `chain_cursor_walk`                      |
-| `LIVE_EN-b8d78ca3f1f77e84` | `LIVE_EN-4ad2efd265e7f07c` | BACKP-6.4-1 to 8        | 1 ≤ U ≤ 65,536, no multiple of K                    | `Recovery.segment`                                                              |
-| `LIVE_EN-47c9c7d7edef31c4` | `LIVE_EN-1885dff5441f40db` | RECOV-8-40a to 42       | a withdrawn bond can be excluded; none is displaced | seven, among them `recover_excludes`, `recoverable`                             |
-| `LIVE_EN-e4d5ea9bf749c3f7` | `LIVE_EN-8ef06591adea330d` | RECOV-8-47 to 50        | recovery clears `stopTime` only                     | seven, among them `recover_clears_stop`                                         |
-| `LIVE_EN-7bda477553dde1bb` | `LIVE_EN-f7e2b71973efaba8` | RECOV-8.3-1 to 7        | no multiple-of-K check                              | `Recovery.prepare`                                                              |
-| `LIVE_EN-2b31e997f0d3114c` | `LIVE_EN-5822dd8d7b64f579` | SYNC-9-4 to 9           | no validator-state comparison; app's own record     | `commit_pipeline`, `hplus2`, `replay_append`, `replay_height`                   |
-| `LIVE_EN-95576d90354f3a45` | `LIVE_EN-bb8d2af49a890370` | START-10.1-3a to 3d     | K leaves the list a rule upgrade keeps              | `closed_generation_parameters`, `trace_same_generation_parameters`              |
-| `LIVE_EN-f3360a370c6978e1` | `LIVE_EN-1afd41294ce37c15` | START-10.1-3g, 5a to 5c | `scheduleStop(time)`                                | six, among them `schedule_stop_result`                                          |
-| `LIVE_EN-ad883390e144f5e5` | `LIVE_EN-184e98d059f7f4cd` | START-10.1-6 to 6c, 14  | a block, not a grid segment                         | `accepted_image_certificate`                                                    |
+| Old clause                 | New clause                 | Rules                   | Text change                                         | Edges                                                                                               |
+| -------------------------- | -------------------------- | ----------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `LIVE_EN-4eeb66cec75465ce` | `LIVE_EN-dff27e7057a061cd` | STAKE-4.1-13a, 14a      | lowest empty slot; no displacement                  | 22, the displacement theorems replaced by the three admission theorems                              |
+| `LIVE_EN-443baffea980ec5b` | `LIVE_EN-27f6a5d40d0ce55d` | STAKE-4.1-25, 26        | exit causes lose displacement                       | eight, among them `confirm_blocked_above_snapshot`                                                  |
+| `LIVE_EN-8863d8019505caf8` | `LIVE_EN-66d59803d30c85d4` | STAKE-4.1-27 to 29      | withdrawal always leaves the slot empty             | sixteen, among them `withdrawal_identity`                                                           |
+| `LIVE_EN-255e96e167914963` | `LIVE_EN-1d6f17bd21c3404a` | STAKE-4.1-36            | no displacement checkpoint                          | `execute_history_origin_exact`                                                                      |
+| `LIVE_EN-598126cd6d0d70f0` | `LIVE_EN-8943613d8a93c4ca` | DATA-5.4-1              | no record validator-state check                     | `genesis_path_ignores_val_state`                                                                    |
+| `LIVE_EN-5197fc5f88162605` | `LIVE_EN-0f8e196ab4a6954b` | DATA-5.4-4              | post-s app hash from the derived state              | `import_complete_range`, `node_import_closed`                                                       |
+| `LIVE_EN-87331d19f043f44c` | `LIVE_EN-4266dc92f72e00d9` | DATA-5.4-5              | preimage checked against header(s)                  | seven, `next_validators_conflict_halts` renamed `validator_sets_conflict_halts`                     |
+| `LIVE_EN-4217c5498e2e83a4` | `LIVE_EN-3d0fb99927ba67de` | LAND-6.1-1 to 9, 8a     | any end height; inner leaves; leaf at c             | nineteen, among them `land_single_block`, `land_overlap_at_p_succ`                                  |
+| `LIVE_EN-4b408fa419d8782a` | `LIVE_EN-cc34fca3e258c580` | PROOF-6.2-12 to 16      | commits only for the last block of each committee   | seventeen committee-derivation theorems                                                             |
+| `LIVE_EN-af33164a1858c781` | `LIVE_EN-16923cd8df6a0d78` | PROOF-6.2-17 to 19      | commit of h and of each committee's last block      | `Recovery.segment`                                                                                  |
+| `LIVE_EN-2096743a5d399f16` | `LIVE_EN-6c59150df089c846` | PROOF-6.2-39 to 47      | inner cuts only; app_hash outside the statement     | ten, among them `statement_endpoints`, `chain_cursor_walk`                                          |
+| `LIVE_EN-b8d78ca3f1f77e84` | `LIVE_EN-4ad2efd265e7f07c` | BACKP-6.4-1 to 8        | 1 ≤ U ≤ 65,536, no multiple of K                    | `Recovery.segment`                                                                                  |
+| `LIVE_EN-47c9c7d7edef31c4` | `LIVE_EN-1885dff5441f40db` | RECOV-8-40a to 42       | a withdrawn bond can be excluded; none is displaced | seven, among them `recover_excludes`, `recoverable`                                                 |
+| `LIVE_EN-e4d5ea9bf749c3f7` | `LIVE_EN-8ef06591adea330d` | RECOV-8-47 to 50        | recovery clears `stopTime` only                     | seven, among them `recover_clears_stop`                                                             |
+| `LIVE_EN-7bda477553dde1bb` | `LIVE_EN-f7e2b71973efaba8` | RECOV-8.3-1 to 7        | no multiple-of-K check                              | `Recovery.prepare`                                                                                  |
+| `LIVE_EN-2b31e997f0d3114c` | `LIVE_EN-5822dd8d7b64f579` | SYNC-9-4 to 9           | no validator-state comparison; app's own record     | `commit_pipeline`, `hplus2`, `replay_append`, `replay_height`; new: `node_trust_matches_checkpoint` |
+| `LIVE_EN-95576d90354f3a45` | `LIVE_EN-bb8d2af49a890370` | START-10.1-3a to 3d     | K leaves the list a rule upgrade keeps              | `closed_generation_parameters`, `trace_same_generation_parameters`                                  |
+| `LIVE_EN-f3360a370c6978e1` | `LIVE_EN-1afd41294ce37c15` | START-10.1-3g, 5a to 5c | `scheduleStop(time)`                                | six, among them `schedule_stop_result`                                                              |
+| `LIVE_EN-ad883390e144f5e5` | `LIVE_EN-184e98d059f7f4cd` | START-10.1-6 to 6c, 14  | a block, not a grid segment                         | `accepted_image_certificate`                                                                        |
 
 Three new clauses gain edges: LIMIT-12-11's registry-capacity item (`register_full_rejected`,
 so the clause is partial), appendix A's cut-leaf block (`land_single_block`, supporting) and 6.3's
 proving paragraph (`land_overlap_at_p_succ`, supporting). No edge is lost: every source of a
 deleted clause either moved through the table or belonged to a deleted theorem.
 
-`Recovery.segment` is now supporting rather than property. Its conclusion includes
-`bs.length = 1`, which names none of its arguments, so the audit's Rule P rejects it as a
-property. It was the only property citing sixteen clauses of SPEC 3.2 (four), 3.3 (one),
-3.4 (six), 4.3 (two), 6.2 (one), 6.4 (one) and 8.4 (one), which become deferred. Its rule edges
-CONS-3.2-2 and RECOV-8.4-13 become supporting.
+`Recovery.segment` stays a property. With one block its conclusion would have included
+`bs.length = 1`, which names none of its arguments and so fails the audit's Rule P. The
+conclusion therefore states the terminal height p + 1 and not the length, and H4's proof derives
+the length from it with `Blocks.chain_height`. `segment` is the only property citing sixteen
+clauses of SPEC 3.2 (four), 3.3 (one), 3.4 (six), 4.3 (two), 6.2 (one), 6.4 (one) and 8.4 (one),
+which stay partial, as do its rule edges CONS-3.2-2 and RECOV-8.4-13.
 
 ## Rules
 
@@ -165,9 +169,9 @@ INDEX retires five IDs and adds ENC-A-29b (deferred, appHash), so it has 636 rul
 | LAND-6.1-7    | deferred   | supporting | `land_overlap_at_p_succ`                                                           |
 | BATCH-6.3-10  | deferred   | supporting | `land_overlap_at_p_succ`                                                           |
 | ENC-A-32      | deferred   | supporting | `land_single_block`                                                                |
-| CONS-3.2-2    | partial    | supporting | `Recovery.segment` is supporting                                                   |
-| RECOV-8.4-13  | partial    | supporting | `Recovery.segment` is supporting                                                   |
-| SYNC-9-5      | supporting | deferred   | `trust_cut_*` deleted; no theorem is cited for the trust comparison                |
+| CONS-3.2-2    | partial    | partial    | `Recovery.segment`, now one block                                                  |
+| RECOV-8.4-13  | partial    | partial    | `Recovery.segment`, now one block                                                  |
+| SYNC-9-5      | supporting | supporting | `node_trust_matches_checkpoint` replaces the deleted `trust_cut_*`                 |
 | SYNC-9-5c     | partial    | partial    | arithmetic only: `commit_pipeline`, `replay_append`, `replay_height`               |
 | DATA-5.4-5    | supporting | supporting | `validator_sets_conflict_halts` replaces `next_validators_conflict_halts`          |
 
@@ -181,7 +185,7 @@ state after s, the app's durable SYNC-9-5c record, the guest's sparser commit ch
 deployment bound 4096 × minStake > 10^27 are not modelled. All ANCHORLESS and ACCEPTANCE
 clauses remain deferred.
 
-Evidence after this pin: 52 partial / 526 deferred clauses (67 / 513 before), and 43 narrow
-partial / 44 supporting / 517 deferred binding rules (47 / 40 / 521 before), plus 32 deferred
-assumption/limitation rows, unchanged. The theorem manifest has 669 entries (695 before) and
+Evidence after this pin: 68 partial / 510 deferred clauses (67 / 513 before), and 45 narrow
+partial / 43 supporting / 516 deferred binding rules (47 / 40 / 521 before), plus 32 deferred
+assumption/limitation rows, unchanged. The theorem manifest has 670 entries (695 before) and
 the review-surface lock 1,730 constants (1,790 before).
