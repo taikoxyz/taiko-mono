@@ -22,12 +22,12 @@ def registry : RegistryMachine.State where
       (message = Accountability.evidence (vote 202) ∧ signature = 12)))
   registerAuth := fun key owner amount pop => decide (key = 7 ∧ owner = 8 ∧ amount = unit ∧ pop = 1)
 
-def genesis : Header := ⟨0,100,10,0,0,1,⟨0,0,0,0,0,0,0⟩,0⟩
-def first : Header := ⟨1,101,11,201,0,3,⟨2,2,0,0,100,0,0⟩,301⟩
+def genesis : Header := ⟨0,100,10,0,0,1,⟨0,0,0,0,0,0,0⟩⟩
+def first : Header := ⟨1,101,11,201,0,3,⟨2,2,0,0,100,0,0⟩⟩
 def other : Header := {first with cometHash := 202}
 def baseEnv : Environment where
   core := ⟨domain,7,8,0,2,9⟩
-  parameters := ⟨1,10,1,⟨unit,unit,1,10⟩,1,1152,10,1,1,9⟩
+  parameters := ⟨10,1,⟨unit,unit,1,10⟩,1,1152,10,1,1,9⟩
   genesisHeader := genesis
   initialSigner := ⟨domain,0,1,[],false,[]⟩
   time := id
@@ -238,8 +238,8 @@ theorem risk_profile_satisfiable :
 authentication/material results. It exercises actual observe/import calls and the
 authorization fence; canonical decoding and stock-store installation remain external.
 The snapshot is at the origin itself (s = o = 0), so it takes the 8.4 genesis path
-(DATA-5.4-1): the start record holds validator-state hash 0, no preimage hashes to it, and the
-three validator-state results are reported false without affecting the import. The s > o case
+(DATA-5.4-1): the three validator-state results are reported false without affecting the
+import. The s > o case
 is `NonVacuity.windowed_import_satisfiable`. -/
 def importCandidate : Import.Candidate := ⟨0,0,0,100,100,true,true,true,true,true,false,false,false⟩
 def observed : World := Protocol.transact env (source env) (.observe 2)

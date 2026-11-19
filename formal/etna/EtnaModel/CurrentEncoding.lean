@@ -41,7 +41,7 @@ def origin (o : Origin) : Tree := .node (.leaf o.height) (.node (.leaf o.l1Block
 def namedOrigin (x : Nat × Origin) : Tree := .node (.leaf x.1) (origin x.2)
 
 def checkpoint (c : Checkpoint) : Tree := quad (.node (.leaf c.height) (.leaf c.elHash))
-  (.node (.leaf c.cometHash) (.leaf c.cursor)) (.leaf c.generation) (.node (.leaf c.parent) (.leaf c.valStateHash))
+  (.node (.leaf c.cometHash) (.leaf c.cursor)) (.leaf c.generation) (.leaf c.parent)
 
 def signal (s : Signal) : Tree := .node (.leaf s.height) (.node (.leaf s.hash) (.leaf s.stateRoot))
 
@@ -49,7 +49,7 @@ def configuration (c : CommitteeConfig) : Tree := quad (.leaf c.unit) (.leaf c.m
   (.leaf c.nMax) (.leaf c.unsettled)
 
 def state (s : Etna.Design.State) : Tree := quad
-  (quad (domain s.domain) (.leaf s.committeeConfig) (.leaf s.gridK) (.leaf s.entered.toNat))
+  (.node (domain s.domain) (.node (.leaf s.committeeConfig) (.leaf s.entered.toNat)))
   (quad (.leaf s.generation) (.leaf s.recoveryNonce) (origin s.origin)
     (list namedOrigin s.origins))
   (quad (checkpoint s.checkpoint) (list checkpoint s.records)
@@ -59,8 +59,8 @@ def state (s : Etna.Design.State) : Tree := quad
     (committee s.committeeZeroRecord) (.node (.leaf s.forcedDelay) (.leaf s.maxAnchorAge))
     (quad (.leaf s.maxBatchBlocks) (.leaf s.forcedFee) (.leaf s.forcedThreshold) (.leaf s.protocolFeeRecipient)))
 
-def schedule (s : Rules.Schedule) : Tree := quad (.node (.leaf s.active) (.leaf s.next))
-  (.leaf s.time) (.leaf s.stopTime) (.leaf s.stopGrid)
+def schedule (s : Rules.Schedule) : Tree := quad (.leaf s.active) (.leaf s.next)
+  (.leaf s.time) (.leaf s.stopTime)
 
 def start (s : Protocol.StartData) : Tree := .node (.leaf s.height) (.node (.leaf s.hash) (.leaf s.stateRoot))
 

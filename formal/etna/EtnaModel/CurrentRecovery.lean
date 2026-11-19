@@ -12,25 +12,15 @@ inductive CallTrace (env : Environment) (allowed : World → Call → Prop) : Wo
   | call {first w : World} (prior : CallTrace env allowed first w) (call : Call)
       (ok : allowed w call) : CallTrace env allowed first (transact env w call)
 
-/-- H4's path calls in state `w`: no `rollback` (RECOV-8-28, RECOV-8-58), and every `recover`
-has no forced-inclusion blanking (RECOV-8-45). Its exclusions are free (RECOV-8-38 to 8-41). A
-`recover` is plain (no upgrade) or structural with one change only: it installs `w`'s parameters
-with a new K. -/
-def RecoveryCall (w : World) : Call → Prop
+/-- H4's path calls: no `rollback` (RECOV-8-28, RECOV-8-58), and every `recover` is plain (no
+upgrade) and has no forced-inclusion blanking (RECOV-8-45). Its exclusions are free (RECOV-8-38
+to 8-41). -/
+def RecoveryCall (_ : World) : Call → Prop
   | .rollback .. => False
-  | .recover request => request.clear = [] ∧
-      (request.upgrade = none ∨ ∃ k, request.upgrade = some { parametersOf w.inbox with gridK := k })
+  | .recover request => request.clear = [] ∧ request.upgrade = none
   | _ => True
 
 abbrev RecoveryTrace (env : Environment) : World → World → Prop := CallTrace env RecoveryCall
-
-/-- Calls with no `rollback` and no structural upgrade, whatever the state: every `recover`
-keeps the parameters, so K. The rollback grid trap (`Recovery.offgrid_no_landing`) is stated
-over these calls. -/
-def NoRollbackOrUpgrade (_ : World) : Call → Prop
-  | .rollback .. => False
-  | .recover request => request.upgrade = none
-  | _ => True
 
 /-- `h` is a child of `parent` for these producer inputs, witness bytes `raw` and transaction list
 `txs`. Its height, FI cursor, timestamp and anchor are the given ones; it is hash-bound and its EL
@@ -83,8 +73,9 @@ def excluded (w : World) (n : Nat) (exclusions : List (Nat × Hash)) : World :=
 def maxAges (w : World) : Nat := (w.configurations.map fun x => x.2.maxAnchorAge).foldr max 0
 
 /-- L1 time the recovery block must reach: past every bound on the batch parent's timestamp
-(a landed checkpoint's anchor age, `forkTime`, the genesis timestamp) by more than K. -/
+(a landed checkpoint's anchor age, `forkTime`, the genesis timestamp) by more than one second,
+the room the recovered generation's first block needs. -/
 def WindowBound (env : Environment) (w : World) : Nat :=
-  max (env.time w.number+maxAges w) (max env.core.forkTime env.genesisHeader.timestamp)+w.inbox.gridK+1
+  max (env.time w.number+maxAges w) (max env.core.forkTime env.genesisHeader.timestamp)+2
 
 end Etna.Design.Current.Protocol

@@ -1,34 +1,26 @@
 import EtnaStatements
 
-/-! H4 statement surface: which calls `RecoveryCall` admits in a state (no rollback; recoveries
-with any exclusions and no blanking that are plain or change only K; every other call), the
-trace class `RecoveryTrace`, the conclusion `RecoverableAt`, the claim `Recoverability`, the
-predicates `OnGrid` and `LiveRules`, and the field names, types and order of `LiveAt` and
-`RecoveryPremises`. -/
+/-! H4 statement surface: which calls `RecoveryCall` admits in a state (no rollback; plain
+recoveries with any exclusions and no blanking; every other call), the trace class
+`RecoveryTrace`, the conclusion `RecoverableAt`, the claim `Recoverability`, the predicate
+`LiveRules`, and the field names, types and order of `LiveAt` and `RecoveryPremises`. -/
 namespace Etna.CurrentRecoveryRegression
 open Etna.Design Etna.Design.Current Etna.Design.Current.Protocol Etna.Statements.Current
 
--- RecoveryCall, in the state `w` the call applies to: rollback and recoveries with clears are
--- out, and so is an upgrade that changes anything but K; a plain recovery, a structural recovery
--- that installs `w`'s parameters with a new K, either with any exclusions, and the catch-all arm
+-- RecoveryCall, in the state `w` the call applies to: rollback, recoveries with clears and
+-- recoveries with an upgrade are out; a plain recovery with any exclusions and the catch-all arm
 -- are in.
 example (w : World) (caller : Nat) (trusted : Checkpoint) (snapshot : Nat) :
     ¬ RecoveryCall w (.rollback caller trusted snapshot) := id
 example (w : World) (r : RecoveryRequest) (i : Nat) :
     ¬ RecoveryCall w (.recover { r with clear := [i] }) := fun h => nomatch h.1
 example (w : World) (r : RecoveryRequest) (xs : List (Nat × Hash)) (h2 : r.clear = []) (h3 : r.upgrade = none) :
-    RecoveryCall w (.recover { r with exclusions := xs }) := ⟨h2,.inl h3⟩
-example (w : World) (r : RecoveryRequest) (k : Nat) (xs : List (Nat × Hash)) (h2 : r.clear = []) :
-    RecoveryCall w (.recover { r with exclusions := xs, upgrade := some { parametersOf w.inbox with gridK := k } }) :=
-  ⟨h2,.inr ⟨k,rfl⟩⟩
--- An upgrade that changes another parameter, here the forced-inclusion delay, is out.
+    RecoveryCall w (.recover { r with exclusions := xs }) := ⟨h2,h3⟩
+-- Any upgrade, even one that reinstalls `w`'s own parameters, is out.
 example (w : World) (r : RecoveryRequest) :
-    ¬ RecoveryCall w (.recover { r with upgrade := some { parametersOf w.inbox with forcedDelay := w.inbox.forcedDelay+1 } }) := by
-  rintro ⟨-,absent | ⟨k,same⟩⟩
-  · cases absent
-  · have delay := congrArg Parameters.forcedDelay (Option.some.inj same)
-    change w.inbox.forcedDelay+1 = w.inbox.forcedDelay at delay
-    omega
+    ¬ RecoveryCall w (.recover { r with upgrade := some (parametersOf w.inbox) }) := by
+  rintro ⟨-,absent⟩
+  cases absent
 example (w : World) (a : Landing) : RecoveryCall w (.land a) := trivial
 
 -- Pin the trace class and the conclusion.
@@ -40,19 +32,17 @@ example : Recoverability = ∀ env registry, RecoveryPremises env registry → �
     Trace env (empty env registry) w → w.initialized = true → LiveAt env w →
     RecoverableAt env w := rfl
 
--- Pin OnGrid and LiveRules: the first case keeps the current rulesets and needs c on the grid;
--- the second installs ruleset nextRules + 1 and has no grid condition.
-example (w : World) : OnGrid w = ∀ start, w.start = some start →
-    Start.onGrid start.height w.inbox.gridK w.inbox.checkpoint.height = true := rfl
+-- Pin LiveRules: the first case keeps the current rulesets; the second installs ruleset
+-- nextRules + 1.
 example (env : Environment) (w : World) : LiveRules env w =
-    ((OnGrid w ∧ RulesetLive env w.schedule.active ∧ RulesetLive env w.schedule.next ∧
+    ((RulesetLive env w.schedule.active ∧ RulesetLive env w.schedule.next ∧
         ∃ image, w.schedule.active ∈ env.imageRules image ∧ w.schedule.next ∈ env.imageRules image) ∨
       (RulesetLive env (w.schedule.next+1) ∧ ∃ image, w.schedule.next+1 ∈ env.imageRules image)) := rfl
 
--- Pin LiveAt's exact fields: types and order, then names. No field mentions the grid.
+-- Pin LiveAt's exact fields: types and order, then names.
 example (env : Environment) (w : World)
     (a : w.inbox.generation+2 < limit48) (b : w.inbox.recoveryNonce+1 < limit256)
-    (c : w.schedule.next+1 < limit48) (d : w.inbox.checkpoint.height+w.inbox.gridK < limit48)
+    (c : w.schedule.next+1 < limit48) (d : w.inbox.checkpoint.height+1 < limit48)
     (e : ∃ n keys exclusions, w.number < n ∧ n+4 < limit48 ∧ WindowBound env w ≤ env.time n ∧
       env.time n+8 < limit256 ∧ exclusions.Pairwise (fun x y => x.1 < y.1) ∧
       RegistryMachine.exclusionsValid w.registry.registry exclusions = true ∧
@@ -61,7 +51,7 @@ example (env : Environment) (w : World)
     LiveAt env w := ⟨a,b,c,d,e,f,g⟩
 example (env : Environment) (w : World)
     (a : w.inbox.generation+2 < limit48) (b : w.inbox.recoveryNonce+1 < limit256)
-    (c : w.schedule.next+1 < limit48) (d : w.inbox.checkpoint.height+w.inbox.gridK < limit48)
+    (c : w.schedule.next+1 < limit48) (d : w.inbox.checkpoint.height+1 < limit48)
     (e : ∃ n keys exclusions, w.number < n ∧ n+4 < limit48 ∧ WindowBound env w ≤ env.time n ∧
       env.time n+8 < limit256 ∧ exclusions.Pairwise (fun x y => x.1 < y.1) ∧
       RegistryMachine.exclusionsValid w.registry.registry exclusions = true ∧

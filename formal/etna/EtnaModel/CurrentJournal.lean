@@ -76,5 +76,9 @@ structure FrontierShape (w : World) : Prop where
   member : w.start.isSome = true → w.inbox.checkpoint ∈ w.activeRecords
   records : ∀ r ∈ w.activeRecords, recordAt w.inbox r.height = some r
   cursor : w.start.isSome = true → w.inbox.checkpoint.cursor = w.inbox.head
+  /-- The generation origin and every active record lie at or above the written start, so a
+  landing's origin check (`generationStartHeight() ≤ p`, LAND-6.1-6) keeps p at or above S. -/
+  floor : ∀ start, w.start = some start →
+    start.height ≤ w.inbox.origin.height ∧ ∀ r ∈ w.activeRecords, start.height ≤ r.height
 
 end Etna.Design.Current.Journal

@@ -130,7 +130,6 @@ private theorem valid_live {env : Environment} {source w : World} {reference : N
     {p : Header} {b : Block}
     (valid : Blocks.Valid (policy env source archive reference) p b) :
     Blocks.Valid (policy env w archive reference) p b := by
-  have grid : source.inbox.gridK = w.inbox.gridK := congrArg Parameters.gridK fp.parameters
   have age : source.inbox.maxAnchorAge = w.inbox.maxAnchorAge := congrArg Parameters.maxAnchorAge fp.parameters
   have delay : source.inbox.forcedDelay = w.inbox.forcedDelay := congrArg Parameters.forcedDelay fp.parameters
   have unsettled : source.inbox.configuration.unsettled = w.inbox.configuration.unsettled := congrArg (fun x : Parameters => x.committee.unsettled) fp.parameters
@@ -142,7 +141,7 @@ private theorem valid_live {env : Environment} {source w : World} {reference : N
     rw [← fp.configuration]
     exact active_same fp.registry genesis origin bounds height
   constructor
-  · simpa only [policy,Finality.derive,← fp.configuration,← grid,← unsettled] using valid.config
+  · simpa only [policy,Finality.derive,← fp.configuration,← unsettled] using valid.config
   · simpa only [policy,Finality.derive,← fp.configuration] using valid.floor
   · have header := valid.header
     unfold Blocks.HeaderValid at header ⊢
@@ -258,11 +257,10 @@ private theorem statement_live {env : Environment} {source w : World} {reference
       Consensus.activeAt (Finality.derive (config w) w.registry.registry archive) _
     rw [← fp.configuration]
     exact active_same fp.registry genesis origin bounds _
-  have grid : source.inbox.gridK = w.inbox.gridK := congrArg Parameters.gridK fp.parameters
   unfold Blocks.statement
   dsimp only
   rw [active]
-  simp only [policy,Finality.derive,fp.configuration,fp.committee,grid,referenceHash]
+  simp only [policy,Finality.derive,fp.configuration,fp.committee,referenceHash]
 
 /-- Raw live storage and bounded historical selection inputs derive the operational
 certificate. Neither live block validity nor an active committee equality is a premise. -/

@@ -64,7 +64,7 @@ private theorem execute_metadata {env : Environment} {w t : World} {call : Call}
     · cases Option.some.inj swept; exact Or.inl ⟨rfl,rfl⟩
     · cases swept
   | forcedETH amount => cases Option.some.inj ok; exact Or.inl ⟨rfl,rfl⟩
-  | scheduleRules caller rule time | scheduleStop caller time grid =>
+  | scheduleRules caller rule time | scheduleStop caller time =>
     simp only [execute] at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact Or.inl ⟨rfl,rfl⟩

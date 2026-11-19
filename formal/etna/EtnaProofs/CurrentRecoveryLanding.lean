@@ -12,10 +12,10 @@ import EtnaProofs.CurrentRecoverySegment
 /-! The landing half of the recovery path (reports/recoverability.md, The path, step 7). After
 `Recovery.prepare` reaches `u` (one recovery at L1 block R, L1 advanced to R+2), the closed
 certificate world `x := certificateWorld env u (R+1)` shows `u`'s storage, so `Recovery.segment`
-builds the new generation's first K blocks on the batch parent `p`. Their statement is certified at
+builds the new generation's first block on the batch parent `p`. Its statement is certified at
 reference R+1 with archive root `p` and no prior headers, the image `prepare` registered implements
-every block's ruleset, and the complete verifier accepts two proofs of it, so `land` accepts the
-segment's landing from `c` to `c+K`. `Recovery.recoverable` (H4) composes `prepare` with this
+the block's ruleset, and the complete verifier accepts two proofs of it, so `land` accepts the
+segment's landing from `c` to `c+1`. `Recovery.recoverable` (H4) composes `prepare` with this
 landing. The reachable-state facts it needs beyond the existing journals are `Settled`: the rule
 schedule fits its slots, and the genesis cutoff stays below every origin block. -/
 namespace Etna.Design.Current.Protocol.Recovery
@@ -23,7 +23,7 @@ open Etna.Statements.Current
 
 /-! ### Reachable-state facts -/
 
-/-- `Rules.recover` keeps a fitting schedule, or installs `⟨rules,rules,0,0,0⟩` with
+/-- `Rules.recover` keeps a fitting schedule, or installs `⟨rules,rules,0,0⟩` with
 `rules < 2^48`. -/
 private theorem recover_fits {s t : Rules.Schedule} {rules : Nat} (fits : Rules.fits s)
     (ok : Rules.recover s rules = some t) : Rules.fits t := by
@@ -32,12 +32,12 @@ private theorem recover_fits {s t : Rules.Schedule} {rules : Nat} (fits : Rules.
   split at ok
   next =>
     cases Option.some.inj ok
-    exact ⟨fits.1,fits.2.1,fits.2.2.1,zero,zero⟩
+    exact ⟨fits.1,fits.2.1,fits.2.2.1,zero⟩
   next =>
     split at ok
     next guard =>
       cases Option.some.inj ok
-      exact ⟨guard.2,guard.2,zero,zero,zero⟩
+      exact ⟨guard.2,guard.2,zero,zero⟩
     next => simp at ok
 
 /-- Facts of every reachable state that the landing needs and the existing journals do not give.
@@ -156,11 +156,11 @@ private theorem execute_settled {env : Environment} {w t : World} {call : Call} 
   | scheduleRules caller rule time =>
     change Protocol.scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,scheduled,rfl⟩ := Option.map_eq_some_iff.mp ok
-    exact ⟨(Rules.schedule_rules_result scheduled).2.2.2.2.2,held.cutoff,held.past,held.origin⟩
-  | scheduleStop caller time grid =>
-    change Protocol.scheduleStop env w caller time grid = some t at ok
+    exact ⟨(Rules.schedule_rules_result scheduled).2.2.2.2,held.cutoff,held.past,held.origin⟩
+  | scheduleStop caller time =>
+    change Protocol.scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,scheduled,rfl⟩ := Option.map_eq_some_iff.mp ok
-    exact ⟨(Rules.schedule_stop_result scheduled).2.2.2.2.2,held.cutoff,held.past,held.origin⟩
+    exact ⟨(Rules.schedule_stop_result scheduled).2.2.2.2,held.cutoff,held.past,held.origin⟩
   | recover request =>
     change Protocol.recover env w request = some t at ok
     unfold Protocol.recover at ok
@@ -176,7 +176,7 @@ private theorem execute_settled {env : Environment} {w t : World} {call : Call} 
       next => simp at ok
     · split at ok
       next guard =>
-        obtain ⟨-,-,-,-,-,-,-,-,-,-,-,-,-,-,upgraded⟩ := guard
+        obtain ⟨-,-,-,-,-,-,-,-,-,-,-,-,-,upgraded⟩ := guard
         obtain ⟨-,-,keep⟩ := upgraded trivial
         obtain ⟨schedule,recovered,ok⟩ := Option.bind_eq_some_iff.mp ok
         obtain ⟨registry,_,rfl⟩ := Option.map_eq_some_iff.mp ok
@@ -250,7 +250,7 @@ private theorem trace_settled {env : Environment} {registry : RegistryMachine.St
     (trace : Trace env (empty env registry) w) : Settled env w := by
   induction trace with
   | refl =>
-    exact ⟨(by decide : Rules.fits ⟨0,0,0,0,0⟩),rfl,(fun absent => nomatch absent),(fun absent => nomatch absent)⟩
+    exact ⟨(by decide : Rules.fits ⟨0,0,0,0⟩),rfl,(fun absent => nomatch absent),(fun absent => nomatch absent)⟩
   | @step before after prior change ih =>
     cases change with
     | call call =>
@@ -327,12 +327,12 @@ private theorem cutoff_origin {cfg : Finality.Config} {archive : List Header} (g
   unfold Finality.cutoff Finality.initialCutoff
   simp only [anchor_origin anchors,Nat.max_self,generation,ite_false,ite_self]
 
-/-- One segment of K blocks above the origin needs at most K archived headers for its decision. -/
-private theorem required_prefix {cfg : Finality.Config} {K : Nat} (grid : 0 < K) :
-    Finality.requiredPrefix cfg (cfg.originHeight+K) ≤ K := by
+/-- The first block above the origin needs at most one archived header for its decision. -/
+private theorem required_prefix {cfg : Finality.Config} :
+    Finality.requiredPrefix cfg (cfg.originHeight+1) ≤ 1 := by
   unfold Finality.requiredPrefix Finality.decisionLookback Finality.epoch
-  have below := Nat.div_mul_le_self (cfg.originHeight+K-1) cfg.epochLen
-  generalize (cfg.originHeight+K-1)/cfg.epochLen*cfg.epochLen = m at *
+  have below := Nat.div_mul_le_self (cfg.originHeight+1-1) cfg.epochLen
+  generalize (cfg.originHeight+1-1)/cfg.epochLen*cfg.epochLen = m at *
   split <;> omega
 
 /-- A successful election over the registry at `cutoff` means a snapshot exists there. -/
@@ -347,31 +347,22 @@ private theorem elected_snapshot {registry : RegistryMachine.State} {unit minimu
     rw [found] at elected
     simp [Committee.election,Committee.chosen] at elected
 
-/-- The next grid point above a grid point. -/
-private theorem grid_next {start K height : Nat} (on : Start.onGrid start K height = true) :
-    Start.onGrid start K (height+K) = true := by
-  unfold Start.onGrid at on ⊢
-  obtain ⟨positive,below,rest⟩ := of_decide_eq_true on
-  apply decide_eq_true
-  refine ⟨positive,by omega,?_⟩
-  rw [show height+K-start = height-start+K by omega,Nat.add_mod_right]
-  exact rest
-
-/-- No grid point lies strictly between `c` and `c+K`. -/
-private theorem no_leaves {K c : Nat} (grid : 0 < K) : gridCount K c (c+K) = 0 := by
-  unfold gridCount
-  rw [Nat.add_sub_cancel_left,Nat.div_self grid]
+/-- No height lies strictly between `c` and `c+1`, so the inner list is empty (ENC-A-32). -/
+private theorem no_leaves {c : Nat} (table : List Cut) : innerLeaves c (c+1) table = [] := by
+  unfold innerLeaves
+  rw [Nat.add_sub_cancel_left]
+  rfl
 
 /-! ### The landing -/
 
 /-- The landing of the recovered generation's first segment (reports/recoverability.md, The path,
-step 7): parent and origin at the current checkpoint `c`, last height `c+K` with the terminal
+step 7): parent and origin at the current checkpoint `c`, last height `c+1` with the terminal
 `last`'s hashes, state root and FI cursor, reference block `R+1`, committee snapshot `R`, no leaves
-(`gridCount K c (c+K) = 0`), the blobs and the proofs. -/
+(`innerLeaves c (c+1) = []`), the blobs and the proofs. -/
 private def segmentLanding (u : World) (last : Header) (R : Nat) (blobs : List Hash) (proofs : List Proof) :
     Landing :=
-  ⟨⟨u.inbox.checkpoint.height,u.inbox.checkpoint.height+u.inbox.gridK,last.elHash,last.cometHash,
-    last.valStateHash,last.stateRoot,R+1,last.cursor,R⟩,[],blobs,proofs⟩
+  ⟨⟨u.inbox.checkpoint.height,u.inbox.checkpoint.height+1,last.elHash,last.cometHash,
+    last.stateRoot,R+1,last.cursor,R⟩,[],blobs,proofs⟩
 
 /-- The landing's statement is the segment's statement under the closed world's policy. -/
 private theorem segment_statement {env : Environment} {u x : World} {p : Header} {bs : List Block}
@@ -379,7 +370,7 @@ private theorem segment_statement {env : Environment} {u x : World} {p : Header}
     (inbox : x.inbox = u.inbox) (reference : referenceHash env x (R+1) = referenceHash env u (R+1))
     (record : recordAt u.inbox u.inbox.checkpoint.height = some u.inbox.checkpoint)
     (parent : Custody.HeaderOf u.inbox.checkpoint p)
-    (last : (Blocks.terminal p bs).height = p.height+u.inbox.gridK) (grid : 0 < u.inbox.gridK)
+    (last : (Blocks.terminal p bs).height = p.height+1)
     (generation : u.inbox.generation ≠ 0) (origin : u.inbox.origin.l1Block = R)
     (anchors : ∀ h ∈ bs.map Blocks.Block.header, h.anchor.number = R) :
     statement env u (segmentLanding u (Blocks.terminal p bs) R blobs proofs) =
@@ -399,22 +390,18 @@ private theorem segment_statement {env : Environment} {u x : World} {p : Header}
       change h.anchor.number = x.inbox.origin.l1Block
       rw [inbox,origin]
       exact anchors h member
-  have leaves : gridLeaves (policy env x (bs.map Blocks.Block.header) (R+1)).gridK p.height
-      (Blocks.terminal p bs).height (Blocks.cuts p bs) = [] := by
-    change gridLeaves x.inbox.gridK p.height (Blocks.terminal p bs).height (Blocks.cuts p bs) = []
-    unfold gridLeaves
-    rw [inbox,last,no_leaves grid]
-    rfl
+  have leaves : innerLeaves p.height (Blocks.terminal p bs).height (Blocks.cuts p bs) = [] := by
+    rw [last]
+    exact no_leaves _
   have el : p.elHash = u.inbox.checkpoint.elHash := congrArg Cut.elHash cut
   have comet : p.cometHash = u.inbox.checkpoint.cometHash := congrArg Cut.cometHash cut
   have cursor : p.cursor = u.inbox.checkpoint.cursor := congrArg Cut.cursor cut
-  have val : p.valStateHash = u.inbox.checkpoint.valStateHash := congrArg Cut.valStateHash cut
   unfold statement segmentLanding Blocks.statement tableHash
   dsimp only
   rw [cutoff,leaves]
   dsimp only [policy,Finality.derive,config]
   rw [record,inbox,reference,last,height]
-  simp only [Option.getD_some,el,comet,cursor,val]
+  simp only [Option.getD_some,el,comet,cursor]
 
 /-- The two proofs `ProofComplete` gives, with the registered image, pass `land`'s proof check. -/
 private theorem proofs_accepted {env : Environment} {u : World} {a : Landing} {image : Hash}
@@ -432,8 +419,8 @@ private theorem proofs_accepted {env : Environment} {u : World} {a : Landing} {i
 
 /-! ### The landing after recovery -/
 
-/-- From `Prepared`, the recovered generation's first K-block segment lands from the current
-checkpoint `c` to `c+K`. -/
+/-- From `Prepared`, the recovered generation's first block lands from the current checkpoint `c`
+to `c+1`. -/
 private theorem lands {env : Environment} {registry : RegistryMachine.State} {w u : World} {p : Header}
     {R : Nat} {keys : List Hash} {image : Hash} (premises : RecoveryPremises env registry)
     (prepared : Prepared env registry w u p R keys image) :
@@ -441,7 +428,7 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
   have reach := prepared.reachable
   have journal := Journal.trace_invariant reach
   have settled := trace_settled reach
-  obtain ⟨start,written,onGrid,room,implementation⟩ := prepared.grid
+  obtain ⟨start,written,room,implementation⟩ := prepared.started
   -- The generation's origin block R is above the genesis cutoff (`Finality.Ready`).
   have genesis : u.inbox.genesisCutoff ≤ R := by
     rw [settled.cutoff,← prepared.recovered.2.2]
@@ -462,8 +449,8 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
   have height : p.height = u.inbox.checkpoint.height := parent.1
   have generation : u.inbox.generation ≠ 0 := Nat.pos_iff_ne_zero.mp prepared.recovered.1
   have valid := prepared.params.1
-  have bounds : Committee.configOK u.inbox.gridK u.inbox.epochLen u.inbox.configuration.unsettled = true ∧
-      0 < u.inbox.forcedDelay ∧ 1152 ≤ u.inbox.maxAnchorAge ∧ u.inbox.gridK ≤ u.inbox.maxBatchBlocks := by
+  have bounds : Committee.configOK u.inbox.epochLen u.inbox.configuration.unsettled = true ∧
+      0 < u.inbox.forcedDelay ∧ 1152 ≤ u.inbox.maxAnchorAge ∧ 1 ≤ u.inbox.maxBatchBlocks := by
     unfold Parameters.valid at valid
     rw [Bool.and_eq_true] at valid
     have rest := of_decide_eq_true valid.2
@@ -471,7 +458,6 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
   have checked := bounds.1
   unfold Committee.configOK at checked
   have checked := of_decide_eq_true checked
-  have grid : 0 < u.inbox.gridK := checked.1
   have registryAt : ∀ cutoff, Finality.registryAt x.registry.registry cutoff =
       Finality.registryAt u.registry.registry cutoff := by
     intro cutoff
@@ -486,7 +472,7 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
   have context : SegmentContext env x p R keys image := by
     refine
       { origin := ?_, parent := ?_, closed := ?_, numbers := ?_, timed := ?_, time := ?_,
-        params := ?_, grid := ?_, stop := ?_, fits := ?_, rules := ?_, committee := committee, queue := ?_ }
+        params := ?_, stop := ?_, fits := ?_, rules := ?_, committee := committee, queue := ?_ }
     · rw [inbox,height]
       exact ⟨prepared.recovered.2.1,prepared.recovered.2.2,prepared.recovered.1⟩
     · rw [inbox]
@@ -507,11 +493,8 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
     · intro s member
       rw [snapshots] at member
       exact (journal.snapshots s member).1
-    · rw [inbox]
-      exact ⟨prepared.parentTime.1,prepared.parentTime.2,by have := prepared.number.2; omega⟩
+    · exact ⟨prepared.parentTime.1,prepared.parentTime.2,by have := prepared.number.2; omega⟩
     · rw [inbox]; exact prepared.params
-    · rw [started,inbox,height]
-      exact ⟨start,written,onGrid,room⟩
     · rw [schedule]; exact prepared.stop
     · rw [schedule]; exact settled.fits
     · rw [schedule]; exact prepared.rules
@@ -526,8 +509,8 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
   -- Step 2: the segment and its blobs.
   obtain ⟨bs,length,chain,last,head,tail,consumed,linked,facts⟩ :=
     segment premises.recoveryCatalogueHash context
-  rw [inbox] at length last head tail consumed
-  obtain ⟨blobs,fewest,most,payload⟩ := premises.payloadLive bs (by rw [length]; exact checked.2.1)
+  rw [inbox] at head tail consumed
+  obtain ⟨blobs,fewest,most,payload⟩ := premises.payloadLive bs (by rw [length]; decide)
     (fun b member => (facts b member).2.2.1)
   have anchors : ∀ h ∈ bs.map Blocks.Block.header, h.anchor.number = R := by
     intro h listed
@@ -535,7 +518,7 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
     exact (facts b member).2.2.2.1
   have statementEq : ∀ proofs, statement env u (segmentLanding u (Blocks.terminal p bs) R blobs proofs) =
       Blocks.statement (policy env x (bs.map Blocks.Block.header) (R+1)) p bs blobs := fun _ =>
-    segment_statement inbox reference record parent last grid generation prepared.recovered.2.2 anchors
+    segment_statement inbox reference record parent last generation prepared.recovered.2.2 anchors
   -- Step 3: the certificate, with archive root `p` and no prior headers.
   have origin : certificateOrigin x = some u.inbox.checkpoint := by
     change recordAt x.inbox x.inbox.origin.height = _
@@ -550,7 +533,7 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
   have epoch : 3 ≤ (config x).epochLen := by
     change 3 ≤ x.inbox.epochLen
     rw [inbox]
-    exact checked.2.2.1
+    exact checked.1
   have ready : Finality.Ready (config x) x.registry.registry (bs.map Blocks.Block.header)
       (Blocks.terminal p bs).height := by
     obtain ⟨members,elected,-⟩ := prepared.committee.2
@@ -574,7 +557,7 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
     · rw [history]
       exact (Economics.registry_history_time premises.currentRegistryGenesis reach).1
     · rw [last,← originHeight,List.length_map,length]
-      exact required_prefix grid
+      exact required_prefix
     · have nonzero : (config x).generation ≠ 0 := by
         change x.inbox.generation ≠ 0
         rw [inbox]
@@ -622,27 +605,26 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
     entered := prepared.entered
     origin := Nat.le_of_eq prepared.recovered.2.1
     parentBeforeFrontier := Nat.le_refl _
-    progress := Nat.lt_add_of_pos_right grid
+    progress := Nat.lt_add_one _
     height := room
-    parentGrid := by rw [written]; exact onGrid
-    lastGrid := by rw [written]; exact grid_next onGrid
-    frontierGrid := by rw [written]; exact onGrid
     batchSize := by
-      change u.inbox.checkpoint.height+u.inbox.gridK-u.inbox.checkpoint.height ≤ u.inbox.maxBatchBlocks
+      change u.inbox.checkpoint.height+1-u.inbox.checkpoint.height ≤ u.inbox.maxBatchBlocks
       rw [Nat.add_sub_cancel_left]
       exact bounds.2.2.2
     record := by
       change (recordAt u.inbox u.inbox.checkpoint.height).isSome = true
       rw [record]; rfl
     generation := Or.inr prepared.recovered.2.1.symm
-    leafCount := (no_leaves grid).symm
+    leafCount := by
+      change 0 = u.inbox.checkpoint.height+1-u.inbox.checkpoint.height-1
+      omega
     frontier := fun below => absurd below (Nat.lt_irrefl _)
     cursor := by rw [record]; exact cursor
     head := head
     tail := tail
     service := by
       change (Blocks.terminal p bs).cursor-u.inbox.head ≤
-        u.inbox.checkpoint.height+u.inbox.gridK-u.inbox.checkpoint.height
+        u.inbox.checkpoint.height+1-u.inbox.checkpoint.height
       rw [Nat.add_sub_cancel_left]
       exact consumed
     reference := by
@@ -657,7 +639,7 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
     unzen := prepared.fence
     proofs := proofs_accepted prepared.proofs.1 dual verified }
   refine ⟨segmentLanding u (Blocks.terminal p bs) R blobs proofs,
-    landed u (segmentLanding u (Blocks.terminal p bs) R blobs proofs),?_,Nat.lt_add_of_pos_right grid⟩
+    landed u (segmentLanding u (Blocks.terminal p bs) R blobs proofs),?_,Nat.lt_add_one _⟩
   unfold land
   rw [ite_eq_left checks]
 
@@ -665,9 +647,8 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
 
 /-- H4, recoverability (reports/recoverability.md, The claim and The path). From every reachable,
 initialized state satisfying `LiveAt`, under `RecoveryPremises`, a `RecoveryTrace` (no rollback; one
-recovery with the exclusions `LiveAt` names and no FI blanking, plain when `c` is on the grid and otherwise
-structural, installing K = 1) reaches a state where `land` accepts the recovered generation's first
-K-block segment from the current checkpoint `c` to `c+K`, K being the recovered generation's.
+plain recovery with the exclusions `LiveAt` names and no FI blanking) reaches a state where `land`
+accepts the recovered generation's first block from the current checkpoint `c` to `c+1`.
 If anything had landed before, the recovery kept `c`, so the new checkpoint is above the starting
 one. -/
 theorem recoverable : Etna.Statements.Current.Recoverability := by

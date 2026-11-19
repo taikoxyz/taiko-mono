@@ -197,8 +197,8 @@ theorem execute_effect {env : Environment} {w t : World} {call : Call}
     change scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact .frame rfl rfl rfl rfl (Nat.le_refl _)
-  | scheduleStop caller time grid =>
-    change scheduleStop env w caller time grid = some t at ok
+  | scheduleStop caller time =>
+    change scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact .frame rfl rfl rfl rfl (Nat.le_refl _)
   | recover request =>
@@ -472,8 +472,8 @@ theorem execute_record_effect {env : Environment} {w t : World} {call : Call}
     change scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact .frame rfl rfl rfl rfl
-  | scheduleStop caller time grid =>
-    change scheduleStop env w caller time grid = some t at ok
+  | scheduleStop caller time =>
+    change scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact .frame rfl rfl rfl rfl
   | recover request =>
@@ -706,8 +706,8 @@ theorem execute_nonlanding_head {env : Environment} {w t : World} {call : Call}
     change scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact Nat.le_refl _
-  | scheduleStop caller time grid =>
-    change scheduleStop env w caller time grid = some t at ok
+  | scheduleStop caller time =>
+    change scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact Nat.le_refl _
   | recover request =>
@@ -853,8 +853,8 @@ theorem execute_preserves_existing {env : Environment} {w t : World} {call : Cal
     change scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact ⟨[],by simp [landed,nodeRestart]⟩
-  | scheduleStop caller time grid =>
-    change scheduleStop env w caller time grid = some t at ok
+  | scheduleStop caller time =>
+    change scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact ⟨[],by simp [landed,nodeRestart]⟩
   | recover request =>
@@ -1018,21 +1018,28 @@ theorem written_preserves_lookup {records : List Checkpoint} {cp r : Checkpoint}
 theorem write_start_frontier (w : World) (height hash root block timestamp generation : Nat)
     (initialized : w.initialized = true) (head : w.inbox.head = 0) :
     FrontierShape (writeStart w height hash root block timestamp generation) := by
-  refine ⟨?_,?_,?_,?_,?_,?_⟩
+  refine ⟨?_,?_,?_,?_,?_,?_,?_⟩
   · simp [writeStart,initialized]
   · simp [writeStart]
   · intro _; exact head
   · intro _; exact List.mem_cons_self
   · intro r mem
-    have same : r = ⟨height,hash,0,0,generation,height,0⟩ := by simpa [writeStart] using mem
+    have same : r = ⟨height,hash,0,0,generation,height⟩ := by simpa [writeStart] using mem
     subst r
     exact written_lookup _ _
   · intro _; exact head.symm
+  · intro start written
+    have same : start = ⟨height,hash,root⟩ := (Option.some.inj written).symm
+    subst start
+    refine ⟨Nat.le_refl _,fun r mem => ?_⟩
+    have same : r = ⟨height,hash,0,0,generation,height⟩ := by simpa [writeStart] using mem
+    subst r
+    exact Nat.le_refl _
 
 theorem land_frontier {env : Environment} {w : World} {a : Landing}
     (prior : FrontierShape w) (ordered : RecordShape w) (check : LandingChecks env w a) :
     FrontierShape (landed w a) := by
-  refine ⟨?_,?_,?_,?_,?_,?_⟩
+  refine ⟨?_,?_,?_,?_,?_,?_,?_⟩
   · intro uninit
     exact prior.uninitialized uninit
   · intro absent
@@ -1049,6 +1056,16 @@ theorem land_frontier {env : Environment} {w : World} {a : Landing}
       have unequal : a.input.lastHeight ≠ r.height := by have := check.progress; omega
       exact written_preserves_lookup (prior.records r old) unequal
   · intro _; rfl
+  · intro start written
+    have floor := prior.floor start written
+    refine ⟨floor.1,fun r mem => ?_⟩
+    change r ∈ _ :: w.activeRecords at mem
+    rcases List.mem_cons.mp mem with rfl | old
+    · have below := floor.2 _ (prior.member check.started)
+      have progress := check.progress
+      change start.height ≤ a.input.lastHeight
+      omega
+    · exact floor.2 r old
 
 theorem rollback_frontier {env : Environment} {w : World} {caller snapshot : Nat} {trusted : Checkpoint}
     (prior : FrontierShape w) (ordered : RecordShape w) {t : World}
@@ -1058,7 +1075,7 @@ theorem rollback_frontier {env : Environment} {w : World} {caller snapshot : Nat
   next guard =>
     obtain ⟨registry,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     have retained : trusted ∈ w.activeRecords := guard.2.2.2.1
-    refine ⟨prior.uninitialized,prior.unstarted,?_,?_,?_,?_⟩
+    refine ⟨prior.uninitialized,prior.unstarted,?_,?_,?_,?_,?_⟩
     · intro never
       have oldZero := prior.unlanded never
       have bound := ordered.cursor trusted retained
@@ -1070,6 +1087,9 @@ theorem rollback_frontier {env : Environment} {w : World} {caller snapshot : Nat
       obtain ⟨old,below⟩ := List.mem_filter.mp mem
       exact find_filter_retains (prior.records r old) (by simp [of_decide_eq_true below])
     · intro _; rfl
+    · intro start written
+      have floor := prior.floor start written
+      exact ⟨floor.1,fun r mem => floor.2 r (List.mem_filter.mp mem).1⟩
   next => simp at ok
 
 theorem execute_frontier_shape {env : Environment} {w t : World} {call : Call}
@@ -1080,7 +1100,7 @@ theorem execute_frontier_shape {env : Environment} {w t : World} {call : Call}
     change advance env w number = some t at ok
     unfold advance at ok
     split at ok
-    next guard => cases Option.some.inj ok; exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+    next guard => cases Option.some.inj ok; exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
     next => simp at ok
   | initializeInbox caller =>
     change initializeInbox env w caller = some t at ok
@@ -1093,17 +1113,22 @@ theorem execute_frontier_shape {env : Environment} {w t : World} {call : Call}
         split at ok
         next =>
           cases Option.some.inj ok
-          refine ⟨?_,?_,fun _ => zero,fun _ => List.mem_cons_self,?_,fun _ => zero.symm⟩
+          refine ⟨?_,?_,fun _ => zero,fun _ => List.mem_cons_self,?_,fun _ => zero.symm,?_⟩
           · intro impossible; cases impossible
           · intro impossible; cases impossible
           · intro r mem
-            have same : r = ⟨0,env.genesisHeader.elHash,0,0,0,0,0⟩ := by simpa only [writeStart,List.mem_singleton] using mem
+            have same : r = ⟨0,env.genesisHeader.elHash,0,0,0,0⟩ := by simpa only [writeStart,List.mem_singleton] using mem
             subst r
             exact written_lookup _ _
+          · intro start written
+            have same : start = ⟨0,env.genesisHeader.elHash,env.genesisHeader.stateRoot⟩ :=
+              (Option.some.inj written).symm
+            subst start
+            exact ⟨Nat.zero_le _,fun r _ => Nat.zero_le _⟩
         next => simp at ok
       next =>
         cases Option.some.inj ok
-        exact ⟨by simp,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+        exact ⟨by simp,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
     next => simp at ok
   | setOrigin caller height hash root =>
     change setOrigin env w caller height hash root = some t at ok
@@ -1136,7 +1161,7 @@ theorem execute_frontier_shape {env : Environment} {w t : World} {call : Call}
     split at ok
     next =>
       obtain ⟨result,_,rfl⟩ := Option.map_eq_some_iff.mp ok
-      exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+      exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
     next => simp at ok
   | enqueue raw paid refund =>
     change enqueue env w raw paid refund = some t at ok
@@ -1149,7 +1174,7 @@ theorem execute_frontier_shape {env : Environment} {w t : World} {call : Call}
       split at inner
       next =>
         cases Option.some.inj inner
-        exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+        exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
       next => simp at inner
     next => simp at ok
   | sweep transfer =>
@@ -1157,37 +1182,41 @@ theorem execute_frontier_shape {env : Environment} {w t : World} {call : Call}
     obtain ⟨inbox,inner,rfl⟩ := Option.map_eq_some_iff.mp ok
     unfold Forced.sweep at inner
     split at inner
-    next => cases Option.some.inj inner; exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+    next => cases Option.some.inj inner; exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
     next => simp at inner
   | forcedETH amount =>
     cases Option.some.inj ok
-    exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+    exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
   | scheduleRules caller rule time =>
     change scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
-    exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
-  | scheduleStop caller time grid =>
-    change scheduleStop env w caller time grid = some t at ok
+    exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
+  | scheduleStop caller time =>
+    change scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
-    exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+    exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
   | recover request =>
     change recover env w request = some t at ok
     unfold recover at ok
-    obtain ⟨start,_,ok⟩ := Option.bind_eq_some_iff.mp ok
+    obtain ⟨start,written,ok⟩ := Option.bind_eq_some_iff.mp ok
     dsimp only at ok
+    have member := prior.member (by rw [written]; rfl)
     cases upgrade : request.upgrade <;> simp only [upgrade,Option.isSome_none,Option.isSome_some,Option.getD_none,Option.getD_some,Bool.false_eq_true,↓reduceIte] at ok
     all_goals
       split at ok
       next =>
         obtain ⟨schedule,_,ok⟩ := Option.bind_eq_some_iff.mp ok
         obtain ⟨registry,_,rfl⟩ := Option.map_eq_some_iff.mp ok
-        exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+        refine ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,?_⟩
+        intro start' written'
+        have floor := prior.floor start' written'
+        exact ⟨floor.2 _ member,floor.2⟩
       next => simp at ok
   | invalidate caller nonce =>
     change invalidate env w caller nonce = some t at ok
     unfold invalidate at ok
     split at ok
-    next => cases Option.some.inj ok; exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+    next => cases Option.some.inj ok; exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
     next => simp at ok
   | rollback caller trusted restored =>
     exact rollback_frontier prior ordered ok
@@ -1199,17 +1228,17 @@ theorem execute_frontier_shape {env : Environment} {w t : World} {call : Call}
     change unzenProve env w proposal header proof = some t at ok
     unfold unzenProve at ok
     split at ok
-    next => cases Option.some.inj ok; exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+    next => cases Option.some.inj ok; exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
     next => simp at ok
   | image caller image register | verifier caller version =>
     simp only [Protocol.execute] at ok
     split at ok
-    next => cases Option.some.inj ok; exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+    next => cases Option.some.inj ok; exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
     next => simp at ok
   | observe number =>
     change observe env w number = some t at ok
     obtain ⟨s,_,rfl⟩ := Option.map_eq_some_iff.mp ok
-    exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+    exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
   | importSnapshot candidate durable =>
     change nodeImport env w candidate durable = some t at ok
     unfold nodeImport at ok
@@ -1219,18 +1248,18 @@ theorem execute_frontier_shape {env : Environment} {w t : World} {call : Call}
       split at ok
       next =>
         obtain ⟨installed,_,rfl⟩ := Option.map_eq_some_iff.mp ok
-        exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+        exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
       next => simp at ok
   | restart | openSigner _ | switchSigner _ =>
     cases Option.some.inj ok
-    exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+    exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
   | sign message signature persisted =>
     obtain ⟨result,_,rfl⟩ := Option.map_eq_some_iff.mp ok
-    exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+    exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
 
 theorem empty_frontier_shape (env : Environment) (registry : RegistryMachine.State) :
     FrontierShape (empty env registry) := by
-  refine ⟨fun _ => rfl,fun _ => rfl,fun _ => rfl,?_,?_,?_⟩ <;> simp [empty]
+  refine ⟨fun _ => rfl,fun _ => rfl,fun _ => rfl,?_,?_,?_,?_⟩ <;> simp [empty]
 
 theorem step_frontier_shape {env : Environment} {w t : World} (prior : FrontierShape w)
     (ordered : RecordShape w) (step : Protocol.Step env w t) : FrontierShape t := by
@@ -1240,7 +1269,7 @@ theorem step_frontier_shape {env : Environment} {w t : World} (prior : FrontierS
     | none => simpa [Protocol.transact,h] using prior
     | some t => simpa [Protocol.transact,h] using execute_frontier_shape h prior ordered
   | node after verified =>
-    exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor⟩
+    exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
 
 theorem trace_frontier_shape {env : Environment} {registry : RegistryMachine.State} {w : World}
     (trace : Protocol.Trace env (empty env registry) w) : FrontierShape w := by

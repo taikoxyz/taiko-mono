@@ -4,20 +4,20 @@ namespace Etna.Design.Current.Protocol.GovernanceReview
 open Etna.Design Etna.Design.Current Governance
 
 def domain : Domain := ⟨1,2,3,4⟩
-def genesis : Header := ⟨0,100,10,0,0,1,⟨0,0,0,0,0,0,0⟩,0⟩
+def genesis : Header := ⟨0,100,10,0,0,1,⟨0,0,0,0,0,0,0⟩⟩
 def registry : RegistryMachine.State where
   ledger := ⟨0,fun _ => none,fun _ => none,fun _ => none,Committee.minUnit,1⟩
   config := { inbox := 3 }
 
-def h5 : Header := ⟨5,101,15,0,0,1,⟨0,0,0,0,0,0,0⟩,0⟩
-def h10 : Header := ⟨10,102,20,0,0,1,⟨0,0,0,0,0,0,0⟩,0⟩
+def h5 : Header := ⟨5,101,15,0,0,1,⟨0,0,0,0,0,0,0⟩⟩
+def h10 : Header := ⟨10,102,20,0,0,1,⟨0,0,0,0,0,0,0⟩⟩
 def headerCommitment (h : Header) : Hash :=
   Encoding.relabel [Encoding.header genesis,Encoding.header h5,Encoding.header h10]
     Encoding.Tree.code (Encoding.header h)+100
 
 def env : Environment where
   core := ⟨domain,7,8,0,2,9⟩
-  parameters := ⟨1,10,1,⟨Committee.minUnit,Committee.minUnit,1,10⟩,1,1152,10,1,1,9⟩
+  parameters := ⟨10,1,⟨Committee.minUnit,Committee.minUnit,1,10⟩,1,1152,10,1,1,9⟩
   genesisHeader := genesis
   initialSigner := ⟨domain,0,1,[],false,[]⟩
   time := id
@@ -128,7 +128,7 @@ def failAdvanced := Governance.transact failEnv failInitial (.advance 2)
 def failStarted := Governance.transact failEnv failAdvanced (.initializeInbox 7)
 def failImaged := Governance.transact failEnv failStarted (.image 7 11 true)
 def failSource := Governance.transact failEnv failImaged (.advance 3)
-def badLanding : Landing := ⟨⟨0,1,999,0,0,999,2,0,1⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
+def badLanding : Landing := ⟨⟨0,1,999,0,999,2,0,1⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
 def failed := Governance.transact failEnv failSource (.land badLanding)
 def startRecord := failStarted.inbox.checkpoint
 def badRecord := failed.inbox.checkpoint
@@ -179,7 +179,7 @@ theorem failure_rollback_authorized :
     · omega
     · rw [List.mem_singleton.mp retained]
       refine ⟨Or.inl start_certified,.inl ?_,?_⟩
-      · exact ⟨⟨0,100,10⟩,rfl,rfl,rfl,rfl,rfl,rfl⟩
+      · exact ⟨⟨0,100,10⟩,rfl,rfl,rfl,rfl,rfl⟩
       · intro event member same
         have fixed : event = ⟨failSource.inbox,failSource.history,badLanding⟩ := by
           change event ∈ [⟨failSource.inbox,failSource.history,badLanding⟩] at member

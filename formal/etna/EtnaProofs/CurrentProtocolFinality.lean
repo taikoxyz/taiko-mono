@@ -120,7 +120,7 @@ theorem execute_registry_trace {env : Environment} {w t : World} {call : Call}
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
     subst t
     exact unchanged_trace rfl
-  | scheduleStop caller time grid =>
+  | scheduleStop caller time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleStop at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok

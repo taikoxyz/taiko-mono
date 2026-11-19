@@ -31,8 +31,6 @@ abbrev RulesetCatalogue := Nat → Option Definition
 
 structure GenerationPolicy where
   consensus : Consensus.Context
-  startHeight : Nat
-  gridK : Nat
   committeeConfig : Hash
   maxAnchorAge : Nat
   forcedDelay : Nat
@@ -111,7 +109,7 @@ structure AnchorValid (r : GenerationPolicy) (p : Header) (b : Block) : Prop whe
   history : r.consensus.anchorAt b.header.height = b.header.anchor.number
   authenticated : r.anchorAuthenticated b.header.anchor = true
 
-/-- Epochs remain absolute; the generation's landing grid is not the epoch origin. -/
+/-- Epochs remain absolute; the generation's start is not the epoch origin. -/
 def WitnessValid (r : GenerationPolicy) (b : Block) : Prop :=
   if (b.header.height+1) % r.consensus.epochLen = 0 then
     match b.body.committeeWitness with
@@ -122,7 +120,7 @@ def WitnessValid (r : GenerationPolicy) (b : Block) : Prop :=
   else b.body.committeeWitness = none
 
 structure Valid (r : GenerationPolicy) (p : Header) (b : Block) : Prop where
-  config : Committee.configOK r.gridK r.consensus.epochLen r.unsettled = true
+  config : Committee.configOK r.consensus.epochLen r.unsettled = true
   floor : r.consensus.originHeight ≤ p.height
   header : HeaderValid r p b
   anchor : AnchorValid r p b
@@ -132,7 +130,7 @@ structure Valid (r : GenerationPolicy) (p : Header) (b : Block) : Prop where
   selected : r.catalogue (selectedRules b) = some (definition r b)
   schedule : Rules.fits b.schedule
   scheduleOpening : r.scheduleAuthenticated b.header.anchor b.schedule = true
-  notStopped : Rules.stopped b.schedule r.startHeight p.height p.timestamp = false
+  notStopped : Rules.stopped b.schedule p.timestamp = false
   execution : (definition r b).executionValid p b.body = true
   payload : (definition r b).payloadValid b.body b.raw b.transactions = true
   positionZero : b.first = b.transactions.head?
@@ -170,10 +168,10 @@ def consumingPairs (p : Header) (bs : List Block) : List (Header × Block) :=
 
 def statement (r : GenerationPolicy) (p : Header) (bs : List Block) (blobs : List Hash) : StatementData :=
   let last := terminal p bs
-  let input : LandInput := ⟨p.height,last.height,last.elHash,last.cometHash,last.valStateHash,last.stateRoot,
+  let input : LandInput := ⟨p.height,last.height,last.elHash,last.cometHash,last.stateRoot,
     r.referenceNumber,last.cursor,(Consensus.activeAt r.consensus last.height).cutoff⟩
-  ⟨r.consensus.domain,r.consensus.generation,r.committeeConfig,p.elHash,p.cometHash,p.valStateHash,p.cursor,
-    input,r.referenceHash,blobs,tableHash r.gridK r.consensus.generation p.height last.height (cuts p bs)⟩
+  ⟨r.consensus.domain,r.consensus.generation,r.committeeConfig,p.elHash,p.cometHash,p.cursor,
+    input,r.referenceHash,blobs,tableHash r.consensus.generation p.height last.height (cuts p bs)⟩
 
 def BatchValid (r : GenerationPolicy) (p : Header) (bs : List Block) (blobs : List Hash) : Prop :=
   Chain r p bs ∧ r.batchPayloadValid blobs bs = true

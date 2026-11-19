@@ -79,8 +79,8 @@ theorem execute_unzen_frame {env : Environment} {w t : World} {call : Call}
     change scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact ⟨rfl,rfl,rfl⟩
-  | scheduleStop caller time grid =>
-    change scheduleStop env w caller time grid = some t at ok
+  | scheduleStop caller time =>
+    change scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact ⟨rfl,rfl,rfl⟩
   | recover request =>
@@ -296,7 +296,7 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
       cases Option.some.inj ok
       refine ⟨rfl,fun _ mem => mem,?_⟩
       intro held
-      exact ⟨held.1,Or.inr ⟨rfl,switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl,rfl⟩⟩
+      exact ⟨held.1,Or.inr ⟨rfl,switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl⟩⟩
     next => simp at ok
   | correctStart caller height hash root =>
     change correctStart env w caller height hash root = some t at ok
@@ -307,7 +307,7 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
       cases Option.some.inj ok
       refine ⟨rfl,fun _ mem => mem,?_⟩
       intro held
-      exact ⟨held.1,Or.inr ⟨rfl,switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl,rfl⟩⟩
+      exact ⟨held.1,Or.inr ⟨rfl,switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl⟩⟩
     next => simp at ok
   | registry caller action =>
     change registryCall env w caller action = some t at ok
@@ -345,8 +345,8 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
     change scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact nonlanding_frame rfl rfl rfl rfl rfl
-  | scheduleStop caller time grid =>
-    change scheduleStop env w caller time grid = some t at ok
+  | scheduleStop caller time =>
+    change scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact nonlanding_frame rfl rfl rfl rfl rfl
   | recover request =>
@@ -483,6 +483,7 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
         have certificate := certified_landing genesis soundness reach ok
         obtain ⟨fence,_⟩ := pending_parent_fence primitive reach ok
           (trace_invariant genesis primitive soundness reach) segment cursor record pending certificate
+          (fun start written => ((Journal.trace_frontier_shape reach).floor start written).1)
         have bounded := legacy_bounded_at_first_fence primitive prefixHeld fence segment.parentHashBound
         obtain ⟨start,written,atStart,_,closed,_,_,_,_,_,height,_,_,_,_⟩ := fence
         obtain ⟨_,rfl⟩ := land_success ok

@@ -28,16 +28,9 @@ structure Header where
   cursor : Nat
   timestamp : Nat
   anchor : Anchor
-  /-- Validator-state hash after committing this height (appendix A valStateHash), an opaque
-  atom. At a generation's origin the model reads it as the origin record's stored value: the
-  record there need not hold this generation's validator state (PROOF-6.2-40, SYNC-9-5), and
-  the base H1–H4 model keeps that atom independent. The additional
-  CurrentValidatorState.Batch/Certificate refinement computes concrete per-height state
-  and applies the genesis-origin exception (PROOF-6.2-41a). -/
-  valStateHash : Hash
   deriving DecidableEq, Repr
 
-def Header.cut (h : Header) : Cut := ⟨h.elHash,h.cometHash,h.cursor,h.valStateHash⟩
+def Header.cut (h : Header) : Cut := ⟨h.elHash,h.cometHash,h.cursor⟩
 
 structure CommitteeWitness where
   record : Committee.Record

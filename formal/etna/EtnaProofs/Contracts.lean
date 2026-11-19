@@ -13,10 +13,9 @@ lock (scripts/review_surface.py) covers every definition the statements use; the
 build-time check for the shared consensus, committee, staking and forced-inclusion core. -/
 namespace Etna.Design.Contracts
 
-theorem config_ok_eq (k l u : _root_.Nat) :
-    _root_.Etna.Design.Committee.configOK k l u =
-      _root_.Decidable.decide (1 ≤ k ∧ k ≤ 6 ∧ 3 ≤ l ∧ l+1 < _root_.Etna.Design.limit48 ∧ k ≤ u ∧
-        u ≤ 65536 ∧ u % k = 0) := rfl
+theorem config_ok_eq (l u : _root_.Nat) :
+    _root_.Etna.Design.Committee.configOK l u =
+      _root_.Decidable.decide (3 ≤ l ∧ l+1 < _root_.Etna.Design.limit48 ∧ 1 ≤ u ∧ u ≤ 65536) := rfl
 
 theorem signed_power_eq (c : _root_.Etna.Design.Consensus.Context)
     (members : _root_.List _root_.Etna.Design.Committee.Entry) (keys : _root_.List _root_.Etna.Design.Hash) :

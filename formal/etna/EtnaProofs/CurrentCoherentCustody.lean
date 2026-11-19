@@ -78,7 +78,7 @@ set_option linter.unusedSimpArgs false
     (switching : env.core.unzenInbox ≠ 0) (noSignals : w.inbox.signals = [])
     (height hash root block timestamp generation : Nat) :
     Coherent env initial (writeStart w height hash root block timestamp generation) := by
-  exact Or.inl ⟨noSignals,Or.inr ⟨rfl,switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl,rfl⟩⟩
+  exact Or.inl ⟨noSignals,Or.inr ⟨rfl,switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl⟩⟩
 
  theorem rollback_coherent {env : Environment} {initial w t : World} {caller snap : Nat}
     {trusted : Checkpoint} (held : Coherent env initial w)
@@ -127,6 +127,7 @@ set_option linter.unusedSimpArgs false
       · simp [none] at member
       · obtain ⟨fence,legacy,retained,auth,starts⟩ :=
           pending_parent_fence primitive reach ok old segment cursor record pending certificate
+            (fun start written => ((Journal.trace_frontier_shape reach).floor start written).1)
         have rootAuth : AuthenticRoot env (empty env registry) segment.parent :=
           Or.inr ⟨w,t,a,legacy,reach,ok,fence,retained,auth,starts⟩
         obtain ⟨start,written,atStart,switching,complete,finalized,checkpoint,_,hash,root,
@@ -146,7 +147,7 @@ set_option linter.unusedSimpArgs false
   obtain ⟨H,head,headers,links,named,parent⟩ := existing
   obtain ⟨rest,records⟩ := List.head?_eq_some_iff.mp head
   let cp : Checkpoint := ⟨a.input.lastHeight,a.input.lastBlockHash,a.input.lastCometHash,
-    a.input.forcedInclusionHead,w.inbox.generation,w.inbox.checkpoint.height,a.input.lastValStateHash⟩
+    a.input.forcedInclusionHead,w.inbox.generation,w.inbox.checkpoint.height⟩
   let terminal := Blocks.terminal segment.parent segment.blocks
   let G : Checkpoint → Header := fun r => if r = cp then terminal else H r
   have fresh : ∀ r ∈ w.activeRecords, r ≠ cp := by
@@ -210,9 +211,9 @@ set_option linter.unusedSimpArgs false
         cases Option.some.inj ok
         refine Or.inr ⟨fun _ => env.genesisHeader,rfl,?_,?_,?_⟩
         · intro cp mem
-          have same : cp = ⟨0,env.genesisHeader.elHash,0,0,0,0,0⟩ := by simpa [writeStart] using mem
+          have same : cp = ⟨0,env.genesisHeader.elHash,0,0,0,0⟩ := by simpa [writeStart] using mem
           subst cp
-          exact ⟨⟨genesis.1,by simp [BlockValidity.Header.cut,genesis.2.1,genesis.2.2.1,genesis.2.2.2]⟩,primitive.genesis⟩
+          exact ⟨⟨genesis.1,by simp [BlockValidity.Header.cut,genesis.2.1,genesis.2.2]⟩,primitive.genesis⟩
         · exact .root _ ⟨⟨0,env.genesisHeader.elHash,env.genesisHeader.stateRoot⟩,rfl,genesis.1,rfl,rfl,
             Or.inl ⟨newNetwork,rfl⟩⟩
         · intro signal mem
@@ -293,8 +294,8 @@ theorem execute_coherent {env : Environment} {registry : RegistryMachine.State} 
     change scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact frame_coherent held rfl rfl rfl rfl
-  | scheduleStop caller time grid =>
-    change scheduleStop env w caller time grid = some t at ok
+  | scheduleStop caller time =>
+    change scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact frame_coherent held rfl rfl rfl rfl
   | recover request =>
@@ -452,8 +453,8 @@ theorem execute_frozen {env : Environment} {w t : World} {call : Call}
     change scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact And.intro rfl ever
-  | scheduleStop caller time grid =>
-    change scheduleStop env w caller time grid = some t at ok
+  | scheduleStop caller time =>
+    change scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact And.intro rfl ever
   | recover request =>
@@ -653,8 +654,8 @@ theorem execute_legacy_authenticated {env : Environment} {w t : World} {call : C
     change scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact held
-  | scheduleStop caller time grid =>
-    change scheduleStop env w caller time grid = some t at ok
+  | scheduleStop caller time =>
+    change scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact held
   | recover request =>
@@ -825,8 +826,8 @@ theorem execute_snapshot_source {env : Environment} {w t : World} {call : Call}
     change scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact fun pair mem => Or.inl mem
-  | scheduleStop caller time grid =>
-    change scheduleStop env w caller time grid = some t at ok
+  | scheduleStop caller time =>
+    change scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact fun pair mem => Or.inl mem
   | recover request =>

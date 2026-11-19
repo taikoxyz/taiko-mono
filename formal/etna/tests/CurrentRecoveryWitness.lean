@@ -23,21 +23,10 @@ example : Etna.Statements.Current.RecoveryPremises RecoveryNonVacuity.env Recove
     Etna.Statements.Current.RecoverableAt RecoveryNonVacuity.env RecoveryNonVacuity.live :=
   Etna.Design.Current.Protocol.RecoveryNonVacuity.live_recovers
 
--- `LiveAt` holds there by `LiveRules`' first case: c = S = 0 is on the K = 1 grid, so the path
--- runs a plain recovery and the structural branch is not exercised.
-example : Etna.Statements.Current.OnGrid RecoveryNonVacuity.live := by
-  intro start started
-  have written : RecoveryNonVacuity.live.start =
-      some ⟨0,RecoveryNonVacuity.genesis.elHash,RecoveryNonVacuity.genesis.stateRoot⟩ := by
-    decide +kernel
-  rw [written] at started
-  cases started
-  decide +kernel
-
--- The world: one bond for the online key, initialized at S = 0 on K = 1 at L1 block 2, nothing
--- landed yet, on the initial rulesets 0/0.
+-- The world: one bond for the online key, initialized at S = 0 at L1 block 2, nothing landed
+-- yet, on the initial rulesets 0/0.
 example : RecoveryNonVacuity.live.registry.registry.ledger.nextId = 1 ∧ RecoveryNonVacuity.live.number = 2 ∧
-    RecoveryNonVacuity.live.inbox.checkpoint.height = 0 ∧ RecoveryNonVacuity.live.inbox.gridK = 1 ∧
+    RecoveryNonVacuity.live.inbox.checkpoint.height = 0 ∧
     RecoveryNonVacuity.live.everLanded = false ∧ RecoveryNonVacuity.live.schedule.active = 0 ∧
     RecoveryNonVacuity.live.schedule.next = 0 := by
   decide +kernel
@@ -77,11 +66,11 @@ example (proposal : Nat) (h : Header) (proof : Hash) :
 
 open RecoverySwitchNonVacuity in
 -- The world: Unzen Inbox 99, L1 block 3 at the fork time, S = 5 written from `legacy` by the
--- origin writer with c = S on K = 1, nothing landed, and the Unzen lane unproven (proposal 1
+-- origin writer with c = S, nothing landed, and the Unzen lane unproven (proposal 1
 -- open, no checkpoint, no legacy signal) on the initial rulesets 0/0.
 example : env.core.unzenInbox = 99 ∧ live.number = 3 ∧ env.core.forkTime = env.time live.number ∧
     live.start = some ⟨5,legacy.elHash,legacy.stateRoot⟩ ∧ live.inbox.checkpoint.height = 5 ∧
-    live.inbox.gridK = 1 ∧ live.everLanded = false ∧ live.unzen.nextProposal = 2 ∧
+    live.everLanded = false ∧ live.unzen.nextProposal = 2 ∧
     live.unzen.finalizedProposal = 0 ∧ live.unzen.checkpointExists = false ∧ live.legacySignals = [] ∧
     live.schedule.active = 0 ∧ live.schedule.next = 0 := by
   decide +kernel

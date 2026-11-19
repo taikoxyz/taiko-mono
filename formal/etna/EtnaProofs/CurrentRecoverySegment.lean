@@ -1,9 +1,9 @@
 import EtnaModel.CurrentRecoveryInterface
 import EtnaProofs.Forced
 
-/-! The first K blocks of the new generation after a recovery (reports/recoverability.md,
-The path, step 6). `Recovery.segment` builds them on the batch parent `p` from `SegmentContext`
-and proves each one `Blocks.Valid` under the closed certificate world's policy at reference `R+1`.
+/-! The first block of the new generation after a recovery (reports/recoverability.md,
+The path, step 6). `Recovery.segment` builds it on the batch parent `p` from `SegmentContext`
+and proves it `Blocks.Valid` under the closed certificate world's policy at reference `R+1`.
 
 Every block anchors to the snapshot `s` at `R`. Its timestamp is `max (parent + 1) (time R)` (BFT
 time 0), so block `i` is `i-1` seconds past its anchor. It commits in round 0 with votes from the
@@ -124,16 +124,16 @@ private theorem matching {env : Environment} {x : World} {s : Snapshot} (member 
     rw [number_unique unique (List.mem_of_find?_eq_some found) member
       (congrArg BlockValidity.Anchor.number same)]
 
-/-- The bounds `(parametersOf s).valid` gives: the configuration check, K ≤ 6, K ≤ U and the
-minimum anchor age. -/
+/-- The bounds `(parametersOf s).valid` gives: the configuration check, 1 ≤ U and the minimum
+anchor age. -/
 private theorem valid_params {s : Etna.Design.State} (valid : (parametersOf s).valid = true) :
-    Committee.configOK s.gridK s.epochLen s.configuration.unsettled = true ∧ s.gridK ≤ 6 ∧
-      s.gridK ≤ s.configuration.unsettled ∧ 1152 ≤ s.maxAnchorAge := by
+    Committee.configOK s.epochLen s.configuration.unsettled = true ∧ 1 ≤ s.configuration.unsettled ∧
+      1152 ≤ s.maxAnchorAge := by
   unfold Parameters.valid at valid
   rw [Bool.and_eq_true] at valid
   have rest := of_decide_eq_true valid.2
   have bounds := of_decide_eq_true valid.1
-  exact ⟨valid.1,bounds.2.1,bounds.2.2.2.2.1,rest.2.1⟩
+  exact ⟨valid.1,bounds.2.2.1,rest.2.1⟩
 
 /-! ### Blocks -/
 
@@ -337,7 +337,7 @@ private theorem commit_valid (setup : Setup env x p R keys image s) {d : Blocks.
 /-- One block on parent `q` from header `h`, which executes under the selected definition `d`
 with the segment's timestamp and anchor, given its forced-inclusion step. -/
 private theorem assemble (setup : Setup env x p R keys image s) {i : Nat} {q : Header}
-    (room : i < x.inbox.gridK) (parent : Parent env x p s i q) {d : Blocks.Definition}
+    (room : i < 1) (parent : Parent env x p s i q) {d : Blocks.Definition}
     (cat : env.catalogue (Rules.select x.schedule (max (max (q.timestamp+1) 0) s.timestamp)) = some d)
     (implemented : Rules.select x.schedule (max (max (q.timestamp+1) 0) s.timestamp) ∈ env.imageRules image)
     {cursor : Nat} {raw : Blocks.Bytes} {txs : List Blocks.Bytes} {h : Header}
@@ -353,7 +353,7 @@ private theorem assemble (setup : Setup env x p R keys image s) {i : Nat} {q : H
   obtain ⟨height,cursorEq,stamp,anchored,bound',linked,accepts⟩ := exec
   have accepted := accepts (segmentBody env x R keys d q h slot raw first) rfl rfl rfl
     (congrArg BlockValidity.Anchor.stateRoot anchored)
-  obtain ⟨configured,small,unsettled,age⟩ := valid_params setup.context.params.1
+  obtain ⟨configured,unsettled,age⟩ := valid_params setup.context.params.1
   have number := setup.number
   have time := setup_time setup
   obtain ⟨-,windowLimit,numberLimit⟩ := setup.context.time
@@ -447,7 +447,7 @@ private theorem assemble (setup : Setup env x p R keys image s) {i : Nat} {q : H
   · show ((matchingSnapshot env x h.anchor).map fun s => decide (s.schedule = x.schedule)).getD false = true
     rw [anchored,setup_matching setup]
     simp [setup.schedule]
-  · show Rules.stopped x.schedule _ q.height q.timestamp = false
+  · show Rules.stopped x.schedule q.timestamp = false
     simp [Rules.stopped,setup.context.stop]
   · rw [defn]
     exact accepted.1
@@ -480,7 +480,7 @@ private theorem assemble (setup : Setup env x p R keys image s) {i : Nat} {q : H
 definition selected at its timestamp; the FI head entry is included, skipped or waited on as
 `Forced.step` allows. -/
 private theorem next_block (hash : ∀ id d, env.catalogue id = some d → d.bytes.hashBytes = env.txHash)
-    (setup : Setup env x p R keys image s) {i : Nat} {q : Header} (room : i < x.inbox.gridK)
+    (setup : Setup env x p R keys image s) {i : Nat} {q : Header} (room : i < 1)
     (parent : Parent env x p s i q) :
     ∃ b : Block, Blocks.Valid (policy env x [] (R+1)) q b ∧ Parent env x p s (i+1) b.header ∧
       env.headerParent b.header.elHash = q.elHash ∧ Facts env image R b := by
@@ -525,7 +525,7 @@ private theorem next_block (hash : ∀ id d, env.catalogue id = some d → d.byt
 /-- The remaining `n` blocks from a parent `i` blocks into the segment. -/
 private theorem build (hash : ∀ id d, env.catalogue id = some d → d.bytes.hashBytes = env.txHash)
     (setup : Setup env x p R keys image s) :
-    ∀ n i (q : Header), i+n ≤ x.inbox.gridK → Parent env x p s i q →
+    ∀ n i (q : Header), i+n ≤ 1 → Parent env x p s i q →
       ∃ bs : List Block, bs.length = n ∧ Blocks.Chain (policy env x [] (R+1)) q bs ∧
         Parent env x p s (i+n) (Blocks.terminal q bs) ∧ Archive.Linked env.headerParent q (bs.map Blocks.Block.header) ∧
         ∀ b ∈ bs, Facts env image R b
@@ -543,20 +543,20 @@ private theorem build (hash : ∀ id d, env.catalogue id = some d → d.bytes.ha
 
 end
 
-/-- The first K blocks of the new generation after a recovery at L1 block `R`
-(reports/recoverability.md, The path, step 6): from the batch parent `p`, a valid chain under the
-closed certificate world's policy at reference `R+1`, archived by its own headers. It ends at height
-`p.height+K` with an FI cursor at most K entries past the head and not past the tail; it is
-physically linked from `p`; and every block is hash-bound, anchored at `R`, within the block size
+/-- The first block of the new generation after a recovery at L1 block `R`
+(reports/recoverability.md, The path, step 6): from the batch parent `p`, a valid one-block chain
+under the closed certificate world's policy at reference `R+1`, archived by its own header. It ends
+at height `p.height+1` with an FI cursor at most one entry past the head and not past the tail; it
+is physically linked from `p`; and the block is hash-bound, anchored at `R`, within the block size
 bound and selects a ruleset `image` implements. -/
 theorem segment {env : Environment} {x : World} {p : Header} {R : Nat} {keys : List Hash} {image : Hash}
     (hash : ∀ id d, env.catalogue id = some d → d.bytes.hashBytes = env.txHash)
     (context : SegmentContext env x p R keys image) :
-    ∃ bs : List Block, bs.length = x.inbox.gridK ∧
+    ∃ bs : List Block, bs.length = 1 ∧
       Blocks.Chain (policy env x (bs.map Blocks.Block.header) (R+1)) p bs ∧
-      (Blocks.terminal p bs).height = p.height+x.inbox.gridK ∧
+      (Blocks.terminal p bs).height = p.height+1 ∧
       x.inbox.head ≤ (Blocks.terminal p bs).cursor ∧ (Blocks.terminal p bs).cursor ≤ x.inbox.tail ∧
-      (Blocks.terminal p bs).cursor-x.inbox.head ≤ x.inbox.gridK ∧
+      (Blocks.terminal p bs).cursor-x.inbox.head ≤ 1 ∧
       Archive.Linked env.headerParent p (bs.map Blocks.Block.header) ∧
       ∀ b ∈ bs, HashBound env b.header ∧ env.headerParent b.header.elHash = b.body.parentHash ∧
         b.body.blockBytes ≤ 124000 ∧ b.header.anchor.number = R ∧
@@ -571,7 +571,7 @@ theorem segment {env : Environment} {x : World} {p : Header} {R : Nat} {keys : L
     · exact Nat.le_refl _
     · exact context.queue.1
     · omega
-  obtain ⟨bs,length,chain,last,linked,facts⟩ := build hash setup x.inbox.gridK 0 p (by omega) first
+  obtain ⟨bs,length,chain,last,linked,facts⟩ := build hash setup 1 0 p (by omega) first
   have anchors : ∀ h ∈ bs.map Blocks.Block.header, h.anchor.number = x.inbox.origin.l1Block := by
     intro h listed
     obtain ⟨b,member,rfl⟩ := List.mem_map.mp listed

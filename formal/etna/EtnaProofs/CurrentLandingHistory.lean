@@ -13,10 +13,10 @@ private theorem write_start_records (w : World) (height hash root block time gen
     ∀ cp ∈ (writeStart w height hash root block time generation).activeRecords,
       StartRecord (writeStart w height hash root block time generation) cp := by
   intro cp member
-  have same : cp = ⟨height,hash,0,0,generation,height,0⟩ := by
+  have same : cp = ⟨height,hash,0,0,generation,height⟩ := by
     simpa [writeStart] using member
   subst cp
-  exact ⟨⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl,rfl⟩
+  exact ⟨⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl⟩
 
 private theorem execute_landing_effect {env : Environment} {w t : World} {call : Call}
     (ok : Protocol.execute env w call = some t) :
@@ -47,11 +47,11 @@ private theorem execute_landing_effect {env : Environment} {w t : World} {call :
           cases Option.some.inj ok
           refine Or.inr (Or.inl ⟨rfl,?_⟩)
           intro cp member
-          have same : cp = ⟨0,env.genesisHeader.elHash,0,0,0,0,0⟩ := by
+          have same : cp = ⟨0,env.genesisHeader.elHash,0,0,0,0⟩ := by
             simpa only [writeStart,List.mem_singleton] using member
           subst cp
           exact ⟨⟨0,env.genesisHeader.elHash,env.genesisHeader.stateRoot⟩,
-            rfl,rfl,rfl,rfl,rfl,rfl⟩
+            rfl,rfl,rfl,rfl,rfl⟩
         next => cases ok
       next => cases Option.some.inj ok; exact Or.inl ⟨rfl,rfl,rfl⟩
     next => cases ok
@@ -108,8 +108,8 @@ private theorem execute_landing_effect {env : Environment} {w t : World} {call :
     change scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact Or.inl ⟨rfl,rfl,rfl⟩
-  | scheduleStop caller time grid =>
-    change scheduleStop env w caller time grid = some t at ok
+  | scheduleStop caller time =>
+    change scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact Or.inl ⟨rfl,rfl,rfl⟩
   | recover request =>

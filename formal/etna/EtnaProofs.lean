@@ -24,7 +24,6 @@ import EtnaProofs.CurrentSettlement
 import EtnaProofs.CurrentProtocolFinality
 import EtnaProofs.CurrentJournal
 import EtnaProofs.CurrentCustody
-import EtnaProofs.CurrentRecoveryTrap
 import EtnaProofs.CurrentRecoveryPath
 import EtnaProofs.CurrentRecoverySegment
 import EtnaProofs.CurrentRecoveryLanding

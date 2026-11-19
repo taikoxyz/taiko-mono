@@ -45,10 +45,9 @@ structure Origin where
   timestamp : Nat
   deriving DecidableEq, Repr
 
-/-- Slot 285 landing record, keyed by `height`, four storage words: the packed actual
-parent c, generation and FI cursor, then the EL hash, the CometBFT hash and the
-validator-state hash (appendix A). The state root lives only in the SignalService
-checkpoint; the committee snapshot only in slot 284. -/
+/-- Slot 285 landing record, keyed by `height`, three storage words: the packed actual
+parent c, generation and FI cursor, then the EL hash and the CometBFT hash (STOR-B-9). The
+state root lives only in the SignalService checkpoint; the committee snapshot only in slot 284. -/
 structure Checkpoint where
   height : Nat
   elHash : Hash
@@ -56,7 +55,6 @@ structure Checkpoint where
   cursor : Nat
   generation : Nat
   parent : Nat
-  valStateHash : Hash
   deriving DecidableEq, Repr, Inhabited
 
 /-- SignalService checkpoint written by `land`: (height, hash, stateRoot). -/
@@ -81,8 +79,6 @@ timestamp and no fee ledger: the ETH balance is the unswept FI fees plus forced-
 structure State where
   domain : Domain
   committeeConfig : Hash
-  /-- K: landings end only at heights that are multiples of it (6.1). -/
-  gridK : Nat
   entered : Bool := false
   generation : Nat
   /-- Slot 292: monotone recovery-authorization nonce, never restored from history. -/

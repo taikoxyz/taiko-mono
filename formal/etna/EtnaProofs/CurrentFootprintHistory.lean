@@ -89,7 +89,7 @@ private theorem execute_unstarted_records {env : Environment} {w t : World} {cal
     · cases Option.some.inj swept; exact prior
     · cases swept
   | forcedETH amount => cases Option.some.inj ok; exact prior
-  | scheduleRules caller rule time | scheduleStop caller time grid =>
+  | scheduleRules caller rule time | scheduleStop caller time =>
     simp only [execute] at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok; exact prior
   | recover request =>

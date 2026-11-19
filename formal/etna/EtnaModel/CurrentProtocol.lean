@@ -4,7 +4,7 @@ import EtnaModel.CurrentRegistryPayments
 import EtnaModel.CurrentArchive
 
 /-! The current transaction machine. Historical state records are data types only: every
-current public transition is defined here, with S-relative grids, anchored rule schedules,
+current public transition is defined here, with anchored rule schedules,
 permanent bonds, atomic token effects and transaction-complete L1 snapshots. -/
 namespace Etna.Design.Current.Protocol
 
@@ -18,7 +18,6 @@ structure Core where
   deriving DecidableEq, Repr
 
 structure Parameters where
-  gridK : Nat
   epochLen : Nat
   genesisCutoff : Nat
   committee : CommitteeConfig
@@ -31,16 +30,16 @@ structure Parameters where
   deriving DecidableEq, Repr
 
 def Parameters.valid (p : Parameters) : Bool :=
-  Committee.configOK p.gridK p.epochLen p.committee.unsettled &&
+  Committee.configOK p.epochLen p.committee.unsettled &&
   -- 1152 is START-10-9's contract floor. It is not a value that satisfies PARAM-11-5 on Ethereum,
   -- whose L1 finality delay is 1152 s plus an allowance the spec leaves unstated (Q10-8); the
   -- witnesses use it only as the floor.
-  decide (0 < p.forcedDelay ∧ 1152 ≤ p.maxAnchorAge ∧ p.gridK ≤ p.maxBatchBlocks ∧
+  decide (0 < p.forcedDelay ∧ 1152 ≤ p.maxAnchorAge ∧ 1 ≤ p.maxBatchBlocks ∧
     0 < p.forcedFee ∧ 0 < p.forcedThreshold ∧ p.treasury ≠ 0 ∧ Committee.minUnit ≤ p.committee.unit ∧
     p.committee.unit ≤ p.committee.minimum ∧ 1 ≤ p.committee.nMax ∧ p.committee.nMax ≤ 4096)
 
 def install (s : Etna.Design.State) (p : Parameters) (configHash : List Encoding.Word → Hash) : Etna.Design.State :=
-  { s with gridK := p.gridK, epochLen := p.epochLen, genesisCutoff := p.genesisCutoff,     configuration := p.committee, committeeConfig := configHash (Encoding.configWords s.domain.l2ChainId       s.domain.registry p.committee.unit p.committee.minimum p.committee.nMax p.committee.unsettled),     forcedDelay := p.forcedDelay, maxAnchorAge := p.maxAnchorAge, maxBatchBlocks := p.maxBatchBlocks,     forcedFee := p.forcedFee, forcedThreshold := p.forcedThreshold, protocolFeeRecipient := p.treasury }
+  { s with epochLen := p.epochLen, genesisCutoff := p.genesisCutoff,     configuration := p.committee, committeeConfig := configHash (Encoding.configWords s.domain.l2ChainId       s.domain.registry p.committee.unit p.committee.minimum p.committee.nMax p.committee.unsettled),     forcedDelay := p.forcedDelay, maxAnchorAge := p.maxAnchorAge, maxBatchBlocks := p.maxBatchBlocks,     forcedFee := p.forcedFee, forcedThreshold := p.forcedThreshold, protocolFeeRecipient := p.treasury }
 
 structure StartData where
   height : Nat
@@ -156,7 +155,6 @@ abbrev Block := Blocks.Block
 def bareInbox (core : Core) : Etna.Design.State where
   domain := core.domain
   committeeConfig := 0
-  gridK := 1
   generation := 0
   origin := ⟨0,0,0⟩
   origins := []
@@ -172,7 +170,7 @@ def bareInbox (core : Core) : Etna.Design.State where
   signals := []
 
 def empty (env : Environment) (registry : RegistryMachine.State) : World :=
-  ⟨install (bareInbox env.core) env.parameters env.configHash,false,none,⟨0,0,0,0,0⟩,
+  ⟨install (bareInbox env.core) env.parameters env.configHash,false,none,⟨0,0,0,0⟩,
     ⟨registry,env.initialToken⟩,[],[],[],⟨env.unzenNextProposal,0,0,false,0,0,0⟩,none,[],0,
     ⟨{ env.initialSigner with ready := false },env.initialSigner.activeGeneration,none,[],false,false,false⟩,
     0,[],[],false,[],[],[]⟩
@@ -212,7 +210,7 @@ def writeRecord (records : List Checkpoint) (cp : Checkpoint) : List Checkpoint 
 
 def writeStart (w : World) (height hash root block timestamp generation : Nat) : World :=
   let origin : Etna.Design.Origin := ⟨height,block,timestamp⟩
-  let cp : Checkpoint := ⟨height,hash,0,0,generation,height,0⟩
+  let cp : Checkpoint := ⟨height,hash,0,0,generation,height⟩
   { w with start := some ⟨height,hash,root⟩,     inbox := { w.inbox with generation := generation,origin := origin,       origins := w.inbox.origins ++ [(generation,origin)],checkpoint := cp,       records := writeRecord w.inbox.records cp },activeRecords := [cp],activeSnapshots := [(cp,w.inbox.snapshot)],activeLandings := [] }
 
 def initializeInbox (env : Environment) (w : World) (caller : Nat) : Option World :=
@@ -224,8 +222,7 @@ def initializeInbox (env : Environment) (w : World) (caller : Nat) : Option Worl
       env.token.slashSink ≠ 0 then
     let initial := { w with initialized := true,       inbox := { w.inbox with snapshot := env.parameters.genesisCutoff },       configurations := [(0,env.parameters)] }
     if env.core.unzenInbox = 0 then
-      if env.genesisHeader.height = 0 ∧ env.genesisHeader.cursor = 0 ∧ env.genesisHeader.cometHash = 0 ∧
-          env.genesisHeader.valStateHash = 0 then
+      if env.genesisHeader.height = 0 ∧ env.genesisHeader.cursor = 0 ∧ env.genesisHeader.cometHash = 0 then
         let started := writeStart initial 0 env.genesisHeader.elHash env.genesisHeader.stateRoot
           w.number (env.time w.number) 0
         some { started with inbox := { started.inbox with           signals := [⟨0,env.genesisHeader.elHash,env.genesisHeader.stateRoot⟩] } }
@@ -272,12 +269,12 @@ def sweep (w : World) (transfer : Bool) : Option World :=
   (Forced.sweep w.inbox transfer).map fun inbox => { w with inbox := inbox }
 
 def scheduleRules (env : Environment) (w : World) (caller rule time : Nat) : Option World :=
-  (Rules.scheduleRules ⟨w.initialized,env.core.owner,w.inbox.maxAnchorAge,w.inbox.gridK⟩
+  (Rules.scheduleRules ⟨w.initialized,env.core.owner,w.inbox.maxAnchorAge⟩
     w.schedule caller (env.time w.number) rule time).map fun schedule => { w with schedule := schedule }
 
-def scheduleStop (env : Environment) (w : World) (caller time grid : Nat) : Option World :=
-  (Rules.scheduleStop ⟨w.initialized,env.core.owner,w.inbox.maxAnchorAge,w.inbox.gridK⟩
-    w.schedule caller (env.time w.number) time grid).map fun schedule => { w with schedule := schedule }
+def scheduleStop (env : Environment) (w : World) (caller time : Nat) : Option World :=
+  (Rules.scheduleStop ⟨w.initialized,env.core.owner,w.inbox.maxAnchorAge⟩
+    w.schedule caller (env.time w.number) time).map fun schedule => { w with schedule := schedule }
 
 structure RecoveryRequest where
   caller : Nat
@@ -296,23 +293,21 @@ def emptyHash (env : Environment) : Hash :=
   env.txHash []
 
 def parametersOf (s : Etna.Design.State) : Parameters :=
-  ⟨s.gridK,s.epochLen,s.genesisCutoff,s.configuration,s.forcedDelay,s.maxAnchorAge,
+  ⟨s.epochLen,s.genesisCutoff,s.configuration,s.forcedDelay,s.maxAnchorAge,
     s.maxBatchBlocks,s.forcedFee,s.forcedThreshold,s.protocolFeeRecipient⟩
 
 def recover (env : Environment) (w : World) (a : RecoveryRequest) : Option World :=
-  w.start.bind fun start =>
+  w.start.bind fun _ =>
     let parameters := a.upgrade.getD (parametersOf w.inbox)
     let inbox := if a.upgrade.isSome then install w.inbox parameters env.configHash else w.inbox
     if a.caller = env.core.owner ∧ w.initialized = true ∧ w.inbox.entered = false ∧
         a.expectedGeneration = w.inbox.generation ∧ a.expectedCheckpoint = w.inbox.checkpoint.height ∧
         a.expectedNonce = w.inbox.recoveryNonce ∧ w.inbox.recoveryNonce+1 < limit256 ∧
         env.time w.number ≤ a.validUntil ∧ a.validUntil < limit256 ∧ w.inbox.generation+1 < limit48 ∧
-        Start.onGrid start.height inbox.gridK w.inbox.checkpoint.height = true ∧
         a.exclusions.Pairwise (fun x y => x.1 < y.1) ∧ a.clear.Pairwise (· < ·) ∧
         (∀ i ∈ a.clear,w.inbox.head ≤ i ∧ i < w.inbox.tail) ∧
-        -- SPEC 8.3's only grid check is RECOV-8.3-3a, the `onGrid` check above with the K this
-        -- call installs. It has no planned-stop check: START-10.1-14e's stop is DAO procedure,
-        -- and vector 14e.k recovers from a settled c below a stop point that cannot settle.
+        -- SPEC 8.3 has no planned-stop check: START-10.1-14e's stop is DAO procedure, and
+        -- vector 14e.k recovers from a settled c below a stop height that cannot settle.
         (a.upgrade.isSome = true → parameters.valid = true ∧ a.rules ≠ 0 ∧
           -- genesisCutoff (slot 279) is committee 0's snapshot (COMM-4.3-9) and part of
           -- generation 0's genesis. It is set once at Inbox initialization (PARAM-11-4), and only
@@ -368,7 +363,7 @@ def certificateOrigin (w : World) : Option Checkpoint := recordAt w.inbox (confi
 
 def certificateOriginCut (w : World) : Cut :=
   let cp := (certificateOrigin w).getD default
-  ⟨cp.elHash,cp.cometHash,cp.cursor,cp.valStateHash⟩
+  ⟨cp.elHash,cp.cometHash,cp.cursor⟩
 
 /-- The raw live storage needed to apply a reference-local certificate. Registry changes
 above the reference and all checkpoint/FI progress may differ. -/
@@ -389,8 +384,6 @@ def matchingSnapshot (env : Environment) (w : World) (a : BlockValidity.Anchor) 
 
 def policy (env : Environment) (w : World) (archive : List Header) (reference : Nat) : Blocks.Policy where
   consensus := Finality.derive (config w) w.registry.registry archive
-  startHeight := (w.start.map StartData.height).getD 0
-  gridK := w.inbox.gridK
   committeeConfig := w.inbox.committeeConfig
   maxAnchorAge := w.inbox.maxAnchorAge
   forcedDelay := w.inbox.forcedDelay
@@ -419,7 +412,7 @@ def policy (env : Environment) (w : World) (archive : List Header) (reference : 
 
 def statement (env : Environment) (w : World) (a : Landing) : StatementData :=
   let origin := (recordAt w.inbox a.input.parentHeight).getD default
-  ⟨w.inbox.domain,w.inbox.generation,w.inbox.committeeConfig,origin.elHash,origin.cometHash,origin.valStateHash,
+  ⟨w.inbox.domain,w.inbox.generation,w.inbox.committeeConfig,origin.elHash,origin.cometHash,
     origin.cursor,
     a.input,referenceHash env w a.input.l1ReferenceBlockNumber,a.blobs,
     ⟨w.inbox.generation,a.input.parentHeight,a.input.lastHeight,a.leaves⟩⟩
@@ -442,18 +435,15 @@ structure LandingChecks (env : Environment) (w : World) (a : Landing) : Prop whe
   parentBeforeFrontier : a.input.parentHeight ≤ w.inbox.checkpoint.height
   progress : w.inbox.checkpoint.height < a.input.lastHeight
   height : a.input.lastHeight < limit48
-  parentGrid : Start.onGrid ((w.start.map StartData.height).getD 0) w.inbox.gridK a.input.parentHeight = true
-  lastGrid : Start.onGrid ((w.start.map StartData.height).getD 0) w.inbox.gridK a.input.lastHeight = true
-  frontierGrid : Start.onGrid ((w.start.map StartData.height).getD 0) w.inbox.gridK w.inbox.checkpoint.height = true
   batchSize : a.input.lastHeight-a.input.parentHeight ≤ w.inbox.maxBatchBlocks
   record : (recordAt w.inbox a.input.parentHeight).isSome = true
   generation : ((recordAt w.inbox a.input.parentHeight).getD default).generation = w.inbox.generation ∨
     a.input.parentHeight = w.inbox.origin.height
-  leafCount : a.leaves.length = gridCount w.inbox.gridK a.input.parentHeight a.input.lastHeight
+  leafCount : a.leaves.length = a.input.lastHeight-a.input.parentHeight-1
   frontier : a.input.parentHeight < w.inbox.checkpoint.height →
-    a.leaves.getD ((w.inbox.checkpoint.height-a.input.parentHeight)/w.inbox.gridK-1) default =
+    a.leaves.getD (w.inbox.checkpoint.height-a.input.parentHeight-1) default =
       cutLeaf w.inbox.checkpoint.height
-        ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head,w.inbox.checkpoint.valStateHash⟩
+        ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head⟩
   cursor : ((recordAt w.inbox w.inbox.checkpoint.height).getD default).cursor = w.inbox.head
   head : w.inbox.head ≤ a.input.forcedInclusionHead
   tail : a.input.forcedInclusionHead ≤ w.inbox.tail
@@ -472,15 +462,12 @@ instance (env : Environment) (w : World) (a : Landing) : Decidable (LandingCheck
     (a.input.parentHeight ≤ w.inbox.checkpoint.height) ∧
     (w.inbox.checkpoint.height < a.input.lastHeight) ∧
     (a.input.lastHeight < limit48) ∧
-    (Start.onGrid ((w.start.map StartData.height).getD 0) w.inbox.gridK a.input.parentHeight = true) ∧
-    (Start.onGrid ((w.start.map StartData.height).getD 0) w.inbox.gridK a.input.lastHeight = true) ∧
-    (Start.onGrid ((w.start.map StartData.height).getD 0) w.inbox.gridK w.inbox.checkpoint.height = true) ∧
     (a.input.lastHeight-a.input.parentHeight ≤ w.inbox.maxBatchBlocks) ∧
     ((recordAt w.inbox a.input.parentHeight).isSome = true) ∧
     (((recordAt w.inbox a.input.parentHeight).getD default).generation = w.inbox.generation ∨ a.input.parentHeight = w.inbox.origin.height) ∧
-    (a.leaves.length = gridCount w.inbox.gridK a.input.parentHeight a.input.lastHeight) ∧
-    (a.input.parentHeight < w.inbox.checkpoint.height → a.leaves.getD ((w.inbox.checkpoint.height-a.input.parentHeight)/w.inbox.gridK-1) default = cutLeaf w.inbox.checkpoint.height
-        ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head,w.inbox.checkpoint.valStateHash⟩) ∧
+    (a.leaves.length = a.input.lastHeight-a.input.parentHeight-1) ∧
+    (a.input.parentHeight < w.inbox.checkpoint.height → a.leaves.getD (w.inbox.checkpoint.height-a.input.parentHeight-1) default = cutLeaf w.inbox.checkpoint.height
+        ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head⟩) ∧
     (((recordAt w.inbox w.inbox.checkpoint.height).getD default).cursor = w.inbox.head) ∧
     (w.inbox.head ≤ a.input.forcedInclusionHead) ∧
     (a.input.forcedInclusionHead ≤ w.inbox.tail) ∧
@@ -490,13 +477,13 @@ instance (env : Environment) (w : World) (a : Landing) : Decidable (LandingCheck
     (1 ≤ a.blobs.length ∧ a.blobs.length ≤ 6) ∧
     (firstFence env w = true) ∧
     (proofsAccepted env w a = true))
-    ⟨(fun h => ⟨h.1,h.2.1,h.2.2.1,h.2.2.2.1,h.2.2.2.2.1,h.2.2.2.2.2.1,h.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2⟩),
-     (fun h => ⟨h.initialized,h.started,h.entered,h.origin,h.parentBeforeFrontier,h.progress,h.height,h.parentGrid,h.lastGrid,h.frontierGrid,h.batchSize,h.record,h.generation,h.leafCount,h.frontier,h.cursor,h.head,h.tail,h.service,h.reference,h.referenceAge,h.blobs,h.unzen,h.proofs⟩)⟩
+    ⟨(fun h => ⟨h.1,h.2.1,h.2.2.1,h.2.2.2.1,h.2.2.2.2.1,h.2.2.2.2.2.1,h.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2⟩),
+     (fun h => ⟨h.initialized,h.started,h.entered,h.origin,h.parentBeforeFrontier,h.progress,h.height,h.batchSize,h.record,h.generation,h.leafCount,h.frontier,h.cursor,h.head,h.tail,h.service,h.reference,h.referenceAge,h.blobs,h.unzen,h.proofs⟩)⟩
 
 /-- State written by L1 contains only decoded statement fields, never an assumed valid chain. -/
 def landed (w : World) (a : Landing) : World :=
   let cp : Checkpoint := ⟨a.input.lastHeight,a.input.lastBlockHash,a.input.lastCometHash,
-    a.input.forcedInclusionHead,w.inbox.generation,w.inbox.checkpoint.height,a.input.lastValStateHash⟩
+    a.input.forcedInclusionHead,w.inbox.generation,w.inbox.checkpoint.height⟩
   { w with inbox := { w.inbox with checkpoint := cp,records := writeRecord w.inbox.records cp,       head := a.input.forcedInclusionHead,snapshot := a.input.activeCommitteeSnapshot,       signals := w.inbox.signals ++ [⟨a.input.lastHeight,a.input.lastBlockHash,a.input.lastStateRoot⟩] },     activeRecords := cp :: w.activeRecords,activeSnapshots := (cp,a.input.activeCommitteeSnapshot) :: w.activeSnapshots,activeLandings := ⟨w.inbox,w.history,a⟩ :: w.activeLandings,everLanded := true }
 
 def land (env : Environment) (w : World) (a : Landing) : Option World :=
@@ -531,11 +518,11 @@ def nodeImport (env : Environment) (w : World) (candidate : Import.Candidate) (d
 def nodeRestart (w : World) : World :=
   { w with node := { w.node with target := none,trusted := false,restartNeeded := false,     signer := { w.node.signer with ready := false } } }
 
-/-- SYNC-9-5: an origin's retained validator-state hash belongs to the previous
-generation (or is zero at S). Its EL/Comet/FI fields still authenticate the origin. -/
-def trustCut (origin : Nat) (h : Header) (cp : Checkpoint) : Prop :=
-  h.elHash = cp.elHash ∧ h.cometHash = cp.cometHash ∧ h.cursor = cp.cursor ∧
-    (h.height ≠ origin → h.valStateHash = cp.valStateHash)
+/-- SYNC-9-5: the node's own header matches the slot 285 record's EL hash and Comet hash; the
+model also compares the FI cursor the record holds. The record holds no validator state, at
+the origin or anywhere else; the app commits that in app_hash (SYNC-9-5c). -/
+def trustCut (h : Header) (cp : Checkpoint) : Prop :=
+  h.elHash = cp.elHash ∧ h.cometHash = cp.cometHash ∧ h.cursor = cp.cursor
 
 /-- Abstract validated replay, separate from snapshot publication. The fixed deployment
 adapters authenticate the full origin; this is not a stock-store implementation. -/
@@ -545,18 +532,16 @@ def nodeTrust (env : Environment) (w : World) (archive : List Header) (blocks : 
     cp = w.inbox.checkpoint ∧ w.node.signer.activeGeneration = generation ∧
     w.node.generationWatermark ≤ generation ∧
     ∃ p origin, recordAt w.inbox w.inbox.origin.height = some origin ∧
-      p.height = w.inbox.origin.height ∧ trustCut w.inbox.origin.height p origin ∧
+      p.height = w.inbox.origin.height ∧ trustCut p origin ∧
       env.headerHash p = p.elHash ∧
       (p.height = start.height → p.stateRoot = start.stateRoot) ∧
       (env.core.unzenInbox ≠ 0 → cp.height = start.height →
         env.unzenRoot p ∧ env.startImplementation p.stateRoot = true ∧ p.timestamp < env.core.forkTime) ∧
       Blocks.Chain (policy env w archive w.number) p blocks ∧
       (Blocks.terminal p blocks).height = cp.height ∧
-      trustCut w.inbox.origin.height (Blocks.terminal p blocks) cp ∧
+      trustCut (Blocks.terminal p blocks) cp ∧
       Archive.Authenticated env.headerHash env.headerParent (config w)
-        -- Node replay starts with this generation's genesis state. Its hash is not
-        -- the retained origin record's old-generation validator-state hash.
-        ⟨origin.elHash,origin.cometHash,origin.cursor,p.valStateHash⟩ w.number archive p blocks
+        ⟨origin.elHash,origin.cometHash,origin.cursor⟩ w.number archive p blocks
 
 /-- This is an explicit app validation event, not a caller-supplied trusted Boolean. -/
 inductive NodeEvent (env : Environment) (w : World) : Node → Prop
@@ -577,7 +562,7 @@ inductive Call where
   | sweep (transfer : Bool)
   | forcedETH (amount : Nat)
   | scheduleRules (caller rule time : Nat)
-  | scheduleStop (caller time grid : Nat)
+  | scheduleStop (caller time : Nat)
   | recover (request : RecoveryRequest)
   | invalidate (caller nonce : Nat)
   | rollback (caller : Nat) (trusted : Checkpoint) (snapshot : Nat)
@@ -603,7 +588,7 @@ def execute (env : Environment) (w : World) : Call → Option World
   | .sweep transfer => sweep w transfer
   | .forcedETH amount => some { w with inbox := Forced.extraETH w.inbox amount }
   | .scheduleRules caller rule time => scheduleRules env w caller rule time
-  | .scheduleStop caller time grid => scheduleStop env w caller time grid
+  | .scheduleStop caller time => scheduleStop env w caller time
   | .recover a => recover env w a
   | .invalidate caller nonce => invalidate env w caller nonce
   | .rollback caller trusted snapshot => rollback env w caller trusted snapshot
@@ -668,8 +653,7 @@ def Certifies (env : Environment) (w : World) (d : StatementData) : Prop :=
 /-- The exact checkpoint the recorded call wrote, including its actual parent and generation. -/
 def LandingRecord.checkpoint (event : LandingRecord) : Checkpoint :=
   ⟨event.landing.input.lastHeight,event.landing.input.lastBlockHash,event.landing.input.lastCometHash,
-    event.landing.input.forcedInclusionHead,event.inbox.generation,event.inbox.checkpoint.height,
-    event.landing.input.lastValStateHash⟩
+    event.landing.input.forcedInclusionHead,event.inbox.generation,event.inbox.checkpoint.height⟩
 
 /-- Only Inbox storage and the closed prefix affect a statement and its pure certificate. -/
 def LandingRecord.source (initial : World) (event : LandingRecord) : World :=
@@ -699,10 +683,10 @@ structure Suffix (env : Environment) (w : World) (a : Landing) where
   valid : Blocks.Chain (policy env w archive a.input.l1ReferenceBlockNumber) parent blocks
   parentHeight : parent.height = w.inbox.checkpoint.height
   parentCut : parent.cut =
-    ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head,w.inbox.checkpoint.valStateHash⟩
+    ⟨w.inbox.checkpoint.elHash,w.inbox.checkpoint.cometHash,w.inbox.head⟩
   terminalHeight : (Blocks.terminal parent blocks).height = a.input.lastHeight
   terminalCut : (Blocks.terminal parent blocks).cut =
-    ⟨a.input.lastBlockHash,a.input.lastCometHash,a.input.forcedInclusionHead,a.input.lastValStateHash⟩
+    ⟨a.input.lastBlockHash,a.input.lastCometHash,a.input.forcedInclusionHead⟩
   terminalRoot : (Blocks.terminal parent blocks).stateRoot = a.input.lastStateRoot
   parentHashBound : HashBound env parent
   headerHashes : ∀ b ∈ blocks, HashBound env b.header

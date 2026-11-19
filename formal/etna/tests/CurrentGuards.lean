@@ -8,13 +8,13 @@ finite adapters intentionally accept every proof; they test the deployed action 
 normative upgrade guards, not global verifier soundness. The individually corrupted
 Unzen records below test the fence formula and do not assert reachability. -/
 def domain : Domain := ⟨1,2,3,4⟩
-def genesis : Header := ⟨0,100,10,0,0,1,⟨0,1,0,0,100,0,0⟩,0⟩
-def legacy : Header := ⟨1,101,11,201,0,1,⟨0,1,0,0,100,0,0⟩,0⟩
+def genesis : Header := ⟨0,100,10,0,0,1,⟨0,1,0,0,100,0,0⟩⟩
+def legacy : Header := ⟨1,101,11,201,0,1,⟨0,1,0,0,100,0,0⟩⟩
 def registry : RegistryMachine.State :=
   { ledger := ⟨0,fun _ => none,fun _ => none,fun _ => none,1,1⟩,config := { inbox := 3 } }
 def env : Environment where
   core := ⟨domain,7,8,99,2,9⟩
-  parameters := ⟨1,10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,1,1152,10,1,1,9⟩
+  parameters := ⟨10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,1,1152,10,1,1,9⟩
   genesisHeader := genesis
   initialSigner := ⟨domain,0,0,[],false,[]⟩
   time := id
@@ -45,7 +45,7 @@ def proven := transact env initialized (.unzenProve 1 legacy 77)
 def started := transact env proven (.setOrigin 8 1 101 11)
 def imaged := transact env started (.image 7 11 true)
 def source := transact env imaged (.advance 3)
-def landing : Landing := ⟨⟨1,2,102,202,33,22,2,0,0⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
+def landing : Landing := ⟨⟨1,2,102,202,22,2,0,0⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
 def firstLanded := transact env source (.land landing)
 def restored := transact env firstLanded (.rollback 7 source.inbox.checkpoint 0)
 
@@ -53,10 +53,9 @@ example : initialized.initialized = true ∧ source.start = some ⟨1,101,11⟩ 
     firstFence env source = true ∧ (land env source landing).isSome = true ∧
     firstLanded.inbox.checkpoint.height = 2 := by decide +kernel
 
--- The start record holds validator-state hash 0 (STOR-B-9); a landing writes its
--- lastValStateHash into the new slot 285 record (6.1 step 7, #22338).
-example : (recordAt source.inbox 1).map Checkpoint.valStateHash = some 0 ∧
-    (recordAt firstLanded.inbox 2).map Checkpoint.valStateHash = some 33 := by decide +kernel
+-- A landing writes the three-word slot 285 record (STOR-B-9): its actual parent c, generation
+-- and FI head, its last EL hash and its last Comet hash; no record holds a validator-state hash.
+example : recordAt firstLanded.inbox 2 = some ⟨2,102,202,0,0,1⟩ := by decide +kernel
 
 -- Repeating the origin write must be rejected even before a first landing.
 example : (setOrigin env source 8 1 101 11).isNone = true := by decide +kernel
@@ -103,7 +102,7 @@ def proven10 := transact env initialized (.unzenProve 1 legacy10 77)
 def shiftedStarted := transact env proven10 (.setOrigin 8 5 101 11)
 def shiftedImaged := transact env shiftedStarted (.image 7 11 true)
 def shiftedSource := transact env shiftedImaged (.advance 3)
-def shiftedLanding : Landing := ⟨⟨5,6,102,202,33,22,2,0,0⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
+def shiftedLanding : Landing := ⟨⟨5,6,102,202,22,2,0,0⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
 
 example : shiftedSource.start = some ⟨5,101,11⟩ ∧ shiftedSource.unzen.checkpointHeight = 10 ∧
     shiftedSource.unzen.checkpointHash = 101 ∧ shiftedSource.unzen.checkpointRoot = 11 ∧

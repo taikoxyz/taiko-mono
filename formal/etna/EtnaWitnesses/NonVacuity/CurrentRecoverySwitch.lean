@@ -27,8 +27,8 @@ namespace Etna.Design.Current.Protocol.RecoverySwitchNonVacuity
 open Etna.Design Etna.Design.Current Protocol
 
 /-- The legacy header's EL fields at S = 5: state root 55, timestamp 900 (before `forkTime`), a
-zero anchor, and Etna's zero Comet hash, FI cursor and validator-state hash. -/
-def legacyFields : Header := ⟨5,0,55,0,0,900,⟨0,0,0,0,0,0,0⟩,0⟩
+zero anchor, and Etna's zero Comet hash and FI cursor. -/
+def legacyFields : Header := ⟨5,0,55,0,0,900,⟨0,0,0,0,0,0,0⟩⟩
 
 /-- The Unzen Inbox's final header: `legacyFields` with its EL hash, so it is hash-bound. -/
 def legacy : Header := { legacyFields with elHash := Encoding.headerHash legacyFields }
@@ -166,8 +166,8 @@ private theorem signature_sound : Finality.SignatureSound RecoveryNonVacuity.reg
 
 private theorem comet_code_injective {x y : Header} (codes : RecoveryNonVacuity.cometCode x = RecoveryNonVacuity.cometCode y)
     (comet : x.cometHash = y.cometHash) : x = y := by
-  obtain ⟨h1,e1,s1,m1,c1,t1,a1,v1⟩ := x
-  obtain ⟨h2,e2,s2,m2,c2,t2,a2,v2⟩ := y
+  obtain ⟨h1,e1,s1,m1,c1,t1,a1⟩ := x
+  obtain ⟨h2,e2,s2,m2,c2,t2,a2⟩ := y
   have trees := Encoding.tree_code_injective codes
   simp only [RecoveryNonVacuity.cometTree,Encoding.header,Encoding.quad,Encoding.Tree.node.injEq,
     Encoding.Tree.leaf.injEq,Encoding.anchor_eq] at trees
@@ -275,20 +275,15 @@ private theorem committee_live : CommitteeLive env live 100 [RecoveryNonVacuity.
   · decide +kernel
   · decide +kernel
 
-/-- `LiveAt` by `LiveRules`' first case: c = S = 5 is on the K = 1 grid and the current rulesets
-are live. `LiveAt.unzen` holds by its second case: the lane is unproven, and proof 77 of the
+/-- `LiveAt` by `LiveRules`' first case: the current rulesets are live. `LiveAt.unzen` holds by its second case: the lane is unproven, and proof 77 of the
 final proposal for `legacy` is valid and links to the empty lane's finalized hash. -/
 private theorem live_at : Etna.Statements.Current.LiveAt env live := by
   refine ⟨by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,
     ⟨100,[RecoveryNonVacuity.onlineKey],[],by decide +kernel,by decide +kernel,by decide +kernel,
       by decide +kernel,.nil,rfl,by rw [Recovery.excluded_none]; exact committee_live⟩,
-    .inl ⟨?_,ruleset_live _,ruleset_live _,0,by decide +kernel,by decide +kernel⟩,?_⟩
-  · intro start started
-    rw [live_start] at started
-    cases started
-    decide +kernel
-  · intro _
-    exact .inr ⟨legacy,77,by decide +kernel,by decide +kernel,by decide +kernel⟩
+    .inl ⟨ruleset_live _,ruleset_live _,0,by decide +kernel,by decide +kernel⟩,?_⟩
+  intro _
+  exact .inr ⟨legacy,77,by decide +kernel,by decide +kernel,by decide +kernel⟩
 
 /-- The premises of H1–H4 can hold of one switching deployment (reports/recoverability.md, Joint
 witness): one environment with an Unzen Inbox, a registry and an engine satisfy H1–H3's

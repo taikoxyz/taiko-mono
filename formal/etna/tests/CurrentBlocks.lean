@@ -26,8 +26,6 @@ def byteAdapters : ActualQueue.Primitives :=
 def interpreter : Definition := ⟨fun _ _ => true,fun _ _ _ => true,byteAdapters⟩
 def policy : GenerationPolicy where
   consensus := context
-  startHeight := 0
-  gridK := 1
   committeeConfig := 0
   maxAnchorAge := 10
   forcedDelay := 1
@@ -39,23 +37,23 @@ def policy : GenerationPolicy where
   anchorAuthenticated := fun _ => true
   committeeAuthenticated := fun _ _ => true
   forcedAuthenticated := fun _ _ => true
-  scheduleAuthenticated := fun _ s => decide (s = ⟨1,2,12,0,0⟩)
+  scheduleAuthenticated := fun _ s => decide (s = ⟨1,2,12,0⟩)
   batchPayloadValid := fun _ _ => true
   configHash := fun _ => 0
   historyAuthenticated := fun _ _ => true
   catalogue := fun id => if id = 1 ∨ id = 2 then some interpreter else none
 
-def parent : Header := ⟨0,100,100,0,0,10,⟨500,1,500,0,0,9,0⟩,0⟩
+def parent : Header := ⟨0,100,100,0,0,10,⟨500,1,500,0,0,9,0⟩⟩
 def w0 : Forced.Witness := ⟨0,⟨7,9,9⟩,true,7,1,true,some 7,true,1⟩
 def w1 : Forced.Witness := ⟨1,⟨8,9,9⟩,true,8,1,true,none,false,0⟩
 def b1 : Block := ⟨
-  ⟨⟨1,101,101,201,1,11,⟨10,10,1,0,0,0,1⟩,0⟩,100,none,domain,0,11,100,100,true,none,
+  ⟨⟨1,101,101,201,1,11,⟨10,10,1,0,0,0,1⟩⟩,100,none,domain,0,11,100,100,true,none,
     1,1,1,0,[⟨domain,0,1,0,2,201,7⟩],some w0,.completedEmpty⟩,
-  ⟨1,2,12,0,0⟩,[7],some [7],[[7]]⟩
+  ⟨1,2,12,0⟩,[7],some [7],[[7]]⟩
 def b2 : Block := ⟨
-  ⟨⟨2,102,102,202,2,12,⟨11,11,2,0,0,0,2⟩,0⟩,101,some 201,domain,0,12,100,100,true,none,
+  ⟨⟨2,102,102,202,2,12,⟨11,11,2,0,0,0,2⟩⟩,101,some 201,domain,0,12,100,100,true,none,
     1,1,2,0,[⟨domain,0,2,0,2,202,7⟩],some w1,.completedEmpty⟩,
-  ⟨1,2,12,0,0⟩,[8],none,[]⟩
+  ⟨1,2,12,0⟩,[8],none,[]⟩
 
 instance (r : GenerationPolicy) (p : Header) (b : Block) : Decidable (ParentAnchorValid r p b) := by
   unfold ParentAnchorValid
@@ -106,11 +104,11 @@ example : b2.header.cursor = b1.header.cursor+1 ∧ w1.index = b1.header.cursor 
 -- Resource unavailability does not become a legal skip.
 example : Forced.step 1 2 11 1 (some w1) .unavailable = .waiting := by decide +kernel
 
--- Unknown definitions and active stop grids cannot authorize a block.
+-- Unknown definitions and a stop in effect cannot authorize a block.
 example (r : GenerationPolicy) (p : Header) (b : Block)
     (unknown : r.catalogue (selectedRules b) = none) : ¬Valid r p b := unknown_rules_refused unknown
 example (r : GenerationPolicy) (p : Header) (b : Block)
-    (stopped : Rules.stopped b.schedule r.startHeight p.height p.timestamp = true) : ¬Valid r p b := by
+    (stopped : Rules.stopped b.schedule p.timestamp = true) : ¬Valid r p b := by
   intro ok
   have no := ok.notStopped
   rw [stopped] at no
@@ -159,13 +157,13 @@ example : Forced.step 0 1 10 1 (some earlyWitness) .completedEmpty ≠ .accepted
 -- All three installed definitions matter across separate authenticated schedule writes;
 -- an image missing the middle definition cannot certify the complete decoded batch.
 def third : Block := ⟨
-  ⟨⟨3,103,103,203,2,13,⟨12,12,3,0,0,0,2⟩,0⟩,102,some 202,domain,0,13,100,100,true,none,
+  ⟨⟨3,103,103,203,2,13,⟨12,12,3,0,0,0,2⟩⟩,102,some 202,domain,0,13,100,100,true,none,
     1,1,3,0,[⟨domain,0,3,0,2,203,7⟩],none,.completedEmpty⟩,
-  ⟨2,3,13,0,0⟩,[],none,[]⟩
+  ⟨2,3,13,0⟩,[],none,[]⟩
 def threePolicy : GenerationPolicy :=
   { policy with
     catalogue := fun id => if id = 1 ∨ id = 2 ∨ id = 3 then some interpreter else none
-    scheduleAuthenticated := fun _ s => decide (s = ⟨1,2,12,0,0⟩ ∨ s = ⟨2,3,13,0,0⟩) }
+    scheduleAuthenticated := fun _ s => decide (s = ⟨1,2,12,0⟩ ∨ s = ⟨2,3,13,0⟩) }
 instance : Decidable (HeaderValid threePolicy b2.header third) := inferInstanceAs (Decidable (_ ∧ _))
 instance : Decidable (HeaderValid threePolicy parent b1) := inferInstanceAs (Decidable (_ ∧ _))
 instance : Decidable (HeaderValid threePolicy b1.header b2) := inferInstanceAs (Decidable (_ ∧ _))

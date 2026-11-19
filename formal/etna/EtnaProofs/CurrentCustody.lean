@@ -36,8 +36,7 @@ theorem certified_landing {env : Environment} {registry : RegistryMachine.State}
 
 theorem bound_headers_equal {env : Environment} (primitive : Primitives env)
     {x y : Header} (hx : HashBound env x) (hy : HashBound env y) (cut : x.cut = y.cut) : x = y := by
-  have fields : x.elHash = y.elHash ∧ x.cometHash = y.cometHash ∧ x.cursor = y.cursor ∧
-      x.valStateHash = y.valStateHash := by
+  have fields : x.elHash = y.elHash ∧ x.cometHash = y.cometHash ∧ x.cursor = y.cursor := by
     simpa [BlockValidity.Header.cut] using cut
   obtain ⟨height,root,time,anchor⟩ := primitive.separation x y hx hy fields.1
   cases x
@@ -56,10 +55,11 @@ theorem pending_parent_fence {env : Environment} {initial w t : World} {a : Land
     (cursorHead : w.inbox.checkpoint.cursor = w.inbox.head)
     (record : recordAt w.inbox w.inbox.checkpoint.height = some w.inbox.checkpoint)
     (pending : Pending env w w.inbox.checkpoint)
-    (certificate : LiveCertifies env w (statement env w a)) :
+    (certificate : LiveCertifies env w (statement env w a))
+    (floor : ∀ start, w.start = some start → start.height ≤ w.inbox.origin.height) :
     FirstFence env w segment.parent ∧ ∃ legacy, w.unzenHeader = some legacy ∧
       env.unzenRoot legacy ∧ StartsAt segment.parent legacy := by
-  obtain ⟨switching,start,written,height,hash,comet,cursor,val⟩ := pending
+  obtain ⟨switching,start,written,height,hash,comet,cursor⟩ := pending
   have first : w.inbox.checkpoint.height = (w.start.map StartData.height).getD 0 := by simpa [written] using height
   have fence := (land_success ok).1.unzen
   have fenced : w.unzen.nextProposal = w.unzen.finalizedProposal+1 ∧
@@ -74,33 +74,30 @@ theorem pending_parent_fence {env : Environment} {initial w t : World} {a : Land
   have pc : segment.parent.cometHash = 0 := (congrArg Cut.cometHash segment.parentCut).trans comet
   have cur : segment.parent.cursor = 0 :=
     (congrArg Cut.cursor segment.parentCut).trans (cursorHead.symm.trans cursor)
-  have pv : segment.parent.valStateHash = 0 := (congrArg Cut.valStateHash segment.parentCut).trans val
   have implementation : env.startImplementation segment.parent.stateRoot = true := by
     obtain ⟨archive,p,bs,ready,valid,binding,hashp,hashes,implemented,_⟩ := certificate
     have inputs := congrArg StatementData.input binding
     have ph : a.input.parentHeight = p.height := congrArg LandInput.parentHeight inputs
-    have pg := (land_success ok).1.parentGrid
-    simp only [Start.onGrid,decide_eq_true_eq] at pg
     have ps : p.height = start.height := by
       have before := (land_success ok).1.parentBeforeFrontier
-      simp only [written,Option.map_some,Option.getD_some] at pg
+      have above := (land_success ok).1.origin
+      have lower := floor start written
       omega
     have originRecord : recordAt w.inbox a.input.parentHeight = some w.inbox.checkpoint := by
       rw [ph,ps,← height]
       exact record
     have pe := congrArg StatementData.parentHash binding
     have pm := congrArg StatementData.parentCometHash binding
-    have pv' := congrArg StatementData.parentValStateHash binding
     have pu := congrArg StatementData.headBefore binding
-    simp only [statement,originRecord,Option.getD_some,Blocks.statement] at pe pm pv' pu
+    simp only [statement,originRecord,Option.getD_some,Blocks.statement] at pe pm pu
     have pcut : p.cut = segment.parent.cut := by
       rw [segment.parentCut]
       simp only [BlockValidity.Header.cut]
-      rw [← pe,← pm,← pv',← pu,cursorHead]
+      rw [← pe,← pm,← pu,cursorHead]
     have same := bound_headers_equal primitive hashp segment.parentHashBound pcut
     have checked := implemented switching (by simpa [written] using ps)
     simpa [same] using checked
-  refine ⟨?_,legacy,retained,auth,⟨h,el,r,tm,an,pc,cur,pv⟩⟩
+  refine ⟨?_,legacy,retained,auth,⟨h,el,r,tm,an,pc,cur⟩⟩
   exact ⟨start,written,height,switching,fenced.1,fenced.2.1,fenced.2.2.1,fenced.2.2.2.1,fenced.2.2.2.2.1,
       fenced.2.2.2.2.2,segment.parentHeight.trans height,el.trans (finalized.symm.trans fenced.2.1),
       r.trans (root.symm.trans fenced.2.2.2.2.2),implementation,tm ▸ preFork⟩
@@ -111,9 +108,11 @@ theorem pending_parent {env : Environment} {initial w t : World} {a : Landing}
     (cursorHead : w.inbox.checkpoint.cursor = w.inbox.head)
     (record : recordAt w.inbox w.inbox.checkpoint.height = some w.inbox.checkpoint)
     (pending : Pending env w w.inbox.checkpoint)
-    (certificate : LiveCertifies env w (statement env w a)) : Path env initial segment.parent := by
+    (certificate : LiveCertifies env w (statement env w a))
+    (floor : ∀ start, w.start = some start → start.height ≤ w.inbox.origin.height) :
+    Path env initial segment.parent := by
   obtain ⟨fence,legacy,retained,auth,starts⟩ :=
-    pending_parent_fence primitive reach ok inv segment cursorHead record pending certificate
+    pending_parent_fence primitive reach ok inv segment cursorHead record pending certificate floor
   obtain ⟨switching,start,written,height,_⟩ := pending
   exact .unzen reach ok (by simpa [written] using height) switching retained auth starts
     segment.parentHashBound fence
@@ -136,6 +135,7 @@ theorem accepted_landing_path {env : Environment} {registry : RegistryMachine.St
       have same := bound_headers_equal primitive segment.parentHashBound bound cut
       exact same ▸ path
     · exact pending_parent primitive reach ok inv segment cursor record pending certificate
+        (fun start written => ((Journal.trace_frontier_shape reach).floor start written).1)
   exact ⟨segment,parent,.landing reach ok segment parent⟩
 
 theorem landing_invariant {env : Environment} {registry : RegistryMachine.State} {w t : World} {a : Landing}
@@ -187,9 +187,9 @@ theorem write_start_invariant {env : Environment} {initial w : World}
     Invariant env initial (writeStart w height hash root block timestamp generation) := by
   refine ⟨?_,inv.signals,inv.unzen⟩
   intro cp member
-  have same : cp = ⟨height,hash,0,0,generation,height,0⟩ := by simpa [writeStart] using member
+  have same : cp = ⟨height,hash,0,0,generation,height⟩ := by simpa [writeStart] using member
   subst cp
-  exact Or.inr ⟨switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl,rfl⟩
+  exact Or.inr ⟨switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl⟩
 
 theorem initialize_invariant {env : Environment} {initial w t : World} {caller : Nat}
     (primitive : Primitives env) (reach : Trace env initial w)
@@ -207,9 +207,9 @@ theorem initialize_invariant {env : Environment} {initial w t : World} {caller :
         have path : Path env initial env.genesisHeader := .genesis caller reach accepted newNetwork
         refine ⟨?_,?_,inv.unzen⟩
         · intro cp mem
-          have same : cp = ⟨0,env.genesisHeader.elHash,0,0,0,0,0⟩ := by simpa [writeStart] using mem
+          have same : cp = ⟨0,env.genesisHeader.elHash,0,0,0,0⟩ := by simpa [writeStart] using mem
           subst cp
-          exact Or.inl ⟨env.genesisHeader,⟨genesis.1,by simp [BlockValidity.Header.cut,genesis.2.1,genesis.2.2.1,genesis.2.2.2]⟩,primitive.genesis,path⟩
+          exact Or.inl ⟨env.genesisHeader,⟨genesis.1,by simp [BlockValidity.Header.cut,genesis.2.1,genesis.2.2]⟩,primitive.genesis,path⟩
         · intro signal mem
           have same : signal = ⟨0,env.genesisHeader.elHash,env.genesisHeader.stateRoot⟩ := by simpa [writeStart] using mem
           subst signal
@@ -301,8 +301,8 @@ theorem execute_invariant {env : Environment} {registry : RegistryMachine.State}
     change scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact unchanged_invariant inv rfl rfl rfl rfl rfl
-  | scheduleStop caller time grid =>
-    change scheduleStop env w caller time grid = some t at ok
+  | scheduleStop caller time =>
+    change scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact unchanged_invariant inv rfl rfl rfl rfl rfl
   | recover request =>

@@ -6,25 +6,25 @@ namespace Rules
 theorem schedule_rules_result {c : Control} {s t : Schedule} {caller now rule time : Nat}
     (ok : scheduleRules c s caller now rule time = some t) :
     t.active = (if s.time ≤ now then s.next else s.active) ∧ t.next = rule ∧
-    t.time = time ∧ t.stopTime = s.stopTime ∧ t.stopGrid = s.stopGrid ∧ fits t := by
+    t.time = time ∧ t.stopTime = s.stopTime ∧ fits t := by
   unfold scheduleRules at ok
   dsimp only at ok
   split at ok
   next guard =>
     cases Option.some.inj ok
-    exact ⟨rfl,rfl,rfl,rfl,rfl,guard.2.2.2.2.2.2⟩
+    exact ⟨rfl,rfl,rfl,rfl,guard.2.2.2.2.2.2⟩
   next => simp at ok
 
-theorem schedule_stop_result {c : Control} {s t : Schedule} {caller now time grid : Nat}
-    (ok : scheduleStop c s caller now time grid = some t) :
+theorem schedule_stop_result {c : Control} {s t : Schedule} {caller now time : Nat}
+    (ok : scheduleStop c s caller now time = some t) :
     t.active = s.active ∧ t.next = s.next ∧ t.time = s.time ∧
-    t.stopTime = time ∧ t.stopGrid = grid ∧ fits t := by
+    t.stopTime = time ∧ fits t := by
   unfold scheduleStop at ok
   dsimp only at ok
   split at ok
   next guard =>
     cases Option.some.inj ok
-    exact ⟨rfl,rfl,rfl,rfl,rfl,guard.2.2.2.2.2⟩
+    exact ⟨rfl,rfl,rfl,rfl,guard.2.2.2.2.2⟩
   next => simp at ok
 
 theorem rules_require_owner {c : Control} {s t : Schedule} {caller now rule time : Nat}
@@ -36,10 +36,9 @@ theorem rules_require_owner {c : Control} {s t : Schedule} {caller now rule time
   next guard => exact ⟨guard.1,guard.2.1,guard.2.2.2.2.1⟩
   next => simp at ok
 
-theorem stop_requires_owner {c : Control} {s t : Schedule} {caller now time grid : Nat}
-    (ok : scheduleStop c s caller now time grid = some t) :
-    c.initialized = true ∧ caller = c.owner ∧
-    (time = 0 ∧ grid = 0 ∨ now+c.maxAge ≤ time ∧ 0 < grid ∧ 0 < c.grid ∧ grid % c.grid = 0) := by
+theorem stop_requires_owner {c : Control} {s t : Schedule} {caller now time : Nat}
+    (ok : scheduleStop c s caller now time = some t) :
+    c.initialized = true ∧ caller = c.owner ∧ (time = 0 ∨ now+c.maxAge ≤ time) := by
   unfold scheduleStop at ok
   dsimp only at ok
   split at ok
@@ -50,8 +49,8 @@ theorem trace_fields_fit {c : Control} {s t : Schedule}
     (trace : Trace c s t) (initial : fits s) : fits t := by
   induction trace with
   | refl => exact initial
-  | rules _ _ _ _ _ ok _ => exact (schedule_rules_result ok).2.2.2.2.2
-  | stop _ _ _ _ _ ok _ => exact (schedule_stop_result ok).2.2.2.2.2
+  | rules _ _ _ _ _ ok _ => exact (schedule_rules_result ok).2.2.2.2
+  | stop _ _ _ _ ok _ => exact (schedule_stop_result ok).2.2.2.2
 
 theorem preserves_visible_window {c : Control} {s t : Schedule} {caller now rule time stamp : Nat}
     (ok : scheduleRules c s caller now rule time = some t)
@@ -73,13 +72,13 @@ theorem preserves_visible_window {c : Control} {s t : Schedule} {caller now rule
   next => simp at ok
 
 theorem recover_clears_stop {s t : Schedule} {rule : Nat}
-    (ok : recover s rule = some t) : t.stopTime = 0 ∧ t.stopGrid = 0 := by
+    (ok : recover s rule = some t) : t.stopTime = 0 := by
   unfold recover at ok
   split at ok
-  next => cases Option.some.inj ok; exact ⟨rfl,rfl⟩
+  next => cases Option.some.inj ok; rfl
   next =>
     split at ok
-    next => cases Option.some.inj ok; exact ⟨rfl,rfl⟩
+    next => cases Option.some.inj ok; rfl
     next => simp at ok
 end Rules
 
@@ -152,11 +151,6 @@ end Registry
 
 namespace Start
 
-theorem grid_offset {start grid height : Nat} (ok : onGrid start grid height = true) :
-    start ≤ height ∧ (height-start) % grid = 0 := by
-  simp only [onGrid, decide_eq_true_eq] at ok
-  exact ok.2
-
 theorem first_landing_fenced {start hash root : Nat} {u : Unzen}
     (ok : firstLanding true start start hash root u = true) :
     u.nextProposal = u.finalizedProposal+1 ∧ u.finalizedHash = hash ∧
@@ -194,27 +188,28 @@ theorem authenticated_conflict_halts {c : Candidate} {generation : Nat}
     (conflict : c.envelopeEL ≠ c.checkpointEL) : inspect c generation = .halt := by
   simp [inspect, same, Nat.not_lt.mpr height, auth, final, data, valState, conflict]
 
-/-- For s > o, a preimage that hashes to the finalized record's validator-state hash but whose
-set for s + 1 differs from header(s)'s next_validators_hash is an authenticated contradiction. -/
-theorem next_validators_conflict_halts {c : Candidate} {generation : Nat}
+/-- For s > o, a validator-state preimage that, with the EL hash of s − 1, gives the
+authenticated header(s)'s app_hash, but whose two sets differ from header(s)'s validators_hash or
+next_validators_hash, is an authenticated contradiction (DATA-5.4-5). -/
+theorem validator_sets_conflict_halts {c : Candidate} {generation : Nat}
     (same : c.generation = generation) (windowed : c.origin < c.height)
     (auth : c.checkpointAuthenticated = true) (final : c.checkpointFinalized = true)
     (data : c.dataHashAuthenticated = true) (valState : c.valStateAuthenticated = true)
-    (conflict : c.nextValidatorsMatch = false) : inspect c generation = .halt := by
+    (conflict : c.validatorSetsMatch = false) : inspect c generation = .halt := by
   simp [inspect, same, Nat.not_lt.mpr (Nat.le_of_lt windowed), windowed, auth, final, data, valState, conflict]
 
 /-- For s > o, with the window available and authenticated, a committee derived under 4.3
-whose keys and powers differ from the matching preimage's set is an authenticated
-contradiction. -/
+whose keys and powers differ from the matching set derived from the preimage under DATA-5.4-3 is
+an authenticated contradiction (DATA-5.4-5). -/
 theorem committee_conflict_halts {c : Candidate} {generation : Nat}
     (same : c.generation = generation) (windowed : c.origin < c.height)
     (auth : c.checkpointAuthenticated = true) (final : c.checkpointFinalized = true)
     (data : c.dataHashAuthenticated = true) (valState : c.valStateAuthenticated = true)
-    (envelope : c.envelopeEL = c.checkpointEL) (next : c.nextValidatorsMatch = true)
+    (envelope : c.envelopeEL = c.checkpointEL) (sets : c.validatorSetsMatch = true)
     (material : c.materialAvailable = true) (metadata : c.metadataAuthenticated = true)
     (conflict : c.committeesMatch = false) : inspect c generation = .halt := by
   simp [inspect, same, Nat.not_lt.mpr (Nat.le_of_lt windowed), windowed, auth, final, data, valState, envelope,
-    next, material, metadata, conflict]
+    sets, material, metadata, conflict]
 
 theorem unfinalized_checkpoint_retries {c : Candidate} {generation : Nat}
     (same : c.generation = generation) (height : c.origin ≤ c.height)
@@ -227,20 +222,21 @@ theorem invalid_data_rejected (c : Candidate) (generation : Nat)
     (invalid : c.dataHashAuthenticated = false) : inspect c generation = .reject := by
   simp [inspect, invalid]
 
-/-- For s > o, a validator-state preimage that does not hash to the record's value is only an
-invalid candidate, even when the record is finalized and every other check would pass. -/
+/-- For s > o, a validator-state preimage that, with the EL hash of s − 1, does not give
+header(s)'s app_hash is only an invalid candidate, even when the record is finalized and every
+other check would pass (DATA-5.4-5). -/
 theorem invalid_val_state_rejected (c : Candidate) (generation : Nat)
     (windowed : c.origin < c.height)
     (invalid : c.valStateAuthenticated = false) : inspect c generation = .reject := by
   simp [inspect, windowed, invalid]
 
-/-- A snapshot at s = o takes the existing 8.4 genesis path (DATA-5.4-1): the start record
-does not hold this generation's validator state, so the decision does not depend on the three
-validator-state checks. -/
+/-- A snapshot at s = o takes the existing 8.4 genesis path (DATA-5.4-1), with the validator
+state CometBFT builds from this generation's genesis, so the decision does not depend on the
+three validator-state checks. -/
 theorem genesis_path_ignores_val_state (c : Candidate) (generation : Nat)
-    (start : c.height = c.origin) (valState nextSet committees : Bool) :
+    (start : c.height = c.origin) (valState sets committees : Bool) :
     inspect { c with valStateAuthenticated := valState
-                     nextValidatorsMatch := nextSet
+                     validatorSetsMatch := sets
                      committeesMatch := committees } generation = inspect c generation := by
   simp [inspect, start]
 

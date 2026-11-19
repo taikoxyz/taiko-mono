@@ -119,7 +119,7 @@ theorem execute_registry_normal {env : Environment} {w t : World} {call : Call}
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
     subst t
     exact unchanged_trace rfl
-  | scheduleStop caller time grid =>
+  | scheduleStop caller time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleStop at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
@@ -303,7 +303,7 @@ theorem execute_checkpoint_frame {env : Environment} {w t : World} {call : Call}
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
     subst t
     exact Or.inr ⟨rfl,rfl,rfl⟩
-  | scheduleStop caller time grid =>
+  | scheduleStop caller time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleStop at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
@@ -459,7 +459,7 @@ private theorem execute_origin_progress {env : Environment} {w t : World} {call 
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
     subst t
     exact Or.inl ⟨rfl,rfl⟩
-  | scheduleStop caller time grid =>
+  | scheduleStop caller time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleStop at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
@@ -609,7 +609,7 @@ private theorem execute_initialized_change {env : Environment} {w t : World} {ca
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
     subst t
     exact Or.inl rfl
-  | scheduleStop caller time grid =>
+  | scheduleStop caller time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleStop at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
@@ -1309,8 +1309,8 @@ theorem execute_retains {env : Environment} {initial w t : World} {call : Call}
     change Protocol.scheduleRules env w caller rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact keep rfl rfl rfl
-  | scheduleStop caller time grid =>
-    change Protocol.scheduleStop env w caller time grid = some t at ok
+  | scheduleStop caller time =>
+    change Protocol.scheduleStop env w caller time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact keep rfl rfl rfl
   | recover request =>

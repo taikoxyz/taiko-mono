@@ -226,24 +226,12 @@ def UnzenLaneLive (env : Environment) (w : World) : Prop :=
       w.unzen.finalizedProposal < w.unzen.nextProposal-1 ∧
       env.unzenParent w.unzen.finalizedProposal (w.unzen.nextProposal-1) h proof = w.unzen.finalizedHash
 
-/-- 6.1, BATCH-6.3-1: once a start S is written, the checkpoint c is on the current grid, so
-c − S is a multiple of K. -/
-def OnGrid (w : World) : Prop :=
-  ∀ start, w.start = some start → Start.onGrid start.height w.inbox.gridK w.inbox.checkpoint.height = true
-
-/-- START-10.1, LIMIT-12-21, RECOV-8.3-3a: a recovery from `w` can leave live rulesets.
-First case: c is on the grid, and the current rulesets are live with one image for both. A plain
-recovery keeps them and K, and RECOV-8.3-3a needs c on the grid of the K it keeps. Second case:
-ruleset nextRules + 1 is live with an image, and c may be off the grid. This case plays two
-roles. On the grid it is a rules replacement that keeps K (LIMIT-12-21). Off the grid only a
-structural recovery that installs a K whose grid holds c gets out, and a K change must be part
-of the definition that the new `rules` names (START-10.1-3b, START-10.1-14e; vector 14e.g
-rejects `rules` = 0), so that recovery needs this case. There it reads: ruleset nextRules + 1
-is published as the current rules with K = 1, and an image implements it. Rulesets carry no K
-in the model (`Blocks.Definition`, `RulesetLive`, `imageRules`), so the model does not check
-that the definition includes K. -/
+/-- START-10.1, LIMIT-12-21: a recovery from `w` can leave live rulesets. First case: the
+current rulesets are live with one image for both, and a recovery keeps them. Second case: ruleset
+nextRules + 1 is live with an image, and a recovery installs it as the current rules
+(LIMIT-12-21). -/
 def LiveRules (env : Environment) (w : World) : Prop :=
-  (OnGrid w ∧ RulesetLive env w.schedule.active ∧ RulesetLive env w.schedule.next ∧
+  (RulesetLive env w.schedule.active ∧ RulesetLive env w.schedule.next ∧
     ∃ image, w.schedule.active ∈ env.imageRules image ∧ w.schedule.next ∈ env.imageRules image) ∨
   (RulesetLive env (w.schedule.next+1) ∧ ∃ image, w.schedule.next+1 ∈ env.imageRules image)
 
@@ -261,7 +249,7 @@ structure LiveAt (env : Environment) (w : World) : Prop where
   generation : w.inbox.generation+2 < limit48
   nonce : w.inbox.recoveryNonce+1 < limit256
   rules : w.schedule.next+1 < limit48
-  height : w.inbox.checkpoint.height+w.inbox.gridK < limit48
+  height : w.inbox.checkpoint.height+1 < limit48
   /-- The committee left once the recovery at `n` excludes `exclusions` is live. The exclusion
   list is sorted by bond id and names issued bonds with their entry keys (RECOV-8-38, 8-40a);
   with no exclusions this is the committee `w`'s registry elects at `n`. -/
@@ -269,7 +257,6 @@ structure LiveAt (env : Environment) (w : World) : Prop where
     env.time n+8 < limit256 ∧ exclusions.Pairwise (fun x y => x.1 < y.1) ∧
     RegistryMachine.exclusionsValid w.registry.registry exclusions = true ∧
     CommitteeLive env (excluded w n exclusions) n keys
-  /-- An off-grid c meets only its second case. -/
   ruleset : LiveRules env w
   unzen : UnzenLaneLive env w
 

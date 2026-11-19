@@ -83,7 +83,7 @@ theorem recovery_pending_guards {env : Environment} {w t : World} {request : Rec
       Bool.false_eq_true,↓reduceIte] at ok
   all_goals
     split at ok
-    next guard => exact ⟨guard.2.2.2.2.2.2.2.2.2.2.2.2.1,guard.2.2.2.2.2.2.2.2.2.2.2.2.2.1⟩
+    next guard => exact ⟨guard.2.2.2.2.2.2.2.2.2.2.2.1,guard.2.2.2.2.2.2.2.2.2.2.2.2.1⟩
     next => simp at ok
 
 /-- A current consuming block's witness opens the actual queue and cannot skip early. -/

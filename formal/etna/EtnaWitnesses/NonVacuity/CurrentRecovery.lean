@@ -34,7 +34,7 @@ def onlineKey : Hash := 7
 
 /-- Every header field except the Comet hash itself. -/
 def cometTree (h : Header) : Encoding.Tree :=
-  .node (Encoding.header h) (.node (.leaf h.elHash) (.node (.leaf h.cursor) (.leaf h.valStateHash)))
+  .node (Encoding.header h) (.node (.leaf h.elHash) (.leaf h.cursor))
 
 /-- The Comet hash of a valid block: an injective code of every other header field. -/
 def cometCode (h : Header) : Hash := (cometTree h).code
@@ -57,11 +57,11 @@ def genesis : Header := { NonVacuity.genesisBase with elHash := Encoding.headerH
 
 /-- Every field but the verifier. `env` adds a verifier that reads certification under `base`,
 which avoids self-reference; certification reads no verifier, so both environments certify
-the same statements. New network (`unzenInbox = 0`), owner 7, K = 1, epoch length 10, genesis
+the same statements. New network (`unzenInbox = 0`), owner 7, epoch length 10, genesis
 cutoff 1, one-seat committee with U = 10, maxAnchorAge 1152; L1 block n has time 12n + 1000. -/
 noncomputable def base : Environment where
   core := ⟨NonVacuity.domain,7,8,0,2,9⟩
-  parameters := ⟨1,10,1,⟨NonVacuity.unit,NonVacuity.unit,1,10⟩,1,1152,10,1,1,9⟩
+  parameters := ⟨10,1,⟨NonVacuity.unit,NonVacuity.unit,1,10⟩,1,1152,10,1,1,9⟩
   genesisHeader := genesis
   initialSigner := NonVacuity.initialSigner
   time := fun n => 12*n+1000
@@ -108,7 +108,7 @@ noncomputable def live : World := transact env activated (.initializeInbox 7)
 
 /-- A child's EL part: its state root carries the parent's EL hash and its EL hash is `headerHash`. -/
 def elChild (parent : Header) (cursor timestamp : Nat) (anchor : BlockValidity.Anchor) : Header :=
-  let fields : Header := ⟨parent.height+1,0,Encoding.pair parent.elHash 0,0,cursor,timestamp,anchor,0⟩
+  let fields : Header := ⟨parent.height+1,0,Encoding.pair parent.elHash 0,0,cursor,timestamp,anchor⟩
   { fields with elHash := Encoding.headerHash fields }
 /-- The child of `parent` for these producer inputs: `elChild`, whose state root carries the
 parent's EL hash and whose EL hash is `headerHash`, with the Comet hash coding the rest. -/
@@ -195,8 +195,8 @@ private theorem signature_sound : Finality.SignatureSound registry env.signature
 
 private theorem comet_code_injective {x y : Header} (codes : cometCode x = cometCode y)
     (comet : x.cometHash = y.cometHash) : x = y := by
-  obtain ⟨h1,e1,s1,m1,c1,t1,a1,v1⟩ := x
-  obtain ⟨h2,e2,s2,m2,c2,t2,a2,v2⟩ := y
+  obtain ⟨h1,e1,s1,m1,c1,t1,a1⟩ := x
+  obtain ⟨h2,e2,s2,m2,c2,t2,a2⟩ := y
   have trees := Encoding.tree_code_injective codes
   simp only [cometTree,Encoding.header,Encoding.quad,Encoding.Tree.node.injEq,Encoding.Tree.leaf.injEq,
     Encoding.anchor_eq] at trees
@@ -303,19 +303,15 @@ private theorem committee_live : CommitteeLive env live 100 [onlineKey] := by
   · decide +kernel
   · decide +kernel
 
-/-- `LiveAt` by `LiveRules`' first case: c = S = 0 is on the K = 1 grid and the current rulesets
-are live, so H4's path runs a plain recovery here. -/
+/-- `LiveAt` by `LiveRules`' first case: the current rulesets are live, so H4's path keeps them
+in its plain recovery here. -/
 private theorem live_at : Etna.Statements.Current.LiveAt env live := by
   refine ⟨by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,
     ⟨100,[onlineKey],[],by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,.nil,rfl,
       by rw [Recovery.excluded_none]; exact committee_live⟩,
-    .inl ⟨?_,ruleset_live _,ruleset_live _,0,by decide +kernel,by decide +kernel⟩,?_⟩
-  · intro start started
-    rw [live_start] at started
-    cases started
-    decide +kernel
-  · intro switching
-    exact (switching rfl).elim
+    .inl ⟨ruleset_live _,ruleset_live _,0,by decide +kernel,by decide +kernel⟩,?_⟩
+  intro switching
+  exact (switching rfl).elim
 
 /-- The premises of H1–H4 can hold of one deployment (reports/recoverability.md, Joint witness): one
 environment, registry and engine satisfy H1–H3's `Premises` and H4's `RecoveryPremises` together,

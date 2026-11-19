@@ -200,7 +200,7 @@ private theorem bad_root_uncertified (snapshot : Nat) :
 private theorem start_trusted (snapshot root : Nat) :
     Governance.TrustedRecord broken initial (afterFirst snapshot root) startRecord := by
   refine ⟨Or.inl start_certified,Or.inl ?_,?_⟩
-  · exact ⟨⟨0,100,10⟩,rfl,rfl,rfl,rfl,rfl,rfl⟩
+  · exact ⟨⟨0,100,10⟩,rfl,rfl,rfl,rfl,rfl⟩
   · intro event member matching
     have same : event = firstEvent snapshot root := by
       simpa only [first_events,List.mem_singleton] using member
@@ -252,7 +252,7 @@ theorem root_only_failure :
 
 -- A subsequent visibly wrong hash must not make the preceding poisoned landing trusted.
 def nextLanding : Landing :=
-  ⟨⟨1,2,999,999,999,999,2,1,999⟩,[],[1],NonVacuity.landing.proofs⟩
+  ⟨⟨1,2,999,999,999,2,1,999⟩,[],[1],NonVacuity.landing.proofs⟩
 def nextEvent (snapshot root : Nat) : LandingRecord :=
   ⟨(afterFirst snapshot root).inbox,(afterFirst snapshot root).history,nextLanding⟩
 def afterNext (snapshot root : Nat) : World := landed (afterFirst snapshot root) nextLanding
@@ -275,7 +275,7 @@ private theorem next_uncertified (snapshot root : Nat) :
 private theorem next_start_trusted (snapshot root : Nat) :
     Governance.TrustedRecord broken initial (afterNext snapshot root) startRecord := by
   refine ⟨Or.inl start_certified,Or.inl ?_,?_⟩
-  · exact ⟨⟨0,100,10⟩,rfl,rfl,rfl,rfl,rfl,rfl⟩
+  · exact ⟨⟨0,100,10⟩,rfl,rfl,rfl,rfl,rfl⟩
   · intro event member matching
     rcases List.mem_cons.mp member with fresh | old
     · subst event

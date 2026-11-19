@@ -28,9 +28,9 @@ def election (unit minimum cutoff nMax : Nat) (entries : List Entry) : Option (L
      (∀ e ∈ selected, 0 < power unit e) ∧ totalPower unit selected ≤ maxPower
   then some selected else none
 
-/-- Grid interval 1 ≤ K ≤ 6; U and L have no dependency; K ≤ U ≤ 65,536 and U a multiple of
-K, so the pause point is a grid point (target deployment U = 3,600 suits every K ≤ 6). -/
-def configOK (k l u : Nat) : Bool :=
-  decide (1 ≤ k ∧ k ≤ 6 ∧ 3 ≤ l ∧ l+1 < limit48 ∧ k ≤ u ∧ u ≤ 65536 ∧ u % k = 0)
+/-- START-10-7 and START-10-10: L ≥ 3 and L+1 < 2^48; 1 ≤ U ≤ 65,536 (target deployment
+U = 3,600). U and L have no dependency. -/
+def configOK (l u : Nat) : Bool :=
+  decide (3 ≤ l ∧ l+1 < limit48 ∧ 1 ≤ u ∧ u ≤ 65536)
 
 end Etna.Design.Committee

@@ -63,7 +63,7 @@ inductive DeployedTrace (env : Environment) : World → World → Type
 /-- The current start record, including a corrected start. A start write is not a landing. -/
 def StartRecord (w : World) (cp : Checkpoint) : Prop :=
   ∃ start, w.start = some start ∧ cp.height = start.height ∧ cp.elHash = start.hash ∧
-    cp.cometHash = 0 ∧ cp.cursor = 0 ∧ cp.valStateHash = 0
+    cp.cometHash = 0 ∧ cp.cursor = 0
 
 /-- A retained record is trusted only with actual landing provenance. Every matching retained
 landing must certify its complete actual statement. In particular a certified header/cut

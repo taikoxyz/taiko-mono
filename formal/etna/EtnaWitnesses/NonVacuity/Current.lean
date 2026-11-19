@@ -3,7 +3,6 @@ import EtnaProofs.CurrentEncoding
 import EtnaProofs.CurrentEconomics
 import EtnaProofs.CurrentMetadata
 import EtnaProofs.CurrentCoherentCustody
-import EtnaModel.CurrentValidatorState
 
 /-! A finite accepting deployment with globally sound fixed proof bytes. The commitments
 encode the complete closed state. They are ideal unbounded Nat commitments, not Keccak. -/
@@ -29,14 +28,14 @@ def registry : RegistryMachine.State where
       (message = Accountability.evidence recoveredVote ∧ signature = 12)))
   registerAuth := fun key owner amount pop => decide (key = 7 ∧ owner = 8 ∧ amount = unit ∧ pop = 1)
 
-def genesisBase : Header := ⟨0,0,10,0,0,1,⟨0,0,0,0,0,0,0⟩,0⟩
+def genesisBase : Header := ⟨0,0,10,0,0,1,⟨0,0,0,0,0,0,0⟩⟩
 def genesis : Header := { genesisBase with elHash := 100 }
 def initialSigner : Signer.State := ⟨domain,0,1,[],false,[]⟩
 def txHash (bytes : Blocks.Bytes) : Hash := if bytes = [1] then 1 else 0
 
 def baseEnv : Environment where
   core := ⟨domain,7,8,0,2,9⟩
-  parameters := ⟨1,10,1,⟨unit,unit,1,10⟩,1,1152,10,1,1,9⟩
+  parameters := ⟨10,1,⟨unit,unit,1,10⟩,1,1152,10,1,1,9⟩
   genesisHeader := genesis
   initialSigner := initialSigner
   time := id
@@ -73,21 +72,21 @@ def source (env : Environment) : World := transact env (imaged env) (.advance 3)
 
 def closedTwo : Snapshot := snapshot baseEnv (imaged baseEnv) 2
 
-def firstBase : Header := ⟨1,0,100,201,1,2,⟨2,2,2,0,100,0,1⟩,301⟩
+def firstBase : Header := ⟨1,0,100,201,1,2,⟨2,2,2,0,100,0,1⟩⟩
 def first : Header := { firstBase with elHash := 101 }
-def second : Header := ⟨2,102,101,202,1,4,⟨4,4,4,1,101,1,1⟩,302⟩
+def second : Header := ⟨2,102,101,202,1,4,⟨4,4,4,1,101,1,1⟩⟩
 def forcedEntry : Forced.Entry := ⟨1,2,2⟩
 def witness : Forced.Witness := ⟨0,forcedEntry,true,0,0,false,some 1,true,1⟩
 def body : BlockValidity.Block :=
   ⟨first,genesis.elHash,none,domain,0,2,100,100,true,none,1,1,
     first.anchor.stateRoot,0,[vote],some witness,.completedRetained⟩
-def block : Block := ⟨body,⟨0,0,0,0,0⟩,[],some [1],[[1]]⟩
+def block : Block := ⟨body,⟨0,0,0,0⟩,[],some [1],[[1]]⟩
 def bytes : ActualQueue.Primitives :=
   ⟨txHash,fun raw => decide (raw = [1]),fun _ _ _ => .completedRetained⟩
 def definition : Blocks.Definition :=
   ⟨fun p b => decide ((p = genesis ∧ b.header = first) ∨ (p = first ∧ b.header = second)),
     fun b raw transactions => decide (raw = [] ∧ transactions = if b.header.height = 1 then [[1]] else []),bytes⟩
-def landing : Landing := ⟨⟨0,1,first.elHash,201,301,100,2,1,1⟩,[],[1],
+def landing : Landing := ⟨⟨0,1,first.elHash,201,100,2,1,1⟩,[],[1],
   [⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
 def template : StatementData := { statement baseEnv (source baseEnv) landing with referenceHash := 4 }
 
@@ -101,8 +100,8 @@ def closedFour : Snapshot := snapshot baseEnv (recovered baseEnv) 4
 def recoveredBody : BlockValidity.Block :=
   ⟨second,first.elHash,none,domain,1,4,100,100,true,none,1,1,
     second.anchor.stateRoot,0,[recoveredVote],none,.completedRetained⟩
-def recoveredBlock : Block := ⟨recoveredBody,⟨0,0,0,0,0⟩,[],none,[]⟩
-def recoveredLanding : Landing := ⟨⟨1,2,102,202,302,101,4,1,4⟩,[],[1],
+def recoveredBlock : Block := ⟨recoveredBody,⟨0,0,0,0⟩,[],none,[]⟩
+def recoveredLanding : Landing := ⟨⟨1,2,102,202,101,4,1,4⟩,[],[1],
   [⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
 def recoveredTemplate : StatementData :=
   { statement baseEnv (recoveredSource baseEnv) recoveredLanding with referenceHash := 26 }
@@ -283,7 +282,7 @@ private theorem label_tail {α : Type} [DecidableEq α] (head x : α) (rest : Li
   rfl
 
 theorem source_statement : statement env (source env) landing = template := by
-  change (⟨domain,0,0,100,0,0,0,landing.input,referenceHash env (source env) 2,[1],
+  change (⟨domain,0,0,100,0,0,landing.input,referenceHash env (source env) 2,[1],
     ⟨0,0,1,[]⟩⟩ : StatementData) = template
   rw [source_reference]
   rfl
@@ -426,14 +425,13 @@ theorem active_one_same {w : World} (context : TemplateContext w) :
 
 theorem first_valid_in_context {w : World} (context : TemplateContext w) :
     Blocks.Valid (policy env w archive 2) genesis block := by
-  have grid : w.inbox.gridK = 1 := congrArg Parameters.gridK context.parameters
   have epoch : w.inbox.epochLen = 10 := congrArg Parameters.epochLen context.parameters
   have committee : w.inbox.configuration = baseEnv.parameters.committee := congrArg Parameters.committee context.parameters
   have delay : w.inbox.forcedDelay = 1 := congrArg Parameters.forcedDelay context.parameters
   have age : w.inbox.maxAnchorAge = 1152 := congrArg Parameters.maxAnchorAge context.parameters
   constructor
-  · change Committee.configOK w.inbox.gridK w.inbox.epochLen w.inbox.configuration.unsettled = true
-    rw [grid,epoch,committee]
+  · change Committee.configOK w.inbox.epochLen w.inbox.configuration.unsettled = true
+    rw [epoch,committee]
     decide +kernel
   · change (config w).originHeight ≤ genesis.height
     rw [context.config,source_config]
@@ -519,15 +517,14 @@ theorem ready_in_context {w : World} (trace : Trace env (empty env registry) w)
 
 theorem batch_binding_in_context {w : World} (context : TemplateContext w) :
     Blocks.statement (policy env w archive 2) genesis [block] [1] = template := by
-  have grid : w.inbox.gridK = 1 := congrArg Parameters.gridK context.parameters
   have active := active_one_same context
   have cutoffOne : (Consensus.activeAt pol.consensus 1).cutoff = 1 := by decide +kernel
   unfold Blocks.statement
   change (⟨(policy env w archive 2).consensus.domain,(policy env w archive 2).consensus.generation,
-    (policy env w archive 2).committeeConfig,100,0,0,0,
-    ⟨0,1,101,201,301,100,2,1,(Consensus.activeAt (policy env w archive 2).consensus 1).cutoff⟩,
-    referenceHash env w 2,[1],tableHash w.inbox.gridK w.inbox.generation 0 1 (Blocks.cuts genesis [block])⟩ : StatementData) = template
-  rw [active,cutoffOne,context.reference,grid,context.generation]
+    (policy env w archive 2).committeeConfig,100,0,0,
+    ⟨0,1,101,201,100,2,1,(Consensus.activeAt (policy env w archive 2).consensus 1).cutoff⟩,
+    referenceHash env w 2,[1],tableHash w.inbox.generation 0 1 (Blocks.cuts genesis [block])⟩ : StatementData) = template
+  rw [active,cutoffOne,context.reference,context.generation]
   simp only [policy,Finality.derive,context.config,source_config,context.committee]
   rfl
 
@@ -676,7 +673,7 @@ structure RecoveredContext (w : World) : Prop where
   lookup : Finality.registryAt w.registry.registry 4 = Finality.registryAt (recoveredSource env).registry.registry 4
 
 theorem recovered_source_statement : statement env (recoveredSource env) recoveredLanding = recoveredTemplate := by
-  change (⟨domain,1,0,101,201,301,1,recoveredLanding.input,referenceHash env (recoveredSource env) 4,[1],
+  change (⟨domain,1,0,101,201,1,recoveredLanding.input,referenceHash env (recoveredSource env) 4,[1],
     ⟨1,1,2,[]⟩⟩ : StatementData) = recoveredTemplate
   rw [recovered_reference]
   rfl
@@ -744,14 +741,13 @@ theorem active_two_same {w : World} (context : RecoveredContext w) :
 
 theorem second_valid_in_context {w : World} (context : RecoveredContext w) :
     Blocks.Valid (policy env w recoveredArchive 4) first recoveredBlock := by
-  have grid : w.inbox.gridK = 1 := congrArg Parameters.gridK context.parameters
   have epoch : w.inbox.epochLen = 10 := congrArg Parameters.epochLen context.parameters
   have committee : w.inbox.configuration = baseEnv.parameters.committee := congrArg Parameters.committee context.parameters
   have delay : w.inbox.forcedDelay = 1 := congrArg Parameters.forcedDelay context.parameters
   have age : w.inbox.maxAnchorAge = 1152 := congrArg Parameters.maxAnchorAge context.parameters
   constructor
-  · change Committee.configOK w.inbox.gridK w.inbox.epochLen w.inbox.configuration.unsettled = true
-    rw [grid,epoch,committee]
+  · change Committee.configOK w.inbox.epochLen w.inbox.configuration.unsettled = true
+    rw [epoch,committee]
     decide +kernel
   · change (config w).originHeight ≤ first.height
     rw [context.config,recovered_config]
@@ -832,15 +828,14 @@ theorem ready_recovered_context {w : World} (trace : Trace env (empty env regist
 
 theorem recovered_binding_in_context {w : World} (context : RecoveredContext w) :
     Blocks.statement (policy env w recoveredArchive 4) first [recoveredBlock] [1] = recoveredTemplate := by
-  have grid : w.inbox.gridK = 1 := congrArg Parameters.gridK context.parameters
   have active := active_two_same context
   have cutoffOne : (Consensus.activeAt recoveredPolicy.consensus 2).cutoff = 4 := by decide +kernel
   unfold Blocks.statement
   change (⟨(policy env w recoveredArchive 4).consensus.domain,(policy env w recoveredArchive 4).consensus.generation,
-    (policy env w recoveredArchive 4).committeeConfig,101,201,301,1,
-    ⟨1,2,102,202,302,101,4,1,(Consensus.activeAt (policy env w recoveredArchive 4).consensus 2).cutoff⟩,
-    referenceHash env w 4,[1],tableHash w.inbox.gridK w.inbox.generation 1 2 (Blocks.cuts first [recoveredBlock])⟩ : StatementData) = recoveredTemplate
-  rw [active,cutoffOne,context.reference,grid,context.generation]
+    (policy env w recoveredArchive 4).committeeConfig,101,201,1,
+    ⟨1,2,102,202,101,4,1,(Consensus.activeAt (policy env w recoveredArchive 4).consensus 2).cutoff⟩,
+    referenceHash env w 4,[1],tableHash w.inbox.generation 1 2 (Blocks.cuts first [recoveredBlock])⟩ : StatementData) = recoveredTemplate
+  rw [active,cutoffOne,context.reference,context.generation]
   simp only [policy,Finality.derive,context.config,recovered_config,context.committee]
   rfl
 
@@ -924,75 +919,6 @@ theorem verifier_sound : VerifierSound env (empty env registry) := by
     · exact template_image_certifies trace ordinary
     · exact recovered_image_certifies trace recovered
 
-/-! Validator replay (`ValidatorState.ReplaySound`): key 7 is its own address and the snapshot
-hash is 300 plus the height, which the two certified blocks commit to (301 and 302). -/
-
-def replayHash (s : ValidatorState.Snapshot) : Hash := 300+s.height
-/-- Genesis for the one-seat committee {key 7, power 1} at `height`. -/
-def replayGenesis (height : Nat) : ValidatorState.CommitState :=
-  ⟨height,⟨[⟨7,7,1,0⟩],some 7⟩,⟨[⟨7,7,1,0⟩],some 7⟩,⟨[],none⟩⟩
-/-- Its state after one block without scheduled changes. -/
-def replayed (height : Nat) : ValidatorState.CommitState :=
-  ⟨height+1,⟨[⟨7,7,1,0⟩],some 7⟩,⟨[⟨7,7,1,0⟩],some 7⟩,⟨[⟨7,7,1,0⟩],some 7⟩⟩
-
-private theorem source_replay : ValidatorState.Batch (policy env (certificateWorld env (source env) 2) archive 2)
-    id replayHash genesis [block] template.blobHashes (replayGenesis 0) (replayed 0) :=
-  ⟨source_pure_certificate.1.2.1,replayGenesis 0,replayGenesis 0,by decide +kernel,by decide,by decide +kernel⟩
-
-private theorem recovered_replay : ValidatorState.Batch
-    (policy env (certificateWorld env (recoveredSource env) 4) recoveredArchive 4)
-    id replayHash first [recoveredBlock] recoveredTemplate.blobHashes (replayGenesis 1) (replayed 1) :=
-  ⟨recovered_pure_certificate.1.2.1,replayGenesis 1,replayGenesis 1,by decide +kernel,by decide,by decide +kernel⟩
-
-private theorem template_replays {w : World} {a : Landing}
-    (trace : Trace env (empty env registry) w) (same : statement env w a = template) :
-    ∃ archive p bs supplied final, ValidatorState.Certificate env w (statement env w a) archive p bs
-      id replayHash supplied final := by
-  have context := template_context trace same
-  have prefixSame : referencePrefix (source env) 2 = referencePrefix w 2 :=
-    reference_hash_binds_prefix reference_binding (source_reference.trans context.reference.symm)
-  have viewSame := certificate_world_of_prefix (env := env) prefixSame
-  refine ⟨archive,genesis,[block],replayGenesis 0,replayed 0,?_,?_⟩
-  · rw [same]
-    exact batch_certificate_transport prefixSame source_pure_certificate
-  · rw [same]
-    change ValidatorState.Batch (policy env (certificateWorld env w 2) archive 2) id replayHash genesis [block]
-      template.blobHashes (replayGenesis 0) (replayed 0)
-    rw [← viewSame]
-    exact source_replay
-
-private theorem recovered_replays {w : World} {a : Landing}
-    (trace : Trace env (empty env registry) w) (same : statement env w a = recoveredTemplate) :
-    ∃ archive p bs supplied final, ValidatorState.Certificate env w (statement env w a) archive p bs
-      id replayHash supplied final := by
-  have context := recovered_context trace same
-  have prefixSame : referencePrefix (recoveredSource env) 4 = referencePrefix w 4 :=
-    reference_hash_binds_prefix reference_binding (recovered_reference.trans context.reference.symm)
-  have viewSame := certificate_world_of_prefix (env := env) prefixSame
-  refine ⟨recoveredArchive,first,[recoveredBlock],replayGenesis 1,replayed 1,?_,?_⟩
-  · rw [same]
-    exact batch_certificate_transport prefixSame recovered_pure_certificate
-  · rw [same]
-    change ValidatorState.Batch (policy env (certificateWorld env w 4) recoveredArchive 4) id replayHash first
-      [recoveredBlock] recoveredTemplate.blobHashes (replayGenesis 1) (replayed 1)
-    rw [← viewSame]
-    exact recovered_replay
-
-/-- The verifier above also meets the validator-replay refinement: each statement it accepts is
-certified by a batch that replays the one-seat validator state. -/
-theorem replay_sound : ValidatorState.ReplaySound env (empty env registry) id replayHash := by
-  refine ⟨fun _ => True,?_,?_⟩
-  · intro proofs accepted
-    cases proofs with
-    | nil => simp [dualOK] at accepted
-    | cons proof rest => exact ⟨proof,List.mem_cons_self,True.intro⟩
-  · intro w trace a t proof accepted present sound verified
-    change decide (proof.image = 11 ∧ (statement env w a = template ∨ statement env w a = recoveredTemplate)) = true at verified
-    obtain ⟨_,same⟩ := of_decide_eq_true verified
-    rcases same with ordinary | recovered
-    · exact template_replays trace ordinary
-    · exact recovered_replays trace recovered
-
 theorem premises : Etna.Statements.Current.Premises env registry engine := by
   refine ⟨⟨primitives,verifier_sound,reference_binding,registry_genesis,?_⟩,rfl,signature_refinement,
     by decide,fun w _ => codec_sound w,fun w _ => vote_attribution w,fun _ _ h => h,?_,
@@ -1003,15 +929,6 @@ theorem premises : Etna.Statements.Current.Premises env registry engine := by
     have same : selected = definition := by simpa [env,baseEnv] using present.symm
     subst selected
     rfl
-
-/-- The validator-replay refinement holds together with H1–H3's premises at this accepting
-deployment, so `ValidatorState.accepted_replay` applies to an accepted landing in it. -/
-theorem replay_satisfiable :
-    ∃ e registry engine addressOf hash w t a, Etna.Statements.Current.Premises e registry engine ∧
-      ValidatorState.ReplaySound e (empty e registry) addressOf hash ∧
-      Trace e (empty e registry) w ∧ land e w a = some t :=
-  ⟨env,registry,engine,id,replayHash,source env,landed (source env) landing,landing,premises,replay_sound,
-    source_reachable env,source_landing_accepted⟩
 
 def AcceptingDeployment : Prop :=
   ∃ e registry engine w t a, Etna.Statements.Current.Premises e registry engine ∧
@@ -1079,7 +996,7 @@ theorem after_reference_preserves_commitment :
 
 theorem after_reference_landing_accepted :
     land env afterReference landing = some (landed afterReference landing) := by
-  have checks : LandingChecks env afterReference landing := ⟨source_landing_checks.initialized,source_landing_checks.started,source_landing_checks.entered,source_landing_checks.origin,source_landing_checks.parentBeforeFrontier,source_landing_checks.progress,source_landing_checks.height,source_landing_checks.parentGrid,source_landing_checks.lastGrid,source_landing_checks.frontierGrid,source_landing_checks.batchSize,source_landing_checks.record,source_landing_checks.generation,source_landing_checks.leafCount,source_landing_checks.frontier,source_landing_checks.cursor,source_landing_checks.head,source_landing_checks.tail,source_landing_checks.service,source_landing_checks.reference,source_landing_checks.referenceAge,source_landing_checks.blobs,source_landing_checks.unzen,source_landing_checks.proofs⟩
+  have checks : LandingChecks env afterReference landing := ⟨source_landing_checks.initialized,source_landing_checks.started,source_landing_checks.entered,source_landing_checks.origin,source_landing_checks.parentBeforeFrontier,source_landing_checks.progress,source_landing_checks.height,source_landing_checks.batchSize,source_landing_checks.record,source_landing_checks.generation,source_landing_checks.leafCount,source_landing_checks.frontier,source_landing_checks.cursor,source_landing_checks.head,source_landing_checks.tail,source_landing_checks.service,source_landing_checks.reference,source_landing_checks.referenceAge,source_landing_checks.blobs,source_landing_checks.unzen,source_landing_checks.proofs⟩
   simp only [Protocol.land,checks,ite_true]
 
 
@@ -1096,7 +1013,7 @@ theorem closed_after_reference_prefix : referencePrefix closedAfterReference 2 =
   rw [closed_after_reference_history,List.take_append_of_le_length (show 3 ≤ (source env).history.length from by decide)]
 
 theorem closed_after_reference_statement : statement env closedAfterReference landing = template := by
-  change (⟨domain,0,0,100,0,0,0,landing.input,referenceHash env closedAfterReference 2,[1],⟨0,0,1,[]⟩⟩ : StatementData) = template
+  change (⟨domain,0,0,100,0,0,landing.input,referenceHash env closedAfterReference 2,[1],⟨0,0,1,[]⟩⟩ : StatementData) = template
   have hashes : referenceHash env closedAfterReference 2 = referenceHash env (source env) 2 :=
     congrArg (fun history => env.blockHash history 2) closed_after_reference_prefix
   rw [hashes,source_reference]
@@ -1131,7 +1048,7 @@ theorem positive_rollback : rollback env firstLanded 7 (source env).inbox.checkp
 
 theorem rollback_then_landing_accepted :
     land env rolledBack landing = some (landed rolledBack landing) := by
-  have checks : LandingChecks env rolledBack landing := ⟨source_landing_checks.initialized,source_landing_checks.started,source_landing_checks.entered,source_landing_checks.origin,source_landing_checks.parentBeforeFrontier,source_landing_checks.progress,source_landing_checks.height,source_landing_checks.parentGrid,source_landing_checks.lastGrid,source_landing_checks.frontierGrid,source_landing_checks.batchSize,source_landing_checks.record,source_landing_checks.generation,source_landing_checks.leafCount,source_landing_checks.frontier,source_landing_checks.cursor,source_landing_checks.head,source_landing_checks.tail,source_landing_checks.service,source_landing_checks.reference,source_landing_checks.referenceAge,source_landing_checks.blobs,source_landing_checks.unzen,source_landing_checks.proofs⟩
+  have checks : LandingChecks env rolledBack landing := ⟨source_landing_checks.initialized,source_landing_checks.started,source_landing_checks.entered,source_landing_checks.origin,source_landing_checks.parentBeforeFrontier,source_landing_checks.progress,source_landing_checks.height,source_landing_checks.batchSize,source_landing_checks.record,source_landing_checks.generation,source_landing_checks.leafCount,source_landing_checks.frontier,source_landing_checks.cursor,source_landing_checks.head,source_landing_checks.tail,source_landing_checks.service,source_landing_checks.reference,source_landing_checks.referenceAge,source_landing_checks.blobs,source_landing_checks.unzen,source_landing_checks.proofs⟩
   simp only [Protocol.land,checks,ite_true]
 
 
@@ -1142,8 +1059,9 @@ theorem first_landed_reachable : Trace env (empty env registry) firstLanded := b
   exact .step (source_reachable env) (actual ▸ call)
 
 /-! An import at a landed checkpoint above the origin. After the first landing, s = 1 > o = 0, so
-DATA-5.4-3/5's validator-state checks apply: the candidate reports the preimage of 301 as
-authenticated, and the same candidate without it is rejected. With U = 10 the window
+DATA-5.4-3/5's validator-state checks apply: the candidate reports its preimage of
+valStateHash(0) as authenticated against header(1)'s app_hash, and the same candidate without it
+is rejected. With U = 10 the window
 max(o, s − U + 1)..s reaches the origin; window truncation is covered by unit regressions. -/
 def landedClosed : World := transact env firstLanded (.advance 4)
 def landedObserved : World := transact env landedClosed (.observe 3)

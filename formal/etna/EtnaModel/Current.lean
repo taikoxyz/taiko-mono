@@ -12,21 +12,19 @@ structure Schedule where
   next : Nat
   time : Nat
   stopTime : Nat
-  stopGrid : Nat
   deriving DecidableEq, Repr
 
 structure Control where
   initialized : Bool
   owner : Nat
   maxAge : Nat
-  grid : Nat
   deriving DecidableEq, Repr
 
 def select (s : Schedule) (timestamp : Nat) : Nat :=
   if s.time ≤ timestamp then s.next else s.active
 
 def fits (s : Schedule) : Prop := s.active < limit48 ∧ s.next < limit48 ∧
-  s.time < limit48 ∧ s.stopTime < limit48 ∧ s.stopGrid < limit48
+  s.time < limit48 ∧ s.stopTime < limit48
 instance (s : Schedule) : Decidable (fits s) := inferInstanceAs (Decidable (_ ∧ _))
 
 def replacement (s : Schedule) (now rules time : Nat) : Schedule :=
@@ -39,17 +37,19 @@ def scheduleRules (c : Control) (s : Schedule) (caller now rules time : Nat) : O
       (rules = s.next ∨ rules = s.next+1) ∧ now+c.maxAge ≤ time ∧
       now+c.maxAge < limit48 ∧ fits next then some next else none
 
-def scheduleStop (c : Control) (s : Schedule) (caller now time grid : Nat) : Option Schedule :=
-  let next := { s with stopTime := time, stopGrid := grid }
+/-- START-10.1-5b: an existing stop can be changed only while it is more than maxAnchorAge
+away; the new time is 0 (cancel) or at least maxAnchorAge ahead. -/
+def scheduleStop (c : Control) (s : Schedule) (caller now time : Nat) : Option Schedule :=
+  let next := { s with stopTime := time }
   if c.initialized = true ∧ caller = c.owner ∧
       (s.stopTime = 0 ∨ now+c.maxAge < s.stopTime) ∧
-      ((time = 0 ∧ grid = 0) ∨
-        (now+c.maxAge ≤ time ∧ 0 < grid ∧ 0 < c.grid ∧ grid % c.grid = 0)) ∧
+      (time = 0 ∨ now+c.maxAge ≤ time) ∧
       now+c.maxAge < limit256 ∧ fits next then some next else none
 
-def stopped (s : Schedule) (start parentHeight parentTime : Nat) : Bool :=
-  decide (s.stopTime ≠ 0 ∧ start ≤ parentHeight ∧
-    (parentHeight-start) % s.stopGrid = 0 ∧ s.stopTime ≤ parentTime)
+/-- START-10.1-14d: with a stop scheduled at the block's anchor, the block is invalid when its
+parent's timestamp has reached `stopTime`, at any height. -/
+def stopped (s : Schedule) (parentTime : Nat) : Bool :=
+  decide (s.stopTime ≠ 0 ∧ s.stopTime ≤ parentTime)
 
 /-- A flat accepted image set may cover a batch spanning the timestamp boundary. -/
 def covers (implemented : List Nat) (s : Schedule) (timestamps : List Nat) : Bool :=
@@ -58,15 +58,15 @@ def covers (implemented : List Nat) (s : Schedule) (timestamps : List Nat) : Boo
 /-- `recover` always clears the stop. A nonzero rules argument installs a new ruleset
 for the new generation; zero preserves the pending/current rule schedule. -/
 def recover (s : Schedule) (rules : Nat) : Option Schedule :=
-  if rules = 0 then some { s with stopTime := 0, stopGrid := 0 }
-  else if rules = s.next+1 ∧ rules < limit48 then some ⟨rules,rules,0,0,0⟩ else none
+  if rules = 0 then some { s with stopTime := 0 }
+  else if rules = s.next+1 ∧ rules < limit48 then some ⟨rules,rules,0,0⟩ else none
 
 inductive Trace (c : Control) : Schedule → Schedule → Prop
   | refl (s : Schedule) : Trace c s s
   | rules {first s t : Schedule} (prior : Trace c first s) (caller now rule time : Nat)
       (ok : scheduleRules c s caller now rule time = some t) : Trace c first t
-  | stop {first s t : Schedule} (prior : Trace c first s) (caller now time grid : Nat)
-      (ok : scheduleStop c s caller now time grid = some t) : Trace c first t
+  | stop {first s t : Schedule} (prior : Trace c first s) (caller now time : Nat)
+      (ok : scheduleStop c s caller now time = some t) : Trace c first t
 end Rules
 
 namespace Registry
@@ -165,10 +165,6 @@ inductive Trace : State → State → Prop
 end Registry
 
 namespace Start
-/-- The subtraction guard matters: Nat subtraction alone accepts heights below S. -/
-def onGrid (start grid height : Nat) : Bool :=
-  decide (0 < grid ∧ start ≤ height ∧ (height-start) % grid = 0)
-
 /-- Epochs remain absolute, even on switching networks. -/
 def epochHeight (epoch len : Nat) : Nat := 1+epoch*len
 
@@ -241,13 +237,16 @@ namespace Import
 arbitrary peer assertions. This boundary does not prove those adapter implementations.
 `checkpointAuthenticated` means s's slot 285 record is landed in the node's own L1 view and
 matches; `checkpointFinalized` means that L1 block is finalized in the same view (DATA-5.3-4).
-The last three are the validator-state checks of DATA-5.4-3/5: the supplied preimage hashes to
-the record's validator-state hash; its set for s + 1 hashes to header(s)'s
-next_validators_hash; and the committees derived under 4.3 from the window and the node's own
-L1 have the keys and powers of the preimage's sets. They apply only for s > o. A snapshot at
-s = o takes the existing 8.4 genesis path (DATA-5.4-1): the record at the generation's start
-height does not hold this generation's validator state (SYNC-9-5), so `inspect` does not read
-them there. -/
+The last three are the validator-state checks of DATA-5.4-3/5. `valStateAuthenticated`: the
+supplied preimage of valStateHash(s − 1), with the EL hash of s − 1 (the parentHash of s's
+authenticated EL header), gives header(s)'s app_hash (CONS-3.1-8). `validatorSetsMatch`: the
+preimage's two sets, which sign s and s + 1, match header(s)'s validators_hash and
+next_validators_hash. `committeesMatch`: the committees derived under 4.3 from the window and
+the node's own L1 have the keys and powers of the sets that applying s's validator updates once
+to the preimage derives for s + 1 and s + 2. No L1 record holds a validator-state hash; header(s)
+is authenticated by the record's Comet hash. The three checks apply only for s > o. A snapshot
+at s = o takes the existing 8.4 genesis path (DATA-5.4-1), with the validator state CometBFT
+builds from this generation's genesis, so `inspect` does not read them there. -/
 structure Candidate where
   generation : Nat
   origin : Nat
@@ -260,7 +259,7 @@ structure Candidate where
   metadataAuthenticated : Bool
   materialAvailable : Bool
   valStateAuthenticated : Bool
-  nextValidatorsMatch : Bool
+  validatorSetsMatch : Bool
   committeesMatch : Bool
   deriving DecidableEq, Repr
 
@@ -270,17 +269,19 @@ inductive Decision where
 
 /-- A missing or mismatching record rejects; a record landed only in an unfinalized L1 block
 leaves synchronization incomplete until it finalizes and verification is retried (DATA-5.3-4,
-vectors 4.f and 4.m). A validator-state preimage that does not hash to the record's value is an
-invalid candidate. Only finalized, authenticated landing data can prove a contradiction: an
-envelope EL hash or a preimage set for s + 1 that disagrees with it, or a committee derived
-from the authenticated window that disagrees with the preimage (DATA-5.4-5). The three
-validator-state checks apply only for s > o; at s = o the genesis path ignores them. -/
+vectors 4.f and 4.m). A validator-state preimage that, with the EL hash of s − 1, does not
+give header(s)'s app_hash is an invalid candidate. Only finalized, authenticated landing data
+can prove a contradiction (DATA-5.4-5): an envelope EL hash that disagrees with the record; a
+preimage that gives header(s)'s app_hash but whose two sets differ from header(s)'s
+validators_hash or next_validators_hash; or a committee derived under 4.3 that differs from the
+matching set derived from the preimage. The three validator-state checks apply only for s > o;
+at s = o the genesis path ignores them. -/
 def inspect (c : Candidate) (currentGeneration : Nat) : Decision :=
   if c.generation ≠ currentGeneration ∨ c.height < c.origin ∨
       c.checkpointAuthenticated = false ∨ c.dataHashAuthenticated = false ∨
       (c.origin < c.height ∧ c.valStateAuthenticated = false) then .reject
   else if c.checkpointFinalized = false then .retry
-  else if c.envelopeEL ≠ c.checkpointEL ∨ (c.origin < c.height ∧ c.nextValidatorsMatch = false) then .halt
+  else if c.envelopeEL ≠ c.checkpointEL ∨ (c.origin < c.height ∧ c.validatorSetsMatch = false) then .halt
   else if c.materialAvailable = false then .retry
   else if c.metadataAuthenticated = false then .reject
   else if c.origin < c.height ∧ c.committeesMatch = false then .halt
