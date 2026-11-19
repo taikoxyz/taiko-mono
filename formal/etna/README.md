@@ -82,6 +82,14 @@ states; actual endpoint-only family and latest-slot capture controls were detect
 and restored. Whole-range proof aggregation and authenticated execution remain
 premises. See [Y03 evidence](REPORT.md#y03-ordered-rule-ranges-and-lossless-pause).
 
+The [funded forfeiture component](conformance/REGISTRY_FUNDING.md) runs the
+historical Registry with a closed15-unit local token allocation, execution-time
+pending debit, inclusive authorization deadline, owner payout and payout-only
+fresh registration. Two different actual source faults and restoration were
+independently observed; complete frame/storage and financial audits passed.
+See [Y04 evidence](REPORT.md#y04-funded-forfeiture-and-payout-only-reuse).
+Mock Inbox/token and historical admission remain explicit boundaries.
+
 ## Run
 
 The draft-enabled [TLC/Python workflow](../../.github/workflows/protocol--etna-tlc.yml)

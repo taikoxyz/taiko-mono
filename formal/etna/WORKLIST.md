@@ -54,7 +54,7 @@ retain the frozen bounds, independent gates and explicit runtime premises.
 | Y01 | Same-domain timestamp safety projection and fixed source scopes | COMPLETE selected code `717b6f426`; exact 5/4/4/1 quotient exhausted, source proof and independent controls passed; original unviewed timeout retained. |
 | Y02 | Repeated recovery at one nonzero checkpoint | COMPLETE selected code `e7d6128a1`; finite safety, full g2 progress, actual origin fault/restoration and independent dispatch omission passed. |
 | Y03 | Full ordered rule range and lossless software pause | COMPLETE selected code `9585e3fff`; finite safety, actual pause/full Land and both distinct rule-range faults/restorations passed. |
-| Y04 | Actual funded pending forfeiture component | PENDING; closed fixture accounting, public PoPs and real withdrawal. |
+| Y04 | Actual funded pending forfeiture component | COMPLETE selected code `ee18ad8e1`; closed15, actual pending-debit/deadline faults/restoration and independent full raw audits passed. |
 | Y05 | Positional registry snapshots and final-R selection | PENDING; width/holes, bond lifetime and block-close snapshots. |
 | Y06 | Actual terminal seen-commit reconstruction | PENDING; public signed votes, stock constructor/verifier/successor distinction. |
 | Y07 | Native evidence lifecycle and import markers | PENDING; cold/pending ages, gossip and reopened committed markers. |
@@ -79,8 +79,17 @@ per-family coverage. The1,153-state graph exhausted; endpoint-only family and
 latest-slot capture source faults were independently observed and restored.
 Native diagnostic attribution, impossible initial committee labels and lexical
 syntax were corrected. Final candidate/main-merge checks each pass538; no actual
-proof/client/EL/deployment claim follows. Y01–Y03 are selected complete; four
-increments and the combined final gates remain, with no automatic eighth.
+proof/client/EL/deployment claim follows. Y01–Y03 evidence remains complete at its recorded scope.
+
+[Y04 evidence](REPORT.md#y04-funded-forfeiture-and-payout-only-reuse) adds
+historical proxy calls with only15 allocated tokens, sink5, owner payout4 and
+reuse of that payout without minting. Complete27-step/152-frame/502-access
+records are checked against source-derived95-word and inherited8192-cell state.
+An actual pending-debit deletion and independent strict-deadline change were
+detected and restored; metadata negatives retain unchanged native bytes.
+Frame attribution blind spots were repaired before publication. Candidate and
+actual-main merge each pass548 ordinary checks. Selected Y01–Y04 are complete;
+Y05–Y07 and final combined gates remain. No natural protocol defect is confirmed.
 
 ## Completed W01–W07 batch
 

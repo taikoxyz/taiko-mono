@@ -6324,3 +6324,100 @@ a three-fork ELF, or verify actual client/EL/guest/import/deployment behavior.
 W02 R01, W06 P01, full recovery Q01 and all19 archived INCONCLUSIVE searches retain
 their original OPEN/WAITING boundaries. No natural protocol defect was confirmed.
 Selected Y01-Y03 are complete; Y04-Y07 and the combined final gates remain.
+
+
+## Y04 funded forfeiture and payout-only reuse
+
+Date: 2026-11-20. Selected code `ee18ad8e1ebe2248bf901884409a73a8e7bbe0a0`. Current normative bundle remains
+`2e6763e21bc236cfcda6011d164b32040f9e0c8d`; actual main is
+`ce6d1887955343395305b5b1d89901816bd61a07`. The executable Registry is historical
+`89f419915de4b73bb57c53bf970f6dea9e8e8c8c`. See the
+[complete interface and scope](conformance/REGISTRY_FUNDING.md).
+
+The actual proxy lifecycle allocates exactly A9/B4/public2. A/B register4 each;
+exact executor/forfeit calldata is frozen before A topUp5. Saved-prefix branches
+refuse timestamp1061 and a funded public topUp1. At timestamp1060/block15,
+execution balance9 yields ceil-half penalty5, debiting effective4 and pending1.
+Pending4 retains readiness14, sink receives5 and Registry holds8. Mock snapshot14
+cannot cover exit15; snapshot15 can. Withdrawal at17 and public withdrawal at18
+refuse; A withdraws4 after the full delay. A reapproves and registers a fresh
+published key using only that payout. No later mint occurs. Original lifetime
+flags remain; final principal[0,4,4] exactly backs Registry8, with sink5/public2.
+
+The raw436352-byte ABI journal SHA-256 is
+`84ea1c07429076233a9997c1d7dd08049634058941f17abf76b5185975e2df29`.
+All27 steps,152 complete access frames,502 storage accesses,177 writes,95 selected
+state words,8192-cell inherited wide digests and all six token routes reconcile.
+Ordered storage geometry pins only `(slot,isWrite)` from a reviewed genuine
+compiler/recorder capture. State values, balances, arithmetic, calldata, events,
+callers and outcomes remain independently computed from source. The separate
+independent World/oracle rechecked the entire original/restored lifecycle.
+
+| Actual source control | Observed native outcome and complete audit |
+| --- | --- |
+| Primary delete pending-debit statement | Original0 / changed1 / restored0; exact changed failure `Y04 pending debit: expected 4`. Full17-step/100-frame/305-access prefix proves successful forfeit left pending5 rather than4, Registry8/sink5 and one-unit principal shortfall. |
+| Independent change deadline `<=` to `<` | Original0 / changed1 / restored0; exact changed failure `Y04 deadline equality: got AuthorizationExpired`. Full17-step/98-frame/256-access prefix proves funded equality reached that refusal without target token transfer or state write. |
+
+Both changed native fixture tests revert as a whole; the state and balance
+observations above describe their recorded intermediate fault prefixes.
+Both controls mutated only a disposable source copy in place and restored exact
+bytes, inode and mode. Original/restored complete ABI journals and business logs
+match the baseline exactly. Source, public inputs, compiler/Forge, launch, lock,
+environment and actual0/1/0 captures are separately bound. Changed-source setup
+is tied to all concrete compiler artifacts, constructor arguments and12 immutable
+groups. Unchanged Token/Inbox executable bodies remain identical; only the
+source-derived32-byte IPFS CBOR digest changes. Exact raw compiler metadata CID
+is recomputed. Proxy creation is fully bound, including its trailing revert text;
+its runtime metadata is checked without assuming the creation ends at that CID.
+A matching test failure string alone receives no control credit.
+
+Independent unchanged-native metadata checks accepted the healthy full producer
+then rejected10 actual sidecar fields, preserving the native bytes. Final genuine
+capture regressions pass32/32(10 ordinary and22 full-capture controls), with no
+failures/errors/skips/timeouts. Independent baseline, metadata and full deadline
+reader gates passed within90/100/110-second bounds; the final full deadline audit
+took37.485seconds. Successful native phases never required a cap increase.
+
+Three verification lessons matter. First, the original wide observer and repeated
+journal concatenation exhausted the80M gas budget; the native error was reported
+as MemoryLimitOOG. A gas observation and retained engine source identified this
+as gas expansion, not proof of a changed memory cap. A fresh self-only observation
+frame and bounded2MiB journal repair only the new fixture; the inherited observer,
+production code and limits stay unchanged. Second, helper tests failed to bind
+complete frame contexts and genuine setup conventions. Whole-producer genuine
+REDs exposed this; two consolidated source-fix rounds closed extra/shifted reads,
+reordered writes, cross-resumption confirmation and omitted setup/probe cases.
+The same reviewer checked every profile frame independently. Third, private audit
+readers initially confused bytes32 with integers, Forge's lossy metadata
+projection with raw metadata, and Proxy creation with runtime layout. Those failed
+reader attempts remain INCONCLUSIVE and were repaired before any fault credit.
+These were verification defects, not newly discovered protocol defects.
+
+The primary prefix reader actually used a direct signal-reset env entry and the
+reviewed offline isolator, rather than its planned outer shim. Its56 input hashes
+and executed read-tree modes matched; tool guards cover the encompassing window.
+Its audit output is combined, so no separate audit stderr-empty claim is made.
+Unused outside-jail planning sidecars retained writable modes inconsistent with
+the planned0444; they were neither executed nor mounted. An independent evidence
+disposition accepted this qualified semantic run without repeating it. Native
+stderr and the independent reader streams have their own separate records.
+
+Fresh candidate tree `b6eca43b936fb1e98fafc48d2b2d5a5661673ad2` and actual-main
+merge tree `97c641bc136f39bcadad45c4ff8055cd2d7e4631` each pass548 ordinary
+checks(362/166/20), with zero failures/errors/skips. All1,897 staged source/harness
+identities/modes and631 pre-Y model/config identities remained stable. Ordinary
+readback SHA-256 `d536ceca225dbd248eac09b2c31369715211fd4d5abefb7c5a410626486a8c32`.
+Final source review SHA-256
+`3dd8347c3622b690a4ceb79db79f29e33c96c567d77a9714b3db6312da989a4b`;
+independent full deadline summary
+`1f6bd684493cd567954893676e68c5104e2ca0f299e0143d5b36425c27555aaa`.
+Local commit hooks use LEFTHOOK=0 with these explicit checks because the worktree's
+prettier executable is unavailable; no hook pass is claimed.
+
+This is a mock-token historical Registry component. Synthetic Inbox generation
+and snapshots do not implement recovery, nonce advancement or Land. DAO
+execution, production TAIKO behavior, current empty-slot admission, authenticated
+L1/EL/guest/import and real proving/deployment remain unverified. W02 R01, W06 P01,
+full recovery Q01 and all19 archived INCONCLUSIVE searches keep their dispositions.
+No natural protocol defect was confirmed. Selected Y01–Y04 are complete; Y05–Y07
+and the accumulated final gates remain, with no automatic eighth.
