@@ -29,6 +29,7 @@ use crate::{
     store::{AppState, CommitteeState},
     test_utils::{GenesisSpec, L1Call, LogCapture, RegistryStorage, l1_header, sample_entries},
     types::{ParentInfo, RegistryEntry},
+    valstate,
 };
 
 /// `(pubkey, power)` pairs of CometBFT validator updates, in response order.
@@ -107,7 +108,7 @@ async fn finalize_after_process_uses_the_cached_verdict() {
     assert_eq!(out.tx_results[0].code, Code::Ok);
     assert!(out.events.is_empty() && out.validator_updates.is_empty());
     assert_eq!(out.consensus_param_updates, None);
-    assert_eq!(out.app_hash, AppHash::try_from(hash.to_vec()).unwrap());
+    assert_eq!(out.app_hash, crate::app::app_hash(app.pending.as_ref().unwrap()));
     assert_eq!(app.state().unwrap().last_height, next_height(&app) - 1, "not committed yet");
     assert_eq!(app.pending.as_ref().map(|s| s.parent.hash), Some(hash));
 }
@@ -1557,6 +1558,42 @@ pub(super) fn share_l1_chain(from: &MockL1, to: &MockL1) {
 /// L1 state.
 fn only_anchor_confirmations(calls: &[L1Call]) -> bool {
     calls.iter().all(|c| matches!(c, L1Call::Finalized | L1Call::CanonicalHash(_)))
+}
+
+/// CONS-3.1-8, ENC-A-29b: FinalizeBlock at x answers appHash(x), x's EL block hash with the
+/// validator state after x, that is with the updates x returns applied (never the state before
+/// x, 29b.c), and once x is committed `Info` reports the same hash for x. The run crosses the
+/// validator-set switch.
+#[tokio::test]
+async fn finalize_block_and_info_answer_the_app_hash_of_the_block_and_validator_state() {
+    let fx = short_epochs();
+    let source_dir = tempfile::tempdir().unwrap();
+    let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    share_l1_chain(source.l1(), app.l1());
+
+    let as_app_hash = |hash: B256| AppHash::try_from(hash.to_vec()).unwrap();
+    let mut before = app.state().unwrap().val_state.clone();
+    let mut switched = false;
+    for (req, _) in &decided {
+        let height = req.height.value();
+        let block_hash = EtnaEnvelope::decode(&req.txs[0]).unwrap().block.header.hash_slow();
+        let response = finalize(&mut app, req.clone()).await.expect("finalizes");
+        let updates = updates_of(&response);
+        switched |= !updates.is_empty();
+        let after = before.advance(&updates).unwrap();
+        let expected = as_app_hash(valstate::app_hash(block_hash, after.hash()));
+        assert_eq!(response.app_hash, expected, "height {height}");
+        assert_ne!(response.app_hash, as_app_hash(valstate::app_hash(block_hash, before.hash())));
+
+        commit(&mut app).await.expect("commits");
+        let committed = info(&mut app).await.expect("Info answers");
+        assert_eq!(committed.last_block_height.value(), height);
+        assert_eq!(committed.last_block_app_hash, expected, "height {height}");
+        before = after;
+    }
+    assert!(switched, "a height returns validator updates");
 }
 
 #[tokio::test]

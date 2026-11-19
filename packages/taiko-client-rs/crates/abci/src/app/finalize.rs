@@ -115,6 +115,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
             validator_updates = validator_updates.len(),
             "block finalized"
         );
+        // appHash(height): its EL hash and the validator state after it, this response's
+        // updates applied (CONS-3.1-8).
+        let app_hash = app_hash(&next);
         self.pending = Some(next);
         self.pending_val_updates = val_updates;
         Ok(response::FinalizeBlock {
@@ -122,7 +125,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             tx_results: vec![ExecTxResult { code: Code::Ok, ..Default::default() }],
             validator_updates,
             consensus_param_updates: None,
-            app_hash: app_hash(hash),
+            app_hash,
         })
     }
 

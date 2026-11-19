@@ -34,6 +34,9 @@ const PRIORITY_WINDOW_SIZE_FACTOR: i64 = 2;
 /// `bytes32("ETNA_VAL_STATE_V1")`: the domain tag of the validator-state preimage.
 const VAL_STATE_TAG: B256 = tag(b"ETNA_VAL_STATE_V1");
 
+/// `bytes32("ETNA_APP_HASH_V1")`: the domain tag of the app hash.
+const APP_HASH_TAG: B256 = tag(b"ETNA_APP_HASH_V1");
+
 /// The preimage's head words: the tag, the height, and an offset and a proposer index per set.
 const HEAD_WORDS: usize = 6;
 
@@ -233,6 +236,13 @@ impl ValState {
         }
         Ok(state)
     }
+}
+
+/// ENC-A-29b's `appHash(x) = keccak256(abi.encode(bytes32("ETNA_APP_HASH_V1"), blockHash(x),
+/// valStateHash(x)))`: the `app_hash` the app returns after committing x (CONS-3.1-8), from x's
+/// EL block hash and the [`ValState::hash`] of the state after x, three words.
+pub fn app_hash(block_hash: B256, val_state_hash: B256) -> B256 {
+    keccak256([APP_HASH_TAG.as_slice(), block_hash.as_slice(), val_state_hash.as_slice()].concat())
 }
 
 /// What stock CometBFT's `LoadValidators` rebuilds for a height `steps` blocks after the one

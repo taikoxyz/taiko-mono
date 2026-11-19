@@ -1684,7 +1684,12 @@ pub(crate) async fn import_package(
             .iter()
             .map(abci::genesis::GenesisValidator::from_member)
             .collect(),
-        app_hash: alloy_primitives::hex::encode_upper(fx.snapshot.genesis.genesis_hash),
+        app_hash: abci::genesis::genesis_app_hash(
+            0,
+            fx.snapshot.genesis.genesis_hash,
+            &fx.committees[&0].state.members,
+        )
+        .unwrap(),
         app_state: abci::genesis::AppStateJson::from(&witness),
     };
     ImportPackage {

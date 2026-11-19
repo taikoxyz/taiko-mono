@@ -25,7 +25,8 @@ pub const CODE_REJECTED: u32 = 1;
 pub const CHECK_TX_LOG: &str = "transactions go to the execution layer";
 
 impl<L: L1Source, E: Engine> App<L, E> {
-    /// Handles `Info`: the last committed height and its EL block hash.
+    /// Handles `Info`: the last committed height and its `app_hash`, appHash of its EL block hash
+    /// and the validator state after it (CONS-3.1-8).
     ///
     /// Reports 0 and an empty hash before `InitChain` and while the state is still at the
     /// generation origin, the Etna start S or c (no new-generation block committed): CometBFT's
@@ -51,7 +52,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.reconcile_el_once("startup Info").await?;
         let (last_block_height, last_block_app_hash) = match &self.state {
             Some(state) if !at_generation_origin(state) => {
-                (cometbft_height(state.last_height), app_hash(state.parent.hash))
+                (cometbft_height(state.last_height), app_hash(state))
             }
             _ => (Height::from(0u32), AppHash::default()),
         };

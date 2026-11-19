@@ -44,7 +44,7 @@ async fn startup_restores_committed_execution_suffix_without_peers() {
         .expect("local committed payloads restore the EL without peer sync")
         .unwrap();
     assert_eq!(response.last_block_height.value(), committed.last_height);
-    assert_eq!(response.last_block_app_hash.as_bytes(), committed.parent.hash.as_slice());
+    assert_eq!(response.last_block_app_hash, crate::app::app_hash(&committed));
     assert_eq!(
         reopened.engine().state().chain[&committed.last_height].hash_slow(),
         committed.parent.hash
@@ -322,7 +322,7 @@ async fn cached_finalize_restores_a_suffix_lost_after_process_accepted_without_p
     .await
     .expect("cached Finalize re-feeds committed ancestors without peer sync")
     .unwrap();
-    assert_eq!(result.app_hash.as_bytes(), envelope.block.header.hash_slow().as_slice());
+    assert_eq!(result.app_hash, crate::app::app_hash(app.pending.as_ref().unwrap()));
     assert_eq!(app.pending.as_ref().unwrap().parent.hash, envelope.block.header.hash_slow());
     assert_eq!(app.state(), Some(&committed), "Finalize leaves the new app state pending");
     assert_eq!(
@@ -439,7 +439,8 @@ async fn cold_finalize_forced_skip_repairs_the_missing_parent_before_retrying_si
     .await
     .expect("cold Finalize restores the singleton's parent")
     .unwrap();
-    assert_eq!(output.app_hash.as_bytes(), envelope.block.header.hash_slow().as_slice());
+    assert_eq!(output.app_hash, crate::app::app_hash(app.pending.as_ref().unwrap()));
+    assert_eq!(app.pending.as_ref().unwrap().parent.hash, envelope.block.header.hash_slow());
     assert_eq!(app.state(), Some(&committed));
     assert_eq!(app.pending.as_ref().unwrap().forced_cursor, 1);
 }

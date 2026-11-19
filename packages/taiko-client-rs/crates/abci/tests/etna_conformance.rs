@@ -1189,3 +1189,20 @@ fn block_size_client(input: &Value) -> Decision {
 fn block_size_vectors() {
     run_family("block_size", all_keys, |v| block_size_client(&v["input"]));
 }
+
+// ---------------------------------------------------------------------------------------------
+// Appendix A encodings the spec fixes by value.
+// ---------------------------------------------------------------------------------------------
+
+/// ENC-A-29b.g: appHash(6) of the block hash `0x11…11` and 29a.l's valStateHash(6), a 96-byte
+/// preimage.
+#[test]
+fn app_hash_matches_29b_g() {
+    let block_hash = B256::repeat_byte(0x11);
+    let val_state_hash =
+        alloy_primitives::b256!("368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b");
+    assert_eq!(
+        abci::valstate::app_hash(block_hash, val_state_hash),
+        alloy_primitives::b256!("381ceb5a317bd34b0b19b9972191a994c384b4873a3694cfd46cb155c7d8b451")
+    );
+}

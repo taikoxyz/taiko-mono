@@ -370,7 +370,12 @@ async fn recovery_package(fx: &Fixture, height: u64) -> ImportPackage {
             .iter()
             .map(abci::genesis::GenesisValidator::from_member)
             .collect(),
-        app_hash: alloy_primitives::hex::encode_upper(origin.el_hash),
+        app_hash: abci::genesis::genesis_app_hash(
+            origin.height,
+            origin.el_hash,
+            &origin.committee.members,
+        )
+        .unwrap(),
         app_state: abci::genesis::AppStateJson::from(&witness),
     };
     ImportPackage {

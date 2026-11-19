@@ -7,11 +7,15 @@
 //! derives from L1.
 
 use crate::key::{CometPublicKey, ConsensusKey};
+use alloy_primitives::B256;
 use serde::{Deserialize, Serialize};
 use tendermint::Time;
 
 use super::{AppStateJson, GenesisError, GenesisWitness};
-use crate::types::Member;
+use crate::{
+    types::Member,
+    valstate::{ValState, ValStateError, app_hash},
+};
 
 /// The CometBFT `genesis.json` of an Etna chain.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -28,7 +32,9 @@ pub struct GenesisDoc {
     pub consensus_params: GenesisConsensusParams,
     /// Initial committee in set-key order, derived at genesis cutoff or recovery R.
     pub validators: Vec<GenesisValidator>,
-    /// Initial EL boundary hash, the start hash or ELHash(c), uppercase hex for stock Comet JSON.
+    /// appHash(o) of the origin o (CONS-3.1-8, ENC-A-29b.e): the start hash or ELHash(c) with the
+    /// genesis validator state of `validators` at o, uppercase hex for stock Comet JSON
+    /// ([`genesis_app_hash`]).
     pub app_hash: String,
     /// The genesis witness, embedded as the JSON object `{"witness": "0x<hex>"}`.
     pub app_state: AppStateJson,
@@ -207,53 +213,51 @@ pub fn validator_address(pubkey: ConsensusKey) -> String {
     alloy_primitives::hex::encode_upper(pubkey.address())
 }
 
+/// A genesis document's `app_hash`, appHash(o) (CONS-3.1-8, ENC-A-29b.e) as uppercase hex: the
+/// origin's EL hash `el_hash` with CometBFT's genesis validator state of the committee `members`
+/// at the origin height `height`. Fails exactly where CometBFT refuses that set.
+pub fn genesis_app_hash(
+    height: u64,
+    el_hash: B256,
+    members: &[Member],
+) -> Result<String, ValStateError> {
+    let validators: Vec<_> = members.iter().map(|m| (m.pubkey, m.power)).collect();
+    let val_state = ValState::genesis(height, &validators)?;
+    Ok(alloy_primitives::hex::encode_upper(app_hash(el_hash, val_state.hash())))
+}
+
 impl GenesisDoc {
     /// The genesis document of a verified genesis: `w` as `app_state` (its `L1_0` timestamp as
     /// `genesis_time`), `chain_id`, `initial_height` and the committee `members` (set-key order)
-    /// as validators, with [`GenesisConsensusParams::etna`].
+    /// as validators, with [`GenesisConsensusParams::etna`] and appHash(S) of the start hash and
+    /// their genesis validator state ([`genesis_app_hash`]).
     ///
     /// Fails with [`GenesisError::GenesisTime`] when the `L1_0` timestamp is not a valid
-    /// CometBFT time.
+    /// CometBFT time, and with [`GenesisError::ValidatorSet`] when CometBFT refuses `members`.
     pub(crate) fn assemble(
         w: &GenesisWitness,
         chain_id: String,
         members: &[Member],
     ) -> Result<Self, GenesisError> {
         let genesis_time = genesis_time(w.l1_header.timestamp())?;
+        let word = |slot: u64| {
+            w.inbox
+                .storage
+                .iter()
+                .find(|word| word.slot == crate::l1::layout::inbox::slot(slot))
+                .expect("verified genesis slot")
+                .value
+        };
+        let start_height =
+            crate::l1::layout::word_u48(word(crate::l1::layout::inbox::GENESIS_PACKED), 0);
+        let start_hash = B256::from(word(crate::l1::layout::inbox::START_BLOCK_HASH));
         Ok(Self {
             genesis_time: genesis_time.to_rfc3339(),
             chain_id,
-            initial_height: (crate::l1::layout::word_u48(
-                w.inbox
-                    .storage
-                    .iter()
-                    .find(|word| {
-                        word.slot ==
-                            crate::l1::layout::inbox::slot(
-                                crate::l1::layout::inbox::GENESIS_PACKED,
-                            )
-                    })
-                    .expect("verified genesis packed slot")
-                    .value,
-                0,
-            ) + 1)
-                .to_string(),
+            initial_height: (start_height + 1).to_string(),
             consensus_params: GenesisConsensusParams::etna(),
             validators: members.iter().map(GenesisValidator::from_member).collect(),
-            app_hash: alloy_primitives::hex::encode_upper(
-                w.inbox
-                    .storage
-                    .iter()
-                    .find(|word| {
-                        word.slot ==
-                            crate::l1::layout::inbox::slot(
-                                crate::l1::layout::inbox::START_BLOCK_HASH,
-                            )
-                    })
-                    .expect("verified genesis hash slot")
-                    .value
-                    .to_be_bytes::<32>(),
-            ),
+            app_hash: genesis_app_hash(start_height, start_hash, members)?,
             app_state: AppStateJson::from(w),
         })
     }
@@ -267,7 +271,7 @@ impl GenesisDoc {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::{Fixture, edit_l1_header, test_key};
+    use crate::test_utils::{Fixture, edit_l1_header, powers, test_key};
     #[test]
     fn validator_identity_is_full_ethereum_address() {
         let k = ConsensusKey::from_slice(&alloy_primitives::hex!(
@@ -288,7 +292,11 @@ mod tests {
         );
         assert_eq!(value["consensus_params"]["version"]["app"], "1");
         assert_eq!(value["consensus_params"]["block"]["max_bytes"], "22020096");
-        assert_eq!(doc.app_hash, alloy_primitives::hex::encode_upper(fx.genesis.genesis_hash));
+        let genesis = ValState::genesis(fx.genesis.genesis_height, &powers(&fx.members)).unwrap();
+        assert_eq!(
+            doc.app_hash,
+            alloy_primitives::hex::encode_upper(app_hash(fx.genesis.genesis_hash, genesis.hash()))
+        );
         assert_eq!(doc.initial_height, "1");
         assert_eq!(serde_json::from_value::<GenesisDoc>(value).unwrap(), doc);
     }

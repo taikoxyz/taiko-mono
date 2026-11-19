@@ -39,9 +39,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// See [`App::verify_genesis`] for the checks; as they make sure the EL serves the Etna start
     /// block, a successful `InitChain` also counts as the EL reconcile of the current set of ABCI
-    /// connections (see [`App::info`]). Answers with the authenticated origin EL hash: the start
-    /// hash or ELHash(c), the same on every re-sent `InitChain`, even when the EL already holds the
-    /// generation's first block after a crash before its `Commit` (CONS-3.1-9).
+    /// connections (see [`App::info`]). Answers with appHash(o) (CONS-3.1-8, ENC-A-29b.e) of the
+    /// authenticated origin EL hash, the start hash or ELHash(c), and the generation's genesis
+    /// validator state at o: the same on every re-sent `InitChain`, even when the EL already
+    /// holds the generation's first block after a crash before its `Commit` (CONS-3.1-9).
     pub(super) async fn init_chain(
         &mut self,
         req: request::InitChain,
@@ -63,6 +64,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             }
         };
         let origin_hash = state.parent.hash;
+        let answer = app_hash(&state);
         if restart && self.state.as_ref() != Some(&state) {
             return Err(AbciError::AlreadyInitialized);
         }
@@ -89,11 +91,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.el_reconciled_epoch = Some(epoch);
         self.trust.committed(self.state.as_ref().expect("initialized state"));
 
-        Ok(response::InitChain {
-            consensus_params: None,
-            validators: vec![],
-            app_hash: app_hash(origin_hash),
-        })
+        Ok(response::InitChain { consensus_params: None, validators: vec![], app_hash: answer })
     }
 
     /// Verifies an `InitChain` request and returns the state it starts.

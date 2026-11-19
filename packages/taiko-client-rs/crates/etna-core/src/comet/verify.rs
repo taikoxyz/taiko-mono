@@ -209,10 +209,13 @@ pub fn block_parts(block: &RawBlock) -> Result<tendermint::block::parts::Header,
 ///
 /// This is also necessary for an already-landed checkpoint: a genuine certificate signs the
 /// header's roots, not an arbitrary body an RPC response happens to return beside it.
+///
+/// The header's app_hash, which commits the validator state as well as the parent EL hash, is
+/// not checked (PROOF-6.2-42), so `_parent_el_hash` is unused.
 pub fn verify_body_at_origin<'a>(
     pair: CertifiedBlockRef<'a>,
     expected_height: u64,
-    parent_el_hash: B256,
+    _parent_el_hash: B256,
     origin_height: u64,
 ) -> Result<&'a [u8], BftError> {
     let block = &pair.block;
@@ -267,9 +270,6 @@ pub fn verify_body_at_origin<'a>(
             }
         }
         None => return Err(BftError::Commitment("missing last commit")),
-    }
-    if block.header.app_hash.as_bytes() != parent_el_hash.as_slice() {
-        return Err(BftError::Commitment("parent execution app hash"));
     }
     let [transaction] = block.data.as_slice() else {
         return Err(BftError::TransactionCount(block.data.len()));

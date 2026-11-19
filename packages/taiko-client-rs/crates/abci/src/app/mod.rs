@@ -962,8 +962,11 @@ fn cometbft_height(h: u64) -> Height {
     Height::try_from(h).expect("stored heights fit a CometBFT height (checked at InitChain/load)")
 }
 
-/// The 32 bytes of `hash` as a CometBFT app hash.
-fn app_hash(hash: B256) -> AppHash {
+/// The `app_hash` of `state` (CONS-3.1-8, ENC-A-29b): appHash of its head's EL hash and the
+/// validator state after that head, which [`App::new`] and every transition keep at the same
+/// height.
+fn app_hash(state: &AppState) -> AppHash {
+    let hash = crate::valstate::app_hash(state.parent.hash, state.val_state.hash());
     AppHash::try_from(hash.to_vec()).expect("any byte string is a valid AppHash")
 }
 

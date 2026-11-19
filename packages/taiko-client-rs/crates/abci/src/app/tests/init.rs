@@ -18,8 +18,9 @@ use crate::{
     schedule::Schedule,
     test_utils::{
         EngineCall, GenesisSpec, L1Call, MockEngine, TestState, committee_witness, edit_l1_header,
-        filler_accounts, inbox_account, l1_header, registry_account,
+        filler_accounts, inbox_account, l1_header, powers, registry_account,
     },
+    valstate::{ValState, app_hash},
 };
 
 #[tokio::test]
@@ -30,7 +31,7 @@ async fn init_chain_persists_the_verified_genesis_state() {
 
     let resp = init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
     assert!(resp.validators.is_empty());
-    assert_eq!(resp.app_hash.as_bytes(), fx.genesis_hash().as_slice());
+    assert_eq!(resp.app_hash, crate::app::app_hash(&fx.expected_state()));
     assert_eq!(resp.consensus_params, None);
 
     let expected = fx.expected_state();
@@ -47,6 +48,23 @@ async fn init_chain_persists_the_verified_genesis_state() {
     );
 }
 
+/// CONS-3.1-8, ENC-A-29b.e: InitChain answers appHash(o), the origin's EL hash with CometBFT's
+/// genesis validator state of the `e_0` committee at o, not the EL hash alone (29b.b).
+#[tokio::test]
+async fn init_chain_returns_the_app_hash_of_the_origin_and_its_genesis_validator_state() {
+    let fx = Fixture::genesis(3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path());
+
+    let resp = init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
+
+    let origin = fx.genesis.genesis_height;
+    let genesis = ValState::genesis(origin, &powers(&fx.members)).unwrap();
+    let expected = app_hash(fx.genesis_hash(), genesis.hash());
+    assert_eq!(resp.app_hash.as_bytes(), expected.as_slice());
+    assert_ne!(resp.app_hash.as_bytes(), fx.genesis_hash().as_slice());
+}
+
 #[tokio::test(start_paused = true)]
 async fn init_chain_retries_transient_l1_failure_on_the_same_abci_request() {
     let fx = Fixture::genesis(1);
@@ -56,7 +74,7 @@ async fn init_chain_retries_transient_l1_failure_on_the_same_abci_request() {
     let response = init_chain(&mut app, fx.request.clone())
         .await
         .expect("temporary L1 failure must not fail ABCI");
-    assert_eq!(response.app_hash.as_bytes(), fx.genesis_hash().as_slice());
+    assert_eq!(response.app_hash, crate::app::app_hash(&fx.expected_state()));
     assert_eq!(app.state(), Some(&fx.expected_state()));
     assert!(!dir.path().join("fatal-evidence.txt").exists());
 }

@@ -27,6 +27,7 @@ use crate::{
     l1::{FetchError, L1Error, WitnessError, header::RawL1Header, layout::inbox},
     schedule::ScheduleError,
     types::AccountWitness,
+    valstate::ValStateError,
 };
 
 /// The `abci-genesis` builder: L1 reads and self-checks.
@@ -46,7 +47,7 @@ pub(crate) use verify::{
 pub use build::build_genesis;
 pub use doc::{
     AbciParams, AuthorityParams, BlockParams, EvidenceParams, GenesisConsensusParams, GenesisDoc,
-    GenesisValidator, ValidatorParams, VersionParams, validator_address,
+    GenesisValidator, ValidatorParams, VersionParams, genesis_app_hash, validator_address,
 };
 pub use record::{CommitteeRecordError, GenesisCommitteeRecord, build_committee_record};
 
@@ -199,6 +200,10 @@ pub enum GenesisError {
     /// The `L1_0` timestamp (Unix seconds) is not a valid CometBFT genesis time.
     #[error("L1_0 timestamp {0} is not a valid genesis time")]
     GenesisTime(u64),
+    /// The initial committee is not a set CometBFT accepts, so it has no genesis validator state
+    /// for the genesis `app_hash` to commit.
+    #[error("the genesis committee is not a CometBFT validator set: {0}")]
+    ValidatorSet(#[from] ValStateError),
     /// Recovery bootstrap evidence is unavailable, superseded or invalid; it keeps its own
     /// class, so `InitChain` retries or halts on it as on any recovery evidence.
     #[error(transparent)]

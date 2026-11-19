@@ -97,7 +97,8 @@ pub struct RecoveryPlan {
 impl RecoveryPlan {
     /// Decodes the canonical witness and checks that the deployment, origin and genesis are
     /// exactly what it proves (RECOV-8.4-7..10): chain_id of the generation, initial_height
-    /// c+1, genesis_time R.timestamp, app_hash ELHash(c), the R committee and the R witness.
+    /// c+1, genesis_time R.timestamp, app_hash appHash(c) of ELHash(c) and the R committee's
+    /// genesis validator state, the R committee and the R witness.
     pub fn validate(&self) -> Result<RecoveryWitness, RecoveryCommandError> {
         let params = self.deployment.params()?;
         let witness: RecoveryWitness = alloy_rlp::decode_exact(&self.witness)
@@ -126,7 +127,13 @@ impl RecoveryPlan {
                 abci::rules::chain_id_for(&params, self.origin.generation)
                     .map_err(|_| RecoveryCommandError::PlanMismatch)? ||
             doc.initial_height != (self.origin.height + 1).to_string() ||
-            doc.app_hash != alloy_primitives::hex::encode_upper(self.origin.el_hash) ||
+            doc.app_hash !=
+                abci::genesis::genesis_app_hash(
+                    self.origin.height,
+                    self.origin.el_hash,
+                    &self.origin.committee.members,
+                )
+                .map_err(|_| RecoveryCommandError::PlanMismatch)? ||
             doc.consensus_params != abci::genesis::GenesisConsensusParams::etna() ||
             doc.validators !=
                 self.origin

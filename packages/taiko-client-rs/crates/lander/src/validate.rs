@@ -280,9 +280,6 @@ pub fn verify_body_at_origin(
         }
         _ => return Err(ValidationError::Commitment("missing last commit")),
     }
-    if block.header.app_hash.as_bytes() != parent_el_hash.as_slice() {
-        return Err(ValidationError::Commitment("parent execution app hash"));
-    }
     let transactions =
         block.data.iter().cloned().map(alloy_primitives::Bytes::from).collect::<Vec<_>>();
     let envelope =
@@ -724,9 +721,11 @@ mod tests {
             Err(ValidationError::Commitment("evidence"))
         ));
         assert!(verify_structure(&original, None, 1, B256::repeat_byte(4)).is_err());
+        // The lander leaves app_hash, which commits the validator state, unchecked (PROOF-6.2-42).
         let mut block = original.clone();
         block.block.header.app_hash = vec![0; 32].try_into().unwrap();
-        assert!(verify_structure(&block, None, 1, B256::repeat_byte(3)).is_err());
+        crate::test_utils::consensus::resign(&mut block, &committee, &keys);
+        verify_structure(&block, None, 1, B256::repeat_byte(3)).unwrap();
         let second = pair(2, B256::repeat_byte(5), &committee, &keys, Some(&original));
         verify_structure(&second, Some(&original), 2, B256::repeat_byte(5)).unwrap();
         let mut changed = second.clone();

@@ -105,9 +105,17 @@ async fn first_switch_restart_and_state_loss_recover_on_one_devnet() -> anyhow::
         old_hashes,
         "L2 chain changed below the old head"
     );
+    // Header h + 1 commits appHash(h) (CONS-3.1-8). The one validator keeps its power, and a
+    // same-power update leaves a one-member set as a height without updates does, so the
+    // validator state after h is the genesis one advanced h times.
+    let genesis_set: Vec<_> = validator_set(&devnet, 1).await?.into_iter().collect();
+    assert_eq!(genesis_set.len(), 1);
+    let mut val_state = abci::valstate::ValState::genesis(0, &genesis_set)?;
     for h in 1..=old_head {
+        val_state = val_state.advance(&[])?;
         let app_hash = devnet.cmt(0).header_app_hash(h + 1).await?;
-        assert_eq!(app_hash, old_hashes[h as usize - 1], "CometBFT header {} app_hash", h + 1);
+        let expected = abci::valstate::app_hash(old_hashes[h as usize - 1], val_state.hash());
+        assert_eq!(app_hash, expected, "CometBFT header {} app_hash", h + 1);
     }
 
     let status = devnet.abci_status(0).await?;

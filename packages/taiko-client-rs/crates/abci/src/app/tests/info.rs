@@ -107,7 +107,7 @@ async fn info_reconciles_the_el_again_after_comet_reconnects() {
         let later = info(&mut app).await.expect("a later Info answers from the state");
         assert_eq!(later, handshake);
         assert_eq!(later.last_block_height.value(), first.number);
-        assert_eq!(later.last_block_app_hash.as_bytes(), first.hash_slow().as_slice());
+        assert_eq!(later.last_block_app_hash, crate::app::app_hash(&state));
     }
     assert_eq!(app.engine().calls(), [], "later Info calls make no engine call");
 
@@ -214,7 +214,7 @@ async fn info_after_the_first_block_reports_the_committed_head() {
     let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
     let resp = info(&mut app).await.expect("Info succeeds");
     assert_eq!(resp.last_block_height.value(), first.number);
-    assert_eq!(resp.last_block_app_hash.as_bytes(), first.hash_slow().as_slice());
+    assert_eq!(resp.last_block_app_hash, crate::app::app_hash(&state));
 }
 
 #[tokio::test]
@@ -329,9 +329,10 @@ fn imported_app(
     app_with(fx.l1(), engine, fx.params.clone(), dir, AppOptions::default())
 }
 
-/// DATA-5.4-4: the first `Info` over an imported store answers the landed head and its EL hash
-/// as `LastBlockAppHash`, after checking once that the own EL serves the execution floor's block
-/// and holds its state; a later `Info` asks the EL nothing.
+/// DATA-5.4-4: the first `Info` over an imported store answers the landed head and its app hash
+/// (its EL hash with the imported validator state) as `LastBlockAppHash`, after checking once that
+/// the own EL serves the execution floor's block and holds its state; a later `Info` asks the EL
+/// nothing.
 #[tokio::test]
 async fn info_checks_the_execution_floor_header_and_state_once() {
     let fx = Fixture::genesis(2);
@@ -342,7 +343,7 @@ async fn info_checks_the_execution_floor_header_and_state_once() {
 
     let resp = info(&mut app).await.expect("the EL serves the floor and the head");
     assert_eq!(resp.last_block_height.value(), 12);
-    assert_eq!(resp.last_block_app_hash, crate::app::app_hash(h12));
+    assert_eq!(resp.last_block_app_hash, crate::app::app_hash(&state));
     assert_eq!(
         app.engine().calls(),
         [

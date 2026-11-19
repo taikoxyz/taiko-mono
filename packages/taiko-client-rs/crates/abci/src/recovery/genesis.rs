@@ -31,7 +31,12 @@ pub async fn build_recovery_genesis<L: L1Source + ?Sized, E: Engine + ?Sized>(
         initial_height: (origin.height + 1).to_string(),
         consensus_params: GenesisConsensusParams::etna(),
         validators: origin.committee.members.iter().map(GenesisValidator::from_member).collect(),
-        app_hash: alloy_primitives::hex::encode_upper(origin.el_hash),
+        app_hash: crate::genesis::genesis_app_hash(
+            origin.height,
+            origin.el_hash,
+            &origin.committee.members,
+        )
+        .map_err(invalid)?,
         app_state: AppStateJson::from(&witness),
     })
 }

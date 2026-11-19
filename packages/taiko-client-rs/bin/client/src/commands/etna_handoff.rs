@@ -113,8 +113,11 @@ impl EtnaHandoffSubCommand {
             }
             tokio::time::sleep(Duration::from_secs(4)).await;
         };
+        // The document's app_hash commits the start hash with the genesis validator state, so
+        // the start hash is read from the verified document instead.
         if genesis.initial_height != (origin.height + 1).to_string() ||
-            genesis.app_hash.to_lowercase() != alloy_primitives::hex::encode(origin.hash)
+            abci::genesis::verify_original_genesis(&genesis, &params)?.origin_hash() !=
+                origin.hash
         {
             return Err(CliError::Handoff(
                 "finalized Etna start differs from the driver-derived Unzen end".into(),

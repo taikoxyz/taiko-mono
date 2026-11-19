@@ -241,7 +241,17 @@ async fn prepare_authenticates_fixed_origin_and_genesis() {
     assert_eq!(doc.chain_id, abci::rules::chain_id_for(&params, 1).unwrap());
     assert_eq!(doc.chain_id.len(), 48);
     assert_eq!(doc.initial_height, "7"); // c + 1
-    assert_eq!(doc.app_hash, alloy_primitives::hex::encode_upper(plan.origin.el_hash)); // ELHash(c)
+    // appHash(c): ELHash(c) with the R committee's genesis validator state at c.
+    let members: Vec<_> =
+        plan.origin.committee.members.iter().map(|m| (m.pubkey, m.power)).collect();
+    let val_state = abci::valstate::ValState::genesis(plan.origin.height, &members).unwrap();
+    assert_eq!(
+        doc.app_hash,
+        alloy_primitives::hex::encode_upper(abci::valstate::app_hash(
+            plan.origin.el_hash,
+            val_state.hash()
+        ))
+    );
     assert_eq!(
         doc.genesis_time,
         tendermint::Time::from_unix_timestamp(plan.origin.l1_timestamp as i64, 0)

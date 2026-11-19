@@ -24,7 +24,12 @@ pub(super) fn document(fx: &Fixture, w: &RecoveryWitness) -> GenesisDoc {
         initial_height: (origin.height + 1).to_string(),
         consensus_params: GenesisConsensusParams::etna(),
         validators: origin.committee.members.iter().map(GenesisValidator::from_member).collect(),
-        app_hash: alloy_primitives::hex::encode_upper(origin.el_hash),
+        app_hash: crate::genesis::genesis_app_hash(
+            origin.height,
+            origin.el_hash,
+            &origin.committee.members,
+        )
+        .unwrap(),
         app_state: AppStateJson { witness: bytes.into() },
     }
 }
@@ -98,7 +103,6 @@ async fn recovery_init_preserves_stock_zero_height_handshake() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
     let response = init_chain(&mut app, request(&doc)).await.unwrap();
-    assert_eq!(response.app_hash.as_bytes(), w.el_header.hash_slow().as_slice());
     let info_before = info(&mut app).await.unwrap();
     assert_eq!(info_before.last_block_height.value(), 0);
     assert!(info_before.last_block_app_hash.as_bytes().is_empty());
@@ -113,6 +117,9 @@ async fn recovery_init_preserves_stock_zero_height_handshake() {
     )
     .unwrap();
     assert_eq!(app.state().unwrap().val_state, genesis_vals);
+    // appHash(c): ELHash(c) with the origin committee's genesis validator state (RECOV-8.4-7).
+    let expected = crate::valstate::app_hash(w.el_header.hash_slow(), genesis_vals.hash());
+    assert_eq!(response.app_hash.as_bytes(), expected.as_slice());
     drop(app);
     let (_, l1, engine, _) = recovery_fixture(1, 6, 1);
     let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
@@ -133,7 +140,9 @@ async fn recovery_init_preserves_stock_zero_height_handshake() {
     assert_eq!(app.state().unwrap().val_state, genesis_vals.advance(&[]).unwrap());
     let info_after = info(&mut app).await.unwrap();
     assert_eq!(info_after.last_block_height.value(), 7);
-    assert_eq!(info_after.last_block_app_hash.as_bytes(), env.block.header.hash_slow().as_slice());
+    let after = genesis_vals.advance(&[]).unwrap();
+    let expected = crate::valstate::app_hash(env.block.header.hash_slow(), after.hash());
+    assert_eq!(info_after.last_block_app_hash.as_bytes(), expected.as_slice());
     assert!(app.state().unwrap().has_generation_commit());
     let chain = app.engine.state().chain.values().cloned().collect::<Vec<_>>();
     drop(app);
@@ -482,7 +491,7 @@ async fn recovery_init_waits_on_the_same_request_for_historical_evidence() {
     shared_l1.state().states.insert(64, historical);
     let result =
         tokio::time::timeout(std::time::Duration::from_secs(3), pending).await.unwrap().unwrap();
-    assert_eq!(result.app_hash.as_bytes(), w.el_header.hash_slow().as_slice());
+    assert_eq!(result.app_hash, crate::app::app_hash(&store.load().unwrap().unwrap()));
     assert_eq!(store.load().unwrap().unwrap().last_height, 6);
     assert!(!trust.snapshot().is_ready());
 }
@@ -541,7 +550,7 @@ async fn recovery_init_waits_with_trust_closed_until_the_el_serves_origin_state(
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(result.app_hash.as_bytes(), origin.as_slice());
+    assert_eq!(result.app_hash, crate::app::app_hash(&app.store.load().unwrap().unwrap()));
     assert_eq!(app.store.load().unwrap().unwrap().last_height, 6);
 }
 

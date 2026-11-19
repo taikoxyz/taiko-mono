@@ -137,8 +137,8 @@ impl VerifiedGenesis {
         self.recovery.as_ref().map_or(self.genesis.genesis_height, |origin| origin.height)
     }
 
-    /// The EL hash at the origin, the genesis's `app_hash`: the start hash at generation zero,
-    /// ELHash(c) for a recovery (CONS-3.1-8).
+    /// The EL hash at the origin, which the genesis's `app_hash` commits with the genesis
+    /// validator state (CONS-3.1-8): the start hash at generation zero, ELHash(c) for a recovery.
     pub fn origin_hash(&self) -> B256 {
         self.recovery.as_ref().map_or(self.genesis.genesis_hash, |origin| origin.el_hash)
     }
@@ -201,7 +201,11 @@ pub fn verify_original_genesis(
         initial_height: expected.initial_height.to_string(),
         consensus_params: GenesisConsensusParams::etna(),
         validators: expected.validators.iter().map(GenesisValidator::from_member).collect(),
-        app_hash: alloy_primitives::hex::encode_upper(verified.origin_hash()),
+        app_hash: super::genesis_app_hash(
+            verified.origin_height(),
+            verified.origin_hash(),
+            &verified.committee.members,
+        )?,
         app_state: match &witness {
             BootstrapWitness::Initial(w) => AppStateJson::from(w),
             BootstrapWitness::Recovery(w) => AppStateJson::from(w),

@@ -57,7 +57,8 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
         "the recipient did not receive both transfers"
     );
 
-    // Every L2 block up to the head follows the header rules; CometBFT commits each block's hash.
+    // Every L2 block up to the head follows the header rules; CometBFT commits each block's
+    // appHash (CONS-3.1-8).
     // Run a few blocks past the transfers so the anchor moves several times.
     let last_tx_block = tx_blocks.last().copied().unwrap_or_default();
     devnet.wait_for_height(0, (last_tx_block + 4).max(10), Duration::from_secs(60)).await?;
@@ -71,6 +72,10 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
         l2.get_block_by_number(BlockNumberOrTag::Number(0)).await?.context("no L2 block 0")?;
     let mut prev_timestamp = genesis.header.timestamp;
     let mut prev_anchor = devnet.genesis().l1_0;
+    // The one validator keeps its power, and a same-power update leaves a one-member set as a
+    // height without updates does, so the validator state after h is the genesis one advanced h
+    // times.
+    let mut val_state = abci::valstate::ValState::genesis(0, &[(key, 10_000_000_000)])?;
     for h in 1..=head {
         let block =
             l2.get_block_by_number(BlockNumberOrTag::Number(h)).await?.context("missing block")?;
@@ -104,8 +109,14 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
         if tx_blocks.contains(&h) {
             assert!(header.difficulty > U256::ZERO, "block {h}: zero zk gas with transactions");
         }
+        val_state = val_state.advance(&[])?;
         let app_hash = devnet.cmt(0).header_app_hash(h + 1).await?;
-        assert_eq!(app_hash, header.hash, "CometBFT header {} app_hash", h + 1);
+        assert_eq!(
+            app_hash,
+            abci::valstate::app_hash(header.hash, val_state.hash()),
+            "CometBFT header {} app_hash",
+            h + 1
+        );
         prev_timestamp = header.timestamp;
         prev_anchor = anchor;
     }
