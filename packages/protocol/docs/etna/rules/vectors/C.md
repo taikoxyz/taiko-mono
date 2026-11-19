@@ -72,11 +72,10 @@ Each entry therefore records what would count as evidence for the assumption and
 
 ## COST-C-10
 
-| Case | Measurement                                                         | Reading                                                                                                                  |
-| ---- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 10.a | the pinned K; m = largest multiple of K not above 6; 900/m computed | supports if it reproduces about 150 when K divides 6, 225 at K = 4 and 180 at K = 5; falsifies if the arithmetic differs |
-| 10.b | measured landing rate at sustained load                             | falsifies if the achieved rate is below the funded figure                                                                |
-| 10.c | landing heights checked against grid points (h − S a multiple of K) | supports if every landing ends at a grid point                                                                           |
+| Case | Measurement                                                        | Reading                                                                                   |
+| ---- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| 10.a | six maximum-size incompressible blocks per landing; 900/6 computed | supports if it reproduces about 150 landings an hour; falsifies if the arithmetic differs |
+| 10.b | measured landing rate at sustained load                            | falsifies if the achieved rate is below the funded figure                                 |
 
 ## COST-C-11
 
@@ -100,5 +99,4 @@ Each entry therefore records what would count as evidence for the assumption and
 | COST-C-5              | a "must not" sits inside an appendix that declares itself non-normative                              | [Q-C-1](../review/C.md#q-c-1)                                               |
 | COST-C-6, COST-C-10   | the funded worst case is defined against targets that are not validity rules                         | [Q-C-2](../review/C.md#q-c-2)                                               |
 | COST-C-6              | what evidence counts as "funding is in place"                                                        | [Q-C-3](../review/C.md#q-c-3)                                               |
-| COST-C-10             | which funded figure applies before K is pinned                                                       | [Q-C-4](../review/C.md#q-c-4)                                               |
 | COST-C-11             | the L1 slot duration is assumed but never stated                                                     | [Q-C-5](../review/C.md#q-c-5)                                               |
