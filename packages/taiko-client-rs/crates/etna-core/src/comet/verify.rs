@@ -204,6 +204,36 @@ pub fn block_parts(block: &RawBlock) -> Result<tendermint::block::parts::Header,
     .map_err(|_| BftError::PartSetLength)
 }
 
+/// Structurally checked original Etna block body and its recomputed CometBFT identity.
+#[derive(Debug)]
+pub struct CheckedBlockBody<'a> {
+    /// The single committed transaction, borrowed unchanged from the block projection.
+    pub envelope_bytes: &'a [u8],
+    /// Header hash together with the part-set commitment of the original protobuf.
+    pub block_id: tendermint::block::Id,
+}
+
+/// Checks the canonical original body at the expected height and fixed generation origin.
+///
+/// The caller must authenticate the computed identity by ancestry or the required quorum
+/// certificate, comparing the full identity wherever one is required. The caller also
+/// enforces generation, domain, version, schedule and execution rules and bounds untrusted
+/// witness sizes before invoking this check. AppHash stays opaque, and the returned transaction
+/// bytes have not been decoded as an Etna envelope. This check does not verify signatures.
+pub fn check_block_body_at_origin<'a>(
+    block: &'a Block,
+    raw_block: &[u8],
+    expected_height: u64,
+    origin_height: u64,
+) -> Result<CheckedBlockBody<'a>, BftError> {
+    let (first_height, part_set_header) =
+        check_body_parts(block, raw_block, expected_height, origin_height)?;
+    check_embedded_ancestry(block, expected_height, first_height)?;
+    let envelope_bytes = check_transaction(block, expected_height, first_height)?;
+    let block_id = tendermint::block::Id { hash: header_hash(&block.header), part_set_header };
+    Ok(CheckedBlockBody { envelope_bytes, block_id })
+}
+
 /// Recomputes native body commitments and returns the single committed transaction unchanged.
 /// Consensus ancestry must be empty at the authenticated origin + 1 and present thereafter.
 ///
@@ -215,7 +245,27 @@ pub fn verify_body_at_origin<'a>(
     parent_el_hash: B256,
     origin_height: u64,
 ) -> Result<&'a [u8], BftError> {
-    let block = &pair.block;
+    let block = pair.block;
+    let (first_height, part_set_header) =
+        check_body_parts(block, pair.raw_block, expected_height, origin_height)?;
+    if pair.commit.block_id.part_set_header != part_set_header {
+        return Err(BftError::Commitment("block part set"));
+    }
+    check_embedded_ancestry(block, expected_height, first_height)?;
+    if block.header.app_hash.as_bytes() != parent_el_hash.as_slice() {
+        return Err(BftError::Commitment("parent execution app hash"));
+    }
+    check_transaction(block, expected_height, first_height)
+}
+
+/// Checks height, generation origin and committed data and evidence, then computes the original
+/// part-set header. Returns the checked first height and the part-set header.
+fn check_body_parts(
+    block: &Block,
+    raw_block: &[u8],
+    expected_height: u64,
+    origin_height: u64,
+) -> Result<(u64, tendermint::block::parts::Header), BftError> {
     if block.header.height.value() != expected_height {
         return Err(BftError::Certificate("requested block height mismatch".into()));
     }
@@ -229,7 +279,7 @@ pub fn verify_body_at_origin<'a>(
     if block.header.evidence_hash.is_none() {
         return Err(BftError::Commitment("evidence"));
     }
-    let raw = super::codec::checked_block_proto(pair.raw_block, block)?;
+    let raw = super::codec::checked_block_proto(raw_block, block)?;
     let evidence = raw
         .evidence
         .as_ref()
@@ -247,9 +297,16 @@ pub fn verify_body_at_origin<'a>(
     if block.header.evidence_hash != Some(merkle(&evidence)) {
         return Err(BftError::Commitment("evidence"));
     }
-    if pair.commit.block_id.part_set_header != block_parts(&raw)? {
-        return Err(BftError::Commitment("block part set"));
-    }
+    Ok((first_height, block_parts(&raw)?))
+}
+
+/// Checks the embedded LastCommit against the header's ancestry fields. The transaction check
+/// handles a structurally consistent nonempty last commit at the generation's first height.
+fn check_embedded_ancestry(
+    block: &Block,
+    expected_height: u64,
+    first_height: u64,
+) -> Result<(), BftError> {
     match &block.last_commit {
         None if expected_height == first_height => {
             if block.header.last_commit_hash != Some(merkle(&[])) ||
@@ -268,9 +325,15 @@ pub fn verify_body_at_origin<'a>(
         }
         None => return Err(BftError::Commitment("missing last commit")),
     }
-    if block.header.app_hash.as_bytes() != parent_el_hash.as_slice() {
-        return Err(BftError::Commitment("parent execution app hash"));
-    }
+    Ok(())
+}
+
+/// Borrows the only committed transaction and rejects any ancestry at the generation start.
+fn check_transaction(
+    block: &Block,
+    expected_height: u64,
+    first_height: u64,
+) -> Result<&[u8], BftError> {
     let [transaction] = block.data.as_slice() else {
         return Err(BftError::TransactionCount(block.data.len()));
     };
