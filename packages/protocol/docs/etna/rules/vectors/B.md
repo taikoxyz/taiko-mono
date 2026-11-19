@@ -75,17 +75,17 @@
 
 ## STOR-B-9
 
-| Vector     | Claimed layout or data                                                                                                                                                 | Expected                                                                                               |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 9.a accept | the record for h is four words: word 1 packs actual parentHeight=c, generation and head; words 2 and 3 are the EL and Comet hashes; word 4 is the validator-state hash | matches                                                                                                |
-| 9.b accept | the start record at S has parent S, generation 0, head 0, EL hash equal to the start's hash, Comet hash 0 and validator-state hash 0                                   | matches                                                                                                |
-| 9.c accept | a proof with origin p reads its own retained record at p after later landings                                                                                          | matches ("never pruned")                                                                               |
-| 9.d reject | the record for h stores proof origin p as parentHeight when p is below c                                                                                               | violates STOR-B-9 ("actual parentHeight=c")                                                            |
-| 9.e reject | a later landing overwrites the record at an older origin p                                                                                                             | violates STOR-B-9                                                                                      |
-| 9.f reject | the start record carries the start's hash as its Comet hash                                                                                                            | violates STOR-B-9 ("Comet hash 0")                                                                     |
-| 9.g accept | S = 1000 with start hash H                                                                                                                                             | landings[1000] is (parent 1000, generation 0, head 0, EL hash H, Comet hash 0, validator-state hash 0) |
-| 9.h accept | a START-10-5c rewrite changes S                                                                                                                                        | the record at the old S stays; as an older generation's record it cannot serve as a proof origin       |
-| 9.i reject | the start record stores the validator-state hash of committee 0's genesis state instead of 0                                                                           | violates STOR-B-9 ("validator-state hash 0")                                                           |
+| Vector     | Claimed layout or data                                                                                                              | Expected                                                                                         |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| 9.a accept | the record for h is three words: word 1 packs actual parentHeight=c, generation and head; words 2 and 3 are the EL and Comet hashes | matches                                                                                          |
+| 9.b accept | the start record at S has parent S, generation 0, head 0, EL hash equal to the start's hash and Comet hash 0                        | matches                                                                                          |
+| 9.c accept | a proof with origin p reads its own retained record at p after later landings                                                       | matches ("never pruned")                                                                         |
+| 9.d reject | the record for h stores proof origin p as parentHeight when p is below c                                                            | violates STOR-B-9 ("actual parentHeight=c")                                                      |
+| 9.e reject | a later landing overwrites the record at an older origin p                                                                          | violates STOR-B-9                                                                                |
+| 9.f reject | the start record carries the start's hash as its Comet hash                                                                         | violates STOR-B-9 ("Comet hash 0")                                                               |
+| 9.g accept | S = 1000 with start hash H                                                                                                          | landings[1000] is (parent 1000, generation 0, head 0, EL hash H, Comet hash 0)                   |
+| 9.h accept | a START-10-5c rewrite changes S                                                                                                     | the record at the old S stays; as an older generation's record it cannot serve as a proof origin |
+| 9.i reject | the record carries a fourth word, for example a validator-state hash                                                                | violates STOR-B-9 ("three words")                                                                |
 
 ## STOR-B-10
 
@@ -143,11 +143,11 @@
 
 ## STOR-B-15a
 
-| Vector       | Claimed layout or data                                                                                       | Expected                                                      |
-| ------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| 15a.a accept | slot 293 packs `activeRules`, `nextRules`, `rulesTime`, `stopTime`, `stopGrid` and is 0 after initialization | matches                                                       |
-| 15a.b reject | slot 293 is written by a call other than `scheduleRules`, `scheduleStop` or `recover`                        | violates STOR-B-15a                                           |
-| 15a.c reject | the anchor witness omits slot 293                                                                            | violates STOR-B-15a and ENC-A-25a; block invalid (3.4 rule 2) |
+| Vector       | Claimed layout or data                                                                           | Expected                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| 15a.a accept | slot 293 packs `activeRules`, `nextRules`, `rulesTime`, `stopTime` and is 0 after initialization | matches                                                       |
+| 15a.b reject | slot 293 is written by a call other than `scheduleRules`, `scheduleStop` or `recover`            | violates STOR-B-15a                                           |
+| 15a.c reject | the anchor witness omits slot 293                                                                | violates STOR-B-15a and ENC-A-25a; block invalid (3.4 rule 2) |
 
 ## STOR-B-16
 
@@ -211,14 +211,14 @@
 
 ## STOR-B-23
 
-| Vector      | Claimed layout or data                                                                                          | Expected           |
-| ----------- | --------------------------------------------------------------------------------------------------------------- | ------------------ |
-| 23.a accept | slot 272: `genesisHeight` in the least-significant 48 bits, `L1_0` next, `L` next                               | matches            |
-| 23.b accept | slot 285 word 1: parentHeight c in the least-significant field, then generation, then head                      | matches            |
-| 23.c reject | slot 272 with `L` in the least-significant 48 bits                                                              | violates STOR-B-23 |
-| 23.d reject | slot 285 word 1 with `head` in the least-significant field                                                      | violates STOR-B-23 |
-| 23.e accept | slot 293: `activeRules` in the least-significant 48 bits, then `nextRules`, `rulesTime`, `stopTime`, `stopGrid` | matches            |
-| 23.f reject | slot 293 with `stopTime` in the least-significant 48 bits                                                       | violates STOR-B-23 |
+| Vector      | Claimed layout or data                                                                              | Expected           |
+| ----------- | --------------------------------------------------------------------------------------------------- | ------------------ |
+| 23.a accept | slot 272: `genesisHeight` in the least-significant 48 bits, `L1_0` next, `L` next                   | matches            |
+| 23.b accept | slot 285 word 1: parentHeight c in the least-significant field, then generation, then head          | matches            |
+| 23.c reject | slot 272 with `L` in the least-significant 48 bits                                                  | violates STOR-B-23 |
+| 23.d reject | slot 285 word 1 with `head` in the least-significant field                                          | violates STOR-B-23 |
+| 23.e accept | slot 293: `activeRules` in the least-significant 48 bits, then `nextRules`, `rulesTime`, `stopTime` | matches            |
+| 23.f reject | slot 293 with `stopTime` in the least-significant 48 bits                                           | violates STOR-B-23 |
 
 ## STOR-B-24
 
@@ -302,13 +302,12 @@
 
 ## STOR-B-33
 
-| Vector      | Claimed layout or data                                                                           | Expected                                |
-| ----------- | ------------------------------------------------------------------------------------------------ | --------------------------------------- |
-| 33.a accept | a `topUp` that only sets `pendingTopUp` creates no checkpoint and leaves `entriesRoot` unchanged | matches                                 |
-| 33.b reject | `pendingTopUp` included in `regLeaf` or `entriesRoot`                                            | violates STOR-B-33                      |
-| 33.c reject | a checkpoint written because of a pending change that alters no field of the entry in a slot     | violates STOR-B-33                      |
-| 33.d reject | a guest reads the top-ups or forfeitures namespace                                               | violates STOR-B-33                      |
-| 33.e accept | slashing or forfeiture changes only a displaced bond; no slot entry changes                      | no checkpoint is written (STAKE-4.1-36) |
+| Vector      | Claimed layout or data                                                                           | Expected           |
+| ----------- | ------------------------------------------------------------------------------------------------ | ------------------ |
+| 33.a accept | a `topUp` that only sets `pendingTopUp` creates no checkpoint and leaves `entriesRoot` unchanged | matches            |
+| 33.b reject | `pendingTopUp` included in `regLeaf` or `entriesRoot`                                            | violates STOR-B-33 |
+| 33.c reject | a checkpoint written because of a pending change that alters no field of the entry in a slot     | violates STOR-B-33 |
+| 33.d reject | a guest reads the top-ups or forfeitures namespace                                               | violates STOR-B-33 |
 
 ## STOR-B-34
 

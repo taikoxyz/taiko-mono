@@ -55,31 +55,42 @@ There is no new system call into the `SignalService`, no synthetic receipt and n
 
 ## 4. Bridge verification
 
-L1 and L2 use the same `SignalService` contract code and storage layout. An immutable `stateRootProvider` selects how `_getStateRoot` resolves a proof's root: zero reads the local checkpoint store; a nonzero address delegates to that provider. On L2 the provider is the `Anchor` proxy, which is also the authorized syncer and handles the fork boundary.
+L1 and L2 use the same `SignalService` contract code and storage layout. The `SignalService` resolves every root itself and calls no other contract to do so: from its own checkpoint store, or on L2 from the fork on, from EIP-4788. One immutable, `beaconRootsFrom`, selects the root source and also closes the checkpoint store, so the L2 fork boundary lives in the contract that holds the checkpoints.
 
-| Immutable configuration | L1                                                             | L2             |
-| ----------------------- | -------------------------------------------------------------- | -------------- |
-| `stateRootProvider`     | `address(0)`                                                   | `Anchor` proxy |
-| `_authorizedSyncer`     | EtnaInbox                                                      | `Anchor` proxy |
-| `unzenInbox`            | Live Unzen Inbox on a switching network; zero on a new network | `address(0)`   |
+| Immutable configuration | L1                       | L2                                                                                       |
+| ----------------------- | ------------------------ | ---------------------------------------------------------------------------------------- |
+| `_authorizedSyncer`     | EtnaInbox                | `Anchor` proxy                                                                           |
+| `beaconRootsFrom`       | `0`                      | `ETNA_FORK_TIME` on a switching network; `max(1, L2 genesis timestamp)` on a new network |
+| `_remoteSignalService`  | L2 `SignalService` proxy | L1 `SignalService` proxy                                                                 |
+| `pauser`                | L1 pauser, may be zero   | L2 pauser, may be zero                                                                   |
 
-These values are fixed at implementation deployment, with no setter or automatic provider detection. The root-provider setting is independent of checkpoint-write authorization.
+These are all of the immutables the `SignalService` declares itself; the ones it inherits, `UUPSUpgradeable`'s `__self` and `EssentialContract`'s `__resolver`, are set as for any other implementation. They are fixed at implementation deployment, with no setter or automatic detection. A zero `beaconRootsFrom` keeps the checkpoint store as the only root source, as on L1, so a new network whose L2 genesis timestamp is zero uses 1; every later block's timestamp is at least its parent's plus one ([SPEC.md CONS-3.2-3](SPEC.md#32-block-header)), so it is on the EIP-4788 path. On L2 the value is the fork time: from it on, the `SignalService` accepts no checkpoint and resolves roots only through EIP-4788. Every `SignalService` has one syncer and reads no Inbox state; on a switching L1 the Unzen Inbox's final checkpoints reach it through the EtnaInbox ([SWITCH.md](SWITCH.md#3-the-dao-proposal)).
 
 ```solidity
-// Anchor
-/// @notice Resolves the L1 state root used to verify a signal.
-/// @param _blockId An L1 block number before Etna, or an L2 timestamp from Etna on.
-/// @return stateRoot_ The authenticated L1 state root.
-function getL1StateRoot(uint64 _blockId) external view returns (bytes32 stateRoot_) {
-    if (block.timestamp < etnaTimestamp) {
-        // Before the fork: blockId is an L1 block number; read the saved checkpoint.
+// Shared SignalService; assigned by the constructor.
+/// @notice Zero on L1. On L2, the fork time from which roots come from EIP-4788.
+uint64 public immutable beaconRootsFrom;
+
+/// @inheritdoc ICheckpointStore
+function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
+    if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
+    // From the fork on, no checkpoint can be saved, so the public golden touch key cannot forge one.
+    if (!_checkpointsOpen()) revert SS_CHECKPOINTS_CLOSED();
+    // Unchanged: reject zero fields, store under VERSION and emit CheckpointSaved.
+}
+
+/// @dev Resolves the state root against which a signal proof is checked.
+/// @param _blockId An L1 block number while checkpoints are open, an L2 timestamp afterwards.
+/// @return stateRoot_ The authenticated state root.
+function _getStateRoot(uint64 _blockId) private view returns (bytes32 stateRoot_) {
+    if (_checkpointsOpen()) {
         require(_blockId <= type(uint48).max);
-        stateRoot_ = checkpointStore.getCheckpoint(uint48(_blockId)).stateRoot;
+        stateRoot_ = _getCheckpoint(uint48(_blockId)).stateRoot;
     } else {
-        // From the fork on: blockId is an L2 timestamp; read EIP-4788. Its whole calldata is the
-        // 32-byte timestamp, with no selector. It reverts for a missing or overwritten entry,
-        // and a call to an address without code succeeds with no return data.
-        require(_blockId >= etnaTimestamp);
+        // blockId is an L2 timestamp; read EIP-4788. Its whole calldata is the 32-byte timestamp,
+        // with no selector. It reverts for a missing or overwritten entry, and a call to an
+        // address without code succeeds with no return data.
+        require(_blockId >= beaconRootsFrom);
         (bool ok, bytes memory ret) = BEACON_ROOTS.staticcall(abi.encode(uint256(_blockId)));
         require(ok && ret.length == 32);
         stateRoot_ = abi.decode(ret, (bytes32));
@@ -87,29 +98,18 @@ function getL1StateRoot(uint64 _blockId) external view returns (bytes32 stateRoo
     require(stateRoot_ != 0);
 }
 
-// Shared SignalService; assigned by the constructor.
-address public immutable stateRootProvider;
-
-/// @dev Resolves a root using the configured provider or local checkpoints.
-/// @param _blockId The block identifier interpreted by the configured root source.
-/// @return stateRoot_ The state root against which the signal proof is checked.
-function _getStateRoot(uint64 _blockId) internal view returns (bytes32 stateRoot_) {
-    if (stateRootProvider == address(0)) {
-        require(_blockId <= type(uint48).max);
-        stateRoot_ = _getCheckpoint(uint48(_blockId)).stateRoot;
-    } else {
-        stateRoot_ = IL1StateRootProvider(stateRootProvider).getL1StateRoot(_blockId);
-    }
-    require(stateRoot_ != 0);
+/// @dev Whether the checkpoint store is still the root source: always on L1, before the fork on L2.
+function _checkpointsOpen() private view returns (bool) {
+    return beaconRootsFrom == 0 || block.timestamp < beaconRootsFrom;
 }
 ```
 
 - **Proof format**: the existing single-hop `HopProof`. Its `blockId` is an L1 block number before the fork and an L2 timestamp from the fork on; the timestamp of the L2 block that verifies the proof decides which. `rootHash` must equal the resolved root, and the account and storage proofs are checked against the L1 `SignalService` as before. No caller-supplied L1 number, hash or root is trusted.
-- **No checkpoints after the fork**: from the fork on, proofs never read checkpoints. A signal proven once stays cached, and an empty proof for a cached signal keeps working after its EIP-4788 entry expires.
-- **Root resolution**: `_verifySignalReceived` uses `_getStateRoot` for both the `rootHash` comparison and Merkle-proof verification. The `uint48` bound belongs only to the local checkpoint path; provider mode passes the full `uint64` identifier to the provider. A provider revert, missing return value or zero root rejects the proof; there is no fallback to local checkpoints. Fork selection and EIP-4788 access remain in the `Anchor`.
-- **Checkpoint authorization**: the shared implementation accepts checkpoints from `_authorizedSyncer`. An optional immutable `unzenInbox` also authorizes the live Unzen Inbox on a switching L1. Only this legacy-syncer path reads the Etna start from `_authorizedSyncer` (the EtnaInbox) and rejects Unzen checkpoints above S once the start is written ([SWITCH.md](SWITCH.md#3-the-dao-proposal)). With `unzenInbox = address(0)`, as on L2 and a new L1 network, that path is disabled and no Inbox state is read. On L2, the `Anchor` continues saving checkpoints until the fork.
+- **No checkpoints after the fork**: from the fork on, the L2 `SignalService` neither saves nor reads checkpoints. Pre-fork checkpoints stay readable through `getCheckpoint`, but proofs do not use them. A signal proven once stays cached, and an empty proof for a cached signal keeps working after its EIP-4788 entry expires.
+- **Root resolution**: `_verifySignalReceived` uses `_getStateRoot` for both the `rootHash` comparison and Merkle-proof verification. The `uint48` bound belongs only to the checkpoint path; the EIP-4788 path takes the full `uint64` timestamp. A missing or overwritten EIP-4788 entry, a missing return value or a zero root rejects the proof; there is no fallback to checkpoints.
+- **Checkpoint authorization**: the shared implementation accepts checkpoints only from `_authorizedSyncer`, while its checkpoint store is open. On L2 the `Anchor` keeps saving checkpoints until the fork; the `Anchor` itself needs no change for Etna (section 8).
 - **Storage**: the shared `SignalService` keeps checkpoints and cached signals in its current `VERSION` storage namespace; immutables add no proxy storage slots. Section 8 covers the L2 migration.
-- **Fork time**: `etnaTimestamp` is an immutable of the `Anchor`. It must equal the clients' fork time, and it also gates `anchorV4` (section 8).
+- **Fork time**: on a switching network, the L2 `beaconRootsFrom` must equal the clients' fork time (section 10). No other L2 contract holds the fork time.
 
 To build a proof off chain:
 
@@ -154,8 +154,8 @@ With EIP-2935 in place, the L2 matches Ethereum's post-Prague state: `BLOCKHASH`
 ## 8. Fork and migration
 
 - **Activation**: Etna activates by L2 timestamp at `ETNA_FORK_TIME`. The Unzen Inbox accepts no proposal from shortly before that time, so every Unzen block is earlier and every Etna block is at or after it ([SWITCH.md](SWITCH.md)). Pre-fork blocks keep the anchor transaction and a zero `parentBeaconBlockRoot`; post-fork blocks have no anchor transaction, a non-zero `parentBeaconBlockRoot` and 13 bytes of `extraData`.
-- **`anchorV4` gate**: `Anchor.anchorV4` reverts from `etnaTimestamp` on. The gate is required. The ancestors-hash check excludes the parent, so in the first block without an anchor transaction an `anchorV4` sent as an ordinary transaction would still pass. The golden touch key is public, and also usable through an EIP-7702 delegation, so anyone could then save a forged checkpoint. A later clean-up upgrade can delete `anchorV4`, `blockHashes`, the block state and the ancestors hash, but must keep `withdraw` and `getL1StateRoot`.
-- **Checkpoints**: pre-fork checkpoints stay in storage, but proofs stop reading them at the fork. `SignalService.saveCheckpoint` and its authorized syncers stay for L1, where the EtnaInbox saves L2 → L1 checkpoints above the Etna start and the Unzen Inbox's final proofs save those at or below it ([SWITCH.md](SWITCH.md#6-bridge-during-and-after-the-switch)).
+- **Checkpoint cutoff**: the L2 `SignalService` rejects every `saveCheckpoint` from `beaconRootsFrom` on. The cutoff is required. The ancestors-hash check excludes the parent, so in the first block without an anchor transaction an `anchorV4` sent as an ordinary transaction would still pass. The golden touch key is public, and also usable through an EIP-7702 delegation, so without the cutoff anyone could then save a forged checkpoint. With it, such an `anchorV4` reverts whenever it advances the anchor; otherwise it only rewrites the `Anchor`'s own block state from real block hashes, so it forges nothing. The cutoff protects the checkpoints where they are stored, so the `Anchor` needs no upgrade for Etna. A later clean-up upgrade can delete `anchorV4`, `blockHashes`, the block state and the ancestors hash, but must keep `withdraw`.
+- **Checkpoints**: pre-fork checkpoints stay in storage, but from the fork on the L2 `SignalService` neither saves nor reads them. `SignalService.saveCheckpoint` and its authorized syncer stay for L1, where the EtnaInbox saves L2 → L1 checkpoints above the Etna start and forwards the Unzen Inbox's final checkpoints at or below it ([SWITCH.md](SWITCH.md#6-bridge-during-and-after-the-switch)).
 - **Storage namespace**: The shared `SignalService` uses the `VERSION` storage namespace, while the L2 `SignalService` deployed before Etna uses flat mappings. The upgrade therefore leaves the old checkpoints and cached signals unreadable; legitimate signals are proven again against a newer root. Provers that read the parent checkpoint read both layouts: the versioned mapping at base `keccak256(abi.encode(VERSION, 254))` first, then the flat slot `keccak256(abi.encode(blockNumber, 254))` when the versioned one is empty.
 
 ### Upgrade order
@@ -167,34 +167,34 @@ Each step depends on the previous one.
 3. **One DAO proposal, executed well before `ETNA_FORK_TIME`:**
 
    - Its L1 actions trust the new guest images, and SGX enclaves if used. They take effect when the proposal executes, before its L2 part reaches L2.
-   - One L2 message to the `DelegateController` upgrades both proxies: the `Anchor` (`anchorV4` gated by `etnaTimestamp`, plus `getL1StateRoot`) and the shared `SignalService` configured with `stateRootProvider = address(Anchor)`, `_authorizedSyncer = address(Anchor)` and `unzenInbox = address(0)`. Its final checks require `Anchor.etnaTimestamp()` to equal `ETNA_FORK_TIME` and `SignalService.stateRootProvider()` to equal the `Anchor` proxy, so a missing `Anchor` upgrade or wrong provider reverts the whole batch and leaves the message retriable.
+   - One L2 message to the `DelegateController` upgrades the `SignalService` proxy to the shared implementation configured with `_authorizedSyncer = address(Anchor)` and `beaconRootsFrom = ETNA_FORK_TIME`. Its final check requires `SignalService.beaconRootsFrom()` to equal `ETNA_FORK_TIME`, so a wrong implementation reverts the batch and leaves the message retriable. The `Anchor` is not upgraded.
 
-   Both proxies go in one batch because the L2 `SignalService` asks its configured `Anchor` provider for every uncached root, and the `Anchor` deployed before Etna has no `getL1StateRoot`. Upgrading the `SignalService` alone would make every uncached L1 → L2 proof revert, including the message that would upgrade the `Anchor`; the namespace switch also empties the received-signal cache, so nothing could reach L2 again. The guest images go first because a proposal with a forced inclusion or a stalled anchor reads its parent checkpoint from the versioned mapping, which old guests cannot prove, so finalization would stop until new ones are trusted.
+   The upgrade touches one proxy and depends on no other L2 contract. Until `beaconRootsFrom`, the new implementation resolves roots from its own checkpoints as before, and the `Anchor` deployed before Etna keeps saving them, so the upgrade is safe whenever it executes before the propose cutoff. The namespace switch empties the checkpoint store and the received-signal cache, so uncached L1 → L2 proofs wait for the next anchor transaction that advances the anchor. The guest images go first because a proposal with a forced inclusion or a stalled anchor reads its parent checkpoint from the versioned mapping, which old guests cannot prove, so finalization would stop until new ones are trusted.
 
    This is the switch proposal in [SWITCH.md](SWITCH.md#3-the-dao-proposal), which also carries the switch's L1 actions.
 
 4. **Relayers and the bridge UI.** Checkpoints saved before the `SignalService` upgrade are no longer readable, so L1 → L2 processing waits until a post-upgrade `CheckpointSaved` is indexed, or treats `SS_CHECKPOINT_NOT_FOUND` as transient. Proof builders that set `blockId` to an L2 timestamp and `rootHash` to that block's `parentBeaconBlockRoot` must ship before the fork. A proof built before the fork must be rebuilt after it, and a timestamp that has left the EIP-4788 window needs a fresh proof.
-5. **The switch.** Etna starts as described in [SWITCH.md](SWITCH.md#4-switch-day): the Unzen Inbox stops accepting proposals shortly before `ETNA_FORK_TIME`, and the first Etna block has a timestamp at or after it. Once step 3 has executed, the fork time is fixed on chain in the `Anchor`, the Unzen Inbox and the EtnaInbox. Moving it needs upgrades of all three, executed before the old propose cutoff, because from the old time on uncached L1 → L2 proofs fail until Etna starts.
-6. **Afterwards.** Never roll the L2 `SignalService` back to the flat implementation, which would revive the pre-upgrade checkpoints and cached signals. A later `Anchor` clean-up must keep `getL1StateRoot`.
+5. **The switch.** Etna starts as described in [SWITCH.md](SWITCH.md#4-switch-day): the Unzen Inbox stops accepting proposals shortly before `ETNA_FORK_TIME`, and the first Etna block has a timestamp at or after it. Once step 3 has executed, the fork time is fixed on chain in the L2 `SignalService`, the Unzen Inbox and the EtnaInbox. Moving it needs upgrades of all three, executed before the old propose cutoff, because from the old time on uncached L1 → L2 proofs fail until Etna starts.
+6. **Afterwards.** Never roll the L2 `SignalService` back to the flat implementation, which would revive the pre-upgrade checkpoints and cached signals. Every later L2 `SignalService` implementation keeps `beaconRootsFrom`, the checkpoint cutoff and the EIP-4788 root path.
 
 ## 9. Changes by component
 
-| Component                                    | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Protocol contracts                           | `Anchor`: the `etnaTimestamp` gate on `anchorV4` and `getL1StateRoot(blockId)` (checkpoint before the fork, EIP-4788 from the fork on). Shared `SignalService`: immutable `stateRootProvider` selects local checkpoints on L1 or the `Anchor` on L2, with `VERSION` storage on both. Optional immutable `unzenInbox` enables the legacy-syncer range check only on a switching L1 ([SWITCH.md](SWITCH.md#3-the-dao-proposal)). Deployment and genesis take the Etna timestamp. |
-| Execution engines (taiko-geth, alethia-reth) | From the fork on: require a non-zero `parentBeaconBlockRoot` and 13 bytes of `extraData`; stop treating transaction 0 as the anchor (anchor validation, anchor fee and balance exceptions, anchor gas-limit pins); accept empty blocks. Make the EIP-4788 and EIP-2935 calls identically when building and importing.                                                                                                                                                          |
-| Clients (Go and Rust)                        | Set `parentBeaconBlockRoot` and the 13-byte `extraData`, and stop constructing the anchor transaction from the fork on; apply the 1,000,000 gas reserve only before it; read an Etna parent's anchor number from its `extraData`; keep the fixed-k signer only to re-derive pre-fork blocks; on a switching network, check the start under SPEC SYNC-9-5a, which needs the L2 state at S until the first landing.                                                              |
-| Provers (raiko2, gaiko2)                     | Verify `parentBeaconBlockRoot` and `extraData` against the derived L1 anchor; drop the anchor-transaction checks for Etna blocks; read the parent checkpoint from both `SignalService` layouts; in the first proof from the Etna start, check the `Anchor` implementation at S under SPEC PROOF-6.2-46a.                                                                                                                                                                       |
-| Relayer                                      | Build the `HopProof` with `blockId` set to an L2 timestamp and `rootHash` to that block's root; take the anchor number from the L2 header; stop waiting for `CheckpointSaved` after the fork; rebuild expired proofs.                                                                                                                                                                                                                                                          |
-| Bridge UI                                    | Read processability from the L2 header's anchor number instead of `Anchor.getBlockState()`; build the same proofs for manual claims.                                                                                                                                                                                                                                                                                                                                           |
-| Ejector                                      | Stop relying on `Anchor.getBlockState()` after the fork.                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Catalyst                                     | Stop treating transaction 0 as the anchor from the fork on.                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Component                                    | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Protocol contracts                           | Shared `SignalService`: immutable `beaconRootsFrom`, zero on L1 and the fork time on L2, closes checkpoint writes and switches root resolution from its checkpoints to EIP-4788, with `VERSION` storage and one authorized syncer on both chains. `Anchor`: no change for Etna. EtnaInbox: on a switching L1, forwards the Unzen Inbox's checkpoints to the `SignalService`, bounded by S ([SWITCH.md](SWITCH.md#3-the-dao-proposal)). Deployment and genesis take the Etna timestamp. |
+| Execution engines (taiko-geth, alethia-reth) | From the fork on: require a non-zero `parentBeaconBlockRoot` and 13 bytes of `extraData`; stop treating transaction 0 as the anchor (anchor validation, anchor fee and balance exceptions, anchor gas-limit pins); accept empty blocks. Make the EIP-4788 and EIP-2935 calls identically when building and importing.                                                                                                                                                                  |
+| Clients (Go and Rust)                        | Set `parentBeaconBlockRoot` and the 13-byte `extraData`, and stop constructing the anchor transaction from the fork on; apply the 1,000,000 gas reserve only before it; read an Etna parent's anchor number from its `extraData`; keep the fixed-k signer only to re-derive pre-fork blocks; on a switching network, check the start under SPEC SYNC-9-5a, which needs the L2 state at S until the first landing.                                                                      |
+| Provers (raiko2, gaiko2)                     | Verify `parentBeaconBlockRoot` and `extraData` against the derived L1 anchor; drop the anchor-transaction checks for Etna blocks; read the parent checkpoint from both `SignalService` layouts; in the first proof from the Etna start, check the L2 `SignalService` implementation at S under SPEC PROOF-6.2-46a.                                                                                                                                                                     |
+| Relayer                                      | Build the `HopProof` with `blockId` set to an L2 timestamp and `rootHash` to that block's root; take the anchor number from the L2 header; stop waiting for `CheckpointSaved` after the fork; rebuild expired proofs.                                                                                                                                                                                                                                                                  |
+| Bridge UI                                    | Read processability from the L2 header's anchor number instead of `Anchor.getBlockState()`; build the same proofs for manual claims.                                                                                                                                                                                                                                                                                                                                                   |
+| Ejector                                      | Stop relying on `Anchor.getBlockState()` after the fork.                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Catalyst                                     | Stop treating transaction 0 as the anchor from the fork on.                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ## 10. Security considerations
 
 - **Root authentication**: the root comes from L1, not from proposer input. Execution engines check that it is non-zero and that `extraData` has 13 bytes; derivation and the guests check that it is the state root of the L1 block at the encoded number. A preconfirmed block with a wrong root cannot be derived from L1 and is reorged out, the same trust as an anchor checkpoint before Etna.
 - **Proof checks**: `rootHash` must equal the resolved root, the account proof must be non-empty, and an exclusion proof reverts. The signal slot hashes the source chain ID, app and signal, so a proof cannot be reused for another chain. No caller-supplied L1 number, hash or root is trusted.
-- **Fork boundary**: `anchorV4` is gated by `etnaTimestamp` (section 8), which must equal the clients' fork time. If the gate came later, the first anchorless blocks could save forged checkpoints. If it came earlier, anchor transactions would revert silently and uncached L1 → L2 proofs would fail until the clients fork. A proof built before the fork must be rebuilt after it.
+- **Fork boundary**: the L2 `SignalService`'s `beaconRootsFrom` closes its checkpoint store and switches its root source (section 8), and must equal the clients' fork time. If it came later, the first anchorless blocks could save forged checkpoints. If it came earlier, anchor transactions that advance the anchor would revert silently and uncached L1 → L2 proofs would fail until the clients fork. A proof built before the fork must be rebuilt after it. The implementation address does not show which fork time a node runs with, so each node also compares `beaconRootsFrom()` with its own fork time before it becomes trusted, before and after the first landing ([SPEC.md SYNC-9-5a](SPEC.md#9-sync-and-weak-subjectivity)).
 - **EIP-4788 entries**: there is one entry per L2 timestamp, readable for at least 8,191 seconds. A missing or overwritten entry reverts, and a missing EIP-4788 contract fails closed.
 - **Storage reset**: switching the L2 `SignalService` to the `VERSION` namespace also drops any stale cached signals. Never roll it back to the flat implementation.
 - **No key for new blocks**: there is nothing to leak and nothing to sign deterministically; the fixed-k signer remains only to re-derive pre-fork blocks. Clients must stop applying the anchor fee exceptions from the fork on, because golden touch transactions are ordinary there.
@@ -203,5 +203,5 @@ Each step depends on the previous one.
 
 ## 11. Open questions
 
-1. **Fork scheduling**: `ETNA_FORK_TIME` is not set. The `Anchor`'s `etnaTimestamp` must equal it and is fixed once the upgrade executes, so it has to be chosen before the DAO proposal (section 8). The Unzen Inbox's propose cutoff and the EtnaInbox's `ETNA_FORK_TIME` derive from the same value ([SWITCH.md](SWITCH.md#3-the-dao-proposal)).
+1. **Fork scheduling**: `ETNA_FORK_TIME` is not set. The L2 `SignalService`'s `beaconRootsFrom` must equal it and is fixed once the upgrade executes, so it has to be chosen before the DAO proposal (section 8). The Unzen Inbox's propose cutoff and the EtnaInbox's `ETNA_FORK_TIME` derive from the same value ([SWITCH.md](SWITCH.md#3-the-dao-proposal)).
 2. **Consumers of the anchor transaction**: whether anything else relies on the `Anchored` event or on transaction 0 being the anchor, such as explorers, indexers and tests. The known consumers of `CheckpointSaved` and `Anchor.getBlockState()` are in section 9.
