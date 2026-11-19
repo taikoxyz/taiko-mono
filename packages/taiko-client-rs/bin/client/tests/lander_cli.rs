@@ -249,19 +249,21 @@ async fn lander_cli_refuses_locks_corrupt_journals_and_invalid_caps_before_signi
             invalid.output()
         );
         assert_key_absent(&invalid);
-        // --min-blocks 9 is within --max-blocks 10, but batches hold whole 6-block segments.
+        // --min-blocks 1001 is within --max-blocks 2000, but above the Inbox's maxBatchBlocks.
         let mut unreachable = CliProcess::spawn(
             Path::new(CLIENT),
             &args,
             directory.path().join("unreachable-minimum.log"),
-            &[("--max-blocks", "10"), ("--min-blocks", "9")],
+            &[("--max-blocks", "2000"), ("--min-blocks", "1001")],
         )?;
         ensure!(
             !unreachable.wait_exit().await?.success(),
             "unreachable minimum reached the runner"
         );
         ensure!(
-            unreachable.output().contains("minimum batch blocks 9 exceed the 6-block batch cap"),
+            unreachable
+                .output()
+                .contains("minimum batch blocks 1001 exceed the 1000-block batch cap"),
             "unreachable minimum error lacked context: {}",
             unreachable.output()
         );

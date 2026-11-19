@@ -645,7 +645,8 @@ fn observe_state(state: &JournalState) {
 }
 
 /// Accept only an authenticated frontier on the immutable job's original proof interval.
-/// Interior progress must equal the corresponding signed cut leaf; nothing is rewritten.
+/// Interior progress c must equal the signed cut leaf at index c - p - 1, as the Inbox checks it
+/// against c's slot 285 record (ENC-A-34); nothing is rewritten.
 ///
 /// The same `checkpoint_*` field names mean two things here: in `current` they are the latest
 /// checkpoint c, in `prepared` (the snapshot the job was built on) the job's proof origin p. The
@@ -669,7 +670,6 @@ fn overlapping_frontier(
     if current.checkpoint_height == prepared.checkpoint_height {
         if current.checkpoint_hash != prepared.checkpoint_hash ||
             current.checkpoint_comet_hash != prepared.checkpoint_comet_hash ||
-            current.checkpoint_val_state_hash != prepared.checkpoint_val_state_hash ||
             current.forced_inclusion_head != prepared.forced_inclusion_head
         {
             return Err(LanderError::Safety(
@@ -677,17 +677,12 @@ fn overlapping_frontier(
             ));
         }
     } else {
-        if !prepared.genesis.is_grid_height(current.checkpoint_height) {
-            return Err(LanderError::Safety("checkpoint is not a grid endpoint".into()));
-        }
-        let index =
-            (current.checkpoint_height - prepared.checkpoint_height) / abci::GRID_INTERVAL - 1;
+        let index = current.checkpoint_height - prepared.checkpoint_height - 1;
         let leaf = crate::statement::cut_leaf(
             current.checkpoint_height,
             current.checkpoint_hash,
             current.checkpoint_comet_hash,
             current.forced_inclusion_head,
-            current.checkpoint_val_state_hash,
         );
         if batch.leaves.get(index as usize) != Some(&leaf) {
             return Err(LanderError::Safety(

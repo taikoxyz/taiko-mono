@@ -324,12 +324,6 @@ impl FixtureChain {
             .find(|proof| proof.slot == inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL))
             .expect("the snapshot proof covers the forced inclusion head/tail")
             .value;
-        let val_state_hash = inbox_witness
-            .storage
-            .iter()
-            .find(|proof| proof.slot == inbox::landing_slots(checkpoint.height.to())[3])
-            .expect("the snapshot proof covers the checkpoint record")
-            .value;
         let snapshot = LandingSnapshot {
             l1_block_hash: state.hash(),
             l1_block_number: state.number(),
@@ -353,7 +347,6 @@ impl FixtureChain {
                 )
             },
             checkpoint_hash: checkpoint.blockHash,
-            checkpoint_val_state_hash: val_state_hash.into(),
             forced_inclusion_head: word_u48(head_tail, 0),
             forced_inclusion_tail: word_u48(head_tail, 48),
             genesis: fixture.genesis.clone(),
@@ -504,11 +497,10 @@ impl lander::comet::CometSource for FixtureChain {
             .cloned()
             .ok_or_else(|| lander::error::LanderError::Unavailable("fixture block".into()))
     }
-    /// As the app answers `/val_state/<height>`: grid heights above the origin 0 only.
+    /// As the app answers `/val_state/<height>`: any retained height.
     async fn val_state(&self, height: u64) -> lander::error::Result<Vec<u8>> {
         usize::try_from(height)
             .ok()
-            .filter(|_| height > 0 && height.is_multiple_of(abci::GRID_INTERVAL))
             .and_then(|height| self.val_states.get(height))
             .map(ValState::encode)
             .ok_or_else(|| {

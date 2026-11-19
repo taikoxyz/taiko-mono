@@ -50,7 +50,7 @@ pub struct LanderArgs {
     pub max_blocks: usize,
     /// Minimum complete blocks before submission; wait expiry or consensus may require earlier
     /// landing. At most the batch cap: `--max-blocks` and the Inbox's `maxBatchBlocks`, whichever
-    /// is lower, in whole 6-block segments, checked at startup.
+    /// is lower, checked at startup.
     #[clap(long = "min-blocks", env = "LANDER_MIN_BLOCKS", default_value_t = 1, value_parser = positive_usize)]
     pub min_blocks: usize,
     /// Maximum wait for a below-threshold batch, in seconds; positive and at most one hour.
@@ -304,7 +304,9 @@ mod tests {
         let mut args = argv();
         let i = args.iter().position(|v| *v == "--max-blocks").unwrap();
         args[i + 1] = "1";
-        assert!(parse(args).unwrap().lander_flags.config().is_err(), "a batch must fit K=6");
+        let one = parse(args).unwrap().lander_flags.config().expect("a one-block batch is valid");
+        assert_eq!(one.limits.max_blocks, 1);
+        assert_eq!(one.limits.max_decompressed_bytes, 22_020_096);
     }
 
     #[test]

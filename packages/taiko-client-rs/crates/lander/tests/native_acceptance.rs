@@ -43,7 +43,7 @@ async fn land(f: &ContractFixture, c: &ContractConsensus) -> Result<(ProofReques
             max_batch_blocks: source.deployment(&snapshot).await?.max_batch_blocks,
         },
     )?;
-    let request = builder.prepare(snapshot).await?.context("nonempty grid batch")?;
+    let request = builder.prepare(snapshot).await?.context("nonempty batch")?;
     f.expect_statement(request.batch.statement_hash).await?;
     let transport = RpcTransactionTransport::new(
         f.anvil.provider.clone(),
@@ -63,8 +63,7 @@ async fn land(f: &ContractFixture, c: &ContractConsensus) -> Result<(ProofReques
     assert_eq!(event.data.lastHeight, request.batch.input.lastHeight);
     let height = request.batch.input.lastHeight.to::<u64>();
     assert_eq!(f.checkpoint().await?.0, height);
-    // The record's validator-state word is the hash of the state the actual app serves there;
-    // the app retains it until a later checkpoint lands.
+    // The record holds the terminal EL and Comet hashes (STOR-B-9).
     let record = view(
         &f.anvil.provider,
         f.inbox,
@@ -72,9 +71,11 @@ async fn land(f: &ContractFixture, c: &ContractConsensus) -> Result<(ProofReques
         None,
     )
     .await?;
-    let served = c.cmt.abci_query(&format!("/val_state/{height}")).await?;
-    let served = served.with_context(|| format!("the app refuses /val_state/{height}"))?;
-    assert_eq!(record.valStateHash, alloy_primitives::keccak256(served), "word 4 at {height}");
+    assert_eq!(
+        (record.elHash, record.cometHash),
+        (request.batch.input.lastBlockHash, request.batch.input.lastCometHash),
+        "landing record at {height}"
+    );
     Ok((request, tx.hash))
 }
 

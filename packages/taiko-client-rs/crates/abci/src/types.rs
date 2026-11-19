@@ -163,18 +163,6 @@ pub struct GenesisRecord {
     pub max_anchor_age: u64,
 }
 
-impl GenesisRecord {
-    /// Whether `height` is a point of the retired landing grid: height >= S and
-    /// (height-S) mod [`GRID_INTERVAL`](crate::GRID_INTERVAL) = 0. A landing may now end at any
-    /// height (LAND-6.1-5), and no consensus rule of the app uses this. It remains only for the
-    /// lander, and for the validator-state archive R4 replaces, until R5 removes it.
-    pub fn is_grid_height(&self, height: u64) -> bool {
-        height
-            .checked_sub(self.genesis_height)
-            .is_some_and(|offset| offset.is_multiple_of(crate::GRID_INTERVAL))
-    }
-}
-
 /// The L1 anchor a block uses: the L1 header facts plus the Inbox facts proven at it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AnchorState {

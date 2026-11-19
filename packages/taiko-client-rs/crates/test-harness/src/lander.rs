@@ -111,31 +111,22 @@ async fn run(ctx: LanderCtx, switches: Arc<Switches>) {
 /// Advances the checkpoint to `head-TRAIL`; no committee record is published.
 async fn tick(ctx: &LanderCtx, landed: &mut Landed) -> Result<()> {
     let head = ctx.l2.get_block_number().await.context("L2 eth_blockNumber")?;
-    let target = head.saturating_sub(TRAIL) / abci::GRID_INTERVAL * abci::GRID_INTERVAL;
+    let target = head.saturating_sub(TRAIL);
     if landed.height.is_none_or(|h| h < target) {
         let block = ctx
             .l2
             .get_block_by_number(BlockNumberOrTag::Number(target))
             .await?
             .with_context(|| format!("L2 block {target} missing"))?;
-        // The start record holds Comet and validator-state hashes 0; a later record holds the
-        // node's own hashes, the validator state's as its app reports it (`/val_state`).
-        let (comet_hash, val_state_hash) = if target == 0 {
-            (alloy_primitives::B256::ZERO, alloy_primitives::B256::ZERO)
+        // The start record holds Comet hash 0; a later record holds the node's own Comet hash.
+        let comet_hash = if target == 0 {
+            alloy_primitives::B256::ZERO
         } else {
             let value = ctx.cmt.call("block", &[("height", target.to_string())]).await?;
-            let comet_hash =
-                value["block_id"]["hash"].as_str().context("native Comet checkpoint hash")?;
-            let preimage = ctx
-                .cmt
-                .abci_query(&format!("/val_state/{target}"))
-                .await?
-                .with_context(|| format!("the app rejects /val_state/{target}"))?;
-            (comet_hash.parse()?, alloy_primitives::keccak256(preimage))
+            value["block_id"]["hash"].as_str().context("native Comet checkpoint hash")?.parse()?
         };
         let values = InboxValues {
             checkpoint_comet_hash: Some(comet_hash),
-            checkpoint_val_state_hash: Some(val_state_hash),
             last_checkpoint: Some((target, block.header.hash)),
             ..Default::default()
         };

@@ -555,10 +555,8 @@ impl LandingSource for RpcLandingSource {
         Ok(headers)
     }
 
-    /// Read the checked V1 getters and `maxBatchBlocks` at one canonical L1 block: seven
-    /// `eth_call`s and no code read, since no rule pins the implementation (PROOF-6.2-2). An
-    /// Inbox whose `GRID_INTERVAL` is not [`abci::GRID_INTERVAL`] is a configuration error
-    /// (PARAM-11-9).
+    /// Read the checked V1 getters and `maxBatchBlocks` at one canonical L1 block: six
+    /// `eth_call`s and no code read, since no rule pins the implementation (PROOF-6.2-2).
     async fn deployment(&self, snapshot: &LandingSnapshot) -> Result<Deployment> {
         authenticate_snapshot(snapshot, &self.params)?;
         macro_rules! read {
@@ -583,13 +581,6 @@ impl LandingSource for RpcLandingSource {
         let chain = read!(l2ChainIdCall);
         let registry = read!(stakingRegistryCall);
         let config = read!(committeeConfigHashCall);
-        let grid = read!(GRID_INTERVALCall);
-        if grid != U256::from(abci::GRID_INTERVAL) {
-            return Err(LanderError::Configuration(format!(
-                "Inbox GRID_INTERVAL {grid} differs from this client's {}",
-                abci::GRID_INTERVAL
-            )));
-        }
         if version != 1 ||
             !initialized ||
             chain != snapshot.l2_chain_id ||
@@ -736,7 +727,7 @@ pub fn starting_slots(generation: u64) -> Vec<B256> {
 /// Fixed Inbox facts plus the exact retained landing record at the supplied checkpoint.
 pub fn snapshot_landing_slots(height: u64) -> Vec<B256> {
     let mut slots = snapshot_slots();
-    slots.extend(inbox::landing_slots(height));
+    slots.extend(inbox::landing_record_slots(height));
     slots.sort_unstable();
     slots.dedup();
     slots
@@ -798,32 +789,32 @@ pub(crate) fn decode_snapshot(
         .validate()
         .map_err(|e| LanderError::Configuration(format!("Inbox epoch parameters: {e}")))?;
     let head_tail = word(inbox::FORCED_INCLUSION_HEAD_TAIL);
-    let slots = inbox::landing_slots(height);
-    let landing = storage.get(slots[0]).expect("verified landing slot");
-    let el_hash: B256 = storage.get(slots[1]).expect("verified landing slot").into();
-    let comet_hash: B256 = storage.get(slots[2]).expect("verified landing slot").into();
-    let val_state_hash: B256 = storage.get(slots[3]).expect("verified landing slot").into();
     let generation = word_u48(word(inbox::RECOVERY_GENERATION), 0);
-    if landing >> 144 != U256::ZERO ||
-        head_tail >> 96 != U256::ZERO ||
-        !genesis.is_grid_height(height) ||
-        el_hash != B256::from(word(inbox::LAST_CHECKPOINT_HASH)) ||
-        word_u48(landing, 48) > generation ||
-        word_u48(landing, 96) != word_u48(head_tail, 0) ||
-        (height == genesis.genesis_height &&
-            (word_u48(landing, 0) != height ||
-                word_u48(landing, 48) != 0 ||
-                word_u48(landing, 96) != 0 ||
-                el_hash != genesis.genesis_hash ||
-                !comet_hash.is_zero() ||
-                !val_state_hash.is_zero())) ||
-        (height > genesis.genesis_height &&
-            (word_u48(landing, 0) >= height ||
-                !genesis.is_grid_height(word_u48(landing, 0)) ||
-                comet_hash.is_zero()))
-    {
-        return Err(LanderError::Safety("invalid checkpoint landing record".into()));
-    }
+    // The three-word slot 285 record (STOR-B-9). A landing may end at any height (LAND-6.1-5),
+    // so the checkpoint and its actual parent are bounded only by the Etna start.
+    let record = inbox::LandingRecord::decode(
+        inbox::landing_record_slots(height)
+            .map(|slot| storage.get(slot).expect("verified landing slot")),
+    )
+    .filter(|record| {
+        head_tail >> 96 == U256::ZERO &&
+            height >= genesis.genesis_height &&
+            record.el_hash == B256::from(word(inbox::LAST_CHECKPOINT_HASH)) &&
+            record.generation <= generation &&
+            record.forced_head == word_u48(head_tail, 0) &&
+            if height == genesis.genesis_height {
+                record.parent_height == height &&
+                    record.generation == 0 &&
+                    record.forced_head == 0 &&
+                    record.el_hash == genesis.genesis_hash &&
+                    record.comet_hash.is_zero()
+            } else {
+                genesis.genesis_height <= record.parent_height &&
+                    record.parent_height < height &&
+                    !record.comet_hash.is_zero()
+            }
+    })
+    .ok_or_else(|| LanderError::Safety("invalid checkpoint landing record".into()))?;
     Ok(LandingSnapshot {
         l1_block_hash: raw.hash(),
         l1_block_number: raw.number(),
@@ -836,8 +827,7 @@ pub(crate) fn decode_snapshot(
         generation: word_u64(word(inbox::RECOVERY_GENERATION), 0),
         checkpoint_height: word_u64(word(inbox::LAST_CHECKPOINT_HEIGHT), 0),
         checkpoint_hash: word(inbox::LAST_CHECKPOINT_HASH).into(),
-        checkpoint_comet_hash: comet_hash,
-        checkpoint_val_state_hash: val_state_hash,
+        checkpoint_comet_hash: record.comet_hash,
         forced_inclusion_head: word_u48(head_tail, 0),
         forced_inclusion_tail: word_u48(head_tail, 48),
         genesis,
@@ -954,7 +944,7 @@ pub fn authenticate_snapshot(snapshot: &LandingSnapshot, params: &ChainParams) -
             .inbox_witness
             .storage
             .iter()
-            .find(|p| p.slot == inbox::landing_slots(verified.checkpoint_height)[0])
+            .find(|p| p.slot == inbox::landing_record_slots(verified.checkpoint_height)[0])
             .expect("decoded landing slot")
             .value;
         if word_u48(packed, 48) != snapshot.generation {

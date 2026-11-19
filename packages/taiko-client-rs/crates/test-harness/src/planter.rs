@@ -79,8 +79,6 @@ pub struct InboxValues {
     pub last_checkpoint: Option<(u64, B256)>,
     /// Native Comet hash in the checkpoint landing record.
     pub checkpoint_comet_hash: Option<B256>,
-    /// Validator-state hash (word 4) in the checkpoint landing record.
-    pub checkpoint_val_state_hash: Option<B256>,
     /// The genesis record (slots 272–274) with its `genesisCutoff` (slot 279) and forced
     /// inclusion configuration (slot 282).
     pub genesis: Option<GenesisRecord>,
@@ -102,13 +100,10 @@ impl InboxValues {
         if let Some((height, hash)) = self.last_checkpoint {
             w.push((slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height)));
             w.push((slot(inbox::LAST_CHECKPOINT_HASH), hash.into()));
-            let slots = inbox::landing_slots(height);
+            let slots = inbox::landing_record_slots(height);
             w.push((slots[1], hash.into()));
             if let Some(hash) = self.checkpoint_comet_hash {
                 w.push((slots[2], hash.into()));
-            }
-            if let Some(hash) = self.checkpoint_val_state_hash {
-                w.push((slots[3], hash.into()));
             }
         }
         if let Some(a) = &self.genesis {

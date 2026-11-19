@@ -80,13 +80,6 @@ pub mod inbox {
         mapping_words(LANDINGS, height)
     }
 
-    /// The three [`landing_record_slots`] and the word after them, which held the retired
-    /// `valStateHash` in the older four-word record. It remains only for the lander's
-    /// validator-state reads until R4 and R5 remove them; the app reads three words.
-    pub fn landing_slots(height: u64) -> [B256; 4] {
-        mapping_words(LANDINGS, height)
-    }
-
     /// One decoded slot 285 record (STOR-B-9, ENC-A-3). Word 1 packs, from bit 0, the
     /// actual parent height, the generation that wrote the record and the forced inclusion
     /// head, 48 bits each, and its bits from 144 up are zero (STOR-B-23, STOR-B-24); words 2
@@ -403,10 +396,7 @@ mod tests {
                     .iter()
                     .map(|v| v.as_str().unwrap().parse().unwrap())
                     .collect();
-                // Until the shared vectors are regenerated they list the older four-word slot
-                // 285 record, whose first three words are the three-word record's.
-                assert!(expected.len() >= 3, "{table} {index}");
-                assert_eq!(slots_fn(index), expected[..3], "{table} {index}");
+                assert_eq!(slots_fn(index), expected, "{table} {index}");
             }
         }
     }
@@ -439,7 +429,6 @@ mod tests {
             assert_eq!(inbox::LandingRecord::decode([U256::from(1) << bit, el, comet]), None);
         }
         let [first, second, third] = inbox::landing_record_slots(12);
-        assert_eq!(inbox::landing_slots(12)[..3], [first, second, third]);
         assert_eq!(
             U256::from_be_bytes(second.0),
             U256::from_be_bytes(first.0).wrapping_add(U256::from(1))

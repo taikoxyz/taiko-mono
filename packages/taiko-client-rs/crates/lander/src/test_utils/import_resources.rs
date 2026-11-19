@@ -78,7 +78,7 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> T {
 }
 
 // Build one real MPT observation and connect its header to the preceding observation.
-fn observe(fx: &mut Fixture, n: u64, time: u64, endpoint: (u64, B256, B256, B256)) -> AnchorState {
+fn observe(fx: &mut Fixture, n: u64, time: u64, endpoint: (u64, B256, B256)) -> AnchorState {
     let queue = Queue { head: 0, tail: 0, entries: vec![] };
     let state = state_with_queue(
         &fx.params,
@@ -88,14 +88,14 @@ fn observe(fx: &mut Fixture, n: u64, time: u64, endpoint: (u64, B256, B256, B256
         &fx.snapshot.genesis,
         &queue,
     );
-    // Include the prior grid landing in the slot-285 record. Its history is represented
+    // Include a prior landing in the slot-285 record. Its history is represented
     // by the own-finalized MPT observation, outside this bounded consensus fixture.
     let mut accounts =
         state.accounts.into_iter().map(|(a, (slots, _))| (a, slots)).collect::<BTreeMap<_, _>>();
-    accounts
-        .get_mut(&fx.params.inbox)
-        .unwrap()
-        .insert(inbox::landing_slots(endpoint.0)[0], U256::from(endpoint.0.saturating_sub(6)));
+    accounts.get_mut(&fx.params.inbox).unwrap().insert(
+        inbox::landing_record_slots(endpoint.0)[0],
+        U256::from(endpoint.0.saturating_sub(6)),
+    );
     let state =
         State::new(accounts.into_iter().map(|(a, s)| (a, s.into_iter().collect())).collect());
     let parent = fx.l1_headers.get(&(n - 1)).map_or(B256::repeat_byte(9), RawL1Header::hash);
@@ -136,21 +136,15 @@ async fn generate(dir: &Path, s: u64, period: u64) {
     fx.states.clear();
     let genesis = fx.headers[&0].hash_slow();
     let time = |h: u64| 100 + period * h;
-    let origin = observe(&mut fx, 10, 10, (0, genesis, B256::ZERO, B256::ZERO));
+    let origin = observe(&mut fx, 10, 10, (0, genesis, B256::ZERO));
     fx.anchors.insert(0, origin);
     let mut vs = fx.val_states[&0].clone();
     assert_eq!(vs.current, vs.next);
     assert_eq!(vs.current.entries.len(), 1);
-    vs.height = q0;
     // The prefix is settled and its checkpoint is proved on L1. No historical EL or Comet
     // acquisition API is provided for it.
     let prefix_comet = |h: u64| keccak256([b"comet:".as_slice(), &h.to_be_bytes()].concat());
-    let mut a = observe(
-        &mut fx,
-        11,
-        time(q0),
-        (q0, keccak256(q0.to_be_bytes()), prefix_comet(q0), vs.hash()),
-    );
+    let mut a = observe(&mut fx, 11, time(q0), (q0, keccak256(q0.to_be_bytes()), prefix_comet(q0)));
     vs.height = s;
     fx.val_states.insert(s, vs.clone());
     // The package carries the state after s - 1 (DATA-5.4-3); no switch changes it here.
@@ -207,9 +201,8 @@ async fn generate(dir: &Path, s: u64, period: u64) {
         let q = h - 1;
         let changed = q == terminal_q || (period == 1 && q == s - 110_004);
         let witness = if changed {
-            vs.height = q;
             let comet = B256::from_slice(prior.block_id.hash.as_bytes());
-            a = observe(&mut fx, a.number + 1, time(q), (q, parent.hash, comet, vs.hash()));
+            a = observe(&mut fx, a.number + 1, time(q), (q, parent.hash, comet));
             Some(AnchorWitness {
                 l1_header: fx.l1_headers[&a.number].clone(),
                 inbox: fx.states[&a.number].witness(fx.params.inbox, &inbox::anchor_slots()),
@@ -294,9 +287,8 @@ async fn generate(dir: &Path, s: u64, period: u64) {
         };
         prior = pair.commit;
     }
-    vs.height = s;
     let comet = B256::from_slice(prior.block_id.hash.as_bytes());
-    observe(&mut fx, a.number + 1, time(s), (s, parent.hash, comet, vs.hash()));
+    observe(&mut fx, a.number + 1, time(s), (s, parent.hash, comet));
     frames.flush().unwrap();
     write_json(&dir.join("package.json"), &pkg);
     write_json(

@@ -41,7 +41,7 @@ pub struct RpcData {
     pub headers: Vec<Header>,
     pub committees: BTreeMap<u64, CommitteeState>,
     /// The validator-state preimage after each height, indexed by height; `/val_state/<height>`
-    /// answers it at grid heights above the origin 0, as the app does.
+    /// answers it at any committed height, as the app does.
     pub val_states: Vec<Vec<u8>>,
 }
 
@@ -138,11 +138,7 @@ async fn rpc(State(state): State<RpcState>, Json(request): Json<Value>) -> Respo
         "abci_query" => {
             let path = params["path"].as_str().unwrap_or_default();
             let answer = if let Some(height) = path.strip_prefix("/val_state/") {
-                height
-                    .parse::<u64>()
-                    .ok()
-                    .filter(|height| *height > 0 && height.is_multiple_of(abci::GRID_INTERVAL))
-                    .and_then(|height| data.val_states.get(usize::try_from(height).ok()?).cloned())
+                height.parse::<usize>().ok().and_then(|height| data.val_states.get(height).cloned())
             } else {
                 path.strip_prefix("/committee/")
                     .and_then(|epoch| epoch.parse::<u64>().ok())

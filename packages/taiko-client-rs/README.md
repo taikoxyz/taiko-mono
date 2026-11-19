@@ -152,7 +152,7 @@ supplied backend still emits dummy proofs; real proving and switch deployment re
 work.
 [Checkpoint import](docs/checkpoint-import.md) supports nonzero starts using a separately obtained
 offline EL dataset and the operator's original EL chainspec. Public EL snapshot tooling remains
-separate work. App state uses schema 19; lander journals use schema 18.
+separate work. App state uses schema 19; lander journals use schema 19.
 Older stores and witnesses are refused without rewriting signed jobs or FilePV state.
 
 ## Forced inclusion
@@ -270,15 +270,12 @@ taiko-client lander --l1.http http://l1-node:8545 \
   --max-fee-per-blob-gas "$LANDER_MAX_FEE_PER_BLOB_GAS"
 ```
 
-A batch must fit a complete K=6 segment, so `--max-blocks` must be at least 6; endpoints are
-grid heights. At startup the lander reads the Inbox's `maxBatchBlocks` and `GRID_INTERVAL`: it
-refuses an Inbox whose grid interval differs from 6, and caps every batch at the lower of
-`--max-blocks` and `maxBatchBlocks`, rounded down to whole segments (logging when the Inbox
-lowers it), refusing to start when that is below one segment. Each landing carries at most six
+A landing may end at any height, so a batch holds one or more complete blocks. At startup the
+lander reads the Inbox's `maxBatchBlocks` and caps every batch at the lower of `--max-blocks`
+and `maxBatchBlocks` (logging when the Inbox lowers it). Each landing carries at most six
 blobs, a fixed constant (LAND-6.1 step 5).
-`--min-blocks` defaults to 1 and `--max-batch-wait` to 30 seconds, but neither permits a partial
-segment. The minimum is 1 through that batch cap: the lander refuses to start with a higher
-one, which no batch could reach. Wait expiry or consensus pressure can flush an available
+`--min-blocks` defaults to 1 and `--max-batch-wait` to 30 seconds. The minimum is 1 through
+that batch cap: the lander refuses to start with a higher one, which no batch could reach. Wait expiry or consensus pressure can flush an available
 complete prefix below it. The wait is kept in memory from the first backlog this process sees at
 the current checkpoint; a restart starts it again. Batches can cross epoch transitions; batch
 timing and back-pressure follow spec sections 6.3 (Batches) and 6.4 (Back-pressure).
@@ -300,11 +297,11 @@ margin within EIP-7825's 16,777,216 cap; no automatic fee or nonce replacement i
 The public blob payload carries execution blocks only (spec section 5.2, Blob payload);
 `--sidecar eip4844` or `eip7594` selects the sidecar format for the same payload. The `land`
 input and statement are spec section 6.1 (land). At startup and for each batch the lander reads
-the Inbox's `VERSION`, initialization, L2 chain id, registry, committee config hash,
-`GRID_INTERVAL` and `maxBatchBlocks`. Before signing or first scheduling a broadcast it
+the Inbox's `VERSION`, initialization, L2 chain id, registry, committee config hash and
+`maxBatchBlocks`. Before signing or first scheduling a broadcast it
 rechecks the checkpoint frontier and the reference block.
 
-`lander-state.json` uses schema 18 and is protected by `lander.lock`; other schemas are refused
+`lander-state.json` uses schema 19 and is protected by `lander.lock`; other schemas are refused
 and left intact. The journal is verified once at startup (statement hash, blob and KZG binding,
 signed bytes); later writes are not re-verified. Signed bytes and blob sidecars are durably
 written before broadcast. For an original range (p,h] and competing checkpoint p<=c<h, the

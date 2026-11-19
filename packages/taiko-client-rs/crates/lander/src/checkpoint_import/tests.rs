@@ -312,6 +312,35 @@ async fn first_window_envelope_parent_hash_authenticates_the_execution_header_at
     assert!(unlinked(&forged), "{forged:?}");
 }
 
+/// LAND-6.1-5: any height can become a checkpoint, so s = 7, off the retired six-block grid,
+/// imports both as the latest finalized landing and as an older retained one, whose parent
+/// record is also off the grid.
+#[tokio::test]
+async fn import_at_a_checkpoint_off_the_retired_grid() {
+    let fx = std::sync::Arc::new(Fixture::new(7, 7));
+    let package = import_package(&fx, 7).await;
+    let imported =
+        authenticate_import(&package, frames(&fx, 7).into_iter(), &fx.params, &OwnL1(fx.clone()))
+            .await
+            .unwrap();
+    assert_eq!(imported.landing().height, 7);
+    assert_eq!(imported.val_state_before(), Some(&fx.val_states[&6]));
+    assert_eq!(imported.state().val_state, fx.val_states[&7]);
+    assert_eq!(imported.state().last_height, 7);
+
+    let mut fx = Fixture::new(7, 13);
+    fx.advance_import_frontier(13, 7, 0);
+    let fx = std::sync::Arc::new(fx);
+    assert_eq!(fx.snapshot.checkpoint_height, 13);
+    let package = import_package(&fx, 7).await;
+    let imported =
+        authenticate_import(&package, frames(&fx, 7).into_iter(), &fx.params, &OwnL1(fx.clone()))
+            .await
+            .unwrap();
+    assert_eq!(imported.landing().height, 7);
+    assert_eq!(imported.state().val_state, fx.val_states[&7]);
+}
+
 /// A retained checkpoint below the latest finalized landing imports (ACC §7.7 older).
 #[tokio::test]
 async fn older_retained_checkpoint_below_the_latest_landing_imports() {
@@ -1329,7 +1358,7 @@ async fn same_generation_rollback_orphan_is_not_a_retained_settled_import_origin
     );
     // Both old records still have genuine proofs at the same final root and retain g=0.
     for height in [24, 36] {
-        let slots = abci::l1::layout::inbox::landing_slots(height);
+        let slots = abci::l1::layout::inbox::landing_record_slots(height);
         let proof = fx.import_witness(fx.params.inbox, &slots, fx.snapshot.l1_block_number);
         let verified = abci::l1::mpt::verify_account_witness(
             fx.snapshot.l1_header.state_root(),

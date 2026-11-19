@@ -112,10 +112,9 @@ impl LanderSubCommand {
         let landing = Arc::new(RpcLandingSource::new(l1, l2, params.clone()));
         let snapshot =
             retry_bootstrap(config.poll_interval, retry_max_delay, || landing.snapshot()).await?;
-        // The deployment reads refuse an Inbox this client cannot land on, such as one whose
-        // GRID_INTERVAL differs from abci::GRID_INTERVAL, before anything else starts. Its
-        // maxBatchBlocks caps batch selection together with --max-blocks, and --min-blocks must
-        // not exceed that cap.
+        // The deployment reads refuse an Inbox this client cannot land on, such as one of
+        // another version or configuration, before anything else starts. Its maxBatchBlocks caps
+        // batch selection together with --max-blocks, and --min-blocks must not exceed that cap.
         let deployment = retry_bootstrap(config.poll_interval, retry_max_delay, || {
             landing.deployment(&snapshot)
         })

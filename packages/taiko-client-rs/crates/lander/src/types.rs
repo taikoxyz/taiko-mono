@@ -2,8 +2,8 @@
 
 use crate::native::{Block, Commit, RawBlock};
 use abci::{
-    AccountWitness, AnchorState, AnchorWitness, CommitteeState, CommitteeWitness, GRID_INTERVAL,
-    GenesisRecord, RawL1Header, valstate::ValState,
+    AccountWitness, AnchorState, AnchorWitness, CommitteeState, CommitteeWitness, GenesisRecord,
+    RawL1Header,
 };
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256};
@@ -162,11 +162,6 @@ pub struct LandingSnapshot {
     /// Authenticated Comet hash from the retained landing record at the checkpoint (c when read,
     /// proof origin p in a batch).
     pub checkpoint_comet_hash: B256,
-    /// Validator-state hash (appendix A's `valStateHash`, slot 285 word 4) from the retained
-    /// landing record at the checkpoint (c when read, proof origin p in a batch): 0 in the start
-    /// record, and at a recovery origin the old generation's value, which the statement binds as
-    /// stored but no replay starts from.
-    pub checkpoint_val_state_hash: B256,
     /// Forced inclusion queue `head` (slot 281, bits 0–47): the next entry not yet settled on L1.
     pub forced_inclusion_head: u64,
     /// Forced inclusion queue `tail` (slot 281, bits 48–95): the next free entry index.
@@ -367,15 +362,12 @@ pub struct PreparedBatch {
     pub committees: Vec<CommitteeState>,
     /// Registry witnesses deduplicated by epoch, with their authenticated proving roots.
     pub committee_witnesses: Vec<CommitteeContext>,
-    /// Nine canonical V1 ABI fields binding the original parent and the terminal EL, Comet and
-    /// validator state, reference block, terminal forced cursor and active committee cutoff.
+    /// Eight canonical V1 ABI fields binding the original parent and the terminal EL and Comet
+    /// identity, reference block, terminal forced cursor and active committee cutoff.
     #[serde(with = "crate::contracts::abi_serde")]
     pub input: LandInput,
-    /// The validator state CometBFT holds after the checkpoint, from which every cut leaf's and
-    /// the terminal validator-state hash are replayed: the generation's genesis state at its
-    /// origin, otherwise the state whose hash the checkpoint record's word 4 holds.
-    pub start_val_state: ValState,
-    /// Ordered cut leaves for the interior grid points ([`GRID_INTERVAL`]) of the immutable range.
+    /// Ordered cut leaves of every height strictly inside the immutable range (p, h), one per
+    /// height (ENC-A-31); empty for a single-block landing.
     pub leaves: Vec<B256>,
     /// Sidecar and ordered versioned blob hashes binding the V6 payload.
     pub blobs: PreparedBlobs,
@@ -399,8 +391,8 @@ impl PreparedBatch {
     /// reference number, the statement hash, the blob payload against the retained blocks
     /// (PROOF-6.2-21/37) and the KZG sidecar (PROOF-6.2-35).
     ///
-    /// Proof witnesses (the starting validator state, execution history, committees and their
-    /// witnesses, anchors and the starting Inbox witness) are not re-derived. A restored job is
+    /// Proof witnesses (execution history, committees and their witnesses, anchors and the
+    /// starting Inbox witness) are not re-derived. A restored job is
     /// at least Prepared, so its proof already exists and nothing reads them again; the builder
     /// checked every one before proving.
     pub fn verify_restored(&self) -> Result<()> {
@@ -419,16 +411,12 @@ impl PreparedBatch {
         }
         if parent != self.snapshot.checkpoint_height ||
             parent >= last ||
-            !self.snapshot.genesis.is_grid_height(parent) ||
-            !self.snapshot.genesis.is_grid_height(last) ||
             self.blocks.len() as u64 != last - parent
         {
-            return Err(LanderError::Journal("job has an invalid V1 grid interval".into()));
+            return Err(LanderError::Journal("job has an invalid V1 interval".into()));
         }
-        if self.leaves.len() as u64 != (last - parent) / GRID_INTERVAL - 1 {
-            return Err(LanderError::Journal(
-                "job cut leaf count differs from its grid interval".into(),
-            ));
+        if self.leaves.len() as u64 != last - parent - 1 {
+            return Err(LanderError::Journal("job cut leaf count differs from its interval".into()));
         }
         if self.blocks.last().is_none_or(|pair| {
             B256::from_slice(pair.block.header.hash().as_bytes()) != self.input.lastCometHash
@@ -558,7 +546,6 @@ mod tests {
         let original = request();
         original.batch.verify_restored().unwrap();
         let mut witnesses = original.batch.clone();
-        witnesses.start_val_state.current.entries[0].priority += 1;
         witnesses.anchors.clear();
         witnesses.execution_history.clear();
         witnesses.committee_witnesses.clear();
@@ -605,7 +592,7 @@ mod tests {
         let mut batch = original.batch.clone();
         batch.blocks.pop();
         rebound(&mut batch);
-        cases.push(("invalid V1 grid interval", batch));
+        cases.push(("invalid V1 interval", batch));
         let mut batch = original.batch.clone();
         batch.input.parentHeight = U256::from(1u64 << 48);
         cases.push(("uint48", batch));

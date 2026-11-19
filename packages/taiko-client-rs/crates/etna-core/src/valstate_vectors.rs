@@ -116,7 +116,7 @@ fn abci_updates(previous: &ValSet, recorded: &ValSet) -> Vec<(ConsensusKey, u64)
 // every set row come from stock ApplyVerifiedBlock, not another replay of our arithmetic.
 #[test]
 fn shared_stock_chains_replay_every_abci_validator_state() {
-    assert_eq!(at("/schema_version"), "7");
+    assert_eq!(at("/schema_version"), "8");
     assert_eq!(at("/val_state_chains/cometbft"), "v0.40.0");
     let keys = key_ring();
     let mut checked = 0;

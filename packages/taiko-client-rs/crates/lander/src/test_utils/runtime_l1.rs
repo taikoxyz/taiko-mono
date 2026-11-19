@@ -183,7 +183,6 @@ fn snapshot(headers: &BTreeMap<u64, RawL1Header>) -> LandingSnapshot {
         checkpoint_height: 0,
         checkpoint_hash: B256::repeat_byte(1),
         checkpoint_comet_hash: B256::ZERO,
-        checkpoint_val_state_hash: B256::ZERO,
         forced_inclusion_head: 0,
         forced_inclusion_tail: 0,
         genesis: GenesisRecord {
@@ -422,7 +421,8 @@ async fn snapshot_reorg_retries_with_coherent_hash_pinned_header_and_proof() {
                 call["params"][2],
                 json!({"blockHash": snapshot.l1_block_hash, "requireCanonical": true})
             );
-            assert!(matches!(call["params"][1].as_array().unwrap().len(), 16 | 20));
+            // The fixed slots alone, or with the checkpoint's three-word landing record.
+            assert!(matches!(call["params"][1].as_array().unwrap().len(), 16 | 19));
         }
         let raw =
             calls.iter().filter(|call| call["method"] == "debug_getRawHeader").collect::<Vec<_>>();
@@ -543,73 +543,39 @@ fn snapshot_decoding_returns_the_planted_forced_inclusion_head_and_tail() {
     }
 }
 
-/// The start record holds validator-state hash 0 (STOR-B-9); a later record's word 4 is carried
-/// into the snapshot as stored.
+/// A landing may end at any height (LAND-6.1-5): the decoder accepts the three-word slot 285
+/// record (STOR-B-9) at every height above the start, heights off the retired grid included, and
+/// proves no fourth word. A Comet hash of 0 above the start, or a parent at or above the
+/// checkpoint, is refused.
 #[test]
-fn snapshot_decoding_requires_a_zero_validator_state_word_at_the_start() {
-    let decode = |planted: &LandingSnapshot, params: &ChainParams| {
-        super::decode_snapshot(
-            planted.l1_header.clone(),
-            planted.inbox_witness.clone(),
-            planted.l1_chain_id,
-            planted.l2_chain_id,
-            params,
-        )
-    };
-    let start = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
-    let planted = start.snapshot_with_val_state_word(B256::repeat_byte(0x4e));
-    let error = decode(&planted, &start.params).unwrap_err();
-    assert!(matches!(error, LanderError::Safety(_)), "{error}");
-    let zero = start.snapshot_with_val_state_word(B256::ZERO);
-    assert_eq!(decode(&zero, &start.params).unwrap().checkpoint_val_state_hash, B256::ZERO);
-
-    let later = crate::test_utils::consensus_mpt::Fixture::new(6, 12);
-    assert_ne!(later.snapshot.checkpoint_val_state_hash, B256::ZERO);
-    assert_eq!(decode(&later.snapshot, &later.params).unwrap(), later.snapshot);
-    let planted = later.snapshot_with_val_state_word(B256::repeat_byte(0x4e));
-    assert_eq!(
-        decode(&planted, &later.params).unwrap().checkpoint_val_state_hash,
-        B256::repeat_byte(0x4e)
-    );
-    // The word is authenticated: a value beside the proof is a contradiction, not a hint.
-    let claimed = LandingSnapshot { checkpoint_val_state_hash: B256::repeat_byte(0x4f), ..planted };
-    assert!(matches!(
-        super::authenticate_snapshot(&claimed, &later.params),
-        Err(LanderError::Safety(_))
-    ));
-}
-
-/// Shared grid membership drives the real snapshot decoder for the supported S=0 deployment.
-#[test]
-fn snapshot_grid_membership_matches_shared_fresh_deployment_vectors() {
-    use crate::test_utils::vectors;
+fn snapshot_decodes_a_three_word_record_at_any_height() {
     use abci::l1::layout::inbox;
     let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
-    for index in 0..vectors::len_at("/cuts/grid_points") {
-        let path = |field: &str| format!("/cuts/grid_points/{index}/{field}");
-        if vectors::u64_at(&path("etna_start")) != 0 {
-            continue;
-        }
-        let height = vectors::u64_at(&path("height"));
-        let landing = inbox::landing_slots(height);
-        let planted = fixture.snapshot_with_inbox_words([
-            (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height)),
-            (landing[0], U256::ZERO),
-            (landing[1], fixture.snapshot.checkpoint_hash.into()),
-            (landing[2], if height == 0 { U256::ZERO } else { U256::from(7) }),
-            (landing[3], if height == 0 { U256::ZERO } else { U256::from(8) }),
-        ]);
-        let result = super::decode_snapshot(
-            planted.l1_header,
-            planted.inbox_witness,
-            planted.l1_chain_id,
-            planted.l2_chain_id,
-            &fixture.params,
-        );
-        let on_grid = vectors::vectors().pointer(&path("on_grid")).unwrap().as_bool().unwrap();
-        assert_eq!(result.is_ok(), on_grid, "height {height}: {result:?}");
-        if !on_grid {
-            assert!(matches!(result, Err(LanderError::Safety(_))));
+    for height in 1..=13u64 {
+        let landing = inbox::landing_record_slots(height);
+        let fourth = B256::from(U256::from_be_bytes(landing[2].0) + U256::from(1));
+        assert!(!super::snapshot_landing_slots(height).contains(&fourth));
+        let decode = |parent: u64, comet: u64| {
+            let planted = fixture.snapshot_with_inbox_words([
+                (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height)),
+                (landing[0], U256::from(parent)),
+                (landing[1], fixture.snapshot.checkpoint_hash.into()),
+                (landing[2], U256::from(comet)),
+            ]);
+            super::decode_snapshot(
+                planted.l1_header,
+                planted.inbox_witness,
+                planted.l1_chain_id,
+                planted.l2_chain_id,
+                &fixture.params,
+            )
+        };
+        let decoded = decode(height - 1, 7).unwrap();
+        assert_eq!(decoded.checkpoint_height, height);
+        assert_eq!(decoded.checkpoint_comet_hash, B256::from(U256::from(7)));
+        for (parent, comet) in [(height - 1, 0), (height, 7)] {
+            let result = decode(parent, comet);
+            assert!(matches!(result, Err(LanderError::Safety(_))), "{height}: {result:?}");
         }
     }
 }
@@ -634,7 +600,7 @@ fn snapshot_decodes_the_shared_landing_word_and_rejects_each_contradictory_field
                 inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL),
                 U256::from(head) | (U256::from(head) << 48),
             ),
-            (inbox::landing_slots(height)[0], word),
+            (inbox::landing_record_slots(height)[0], word),
         ]);
         super::decode_snapshot(
             planted.l1_header,
@@ -666,7 +632,7 @@ fn nonzero_etna_start_requires_switch_configuration() {
     let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 2);
     let start = 1000;
     let g = &fixture.snapshot.genesis;
-    let landing = inbox::landing_slots(start);
+    let landing = inbox::landing_record_slots(start);
     let planted = fixture.snapshot_with_inbox_words([
         (
             inbox::slot(inbox::GENESIS_PACKED),
@@ -677,7 +643,6 @@ fn nonzero_etna_start_requires_switch_configuration() {
         (landing[0], U256::from(start)),
         (landing[1], g.genesis_hash.into()),
         (landing[2], U256::ZERO),
-        (landing[3], U256::ZERO),
     ]);
     let decode = |params: &ChainParams| {
         super::decode_snapshot(
@@ -926,7 +891,6 @@ async fn v1_deployment_reads_only_checked_getters_and_max_batch_blocks() {
                 answer!(l2ChainIdCall, U256::from(chain_id));
                 answer!(stakingRegistryCall, registry);
                 answer!(committeeConfigHashCall, if mode == 5 { B256::ZERO } else { config });
-                answer!(GRID_INTERVALCall, U256::from(if mode == 7 { 12 } else { 6 }));
                 answer!(maxBatchBlocksCall, U256::from(120));
                 // Even though this deployment can be paused, landing is not pause-gated.
                 answer!(pausedCall, mode == 1);
@@ -948,10 +912,10 @@ async fn v1_deployment_reads_only_checked_getters_and_max_batch_blocks() {
             source.deployment(snapshot).await.unwrap(),
             crate::l1::Deployment { max_batch_blocks: 120 }
         );
-        assert_eq!(calls() - before, 7, "exactly the seven checked getters, no eth_getCode");
+        assert_eq!(calls() - before, 6, "exactly the six checked getters, no eth_getCode");
     }
     assert!(server.requests.lock().unwrap().iter().all(|request| request["method"] == "eth_call"));
-    for invalid in [3, 5, 7] {
+    for invalid in [3, 5] {
         mode.store(invalid, Ordering::Relaxed);
         assert!(matches!(
             source.deployment(&fixture.snapshot).await,

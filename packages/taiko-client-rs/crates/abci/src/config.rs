@@ -7,11 +7,6 @@ use serde::{Deserialize, Deserializer, de};
 /// The largest committee size accepted by the registry discovery and consensus bounds.
 pub const MAX_N_MAX: usize = 4096;
 
-/// `K`, the retired landing grid interval in L2 blocks (the older Inbox's `GRID_INTERVAL`). The
-/// app no longer uses it: a landing may end at any height (LAND-6.1-5) and U need not be a
-/// multiple of it. It remains only for the lander until R5 removes it.
-pub const GRID_INTERVAL: u64 = 6;
-
 /// Deployment constants for authenticating an Unzen to Etna switch (SPEC PARAM-11-12a).
 /// Production networks compile these values into their chain parameters; private devnets may
 /// set the explicit `[switch]` TOML table before creating the signing domain.

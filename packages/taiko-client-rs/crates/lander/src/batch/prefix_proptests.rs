@@ -190,13 +190,13 @@ fn builder(
 proptest! {
     #![proptest_config(ProptestConfig { cases: 32, ..ProptestConfig::default() })]
 
-    /// Selection returns an exact consecutive prefix ending on a grid point within every capacity
-    /// bound, never above the configured or the deployed batch limit.
-    /// Admitting the first block prevents a first-block capacity error; admitting all six candidate
-    /// prefixes with enough deflate work guarantees a nonempty grid segment. Random capacities
-    /// and work budgets also exercise the legitimate empty result below the next grid endpoint.
+    /// Selection returns an exact consecutive prefix within every capacity bound, never above the
+    /// configured or the deployed batch limit, and ending at any height (LAND-6.1-5).
+    /// Admitting the first block prevents a first-block capacity error, and sizing the first
+    /// block is never refused for deflate work, so the prefix is never empty. Random capacities
+    /// and work budgets also exercise prefixes shorter than the limits.
     #[test]
-    fn selected_prefix_is_a_bounded_grid_prefix_and_publishes_an_admitted_segment(
+    fn selected_prefix_is_a_bounded_prefix_and_publishes_an_admitted_block(
         chain in decided_chain(),
         room in room(),
         blob_bound in any::<bool>(),
@@ -215,22 +215,7 @@ proptest! {
             max_decompressed_bytes: COMET_BLOCK_MAX_BYTES * max_blocks,
         };
         let admitted = measure <= capacity(&limits);
-        // Independent sufficient condition: every candidate encoding up to one grid segment fits,
-        // and even charging
-        // every candidate's entire inflated list stays inside the deflate-work budget.
-        let grid = abci::GRID_INTERVAL as usize;
         let cap = max_blocks.min(usize::try_from(max_batch_blocks).unwrap_or(usize::MAX));
-        let mut segment_admitted = cap >= grid;
-        let mut work = 0;
-        for count in 1..=grid {
-            match codec::encode(&chain[..count], &limits) {
-                Ok(payload) if blob::required_blobs(payload.len()) <= limits.max_blobs => {
-                    work += crate::compression::zlib_inflate_exact(&payload[1..], usize::MAX)?.len();
-                }
-                _ => segment_admitted = false,
-            }
-        }
-        segment_admitted &= work <= deflate_bytes;
         let decided = chain.len();
         let builder = builder(chain.clone(), limits, max_batch_blocks, deflate_bytes);
         let runtime = tokio::runtime::Builder::new_current_thread().build()?;
@@ -239,9 +224,7 @@ proptest! {
             Ok(prefix) => {
                 let selected = prefix.blocks.len();
                 prop_assert!(selected <= cap.min(decided));
-                prop_assert_eq!(selected % grid, 0);
-                prop_assert!(!segment_admitted || selected >= grid);
-                if selected == 0 { return Ok(()); }
+                prop_assert!(selected >= 1);
                 prop_assert_eq!(&prefix.blocks[..], &chain[..selected]);
                 let (blocks, payload) = runtime.block_on(builder.payload(prefix))?;
                 prop_assert!(payload.len() <= limits.max_payload_bytes);

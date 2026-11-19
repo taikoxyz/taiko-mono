@@ -14,7 +14,7 @@ use std::{
 };
 
 /// Journal schema version; any other version is refused with its file unchanged (START-10-24).
-const JOURNAL_VERSION: u8 = 18;
+const JOURNAL_VERSION: u8 = 19;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -641,17 +641,7 @@ mod tests {
                 .state_root;
         large.batch.input.lastCometHash =
             B256::from_slice(large.batch.blocks.last().unwrap().block.header.hash().as_bytes());
-        large.batch.leaves = vec![crate::statement::cut_leaf(
-            6,
-            abci::EtnaEnvelope::decode(&large.batch.blocks[5].block.data[0])
-                .unwrap()
-                .block
-                .header
-                .hash_slow(),
-            B256::from_slice(large.batch.blocks[5].block.header.hash().as_bytes()),
-            0,
-            crate::test_utils::runtime::val_states(&large.batch.start_val_state, 6)[6].hash(),
-        )];
+        large.batch.leaves = crate::test_utils::runtime::leaves(&large.batch.blocks);
         let payload = crate::codec::encode(&large.batch.blocks, &cap).unwrap();
         rebind(&mut large, &payload);
         let list_growth = list_len(&large) - list_len(&small);

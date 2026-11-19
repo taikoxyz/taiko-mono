@@ -2,7 +2,6 @@
 
 use std::{path::PathBuf, time::Duration};
 
-use abci::GRID_INTERVAL;
 use url::Url;
 
 use crate::{
@@ -139,11 +138,6 @@ impl LanderConfig {
     /// Validate every local invariant before opening RPCs or reading a signing key.
     pub fn validate(&self) -> Result<()> {
         self.limits.validate()?;
-        if self.limits.max_blocks < GRID_INTERVAL as usize {
-            return Err(LanderError::Configuration(format!(
-                "maximum batch blocks must fit a {GRID_INTERVAL}-block grid segment"
-            )));
-        }
         self.batch_policy.validate()?;
         if self.batch_policy.min_blocks > self.limits.max_blocks {
             return Err(LanderError::Configuration(
@@ -216,16 +210,19 @@ mod tests {
         }
     }
 
+    /// A landing may end at any height (LAND-6.1-5), so a one-block batch limit is valid; only
+    /// zero is refused.
     #[test]
-    fn v1_operator_limit_must_fit_one_grid_segment() {
-        for max_blocks in 1..6 {
+    fn operator_limit_of_one_block_is_valid() {
+        for max_blocks in 1..=7 {
             let mut config = valid();
             config.limits.max_blocks = max_blocks;
-            assert!(config.validate().is_err(), "limit {max_blocks} cannot publish a grid segment");
+            config.batch_policy.min_blocks = 1;
+            config.validate().unwrap();
         }
         let mut config = valid();
-        config.limits.max_blocks = 6;
-        config.validate().unwrap();
+        config.limits.max_blocks = 0;
+        assert!(config.validate().is_err());
     }
 
     #[test]

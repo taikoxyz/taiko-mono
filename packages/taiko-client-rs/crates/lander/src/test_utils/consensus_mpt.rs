@@ -215,19 +215,19 @@ struct Queue {
     entries: Vec<ForcedEntry>,
 }
 
-/// The fixture's L1 state: the Inbox with last checkpoint `(height, hash)` and its landing record
-/// (`endpoint`: height, EL, Comet and validator-state hashes), the genesis record
+/// The fixture's L1 state: the Inbox with last checkpoint `(height, hash)` and its three-word
+/// landing record (`endpoint`: height, EL and Comet hashes), the genesis record
 /// `genesis` and the forced inclusion queue `queue` (slots 280–281), and the registry holding
 /// `entries`.
 fn state_with_queue(
     params: &ChainParams,
     entries: &[RegistryEntry],
-    endpoint: (u64, B256, B256, B256),
+    endpoint: (u64, B256, B256),
     committees: &BTreeMap<u64, AuthenticatedCommittee>,
     genesis: &GenesisRecord,
     queue: &Queue,
 ) -> State {
-    let (height, hash, comet_hash, val_state_hash) = endpoint;
+    let (height, hash, comet_hash) = endpoint;
     let mut slots = vec![
         (inbox::slot(inbox::STATUS), U256::from(3)),
         (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height)),
@@ -261,12 +261,11 @@ fn state_with_queue(
         (origin[1], U256::from(genesis.l1_0)),
         (origin[2], U256::from(genesis.l1_0)),
     ]);
-    let landing = inbox::landing_slots(height);
+    let landing = inbox::landing_record_slots(height);
     slots.extend([
         (landing[0], U256::from(queue.head) << 96),
         (landing[1], hash.into()),
         (landing[2], comet_hash.into()),
-        (landing[3], val_state_hash.into()),
     ]);
     for entry in &queue.entries {
         let [hash, metadata] = inbox::forced_inclusion_entry_slots(entry.index);
@@ -516,30 +515,6 @@ impl Fixture {
         head: u64,
         tail: u64,
     ) -> LandingSnapshot {
-        self.replanted(genesis, head, tail, self.snapshot.checkpoint_val_state_hash)
-    }
-
-    /// The landing snapshot re-planted with `word` as the checkpoint record's word 4, its
-    /// validator-state hash, in the same way as [`Fixture::snapshot_with_forced_queue`].
-    pub fn snapshot_with_val_state_word(&self, word: B256) -> LandingSnapshot {
-        let snapshot = &self.snapshot;
-        self.replanted(
-            snapshot.genesis.clone(),
-            snapshot.forced_inclusion_head,
-            snapshot.forced_inclusion_tail,
-            word,
-        )
-    }
-
-    /// The landing snapshot re-planted with `genesis`, the queue's `(head, tail)` and the
-    /// checkpoint record's validator-state hash `val_state_hash`.
-    fn replanted(
-        &self,
-        genesis: GenesisRecord,
-        head: u64,
-        tail: u64,
-        val_state_hash: B256,
-    ) -> LandingSnapshot {
         let state = state_with_queue(
             &self.params,
             &self.registry_entries(),
@@ -547,7 +522,6 @@ impl Fixture {
                 self.snapshot.checkpoint_height,
                 self.snapshot.checkpoint_hash,
                 self.snapshot.checkpoint_comet_hash,
-                val_state_hash,
             ),
             &self.committees,
             &genesis,
@@ -559,7 +533,6 @@ impl Fixture {
             l1_block_hash: header.hash(),
             forced_inclusion_head: head,
             forced_inclusion_tail: tail,
-            checkpoint_val_state_hash: val_state_hash,
             inbox_witness: state.witness(
                 self.params.inbox,
                 &crate::l1::snapshot_landing_slots(self.snapshot.checkpoint_height),
@@ -759,14 +732,11 @@ impl Fixture {
             replay_val_states(&schedule, &committees, (0, &committees[&0].state), tip, |height| {
                 schedule.epoch_of(height)
             });
-        // The start record and the snapshot of an Etna start hold validator-state hash 0.
-        let val_state_hash =
-            |height: u64| if height == 0 { B256::ZERO } else { val_states[&height].hash() };
         let planted = plan.planted();
         let genesis_state = state_with_queue(
             &params,
             &entries,
-            (0, genesis.genesis_hash, B256::ZERO, B256::ZERO),
+            (0, genesis.genesis_hash, B256::ZERO),
             &committees,
             &genesis,
             &plan.queue(&planted, 10, 0),
@@ -811,7 +781,6 @@ impl Fixture {
                         blocks.get(&cp).map_or(B256::ZERO, |pair| {
                             B256::from_slice(pair.block.header.hash().as_bytes())
                         }),
-                        val_state_hash(cp),
                     ),
                     &committees,
                     &genesis,
@@ -968,7 +937,6 @@ impl Fixture {
                 blocks.get(&checkpoint).map_or(B256::ZERO, |pair: &CertifiedBlock| {
                     B256::from_slice(pair.block.header.hash().as_bytes())
                 }),
-                val_state_hash(checkpoint),
             ),
             &committees,
             &genesis,
@@ -994,7 +962,6 @@ impl Fixture {
                 .map_or(B256::ZERO, |pair: &CertifiedBlock| {
                     B256::from_slice(pair.block.header.hash().as_bytes())
                 }),
-            checkpoint_val_state_hash: val_state_hash(checkpoint),
             forced_inclusion_head: snapshot_queue.head,
             forced_inclusion_tail: snapshot_queue.tail,
             committee_config_hash: genesis.committee_config_hash,
@@ -1045,16 +1012,11 @@ impl CometSource for Fixture {
             .cloned()
             .ok_or_else(|| LanderError::Unavailable(format!("height {height} pruned")))
     }
-    /// As the app answers `/val_state/<height>`: grid heights after the generation origin only.
-    /// The lander must never ask for the origin, which has no sidecar.
+    /// As the app answers `/val_state/<height>`: any height it has committed.
     async fn val_state(&self, height: u64) -> Result<Vec<u8>> {
-        assert_ne!(height, self.snapshot.origin_height(), "queried the generation origin");
         let answer = match self.val_state_answers.get(&height) {
             Some(answer) => answer.clone(),
-            None => height
-                .is_multiple_of(abci::GRID_INTERVAL)
-                .then(|| self.val_states.get(&height).map(ValState::encode))
-                .flatten(),
+            None => self.val_states.get(&height).map(ValState::encode),
         };
         answer.ok_or_else(|| {
             LanderError::Temporary(format!("the app rejects the validator state query at {height}"))
@@ -1265,12 +1227,10 @@ mod readiness {
             inbox::slot(inbox::LAST_CHECKPOINT_HASH),
             fixture.snapshot.checkpoint_hash.into(),
         );
-        fixture.snapshot.checkpoint_val_state_hash = fixture.val_states[&height].hash();
-        let landing = inbox::landing_slots(height);
+        let landing = inbox::landing_record_slots(height);
         slots.insert(landing[0], U256::from(fixture.snapshot.forced_inclusion_head) << 96);
         slots.insert(landing[1], fixture.snapshot.checkpoint_hash.into());
         slots.insert(landing[2], fixture.snapshot.checkpoint_comet_hash.into());
-        slots.insert(landing[3], fixture.snapshot.checkpoint_val_state_hash.into());
         let state = State::new(
             accounts
                 .into_iter()
@@ -1321,7 +1281,7 @@ mod readiness {
         let fixture = Arc::new(fixture);
         let observed =
             builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await.unwrap();
-        assert_eq!(observed.observation.publishable_blocks, 6);
+        assert_eq!(observed.observation.publishable_blocks, 11);
         // U=20, tip=20, tip anchor CP=1: depth 19 forces publication despite latest CP=19.
         assert!(observed.observation.force_back_pressure);
         assert!(!observed.observation.force_epoch);
@@ -1336,7 +1296,7 @@ mod readiness {
             builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await.unwrap();
         // U=20, tip=19, tip anchor CP=1: depth 18 stays below the urgent threshold.
         assert_eq!(observed.observation.decided_height, 16);
-        assert_eq!(observed.observation.publishable_blocks, 6);
+        assert_eq!(observed.observation.publishable_blocks, 10);
         assert!(!observed.observation.force_back_pressure);
         assert!(!observed.observation.force_epoch);
     }
@@ -1348,16 +1308,16 @@ mod readiness {
         bound.max_blobs = 1;
         let observed = builder(fixture.clone(), bound).observe(&fixture.snapshot).await.unwrap();
         assert_eq!(observed.observation.decided_height, 30);
-        assert_eq!(observed.observation.publishable_blocks, 0);
-        assert!(observed.observation.force_epoch); // h_first(1)=25 is beyond the single-block prefix at 21.
-        assert!(!observed.observation.force_back_pressure); // The tip anchor CP=20 gives depth 6 < 19.
-        assert!(
-            builder(fixture.clone(), bound)
-                .prepare(fixture.snapshot.clone())
-                .await
-                .unwrap()
-                .is_none()
-        );
+        assert_eq!(observed.observation.publishable_blocks, 1);
+        assert!(observed.observation.force_epoch); // h_first(1) is beyond the single-block prefix at 19.
+        assert!(!observed.observation.force_back_pressure); // The tip anchor CP=18 gives depth 12 < 17.
+        let request = builder(fixture.clone(), bound)
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .expect("the single block above the checkpoint lands");
+        assert_eq!(request.batch.blocks.len(), 1);
+        assert!(request.batch.leaves.is_empty());
     }
 
     #[tokio::test]
@@ -1366,7 +1326,13 @@ mod readiness {
         let mut bound = limits(12);
         bound.max_blobs = 1;
         let observed = builder(fixture.clone(), bound).observe(&fixture.snapshot).await.unwrap();
-        assert_eq!(observed.observation.publishable_blocks, 0);
+        assert_eq!(observed.observation.publishable_blocks, 1);
+        let request = builder(fixture.clone(), bound)
+            .prepare(fixture.snapshot.clone())
+            .await
+            .unwrap()
+            .expect("one block fits one blob");
+        assert_eq!(request.batch.blocks.len(), 1);
         let first = codec::encode(&[fixture.blocks[&1].clone()], &bound).unwrap();
         assert_eq!(blob::required_blobs(first.len()), 1);
         bound.max_payload_bytes = first.len() - 1;
@@ -1383,7 +1349,7 @@ mod readiness {
                 .unwrap()
                 .observation
                 .publishable_blocks,
-            0
+            2
         );
         bound.max_message_bytes = 1;
         assert!(matches!(
@@ -1411,7 +1377,7 @@ mod readiness {
                 } else {
                     assert_eq!(
                         observed.unwrap().observation.publishable_blocks,
-                        expected / 6 * 6,
+                        expected,
                         "{bound:?}"
                     );
                 }
@@ -1427,10 +1393,10 @@ mod readiness {
         for (budget, expected) in [
             (usize::MAX, 12),
             (lists[11], 12),
-            (lists[11] - 1, 6),
+            (lists[11] - 1, 11),
             (lists[5], 6),
-            (lists[5] - 1, 0),
-            (lists[0], 0),
+            (lists[5] - 1, 5),
+            (lists[0], 1),
         ] {
             let observed = builder(fixture.clone(), bound)
                 .with_selection_budgets(budget, usize::MAX)
@@ -1475,7 +1441,7 @@ mod readiness {
         let six: usize = lists[1..6].iter().sum();
         let twelve: usize = lists[1..].iter().sum();
         for (budget, expected) in
-            [(0, 0), (six - 1, 0), (six, 6), (twelve - 1, 6), (twelve, 12), (usize::MAX, 12)]
+            [(0, 1), (six - 1, 5), (six, 6), (twelve - 1, 11), (twelve, 12), (usize::MAX, 12)]
         {
             let observed = builder(fixture.clone(), bound)
                 .with_selection_budgets(usize::MAX, budget)
@@ -1525,7 +1491,7 @@ mod readiness {
             let fixture = Arc::new(fixture);
             let observed =
                 builder(fixture.clone(), limits(1)).observe(&fixture.snapshot).await.unwrap();
-            assert_eq!(observed.observation.publishable_blocks, 0);
+            assert_eq!(observed.observation.publishable_blocks, 1);
             assert_eq!(observed.observation.force_back_pressure, pressure);
             assert!(matches!(
                 builder(fixture.clone(), limits(12)).prepare(fixture.snapshot.clone()).await,

@@ -3,12 +3,11 @@ mod support;
 
 use alloy::{consensus::Transaction, rpc::types::TransactionReceipt, sol_types::SolCall};
 use alloy_eips::eip2718::Encodable2718;
-use alloy_primitives::{B256, Bytes, U256, keccak256};
+use alloy_primitives::{B256, Bytes, U256};
 use alloy_provider::Provider;
 use anyhow::{Context, Result};
 use lander::{
     DummyProofProvider, ProofProvider, ProofRequest, SidecarMode,
-    comet::CometSource,
     contracts::IEtnaInbox::landCall,
     tx::{FeeCaps, RpcTransactionTransport, SignedTransaction, TransactionTransport},
 };
@@ -42,31 +41,8 @@ async fn sign(fixture: &ContractFixture, request: &ProofRequest) -> Result<Signe
     Ok(signed)
 }
 
-/// Asserts that the Inbox's landing record at `height` holds, as its validator-state word, the
-/// hash of the validator state the app serves there (`/val_state/<height>`).
-async fn assert_landed_val_state(
-    fixture: &ContractFixture,
-    chain: &FixtureChain,
-    height: u64,
-) -> Result<()> {
-    let record = view(
-        &fixture.anvil.provider,
-        fixture.inbox,
-        EtnaInbox::landingsCall { _height: U256::from(height) },
-        None,
-    )
-    .await?;
-    assert_eq!(
-        record.valStateHash,
-        keccak256(chain.val_state(height).await?),
-        "validator-state word at landed height {height}"
-    );
-    Ok(())
-}
-
 async fn assert_landed(
     fixture: &ContractFixture,
-    chain: &FixtureChain,
     request: &ProofRequest,
     signed: &SignedTransaction,
 ) -> Result<TransactionReceipt> {
@@ -103,7 +79,7 @@ async fn assert_landed(
         fixture.checkpoint().await?,
         (request.batch.input.lastHeight.to(), request.batch.input.lastBlockHash)
     );
-    // The landed record holds the terminal EL, Comet and validator-state hashes (STOR-B-9).
+    // The landed record holds the terminal EL and Comet hashes (STOR-B-9).
     let record = view(
         p,
         fixture.inbox,
@@ -112,14 +88,13 @@ async fn assert_landed(
     )
     .await?;
     assert_eq!(
-        (record.elHash, record.cometHash, record.valStateHash),
+        (record.parentHeight, record.elHash, record.cometHash),
         (
+            request.batch.input.parentHeight.to(),
             request.batch.input.lastBlockHash,
-            request.batch.input.lastCometHash,
-            request.batch.input.lastValStateHash
+            request.batch.input.lastCometHash
         )
     );
-    assert_landed_val_state(fixture, chain, request.batch.input.lastHeight.to()).await?;
     let saved = view(
         p,
         fixture.signal,
@@ -145,7 +120,7 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     assert_eq!(first.batch.committees.len(), 1);
     fixture.expect_statement(first.batch.statement_hash).await?;
     let signed = sign(&fixture, &first).await?;
-    assert_landed(&fixture, &chain, &first, &signed).await?;
+    assert_landed(&fixture, &first, &signed).await?;
     // Land exactly D, then mutate the registry after the immutable derivation snapshot.
     let schedule = abci::Schedule::from_genesis(&fixture.genesis);
     let (derivation_height, switch_height, activation_height) = (12, 13, 15);
@@ -156,7 +131,7 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     chain.extend(&fixture, derivation_height).await?;
     let derivation = chain.prepare(&fixture, derivation_height, SidecarMode::Eip7594).await?;
     fixture.expect_statement(derivation.batch.statement_hash).await?;
-    assert_landed(&fixture, &chain, &derivation, &sign(&fixture, &derivation).await?).await?;
+    assert_landed(&fixture, &derivation, &sign(&fixture, &derivation).await?).await?;
     let exit = transact(
         &fixture.anvil.provider,
         dev_signer().address(),
@@ -223,7 +198,7 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
             assert!(storage[0].value > U256::from(witness.record.checkpoint_index) + U256::from(1));
         }
         fixture.expect_statement(next.batch.statement_hash).await?;
-        assert_landed(&fixture, &chain, &next, &sign(&fixture, &next).await?).await?;
+        assert_landed(&fixture, &next, &sign(&fixture, &next).await?).await?;
     }
     fixture.anvil.stop().await
 }
@@ -275,7 +250,7 @@ async fn lander_actual_contract_forced_inclusion_lands_and_fee_is_swept_to_treas
     assert_eq!(request.batch.input.forcedInclusionHead, U256::from(1));
     fixture.expect_statement(request.batch.statement_hash).await?;
     let signed = sign(&fixture, &request).await?;
-    assert_landed(&fixture, &chain, &request, &signed).await?;
+    assert_landed(&fixture, &request, &signed).await?;
 
     assert_eq!(fixture.forced_inclusion_state().await?, (1, 1));
     assert_eq!(
@@ -367,7 +342,8 @@ async fn lander_competing_sender_partial_progress_keeps_original_signed_batch() 
     other.broadcast(&tx).await?;
     assert!(receipt(&fixture.anvil.provider, tx.hash).await?.status());
     assert_eq!(fixture.checkpoint().await?.0, 6);
-    // The original's leaf at 6 recomputes from c's record, its validator-state word included.
+    // One leaf per interior height: the original's leaf at c=6 sits at index c-p-1=5 and
+    // recomputes from c's three-word record.
     let at_c = view(
         &fixture.anvil.provider,
         fixture.inbox,
@@ -375,17 +351,14 @@ async fn lander_competing_sender_partial_progress_keeps_original_signed_batch() 
         None,
     )
     .await?;
-    assert_eq!(at_c.valStateHash, prefix.batch.input.lastValStateHash);
-    assert_landed_val_state(&fixture, &chain, 6).await?;
+    assert_eq!(original.batch.leaves.len(), 11);
     assert_eq!(
-        original.batch.leaves[0],
-        lander::statement::cut_leaf(
-            6,
-            at_c.elHash,
-            at_c.cometHash,
-            at_c.head.to::<u64>(),
-            at_c.valStateHash
-        )
+        (at_c.elHash, at_c.cometHash),
+        (prefix.batch.input.lastBlockHash, prefix.batch.input.lastCometHash)
+    );
+    assert_eq!(
+        original.batch.leaves[5],
+        lander::statement::cut_leaf(6, at_c.elHash, at_c.cometHash, at_c.head.to::<u64>())
     );
     fixture.expect_statement(original.batch.statement_hash).await?;
     transport(&fixture)?.broadcast(&signed).await?;
@@ -398,7 +371,6 @@ async fn lander_competing_sender_partial_progress_keeps_original_signed_batch() 
     );
     assert_eq!(signed.network_bytes, bytes);
     assert_eq!(fixture.checkpoint().await?.0, 12);
-    assert_landed_val_state(&fixture, &chain, 12).await?;
     fixture.anvil.stop().await
 }
 

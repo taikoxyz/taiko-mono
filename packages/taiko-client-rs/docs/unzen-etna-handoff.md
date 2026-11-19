@@ -74,8 +74,8 @@ history and blobs. No signing state is reset by this command.
 
 ## First landing
 
-Run the lander with the same switching chain configuration and public L1/L2 endpoints. Its
-landing endpoints are S+nK, where K is GRID_INTERVAL; global epoch boundaries remain unchanged.
+Run the lander with the same switching chain configuration and public L1/L2 endpoints. A
+landing may end at any height above S; global epoch boundaries remain unchanged.
 The initial validators are committee 0 until an actual post-S switch takes effect.
 
 While the Inbox checkpoint is S, the lander waits for every accepted Unzen proposal to finalize,
@@ -90,7 +90,7 @@ available until the first landing. The included DummyProofProvider remains suita
 development deployments; a real backend must verify this witness as well as the remaining
 private inputs.
 
-Lander journal schema 18 includes this witness. Older journals are refused, never rewritten.
+Lander journal schema 19 includes this witness. Older journals are refused, never rewritten.
 Resolve outstanding signed jobs with their compatible lander before upgrading. Nonzero-S
 [checkpoint import/export](checkpoint-import.md) preserves the fixed Comet genesis and uses the
 original EL block-zero chainspec independently of the Etna start hash at S.
