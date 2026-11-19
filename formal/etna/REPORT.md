@@ -6421,3 +6421,119 @@ L1/EL/guest/import and real proving/deployment remain unverified. W02 R01, W06 P
 full recovery Q01 and all19 archived INCONCLUSIVE searches keep their dispositions.
 No natural protocol defect was confirmed. Selected Y01–Y04 are complete; Y05–Y07
 and the accumulated final gates remain, with no automatic eighth.
+
+
+## Y05 positional snapshots and final-R selection
+
+Date: 2026-11-20. Selected code `6164ec9dc11563f9f949c0e47e79978256fc4c1e`; normative bundle remains
+`2e6763e21bc236cfcda6011d164b32040f9e0c8d`, actual main
+`ce6d1887955343395305b5b1d89901816bd61a07`. Model SHA-256
+`107e2f032abc85014e852d03e43565812d1f5c44cfea4b86792f2d8190423b20`.
+See the [source map, byte interfaces and limits](conformance/REGISTRY_SNAPSHOT.md).
+
+The selected graph has two slots, three issued lifetimes and one unissued id,
+blocks1..8 and unit delays. A/B register1, A exits2/effective3; a mocked proved
+terminal snapshot3 lands4, then confirmation4 allows withdrawal/reuse5. C becomes
+active/topUps6 and explicitly activates7. Recovery before or after that activation
+selects the same final closed R7 committee(C5/power2). B's later activation gives
+B6/power3 at R8 without rewriting origin7. Recovery retains landed snapshot3;
+actual Land consumes its terminal snapshot7, and the offered later snapshot8
+refuses. Final-R model selection represents external end-block derivation, not
+an Inbox slot290 write deferred until block close.
+
+The valid exclusion names issued withdrawn A0/key0; it preserves earlier exit3
+and never targets the new slot0 occupant C2. A valid B prefix followed by unissued
+id3, wrong old key, and descending ids each reject the entire state. All initial,
+call, decision, business, snapshot and observer fields are independently replayed.
+Main block5's hole is transient before same-block reuse. A separate route closes5
+with slot0 empty and slot1 surviving, registers C6, tops up7 and activates8; its
+full30-edge progress witness is separate from the earlier15-edge hole witness.
+Both full routes explicitly close8, including at the finite horizon.
+
+| Actual TLC observation | Required and observed outcome |
+| --- | --- |
+| Primary original/restored safety | Native0/Finished,625 generated,289 distinct,queue0 each |
+| Primary main progress and both R7 orders | Native12 named witnesses,32 full transitions and8 actual closes each |
+| Primary closed-hole / alternate full progress | Native12,15 transitions/5closes and30 transitions/8closes respectively |
+| Primary wrong old-id-to-occupant source | Native12 OldIdentitySafe,21 fully replayed transitions; C2 incorrectly exits7 while old withdrawn A0 keeps exit3 |
+| Independent original/restored progress | Native12 NoProgress,32 full transitions each; complete observations and143 literal checkpoint refinements match byte-for-byte |
+| Independent omitted-Close8 source | Actual31-edge matured block8 prefix, then separate native0/Finished NoProgress-unviolated graph597 generated/273 distinct/queue0 |
+
+The primary control changes only ExitTarget in one private physical model file.
+The independent control changes only Close's allowed block range1..8 to1..7;
+its observation-only wrapper adds no transition. The full omitted graph and the
+actual matured R8 prefix jointly discriminate the missing action; the prefix
+alone is not exhaustive progress evidence. Both copies restore exact original
+bytes, inode and mode. The primary fault remains a diagnostic with NOT_ATTRIBUTED,
+not a current protocol-pass claim. These are deliberately introduced controls,
+not natural protocol defects.
+
+Independent raw/provenance review reconsumed all9 primary phases with a separate
+source-derived World. It bound actual before/execution/collector/restoration,
+complete argv/cwd, raw hashes, all33original inputs, module/profile and exact
+native result. The entire21-edge faulty prefix, both32-edge order witnesses,
+closed-hole/full alternate and every adjacent state were checked. Healthy genuine
+API calls passed before/after16 unchanged-native metadata/profile negatives,
+including genuine safety0 versus booleanFalse, duplicate JSON, source/config
+substitution, wrong fixed claim and a genuine same-NoProgress sibling profile
+combined with main-route bytes. The final read-only packet's133input identities,
+sealed modes and22tool/startup/managed-link guards stayed stable. No extra Java
+run was used for these API negatives.
+
+A shared verification premise was wrong initially: author test literals, the
+unexecuted producer and the independent draft read quoted ENC37/39 tags as dynamic
+ABI strings. Root's initial test review missed the same global ENC-A-5 rule.
+The accepted brief/design/plan did not require that interpretation. Separate
+source review caught it before a positive byte/native claim. Focused genuine
+code RED ran7methods/9expected assertion failures, zero errors/skips; one
+consolidated fix makes tags right-zero-padded bytes32. Final34tests pass, including
+literal224-byte regLeaf and128-byte setKey preimages, dynamic anti-vectors and
+actual tie-ranking discriminators across distinct domains. Same-finder source
+rereview passed. Separate authors alone had not produced independent assumptions;
+reading the global encoding rule and comparing a real executable component did.
+
+The independent reader also walked the already retained genuine Y04 EVM journal,
+without importing its semantic observer. Fixed-tag roots and packed checkpoint
+words match actual registerA, registerB and withdrawal-with-internal-hole vectors:
+`127f676de3068bcb8bf2dce40cc698fb6b1ca017ca1c81f2e71a0d6ac49f9813`,
+`bdf5b131f049442d69469dc2e1f0ba4e5a3158d4f573c91bef3897a764c2220e`,
+`23ee3a3f413d324d11cc3e4c82dc9e6b641458f7f9419a64cdecb3c51f9fa824`.
+Former dynamic-tag counter-roots, compaction and raw-zero internal leaves differ.
+The current pure byte API separately matches those3 actual EVM vectors, true
+width3-to4 padding, exact entry packing,3fixed128-byte setKeys,7independent
+selection vectors and3invalid-set cases. This uses historical89f4199's unchanged
+encoding component; it does not prove current Registry admission or trimming.
+W02's symbolic occupancy count is explicitly distinguished from ABI prefix width;
+all older model/config/raw bytes and their selected all-slot properties remain.
+
+Native syntax was checked earlier with SANY before adapter expansion. All14actual
+TLC phases(9primary/5independent) and the final raw/API gates met their fixed
+outcomes and bounds, without retries or cap increases. An EVM reader preflight
+import-path issue stayed UNRUN; a later reader incorrectly mapped registration
+row3 to key-table index3 rather than source-defined row/2 and failed INCONCLUSIVE.
+The corrected source-guided read passed all3vectors, retaining that failed record.
+Earlier unexecuted wrong-tag oracle drafts and the weaker metadata packet remain
+preserved without positive credit. These private reader defects are distinct from
+the model's observed protocol operations and do not establish protocol defects.
+
+Candidate tree `22023c4bfc60e35b8eb5a448214b08e54982af6c` and actual-main merge
+`b00c6161922b8d5e4c00db79d448335785ea89a9` each pass582ordinary checks
+(396/166/20), zero failures/errors/skips. All1,919source/harness identities/modes
+and631pre-Y model/config identities remained stable. Ordinary readback SHA-256
+`579bc932dd7ad22268b0e16ec0d0bb370e1f157980b0994c9cf13b9a07a7a7b0`.
+Independent primary raw/API summary
+`a083dfb6c2f53912e860b47ad9e0d2ab2e0b3989bf3ca14065e7b2e91adf43f2`;
+independent final report
+`675b2a7a5fb411bb6e3331e8aa00f308aad1c26778ab0e33204013b00c3d1548`.
+The local prettier hook remains unavailable; LEFTHOOK=0 commits use these explicit
+checks and do not claim hook success.
+
+Symbolic s_min4/vp_unit2/n_max1 is an execution/selection component, not full
+RECOV8.1 governance dispersion. Concrete byte vectors use Q=10^23 and legal
+minStake/vp units. Authenticated width/L1 state, registered valid curve/PoP inputs
+and mocked proved terminal snapshots remain premises. There is no chosen trailing
+empty-slot trimming policy, actual current Registry/node/guest/import execution,
+full recovery authorization or proving/deployment claim. R01/P01/K01/Q01 and all19
+archived INCONCLUSIVE searches retain their limits. No natural protocol defect
+was confirmed. Selected Y01–Y05 are complete; Y06–Y07 and combined final gates
+remain, with no automatic eighth.

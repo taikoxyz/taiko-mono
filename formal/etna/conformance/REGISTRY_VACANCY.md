@@ -50,6 +50,11 @@ classify actual transitions and do not constrain call order.
   The no-exit sentinel 11 stands for the uint48 storage sentinel. The latest
   possible activation block is 9 and exit request can set at most 10.
 - Checkpoint count is observed as the number of represented occupied slots.
+  This is a symbolic occupancy observation, not the authenticated prefix width
+  called `count` in STOR-B-21. It cannot justify compacting holes in ABI entries.
+  The separate [Y05 positional component](REGISTRY_SNAPSHOT.md) checks that width
+  and its literal encoding; these older symbolic model/config/raw bytes remain
+  unchanged.
   The symbolic checkpoint carries the separate bond/occupancy identity for
   tracing, and its entries are a projection of the slotted fields. Hashes,
   packed layouts and concrete Merkle encodings require native correspondence.

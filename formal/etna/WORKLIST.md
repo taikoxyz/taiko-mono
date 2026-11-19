@@ -55,7 +55,7 @@ retain the frozen bounds, independent gates and explicit runtime premises.
 | Y02 | Repeated recovery at one nonzero checkpoint | COMPLETE selected code `e7d6128a1`; finite safety, full g2 progress, actual origin fault/restoration and independent dispatch omission passed. |
 | Y03 | Full ordered rule range and lossless software pause | COMPLETE selected code `9585e3fff`; finite safety, actual pause/full Land and both distinct rule-range faults/restorations passed. |
 | Y04 | Actual funded pending forfeiture component | COMPLETE selected code `ee18ad8e1`; closed15, actual pending-debit/deadline faults/restoration and independent full raw audits passed. |
-| Y05 | Positional registry snapshots and final-R selection | PENDING; width/holes, bond lifetime and block-close snapshots. |
+| Y05 | Positional registry snapshots and final-R selection | COMPLETE selected code `6164ec9dc`; finite289-state safety, both R7 orderings, actual distinct faults/restoration, literal/EVM/full-raw gates passed. |
 | Y06 | Actual terminal seen-commit reconstruction | PENDING; public signed votes, stock constructor/verifier/successor distinction. |
 | Y07 | Native evidence lifecycle and import markers | PENDING; cold/pending ages, gossip and reopened committed markers. |
 
@@ -88,8 +88,18 @@ records are checked against source-derived95-word and inherited8192-cell state.
 An actual pending-debit deletion and independent strict-deadline change were
 detected and restored; metadata negatives retain unchanged native bytes.
 Frame attribution blind spots were repaired before publication. Candidate and
-actual-main merge each pass548 ordinary checks. Selected Y01–Y04 are complete;
-Y05–Y07 and final combined gates remain. No natural protocol defect is confirmed.
+actual-main merge each pass548 ordinary checks. Selected Y01–Y04 evidence remains complete at its recorded scope. No natural protocol defect is confirmed.
+
+[Y05 evidence](REPORT.md#y05-positional-snapshots-and-final-r-selection) adds
+permanent old-bond exclusion after slot reuse, complete invalid-list refusal,
+final-R selection, both activation/recovery orders, later live state and actual
+terminal Land. The selected289-state graph exhausts; distinct wrong-occupant and
+missing-Close8 controls are observed/restored. Fixed bytes32 domain tags were
+corrected after a shared interpretation error; three genuine historical EVM roots
+separately confirm the unchanged encoding component. Current Registry admission,
+L1 authentication and full governance remain unverified. Candidate/main merge
+each pass582 ordinary checks. Selected Y01–Y05 are complete; Y06–Y07 and combined
+final gates remain, with no automatic eighth or broader R01/P01 closure.
 
 ## Completed W01–W07 batch
 

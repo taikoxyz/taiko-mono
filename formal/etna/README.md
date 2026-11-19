@@ -90,6 +90,14 @@ independently observed; complete frame/storage and financial audits passed.
 See [Y04 evidence](REPORT.md#y04-funded-forfeiture-and-payout-only-reuse).
 Mock Inbox/token and historical admission remain explicit boundaries.
 
+The [positional snapshot product](conformance/REGISTRY_SNAPSHOT.md) preserves
+slot holes and permanent bond identities, then selects from final closed R7
+rather than transaction-time or later live entries. Actual wrong-occupant and
+missing-Close8 controls were detected/restored. Three retained genuine EVM roots
+anchor the unchanged encoding component. See
+[Y05 evidence](REPORT.md#y05-positional-snapshots-and-final-r-selection).
+Actual current Registry/authentication and full governance remain unverified.
+
 ## Run
 
 The draft-enabled [TLC/Python workflow](../../.github/workflows/protocol--etna-tlc.yml)
