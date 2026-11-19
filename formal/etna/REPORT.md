@@ -5437,3 +5437,145 @@ Its retained pre-split broad TEST BLOCKED report is
 `08b000925a3c5b695552cf11d601afacde1a517bbcabfd6fe3bdb58ed969a565`.
 The split changes reporting acceptance, not any executed source, result or limit.
 Root tracks exact draft publication and effective-merge readback separately.
+
+## W03 closed supply capacity and covering landing
+
+W03 adds a separate current-rule model, raw-state observer and eight opt-in
+profiles. It consumes the exact W01 bundle at
+`2e6763e21bc236cfcda6011d164b32040f9e0c8d` and selects the
+`registry-supply-model/bounded-recycling` claim at the actual audit receipt.
+Source selection remains separate from native TLC evidence. The model does not
+change any historical Registry model, fixture or default TLC configuration.
+The [guide](conformance/REGISTRY_CAPACITY.md) maps its rules and assumptions.
+
+For nonnegative integer supply S and positive integer slot count N, the helper
+returns the least integer m with N\*m > S. At S=10^27 and N=4096, equality
+244140625000000000000000 fails; 244140625000000000000001 is the first valid
+value. An independent isolated caller checked nine exact vectors, predecessor/
+product certificates and thirteen invalid-domain cases, including bool and integer
+subclasses. This tests the actual Python helper, not a deployed constructor.
+
+The normalized operational ledger has supply 7, minimum stake 4, two slots and
+three lifetime identities. Liquid, effective/pending escrow, reporter and sink
+always sum to 7. Registration/top-up spend actual liquid; recycling debits the
+actual spendable reporter/sink account. Sink flows attributed to currently held
+bonds are distinct from old withdrawn bonds' flows and from the spendable sink
+balance. Without sink return, full occupancy satisfies the normalized strict bound
+4*(held principal + sink paid from current holders) > 3*supply. Fixed supply
+does not make full occupancy impossible after penalties and explicit recycling.
+
+The clocks below are L1 block numbers. Start sets coverage to an eligible closed
+genesis cutoff. Recovery records its execution block R while preserving coverage.
+Closing R freezes its final selection; only the modeled successful first landing
+using that nonempty frozen selection advances coverage. The power unit is one,
+so an eligible bond's power equals its effective stake. A valid normalized
+authorization can record R even when the final selection is empty; that Land
+then refuses. Real committee distribution, proof validity and DAO authorization
+are premises rather than executed protocol implementations.
+
+### Actual free-search results
+
+| Profile               | Generated / distinct / queued | Displayed transitions | Result                                                                                                                                                                        |
+| --------------------- | ----------------------------: | --------------------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Smoke, horizon 2      |                   75 / 10 / 0 |                     — | Completed pre-start-only ordinary checks.                                                                                                                                     |
+| No penalty, horizon 7 |            37,773 / 4,695 / 0 |                     — | Completed ordinary safety with no penalties or recycling; includes the two-way actual-offer audit.                                                                            |
+| Reporter saturation   |                 436 / 63 / 14 |                     7 | A's slash leaves reporter1/sink3/liquid3; returning reporter1 funds B4 while A0 and B4 both hold slots.                                                                       |
+| Sink saturation       |                 473 / 71 / 19 |                     7 | Forfeiture leaves A2; an actual sink2 return funds B4.                                                                                                                        |
+| Funded full refusal   |              1,450 / 167 / 49 |                    10 | Fresh key2 with liquid5 is refused atomically while both slots remain held; this is independent of liquidity scarcity.                                                        |
+| Stalled release       |        149,879 / 11,430 / 569 |                    15 | Closed R4 with B4 and elapsed time leave coverage2; confirmation, public withdrawal and a fresh full registration actually refuse.                                            |
+| Covered release       |           84,810 / 6,290 / 53 |                    16 | Land at5 covers R4; first confirmation at5, early withdrawal refusal at5, public zero withdrawal at6. A fresh registration still refuses with liquid0 despite the empty slot. |
+| Pending withdrawal    |     867,132 / 59,645 / 12,708 |                    16 | Top-up and forfeiture leave effective1/pending1; after landing and delay a public positive claim refuses and an owner-authorized call returns2 to pooled liquid.              |
+
+All seven main phases completed with matching source/config hashes and passing
+literal audits. The six witnesses use a VIEW retaining the entire operational
+record, frame result and all future-use flags; prior raw labels have no effect
+on future actions or endpoints. Their Next relation remains free. These named
+native-12 stops are reachability evidence, not queue exhaustion or liveness.
+An independent Python implementation re-read all seven genuine logs, checked
+native counts and complete typed Registry/call/flag frames, and qualified all
+71 displayed witness transitions and their actual causal edges. Each author
+witness also rejected changed expected Landing metadata on unchanged native bytes.
+
+### Operational controls and independent contrast
+
+The arithmetic control runs the exact targeted test in one scratch source copy
+as original0 → ceiling-mutant1 → restored0. The failure is the equality boundary
+assertion, with no import or setup error. The original/restored raw test outputs
+are identical. This is a Python policy-helper mutation, not a contract mutation.
+
+The actual premature-Confirm source mutation reads R instead of coverage. Its
+first bad transition is the seventh displayed edge: at open R3, coverage2,
+A's principal4 and requested exit3, it accepts public Confirm and changes only
+A.confirmed from0 to3. R has not closed (`recovery.at=0`), slot1 is vacant and
+no Land occurred. It is not the frozen-B4/zero-A progress topology. Native TLC
+stops at FramesExact, 610/156/90. The raw observer asserts the full typed bad
+Registry, call, frame flag and witness marks. Restoring source/cfg bytes and modes
+reproduces the original fifteen-frame stalled witness and its exact normalized trace.
+
+The independent verifier also executed ten native phases: a free-Next reporter
+original/fault/restored triplet; a directed actual-Land omission triplet; one
+before-R-close refusal; and an after-R-close/live-guard/restored triplet. Every
+native run stopped at its exact named invariant and every independent audit passed.
+Restored audit bytes matched each corresponding original.
+
+- Removing the reporter debit leaves actual liquid4/reporter1/sink3, total8.
+  Only the reporter balance diverges at the sixth displayed transition.
+- Removing the actual Offers Land branch leaves a poised nonempty frozen R4 with
+  coverage2. The invariant tests ENABLED on the unwrapped Next, independently of
+  the directed input program, and catches the missing accepted edge after fifteen
+  real transitions/refusals. The original/restored 22-edge program performs actual
+  landing, confirmation, delay, zero withdrawal and an unfunded fresh refusal.
+- Identical Land(4) inputs after B is slashed produce distinct valid outcomes:
+  slashing before R closes freezes an empty set and refuses at coverage2;
+  slashing after closure preserves frozen B4 and accepts coverage4 despite live
+  B0. Both histories have thirteen real transitions. Mutating the operational
+  Land guard to read current stake incorrectly refuses the latter, differing only
+  in acceptance and the missing coverage/landedAt writes. Restoration accepts again.
+
+The directed programs constrain only concrete offered inputs over the actual Next
+relation; they do not use expected outcomes to select actions. They are targeted
+edge/guard checks and have no free-graph exhaustion credit, even when the named
+native-12 stop has a zero queue. The independent parser's typed-value comparisons
+apply to the pinned integer-domain model outputs; they do not authenticate
+arbitrary externally supplied log text.
+
+### Defects repaired and remaining boundaries
+
+Source review removed an unsupported live-membership precheck from Recover;
+membership belongs to the final closed R and its later landing. Review also fixed
+a missing literal pending guard and a negative-frame checker that could conflate
+an unrelated Boolean and integer field. The driver now records skipped audits as
+NOT_RUN, stops on a failed phase and executes the arithmetic baseline in the same
+copy before mutation. The first smoke failed to parse an unparenthesized remainder;
+its native150/no-state record remains retained with zero semantic credit. The
+corrected expression alone changed the model before the successful bounded runs.
+The independent sibling-config resolver issue was corrected before execution;
+old unused snapshots are retained without semantic credit. These are verification
+defects and injected faults, not confirmed natural Etna protocol defects.
+
+One recovery/first landing, three IDs, one unit top-up per identity, minimum-sized
+registrations, pooled voluntary returns and horizons up to7 are explicit bounds.
+Successful proof/transfer/authorization, valid PoP and evidence are premises.
+Normal committee rotations, recovery exclusions, additional generations, actual
+token and constructor enforcement, current Registry/app/guest execution, and
+4096-slot cold gas remain WAITING or outside this component. The horizon-7
+no-penalty result belongs to this distinct closed-supply model and does not close
+W02's original horizon-3/8 exhaustive acceptance. Broader R01 remains OPEN.
+
+| Retained evidence                       | SHA-256                                                            |
+| --------------------------------------- | ------------------------------------------------------------------ |
+| Operational model                       | `e3cb27c86e29ab28958d44f00ce7ba8cc3761ee2326ba92aa04d35ddad298f0c` |
+| Literal observer and arithmetic helper  | `46da816afe9880eb4e01be99f10a22743f44e8430337202b0486adaefee8ab1e` |
+| Focused tests                           | `3ab1ebaf4ef21051d1225fe32bd3557e305a7ee578f5f5ecacf8e7c22236d29c` |
+| Independent arithmetic receipt          | `d8269a7098ee9317a57e4509134c58ad2750733750c36c715417ed9c1f5b3106` |
+| Independent seven-log/71-frame readback | `2920186d55465eeede5033dfdbe651f2e979bf8b776851bc378b955ec8e0b396` |
+| Independent behavioral report           | `56da57bad2fe5c4846b78d83c07ca9f09d7966df098b4ad7081ee9d4d3dff76a` |
+| Actual premature-Confirm raw log        | `63c3e80c311fca035923ef0b706645337912ae138f979e138d39052169c71616` |
+
+Implementation `85fb34f40d63f2d5a79811355d33659bbe55134b` contains the twelve reviewed paths.
+All eleven focused managed-Python tests passed with zero errors, failures or
+skips. The earlier seven-test API scaffold's expected seventeen assertion failures
+were pre-implementation RED checks, not protocol defects. Source and independent
+behavioral gates passed. Root records full committed branch/effective-merge
+validation and exact draft publication separately. W04–W07 and the combined
+final gate continue under the same seven-item authorization.

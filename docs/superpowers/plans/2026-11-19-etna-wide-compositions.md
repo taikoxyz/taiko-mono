@@ -69,15 +69,15 @@ Root acceptance split: the design requires the represented time1..8 envelope and
 
 **Interfaces:** `minimum_stake(total_supply: int, slots: int) -> int` enforces strict product inequality with nonnegative exact integers; finite operational circulation ledger consumes W02 vacancy semantics. Expose actual reporter/sink/held/liquid movements and snapshot-confirmation frames.
 
-- [ ] Pin exact4096/10^27 arithmetic and normalized supply7/min4 closed ledger; specify permitted penalty/recycling/landing/withdraw actions and omitted real deployment dependencies.
-- [ ] Add RED boundary cases equality/below/above, reporter-only full occupancy, conserved cash, and recovery-without-landing confirmation refusal.
-- [ ] Implement independently checked aggregate arithmetic and small free capacity product, never asserting saturation impossible or no-sink-return sufficient.
-- [ ] Root reviews packet and smoke; run no-penalty/reporter/sink/stalled+progress profiles, actual inequality/confirmation faults and restored positives. Independent tester changes a different balance/occupancy edge and omits real landing.
-- [ ] Review full trace accounting/source restoration, run focused tests, commit and publish selected results; actual token/constructor/gas acceptance remains WAITING.
+- [x] Pin exact4096/10^27 arithmetic and normalized supply7/min4 closed ledger; specify permitted penalty/recycling/landing/withdraw actions and omitted real deployment dependencies.
+- [x] Add RED boundary cases equality/below/above, reporter-only full occupancy, conserved cash, and recovery-without-landing confirmation refusal.
+- [x] Implement independently checked aggregate arithmetic and small free capacity product, never asserting saturation impossible or no-sink-return sufficient.
+- [x] Root reviews packet and smoke; run no-penalty/reporter/sink/stalled+progress profiles, actual inequality/confirmation faults and restored positives. Independent tester changes a different balance/occupancy edge and omits real landing.
+- [x] Review full trace accounting/source restoration, run focused tests, implementation commit `85fb34f40` and root-tracked draft publication; actual token/constructor/gas acceptance remains WAITING.
 
 ### Task 4: W04 running validator state, sparse lookup and appHash
 
-**Files:** Extend or add a separately pinned profile under `formal/etna/conformance/comet_handover/`; `run_comet_handover.py`; create `formal/etna/conformance/COMET_APPHASH.md` and `formal/etna/tests/test_comet_apphash.py`. No old public corpus/source manifest rewriting.
+**Files:** Add a separately pinned nested profile under `formal/etna/conformance/comet_handover/apphash/` and a new `formal/etna/conformance/run_comet_apphash.py`; create `formal/etna/conformance/COMET_APPHASH.md` and `formal/etna/tests/test_comet_apphash.py`. Preserve the old `run_comet_handover.py`, old public corpus, pins and source manifest. This is the recorded isolated-entrypoint ruling, with no scope change.
 
 **Interfaces:** Existing stock MakeGenesisState/private updateState bridge/Store Save-LoadValidators-Bootstrap. New independently derived valStateHash/appHash encoder consumes observed current/next members and stored proposer indices; returns complete ABI bytes and hashes. Sparse lookup is an observation, never running-state oracle.
 

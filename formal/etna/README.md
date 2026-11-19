@@ -34,6 +34,14 @@ Longer actual traces establish selected reachability only. See the
 [W02 report](REPORT.md#w02-current-registry-vacancy-and-lifetime-reuse).
 Native current Registry correspondence remains WAITING.
 
+The [closed-supply capacity model](conformance/REGISTRY_CAPACITY.md) separately
+checks exact minimum-stake arithmetic, explicit reporter/sink transfers, and
+recovery versus the covering landing required for exit confirmation. Its
+seven-block no-penalty profile exhausted; six free-action witnesses and
+independent transition controls cover the selected circulation and release paths.
+See the [W03 report](REPORT.md#w03-closed-supply-capacity-and-covering-landing).
+These results do not close W02's broader exhaustive obligations or deployment checks.
+
 ## Run
 
 The draft-enabled [TLC/Python workflow](../../.github/workflows/protocol--etna-tlc.yml)

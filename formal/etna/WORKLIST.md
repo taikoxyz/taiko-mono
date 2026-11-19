@@ -47,15 +47,15 @@ The selected-item count is not a protocol-completion percentage. No eighth item
 starts automatically. All older completed batches and nineteen INCONCLUSIVE
 archived searches retain their original dispositions.
 
-| Item | Selected scope                                     | Current stage                                                                                                                       |
-| ---- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| W01  | Exact current document identity and evidence scope | COMPLETE; code `eacf1904e`, independent source and behavioral gates passed.                                                         |
-| W02  | Empty-slot lifecycle and successive slot reuse     | DELIVERED selected finite checkpoint `29d4a3593`; original safety3/8 exhaustive acceptance OPEN under R01; native Registry WAITING. |
-| W03  | Fixed-supply capacity and explicit token recycling | ACTIVE; closed finite ledger and exact deployment arithmetic; static implementation, engines await review.                          |
-| W04  | Running validator state, sparse lookup and AppHash | Pending; selected public stock operations, actual Etna integration WAITING.                                                         |
-| W05  | Framed cached signer replies and finite retries    | Pending; public cached signatures only; supervisor integration WAITING.                                                             |
-| W06  | Unit-height proving/recovery and immutable overlap | Pending; current four-field cuts, fresh-generation progress.                                                                        |
-| W07  | Timestamp stop, terminal settlement and recovery   | Pending; current schedule/authorization clocks; actual implementation WAITING.                                                      |
+| Item | Selected scope                                     | Current stage                                                                                                                          |
+| ---- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| W01  | Exact current document identity and evidence scope | COMPLETE; code `eacf1904e`, independent source and behavioral gates passed.                                                            |
+| W02  | Empty-slot lifecycle and successive slot reuse     | DELIVERED selected finite checkpoint `29d4a3593`; original safety3/8 exhaustive acceptance OPEN under R01; native Registry WAITING.    |
+| W03  | Fixed-supply capacity and explicit token recycling | DELIVERED selected finite checkpoint `85fb34f40`; exact arithmetic, closed ledger and independent controls passed; deployment WAITING. |
+| W04  | Running validator state, sparse lookup and AppHash | ACTIVE static implementation; public stock operation/ABI profile; actual Etna integration WAITING.                                     |
+| W05  | Framed cached signer replies and finite retries    | Pending; public cached signatures only; supervisor integration WAITING.                                                                |
+| W06  | Unit-height proving/recovery and immutable overlap | Pending; current four-field cuts, fresh-generation progress.                                                                           |
+| W07  | Timestamp stop, terminal settlement and recovery   | Pending; current schedule/authorization clocks; actual implementation WAITING.                                                         |
 
 W02 selected delivery comprises horizon-2 universal checks and the six grouped
 lifecycle/progress witness obligations with sensitivity controls. The original
