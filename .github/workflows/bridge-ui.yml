@@ -3,6 +3,11 @@ name: Bridge UI CI/CD
 on:
   push:
     paths:
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".nvmrc"
+      - ".github/actions/install-pnpm-dependencies/**"
       - "packages/bridge-ui/**"
     branches-ignore:
       - dependabot/**
@@ -11,6 +16,11 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".nvmrc"
+      - ".github/actions/install-pnpm-dependencies/**"
       - "packages/bridge-ui/**"
 
 concurrency:
