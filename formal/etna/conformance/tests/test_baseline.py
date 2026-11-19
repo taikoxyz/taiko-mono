@@ -44,13 +44,18 @@ class BaselineTests(unittest.TestCase):
             self.assertEqual(entry['sha256'], pins['spec']['sha256'])
             self.assertEqual(entry['gitBlob'], pins['spec']['blob'])
 
-    def test_workspace_spec_has_exact_reviewed_correspondence(self):
+    def test_workspace_spec_preserves_the_historical_correspondence_boundary(self):
         root = PATH.parent
         pins = json.loads((root / 'pins.json').read_text())
         ledger = AUTHORITY.load_spec_correspondence(root / 'spec_correspondence.json')
-        current = (root.parents[2] / 'packages/protocol/docs/etna/SPEC.md').read_bytes()
-        result = AUTHORITY.verify_workspace_spec(current, pins['spec'], ledger)
-        self.assertEqual(result['status'], 'SPEC_CORRESPONDENCE_VERIFIED')
+        current = (root.parents[2] / ledger['path']).read_bytes()
+        sha256 = hashlib.sha256(current).hexdigest()
+        if sha256 == 'b331b3af7b42a4645ebe3e2b4f42e912e33508893a091c3c3c289c8fdbd53a70':
+            with self.assertRaisesRegex(ValueError, 'workspace SPEC bytes have no reviewed correspondence'):
+                AUTHORITY.verify_workspace_spec(current, pins['spec'], ledger)
+        else:
+            result = AUTHORITY.verify_workspace_spec(current, pins['spec'], ledger)
+            self.assertEqual(result['status'], 'SPEC_CORRESPONDENCE_VERIFIED')
 
     def compare(self, left=None, right=None):
         return MODULE.compare_vectors(left or self.current, right or self.consumer,

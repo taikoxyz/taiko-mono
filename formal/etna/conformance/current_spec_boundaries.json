@@ -1,0 +1,658 @@
+{
+  "schema": "etna-workspace-boundaries-1",
+  "bundles": {
+    "d18357214fab30ea512ae9858a11699806d72ba1": {
+      "packages/protocol/docs/etna/SPEC.md": {
+        "bytes": 232076,
+        "sha256": "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b",
+        "gitBlob": "649548c58d6629dd85143b33efd3644a3bb71509"
+      },
+      "packages/protocol/docs/etna/ACCEPTANCE.md": {
+        "bytes": 35784,
+        "sha256": "643bb32b82a25186f9006bfa7c5b4f503212bde235a5bf061a79a1cca4df3c69",
+        "gitBlob": "a1beeac8fe8665615cbec138f8b65c0091bac6d9"
+      },
+      "packages/protocol/docs/etna/SWITCH.md": {
+        "bytes": 38322,
+        "sha256": "933eb39ed5b8290265fdf638d4f12aab64da1b85d7ce1b92cbeb0e258ca9a387",
+        "gitBlob": "ae5c1dd77851cabe090b24272f7f865b30fac697"
+      }
+    },
+    "9c832234b4681fbc5eccdbaf9c9303b7869f91f4": {
+      "packages/protocol/docs/etna/SPEC.md": {
+        "bytes": 233488,
+        "gitBlob": "033f7ffd28ab9c3de7188948fb67eabfe9d180e6",
+        "sha256": "7875c10373114ca5eaa7b164d2bfa844b4f5bbbede2ebfa252bb59246efd96de"
+      },
+      "packages/protocol/docs/etna/ACCEPTANCE.md": {
+        "bytes": 37337,
+        "gitBlob": "6a0a80e31e66caa5a4a2ef391eab67bc44aa714e",
+        "sha256": "3f7cd89485283e964789b589bab02034134933c95955a26cecb35787e906e5e7"
+      },
+      "packages/protocol/docs/etna/SWITCH.md": {
+        "bytes": 40739,
+        "gitBlob": "91f61c26c67684b8db336e079030cb7d90faaade",
+        "sha256": "f32205895baa0a74c7e91ffc124a4553a6841dc1bd7f77f4abc789835f56b0c0"
+      }
+    },
+    "2e6763e21bc236cfcda6011d164b32040f9e0c8d": {
+      "packages/protocol/docs/etna/SPEC.md": {
+        "bytes": 236981,
+        "gitBlob": "98e209c3a7781c690338751b451fe10852f00b7c",
+        "sha256": "b331b3af7b42a4645ebe3e2b4f42e912e33508893a091c3c3c289c8fdbd53a70"
+      },
+      "packages/protocol/docs/etna/ACCEPTANCE.md": {
+        "bytes": 41847,
+        "gitBlob": "4a2f50412ffa230229ee1909e97855e6e5ffe5f8",
+        "sha256": "525a2c06ed1b369fe53ee546c16fd181e7429b036dfeb121e1d51fa964543ade"
+      },
+      "packages/protocol/docs/etna/SWITCH.md": {
+        "bytes": 40800,
+        "gitBlob": "9431067067066d3b6d4c41fd17fc5153399bd79f",
+        "sha256": "c9cd828d7e227fe5a9478de4b075a0b07e4c46e4ccce26905a3f2dd06e11ace3"
+      }
+    }
+  },
+  "claims": {
+    "comet-signed": {
+      "public-votes": {
+        "disposition": "historical-only",
+        "ruleIds": [
+          "CONS-3.1-3",
+          "CONS-3.1-7",
+          "ENC-A-43",
+          "ENC-A-44",
+          "ENC-A-45",
+          "ENC-A-46"
+        ],
+        "scope": "Public vote shape, sign bytes, cached signatures and the stock commit threshold. Guest commit-selection rules and appHash are outside this execution.",
+        "artifacts": [
+          "conformance/run_comet_signed.py",
+          "conformance/comet_signed/signed_test.go"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1",
+          "implementationCommit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+          "implementationManifestSha256": "627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c",
+          "inputPinsSha256": {
+            "comet_signed/pins.json": "79cf7750de9d547f205e2bc9e33709d4e14b7be128bd0030a6dd6aee67ad2850"
+          }
+        }
+      }
+    },
+    "comet-filepv": {
+      "persistence": {
+        "disposition": "historical-only",
+        "ruleIds": ["CONS-3.1-3", "RECOV-8.2-1"],
+        "scope": "Public cached HRS persistence and reply replay.",
+        "artifacts": [
+          "conformance/run_comet_filepv.py",
+          "conformance/comet_filepv/filepv_test.go"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1",
+          "implementationCommit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+          "implementationManifestSha256": "627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c",
+          "inputPinsSha256": {
+            "comet_filepv/pins.json": "f372d96cc9baa739febc44d5ea94321bf48cc209c82e5563d9235d211dfb71ee",
+            "comet_signed/pins.json": "79cf7750de9d547f205e2bc9e33709d4e14b7be128bd0030a6dd6aee67ad2850"
+          }
+        }
+      },
+      "handler": {
+        "disposition": "historical-only",
+        "ruleIds": ["CONS-3.1-3", "RECOV-8.2-1"],
+        "scope": "Public cached HRS and the synchronous stock signer handler. Framed transport retries are a separate claim.",
+        "artifacts": [
+          "conformance/run_comet_filepv.py",
+          "conformance/comet_filepv/filepv_test.go"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1",
+          "implementationCommit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+          "implementationManifestSha256": "627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c",
+          "inputPinsSha256": {
+            "comet_filepv/pins.json": "f372d96cc9baa739febc44d5ea94321bf48cc209c82e5563d9235d211dfb71ee",
+            "comet_signed/pins.json": "79cf7750de9d547f205e2bc9e33709d4e14b7be128bd0030a6dd6aee67ad2850"
+          }
+        }
+      }
+    },
+    "registry-cases": {
+      "double-sign": {
+        "disposition": "historical-only",
+        "ruleIds": [
+          "STAKE-4.1-34",
+          "ENC-A-43",
+          "ENC-A-44",
+          "ENC-A-45",
+          "ENC-A-46"
+        ],
+        "scope": "Selected public signed-vote Registry replay and its comparison with the pinned stock wire evidence.",
+        "artifacts": [
+          "conformance/run_registry_cases.py",
+          "conformance/solidity/EtnaRegistryDoubleSignReplay.t.sol"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1",
+          "implementationCommit": "89f419915de4b73bb57c53bf970f6dea9e8e8c8c",
+          "implementationManifestSha256": "028393e722e7706407581fb4288bd4ee8def03803b11cc4006326cfaf7167c34",
+          "inputPinsSha256": {
+            "registry_cases/pins.json": "a2e862c2bf102be04581cab3f3341e94b11fb1e3a3da02429014b5792367cd5c",
+            "comet_signed/pins.json": "79cf7750de9d547f205e2bc9e33709d4e14b7be128bd0030a6dd6aee67ad2850",
+            "pins.json": "6b48158f184f3daa83118edf02ba82e0c480ee9ff75f775b5bccea7d831ea00d"
+          },
+          "testSourcesSha256": {
+            "solidity/EtnaRegistryCasesBase.sol": "3f7f3286e260274170116f8a677c39d1eafd0d66c04f8c7985776939de0ddc08",
+            "solidity/EtnaRegistryPublicReplay.t.sol": "a44ac6d6ae69afdffd6cb9c1bed303a4d4ce16dd2c4565fa4febfb1f9ae75ae9",
+            "solidity/EtnaRegistryDoubleSignReplay.t.sol": "1679f01cf6ba64e93da6fa0563ba41a964a460741f9bb131ef33fc23cccb9238"
+          }
+        }
+      },
+      "lifecycle": {
+        "disposition": "historical-only",
+        "ruleIds": [
+          "STAKE-4.1-13a",
+          "STAKE-4.1-14a",
+          "STAKE-4.1-26",
+          "STAKE-4.1-27",
+          "STAKE-4.1-28",
+          "STAKE-4.1-36"
+        ],
+        "scope": "Selected historical lifecycle and slot reuse under mock checkpoint context.",
+        "artifacts": [
+          "conformance/run_registry_cases.py",
+          "conformance/solidity/EtnaRegistryLifecycleCases.t.sol"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1",
+          "implementationCommit": "89f419915de4b73bb57c53bf970f6dea9e8e8c8c",
+          "implementationManifestSha256": "028393e722e7706407581fb4288bd4ee8def03803b11cc4006326cfaf7167c34",
+          "inputPinsSha256": {
+            "registry_cases/pins.json": "a2e862c2bf102be04581cab3f3341e94b11fb1e3a3da02429014b5792367cd5c",
+            "comet_signed/pins.json": "79cf7750de9d547f205e2bc9e33709d4e14b7be128bd0030a6dd6aee67ad2850",
+            "pins.json": "6b48158f184f3daa83118edf02ba82e0c480ee9ff75f775b5bccea7d831ea00d"
+          },
+          "testSourcesSha256": {
+            "solidity/EtnaRegistryCasesBase.sol": "3f7f3286e260274170116f8a677c39d1eafd0d66c04f8c7985776939de0ddc08",
+            "solidity/EtnaRegistryPublicReplay.t.sol": "a44ac6d6ae69afdffd6cb9c1bed303a4d4ce16dd2c4565fa4febfb1f9ae75ae9",
+            "solidity/EtnaRegistryLifecycleCases.t.sol": "4ce66c7c9e0a4f4e1a97cbfec6db47f2cce5760836fc60eff509b12b517b950a"
+          }
+        }
+      },
+      "displacement": {
+        "disposition": "historical-only",
+        "ruleIds": [
+          "STAKE-4.1-13a",
+          "STAKE-4.1-14a",
+          "STAKE-4.1-14b",
+          "STAKE-4.1-24",
+          "STAKE-4.1-26",
+          "STAKE-4.1-28",
+          "STAKE-4.1-36"
+        ],
+        "scope": "Historical minimum-balance displacement, including held-zero displacement. Current STAKE-4.1-14a rejects replacement.",
+        "artifacts": [
+          "conformance/run_registry_cases.py",
+          "conformance/solidity/EtnaRegistryDisplacementCases.t.sol"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1",
+          "implementationCommit": "89f419915de4b73bb57c53bf970f6dea9e8e8c8c",
+          "implementationManifestSha256": "028393e722e7706407581fb4288bd4ee8def03803b11cc4006326cfaf7167c34",
+          "inputPinsSha256": {
+            "registry_cases/pins.json": "a2e862c2bf102be04581cab3f3341e94b11fb1e3a3da02429014b5792367cd5c",
+            "comet_signed/pins.json": "79cf7750de9d547f205e2bc9e33709d4e14b7be128bd0030a6dd6aee67ad2850",
+            "pins.json": "6b48158f184f3daa83118edf02ba82e0c480ee9ff75f775b5bccea7d831ea00d"
+          },
+          "testSourcesSha256": {
+            "solidity/EtnaRegistryCasesBase.sol": "3f7f3286e260274170116f8a677c39d1eafd0d66c04f8c7985776939de0ddc08",
+            "solidity/EtnaRegistryPublicReplay.t.sol": "a44ac6d6ae69afdffd6cb9c1bed303a4d4ce16dd2c4565fa4febfb1f9ae75ae9",
+            "solidity/EtnaRegistryDisplacementCases.t.sol": "9a739d412c733c5739c297b6f22994d4afb7f9aa6f784b64edf68637b8da5eb1"
+          }
+        }
+      },
+      "atomicity": {
+        "disposition": "historical-only",
+        "ruleIds": ["STAKE-4.1-14a", "STAKE-4.1-15", "STAKE-4.1-36"],
+        "scope": "Historical deposit refusal, retry and rollback. Empty-slot-only admission remains a distinct model and implementation obligation.",
+        "artifacts": [
+          "conformance/run_registry_cases.py",
+          "conformance/solidity/EtnaRegistryAtomicityCases.t.sol"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1",
+          "implementationCommit": "89f419915de4b73bb57c53bf970f6dea9e8e8c8c",
+          "implementationManifestSha256": "028393e722e7706407581fb4288bd4ee8def03803b11cc4006326cfaf7167c34",
+          "inputPinsSha256": {
+            "registry_cases/pins.json": "a2e862c2bf102be04581cab3f3341e94b11fb1e3a3da02429014b5792367cd5c",
+            "comet_signed/pins.json": "79cf7750de9d547f205e2bc9e33709d4e14b7be128bd0030a6dd6aee67ad2850",
+            "pins.json": "6b48158f184f3daa83118edf02ba82e0c480ee9ff75f775b5bccea7d831ea00d"
+          },
+          "testSourcesSha256": {
+            "solidity/EtnaRegistryCasesBase.sol": "3f7f3286e260274170116f8a677c39d1eafd0d66c04f8c7985776939de0ddc08",
+            "solidity/EtnaRegistryPublicReplay.t.sol": "a44ac6d6ae69afdffd6cb9c1bed303a4d4ce16dd2c4565fa4febfb1f9ae75ae9",
+            "solidity/EtnaRegistryAtomicityCases.t.sol": "8db32547d6bca9cb7d4894d95c65bba4535af09548ac38089ad482bc66ad4481"
+          }
+        }
+      }
+    },
+    "historical-models": {
+      "registry-model": {
+        "disposition": "historical-only",
+        "ruleIds": ["STAKE-4.1-14a", "STAKE-4.1-14b", "LIMIT-12-11"],
+        "scope": "Bounded displacement and retirement, including derived committee availability under historical admission.",
+        "artifacts": [
+          "EtnaRegistry.tla",
+          "EtnaRegistryRetirementProduct.tla",
+          "EtnaCommittee.tla"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1"
+        }
+      },
+      "landing-model": {
+        "disposition": "historical-only",
+        "ruleIds": [
+          "LAND-6.1-5",
+          "PROOF-6.2-43",
+          "ENC-A-29",
+          "ENC-A-33",
+          "STOR-B-9"
+        ],
+        "scope": "Bounded grid settlement, cuts, job generation fencing and FI guests with trusted proof/record premises.",
+        "artifacts": [
+          "EtnaSettlement.tla",
+          "EtnaCheckpointIdentity.tla",
+          "EtnaRepeatedRecoveryIdentity.tla",
+          "EtnaProvingProgress.tla",
+          "EtnaProofRecapture.tla",
+          "EtnaProvingArrivalOverlap.tla",
+          "EtnaProvingAsyncProduct.tla",
+          "EtnaProvingRecovery.tla",
+          "EtnaForcedInclusion.tla",
+          "EtnaFISuffixRecovery.tla"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1"
+        }
+      },
+      "recovery-model": {
+        "disposition": "historical-only",
+        "ruleIds": [
+          "RECOV-8.1-7",
+          "RECOV-8.1-8",
+          "RECOV-8.3-3a",
+          "RECOV-8.4-7"
+        ],
+        "scope": "Bounded recovery, times and verifier rollback with historic checkpoint/trusted-verification premises.",
+        "artifacts": [
+          "EtnaRecoveryTime.tla",
+          "EtnaRecoveryTransaction.tla",
+          "EtnaVerifierRollback.tla",
+          "EtnaRollbackPayments.tla"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1"
+        }
+      },
+      "schedule-model": {
+        "disposition": "historical-only",
+        "ruleIds": [
+          "START-10.1-3e",
+          "START-10.1-5b",
+          "START-10.1-14d",
+          "START-10.1-14e",
+          "STOR-B-15a"
+        ],
+        "scope": "Grid-conditioned stop and historical schedule, including composed signer and candidate handoff.",
+        "artifacts": [
+          "EtnaRulesSchedule.tla",
+          "EtnaCandidateHandoff.tla",
+          "EtnaStopProofHandoff.tla",
+          "EtnaHandoffSigner.tla"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1"
+        }
+      },
+      "trust-and-import-model": {
+        "disposition": "historical-only",
+        "ruleIds": ["DATA-5.4-3", "DATA-5.4-4", "SYNC-9-5", "SYNC-9-5c"],
+        "scope": "Historical authenticated validator-state import and bounded trust/progress, with symbolic execution and durable HRS premises.",
+        "artifacts": [
+          "EtnaCheckpointImport.tla",
+          "EtnaImportProgress.tla",
+          "EtnaL1Trust.tla",
+          "EtnaTrustSupersession.tla",
+          "EtnaAppCrash.tla",
+          "EtnaSignerCrash.tla",
+          "EtnaSignerAsyncProduct.tla",
+          "EtnaSignerNilReplay.tla"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1"
+        }
+      }
+    },
+    "historical-conformance": {
+      "registry-vectors": {
+        "disposition": "historical-only",
+        "ruleIds": ["STAKE-4.1-14a", "STAKE-4.1-14b", "PARAM-11-11"],
+        "scope": "Historical Lean/contract registry vector correspondence and public registration projection.",
+        "artifacts": [
+          "conformance/run_baseline.py",
+          "conformance/pins.json",
+          "conformance/solidity/EtnaRegistryPublicReplay.t.sol"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1"
+        }
+      },
+      "grid-replays": {
+        "disposition": "historical-only",
+        "ruleIds": [
+          "LAND-6.1-5",
+          "LAND-6.1-13",
+          "ENC-A-29",
+          "ENC-A-30",
+          "ENC-A-31",
+          "ENC-A-32",
+          "ENC-A-33",
+          "ENC-A-34",
+          "ENC-A-35",
+          "STOR-B-9"
+        ],
+        "scope": "Historical grid export/replay, linked checkpoint identity, rollback and L1 checkpoint publication with mocked proof verification.",
+        "artifacts": [
+          "conformance/export_identity.py",
+          "conformance/export_settlement.py",
+          "conformance/EtnaSettlementReplay.tla",
+          "conformance/solidity/EtnaIdentityReplay.t.sol",
+          "conformance/solidity/EtnaSettlementReplay.t.sol"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1"
+        }
+      },
+      "recovery-replays": {
+        "disposition": "historical-only",
+        "ruleIds": [
+          "RECOV-8-40a",
+          "RECOV-8-47a",
+          "RECOV-8.1-7",
+          "RECOV-8.1-8",
+          "RECOV-8.3-3a",
+          "RECOV-8.4-7"
+        ],
+        "scope": "Historical recovery/lifecycle/time artifacts with grid-bound state, historical exclusion and synthetic checkpoint/R premises.",
+        "artifacts": [
+          "conformance/export_recovery.py",
+          "conformance/export_recovery_lifecycle.py",
+          "conformance/export_recovery_time.py",
+          "conformance/solidity/EtnaRecoveryReplay.t.sol",
+          "conformance/solidity/EtnaRecoveryLifecycleReplay.t.sol"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1"
+        }
+      },
+      "rules-replay": {
+        "disposition": "historical-only",
+        "ruleIds": ["START-10.1-5b", "START-10.1-14d", "STOR-B-15a"],
+        "scope": "Historical two-argument scheduleStop and five-field slot 293 export/contract replay.",
+        "artifacts": [
+          "conformance/export_rules.py",
+          "conformance/solidity/EtnaRulesReplay.t.sol"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1"
+        }
+      },
+      "checkpoint-import": {
+        "disposition": "historical-only",
+        "ruleIds": [
+          "DATA-5.4-2",
+          "DATA-5.4-3",
+          "DATA-5.4-4",
+          "DATA-5.4-5",
+          "DATA-5.4-6",
+          "DATA-5.4-8"
+        ],
+        "scope": "Historical import exports and stock Bootstrap of synthetic or historically authenticated inputs, including EL-only appHash.",
+        "artifacts": [
+          "conformance/export_checkpoint_import.py",
+          "conformance/run_comet_bootstrap.py",
+          "conformance/comet_bootstrap/bootstrap_test.go"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1"
+        }
+      },
+      "stock-consensus": {
+        "disposition": "historical-only",
+        "ruleIds": ["CONS-3.1-8", "RECOV-8.4-7", "SYNC-9-5c", "START-10-21"],
+        "scope": "Pinned stock first-block, handover and handshake tests with archived fixture inputs. They give no new appHash app or changed evidence-window result.",
+        "artifacts": [
+          "conformance/run_comet.py",
+          "conformance/run_comet_handover.py",
+          "conformance/run_comet_restart.py"
+        ],
+        "evidence": {
+          "specCommit": "d18357214fab30ea512ae9858a11699806d72ba1"
+        }
+      }
+    },
+    "registry-vacancy-model": {
+      "lowest-empty-slot": {
+        "disposition": "current-model",
+        "ruleIds": [
+          "STAKE-4.1-4",
+          "STAKE-4.1-13a",
+          "STAKE-4.1-14a",
+          "STAKE-4.1-24",
+          "STAKE-4.1-26",
+          "STAKE-4.1-27",
+          "STAKE-4.1-28",
+          "STAKE-4.1-36"
+        ],
+        "scope": "W02 bounded funded-call slot occupancy, admission refusal, delayed withdrawal and reuse.",
+        "artifacts": [],
+        "evidence": null
+      }
+    },
+    "registry-supply-model": {
+      "bounded-recycling": {
+        "disposition": "current-model",
+        "ruleIds": [
+          "STAKE-4.1-14a",
+          "STAKE-4.1-26",
+          "RECOV-8-49",
+          "START-10-12",
+          "PARAM-11-11",
+          "LIMIT-12-11"
+        ],
+        "scope": "W03 bounded conserved supply, recycling and stalled release, plus the base-unit deployment inequality.",
+        "artifacts": [],
+        "evidence": null
+      }
+    },
+    "comet-validator-state": {
+      "stock-app-hash": {
+        "disposition": "selected-public-operation",
+        "ruleIds": [
+          "CONS-3.1-8",
+          "DATA-5.4-3",
+          "DATA-5.4-4",
+          "DATA-5.4-8",
+          "RECOV-8.4-7",
+          "SYNC-9-5c",
+          "ENC-A-29a",
+          "ENC-A-29b"
+        ],
+        "scope": "W04 selected stock public validator-state, header-check and Bootstrap operations. Reachable sparse-lookup discrimination requires a witness.",
+        "artifacts": [],
+        "evidence": null
+      }
+    },
+    "comet-signer-transport": {
+      "cached-replies": {
+        "disposition": "selected-public-operation",
+        "ruleIds": ["CONS-3.1-3", "RECOV-8.2-1"],
+        "scope": "W05 bounded stock framed transport with public cached replies and refusal versus transport errors.",
+        "artifacts": [],
+        "evidence": null
+      }
+    },
+    "proof-progress-model": {
+      "arbitrary-height-landing": {
+        "disposition": "current-model",
+        "ruleIds": [
+          "MODEL-1-2",
+          "LAND-6.1-5",
+          "LAND-6.1-6",
+          "LAND-6.1-7",
+          "LAND-6.1-8",
+          "LAND-6.1-13",
+          "PROOF-6.2-42",
+          "PROOF-6.2-43",
+          "BATCH-6.3-1",
+          "BACKP-6.4-2",
+          "ENC-A-29",
+          "ENC-A-30",
+          "ENC-A-31",
+          "ENC-A-32",
+          "ENC-A-33",
+          "ENC-A-34",
+          "STOR-B-9"
+        ],
+        "scope": "W06 structural four-field cuts and arbitrary-height proof/landing composition, with bounded overlap and a distinct recovery profile.",
+        "artifacts": [],
+        "evidence": null
+      }
+    },
+    "rules-schedule-model": {
+      "timestamp-stop": {
+        "disposition": "current-model",
+        "ruleIds": [
+          "START-10.1-3e",
+          "START-10.1-5b",
+          "START-10.1-14d",
+          "START-10.1-14e",
+          "PROOF-6.2-45a",
+          "RECOV-8-47a",
+          "RECOV-8.3-3",
+          "STOR-B-15a"
+        ],
+        "scope": "W07 bounded timestamp-only stop, real modeled terminal landing, authorized recovery and fresh progress.",
+        "artifacts": [],
+        "evidence": null
+      }
+    },
+    "current-implementation": {
+      "registry": {
+        "disposition": "waiting",
+        "ruleIds": [
+          "STAKE-4.1-14a",
+          "START-10-12",
+          "PARAM-11-11",
+          "LIMIT-12-11"
+        ],
+        "scope": "Current implementation, deployment supply and 4096-slot gas/recovery measurements.",
+        "artifacts": [],
+        "evidence": null
+      },
+      "inbox-and-guests": {
+        "disposition": "waiting",
+        "ruleIds": [
+          "MODEL-1-2",
+          "LAND-6.1-13",
+          "PROOF-6.2-16",
+          "PROOF-6.2-17",
+          "PROOF-6.2-42",
+          "PROOF-6.2-43",
+          "PROOF-6.2-45",
+          "ENC-A-29",
+          "ENC-A-35",
+          "STOR-B-9"
+        ],
+        "scope": "Current land ABI, guest statement and committee-terminal commit-check schedule with actual two-proof execution and resource limits.",
+        "artifacts": [],
+        "evidence": null
+      },
+      "app-and-import": {
+        "disposition": "waiting",
+        "ruleIds": [
+          "CONS-3.1-8",
+          "DATA-5.4-2",
+          "DATA-5.4-3",
+          "DATA-5.4-4",
+          "DATA-5.4-5",
+          "DATA-5.4-6",
+          "DATA-5.4-8",
+          "SYNC-9-5",
+          "SYNC-9-5c",
+          "START-10-21",
+          "ENC-A-29a",
+          "ENC-A-29b"
+        ],
+        "scope": "Concrete app, EL indexes/storage, import-package producer, evidence behavior and ongoing trust admission.",
+        "artifacts": [],
+        "evidence": null
+      },
+      "recovery-audit": {
+        "disposition": "waiting",
+        "ruleIds": [
+          "RECOV-8.1-6",
+          "RECOV-8.1-7",
+          "RECOV-8.1-8",
+          "RECOV-8.3-3",
+          "RECOV-8.4-7"
+        ],
+        "scope": "Concrete whole-landing audit and independent EL/FI/state/anchor verification, rollback decision, actual latest snapshot and resumed generation.",
+        "artifacts": [],
+        "evidence": null
+      },
+      "schedule-and-images": {
+        "disposition": "waiting",
+        "ruleIds": [
+          "START-10.1-5b",
+          "START-10.1-6c",
+          "START-10.1-14d",
+          "START-10.1-14e",
+          "STOR-B-15a"
+        ],
+        "scope": "Current slot 293, real Inbox recover and image/guest/node schedule compatibility.",
+        "artifacts": [],
+        "evidence": null
+      },
+      "switch": {
+        "disposition": "waiting",
+        "ruleIds": [
+          "CONS-3.1-8",
+          "START-10-20",
+          "LAND-6.1-8a",
+          "PROOF-6.2-46a"
+        ],
+        "scope": "Current SWITCH step 8 genesis appHash, deployed migration checks and first real landing.",
+        "artifacts": [],
+        "evidence": null
+      },
+      "resources-and-operations": {
+        "disposition": "waiting",
+        "ruleIds": [
+          "CONS-3.4-13",
+          "BACKP-6.4-2",
+          "BACKP-6.4-13",
+          "PARAM-11-6",
+          "PARAM-11-8",
+          "COST-C-10",
+          "COST-C-11"
+        ],
+        "scope": "Current production capability, proving, full-capacity gas, resource/latency and deployment acceptance.",
+        "artifacts": [],
+        "evidence": null
+      }
+    }
+  }
+}

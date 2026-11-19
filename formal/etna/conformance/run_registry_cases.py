@@ -18,7 +18,6 @@ spec = importlib.util.spec_from_file_location("etna_registry_cases_stock", STOCK
 STOCK = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(STOCK)
 EXEC = STOCK.COMET.EXECUTION
-AUTHORITY = STOCK.COMET.load_module("etna_registry_authority", ROOT / "spec_authority.py")
 BASELINE = STOCK.COMET.load_module("etna_registry_baseline", ROOT / "run_baseline.py")
 
 PIN_PATH = ROOT / "registry_cases/pins.json"
@@ -607,12 +606,26 @@ def solidity_files(scenario):
 
 
 def inputs(scenario="double-sign"):
-    pins = STOCK.strict_json(PIN_PATH.read_bytes())
+    pins_raw = PIN_PATH.read_bytes()
+    pins = STOCK.strict_json(pins_raw)
     if pins["schema"] != "etna-registry-cases-pins-1":
         raise ValueError("wrong Registry case pin schema")
     watched = {ROOT / path: require_hash(ROOT / path, digest)
                for path, digest in pins["inputsSha256"].items()}
-    stock_pins, _, stock_watch, stock_oracles, authority = STOCK.inputs()
+    stock_pins, _, stock_watch, stock_oracles = STOCK.native_inputs()
+    contracts = EXEC.read_json(MANIFEST_PATH)
+    test_sources = {f"solidity/{name}": EXEC.sha(ROOT / "solidity" / name)
+                    for name in solidity_files(scenario)}
+    boundary, boundary_watch = STOCK.CURRENT_SPEC.historical_workspace_receipt(
+        ROOT.parents[2], "registry-cases", scenario, spec_commit=stock_pins["specAuthority"]["commit"],
+        implementation_commit=contracts["commit"], manifest_sha256=watched[MANIFEST_PATH],
+        input_pins_sha256={
+            "registry_cases/pins.json": BASELINE.digest(pins_raw),
+            "comet_signed/pins.json": stock_watch[ROOT / "comet_signed/pins.json"],
+            "pins.json": watched[ROOT / "pins.json"],
+        },
+        test_sources_sha256=test_sources,
+    )
     votes = STOCK.load_projection((ROOT / "comet_signed/public-votes.json").read_bytes())
     if list(pins["wire"]) != [row["name"] for row in votes["voteCases"]]:
         raise ValueError("wrong frozen wire case sequence")
@@ -642,7 +655,7 @@ def inputs(scenario="double-sign"):
     if (len(expected) != 42 or len(pins["domains"]) != 5 or len(pins["wire"]) != 23
             or partition != {"slash": 6, "NotDoubleSign": 6, "FutureGeneration": 1, "InvalidSignature": 1}):
         raise ValueError("wrong frozen domain/wire/pair partition")
-    authored_paths = [Path(__file__), PIN_PATH, ROOT / "REGISTRY_CASES.md",
+    authored_paths = [Path(__file__), ROOT / "REGISTRY_CASES.md",
                       ROOT.parent / "tests/test_registry_cases.py"]
     if scenario == "lifecycle":
         lifecycle = pins["lifecycle"]
@@ -665,9 +678,10 @@ def inputs(scenario="double-sign"):
             leaf: lambda receipt, logs, oracle=oracle: atomicity_receipt(receipt, logs, oracle)
             for leaf, oracle in leaves.items()
         }
-    authored_paths += [ROOT / "solidity" / name for name in solidity_files(scenario)]
     watched.update({path: EXEC.sha(path) for path in authored_paths})
-    return pins, expected, watched | stock_watch, stock_pins, stock_oracles, authority
+    watched.update({ROOT / name: digest for name, digest in test_sources.items()})
+    watched[PIN_PATH] = BASELINE.digest(pins_raw)
+    return pins, expected, watched | stock_watch | boundary_watch, stock_pins, stock_oracles, boundary
 
 
 def stock_evidence(normal, pins, stock_oracles, wire):
@@ -806,7 +820,14 @@ def runtime_inputs(runtime_path, pins):
     return source, paths, lock, runtime["timeout"], tool_hashes, dep_files
 
 
-def stage_inputs(output, source, manifest, paths, dep_files, *, scenario="double-sign"):
+def public_test_inputs(scenario):
+    return {name: ROOT / "solidity" / name for name in solidity_files(scenario)} | {
+        "vectors/" + name: ROOT / name
+        for name in ("registry_public/registration.json", "comet_signed/public-votes.json")
+    }
+
+
+def stage_inputs(output, source, manifest, paths, dep_files, *, watched, scenario="double-sign"):
     """Copy only pinned source and explicit public test/fixture files."""
     private = output / "private-contracts"
     for name, entry in manifest["files"].items():
@@ -823,15 +844,11 @@ def stage_inputs(output, source, manifest, paths, dep_files, *, scenario="double
 
     test_dir = output / "public-tests"
     test_dir.mkdir()
-    for name in solidity_files(scenario):
-        origin = ROOT / "solidity" / name
-        shutil.copyfile(origin, test_dir / name)
-        require_hash(test_dir / name, EXEC.sha(origin))
-    for name in ("registry_public/registration.json", "comet_signed/public-votes.json"):
-        target = test_dir / "vectors" / name
+    for name, origin in public_test_inputs(scenario).items():
+        target = test_dir / name
         target.parent.mkdir(exist_ok=True, parents=True)
-        shutil.copyfile(ROOT / name, target)
-        require_hash(target, EXEC.sha(ROOT / name))
+        shutil.copyfile(origin, target)
+        require_hash(target, watched[origin])
     dependency_dir = output / "public-dependencies"
     for name, entries in dep_files.items():
         for relative, digest in entries.items():
@@ -916,7 +933,7 @@ def phase(name, output, staged, paths, watch, manifest, expectations, comparison
 
 def run(args):
     scenario = args.scenario
-    pins, expectations, watch, stock_pins, stock_oracles, authority = inputs(scenario)
+    pins, expectations, watch, stock_pins, stock_oracles, boundary = inputs(scenario)
     comparison, go_watch = {}, {}
     if scenario == "double-sign":
         comparison, go_watch = stock_evidence(args.go_normal.resolve(strict=True), stock_pins,
@@ -935,13 +952,14 @@ def run(args):
     if any(output == root or output.is_relative_to(root) for root in protected):
         raise ValueError("output overlaps original checkout, source, tools or cache")
     output.mkdir()
-    staged = stage_inputs(output, source, manifest, paths, deps, scenario=scenario)
+    staged = stage_inputs(output, source, manifest, paths, deps, watched=watch, scenario=scenario)
     private, tests, libraries, config = staged
     scratch = output / "forge-work/empty-scripts"
     scratch.mkdir(parents=True)
     watch.update(tool_watch | go_watch | {runtime_path: EXEC.sha(runtime_path), config: EXEC.sha(config)})
-    for root in (tests, libraries):
-        watch.update({root / name: digest for name, digest in EXEC.snapshot(root).items()})
+    expected_tests = {name: watch[origin] for name, origin in public_test_inputs(scenario).items()}
+    watch.update({tests / name: digest for name, digest in expected_tests.items()})
+    watch.update({libraries / name: digest for name, digest in EXEC.snapshot(libraries).items()})
 
     with lock_path.open("rb") as lock:
         EXEC.acquire_lock(lock, timeout)
@@ -957,6 +975,8 @@ def run(args):
             if EXEC.snapshot(source) != original_snapshot:
                 raise ValueError("staged source baseline changed")
             STOCK.require_stable(watch, "watched Registry inputs")
+            if EXEC.snapshot(tests) != expected_tests:
+                raise ValueError("staged Registry test inventory differs")
             if any(scratch.iterdir()):
                 raise ValueError("offline script directory changed")
 
@@ -996,9 +1016,9 @@ def run(args):
             guards()
             source_snapshot(private, manifest)
 
-    summary = dict(schema="etna-registry-cases-run-1", status="PASS", scenario=args.scenario,
+    summary = dict(schema="etna-registry-cases-run-2", status="PASS", scenario=args.scenario,
                    scope="smoke" if args.smoke else "source-control",
-                   contractSource=initial, spec=authority, physicalCacheLock=str(lock_path),
+                   contractSource=initial, specBoundary=boundary, physicalCacheLock=str(lock_path),
                    lockDevice=lock_identity[0], lockInode=lock_identity[1],
                    inputsSha256={str(path): digest for path, digest in watch.items()
                                  if not path.is_relative_to(libraries)},

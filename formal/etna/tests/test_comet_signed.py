@@ -242,6 +242,57 @@ class SignedBoundary(unittest.TestCase):
                     }))
                     SIGNED.validate_smoke(output, expected, pins)
 
+    def test_campaign_smoke_binds_current_workspace_claim_and_watches(self):
+        pins, _, watched, _, boundary = SIGNED.campaign_inputs()
+        watched_hashes = {str(path.relative_to(ROOT.parents[2])): sha for path, sha in watched.items()}
+        expected = {SIGNED.SMOKE: {"verified": True}}
+        manifest = SIGNED.strict_json((ROOT / "current_spec_boundaries.json").read_bytes())
+        other_bundle, documents = next((bundle, docs) for bundle, docs in manifest["bundles"].items()
+                                       if bundle != boundary["workspace"]["bundleId"])
+        wrong_bundle = boundary | {
+            "workspace": boundary["workspace"] | {"bundleId": other_bundle, "documents": documents},
+            "claim": boundary["claim"] | {"bundleId": other_bundle},
+        }
+        filepv = SIGNED.CURRENT_SPEC.select_claim(boundary["workspace"]["bundleId"], "comet-filepv", "handler")
+        filepv_evidence = filepv.pop("evidence")
+        wrong_claim = boundary | {"claim": filepv, "evidence": filepv_evidence}
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            lock = output / "build.lock"
+            lock.touch()
+            record = signed_execution_record(output / "smoke", pins, "smoke", expected)
+            record_path = output / "smoke/execution.json"
+            raw_path = output / "smoke/combined.log"
+            original = (record_path.read_bytes(), raw_path.read_bytes())
+            summary_path = output / "summary.json"
+            summary = dict(schema="etna-comet-signed-execution-2", status="PASS", reports=[record],
+                           specBoundary=boundary, inputsSha256=watched_hashes, physicalBuildLock=str(lock))
+
+            def handoff():
+                return SIGNED.validate_campaign_smoke(output, expected, pins, boundary, watched_hashes, lock)
+
+            self.assertEqual(SIGNED.validate_smoke(output, expected, pins)["rawSha256"], record["combinedOutputSha256"])
+            summary_path.write_text(json.dumps(summary))
+            self.assertEqual(handoff()["rawSha256"], record["combinedOutputSha256"])
+            for mutation, change in (
+                ("missing", None),
+                ("archived-v1", {"schema": "etna-comet-signed-execution-1"}),
+                ("different-reviewed-bundle", {"specBoundary": wrong_bundle}),
+                ("different-known-claim", {"specBoundary": wrong_claim}),
+                ("wrong-watch", {"inputsSha256": watched_hashes | {"unexpected.py": "0" * 64}}),
+                ("wrong-lock", {"physicalBuildLock": str(output / "other.lock")}),
+                ("different-report", {"reports": [record | {"returncode": 1}]}),
+            ):
+                if change is None:
+                    summary_path.unlink()
+                else:
+                    summary_path.write_text(json.dumps(summary | change))
+                with self.subTest(mutation=mutation), self.assertRaisesRegex(ValueError, "campaign smoke"):
+                    handoff()
+                self.assertEqual((record_path.read_bytes(), raw_path.read_bytes()), original)
+            summary_path.write_text(json.dumps(summary))
+            self.assertEqual(handoff()["rawSha256"], record["combinedOutputSha256"])
+
     def test_trial_refuses_corrupt_effective_module_before_execution(self):
         pins = SIGNED.strict_json((ROOT / "comet_signed/pins.json").read_bytes())
         with tempfile.TemporaryDirectory() as directory:

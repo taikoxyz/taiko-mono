@@ -20,6 +20,7 @@ BOOT = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(BOOT)
 COMET = BOOT.COMET
 require_stable = BOOT.require_stable
+CURRENT_SPEC = COMET.load_module("etna_current_spec", ROOT / "current_spec.py")
 
 PACKAGE = "example.org/etna-comet-signed"
 PARENT = "TestCometSigned"
@@ -311,9 +312,11 @@ def require_go_outcomes(raw, returncode, phase, expected):
     return results
 
 
-def inputs():
+def native_inputs():
+    """Load stock inputs without choosing a workspace claim for dependent runners."""
     pins_path = FIXTURE / "pins.json"
-    pins = strict_json(pins_path.read_bytes())
+    pins_raw = pins_path.read_bytes()
+    pins = strict_json(pins_raw)
     manifest_path = ROOT / "manifests/comet.json"
     manifest_raw = manifest_path.read_bytes()
     source_pins = ROOT / "comet-pins.json"
@@ -336,21 +339,39 @@ def inputs():
             for name in ("commit", "path", "gitBlob", "sha256")} != PROVENANCE:
         raise ValueError("vote and registration source provenance differs")
 
-    authority_path = ROOT / "spec_authority.py"
-    authority = COMET.load_module("etna_signed_spec", authority_path)
-    ledger = authority.load_spec_correspondence(ROOT / "spec_correspondence.json")
-    workspace_spec = ROOT.parents[2] / ledger["path"]
-    correspondence = authority.verify_workspace_spec(workspace_spec.read_bytes(), pins["specAuthority"], ledger)
     manifest = strict_json(manifest_raw)
     if len(manifest["files"]) != source["files"]:
         raise ValueError("source manifest count differs")
     watched = {path: COMET.digest(path.read_bytes()) for path in [
-        Path(__file__), pins_path, ROOT / "run_comet.py", ROOT / "run_comet_bootstrap.py",
+        Path(__file__), ROOT / "run_comet.py", ROOT / "run_comet_bootstrap.py",
         ROOT / "run_isolated.py", ROOT / "run_baseline.py", COMET.EXECUTION_PATH,
         ROOT / "COMET_SIGNED.md", ROOT.parent / "tests/test_comet_signed.py",
-        authority_path, workspace_spec, manifest_path, source_pins,
-    ]} | pinned
-    return pins, manifest, watched, frozen_expectations(projection, pins), correspondence
+        manifest_path, source_pins,
+    ]} | pinned | {pins_path: COMET.digest(pins_raw)}
+    return pins, manifest, watched, frozen_expectations(projection, pins)
+
+
+def inputs():
+    """Retain the legacy single-SPEC interface for historical callers."""
+    pins, manifest, watched, expected = native_inputs()
+    authority_path = ROOT / "spec_authority.py"
+    authority = COMET.load_module("etna_signed_spec", authority_path)
+    ledger = authority.load_spec_correspondence(ROOT / "spec_correspondence.json")
+    workspace_spec = ROOT.parents[2] / ledger["path"]
+    raw = workspace_spec.read_bytes()
+    correspondence = authority.verify_workspace_spec(raw, pins["specAuthority"], ledger)
+    watched.update({authority_path: COMET.digest(authority_path.read_bytes()), workspace_spec: COMET.digest(raw)})
+    return pins, manifest, watched, expected, correspondence
+
+
+def campaign_inputs():
+    pins, manifest, watched, expected = native_inputs()
+    boundary, boundary_watch = CURRENT_SPEC.historical_workspace_receipt(
+        ROOT.parents[2], "comet-signed", "public-votes", spec_commit=pins["specAuthority"]["commit"],
+        implementation_commit=pins["source"]["commit"], manifest_sha256=pins["source"]["manifestSha256"],
+        input_pins_sha256={"comet_signed/pins.json": watched[FIXTURE / "pins.json"]},
+    )
+    return pins, manifest, watched | boundary_watch, expected, boundary
 
 
 @contextmanager
@@ -485,7 +506,7 @@ def trial(phase, private, manifest, args, pins, watched, tools, expected):
     return execution
 
 
-def validate_smoke(path, expected, pins):
+def _verified_smoke(path, expected, pins):
     if path is None:
         raise ValueError("full campaign requires --smoke-output from the reviewed genuine smoke")
     root = path.resolve(strict=True) / "smoke"
@@ -502,7 +523,29 @@ def validate_smoke(path, expected, pins):
     outcome = require_go_outcomes(raw, record["returncode"], "smoke", {SMOKE: expected[SMOKE]})
     if record["outcomes"] != outcome:
         raise ValueError("smoke receipt outcomes differ")
-    return {"record": str(root / "execution.json"), "rawSha256": COMET.digest(raw)}
+    return {"record": str(root / "execution.json"), "rawSha256": COMET.digest(raw)}, record
+
+
+def validate_smoke(path, expected, pins):
+    """Recheck the historical native phase record and raw bytes."""
+    return _verified_smoke(path, expected, pins)[0]
+
+
+def validate_campaign_smoke(path, expected, pins, boundary, watched_hashes, lock_path):
+    """Require a smoke produced with this campaign's reviewed workspace and inputs."""
+    evidence, record = _verified_smoke(path, expected, pins)
+    summary_path = Path(evidence["record"]).parents[1] / "summary.json"
+    try:
+        raw = summary_path.read_bytes()
+    except FileNotFoundError as error:
+        raise ValueError("campaign smoke summary is required") from error
+    summary = json.loads(raw, object_pairs_hook=COMET.EXECUTION.unique_object, parse_constant=reject_number)
+    if (not isinstance(summary, dict) or summary.get("schema") != "etna-comet-signed-execution-2"
+            or summary.get("status") != "PASS" or summary.get("specBoundary") != boundary
+            or summary.get("inputsSha256") != watched_hashes or summary.get("physicalBuildLock") != str(lock_path)
+            or json.dumps(summary.get("reports"), sort_keys=True) != json.dumps([record], sort_keys=True)):
+        raise ValueError("invalid or stale campaign smoke summary")
+    return evidence | {"summarySha256": COMET.digest(raw)}
 
 
 def main(argv=None):
@@ -522,15 +565,18 @@ def main(argv=None):
     mode.add_argument("--smoke-output", type=Path, help="reviewed smoke output required for full campaign")
     args = parser.parse_args(argv)
     try:
-        pins, manifest, watched, expected, correspondence = inputs()
+        pins, manifest, watched, expected, boundary = campaign_inputs()
         COMET.validate_layout(args, watched)
         tools = {args.go_root / name: digest for name, digest in pins["goToolSha256"].items()}
         require_stable(tools, "pinned Go SDK")
-        smoke = None if args.smoke else validate_smoke(args.smoke_output, expected, pins)
         lock_path = args.build_lock.resolve(strict=True)
         if not lock_path.is_file() or lock_path in watched or lock_path in tools or any(
                 lock_path.is_relative_to(root) for root in (args.source, args.go_root, args.module_cache, args.output)):
             raise ValueError("an existing independent shared cache lock file is required")
+        watched_hashes = {str(path.relative_to(ROOT.parents[2])): digest for path, digest in watched.items()}
+        smoke = None if args.smoke else validate_campaign_smoke(
+            args.smoke_output, expected, pins, boundary, watched_hashes, lock_path,
+        )
         with lock_path.open("r") as lock:
             COMET.EXECUTION.acquire_lock(lock, min(args.timeout, 60))
             source_before = COMET.verify_snapshot(args.source, manifest, pins["source"]["commit"])
@@ -551,9 +597,10 @@ def main(argv=None):
                 reports.append(trial("restored", private, manifest, args, pins, watched, tools, expected))
             require_stable(watched | tools, "campaign runner, public inputs or Go toolchain")
             source_after = COMET.verify_snapshot(args.source, manifest, pins["source"]["commit"])
-            summary = dict(schema="etna-comet-signed-execution-1", status="PASS", reports=reports, smoke=smoke,
+            summary = dict(schema="etna-comet-signed-execution-2", status="PASS", reports=reports, smoke=smoke,
                            originalSourceBefore=source_before, originalSourceAfter=source_after,
-                           specCorrespondence=correspondence, inputsSha256={str(p.relative_to(ROOT.parents[2])): h for p, h in watched.items()},
+                           specBoundary=boundary,
+                           inputsSha256=watched_hashes,
                            physicalBuildLock=str(lock_path))
             if not args.smoke:
                 summary["fault"] = dict(path=FAULT_PATH, original=manifest["files"][FAULT_PATH],

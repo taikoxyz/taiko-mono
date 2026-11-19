@@ -408,9 +408,10 @@ def require_disk_set(directory, expected):
 
 
 def inputs(scenario="persistence"):
-    signed_pins, manifest, watched, _, correspondence = SIGNED.inputs()
+    signed_pins, manifest, watched, _ = SIGNED.native_inputs()
     pins_path = FIXTURE / "pins.json"
-    pins = SIGNED.strict_json(pins_path.read_bytes())
+    pins_raw = pins_path.read_bytes()
+    pins = SIGNED.strict_json(pins_raw)
     SIGNED.fields(pins, ("schema", "inputsSha256", "disk"), "FilePV pins")
     if pins["schema"] != "etna-comet-filepv-pins-1" or set(pins["inputsSha256"]) != set(BUILD_FILES):
         raise ValueError("wrong FilePV pin schema or input paths")
@@ -420,12 +421,20 @@ def inputs(scenario="persistence"):
     native = {name: FIXTURE / name for name in BUILD_FILES} | {"public-votes.json": projection_path}
     native_pins = {path: pins["inputsSha256"][name] for name, path in native.items()}
     require_stable(native_pins, "FilePV native inputs")
-    for path in (Path(__file__), pins_path, ROOT / "run_comet_signed.py",
+    for path in (Path(__file__),
                  ROOT / "COMET_FILEPV.md", ROOT.parent / "tests/test_comet_filepv.py"):
         watched[path] = COMET.digest(path.read_bytes())
     expected = frozen_expectations(SIGNED.load_projection(projection_path.read_bytes()),
                                    pins["disk"], scenario)
-    return signed_pins, pins, manifest, watched | native_pins, native, expected, correspondence
+    watched[pins_path] = COMET.digest(pins_raw)
+    boundary, boundary_watch = SIGNED.CURRENT_SPEC.historical_workspace_receipt(
+        ROOT.parents[2], "comet-filepv", scenario, spec_commit=signed_pins["specAuthority"]["commit"],
+        implementation_commit=signed_pins["source"]["commit"],
+        manifest_sha256=signed_pins["source"]["manifestSha256"],
+        input_pins_sha256={"comet_filepv/pins.json": watched[pins_path],
+                           "comet_signed/pins.json": watched[SIGNED.FIXTURE / "pins.json"]},
+    )
+    return signed_pins, pins, manifest, watched | native_pins | boundary_watch, native, expected, boundary
 
 
 def expected_executed_inputs(pins, manifest):
@@ -600,7 +609,7 @@ def read_record(path):
                       parse_constant=SIGNED.reject_number)
 
 
-def validate_smoke(path, args, pins, manifest, watched_hashes, tools, expected):
+def validate_smoke(path, args, pins, manifest, watched_hashes, tools, expected, boundary):
     disk, writers, readers = expected
     name = next(iter(SEEDS))
     smoke_root = path.resolve(strict=True)
@@ -637,8 +646,8 @@ def validate_smoke(path, args, pins, manifest, watched_hashes, tools, expected):
     if (report["phase"] != "smoke" or report["diskBeforeReader"] != current
             or report["stateDirectory"] != state_directory_identity(phase / "work/state")
             or report["diskAfterReader"] != current or report["writer"]["process"] == report["reader"]["process"]
-            or summary["schema"] != "etna-comet-filepv-execution-1" or summary["status"] != "PASS"
-            or summary["scenario"] != args.scenario
+            or summary["schema"] != "etna-comet-filepv-execution-2" or summary["status"] != "PASS"
+            or summary["scenario"] != args.scenario or summary["specBoundary"] != boundary
             or summary["reports"] != [report] or summary["inputsSha256"] != watched_hashes
             or summary["physicalBuildLock"] != str(args.build_lock)):
         raise ValueError("invalid or stale FilePV smoke handoff")
@@ -657,7 +666,7 @@ def main(argv=None):
     mode.add_argument("--smoke-output", type=Path)
     args = parser.parse_args(argv)
     try:
-        signed, pins, manifest, watched, native, expected, correspondence = inputs(args.scenario)
+        signed, pins, manifest, watched, native, expected, boundary = inputs(args.scenario)
         COMET.validate_layout(args, watched)
         args.build_lock = args.build_lock.resolve(strict=True)
         tool_hashes = signed["goToolSha256"]
@@ -672,7 +681,7 @@ def main(argv=None):
         with lock.open("r") as guard:
             COMET.EXECUTION.acquire_lock(guard, min(args.timeout, 60))
             smoke = None if args.smoke else validate_smoke(
-                args.smoke_output, args, pins, manifest, watched_hashes, tool_hashes, expected)
+                args.smoke_output, args, pins, manifest, watched_hashes, tool_hashes, expected, boundary)
             source_before = COMET.verify_snapshot(args.source, manifest, manifest["commit"])
             args.output.mkdir(mode=0o700, parents=True)
             private = args.output / "private-upstream"
@@ -689,9 +698,9 @@ def main(argv=None):
                                              guarded, tool_hashes, expected))
             require_stable(guarded, "FilePV campaign runner, public inputs and Go tools")
             source_after = COMET.verify_snapshot(args.source, manifest, manifest["commit"])
-            summary = dict(schema="etna-comet-filepv-execution-1", status="PASS", scenario=args.scenario,
+            summary = dict(schema="etna-comet-filepv-execution-2", status="PASS", scenario=args.scenario,
                            reports=reports, smoke=smoke, originalSourceBefore=source_before,
-                           originalSourceAfter=source_after, specCorrespondence=correspondence,
+                           originalSourceAfter=source_after, specBoundary=boundary,
                            inputsSha256=watched_hashes, physicalBuildLock=str(lock))
             if not args.smoke:
                 path = fault_path(args.scenario)
