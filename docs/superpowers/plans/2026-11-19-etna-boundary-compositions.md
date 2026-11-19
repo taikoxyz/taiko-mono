@@ -123,3 +123,21 @@
 - [ ] Fresh most-capable whole-range source review and separate raw/behavior audit cover all seven, shared files and coordinator rulings. Repair one consolidated final wave if needed.
 - [ ] Relevant ordinary suites and actual current-main merge pass with exact counts/inputs; original historical sources/configs/pins and native restoration are checked. Re-fetch current PR feedback first.
 - [ ] Root prepares normal publication; no force push, merge or mark-ready. Record exact pushed head/full PR+issue body readbacks and CI outcome externally after actual execution. Then return to feedback-only; no eighth automatically.
+
+### Y02 source preflight correction
+
+Keep O0 at L1 number25, but use genesisCutoff24 for the initial committee
+snapshot and last landed record. Preserve R1(32,101), R2(35,104), c6 and all
+existing finite offers. Use maxAnchorAge1296, a historical schedule write at
+time98, stop1394 and activation1397; the first recovery clears stop while
+preserving still-pending Rules1, and the second recovery installs Rules2.
+Allow valid ordinary g0 successors and check their truncation at R1. Apply
+first-generation-block requirements only at ownOrigin.height+1. The isolated
+old-generation witness uses matching nonce1, alongside the composed trace's
+joint old-generation/old-nonce retry.
+
+The confirmed native-argv attribution repair has one shared implementation in
+boundary_scope.py, consumed by timestamp_projection.py and repeated_recovery.py.
+Companion Y01 path-substitution tests and authentic archived execution readback
+are within Y02 repair scope. Preserve old model/config and native raw bytes,
+current-only source selection and the trusted execution-collector premise.

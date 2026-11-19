@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import re
 
-from boundary_scope import reviewed_boundary
+from boundary_scope import require_tlc_argv, reviewed_boundary
 from current_spec import _unique_object
 from proving_recovery import FOOTER
 
@@ -55,20 +55,6 @@ def audit_projection_source(product_bytes: bytes, wrapper_bytes: bytes) -> dict:
     }
 
 
-def _audit_argv(argv, config):
-    if (type(argv) is not list or len(argv) != 16
-            or any(type(arg) is not str for arg in argv)):
-        raise ValueError("missing exact TLC invocation")
-    args = tuple(argv)
-    if (not Path(args[0]).is_absolute() or Path(args[0]).name != "java"
-            or args[1:4] != ("-Xmx1024m", "-XX:+UseParallelGC", "-cp")
-            or not Path(args[4]).is_absolute() or Path(args[4]).name != "tla2tools.jar"
-            or args[5:12] != ("tlc2.TLC", "-workers", "1", "-seed", "1", "-deadlock", "-metadir")
-            or not Path(args[12]).is_absolute()
-            or args[13:] != ("-config", config, WRAPPER)):
-        raise ValueError("actual TLC invocation differs from the selected projection profile")
-
-
 def _audit_completion(raw, cwd):
     text = raw.decode("utf-8")
     lines = text.splitlines()
@@ -116,7 +102,7 @@ def _audit_execution(execution, case, raw):
     cwd = Path(cwd_text)
     if cwd.anchor != "/" or str(cwd) != cwd_text or ".." in cwd.parts:
         raise ValueError("invalid native model working directory")
-    _audit_argv(record["argv"], case + ".cfg")
+    require_tlc_argv(record["argv"], case + ".cfg", WRAPPER)
     return record, cwd
 
 

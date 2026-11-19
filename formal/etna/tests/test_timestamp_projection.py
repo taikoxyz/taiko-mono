@@ -253,5 +253,24 @@ class TimestampProjection(unittest.TestCase):
                 self.receipt(emit, checkout, staged, execution=record)
 
 
+    def test_unchanged_raw_rejects_each_native_toolpath_swap(self):
+        emit = self.projection().projection_receipt
+        checkout = self.checkout()
+        staged = self.staged_model(checkout)
+        if not self.require_current(emit, checkout, staged):
+            return
+        baseline = self.receipt(emit, checkout, staged)
+        self.assertEqual(baseline["rawSha256"], hashlib.sha256(COMPLETE).hexdigest())
+        for path, index, value in (
+            ("timestamp-java", 0, "/tmp/other-jre/bin/java"),
+            ("timestamp-jar", 4, "/tmp/other-tools/tla2tools.jar"),
+            ("timestamp-metadir", 12, "/tmp/other-output/states"),
+        ):
+            argv = list(ARGV)
+            argv[index] = value
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                self.receipt(emit, checkout, staged, argv=argv)
+
+
 if __name__ == "__main__":
     unittest.main()

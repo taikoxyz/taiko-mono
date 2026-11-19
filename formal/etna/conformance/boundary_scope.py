@@ -1,4 +1,4 @@
-"""Select one fixed source scope for the exact current Etna document bundle."""
+"""Resolve reviewed Etna boundary scopes and validate native TLC invocation metadata."""
 
 import json
 from pathlib import Path
@@ -16,3 +16,12 @@ def reviewed_boundary(workspace_root: Path, fixed_claim_id: str) -> dict:
     if workspace["bundleId"] != current_spec.CURRENT_BUNDLE:
         raise ValueError("boundary product requires the current reviewed workspace")
     return {"workspace": workspace, "claim": claim}
+
+
+def require_tlc_argv(argv: list[str], config: str, module: str) -> None:
+    """Check the complete invocation in the guarded, stable TLC namespace."""
+    expected = ["/tmp/etna-jre/bin/java", "-Xmx1024m", "-XX:+UseParallelGC", "-cp",
+                "/tmp/etna-tools/tla2tools.jar", "tlc2.TLC", "-workers", "1", "-seed", "1",
+                "-deadlock", "-metadir", "/tmp/etna-out/states", "-config", config, module]
+    if type(argv) is not list or argv != expected:
+        raise ValueError("actual TLC invocation differs from the selected profile")
