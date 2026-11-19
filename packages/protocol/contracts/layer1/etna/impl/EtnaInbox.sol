@@ -442,17 +442,11 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @inheritdoc IEtnaInbox
-    /// @dev The Inbox makes all of its own checks (initialization, the start write, the expected
-    /// values, the 48-bit bounds, the ruleset and both lists) before any effect. The new
-    /// generation's origin is always unwritten: only the start write (generation 0) and this
-    /// function (generation + 1) write origins, and the generation only grows by one. The effects
-    /// then run in this order: `forceExit` per exclusion, the blanking, the generation, nonce and
-    /// origin writes, `Recovered`, then the slot 293 write and its event. The registry checks
-    /// each exclusion inside its `forceExit`, after the earlier exclusions have been applied; the
-    /// call is atomic, so a failing `forceExit` reverts them all. Unaffected by pause. The only
-    /// external calls are the registry's lock view and `forceExit` on the fixed registry. At
-    /// block.number == 2^48 - 1 recovery passes its own bound but any exclusion reverts in the
-    /// registry, which stores no L1 block at its no-exit sentinel.
+    /// @dev Checks the recovery state, nonce increment, ruleset and both lists before any
+    /// transition. A read-only pass over the exclusions validates each bond identity and exit
+    /// block before the first `forceExit`. The transition applies exclusions and FI blanking,
+    /// writes the generation, nonce and origin, emits `Recovered` and writes the rules schedule.
+    /// A failure reverts all effects. Unaffected by pause.
     function recover(
         uint48 _expectedGeneration,
         uint256 _expectedC,
@@ -472,7 +466,11 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
         RulesSchedule memory schedule = _recoveredRulesSchedule(_rules);
         _checkRecoveryLists(_exclusions, _fiToClear);
+        uint256 nextNonce = _expectedRecoveryNonce + 1;
 
+        for (uint256 i; i < _exclusions.length; ++i) {
+            _stakingRegistry.validateExclusion(_exclusions[i].bondId, _exclusions[i].entryKey);
+        }
         for (uint256 i; i < _exclusions.length; ++i) {
             _stakingRegistry.forceExit(_exclusions[i].bondId, _exclusions[i].entryKey);
         }
@@ -480,7 +478,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             _forcedInclusions.queue[_fiToClear[i]].txHash = _BLANK_TX_HASH;
         }
         _recoveryGeneration = newGeneration;
-        _recoveryNonce = _expectedRecoveryNonce + 1;
+        _recoveryNonce = nextNonce;
         _origins[newGeneration] =
             Origin({ startHeight: c, l1BlockNumber: block.number, l1Timestamp: block.timestamp });
 

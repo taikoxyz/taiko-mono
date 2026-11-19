@@ -121,9 +121,26 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         assertEq(registry.entryAt(0).effStake, MIN_STAKE);
     }
 
-    function test_topUp_RevertWhen_ReadinessReachesSentinel() external {
+    function test_topUp_ActivatesWhenReadinessIsMaxUint48() external {
+        uint48 readyAt = type(uint48).max;
+        vm.roll(uint256(readyAt) - ACTIVATION_DELAY);
+        _deposit(1);
+        _assertPending(1, readyAt);
+
+        vm.roll(uint256(readyAt) - 1);
+        vm.expectRevert(IEtnaStakingRegistry.TopUpNotReady.selector);
+        registry.activateTopUp(0);
+
+        vm.roll(readyAt);
+        registry.activateTopUp(0);
+        _assertPending(0, 0);
+        assertEq(registry.entryAt(0).effStake, MIN_STAKE + 1);
+        assertEq(registry.checkpointAt(1).l1Block, readyAt);
+    }
+
+    function test_topUp_RevertWhen_ReadinessOverflows48Bits() external {
         _fund(Alice, 1);
-        vm.roll(uint256(type(uint48).max) - ACTIVATION_DELAY);
+        vm.roll(uint256(type(uint48).max) + 1 - ACTIVATION_DELAY);
         vm.expectRevert(IEtnaStakingRegistry.InvalidEventBlock.selector);
         vm.prank(Alice);
         registry.topUp(0, 1);

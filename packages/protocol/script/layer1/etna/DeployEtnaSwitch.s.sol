@@ -2,6 +2,9 @@
 pragma solidity ^0.8.26;
 
 import { DeployEtnaDevnet } from "./DeployEtnaDevnet.s.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { console2 } from "forge-std/src/Script.sol";
@@ -63,18 +66,35 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         console2.log("Export INBOX_PROXY, then deploy and populate its registry.");
     }
 
-    /// @notice Deploys the switching Etna implementation without installing or initializing it.
+    /// @notice Deploys the switching Etna implementation for first installation or a fork-time
+    /// replacement before the start write.
     /// @return inboxImpl_ New implementation configured over the existing SignalService.
     function deployInbox() external override returns (address inboxImpl_) {
         IEtnaInbox.Config memory config = _inboxConfig();
         _checkVerifierPolicy(config.proofVerifier);
+        bool replacement = _isReplacement(_etnaProxy());
         vm.startBroadcast(_privateKey());
         inboxImpl_ = address(new EtnaInbox(config));
         vm.stopBroadcast();
         console2.log("Switching Etna Inbox implementation:", inboxImpl_);
-        console2.log(
-            "No proxy upgraded; initialize atomically on installation with zero start values."
-        );
+        if (replacement) {
+            console2.log("Use ownerUpgradeCall for a replacement that preserves Inbox state.");
+        } else {
+            console2.log("Use ownerUpgradeCall to install and initialize the bootstrap proxy.");
+        }
+    }
+
+    /// @notice Returns the DAO calldata to install or replace the Etna Inbox implementation.
+    /// @dev The bootstrap needs initialization. An initialized switching Inbox can be replaced
+    /// before its start write, preserving all proxy state (SWITCH.md section 7).
+    /// @param _inboxImpl The prepared Etna Inbox implementation.
+    /// @return The calldata for INBOX_PROXY in the DAO proposal.
+    function ownerUpgradeCall(address _inboxImpl) external view returns (bytes memory) {
+        _liveUnzenConfig();
+        if (_isReplacement(_etnaProxy())) {
+            return abi.encodeCall(UUPSUpgradeable.upgradeTo, (_inboxImpl));
+        }
+        return ownerInitCall(_inboxImpl);
     }
 
     /// @notice Deploys the Unzen cutoff implementation with the live Inbox's config, except that
@@ -179,6 +199,18 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
             proxy_ != vm.envAddress("UNZEN_INBOX") && proxy_ != vm.envAddress("SIGNAL_SERVICE"),
             SwitchIdentityMismatch()
         );
+    }
+
+    /// @dev Reports whether the switch Inbox has been initialized and rejects a replacement
+    /// after the start write.
+    /// @param _proxy The switching Etna Inbox proxy.
+    /// @return replacement_ Whether the proxy already holds initialized Etna state.
+    function _isReplacement(address _proxy) private view returns (bool replacement_) {
+        replacement_ = IEtnaInbox(_proxy).isInitialized();
+        if (replacement_) {
+            (, bytes32 startHash) = IEtnaInbox(_proxy).etnaStart();
+            require(startHash == 0, SwitchAlreadyStarted());
+        }
     }
 
     /// @dev The cutoff implementation's configuration: the live one with `signalService` set to
@@ -331,4 +363,5 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
 
     error SwitchIdentityMismatch();
     error ExplicitOwnerRequired();
+    error SwitchAlreadyStarted();
 }

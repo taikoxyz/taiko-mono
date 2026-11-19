@@ -66,14 +66,15 @@ image-trusting verifier must have that owner installed and no pending ownership 
    or a differently built policy is refused. The comparison instance exists only in the script's
    local EVM outside startBroadcast and is never broadcast.
 
-The `DeployEtnaSwitch` initialization data uses zero genesis hash and state root without reading
-`GENESIS_BLOCK_HASH` or `GENESIS_STATE_ROOT`. The inherited `ownerInitCall(implementation)` returns
-the owner installation/initialization calldata for review; no switch entry point sends it. The
-actual DAO batch, including time/implementation guards and L1/L2 fork-time cross-checks, remains
-outside this preparation. Install and initialize the Etna implementation atomically. The Unzen
-Inbox, L1 SignalService and Etna Inbox upgrades must execute in the same proposal: once the
-SignalService accepts checkpoints only from the Etna Inbox, Unzen proofs need the Etna Inbox's
-`saveCheckpoint` forwarder, which the bootstrap does not have.
+Use `DeployEtnaSwitch.ownerUpgradeCall(implementation)` for the Etna Inbox action in the DAO
+proposal. On the bootstrap it returns `upgradeToAndCall` with initialization and zero genesis hash
+and state root. Execute that action in the same proposal as the Unzen Inbox and L1 SignalService
+upgrades so that Unzen proofs can reach the retained store through the Etna Inbox forwarder.
+
+If the first proposal has executed and the fork time moves before the start write, the same helper
+returns `upgradeTo` to preserve the installed Inbox state. Prepare the replacement actions and
+execute them before the old propose cutoff as specified in SWITCH.md section 7. The DAO batch
+includes the time and implementation guards and the L1/L2 fork-time cross-checks.
 Keep the bootstrap under direct DAO control from its creation. Check its creation receipt,
 initializer owner and complete upgrade/ownership history before installation; current ownership
 alone cannot prove that an earlier privileged implementation left no mapping entries behind.

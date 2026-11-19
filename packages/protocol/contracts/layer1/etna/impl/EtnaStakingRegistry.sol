@@ -22,8 +22,8 @@ import "./EtnaStakingRegistry_Layout.sol"; // DO NOT DELETE
 /// `taiko.etna.registry.owners` holds the bond owners, `taiko.etna.registry.exit-confirmations`
 /// the exit confirmations, `taiko.etna.registry.top-ups` the pending top-ups and
 /// `taiko.etna.registry.forfeitures` the lifetime forfeiture flags; none enters the entries root.
-/// The Inbox proxy and the L2 chain id are immutables. Every L1 block the registry stores
-/// (activation, exit and checkpoint blocks) is below the no-exit sentinel 2^48 - 1.
+/// The Inbox proxy and the L2 chain id are immutables. L1 heights in packed fields fit uint48.
+/// Only exitEffectiveL1 reserves 2^48 - 1 to represent an unset exit.
 ///
 /// The occupancy index is a two-level bitmap over the 4096 slots: bit `slot % 256` of word
 /// `slot / 256` is set while a bond holds the slot, and bit `w` of the summary word is set while
@@ -277,8 +277,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         Entry memory entry = bond.entry;
         require(entry.exitEffectiveL1 == NO_EXIT, ExitAlreadySet());
 
-        entry.exitEffectiveL1 =
-            _toEventBlock(Math.max(block.number, entry.activeFromL1) + exitDelay);
+        entry.exitEffectiveL1 = _toExitBlock(Math.max(block.number, entry.activeFromL1) + exitDelay);
         _save($, bond, entry);
         emit ExitRequested(_bondId, entry.exitEffectiveL1);
     }
@@ -412,17 +411,17 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     }
 
     /// @inheritdoc IEtnaStakingRegistry
-    /// @dev Checks in order: the caller, the bond (`UnknownBond`), the entry key, then the current
-    /// block, which must be below the no-exit sentinel (`InvalidEventBlock`) so an excluded bond
-    /// is always left with an exit. An exit already at or before the current block, as a
-    /// withdrawn bond has, is kept with no checkpoint or event. Unaffected by pause.
+    function validateExclusion(uint256 _bondId, bytes32 _entryKey) external view {
+        _validateExclusion(_registryStorage(), _bondId, _entryKey);
+    }
+
+    /// @inheritdoc IEtnaStakingRegistry
+    /// @dev Unaffected by pause.
     function forceExit(uint256 _bondId, bytes32 _entryKey) external nonReentrant {
         require(msg.sender == inbox, NotInbox());
         RegistryStorage storage $ = _registryStorage();
-        Bond storage bond = _issuedBond($, _bondId);
+        (Bond storage bond, uint48 r) = _validateExclusion($, _bondId, _entryKey);
         Entry memory entry = bond.entry;
-        require(_entryKey == LibEtnaKeys.entryKey(entry.ckPrefix, entry.ckX), EntryKeyMismatch());
-        uint48 r = _toEventBlock(block.number);
         if (r >= entry.exitEffectiveL1) return;
 
         entry.exitEffectiveL1 = r;
@@ -495,7 +494,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         pending.pendingTopUp -= penalty - fromEffective;
         if (pending.pendingTopUp == 0) pending.readyAtL1 = 0;
         flags.forfeitures[_entryKey] = true;
-        uint48 exit = uint48(Math.min(entry.exitEffectiveL1, _toEventBlock(block.number)));
+        uint48 exit = uint48(Math.min(entry.exitEffectiveL1, _toExitBlock(block.number)));
         if (fromEffective != 0 || exit != entry.exitEffectiveL1) {
             entry.exitEffectiveL1 = exit;
             _save($, bond, entry);
@@ -748,10 +747,39 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         require(!EssentialContract(inbox).inNonReentrant(), InboxLocked());
     }
 
-    /// @dev Returns an L1 block as a 48-bit value below the no-exit sentinel.
+    /// @dev Checks the identity of an issued exclusion bond and validates the exit block.
+    /// @param $ The registry storage.
+    /// @param _bondId The excluded bond id.
+    /// @param _entryKey The expected entry key.
+    /// @return bond_ The issued bond, including a withdrawn bond.
+    /// @return exitBlock_ The validated L1 block number for the forced exit.
+    function _validateExclusion(
+        RegistryStorage storage $,
+        uint256 _bondId,
+        bytes32 _entryKey
+    )
+        private
+        view
+        returns (Bond storage bond_, uint48 exitBlock_)
+    {
+        bond_ = _issuedBond($, _bondId);
+        Entry storage entry = bond_.entry;
+        require(_entryKey == LibEtnaKeys.entryKey(entry.ckPrefix, entry.ckX), EntryKeyMismatch());
+        exitBlock_ = _toExitBlock(block.number);
+    }
+
+    /// @dev Narrows an L1 height to its packed storage width.
     /// @param _block The L1 block.
-    /// @return The block; reverts with `InvalidEventBlock` unless it is below `NO_EXIT`.
+    /// @return The block.
     function _toEventBlock(uint256 _block) private pure returns (uint48) {
+        require(_block <= type(uint48).max, InvalidEventBlock());
+        return uint48(_block);
+    }
+
+    /// @dev Narrows an exit block and reserves the no-exit sentinel.
+    /// @param _block The L1 block.
+    /// @return The exit block.
+    function _toExitBlock(uint256 _block) private pure returns (uint48) {
         require(_block < NO_EXIT, InvalidEventBlock());
         return uint48(_block);
     }

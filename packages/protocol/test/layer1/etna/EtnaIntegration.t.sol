@@ -67,6 +67,8 @@ contract RecoverRegistryProbe {
         _secondCall = _second;
     }
 
+    function validateExclusion(uint256, bytes32) external pure { }
+
     function forceExit(uint256, bytes32) external {
         ++forceExits;
         (firstSucceeded, firstResult) = _registry.call(_firstCall);

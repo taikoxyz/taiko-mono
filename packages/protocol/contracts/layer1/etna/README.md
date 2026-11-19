@@ -83,17 +83,16 @@ encoding.
 - `recover(expectedGeneration, expectedC, expectedRecoveryNonce, validUntil, exclusions, ...)`,
   whose last two arguments are `fiToClear` and `rules`: owner only after the start write, with all
   expected values matching current state, `block.timestamp <= validUntil` and a non-zero `rules`
-  equal to `nextRules + 1`. Recovery
-  increments the uint256 authorization nonce. With R = `block.number`, each excluded entry's exit
-  moves to min(existing, R) in the registry, each listed queue entry's hash becomes
-  `keccak256("")`, the generation increments and its origin (c, R's number, R's timestamp) is
+  equal to `nextRules + 1`. The Inbox validates both lists and every excluded bond's key before
+  applying any exit. Recovery increments the uint256 authorization nonce. With R = `block.number`,
+  each excluded entry's exit moves to min(existing, R) in the registry, each listed queue entry's
+  hash becomes `keccak256("")`, the generation increments and its origin (c, R's number, R's timestamp) is
   written once to slot 290 (`OriginAlreadyWritten` if that record exists). It then clears the
   planned stop and, for a non-zero `rules`, sets `activeRules = nextRules = rules` and
   `rulesTime = 0`. The checkpoint, its record, the queue head and `activeCommitteeSnapshot` are
-  kept. With all 4,096 slots held, each exclusion costs about 102,000 gas when the excluded
-  slots are spread across the entries tree (`EtnaInboxRecoverFullRegistryGasTest`), so about 160
-  fit in one transaction under EIP-7825's 2^24 gas cap. A longer list needs several
-  recoveries, each at the then-current c.
+  kept. With all 4,096 slots held and the excluded bonds spread across the entries tree,
+  `EtnaInboxRecoverFullRegistryGasTest` measures about 329,000 gas for one exclusion and 1.90M for
+  sixteen. Size each recovery transaction for the actual lists and EIP-7825's 2^24 gas cap.
 - `scheduleRules(rules, time)` and `scheduleStop(time)`: owner only after initialization;
   they write the rules schedule in slot 293 exactly as spec 10.1 steps 5a-5c, with `maxAnchorAge`
   as the deadline. A due `nextRules` is promoted first; a failed call keeps nothing. `recover`
@@ -109,9 +108,9 @@ registry mutations.
 Pause affects none of these entry points, nor the registry's (spec 1 requires this for `land`,
 `saveForcedInclusion` and the registry). Only `saveForcedInclusion` accepts ETH;
 `upgradeToAndCall` rejects it too.
-For an independently justified recovery exposed to intermittent landing, use the
-[two-stage verifier-trust procedure](../../../docs/etna/RECOVERY.md) before reading and authorizing
-the exact recovery tuple. This procedure adds no freeze to `recover` itself.
+If a landing changes `c` after recovery is authorized, recheck the recovery conditions and
+seek fresh authorization for the current tuple (RECOV-8.1-4). Maintain an accepted proof
+combination covering the required rulesets throughout (START-10.1-6c).
 
 ## EtnaStakingRegistry
 

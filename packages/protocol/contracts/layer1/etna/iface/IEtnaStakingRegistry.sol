@@ -363,6 +363,13 @@ interface IEtnaStakingRegistry {
     )
         external;
 
+    /// @notice Checks a recovery exclusion before any registry writes (RECOV-8-39).
+    /// @dev Requires an issued bond with the expected key and an L1 block below the no-exit
+    /// sentinel. A previously withdrawn bond is still issued.
+    /// @param _bondId The bond id.
+    /// @param _entryKey The bond's expected key.
+    function validateExclusion(uint256 _bondId, bytes32 _entryKey) external view;
+
     /// @notice Moves a bond's exit to the recovery execution block during governance recovery
     /// (spec 8 step 2).
     /// @dev The recovery exclusion path only; `forfeit` (spec 4.4) forces an exit on its own path,
@@ -482,7 +489,7 @@ interface IEtnaStakingRegistry {
     error ExitAlreadySet();
     /// @notice The entry has no exit set.
     error ExitNotSet();
-    /// @notice An activation, exit or checkpoint block does not fit below the no-exit sentinel.
+    /// @notice A block exceeds uint48, or an exit block reaches the no-exit sentinel.
     error InvalidEventBlock();
     /// @notice The Inbox is not initialized.
     error InboxNotInitialized();

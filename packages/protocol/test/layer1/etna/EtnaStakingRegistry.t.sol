@@ -534,7 +534,6 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         assertEq(registry.checkpointCount(), 1, "checkpoint");
     }
 
-    /// @dev `activeFromL1` must be below the no-exit sentinel 2^48 - 1.
     function test_register_RevertWhen_ActivationOverflows48Bits() external {
         bytes memory publicKey = EtnaTestKeys.publicKey(_CK_A);
         bytes memory pop = EtnaTestKeys.popSig(_CK_A, registry, Alice);
@@ -543,15 +542,13 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
 
         vm.roll(2 ** 48 - ACTIVATION_DELAY);
         _assertRegisterReverts(Alice, publicKey, MIN_STAKE, pop, invalidEventBlock, "2^48");
-        vm.roll(2 ** 48 - 1 - ACTIVATION_DELAY);
-        _assertRegisterReverts(Alice, publicKey, MIN_STAKE, pop, invalidEventBlock, "sentinel");
         assertEq(registry.checkpointCount(), 0, "no checkpoint");
 
-        uint256 registeredAt = 2 ** 48 - 2 - ACTIVATION_DELAY;
+        uint256 registeredAt = uint256(type(uint48).max) - ACTIVATION_DELAY;
         vm.roll(registeredAt);
         vm.prank(Alice);
         registry.register(publicKey, MIN_STAKE, pop);
-        assertEq(registry.entryAt(0).activeFromL1, 2 ** 48 - 2, "activeFromL1");
+        assertEq(registry.entryAt(0).activeFromL1, type(uint48).max, "activeFromL1");
         _assertCheckpoint(0, registeredAt, 1, registry.entriesRoot());
     }
 

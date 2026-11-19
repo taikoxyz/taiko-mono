@@ -35,6 +35,8 @@ contract LockProbeRegistry {
         recoverCall = _recoverCall;
     }
 
+    function validateExclusion(uint256, bytes32) external pure { }
+
     function forceExit(uint256, bytes32) external {
         ++forceExits;
         lockHeld = EssentialContract(msg.sender).inNonReentrant();
@@ -322,7 +324,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     // ---------------------------------------------------------------
 
     /// @dev Lean `stale_exclusion_identity_rejected` and spec 8 RECOV-8-40a: the registry checks
-    /// each exclusion's entry key inside `forceExit` and rejects an exclusion whose key does not
+    /// each exclusion's entry key and rejects an exclusion whose key does not
     /// match its bond, or an unissued bond. Each rejected list starts with a valid exclusion of
     /// Alice and lists a blanking: the whole call reverts, so Alice's exit, the queue entry and
     /// the generation stay as they were. A withdrawn bond named with its own key is accepted and
@@ -366,6 +368,19 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _recover(0, 6, list, _indices(1));
         assertEq(registry.entryAt(0).exitEffectiveL1, block.number, "Alice excluded");
         assertEq(registry.bondAt(1).entry.exitEffectiveL1, bobExit, "Bob's earlier exit stands");
+    }
+
+    function test_recover_RevertWhen_LaterExclusionInvalidBeforeAnyExit() external {
+        IEtnaInbox.Exclusion[] memory list = new IEtnaInbox.Exclusion[](2);
+        list[0] = _exclusion(0, VALIDATOR_PK);
+        list[1] = _exclusion(1, VALIDATOR_PK);
+
+        vm.expectCall(
+            address(registry), abi.encodePacked(IEtnaStakingRegistry.forceExit.selector), 0
+        );
+        _expectRecoverRevert(
+            0, 0, list, _indices(0), IEtnaStakingRegistry.EntryKeyMismatch.selector
+        );
     }
 
     /// @dev Both lists must be strictly increasing: equal or descending neighbours, anywhere in
@@ -576,9 +591,8 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(_inbox().recoveryGeneration(), 1, "one generation");
     }
 
-    /// @dev `recover` calls nothing but the fixed registry's `forceExit`, once per exclusion in
-    /// list order, and sends no ETH; it never calls the SignalService or the
-    /// verifier.
+    /// @dev `recover` validates all exclusions in the registry before forcing exits in list
+    /// order. It sends no ETH and never calls the SignalService or the verifier.
     function test_recover_CallsOnlyTheRegistry() external {
         IEtnaInbox.Exclusion[] memory everyone = new IEtnaInbox.Exclusion[](2);
         everyone[0] = _exclusion(0, VALIDATOR_PK);
@@ -598,6 +612,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             );
         VmSafe.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
 
+        uint256 validated;
         uint256 forceExits;
         for (uint256 i; i < accesses.length; ++i) {
             VmSafe.AccountAccess memory a = accesses[i];
@@ -611,14 +626,22 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             } else if (a.account == address(registry)) {
                 assertEq(a.accessor, inboxProxy, "called by the Inbox");
                 if (a.kind == VmSafe.AccountAccessKind.StaticCall) {
+                    if (bytes4(a.data) == EssentialContract.inNonReentrant.selector) {
+                        continue;
+                    }
+                    IEtnaInbox.Exclusion memory exclusion = everyone[validated++];
                     assertEq(
                         a.data,
-                        abi.encodeWithSignature("inNonReentrant()"),
-                        "reciprocal registry lock check"
+                        abi.encodeCall(
+                            IEtnaStakingRegistry.validateExclusion,
+                            (exclusion.bondId, exclusion.entryKey)
+                        ),
+                        "registry exclusion validation"
                     );
                     continue;
                 }
                 assertEq(uint8(a.kind), uint8(VmSafe.AccountAccessKind.Call), "registry forceExit");
+                assertEq(validated, everyone.length, "all exclusions validated before forceExit");
                 IEtnaInbox.Exclusion memory x = everyone[forceExits++];
                 assertEq(
                     a.data,

@@ -378,8 +378,8 @@ interface IEtnaInbox {
     /// authorization nonce without wrapping on success. The new generation, block.number and
     /// block.timestamp each below 2^48 (`ValueOverflow`); exclusions sorted strictly by bond id
     /// and fiToClear strictly increasing within [head, tail). With R = block.number, the registry
-    /// checks each exclusion's entry key and sets its exitEffectiveL1 to min(existing, R)
-    /// (`IEtnaStakingRegistry.forceExit`), so any otherwise valid exclusion reverts
+    /// checks all exclusions before any recovery writes and then sets each exitEffectiveL1
+    /// to min(existing, R) (`IEtnaStakingRegistry.forceExit`). An otherwise valid exclusion reverts
     /// `InvalidEventBlock` at block.number == 2^48 - 1, the registry's no-exit sentinel. Each
     /// listed queue entry's txHash becomes keccak256("").
     /// Increments the generation, writes origins[generation] = (c, R, block.timestamp) once

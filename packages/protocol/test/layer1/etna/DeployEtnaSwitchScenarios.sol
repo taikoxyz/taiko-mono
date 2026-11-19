@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { EtnaTestKeys } from "./EtnaTestKeys.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { DeployEtnaSwitch } from "script/layer1/etna/DeployEtnaSwitch.s.sol";
 import { DeployEtnaVerifiers } from "script/layer1/etna/DeployEtnaVerifiers.s.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { InboxWithEtnaCutoffs } from "src/layer1/core/impl/InboxWithEtnaCutoffs.sol";
+import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
+import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { ZkRequiredVerifier } from "src/layer1/verifiers/compose/ZkRequiredVerifier.sol";
@@ -18,6 +24,11 @@ import { InboxTestBase } from "test/layer1/core/inbox/InboxTestBase.sol";
 contract DeployEtnaSwitchScenarios is InboxTestBase {
     uint256 private constant _DEPLOYER_KEY = 0xe7aa;
     uint48 private constant _FORK_TIME = 1_000_000;
+    uint48 private constant _NEW_FORK_TIME = _FORK_TIME + 5000;
+    uint256 private constant _VALIDATOR_KEY = 0xC0A;
+    uint256 private constant _MIN_STAKE = 250_000 ether;
+    uint256 private constant _EPOCH_LEN = 5;
+    bytes32 private constant _COMMITTEE_RECORD_HASH = bytes32(uint256(123));
 
     DeployEtnaSwitch private _switch;
     DeployEtnaVerifiers private _verifiers;
@@ -46,10 +57,11 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         vm.setEnv("INBOX_PROXY", vm.toString(proxy));
         address registry = _switch.deployRegistry();
         vm.setEnv("STAKING_REGISTRY", vm.toString(registry));
+        _registerValidator(IEtnaStakingRegistry(registry));
         DeployEtnaVerifiers.VerifierAddresses memory verifiers = _verifiers.run();
         vm.setEnv("ETNA_PROOF_VERIFIER", vm.toString(verifiers.proofVerifier));
         address cutoff = _switch.deployUnzenInboxImplementation();
-        _assertCutoffConfig(cutoff, proxy);
+        _assertCutoffConfig(cutoff, proxy, _FORK_TIME);
         vm.setEnv("UNZEN_INBOX_IMPLEMENTATION", vm.toString(cutoff));
 
         address[5] memory controlled =
@@ -100,8 +112,7 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         // Once the proposal has executed, the live Unzen Inbox reports the Etna Inbox, and a
         // replacement proposal can still be prepared from it (SWITCH.md section 7).
         assertEq(inbox.getConfig().signalService, proxy);
-        _assertCutoffConfig(_switch.deployUnzenInboxImplementation(), proxy);
-        _switch.deployInbox();
+        _reschedule(proxy);
         // Any third value is refused.
         vm.setEnv("INBOX_PROXY", vm.toString(registry));
         vm.expectRevert(DeployEtnaSwitch.SwitchIdentityMismatch.selector);
@@ -127,9 +138,8 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         _switch.deployInbox();
     }
 
-    /// @dev Models the DAO proposal's L1 actions 1, 2 and 4 (SWITCH.md section 3), without the
-    /// Etna Inbox's `init`, which forwarding does not need, then has the Unzen Inbox prove a
-    /// proposal made before the switch (vectors 5d.h, 5d.i and 5.u).
+    /// @dev Models the DAO proposal's L1 actions (SWITCH.md section 3), then has the Unzen
+    /// Inbox prove a proposal made before the switch (vectors 5d.h, 5d.i and 5.u).
     function _switchAndProve(
         address _proxy,
         address _cutoff,
@@ -139,9 +149,15 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         private
     {
         IInbox.ProveInput memory input = _buildBatchInput(1);
+        bytes memory data = _switch.ownerUpgradeCall(_etnaImpl);
         inbox.upgradeTo(_cutoff);
         signalService.upgradeTo(_signalImpl);
-        EssentialContract(_proxy).upgradeTo(_etnaImpl);
+        _executeUpgrade(_proxy, data);
+        EtnaInbox etna = EtnaInbox(_proxy);
+        assertTrue(etna.isInitialized());
+        assertEq(etna.genesis().epochLenL2, _EPOCH_LEN);
+        assertEq(etna.genesisCommitteeRecordHash(), _COMMITTEE_RECORD_HASH);
+        _assertStartUnwritten(etna);
         assertEq(inbox.getConfig().signalService, _proxy);
 
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
@@ -167,16 +183,93 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         signalService.saveCheckpoint(checkpoint);
     }
 
+    /// @dev A replacement proposal updates the fork immutables and preserves initialized state.
+    function _reschedule(address _proxy) private {
+        vm.setEnv("ETNA_FORK_TIME", vm.toString(_NEW_FORK_TIME));
+        address cutoff = _switch.deployUnzenInboxImplementation();
+        _assertCutoffConfig(cutoff, _proxy, _NEW_FORK_TIME);
+        vm.setEnv("UNZEN_INBOX_IMPLEMENTATION", vm.toString(cutoff));
+        address implementation = _switch.deployInbox();
+
+        EtnaInbox etna = EtnaInbox(_proxy);
+        etna.invalidateRecoveryNonce(0);
+        bytes32 committeeConfigHash = etna.committeeConfigHash();
+        bytes memory data = _switch.ownerUpgradeCall(implementation);
+        assertEq(data, abi.encodeCall(UUPSUpgradeable.upgradeTo, (implementation)));
+        inbox.upgradeTo(cutoff);
+        _executeUpgrade(_proxy, data);
+        assertEq(etna.etnaForkTime(), _NEW_FORK_TIME);
+        assertTrue(etna.isInitialized());
+        assertEq(etna.recoveryNonce(), 1);
+        assertEq(etna.genesis().epochLenL2, _EPOCH_LEN);
+        assertEq(etna.genesisCommitteeRecordHash(), _COMMITTEE_RECORD_HASH);
+        assertEq(etna.committeeConfigHash(), committeeConfigHash);
+        _assertStartUnwritten(etna);
+
+        uint256 snapshot = vm.snapshotState();
+        bytes32 startHash = bytes32(uint256(456));
+        bytes32 startRoot = bytes32(uint256(789));
+        vm.warp(_FORK_TIME);
+        vm.expectRevert(IEtnaInbox.BeforeEtnaForkTime.selector);
+        vm.prank(Carol);
+        etna.setOrigin(100, startHash, startRoot);
+
+        vm.warp(_NEW_FORK_TIME);
+        vm.prank(Carol);
+        etna.setOrigin(100, startHash, startRoot);
+        assertEq(etna.generationStartHeight(), 100);
+        vm.expectRevert(DeployEtnaSwitch.SwitchAlreadyStarted.selector);
+        _switch.ownerUpgradeCall(implementation);
+        assertTrue(vm.revertToState(snapshot));
+    }
+
+    function _executeUpgrade(address _proxy, bytes memory _data) private {
+        (bool success, bytes memory result) = _proxy.call(_data);
+        if (!success) {
+            assembly {
+                revert(add(result, 32), mload(result))
+            }
+        }
+    }
+
+    function _assertStartUnwritten(EtnaInbox _etna) private {
+        (uint48 height, bytes32 blockHash) = _etna.etnaStart();
+        assertEq(height, 0);
+        assertEq(blockHash, bytes32(0));
+        assertEq(_etna.genesis().startStateRoot, bytes32(0));
+        vm.expectRevert(IEtnaInbox.StartNotWritten.selector);
+        _etna.generationStartHeight();
+    }
+
+    function _registerValidator(IEtnaStakingRegistry _registry) private {
+        bondToken.mint(Alice, _MIN_STAKE);
+        bytes memory key = EtnaTestKeys.publicKey(_VALIDATOR_KEY);
+        bytes memory pop = EtnaTestKeys.popSig(_VALIDATOR_KEY, _registry, Alice);
+        vm.startPrank(Alice);
+        bondToken.approve(address(_registry), _MIN_STAKE);
+        _registry.register(key, _MIN_STAKE, pop);
+        vm.stopPrank();
+        vm.setEnv("GENESIS_CUTOFF", vm.toString(block.number));
+        vm.roll(block.number + 10);
+    }
+
     /// @dev The cutoff implementation keeps every live `getConfig()` field except
     /// `signalService`, which names the Etna Inbox proxy (START-10-5d).
-    function _assertCutoffConfig(address _cutoff, address _proxy) private view {
+    function _assertCutoffConfig(
+        address _cutoff,
+        address _proxy,
+        uint48 _forkTime
+    )
+        private
+        view
+    {
         IInbox.Config memory expected = inbox.getConfig();
         expected.signalService = _proxy;
         assertEq(
             keccak256(abi.encode(InboxWithEtnaCutoffs(_cutoff).getConfig())),
             keccak256(abi.encode(expected))
         );
-        assertEq(InboxWithEtnaCutoffs(_cutoff).ETNA_FORK_TIME(), _FORK_TIME);
+        assertEq(InboxWithEtnaCutoffs(_cutoff).ETNA_FORK_TIME(), _forkTime);
     }
 
     function _assertOwnerRequired(string memory _value) private {
@@ -199,7 +292,7 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         vm.setEnv("FI_MARGIN", "500");
         vm.setEnv("REMOTE_SIGNAL_SERVICE", vm.toString(_switch.l2SignalServiceAddress(167_001)));
         vm.setEnv("TAIKO_TOKEN", vm.toString(address(bondToken)));
-        vm.setEnv("REGISTRY_MIN_STAKE", "250000000000000000000000");
+        vm.setEnv("REGISTRY_MIN_STAKE", vm.toString(_MIN_STAKE));
         vm.setEnv("REGISTRY_ACTIVATION_DELAY", "10");
         vm.setEnv("REGISTRY_EXIT_DELAY", "20");
         vm.setEnv("REGISTRY_WITHDRAWAL_DELAY", "30");
@@ -207,6 +300,14 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         vm.setEnv("REGISTRY_FORFEIT_BPS", "1000");
         vm.setEnv("SLASH_SINK", vm.toString(David));
         vm.setEnv("MAX_BATCH_BLOCKS", "1000");
+        vm.setEnv("EPOCH_LEN_L2", vm.toString(_EPOCH_LEN));
+        vm.setEnv("COMMITTEE_RECORD_HASH", vm.toString(_COMMITTEE_RECORD_HASH));
+        vm.setEnv("ETNA_VP_UNIT", "1000000000");
+        vm.setEnv("ETNA_S_MIN", "1000000000");
+        vm.setEnv("ETNA_N_MAX", "32");
+        vm.setEnv("ETNA_UNSETTLED_LIMIT", "64");
+        vm.setEnv("FORCED_INCLUSION_DELAY", "1200");
+        vm.setEnv("MAX_ANCHOR_AGE", "1152");
         vm.setEnv("FORCED_INCLUSION_FEE_GWEI", "10000000");
         vm.setEnv("FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD", "50");
         vm.setEnv("PROTOCOL_FEE_RECIPIENT", vm.toString(Emma));
