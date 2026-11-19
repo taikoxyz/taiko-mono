@@ -100,7 +100,7 @@
       "id": "CURRENT-H4",
       "status": "proved",
       "scope": "conditional decoded specification property only",
-      "description": "From every reachable, initialized state satisfying LiveAt, under RecoveryPremises, a rollback-free path with one plain recovery (no FI blanking; it keeps the rules or installs ruleset nextRules + 1) reaches a state where land accepts a landing of the new generation's first block, above the starting checkpoint whenever one had landed; actual raw DAO histories require instrumented per-history authorization. Proof completeness is assumed, not shown; list validation, exclusions, blanking and normal-operation liveness are not covered.",
+      "description": "From every reachable, initialized state satisfying LiveAt, under RecoveryPremises, a rollback-free path with one plain recovery (no FI blanking; it keeps the rules or installs ruleset nextRules + 1) reaches a state where land accepts a landing of the new generation's first block, above the starting checkpoint whenever one had landed; actual raw DAO histories require instrumented per-history authorization. Proof completeness is assumed, not shown; list validation, blanking and normal-operation liveness are not covered.",
       "assumptions": ["recovery"],
       "evidence": {
         "LIVE_EN-8773689481af38c9": [
