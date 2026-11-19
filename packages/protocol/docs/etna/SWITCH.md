@@ -106,7 +106,7 @@ With slots of at least 12 s no lead of the L2 timestamp over L1 time builds up, 
    - It does not write the SignalService (START-10-5c).
    - Its L1 block is R₀.
 8. **Node operators: start Etna once R₀ is finalized.**
-   - Generate CometBFT genesis per START-10-20: `initial_height = S + 1`, `genesis_time = R₀.timestamp`, `app_hash` = S's hash and the validators of committee 0.
+   - Generate CometBFT genesis per START-10-20: `initial_height = S + 1`, `genesis_time = R₀.timestamp`, `app_hash` = the appHash of S's hash and the genesis validator state (CONS-3.1-8), and the validators of committee 0.
    - Start the execution layer, the ABCI application, the signer and CometBFT (START-10-6).
    - Before a node trusts the chain and signs, it runs SYNC-9-5a's checks: S is the last block of the Unzen chain, its header of S has the start's stateRoot, and, while the latest checkpoint is S, the L2 `SignalService` at S has the Etna implementation. That last check needs the L2 state at S, which a node keeps until the first landing or reads through a verified `eth_getProof` (SYNC-9-16).
 9. **Unzen provers: finish proving through S.** The `prove` call that finalizes the last Unzen proposal saves the checkpoint at S in the L1 SignalService, through the EtnaInbox. Provers keep their own copies of the blobs of the remaining proposals: L1 serves blobs for only about 18 days (EIP-4844's retention), so a final proof built later, for example with a fixed image, needs those copies.
