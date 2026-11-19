@@ -2,11 +2,26 @@
 
 ## Unreleased
 
+### Etna specification simplification (#22412)
+
+- `app_hash` is appHash(blockHash, valStateHash): the block's EL hash and the CometBFT validator state after it (CONS-3.1-8, ENC-A-29b). InitChain, FinalizeBlock, Info, every genesis document and an imported node's stock stores use it; proof-side block checks no longer compare it with the parent EL hash (PROOF-6.2-42).
+- Checkpoint trust compares only the EL and Comet hashes of the three-word slot 285 record (SYNC-9-5); it no longer compares or waits for a landed validator state.
+- Landings end at any height above their parent: the statement has 21 words (672 bytes), `LandInput` has 8 fields, and the cut list holds one four-word leaf per height in (p, h), none when h = p+1. A competing landing at c is checked at leaf c−p−1.
+- The batch cap is min(`--max-blocks`, `maxBatchBlocks`) with no rounding, and any U in 1..=65,536 is accepted.
+- `scheduleStop` takes one `uint48` time, and a planned stop refuses every block whose parent's timestamp is at or after it, at any height.
+- The app records the validator state at every committed height and keeps the records from one height below the trust checkpoint; `/val_state/<h>` answers any retained height. The lander no longer queries it and drops `lander_validator_state_mismatches_total`.
+- Checkpoint import takes the validator-state preimage after s − 1, checks it against header(s)'s app_hash and validator hashes, and applies block s's updates once (DATA-5.4-3). Packages use schema 2; export reads `/val_state/<s−1>` or the archive, which now keeps every height.
+- CometBFT evidence limits are 900 blocks, 1 h and 1 MiB (START-10-21). InitChain and `etna-comet-import` refuse a genesis with other values, and import windows follow the new limits.
+- Registry reads follow lowest-empty-slot admission (STAKE-4.1-14a).
+- Pin the protocol to `995ed0dd25` and regenerate the lander artifacts and the schema-8 shared vectors. The conformance record maps the specification at `2e6763e21b`.
+- Bump the app state from schema 19 to 20 and lander journals from 18 to 19.
+- etna-core: `verify_body_at_origin`, `verify_structure` and `verify_structure_at_origin` drop the `parent_el_hash` parameter, and `GRID_INTERVAL` and `GenesisRecord::is_grid_height` are removed (from abci too). Callers must adapt.
+
 ### Protocol artifact alignment
 
-- Align the protocol pin, ABI/artifact provenance and shared schema-7 vectors with the published switch contracts in PR #22286 at `4c6424bc`, which closes the L2 checkpoint store with `beaconRootsFrom` and removes `SignalServiceL1`.
+- Align the ABI/artifact provenance with the published switch contracts in PR #22286, which closes the L2 checkpoint store with `beaconRootsFrom` and removes `SignalServiceL1`. The protocol pin, first at `4c6424bc`, now follows #22412 (above).
 - Regenerate Inbox, Anchor, PreconfWhitelist and SignalService bindings with workspace Alloy; remove the retired, unused LookaheadStore binding.
-- Reproduction checks now include the legacy generated bindings. Signed journals and persisted app state are unchanged.
+- Reproduction checks now include the legacy generated bindings. This alignment changes neither signed journals nor persisted app state.
 
 ### Unzen driver and Etna handoff
 
@@ -16,7 +31,7 @@
 - Authenticate the switch with the L2 SignalService proxy's implementation slot at S, and check before every trust grant that the built-in implementation's `beaconRootsFrom()` equals the configured fork time (SYNC-9-5a). The `[switch]` key `anchor_implementation` is now `signal_service_implementation`.
 - Add the shared `--engine-control-dir` Engine writer lease. Mount the same directory for every local controller of one EL.
 - Pin alethia-reth to PR #248 head `53f33b70` with OP Reth `op-v2.7.0-1`.
-- Support nonzero-S landing, S-relative cut leaves and overlaps, committee 0 bootstrap and authenticated Unzen ancestry.
+- Support nonzero-S landing, cut leaves and overlaps above S, committee 0 bootstrap and authenticated Unzen ancestry.
 - Wait for terminal Unzen finalization and the matching SignalService checkpoint before preparing the first landing; retain its raw L2 SignalService implementation witness for the proof backend.
 - Support nonzero-S checkpoint import/export, deriving the original EL block-zero identity from the operator-selected runtime chainspec.
 - Bump lander journals from schema 16 to 18 for the additional private proof witness, the L2 SignalService implementation proof at S. Older journals, including schema 17's Anchor witness, are refused without migration; resolve outstanding signed transactions with the compatible lander before upgrading.
@@ -24,9 +39,11 @@
 
 ### ⚠ BREAKING CHANGES
 
-Etna is unlaunched, so start a fresh devnet: the app state (schema 19), validator-state records,
-lander journals (18), private trust control (schema 1) and the signer's state layout are new, and
-older stores are refused, never migrated (START-10-24).
+Etna is unlaunched, so start a fresh devnet: the app state (schema 20), validator-state records,
+lander journals (19), checkpoint import packages (schema 2), private trust control (schema 1)
+and the signer's state layout are new, and older stores are refused, never migrated
+(START-10-24). Regenerate older geneses with `abci-genesis`: InitChain and `etna-comet-import`
+refuse CometBFT's default evidence limits (START-10-21).
 
 - The lander's `--max-blobs` (`LANDER_MAX_BLOBS`) and the app's `--l1.archive`
   (`ABCI_L1_ARCHIVE`) are removed. A removed flag is now an unknown argument, so a deployment
@@ -98,21 +115,20 @@ older stores are refused, never migrated (START-10-24).
   optional immutable preimage archive beyond live sidecar pruning.
 - Verify historical committee witnesses under the switch block's own anchor root while keeping
   the derivation parent's selected snapshot, including pending committees and recovery.
-- Check the CometBFT validator state at checkpoint trust. The app computes stock CometBFT
-  v0.40.0's validator sets, proposer priorities and stored proposers with its per-height
-  arithmetic, records them at the generation's start and at each grid height in an immutable,
-  checksummed `val-state-{height}.bin`, records the validator updates of every epoch switch
-  height in `val-updates-{height}.bin`, and serves the state as the ABCI query
-  `/val_state/<height>`. Below the trust checkpoint it keeps the newest valid state record as
-  the recompute base; a missing or corrupt record (set aside as `.corrupt`) is recomputed from
-  an earlier record and the updates since (SYNC-9-5c). Landings carry the state's hash as the
-  fourth word of each landing record, and a node whose own state differs from the landed hash
-  halts for safety (`validator_state_mismatch`).
-- Align with protocol `35e2f8f19` and the current Etna specification: authenticate slot 293,
+- Track the CometBFT validator state. The app computes stock CometBFT v0.40.0's validator
+  sets, proposer priorities and stored proposers with its per-height arithmetic, records them at
+  the generation's start and at every committed height in an immutable, checksummed
+  `val-state-{height}.bin`, records the validator updates of every epoch switch height in
+  `val-updates-{height}.bin`, and serves the state as the ABCI query `/val_state/<height>`.
+  Below the height before the trust checkpoint it keeps the newest valid state record as the
+  recompute base; a missing or corrupt record (set aside as `.corrupt`) is recomputed from an
+  earlier record and the updates since (SYNC-9-5c). The app commits the state in its `app_hash`
+  (CONS-3.1-8); landings do not carry it.
+- Align with protocol `35e2f8f19` and the Etna specification of that time: authenticate slot 293,
   enforce ruleset selection/refusal and planned stops, and retain fixed recovery origins
   across later schedule writes. Reproduce schema-6 vectors and the updated recovery ABI.
-- Read registry entries by slot independently of permanent bond IDs, including displacement
-  and reuse; reject older app and lander stores without modifying their signed state.
+- Read registry entries by slot independently of permanent bond IDs, including slot reuse;
+  reject older app and lander stores without modifying their signed state.
 - Add L1-authenticated governance recovery for validators and full nodes with usable local EL
   origin state. `abci-recover prepare` authenticates generation N, its origin c, R and the
   reselected committee on the node's own finalized L1 and writes a private plan file; `install`
