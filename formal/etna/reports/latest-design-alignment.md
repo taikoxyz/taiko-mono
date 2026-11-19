@@ -1,10 +1,12 @@
 # Latest Etna design alignment
 
-Authorities: main `9c832234b4681fbc5eccdbaf9c9303b7869f91f4` (2026-11-18) for SPEC,
-ACCEPTANCE, ANCHORLESS and SWITCH. This revision re-pins to #22410 and changes no definition or
-theorem statement, only comments and evidence wording; [the #22410 alignment](alignment-22410.md)
-has the details. The re-pin before it, to #22348, changed none either
-([#22348 alignment](alignment-22348.md)). An earlier revision re-pinned to #22341 and restated
+Authorities: main `2e6763e21bc236cfcda6011d164b32040f9e0c8d` (2026-11-19) for SPEC,
+ACCEPTANCE, ANCHORLESS and SWITCH. This revision re-pins to #22412, which removes the landing
+grid, takes the validator state out of settlement and replaces registry displacement with
+lowest-empty-slot admission. The model follows, and H4's path is one plain recovery and a
+landing of one block; [the #22412 alignment](alignment-22412.md) has the details. The re-pins
+before it, to #22410 and #22348, changed no definition or theorem statement
+([#22410 alignment](alignment-22410.md), [#22348 alignment](alignment-22348.md)). An earlier revision re-pinned to #22341 and restated
 H1 over its own five premises (`FundPremises`) ([#22341 alignment](alignment-22341.md)). Before that, a revision
 aligned the model with #22338: checkpoint records, cuts, `LandInput` and the statement carry
 the validator-state hash; app import retains EL headers from
@@ -25,7 +27,8 @@ unchanged. After the #22410 re-pin it was 61 partial / 519 deferred clauses and 
 supporting / 524 deferred binding rules. Letting H4's recovery exclude members (RECOV-8-38,
 8-40a, 8-41) made it 62 partial / 518 deferred clauses and 46 partial / 40 supporting / 522
 deferred binding rules. Modelling the bridge's read path (RECOV-8-27a, ANCHORLESS sections 4 and 8) made it 67 partial / 513 deferred clauses and 47 partial / 40 supporting / 521 deferred
-binding rules (README). The counts below are those after #22338.
+binding rules. The #22412 re-pin made it 52 partial / 526 deferred clauses and 43 partial / 44
+supporting / 517 deferred binding rules (README). The counts below are those after #22338.
 
 ## Current-only package
 
