@@ -89,7 +89,7 @@ contract EtnaInboxLand6BlocksGasTest is EtnaInboxGasBase {
 }
 
 /// @title EtnaInboxLand300BlocksGasTest
-/// @notice A 300-block landing with 49 leaves, from the checkpoint at 6 to 306.
+/// @notice A 300-block landing with 299 leaves, from the checkpoint at 6 to 306.
 contract EtnaInboxLand300BlocksGasTest is EtnaInboxGasBase {
     function setUp() public override {
         super.setUp();
@@ -98,7 +98,7 @@ contract EtnaInboxLand300BlocksGasTest is EtnaInboxGasBase {
     }
 
     function test_gas_Land300Blocks() external {
-        _measureLand("land_300_blocks_49_leaves", 6, 306);
+        _measureLand("land_300_blocks_299_leaves", 6, 306);
     }
 }
 
@@ -119,7 +119,7 @@ contract EtnaInboxLand300FrontierGasTest is EtnaInboxGasBase {
 }
 
 /// @title EtnaInboxLand3600BlocksGasTest
-/// @notice A 3,600-block landing with 599 leaves, from the checkpoint at 6 to 3,606, on an
+/// @notice A 3,600-block landing with 3,599 leaves, from the checkpoint at 6 to 3,606, on an
 /// implementation with `maxBatchBlocks = 3600`.
 contract EtnaInboxLand3600BlocksGasTest is EtnaInboxGasBase {
     function setUp() public override {
@@ -130,7 +130,7 @@ contract EtnaInboxLand3600BlocksGasTest is EtnaInboxGasBase {
     }
 
     function test_gas_Land3600Blocks() external {
-        _measureLand("land_3600_blocks_599_leaves", 6, 3606);
+        _measureLand("land_3600_blocks_3599_leaves", 6, 3606);
     }
 }
 

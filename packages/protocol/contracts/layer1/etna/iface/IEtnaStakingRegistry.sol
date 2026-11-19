@@ -234,11 +234,12 @@ interface IEtnaStakingRegistry {
     /// (appendix A) and rejects any other encoding. `_popSig` is exactly 65 bytes R ‖ S ‖ V with
     /// V in {0, 1}, 0 < R < n and 0 < S <= n / 2, recovering over `registerDigest(msg.sender)` to
     /// the key's address. Each key address registers once, ever. Requires `_amount >= minStake`
-    /// (`StakeTooLow`, checked first) and takes the lowest empty slot, reverting `RegistryFull`
-    /// after the key checks if every slot is held; it never moves or removes another bond. A
-    /// rejected registration issues no bond id and leaves the key unused. The new entry stores
-    /// only `ckPrefix` and `ckX`, becomes active `activationDelay` blocks later and has no exit
-    /// set. Writes the current block's checkpoint.
+    /// (`StakeTooLow`, checked right after the Inbox lock check, `InboxLocked`, and before the key
+    /// checks) and takes the lowest empty slot, reverting `RegistryFull` after the key checks if
+    /// every slot is held; it never moves or removes another bond. A rejected registration issues
+    /// no bond id and leaves the key unused. The new entry stores only `ckPrefix` and `ckX`,
+    /// becomes active `activationDelay` blocks later and has no exit set. Writes the current
+    /// block's checkpoint.
     /// @param _publicKey The 33-byte compressed consensus key.
     /// @param _amount The stake; the caller must have approved it.
     /// @param _popSig The proof of possession.
@@ -252,9 +253,9 @@ interface IEtnaStakingRegistry {
         returns (uint256 bondId_);
 
     /// @notice Sets the exit of an entry (spec 4.1).
-    /// @dev Only the bond owner, and only while no exit is set (so the bond holds its slot). The
-    /// exit takes effect at max(block.number, activeFromL1) + exitDelay, which must be below
-    /// 2^48 - 1. Writes the current block's checkpoint.
+    /// @dev Only the bond owner, and only while no exit is set. The exit takes effect at
+    /// max(block.number, activeFromL1) + exitDelay, which must be below 2^48 - 1. Writes the
+    /// current block's checkpoint.
     /// @param _bondId The bond id.
     function requestExit(uint256 _bondId) external;
 

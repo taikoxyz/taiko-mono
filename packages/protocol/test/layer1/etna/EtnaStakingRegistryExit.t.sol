@@ -1003,7 +1003,14 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
     }
 
     /// @dev Asserts that bond `_bondId` holds `_slot` through both lookups.
-    function _assertHolds(uint256 _bondId, uint256 _slot, string memory _label) private view {
+    function _assertHolds(
+        uint256 _bondId,
+        uint256 _slot,
+        string memory _label
+    )
+        private
+        view
+    {
         (bool holdsSlot, uint256 slot) = registry.slotOfBond(_bondId);
         assertTrue(holdsSlot, _label);
         assertEq(slot, _slot, _label);

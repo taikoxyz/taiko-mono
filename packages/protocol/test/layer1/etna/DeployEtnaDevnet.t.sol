@@ -163,14 +163,15 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
 
     function _deploysTheRegistryFixedToTheProxy() private withEnvironment {
         vm.setEnv("CONTRACT_OWNER", vm.toString(Bob));
-        uint256 sMin = 1234 ether;
-        vm.setEnv("ETNA_S_MIN", vm.toString(sMin));
         (address proxy, EtnaStakingRegistry deployed) = _deployProxyAndRegistry();
         assertEq(deployed.inbox(), proxy, "fixed to the bootstrap proxy");
         assertFalse(IEtnaInbox(deployed.inbox()).isInitialized(), "Inbox not initialized yet");
         assertEq(deployed.l2ChainId(), L2_CHAIN_ID, "L2 chain id");
         assertEq(deployed.forfeitBps(), FORFEIT_BPS, "explicit forfeiture rate");
-        assertEq(deployed.minStake(), sMin, "minimum stake defaults to s_min");
+        assertEq(_deployment.DEFAULT_REGISTRY_MIN_STAKE(), 250_000 ether, "devnet default");
+        assertEq(
+            deployed.minStake(), _deployment.DEFAULT_REGISTRY_MIN_STAKE(), "default minimum stake"
+        );
         assertEq(address(deployed.token()), address(taikoToken), "stake token");
         assertEq(deployed.activationDelay(), ACTIVATION_DELAY, "activation delay");
         assertEq(deployed.exitDelay(), EXIT_DELAY, "exit delay");
@@ -182,9 +183,9 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.expectRevert("Initializable: contract is already initialized");
         deployed.init(Alice);
 
-        vm.setEnv("REGISTRY_MIN_STAKE", vm.toString(2 * sMin));
+        vm.setEnv("REGISTRY_MIN_STAKE", vm.toString(2 * MIN_STAKE));
         EtnaStakingRegistry explicitStake = EtnaStakingRegistry(_deployment.deployRegistry());
-        assertEq(explicitStake.minStake(), 2 * sMin, "explicit minimum stake");
+        assertEq(explicitStake.minStake(), 2 * MIN_STAKE, "explicit minimum stake");
         assertEq(explicitStake.inbox(), proxy, "same proxy");
     }
 
@@ -335,25 +336,23 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _expectRejectedBeforeBroadcast(proxy, DeployEtnaDevnet.SignalServiceHasNoCode.selector);
     }
 
-    /// @dev U must be a multiple of 6 in [6, 65,532]; the valid 3,600 then initializes, so the
-    /// limit was the only fault.
+    /// @dev U must be in [1, 65,536]; then 3,601, which is not a multiple of 6, initializes, so
+    /// the limit was the only fault.
     function _RevertWhen_UnsettledLimitInvalid() private withEnvironment {
         (address proxy, EtnaStakingRegistry deployedRegistry) = _deployProxyAndRegistry();
         _registerAndPickCutoff(deployedRegistry);
-        vm.setEnv("ETNA_UNSETTLED_LIMIT", "3601");
-        _expectInitRejected(proxy, IEtnaInbox.InvalidCommitteeConfig.selector);
         vm.setEnv("ETNA_UNSETTLED_LIMIT", "0");
         _expectInitRejected(proxy, IEtnaInbox.InvalidCommitteeConfig.selector);
-        vm.setEnv("ETNA_UNSETTLED_LIMIT", "65538");
+        vm.setEnv("ETNA_UNSETTLED_LIMIT", "65537");
         _expectInitRejected(proxy, IEtnaInbox.InvalidCommitteeConfig.selector);
 
-        vm.setEnv("ETNA_UNSETTLED_LIMIT", vm.toString(UNSETTLED_LIMIT));
+        vm.setEnv("ETNA_UNSETTLED_LIMIT", "3601");
         _deployment.deployInbox();
         assertTrue(IEtnaInbox(proxy).isInitialized(), "a valid limit initializes");
     }
 
     /// @dev A set but malformed CONTRACT_OWNER or REGISTRY_MIN_STAKE reverts before anything is
-    /// broadcast instead of falling back to the deployer or to ETNA_S_MIN; an empty
+    /// broadcast instead of falling back to the deployer or to the default minimum stake; an empty
     /// CONTRACT_OWNER still means the deployer.
     function _RevertWhen_OptionalVariableMalformed() private withEnvironment {
         vm.setEnv("CONTRACT_OWNER", "0xB0b");
@@ -449,7 +448,14 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     }
 
     /// @dev Checks the Inbox implementation's immutables against the environment.
-    function _assertImmutables(EtnaInbox _inbox, address _signals, address _registry) private view {
+    function _assertImmutables(
+        EtnaInbox _inbox,
+        address _signals,
+        address _registry
+    )
+        private
+        view
+    {
         assertEq(_inbox.proofVerifier(), address(landVerifier), "proof verifier");
         assertEq(_inbox.signalService(), _signals, "SignalService");
         assertEq(_inbox.stakingRegistry(), _registry, "registry");
@@ -501,7 +507,13 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
 
     /// @dev Carol lands (0, 6] with five zero cut leaves and one blob; the mock verifier must
     /// receive the appendix A statement rebuilt from the environment.
-    function _landBlockSix(EtnaInbox _inbox, SignalService _signals, uint256 _cutoff) private {
+    function _landBlockSix(
+        EtnaInbox _inbox,
+        SignalService _signals,
+        uint256 _cutoff
+    )
+        private
+    {
         IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
             parentHeight: 0,
             lastHeight: 6,

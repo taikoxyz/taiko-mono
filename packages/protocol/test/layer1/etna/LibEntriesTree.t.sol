@@ -194,9 +194,9 @@ contract LibEntriesTreeTest is CommonTest {
         );
     }
 
-    /// @dev `regLeaf` is indexed by the slot, never the bond id: bond 4096 displacing the bond in
-    /// slot 7 and bond 2 taking slot 0 hash their slot, and indexing by the bond id gives the
-    /// vectors' `bond_id_leaf` instead.
+    /// @dev `regLeaf` is indexed by the slot, never the bond id: bond 4096 taking slot 7 and bond 2
+    /// taking slot 0, each the lowest empty slot after its holder's withdrawal, hash their slot,
+    /// and indexing by the bond id gives the vectors' `bond_id_leaf` instead.
     function test_leaf_IndexesTheSlotNotTheBondId() external view {
         string memory json = LibEtnaVectors.load();
         string memory cases = ".registry_entries.bond_slots";

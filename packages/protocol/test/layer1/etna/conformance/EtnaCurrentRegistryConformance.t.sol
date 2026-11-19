@@ -4,20 +4,32 @@ pragma solidity ^0.8.26;
 import { EtnaTestKeys } from "../EtnaTestKeys.sol";
 import { MockEtnaInbox } from "../MockEtnaInbox.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { Test } from "forge-std/src/Test.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
+import { LibCometVote } from "src/layer1/etna/libs/LibCometVote.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
 
 /// @title EtnaCurrentRegistryConformanceTest
-/// @notice Replays the current permanent-bond model's admission vectors with real keys and token
-/// payments. Historical registry/recovery vectors describe a different registry and stay separate.
-/// @dev Fixture key n is private key n; account n maps to 0x10000 + n, with zero unchanged.
-/// The model's registration payment receipt maps to the token's caller-to-registry Transfer event.
+/// @notice Replays the current permanent-bond model's admission vectors with real keys, token
+/// payments and double-sign evidence. Historical registry/recovery vectors describe a different
+/// registry and stay separate.
+/// @dev The vector file is a byte-for-byte copy of the one formal commit
+/// `37e13173abadc41f30697549e36eb4365496a01d` generated, whose `authorityCommit` is the spec
+/// commit `2e6763e21bc236cfcda6011d164b32040f9e0c8d` (#22412); see `README.md`.
+/// Fixture key n is private key n; account n maps to 0x10000 + n, with zero unchanged. The
+/// model's registration payment receipt maps to the token's caller-to-registry Transfer event.
+/// Block id n of a model vote is the CometBFT BlockID with hash `bytes32(n)` and part set header
+/// (1, keccak256(abi.encode(bytes32(n)))).
 contract EtnaCurrentRegistryConformanceTest is Test {
     string private constant _FILE = "/test/layer1/etna/conformance/vectors/registry_admission.json";
-    string private constant _AUTHORITY_COMMIT = "e84a9aaac526c15597d97ee93f8803f92b02c279";
+    string private constant _AUTHORITY_COMMIT = "2e6763e21bc236cfcda6011d164b32040f9e0c8d";
+    /// @dev Caller 8's balance and allowance: 100 units of 25,000 TAIKO.
+    uint256 private constant _CALLER_FUNDS = 100 * 25_000 ether;
+    uint256 private constant _SLASH_BOUNTY_BPS = 1000;
+    uint64 private constant _L2_CHAIN_ID = 167;
 
     struct RegistrationCall {
         address caller;
@@ -31,6 +43,7 @@ contract EtnaCurrentRegistryConformanceTest is Test {
     MockEtnaInbox private _inbox;
     EtnaStakingRegistry private _registry;
     bytes32 private _openingRoot;
+    uint256 private _openingBonds;
 
     /// @notice Runs every current admission vector, including its paid opening transactions.
     function test_conformance_currentRegistryAdmission() external {
@@ -42,17 +55,20 @@ contract EtnaCurrentRegistryConformanceTest is Test {
             vm.parseJsonString(j, ".model"),
             "Etna.Design.Current.RegistryPayments.executeTransaction"
         );
-        assertTrue(vm.keyExistsJson(j, ".vectors[7].id"), "all eight vectors present");
-        assertFalse(vm.keyExistsJson(j, ".vectors[8].id"), "unexpected current vector");
+        uint256 count;
+        while (vm.keyExistsJson(j, string.concat(".vectors[", vm.toString(count), "].id"))) {
+            ++count;
+        }
+        assertGt(count, 0, "no vector");
         uint256 snapshot = vm.snapshotState();
-        for (uint256 i; i < 8; ++i) {
+        for (uint256 i; i < count; ++i) {
             emit log_string(vm.parseJsonString(
                     j, string.concat(".vectors[", vm.toString(i), "].id")
                 ));
             this.runVector(j, i);
             vm.revertToState(snapshot);
         }
-        emit log_named_uint("current registry admission vectors", 8);
+        emit log_named_uint("current registry admission vectors", count);
     }
 
     /// @notice Replays one vector in a separate frame so its registration memory is released.
@@ -79,9 +95,9 @@ contract EtnaCurrentRegistryConformanceTest is Test {
         x.key = _u(_j, _c, ".key");
         x.amount = _u(_j, _c, ".amount");
         x.wantRevert = vm.parseJsonBool(_j, string.concat(_e, ".revert"));
-        _token.mint(x.caller, 100);
+        _token.mint(x.caller, _CALLER_FUNDS);
         vm.prank(x.caller);
-        _token.approve(address(_registry), 100);
+        _token.approve(address(_registry), _CALLER_FUNDS);
         vm.roll(_u(_j, _c, ".block"));
         if (x.wantRevert) x.beforeState = this.stateDigest(x.caller, x.key);
         (bool ok, bytes memory ret, Vm.Log[] memory logs) = _register(x);
@@ -144,13 +160,13 @@ contract EtnaCurrentRegistryConformanceTest is Test {
                         new EtnaStakingRegistry(
                             IEtnaStakingRegistry.Config({
                                 token: address(_token),
-                                minStake: 250_000 ether,
+                                minStake: _u(_j, _p, ".minStake"),
                                 activationDelay: 1,
                                 exitDelay: 1,
                                 withdrawalDelay: 3,
-                                slashBountyBps: 1000,
+                                slashBountyBps: _SLASH_BOUNTY_BPS,
                                 slashSink: _account(5),
-                                l2ChainId: 167,
+                                l2ChainId: _L2_CHAIN_ID,
                                 inbox: address(_inbox),
                                 forfeitBps: 1000
                             })
@@ -161,9 +177,11 @@ contract EtnaCurrentRegistryConformanceTest is Test {
             )
         );
         vm.roll(0);
-        uint256 count = _u(_j, _p, ".slotCount");
-        assertEq(count, _registry.MAX_ENTRIES(), "opening fills all slots");
+        assertEq(_u(_j, _p, ".slotCount"), _registry.MAX_ENTRIES(), "registry slot count");
+        uint256 count = _u(_j, _p, ".openingBonds");
+        _openingBonds = count;
         uint256 low = _u(_j, _p, ".lowIndex");
+        assertLt(low, count, "low bond is an opening bond");
         (bool hasSecond, uint256 second) = _nullableUint(_j, string.concat(_p, ".secondLowIndex"));
         uint256 ordinary = _u(_j, _p, ".defaultStake");
         uint256 lowStake = _u(_j, _p, ".lowStake");
@@ -186,6 +204,9 @@ contract EtnaCurrentRegistryConformanceTest is Test {
         if (vm.parseJsonBool(_j, string.concat(_p, ".vacantLow"))) {
             _vacate(_j, string.concat(_p, ".vacancyLifecycle"), low);
         }
+        if (vm.parseJsonBool(_j, string.concat(_p, ".slashedLow"))) {
+            _slash(_j, string.concat(_p, ".slashLifecycle"), low, lowStake);
+        }
         assertEq(_registry.bondCount(), count, "opening bonds");
         assertEq(_registry.entryCount(), count, "opening slots");
         assertEq(_registry.checkpointAt(0).l1Block, 0, "retained opening checkpoint");
@@ -201,7 +222,7 @@ contract EtnaCurrentRegistryConformanceTest is Test {
         assertEq(ready, pending == 0 ? 0 : 2, "opening top-up readiness retained");
         IEtnaStakingRegistry.Checkpoint memory first = _registry.checkpointAt(0);
         assertEq(first.l1Block, 0, "retained opening block");
-        assertEq(first.count, _u(_j, _p, ".slotCount"), "retained opening slot count");
+        assertEq(first.count, _u(_j, _p, ".openingBonds"), "retained opening slot count");
         assertEq(first.entriesRoot, _openingRoot, "retained opening entries root");
         bool vacant = vm.parseJsonBool(_j, string.concat(_p, ".vacantLow"));
         assertEq(
@@ -223,6 +244,75 @@ contract EtnaCurrentRegistryConformanceTest is Test {
             );
             _checkBond(_j, string.concat(lifecycle, ".withdrawnBond"), low);
         }
+        if (vm.parseJsonBool(_j, string.concat(_p, ".slashedLow"))) {
+            string memory lifecycle = string.concat(_p, ".slashLifecycle");
+            assertEq(
+                _registry.checkpointAt(1).l1Block,
+                _u(_j, lifecycle, ".block"),
+                "retained slash checkpoint"
+            );
+            // The slashed bond keeps its slot with zero balance (LIMIT-12-11).
+            _checkBond(_j, string.concat(lifecycle, ".slashedBond"), low);
+        }
+    }
+
+    /// @dev Replays the model's double-sign slash of the low bond: reporter `.reporter` submits
+    /// the two votes, each signed by the bond's key under this deployment's chain id for its
+    /// generation, and receives the exact bounty while the slash sink receives the rest.
+    /// @param _j The generated JSON document.
+    /// @param _p The slash lifecycle's JSON path.
+    /// @param _bondId The opening bond to slash.
+    /// @param _principal The bond's whole principal, all of which is slashed.
+    function _slash(
+        string memory _j,
+        string memory _p,
+        uint256 _bondId,
+        uint256 _principal
+    )
+        private
+    {
+        vm.roll(_u(_j, _p, ".block"));
+        uint256 key = _bondId + 1;
+        address reporter = _account(_u(_j, _p, ".reporter"));
+        IEtnaStakingRegistry.Vote memory a = _vote(_j, string.concat(_p, ".voteA"), key);
+        IEtnaStakingRegistry.Vote memory b = _vote(_j, string.concat(_p, ".voteB"), key);
+        vm.prank(reporter);
+        _registry.slashDoubleSign(_bondId, a, b);
+        uint256 bounty = _principal * _SLASH_BOUNTY_BPS / 10_000;
+        assertEq(_token.balanceOf(reporter), bounty, "actual slash bounty");
+        assertEq(_token.balanceOf(_account(5)), _principal - bounty, "actual slash sink payment");
+        _checkBond(_j, string.concat(_p, ".slashedBond"), _bondId);
+    }
+
+    /// @dev The model vote at `_p`, signed by fixture key `_key`.
+    /// @param _j The generated JSON document.
+    /// @param _p The vote's JSON path.
+    /// @param _key The fixture key that signs it.
+    /// @return vote_ The signed vote.
+    function _vote(
+        string memory _j,
+        string memory _p,
+        uint256 _key
+    )
+        private
+        view
+        returns (IEtnaStakingRegistry.Vote memory vote_)
+    {
+        bytes32 blockHash = bytes32(_u(_j, _p, ".blockId"));
+        vote_.voteType = uint8(_u(_j, _p, ".kind"));
+        vote_.height = uint64(_u(_j, _p, ".height"));
+        vote_.round = uint32(_u(_j, _p, ".round"));
+        if (blockHash != 0) {
+            vote_.blockHash = abi.encodePacked(blockHash);
+            vote_.partsTotal = 1;
+            vote_.partsHash = abi.encodePacked(keccak256(abi.encode(blockHash)));
+        }
+        vote_.timestampSeconds = 1_700_000_000;
+        vote_.generation = uint48(_u(_j, _p, ".generation"));
+        bytes memory chainId = LibCometVote.chainId(
+            LibCometVote.chainDomain(block.chainid, _L2_CHAIN_ID, address(_inbox), vote_.generation)
+        );
+        vote_ = EtnaTestKeys.signVote(_key, vote_, chainId);
     }
 
     /// @dev Creates the vacant slot by requesting/confirming exit and paying the withdrawal.
@@ -267,10 +357,16 @@ contract EtnaCurrentRegistryConformanceTest is Test {
             assertEq(holder, bondId, "selected slot holder");
         }
         _checkBond(_j, string.concat(_e, ".newBond"), bondId);
-        (bool displaced, uint256 oldId) = _nullableUint(_j, string.concat(_e, ".oldBondId"));
-        if (displaced) _checkBond(_j, string.concat(_e, ".oldBond"), oldId);
+        // The selected slot had no holder, so no bond was replaced (LIMIT-12-11).
+        (bool replaced,) = _nullableUint(_j, string.concat(_e, ".oldBondId"));
+        assertFalse(replaced, "model replaced a bond");
+        assertEq(vm.parseJson(_j, string.concat(_e, ".oldBond")), abi.encode(bytes32(0)));
         assertEq(_registry.bondCount(), _u(_j, _e, ".nextId"), "next permanent id");
-        assertEq(_registry.entryCount(), 4096, "no slot appended");
+        assertEq(
+            _registry.entryCount(),
+            Math.max(_openingBonds, _u(_j, _e, ".selectedSlot") + 1),
+            "slots used in order"
+        );
         {
             (bool extra,) = _nullableUint(_j, string.concat(_e, ".slot4096"));
             assertFalse(extra, "model has no slot 4096");
@@ -279,7 +375,11 @@ contract EtnaCurrentRegistryConformanceTest is Test {
         }
         assertEq(_token.balanceOf(_x.caller), _u(_j, _e, ".callerBalance"), "caller balance");
         assertEq(_token.balanceOf(address(_registry)), _u(_j, _e, ".registryBalance"), "reserve");
-        assertEq(_token.allowance(_x.caller, address(_registry)), 100 - _x.amount, "paid allowance");
+        assertEq(
+            _token.allowance(_x.caller, address(_registry)),
+            _CALLER_FUNDS - _x.amount,
+            "paid allowance"
+        );
         assertEq(
             _registry.checkpointAt(_registry.checkpointCount() - 1).l1Block,
             _u(_j, _e, ".latestCheckpointBlock"),

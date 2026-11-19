@@ -7,11 +7,13 @@ checkpoints. These are its L1 contracts; the L2 changes are listed under
 [Etna PoS + ZK design specification](../../../docs/etna/SPEC.md); appendix A is its
 encodings and appendix B its L1 storage layout.
 
-The current specification baseline is main at `9c832234b4681fbc5eccdbaf9c9303b7869f91f4`
-([#22410](https://github.com/taikoxyz/taiko-mono/pull/22410)), which moves the L2 fork boundary
-into the shared SignalService's `beaconRootsFrom`.
-It also clarifies the distinction between empty and present zero-filled vote hashes in
-STAKE-4.1-31 and ENC-A-44/45, matching stock CometBFT's protobuf encoding.
+The current specification baseline is main at `2e6763e21bc236cfcda6011d164b32040f9e0c8d`
+([#22412](https://github.com/taikoxyz/taiko-mono/pull/22412)), which removes the landing grid
+(a landing may end at any height and carries one cut leaf per height), the validator-state hashes
+in landings and displacement in the registry (a registration takes the lowest empty slot).
+This branch's copy of the spec also clarifies the distinction between empty and present
+zero-filled vote hashes in STAKE-4.1-31 and ENC-A-44/45, matching stock CometBFT's protobuf
+encoding.
 
 ## Contracts
 
@@ -20,8 +22,8 @@ STAKE-4.1-31 and ENC-A-44/45, matching stock CometBFT's protobuf encoding.
   `recover` (8, 8.3, 8.4), the rules schedule (10.1) and Inbox slots 258–293 (appendix B).
 - `impl/EtnaInboxBootstrap.sol`: the Inbox proxy's first implementation; it only sets the owner,
   so the proxy address exists before the registry that fixes it (10 step 1).
-- `iface/IEtnaStakingRegistry.sol`, `impl/EtnaStakingRegistry.sol`: registration and admission
-  by displacement, exits, withdrawals, double-sign slashing, recovery's forced exits and
+- `iface/IEtnaStakingRegistry.sol`, `impl/EtnaStakingRegistry.sol`: registration into the
+  lowest empty slot, exits, withdrawals, double-sign slashing, recovery's forced exits and
   per-block checkpoints (4.1).
 - `libs/LibEntriesTree.sol`: `regLeaf` and `entriesRoot` (appendix A) as an incremental Merkle
   tree of depth 12, one leaf per slot.
@@ -62,10 +64,11 @@ STAKE-4.1-31 and ENC-A-44/45, matching stock CometBFT's protobuf encoding.
   `StartNotWritten` before the start write, since no record exists yet (spec 8.4).
 - `land(input, leaves, proof)`: the spec 6.1 reference Solidity, check for check, plus the shared
   registry lock below. Before the start
-  write no landing passes, because `landings[0]` is unwritten. With K = 6, p, c and h are grid
-  points counted from S; `leaves` are the cut leaves at the grid points inside (p, h), and if c > p
-  the leaf at c is compared with c's slot 285 record before the immutable verifier checks the
-  23-word statement with `verifyProof(0, statement, proof)` (0: no proposal age applies). On a
+  write no landing passes, because `landings[0]` is unwritten. p, c and h are any heights with
+  p ≤ c < h and h − p ≤ `maxBatchBlocks`; `leaves` are the h − p − 1 cut leaves of the heights
+  p + 1, ..., h − 1, one per height, and if c > p the leaf at c is compared with c's slot 285
+  record before the immutable verifier checks the 21-word statement with
+  `verifyProof(0, statement, proof)` (0: no proposal age applies). On a
   switching network, while c is S, the landing first requires that the Unzen Inbox has finalized
   every proposal up to the start's hash and that the SignalService checkpoint at S holds that hash
   and the start's state root.
@@ -79,8 +82,8 @@ STAKE-4.1-31 and ENC-A-44/45, matching stock CometBFT's protobuf encoding.
   `protocolFeeRecipient`, the DAO treasury.
 - `recover(expectedGeneration, expectedC, expectedRecoveryNonce, validUntil, exclusions, ...)`,
   whose last two arguments are `fiToClear` and `rules`: owner only after the start write, with all
-  expected values matching current state, expectedC − S a multiple of K,
-  `block.timestamp <= validUntil` and a non-zero `rules` equal to `nextRules + 1`. Recovery
+  expected values matching current state, `block.timestamp <= validUntil` and a non-zero `rules`
+  equal to `nextRules + 1`. Recovery
   increments the uint256 authorization nonce. With R = `block.number`, each excluded entry's exit
   moves to min(existing, R) in the registry, each listed queue entry's hash becomes
   `keccak256("")`, the generation increments and its origin (c, R's number, R's timestamp) is
@@ -91,7 +94,7 @@ STAKE-4.1-31 and ENC-A-44/45, matching stock CometBFT's protobuf encoding.
   slots are spread across the entries tree (`EtnaInboxRecoverFullRegistryGasTest`), so about 160
   fit in one transaction under EIP-7825's 2^24 gas cap. A longer list needs several
   recoveries, each at the then-current c.
-- `scheduleRules(rules, time)` and `scheduleStop(time, grid)`: owner only after initialization;
+- `scheduleRules(rules, time)` and `scheduleStop(time)`: owner only after initialization;
   they write the rules schedule in slot 293 exactly as spec 10.1 steps 5a-5c, with `maxAnchorAge`
   as the deadline. A due `nextRules` is promoted first; a failed call keeps nothing. `recover`
   and both calls emit `RulesScheduleUpdated` with the new slot 293 word.
@@ -115,13 +118,11 @@ the exact recovery tuple. This procedure adds no freeze to `recover` itself.
 - `register(publicKey, amount, popSig)`: a 33-byte compressed consensus key with a proof of
   possession over the EIP-712 `Register(address owner)` digest for the caller, who becomes the
   owner for life. Each key registers once, ever. Each registration issues the next bond id
-  (from 0, never reused) and takes the slot with the smallest value: 0 if empty, otherwise its
-  bond's effective plus pending stake, ties going to the lowest slot. The stake must be at least
-  `minStake` and above that value; a bond holding the slot is displaced (`BondDisplaced`): it
-  leaves the slot, its exit becomes min(its exit, the current block), and it keeps everything
-  else until it is confirmed and withdrawn. `bondForKey`, `bondInSlot` and `slotOfBond` return
-  `(found, id)` pairs; `admissionThreshold` names the slot and value the next registration must
-  beat; `bondAt` returns a bond's record whether or not it holds a slot.
+  (from 0, never reused) and takes the lowest empty slot. The stake must be at least `minStake`
+  (`StakeTooLow`); with all 4,096 slots held it reverts `RegistryFull`. It never moves or removes
+  another bond: a bond holds its slot from registration until withdrawal, which empties it.
+  `bondForKey`, `bondInSlot` and `slotOfBond` return `(found, id)` pairs; `bondAt` returns a
+  bond's record whether or not it holds a slot.
 - `requestExit`, `confirmExit`, `withdraw(bondId, to)`, `slashDoubleSign(bondId, voteA, voteB)`
   and the Inbox-only `forceExit` follow spec 4.1 and 8 step 2, whether or not the bond holds a
   slot; a call naming an unissued id reverts `UnknownBond`. Withdrawal zeros the bond's balance
@@ -135,12 +136,11 @@ the exact recovery tuple. This procedure adds no freeze to `recover` itself.
   Registry mutations revert while the Inbox holds its lock, except its authorized `forceExit`.
 - Vote hashes are `bytes` of length 0 or 32: an empty hash and a present all-zero hash have
   different sign bytes and BlockIDs. This changes the `slashDoubleSign` ABI from the earlier
-  `bytes32` tuple; clients must refresh the registry ABI and schema-7 vectors before submitting
+  `bytes32` tuple; clients must refresh the registry ABI and schema-8 vectors before submitting
   evidence. `votes.slash_abi` pins the new selector and calldata.
 - `topUp(bondId, amount)`: the active entry's owner deposits one positive pending amount, even
   with all slots occupied or before Inbox initialization. It has no voting power or checkpoint
-  effect, but it raises the slot's admission value at once, so a newcomer must outbid the
-  bond's effective plus pending principal to displace it. `activateTopUp(bondId)` is
+  effect. `activateTopUp(bondId)` is
   permissionless at readiness, after `activationDelay` L1 blocks; activation writes the normal
   checkpoint and does not change historical committees.
   No deposit or activation is allowed after exit is set. Withdrawal and double-sign slashing
@@ -149,14 +149,14 @@ the exact recovery tuple. This procedure adds no freeze to `recover` itself.
   once per lifetime entry key, with an inclusive timestamp deadline. Deducts
   `ceil((effStake + pendingTopUp) * forfeitBps / 10000)` from effective stake first, then pending
   funds, pays only `slashSink` and forces exit without resetting an existing confirmation clock.
-  The flag survives withdrawal, displacement, recovery and verifier-failure rollback. There is no
+  The flag survives withdrawal, recovery and verifier-failure rollback. There is no
   forfeiture nonce, revocation method, freeze or extra delay. Landing and recovery leave an
   unexecuted authorization usable until expiry; attribution and timely execution belong to DAO
   governance. Double-sign evidence can still take the remainder.
 - `forceExit(bondId, entryKey)` derives the recovery execution block from `block.number` and
-  checks `entryKey` against the bond's record, which a displaced or withdrawn bond keeps; a
-  mismatch or an unissued id reverts the whole `recover`, and a displaced or withdrawn bond keeps
-  its earlier exit (spec 8 step 2).
+  checks `entryKey` against the bond's record, which a withdrawn bond keeps; a mismatch or an
+  unissued id reverts the whole `recover`, and a withdrawn bond keeps its earlier exit (spec 8
+  step 2).
 - Every L1 block that changes the entry in a slot ends with exactly one checkpoint
   (`l1Block`, `count`, `entriesRoot`); a change to a bond that holds no slot writes none. The
   Inbox proxy and the L2 chain id are immutables.
@@ -169,10 +169,6 @@ the exact recovery tuple. This procedure adds no freeze to `recover` itself.
 
 ## Choices the spec leaves open
 
-- K, the grid interval, is the constant `GRID_INTERVAL = 6`, the largest value PARAM-11-9 allows;
-  the spec leaves K to be set from proving capacity measured during acceptance. U and
-  `maxBatchBlocks` are bounded for K = 6, and the vectors use it. A smaller K needs a new Inbox
-  implementation, guests and vectors (10.1).
 - The Inbox proxy starts on `EtnaInboxBootstrap`, so its address exists before the registry that
   fixes it. Once the registry exists, the owner calls `upgradeToAndCall(EtnaInbox, init(...))`,
   and `init` also requires the owner. Slot 258 then reads 3.
@@ -183,43 +179,41 @@ the exact recovery tuple. This procedure adds no freeze to `recover` itself.
   signature with V in {0, 1}. Their timestamp seconds are an int64 and their nanoseconds an int32,
   each with any value and no range check (ENC-A-45), so double-sign evidence is accepted even at
   a timestamp stock CometBFT would not sign.
-- Registry storage that appendix B does not name (tree nodes, the admission index, the key and
+- Registry storage that appendix B does not name (tree nodes, the occupancy index, the key and
   slot lookups, the bond records and the bond count) lives in the `taiko.etna.registry`
   namespace after `entries`, so nodes read only the two named slots.
-- The admission index is a tournament tree over the 4,096 slots keyed by `value << 12 | slot`,
-  so a slot's value (a bond's effective plus pending stake) must be below 2^244
-  (`BalanceTooLarge`), far above TAIKO's supply. An update walks one leaf-to-root path and stops
-  at the first unchanged node.
+- The occupancy index is a two-level bitmap over the 4,096 slots: one bit per slot in 16 words,
+  and a summary word with one bit per full word. Finding the lowest empty slot takes two storage
+  reads; registration sets a bit and only withdrawal clears one, so balances never touch it.
 - Every Inbox entry point also reverts with `RegistryLocked` while the registry holds its
   reentrancy lock, the reciprocal of the registry's check on Inbox execution. With a standard
   TAIKO token no registry call can reach the Inbox, so this check never fires in practice.
-- `minStake` and `s_min` are independent; the deploy script defaults `minStake` to `s_min`.
+- `minStake` and `s_min` are independent. The constructor requires `minStake` above
+  10^27 / 4096 base units (STAKE-4.1-14a), and the deploy script defaults it to 250,000 TAIKO.
 - `activationDelay`, `exitDelay` and `withdrawalDelay` are each in [1, 2^32), so an oversized
   delay cannot make every registration or exit request revert.
-- `maxBatchBlocks` is in [6, 65,532], with no multiple-of-6 rule. The upper end is the maximum U,
-  and at that size the leaf calldata still fits one transaction's gas cap at today's EIP-7623
-  calldata floor (spec 11). The cap is an immutable while the calldata price is not: at 60 gas
-  per byte, for example, only about 52,000 blocks fit. Leave headroom, such as 50,000 or less;
-  a landing from c with h − c = 6 always fits.
+- `maxBatchBlocks` is in [1, 12,951]. A landing of B blocks carries B − 1 leaves, and 12,951 is
+  the largest B whose calldata, with a 4 KiB proof and every byte priced at today's EIP-7623
+  floor of 40 gas, fits EIP-7825's 2^24 per-transaction gas cap (PARAM-11-6). The cap is an
+  immutable while the calldata price is not: a higher floor fits fewer blocks, so leave
+  headroom; a landing of one block carries no leaves and always fits.
 
-`land` accepts an opaque `lastValStateHash` after `lastCometHash`. The verifier statement
-binds the stored parent's validator-state hash and the terminal hash in 23 static words
-(736 bytes); frontier cut leaves bind five words ("frontier" means the leaf at c, the latest
-checkpoint height). L1 never decodes their preimages.
-S's landing record (slot 285) has zero validator-state hash, and recovery retains its origin's
-original fourth word while the proof applies the generation-start validator-state exception.
+`LandInput` has eight fields and carries no validator-state hash. The verifier statement is 21
+static words (672 bytes); a cut leaf binds four words, the height, EL hash, Comet hash and FI
+cursor, and the leaf at c, the latest checkpoint height, is checked against c's slot 285 record.
+L1 never decodes the statement's preimage.
 
 ## Storage
 
 - Inbox: appendix B exactly. The named slots are 258, 268–274, 278–282, 284, 285, 290, 292 and 293;
   reserved slots 283, 286–289 and 291 are never read or written, and slots 251–257, 259–267 and
-  275–277 are unused padding. Each slot-285 mapping value has four words: the packed
-  parent/generation/head, EL hash, Comet hash, and validator-state hash. The record's `head` is
+  275–277 are unused padding. Each slot-285 mapping value has three words: the packed
+  parent/generation/head, the EL hash and the Comet hash. The record's `head` is
   the forced-inclusion cursor at that height (the spec's "FI cursor"); the Inbox queue head
   (slot 281) equals it once that height is the checkpoint.
 - Registry: the ERC-7201 namespace `taiko.etna.registry` with base R holds `checkpoints` at R
   and the slot-indexed `entries` at R + 1, the only slots nodes read, then the tree nodes, the
-  admission index, the key and slot lookups, the bond records and the bond count. Bond owners
+  occupancy index, the key and slot lookups, the bond records and the bond count. Bond owners
   and exit confirmations, keyed by bond id, live in the separate namespaces
   `taiko.etna.registry.owners` and `taiko.etna.registry.exit-confirmations`, outside
   `entriesRoot`.

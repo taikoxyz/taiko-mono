@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerates testdata/etna_vectors/vectors.json (schema "7").
+"""Regenerates testdata/etna_vectors/vectors.json (schema "8").
 
 Run from the repository root with Foundry's `cast` and Go on PATH and the workspace's pnpm
 dependencies installed (the output is formatted with the repository's prettier):
@@ -46,7 +46,7 @@ OUTPUT = HERE / "vectors.json"
 WORD_MOD = 2**256
 U48_MAX = 2**48 - 1
 NO_EXIT = U48_MAX  # exitEffectiveL1 = 2^48 - 1 means no exit is set
-K = 6  # landing grid interval
+FI_STEP = 6  # the cut model's FI cursor advances once every FI_STEP heights
 
 # secp256k1 curve parameters (SEC 2).
 SECP_P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
@@ -561,9 +561,9 @@ def registry_entries(key_list):
 
     Entry `i`: `i + 1` TAIKO, active from `10 + i`, exit at `1000 + i` for odd `i` (no exit,
     `2^48 - 1`, for even `i`). An empty slot's entry has all-zero fields. `regLeaf` is indexed by
-    the slot, never the bond id (appendix A): `bond_slots` pins bond 4096 displacing the bond in
-    slot 7 and bond 2 taking slot 0 after bond 0's withdrawal, with the leaf a bond-id index would
-    give as `bond_id_leaf`.
+    the slot, never the bond id (appendix A): `bond_slots` pins bond 4096 taking slot 7, the
+    lowest empty slot after its bond's withdrawal from a full registry, and bond 2 taking slot 0
+    after bond 0's withdrawal, with the leaf a bond-id index would give as `bond_id_leaf`.
     """
     entries = []
     for i, key in enumerate(key_list[:5]):
@@ -595,7 +595,7 @@ def registry_entries(key_list):
         "exit_effective_l1": NO_EXIT,
     }
     bond_slots = []
-    for name, bond_id, slot in (("displacement", 4096, 7), ("withdrawal_reuse", 2, 0)):
+    for name, bond_id, slot in (("full_registry_reuse", 4096, 7), ("withdrawal_reuse", 2, 0)):
         leaf, bond_id_leaf = reg_leaf(slot, bond_entry), reg_leaf(bond_id, bond_entry)
         assert leaf != bond_id_leaf
         bond_slots.append(
@@ -763,16 +763,34 @@ def validator_states():
     }]
 
 
+def app_hashes(states):
+    """ENC-A-29b.g: appHash(6) of EL hash 0x11..11 and 29a.l's validator-state hash, three words
+    (96 bytes). No L1 record, cut leaf or statement holds either hash."""
+    (state,) = states
+    block_hash = "0x" + "11" * 32
+    preimage = abi_encode(
+        "f(bytes32,bytes32,bytes32)", tag("ETNA_APP_HASH_V1"), block_hash, state["hash"]
+    )
+    digest = keccak(preimage)
+    assert digest == "0x381ceb5a317bd34b0b19b9972191a994c384b4873a3694cfd46cb155c7d8b451"
+    return [{
+        "name": "ENC-A-29b.g",
+        "height": state["height"],
+        "block_hash": block_hash,
+        "val_state_hash": state["hash"],
+        "preimage": preimage,
+        "hash": digest,
+    }]
+
+
 def cut_at(x):
-    """The cut at height x: the Lean model's `Examples.cutAt` (EL hash 100 + x, Comet hash 200 + x,
-    0 at x = 0, FI cursor x / 6) plus a validator-state hash 400 + x (0 at x = 0), which that model
-    does not have."""
+    """The cut at height x: EL hash 100 + x, Comet hash 200 + x (0 at x = 0) and FI cursor
+    x / FI_STEP, which advances by 0 or 1 per block."""
     return {
         "height": x,
         "block_hash": word(100 + x),
         "comet_hash": word(0 if x == 0 else 200 + x),
-        "forced_head": x // K,
-        "val_state_hash": word(0 if x == 0 else 400 + x),
+        "forced_head": x // FI_STEP,
     }
 
 
@@ -780,48 +798,37 @@ _LEAVES = {}
 
 
 def cut_leaf(x):
-    """`(preimage, leaf)` of cutLeaf(x): five words (x, blockHash, cometHash, forcedHead, valStateHash)."""
+    """`(preimage, leaf)` of cutLeaf(x): four words (x, blockHash, cometHash, forcedHead)."""
     if x not in _LEAVES:
         cut = cut_at(x)
         preimage = abi_encode(
-            "f(uint256,bytes32,bytes32,uint256,bytes32)",
+            "f(uint256,bytes32,bytes32,uint256)",
             x,
             cut["block_hash"],
             cut["comet_hash"],
             cut["forced_head"],
-            cut["val_state_hash"],
         )
         _LEAVES[x] = (preimage, keccak(preimage))
     return _LEAVES[x]
 
 
-# name, Etna start S, generation, p, h. Grid points are the heights h >= S with h - S a multiple
-# of K (appendix A); the S = 1000 case puts its one leaf at 1006, not at 1002 or 1008.
+def cut_leaves(p, h):
+    """The leaves `land` carries for (p, h]: cutLeaf(p+1) .. cutLeaf(h-1), one per height."""
+    return [cut_leaf(x)[1] for x in range(p + 1, h)]
+
+
+# name, Etna start S, generation, p, h. The list has the h - p - 1 leaves of the heights strictly
+# between p and h, so h = p + 1 gives the empty list (ENC-A-32) and h = p + 2 one leaf (31.e); S
+# does not enter the hash, and the S = 1000 case is 33.f's landing with leaves at 1001 and 1002.
 CUT_CASES = (
+    ("g0_p0_h1", 0, 0, 0, 1),
+    ("g0_p0_h2", 0, 0, 0, 2),
     ("g0_p0_h6", 0, 0, 0, 6),
-    ("g0_p0_h12", 0, 0, 0, 12),
     ("g0_p0_h18", 0, 0, 0, 18),
     ("g1_p6_h18", 0, 1, 6, 18),
-    ("g0_p0_h300", 0, 0, 0, 300),
-    ("s1000_g0_p1000_h1012", 1000, 0, 1000, 1012),
+    ("g2_p17_h18", 0, 2, 17, 18),
+    ("s1000_g0_p1000_h1003", 1000, 0, 1000, 1003),
 )
-# (S, height) pairs whose grid membership is pinned: 1002 and 1008 lie on a grid counted from 0.
-GRID_POINTS = (
-    (0, 0),
-    (0, 6),
-    (0, 1),
-    (0, 10),
-    (1000, 1000),
-    (1000, 1006),
-    (1000, 1012),
-    (1000, 1002),
-    (1000, 1005),
-    (1000, 1008),
-)
-
-
-def on_grid(start, height):
-    return height >= start and (height - start) % K == 0
 
 
 def cuts():
@@ -831,9 +838,9 @@ def cuts():
         table.append({**cut_at(x), "preimage": preimage, "leaf": leaf})
     cut_hashes = []
     for name, start, generation, p, h in CUT_CASES:
-        assert on_grid(start, p) and on_grid(start, h)
-        leaves = [cut_leaf(x)[1] for x in range(p + K, h, K)]
-        assert len(leaves) == (h - p) // K - 1
+        assert start <= p < h
+        leaves = cut_leaves(p, h)
+        assert len(leaves) == h - p - 1
         leaves_hash = keccak(concat(*leaves))
         preimage = abi_encode(
             "f(bytes32,uint256,uint256,uint256,bytes32)",
@@ -856,11 +863,7 @@ def cuts():
                 "cut_hash": keccak(preimage),
             }
         )
-    grid_points = [
-        {"etna_start": start, "height": height, "on_grid": on_grid(start, height)}
-        for start, height in GRID_POINTS
-    ]
-    return decimals({"table": table, "cut_hashes": cut_hashes, "grid_points": grid_points})
+    return decimals({"table": table, "cut_hashes": cut_hashes})
 
 
 def cut_hash_for(cut_vectors, generation, p, h):
@@ -874,8 +877,8 @@ def cut_hash_for(cut_vectors, generation, p, h):
 
 
 STATEMENT_SIGNATURE = (
-    "f(bytes32,uint256,uint256,address,address,uint256,uint256,bytes32,bytes32,bytes32,bytes32,uint256,"
-    "bytes32,bytes32,bytes32,bytes32,uint256,bytes32,bytes32,uint256,uint256,uint256,bytes32)"
+    "f(bytes32,uint256,uint256,address,address,uint256,uint256,bytes32,bytes32,bytes32,uint256,"
+    "bytes32,bytes32,bytes32,uint256,bytes32,bytes32,uint256,uint256,uint256,bytes32)"
 )
 STATEMENT_CASES = (
     # name, generation, p, h, FI head before (at p), FI head after (at h)
@@ -885,7 +888,7 @@ STATEMENT_CASES = (
 
 
 def land_statements(config, cut_vectors):
-    """Twenty-three static words (736 bytes); origin and terminal values follow `cut_at`."""
+    """Twenty-one static words (672 bytes); origin and terminal values follow `cut_at`."""
     out = []
     for name, generation, p, h, head_before, head_after in STATEMENT_CASES:
         origin, last = cut_at(p), cut_at(h)
@@ -900,12 +903,10 @@ def land_statements(config, cut_vectors):
             "parent_height": p,
             "parent_hash": origin["block_hash"],
             "parent_comet_hash": origin["comet_hash"],
-            "parent_val_state_hash": origin["val_state_hash"],
             "committee_config_hash": config["hash"],
             "last_height": h,
             "last_block_hash": last["block_hash"],
             "last_comet_hash": last["comet_hash"],
-            "last_val_state_hash": last["val_state_hash"],
             "last_state_root": word(300 + h),
             "l1_reference_block_number": 19_000_000,
             "l1_reference_block_hash": word(0x44),
@@ -927,12 +928,10 @@ def land_statements(config, cut_vectors):
             inputs["parent_height"],
             inputs["parent_hash"],
             inputs["parent_comet_hash"],
-            inputs["parent_val_state_hash"],
             inputs["committee_config_hash"],
             inputs["last_height"],
             inputs["last_block_hash"],
             inputs["last_comet_hash"],
-            inputs["last_val_state_hash"],
             inputs["last_state_root"],
             inputs["l1_reference_block_number"],
             inputs["l1_reference_block_hash"],
@@ -942,6 +941,7 @@ def land_statements(config, cut_vectors):
             inputs["active_committee_snapshot"],
             inputs["cut_hash"],
         )
+        assert len(preimage) == 2 + 2 * 672
         out.append(
             {
                 "name": name,
@@ -955,7 +955,7 @@ def land_statements(config, cut_vectors):
 
 
 LAND_SIGNATURE = (
-    "land((uint256,uint256,bytes32,bytes32,bytes32,bytes32,uint256,uint256,uint256),bytes32[],bytes)"
+    "land((uint256,uint256,bytes32,bytes32,bytes32,uint256,uint256,uint256),bytes32[],bytes)"
 )
 
 
@@ -964,7 +964,7 @@ def land_abi(statements):
     (statement,) = [s for s in statements if s["name"] == "nonzero"]
     inputs = statement["inputs"]
     p, h = int(inputs["parent_height"]), int(inputs["last_height"])
-    leaves = [cut_leaf(x)[1] for x in range(p + K, h, K)]
+    leaves = cut_leaves(p, h)
     proof = "0x00"
     land_input = "(" + ",".join(
         [
@@ -972,7 +972,6 @@ def land_abi(statements):
             inputs["last_height"],
             inputs["last_block_hash"],
             inputs["last_comet_hash"],
-            inputs["last_val_state_hash"],
             inputs["last_state_root"],
             inputs["l1_reference_block_number"],
             inputs["forced_inclusion_head_after"],
@@ -1371,7 +1370,7 @@ def slash_vote_abi(cases):
             "calldata": cast("calldata", signature, 0, argument(cases[a]), argument(cases[b]))}
 
 
-# --- validator-state chains: CometBFT v0.40.0 (ENC-A-29a, PROOF-6.2-41a) ------------------------
+# --- validator-state chains: CometBFT v0.40.0 (ENC-A-29a, SYNC-9-5c) ----------------------------
 
 VALGEN = HERE / "valgen"
 VAL_STATE_SIGNATURE = (
@@ -1496,15 +1495,6 @@ VAL_CHAINS = (
         ),
     },
 )
-
-# name, chain, origin p, last height h, origin record's validator-state hash: None for the record
-# the start write leaves at S (0), else the (chain, height) whose state the record holds.
-VAL_LANDINGS = (
-    ("gen0_from_start", "gen0", 0, 48, None),
-    ("gen0_from_24", "gen0", 24, 48, ("gen0", 24)),
-    ("gen1_from_start", "gen1", 48, 60, ("gen0", 48)),
-)
-
 
 def max_committee_power(index):
     """2^48 + (i mod 64) - 32 for i < 4095, and the rest of MaxTotalVotingPower for i = 4095."""
@@ -1720,12 +1710,9 @@ def val_state_chains(domains):
         assert generated["address"] == info["ck_addr"], generated["name"]
     generated = {c["name"]: c["states"] for c in result["chains"]}
 
-    hashes = {}
     chain_out = []
     for chain in VAL_CHAINS:
         states, events = check_val_states(chain, generated[chain["name"]], key_info, address)
-        for height, *_, digest in states:
-            hashes[(chain["name"], height)] = digest
         chain_out.append(
             {
                 "name": chain["name"],
@@ -1760,43 +1747,6 @@ def val_state_chains(domains):
             }
         )
 
-    landings = []
-    for name, chain_name, p, h, record in VAL_LANDINGS:
-        (chain,) = [c for c in VAL_CHAINS if c["name"] == chain_name]
-        start = chain["start"]
-        assert on_grid(DEPLOYMENT["etna_start"], p) and on_grid(DEPLOYMENT["etna_start"], h)
-        assert start <= p < h <= chain["end"]
-        record_hash = word(0) if record is None else hashes[record]
-        generation_start = p == start
-        # PROOF-6.2-40/41a: at the generation's start height the guest builds the genesis state
-        # and does not compare it with the record; at any other origin the record's preimage is
-        # the input, so the two hashes are equal.
-        assert generation_start or record_hash == hashes[(chain_name, p)]
-        assert record_hash != hashes[(chain_name, p)] or not generation_start
-        landings.append(
-            {
-                "name": name,
-                "chain": chain_name,
-                "generation": chain["generation"],
-                "parent_height": p,
-                "last_height": h,
-                "origin_is_generation_start": generation_start,
-                "parent_val_state_hash": record_hash,
-                "origin_val_state_hash": hashes[(chain_name, p)],
-                "grid_points": [
-                    {
-                        "height": x,
-                        "roles": epoch_roles(chain["epoch_length"], x),
-                        "val_state_hash": hashes[(chain_name, x)],
-                    }
-                    for x in range(p + K, h, K)
-                ],
-                "last_val_state_hash": hashes[(chain_name, h)],
-            }
-        )
-    roles = {r for landing in landings for g in landing["grid_points"] for r in g["roles"]}
-    assert {r.split("(")[0] + r.split(")")[1] for r in roles} >= {"S", "S+1", "H"}, roles
-
     max_states, max_events = check_val_states(
         max_chain, generated["max_committee"], key_info, address
     )
@@ -1828,7 +1778,6 @@ def val_state_chains(domains):
             "cometbft": "v0.40.0",
             "keys": keys_small,
             "chains": chain_out,
-            "landings": landings,
             "max_committee": {
                 "description": (
                     "4096 members (n_max's bound) at CometBFT's MaxTotalVotingPower: genesis at "
@@ -2468,8 +2417,8 @@ PACKED = {
     "inbox_293": (
         "inbox",
         "rules_schedule",
-        ("active_rules", "next_rules", "rules_time", "stop_time", "stop_grid"),
-        (1, 2, 1_700_003_600, 1_700_007_200, 600),
+        ("active_rules", "next_rules", "rules_time", "stop_time"),
+        (1, 2, 1_700_003_600, 1_700_007_200),
     ),
     "registry_checkpoint_word1": (
         "registry",
@@ -2521,6 +2470,8 @@ def packed_words():
             {**dict(zip(fields, values)), "word": pack(fields, values)}
             for values in (ordinary, maximum)
         ]
+    # STOR-B-24: slot 293 packs four 48-bit fields, so bits 192 and up stay zero.
+    assert all(int(item["word"], 16) >> 192 == 0 for item in out["inbox_293"])
     return decimals(out)
 
 
@@ -2595,7 +2546,7 @@ def layout():
             for i in (0, 7)
         ],
         "landing_slots": [
-            {"height": h, "slots": mapping_slots(h, INBOX_SLOTS["landings"], 4)}
+            {"height": h, "slots": mapping_slots(h, INBOX_SLOTS["landings"], 3)}
             for h in (0, 6, 18)
         ],
         "origin_slots": [
@@ -2664,7 +2615,7 @@ def governance_abi(key_list):
         "recover": ("recover(uint48,uint256,uint256,uint256,(uint256,bytes32)[],uint256[],uint48)", [2, 12, 7, 1700000123, f"[(0,{entry_key})]", "[3,5]", 4]),
         "invalidate_recovery_nonce": ("invalidateRecoveryNonce(uint256)", [7]),
         "schedule_rules": ("scheduleRules(uint48,uint48)", [2, 1_700_003_600]),
-        "schedule_stop": ("scheduleStop(uint48,uint48)", [1_700_007_200, 600]),
+        "schedule_stop": ("scheduleStop(uint48)", [1_700_007_200]),
         "set_origin": ("setOrigin(uint256,bytes32,bytes32)", list(START)),
         "save_forced_inclusion": ("saveForcedInclusion(bytes)", [FI_TX]),
         "sweep_protocol_fees": ("sweepProtocolFees()", []),
@@ -2752,7 +2703,6 @@ def governance_events(key_list):
         "top_up_activated": ("TopUpActivated(uint256,uint256)", [word(0)], "f(uint256)", [100]),
         "forfeited": ("Forfeited(uint256,bytes32,bytes32,uint256,uint256)", [word(0), key_list[0]["entry_key"]], "f(bytes32,uint256,uint256)", [word(42), 100, 10]),
         "recovery_nonce_invalidated": ("RecoveryNonceInvalidated(uint256,uint256)", [], "f(uint256,uint256)", [7, 8]),
-        "bond_displaced": ("BondDisplaced(uint256,uint256,uint256)", [word(12), word(7), word(4096)], "f()", []),
         "rules_schedule_updated": ("RulesScheduleUpdated(uint256)", [], "f(uint256)", [rules_schedule]),
         "start_written": ("StartWritten(uint256,bytes32,bytes32)", [], "f(uint256,bytes32,bytes32)", list(START)),
         "etna_initialized": ("EtnaInitialized(uint256,uint256,bytes32,bytes32)", [], "f(uint256,uint256,bytes32,bytes32)", [10, 40, word(0x53), word(0x54)]),
@@ -2775,8 +2725,9 @@ def main():
     cut_vectors = cuts()
     statements = land_statements(config, cut_vectors)
     domains = chain_domains()
+    states = validator_states()
     vectors = {
-        "schema_version": "7",
+        "schema_version": "8",
         "deployment": deployment(),
         "keys": key_list,
         "key_decompression": key_decompression(key_list),
@@ -2785,7 +2736,8 @@ def main():
         "committee_config": config,
         "registry_entries": entries,
         "committee_sets": committee_sets(entries["entries"], config),
-        "validator_states": validator_states(),
+        "validator_states": states,
+        "app_hashes": app_hashes(states),
         "val_state_chains": val_state_chains(domains),
         "cuts": cut_vectors,
         "land_statements": statements,

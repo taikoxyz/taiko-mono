@@ -40,21 +40,21 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// REMOTE_SIGNAL_SERVICE (the L2 SignalService), which must be the genesis generator's
 /// SignalService address for L2_CHAIN_ID (`l2SignalServiceAddress`), because the L1
 /// SignalService fixes it as an immutable.
-/// `deployRegistry()`: INBOX_PROXY; TAIKO_TOKEN; REGISTRY_MIN_STAKE in token base units, which
-/// defaults to ETNA_S_MIN if unset, empty or zero (the two are independent parameters);
+/// `deployRegistry()`: INBOX_PROXY; TAIKO_TOKEN; REGISTRY_MIN_STAKE in token base units, above
+/// 10^27 / 4096 (STAKE-4.1-14a), which defaults to 250,000 TAIKO if unset, empty or zero;
 /// REGISTRY_ACTIVATION_DELAY, REGISTRY_EXIT_DELAY and REGISTRY_WITHDRAWAL_DELAY in L1 blocks, each
 /// in [1, 2^32);
 /// SLASH_BOUNTY_BPS (below 10,000, zero allowed); SLASH_SINK (non-zero); L2_CHAIN_ID;
 /// REGISTRY_FORFEIT_BPS (required, in [1, 10,000], with no production default).
 /// `deployInbox()`: INBOX_PROXY; SIGNAL_SERVICE, which must have code; STAKING_REGISTRY;
 /// ETNA_PROOF_VERIFIER, which must have code; L1_CHAIN_ID, which must equal this chain's id;
-/// L2_CHAIN_ID, which must equal the registry's; MAX_BATCH_BLOCKS (in [6, 65,532]);
+/// L2_CHAIN_ID, which must equal the registry's; MAX_BATCH_BLOCKS (in [1, 12,951]);
 /// FORCED_INCLUSION_FEE_GWEI and FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD (non-zero);
 /// PROTOCOL_FEE_RECIPIENT (the DAO treasury, non-zero); GENESIS_BLOCK_HASH and GENESIS_STATE_ROOT
 /// (L2 block 0); EPOCH_LEN_L2 (L, with L >= 3 and L + 1 < 2^48); GENESIS_CUTOFF;
 /// COMMITTEE_RECORD_HASH; ETNA_VP_UNIT (at least 867,361,738), ETNA_S_MIN (at least
-/// ETNA_VP_UNIT), ETNA_N_MAX (in [1, 4096]) and ETNA_UNSETTLED_LIMIT (U, a multiple of 6 in
-/// [6, 65,532]); FORCED_INCLUSION_DELAY (seconds, non-zero); MAX_ANCHOR_AGE (seconds, at least
+/// ETNA_VP_UNIT), ETNA_N_MAX (in [1, 4096]) and ETNA_UNSETTLED_LIMIT (U, in [1, 65,536]);
+/// FORCED_INCLUSION_DELAY (seconds, non-zero); MAX_ANCHOR_AGE (seconds, at least
 /// 1152, START-10-9).
 /// The script checks only SIGNAL_SERVICE's and ETNA_PROOF_VERIFIER's code, L1_CHAIN_ID and
 /// REMOTE_SIGNAL_SERVICE itself;
@@ -69,6 +69,10 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// the same configuration. A verifier that accepts every proof is for ephemeral devnets only.
 /// @custom:security-contact security@taiko.xyz
 contract DeployEtnaDevnet is Script {
+    /// @notice The registry's minimum stake when REGISTRY_MIN_STAKE is unset, empty or zero:
+    /// 250,000 TAIKO, above the 10^27 / 4096 bound (STAKE-4.1-14a).
+    uint256 public constant DEFAULT_REGISTRY_MIN_STAKE = 250_000 ether;
+
     // ---------------------------------------------------------------
     // External & Public Functions
     // ---------------------------------------------------------------
@@ -210,13 +214,13 @@ contract DeployEtnaDevnet is Script {
         return owner == address(0) ? vm.addr(_key) : owner;
     }
 
-    /// @dev Reads the registry configuration; the minimum stake, an independent parameter,
-    /// defaults to ETNA_S_MIN when REGISTRY_MIN_STAKE is unset, empty or zero. A malformed value
-    /// reverts.
+    /// @dev Reads the registry configuration; the minimum stake defaults to
+    /// `DEFAULT_REGISTRY_MIN_STAKE` when REGISTRY_MIN_STAKE is unset, empty or zero. A malformed
+    /// value reverts.
     /// @return The registry configuration.
     function _registryConfig() internal view virtual returns (IEtnaStakingRegistry.Config memory) {
         uint256 minStake = _isSet("REGISTRY_MIN_STAKE") ? vm.envUint("REGISTRY_MIN_STAKE") : 0;
-        if (minStake == 0) minStake = vm.envUint("ETNA_S_MIN");
+        if (minStake == 0) minStake = DEFAULT_REGISTRY_MIN_STAKE;
         return IEtnaStakingRegistry.Config({
             token: vm.envAddress("TAIKO_TOKEN"),
             minStake: minStake,

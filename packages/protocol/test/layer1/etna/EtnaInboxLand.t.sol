@@ -107,6 +107,27 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         assertEq(_inboxWord(_landingSlot(p + 3)), _landingWord1(p + 1, 0, 0), "parent is c");
     }
 
+    /// @dev One proven batch (p, h] lands unchanged from every checkpoint c in [p, h - 1]: its
+    /// statement binds only landings[p], and its leaf at index c - p - 1 matches c's record.
+    function test_land_sameBatchFromEveryCheckpoint() external {
+        uint256 p = 2;
+        uint256 h = 9;
+        _land(0, p);
+        IEtnaInbox.LandInput memory batch = _input(p, h);
+        bytes32[] memory leaves = _leaves(p, h);
+        bytes32 statement = _statement(batch, _inbox().landings(p), _cutHash(batch, leaves));
+        uint256 beforeC = vm.snapshotState();
+
+        for (uint256 c = p; c < h; ++c) {
+            if (c > p) _land(p, c);
+            _assertCheckpoint(c, bytes32(uint256(100 + c)));
+            assertEq(_land(batch, leaves), statement, "the same statement from every c");
+            _assertCheckpoint(h, bytes32(uint256(100 + h)));
+            assertEq(_inboxWord(_landingSlot(h)), _landingWord1(c, 0, h / K), "parent is c");
+            vm.revertToState(beforeC);
+        }
+    }
+
     /// @dev `leaves.length` must be exactly h - p - 1.
     function test_land_revertsOnWrongLeafCount() external {
         _expectLandRevert(_input(0, 3), new bytes32[](1), IEtnaInbox.LeafCountMismatch.selector);
@@ -872,14 +893,7 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     }
 
     /// @dev Word `_i` of `_data`.
-    function _word(
-        bytes memory _data,
-        uint256 _i
-    )
-        private
-        pure
-        returns (bytes32 word_)
-    {
+    function _word(bytes memory _data, uint256 _i) private pure returns (bytes32 word_) {
         assembly {
             word_ := mload(add(_data, add(32, mul(_i, 32))))
         }
