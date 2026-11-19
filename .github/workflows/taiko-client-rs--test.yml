@@ -6,6 +6,11 @@ on:
   push:
     branches: [main]
     paths:
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".nvmrc"
+      - ".github/actions/install-pnpm-dependencies/**"
       - "testdata/derivation_vectors/**"
       - "packages/taiko-client-rs/**"
       # `DeployProtocolOnL1`'s import closure reaches `contracts/`, `test/shared/` and the
@@ -30,6 +35,11 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".nvmrc"
+      - ".github/actions/install-pnpm-dependencies/**"
       - "testdata/derivation_vectors/**"
       - "packages/taiko-client-rs/**"
       # `DeployProtocolOnL1`'s import closure reaches `contracts/`, `test/shared/` and the
@@ -357,19 +367,6 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          version: 9
-          run_install: false
-
-      - name: Install Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "22.23.4"
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
       - name: Setup just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
         with:
@@ -387,8 +384,9 @@ jobs:
       # would test different contracts on every re-run and never exercise a PR
       # that changes protocol and client together.
       - name: Install pnpm dependencies for protocol
-        working-directory: packages/protocol
-        run: pnpm install
+        uses: ./.github/actions/install-pnpm-dependencies
+        with:
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Run tests
         working-directory: packages/taiko-client-rs
