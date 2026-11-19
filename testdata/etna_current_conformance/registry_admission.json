@@ -10,10 +10,10 @@
       "setup": {
         "slotCount": 4096,
         "openingBonds": 4096,
-        "minStake": 10,
-        "defaultStake": 20,
+        "minStake": 250000000000000000000000,
+        "defaultStake": 500000000000000000000000,
         "lowIndex": 4095,
-        "lowStake": 10,
+        "lowStake": 250000000000000000000000,
         "lowPending": 0,
         "secondLowIndex": null,
         "vacantLow": true,
@@ -46,7 +46,7 @@
         "block": 10,
         "caller": 8,
         "key": 9000,
-        "amount": 10
+        "amount": 250000000000000000000000
       },
       "expect": {
         "revert": false,
@@ -57,9 +57,9 @@
         "newBond": {
           "key": 9000,
           "owner": 8,
-          "stake": 10,
+          "stake": 250000000000000000000000,
           "pending": 0,
-          "balance": 10,
+          "balance": 250000000000000000000000,
           "activeFrom": 11,
           "exitAt": 281474976710655,
           "released": false,
@@ -69,8 +69,8 @@
         },
         "nextId": 4097,
         "slot4096": null,
-        "callerBalance": 90,
-        "registryBalance": 81910,
+        "callerBalance": 2250000000000000000000000,
+        "registryBalance": 2047750000000000000000000000,
         "receiptCount": 1,
         "latestCheckpointBlock": 10
       }
@@ -81,10 +81,10 @@
       "setup": {
         "slotCount": 4096,
         "openingBonds": 4,
-        "minStake": 10,
-        "defaultStake": 20,
+        "minStake": 250000000000000000000000,
+        "defaultStake": 500000000000000000000000,
         "lowIndex": 1,
-        "lowStake": 10,
+        "lowStake": 250000000000000000000000,
         "lowPending": 0,
         "secondLowIndex": null,
         "vacantLow": true,
@@ -117,7 +117,7 @@
         "block": 10,
         "caller": 8,
         "key": 9000,
-        "amount": 10
+        "amount": 250000000000000000000000
       },
       "expect": {
         "revert": false,
@@ -128,9 +128,9 @@
         "newBond": {
           "key": 9000,
           "owner": 8,
-          "stake": 10,
+          "stake": 250000000000000000000000,
           "pending": 0,
-          "balance": 10,
+          "balance": 250000000000000000000000,
           "activeFrom": 11,
           "exitAt": 281474976710655,
           "released": false,
@@ -140,8 +140,8 @@
         },
         "nextId": 5,
         "slot4096": null,
-        "callerBalance": 90,
-        "registryBalance": 70,
+        "callerBalance": 2250000000000000000000000,
+        "registryBalance": 1750000000000000000000000,
         "receiptCount": 1,
         "latestCheckpointBlock": 10
       }
@@ -152,10 +152,10 @@
       "setup": {
         "slotCount": 4096,
         "openingBonds": 4096,
-        "minStake": 10,
-        "defaultStake": 20,
+        "minStake": 250000000000000000000000,
+        "defaultStake": 500000000000000000000000,
         "lowIndex": 4095,
-        "lowStake": 10,
+        "lowStake": 250000000000000000000000,
         "lowPending": 0,
         "secondLowIndex": null,
         "vacantLow": false,
@@ -169,7 +169,7 @@
         "block": 10,
         "caller": 8,
         "key": 9000,
-        "amount": 21
+        "amount": 525000000000000000000000
       },
       "expect": {
         "revert": true,
@@ -182,10 +182,10 @@
       "setup": {
         "slotCount": 4096,
         "openingBonds": 4096,
-        "minStake": 10,
-        "defaultStake": 20,
+        "minStake": 250000000000000000000000,
+        "defaultStake": 500000000000000000000000,
         "lowIndex": 17,
-        "lowStake": 10,
+        "lowStake": 250000000000000000000000,
         "lowPending": 0,
         "secondLowIndex": null,
         "vacantLow": false,
@@ -229,7 +229,7 @@
         "block": 10,
         "caller": 8,
         "key": 9000,
-        "amount": 21
+        "amount": 525000000000000000000000
       },
       "expect": {
         "revert": true,
@@ -242,10 +242,10 @@
       "setup": {
         "slotCount": 4096,
         "openingBonds": 4096,
-        "minStake": 10,
-        "defaultStake": 20,
+        "minStake": 250000000000000000000000,
+        "defaultStake": 500000000000000000000000,
         "lowIndex": 17,
-        "lowStake": 10,
+        "lowStake": 250000000000000000000000,
         "lowPending": 0,
         "secondLowIndex": null,
         "vacantLow": true,
@@ -278,7 +278,7 @@
         "block": 10,
         "caller": 8,
         "key": 9000,
-        "amount": 10
+        "amount": 250000000000000000000000
       },
       "expect": {
         "revert": false,
@@ -289,9 +289,9 @@
         "newBond": {
           "key": 9000,
           "owner": 8,
-          "stake": 10,
+          "stake": 250000000000000000000000,
           "pending": 0,
-          "balance": 10,
+          "balance": 250000000000000000000000,
           "activeFrom": 11,
           "exitAt": 281474976710655,
           "released": false,
@@ -301,8 +301,8 @@
         },
         "nextId": 4097,
         "slot4096": null,
-        "callerBalance": 90,
-        "registryBalance": 81910,
+        "callerBalance": 2250000000000000000000000,
+        "registryBalance": 2047750000000000000000000000,
         "receiptCount": 1,
         "latestCheckpointBlock": 10
       }
@@ -313,11 +313,11 @@
       "setup": {
         "slotCount": 4096,
         "openingBonds": 4,
-        "minStake": 10,
-        "defaultStake": 20,
+        "minStake": 250000000000000000000000,
+        "defaultStake": 500000000000000000000000,
         "lowIndex": 1,
-        "lowStake": 10,
-        "lowPending": 3,
+        "lowStake": 250000000000000000000000,
+        "lowPending": 75000000000000000000000,
         "secondLowIndex": null,
         "vacantLow": false,
         "slashedLow": false,
@@ -330,7 +330,7 @@
         "block": 10,
         "caller": 8,
         "key": 9000,
-        "amount": 10
+        "amount": 250000000000000000000000
       },
       "expect": {
         "revert": false,
@@ -341,9 +341,9 @@
         "newBond": {
           "key": 9000,
           "owner": 8,
-          "stake": 10,
+          "stake": 250000000000000000000000,
           "pending": 0,
-          "balance": 10,
+          "balance": 250000000000000000000000,
           "activeFrom": 11,
           "exitAt": 281474976710655,
           "released": false,
@@ -353,8 +353,8 @@
         },
         "nextId": 5,
         "slot4096": null,
-        "callerBalance": 90,
-        "registryBalance": 83,
+        "callerBalance": 2250000000000000000000000,
+        "registryBalance": 2075000000000000000000000,
         "receiptCount": 1,
         "latestCheckpointBlock": 10
       }
@@ -365,10 +365,10 @@
       "setup": {
         "slotCount": 4096,
         "openingBonds": 4,
-        "minStake": 10,
-        "defaultStake": 20,
+        "minStake": 250000000000000000000000,
+        "defaultStake": 500000000000000000000000,
         "lowIndex": 1,
-        "lowStake": 10,
+        "lowStake": 250000000000000000000000,
         "lowPending": 0,
         "secondLowIndex": null,
         "vacantLow": false,
@@ -382,7 +382,7 @@
         "block": 10,
         "caller": 8,
         "key": 9000,
-        "amount": 9
+        "amount": 249999999999999999999999
       },
       "expect": {
         "revert": true,

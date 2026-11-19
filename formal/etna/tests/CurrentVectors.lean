@@ -24,27 +24,28 @@ example : (opening {vacant := true}).registry.ledger.bonds 4095 =
 example : (opening {vacant := true}).registry.ledger.keyId 4096 = some 4095 ∧
     (opening {vacant := true}).registry.ledger.nextId = 4096 ∧
     (opening {vacant := true}).registry.ledger.slots 4095 = none := by decide +kernel
-example : (opening {vacant := true}).token.balances 7 = 10 ∧
-    (opening {vacant := true}).token.balances 4 = 81900 := by decide +kernel
+example : (opening {vacant := true}).token.balances 7 = 10*tokenUnit ∧
+    (opening {vacant := true}).token.balances 4 = 81900*tokenUnit := by decide +kernel
 example : (vacancyWithdrawal {low := 17}).isSome = true ∧
     (vacancyWithdrawal {bonds := 4,low := 1}).isSome = true := by decide +kernel
 
 -- The slash is a real call: the slashed bond keeps its slot with zero balance, and the
--- reporter and slash sink receive its principal.
+-- reporter and slash sink receive its principal; the 10% bounty is exact at this scale.
 example : (slashing {low := 17}).isSome = true := by decide +kernel
 example : (opening {low := 17,slashed := true}).registry.ledger.bonds 17 =
     some ⟨⟨18,7,0,1,1,false,none,0,0⟩,some 17⟩ ∧
     (opening {low := 17,slashed := true}).registry.ledger.slots 17 = some 17 := by decide +kernel
-example : (opening {low := 17,slashed := true}).token.balances 6 = 1 ∧
-    (opening {low := 17,slashed := true}).token.balances 5 = 9 ∧
-    (opening {low := 17,slashed := true}).token.balances 4 = 81900 := by decide +kernel
+example : (opening {low := 17,slashed := true}).token.balances 6 = tokenUnit ∧
+    (opening {low := 17,slashed := true}).token.balances 5 = 9*tokenUnit ∧
+    (opening {low := 17,slashed := true}).token.balances 4 = 81900*tokenUnit := by decide +kernel
 
 -- A registration at block 0 activates at 1; top-up is permitted only then and
 -- becomes ready at 2. The seeded pending fields must match that real operation.
 example : RegistryMachine.bondEdit (registry {}) (view 0) 0 (initialBond {} 4095).value
-    (.topUp 4095 7 3) = none := by decide +kernel
+    (.topUp 4095 7 (3*tokenUnit)) = none := by decide +kernel
 example : RegistryMachine.bondEdit (registry {}) (view 0) 1 (initialBond {} 4095).value
-    (.topUp 4095 7 3) = some (initialBond {pending := 3} 4095).value := by decide +kernel
+    (.topUp 4095 7 (3*tokenUnit)) = some (initialBond {pending := 3*tokenUnit} 4095).value := by
+  decide +kernel
 
 instance (snapshot : Nat) (b : Staking.Bond) : Decidable (StakeRisk.BondMetadata snapshot b) := by
   unfold StakeRisk.BondMetadata
@@ -62,8 +63,9 @@ def openingValid (seed : Seed) : Bool :=
     decide (before.token.allowances 4 4 = 0)
 
 example : ([{vacant := true}, {bonds := 4,low := 1,vacant := true}, {},
-    {low := 17,slashed := true}, {low := 17,vacant := true}, {bonds := 4,low := 1,pending := 3},
-    {bonds := 4,low := 1}] : List Seed).all openingValid = true := by
+    {low := 17,slashed := true}, {low := 17,vacant := true},
+    {bonds := 4,low := 1,pending := 3*tokenUnit}, {bonds := 4,low := 1}] : List Seed).all
+      openingValid = true := by
   decide +kernel
 
 end CurrentVectorTests

@@ -7,6 +7,9 @@ import subprocess
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+# One test token unit: 25,000 TAIKO in base units. Every vector amount is a multiple of it,
+# except the below-minimum amount minStake - 1.
+UNIT = 25_000 * 10**18
 spec = importlib.util.spec_from_file_location('current_vectors', ROOT/'scripts/check_current_vectors.py')
 vectors = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(vectors)
@@ -32,15 +35,28 @@ class CurrentVectorTests(unittest.TestCase):
             'below-minimum-rejected'])
         rows = {v['id']:v['expect'] for v in data['vectors']}
         setups = {v['id']:v['setup'] for v in data['vectors']}
-        for name, slot, bond in [('empty-last-slot',4095,4096), ('lowest-empty-slot',1,4),
-                                 ('withdrawn-slot-reused',17,4096), ('pending-topup-irrelevant',4,4)]:
+        amounts = {v['id']:v['call']['amount'] for v in data['vectors']}
+        minimum = 10*UNIT
+        for name, setup in setups.items():
+            # STAKE-4.1-14a, PARAM-11-11: a deployable registry needs 4096 x minStake > 10^27.
+            self.assertGreater(4096*setup['minStake'], 10**27, name)
+            self.assertEqual((setup['minStake'],setup['defaultStake'],setup['lowStake']),
+                             (minimum,20*UNIT,minimum), name)
+        self.assertEqual(amounts, {
+            'empty-last-slot':minimum, 'lowest-empty-slot':minimum, 'full-registry-rejected':21*UNIT,
+            'zero-balance-bond-not-replaced':21*UNIT, 'withdrawn-slot-reused':minimum,
+            'pending-topup-irrelevant':minimum, 'below-minimum-rejected':minimum-1})
+        for name, slot, bond, reserve in [('empty-last-slot',4095,4096,81910), ('lowest-empty-slot',1,4,70),
+                                          ('withdrawn-slot-reused',17,4096,81910),
+                                          ('pending-topup-irrelevant',4,4,83)]:
             row = rows[name]
             self.assertFalse(row['revert'], name)
             self.assertEqual((row['selectedSlot'],row['bondId'],row['nextId']), (slot,bond,bond+1), name)
             self.assertIsNone(row['oldBondId'], name)
             self.assertIsNone(row['oldBond'], name)
-            self.assertEqual((row['newBond']['slot'],row['newBond']['stake']), (slot,10), name)
+            self.assertEqual((row['newBond']['slot'],row['newBond']['stake']), (slot,minimum), name)
             self.assertIsNone(row['slot4096'], name)
+            self.assertEqual((row['callerBalance'],row['registryBalance']), (90*UNIT,reserve*UNIT), name)
         for name in ['full-registry-rejected', 'zero-balance-bond-not-replaced', 'below-minimum-rejected']:
             self.assertEqual(rows[name], {'revert':True, 'stateUnchanged':True}, name)
         # A held slot with zero balance after a slash is not empty.
@@ -49,7 +65,7 @@ class CurrentVectorTests(unittest.TestCase):
                           slash['slashedBond']['released']), (17,0,False))
         self.assertEqual(setups['full-registry-rejected']['openingBonds'], 4096)
         self.assertEqual(setups['below-minimum-rejected']['openingBonds'], 4)
-        self.assertEqual(setups['pending-topup-irrelevant']['lowPending'], 3)
+        self.assertEqual(setups['pending-topup-irrelevant']['lowPending'], 3*UNIT)
         vacant = setups['empty-last-slot']
         self.assertEqual(vacant['landedSnapshot'], 2)
         lifecycle = vacant['vacancyLifecycle']

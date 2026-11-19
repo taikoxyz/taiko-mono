@@ -7,22 +7,32 @@ stated meanings. -/
 namespace Etna.Vectors.CurrentRegistry
 open Etna.Design Etna.Design.Current
 
+/-- Every token amount is a multiple of 25,000 TAIKO (`25000 × 10^18` base units), so
+minStake is 250,000 TAIKO and 4096 × minStake > 10^27, the deployment bound of
+STAKE-4.1-14a and PARAM-11-11; the one exception is the below-minimum amount minStake − 1. -/
+def tokenUnit : Nat := 25000 * 10^18
+
+def minStake : Nat := 10*tokenUnit
+
 /-- Opening bonds 0 to `bonds - 1` hold the slots with the same numbers. Bond `low` has
 `lowStake` and `pending`; it is withdrawn when `vacant`, or slashed to zero when `slashed`. -/
 structure Seed where
   bonds : Nat := 4096
   low : Nat := 4095
-  lowStake : Nat := 10
+  lowStake : Nat := minStake
   pending : Nat := 0
   vacant : Bool := false
   slashed : Bool := false
 
-def minStake : Nat := 10
+def defaultStake : Nat := 20*tokenUnit
+
+/-- Caller 8's balance and its allowance to the registry. -/
+def callerFunds : Nat := 100*tokenUnit
 
 def initialBond (seed : Seed) (i : Nat) : Registry.Bond :=
   let pending := if i = seed.low then seed.pending else 0
   let value : Staking.Bond :=
-    ⟨i+1,7,(if i = seed.low then seed.lowStake else 20),1,Staking.noExit,false,none,
+    ⟨i+1,7,(if i = seed.low then seed.lowStake else defaultStake),1,Staking.noExit,false,none,
       pending,(if pending = 0 then 0 else 2)⟩
   ⟨value,some i⟩
 
@@ -41,8 +51,8 @@ def registry (seed : Seed) : RegistryMachine.State :=
 
 def funded (seed : Seed) : RegistryPayments.State :=
   let reserve := (List.range seed.bonds).foldl (fun total i => total+(initialBond seed i).value.balance) 0
-  ⟨registry seed,⟨fun a => if a = 4 then reserve else if a = 8 then 100 else 0,
-    fun payer recipient => if payer = 8 ∧ recipient = 4 then 100 else 0⟩⟩
+  ⟨registry seed,⟨fun a => if a = 4 then reserve else if a = 8 then callerFunds else 0,
+    fun payer recipient => if payer = 8 ∧ recipient = 4 then callerFunds else 0⟩⟩
 
 def view (snapshot : Nat) : RegistryMachine.InboxView := ⟨⟨1,2,3,4⟩,0,snapshot,true,false,10⟩
 
@@ -106,7 +116,7 @@ def vector (name : String) (seed : Seed) (amount : Nat) : JVal :=
   jObj [
     ("id",jStr name),("rules",jRow [jStr "STAKE-4.1-13a",jStr "STAKE-4.1-14a"]),
     ("setup",jObj [("slotCount",jNat 4096),("openingBonds",jNat seed.bonds),
-      ("minStake",jNat minStake),("defaultStake",jNat 20),
+      ("minStake",jNat minStake),("defaultStake",jNat defaultStake),
       ("lowIndex",jNat seed.low),("lowStake",jNat seed.lowStake),("lowPending",jNat seed.pending),
       ("secondLowIndex",jNull),("vacantLow",jBool seed.vacant),("slashedLow",jBool seed.slashed),
       ("landedSnapshot",jNat snapshot),
@@ -142,13 +152,13 @@ def file : String :=
     ("model",jStr "Etna.Design.Current.RegistryPayments.executeTransaction"),
     ("keyMeaning",jStr "Distinct valid test keys with valid PoP and valid vote signatures; numbers are fixture identities, not raw public-key bytes."),
     ("vectors",jArr [
-      vector "empty-last-slot" {vacant := true} 10,
-      vector "lowest-empty-slot" {bonds := 4,low := 1,vacant := true} 10,
-      vector "full-registry-rejected" {} 21,
-      vector "zero-balance-bond-not-replaced" {low := 17,slashed := true} 21,
-      vector "withdrawn-slot-reused" {low := 17,vacant := true} 10,
-      vector "pending-topup-irrelevant" {bonds := 4,low := 1,pending := 3} 10,
-      vector "below-minimum-rejected" {bonds := 4,low := 1} 9])
+      vector "empty-last-slot" {vacant := true} minStake,
+      vector "lowest-empty-slot" {bonds := 4,low := 1,vacant := true} minStake,
+      vector "full-registry-rejected" {} (21*tokenUnit),
+      vector "zero-balance-bond-not-replaced" {low := 17,slashed := true} (21*tokenUnit),
+      vector "withdrawn-slot-reused" {low := 17,vacant := true} minStake,
+      vector "pending-topup-irrelevant" {bonds := 4,low := 1,pending := 3*tokenUnit} minStake,
+      vector "below-minimum-rejected" {bonds := 4,low := 1} (minStake-1)])
   ] 0 ++ "\n"
 
 end Etna.Vectors.CurrentRegistry
