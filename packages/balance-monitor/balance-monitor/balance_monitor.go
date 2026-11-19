@@ -175,9 +175,9 @@ func (b *BalanceMonitor) getCachedErc20Decimals(ctx context.Context, client *eth
 		tokenDecimals, err = b.getErc20Decimals(ctx, client, tokenAddress)
 		if err != nil {
 			slog.Warn(fmt.Sprintf("Failed to get %s ERC-20 decimals for token. Use default value: 18", clientLabel), "tokenAddress", tokenAddress.Hex(), "error", err)
-			tokenDecimals = 18
+			return 18
 		}
-		// Cache the fetched decimals
+		// Only cache successful lookups so failures can be retried.
 		b.erc20DecimalsCache[cacheKey] = tokenDecimals
 	}
 	return tokenDecimals
