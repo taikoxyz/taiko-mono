@@ -42,7 +42,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: af1b952adb2d14263da60c5090e15e65b5d8d48c
+          ref: bd0471c236640eab2ebb384ec9308bbcde1164c9
 
       - name: Authenticate to Google Cloud (Workload Identity)
         id: auth
@@ -54,7 +54,7 @@ jobs:
           access_token_lifetime: 3600s
           create_credentials_file: false
       - name: Login to GAR
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: us-docker.pkg.dev
           username: oauth2accesstoken
@@ -75,9 +75,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
-            type=raw,value=sha-af1b952
+            type=raw,value=sha-bd0471c
           labels: |
-            org.opencontainers.image.revision=af1b952adb2d14263da60c5090e15e65b5d8d48c
+            org.opencontainers.image.revision=bd0471c236640eab2ebb384ec9308bbcde1164c9
 
       - name: Build and push by digest
         id: build
@@ -146,9 +146,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
-            type=raw,value=sha-af1b952
+            type=raw,value=sha-bd0471c
           labels: |
-            org.opencontainers.image.revision=af1b952adb2d14263da60c5090e15e65b5d8d48c
+            org.opencontainers.image.revision=bd0471c236640eab2ebb384ec9308bbcde1164c9
 
       - name: Authenticate to Google Cloud (Workload Identity)
         id: auth
@@ -160,7 +160,7 @@ jobs:
           access_token_lifetime: 3600s
           create_credentials_file: false
       - name: Login to GAR
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: us-docker.pkg.dev
           username: oauth2accesstoken
