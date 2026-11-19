@@ -1,5 +1,4 @@
 import EtnaModel.CurrentValidatorState
-import EtnaProofs.CurrentReference
 
 namespace Etna.Design.Current.ValidatorState
 
@@ -47,20 +46,5 @@ theorem replay_height {s t : CommitState} {steps : List (List Change)}
     have step := (commit_pipeline hu).1
     simp only [List.length_cons]
     omega
-
-/-- Recovery-origin admission reads fresh genesis and ignores both old inputs. -/
-theorem origin_uses_genesis (hash : Snapshot → Hash) (origin stored : Nat)
-    (fresh supplied : CommitState) (height : fresh.height = origin) (valid : validState fresh = true) :
-    openOrigin hash origin origin stored fresh supplied = some fresh := by
-  simp [openOrigin,height,valid]
-
-theorem later_origin_authenticates {hash : Snapshot → Hash} {origin height stored : Nat}
-    {fresh supplied initial : CommitState} (later : origin < height)
-    (ok : openOrigin hash origin height stored fresh supplied = some initial) :
-    initial = supplied ∧ supplied.height = height ∧ hash (snapshot supplied) = stored := by
-  simp only [openOrigin,Nat.ne_of_gt later,↓reduceIte] at ok
-  split at ok
-  next guard => exact ⟨(Option.some.inj ok).symm,guard.2.1,guard.2.2.2⟩
-  next => contradiction
 
 end Etna.Design.Current.ValidatorState

@@ -691,7 +691,14 @@ structure Suffix (env : Environment) (w : World) (a : Landing) where
   parentHashBound : HashBound env parent
   headerHashes : ∀ b ∈ blocks, HashBound env b.header
 
+/-- Guest soundness: a sound backend's accepted proof for an accepted landing certifies its
+statement with a batch whose rulesets the proof's image implements (`ImageCertifies`).
 
+PROOF-6.2-16/17: a guest verifies commit signatures only for h and for the last block each
+committee signs in (p,h]; every other block of (p,h) is an ancestor, through the last_block_id
+links, of a block whose commit is verified against the same committee. The certificate requires a
+verified commit for every block of the batch (`Blocks.Valid.commit`), so this premise is stronger
+than what a guest checks. -/
 def VerifierSound (env : Environment) (initial : World) : Prop :=
   ∃ sound : Backend → Prop,
     (∀ proofs, dualOK proofs = true → ∃ backend ∈ proofs, sound backend.1) ∧

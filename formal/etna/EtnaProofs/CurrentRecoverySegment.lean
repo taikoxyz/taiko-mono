@@ -5,18 +5,18 @@ import EtnaProofs.Forced
 The path, step 6). `Recovery.segment` builds it on the batch parent `p` from `SegmentContext`
 and proves it `Blocks.Valid` under the closed certificate world's policy at reference `R+1`.
 
-Every block anchors to the snapshot `s` at `R`. Its timestamp is `max (parent + 1) (time R)` (BFT
-time 0), so block `i` is `i-1` seconds past its anchor. It commits in round 0 with votes from the
-online members of the committee active at its height. Every cutoff is `R`: the anchors are all
-`R` and the generation's origin block is `R`, so the initial committee and every normal one at an
-epoch switch inside the segment elect from the registry at `R`. A block at a switch height carries
-the normal record with `s`'s state root. The FI head entry is included when canonical and
-executable at position zero; when due, it is skipped if non-canonical or its trial completes
-empty; otherwise the block waits. The execution-liveness hypothesis supplies each header.
+The block anchors to the snapshot `s` at `R`. Its timestamp is `max (p + 1) (time R)` (BFT time
+0), which is `time R` because `p` is at least two seconds earlier. It commits in round 0 with
+votes from the online members of the committee active at its height. Every cutoff is `R`: the
+anchor is `R` and the generation's origin block is `R`, so the initial committee and a normal one
+at an epoch switch elect from the registry at `R`. At a switch height the block carries the
+normal record with `s`'s state root. The FI head entry is included when canonical and executable
+at position zero; when due, it is skipped if non-canonical or its trial completes empty;
+otherwise the block waits. The execution-liveness hypothesis supplies the header.
 
-The policy's consensus context reads anchors from the segment's own headers. Since they all
-anchor at the origin block, the context equals the one built from an empty archive, so the
-blocks are built against that context first (`policy_archive`). -/
+The policy's consensus context reads anchors from the block's own header. Since it anchors at the
+origin block, the context equals the one built from an empty archive, so the block is built
+against that context first (`policy_archive`). -/
 namespace Etna.Design.Current.Protocol.Recovery
 
 /-! ### Election and committee records -/
@@ -217,7 +217,7 @@ private theorem step_wait {bytes : ActualQueue.Primitives} {cursor tail anchor d
       .accepted cursor := by
   simp [Forced.step,forcedWitness,Nat.not_le.mpr open_,hashed,Nat.not_lt.mpr short,early]
 
-/-! ### One block -/
+/-! ### The block -/
 
 /-- The segment's fixed inputs: the context and the snapshot `s` at `R`, holding `x`'s storage. -/
 private structure Setup (env : Environment) (x : World) (p : Header) (R : Nat) (keys : List Hash)
@@ -230,19 +230,15 @@ private structure Setup (env : Environment) (x : World) (p : Header) (R : Nat) (
   queue : s.queue = x.queue
   registry : s.registryHistory = x.registry.registry.history
 
-/-- A parent `i` blocks into the segment: at height `p.height+i`, its timestamp below the anchor's
-time plus `i`, anchored to `s` once inside the segment, and its FI cursor between the head and
-the tail, at most `i` entries past the head. -/
-private structure Parent (env : Environment) (x : World) (p : Header) (s : Snapshot) (i : Nat) (q : Header) :
-    Prop where
-  height : q.height = p.height+i
-  time : q.timestamp+1 ≤ s.timestamp+i
-  anchored : 0 < i → q.anchor = anchor env s
-  head : x.inbox.head ≤ q.cursor
-  tail : q.cursor ≤ x.inbox.tail
-  consumed : q.cursor-x.inbox.head ≤ i
+/-- The block's header `h` on `p`: one height above it, with its FI cursor between the head and the
+tail, at most one entry past the head. -/
+private structure Child (x : World) (p h : Header) : Prop where
+  height : h.height = p.height+1
+  head : x.inbox.head ≤ h.cursor
+  tail : h.cursor ≤ x.inbox.tail
+  consumed : h.cursor-x.inbox.head ≤ 1
 
-/-- What `segment` states of each block. -/
+/-- What `segment` states of its block. -/
 private def Facts (env : Environment) (image : Hash) (R : Nat) (b : Block) : Prop :=
   HashBound env b.header ∧ env.headerParent b.header.elHash = b.body.parentHash ∧
     b.body.blockBytes ≤ 124000 ∧ b.header.anchor.number = R ∧ Blocks.selectedRules b ∈ env.imageRules image
@@ -334,71 +330,56 @@ private theorem commit_valid (setup : Setup env x p R keys image s) {d : Blocks.
     rw [same]
     exact quorum
 
-/-- One block on parent `q` from header `h`, which executes under the selected definition `d`
-with the segment's timestamp and anchor, given its forced-inclusion step. -/
-private theorem assemble (setup : Setup env x p R keys image s) {i : Nat} {q : Header}
-    (room : i < 1) (parent : Parent env x p s i q) {d : Blocks.Definition}
-    (cat : env.catalogue (Rules.select x.schedule (max (max (q.timestamp+1) 0) s.timestamp)) = some d)
-    (implemented : Rules.select x.schedule (max (max (q.timestamp+1) 0) s.timestamp) ∈ env.imageRules image)
+/-- The block on `p` from header `h`, which executes under the selected definition `d` with the
+segment's timestamp and anchor, given its forced-inclusion step. -/
+private theorem assemble (setup : Setup env x p R keys image s) {d : Blocks.Definition}
+    (cat : env.catalogue (Rules.select x.schedule (max (max (p.timestamp+1) 0) s.timestamp)) = some d)
+    (implemented : Rules.select x.schedule (max (max (p.timestamp+1) 0) s.timestamp) ∈ env.imageRules image)
     {cursor : Nat} {raw : Blocks.Bytes} {txs : List Blocks.Bytes} {h : Header}
-    (exec : Executes env d q cursor (max (max (q.timestamp+1) 0) s.timestamp) (anchor env s) raw txs h)
+    (exec : Executes env d p cursor (max (max (p.timestamp+1) 0) s.timestamp) (anchor env s) raw txs h)
     {slot : Option (Nat × Forced.Entry)} {first : Option Blocks.Bytes}
     (stored : ∀ entry, slot = some entry → entry ∈ x.queue)
-    (step : Forced.step q.cursor x.inbox.tail s.timestamp x.inbox.forcedDelay
-      (slot.map fun entry => forcedWitness d.bytes entry.1 entry.2 raw first) (d.bytes.buildSingleton q h raw) =
+    (step : Forced.step p.cursor x.inbox.tail s.timestamp x.inbox.forcedDelay
+      (slot.map fun entry => forcedWitness d.bytes entry.1 entry.2 raw first) (d.bytes.buildSingleton p h raw) =
         .accepted cursor)
     (zero : first = txs.head?) (bound : cursor ≤ x.inbox.tail) :
-    ∃ b : Block, Blocks.Valid (policy env x [] (R+1)) q b ∧ Parent env x p s (i+1) b.header ∧
-      env.headerParent b.header.elHash = q.elHash ∧ Facts env image R b := by
+    ∃ b : Block, Blocks.Valid (policy env x [] (R+1)) p b ∧ Child x p b.header ∧
+      env.headerParent b.header.elHash = p.elHash ∧ Facts env image R b := by
   obtain ⟨height,cursorEq,stamp,anchored,bound',linked,accepts⟩ := exec
-  have accepted := accepts (segmentBody env x R keys d q h slot raw first) rfl rfl rfl
+  have accepted := accepts (segmentBody env x R keys d p h slot raw first) rfl rfl rfl
     (congrArg BlockValidity.Anchor.stateRoot anchored)
   obtain ⟨configured,unsettled,age⟩ := valid_params setup.context.params.1
   have number := setup.number
   have time := setup_time setup
-  obtain ⟨-,windowLimit,numberLimit⟩ := setup.context.time
+  obtain ⟨before,windowLimit,numberLimit⟩ := setup.context.time
   obtain ⟨originHeight,originBlock,_⟩ := setup.context.origin
   have checkpoint : p.height = x.inbox.checkpoint.height := setup.context.parent.1.1
+  have parentCursor : p.cursor = x.inbox.head := setup.context.parent.2.2
   have moved := Forced.step_one_or_zero step
-  have defn : Blocks.definition (policy env x [] (R+1)) (segmentBlock env x R keys d q h slot raw first txs) = d := by
+  have defn : Blocks.definition (policy env x [] (R+1)) (segmentBlock env x R keys d p h slot raw first txs) = d := by
     show (env.catalogue (Rules.select x.schedule h.timestamp)).getD _ = d
     rw [stamp,cat]
     rfl
   have tail : (anchor env s).tail = x.inbox.tail := by
     show s.inbox.tail = _
     rw [setup.inbox]
-  refine ⟨segmentBlock env x R keys d q h slot raw first txs,⟨configured,?_,?_,?_,witness_valid setup anchored,
+  refine ⟨segmentBlock env x R keys d p h slot raw first txs,⟨configured,?_,?_,?_,witness_valid setup anchored,
     commit_valid setup ?_,?_,?_,setup.context.fits,?_,?_,?_,?_,zero,?_,?_,setup.context.params.2,rfl⟩,?_,linked,?_⟩
-  · show x.inbox.origin.height ≤ q.height
-    rw [parent.height]
-    omega
+  · show x.inbox.origin.height ≤ p.height
+    exact Nat.le_of_eq originHeight
   · refine ⟨height,rfl,rfl,rfl,rfl,?_,?_,rfl,Nat.zero_le _,rfl,rfl,rfl⟩
     · show h.timestamp < limit256
-      have early := parent.time
       rw [stamp]
       omega
-    · show h.timestamp = max (max (q.timestamp+1) 0) h.anchor.timestamp
+    · show h.timestamp = max (max (p.timestamp+1) 0) h.anchor.timestamp
       rw [stamp,anchored]
       rfl
   · refine ⟨?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
-    · unfold Blocks.ParentAnchorValid
+    · -- `p` is the generation's origin, so the block carries an anchor witness.
+      unfold Blocks.ParentAnchorValid
       split
-      next first => exact decide_eq_true first
-      next later =>
-        have inside : 0 < i := by
-          have : q.height ≠ x.inbox.origin.height := later
-          rw [parent.height,originHeight] at this
-          omega
-        have parentAnchor := parent.anchored inside
-        show q.anchor.number ≤ h.anchor.number ∧ Finality.anchorAt (config x) [] q.height = q.anchor.number ∧
-          decide (q.height = x.inbox.origin.height) = decide (q.anchor.number ≠ h.anchor.number) ∧
-          (q.anchor.number = h.anchor.number → q.anchor = h.anchor)
-        rw [parentAnchor,anchored,anchor_empty]
-        refine ⟨Nat.le_refl _,?_,?_,fun _ => rfl⟩
-        · show x.inbox.origin.l1Block = s.number
-          rw [originBlock,setup.number]
-        · simp only [ne_eq,not_true_eq_false,decide_false,decide_eq_false_iff_not]
-          exact later
+      next origin => exact decide_eq_true origin
+      next later => exact absurd originHeight.symm later
     · show x.inbox.origin.l1Block ≤ h.anchor.number
       rw [anchored]
       exact Nat.le_of_eq (originBlock.trans setup.number.symm)
@@ -419,14 +400,13 @@ private theorem assemble (setup : Setup env x p R keys image s) {i : Nat} {q : H
       show s.timestamp ≤ _
       omega
     · show h.timestamp-h.anchor.timestamp ≤ x.inbox.maxAnchorAge
-      have early := parent.time
       rw [anchored,stamp]
       show _-s.timestamp ≤ _
       omega
     · show h.height-h.anchor.checkpointHeight ≤ x.inbox.configuration.unsettled
       rw [anchored]
       show h.height-s.inbox.checkpoint.height ≤ _
-      rw [setup.inbox,height,parent.height]
+      rw [setup.inbox,height]
       omega
     · show Finality.anchorAt (config x) [] h.height = h.anchor.number
       rw [anchor_empty,anchored]
@@ -435,9 +415,9 @@ private theorem assemble (setup : Setup env x p R keys image s) {i : Nat} {q : H
       rw [anchored,setup_matching setup]
       rfl
   · show x.inbox.origin.height < h.height
-    rw [height,parent.height,originHeight]
+    rw [height,originHeight]
     omega
-  · show Forced.step q.cursor h.anchor.tail h.anchor.timestamp x.inbox.forcedDelay _ _ = .accepted h.cursor
+  · show Forced.step p.cursor h.anchor.tail h.anchor.timestamp x.inbox.forcedDelay _ _ = .accepted h.cursor
     rw [anchored,cursorEq,tail]
     exact step
   · rw [defn]
@@ -447,7 +427,7 @@ private theorem assemble (setup : Setup env x p R keys image s) {i : Nat} {q : H
   · show ((matchingSnapshot env x h.anchor).map fun s => decide (s.schedule = x.schedule)).getD false = true
     rw [anchored,setup_matching setup]
     simp [setup.schedule]
-  · show Rules.stopped x.schedule q.timestamp = false
+  · show Rules.stopped x.schedule p.timestamp = false
     simp [Rules.stopped,setup.context.stop]
   · rw [defn]
     exact accepted.1
@@ -462,12 +442,8 @@ private theorem assemble (setup : Setup env x p R keys image s) {i : Nat} {q : H
     show ((matchingSnapshot env x h.anchor).map fun s => decide ((entry.1,entry.2) ∈ s.queue) && true).getD false = true
     rw [anchored,setup_matching setup]
     simp [setup.queue,stored entry listed]
-  · show Parent env x p s (i+1) h
-    have early := parent.time
-    have low := parent.head
-    have high := parent.consumed
-    refine ⟨by rw [height,parent.height]; omega,by rw [stamp]; omega,fun _ => anchored,?_,?_,?_⟩ <;>
-      rw [cursorEq] <;> omega
+  · show Child x p h
+    refine ⟨height,?_,?_,?_⟩ <;> omega
   · refine ⟨bound',linked,Nat.zero_le _,?_,?_⟩
     · show h.anchor.number = R
       rw [anchored]
@@ -476,70 +452,51 @@ private theorem assemble (setup : Setup env x p R keys image s) {i : Nat} {q : H
       rw [stamp]
       exact implemented
 
-/-- One more block on any parent inside the segment. Its header comes from `ExecutionLive` of the
-definition selected at its timestamp; the FI head entry is included, skipped or waited on as
-`Forced.step` allows. -/
-private theorem next_block (hash : ∀ id d, env.catalogue id = some d → d.bytes.hashBytes = env.txHash)
-    (setup : Setup env x p R keys image s) {i : Nat} {q : Header} (room : i < 1)
-    (parent : Parent env x p s i q) :
-    ∃ b : Block, Blocks.Valid (policy env x [] (R+1)) q b ∧ Parent env x p s (i+1) b.header ∧
-      env.headerParent b.header.elHash = q.elHash ∧ Facts env image R b := by
-  obtain ⟨⟨d,cat,live⟩,implemented⟩ := setup.context.rules (max (max (q.timestamp+1) 0) s.timestamp)
-  obtain ⟨-,present,raws⟩ := setup.context.queue
-  have later : q.timestamp < max (max (q.timestamp+1) 0) s.timestamp := by omega
-  by_cases open_ : q.cursor < x.inbox.tail
-  · obtain ⟨e,queued⟩ := present q.cursor parent.head open_
+/-- The block on `p`. Its header comes from `ExecutionLive` of the definition selected at its
+timestamp; the FI head entry is included, skipped or waited on as `Forced.step` allows. -/
+private theorem build (hash : ∀ id d, env.catalogue id = some d → d.bytes.hashBytes = env.txHash)
+    (setup : Setup env x p R keys image s) :
+    ∃ b : Block, Blocks.Valid (policy env x [] (R+1)) p b ∧ Child x p b.header ∧
+      env.headerParent b.header.elHash = p.elHash ∧ Facts env image R b := by
+  obtain ⟨⟨d,cat,live⟩,implemented⟩ := setup.context.rules (max (max (p.timestamp+1) 0) s.timestamp)
+  obtain ⟨headTail,present,raws⟩ := setup.context.queue
+  have head : x.inbox.head ≤ p.cursor := Nat.le_of_eq setup.context.parent.2.2.symm
+  have later : p.timestamp < max (max (p.timestamp+1) 0) s.timestamp := by omega
+  by_cases open_ : p.cursor < x.inbox.tail
+  · obtain ⟨e,queued⟩ := present p.cursor head open_
     obtain ⟨raw,hashed,short⟩ := raws _ _ queued
     have hashed : d.bytes.hashBytes raw = e.txHash := by rw [hash _ _ cat]; exact hashed
-    have stored : ∀ entry, some (q.cursor,e) = some entry → entry ∈ x.queue := by
+    have stored : ∀ entry, some (p.cursor,e) = some entry → entry ∈ x.queue := by
       rintro _ ⟨⟩
       exact queued
     obtain ⟨quiet,quietExec,choice⟩ :=
-      live q (q.cursor+1) (max (max (q.timestamp+1) 0) s.timestamp) (anchor env s) raw later
-    obtain ⟨still,stillExec,-⟩ := live q q.cursor (max (max (q.timestamp+1) 0) s.timestamp) (anchor env s) raw later
+      live p (p.cursor+1) (max (max (p.timestamp+1) 0) s.timestamp) (anchor env s) raw later
+    obtain ⟨still,stillExec,-⟩ := live p p.cursor (max (max (p.timestamp+1) 0) s.timestamp) (anchor env s) raw later
     have skip : e.timestamp+x.inbox.forcedDelay ≤ s.timestamp →
-        (d.bytes.canonical raw = false ∨ d.bytes.buildSingleton q quiet raw = .completedEmpty) →
-        ∃ b : Block, Blocks.Valid (policy env x [] (R+1)) q b ∧ Parent env x p s (i+1) b.header ∧
-          env.headerParent b.header.elHash = q.elHash ∧ Facts env image R b := fun due skippable =>
-      assemble setup room parent cat implemented quietExec (slot := some (q.cursor,e)) (first := none)
+        (d.bytes.canonical raw = false ∨ d.bytes.buildSingleton p quiet raw = .completedEmpty) →
+        ∃ b : Block, Blocks.Valid (policy env x [] (R+1)) p b ∧ Child x p b.header ∧
+          env.headerParent b.header.elHash = p.elHash ∧ Facts env image R b := fun due skippable =>
+      assemble setup cat implemented quietExec (slot := some (p.cursor,e)) (first := none)
         stored (step_skip open_ hashed short due skippable) rfl open_
     have wait : s.timestamp < e.timestamp+x.inbox.forcedDelay →
-        ∃ b : Block, Blocks.Valid (policy env x [] (R+1)) q b ∧ Parent env x p s (i+1) b.header ∧
-          env.headerParent b.header.elHash = q.elHash ∧ Facts env image R b := fun early =>
-      assemble setup room parent cat implemented stillExec (slot := some (q.cursor,e)) (first := none)
+        ∃ b : Block, Blocks.Valid (policy env x [] (R+1)) p b ∧ Child x p b.header ∧
+          env.headerParent b.header.elHash = p.elHash ∧ Facts env image R b := fun early =>
+      assemble setup cat implemented stillExec (slot := some (p.cursor,e)) (first := none)
         stored (step_wait open_ hashed short early) rfl (Nat.le_of_lt open_)
     cases canonical : d.bytes.canonical raw
     · by_cases due : e.timestamp+x.inbox.forcedDelay ≤ s.timestamp
       · exact skip due (.inl canonical)
       · exact wait (Nat.lt_of_not_le due)
     · rcases choice canonical short with ⟨h,exec⟩ | empty
-      · exact assemble setup room parent cat implemented exec (slot := some (q.cursor,e)) (first := some raw)
+      · exact assemble setup cat implemented exec (slot := some (p.cursor,e)) (first := some raw)
           stored (step_include open_ hashed short canonical) rfl open_
       · by_cases due : e.timestamp+x.inbox.forcedDelay ≤ s.timestamp
         · exact skip due (.inr empty)
         · exact wait (Nat.lt_of_not_le due)
-  · obtain ⟨quiet,quietExec,-⟩ := live q q.cursor (max (max (q.timestamp+1) 0) s.timestamp) (anchor env s) [] later
-    exact assemble setup room parent cat implemented quietExec (slot := none) (first := none)
-      (fun _ absent => nomatch absent) (step_closed (Nat.le_of_not_lt open_)) rfl parent.tail
-
-/-- The remaining `n` blocks from a parent `i` blocks into the segment. -/
-private theorem build (hash : ∀ id d, env.catalogue id = some d → d.bytes.hashBytes = env.txHash)
-    (setup : Setup env x p R keys image s) :
-    ∀ n i (q : Header), i+n ≤ 1 → Parent env x p s i q →
-      ∃ bs : List Block, bs.length = n ∧ Blocks.Chain (policy env x [] (R+1)) q bs ∧
-        Parent env x p s (i+n) (Blocks.terminal q bs) ∧ Archive.Linked env.headerParent q (bs.map Blocks.Block.header) ∧
-        ∀ b ∈ bs, Facts env image R b
-  | 0, _, _, _, parent => ⟨[],rfl,trivial,parent,trivial,fun _ absent => nomatch absent⟩
-  | n+1, i, q, room, parent => by
-    obtain ⟨b,valid,next,link,facts⟩ := next_block hash setup (by omega) parent
-    obtain ⟨bs,length,chain,last,linked,rest⟩ := build hash setup n (i+1) b.header (by omega) next
-    refine ⟨b :: bs,by rw [List.length_cons,length],⟨valid,chain⟩,?_,⟨valid.header.1,link,linked⟩,?_⟩
-    · rw [show i+(n+1) = i+1+n by omega]
-      exact last
-    · intro c member
-      rcases List.mem_cons.mp member with rfl | member
-      · exact facts
-      · exact rest c member
+  · obtain ⟨quiet,quietExec,-⟩ := live p p.cursor (max (max (p.timestamp+1) 0) s.timestamp) (anchor env s) [] later
+    exact assemble setup cat implemented quietExec (slot := none) (first := none)
+      (fun _ absent => nomatch absent) (step_closed (Nat.le_of_not_lt open_)) rfl
+      (Nat.le_trans (Nat.le_of_eq setup.context.parent.2.2) headTail)
 
 end
 
@@ -562,22 +519,17 @@ theorem segment {env : Environment} {x : World} {p : Header} {R : Nat} {keys : L
         b.body.blockBytes ≤ 124000 ∧ b.header.anchor.number = R ∧
         Blocks.selectedRules b ∈ env.imageRules image := by
   obtain ⟨s,member,number,inbox,schedule,queue,registry,-⟩ := context.closed
-  have setup : Setup env x p R keys image s := ⟨context,member,number,inbox,schedule,queue,registry⟩
-  have first : Parent env x p s 0 p := by
-    have time := setup_time setup
-    have before := context.time.1
-    refine ⟨rfl,by omega,fun absent => absurd absent (Nat.lt_irrefl 0),?_,?_,?_⟩ <;>
-      rw [context.parent.2.2]
-    · exact Nat.le_refl _
-    · exact context.queue.1
-    · omega
-  obtain ⟨bs,length,chain,last,linked,facts⟩ := build hash setup 1 0 p (by omega) first
-  have anchors : ∀ h ∈ bs.map Blocks.Block.header, h.anchor.number = x.inbox.origin.l1Block := by
+  obtain ⟨b,valid,child,link,facts⟩ :=
+    build hash (⟨context,member,number,inbox,schedule,queue,registry⟩ : Setup env x p R keys image s)
+  have anchors : ∀ h ∈ [b].map Blocks.Block.header, h.anchor.number = x.inbox.origin.l1Block := by
     intro h listed
-    obtain ⟨b,member,rfl⟩ := List.mem_map.mp listed
-    exact (facts b member).2.2.2.1.trans context.origin.2.1.symm
-  rw [Nat.zero_add] at last
-  refine ⟨bs,length,(policy_archive anchors).symm ▸ chain,last.height,last.head,last.tail,last.consumed,linked,
-    fun b member => facts b member⟩
+    obtain ⟨c,listed,rfl⟩ := List.mem_map.mp listed
+    rw [List.mem_singleton.mp listed]
+    exact facts.2.2.2.1.trans context.origin.2.1.symm
+  have chain : Blocks.Chain (policy env x [] (R+1)) p [b] := ⟨valid,trivial⟩
+  refine ⟨[b],rfl,(policy_archive anchors).symm ▸ chain,child.height,child.head,child.tail,child.consumed,
+    ⟨child.height,link,trivial⟩,fun c listed => ?_⟩
+  rw [List.mem_singleton.mp listed]
+  exact facts
 
 end Etna.Design.Current.Protocol.Recovery

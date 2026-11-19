@@ -1,5 +1,4 @@
-import EtnaModel.CurrentBlocks
-import EtnaModel.CurrentProtocol
+import EtnaModel.Consensus
 
 /-! Executable validator-state arithmetic from CometBFT v0.40.0:
 types/validator_set.go, types/validator.go, state/state.go and state/execution.go.
@@ -181,18 +180,5 @@ def validSet (s : ValSet) : Bool := validMembers s.members &&
   s.proposer.any (fun address => s.members.any (·.address == address))
 
 def validState (s : CommitState) : Bool := validSet s.current && validSet s.next
-
-/-- At the generation origin use freshly derived genesis, irrespective of the retained
-old-generation hash. Elsewhere require the input preimage at that exact height. -/
-def openOrigin (hash : Snapshot → Hash) (origin height stored : Nat)
-    (fresh supplied : CommitState) : Option CommitState :=
-  if height = origin then
-    if fresh.height = origin ∧ validState fresh = true then some fresh else none
-  else if origin < height ∧ supplied.height = height ∧ validState supplied = true ∧
-      hash (snapshot supplied) = stored then
-    some supplied
-  else none
-
-def membership (s : ValSet) : List (Hash × Nat) := s.members.map fun v => (v.key,v.power)
 
 end Etna.Design.Current.ValidatorState

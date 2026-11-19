@@ -18,9 +18,13 @@ theorem rule_schedule_deadline :
     Rules.scheduleRules ⟨true,7,10⟩ ⟨0,1,100,0⟩ 7 90 1 200 = none ∧
     (Rules.scheduleRules ⟨true,7,10⟩ ⟨0,1,100,0⟩ 7 89 1 200).isSome = true := by decide +kernel
 
+-- START-10.1-5b: an existing stop changes only while now + maxAnchorAge < stopTime, and a new
+-- nonzero stop is at least now + maxAnchorAge.
 theorem stop_deadline :
     Rules.scheduleStop ⟨true,7,10⟩ ⟨0,0,0,100⟩ 7 90 0 = none ∧
-    (Rules.scheduleStop ⟨true,7,10⟩ ⟨0,0,0,100⟩ 7 89 0).isSome = true := by decide +kernel
+    (Rules.scheduleStop ⟨true,7,10⟩ ⟨0,0,0,100⟩ 7 89 0).isSome = true ∧
+    Rules.scheduleStop ⟨true,7,10⟩ ⟨0,0,0,0⟩ 7 89 98 = none ∧
+    Rules.scheduleStop ⟨true,7,10⟩ ⟨0,0,0,0⟩ 7 89 99 = some ⟨0,0,0,99⟩ := by decide +kernel
 
 theorem absolute_epoch : Start.epochHeight 4 3 = 13 := by decide +kernel
 

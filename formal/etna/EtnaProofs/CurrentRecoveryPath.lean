@@ -522,13 +522,13 @@ private theorem trace_reach {env : Environment} {registry : RegistryMachine.Stat
 /-! ### Path steps -/
 
 /-- A `CallTrace` is a `Trace`. -/
-private theorem CallTrace.toTrace {env : Environment} {allowed : World → Call → Prop} {w u : World}
+private theorem CallTrace.toTrace {env : Environment} {allowed : Call → Prop} {w u : World}
     (path : CallTrace env allowed w u) : Trace env w u := by
   induction path with
   | refl => exact .refl _
   | call _ call _ ih => exact .step ih (.call _ call)
 
-private theorem CallTrace.append {env : Environment} {allowed : World → Call → Prop} {a b c : World}
+private theorem CallTrace.append {env : Environment} {allowed : Call → Prop} {a b c : World}
     (first : CallTrace env allowed a b) (second : CallTrace env allowed b c) : CallTrace env allowed a c := by
   induction second with
   | refl => exact first
@@ -536,7 +536,7 @@ private theorem CallTrace.append {env : Environment} {allowed : World → Call �
 
 /-- One accepted path call extends the path to its result. -/
 private theorem extend {env : Environment} {w v t : World} {call : Call}
-    (path : RecoveryTrace env w v) (ok : execute env v call = some t) (allowed : RecoveryCall v call) :
+    (path : RecoveryTrace env w v) (ok : execute env v call = some t) (allowed : RecoveryCall call) :
     RecoveryTrace env w t := by
   have step := CallTrace.call path call allowed
   rwa [transact,ok,Option.getD_some] at step
@@ -566,16 +566,14 @@ private theorem kept_trans {u v w : World} (first : Kept u v) (second : Kept v w
     second.configuration.trans first.configuration,second.schedule.trans first.schedule,
     second.registry.trans first.registry,second.initialized.trans first.initialized⟩
 
-/-- The state `v` at block `n` after steps 1-2, with the start settled at or below c and its
-batch parent `p`. -/
+/-- The state `v` at block `n` after steps 1-2, with the start settled and its batch parent `p`. -/
 private structure Started (env : Environment) (w v : World) (p : Header) (n : Nat) : Prop where
   path : RecoveryTrace env w v
   number : v.number = n
   kept : Kept w v
   generation : v.inbox.generation+1 < limit48
   progress : w.everLanded = true → v.inbox.checkpoint.height = w.inbox.checkpoint.height
-  start : ∃ s, v.start = some s ∧ s.height ≤ v.inbox.checkpoint.height ∧
-    v.inbox.checkpoint.height+1 < limit48 ∧
+  start : ∃ s, v.start = some s ∧ v.inbox.checkpoint.height+1 < limit48 ∧
     (env.core.unzenInbox ≠ 0 → p.height = s.height → env.startImplementation p.stateRoot = true)
   fence : firstFence env v = true
   parent : Custody.HeaderOf v.inbox.checkpoint p ∧ HashBound env p
@@ -610,7 +608,7 @@ private theorem fixed_parent {env : Environment} {registry : RegistryMachine.Sta
     (premises : RecoveryPremises env registry) (trace : Trace env (empty env registry) w)
     (initialized : w.initialized = true) (held : Reach env w)
     (fixed : env.core.unzenInbox = 0 ∨ w.everLanded = true) :
-    ∃ s p, w.start = some s ∧ s.height ≤ w.inbox.checkpoint.height ∧ Custody.HeaderOf w.inbox.checkpoint p ∧
+    ∃ s p, w.start = some s ∧ Custody.HeaderOf w.inbox.checkpoint p ∧
       HashBound env p ∧ (p.timestamp ≤ env.time w.number+maxAges w ∨ p.timestamp ≤ env.core.forkTime ∨
         p.timestamp ≤ env.genesisHeader.timestamp) ∧
       (env.core.unzenInbox ≠ 0 → p.height = s.height → env.startImplementation p.stateRoot = true) ∧
@@ -631,7 +629,7 @@ private theorem fixed_parent {env : Environment} {registry : RegistryMachine.Sta
       rw [started] at st
       cases st
       obtain ⟨ch,ce,cc,cu⟩ := root
-      refine ⟨_,env.genesisHeader,started,Nat.le_of_eq ch.symm,⟨height.trans ch.symm,?_⟩,premises.currentPrimitives.genesis,
+      refine ⟨_,env.genesisHeader,started,⟨height.trans ch.symm,?_⟩,premises.currentPrimitives.genesis,
         Or.inr (Or.inr (Nat.le_refl _)),fun switching => (switching newNetwork).elim,?_⟩
       · simp only [BlockValidity.Header.cut,ce,cc,cu,comet,cursor]
       · simp [firstFence,started,Start.firstLanding,newNetwork]
@@ -646,10 +644,10 @@ private theorem fixed_parent {env : Environment} {registry : RegistryMachine.Sta
       rw [final] at valid
       obtain ⟨_,_,_,_,implementation,bound⟩ := premises.unzenStart newNetwork h proof valid
       have early := (premises.currentPrimitives.unzen _ _ _ valid).2.2
-      refine ⟨_,zeroed h,started,Nat.le_of_eq root.1.symm,zeroed_header root hh he,bound _ (zeroed_starts h),
+      refine ⟨_,zeroed h,started,zeroed_header root hh he,bound _ (zeroed_starts h),
         Or.inr (Or.inl (Nat.le_of_lt early)),fun _ _ => implementation,?_⟩
       simp [firstFence,started,Start.firstLanding,closed,finalized,present,level,hash,stateRoot]
-  · refine ⟨s,T,started,Nat.le_of_lt above,header,bound,Or.inl ?_,?_,?_⟩
+  · refine ⟨s,T,started,header,bound,Or.inl ?_,?_,?_⟩
     · have := premises.recoveryClock m w.number below
       omega
     · intro _ height
@@ -664,12 +662,12 @@ private theorem fixed_started {env : Environment} {registry : RegistryMachine.St
     (fixed : env.core.unzenInbox = 0 ∨ w.everLanded = true)
     (later : w.number < n) (fits : n+4 < limit48) (bound : WindowBound env w ≤ env.time n) :
     ∃ v p, Started env w v p n := by
-  obtain ⟨s,p,started,settled,header,hashBound,below,implementation,fence⟩ :=
+  obtain ⟨s,p,started,header,hashBound,below,implementation,fence⟩ :=
     fixed_parent premises trace initialized held fixed
   have generation := live.generation
   exact ⟨closedAt env w n,p,extend (.refl w) (advance_ok premises.recoveryClock later (by omega)) trivial,rfl,
     ⟨rfl,rfl,rfl,rfl,rfl⟩,by show w.inbox.generation+1 < limit48; omega,fun _ => rfl,
-    ⟨s,started,settled,live.height,implementation⟩,fence,⟨header,hashBound⟩,
+    ⟨s,started,live.height,implementation⟩,fence,⟨header,hashBound⟩,
     window_time bound below⟩
 
 /-- The final lane header: the retained one when the lane is finalized, else the one whose
@@ -800,7 +798,7 @@ private theorem unlanded_started {env : Environment} {registry : RegistryMachine
     rw [vinbox]
     exact yrecord.1
   refine ⟨v,zeroed h,?_,vnumber.trans ynumber,kept,?_,fun ever => ?_,
-    ⟨_,vstart.trans ystart,Nat.le_of_eq height.symm,?_,fun _ _ => implementation⟩,fence,
+    ⟨_,vstart.trans ystart,?_,fun _ _ => implementation⟩,fence,
     ⟨?_,startsBound _ (zeroed_starts h)⟩,window_time bound (Or.inr (Or.inl (Nat.le_of_lt early)))⟩
   · exact CallTrace.append (extend (.refl w) (advance_ok premises.recoveryClock later (by omega)) trivial)
       (CallTrace.append toY toV)
@@ -898,17 +896,17 @@ private def plainRequest (env : Environment) (w : World) (rules : Nat) (exclusio
     expectedCheckpoint := w.inbox.checkpoint.height, expectedNonce := w.inbox.recoveryNonce,
     validUntil := env.time w.number, exclusions := exclusions, clear := [], rules := rules }
 
-/-- The state a recovery from `w` writes, with storage `inbox` (`w.inbox`, or the installed
-upgrade), generation parameters `parameters` and `exclusions` applied to the registry. -/
-private def recovered (env : Environment) (w : World) (inbox : Etna.Design.State) (parameters : Parameters)
-    (schedule : Rules.Schedule) (exclusions : List (Nat × Hash)) : World :=
+/-- The state a plain recovery from `w` writes, with rule schedule `schedule` and `exclusions`
+applied to the registry. -/
+private def recovered (env : Environment) (w : World) (schedule : Rules.Schedule)
+    (exclusions : List (Nat × Hash)) : World :=
   { excluded w w.number exclusions with
     inbox :=
-      { inbox with
+      { w.inbox with
         generation := w.inbox.generation+1, recoveryNonce := w.inbox.recoveryNonce+1,
         origin := ⟨w.inbox.checkpoint.height,w.number,env.time w.number⟩,
         origins := w.inbox.origins ++ [(w.inbox.generation+1,⟨w.inbox.checkpoint.height,w.number,env.time w.number⟩)] },
-    schedule := schedule, configurations := (w.inbox.generation+1,parameters) :: w.configurations }
+    schedule := schedule, configurations := (w.inbox.generation+1,parametersOf w.inbox) :: w.configurations }
 
 private theorem recover_ok {env : Environment} {w : World} {start : StartData} {rules : Nat}
     {schedule : Rules.Schedule} (started : w.start = some start) (initialized : w.initialized = true)
@@ -918,9 +916,8 @@ private theorem recover_ok {env : Environment} {w : World} {start : StartData} {
     (sorted : exclusions.Pairwise (fun x y => x.1 < y.1))
     (issued : RegistryMachine.exclusionsValid w.registry.registry exclusions = true) :
     execute env w (.recover (plainRequest env w rules exclusions)) =
-      some (recovered env w w.inbox (parametersOf w.inbox) schedule exclusions) := by
-  show recover env w (plainRequest env w rules exclusions) =
-    some (recovered env w w.inbox (parametersOf w.inbox) schedule exclusions)
+      some (recovered env w schedule exclusions) := by
+  show recover env w (plainRequest env w rules exclusions) = some (recovered env w schedule exclusions)
   unfold recover
   rw [started,Option.bind_some]
   simp only [show (plainRequest env w rules exclusions).upgrade = none from rfl,Option.isSome_none,
@@ -992,8 +989,7 @@ private theorem finish {env : Environment} {registry : RegistryMachine.State} {w
     (issued : RegistryMachine.exclusionsValid w.registry.registry exclusions = true)
     (committee : CommitteeLive env (excluded w n exclusions) n keys)
     (started : Started env w v p n) : ∃ u image, Prepared env registry w u p n keys image := by
-  obtain ⟨path,number,kept,generation,progress,⟨s,written,settled,height,implementation⟩,fence,parent,
-    time⟩ := started
+  obtain ⟨path,number,kept,generation,progress,⟨s,written,height,implementation⟩,fence,parent,time⟩ := started
   have heldV := trace_reach premises.toFundPremises (Custody.trace_append trace (CallTrace.toTrace path))
   obtain ⟨version,complete⟩ := premises.proofComplete
   have ready : v.initialized = true := kept.initialized.trans initialized
@@ -1013,12 +1009,10 @@ private theorem finish {env : Environment} {registry : RegistryMachine.State} {w
     unfold excluded configured
     dsimp only
     rw [kept.registry,number]
-  have transfer : ∀ image inbox parameters schedule,
-      (recovered env (configured v image version) inbox parameters schedule exclusions).inbox.configuration =
-        w.inbox.configuration →
-      CommitteeLive env (recovered env (configured v image version) inbox parameters schedule exclusions) n keys :=
-    fun image _ _ _ configuration =>
-      committee_transfer (w := excluded w n exclusions) configuration (excludedRegistry image) committee
+  have transfer : ∀ image schedule,
+      CommitteeLive env (recovered env (configured v image version) schedule exclusions) n keys :=
+    fun image _ => committee_transfer (w := excluded w n exclusions) kept.configuration (excludedRegistry image)
+      committee
   -- The plain recovery (step 4) for a rule schedule whose rulesets `image` implements.
   have plain : ∀ rules image schedule, Rules.recover w.schedule rules = some schedule →
       (∀ t, RulesetLive env (Rules.select schedule t) ∧ Rules.select schedule t ∈ env.imageRules image) →
@@ -1032,7 +1026,7 @@ private theorem finish {env : Environment} {registry : RegistryMachine.State} {w
     exact ⟨_,image,settle premises trace (extend (configure path image version) recovery ⟨rfl,rfl⟩) number
       fits stamp progress ⟨Nat.succ_pos _,rfl,number⟩ parent time ⟨s,written,height,implementation⟩ fence
       (Rules.recover_clears_stop scheduled) selected ⟨List.mem_cons_self,complete⟩
-      (transfer image _ _ _ kept.configuration) ready⟩
+      (transfer image _) ready⟩
   rcases live.ruleset with ⟨active,next,image,inActive,inNext⟩ | ⟨fresh,image,inFresh⟩
   · -- First case: keep the rule schedule (`rules` = 0).
     refine plain 0 image { w.schedule with stopTime := 0 } rfl (fun t => ?_)

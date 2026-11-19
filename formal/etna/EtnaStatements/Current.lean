@@ -206,16 +206,16 @@ def ProofComplete (env : Environment) : Prop :=
     ∃ proofs : List Proof, dualOK (proofs.map fun p => (p.backend,true)) = true ∧
       ∀ p ∈ proofs, p.image = image ∧ env.verify version p.backend image p.bytes d = true
 
-/-- DA (5.2, 6.3): up to six blocks within the 3.4 size bound fit in one to six blobs. -/
+/-- DA (5.2, 6.3): one block within the 3.4 size bound fits in one to six blobs. -/
 def PayloadLive (env : Environment) : Prop :=
-  ∀ bs : List Blocks.Block, bs.length ≤ 6 → (∀ b ∈ bs, b.body.blockBytes ≤ 124000) →
+  ∀ bs : List Blocks.Block, bs.length ≤ 1 → (∀ b ∈ bs, b.body.blockBytes ≤ 124000) →
     ∃ blobs : List Hash, 1 ≤ blobs.length ∧ blobs.length ≤ 6 ∧ env.payload blobs bs = true
 
 /-- LIMIT-12-9, START-10-5: every header a valid proof of the Unzen Inbox's final proposal
 authenticates is a usable Etna start. -/
 def UnzenStartUsable (env : Environment) : Prop :=
   env.core.unzenInbox ≠ 0 → ∀ h proof, env.unzenValid (env.unzenNextProposal-1) h proof = true →
-    0 < h.height ∧ h.height+6 < limit48 ∧ h.elHash ≠ 0 ∧ h.stateRoot ≠ 0 ∧
+    0 < h.height ∧ h.height+1 < limit48 ∧ h.elHash ≠ 0 ∧ h.stateRoot ≠ 0 ∧
     env.startImplementation h.stateRoot = true ∧ ∀ s, Custody.StartsAt s h → HashBound env s
 
 /-- LIMIT-12-9: the Unzen lane has finalized its last proposal, or can from where it is. -/

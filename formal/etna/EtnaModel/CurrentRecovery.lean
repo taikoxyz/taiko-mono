@@ -6,16 +6,16 @@ calls, live ruleset definitions, a live committee and the L1 time a recovery blo
 Definitions only; the claim itself is in `EtnaStatements.Current`. -/
 namespace Etna.Design.Current.Protocol
 
-/-- Traces whose every call satisfies `allowed` in the state it applies to; no node events. -/
-inductive CallTrace (env : Environment) (allowed : World → Call → Prop) : World → World → Prop
+/-- Traces whose every call satisfies `allowed`; no node events. -/
+inductive CallTrace (env : Environment) (allowed : Call → Prop) : World → World → Prop
   | refl (w : World) : CallTrace env allowed w w
   | call {first w : World} (prior : CallTrace env allowed first w) (call : Call)
-      (ok : allowed w call) : CallTrace env allowed first (transact env w call)
+      (ok : allowed call) : CallTrace env allowed first (transact env w call)
 
 /-- H4's path calls: no `rollback` (RECOV-8-28, RECOV-8-58), and every `recover` is plain (no
 upgrade) and has no forced-inclusion blanking (RECOV-8-45). Its exclusions are free (RECOV-8-38
 to 8-41). -/
-def RecoveryCall (_ : World) : Call → Prop
+def RecoveryCall : Call → Prop
   | .rollback .. => False
   | .recover request => request.clear = [] ∧ request.upgrade = none
   | _ => True

@@ -42,7 +42,7 @@ def vector (name : String) (origin : Nat) (members : List (Nat × Nat))
     (steps : List (List (Nat × Nat))) : JVal :=
   let (states,failed) := replayFrom origin members steps
   jObj [
-    ("id",jStr name),("rules",jRow [jStr "COMM-4.3-13",jStr "PROOF-6.2-41a"]),
+    ("id",jStr name),("rules",jRow [jStr "COMM-4.3-13",jStr "CONS-3.1-8",jStr "SYNC-9-5c"]),
     ("origin",jNat origin),("genesis",pairs members),("steps",jArr (steps.map pairs)),
     ("expect",jObj [
       ("rejectedAt",match failed with | none => jNull | some i => jNat i),

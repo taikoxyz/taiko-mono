@@ -44,12 +44,4 @@ example : ((increment historical 1).bind fun s => increment s 1) =
 example : increment historical 2 =
     some ⟨[⟨3,3,3,4⟩,⟨2,2,2,3⟩,⟨1,1,1,-5⟩],some 3⟩ := by decide +kernel
 
--- A recovery origin preserves the old landing hash, but starts fresh priorities.
-example : openOrigin (fun _ => 17) 40 40 999 initial changed = some initial := by decide +kernel
-example : openOrigin (fun _ => 17) 40 41 999 initial changed = none := by decide +kernel
-example : openOrigin (fun _ => 17) 40 41 17 initial changed = some changed := by decide +kernel
-example : openOrigin (fun _ => 17) 40 39 17 initial changed = none := by decide +kernel
-example : openOrigin (fun _ => 17) 40 41 17 initial
-    {changed with current := {changed.current with proposer := none}} = none := by decide +kernel
-
 end Etna.ValidatorStateRegression

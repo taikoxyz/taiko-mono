@@ -6,7 +6,7 @@
   "vectors": [
     {
       "id": "genesis-unequal-rotation",
-      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "rules": ["COMM-4.3-13", "CONS-3.1-8", "SYNC-9-5c"],
       "origin": 0,
       "genesis": [
         [1, 10],
@@ -102,7 +102,7 @@
     },
     {
       "id": "equal-power-address-order",
-      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "rules": ["COMM-4.3-13", "CONS-3.1-8", "SYNC-9-5c"],
       "origin": 0,
       "genesis": [
         [4, 10],
@@ -218,7 +218,7 @@
     },
     {
       "id": "addition-signs-at-h-plus-2",
-      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "rules": ["COMM-4.3-13", "CONS-3.1-8", "SYNC-9-5c"],
       "origin": 5,
       "genesis": [
         [1, 10],
@@ -312,7 +312,7 @@
     },
     {
       "id": "removal-and-power-change",
-      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "rules": ["COMM-4.3-13", "CONS-3.1-8", "SYNC-9-5c"],
       "origin": 0,
       "genesis": [
         [1, 10],
@@ -406,7 +406,7 @@
     },
     {
       "id": "same-power-update",
-      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "rules": ["COMM-4.3-13", "CONS-3.1-8", "SYNC-9-5c"],
       "origin": 0,
       "genesis": [
         [1, 10],
@@ -477,7 +477,7 @@
     },
     {
       "id": "duplicate-update-rejected",
-      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "rules": ["COMM-4.3-13", "CONS-3.1-8", "SYNC-9-5c"],
       "origin": 0,
       "genesis": [
         [1, 10],
@@ -532,7 +532,7 @@
     },
     {
       "id": "unknown-removal-rejected",
-      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "rules": ["COMM-4.3-13", "CONS-3.1-8", "SYNC-9-5c"],
       "origin": 0,
       "genesis": [
         [1, 10],
@@ -568,7 +568,7 @@
     },
     {
       "id": "empty-set-rejected",
-      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "rules": ["COMM-4.3-13", "CONS-3.1-8", "SYNC-9-5c"],
       "origin": 0,
       "genesis": [
         [1, 10],
@@ -605,7 +605,7 @@
     },
     {
       "id": "genesis-zero-power-rejected",
-      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "rules": ["COMM-4.3-13", "CONS-3.1-8", "SYNC-9-5c"],
       "origin": 0,
       "genesis": [
         [1, 0],
@@ -619,7 +619,7 @@
     },
     {
       "id": "total-power-overflow-rejected",
-      "rules": ["COMM-4.3-13", "PROOF-6.2-41a"],
+      "rules": ["COMM-4.3-13", "CONS-3.1-8", "SYNC-9-5c"],
       "origin": 0,
       "genesis": [
         [1, 1152921504606846975]

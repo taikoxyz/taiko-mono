@@ -1,27 +1,26 @@
 import EtnaStatements
 
-/-! H4 statement surface: which calls `RecoveryCall` admits in a state (no rollback; plain
-recoveries with any exclusions and no blanking; every other call), the trace class
+/-! H4 statement surface: which calls `RecoveryCall` admits (no rollback; plain recoveries with
+any exclusions and no blanking; every other call), the trace class
 `RecoveryTrace`, the conclusion `RecoverableAt`, the claim `Recoverability`, the predicate
 `LiveRules`, and the field names, types and order of `LiveAt` and `RecoveryPremises`. -/
 namespace Etna.CurrentRecoveryRegression
 open Etna.Design Etna.Design.Current Etna.Design.Current.Protocol Etna.Statements.Current
 
--- RecoveryCall, in the state `w` the call applies to: rollback, recoveries with clears and
--- recoveries with an upgrade are out; a plain recovery with any exclusions and the catch-all arm
--- are in.
-example (w : World) (caller : Nat) (trusted : Checkpoint) (snapshot : Nat) :
-    ¬ RecoveryCall w (.rollback caller trusted snapshot) := id
-example (w : World) (r : RecoveryRequest) (i : Nat) :
-    ¬ RecoveryCall w (.recover { r with clear := [i] }) := fun h => nomatch h.1
-example (w : World) (r : RecoveryRequest) (xs : List (Nat × Hash)) (h2 : r.clear = []) (h3 : r.upgrade = none) :
-    RecoveryCall w (.recover { r with exclusions := xs }) := ⟨h2,h3⟩
--- Any upgrade, even one that reinstalls `w`'s own parameters, is out.
+-- RecoveryCall, whatever the state: rollback, recoveries with clears and recoveries with an
+-- upgrade are out; a plain recovery with any exclusions and the catch-all arm are in.
+example (caller : Nat) (trusted : Checkpoint) (snapshot : Nat) :
+    ¬ RecoveryCall (.rollback caller trusted snapshot) := id
+example (r : RecoveryRequest) (i : Nat) :
+    ¬ RecoveryCall (.recover { r with clear := [i] }) := fun h => nomatch h.1
+example (r : RecoveryRequest) (xs : List (Nat × Hash)) (h2 : r.clear = []) (h3 : r.upgrade = none) :
+    RecoveryCall (.recover { r with exclusions := xs }) := ⟨h2,h3⟩
+-- Any upgrade, even one that reinstalls the current parameters, is out.
 example (w : World) (r : RecoveryRequest) :
-    ¬ RecoveryCall w (.recover { r with upgrade := some (parametersOf w.inbox) }) := by
+    ¬ RecoveryCall (.recover { r with upgrade := some (parametersOf w.inbox) }) := by
   rintro ⟨-,absent⟩
   cases absent
-example (w : World) (a : Landing) : RecoveryCall w (.land a) := trivial
+example (a : Landing) : RecoveryCall (.land a) := trivial
 
 -- Pin the trace class and the conclusion.
 example (env : Environment) : RecoveryTrace env = CallTrace env RecoveryCall := rfl
