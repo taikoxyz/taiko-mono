@@ -30,6 +30,12 @@ generations use different signing domains and are not double signs; the new gene
 its own HRS state from c+1 (RECOV-8.2-5/6). The app's InitChain repeats every check `prepare`
 makes, against its own L1 and EL.
 
+On a switching network, the same commands bootstrap a finalized START-10-5c correction
+before the first landing. Use the corrected Unzen start as c. The witness authenticates the
+new start and zero-Comet-hash record at R while retaining generation zero's original origin
+record. Keep the canonical EL state and parent header of the corrected start for prepare and
+InitChain.
+
 ## Before you start
 
 - Keep usable canonical EL state at c and the old EL ancestry. Keep own-L1 headers back to

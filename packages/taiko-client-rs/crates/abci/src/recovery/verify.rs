@@ -25,6 +25,8 @@ pub(super) struct Observation {
     pub(super) number: u64,
     /// R Unix timestamp.
     pub(super) timestamp: u64,
+    /// Effective Etna start, which START-10-5c can correct without replacing origin zero.
+    pub(super) start: (u64, B256, B256),
     /// Original landing EL hash.
     pub(super) el_hash: B256,
     /// Original landing Comet hash.
@@ -77,24 +79,33 @@ pub(super) fn observation(
 ) -> Result<Observation, RecoveryError> {
     crate::l1::witness::check_contract(proof, params.inbox).map_err(invalid)?;
     let c = w.el_header.number;
-    let start = w
-        .genesis
-        .inbox
-        .storage
-        .iter()
-        .find(|proof| proof.slot == inbox::slot(inbox::GENESIS_PACKED))
-        .map(|proof| word_u48(proof.value, 0))
-        .ok_or_else(|| invalid("missing deployment start slot"))?;
     let storage =
         verify_account_witness(header.state_root(), proof, &inbox::recovery_slots(w.generation, c))
             .map_err(invalid)?;
     let generation = word(&storage, inbox::slot(inbox::RECOVERY_GENERATION));
     check_current_generation(generation, w.generation)?;
-    // Every immutable initialization word must still equal its original proof at L1_0.
+    let packed = word(&storage, inbox::slot(inbox::GENESIS_PACKED));
+    let start = word_u48(packed, 0);
+    let start_hash = B256::from(word(&storage, inbox::slot(inbox::START_BLOCK_HASH)));
+    let start_root = B256::from(word(&storage, inbox::slot(inbox::START_STATE_ROOT)));
+    let switching = params.switch.is_some() && start != 0;
+    // START-10-5c keeps the epoch length, L1_0 and generation-zero origin immutable.
     for original in &w.genesis.inbox.storage {
-        if original.slot != inbox::slot(inbox::RECOVERY_GENERATION) &&
-            word(&storage, original.slot) != original.value
-        {
+        let actual = word(&storage, original.slot);
+        let unchanged = match original.slot {
+            slot if slot == inbox::slot(inbox::RECOVERY_GENERATION) => true,
+            slot if switching && slot == inbox::slot(inbox::GENESIS_PACKED) => {
+                word_u48(original.value, 0) != 0 && actual >> 48 == original.value >> 48
+            }
+            slot if switching &&
+                [inbox::slot(inbox::START_BLOCK_HASH), inbox::slot(inbox::START_STATE_ROOT)]
+                    .contains(&slot) =>
+            {
+                !actual.is_zero()
+            }
+            _ => actual == original.value,
+        };
+        if !unchanged {
             return Err(invalid("immutable deployment facts changed"));
         }
     }
@@ -131,12 +142,15 @@ pub(super) fn observation(
     } = inbox::LandingRecord::decode(inbox::landing_record_slots(c).map(|s| word(&storage, s)))
         .ok_or_else(|| invalid("reserved landing bits"))?;
     if el_hash.is_zero() ||
-        landing_generation >= w.generation ||
+        landing_generation > w.generation ||
+        (landing_generation == w.generation && !(switching && c == start)) ||
         (c > start && (parent >= c || parent < start || comet_hash.is_zero()))
     {
         return Err(invalid("invalid retained landing"));
     }
-    if c == start && (parent != start || cursor != 0 || !comet_hash.is_zero()) {
+    if c == start &&
+        (parent != start || cursor != 0 || !comet_hash.is_zero() || el_hash != start_hash)
+    {
         return Err(invalid("invalid genesis landing"));
     }
     let checkpoint = word(&storage, inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT));
@@ -159,6 +173,7 @@ pub(super) fn observation(
         height,
         number,
         timestamp,
+        start: (start, start_hash, start_root),
         el_hash,
         comet_hash,
         parent_height: parent,
@@ -185,6 +200,14 @@ pub fn verify_recovery_witness(
     verify_recovery(w, params).map(|verified| verified.origin)
 }
 
+/// Authenticate the recovery origin and effective deployment start from the same proofs.
+pub fn verify_recovery_deployment(
+    w: &RecoveryWitness,
+    params: &ChainParams,
+) -> Result<(RecoveryOrigin, crate::GenesisRecord), RecoveryError> {
+    verify_recovery(w, params).map(|v| (v.origin, v.context.genesis))
+}
+
 /// What one [`verify_recovery`] authenticates, with the facts it derived them from, so callers
 /// need not derive them again.
 pub(crate) struct VerifiedRecovery {
@@ -206,13 +229,16 @@ pub(crate) fn verify_recovery(
     if w.version != 1 {
         return Err(invalid("unsupported recovery witness version"));
     }
-    let context = verify_deployment_context(&w.genesis.l1_header, &w.genesis.inbox, params)
+    let mut context = verify_deployment_context(&w.genesis.l1_header, &w.genesis.inbox, params)
         .map_err(|e| match e {
             GenesisError::ConfigMismatch { local, proven } => {
                 RecoveryError::ConfigMismatch { local, proven }
             }
             other => invalid(other),
         })?;
+    if context.anchor.inbox.recovery_generation != 0 {
+        return Err(invalid("original deployment proof must be from generation zero"));
+    }
     verify_committee(&context, &w.genesis.committee, params).map_err(invalid)?;
     let final_origin = observation(&w.finalized_header, &w.finalized_inbox, w, params)?;
     let origin = observation(&w.recovery_header, &w.recovery_inbox, w, params)?;
@@ -223,10 +249,9 @@ pub(crate) fn verify_recovery(
     {
         return Err(invalid("fixed origin does not bind R and finalized observation"));
     }
+    let (start, start_hash, start_root) = origin.start;
     if w.el_header.hash_slow() != origin.el_hash ||
-        (origin.height == context.genesis.genesis_height &&
-            (origin.el_hash != context.genesis.genesis_hash ||
-                w.el_header.state_root != context.genesis.genesis_state_root))
+        (origin.height == start && w.el_header.state_root != start_root)
     {
         return Err(invalid("EL origin header does not match retained landing"));
     }
@@ -247,6 +272,9 @@ pub(crate) fn verify_recovery(
         origin.height / context.genesis.epoch_len,
     )
     .map_err(invalid)?;
+    context.genesis.genesis_height = start;
+    context.genesis.genesis_hash = start_hash;
+    context.genesis.genesis_state_root = start_root;
     Ok(VerifiedRecovery {
         origin: RecoveryOrigin {
             generation: w.generation,

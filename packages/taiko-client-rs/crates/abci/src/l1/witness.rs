@@ -168,7 +168,11 @@ pub fn verify_genesis_inbox(
         max_anchor_age: word_u48(forced_config, 48),
     };
     let [start, number, timestamp] = inbox::origin_slots(0).map(|slot| word(&storage, slot));
-    if start != U256::from(genesis.genesis_height) ||
+    let generation = inbox_word(&storage, inbox::RECOVERY_GENERATION);
+    // A corrected switching start may differ from the immutable origin-zero record.
+    if start >= U256::from(1u64 << 48) ||
+        (start != U256::from(genesis.genesis_height) &&
+            (generation.is_zero() || start.is_zero() || genesis.genesis_height == 0)) ||
         number != U256::from(genesis.l1_0) ||
         timestamp > U256::from(u64::MAX)
     {

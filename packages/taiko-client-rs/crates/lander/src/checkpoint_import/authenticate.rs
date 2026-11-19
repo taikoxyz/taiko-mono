@@ -75,23 +75,32 @@ where
         canonical(own_l1, header).await?;
     }
     let (origin, origin_hash) = (fixed.origin_height(), fixed.origin_hash());
-    if package.origin_header.number != origin ||
-        package.origin_header.hash_slow() != origin_hash ||
-        (fixed.recovery.is_none() &&
-            package.origin_header.state_root != fixed.genesis.genesis_state_root)
-    {
+    if package.origin_header.as_ref().is_some_and(|header| {
+        header.number != origin ||
+            header.hash_slow() != origin_hash ||
+            (fixed.recovery.is_none() && header.state_root != fixed.genesis.genesis_state_root)
+    }) {
         return Err(candidate("fixed origin execution header mismatch"));
     }
     let (recovery_witness, origin_anchor, origin_parent) =
         match (&fixed.recovery, &package.recovery_bootstrap) {
-            (None, None) => (None, fixed.anchor.clone(), parent_info(&package.origin_header, 0)?),
+            (None, None) => {
+                // The origin summary is overwritten at s. A suffix starting above o only uses
+                // its own authenticated EL boundary for parent checks.
+                let header = package
+                    .origin_header
+                    .as_ref()
+                    .or_else(|| package.execution_headers.last())
+                    .ok_or_else(|| unavailable("missing execution boundary"))?;
+                (None, fixed.anchor.clone(), parent_info(header, 0)?)
+            }
             (Some(_), Some(bootstrap)) => {
                 let abci::recovery::VerifiedBootstrap { witness, anchor, .. } =
                     bootstrap.verify(params).map_err(candidate)?;
                 // The projected origin does not commit R's parent hash. Bind the full duplicate
                 // witness to the already authenticated genesis before checking own-node integrity.
                 if abci::genesis::AppStateJson::from(&witness) != package.genesis.app_state ||
-                    witness.el_header != package.origin_header
+                    package.origin_header.as_ref().is_some_and(|h| *h != witness.el_header)
                 {
                     return Err(candidate(
                         "bootstrap witness differs from authenticated fixed recovery",
@@ -149,13 +158,14 @@ where
         if package.boundary_header.is_some() || !package.validator_state.is_empty() {
             return Err(candidate("origin import must use fixed-genesis initialization"));
         }
-        let headers = execution_prefix(package, origin, origin, params)?;
+        let headers = execution_prefix(package, &fixed, origin, origin, params)?;
         if fixed.recovery.is_none() {
+            let header = headers.last().expect("verified origin prefix");
             let preceding_time = headers.iter().rev().nth(1).map_or(0, |h| h.timestamp);
-            if origin > 0 && preceding_time >= package.origin_header.timestamp {
+            if origin > 0 && preceding_time >= header.timestamp {
                 return Err(candidate("fixed origin execution predecessor timestamp mismatch"));
             }
-            state.parent = parent_info(&package.origin_header, preceding_time)?;
+            state.parent = parent_info(header, preceding_time)?;
         }
         return Ok(VerifiedImport {
             state,
@@ -186,10 +196,12 @@ where
         .checked_sub(1)
         .filter(|w| *w >= origin && *w < landing.height)
         .ok_or_else(|| candidate("window starts outside current generation"))?;
-    let mut headers = execution_prefix(package, w, landing.height, params)?;
+    let mut headers = execution_prefix(package, &fixed, w, landing.height, params)?;
     let mut parent =
         headers.last().cloned().ok_or_else(|| unavailable("missing execution boundary"))?;
-    let keep_from = header_floor(origin, landing.height, params.unsettled_limit);
+    let floor = header_floor(origin, landing.height, params.unsettled_limit);
+    let earliest_fence = origin.max(landing.height.saturating_sub(params.unsettled_limit));
+    let keep_from = floor.min(earliest_fence);
     let mut retained = headers.drain(..).filter(|h| h.number >= keep_from).collect::<Vec<_>>();
     let mut previous: Option<PreviousHeight> = None;
     let mut heights = Vec::new();
@@ -434,11 +446,18 @@ where
     {
         return Err(safety("landed FI cursor contradicts inherited authenticated queue bounds"));
     }
-    // `retained` already starts at the header floor, which back-pressure keeps at or below q.
-    if !retained.iter().any(|h| {
-        h.number == state.anchor.inbox.last_checkpoint_height &&
-            h.hash_slow() == state.anchor.inbox.last_checkpoint_hash
-    }) {
+    let fence = state.anchor.inbox.last_checkpoint_height;
+    retained.retain(|h| h.number >= floor.min(fence));
+    let fence_hash = state.anchor.inbox.last_checkpoint_hash;
+    let first = retained.first().expect("terminal header is retained");
+    // When q = s - U just below the required range, the first retained header's parentHash
+    // authenticates q. Block s+1 must advance the anchor before it can finalize any block.
+    let fence_matches = if fence.checked_add(1) == Some(first.number) {
+        first.parent_hash == fence_hash
+    } else {
+        retained.iter().any(|h| h.number == fence && h.hash_slow() == fence_hash)
+    };
+    if !fence_matches {
         // Every input here is authenticated: the hash-linked EL ancestry and the own-L1 anchor.
         return Err(safety("inherited anchor checkpoint contradicts authenticated EL ancestry"));
     }
@@ -710,21 +729,22 @@ fn future_epochs(
     Ok([get(1)?, get(2)?])
 }
 
-/// Authenticate the exact ascending EL prefix, terminating at w and linked later by w+1.
+/// Authenticate the ascending EL prefix through w, linked later by w+1. Older linked headers
+/// may supply the inherited finality fence outside the next block's required range.
 fn execution_prefix(
     package: &ImportPackage,
+    fixed: &abci::genesis::VerifiedGenesis,
     w: u64,
     height: u64,
     params: &ChainParams,
 ) -> Result<Vec<Header>, ImportError> {
-    let origin = package.origin_header.number;
+    let origin = fixed.origin_height();
     let first = header_floor(origin, height, params.unsettled_limit).min(w);
     let mut headers = package.execution_headers.clone();
     if headers.is_empty() && first == origin && w == origin {
-        headers.push(package.origin_header.clone());
+        headers.extend(package.origin_header.clone());
     }
-    if headers.len() as u64 != w - first + 1 ||
-        headers.first().is_none_or(|h| h.number != first) ||
+    if headers.first().is_none_or(|h| h.number > first) ||
         headers.last().is_none_or(|h| h.number != w)
     {
         return Err(unavailable(format!("required execution prefix {first}..={w}")));
@@ -738,7 +758,9 @@ fn execution_prefix(
         }
     }
     if let Some(header) = headers.iter().find(|h| h.number == origin) &&
-        *header != package.origin_header
+        (header.hash_slow() != fixed.origin_hash() ||
+            (fixed.recovery.is_none() &&
+                header.state_root != fixed.genesis.genesis_state_root))
     {
         return Err(candidate("execution prefix contradicts fixed origin"));
     }
@@ -1080,6 +1102,30 @@ fn check_header_projection(
 mod tests {
     use super::*;
     use crate::test_utils::consensus_mpt::Fixture;
+
+    #[tokio::test]
+    async fn late_window_only_needs_linked_suffix_headers() {
+        let fx = Fixture::new(0, 1);
+        let mut package = crate::test_utils::consensus_mpt::import_package(&fx, 1).await;
+        let mut params = fx.params.clone();
+        params.unsettled_limit = 300;
+        let fixed = abci::genesis::verify_original_genesis(&package.genesis, &fx.params).unwrap();
+        package.origin_header = None;
+        for number in 601..=700 {
+            package.execution_headers.push(Header {
+                number,
+                parent_hash: package.execution_headers.last().map_or(B256::ZERO, Header::hash_slow),
+                ..Default::default()
+            });
+        }
+        let headers = execution_prefix(&package, &fixed, 700, 900, &params).unwrap();
+        assert_eq!(headers.first().unwrap().number, 601);
+        package.execution_headers.remove(0);
+        assert!(matches!(
+            execution_prefix(&package, &fixed, 700, 900, &params),
+            Err(ImportError::Unavailable(_))
+        ));
+    }
 
     #[test]
     fn boundary_header_is_bound_without_reading_its_block_commit_or_set() {

@@ -86,7 +86,15 @@ impl RecoveryBootstrap {
         let VerifiedRecovery { origin, context, landing_generation } =
             verify_recovery(&witness, params)?;
         let anchor = match (&self.anchor, origin.height) {
-            (None, height) if height == context.genesis.genesis_height => context.anchor,
+            (None, height) if height == context.genesis.genesis_height => {
+                if context.anchor.inbox.last_checkpoint_height == origin.height &&
+                    context.anchor.inbox.last_checkpoint_hash == origin.el_hash
+                {
+                    context.anchor
+                } else {
+                    recovery_anchor(&witness, params)?
+                }
+            }
             (Some(bytes), height) if height > context.genesis.genesis_height => {
                 let mut bytes = bytes.as_ref();
                 let evidence = crate::AnchorWitness::decode(&mut bytes).map_err(invalid)?;
@@ -124,6 +132,31 @@ impl RecoveryBootstrap {
     }
 }
 
+/// Authenticate R's anchor facts for a generation that starts at a corrected Unzen block.
+pub(crate) fn recovery_anchor(
+    witness: &super::RecoveryWitness,
+    params: &ChainParams,
+) -> Result<crate::AnchorState, RecoveryError> {
+    let slots = crate::l1::layout::inbox::anchor_slots();
+    crate::l1::verify_anchor_witness(
+        &crate::AnchorWitness {
+            l1_header: witness.recovery_header.clone(),
+            inbox: crate::AccountWitness {
+                storage: witness
+                    .recovery_inbox
+                    .storage
+                    .iter()
+                    .filter(|p| slots.contains(&p.slot))
+                    .cloned()
+                    .collect(),
+                ..witness.recovery_inbox.clone()
+            },
+        },
+        params.inbox,
+    )
+    .map_err(invalid)
+}
+
 /// Fetches historical c provenance without confusing it with the R floor for new blocks, and
 /// returns the sidecar with what its verification authenticates.
 /// c=S has no Etna header anchor and uses the immutable deployment context explicitly.
@@ -132,16 +165,14 @@ pub(crate) async fn recovery_bootstrap<L: L1Source + ?Sized>(
     params: &ChainParams,
     witness: &super::RecoveryWitness,
 ) -> Result<(RecoveryBootstrap, VerifiedBootstrap), RecoveryError> {
-    let start = witness
-        .genesis
-        .inbox
-        .storage
-        .iter()
-        .find(|proof| {
-            proof.slot == crate::l1::layout::inbox::slot(crate::l1::layout::inbox::GENESIS_PACKED)
-        })
-        .map(|proof| crate::l1::layout::word_u48(proof.value, 0))
-        .ok_or_else(|| invalid("missing deployment start slot"))?;
+    let start = super::verify::observation(
+        &witness.recovery_header,
+        &witness.recovery_inbox,
+        witness,
+        params,
+    )?
+    .start
+    .0;
     let anchor = if witness.el_header.number == start {
         None
     } else {

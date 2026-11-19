@@ -12,11 +12,11 @@ mod verify;
 pub use fetch::{
     authenticate_recovery, authenticate_recovery_with_headers, check_recovery_canonicality,
 };
-pub(crate) use genesis::recovery_bootstrap;
 pub use genesis::{RecoveryBootstrap, VerifiedBootstrap, build_recovery_genesis, recovery_parent};
+pub(crate) use genesis::{recovery_anchor, recovery_bootstrap};
 pub use types::{RecoveryError, RecoveryOrigin, RecoveryWitness};
-pub use verify::verify_recovery_witness;
 pub(crate) use verify::{VerifiedRecovery, verify_recovery};
+pub use verify::{verify_recovery_deployment, verify_recovery_witness};
 
 #[cfg(test)]
 mod tests {
@@ -47,6 +47,24 @@ mod tests {
         let origin = verify_recovery_witness(&witness, &fx.params).unwrap();
         assert_eq!((origin.generation, origin.height, origin.l1_number), (1, 7, 100));
         assert_eq!(origin.el_hash, witness.el_header.hash_slow());
+    }
+
+    #[tokio::test]
+    async fn corrected_switch_uses_new_start_and_keeps_origin_zero() {
+        for (old, new) in [(8, 6), (8, 8), (8, 10)] {
+            let (fx, l1, engine, w) = crate::test_utils::corrected_switch_fixture(old, new);
+            let doc = build_recovery_genesis(&l1, &engine, &fx.params, 1).await.unwrap();
+            let fixed = crate::genesis::verify_original_genesis(&doc, &fx.params).unwrap();
+            assert_eq!(fixed.genesis.genesis_height, new);
+            assert_eq!(fixed.genesis.genesis_hash, w.el_header.hash_slow());
+            assert_eq!(fixed.genesis.genesis_state_root, w.el_header.state_root);
+            assert_eq!(doc.initial_height, (new + 1).to_string());
+            assert_eq!(fixed.recovery.unwrap().comet_hash, B256::ZERO);
+
+            let mut no_switch = fx.params;
+            no_switch.switch = None;
+            assert!(verify_recovery_witness(&w, &no_switch).is_err());
+        }
     }
 
     #[test]

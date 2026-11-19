@@ -52,8 +52,8 @@ mod recovery_fixtures;
 pub(crate) mod vectors;
 
 pub(crate) use fixture::{
-    Fixture, GenesisSpec, committed_block, init_chain_request, powers, recovery_fixture,
-    recovery_fixture_with_spec, validator_updates,
+    Fixture, GenesisSpec, committed_block, corrected_switch_fixture, init_chain_request, powers,
+    recovery_fixture, recovery_fixture_with_spec, validator_updates,
 };
 pub(crate) use mocks::{EngineCall, L1Call, MockEngine, MockL1, simple_block};
 
@@ -272,7 +272,7 @@ impl InboxStorage {
         if let Some(a) = &self.genesis {
             let origins = inbox::origin_slots(0);
             slots.extend([
-                (origins[0], U256::ZERO),
+                (origins[0], U256::from(a.genesis_height)),
                 (origins[1], U256::from(a.l1_0)),
                 (origins[2], U256::from(1_760_000_000u64 + 12 * a.l1_0)),
             ]);

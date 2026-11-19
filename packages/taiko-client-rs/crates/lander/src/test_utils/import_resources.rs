@@ -390,7 +390,7 @@ async fn verify(dir: &Path, s: u64, period: u64) {
             "part_hash": parts.hash.to_string(),
             "part_total": parts.total,
             "state_root": headers.last().unwrap().state_root,
-            "genesis_hash": pkg.origin_header.hash_slow(),
+            "genesis_hash": pkg.origin_header.as_ref().unwrap().hash_slow(),
             "finalized_hash": headers[0].hash_slow(),
             "l1_calls": calls.len(),
             "frames": count,

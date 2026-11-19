@@ -2,7 +2,7 @@
 //! them forwards. Only a constant number of complete blocks need to be resident.
 use super::*;
 use alloy_consensus::Header;
-use alloy_primitives::U256;
+use alloy_primitives::{U256, hex};
 use alloy_provider::Provider;
 use lander::{
     checkpoint_import::{
@@ -39,6 +39,13 @@ pub struct Request {
     /// The package directory to create; it must be absent.
     #[arg(long)]
     pub out: PathBuf,
+    /// Offline stock Comet data directory containing state.db at s - 1. Required beyond the
+    /// fixed origin (DATA-5.4-8).
+    #[arg(long)]
+    pub comet_state_dir: Option<PathBuf>,
+    /// Stock Comet helper used to compare the independent state snapshot before publication.
+    #[arg(long, default_value = "etna-comet-import")]
+    pub comet_helper: PathBuf,
     /// The archived raw validator-state preimage after s - 1 (DATA-5.4-3), for a source app that
     /// already pruned it.
     #[arg(long)]
@@ -93,6 +100,13 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
             .map_err(|_| bad("invalid --comet-genesis"))?;
     let fixed = lander::checkpoint_import::select_export(&genesis, height, &params, &l1).await?;
     let origin = fixed.origin_height();
+    let stock = if height > origin {
+        Some(request.comet_state_dir.as_deref().ok_or_else(|| {
+            unavailable("--comet-state-dir must supply an exact stock state snapshot at s - 1")
+        })?)
+    } else {
+        None
+    };
     let schedule = abci::Schedule::from_genesis(&fixed.genesis);
     let stage = tempfile::Builder::new()
         .prefix(&format!(".{}.export-", name.to_string_lossy()))
@@ -103,6 +117,7 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
     let mut offsets = Vec::new();
     let mut boundary = None;
     let mut w = height;
+    let mut terminal_header = None;
     if height > origin {
         let mut min_required = height;
         for next in [height + 1, height + 2] {
@@ -143,6 +158,9 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
                 }
             }
             let block = comet.block(w).await.map_err(source)?;
+            if w == height {
+                terminal_header = Some(block.block.header.clone());
+            }
             terminal_time.get_or_insert(block.block.header.time);
             let env = abci::EtnaEnvelope::decode(
                 block.block.data.first().ok_or_else(|| bad("missing envelope"))?,
@@ -185,11 +203,7 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
     for n in start..=w {
         prefix.push(header(&el, n).await?)
     }
-    let origin_header = if let Some(h) = prefix.iter().find(|h| h.number == origin) {
-        h.clone()
-    } else {
-        header(&el, origin).await?
-    };
+
     let preimage = preimage(&comet, height, origin, archived).await?;
     let recovery_bootstrap = match &request.recovery_bootstrap {
         Some(p) => Some(
@@ -202,7 +216,7 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
         schema: IMPORT_SCHEMA,
         genesis,
         checkpoint_height: height,
-        origin_header,
+        origin_header: None,
         recovery_bootstrap,
         boundary_header: boundary,
         validator_state: preimage.into(),
@@ -213,6 +227,14 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
     package.write_all(&bytes).and_then(|()| package.sync_all()).map_err(io)?;
     // The same authentication `import` runs, before anything is published.
     let verified = package::verify(stage.path(), &params, &l1, None).await?;
+    if let Some(stock) = stock {
+        let terminal =
+            terminal_header.as_ref().ok_or_else(|| unavailable("missing terminal block"))?;
+        if terminal.hash().as_bytes() != verified.landing().comet_hash.as_slice() {
+            return Err(bad("stock comparison header differs from the authenticated landing"));
+        }
+        verify_stock(request, stock, stage.path(), &meta, terminal).await?;
+    }
     let generation = verified.state().generation;
     sync(stage.path())?;
     let staged = stage.keep();
@@ -223,6 +245,49 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
     sync(parent)?;
     Ok(json!({"phase":"exported","height":height,"generation":generation}))
 }
+/// Compare against the independent node's committed stock state before publishing (DATA-5.4-8).
+async fn verify_stock(
+    request: &Request,
+    stock: &Path,
+    stage: &Path,
+    meta: &ImportPackage,
+    terminal: &tendermint::block::Header,
+) -> R<()> {
+    let path = stage.join("validator-state.bin");
+    write_new(&path, &meta.validator_state)?;
+    let predecessor =
+        terminal.last_block_id.map_or_else(String::new, |b| hex::encode(b.hash.as_bytes()));
+    let mut command = tokio::process::Command::new(&request.comet_helper);
+    let status = command
+        .kill_on_drop(true)
+        .arg("verify-export")
+        .arg("--comet-state-dir")
+        .arg(stock)
+        .arg("--validator-state")
+        .arg(&path)
+        .arg("--chain-id")
+        .arg(&meta.genesis.chain_id)
+        .arg("--initial-height")
+        .arg(&meta.genesis.initial_height)
+        .arg("--height")
+        .arg((request.height - 1).to_string())
+        .arg("--block-hash")
+        .arg(predecessor)
+        .arg("--app-hash")
+        .arg(hex::encode(terminal.app_hash.as_bytes()))
+        .status()
+        .await
+        .map_err(|error| unavailable(format!("cannot run stock Comet verifier: {error}")))?;
+    if status.code() == Some(2) {
+        tracing::error!(height = request.height - 1, "validator state differs from stock CometBFT");
+        return Err(ImportError::Safety("validator state differs from stock CometBFT".into()));
+    }
+    if !status.success() {
+        return Err(unavailable(format!("cannot verify stock Comet state ({status})")));
+    }
+    fs::remove_file(path).map_err(io)
+}
+
 /// The package's validator-state preimage for a checkpoint at `height`: the state after
 /// `height - 1` (DATA-5.4-3, DATA-5.4-8), from `archived` or else the source app's
 /// `/val_state/<height - 1>` query, which serves any retained height. The fixed origin takes

@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::ImportError;
 
-/// Largest authenticated unsettled range supported by the pinned deployment rules.
-const MAX_HEADERS: u64 = 65_536;
+/// Maximum unsettled range plus the inherited finalized checkpoint just below it.
+const MAX_HEADERS: u64 = 65_537;
 /// Exclusive upper bound for a landed protocol height.
 const HEIGHT_LIMIT: u64 = 1 << 48;
 
@@ -50,8 +50,6 @@ pub struct VerifiedHeaders<'a> {
     manifest: &'a HeaderManifest,
     /// Authenticated original EL genesis identity to retain separately when outside the range.
     genesis_hash: B256,
-    /// Index of the actual finalized checkpoint within the authenticated contiguous range.
-    finalized_index: usize,
 }
 
 impl HeaderManifest {
@@ -81,19 +79,29 @@ impl HeaderManifest {
             }
         }
         let first = self.headers[0].number;
-        if self.finalized_height < first || self.finalized_height > terminal.number {
-            return Err(ImportError::Invalid(
-                "finalized checkpoint lies outside the imported header range",
-            ));
-        }
-        let finalized_index = (self.finalized_height - first) as usize;
-        if self.headers[finalized_index].hash_slow() != self.finalized_hash {
+        // A package at the unsettled limit can start one height above the inherited
+        // checkpoint. The first header commits it. The next block must carry a newer fence.
+        let actual_finalized = if self.finalized_height.checked_add(1) == Some(first) {
+            self.headers[0].parent_hash
+        } else {
+            let index = self
+                .finalized_height
+                .checked_sub(first)
+                .filter(|index| *index < self.headers.len() as u64)
+                .ok_or(ImportError::Invalid(
+                    "finalized checkpoint lies outside the imported header range",
+                ))?;
+            self.headers[index as usize].hash_slow()
+        };
+        if actual_finalized != self.finalized_hash ||
+            (self.finalized_height == 0 && self.finalized_hash != trust.genesis_hash)
+        {
             return Err(ImportError::Invalid("finalized checkpoint hash differs from its header"));
         }
         if first == 0 && self.headers[0].hash_slow() != trust.genesis_hash {
             return Err(ImportError::Invalid("imported original genesis hash differs"));
         }
-        Ok(VerifiedHeaders { manifest: self, genesis_hash: trust.genesis_hash, finalized_index })
+        Ok(VerifiedHeaders { manifest: self, genesis_hash: trust.genesis_hash })
     }
 }
 
@@ -108,9 +116,9 @@ impl VerifiedHeaders<'_> {
         self.manifest.headers.last().expect("verified range is nonempty")
     }
 
-    /// Actual inherited finalized checkpoint q, which may be below s.
-    pub fn finalized(&self) -> &Header {
-        &self.manifest.headers[self.finalized_index]
+    /// Actual inherited finalized checkpoint q and its authenticated hash.
+    pub fn finalized(&self) -> (u64, B256) {
+        (self.manifest.finalized_height, self.manifest.finalized_hash)
     }
 
     /// Original EL genesis identity, independent of the generation's fixed origin o.

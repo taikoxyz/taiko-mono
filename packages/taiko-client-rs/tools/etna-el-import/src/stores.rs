@@ -113,11 +113,8 @@ pub fn install_headers(
         tx.put::<tables::Headers>(header.number, header.clone()).map_err(db_error)?;
         tx.put::<tables::CanonicalHeaders>(header.number, hash).map_err(db_error)?;
     }
-    tx.put::<tables::ChainState>(
-        tables::ChainStateKey::LastFinalizedBlock,
-        verified.finalized().number,
-    )
-    .map_err(db_error)?;
+    tx.put::<tables::ChainState>(tables::ChainStateKey::LastFinalizedBlock, verified.finalized().0)
+        .map_err(db_error)?;
     tx.put::<tables::ChainState>(tables::ChainStateKey::LastSafeBlock, verified.terminal().number)
         .map_err(db_error)?;
     tx.commit().map_err(db_error)?;

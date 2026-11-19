@@ -804,7 +804,7 @@ pub(crate) fn decode_snapshot(
             record.forced_head == word_u48(head_tail, 0) &&
             if height == genesis.genesis_height {
                 record.parent_height == height &&
-                    record.generation == 0 &&
+                    (record.generation == 0 || params.switch.is_some()) &&
                     record.forced_head == 0 &&
                     record.el_hash == genesis.genesis_hash &&
                     record.comet_hash.is_zero()
@@ -907,14 +907,19 @@ pub fn authenticate_snapshot(snapshot: &LandingSnapshot, params: &ChainParams) -
             if !remaining.is_empty() || alloy_rlp::encode(&witness).as_slice() != bytes.as_ref() {
                 return Err(LanderError::Safety("noncanonical recovery evidence".into()));
             }
-            let authenticated = abci::recovery::verify_recovery_witness(&witness, params)
-                .map_err(recovery_error)?;
-            let (genesis, _, bootstrap) = verify_genesis_inbox(
-                witness.genesis.l1_header.state_root(),
-                &witness.genesis.inbox,
-                params.inbox,
-            )
-            .map_err(|e| LanderError::Safety(format!("recovery deployment: {e}")))?;
+            let (authenticated, genesis) =
+                abci::recovery::verify_recovery_deployment(&witness, params)
+                    .map_err(recovery_error)?;
+            let bootstrap_slot = inbox::slot(inbox::GENESIS_COMMITTEE_HASH);
+            let bootstrap: B256 = witness
+                .genesis
+                .inbox
+                .storage
+                .iter()
+                .find(|p| p.slot == bootstrap_slot)
+                .expect("verified genesis proof")
+                .value
+                .into();
             if genesis != snapshot.genesis ||
                 bootstrap != snapshot.genesis_committee_record_hash ||
                 &authenticated != origin ||

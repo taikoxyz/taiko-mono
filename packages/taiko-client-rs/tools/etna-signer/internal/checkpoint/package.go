@@ -129,7 +129,7 @@ func DecodeValState(raw []byte) (int64, *types.ValidatorSet, *types.ValidatorSet
 		return binary.BigEndian.Uint64(b[24:]), bytes.Equal(b[:24], make([]byte, 24))
 	}
 	h, ok := word(32)
-	if !ok || h == 0 || h > math.MaxInt64-2 {
+	if !ok || h > math.MaxInt64-2 {
 		return bad()
 	}
 	off, ok := word(64)

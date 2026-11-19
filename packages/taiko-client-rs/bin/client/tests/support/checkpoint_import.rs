@@ -160,13 +160,20 @@ async fn scenario(kind: Scenario) -> Result<()> {
 async fn latest(f: &ContractFixture, c: &mut ContractConsensus, commands: &Commands) -> Result<()> {
     let s = 6;
     let base = commands.dir.path().canonicalize()?;
+    let stock = base.join("stock-state-at-5");
+    capture_stock_state(c, s - 1, &stock).await?;
     c.wait_for_height(s).await?;
     forced::enqueue(f).await?;
     land(f, c, commands, s).await?;
     let blocks = source_blocks(&c.cmt, s).await?;
     let genesis = c.comet_home(0).canonicalize()?.join("config/genesis.json");
-    let export =
-        Export { s, comet_genesis: &genesis, recovery_bootstrap: None, validator_state: None };
+    let export = Export {
+        s,
+        comet_genesis: &genesis,
+        recovery_bootstrap: None,
+        validator_state: None,
+        stock: Some(&stock),
+    };
     let x =
         import_fixture(f, c, commands, &base, &blocks, &c.comet_home(0), &c.cmt, export).await?;
     // The source decides both FI skips (s + 1, s + 2) before its only validator stops.
@@ -203,6 +210,8 @@ async fn registered_older(
 ) -> Result<()> {
     let (s, target) = (6, 12);
     let base = commands.dir.path().canonicalize()?;
+    let stock = base.join("stock-state-at-5");
+    capture_stock_state(c, s - 1, &stock).await?;
     c.wait_for_height(s).await?;
     // The app's sidecar is checksummed; its query answers the raw preimage for s - 1 that the
     // export takes.
@@ -235,6 +244,7 @@ async fn registered_older(
         comet_genesis: &genesis,
         recovery_bootstrap: None,
         validator_state: Some(&archived),
+        stock: Some(&stock),
     };
     // Node 0 stops before the import, so the imported node peers with node 1.
     let x = import_fixture(f, c, commands, &base, &blocks, &c.comet_home(0), &c.peers[1], export)
@@ -288,8 +298,13 @@ async fn fixed_origin(
 ) -> Result<()> {
     let base = commands.dir.path().canonicalize()?;
     let genesis = c.comet_home(0).canonicalize()?.join("config/genesis.json");
-    let export =
-        Export { s: 0, comet_genesis: &genesis, recovery_bootstrap: None, validator_state: None };
+    let export = Export {
+        s: 0,
+        comet_genesis: &genesis,
+        recovery_bootstrap: None,
+        validator_state: None,
+        stock: None,
+    };
     let x = import_fixture(f, c, commands, &base, &[], &c.comet_home(0), &c.cmt, export).await?;
     let root = base.join("import");
     let ready = import(f, commands, &x, &root, "import").await?;
@@ -338,11 +353,31 @@ struct Fixture {
 }
 
 /// What `export` collects.
+/// Preserve the independently executed full stock state at s-1 for the producer gate.
+async fn capture_stock_state(c: &mut ContractConsensus, height: u64, out: &Path) -> Result<()> {
+    c.wait_for_height(height).await?;
+    c.stop_node(0).await?;
+    copy_stock_state(&c.comet_home(0), out)?;
+    c.restart_node(0).await
+}
+
+/// Copy only the stopped validator's state DB. The archive holds no key or HRS.
+pub fn copy_stock_state(home: &Path, out: &Path) -> Result<()> {
+    let db = out.join("state.db");
+    fs::create_dir_all(&db)?;
+    for entry in fs::read_dir(home.join("data/state.db"))? {
+        let entry = entry?;
+        fs::copy(entry.path(), db.join(entry.file_name()))?;
+    }
+    Ok(())
+}
+
 struct Export<'a> {
     s: u64,
     comet_genesis: &'a Path,
     recovery_bootstrap: Option<&'a Path>,
     validator_state: Option<&'a Path>,
+    stock: Option<&'a Path>,
 }
 
 /// The operator's own preparation, outside the importer, then `export`: replay `blocks` into a
@@ -399,6 +434,11 @@ async fn import_fixture(
     }
     if let Some(path) = export.validator_state {
         args.extend(["--validator-state".into(), path.display().to_string()]);
+    }
+    if let Some(path) = export.stock {
+        let helper = binary("ETNA_COMET_IMPORT_BIN", "etna-comet-import")?;
+        args.extend(["--comet-state-dir".into(), path.display().to_string()]);
+        args.extend(["--comet-helper".into(), helper.display().to_string()]);
     }
     let exported = cli(base, "export", &args).await?;
     ensure!(exported["phase"] == "exported" && exported["height"] == export.s, "{exported}");
@@ -881,6 +921,7 @@ pub async fn recovered(
     commands: &Commands,
     installed: &Installed,
     old: &[ExecutionBlock],
+    stock: &Path,
 ) -> Result<()> {
     let parent = commands.dir.path().canonicalize()?;
     let home = &installed.home;
@@ -919,6 +960,7 @@ pub async fn recovered(
             comet_genesis: &g,
             recovery_bootstrap: Some(&bootstrap),
             validator_state: (s > 6).then_some(preimage.as_path()),
+            stock: (s > 6).then_some(stock),
         };
         let x = import_fixture(f, c, commands, &base, &blocks, home, &c.cmt, export).await?;
         let root = base.join("import");

@@ -621,7 +621,7 @@ async fn recovery_package(fx: &Fixture, height: u64) -> ImportPackage {
         schema: IMPORT_SCHEMA,
         genesis,
         checkpoint_height: height,
-        origin_header: witness.el_header,
+        origin_header: Some(witness.el_header),
         recovery_bootstrap: Some(bootstrap),
         boundary_header: None,
         validator_state: if height == origin.height {
@@ -673,7 +673,7 @@ async fn origin_import_installs_the_verified_genesis_origin_state() {
             .await
             .unwrap();
     let fixed = abci::genesis::verify_original_genesis(&package.genesis, &fx.params).unwrap();
-    let parent = parent_info(&package.origin_header, 0).unwrap();
+    let parent = parent_info(package.origin_header.as_ref().unwrap(), 0).unwrap();
     let origin = fixed.origin_state(package.genesis.chain_id.clone(), parent, fixed.anchor.clone());
     assert_eq!(imported.state(), &origin.unwrap());
 
@@ -1034,7 +1034,8 @@ async fn committed_preimage_contradicting_header_validator_hashes_halts() {
 
 #[test]
 fn header_floor_covers_blockhash_and_the_inherited_fence() {
-    assert_eq!(header_floor(0, 900, 300), 600); // s-U: q may still be s-U at s
+    assert_eq!(header_floor(0, 900, 300), 601); // next block must prove q >= s-U+1
+    assert_eq!(header_floor(0, 70_000, 65_536), 4_465);
     assert_eq!(header_floor(0, 1000, 100), 745); // s-255 (BLOCKHASH) dominates
     assert_eq!(header_floor(600, 900, 3600), 600); // origin bound
     assert_eq!(header_floor(700, 900, 300), 645); // BLOCKHASH context may precede o (5.3)

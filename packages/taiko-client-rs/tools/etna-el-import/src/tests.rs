@@ -246,7 +246,7 @@ fn retains_a_finalized_ancestor_more_than_255_headers_behind_the_import() {
     let (manifest, trust) = header_manifest();
     let verified = manifest.verify(&trust).unwrap();
     assert_eq!(verified.terminal().number, 900);
-    assert_eq!(verified.finalized().number, 610);
+    assert_eq!(verified.finalized().0, 610);
     assert_eq!(verified.headers().first().unwrap().number, 600);
 }
 
@@ -257,8 +257,8 @@ fn refuses_a_rebound_finalized_hash_and_broken_links() {
     rebound.finalized_hash = trust.terminal_hash;
     assert!(rebound.verify(&trust).is_err());
     let mut above_q = manifest.clone();
-    above_q.headers.retain(|header| header.number > 610);
-    assert!(above_q.verify(&trust).is_err(), "q must lie inside the range");
+    above_q.headers.retain(|header| header.number > 611);
+    assert!(above_q.verify(&trust).is_err(), "q cannot lie more than one height below the range");
     let mut gap = manifest.clone();
     gap.headers.remove(100);
     assert!(gap.verify(&trust).is_err(), "a number gap breaks the range");
@@ -270,17 +270,26 @@ fn refuses_a_rebound_finalized_hash_and_broken_links() {
     assert!(short_terminal.verify(&trust).is_err(), "the range must end at the trusted terminal");
 }
 
-/// The Rust caller's `header_floor` is authoritative: with U > 255 it starts the range at s-U,
-/// one header below the helper's former max(o, s-U+1) floor.
+#[test]
+fn authenticates_the_predecessor_fence_from_the_first_retained_header() {
+    let (mut manifest, trust) = header_manifest();
+    let fence = manifest.headers.remove(0);
+    manifest.finalized_height = fence.number;
+    manifest.finalized_hash = fence.hash_slow();
+    assert_eq!(manifest.verify(&trust).unwrap().finalized(), (600, fence.hash_slow()));
+    manifest.finalized_hash = B256::repeat_byte(0x77);
+    assert!(manifest.verify(&trust).is_err());
+}
+
+/// A package can include extra linked ancestors before the required floor.
 #[test]
 fn accepts_any_linked_range_ending_at_s_that_holds_the_finalized_checkpoint() {
     let (manifest, trust) = header_manifest();
-    // header_floor(o = 0, s = 900, U = 300) = min(900 - 255, max(0, 900 - 300)) = 600, q = 601.
     let mut floor = manifest.clone();
     floor.finalized_height = 601;
     floor.finalized_hash = floor.headers[1].hash_slow();
     let verified = floor.verify(&trust).unwrap();
-    assert_eq!((verified.headers()[0].number, verified.finalized().number), (600, 601));
+    assert_eq!((verified.headers()[0].number, verified.finalized().0), (600, 601));
     let mut at_q = manifest;
     at_q.headers.retain(|header| header.number >= 610);
     assert_eq!(at_q.verify(&trust).unwrap().headers()[0].number, 610);

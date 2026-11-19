@@ -17,15 +17,17 @@ taiko-client abci-import export --l1.http http://127.0.0.1:8545 --l2.chain-id 16
   --chain-config /srv/etna/config/app-chain.toml \
   --comet.http http://127.0.0.1:26657 --l2.http http://127.0.0.1:9545 \
   --comet-genesis /srv/etna/source/comet/config/genesis.json \
+  --comet-state-dir /srv/etna/stock-state-at-599 --comet-helper /app/etna-comet-import \
   --height 600 --out /srv/etna/archive/cp-600
 ```
 
 - `--l1.http` is your own L1 node. It must serve the finalized Inbox proofs and the historical L1 headers the checkpoint needs. `--chain-config` is needed only to override the built-in chain parameters (devnet).
 - `--comet.http` and `--l2.http` are an archive node of the selected generation. Export reads only Comet blocks, commits and validator sets, and EL headers through `debug_getRawHeader`. Keep that debug API private.
 - `--comet-genesis` is the generation's original stock `genesis.json`. For a recovery generation, also pass `--recovery-bootstrap /…/recovery-bootstrap.json`.
+- For a checkpoint above the fixed origin, `--comet-state-dir` must contain the `state.db` of an independent stock CometBFT v0.40.0 node at **s − 1**. Use a consistent filesystem snapshot or copy the state DB after that node stops at s − 1. Retain the snapshots for checkpoints you plan to publish along with the application's archived preimages. The verifier opens the snapshot read-only, binds it to header(s)'s chain, predecessor and app hash, and compares both validator sets, including priorities and stored proposers. Export refuses and logs an error on a difference. A historical `/validators` response or a state DB installed from a checkpoint package cannot serve as this independent evidence.
 - `--out` must not exist. Export writes into a private `.<name>.export-*` directory beside it, authenticates the result against your own finalized L1 exactly as `import` does, then renames it to `--out`. An interrupted export leaves only that private directory; delete it and rerun.
 
-The package contains exactly `package.json` (schema-2 metadata, including the validator-state preimage after s − 1 that header(s)'s app_hash commits) and `blocks.jsonl` (one native block, its own commit and its signing keys and powers per line). It holds no EL state. Export walks backward only as far as the required evidence, committee and anchor context, and never executes an old block.
+The package contains exactly `package.json` (schema-2 metadata, including the validator-state preimage after s − 1 that header(s)'s app_hash commits) and `blocks.jsonl` (one native block, its own commit and its signing keys and powers per line). An import above the fixed origin only needs the origin header when it is part of the required EL ancestry or window boundary. The package holds no EL state. Export walks backward only as far as the required evidence, committee and anchor context, and never executes an old block.
 
 Export reads the preimage for s − 1 from the source app's `/val_state/<s−1>` query. The source app keeps validator-state preimages only from one height below the checkpoint its committed anchor proves, and prunes older ones. To keep them, start that app with `--checkpoint-archive-dir /srv/etna/val-state-archive` (an existing directory). The preimage of every committed height is written there as `<keccak256(UTF8(generation-qualified Comet chain id))>-<height>.bin` before its state commit. For a checkpoint whose s − 1 is already pruned, pass the file for s − 1 (599 for s = 600):
 

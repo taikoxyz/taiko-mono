@@ -20,12 +20,13 @@ mod window;
 pub use authenticate::{authenticate_import, select_export};
 pub use window::evidence_expired;
 
-/// Oldest canonical EL header an import at `height` installs: the lower of the 5.3 BLOCKHASH
-/// context from s-255 and DATA-5.4-4's U ancestry fence from max(o, s-U+1). It keeps s-U: the
-/// inherited post-s anchor can still name that boundary, even though the next block must
-/// advance its own checkpoint to at least s-U+1. Subtraction saturates at zero.
+/// Oldest canonical EL header needed for the next block's BLOCKHASH context and DATA-5.4-4's
+/// U ancestry fence. The first retained header's parent hash authenticates a committed anchor
+/// still at s - U when that checkpoint falls just below the range.
 pub fn header_floor(origin: u64, height: u64, unsettled_limit: u64) -> u64 {
-    height.saturating_sub(255).min(origin.max(height.saturating_sub(unsettled_limit)))
+    height
+        .saturating_sub(255)
+        .min(origin.max(height.saturating_sub(unsettled_limit.saturating_sub(1))))
 }
 
 /// Import failures keep publisher faults distinct from authenticated contradictions.
@@ -59,7 +60,9 @@ pub struct ImportPackage {
     /// Selected retained landing; may be older than the current admission target.
     pub checkpoint_height: u64,
     /// Fixed origin EL header, independently bound by genesis or the recovery witness.
-    pub origin_header: Header,
+    /// A later generation-zero import whose window starts above the origin can omit it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin_header: Option<Header>,
     /// Historical origin context needed across recovery restart; absent for generation zero.
     pub recovery_bootstrap: Option<abci::recovery::RecoveryBootstrap>,
     /// Predecessor header at w, authenticated by the first block's LastBlockID; absent at o.
@@ -67,10 +70,9 @@ pub struct ImportPackage {
     /// Exact appendix-A preimage of valStateHash(s − 1), which with ELHash(s − 1) gives
     /// header(s)'s app_hash (DATA-5.4-3); empty only for fixed-origin initialization.
     pub validator_state: Bytes,
-    /// Ascending linked EL prefix from min(w, [`header_floor`]) through w. Empty is allowed
-    /// when that range is only the separately supplied origin header. The s-U header permits
-    /// proving the inherited anchor before terminal metadata is seen. No execution state or
-    /// trusted cache is accepted here.
+    /// Ascending linked EL prefix from at least min(w, [`header_floor`]) through w. Empty is
+    /// allowed when that range is only the separately supplied origin header. No execution state
+    /// or trusted cache is accepted here.
     pub execution_headers: Vec<Header>,
 }
 

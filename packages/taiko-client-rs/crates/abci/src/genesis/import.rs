@@ -10,10 +10,8 @@ use super::{
     GenesisValidator, decode_bootstrap_state, genesis_time, verify_committee, verify_context,
 };
 use crate::{
-    AccountWitness, AnchorState, AnchorWitness, ChainParams, CommitteeState, GenesisRecord,
-    RawL1Header,
-    l1::{layout::inbox, verify_anchor_witness},
-    recovery::{RecoveryError, RecoveryOrigin, VerifiedRecovery, verify_recovery},
+    AnchorState, ChainParams, CommitteeState, GenesisRecord, RawL1Header,
+    recovery::{RecoveryError, RecoveryOrigin, VerifiedRecovery, recovery_anchor, verify_recovery},
     rules::chain_id_for,
     store::{AppState, STATE_SCHEMA_VERSION},
     types::{Member, ParentInfo},
@@ -95,23 +93,7 @@ pub fn verify_bootstrap(
                 )
                 .into());
             }
-            let anchor_slots = inbox::anchor_slots();
-            let anchor = verify_anchor_witness(
-                &AnchorWitness {
-                    l1_header: w.recovery_header.clone(),
-                    inbox: AccountWitness {
-                        storage: w
-                            .recovery_inbox
-                            .storage
-                            .iter()
-                            .filter(|p| anchor_slots.contains(&p.slot))
-                            .cloned()
-                            .collect(),
-                        ..w.recovery_inbox.clone()
-                    },
-                },
-                params.inbox,
-            )?;
+            let anchor = recovery_anchor(w, params)?;
             let expected = GenesisExpectation {
                 chain_id: chain_id(origin.generation)?,
                 initial_height: origin.height + 1,

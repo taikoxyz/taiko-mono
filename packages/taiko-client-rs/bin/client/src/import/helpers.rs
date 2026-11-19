@@ -252,11 +252,7 @@ pub(super) async fn el_install(
         state_root: terminal.state_root,
         finalized_height: manifest.finalized_height,
         finalized_hash: manifest.finalized_hash,
-        first_header: lander::checkpoint_import::header_floor(
-            v.state().origin_height(),
-            v.landing().height,
-            params.unsettled_limit,
-        ),
+        first_header: manifest.headers.first().ok_or_else(|| bad("missing first header"))?.number,
         last_header: v.landing().height,
     };
     let path = stage.join("headers.json");

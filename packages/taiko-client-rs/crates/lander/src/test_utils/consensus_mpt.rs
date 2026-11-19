@@ -1670,7 +1670,7 @@ pub(crate) async fn import_package(
         schema: crate::checkpoint_import::IMPORT_SCHEMA,
         genesis,
         checkpoint_height: height,
-        origin_header: fx.headers[&0].clone(),
+        origin_header: Some(fx.headers[&0].clone()),
         recovery_bootstrap: None,
         boundary_header: None,
         // The preimage for s - 1 that header(s)'s app_hash commits (DATA-5.4-3).

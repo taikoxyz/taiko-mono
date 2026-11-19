@@ -198,6 +198,13 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                 f.l2.provider.get_block_by_number(7.into()).await?.unwrap().header.hash,
                 recovered_committed_hash
             );
+            let stock = commands.dir.path().join("stock-state-at-11");
+            if with_import {
+                wait_committed(&c.cmt, 11, &mut node).await?;
+                node.stop().await?;
+                support::checkpoint_import::copy_stock_state(&installed.home, &stock)?;
+                node = commands.start_recovered(&installed, "after-stock-snapshot").await?;
+            }
             wait_checkpoint(&f, &mut node, 12).await?;
             mine_l1_blocks(&f.anvil.provider, 3).await?;
             let source = lander::l1::RpcLandingSource::new(
@@ -259,8 +266,15 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                 );
             }
             if with_import {
-                support::checkpoint_import::recovered(&f, &c, &commands, &installed, &old_blocks)
-                    .await?;
+                support::checkpoint_import::recovered(
+                    &f,
+                    &c,
+                    &commands,
+                    &installed,
+                    &old_blocks,
+                    &stock,
+                )
+                .await?;
                 node.stop().await?;
                 assert_eq!(fs::read(old_hrs_path)?, old_hrs);
                 assert_eq!(fs::read(old_key_path)?, old_key);
