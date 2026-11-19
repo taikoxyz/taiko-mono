@@ -49,6 +49,14 @@ controls; an independent wire oracle checked all twelve genuine primary JSONs.
 Later transition inputs are synthetic; actual Etna app/import remains WAITING.
 See [W04 evidence](REPORT.md#w04-running-validator-state-and-application-commitment).
 
+The [cached transport profile](conformance/COMET_TRANSPORT.md) sends public
+cached votes through real stock endpoints and framing. Ten bounded cases cover
+typed refusals, response unions, deadline reconnect, exhaustion and cancellation.
+Independent real retry and caller-assignment changes are detected; full request,
+response, caller and durable-state observations restore exactly. Production
+5s timing, trust gating and supervisor/WAL remain WAITING. See
+[W05 evidence](REPORT.md#w05-actual-cached-signer-transport-and-retries).
+
 These results do not close W02's broader exhaustive obligations or deployment checks.
 
 ## Run

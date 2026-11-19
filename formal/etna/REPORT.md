@@ -5701,3 +5701,108 @@ admission, consensus progress, evidence import and deployment remain WAITING.
 No natural protocol defect was confirmed. Exactly four selected deliverables
 are available; W05–W07 and the combined independent final gate continue. W02's
 original horizon3/8 exhaustive obligation remains OPEN under R01.
+
+## W05 actual cached signer transport and retries
+
+Implementation `17345d5ef375eba9318eddfa2a58cb0652cbb822` adds seven files
+for an offline stock-Comet transport profile and its exact receiver. It preserves
+all previous source manifests and public fixtures. The selected current document
+bundle is2e6763e21 and the executed stock source remains0880b4d378, with all1659
+canonical paths verified. The actual path is RetrySignerClient → SignerClient →
+SignerListenerEndpoint → protoio → stock SignerServer/handler → disk-decoded
+cached FilePV. Connections are real net.Pipe pairs delivered by a finite listener
+and separate stock server/dialer per Pipe. No private-key loader or new signature
+is used. The cache allowlist restricts exact nil precommit, its timestamp-only
+retry, cached prevote and one conflicting prevote; non-nil precommit is excluded.
+
+### Actual episodes and independent controls
+
+| Episode                               | Caller calls | Actual requests | Pipes | Selected result                                                                                    |
+| ------------------------------------- | -----------: | --------------: | ----: | -------------------------------------------------------------------------------------------------- |
+| Nil exact                             |            1 |               1 |     1 | Cached signature assigned and publicly verified.                                                   |
+| Nil timestamp retry                   |            1 |               1 |     1 | Caller124ns restored to cached123ns.                                                               |
+| Prevote exact                         |            1 |               1 |     1 | Cached non-nil-block prevote returned.                                                             |
+| Wrong chain then caller retry         |            2 |               2 |     1 | One typed refusal, then valid cached success.                                                      |
+| Conflicting prevote then caller retry |            2 |               2 |     1 | One typed refusal, then valid cached success.                                                      |
+| Wrong response union                  |            1 |               1 |     1 | Actual024200 PingResponse yields wrapped required-response exhaustion.                             |
+| Wrong union then automatic retry      |            1 |               2 |     1 | Cached success after another request on the same Pipe.                                             |
+| Truncated reply then retry            |            1 |               2 |     2 | Actual113-byte stock frame delivers112 bytes, open peer times out, client reconnects and succeeds. |
+| Transport exhaustion                  |            1 |               3 |     3 | Three real silent-reply timeouts exhaust the configured bound.                                     |
+| Close during retry wait               |            1 |               1 |     1 | Actual stock sleep observed, Close aborts and owned worker joins.                                  |
+
+The receiver binds both endpoints' complete request frames and caller chain/HRS,
+canonical sign bytes, the real handler's signed response and error, stock full
+write, delivered/read bytes, response union, read deadline/drop, caller-visible
+error and full resulting vote. Before/after each call it checks full cached HRS
+and durable public signature state. Host reads additionally bind file owner,
+mode0600, inode, timestamps, exact content and file set. Exact ordered Go events
+bind the producer PID/namespace/start tuple and each same-read receipt length/hash.
+All stock loop functions disappear after the bounded cleanup; the separate
+cancellation worker explicitly joins. Supervisors finish and owned jail roots empty.
+
+The primary full triplet ran original/refusal-branch/restored, each Go exit0 and
+ten complete receipts. Original/restored have16 actual requests; removing only
+SignVote's typed-error early return produces18. Both denied calls now retry once,
+then the caller-initiated valid call still succeeds, three requests per affected
+episode. The ordinary receiver rejects both at `$.calls[0].attempts`; their full
+variant receipts match exact expectations and the other eight cases are unchanged.
+All ten original/restored files are byte-identical, from distinct native processes
+and the same restored private source copy including modes and target inodes.
+
+A separate independent driver ran smoke/original/full caller-assignment omission/
+restored, native exits0 throughout. Only actual SignerClient's successful
+`*vote = resp.Vote` assignment is omitted. In seven successful calls, complete
+handler/wire evidence still verifies and the method returns nil, but the caller
+remains unsigned and its public verification fails; nil-time stays124ns. All five
+non-successful calls remain exact controls. Its independent positive receiver
+rejects each changed caller, while its explicit altered model checks all other
+fields. All ten independently restored files match both its own originals and
+the primary originals byte for byte. The author's alternate partial-assignment
+CLI campaign remains NOT_RUN and receives no native credit.
+
+Independent integer/protobuf/Keccak/public-point logic re-read all31 genuine
+primary files, including smoke, against the exact public fixture, full ordered
+logs, four native process identities, staged canonical source and durable identity.
+It independently reproduced the two extra-attempt cases and all other observations.
+The two independent restoration families and repeated smoke are repetitions of
+the same ten cases, not additional protocol coverage.
+
+### Defects repaired, evidence and limits
+
+Pre-run review corrected a post-start ping configuration race, missing producer
+identity, decoded-JSON-null treated as EOF, missing source/staged/modfile/previous
+phase guards, Boolean/zero metadata aliasing, and an incorrect wrong-chain caller
+after-state attributed to the configured server domain. Final source and behavior
+reviewers separately passed. The original API RED has10 tests with9 intended
+assertion failures; the15 focused GREEN tests passed on the frozen v1 source.
+V1's attempted smoke hit a sandbox cache-mount rc32 before Go and produced no
+receipt; it has zero semantic credit. The identical-code v2 scoped execution
+successfully ran smoke and all primary phases. No packages were installed.
+
+Committed branch and actual merge with current main479bc3db6 each passed415
+ordinary checks (229/166/20, no errors/failures/skips), all1753 frozen inputs stable.
+The private merge tree is `da3c052ccf71a36d88072cfb1f26546d507d70de`; the real index
+was unchanged. All579 historical model/config streams remain unchanged. No fresh
+local default TLC run is claimed. Published prior head2a9f3db4d's exact hosted gate
+was independently read back SUCCESS; the next head requires a new CI readback.
+
+| Retained evidence                            | SHA-256                                                            |
+| -------------------------------------------- | ------------------------------------------------------------------ |
+| Native producer                              | `4d55a5aa0ee756d62d26e130ffd354da4dee11ccdb873fdf0a7cd489bb39e223` |
+| Primary receiver/driver                      | `d6d3ef96186aca46755bbf6ec0cb6767c50232361feec5cce1c8456a893602cb` |
+| Fifteen focused tests                        | `daff9a9abe9cb2972d53f8ac71cce0a75efa4c2e8627104d6dec2751ee2f6bc7` |
+| Primary original native log                  | `9e99440eeee2a52493e842857002f5f4309a92cbdd445309c5898d0e263a504a` |
+| Primary typed-refusal variant log            | `9ed1e9e1df9d1285148c0c49d0d36d4ea4c8b50a59983e51bbf3f53be5ea028e` |
+| Independent complete assignment-omission log | `18c28938ef6aa21b55ff276670e94682138d12b5b1917a2d389a34a2a716bb1a` |
+| Independent31-file readback log              | `c8100cfde2209f6084cdc560b57dd04e785e90e2bf55aa0a4015f1451082faba` |
+| Independent source review                    | `b5bda16e3f16e0cb2115963f508d5d17b9218e512084e7844458952825c644c7` |
+| Independent behavior report                  | `a5d18c98855c472f51fef348d8ecd0ddc021a85f1457b48e6986fdfc1303ef6f` |
+
+This profile uses200ms client I/O/accept,20ms retry wait (2s for cancellation),
+3s server deadline and1h heartbeat interval. It measures no production5s timing
+or heartbeat progress. Timeout-driven CLIENT reconnection uses separately owned
+replacement servers; abrupt EOF/server reconnection, authenticated transport,
+trust gating, supervisor/WAL restart, fresh signing, failover and live production
+remain WAITING under C01. No natural protocol defect was confirmed. Five selected
+deliverables are available; W06/W07 and the combined final gate continue, with
+W02 broader horizon3/8 exhaustive acceptance still OPEN R01.

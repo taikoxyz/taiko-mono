@@ -93,11 +93,11 @@ Root acceptance split: the design requires the represented time1..8 envelope and
 
 **Interfaces:** Actual RetrySignerClient→SignerClient→ListenerEndpoint→protoio→SignerServer→handler→cached FilePV over net.Pipe/finite listener. Capture actual wire attempts/responses, typed versus transport errors, cancellation and durable state. Never call authenticated TCP dialers/private loaders/fresh signing.
 
-- [ ] Inspect full entrypoints/lifecycle and constrain at most10 episodes/three total SignVote attempts; freeze exact nil-precommit/prevote cached allowlist and safe-prevote-only conflict controls (never non-nil precommit) and owned endpoint/deadline cleanup.
-- [ ] Add RED tests for request aliases, wrong response union/assignment, truncated reply, typed refusal extra retries, transport exhaustion and cancellation; expected oracle remains independent of wire execution.
-- [ ] Implement actual stock endpoint path with public cached disk state and finite pipes; ordinary collector validates all attempts and complete decoded response/state, including refusal paths.
-- [ ] Root packet/source review→cached success smoke→bounded original/refusal-branch fault/restored; independent tester alters a different actual response-consumption edge and checks positive/restored episodes. Distinguish shortened deadlines from5s production settings.
-- [ ] Verify unchanged disk/HRS/public signature and no owned goroutine/process leftovers, focused regressions, independent gates, commit/publication; trusted reconnect/supervisor/WAL remains WAITING.
+- [x] Inspect full entrypoints/lifecycle and constrain at most10 episodes/three total SignVote attempts; freeze exact nil-precommit/prevote cached allowlist and safe-prevote-only conflict controls (never non-nil precommit) and owned endpoint/deadline cleanup.
+- [x] Add RED tests for request aliases, wrong response union/assignment, truncated reply, typed refusal extra retries, transport exhaustion and cancellation; expected oracle remains independent of wire execution.
+- [x] Implement actual stock endpoint path with public cached disk state and finite pipes; ordinary collector validates all attempts and complete decoded response/state, including refusal paths.
+- [x] Root packet/source review→cached success smoke→bounded original/refusal-branch fault/restored; independent tester alters a different actual response-consumption edge and checks positive/restored episodes. Distinguish shortened deadlines from5s production settings.
+- [x] Verify unchanged disk/HRS/public signature and no owned goroutine/process leftovers, focused regressions, independent gates, commit/publication; trusted reconnect/supervisor/WAL remains WAITING.
 
 ### Task 6: W06 arbitrary-height live proving and recovery
 

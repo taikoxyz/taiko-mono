@@ -53,8 +53,8 @@ archived searches retain their original dispositions.
 | W02  | Empty-slot lifecycle and successive slot reuse     | DELIVERED selected finite checkpoint `29d4a3593`; original safety3/8 exhaustive acceptance OPEN under R01; native Registry WAITING.    |
 | W03  | Fixed-supply capacity and explicit token recycling | DELIVERED selected finite checkpoint `85fb34f40`; exact arithmetic, closed ledger and independent controls passed; deployment WAITING. |
 | W04  | Running validator state, sparse lookup and AppHash | DELIVERED selected public stock/ABI component `7c4658c7a`; native and independent full-wire gates passed; real app/import WAITING.     |
-| W05  | Framed cached signer replies and finite retries    | ACTIVE static preflight; public cached signatures only; supervisor integration WAITING.                                                |
-| W06  | Unit-height proving/recovery and immutable overlap | Pending; current four-field cuts, fresh-generation progress.                                                                           |
+| W05  | Framed cached signer replies and finite retries    | DELIVERED selected cached transport `17345d5ef`; native wire/retry and independent receiver controls passed; supervisor/WAL WAITING.   |
+| W06  | Unit-height proving/recovery and immutable overlap | ACTIVE implementation; current four-field cuts, fresh-generation progress.                                                             |
 | W07  | Timestamp stop, terminal settlement and recovery   | Pending; current schedule/authorization clocks; actual implementation WAITING.                                                         |
 
 W02 selected delivery comprises horizon-2 universal checks and the six grouped
