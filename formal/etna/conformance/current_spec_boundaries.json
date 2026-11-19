@@ -653,6 +653,57 @@
         "artifacts": [],
         "evidence": null
       }
+    },
+    "boundary-products": {
+      "timestamp-projection": {
+        "disposition": "current-model",
+        "ruleIds": ["START-10.1-3e", "START-10.1-5b", "START-10.1-14d", "START-10.1-14e", "STOR-B-15a"],
+        "scope": "Ordinary bounded timestamp safety under the reviewed same-domain (s,bad) projection.",
+        "artifacts": ["EtnaTimestampSafety.tla", "conformance/timestamp_projection.py"],
+        "evidence": null
+      },
+      "repeated-recovery": {
+        "disposition": "current-model",
+        "ruleIds": ["RECOV-8.1-4", "RECOV-8.3-16", "RECOV-8.4-7"],
+        "scope": "Selected finite repeated-recovery and schedule boundaries through two generation changes.",
+        "artifacts": ["EtnaRepeatedRecovery.tla", "conformance/repeated_recovery.py"],
+        "evidence": null
+      },
+      "mixed-rule-landing": {
+        "disposition": "current-model",
+        "ruleIds": ["START-10.1-3f", "PROOF-6.2-45", "PROOF-6.2-45a"],
+        "scope": "Selected modeled landing across timestamp rules with both proof-backend image sets.",
+        "artifacts": ["EtnaRuleRange.tla", "conformance/rule_range.py"],
+        "evidence": null
+      },
+      "funded-forfeiture": {
+        "disposition": "current-source-only",
+        "ruleIds": ["FORF-4.4-4", "FORF-4.4-7", "FORF-4.4-11", "FORF-4.4-19"],
+        "scope": "Current funded forfeiture, accounting and rollback source boundary. Historical contract execution has a separate implementation identity. Current runtime acceptance is open.",
+        "artifacts": [],
+        "evidence": null
+      },
+      "registry-origin-selection": {
+        "disposition": "current-source-only",
+        "ruleIds": ["COMM-4.3-11", "COMM-4.3-12", "RECOV-8.1-7", "RECOV-8.2-4"],
+        "scope": "Current registry snapshot and origin selection source boundary. Historical native components have separate implementation identities. Current registry and app integration acceptance is open.",
+        "artifacts": [],
+        "evidence": null
+      },
+      "terminal-seen-commit": {
+        "disposition": "current-source-only",
+        "ruleIds": ["DATA-5.4-2", "DATA-5.4-3", "DATA-5.4-5", "PROOF-6.2-45a"],
+        "scope": "Current terminal and seen-commit source boundary for import. Public stock Comet observations have a separate implementation identity. Current app import acceptance is open.",
+        "artifacts": [],
+        "evidence": null
+      },
+      "evidence-lifecycle": {
+        "disposition": "current-source-only",
+        "ruleIds": ["DATA-5.4-2", "DATA-5.4-5", "DATA-5.4-8"],
+        "scope": "Current evidence lifecycle source boundary for import. Public stock Comet observations have a separate implementation identity. Current app evidence and import acceptance is open.",
+        "artifacts": [],
+        "evidence": null
+      }
     }
   }
 }

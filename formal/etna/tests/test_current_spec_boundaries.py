@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import shutil
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -265,6 +266,86 @@ class CurrentSpecBoundaries(unittest.TestCase):
                 for old_bundle in (CANONICAL, REVIEWED):
                     with self.assertRaisesRegex(ValueError, "requires the current reviewed workspace"):
                         boundary.select_claim(old_bundle, consumer, claim)
+
+    def test_boundary_product_inventory_retains_every_old_claim_and_bundle(self):
+        manifest = self.manifest()
+        old_claims = manifest["claims"].copy()
+        added = old_claims.pop("boundary-products", {})
+        self.assertEqual(set(added), {
+            "timestamp-projection", "repeated-recovery", "mixed-rule-landing", "funded-forfeiture",
+            "registry-origin-selection", "terminal-seen-commit", "evidence-lifecycle",
+        })
+        for inventory, expected in (
+            (old_claims, "5f9bd8672e8a183c071609a903ff532adc7da31ed51f8e9cda8efcadca8e8603"),
+            (manifest["bundles"], "69ca7e52249cab3d6490b74e3abf5dc6df97277e44ef37fe41bdaac256d6042e"),
+        ):
+            self.assertEqual(hashlib.sha256(json.dumps(inventory, sort_keys=True,
+                                                       separators=(",", ":")).encode()).hexdigest(), expected)
+
+    def test_boundary_product_selector_accepts_every_reviewed_current_claim(self):
+        boundary = load_runner("current_spec")
+        for claim in ("timestamp-projection", "repeated-recovery", "mixed-rule-landing", "funded-forfeiture",
+                      "registry-origin-selection", "terminal-seen-commit", "evidence-lifecycle"):
+            with self.subTest(claim=claim):
+                try:
+                    selected = boundary.select_claim(CURRENT, "boundary-products", claim)
+                except ValueError as error:
+                    self.fail(str(error))
+                self.assertEqual(selected["claimId"], claim)
+                self.assertEqual(selected["execution"], "NOT_EVALUATED")
+                self.assertIsNone(selected["evidence"])
+                for old_bundle in (CANONICAL, REVIEWED):
+                    with self.assertRaisesRegex(ValueError, "requires the current reviewed workspace"):
+                        boundary.select_claim(old_bundle, "boundary-products", claim)
+
+    def boundary_scope(self):
+        self.assertTrue((ROOT / "boundary_scope.py").is_file(), "boundary product workspace selector is missing")
+        with patch("sys.path", [str(ROOT), *sys.path]):
+            return load_runner("boundary_scope")
+
+    def test_boundary_scope_classifies_the_effective_workspace(self):
+        scope = self.boundary_scope()
+        checkout = ROOT.parents[2]
+        active = WORKSPACE_SPEC[document_identity((checkout / DOCS[0]).read_bytes())["sha256"]]
+        if active == CURRENT:
+            for fixed in ("timestamp-projection", "repeated-recovery"):
+                receipt = scope.reviewed_boundary(checkout, fixed)
+                self.assertEqual(set(receipt), {"workspace", "claim"})
+                self.require_workspace(receipt["workspace"])
+                self.assertEqual(receipt["claim"]["claimId"], fixed)
+                self.assertEqual(receipt["claim"]["execution"], "NOT_EVALUATED")
+        else:
+            with self.assertRaisesRegex(ValueError, "requires the current reviewed workspace"):
+                scope.reviewed_boundary(checkout, "timestamp-projection")
+        with self.assertRaises(ValueError):
+            scope.reviewed_boundary(checkout, "unknown")
+
+    def test_boundary_scope_refuses_unknown_documents_and_old_claim_drift(self):
+        self.boundary_scope()
+        with tempfile.TemporaryDirectory() as directory:
+            checkout = Path(directory)
+            conformance = copy_conformance_checkout(checkout)
+            with patch("sys.path", [str(ROOT), *sys.path]):
+                scope = load_runner("boundary_scope", conformance)
+            doc = checkout / DOCS[1]
+            original = doc.read_bytes()
+            doc.write_bytes(original + b"\n")
+            try:
+                with self.assertRaisesRegex(ValueError, "do not match one reviewed revision"):
+                    scope.reviewed_boundary(checkout, "timestamp-projection")
+            finally:
+                doc.write_bytes(original)
+            changed = self.manifest()
+            changed["claims"]["registry-cases"]["displacement"]["scope"] += " drift"
+            manifest = conformance / "current_spec_boundaries.json"
+            original = manifest.read_bytes()
+            manifest.write_text(json.dumps(changed))
+            try:
+                with patch.object(scope.current_spec, "MANIFEST_PATH", manifest), \
+                        self.assertRaisesRegex(ValueError, "claims inventory differs"):
+                    scope.reviewed_boundary(checkout, "timestamp-projection")
+            finally:
+                manifest.write_bytes(original)
 
 if __name__ == "__main__":
     unittest.main()

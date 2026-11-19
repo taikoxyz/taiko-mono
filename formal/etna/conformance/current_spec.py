@@ -11,7 +11,7 @@ DOCUMENT_PATHS = tuple("packages/protocol/docs/etna/" + name
 # Independent pins for canonical JSON of the two reviewed inventories. Changing
 # document pins cannot grant a claim, and changing a claim cannot admit new bytes.
 BUNDLE_INVENTORY_SHA256 = "69ca7e52249cab3d6490b74e3abf5dc6df97277e44ef37fe41bdaac256d6042e"
-CLAIM_INVENTORY_SHA256 = "5f9bd8672e8a183c071609a903ff532adc7da31ed51f8e9cda8efcadca8e8603"
+CLAIM_INVENTORY_SHA256 = "d127d53a73905b701d950d75c1021433f05de6c6dfc3e21a0b96394ab79ef958"
 
 
 def _sha(raw):
