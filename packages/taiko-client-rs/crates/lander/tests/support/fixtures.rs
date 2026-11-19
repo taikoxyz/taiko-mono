@@ -428,7 +428,9 @@ pub fn signed_pair(
         validators_hash: committee.validators.hash(),
         next_validators_hash: next.validators.hash(),
         consensus_hash: Hash::Sha256([2; 32]),
-        app_hash: AppHash::try_from(parent.to_vec()).unwrap(),
+        // appHash of the parent's EL hash (CONS-3.1-8), never the bare hash. The lander leaves it
+        // unchecked (PROOF-6.2-42), so a zero validator-state hash stands in.
+        app_hash: AppHash::try_from(abci::valstate::app_hash(parent, B256::ZERO).to_vec()).unwrap(),
         last_results_hash: None,
         evidence_hash: Some(merkle(&[])),
         proposer_address: committee.validators.validators()[0].address,

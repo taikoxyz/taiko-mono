@@ -5,7 +5,9 @@ use alloy_consensus::Header;
 use alloy_primitives::U256;
 use alloy_provider::Provider;
 use lander::{
-    checkpoint_import::{ImportPackage, WindowBlock, evidence_expired, header_floor},
+    checkpoint_import::{
+        IMPORT_SCHEMA, ImportPackage, WindowBlock, evidence_expired, header_floor,
+    },
     comet::{CometSource, HttpCometSource},
 };
 use prost::Message;
@@ -37,7 +39,8 @@ pub struct Request {
     /// The package directory to create; it must be absent.
     #[arg(long)]
     pub out: PathBuf,
-    /// The archived raw validator-state preimage at s, for a source app that already pruned it.
+    /// The archived raw validator-state preimage after s - 1 (DATA-5.4-3), for a source app that
+    /// already pruned it.
     #[arg(long)]
     pub validator_state: Option<PathBuf>,
 }
@@ -187,16 +190,7 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
     } else {
         header(&el, origin).await?
     };
-    let preimage = if height == origin {
-        if archived.is_some() {
-            return Err(bad("fixed genesis has no landed preimage"))
-        }
-        Vec::new()
-    } else if let Some(p) = archived {
-        read(p, 16 << 20)?
-    } else {
-        comet.val_state(height).await.map_err(source)?
-    };
+    let preimage = preimage(&comet, height, origin, archived).await?;
     let recovery_bootstrap = match &request.recovery_bootstrap {
         Some(p) => Some(
             serde_json::from_slice(&read(p, 16 << 20)?)
@@ -205,7 +199,7 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
         None => None,
     };
     let meta = ImportPackage {
-        schema: 1,
+        schema: IMPORT_SCHEMA,
         genesis,
         checkpoint_height: height,
         origin_header,
@@ -229,6 +223,29 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
     sync(parent)?;
     Ok(json!({"phase":"exported","height":height,"generation":generation}))
 }
+/// The package's validator-state preimage for a checkpoint at `height`: the state after
+/// `height - 1` (DATA-5.4-3, DATA-5.4-8), from `archived` or else the source app's
+/// `/val_state/<height - 1>` query, which serves any retained height. The fixed origin takes
+/// none (DATA-5.4-1). It stays unauthenticated until `package::verify` checks it against
+/// header(s)'s app_hash.
+async fn preimage(
+    comet: &impl CometSource,
+    height: u64,
+    origin: u64,
+    archived: Option<&Path>,
+) -> R<Vec<u8>> {
+    if height == origin {
+        if archived.is_some() {
+            return Err(bad("fixed genesis takes no validator-state preimage"))
+        }
+        return Ok(Vec::new());
+    }
+    match archived {
+        Some(p) => read(p, 16 << 20),
+        None => comet.val_state(height - 1).await.map_err(source),
+    }
+}
+
 /// Untrusted history has no authority to promote defects to a durable safety latch.
 fn source(e: lander::LanderError) -> ImportError {
     match e {
@@ -236,5 +253,47 @@ fn source(e: lander::LanderError) -> ImportError {
             ImportError::Unavailable(format!("archive: {e}"))
         }
         other => bad(format!("invalid archive response: {other}")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    /// An archive app that answers `/val_state/<h>` for any `h` and records each request.
+    #[derive(Default)]
+    struct Archive(Mutex<Vec<u64>>);
+
+    #[async_trait::async_trait]
+    impl CometSource for Archive {
+        async fn status(&self) -> lander::Result<lander::comet::CometStatus> {
+            unreachable!("the preimage read needs no status")
+        }
+        async fn block(&self, _: u64) -> lander::Result<lander::CertifiedBlock> {
+            unreachable!("the preimage read needs no block")
+        }
+        async fn val_state(&self, height: u64) -> lander::Result<Vec<u8>> {
+            self.0.lock().unwrap().push(height);
+            Ok(height.to_be_bytes().to_vec())
+        }
+    }
+
+    /// DATA-5.4-3/8: the package for s carries the state after s - 1, at any s, including one
+    /// that is not a multiple of 6.
+    #[tokio::test]
+    async fn export_reads_s_minus_1_at_non_multiple_of_6() {
+        let archive = Archive::default();
+        assert_eq!(preimage(&archive, 7, 0, None).await.unwrap(), 6u64.to_be_bytes());
+        assert_eq!(*archive.0.lock().unwrap(), [6]);
+        // The fixed origin takes no preimage and reads none.
+        assert!(preimage(&archive, 0, 0, None).await.unwrap().is_empty());
+        assert_eq!(*archive.0.lock().unwrap(), [6]);
+        // An archived preimage replaces the query.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("validator-state.bin");
+        std::fs::write(&path, b"after 6").unwrap();
+        assert_eq!(preimage(&archive, 7, 0, Some(&path)).await.unwrap(), b"after 6");
+        assert_eq!(*archive.0.lock().unwrap(), [6]);
     }
 }

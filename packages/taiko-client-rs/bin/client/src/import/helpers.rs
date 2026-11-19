@@ -71,8 +71,9 @@ fn check_comet(stdout: &[u8], expected: &CometReport, comet_hash: B256) -> R<()>
 }
 
 /// Install the stock Comet stores for s > o into the absent `home` from the stock dir
-/// (DATA-5.4-3/4/5). The post-s AppHash is ELHash(s). Go checks nothing again: a nonzero exit or
-/// a receipt that differs from the authenticated window is unavailable, never a latch.
+/// (DATA-5.4-3/4/5). The post-s AppHash is appHash(ELHash(s), valStateHash(s)) (CONS-3.1-8),
+/// as the app's Info reports it. Go checks nothing again: a nonzero exit or a receipt that
+/// differs from the authenticated window is unavailable, never a latch.
 pub(super) async fn comet_install(
     lock: &File,
     helper: &Path,
@@ -89,7 +90,7 @@ pub(super) async fn comet_install(
         .arg("--stock-dir")
         .arg(stock)
         .arg("--app-hash")
-        .arg(v.landing().el_hash.to_string());
+        .arg(v.app_hash().to_string());
     let output = run(command, "etna-comet-import").await?;
     if !output.status.success() {
         return Err(unavailable(format!(

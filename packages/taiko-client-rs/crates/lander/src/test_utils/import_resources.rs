@@ -4,7 +4,7 @@
 use super::*;
 use crate::{
     checkpoint_import::{ImportPackage, ImportValidator, WindowBlock, authenticate_import},
-    test_utils::consensus::{BATCH_RECIPIENT, merkle, sign_commit, timed_pair},
+    test_utils::consensus::{BATCH_RECIPIENT, merkle, resign_at, sign_commit, timed_pair},
 };
 use abci::{L1Error, L1Source};
 use prost::Message;
@@ -153,6 +153,10 @@ async fn generate(dir: &Path, s: u64, period: u64) {
     );
     vs.height = s;
     fx.val_states.insert(s, vs.clone());
+    // The package carries the state after s - 1 (DATA-5.4-3); no switch changes it here.
+    let mut before = vs.clone();
+    before.height = s - 1;
+    fx.val_states.insert(s - 1, before);
     let mut pkg = import_package(&fx, s).await;
     let mut frames = BufWriter::new(File::create_new(dir.join("blocks.jsonl")).unwrap());
     let keys = [SigningKey::from_slice(&[1; 32]).unwrap()];
@@ -245,7 +249,7 @@ async fn generate(dir: &Path, s: u64, period: u64) {
             ommers_hash: EMPTY_OMMER_ROOT_HASH,
             ..Default::default()
         };
-        let pair = timed_pair(
+        let mut pair = timed_pair(
             EtnaEnvelope {
                 block: ExecutionBlock { header: el.clone(), transactions: vec![] },
                 anchor: witness,
@@ -259,6 +263,11 @@ async fn generate(dir: &Path, s: u64, period: u64) {
             native_time(h + 1),
             Some(last_results),
         );
+        if h == s {
+            // Header(s) commits the preimage for s - 1 with ELHash(s - 1) (CONS-3.1-8).
+            pair.block.header.app_hash = app_hash(parent.hash, &fx.val_states[&(s - 1)]);
+            resign_at(&mut pair, &fx.committees[&0], &keys, native_time(h + 1));
+        }
         if h == w {
             pkg.boundary_header = Some(pair.block.header.clone());
             pkg.execution_headers = vec![el.clone()];
@@ -347,7 +356,8 @@ async fn verify(dir: &Path, s: u64, period: u64) {
             .windows(2)
             .all(|h| h[0].number + 1 == h[1].number && h[0].hash_slow() == h[1].parent_hash)
     );
-    assert_eq!(v.state().val_state.hash(), v.landing().val_state_hash);
+    assert_eq!(v.val_state_before().unwrap().encode(), pkg.validator_state.as_ref());
+    assert_eq!(v.state().val_state.height, s);
     let calls = own.calls.lock().unwrap();
     assert!(
         calls

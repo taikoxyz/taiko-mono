@@ -325,7 +325,11 @@ pub async fn import(own: &Own, inputs: &Inputs, root: &Path) -> R<Value> {
     helpers::el_install(&lock, inputs, &stage, &manifest, &params, &v).await?;
     let store = abci::Store::new(ready.join("app"));
     let stored = if v.first_height().is_some() {
-        store.install_import(v.state(), v.recovery_bootstrap())
+        // The authenticated preimage for s - 1 is a state the node holds exactly: keep it as the
+        // record of s - 1, which the retained `/val_state` range includes (SYNC-9-5c).
+        v.val_state_before()
+            .map_or(Ok(()), |before| store.save_val_state(before))
+            .and_then(|()| store.install_import(v.state(), v.recovery_bootstrap()))
     } else {
         // InitChain authenticates the origin itself (DATA-5.4-1, RECOV-8.4).
         v.recovery_bootstrap().map_or(Ok(()), |b| store.save_recovery_bootstrap(b))

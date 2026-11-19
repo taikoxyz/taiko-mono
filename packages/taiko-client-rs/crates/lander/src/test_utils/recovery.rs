@@ -202,6 +202,8 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
             [&schedule.active_committee_epoch(height + 1, 6).unwrap()]
             .validators
             .hash();
+        // At c + 1 the parent state is generation two's genesis state (RECOV-8.4-7).
+        pair.block.header.app_hash = app_hash(parent.hash_slow(), &f.val_states[&(height - 1)]);
         super::super::consensus::resign(&mut pair, &f.committees[&active], &keys);
         f.blocks.insert(height, pair);
         f.headers.insert(height, el);

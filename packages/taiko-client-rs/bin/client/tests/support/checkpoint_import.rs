@@ -107,7 +107,7 @@ async fn checkpoint_import_latest_full_node_restarts_forced_skips_and_retries() 
 }
 
 /// An older checkpoint (s = 6, target 12) exported with the archived validator-state preimage
-/// (DATA-5.4-3, SYNC-9-5c). The import leaves the key, HRS, domains log and WAL unchanged
+/// for s - 1 (DATA-5.4-3, SYNC-9-5c). The import leaves the key, HRS, domains log and WAL unchanged
 /// (DATA-5.4-7); the supervisor on `ready` proposes in a later round, and the chain lands its
 /// block.
 #[tokio::test(flavor = "multi_thread")]
@@ -204,24 +204,26 @@ async fn registered_older(
     let (s, target) = (6, 12);
     let base = commands.dir.path().canonicalize()?;
     c.wait_for_height(s).await?;
-    // The app's sidecar is checksummed; its query answers the raw preimage the export takes.
+    // The app's sidecar is checksummed; its query answers the raw preimage for s - 1 that the
+    // export takes.
     let preimage = tokio::time::timeout(Duration::from_secs(20), async {
         loop {
             // A transient RPC error keeps polling, as a refusal does.
-            if let Some(preimage) = c.cmt.abci_query("/val_state/6").await.ok().flatten() {
+            if let Some(preimage) = c.cmt.abci_query("/val_state/5").await.ok().flatten() {
                 return preimage
             }
             tokio::time::sleep(Duration::from_millis(50)).await
         }
     })
     .await
-    .context("source app must commit preimage 6")?;
+    .context("source app must commit preimage 5")?;
     let archived = base.join("archived-val-state.bin");
     fs::write(&archived, preimage).context("archive live validator-state preimage")?;
     land(f, c, commands, target).await?;
-    // Node 0 refuses 6 once its floor passes it, so the export needs the archived preimage.
+    // Node 0 refuses 5 once its floor (checkpoint - 1) passes it, so the export needs the
+    // archived preimage.
     tokio::time::timeout(Duration::from_secs(90), async {
-        while !matches!(c.cmt.abci_answer("/val_state/6").await, Ok(Err(_))) {
+        while !matches!(c.cmt.abci_answer("/val_state/5").await, Ok(Err(_))) {
             tokio::time::sleep(Duration::from_millis(100)).await
         }
     })
@@ -790,10 +792,10 @@ async fn registered_follow(
         later_round |= r > 0;
     }
     ensure!(later_round, "stock differential includes a genuine later-round proposer");
-    let grid = new_height / 6 * 6;
+    // Each committed height has a validator-state record (SYNC-9-5c).
     ensure!(
-        fs::read(ready.join(format!("app/val-state-{grid}.bin")))? ==
-            fs::read(c.app_dir(1).join(format!("val-state-{grid}.bin")))?
+        fs::read(ready.join(format!("app/val-state-{new_height}.bin")))? ==
+            fs::read(c.app_dir(1).join(format!("val-state-{new_height}.bin")))?
     );
     let hrs = serde_json::from_slice::<Value>(&fs::read(&hrs)?)?["height"]
         .as_str()
@@ -862,9 +864,10 @@ async fn fullnode_template(
     Ok((template, proxy, rp))
 }
 
-/// Preserve real recovery grid preimages independently of the live runtime's prune floor.
+/// Preserve real recovery validator-state preimages independently of the live runtime's prune
+/// floor.
 pub fn enable_recovery_archive(commands: &mut Commands) -> Result<()> {
-    let archive = commands.dir.path().canonicalize()?.join("grid-archive");
+    let archive = commands.dir.path().canonicalize()?.join("val-state-archive");
     fs::create_dir(&archive)?;
     commands.archive = Some(archive);
     Ok(())
@@ -899,7 +902,7 @@ pub async fn recovered(
     );
     let target = 12;
     ensure!(f.checkpoint().await?.0 >= target, "the recovered generation landed {target}");
-    let archive = parent.join("grid-archive");
+    let archive = parent.join("val-state-archive");
     let domain = alloy_primitives::keccak256(doc.chain_id.as_bytes());
     ensure!(old.len() == 6, "the original blocks 1..=6");
     for s in [6, 12] {
@@ -910,7 +913,8 @@ pub async fn recovered(
         for h in 7..=s {
             blocks.push(c.cmt.envelope(h).await?.block);
         }
-        let preimage = archive.join(format!("{domain}-{s}.bin"));
+        // An import at s carries the state after s - 1 (DATA-5.4-3).
+        let preimage = archive.join(format!("{domain}-{}.bin", s - 1));
         let export = Export {
             s,
             comet_genesis: &g,

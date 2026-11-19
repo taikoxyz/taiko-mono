@@ -73,7 +73,8 @@ pub(super) async fn verify(
 }
 
 /// Complete the stock dir beside the authenticated `blocks.jsonl` that [`verify`] wrote: the
-/// original genesis and the validator-state preimage at s, both from the verified checkpoint.
+/// original genesis and the validator state DATA-5.4-3 derives for s, both from the verified
+/// checkpoint. Go installs that state's s + 1 and s + 2 sets.
 pub(super) fn write_stock_dir(stock: &Path, v: &VerifiedImport) -> R<()> {
     write_new(&stock.join("genesis.json"), &serde_json::to_vec(v.genesis()).map_err(bad)?)?;
     write_new(&stock.join("validator-state.bin"), &v.state().val_state.encode())

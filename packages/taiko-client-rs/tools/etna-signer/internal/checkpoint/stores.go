@@ -26,7 +26,8 @@ import (
 const (
 	// genesisFile holds the original GenesisDoc JSON.
 	genesisFile = "genesis.json"
-	// validatorStateFile holds the raw appendix-A preimage at s.
+	// validatorStateFile holds the raw appendix-A preimage of valStateHash(s): the state the
+	// importer derived for s from the package's authenticated preimage for s-1 (DATA-5.4-3).
 	validatorStateFile = "validator-state.bin"
 	// blocksFile holds one Block JSON object per line, ascending from w+1 to s.
 	blocksFile = "blocks.jsonl"
@@ -37,11 +38,12 @@ const (
 type stockInput struct {
 	genesisRaw []byte
 	genesis    *types.GenesisDoc
-	// height is s, the preimage height.
+	// height is s, the height of the derived validator state.
 	height int64
-	// current and next are the s+1 and s+2 sets with their landed priorities and proposers.
+	// current and next are the s+1 and s+2 sets with their derived priorities and proposers.
 	current, next *types.ValidatorSet
-	// appHash is ELHash(s), the post-s AppHash.
+	// appHash is the post-s AppHash appHash(ELHash(s), valStateHash(s)) (CONS-3.1-8), as the
+	// importer computed it; it is installed, not recomputed.
 	appHash []byte
 	// blocks is the path of blocksFile.
 	blocks string
@@ -105,7 +107,8 @@ func (in *stockInput) walk(visit func(*blockRecord) error) error {
 }
 
 // state builds the post-s state (DATA-5.4-4): the terminal BlockID, time and signing set,
-// the preimage's s+1 and s+2 sets, AppHash = ELHash(s) and the original InitialHeight.
+// the preimage's s+1 and s+2 sets, AppHash = appHash(ELHash(s), valStateHash(s)) and the
+// original InitialHeight.
 func (in *stockInput) state(terminal *blockRecord) (sm.State, error) {
 	if terminal == nil {
 		return sm.State{}, errors.New("empty consensus window")

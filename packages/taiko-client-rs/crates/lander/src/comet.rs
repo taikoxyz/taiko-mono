@@ -33,9 +33,9 @@ pub trait CometSource: Send + Sync {
     async fn status(&self) -> Result<CometStatus>;
     /// Reads a complete block and its decision certificate at exactly `height`.
     async fn block(&self, height: u64) -> Result<CertifiedBlock>;
-    /// Reads the raw validator-state preimage (ENC-A-29a) the app reports after the grid
-    /// `height`, unauthenticated. A rejected query or an unreachable node is
-    /// [`LanderError::Temporary`].
+    /// Reads the raw validator-state preimage (ENC-A-29a) the app reports after `height`, any
+    /// height it retains (`/val_state/<height>`), unauthenticated. A rejected query or an
+    /// unreachable node is [`LanderError::Temporary`].
     async fn val_state(&self, height: u64) -> Result<Vec<u8>>;
 }
 

@@ -20,7 +20,7 @@ func run(args []string) error {
 	flags := flag.NewFlagSet("install", flag.ContinueOnError)
 	home := flags.String("home", "", "absent stock home to create")
 	stockDir := flags.String("stock-dir", "", "directory holding genesis.json, validator-state.bin and blocks.jsonl")
-	appHash := flags.String("app-hash", "", "post-s AppHash ELHash(s) as 0x and 32 bytes")
+	appHash := flags.String("app-hash", "", "post-s AppHash appHash(ELHash(s), valStateHash(s)) as 0x and 32 bytes")
 	if err := flags.Parse(args[1:]); err != nil {
 		return err
 	}

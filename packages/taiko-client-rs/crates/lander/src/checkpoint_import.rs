@@ -43,11 +43,16 @@ pub enum ImportError {
     Safety(String),
 }
 
-/// Version-one metadata; block payloads are supplied separately as a streaming iterator.
+/// The only supported [`ImportPackage::schema`]. Version 2 carries the validator-state
+/// preimage for s − 1 (DATA-5.4-3, DATA-5.4-8); version 1's preimage at s is refused, with no
+/// migration.
+pub const IMPORT_SCHEMA: u32 = 2;
+
+/// Version-two metadata; block payloads are supplied separately as a streaming iterator.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ImportPackage {
-    /// Supported format version, exactly one.
+    /// Supported format version, exactly [`IMPORT_SCHEMA`].
     pub schema: u32,
     /// Immutable original stock genesis, including original InitialHeight and witness.
     pub genesis: GenesisDoc,
@@ -59,7 +64,8 @@ pub struct ImportPackage {
     pub recovery_bootstrap: Option<abci::recovery::RecoveryBootstrap>,
     /// Predecessor header at w, authenticated by the first block's LastBlockID; absent at o.
     pub boundary_header: Option<tendermint::block::Header>,
-    /// Exact appendix-A preimage; empty only for fixed-origin initialization.
+    /// Exact appendix-A preimage of valStateHash(s − 1), which with ELHash(s − 1) gives
+    /// header(s)'s app_hash (DATA-5.4-3); empty only for fixed-origin initialization.
     pub validator_state: Bytes,
     /// Ascending linked EL prefix from min(w, [`header_floor`]) through w. Empty is allowed
     /// when that range is only the separately supplied origin header. The s-U header permits
@@ -105,15 +111,16 @@ pub struct Landing {
     pub el_hash: B256,
     /// Landed consensus header hash.
     pub comet_hash: B256,
-    /// Landed canonical post-height validator-state commitment.
-    pub val_state_hash: B256,
 }
 
 /// Authenticated reconstruction. Serialization is a report, never a deserializable trust token.
 #[derive(Debug, Serialize)]
 pub struct VerifiedImport {
-    /// Exact post-checkpoint application metadata.
+    /// Exact post-checkpoint application metadata, with the validator state derived for s.
     state: AppState,
+    /// The validator state after s − 1 that header(s)'s app_hash commits (DATA-5.4-3), absent
+    /// on the fixed-genesis path.
+    val_state_before: Option<ValState>,
     /// Original generation genesis, never normalized to s+1.
     genesis: GenesisDoc,
     /// Selected retained landing.
@@ -131,6 +138,16 @@ impl VerifiedImport {
     /// Verified state to stage; completion alone never grants trust or signing authority.
     pub fn state(&self) -> &AppState {
         &self.state
+    }
+    /// The authenticated validator state after s − 1, the package's preimage; None means
+    /// fixed-genesis startup.
+    pub fn val_state_before(&self) -> Option<&ValState> {
+        self.val_state_before.as_ref()
+    }
+    /// The post-s AppHash, which the stock stores install and the app's Info reports
+    /// (DATA-5.4-4, CONS-3.1-8): appHash of ELHash(s) and the validator state derived for s.
+    pub fn app_hash(&self) -> B256 {
+        abci::valstate::app_hash(self.state.parent.hash, self.state.val_state.hash())
     }
     /// Original fixed genesis to install unchanged.
     pub fn genesis(&self) -> &GenesisDoc {
@@ -159,41 +176,33 @@ impl VerifiedImport {
 }
 
 /// Reject a selected height that cannot belong to this generation's retained settled history.
+/// A landing may end at any height above its parent.
 fn validate_selected_landing(
     record: &Landing,
     generation: u64,
     origin: u64,
     latest: u64,
 ) -> Result<(), ImportError> {
-    // Recovery origins are themselves on the S-relative grid, so rebasing at o preserves it.
-    let on_grid = |height: u64| {
-        height.checked_sub(origin).is_some_and(|offset| offset.is_multiple_of(abci::GRID_INTERVAL))
-    };
     // An absent future record cannot yet be distinguished from a landing awaiting finality.
     // A populated historical record above the rolled-back frontier is already disqualified.
     if record.height > latest &&
         record.height <= abci::schedule::UINT48_MAX &&
-        on_grid(record.height) &&
         record.parent_height == 0 &&
         record.generation == 0 &&
         record.forced_cursor == 0 &&
         record.el_hash.is_zero() &&
-        record.comet_hash.is_zero() &&
-        record.val_state_hash.is_zero()
+        record.comet_hash.is_zero()
     {
         return Err(unavailable("selected landing has not reached the own finalized frontier"));
     }
     if record.height < origin ||
         record.height > latest ||
-        !on_grid(record.height) ||
         record.el_hash.is_zero() ||
         (record.height > origin &&
             (record.generation != generation ||
                 record.parent_height >= record.height ||
-                !on_grid(record.parent_height) ||
                 record.parent_height < origin ||
-                record.comet_hash.is_zero() ||
-                record.val_state_hash.is_zero()))
+                record.comet_hash.is_zero()))
     {
         return Err(ImportError::Candidate(
             "selected height has no retained current-generation landing".into(),
@@ -202,25 +211,41 @@ fn validate_selected_landing(
     Ok(())
 }
 
-/// Only a matching landed commitment promotes malformed or inconsistent state to safety evidence.
+/// Authenticate the publisher's validator-state preimage for s − 1 against header(s)
+/// (DATA-5.4-3, DATA-5.4-5): with `parent_el_hash`, ELHash(s − 1), its hash must give
+/// header(s)'s `app_hash`, else it is an invalid candidate. Once it does, the header commits
+/// it, so a preimage that does not decode, holds a set stock CometBFT refuses, names another
+/// height or whose sets differ from header(s)'s `validators_hash` and `next_validators_hash` is
+/// an authenticated contradiction.
 fn authenticate_preimage(
     bytes: &[u8],
-    expected: B256,
-    height: u64,
+    header: &tendermint::block::Header,
+    parent_el_hash: B256,
 ) -> Result<ValState, ImportError> {
-    if keccak256(bytes) != expected {
-        return Err(candidate("validator-state preimage hash mismatch"));
+    let committed = abci::valstate::app_hash(parent_el_hash, keccak256(bytes));
+    if header.app_hash.as_bytes() != committed.as_slice() {
+        return Err(candidate("validator-state preimage does not give header(s)'s app_hash"));
     }
     let state = ValState::decode(bytes).map_err(safety)?;
     for set in [&state.current, &state.next] {
         ValState::genesis(
-            height,
+            state.height,
             &set.entries.iter().map(|e| (e.key, e.power as u64)).collect::<Vec<_>>(),
         )
         .map_err(safety)?;
     }
-    if state.height != height {
-        return Err(safety("landed validator-state height mismatch"));
+    if header.height.value().checked_sub(1) != Some(state.height) {
+        return Err(safety("committed validator-state height is not s - 1"));
+    }
+    let hashes =
+        |set: &abci::valstate::ValSet| set.validators_hash().map(|hash| hash.0).map_err(safety);
+    if hashes(&state.current)? != header.validators_hash.as_bytes() ||
+        hashes(&state.next)? != header.next_validators_hash.as_bytes()
+    {
+        return Err(safety(
+            "committed validator state contradicts header(s)'s validators_hash or \
+             next_validators_hash",
+        ));
     }
     Ok(state)
 }

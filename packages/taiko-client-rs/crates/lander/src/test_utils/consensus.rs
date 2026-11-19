@@ -250,7 +250,10 @@ pub fn timed_pair(
         validators_hash: committee.validators.hash(),
         next_validators_hash: committee.validators.hash(),
         consensus_hash: Hash::Sha256(abci::genesis::GenesisConsensusParams::etna_hash().0),
-        app_hash: AppHash::try_from(parent.to_vec()).unwrap(),
+        // appHash of the parent's EL hash (CONS-3.1-8), never the bare hash. These blocks carry
+        // no validator-state replica, so its hash is a zero placeholder; fixtures that need the
+        // real one replace it.
+        app_hash: AppHash::try_from(abci::valstate::app_hash(parent, B256::ZERO).to_vec()).unwrap(),
         last_results_hash,
         evidence_hash: Some(merkle(&[])),
         proposer_address: committee.validators.validators()[0].address,
@@ -273,7 +276,7 @@ pub fn resign(pair: &mut CertifiedBlock, committee: &AuthenticatedCommittee, key
     resign_at(pair, committee, keys, pair.block.header.time)
 }
 
-fn resign_at(
+pub fn resign_at(
     pair: &mut CertifiedBlock,
     committee: &AuthenticatedCommittee,
     keys: &[SigningKey],

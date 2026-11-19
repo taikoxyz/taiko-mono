@@ -104,7 +104,8 @@ pub struct AppState {
 }
 
 /// The oldest EL block a checkpoint-imported store holds with its state: the landed checkpoint
-/// s and its EL hash, the import's AppHash at s (DATA-5.4-4).
+/// s and its EL hash (DATA-5.4-4). The import's AppHash at s is appHash of that hash and the
+/// validator state derived for s (CONS-3.1-8), not the bare EL hash.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExecutionFloor {
@@ -564,8 +565,8 @@ impl Store {
     /// Installs the app store of a checkpoint import landed at `s = state.last_height`
     /// (DATA-5.4-3, DATA-5.4-4) as `Commit` would have left it at s: the recovery `bootstrap`
     /// when there is one, the Comet block ID of s (`state.last_comet_hash`), the validator-state
-    /// record of s, which after an import is the installed preimage (SYNC-9-5c), and last the
-    /// AppState.
+    /// record of s, which after an import is the state DATA-5.4-3 derives for s from the
+    /// authenticated preimage for s - 1 (SYNC-9-5c), and last the AppState.
     ///
     /// Each write is durable (the file and the directory fsynced) before the next starts, and
     /// [`Store::load`] finds no state until the last one: a crash leaves a store that is not

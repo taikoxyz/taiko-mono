@@ -21,7 +21,6 @@ fn nonlanded_and_other_generation_are_candidate_errors() {
             forced_cursor: 0,
             el_hash: B256::ZERO,
             comet_hash: B256::ZERO,
-            val_state_hash: B256::ZERO,
         },
         Landing {
             height: 12,
@@ -30,7 +29,6 @@ fn nonlanded_and_other_generation_are_candidate_errors() {
             forced_cursor: 0,
             el_hash: B256::repeat_byte(1),
             comet_hash: B256::repeat_byte(2),
-            val_state_hash: B256::repeat_byte(3),
         },
     ] {
         assert!(matches!(
@@ -40,14 +38,64 @@ fn nonlanded_and_other_generation_are_candidate_errors() {
     }
 }
 
+/// DATA-5.4-3/5: a preimage for s - 1 that does not give header(s)'s app_hash with ELHash(s - 1)
+/// is an invalid candidate; once it gives it, the header commits it, so bytes that do not
+/// decode, or the state after another height, are an authenticated contradiction.
 #[test]
-fn preimage_hash_mismatch_is_candidate_but_matching_invalid_preimage_is_safety() {
-    let bytes = b"not a validator state";
-    assert!(matches!(authenticate_preimage(bytes, B256::ZERO, 12), Err(ImportError::Candidate(_))));
+fn preimage_app_hash_mismatch_is_candidate_but_committed_invalid_preimage_is_safety() {
+    let fx = Fixture::new(6, 6);
+    let parent = fx.headers[&5].hash_slow();
+    let header = fx.blocks[&6].block.header.clone();
+    let before = fx.val_states[&5].encode();
+    assert_eq!(authenticate_preimage(&before, &header, parent), Ok(fx.val_states[&5].clone()));
+    // The same preimage with another parent EL hash does not give header(6)'s app_hash.
     assert!(matches!(
-        authenticate_preimage(bytes, alloy_primitives::keccak256(bytes), 12),
-        Err(ImportError::Safety(_))
+        authenticate_preimage(&before, &header, B256::repeat_byte(1)),
+        Err(ImportError::Candidate(_))
     ));
+    for (bytes, committed) in [
+        (b"not a validator state".to_vec(), "decode"),
+        (fx.val_states[&6].encode(), "height"),
+        (fx.val_states[&4].encode(), "height"),
+    ] {
+        assert!(matches!(
+            authenticate_preimage(&bytes, &header, parent),
+            Err(ImportError::Candidate(_))
+        ));
+        let mut header = header.clone();
+        header.app_hash = app_hash_of(parent, &bytes);
+        let result = authenticate_preimage(&bytes, &header, parent);
+        assert!(matches!(result, Err(ImportError::Safety(_))), "{committed}: {result:?}");
+    }
+}
+
+/// A header `app_hash` field holding appHash (ENC-A-29b) of `block_hash` and the hash of the
+/// raw preimage `bytes`.
+fn app_hash_of(block_hash: B256, bytes: &[u8]) -> tendermint::AppHash {
+    let hash = abci::valstate::app_hash(block_hash, keccak256(bytes));
+    tendermint::AppHash::try_from(hash.to_vec()).unwrap()
+}
+
+/// Make header(`s`) commit `before` as the validator state after s - 1 (CONS-3.1-8), and,
+/// with `next_hash`, its set for s + 1 as `next_validators_hash`; then re-sign it and land its
+/// new Comet hash. The window ends at s, so no successor needs relinking.
+fn commit_terminal(fx: &mut Fixture, s: u64, before: &abci::valstate::ValState, next_hash: bool) {
+    use crate::test_utils::consensus::{SigningKey, resign};
+    let parent = fx.headers[&(s - 1)].hash_slow();
+    let epoch = Schedule::from_genesis(&fx.snapshot.genesis).epoch_of(s);
+    let pair = fx.blocks.get_mut(&s).unwrap();
+    pair.block.header.app_hash = crate::test_utils::consensus_mpt::app_hash(parent, before);
+    if next_hash {
+        pair.block.header.next_validators_hash =
+            tendermint::Hash::Sha256(before.next.validators_hash().unwrap().0);
+    }
+    resign(
+        pair,
+        &fx.committees[&epoch],
+        &[SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()],
+    );
+    let comet = B256::from_slice(pair.block.header.hash().as_bytes());
+    fx.import_landings(&[(s, fx.headers[&s].hash_slow(), comet)]);
 }
 
 use crate::test_utils::consensus_mpt::{Fixture, import_package};
@@ -128,6 +176,142 @@ async fn reconstructs_exact_post_checkpoint_without_successor_or_execution_sourc
     );
 }
 
+/// DATA-5.4-3/8: the package carries the validator state after s - 1, which with ELHash(s - 1)
+/// gives header(s)'s app_hash; the import derives the state after s from it.
+#[tokio::test]
+async fn import_accepts_preimage_for_s_minus_1() {
+    let fx = std::sync::Arc::new(Fixture::new(6, 6));
+    let package = import_package(&fx, 6).await;
+    assert_eq!(package.schema, IMPORT_SCHEMA);
+    assert_eq!(package.validator_state.as_ref(), fx.val_states[&5].encode().as_slice());
+    let imported =
+        authenticate_import(&package, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone()))
+            .await
+            .unwrap();
+    assert_eq!(imported.val_state_before(), Some(&fx.val_states[&5]));
+    assert_eq!(imported.state().val_state, fx.val_states[&6]);
+    assert_eq!(imported.state().last_height, 6);
+}
+
+/// DATA-5.4-5: a preimage that does not give header(s)'s app_hash, including the old schema's
+/// state after s, is an invalid candidate, as is the old schema itself.
+#[tokio::test]
+async fn import_rejects_preimage_with_wrong_app_hash() {
+    let fx = std::sync::Arc::new(Fixture::new(6, 6));
+    let honest = import_package(&fx, 6).await;
+    let mut tampered = fx.val_states[&5].clone();
+    tampered.current.entries[0].power += 1;
+    for preimage in [fx.val_states[&6].encode(), tampered.encode(), Vec::new()] {
+        let mut package = honest.clone();
+        package.validator_state = preimage.into();
+        let result = authenticate_import(
+            &package,
+            frames(&fx, 6).into_iter(),
+            &fx.params,
+            &OwnL1(fx.clone()),
+        )
+        .await;
+        assert!(
+            matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("app_hash")),
+            "{result:?}"
+        );
+    }
+    let mut old = honest.clone();
+    old.schema = 1;
+    let result =
+        authenticate_import(&old, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone())).await;
+    assert!(matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("schema")));
+}
+
+/// Global review focus 4: at an s carrying a committee switch, the preimage for s - 1 verifies
+/// against header(s)'s app_hash, block s's updates apply once, to the set for s + 2, the derived
+/// sets for s + 1 and s + 2 match the window's, and the state after s is no valid preimage.
+#[tokio::test]
+async fn import_applies_switch_at_s_once() {
+    let fx = std::sync::Arc::new(Fixture::with_epoch(12, 12, 0, 13));
+    let schedule = Schedule::from_genesis(&fx.snapshot.genesis);
+    assert_eq!(schedule.switch_target(12), Some(1));
+    let before = &fx.val_states[&11];
+    assert_ne!(before.next, fx.val_states[&12].next, "s carries no validator change");
+    let package = import_package(&fx, 12).await;
+    let imported =
+        authenticate_import(&package, frames(&fx, 12).into_iter(), &fx.params, &OwnL1(fx.clone()))
+            .await
+            .unwrap();
+    let after = &imported.state().val_state;
+    assert_eq!(after, &fx.val_states[&12]);
+    // Applied exactly once: not skipped, and not to the set for s + 1, which is still the one
+    // before s.
+    assert!(
+        !abci::committee::validator_updates(
+            &fx.committees[&0].state.members,
+            &fx.committees[&1].state.members,
+        )
+        .is_empty()
+    );
+    assert_ne!(after, &before.advance(&[]).unwrap());
+    assert_eq!(after.current, before.next);
+    for (h, set) in [(13, &after.current), (14, &after.next)] {
+        let epoch = schedule.active_committee_epoch(h, 0).unwrap();
+        let committee = &fx.committees[&epoch].state;
+        assert_eq!(imported.state().committees[&epoch], *committee, "height {h}");
+        assert_eq!(
+            set.entries
+                .iter()
+                .map(|e| (e.key, e.power as u64))
+                .collect::<std::collections::BTreeMap<_, _>>(),
+            committee
+                .members
+                .iter()
+                .map(|m| (m.pubkey, m.power))
+                .collect::<std::collections::BTreeMap<_, _>>(),
+            "height {h}"
+        );
+    }
+    let mut wrong = package.clone();
+    wrong.validator_state = fx.val_states[&12].encode().into();
+    let result =
+        authenticate_import(&wrong, frames(&fx, 12).into_iter(), &fx.params, &OwnL1(fx.clone()))
+            .await;
+    assert!(
+        matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("app_hash")),
+        "{result:?}"
+    );
+}
+
+/// DATA-5.4-4/CONS-3.1-8: the stock stores install appHash of ELHash(s) and the state after s,
+/// the app_hash the decided header s + 1 carries, not the bare EL hash.
+#[tokio::test]
+async fn import_post_s_app_hash_is_app_hash() {
+    let fx = std::sync::Arc::new(Fixture::new(6, 7));
+    let package = import_package(&fx, 6).await;
+    let imported =
+        authenticate_import(&package, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone()))
+            .await
+            .unwrap();
+    let el_hash = fx.headers[&6].hash_slow();
+    assert_eq!(imported.app_hash(), abci::valstate::app_hash(el_hash, fx.val_states[&6].hash()));
+    assert_eq!(imported.app_hash().as_slice(), fx.blocks[&7].block.header.app_hash.as_bytes());
+    assert_ne!(imported.app_hash(), el_hash);
+}
+
+/// DATA-5.4-2: only w + 1's original envelope authenticates the publisher's EL header at w, as
+/// its parentHash; header(w + 1)'s app_hash also commits the validator state and links nothing.
+#[tokio::test]
+async fn first_window_envelope_parent_hash_authenticates_the_execution_header_at_w() {
+    let fx = std::sync::Arc::new(Fixture::new(6, 6));
+    let mut package = import_package(&fx, 6).await;
+    package.boundary_header = Some(fx.blocks[&1].block.header.clone());
+    package.execution_headers = vec![fx.headers[&0].clone(), fx.headers[&1].clone()];
+    let window = || frames(&fx, 6).into_iter().skip(1);
+    let unlinked = |result: &Result<VerifiedImport, ImportError>| matches!(result, Err(ImportError::Candidate(m)) if m.contains("does not link"));
+    let honest = authenticate_import(&package, window(), &fx.params, &OwnL1(fx.clone())).await;
+    assert!(!unlinked(&honest), "{honest:?}");
+    package.execution_headers[1].state_root = B256::repeat_byte(0xab);
+    let forged = authenticate_import(&package, window(), &fx.params, &OwnL1(fx.clone())).await;
+    assert!(unlinked(&forged), "{forged:?}");
+}
+
 /// A retained checkpoint below the latest finalized landing imports (ACC §7.7 older).
 #[tokio::test]
 async fn older_retained_checkpoint_below_the_latest_landing_imports() {
@@ -195,7 +379,6 @@ async fn corrupt_bytes_reject_but_authenticated_envelope_contradiction_halts() {
         6,
         other_el,
         B256::from_slice(owned.blocks[&6].block.header.hash().as_bytes()),
-        owned.val_states[&6].hash(),
     )]);
     let fx = std::sync::Arc::new(owned);
     assert!(
@@ -203,20 +386,24 @@ async fn corrupt_bytes_reject_but_authenticated_envelope_contradiction_halts() {
     );
 }
 
-#[tokio::test]
-async fn independently_derived_pending_set_mismatch_is_authenticated_safety_error() {
+/// The preimage for 11 that header(12) commits, its set for 13 included, so the derived state
+/// after 12 is authenticated; its keys/powers for 13 differ from the committee the window and
+/// own L1 derive there.
+async fn contradicting_pending_set() -> (Fixture, ImportPackage) {
     let mut fx = Fixture::with_epoch(12, 12, 0, 13);
     let mut package = import_package(&fx, 12).await;
-    let mut state = fx.val_states[&12].clone();
-    state.next = state.current.clone();
-    assert_ne!(state.next, fx.val_states[&12].next);
-    package.validator_state = state.encode().into();
-    fx.import_landings(&[(
-        12,
-        fx.headers[&12].hash_slow(),
-        B256::from_slice(fx.blocks[&12].block.header.hash().as_bytes()),
-        state.hash(),
-    )]);
+    let mut before = fx.val_states[&11].clone();
+    before.next.entries[0].power += 1;
+    package.validator_state = before.encode().into();
+    commit_terminal(&mut fx, 12, &before, true);
+    (fx, package)
+}
+
+/// DATA-5.4-5: a committee derived under 4.3 whose keys and powers differ from the matching
+/// set derived under DATA-5.4-3 halts for safety.
+#[tokio::test]
+async fn independently_derived_pending_set_mismatch_is_authenticated_safety_error() {
+    let (fx, package) = contradicting_pending_set().await;
     let fx = std::sync::Arc::new(fx);
     assert!(
         matches!(authenticate_import(&package, frames(&fx, 12).into_iter(), &fx.params, &OwnL1(fx.clone())).await, Err(ImportError::Safety(ref message)) if message.contains("independently derived"))
@@ -240,7 +427,7 @@ async fn missing_required_committee_witness_halts_only_when_the_landed_chain_con
         pair.block.header.data_hash = Some(crate::validate::data_hash(&pair.block.data));
         relink_after(&mut fx, switch, if landed { 18 } else { switch });
         let comet = B256::from_slice(fx.blocks[&18].block.header.hash().as_bytes());
-        fx.import_landings(&[(18, fx.headers[&18].hash_slow(), comet, fx.val_states[&18].hash())]);
+        fx.import_landings(&[(18, fx.headers[&18].hash_slow(), comet)]);
         let fx = std::sync::Arc::new(fx);
         let result = authenticate_import(
             &package,
@@ -402,7 +589,7 @@ async fn recovery_package(fx: &Fixture, height: u64) -> ImportPackage {
         app_state: abci::genesis::AppStateJson::from(&witness),
     };
     ImportPackage {
-        schema: 1,
+        schema: IMPORT_SCHEMA,
         genesis,
         checkpoint_height: height,
         origin_header: witness.el_header,
@@ -411,7 +598,7 @@ async fn recovery_package(fx: &Fixture, height: u64) -> ImportPackage {
         validator_state: if height == origin.height {
             Bytes::new()
         } else {
-            fx.val_states[&height].encode().into()
+            fx.val_states[&(height - 1)].encode().into()
         },
         execution_headers: (0..=origin.height).map(|h| fx.headers[&h].clone()).collect(),
     }
@@ -477,15 +664,15 @@ async fn origin_import_installs_the_verified_genesis_origin_state() {
 }
 
 #[test]
-fn matching_preimage_with_excessive_stock_power_is_safety_error() {
+fn committed_preimage_with_excessive_stock_power_is_safety_error() {
     let fx = Fixture::new(6, 6);
-    let mut state = fx.val_states[&6].clone();
+    let mut state = fx.val_states[&5].clone();
     state.current.entries[0].power = i64::MAX;
     let bytes = state.encode();
-    assert!(matches!(
-        authenticate_preimage(&bytes, keccak256(&bytes), 6),
-        Err(ImportError::Safety(_))
-    ));
+    let parent = fx.headers[&5].hash_slow();
+    let mut header = fx.blocks[&6].block.header.clone();
+    header.app_hash = app_hash_of(parent, &bytes);
+    assert!(matches!(authenticate_preimage(&bytes, &header, parent), Err(ImportError::Safety(_))));
 }
 
 #[tokio::test]
@@ -504,7 +691,7 @@ async fn authenticated_terminal_el_conflict_precedes_metadata_interpretation() {
         &[SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()],
     );
     let comet_hash = B256::from_slice(pair.block.header.hash().as_bytes());
-    fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet_hash, fx.val_states[&6].hash())]);
+    fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet_hash)]);
     let fx = std::sync::Arc::new(fx);
     assert!(
         matches!(authenticate_import(&package, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone())).await, Err(ImportError::Safety(ref message)) if message.contains("execution hash"))
@@ -527,7 +714,7 @@ async fn authenticated_terminal_el_conflict_precedes_parent_link_validation() {
         &[SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()],
     );
     let comet_hash = B256::from_slice(pair.block.header.hash().as_bytes());
-    fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet_hash, fx.val_states[&6].hash())]);
+    fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet_hash)]);
     let fx = std::sync::Arc::new(fx);
     assert!(
         matches!(authenticate_import(&package, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone())).await, Err(ImportError::Safety(ref message)) if message.contains("execution hash"))
@@ -588,7 +775,7 @@ async fn landed_wrong_fixed_native_header_fields_halt_even_with_valid_commits() 
             &[SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()],
         );
         let comet = B256::from_slice(pair.block.header.hash().as_bytes());
-        fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet, fx.val_states[&6].hash())]);
+        fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet)]);
         let fx = std::sync::Arc::new(fx);
         let result = authenticate_import(
             &package,
@@ -641,7 +828,7 @@ async fn rule_failure_below_s_halts_only_when_the_landed_chain_contains_it() {
         // A forged block keeps the published successors, whose links name the original block.
         relink_after(&mut fx, 3, if landed { 6 } else { 3 });
         let comet = B256::from_slice(fx.blocks[&6].block.header.hash().as_bytes());
-        fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet, fx.val_states[&6].hash())]);
+        fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet)]);
         let fx = std::sync::Arc::new(fx);
         let result = authenticate_import(
             &package,
@@ -671,7 +858,7 @@ async fn rule_failure_below_s_waits_for_missing_frames_before_classifying() {
     fx.blocks.get_mut(&3).unwrap().block.header.consensus_hash = tendermint::Hash::Sha256([3; 32]);
     relink_after(&mut fx, 3, 6);
     let comet = B256::from_slice(fx.blocks[&6].block.header.hash().as_bytes());
-    fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet, fx.val_states[&6].hash())]);
+    fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet)]);
     let fx = std::sync::Arc::new(fx);
     let mut input = frames(&fx, 6);
     input.truncate(4);
@@ -694,7 +881,7 @@ async fn landed_terminal_with_malformed_envelope_halts() {
         &[SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()],
     );
     let comet = B256::from_slice(pair.block.header.hash().as_bytes());
-    fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet, fx.val_states[&6].hash())]);
+    fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet)]);
     let fx = std::sync::Arc::new(fx);
     let result =
         authenticate_import(&package, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone()))
@@ -788,23 +975,32 @@ async fn current_generation_change_rejects_before_any_consensus_reads() {
     );
 }
 
+/// DATA-5.4-5: a preimage that gives header(s)'s app_hash but whose set for s or s + 1 differs
+/// from header(s)'s validators_hash or next_validators_hash proves a contradiction inside the
+/// authenticated header.
 #[tokio::test]
-async fn matching_current_set_contradicting_terminal_next_hash_halts() {
-    let mut fx = Fixture::new(6, 6);
-    let mut package = import_package(&fx, 6).await;
-    let mut preimage = fx.val_states[&6].clone();
-    preimage.current.entries[0].power += 1;
-    package.validator_state = preimage.encode().into();
-    fx.import_landings(&[(
-        6,
-        fx.headers[&6].hash_slow(),
-        B256::from_slice(fx.blocks[&6].block.header.hash().as_bytes()),
-        preimage.hash(),
-    )]);
-    let fx = std::sync::Arc::new(fx);
-    assert!(
-        matches!(authenticate_import(&package, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone())).await, Err(ImportError::Safety(ref message)) if message.contains("next_validators_hash"))
-    );
+async fn committed_preimage_contradicting_header_validator_hashes_halts() {
+    for current in [true, false] {
+        let mut fx = Fixture::new(6, 6);
+        let mut package = import_package(&fx, 6).await;
+        let mut before = fx.val_states[&5].clone();
+        let set = if current { &mut before.current } else { &mut before.next };
+        set.entries[0].power += 1;
+        package.validator_state = before.encode().into();
+        commit_terminal(&mut fx, 6, &before, false);
+        let fx = std::sync::Arc::new(fx);
+        let result = authenticate_import(
+            &package,
+            frames(&fx, 6).into_iter(),
+            &fx.params,
+            &OwnL1(fx.clone()),
+        )
+        .await;
+        assert!(
+            matches!(result, Err(ImportError::Safety(ref m)) if m.contains("validators_hash")),
+            "current={current}: {result:?}"
+        );
+    }
 }
 
 #[test]
@@ -901,7 +1097,7 @@ async fn embedded_successor_commit_requires_native_validity_full_id_and_exact_or
         tip.block.last_commit = Some(mutated);
         resign(tip, &fx.committees[&0], &keys);
         let comet = B256::from_slice(tip.block.header.hash().as_bytes());
-        fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet, fx.val_states[&6].hash())]);
+        fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet)]);
         let fx = std::sync::Arc::new(fx);
         let result = authenticate_import(
             &package,
@@ -1032,7 +1228,7 @@ async fn window_validator_and_time_links_halt_only_when_the_landed_chain_contain
         };
         relink_after(&mut fx, from, if landed { 6 } else { 3 });
         let comet = B256::from_slice(fx.blocks[&6].block.header.hash().as_bytes());
-        fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet, fx.val_states[&6].hash())]);
+        fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet)]);
         let fx = std::sync::Arc::new(fx);
         let result = authenticate_import(
             &package,
@@ -1368,7 +1564,7 @@ async fn review_ancillary_terminal_bytes_cannot_hide_proven_contradictions() {
     for case in [
         "EL truncated commit",
         "EL oversized validators",
-        "landed set truncated commit",
+        "committed set truncated commit",
         "bad DataHash",
         "honest terminal malformed commit",
     ] {
@@ -1376,17 +1572,20 @@ async fn review_ancillary_terminal_bytes_cannot_hide_proven_contradictions() {
         let mut package = import_package(&fx, 6).await;
         let comet = B256::from_slice(fx.blocks[&6].block.header.hash().as_bytes());
         let conflict = case.starts_with("EL");
-        let mut state = fx.val_states[&6].clone();
-        if case.starts_with("landed set") {
-            state.current.entries[0].power += 1;
-            package.validator_state = state.encode().into();
-        }
-        let el = if conflict || case == "bad DataHash" {
-            B256::repeat_byte(0xfe)
+        if case.starts_with("committed set") {
+            // Header(6) commits a preimage whose set for 6 contradicts its validators_hash.
+            let mut before = fx.val_states[&5].clone();
+            before.current.entries[0].power += 1;
+            package.validator_state = before.encode().into();
+            commit_terminal(&mut fx, 6, &before, false);
         } else {
-            fx.headers[&6].hash_slow()
-        };
-        fx.import_landings(&[(6, el, comet, state.hash())]);
+            let el = if conflict || case == "bad DataHash" {
+                B256::repeat_byte(0xfe)
+            } else {
+                fx.headers[&6].hash_slow()
+            };
+            fx.import_landings(&[(6, el, comet)]);
+        }
         let fx = std::sync::Arc::new(fx);
         let mut inputs = frames(&fx, 6);
         let frame = inputs.last_mut().unwrap().as_mut().unwrap();
@@ -1418,17 +1617,7 @@ async fn review_ancillary_terminal_bytes_cannot_hide_proven_contradictions() {
 
 #[tokio::test]
 async fn review_trailing_reader_failure_cannot_hide_derived_committee_contradiction() {
-    let mut fx = Fixture::with_epoch(12, 12, 0, 13);
-    let mut package = import_package(&fx, 12).await;
-    let mut state = fx.val_states[&12].clone();
-    state.next = state.current.clone();
-    package.validator_state = state.encode().into();
-    fx.import_landings(&[(
-        12,
-        fx.headers[&12].hash_slow(),
-        B256::from_slice(fx.blocks[&12].block.header.hash().as_bytes()),
-        state.hash(),
-    )]);
+    let (fx, package) = contradicting_pending_set().await;
     let fx = std::sync::Arc::new(fx);
     let input = frames(&fx, 12)
         .into_iter()
@@ -1468,7 +1657,6 @@ async fn review_recovery_first_consensus_block_refuses_old_generation_commit() {
         12,
         fx.headers[&12].hash_slow(),
         B256::from_slice(previous.block_id.hash.as_bytes()),
-        fx.val_states[&12].hash(),
     )]);
     let fx = std::sync::Arc::new(fx);
     let package = recovery_package(&fx, 12).await;

@@ -35,10 +35,7 @@ pub async fn select_export<L: L1Source + ?Sized>(
         canonical(l1, header).await?;
     }
     let origin = fixed.origin_height();
-    if height < origin ||
-        height > abci::schedule::UINT48_MAX ||
-        !fixed.genesis.is_grid_height(height)
-    {
+    if height < origin || height > abci::schedule::UINT48_MAX {
         return Err(candidate("invalid export checkpoint selection"))
     }
     // verify_original_genesis validated the versioned recovery frame and complete original
@@ -69,7 +66,7 @@ where
     I: Iterator<Item = Result<WindowBlock, ImportError>>,
 {
     params.validate().map_err(candidate)?;
-    if package.schema != 1 {
+    if package.schema != IMPORT_SCHEMA {
         return Err(candidate("unsupported import schema"));
     }
     let fixed =
@@ -162,6 +159,7 @@ where
         }
         return Ok(VerifiedImport {
             state,
+            val_state_before: None,
             genesis: package.genesis.clone(),
             landing,
             block_id: None,
@@ -170,8 +168,6 @@ where
             recovery_bootstrap: package.recovery_bootstrap.clone(),
         });
     }
-    let val_state =
-        authenticate_preimage(&package.validator_state, landing.val_state_hash, landing.height)?;
     let schedule = Schedule::from_genesis(&fixed.genesis);
     let future =
         future_epochs(&schedule, origin, fixed.committee.record.target_epoch, landing.height)?;
@@ -184,7 +180,8 @@ where
         .ok_or_else(|| unavailable("missing consensus window"))?
         .as_ref()
         .map_err(Clone::clone)?;
-    let first_height = check_header_projection(&first.block, &landing, &val_state)?;
+    let (first_height, _) =
+        check_header_projection(&first.block, &landing, &package.validator_state)?;
     let w = first_height
         .checked_sub(1)
         .filter(|w| *w >= origin && *w < landing.height)
@@ -200,6 +197,8 @@ where
     let mut latest_anchor = None;
     let mut anchor_cache = BTreeMap::new();
     let mut terminal = None;
+    // The validator state after s - 1 that header(s)'s app_hash commits (DATA-5.4-3).
+    let mut val_state_before = None;
     let fixed_params_hash = abci::genesis::GenesisConsensusParams::etna_hash();
     let mut rejected = None;
     for frame in blocks.by_ref() {
@@ -207,7 +206,9 @@ where
         // one-shot controller's cancellation/signal branch a turn between bounded native frames.
         tokio::task::yield_now().await;
         let frame = frame?;
-        check_header_projection(&frame.block, &landing, &val_state)?;
+        let (_, before) =
+            check_header_projection(&frame.block, &landing, &package.validator_state)?;
+        val_state_before = before.or(val_state_before);
         if frame.commit.len() > 2_000_000 || frame.validators.len() > params.n_max {
             return Err(candidate("native frame exceeds consensus resource bounds"));
         }
@@ -258,8 +259,14 @@ where
             }
         } else {
             verify_boundary(package.boundary_header.as_ref(), &pair, w, origin)?;
-            // Only w + 1's AppHash authenticates the publisher's EL header at w.
-            if pair.block.header.app_hash.as_bytes() != parent.hash_slow().as_slice() {
+            // Only w + 1's original envelope, which its DataHash fixes, authenticates the
+            // publisher's EL header at w, as its parentHash (DATA-5.4-2). A body that fails its
+            // DataHash or does not decode is left to the checks below.
+            let transactions = pair.block.data.iter().cloned().map(Bytes::from).collect::<Vec<_>>();
+            if pair.block.header.data_hash == Some(validate::data_hash(&pair.block.data)) &&
+                abci::single_envelope(&transactions)
+                    .is_ok_and(|env| env.block.header.parent_hash != parent.hash_slow())
+            {
                 return Err(candidate("execution prefix does not link to the first window block"));
             }
         }
@@ -359,19 +366,44 @@ where
         });
     }
     if let Some((height, hash, fault)) = rejected {
-        return Err(confirm_landed(fault, height, hash, &mut blocks, &landing, &val_state).await);
+        return Err(confirm_landed(
+            fault,
+            height,
+            hash,
+            &mut blocks,
+            &landing,
+            &package.validator_state,
+        )
+        .await);
     }
     let block_id =
         terminal.ok_or_else(|| unavailable("window ended before selected checkpoint"))?;
+    // The terminal frame's projection authenticated the preimage for s - 1.
+    let before =
+        val_state_before.ok_or_else(|| unavailable("window ended before selected checkpoint"))?;
     let latest_anchor_height =
         latest_anchor_height.ok_or_else(|| unavailable("window omits latest anchor witness"))?;
-    for (epoch, set) in future.iter().zip([&val_state.current, &val_state.next]) {
-        let derived = expected_committees
-            .get(epoch)
-            .ok_or_else(|| unavailable(format!("missing derived future committee {epoch}")))?;
-        if !same_powers(set, derived) {
+    let committee = |epoch: u64| {
+        expected_committees
+            .get(&epoch)
+            .ok_or_else(|| unavailable(format!("missing derived committee {epoch}")))
+    };
+    // DATA-5.4-3: one step of SYNC-9-5c's per-height arithmetic, with the updates block s's
+    // FinalizeBlock returns. Only a switch height returns any, as finalize does: from the
+    // committee active at s to the switch's authenticated target, which signs s + 2. With
+    // L >= 3 no switch at s - 1 exists, so the committee active at s still signs s + 1.
+    let updates = match schedule.switch_target(landing.height) {
+        Some(target) => abci::committee::validator_updates(
+            &committee(future[0])?.members,
+            &committee(target)?.members,
+        ),
+        None => Vec::new(),
+    };
+    let after = before.advance(&updates).map_err(safety)?;
+    for (epoch, set) in future.iter().zip([&after.current, &after.next]) {
+        if !same_powers(set, committee(*epoch)?) {
             return Err(safety(
-                "landed validator-state keys/powers contradict independently derived committee",
+                "committed validator-state keys/powers contradict independently derived committee",
             ));
         }
     }
@@ -390,7 +422,7 @@ where
     state.last_height = landing.height;
     state.last_comet_hash = landing.comet_hash;
     state.forced_cursor = landing.forced_cursor;
-    state.val_state = val_state;
+    state.val_state = after;
     state.committees = expected_committees;
     state.anchor = latest_anchor.expect("terminal block has anchor");
     // The installed EL block at s that startup checks the own EL still serves with its state
@@ -417,6 +449,7 @@ where
     }
     Ok(VerifiedImport {
         state,
+        val_state_before: Some(before),
         genesis: package.genesis.clone(),
         landing,
         block_id: Some(block_id),
@@ -477,8 +510,7 @@ async fn own_landing<L: L1Source + ?Sized>(
             landing.generation != 0 ||
             landing.forced_cursor != 0 ||
             landing.el_hash != fixed.origin_hash() ||
-            !landing.comet_hash.is_zero() ||
-            !landing.val_state_hash.is_zero())
+            !landing.comet_hash.is_zero())
     {
         return Err(safety("selected initial landing contradicts fixed genesis"));
     }
@@ -500,34 +532,32 @@ async fn own_landing<L: L1Source + ?Sized>(
     Ok(landing)
 }
 
-/// Authenticate all four words of an individual landing against the same pinned finalized root.
+/// Authenticate the three words of an individual slot 285 record against the same pinned
+/// finalized root.
 async fn read_landing<L: L1Source + ?Sized>(
     l1: &L,
     inbox_address: alloy_primitives::Address,
     header: &abci::RawL1Header,
     selected: u64,
 ) -> Result<Landing, ImportError> {
-    let slots = inbox::landing_slots(selected);
+    let slots = inbox::landing_record_slots(selected);
     let proof =
         l1.account_witness(inbox_address, &slots, header.number()).await.map_err(own_error)?;
     if proof.address != inbox_address {
         return Err(safety("own L1 selected landing proof names wrong contract"));
     }
     let storage = verify_account_witness(header.state_root(), &proof, &slots).map_err(safety)?;
-    let packed = storage.get(slots[0]).expect("verified slot");
-    if packed >> 144 != U256::ZERO {
-        return Err(safety("retained landing sets reserved bits"));
-    }
-    let landing = Landing {
+    let words = slots.map(|slot| storage.get(slot).expect("verified slot"));
+    let record = inbox::LandingRecord::decode(words)
+        .ok_or_else(|| safety("retained landing sets reserved bits"))?;
+    Ok(Landing {
         height: selected,
-        parent_height: word_u48(packed, 0),
-        generation: word_u48(packed, 48),
-        forced_cursor: word_u48(packed, 96),
-        el_hash: storage.get(slots[1]).expect("verified slot").into(),
-        comet_hash: storage.get(slots[2]).expect("verified slot").into(),
-        val_state_hash: storage.get(slots[3]).expect("verified slot").into(),
-    };
-    Ok(landing)
+        parent_height: record.parent_height,
+        generation: record.generation,
+        forced_cursor: record.forced_head,
+        el_hash: record.el_hash,
+        comet_hash: record.comet_hash,
+    })
 }
 
 /// Same-generation verifier rollback increments recoveryNonce but can strand old slot-285 leaves.
@@ -539,7 +569,7 @@ async fn verify_settled_suffix<L: L1Source + ?Sized>(
     selected: &Landing,
     origin: u64,
 ) -> Result<(), ImportError> {
-    let slot = inbox::landing_slots(snapshot.checkpoint_height)[0];
+    let slot = inbox::landing_record_slots(snapshot.checkpoint_height)[0];
     let packed = snapshot
         .inbox_witness
         .storage
@@ -550,7 +580,7 @@ async fn verify_settled_suffix<L: L1Source + ?Sized>(
     let mut child = snapshot.checkpoint_height;
     let mut parent = word_u48(packed, 0);
     loop {
-        if parent >= child || parent < origin || !snapshot.genesis.is_grid_height(parent) {
+        if parent >= child || parent < origin {
             return Err(safety("own finalized landing has an invalid parent-height link"));
         }
         match parent.cmp(&selected.height) {
@@ -856,18 +886,8 @@ fn check_metadata(
     Ok(())
 }
 
-/// Native keys/powers commitment of one landed full set.
-fn set_hash(set: &abci::valstate::ValSet) -> Result<B256, ImportError> {
-    abci::wire::validators_hash(
-        &set.entries
-            .iter()
-            .map(|e| Member { pubkey: e.key, power: e.power as u64, eff_stake: U256::ZERO })
-            .collect::<Vec<_>>(),
-    )
-    .map_err(safety)
-}
-
-/// Compare independent committees ignoring priority, which only the landed preimage authenticates.
+/// Compare independent committees ignoring priority, which only header(s)'s app_hash
+/// authenticates.
 fn same_powers(set: &abci::valstate::ValSet, committee: &CommitteeState) -> bool {
     set.entries.iter().map(|e| (e.key, e.power as u64)).collect::<BTreeMap<_, _>>() ==
         committee.members.iter().map(|m| (m.pubkey, m.power)).collect::<BTreeMap<_, _>>()
@@ -934,9 +954,7 @@ impl From<ImportError> for ContentFault {
 fn body_fault(error: validate::ValidationError) -> ContentFault {
     match error {
         validate::ValidationError::Commitment(
-            "genesis last commit" |
-            "parent execution app hash" |
-            "missing or conflicting previous block/commit",
+            "genesis last commit" | "missing or conflicting previous block/commit",
         ) |
         validate::ValidationError::Etna(_) => ContentFault::Rule(error.to_string()),
         _ => ContentFault::Now(candidate(error)),
@@ -952,7 +970,7 @@ async fn confirm_landed(
     mut hash: tendermint::Hash,
     blocks: &mut impl Iterator<Item = Result<WindowBlock, ImportError>>,
     landing: &Landing,
-    val_state: &ValState,
+    preimage: &[u8],
 ) -> ImportError {
     while height < landing.height {
         tokio::task::yield_now().await;
@@ -960,7 +978,7 @@ async fn confirm_landed(
             None => return unavailable("window ended before selected checkpoint"),
             Some(Err(error)) => return error,
             Some(Ok(frame)) => {
-                if let Err(error) = check_header_projection(&frame.block, landing, val_state) {
+                if let Err(error) = check_header_projection(&frame.block, landing, preimage) {
                     return error;
                 }
                 match native_header(&frame.block) {
@@ -1016,11 +1034,13 @@ struct DataProjection {
 
 /// Compare terminal facts as soon as the bounded original block can authenticate them, before
 /// decoding an unrelated item commit, applying an ancillary set-size limit or reading ahead.
+/// At s it also authenticates the publisher's `preimage` for s − 1 against header(s)
+/// ([`authenticate_preimage`]) and returns it.
 fn check_header_projection(
     block: &Bytes,
     landing: &Landing,
-    val_state: &ValState,
-) -> Result<u64, ImportError> {
+    preimage: &[u8],
+) -> Result<(u64, Option<ValState>), ImportError> {
     if block.len() > 22_020_096 {
         return Err(candidate("native block exceeds consensus byte bound"));
     }
@@ -1030,14 +1050,11 @@ fn check_header_projection(
         .ok_or_else(|| candidate("missing native header"))?;
     let height = u64::try_from(raw.height).map_err(candidate)?;
     if height != landing.height {
-        return Ok(height);
+        return Ok((height, None));
     }
     let header: tendermint::block::Header = raw.try_into().map_err(candidate)?;
     if B256::from_slice(header.hash().as_bytes()) != landing.comet_hash {
         return Err(candidate("terminal Comet hash differs from finalized landing"));
-    }
-    if header.next_validators_hash.as_bytes() != set_hash(&val_state.current)?.as_slice() {
-        return Err(safety("landed future validators contradict terminal next_validators_hash"));
     }
     let txs = DataProjection::decode(block.as_ref())
         .map_err(candidate)?
@@ -1054,7 +1071,9 @@ fn check_header_projection(
     if envelope.block.header.hash_slow() != landing.el_hash {
         return Err(safety("authenticated terminal envelope execution hash contradicts landing"));
     }
-    Ok(height)
+    // ELHash(s - 1) is the parentHash of s's authenticated EL header.
+    let before = authenticate_preimage(preimage, &header, envelope.block.header.parent_hash)?;
+    Ok((height, Some(before)))
 }
 
 #[cfg(test)]

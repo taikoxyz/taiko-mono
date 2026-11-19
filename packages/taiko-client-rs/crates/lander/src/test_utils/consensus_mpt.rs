@@ -157,6 +157,13 @@ pub struct Fixture {
     states: BTreeMap<u64, State>,
 }
 
+/// A header's `app_hash` field holding appHash (ENC-A-29b) of the EL hash `block_hash` and
+/// the validator state `state` after the same height.
+pub fn app_hash(block_hash: B256, state: &ValState) -> tendermint::AppHash {
+    let hash = abci::valstate::app_hash(block_hash, state.hash());
+    tendermint::AppHash::try_from(hash.to_vec()).unwrap()
+}
+
 /// The validator states after heights `origin..=tip`, replayed as abci's app keeps them: the
 /// genesis state of `initial` at `origin`, then, at each height `x` whose `switch_target(x)` is
 /// `t`, the updates from the committee `signing(x)` names to committee `t`, and none elsewhere.
@@ -401,11 +408,10 @@ impl Fixture {
         slots.insert(inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height));
         slots.insert(inbox::slot(inbox::LAST_CHECKPOINT_HASH), el.into());
         slots.insert(inbox::slot(292), U256::from(recovery_nonce)); // STOR-B-15; not an anchor field.
-        for (slot, word) in inbox::landing_slots(height).into_iter().zip([
+        for (slot, word) in inbox::landing_record_slots(height).into_iter().zip([
             U256::from(parent),
             el.into(),
             comet.into(),
-            self.val_states[&height].hash().into(),
         ]) {
             slots.insert(slot, word);
         }
@@ -425,9 +431,10 @@ impl Fixture {
         self.states.insert(next, state);
     }
 
-    /// Retain multiple landing records in the same finalized root, including deliberate
-    /// hash-authenticated contradiction fixtures supplied by the caller.
-    pub fn import_landings(&mut self, records: &[(u64, B256, B256, B256)]) {
+    /// Retain multiple landing records `(height, EL hash, Comet hash)` in the same finalized
+    /// root, including deliberate hash-authenticated contradiction fixtures supplied by the
+    /// caller. Each keeps its packed word and writes the three-word slot 285 record.
+    pub fn import_landings(&mut self, records: &[(u64, B256, B256)]) {
         let number = self.snapshot.l1_block_number;
         let mut accounts = self.states[&number]
             .accounts
@@ -435,16 +442,15 @@ impl Fixture {
             .map(|(address, (slots, _))| (*address, slots.clone()))
             .collect::<BTreeMap<_, _>>();
         let slots = accounts.get_mut(&self.params.inbox).unwrap();
-        for (height, el, comet, validators) in records {
+        for (height, el, comet) in records {
             if *height == self.snapshot.checkpoint_height {
                 slots.insert(inbox::slot(inbox::LAST_CHECKPOINT_HASH), (*el).into());
             }
-            let keys = inbox::landing_slots(*height);
+            let keys = inbox::landing_record_slots(*height);
             for (slot, value) in keys.into_iter().zip([
                 slots.get(&keys[0]).copied().unwrap_or_default(),
                 (*el).into(),
                 (*comet).into(),
-                (*validators).into(),
             ]) {
                 slots.insert(slot, value);
             }
@@ -927,6 +933,9 @@ impl Fixture {
             }
             pair.block.header.next_validators_hash =
                 committees[&schedule.epoch_of(height + 1)].validators.hash();
+            // CONS-3.1-8: the app_hash the app returned for the parent, appHash of its EL hash
+            // and the validator state after it.
+            pair.block.header.app_hash = app_hash(parent.hash, &val_states[&(height - 1)]);
             super::consensus::resign(&mut pair, &committees[&schedule.epoch_of(height)], &keys);
             parent = ParentInfo {
                 number: height,
@@ -1693,16 +1702,17 @@ pub(crate) async fn import_package(
         app_state: abci::genesis::AppStateJson::from(&witness),
     };
     ImportPackage {
-        schema: 1,
+        schema: crate::checkpoint_import::IMPORT_SCHEMA,
         genesis,
         checkpoint_height: height,
         origin_header: fx.headers[&0].clone(),
         recovery_bootstrap: None,
         boundary_header: None,
+        // The preimage for s - 1 that header(s)'s app_hash commits (DATA-5.4-3).
         validator_state: if height == 0 {
             Bytes::new()
         } else {
-            fx.val_states[&height].encode().into()
+            fx.val_states[&(height - 1)].encode().into()
         },
         execution_headers: vec![],
     }
