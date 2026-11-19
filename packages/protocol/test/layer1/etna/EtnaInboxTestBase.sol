@@ -87,6 +87,8 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
     // ---------------------------------------------------------------
 
     uint64 internal constant MAX_BATCH_BLOCKS = 1000;
+    /// @dev The Inbox's upper bound on `maxBatchBlocks` (PARAM-11-6).
+    uint64 internal constant MAX_BATCH_BLOCKS_CAP = 12_951;
     uint64 internal constant FORCED_INCLUSION_FEE_GWEI = 10_000_000;
     uint64 internal constant FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD = 50;
     address internal constant PROTOCOL_FEE_RECIPIENT = address(0xfee);

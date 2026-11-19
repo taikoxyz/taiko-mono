@@ -26,7 +26,7 @@ interface IEtnaInbox {
         address stakingRegistry;
         /// @notice The chain id of the Etna L2; non-zero.
         uint64 l2ChainId;
-        /// @notice The maximum `h - p` of one landing; at least 1 and at most 65,532 (spec 11).
+        /// @notice The maximum `h - p` of one landing; at least 1 and at most 12,951 (spec 11).
         uint64 maxBatchBlocks;
         /// @notice The forced inclusion fee in Gwei with an empty queue (spec 7.1); non-zero.
         uint64 forcedInclusionFeeInGwei;
@@ -57,7 +57,7 @@ interface IEtnaInbox {
         uint256 sMin;
         /// @notice `n_max`: the maximum committee size, in [1, 4096].
         uint256 nMax;
-        /// @notice `U`: the maximum number of unsettled L2 blocks, in [1, 65,532].
+        /// @notice `U`: the maximum number of unsettled L2 blocks, in [1, 65,536].
         uint256 unsettledLimit;
     }
 
@@ -148,8 +148,6 @@ interface IEtnaInbox {
         uint48 rulesTime;
         /// @notice The planned stop time; zero means no stop.
         uint48 stopTime;
-        /// @notice The planned stop's grid, non-zero when a stop is set.
-        uint48 stopGrid;
     }
 
     /// @notice The landing record of a checkpoint height (slot 285 mapping, three words); the
@@ -421,12 +419,10 @@ interface IEtnaInbox {
     /// @notice Schedules, moves or cancels the planned stop (spec 10.1).
     /// @dev Owner only after initialization, under the Inbox lock. With M = maxAnchorAge(): if a
     /// stop is set it requires block.timestamp + M < stopTime (`StopLocked`). It then requires
-    /// (_time, _grid) to be (0, 0), which cancels the stop, or _time >= block.timestamp + M with
-    /// a non-zero _grid (`InvalidStop`), sets stopTime and stopGrid and emits
-    /// `RulesScheduleUpdated`.
-    /// @param _time The stop time.
-    /// @param _grid The stop grid.
-    function scheduleStop(uint48 _time, uint48 _grid) external;
+    /// _time to be 0, which cancels the stop, or at least block.timestamp + M (`InvalidStop`),
+    /// sets stopTime = _time and emits `RulesScheduleUpdated`.
+    /// @param _time The stop time, or 0 for no stop.
+    function scheduleStop(uint48 _time) external;
 
     /// @notice Invalidates all unexecuted recovery authorizations carrying the current nonce.
     /// @dev Owner only after initialization, under the Inbox lock. Requires an exact nonce and
@@ -634,8 +630,7 @@ interface IEtnaInbox {
     error RulesLocked();
     /// @notice The planned stop can no longer be changed.
     error StopLocked();
-    /// @notice The stop is neither (0, 0) nor a time at least `maxAnchorAge` ahead with a non-zero
-    /// grid.
+    /// @notice The stop time is neither 0 nor at least `maxAnchorAge` ahead.
     error InvalidStop();
     /// @notice The expected recovery nonce differs from the current one.
     error RecoveryNonceMismatch();
@@ -643,7 +638,7 @@ interface IEtnaInbox {
     error AuthorizationExpired();
     /// @notice The staking registry holds its reentrancy lock.
     error RegistryLocked();
-    /// @notice `maxBatchBlocks` is zero or above 65,532.
+    /// @notice `maxBatchBlocks` is zero or above 12,951.
     error InvalidMaxBatchBlocks();
     /// @notice The forced inclusion fee is zero.
     error ForcedInclusionFeeZero();

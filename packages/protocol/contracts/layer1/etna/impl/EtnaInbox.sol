@@ -97,13 +97,17 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     uint256 private constant _MAX_COMMITTEE_SIZE = 4096;
 
     /// @dev The maximum `U` (spec 10).
-    uint256 private constant _MAX_UNSETTLED_LIMIT = 65_532;
+    uint256 private constant _MAX_UNSETTLED_LIMIT = 65_536;
 
-    /// @dev The maximum `maxBatchBlocks` (spec 11). L2 height never exceeds c + U (spec 6.4), so a
-    /// landing from c never needs more. At this limit the 10,921 leaves are 349,472 calldata
-    /// bytes, about 14.0M gas at today's EIP-7623 floor of 40 gas per non-zero byte, within the
-    /// EIP-7825 per-transaction cap of 2^24 gas. A higher calldata floor would need a lower limit.
-    uint256 private constant _MAX_BATCH_BLOCKS_LIMIT = _MAX_UNSETTLED_LIMIT;
+    /// @dev The maximum `maxBatchBlocks` (spec 11): the largest B whose landing fits the EIP-7825
+    /// per-transaction cap of 2^24 = 16,777,216 gas. A landing of B blocks carries B - 1 leaves;
+    /// with a 4 KiB proof its calldata is 4,484 + 32 * (B - 1) bytes. Counting every byte as
+    /// non-zero at today's EIP-7623 floor of 40 gas, B = 12,951 needs 21,000 + 40 * 418,884 =
+    /// 16,776,360 gas and B + 1 needs 16,777,640. The floor sets the gas: at this limit `land`
+    /// with six blobs executes in about 1.1M gas besides the verifier, and standard calldata
+    /// pricing (16 gas per byte) leaves 10.05M below the floor for execution and verification. A
+    /// higher calldata floor would need a lower limit.
+    uint256 private constant _MAX_BATCH_BLOCKS_LIMIT = 12_951;
 
     /// @dev The domain tag of the landing statement (appendix A).
     bytes32 private constant _LAND_STATEMENT_TAG = bytes32("TAIKO_ETNA_LAND_V1");
@@ -236,7 +240,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @notice Sets the implementation's immutable parameters.
     /// @param _config The configuration: non-zero addresses and L2 chain id, `maxBatchBlocks` in
-    /// [1, 65,532], non-zero forced inclusion fee parameters, and either no switching parameters
+    /// [1, 12,951], non-zero forced inclusion fee parameters, and either no switching parameters
     /// (a new network) or all three with an Unzen Inbox that has code (a switching network).
     constructor(Config memory _config) {
         bool switching = _config.unzenInbox != address(0);
@@ -510,19 +514,16 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @inheritdoc IEtnaInbox
     /// @dev Unaffected by pause.
-    function scheduleStop(uint48 _time, uint48 _grid) external onlyOwner nonReentrant {
+    function scheduleStop(uint48 _time) external onlyOwner nonReentrant {
         _checkRegistryUnlocked();
         require(_initStatus == INITIALIZED_STATUS, NotInitialized());
         RulesSchedule memory schedule = _rulesSchedule;
         uint256 earliest = block.timestamp + _forcedInclusionConfig.maxAnchorAge;
 
         if (schedule.stopTime != 0) require(earliest < schedule.stopTime, StopLocked());
-        if (_time != 0 || _grid != 0) {
-            require(_time >= earliest && _grid != 0, InvalidStop());
-        }
+        if (_time != 0) require(_time >= earliest, InvalidStop());
 
         schedule.stopTime = _time;
-        schedule.stopGrid = _grid;
         _setRulesSchedule(schedule);
     }
 
@@ -872,7 +873,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             schedule_.rulesTime = 0;
         }
         schedule_.stopTime = 0;
-        schedule_.stopGrid = 0;
     }
 
     /// @dev Stores the rules schedule in slot 293 and emits its packed word.
@@ -880,8 +880,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     function _setRulesSchedule(RulesSchedule memory _schedule) private {
         _rulesSchedule = _schedule;
         emit RulesScheduleUpdated(uint256(_schedule.activeRules) | uint256(_schedule.nextRules)
-                << 48 | uint256(_schedule.rulesTime) << 96 | uint256(_schedule.stopTime) << 144
-                | uint256(_schedule.stopGrid) << 192);
+                << 48 | uint256(_schedule.rulesTime) << 96 | uint256(_schedule.stopTime) << 144);
     }
 
     /// @dev Spec 8 steps 1-3: exclusions sorted strictly by bond id, then queue indices strictly
@@ -1094,8 +1093,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
                 && _forcedInclusionConfig.delay == 0 && _forcedInclusionConfig.maxAnchorAge == 0
                 && _activeCommitteeSnapshot == 0 && _recoveryNonce == 0
                 && _rulesSchedule.activeRules == 0 && _rulesSchedule.nextRules == 0
-                && _rulesSchedule.rulesTime == 0 && _rulesSchedule.stopTime == 0
-                && _rulesSchedule.stopGrid == 0,
+                && _rulesSchedule.rulesTime == 0 && _rulesSchedule.stopTime == 0,
             DirtyInitialState()
         );
         for (uint256 generation; generation < 2; ++generation) {
@@ -1117,7 +1115,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @dev Returns whether the committee configuration is within the spec 10 bounds:
-    /// 1 <= U <= 65,532, vp_unit >= 867,361,738, s_min >= vp_unit and 1 <= n_max <= 4096.
+    /// 1 <= U <= 65,536, vp_unit >= 867,361,738, s_min >= vp_unit and 1 <= n_max <= 4096.
     /// @param _config The committee configuration.
     /// @return Whether the configuration is valid.
     function _isValidCommitteeConfig(CommitteeConfig calldata _config) private pure returns (bool) {

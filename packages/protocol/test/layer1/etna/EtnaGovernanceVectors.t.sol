@@ -62,7 +62,7 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
             j,
             "schedule_stop",
             IEtnaInbox.scheduleStop.selector,
-            abi.encodeCall(IEtnaInbox.scheduleStop, (1_700_007_200, 600))
+            abi.encodeCall(IEtnaInbox.scheduleStop, (1_700_007_200))
         );
         _assertAbi(
             j,

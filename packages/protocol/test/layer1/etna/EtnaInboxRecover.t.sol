@@ -283,6 +283,18 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _assertOrigin(1, 6, _LEAN_R, _LEAN_R_TIMESTAMP);
     }
 
+    /// @dev RECOV-8.3-3: expectedC need only equal the current c, at any height; generation 1
+    /// then lands from it.
+    function test_recover_acceptsAnyExpectedC() external {
+        _land(0, 7);
+        _recover(0, 7, _noExclusions(), _noIndices());
+        _assertOrigin(1, 7, _LEAN_R, _LEAN_R_TIMESTAMP);
+        assertEq(_inbox().generationStartHeight(), 7, "start height");
+
+        _land(7, 8);
+        _assertLanding(8, _record(7, 1, 1, 8));
+    }
+
     /// @dev Lean `repeated_recovery_at_same_c_needs_new_generation`: replaying an executed
     /// recovery fails on its stale generation; one authorized for generation 1 at the same c
     /// writes origins(2) and keeps origins(1).

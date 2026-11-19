@@ -193,7 +193,7 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         vm.expectRevert(IEtnaInbox.RegistryLocked.selector);
         _inbox().scheduleRules(1, uint48(block.timestamp + 1 days));
         vm.expectRevert(IEtnaInbox.RegistryLocked.selector);
-        _inbox().scheduleStop(uint48(block.timestamp + 1 days), 6);
+        _inbox().scheduleStop(uint48(block.timestamp + 1 days));
 
         (uint48 headAfter, uint48 tailAfter) = _inbox().getForcedInclusionState();
         assertEq(headAfter, head, "queue head");

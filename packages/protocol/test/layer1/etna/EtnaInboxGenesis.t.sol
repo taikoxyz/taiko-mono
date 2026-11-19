@@ -101,17 +101,22 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         _newInboxImpl(cfg);
     }
 
-    function test_constructor_RevertWhen_MaxBatchBlocksOutOfRange() external {
+    /// @dev START-10-18: maxBatchBlocks >= 1, and a one-block batch is allowed.
+    function test_init_rejectsMaxBatchBlocks0() external {
         IEtnaInbox.Config memory cfg = _defaultConfig();
         cfg.maxBatchBlocks = 0;
         vm.expectRevert(IEtnaInbox.InvalidMaxBatchBlocks.selector);
         _newInboxImpl(cfg);
 
-        cfg.maxBatchBlocks = 5;
-        vm.expectRevert(IEtnaInbox.InvalidMaxBatchBlocks.selector);
-        _newInboxImpl(cfg);
+        cfg.maxBatchBlocks = 1;
+        assertEq(_newInboxImpl(cfg).maxBatchBlocks(), 1);
+    }
 
-        cfg.maxBatchBlocks = 65_533;
+    /// @dev PARAM-11-6: the cap is the largest batch whose landing fits one transaction
+    /// (`test_maxBatchBlocksLimit_FitsOneTransaction`).
+    function test_init_rejectsMaxBatchBlocksAboveCap() external {
+        IEtnaInbox.Config memory cfg = _defaultConfig();
+        cfg.maxBatchBlocks = MAX_BATCH_BLOCKS_CAP + 1;
         vm.expectRevert(IEtnaInbox.InvalidMaxBatchBlocks.selector);
         _newInboxImpl(cfg);
 
@@ -119,25 +124,19 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         vm.expectRevert(IEtnaInbox.InvalidMaxBatchBlocks.selector);
         _newInboxImpl(cfg);
 
-        // One grid segment is the minimum and the maximum U is the maximum; the limit need not
-        // be a multiple of six.
-        cfg.maxBatchBlocks = 6;
-        assertEq(_newInboxImpl(cfg).maxBatchBlocks(), 6);
-        cfg.maxBatchBlocks = 7;
-        assertEq(_newInboxImpl(cfg).maxBatchBlocks(), 7);
-        cfg.maxBatchBlocks = 65_532;
-        assertEq(_newInboxImpl(cfg).maxBatchBlocks(), 65_532);
+        cfg.maxBatchBlocks = MAX_BATCH_BLOCKS_CAP;
+        assertEq(_newInboxImpl(cfg).maxBatchBlocks(), MAX_BATCH_BLOCKS_CAP);
     }
 
-    /// @dev A landing at the `maxBatchBlocks` limit carries 65,532 / 6 - 1 = 10,921 leaves. With
-    /// a 4 KiB proof (generous for the two sub-proofs) and every calldata byte priced as non-zero
-    /// at the EIP-7623 floor, the transaction stays below the EIP-7825 cap of 2^24 gas.
+    /// @dev PARAM-11-6: a landing of B blocks carries B - 1 leaves. With a 4 KiB proof (generous
+    /// for the two sub-proofs) and every calldata byte priced as non-zero at the EIP-7623 floor,
+    /// the cap B = 12,951 (12,950 leaves, 418,884 bytes, 16,776,360 gas) stays below the EIP-7825
+    /// cap of 2^24 gas, and B + 1 (32 more bytes) does not. `EtnaInboxLandTest` measures `land`
+    /// at the cap and shows that this floor, not execution, sets the transaction's gas.
     function test_maxBatchBlocksLimit_FitsOneTransaction() external pure {
-        IEtnaInbox.LandInput memory input;
-        bytes memory data = abi.encodeCall(
-            IEtnaInbox.land, (input, new bytes32[](65_532 / 6 - 1), new bytes(4096))
-        );
-        assertLt(21_000 + 40 * data.length, 2 ** 24, "calldata floor");
+        assertEq(_landFloorGas(MAX_BATCH_BLOCKS_CAP - 1), 16_776_360, "floor at the cap");
+        assertLt(_landFloorGas(MAX_BATCH_BLOCKS_CAP - 1), 2 ** 24, "the cap fits");
+        assertGt(_landFloorGas(MAX_BATCH_BLOCKS_CAP), 2 ** 24, "one more block does not");
     }
 
     function test_constructor_RevertWhen_ForcedInclusionFeeOrThresholdIsZero() external {
@@ -258,7 +257,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(startHash, GENESIS_BLOCK_HASH, "etnaStart hash");
         IEtnaInbox.RulesSchedule memory schedule = inbox.rulesSchedule();
         assertEq(schedule.activeRules | schedule.nextRules | schedule.rulesTime, 0, "rules 0");
-        assertEq(schedule.stopTime | schedule.stopGrid, 0, "no stop");
+        assertEq(schedule.stopTime, 0, "no stop");
 
         ICheckpointStore.Checkpoint memory checkpoint = signalService.getCheckpoint(0);
         assertEq(checkpoint.blockNumber, 0, "checkpoint number");
@@ -394,20 +393,23 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         _upgradeAndInit(impl, params);
     }
 
-    /// @dev Lean `config_u_range`: U is a multiple of 6 in [6, 65,532]. 9 and 3,603 are multiples
-    /// of 3 only, 3,602 of 2 only.
-    function test_init_RevertWhen_UnsettledLimitInvalid() external {
-        uint256[8] memory rejected = [uint256(0), 5, 9, 3601, 3602, 3603, 65_536, 65_538];
-        for (uint256 i; i < rejected.length; ++i) {
-            IEtnaInbox.InitParams memory params = _defaultInitParams();
-            params.committeeConfig.unsettledLimit = rejected[i];
-            _assertInitRejects(params, IEtnaInbox.InvalidCommitteeConfig.selector);
-        }
-        uint256[3] memory accepted = [uint256(6), 3600, 65_532];
+    /// @dev BACKP-6.4-2, START-10-10: 1 <= U <= 65,536, with no multiple-of rule (3,601 too).
+    function test_init_acceptsU1AndU65536() external {
+        uint256[3] memory accepted = [uint256(1), 3601, 65_536];
         for (uint256 i; i < accepted.length; ++i) {
             IEtnaInbox.InitParams memory params = _defaultInitParams();
             params.committeeConfig.unsettledLimit = accepted[i];
             _assertInitAccepts(params);
+        }
+    }
+
+    /// @dev BACKP-6.4-2, START-10-10: U = 0 and U = 65,537 are outside [1, 65,536].
+    function test_init_rejectsU0AndU65537() external {
+        uint256[2] memory rejected = [uint256(0), 65_537];
+        for (uint256 i; i < rejected.length; ++i) {
+            IEtnaInbox.InitParams memory params = _defaultInitParams();
+            params.committeeConfig.unsettledLimit = rejected[i];
+            _assertInitRejects(params, IEtnaInbox.InvalidCommitteeConfig.selector);
         }
     }
 
@@ -585,6 +587,15 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
+
+    /// @dev 21,000 intrinsic gas plus the EIP-7623 floor of 40 gas per byte, counting every byte
+    /// as non-zero, for the calldata of `land` with `_leafCount` leaves and a 4 KiB proof.
+    function _landFloorGas(uint256 _leafCount) private pure returns (uint256) {
+        IEtnaInbox.LandInput memory input;
+        bytes memory data =
+            abi.encodeCall(IEtnaInbox.land, (input, new bytes32[](_leafCount), new bytes(4096)));
+        return 21_000 + 40 * data.length;
+    }
 
     /// @dev Expects `init(_params)` through the owner's upgrade to `inboxImpl` to revert with
     /// `_selector`.

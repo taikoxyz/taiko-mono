@@ -899,7 +899,6 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         assertEq(rules.nextRules, _uint(_j, _p, "next_rules"), "nextRules");
         assertEq(rules.rulesTime, _uint(_j, _p, "rules_time"), "rulesTime");
         assertEq(rules.stopTime, _uint(_j, _p, "stop_time"), "stopTime");
-        assertEq(rules.stopGrid, _uint(_j, _p, "stop_grid"), "stopGrid");
     }
 
     // ---------------------------------------------------------------

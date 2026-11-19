@@ -10,7 +10,7 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 
 /// @title EtnaInboxSwitchTest
 /// @notice The Etna start on a switching network (spec 10 steps 5-5b, SWITCH.md): `init` without a
-/// start, `setOrigin`, the grid counted from S (6.1) and the first-landing Unzen check
+/// start, `setOrigin`, landings at any height above S (6.1) and the first-landing Unzen check
 /// (LAND-6.1-8a), with the vector numbers of rules/vectors/10.md and 6.1.md.
 contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
     uint256 private constant _TWO_POW_48 = 2 ** 48;
@@ -54,7 +54,7 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
             .recover(0, 0, 0, type(uint256).max, new IEtnaInbox.Exclusion[](0), new uint256[](0), 0);
 
         _inbox().invalidateRecoveryNonce(0);
-        _inbox().scheduleStop(uint48(block.timestamp + MAX_ANCHOR_AGE), 6);
+        _inbox().scheduleStop(uint48(block.timestamp + MAX_ANCHOR_AGE));
         assertEq(_inbox().recoveryNonce(), 1, "nonce invalidated");
     }
 

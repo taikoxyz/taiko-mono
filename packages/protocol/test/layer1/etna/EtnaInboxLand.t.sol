@@ -361,7 +361,7 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
     function test_land_RevertWhen_HeightReaches2Pow48() external {
         bytes32[] memory none = new bytes32[](0);
         uint256 h = _TWO_POW_48;
-        _upgradeWithMaxBatchBlocks(65_532);
+        _upgradeWithMaxBatchBlocks(MAX_BATCH_BLOCKS_CAP);
         _expectLandRevert(_input(0, h), none, IEtnaInbox.InvalidRange.selector);
 
         uint256 p = _TWO_POW_48 - 10;
@@ -420,6 +420,40 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         assertEq(leaves.length, 999, "999 leaves");
         _land(input, leaves);
         _assertCheckpoint(1000, bytes32(uint256(1100)));
+    }
+
+    /// @dev PARAM-11-6: a landing at the cap of 12,951 blocks, with 12,950 leaves, six blobs and a
+    /// 4 KiB proof, fits one transaction under the EIP-7825 cap of 2^24 gas. Counting every
+    /// calldata byte as non-zero, standard pricing (16 gas per byte) plus the measured execution
+    /// stays below the EIP-7623 floor (40 gas per byte), so the floor sets the transaction's gas
+    /// and `test_maxBatchBlocksLimit_FitsOneTransaction` derives the cap from it. The mock verifier
+    /// costs almost nothing; the logged margin is what a real verifier may use.
+    function test_land_AtTheBatchCapFitsOneTransaction() external {
+        uint256 h = MAX_BATCH_BLOCKS_CAP;
+        _upgradeWithMaxBatchBlocks(MAX_BATCH_BLOCKS_CAP);
+        _setBlobCount(6);
+        IEtnaInbox.LandInput memory input = _input(0, h);
+        input.forcedInclusionHead = LEAN_FORCED_INCLUSIONS;
+        bytes32[] memory leaves = _leaves(0, h);
+        assertEq(leaves.length, h - 1, "B - 1 leaves");
+        bytes memory proof = new bytes(4096);
+        landVerifier.setExpectedStatementHash(
+            _statement(input, _inbox().landings(0), _cutHash(input, leaves))
+        );
+
+        vm.blobhashes(blobHashes);
+        vm.prank(Bob);
+        _inbox().land(input, leaves, proof);
+        uint256 execution = vm.lastCallGas().gasTotalUsed;
+        _assertCheckpoint(h, input.lastBlockHash);
+
+        uint256 calldataBytes = abi.encodeCall(IEtnaInbox.land, (input, leaves, proof)).length;
+        uint256 floorGas = 21_000 + 40 * calldataBytes;
+        uint256 standardGas = 21_000 + 16 * calldataBytes + execution;
+        emit log_named_uint("land execution gas", execution);
+        emit log_named_uint("margin for a real verifier", floorGas - standardGas);
+        assertLt(standardGas, floorGas, "the floor sets the gas");
+        assertLt(floorGas, 2 ** 24, "fits one transaction");
     }
 
     // ---------------------------------------------------------------
