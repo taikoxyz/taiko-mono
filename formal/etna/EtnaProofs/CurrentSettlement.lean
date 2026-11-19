@@ -103,6 +103,7 @@ theorem land_single_block {env : Environment} {w : World} {a : Landing}
     (service : a.input.forcedInclusionHead-w.inbox.head ≤ a.input.lastHeight-w.inbox.checkpoint.height)
     (reference : a.input.l1ReferenceBlockNumber < w.number)
     (referenceAge : w.number-a.input.l1ReferenceBlockNumber ≤ 8191)
+    (referenceReadable : referenceHash env w a.input.l1ReferenceBlockNumber ≠ 0)
     (blobs : 1 ≤ a.blobs.length ∧ a.blobs.length ≤ 6) (unzen : firstFence env w = true)
     (proofs : proofsAccepted env w a = true) :
     (∀ table, innerLeaves a.input.parentHeight a.input.lastHeight table = a.leaves) ∧
@@ -112,7 +113,7 @@ theorem land_single_block {env : Environment} {w : World} {a : Landing}
     { initialized,started,entered,origin,parentBeforeFrontier,progress,height,batchSize,record,generation,
       leafCount := by rw [empty,single]; simp,
       frontier := fun lt => absurd lt (by omega),
-      cursor,head,tail,service,reference,referenceAge,blobs,unzen,proofs }
+      cursor,head,tail,service,reference,referenceAge,referenceReadable,blobs,unzen,proofs }
   simp only [land,checks,↓reduceIte]
 
 /-- LAND-6.1-4/7/8, BATCH-6.3-10: after a competing landing moves c to p+1, the original

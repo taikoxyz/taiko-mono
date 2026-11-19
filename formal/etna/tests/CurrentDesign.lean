@@ -113,6 +113,7 @@ def candidate : Import.Candidate := ⟨2,5,400,70,70,true,true,true,true,true,tr
 
 theorem import_authentication_priority :
     Import.inspect { candidate with envelopeEL := 71, dataHashAuthenticated := false } 2 = .reject ∧
+    Import.inspect { candidate with envelopeEL := 71, valStateAuthenticated := false } 2 = .halt ∧
     Import.inspect { candidate with envelopeEL := 71, materialAvailable := false } 2 = .halt ∧
     Import.inspect { candidate with materialAvailable := false } 2 = .retry ∧
     Import.inspect candidate 3 = .reject := by decide +kernel
@@ -131,7 +132,7 @@ theorem import_checkpoint_finality :
     Import.inspect unlanded 2 = .reject := by decide +kernel
 
 /-- DATA-5.4-3/5: a preimage of valStateHash(s − 1) that, with the EL hash of s − 1, does not
-give header(s)'s app_hash rejects, before any contradiction; one that does but whose sets differ
+give header(s)'s app_hash rejects when there is no finalized envelope conflict; one that does but whose sets differ
 from header(s)'s validators_hash or next_validators_hash halts once the record is finalized; a
 committee derived under 4.3 that differs from the derived sets halts, but only after the
 window is available and authenticated. -/

@@ -104,6 +104,13 @@ theorem landing_checks : LandingChecks env source landing := by decide +kernel
 theorem landing_accepted : land env source landing = some (landed source landing) := by
   simp [Protocol.land,landing_checks]
 
+-- LAND-6.1-10: an unreadable L1 reference blocks an otherwise accepted landing.
+example :
+    let unreadable := { env with blockHash := fun _ _ => 0 }
+    proofsAccepted unreadable source landing = true ∧
+    (land unreadable source landing).isNone = true := by
+  decide +kernel
+
 theorem landing_certifies : LiveCertifies env source (statement env source landing) := by
   refine ⟨archive,genesis,[b1,b2],?_,⟨⟨b1_valid,b2_valid,True.intro⟩,rfl⟩,?_,rfl,?_,?_,?_⟩
   · decide +kernel

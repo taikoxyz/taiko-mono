@@ -51,7 +51,7 @@ CURRENT_HEADLINES = {
 CURRENT_PREMISES = 'Etna.Statements.Current.Premises'
 # H1 is stated over this sub-record of Premises; each of its fields must be needed by H1 itself.
 CURRENT_FUND_PREMISES = ('Etna.Statements.Current.FundPremises', 'Etna.Design.Current.Headlines.fund_safety')
-# H4 is stated over its own record (FundPremises plus five more) and a per-state hypothesis;
+# H4 is stated over its own record (FundPremises plus six more) and a per-state hypothesis;
 # H4's proof alone must need each field of both.
 CURRENT_RECOVERY_PREMISES = ('Etna.Statements.Current.RecoveryPremises', 'Etna.Design.Current.Headlines.recoverability')
 CURRENT_LIVE_HYPOTHESES = ('Etna.Statements.Current.LiveAt', 'Etna.Design.Current.Headlines.recoverability')

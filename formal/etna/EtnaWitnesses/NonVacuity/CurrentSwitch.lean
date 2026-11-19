@@ -136,6 +136,10 @@ instance : Decidable (Blocks.HeaderValid pol legacy block) := inferInstanceAs (D
 
  theorem source_landing_checks : LandingChecks env (source env) landing := by
   constructor
+  case referenceReadable =>
+    change referenceHash env (source env) 4 ≠ 0
+    rw [source_reference]
+    decide
   case proofs => simp only [proofsAccepted,source_statement]; decide +kernel
   all_goals first | rfl | decide +kernel
 

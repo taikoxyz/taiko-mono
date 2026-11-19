@@ -269,8 +269,9 @@ inductive Decision where
 
 /-- A missing or mismatching record rejects; a record landed only in an unfinalized L1 block
 leaves synchronization incomplete until it finalizes and verification is retried (DATA-5.3-4,
-vectors 4.f and 4.m). A validator-state preimage that, with the EL hash of s − 1, does not
-give header(s)'s app_hash is an invalid candidate. Only finalized, authenticated landing data
+vectors 4.f and 4.m). An authenticated envelope conflict takes precedence over the supplied
+validator-state preimage. A preimage that, with the EL hash of s − 1, does not give header(s)'s
+app_hash rejects the candidate in the absence of that conflict. Only finalized, authenticated landing data
 can prove a contradiction (DATA-5.4-5): an envelope EL hash that disagrees with the record; a
 preimage that gives header(s)'s app_hash but whose two sets differ from header(s)'s
 validators_hash or next_validators_hash; or a committee derived under 4.3 that differs from the
@@ -278,10 +279,11 @@ matching set derived from the preimage. The three validator-state checks apply o
 at s = o the genesis path ignores them. -/
 def inspect (c : Candidate) (currentGeneration : Nat) : Decision :=
   if c.generation ≠ currentGeneration ∨ c.height < c.origin ∨
-      c.checkpointAuthenticated = false ∨ c.dataHashAuthenticated = false ∨
-      (c.origin < c.height ∧ c.valStateAuthenticated = false) then .reject
+      c.checkpointAuthenticated = false ∨ c.dataHashAuthenticated = false then .reject
+  else if c.checkpointFinalized = true ∧ c.envelopeEL ≠ c.checkpointEL then .halt
+  else if c.origin < c.height ∧ c.valStateAuthenticated = false then .reject
   else if c.checkpointFinalized = false then .retry
-  else if c.envelopeEL ≠ c.checkpointEL ∨ (c.origin < c.height ∧ c.validatorSetsMatch = false) then .halt
+  else if c.origin < c.height ∧ c.validatorSetsMatch = false then .halt
   else if c.materialAvailable = false then .retry
   else if c.metadataAuthenticated = false then .reject
   else if c.origin < c.height ∧ c.committeesMatch = false then .halt

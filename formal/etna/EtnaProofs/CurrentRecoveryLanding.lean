@@ -638,6 +638,10 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
       change u.number-(R+1) ≤ 8191
       rw [prepared.number.1]
       omega
+    referenceReadable := by
+      change referenceHash env u (R+1) ≠ 0
+      apply premises.referenceReadable
+      simp [referencePrefix,List.map_take,complete,Nat.add_assoc]
     blobs := ⟨fewest,most⟩
     unzen := prepared.fence
     proofs := proofs_accepted prepared.proofs.1 dual verified }

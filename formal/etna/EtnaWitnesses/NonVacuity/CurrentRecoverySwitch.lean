@@ -216,7 +216,13 @@ private theorem payload_live : Etna.Statements.Current.PayloadLive env := by
 
 private theorem recovery_premises : Etna.Statements.Current.RecoveryPremises env RecoveryNonVacuity.registry :=
   { toFundPremises := fund_premises, recoveryClock := clock, recoveryCatalogueHash := catalogue_hash,
-    proofComplete := proof_complete, payloadLive := payload_live, unzenStart := unzen_start }
+    proofComplete := proof_complete, payloadLive := payload_live, unzenStart := unzen_start,
+    referenceReadable := by
+      intro history n complete
+      change Encoding.referenceHash history n ≠ 0
+      cases history with
+      | nil => simp at complete
+      | cons head rest => simp [Encoding.referenceHash,Encoding.pair,Encoding.list,Encoding.Tree.code] }
 
 /-! Execution liveness: every parent and producer choice has a hash-bound, linked child. -/
 

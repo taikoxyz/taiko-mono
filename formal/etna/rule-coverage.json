@@ -42,7 +42,7 @@
         "Etna.Design.Current.Import.publish_boundary",
         "Etna.Design.Current.Import.unfinalized_checkpoint_retries"
       ],
-      "reason": "Finalized authenticated disagreement halts (the imported envelope EL hash; for s > o also a validator-state preimage that gives header(s)'s app_hash but whose sets differ from header(s)'s validators_hash or next_validators_hash, or a derived committee against the set derived from that preimage); for s > o a preimage that does not give header(s)'s app_hash rejects; an unfinalized checkpoint record retries; decoded candidate inspection only, no alert or store implementation proof."
+      "reason": "Finalized authenticated disagreement halts (the imported envelope EL hash; for s > o also a validator-state preimage that gives header(s)'s app_hash but whose sets differ from header(s)'s validators_hash or next_validators_hash, or a derived committee against the set derived from that preimage); for s > o a preimage that does not give header(s)'s app_hash rejects in the absence of a finalized envelope conflict; an unfinalized checkpoint record retries; decoded candidate inspection only, no alert or store implementation proof."
     },
     "DATA-5.4-7": {
       "theorems": [

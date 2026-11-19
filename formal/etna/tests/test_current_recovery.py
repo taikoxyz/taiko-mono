@@ -35,7 +35,7 @@ JOINT = 'Etna.Design.Current.Protocol.RecoveryNonVacuity.all_premises_satisfiabl
 SWITCH_JOINT = 'Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.all_premises_satisfiable'
 # Every field of H4's own premise record, then every conjunct of its per-state hypothesis.
 RECOVERY_FIELDS = ('toFundPremises', 'recoveryClock', 'recoveryCatalogueHash', 'proofComplete', 'payloadLive',
-                   'unzenStart')
+                   'unzenStart', 'referenceReadable')
 LIVE_FIELDS = ('generation', 'nonce', 'rules', 'height', 'window', 'ruleset', 'unzen')
 
 

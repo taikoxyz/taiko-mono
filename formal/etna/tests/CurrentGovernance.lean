@@ -22,7 +22,7 @@ def env : Environment where
   initialSigner := ⟨domain,0,1,[],false,[]⟩
   time := id
   stateRoot := fun _ => 0
-  blockHash := fun _ _ => 0
+  blockHash := fun _ n => n+1
   headerHash := headerCommitment
   committeeHash := fun _ => 0
   configHash := fun _ => 0

@@ -243,6 +243,10 @@ structure RecoveryPremises (env : Environment) (registry : RegistryMachine.State
   proofComplete : ProofComplete env
   payloadLive : PayloadLive env
   unzenStart : UnzenStartUsable env
+  /-- LAND-6.1-10: the L1 hash adapter returns a nonzero hash for the complete
+  closed reference prefix used by the recovery landing, one block before execution. -/
+  referenceReadable : ∀ history n, history.map Snapshot.number = List.range (n+1) →
+    env.blockHash history n ≠ 0
 
 /-- Per-state conditions of H4 (reports/recoverability.md, Per-state hypotheses). -/
 structure LiveAt (env : Environment) (w : World) : Prop where

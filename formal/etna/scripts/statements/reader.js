@@ -61,7 +61,7 @@
     "Etna.Statements.Current.FundPremises":
       "The five premises H1 is stated over. None concerns consensus, so H1 holds whatever the committee signs.",
     "Etna.Statements.Current.RecoveryPremises":
-      "The ten premises H4 is stated over: H1's five (FundPremises) and five more, including assumed proof completeness. It does not include Premises or any honesty or vote-attribution assumption.",
+      "H4 uses eleven premises, including H1's five (FundPremises), proof completeness and a readable L1 reference hash. It does not include Premises or any honesty or vote-attribution assumption.",
     "Etna.Statements.Current.LiveAt":
       "H4's seven per-state hypotheses on the starting state: counter headroom, a later L1 window block with a live committee, live rulesets (LiveRules) and a live Unzen lane.",
     "Etna.Statements.Current.LiveRules":
@@ -117,6 +117,8 @@
       "One block within the block size bound fits in one to six blobs that the payload check accepts.",
     unzenStart:
       "On a switching network, every header a valid final Unzen proof authenticates is a usable Etna start.",
+    referenceReadable:
+      "The L1 block-hash adapter returns a nonzero hash for a complete closed prefix.",
     generation: "LiveAt: generation + 2 fits 48 bits.",
     nonce: "LiveAt: recoveryNonce + 1 fits 256 bits.",
     rules: "LiveAt: nextRules + 1 fits 48 bits.",

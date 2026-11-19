@@ -27,7 +27,7 @@ LIVE_AT = 'Etna.Statements.Current.LiveAt'
 H1, H2, H3, H4 = HEADLINES
 # Premises extends FundPremises: H2 and H3 read H1's five fields through `toFundPremises`,
 # and H1's proof alone must read each of the five. H4 reads none of Premises; its own record
-# RecoveryPremises (FundPremises plus five) and every LiveAt conjunct are read by H4's proof.
+# RecoveryPremises (FundPremises plus six) and every LiveAt conjunct are read by H4's proof.
 PREMISE_USES = {
     'Premises.toFundPremises': [H2,H3],
     'Premises.currentStandardToken': [H2],
@@ -46,7 +46,7 @@ PREMISE_USES = {
     'FundPremises.currentRegistryGenesis': [H1],
     'FundPremises.currentUnzenExtension': [H1],
     **{'RecoveryPremises.'+field: [H4] for field in (
-        'toFundPremises', 'recoveryClock', 'recoveryCatalogueHash', 'proofComplete', 'payloadLive', 'unzenStart')},
+        'toFundPremises', 'recoveryClock', 'recoveryCatalogueHash', 'proofComplete', 'payloadLive', 'unzenStart', 'referenceReadable')},
     **{'LiveAt.'+field: [H4] for field in (
         'generation', 'nonce', 'rules', 'height', 'window', 'ruleset', 'unzen')},
 }

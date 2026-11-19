@@ -289,6 +289,10 @@ theorem source_statement : statement env (source env) landing = template := by
 
 theorem source_landing_checks : LandingChecks env (source env) landing := by
   constructor
+  case referenceReadable =>
+    change referenceHash env (source env) 2 ≠ 0
+    rw [source_reference]
+    decide
   case proofs =>
     simp only [proofsAccepted,source_statement]
     decide +kernel
@@ -996,7 +1000,7 @@ theorem after_reference_preserves_commitment :
 
 theorem after_reference_landing_accepted :
     land env afterReference landing = some (landed afterReference landing) := by
-  have checks : LandingChecks env afterReference landing := ⟨source_landing_checks.initialized,source_landing_checks.started,source_landing_checks.entered,source_landing_checks.origin,source_landing_checks.parentBeforeFrontier,source_landing_checks.progress,source_landing_checks.height,source_landing_checks.batchSize,source_landing_checks.record,source_landing_checks.generation,source_landing_checks.leafCount,source_landing_checks.frontier,source_landing_checks.cursor,source_landing_checks.head,source_landing_checks.tail,source_landing_checks.service,source_landing_checks.reference,source_landing_checks.referenceAge,source_landing_checks.blobs,source_landing_checks.unzen,source_landing_checks.proofs⟩
+  have checks : LandingChecks env afterReference landing := ⟨source_landing_checks.initialized,source_landing_checks.started,source_landing_checks.entered,source_landing_checks.origin,source_landing_checks.parentBeforeFrontier,source_landing_checks.progress,source_landing_checks.height,source_landing_checks.batchSize,source_landing_checks.record,source_landing_checks.generation,source_landing_checks.leafCount,source_landing_checks.frontier,source_landing_checks.cursor,source_landing_checks.head,source_landing_checks.tail,source_landing_checks.service,source_landing_checks.reference,source_landing_checks.referenceAge,source_landing_checks.referenceReadable,source_landing_checks.blobs,source_landing_checks.unzen,source_landing_checks.proofs⟩
   simp only [Protocol.land,checks,ite_true]
 
 
@@ -1021,6 +1025,11 @@ theorem closed_after_reference_statement : statement env closedAfterReference la
 
 theorem closed_after_reference_checks : LandingChecks env closedAfterReference landing := by
   constructor
+  case referenceReadable =>
+    change referenceHash env closedAfterReference 2 ≠ 0
+    change env.blockHash (referencePrefix closedAfterReference 2) 2 ≠ 0
+    rw [closed_after_reference_prefix]
+    exact source_landing_checks.referenceReadable
   case proofs =>
     simp only [proofsAccepted,closed_after_reference_statement]
     decide +kernel
@@ -1048,7 +1057,7 @@ theorem positive_rollback : rollback env firstLanded 7 (source env).inbox.checkp
 
 theorem rollback_then_landing_accepted :
     land env rolledBack landing = some (landed rolledBack landing) := by
-  have checks : LandingChecks env rolledBack landing := ⟨source_landing_checks.initialized,source_landing_checks.started,source_landing_checks.entered,source_landing_checks.origin,source_landing_checks.parentBeforeFrontier,source_landing_checks.progress,source_landing_checks.height,source_landing_checks.batchSize,source_landing_checks.record,source_landing_checks.generation,source_landing_checks.leafCount,source_landing_checks.frontier,source_landing_checks.cursor,source_landing_checks.head,source_landing_checks.tail,source_landing_checks.service,source_landing_checks.reference,source_landing_checks.referenceAge,source_landing_checks.blobs,source_landing_checks.unzen,source_landing_checks.proofs⟩
+  have checks : LandingChecks env rolledBack landing := ⟨source_landing_checks.initialized,source_landing_checks.started,source_landing_checks.entered,source_landing_checks.origin,source_landing_checks.parentBeforeFrontier,source_landing_checks.progress,source_landing_checks.height,source_landing_checks.batchSize,source_landing_checks.record,source_landing_checks.generation,source_landing_checks.leafCount,source_landing_checks.frontier,source_landing_checks.cursor,source_landing_checks.head,source_landing_checks.tail,source_landing_checks.service,source_landing_checks.reference,source_landing_checks.referenceAge,source_landing_checks.referenceReadable,source_landing_checks.blobs,source_landing_checks.unzen,source_landing_checks.proofs⟩
   simp only [Protocol.land,checks,ite_true]
 
 
@@ -1106,6 +1115,10 @@ theorem actual_recovery_after_rollback :
 
 theorem recovered_landing_checks : LandingChecks env (recoveredSource env) recoveredLanding := by
   constructor
+  case referenceReadable =>
+    change referenceHash env (recoveredSource env) 4 ≠ 0
+    rw [recovered_reference]
+    decide
   case proofs =>
     simp only [proofsAccepted,recovered_source_statement]
     decide +kernel

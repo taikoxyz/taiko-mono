@@ -450,6 +450,7 @@ structure LandingChecks (env : Environment) (w : World) (a : Landing) : Prop whe
   service : a.input.forcedInclusionHead-w.inbox.head ≤ a.input.lastHeight-w.inbox.checkpoint.height
   reference : a.input.l1ReferenceBlockNumber < w.number
   referenceAge : w.number-a.input.l1ReferenceBlockNumber ≤ 8191
+  referenceReadable : referenceHash env w a.input.l1ReferenceBlockNumber ≠ 0
   blobs : 1 ≤ a.blobs.length ∧ a.blobs.length ≤ 6
   unzen : firstFence env w = true
   proofs : proofsAccepted env w a = true
@@ -474,11 +475,18 @@ instance (env : Environment) (w : World) (a : Landing) : Decidable (LandingCheck
     (a.input.forcedInclusionHead-w.inbox.head ≤ a.input.lastHeight-w.inbox.checkpoint.height) ∧
     (a.input.l1ReferenceBlockNumber < w.number) ∧
     (w.number-a.input.l1ReferenceBlockNumber ≤ 8191) ∧
+    (referenceHash env w a.input.l1ReferenceBlockNumber ≠ 0) ∧
     (1 ≤ a.blobs.length ∧ a.blobs.length ≤ 6) ∧
     (firstFence env w = true) ∧
     (proofsAccepted env w a = true))
-    ⟨(fun h => ⟨h.1,h.2.1,h.2.2.1,h.2.2.2.1,h.2.2.2.2.1,h.2.2.2.2.2.1,h.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1,h.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2⟩),
-     (fun h => ⟨h.initialized,h.started,h.entered,h.origin,h.parentBeforeFrontier,h.progress,h.height,h.batchSize,h.record,h.generation,h.leafCount,h.frontier,h.cursor,h.head,h.tail,h.service,h.reference,h.referenceAge,h.blobs,h.unzen,h.proofs⟩)⟩
+    (by
+      constructor <;>
+        rintro ⟨initialized,started,entered,origin,parentBeforeFrontier,progress,height,batchSize,
+          record,generation,leafCount,frontier,cursor,head,tail,service,reference,referenceAge,
+          referenceReadable,blobs,unzen,proofs⟩ <;>
+        exact ⟨initialized,started,entered,origin,parentBeforeFrontier,progress,height,batchSize,
+          record,generation,leafCount,frontier,cursor,head,tail,service,reference,referenceAge,
+          referenceReadable,blobs,unzen,proofs⟩)
 
 /-- State written by L1 contains only decoded statement fields, never an assumed valid chain. -/
 def landed (w : World) (a : Landing) : World :=

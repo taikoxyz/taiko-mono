@@ -58,16 +58,18 @@ example (env : Environment) (w : World)
     (f : LiveRules env w) (g : UnzenLaneLive env w) : LiveAt env w :=
   { generation := a, nonce := b, rules := c, height := d, window := e, ruleset := f, unzen := g }
 
--- Pin RecoveryPremises: it extends FundPremises with exactly these five fields.
+-- Pin RecoveryPremises: it extends FundPremises with exactly these six fields.
 example (env : Environment) (registry : RegistryMachine.State) (f : FundPremises env registry)
     (a : ∀ m n, m < n → env.time m < env.time n) (b : CatalogueHash env)
-    (c : ProofComplete env) (d : PayloadLive env) (e : UnzenStartUsable env) :
-    RecoveryPremises env registry := ⟨f,a,b,c,d,e⟩
+    (c : ProofComplete env) (d : PayloadLive env) (e : UnzenStartUsable env)
+    (readable : ∀ history n, history.map Snapshot.number = List.range (n+1) → env.blockHash history n ≠ 0) :
+    RecoveryPremises env registry := ⟨f,a,b,c,d,e,readable⟩
 example (env : Environment) (registry : RegistryMachine.State) (f : FundPremises env registry)
     (a : ∀ m n, m < n → env.time m < env.time n) (b : CatalogueHash env)
-    (c : ProofComplete env) (d : PayloadLive env) (e : UnzenStartUsable env) :
+    (c : ProofComplete env) (d : PayloadLive env) (e : UnzenStartUsable env)
+    (readable : ∀ history n, history.map Snapshot.number = List.range (n+1) → env.blockHash history n ≠ 0) :
     RecoveryPremises env registry :=
   { toFundPremises := f, recoveryClock := a, recoveryCatalogueHash := b, proofComplete := c,
-    payloadLive := d, unzenStart := e }
+    payloadLive := d, unzenStart := e, referenceReadable := readable }
 
 end Etna.CurrentRecoveryRegression

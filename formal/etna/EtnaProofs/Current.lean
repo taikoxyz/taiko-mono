@@ -181,12 +181,13 @@ end Start
 
 namespace Import
 
+/-- The finalized envelope conflict is independent of the publisher's preimage (DATA-5.4-5). -/
 theorem authenticated_conflict_halts {c : Candidate} {generation : Nat}
     (same : c.generation = generation) (height : c.origin ≤ c.height)
     (auth : c.checkpointAuthenticated = true) (final : c.checkpointFinalized = true)
-    (data : c.dataHashAuthenticated = true) (valState : c.valStateAuthenticated = true)
+    (data : c.dataHashAuthenticated = true)
     (conflict : c.envelopeEL ≠ c.checkpointEL) : inspect c generation = .halt := by
-  simp [inspect, same, Nat.not_lt.mpr height, auth, final, data, valState, conflict]
+  simp [inspect, same, Nat.not_lt.mpr height, auth, final, data, conflict]
 
 /-- For s > o, a validator-state preimage that, with the EL hash of s − 1, gives the
 authenticated header(s)'s app_hash, but whose two sets differ from header(s)'s validators_hash or
@@ -196,7 +197,9 @@ theorem validator_sets_conflict_halts {c : Candidate} {generation : Nat}
     (auth : c.checkpointAuthenticated = true) (final : c.checkpointFinalized = true)
     (data : c.dataHashAuthenticated = true) (valState : c.valStateAuthenticated = true)
     (conflict : c.validatorSetsMatch = false) : inspect c generation = .halt := by
-  simp [inspect, same, Nat.not_lt.mpr (Nat.le_of_lt windowed), windowed, auth, final, data, valState, conflict]
+  by_cases envelope : c.envelopeEL = c.checkpointEL <;>
+    simp [inspect, same, Nat.not_lt.mpr (Nat.le_of_lt windowed), windowed, auth, final, data,
+      valState, conflict, envelope]
 
 /-- For s > o, with the window available and authenticated, a committee derived under 4.3
 whose keys and powers differ from the matching set derived from the preimage under DATA-5.4-3 is
@@ -223,12 +226,13 @@ theorem invalid_data_rejected (c : Candidate) (generation : Nat)
   simp [inspect, invalid]
 
 /-- For s > o, a validator-state preimage that, with the EL hash of s − 1, does not give
-header(s)'s app_hash is only an invalid candidate, even when the record is finalized and every
-other check would pass (DATA-5.4-5). -/
+header(s)'s app_hash rejects the candidate unless a finalized envelope conflict already
+establishes a safety halt (DATA-5.4-5). -/
 theorem invalid_val_state_rejected (c : Candidate) (generation : Nat)
     (windowed : c.origin < c.height)
+    (noConflict : ¬ (c.checkpointFinalized = true ∧ c.envelopeEL ≠ c.checkpointEL))
     (invalid : c.valStateAuthenticated = false) : inspect c generation = .reject := by
-  simp [inspect, windowed, invalid]
+  simp [inspect, noConflict, windowed, invalid]
 
 /-- A snapshot at s = o takes the existing 8.4 genesis path (DATA-5.4-1), with the validator
 state CometBFT builds from this generation's genesis, so the decision does not depend on the

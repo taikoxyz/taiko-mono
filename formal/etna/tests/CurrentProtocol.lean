@@ -147,7 +147,7 @@ def env : Protocol.Environment where
   initialSigner := ⟨domain,0,1,[],false,[]⟩
   time := fun n => 2048*n
   stateRoot := fun _ => 0
-  blockHash := fun _ _ => 0
+  blockHash := fun _ n => n+1
   headerHash := fun _ => 0
   committeeHash := fun _ => 0
   configHash := fun _ => 0
