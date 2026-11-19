@@ -6,6 +6,11 @@ on:
   push:
     branches: [main]
     paths:
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".nvmrc"
+      - ".github/actions/install-pnpm-dependencies/**"
       - "testdata/derivation_vectors/**"
       - "packages/taiko-client-rs/**"
       # `DeployProtocolOnL1`'s import closure reaches `contracts/`, `test/shared/` and the
@@ -30,6 +35,11 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".nvmrc"
+      - ".github/actions/install-pnpm-dependencies/**"
       - "testdata/derivation_vectors/**"
       - "packages/taiko-client-rs/**"
       # `DeployProtocolOnL1`'s import closure reaches `contracts/`, `test/shared/` and the
@@ -360,7 +370,6 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
-          version: 9
           run_install: false
 
       - name: Install Node.js
