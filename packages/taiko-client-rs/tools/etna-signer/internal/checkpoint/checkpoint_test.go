@@ -39,14 +39,41 @@ type terminal struct {
 	appHash []byte
 }
 
+// etnaParams returns START-10-21's fixed consensus params.
+func etnaParams() *types.ConsensusParams {
+	params := types.DefaultConsensusParams()
+	params.Block.MaxBytes = 22020096
+	params.Evidence.MaxAgeNumBlocks = 900
+	params.Evidence.MaxAgeDuration = time.Hour
+	params.Validator.PubKeyTypes = []string{"secp256k1eth"}
+	params.Version.App = 1
+	return params
+}
+
+// TestFixedParamsRequireSpecEvidenceLimits accepts START-10-21's evidence limits (900 blocks,
+// 1 h, 1 MiB) and refuses CometBFT's defaults (100,000 blocks, 48 h).
+func TestFixedParamsRequireSpecEvidenceLimits(t *testing.T) {
+	if !fixedParams(*etnaParams()) {
+		t.Fatal("refused the spec consensus params")
+	}
+	for name, edit := range map[string]func(*types.ConsensusParams){
+		"100,000 blocks": func(p *types.ConsensusParams) { p.Evidence.MaxAgeNumBlocks = 100000 },
+		"48 h":           func(p *types.ConsensusParams) { p.Evidence.MaxAgeDuration = 48 * time.Hour },
+		"byte limit":     func(p *types.ConsensusParams) { p.Evidence.MaxBytes-- },
+	} {
+		p := etnaParams()
+		edit(p)
+		if fixedParams(*p) {
+			t.Fatalf("accepted evidence params with %s", name)
+		}
+	}
+}
+
 func fixture(t *testing.T) (*stockPackage, terminal, *types.ValidatorSet) {
 	t.Helper()
 	key := secp256k1eth.PrivKey(bytes.Repeat([]byte{7}, 32))
 	vals := types.NewValidatorSet([]*types.Validator{types.NewValidator(key.PubKey(), 10)})
-	params := types.DefaultConsensusParams()
-	params.Block.MaxBytes = 22020096
-	params.Validator.PubKeyTypes = []string{"secp256k1eth"}
-	params.Version.App = 1
+	params := etnaParams()
 	g := types.GenesisDoc{GenesisTime: time.Unix(100, 0).UTC(), ChainID: "etna-test", InitialHeight: 71, ConsensusParams: params, Validators: []types.GenesisValidator{{PubKey: key.PubKey(), Power: 10}}, AppHash: bytes.Repeat([]byte{1}, 32)}
 	genesis, err := cmtjson.Marshal(g)
 	if err != nil {

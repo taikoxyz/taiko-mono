@@ -128,7 +128,10 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
             if w == origin {
                 break
             }
-            if seen_anchor && w < min_required && height - w > 100_000 {
+            if seen_anchor &&
+                w < min_required &&
+                height - w > abci::genesis::EVIDENCE_MAX_AGE_NUM_BLOCKS
+            {
                 let h = comet.archive_header(w).await.map_err(source)?;
                 if evidence_expired(height, terminal_time.expect("read terminal first"), w, h.time)
                 {

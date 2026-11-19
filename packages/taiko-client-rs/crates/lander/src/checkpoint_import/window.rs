@@ -2,17 +2,17 @@
 use super::*;
 
 /// Stock v0.40 evaluates s+1 evidence against committed state s; expiry requires both strict
-/// inequalities. Nanoseconds are retained, and future evidence is never considered expired.
+/// inequalities against START-10-21's limits, which every Etna genesis fixes. Nanoseconds are
+/// retained, and future evidence is never considered expired.
 pub fn evidence_expired(
     post_height: u64,
     post_time: tendermint::Time,
     evidence_height: u64,
     evidence_time: tendermint::Time,
 ) -> bool {
-    post_height.checked_sub(evidence_height).is_some_and(|age| age > 100_000) &&
-        post_time
-            .duration_since(evidence_time)
-            .is_ok_and(|age| age > std::time::Duration::from_secs(172_800))
+    use abci::genesis::{EVIDENCE_MAX_AGE_DURATION, EVIDENCE_MAX_AGE_NUM_BLOCKS};
+    post_height.checked_sub(evidence_height).is_some_and(|age| age > EVIDENCE_MAX_AGE_NUM_BLOCKS) &&
+        post_time.duration_since(evidence_time).is_ok_and(|age| age > EVIDENCE_MAX_AGE_DURATION)
 }
 
 /// Prove the window (w, s] holds every height DATA-5.4-2 requires, using the authenticated time

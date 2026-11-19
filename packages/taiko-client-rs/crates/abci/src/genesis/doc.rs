@@ -112,6 +112,12 @@ pub struct AuthorityParams {
     pub authority: String,
 }
 
+/// START-10-21's evidence age limit in blocks. Stock CometBFT v0.40.0 accepts evidence until it
+/// is older than both this and [`EVIDENCE_MAX_AGE_DURATION`].
+pub const EVIDENCE_MAX_AGE_NUM_BLOCKS: u64 = 900;
+/// START-10-21's evidence age limit in time: 1 h.
+pub const EVIDENCE_MAX_AGE_DURATION: std::time::Duration = std::time::Duration::from_secs(3_600);
+
 impl GenesisConsensusParams {
     /// Stock v0.40 ConsensusParams.Hash for the immutable Etna parameters. Comet hashes only
     /// HashedParams' block-byte and gas limits, using canonical protobuf and SHA-256.
@@ -135,8 +141,11 @@ impl GenesisConsensusParams {
         types::ConsensusParams {
             block: Some(types::BlockParams { max_bytes: 22_020_096, max_gas: -1 }),
             evidence: Some(types::EvidenceParams {
-                max_age_num_blocks: 100_000,
-                max_age_duration: Some(Duration { seconds: 172_800, nanos: 0 }),
+                max_age_num_blocks: EVIDENCE_MAX_AGE_NUM_BLOCKS as i64,
+                max_age_duration: Some(Duration {
+                    seconds: EVIDENCE_MAX_AGE_DURATION.as_secs() as i64,
+                    nanos: 0,
+                }),
                 max_bytes: 1_048_576,
             }),
             validator: Some(types::ValidatorParams { pub_key_types: vec!["secp256k1eth".into()] }),
@@ -146,9 +155,9 @@ impl GenesisConsensusParams {
     }
 
     /// The parameters of every Etna genesis: CometBFT's default `block.max_bytes` (22,020,096,
-    /// above any envelope) without a gas limit, the default evidence limits (100,000 blocks,
-    /// 48 h, 1 MiB), secp256k1eth keys only, the current app version, vote extensions disabled, and
-    /// no update authority.
+    /// above any envelope) without a gas limit, START-10-21's evidence limits (900 blocks, 1 h,
+    /// 1 MiB), secp256k1eth keys only, the current app version, vote extensions disabled, and no
+    /// update authority.
     pub fn etna() -> Self {
         let params = Self::abci();
         Self {
@@ -163,7 +172,7 @@ impl GenesisConsensusParams {
                     .expect("evidence params")
                     .max_age_num_blocks
                     .to_string(),
-                max_age_duration: "172800000000000".into(),
+                max_age_duration: EVIDENCE_MAX_AGE_DURATION.as_nanos().to_string(),
                 max_bytes: params.evidence.as_ref().expect("evidence params").max_bytes.to_string(),
             },
             validator: ValidatorParams { pub_key_types: vec!["secp256k1eth".into()] },
@@ -299,6 +308,27 @@ mod tests {
         );
         assert_eq!(doc.initial_height, "1");
         assert_eq!(serde_json::from_value::<GenesisDoc>(value).unwrap(), doc);
+    }
+    /// START-10-21's evidence limits (900 blocks, 1 h, 1 MiB), in the genesis JSON (stock
+    /// CometBFT writes the duration as nanoseconds in a string) and in InitChain's parameters.
+    #[test]
+    fn genesis_consensus_params_use_the_spec_evidence_limits() {
+        let json = serde_json::to_value(GenesisConsensusParams::etna()).unwrap();
+        assert_eq!(
+            json["evidence"],
+            serde_json::json!({
+                "max_age_num_blocks": "900",
+                "max_age_duration": "3600000000000",
+                "max_bytes": "1048576",
+            })
+        );
+        let evidence = GenesisConsensusParams::abci().evidence.unwrap();
+        assert_eq!(evidence.max_age_num_blocks, 900);
+        assert_eq!(
+            evidence.max_age_duration,
+            Some(tendermint_proto::google::protobuf::Duration { seconds: 3_600, nanos: 0 })
+        );
+        assert_eq!(evidence.max_bytes, 1_048_576);
     }
     #[test]
     fn validator_power_and_order_are_preserved() {

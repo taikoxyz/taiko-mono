@@ -577,6 +577,26 @@ async fn genesis_rejects_noncanonical_consensus_parameters() {
     }
 }
 
+/// CometBFT's default evidence limits (100,000 blocks, 48 h) are not START-10-21's.
+#[tokio::test]
+async fn genesis_rejects_stock_default_evidence_limits() {
+    let fx = Fixture::genesis(2);
+    let mut blocks = fx.request.consensus_params.clone();
+    blocks.evidence.as_mut().unwrap().max_age_num_blocks = 100_000;
+    let mut duration = fx.request.consensus_params.clone();
+    duration.evidence.as_mut().unwrap().max_age_duration =
+        Some(tendermint_proto::google::protobuf::Duration { seconds: 172_800, nanos: 0 });
+    for (limit, params) in [("100,000 blocks", blocks), ("48 h", duration)] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = fx.app(dir.path());
+        let mut req = fx.request.clone();
+        req.consensus_params = params;
+        let err = init_chain(&mut app, req).await.expect_err("stock default evidence limit");
+        assert!(matches!(err, AbciError::GenesisConsensusParamsMismatch), "{limit}: {err:?}");
+        assert_not_initialized(&app, dir.path());
+    }
+}
+
 #[tokio::test]
 async fn genesis_state_root_must_match_the_authenticated_el_genesis() {
     let mut fx = Fixture::genesis(2);

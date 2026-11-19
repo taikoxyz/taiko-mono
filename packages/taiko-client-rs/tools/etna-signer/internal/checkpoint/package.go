@@ -75,8 +75,11 @@ func decodeHex(s string, max int) ([]byte, error) {
 	}
 	return hex.DecodeString(s[2:])
 }
+
+// fixedParams accepts only START-10-21's consensus params. The evidence limits (900 blocks, 1 h,
+// 1 MiB) are the ones the Rust import window uses (abci::genesis::EVIDENCE_MAX_AGE_*).
 func fixedParams(p types.ConsensusParams) bool {
-	return p.Block.MaxBytes == 22020096 && p.Block.MaxGas == -1 && p.Evidence.MaxAgeNumBlocks == 100000 && p.Evidence.MaxAgeDuration == 48*time.Hour && p.Evidence.MaxBytes == 1048576 && len(p.Validator.PubKeyTypes) == 1 && p.Validator.PubKeyTypes[0] == "secp256k1eth" && p.Version.App == 1 && p.ABCI.VoteExtensionsEnableHeight == 0
+	return p.Block.MaxBytes == 22020096 && p.Block.MaxGas == -1 && p.Evidence.MaxAgeNumBlocks == 900 && p.Evidence.MaxAgeDuration == time.Hour && p.Evidence.MaxBytes == 1048576 && len(p.Validator.PubKeyTypes) == 1 && p.Validator.PubKeyTypes[0] == "secp256k1eth" && p.Version.App == 1 && p.ABCI.VoteExtensionsEnableHeight == 0
 }
 func validatorSet(input []Validator) (*types.ValidatorSet, error) {
 	if len(input) == 0 || len(input) > maxValidators {
