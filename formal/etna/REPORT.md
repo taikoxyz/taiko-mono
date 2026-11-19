@@ -5185,3 +5185,94 @@ The selected five count is not an overall protocol-completion percentage.
 | Six actual new-checker outputs             | `a3ed112925c7fa4d8cbf20ad892f8585f4a8ebeed9b9c0769b7fbb2de2e5e838` |
 | Root independent five-profile raw readback | `97425de76f0668de9bcb613bfc2f09fc776c67be8608fb5295ca6a4bc322d622` |
 | Final baseline/status readback             | `bad0394c57f1c9a30462251bf457e2f70cf7d0e88a333b29a98c79537367e558` |
+
+## W01 current document bundle and evidence boundaries
+
+The new seven-item batch begins with a source-version correction. Main #22412
+changed the design bundle to `2e6763e21bc236cfcda6011d164b32040f9e0c8d`:
+empty-slot-only Registry admission, held-zero occupancy until withdrawal,
+strict fixed-supply/minStake deployment arithmetic, arbitrary-height landing,
+and post-height validator state in AppHash. Terminal/committee-end commit
+verification, evidence expiry and whole-landing recovery audit rules also
+require separate attribution. Old displacement/grid models and native contracts
+are useful historical evidence, not current implementations. No current Etna
+Registry/app/import/guest implementation was found at the inspected source.
+
+The historical three-argument source guard and pins are byte-identical and still
+refuse the new bundle. A separate classifier verifies all three document paths,
+lengths, Git blobs and SHA-256 values against independent closed digests. A
+separate consumer/claim selector distinguishes reviewed historical operations,
+current bounded models, selected public stock operations and WAITING interfaces.
+Selection returns NOT_EVALUATED; metadata alone does not report execution.
+Unknown, mixed, partial and changed inputs refuse. The actual signed-vote,
+FilePV and each Registry scenario receipt now carry their own selected boundary.
+Schema-v2 campaign admission validates the smoke summary against the complete
+current boundary and watched inputs; old raw-only readback remains available.
+
+### Independent findings and repairs
+
+Independent source review found three P2 verification defects in the first
+implementation. The full signed campaign could consume an old/mismatched smoke;
+two Registry harnesses were merely self-hashed rather than fixed by the claim;
+and the executable nested grid replay was missing from the closed consumer
+inventory. Regression controls first failed for the intended assertions, then
+the author repaired all three in one wave. The same finder reviewed the complete
+updated files and withdrew the findings. Evidence-expiry wording was also
+aligned with the decided block carrying the expired evidence. These are defects
+in verification/evidence attribution, not independently established protocol
+flaws. They illustrate why mutually agreeing collectors can miss a dimension.
+
+### Actual execution and attribution
+
+The immutable historical baseline passes 356 ordinary checks (170 formal,
+166 conformance, 20 sensitivity). The changed branch and effective-merge
+candidate each pass 368 (182/166/20), zero skips/errors/failures. Eleven focused
+historical-correspondence checks are included in the applicable suites, not
+additional unique coverage. Actual receipt producers reject mixed documents and
+changed closed claim rows, then accept restored inputs.
+
+A separate behavioral verifier exercised 90 distinct controls through actual
+Python input, staging, receipt and smoke paths. Eight actual Python summaries
+were checked using archived native outputs and stand-ins for source/SDK checks
+and runtime provisioning. Ten old raw streams were compared. Separate controls
+exercise real Registry staging. All 4,157 watched inputs and 23 archived files
+stayed unchanged. This is fresh Python consumption of historical native
+results; no new Go, Forge, TLC, signing, deployment or current Registry execution
+is claimed. Failed preparatory helpers are retained without semantic credit.
+An initial baseline snapshot had readonly file modes copied into mutable test
+fixtures and inherited ignored termination signals; preserving original modes
+under a readonly mount and using the existing signal-reset entrypoint fixed the
+preparation. Two independent-helper attempts failed on a literal and missing
+argument; only the corrected V5 run receives behavioral credit.
+
+Code commit `eacf1904e9b396e4793037030930e4f00f6d5171` contains nine reviewed
+files. Before publication, all relevant reviewed source hashes matched the
+ordinary and independent execution packets. The normal push was read back as
+OPEN/DRAFT at that exact head. Its hosted run `44463249957` was IN_PROGRESS at
+publication; earlier green heads do not establish this head's CI result.
+
+Main advanced to `479bc3db6b5341b72b6e7b9233be5b53d64a574a` while the gates ran.
+That change leaves all scoped Etna inputs and the three-document bundle fixed.
+A real private-index three-way merge of the committed code with that main
+produced tree `cd70f1b0775f5360470e97d8cf43c1cb57011533`; all 830 scoped files
+are byte-identical to the tested merge candidate. The original index and working
+files were not used as a substitute for committed merge bytes. The current
+rules checker passes 636 live and 33 retired rule checks, assets, links and
+tables. Optional migration-purity checking was not run. An initial export lacked
+its real external Derivation.md link target; the corrected export includes the
+actual merge-tree file, with no source change or protocol-failure credit.
+
+| Retained evidence                 | SHA-256                                                            |
+| --------------------------------- | ------------------------------------------------------------------ |
+| Complete owned committed diff     | `1eb1befb08777663ae85aba896f4e1575d39c446a5abe459376063009dc3dcf1` |
+| Initial independent source review | `9e7ee77c3e5901a84c78d4ecf99db04bf81cf646e025ba46427ffaa5b104a7c2` |
+| Same-finder source re-review      | `dbeea958ae4390388565dc555b25d95397e927150b3010749ed8f12661456c8c` |
+| Independent V5 behavioral report  | `f561fd8f6ccd722712ed97d2471ccf867a324a528151ded648453a96c4d750b4` |
+| Independent 90-control results    | `848e939bc6027bf5d4d8706cb2336a359da334fc9a014a340a62e9276418455a` |
+| Current rule-checker raw log      | `6a0d8b06100615e02863e4ca01e52b96ade10bd90e11e2def418b82ad03333a0` |
+
+W01 is one selected item complete out of seven. W02 now prepares current-rule
+empty-slot lifecycle checks; W03–W07 and the final combined independent review
+remain. The thirty broader master obligations and nineteen archived
+INCONCLUSIVE results retain their existing scopes. No overall completion
+percentage or newly verified deployment is inferred from these counts.

@@ -12,12 +12,19 @@ establish their whole-protocol composition or implementation conformance.
 Actual measured outcomes and incomplete products are recorded in
 [REPORT.md](REPORT.md) and each module's source-mapping document below.
 
-The normative source is
-[`SPEC.md`](../../packages/protocol/docs/etna/SPEC.md), pinned at
-[`d18357214fab30ea512ae9858a11699806d72ba1`](https://github.com/taikoxyz/taiko-mono/blob/d18357214fab30ea512ae9858a11699806d72ba1/packages/protocol/docs/etna/SPEC.md).
-Later specification changes require a correspondence review before reusing the
-results. These checks do not establish CometBFT, cryptographic or deployment
-correctness.
+The historical model authority is
+[`SPEC.md` at d1835721](https://github.com/taikoxyz/taiko-mono/blob/d18357214fab30ea512ae9858a11699806d72ba1/packages/protocol/docs/etna/SPEC.md).
+The current three-document design bundle is
+[`2e6763e2`](https://github.com/taikoxyz/taiko-mono/tree/2e6763e21bc236cfcda6011d164b32040f9e0c8d/packages/protocol/docs/etna).
+It changes empty-slot admission, arbitrary-height landing and validator-state
+AppHash binding. Historical models and native receipts retain their original
+meaning; they do not establish these new rules. The separate
+[current bundle and consumer-claim boundary](conformance/current_spec.py) checks
+exact document bytes and names the permitted evidence scope at actual receipt
+producers. The original source guard remains unchanged. See the
+[source correspondence](conformance/SPEC_CORRESPONDENCE.md) and
+[W01 report](REPORT.md#w01-current-document-bundle-and-evidence-boundaries).
+These checks do not establish CometBFT, cryptographic or deployment correctness.
 
 ## Run
 

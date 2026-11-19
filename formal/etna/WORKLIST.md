@@ -27,6 +27,36 @@ checks unverified under D01 WAITING. The prior991e06f6 provider design and older
 b796/53877 review are historical, not additional accepted runtime identities. Unknown future document bytes
 remain rejected; this metadata proves neither general equivalence nor ancestry.
 
+The current design bundle is now `2e6763e21bc236cfcda6011d164b32040f9e0c8d`
+(SPEC blob `98e209c3a7781c690338751b451fe10852f00b7c`, SHA-256
+`b331b3af7b42a4645ebe3e2b4f42e912e33508893a091c3c3c289c8fdbd53a70`).
+W01 adds a separate exact three-document classifier and closed consumer/claim
+selection at actual receipt producers. The legacy three-argument guard still
+accepts only its previously reviewed historical inputs; it refuses this bundle.
+Old grid, displacement, checkpoint and selected COMPLETE results below remain
+historical evidence at their stated versions. They do not close changed current
+rules. Default TLC outcomes likewise remain historical regression evidence.
+Actual current Registry, Etna app/import/guest and deployment interfaces are
+still missing. [W01 correspondence](conformance/SPEC_CORRESPONDENCE.md) records
+which current claims are modeled, selected stock operations or WAITING.
+
+## Current authorized seven-item batch
+
+Exactly W01–W07 are authorized; the final combined review is part of this batch.
+The selected-item count is not a protocol-completion percentage. No eighth item
+starts automatically. All older completed batches and nineteen INCONCLUSIVE
+archived searches retain their original dispositions.
+
+| Item | Selected scope                                     | Current stage                                                                  |
+| ---- | -------------------------------------------------- | ------------------------------------------------------------------------------ |
+| W01  | Exact current document identity and evidence scope | COMPLETE; code `eacf1904e`, independent source and behavioral gates passed.    |
+| W02  | Empty-slot lifecycle and successive slot reuse     | ACTIVE; current-rule model preflight; actual Registry WAITING.                 |
+| W03  | Fixed-supply capacity and explicit token recycling | Pending; closed finite ledger and exact deployment arithmetic.                 |
+| W04  | Running validator state, sparse lookup and AppHash | Pending; selected public stock operations, actual Etna integration WAITING.    |
+| W05  | Framed cached signer replies and finite retries    | Pending; public cached signatures only; supervisor integration WAITING.        |
+| W06  | Unit-height proving/recovery and immutable overlap | Pending; current four-field cuts, fresh-generation progress.                   |
+| W07  | Timestamp stop, terminal settlement and recovery   | Pending; current schedule/authorization clocks; actual implementation WAITING. |
+
 Every row below names a remaining obligation, its owning module, the acceptance
 evidence, and its dependencies. **OPEN** is actionable verification work;
 **ACTIVE** is selected in the current authorized batch; **WAITING** needs a
