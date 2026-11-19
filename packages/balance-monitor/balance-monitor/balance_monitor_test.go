@@ -15,8 +15,9 @@ import (
 )
 
 type erc20RPCMock struct {
-	decimals      uint8
-	decimalsCalls int
+	decimals         uint8
+	decimalsCalls    int
+	decimalsFailures int
 }
 
 func (*erc20RPCMock) GetCode(_ context.Context, _ common.Address, _ json.RawMessage) (hexutil.Bytes, error) {
@@ -46,6 +47,9 @@ func (m *erc20RPCMock) Call(_ context.Context, args json.RawMessage, _ json.RawM
 	switch {
 	case len(callData) == 4:
 		m.decimalsCalls++
+		if m.decimalsCalls <= m.decimalsFailures {
+			return nil, context.DeadlineExceeded
+		}
 		result.SetUint64(uint64(m.decimals))
 	case string(callData[:4]) == string(crypto.Keccak256([]byte("balanceOf(address)"))[:4]):
 		result.Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(m.decimals)), nil)
@@ -97,6 +101,59 @@ func TestCheckErc20BalanceCachesDecimalsPerChain(t *testing.T) {
 	b.checkErc20Balance(context.Background(), l2Client, "L2", tokenAddress, holderAddress)
 	if l1RPC.decimalsCalls != 1 || l2RPC.decimalsCalls != 1 {
 		t.Fatalf("expected cached decimals on subsequent checks, got L1=%d L2=%d", l1RPC.decimalsCalls, l2RPC.decimalsCalls)
+	}
+}
+
+func TestCheckErc20BalanceRetriesDecimalsAfterFailure(t *testing.T) {
+	for _, tt := range []struct {
+		name            string
+		decimals        uint8
+		fallbackBalance float64
+	}{
+		{name: "zero decimals", decimals: 0, fallbackBalance: 1e-18},
+		{name: "six decimals", decimals: 6, fallbackBalance: 1e-12},
+		{name: "eighteen decimals", decimals: 18, fallbackBalance: 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			client, mock := newERC20RPCClient(t, tt.decimals)
+			t.Cleanup(client.Close)
+			mock.decimalsFailures = 1
+
+			b := &BalanceMonitor{erc20DecimalsCache: make(map[tokenDecimalsKey]uint8)}
+			tokenAddress := common.HexToAddress("0x00000000000000000000000000000000000000ab")
+			holderAddress := common.HexToAddress("0x00000000000000000000000000000000000000cd")
+			cacheKey := tokenDecimalsKey{chain: "L1", address: tokenAddress}
+
+			balance := b.checkErc20Balance(context.Background(), client, "L1", tokenAddress, holderAddress)
+			if balance != tt.fallbackBalance {
+				t.Fatalf("expected fallback balance %v, got %v", tt.fallbackBalance, balance)
+			}
+			if _, ok := b.erc20DecimalsCache[cacheKey]; ok {
+				t.Fatal("failed decimals lookup must not populate the cache")
+			}
+			if mock.decimalsCalls != 1 {
+				t.Fatalf("expected one failed decimals call, got %d", mock.decimalsCalls)
+			}
+
+			balance = b.checkErc20Balance(context.Background(), client, "L1", tokenAddress, holderAddress)
+			if balance != 1 {
+				t.Fatalf("expected normalized balance of 1 after recovery, got %v", balance)
+			}
+			if decimals, ok := b.erc20DecimalsCache[cacheKey]; !ok || decimals != tt.decimals {
+				t.Fatalf("expected cached decimals %d after recovery, got %d (present: %v)", tt.decimals, decimals, ok)
+			}
+			if mock.decimalsCalls != 2 {
+				t.Fatalf("expected decimals lookup to retry after failure, got %d calls", mock.decimalsCalls)
+			}
+
+			balance = b.checkErc20Balance(context.Background(), client, "L1", tokenAddress, holderAddress)
+			if balance != 1 {
+				t.Fatalf("expected normalized balance of 1 from cached decimals, got %v", balance)
+			}
+			if mock.decimalsCalls != 2 {
+				t.Fatalf("expected successful decimals lookup to be cached, got %d calls", mock.decimalsCalls)
+			}
+		})
 	}
 }
 
