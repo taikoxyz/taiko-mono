@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use abci::{GRID_INTERVAL, RegistryEntry, key::ConsensusKey, valstate::ValState};
+use abci::{RegistryEntry, key::ConsensusKey, valstate::ValState};
 use alloy_provider::Provider;
 use test_harness::{CmtClient, Devnet, DevnetSpec, wait_until};
 use tokio::task::JoinHandle;
@@ -21,28 +21,32 @@ async fn validator_set(
     Ok(set.into_iter().map(|v| (v.pubkey, v.power)).collect())
 }
 
-/// How long the app may refuse `/val_state/<g>` while its `/status` reports `g` retained
-/// (`floor <= g <= head`) before [`read_grid_val_states`] fails with the app's reason.
+/// The app serves `/val_state/<h>` at every retained height; [`read_val_states`] reads every
+/// fifth one, most of them not multiples of 6.
+const READ_STRIDE: u64 = 5;
+
+/// How long the app may refuse `/val_state/<h>` while its `/status` reports `h` retained
+/// (`floor <= h <= head`) before [`read_val_states`] fails with the app's reason.
 const REFUSAL_DEADLINE: Duration = Duration::from_secs(10);
 
-/// How long [`read_grid_val_states`] may take to read every grid state: several times the
+/// How long [`read_val_states`] may take to read every state it reads: several times the
 /// scenario's usual minute, and under the integration profile's ten-minute kill, so a stalled
 /// read fails with its own reason.
 const READ_DEADLINE: Duration = Duration::from_secs(300);
 
-/// Reads the app's `/val_state/<g>` for every grid height `g` up to `through` while the app
-/// still retains it. Each checkpoint the fake lander lands raises the retention floor and
-/// prunes the states below it, so the task reads each grid state as soon as it is committed
+/// Reads the app's `/val_state/<h>` for every [`READ_STRIDE`]th height `h` up to `through`
+/// while the app still retains it. Each checkpoint the fake lander lands raises the retention
+/// floor and prunes the states below it, so the task reads each state as soon as it is committed
 /// and fails if the floor passes one first, if a retained one stays refused for
 /// [`REFUSAL_DEADLINE`], or if the reads outlast [`READ_DEADLINE`].
-fn read_grid_val_states(
+fn read_val_states(
     cmt: CmtClient,
     through: u64,
 ) -> JoinHandle<anyhow::Result<BTreeMap<u64, ValState>>> {
     tokio::spawn(async move {
         let started = Instant::now();
         let mut served = BTreeMap::new();
-        let mut next = GRID_INTERVAL;
+        let mut next = READ_STRIDE;
         // Since when the app has refused `next` while reporting it retained.
         let mut refused_since = None;
         while next <= through {
@@ -66,7 +70,7 @@ fn read_grid_val_states(
                                 "/val_state/{next} holds another height"
                             );
                             served.insert(next, state);
-                            next += GRID_INTERVAL;
+                            next += READ_STRIDE;
                             refused_since = None;
                             continue;
                         }
@@ -109,8 +113,8 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
     // from the code under test. The scan covers the heights below `last`.
     let (derivation, switch, h_first) = (18, 19, 21);
     let last = h_first + 10;
-    // The grid validator states of the scanned heights, read before pruning.
-    let served = read_grid_val_states(devnet.cmt(0).clone(), last - 1);
+    // The validator states of every fifth scanned height, read before pruning.
+    let served = read_val_states(devnet.cmt(0).clone(), last - 1);
     let schedule = devnet.schedule();
     let keys = devnet.keys();
     let stake = devnet.registry_entry(0).eff_stake;
@@ -248,11 +252,11 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
     eprintln!("validator 4 produced heights {produced:?}; scanned proposers: {proposers:?}");
 
     // The app's validator state against stock CometBFT. Replay CometBFT's arithmetic from the
-    // genesis state with the updates CometBFT recorded; every grid state the app served must
+    // genesis state with the updates CometBFT recorded; every state the app served must
     // equal it, and CometBFT must agree where it is exact.
     let served = served.await??;
-    let grids: Vec<u64> = (GRID_INTERVAL..last).step_by(GRID_INTERVAL as usize).collect();
-    assert_eq!(served.keys().copied().collect::<Vec<_>>(), grids, "grid states read");
+    let read: Vec<u64> = (READ_STRIDE..last).step_by(READ_STRIDE as usize).collect();
+    assert_eq!(served.keys().copied().collect::<Vec<_>>(), read, "states read");
     let genesis: Vec<(ConsensusKey, u64)> =
         initial.members.iter().map(|m| (m.pubkey, m.power)).collect();
     // `states[h]` is the state after height h: its `current` signs h + 1.

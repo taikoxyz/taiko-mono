@@ -10,7 +10,6 @@ use super::{
     APP_NAME, APP_VERSION, AbciError, App, app_hash, at_generation_origin, cometbft_height, within,
 };
 use crate::{
-    GRID_INTERVAL,
     engine::Engine,
     l1::L1Source,
     store::{AppState, ExecutionFloor, Record, Store, StoreError},
@@ -199,15 +198,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
         serde_json::to_vec(committee).map_err(|e| e.to_string())
     }
 
-    /// The validator-state preimage ([`ValState::encode`]) after the committed grid `height`:
-    /// the head state's when `height` is the last committed height, else the record the node
-    /// made when it committed that height (SYNC-9-5c).
+    /// The validator-state preimage ([`ValState::encode`]) after the committed `height`: the
+    /// head state's when `height` is the last committed height, else the record the node made
+    /// when it committed that height, or InitChain's at the generation origin (SYNC-9-5c).
     ///
-    /// Only grid heights (S plus multiples of [`GRID_INTERVAL`]) within the retained range
-    /// `[comet_history_floor, last_height]` answer; any other height, a state not yet
-    /// initialized, and the generation origin once a block follows it (its record is only a
-    /// recompute base; its landing record does not hold this generation's state, SYNC-9-5) are
-    /// errors naming the cause.
+    /// Every height in the retained range answers: from s − 1, where s is the committed
+    /// anchor's checkpoint ([`AppState::comet_history_floor`]), but never below the generation
+    /// origin, through `last_height`. s − 1's is the preimage an import package at s carries
+    /// (DATA-5.4-3, DATA-5.4-8). Any other height and a state not yet initialized are errors
+    /// naming the cause.
     ///
     /// A record that is missing or corrupt ([`Record::Corrupt`]: a failed checksum, a failed
     /// decoding or another height) is recomputed with [`recompute_val_state`] from an earlier
@@ -217,12 +216,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// state is missing data (SYNC-9-7): an error, logged as a warning.
     pub fn val_state_preimage(&self, height: u64) -> Result<Vec<u8>, String> {
         let state = self.state.as_ref().ok_or("the app is not initialized")?;
-        if !state.genesis.is_grid_height(height) {
-            return Err(format!(
-                "height {height} is not on the Etna grid (S + a multiple of {GRID_INTERVAL})"
-            ));
-        }
-        let (floor, last) = (state.comet_history_floor(), state.last_height);
+        let floor = state.comet_history_floor().saturating_sub(1).max(state.origin_height());
+        let last = state.last_height;
         if !(floor..=last).contains(&height) {
             return Err(format!(
                 "the validator state at height {height} is not retained (retained: {floor}..={last})"
@@ -230,12 +225,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         if height == last {
             return Ok(state.val_state.encode());
-        }
-        if height == state.origin_height() {
-            return Err(format!(
-                "the validator state at the generation's start height {height} is not served \
-                 once a block follows it"
-            ));
         }
         let lost = match self.store.load_val_state(height) {
             Ok(Record::Valid(recorded)) => return Ok(recorded.encode()),
@@ -304,7 +293,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
 ///
 /// No valid record in that range, a switch height in between whose update record is missing
 /// or corrupt, an unreadable record or updates the arithmetic refuses are missing data
-/// (SYNC-9-7): an error naming the cause. Grid and range checks are the caller's.
+/// (SYNC-9-7): an error naming the cause. Range checks are the caller's.
 pub(super) fn recompute_val_state(
     store: &Store,
     origin: u64,

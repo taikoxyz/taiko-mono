@@ -238,12 +238,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// `retain_height = 0` (no block pruning). When the new
     /// state raises [`AppState::comet_history_floor`], the Comet block IDs below it are deleted
     /// after the state is durable; a failed deletion only logs, and the next raise retries it.
-    /// Before the state, in the same barrier (SYNC-9-5c): at a grid height the validator state
+    /// Before the state, in the same barrier (SYNC-9-5c): at every height the validator state
     /// is saved as an immutable checksummed record, and at a switch height the validator updates
     /// `FinalizeBlock` returned, an empty list included (a corrupt record is set aside and
     /// replaced; a well-formed one holding something else fails the Commit). The validator
-    /// records follow the Comet block IDs' floor, keeping the newest valid state below it as
-    /// the recompute base ([`Store::prune_val_records`](crate::store::Store::prune_val_records)).
+    /// records follow the Comet block IDs' floor, the committed anchor's checkpoint s: they are
+    /// kept from s − 1 on, the preimage an import package at s carries (DATA-5.4-3,
+    /// DATA-5.4-8) and the base later states are recomputed from
+    /// ([`Store::prune_val_records`](crate::store::Store::prune_val_records)).
     /// Errors: [`AbciError::NothingToCommit`] without a pending state; [`AbciError::Store`]
     /// when it cannot be persisted (it then stays pending).
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {
@@ -258,9 +260,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         })?;
         let pending = self.pending.as_ref().ok_or(AbciError::NothingToCommit)?;
         self.store.save_comet_hash(pending.last_height, pending.last_comet_hash)?;
-        if pending.genesis.is_grid_height(pending.last_height) {
-            self.store.save_val_state(&pending.val_state)?;
-        }
+        self.store.save_val_state(&pending.val_state)?;
         if let Some(updates) = &self.pending_val_updates {
             self.store.save_val_updates(pending.last_height, updates)?;
         }

@@ -206,7 +206,7 @@ pub enum StoreError {
     /// Replaying a finalized height produced a different execution block.
     #[error("conflicting durable execution block at height {0}")]
     ExecutionConflict(u64),
-    /// Replaying the origin or a committed grid height produced a different validator state.
+    /// Replaying the origin or a committed height produced a different validator state.
     #[error("conflicting durable validator state at height {0}")]
     ValStateConflict(u64),
     /// Replaying a committed switch height produced different validator updates.
@@ -245,7 +245,8 @@ pub struct Store {
     dir: PathBuf,
     /// Whether saves fsync the file and its directory. Only [`Store::volatile`] clears it.
     durable: bool,
-    /// Optional independent archive of immutable landed-candidate grid preimages.
+    /// Optional independent archive of every committed height's immutable validator-state
+    /// preimage.
     archive: Option<PathBuf>,
 }
 
@@ -255,8 +256,10 @@ impl Store {
         Self { dir, durable: true, archive: None }
     }
 
-    /// Retain every future grid preimage in a separate operator-managed directory. The
-    /// namespace includes the generation-qualified chain ID and never prunes or overwrites.
+    /// Retain the validator-state preimage of every height committed from now on, the
+    /// generation's origin included, in a separate operator-managed directory: an import package
+    /// at any landed s carries s − 1's (DATA-5.4-8). The namespace includes the
+    /// generation-qualified chain ID and never prunes or overwrites.
     pub fn with_val_archive(mut self, archive: Option<PathBuf>) -> Self {
         self.archive = archive;
         self
@@ -342,7 +345,7 @@ impl Store {
     }
 
     /// Durably records `state` as the immutable validator state of its height (`state.height`):
-    /// at InitChain the generation's origin state, at Commit a grid height's, before the
+    /// at InitChain the generation's origin state, at Commit every height's, before the
     /// AppState of that height is published.
     ///
     /// An equal valid record succeeds unchanged (a replay after a crash before the AppState was
@@ -398,17 +401,19 @@ impl Store {
         self.heights(VAL_STATE_FILE)
     }
 
-    /// Retires the validator records below the Comet history `floor` and returns how many
-    /// files it removed (SYNC-9-5c).
+    /// Retires the validator records below the Comet history `floor`, the committed anchor's
+    /// checkpoint s, and returns how many files it removed (SYNC-9-5c).
     ///
-    /// The base is the newest validator state below `floor` that loads valid: a state the
-    /// node holds exactly, from which it recomputes the state at any retained height with the
-    /// update records above it. The validator states below the base, the update records at or
-    /// below it (the base already includes them) and the corrupt records set aside below
-    /// `floor` are deleted; everything else is kept. Without a valid state below `floor`
-    /// nothing is deleted. Only canonical names are touched, and as for
-    /// [`Store::prune_comet_hashes`] the directory is not fsynced: a deletion lost to a crash
-    /// leaves an immutable record behind, which the next pruning removes.
+    /// The base is the newest validator state below `floor` that loads valid: with a record
+    /// at every committed height, s − 1's, the preimage an import package at s carries
+    /// (DATA-5.4-3, DATA-5.4-8). It is a state the node holds exactly, from which it recomputes
+    /// the state at any retained height with the update records above it. The validator states
+    /// below the base, the update records at or below it (the base already includes them) and
+    /// the corrupt records set aside below `floor` are deleted; everything else is kept.
+    /// Without a valid state below `floor` nothing is deleted. Only canonical names are
+    /// touched, and as for [`Store::prune_comet_hashes`] the directory is not fsynced: a
+    /// deletion lost to a crash leaves an immutable record behind, which the next pruning
+    /// removes.
     pub fn prune_val_records(&self, floor: u64) -> Result<usize, StoreError> {
         let mut base = None;
         for height in self.val_state_heights()?.into_iter().rev().filter(|&h| h < floor) {
@@ -600,10 +605,7 @@ impl Store {
     /// Creates the data directory if needed, writes [`TMP_FILE`], fsyncs it, renames it to
     /// [`STATE_FILE`] and fsyncs the directory so the rename is durable.
     pub fn save(&self, s: &AppState) -> Result<(), StoreError> {
-        if let Some(archive) = &self.archive &&
-            s.has_generation_commit() &&
-            s.genesis.is_grid_height(s.last_height)
-        {
+        if let Some(archive) = &self.archive {
             archive_preimage(archive, s)?;
         }
         let json = serde_json::to_vec_pretty(s).map_err(StoreError::Encode)?;
@@ -628,8 +630,9 @@ impl Store {
     }
 }
 
-/// Publish an immutable grid preimage in the archive filesystem before its corresponding
-/// live journal commit. Equal retries are safe; a conflicting copy is never replaced.
+/// Publish the immutable validator-state preimage of `s`'s height in the archive filesystem
+/// before its corresponding live journal commit. Equal retries are safe; a conflicting copy is
+/// never replaced.
 fn archive_preimage(archive: &Path, s: &AppState) -> Result<(), StoreError> {
     let domain = alloy_primitives::keccak256(s.chain_id.as_bytes());
     let path = archive.join(format!("{domain}-{}.bin", s.last_height));
@@ -667,8 +670,8 @@ struct HeightFile {
 /// The committed Comet block IDs: `comet-hash-{height}.json`.
 const COMET_HASH_FILE: HeightFile = HeightFile { prefix: "comet-hash-", suffix: ".json" };
 
-/// The [`frame`]d validator-state records (origin, import and grid heights):
-/// `val-state-{height}.bin`.
+/// The [`frame`]d validator-state records (the origin, an import's s and every committed
+/// height): `val-state-{height}.bin`.
 const VAL_STATE_FILE: HeightFile = HeightFile { prefix: "val-state-", suffix: ".bin" };
 
 /// Corrupt validator-state records set aside by [`Store::save_val_state`]:
@@ -850,6 +853,9 @@ mod tests {
         }
     }
 
+    /// The archive holds the preimage of every committed height, the origin's and those that
+    /// are not multiples of 6 included, since a package at any landed s needs s − 1's
+    /// (DATA-5.4-8), and keeps it once retention has deleted the record.
     #[test]
     fn archived_preimage_survives_pruning() {
         let tmp = tempfile::tempdir().unwrap();
@@ -858,25 +864,33 @@ mod tests {
         let archive = root.join("archive");
         fs::create_dir(&archive).unwrap();
         let store = Store::new(dir.clone()).with_val_archive(Some(archive.clone()));
-        let mut s = state();
-        s.last_height = 108;
-        s.parent.number = 108;
-        s.val_state.height = 108;
+        let archived = |height: u64| {
+            let domain = alloy_primitives::keccak256(state().chain_id.as_bytes());
+            archive.join(format!("{domain}-{height}.bin"))
+        };
+        let at = |height: u64| {
+            let mut s = state();
+            s.last_height = height;
+            s.parent.number = height;
+            s.val_state.height = height;
+            s
+        };
+        let origin = at(0);
+        assert_eq!(origin.origin_height(), 0);
+        store.save(&origin).unwrap();
+        assert_eq!(fs::read(archived(0)).unwrap(), origin.val_state.encode());
+        let s = at(107);
         store.save_val_state(&s.val_state).unwrap();
         store.save(&s).unwrap();
         assert_eq!(store.load().unwrap(), Some(s.clone()));
-        // 108 is the base below floor 115 until 114 replaces it.
-        assert_eq!(store.prune_val_records(115).unwrap(), 0);
-        let mut later = s.val_state.clone();
-        later.height = 114;
-        store.save_val_state(&later).unwrap();
-        assert_eq!(store.prune_val_records(115).unwrap(), 1);
-        assert_eq!(store.load_val_state(108).unwrap(), Record::Missing);
-        let saved =
-            archive.join(format!("{}-108.bin", alloy_primitives::keccak256(s.chain_id.as_bytes())));
-        assert_eq!(fs::read(&saved).unwrap(), s.val_state.encode());
+        // 107 is the base below floor 114 until 113 replaces it.
+        assert_eq!(store.prune_val_records(114).unwrap(), 0);
+        store.save_val_state(&at(113).val_state).unwrap();
+        assert_eq!(store.prune_val_records(114).unwrap(), 1);
+        assert_eq!(store.load_val_state(107).unwrap(), Record::Missing);
+        assert_eq!(fs::read(archived(107)).unwrap(), s.val_state.encode());
         store.save(&s).unwrap();
-        fs::write(&saved, b"conflict").unwrap();
+        fs::write(archived(107), b"conflict").unwrap();
         assert!(store.save(&s).is_err());
     }
 

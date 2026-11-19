@@ -6,7 +6,6 @@ use super::{
     *,
 };
 use crate::{
-    GRID_INTERVAL,
     app::trust::TrustPhase,
     config::SwitchConfig,
     envelope::EtnaEnvelope,
@@ -17,6 +16,10 @@ use crate::{
     },
 };
 use alloy_primitives::{Address, B256, U256};
+
+/// A landed checkpoint height the scenarios commit up to. Any height can be landed; 6 only
+/// keeps a few blocks between the origin and the first checkpoint.
+const LANDED: u64 = 6;
 
 /// Provides real proofs at the exact finalized snapshot. A committed `height` lands with the
 /// app's own Comet hash, the next height with the one [`next_envelope`] decides, and any other
@@ -126,10 +129,10 @@ async fn future_target_allows_info_and_replay_but_finalize_does_not_unlock() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    commit_to(&mut app, &fx, GRID_INTERVAL - 1).await;
+    commit_to(&mut app, &fx, LANDED - 1).await;
     let env = next_envelope(&app, &fx);
     let hash = env.block.header.hash_slow();
-    target(&app, &fx, GRID_INTERVAL, hash);
+    target(&app, &fx, LANDED, hash);
     app.refresh_trust().await.unwrap();
     assert_eq!(app.trust.snapshot().phase, TrustPhase::CatchingUp);
     assert_eq!(
@@ -139,7 +142,7 @@ async fn future_target_allows_info_and_replay_but_finalize_does_not_unlock() {
             .unwrap()
             .last_block_height
             .value(),
-        GRID_INTERVAL - 1
+        LANDED - 1
     );
     let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
@@ -227,13 +230,13 @@ async fn target_is_pinned_until_match_then_refresh_can_extend_catchup() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    commit_to(&mut app, &fx, GRID_INTERVAL - 1).await;
+    commit_to(&mut app, &fx, LANDED - 1).await;
     let env = next_envelope(&app, &fx);
     let hash = env.block.header.hash_slow();
-    target(&app, &fx, GRID_INTERVAL, hash);
+    target(&app, &fx, LANDED, hash);
     app.refresh_trust().await.unwrap();
     let inbox = InboxStorage {
-        last_checkpoint_height: 2 * GRID_INTERVAL,
+        last_checkpoint_height: 2 * LANDED,
         last_checkpoint_hash: B256::repeat_byte(8),
         last_checkpoint_comet_hash: B256::repeat_byte(8),
         ..fx.inbox.clone()
@@ -241,14 +244,14 @@ async fn target_is_pinned_until_match_then_refresh_can_extend_catchup() {
     fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
     app.l1().set_finalized(101);
     app.refresh_trust().await.unwrap();
-    assert_eq!(app.trust.snapshot().target.unwrap().height, GRID_INTERVAL);
+    assert_eq!(app.trust.snapshot().target.unwrap().height, LANDED);
     let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
     commit(&mut app).await.unwrap();
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();
     assert!(!snapshot.is_ready());
-    assert_eq!(snapshot.target.unwrap().height, 2 * GRID_INTERVAL);
+    assert_eq!(snapshot.target.unwrap().height, 2 * LANDED);
 }
 
 #[tokio::test]
@@ -483,10 +486,10 @@ async fn refreshed_lower_checkpoint_never_downgrades_pinned_target() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    commit_to(&mut app, &fx, GRID_INTERVAL - 1).await;
+    commit_to(&mut app, &fx, LANDED - 1).await;
     let env = next_envelope(&app, &fx);
     let hash = env.block.header.hash_slow();
-    target(&app, &fx, GRID_INTERVAL, hash);
+    target(&app, &fx, LANDED, hash);
     app.refresh_trust().await.unwrap();
     let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
@@ -495,7 +498,7 @@ async fn refreshed_lower_checkpoint_never_downgrades_pinned_target() {
     app.l1().set_finalized(101);
     app.refresh_trust().await.unwrap();
     assert!(!app.trust.snapshot().is_ready());
-    assert_eq!(app.trust.snapshot().target.unwrap().height, GRID_INTERVAL);
+    assert_eq!(app.trust.snapshot().target.unwrap().height, LANDED);
 }
 
 #[tokio::test]
@@ -665,9 +668,9 @@ async fn switching_trust_checks_the_fork_time_at_a_later_checkpoint() {
     });
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    commit_to(&mut app, &fx, GRID_INTERVAL).await;
-    let hash = app.engine().state().chain[&GRID_INTERVAL].hash_slow();
-    target(&app, &fx, GRID_INTERVAL, hash);
+    commit_to(&mut app, &fx, LANDED).await;
+    let hash = app.engine().state().chain[&LANDED].hash_slow();
+    target(&app, &fx, LANDED, hash);
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();
     assert!(!snapshot.is_ready());
@@ -679,7 +682,7 @@ async fn switching_trust_checks_the_fork_time_at_a_later_checkpoint() {
     let mut restarted =
         app_with(fx.l1(), app.engine().reopen(), fx.params.clone(), dir.path(), Default::default());
     restarted.engine().state().beacon_roots_from = Some((implementation, fork_timestamp + 1));
-    target(&restarted, &fx, GRID_INTERVAL, hash);
+    target(&restarted, &fx, LANDED, hash);
     let result = restarted.refresh_trust().await;
     assert!(
         matches!(result, Err(AbciError::SafetyHalt(ref reason)) if reason.contains("fork time")),
@@ -693,8 +696,8 @@ async fn restart_equal_and_above_checkpoint_require_fresh_proof_and_linked_histo
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    commit_to(&mut app, &fx, 2 * GRID_INTERVAL).await;
-    for checkpoint in [GRID_INTERVAL, 2 * GRID_INTERVAL] {
+    commit_to(&mut app, &fx, 2 * LANDED).await;
+    for checkpoint in [LANDED, 2 * LANDED] {
         let hash = app.engine().state().chain[&checkpoint].hash_slow();
         let mut restarted = app_with(
             fx.l1(),
@@ -707,7 +710,7 @@ async fn restart_equal_and_above_checkpoint_require_fresh_proof_and_linked_histo
         assert!(!restarted.trust.snapshot().is_ready());
         restarted.refresh_trust().await.unwrap();
         assert!(restarted.trust.snapshot().is_ready());
-        assert_eq!(restarted.trust.snapshot().committed_head.unwrap().height, 2 * GRID_INTERVAL);
+        assert_eq!(restarted.trust.snapshot().committed_head.unwrap().height, 2 * LANDED);
     }
     let mut restarted = app_with(
         fx.l1(),
@@ -889,7 +892,7 @@ async fn committed_comet_history_is_required_and_survives_restart() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    for i in 0..=GRID_INTERVAL {
+    for i in 0..=LANDED {
         let anchor = (i == 0).then(|| fx.anchor_witness(app.l1(), fx.genesis.l1_0));
         let env = hand_envelope(&app, anchor, None);
         let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
@@ -901,8 +904,8 @@ async fn committed_comet_history_is_required_and_survives_restart() {
             Some(B256::from_slice(req.hash.as_bytes()))
         );
     }
-    let comet = app.store.load_comet_hash(GRID_INTERVAL).unwrap().unwrap();
-    let el = app.engine().state().chain[&GRID_INTERVAL].hash_slow();
+    let comet = app.store.load_comet_hash(LANDED).unwrap().unwrap();
+    let el = app.engine().state().chain[&LANDED].hash_slow();
     let mut restarted = app_with(
         fx.l1(),
         app.engine().reopen(),
@@ -910,19 +913,19 @@ async fn committed_comet_history_is_required_and_survives_restart() {
         dir.path(),
         AppOptions::default(),
     );
-    target(&restarted, &fx, GRID_INTERVAL, el);
-    let path = dir.path().join(format!("comet-hash-{GRID_INTERVAL}.json"));
+    target(&restarted, &fx, LANDED, el);
+    let path = dir.path().join(format!("comet-hash-{LANDED}.json"));
     std::fs::remove_file(&path).unwrap();
     restarted.refresh_trust().await.unwrap();
     assert!(!restarted.trust.snapshot().is_ready());
     assert!(restarted.trust.snapshot().reason.unwrap().contains("missing committed Comet"));
-    restarted.store.save_comet_hash(GRID_INTERVAL, comet).unwrap();
+    restarted.store.save_comet_hash(LANDED, comet).unwrap();
     restarted.refresh_trust().await.unwrap();
     assert!(restarted.trust.snapshot().is_ready());
     restarted.trust.begin_session();
     let inbox = InboxStorage {
         last_checkpoint_comet_hash: B256::repeat_byte(0xaa),
-        ..landed(&restarted, &fx, GRID_INTERVAL)
+        ..landed(&restarted, &fx, LANDED)
     };
     fx.plant_l1_block(restarted.l1(), 101, &inbox, &fx.registry);
     restarted.l1().set_finalized(101);
@@ -995,15 +998,11 @@ async fn lagging_own_finality_waits_for_a_checkpoint_with_retained_comet_history
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    commit_to(&mut app, &fx, 2 * GRID_INTERVAL).await;
-    finalize_landing(&app, &fx, 65, GRID_INTERVAL);
-    finalize_landing(&app, &fx, 66, 2 * GRID_INTERVAL);
+    commit_to(&mut app, &fx, 2 * LANDED).await;
+    finalize_landing(&app, &fx, 65, LANDED);
+    finalize_landing(&app, &fx, 66, 2 * LANDED);
     commit_next(&mut app, &fx, Some(66)).await;
-    assert_eq!(
-        app.store.load_comet_hash(GRID_INTERVAL).unwrap(),
-        None,
-        "below the anchored checkpoint"
-    );
+    assert_eq!(app.store.load_comet_hash(LANDED).unwrap(), None, "below the anchored checkpoint");
 
     app.l1().set_finalized(65);
     app.refresh_trust().await.unwrap();
@@ -1013,7 +1012,7 @@ async fn lagging_own_finality_waits_for_a_checkpoint_with_retained_comet_history
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();
     assert!(snapshot.is_ready(), "{:?}", snapshot.reason);
-    assert_eq!(snapshot.target.unwrap().height, 2 * GRID_INTERVAL);
+    assert_eq!(snapshot.target.unwrap().height, 2 * LANDED);
 }
 
 /// A session target pinned before the committed anchor moved past it names pruned Comet
@@ -1023,32 +1022,28 @@ async fn pinned_target_below_the_comet_history_floor_is_reacquired() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    commit_to(&mut app, &fx, GRID_INTERVAL - 1).await;
+    commit_to(&mut app, &fx, LANDED - 1).await;
     let env = next_envelope(&app, &fx);
     let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     let inbox = InboxStorage {
         last_checkpoint_comet_hash: B256::from_slice(req.hash.as_bytes()),
-        ..fx.inbox_at_checkpoint(GRID_INTERVAL, env.block.header.hash_slow())
+        ..fx.inbox_at_checkpoint(LANDED, env.block.header.hash_slow())
     };
     fx.advance_l1(app.l1(), 65, &inbox, &fx.registry);
     app.refresh_trust().await.unwrap();
     let pinned = app.trust.snapshot().target.unwrap().height;
-    assert_eq!(pinned, GRID_INTERVAL, "pinned above the head");
+    assert_eq!(pinned, LANDED, "pinned above the head");
     finalize(&mut app, finalize_req(&req)).await.unwrap();
     commit(&mut app).await.unwrap();
-    commit_to(&mut app, &fx, 2 * GRID_INTERVAL).await;
-    finalize_landing(&app, &fx, 66, 2 * GRID_INTERVAL);
+    commit_to(&mut app, &fx, 2 * LANDED).await;
+    finalize_landing(&app, &fx, 66, 2 * LANDED);
     commit_next(&mut app, &fx, Some(66)).await;
-    assert_eq!(
-        app.store.load_comet_hash(GRID_INTERVAL).unwrap(),
-        None,
-        "below the anchored checkpoint"
-    );
+    assert_eq!(app.store.load_comet_hash(LANDED).unwrap(), None, "below the anchored checkpoint");
 
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();
     assert!(snapshot.is_ready(), "{:?}", snapshot.reason);
-    assert_eq!(snapshot.target.unwrap().height, 2 * GRID_INTERVAL);
+    assert_eq!(snapshot.target.unwrap().height, 2 * LANDED);
 }
 
 /// Plants L1 block 100 holding `inbox` with its Inbox storage word at `slot` set to `word`
@@ -1133,17 +1128,17 @@ async fn pinned_target_changing_only_the_comet_hash_is_rejected() {
         let fx = Fixture::genesis(1);
         let dir = tempfile::tempdir().unwrap();
         let mut app = initialized(&fx, dir.path()).await;
-        commit_to(&mut app, &fx, GRID_INTERVAL - 1).await;
+        commit_to(&mut app, &fx, LANDED - 1).await;
         let env = next_envelope(&app, &fx);
-        target(&app, &fx, GRID_INTERVAL, env.block.header.hash_slow());
+        target(&app, &fx, LANDED, env.block.header.hash_slow());
         app.refresh_trust().await.unwrap();
-        assert_eq!(app.trust.snapshot().target.unwrap().height, GRID_INTERVAL);
+        assert_eq!(app.trust.snapshot().target.unwrap().height, LANDED);
         let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
         finalize(&mut app, finalize_req(&req)).await.unwrap();
         commit(&mut app).await.unwrap();
         let changed = InboxStorage {
             last_checkpoint_comet_hash: B256::repeat_byte(0x5a),
-            ..landed(&app, &fx, GRID_INTERVAL)
+            ..landed(&app, &fx, LANDED)
         };
         fx.advance_l1(app.l1(), 101, &changed, &fx.registry);
         if reconnect {
@@ -1174,9 +1169,9 @@ async fn trust_stays_closed_until_the_execution_floor_is_checked() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    commit_to(&mut app, &fx, GRID_INTERVAL).await;
+    commit_to(&mut app, &fx, LANDED).await;
     let floor = restart_as_imported(&mut app);
-    target(&app, &fx, GRID_INTERVAL, floor.hash);
+    target(&app, &fx, LANDED, floor.hash);
     app.engine().state().historical_state.insert(floor.hash);
 
     app.refresh_trust().await.unwrap();
@@ -1186,7 +1181,7 @@ async fn trust_stays_closed_until_the_execution_floor_is_checked() {
 
     info(&mut app).await.expect("the EL serves the floor and its state");
     app.refresh_trust().await.unwrap();
-    assert_ready_at(&app, GRID_INTERVAL);
+    assert_ready_at(&app, LANDED);
 }
 
 /// A `FinalizeBlock` reaching an imported store before any `Info` still runs the startup
@@ -1198,14 +1193,14 @@ async fn finalize_block_first_checks_the_execution_floor() {
         let fx = Fixture::genesis(1);
         let dir = tempfile::tempdir().unwrap();
         let mut app = initialized(&fx, dir.path()).await;
-        commit_to(&mut app, &fx, GRID_INTERVAL).await;
+        commit_to(&mut app, &fx, LANDED).await;
         let env = next_envelope(&app, &fx);
         let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
         let floor = restart_as_imported(&mut app);
         app.engine().state().historical_state.insert(floor.hash);
         if !matching {
             let mut engine = app.engine().state();
-            let other = engine.chain.get_mut(&GRID_INTERVAL).unwrap();
+            let other = engine.chain.get_mut(&LANDED).unwrap();
             other.gas_used += 1;
         }
         app.engine().state().calls.clear();
@@ -1213,7 +1208,7 @@ async fn finalize_block_first_checks_the_execution_floor() {
         let result = finalize(&mut app, finalize_req(&req)).await;
         assert_eq!(
             app.engine().calls().first(),
-            Some(&EngineCall::HeaderByNumber(GRID_INTERVAL)),
+            Some(&EngineCall::HeaderByNumber(LANDED)),
             "the floor check comes first"
         );
         if matching {
