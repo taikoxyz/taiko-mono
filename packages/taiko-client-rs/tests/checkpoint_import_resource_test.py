@@ -34,7 +34,9 @@ class ProfileCommands(unittest.TestCase):
     def test_profile_uses_install_only_helpers(self):
         el_helper, stock_helper = "/opt/etna-el-import", "/opt/etna-comet-import"
         el_hash, state_root = "0x" + "11" * 32, "0x" + "22" * 32
-        verified = dict(first_height=3, last_height=5, el_hash=el_hash, comet_hash="0x" + "33" * 32,
+        app_hash = "0x" + "77" * 32
+        verified = dict(first_height=3, last_height=5, el_hash=el_hash, app_hash=app_hash,
+                        comet_hash="0x" + "33" * 32,
                         part_hash="44" * 32, part_total=1, state_root=state_root,
                         genesis_hash="0x" + "55" * 32, finalized_hash="0x" + "66" * 32, l1_calls=17,
                         frames=2, el_prefix_headers=1, terminal_q=4)
@@ -74,7 +76,7 @@ class ProfileCommands(unittest.TestCase):
         self.assertEqual(len(stock), 1)
         self.assertEqual(stock[0][1], "install")
         self.assertEqual(stock[0][stock[0].index("--stock-dir") + 1], str(directory / "stock"))
-        self.assertEqual(stock[0][stock[0].index("--app-hash") + 1], el_hash)
+        self.assertEqual(stock[0][stock[0].index("--app-hash") + 1], app_hash)
 
 
 if __name__ == "__main__":

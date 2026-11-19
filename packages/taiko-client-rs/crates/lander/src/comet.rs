@@ -784,7 +784,7 @@ mod tests {
             1024,
         )
         .unwrap();
-        assert_eq!(bare.echo("height 12 is not a grid height"), "height 12 is not a grid height");
+        assert_eq!(bare.echo("height 12 is not retained"), "height 12 is not retained");
     }
 
     #[tokio::test]

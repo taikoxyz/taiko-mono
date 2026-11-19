@@ -770,7 +770,6 @@ impl Fixture {
             } else {
                 epoch_len - 6
             };
-            let cp = cp / 6 * 6;
             if !l1_headers.contains_key(&number) {
                 let state = state_with_queue(
                     &params,

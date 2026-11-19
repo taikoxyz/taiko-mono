@@ -206,8 +206,8 @@ func TestReadyIsFreshAndFilePVPersistsDoubleSignProtection(t *testing.T) {
 }
 
 // The gate reads only schema_version, session_id, chain_id and phase (SYNC-9-10/9-11,
-// RECOV-8.2-4). Every other field, known or unknown, is ignored: the target and validator-state
-// comparison is app-side (SYNC-9-5). Anything but phase "ready" for this chain_id in the armed
+// RECOV-8.2-4). Every other field, known or unknown, is ignored: the target comparison is
+// app-side (SYNC-9-5). Anything but phase "ready" for this chain_id in the armed
 // session denies before FilePV, and a reply for another session also drops the armed session.
 func TestGateChecksOnlySessionChainAndPhase(t *testing.T) {
 	line := func(r map[string]any) string { raw, _ := json.Marshal(r); return string(raw) }

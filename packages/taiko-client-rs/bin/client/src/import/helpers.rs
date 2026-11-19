@@ -70,10 +70,30 @@ fn check_comet(stdout: &[u8], expected: &CometReport, comet_hash: B256) -> R<()>
     Ok(())
 }
 
+/// The `etna-comet-import install` arguments for s > o. `--app-hash` is the post-s AppHash
+/// appHash(ELHash(s), valStateHash(s)) of the state the app store installs (CONS-3.1-8,
+/// DATA-5.4-4), as the app's Info reports it at the handshake; never ELHash(s) alone.
+fn comet_install_args(
+    home: &Path,
+    stock: &Path,
+    el_hash: B256,
+    val_state: &abci::valstate::ValState,
+) -> Vec<std::ffi::OsString> {
+    let app_hash = abci::valstate::app_hash(el_hash, val_state.hash());
+    vec![
+        "install".into(),
+        "--home".into(),
+        home.into(),
+        "--stock-dir".into(),
+        stock.into(),
+        "--app-hash".into(),
+        app_hash.to_string().into(),
+    ]
+}
+
 /// Install the stock Comet stores for s > o into the absent `home` from the stock dir
-/// (DATA-5.4-3/4/5). The post-s AppHash is appHash(ELHash(s), valStateHash(s)) (CONS-3.1-8),
-/// as the app's Info reports it. Go checks nothing again: a nonzero exit or a receipt that
-/// differs from the authenticated window is unavailable, never a latch.
+/// (DATA-5.4-3/4/5), with [`comet_install_args`]. Go checks nothing again: a nonzero exit or a
+/// receipt that differs from the authenticated window is unavailable, never a latch.
 pub(super) async fn comet_install(
     lock: &File,
     helper: &Path,
@@ -83,14 +103,7 @@ pub(super) async fn comet_install(
 ) -> R<()> {
     let expected = expected_comet(v)?;
     let mut command = helper_command(lock, helper);
-    command
-        .arg("install")
-        .arg("--home")
-        .arg(home)
-        .arg("--stock-dir")
-        .arg(stock)
-        .arg("--app-hash")
-        .arg(v.app_hash().to_string());
+    command.args(comet_install_args(home, stock, v.state().parent.hash, &v.state().val_state));
     let output = run(command, "etna-comet-import").await?;
     if !output.status.success() {
         return Err(unavailable(format!(
@@ -301,6 +314,42 @@ mod tests {
         };
         let receipt = json!({"first_height":3,"last_height":6,"block_id":{"hash":B256::repeat_byte(1),"parts":{"total":2,"hash":B256::repeat_byte(2)}}});
         (report, receipt)
+    }
+
+    /// CONS-3.1-8, DATA-5.4-4: the stock stores get the post-s AppHash the app's Info reports,
+    /// appHash(ELHash(s), valStateHash(s)), never ELHash(s). ENC-A-29b.g: ELHash `0x11…11` and
+    /// the 29a.l state of the shared vectors give `0x381c…b451`.
+    #[test]
+    fn comet_install_passes_the_app_hash_not_the_el_hash() {
+        let vectors: Value = serde_json::from_str(include_str!(
+            "../../../../../../testdata/etna_vectors/vectors.json"
+        ))
+        .unwrap();
+        let preimage = vectors.pointer("/validator_states/0/preimage").unwrap().as_str().unwrap();
+        let state =
+            abci::valstate::ValState::decode(&alloy_primitives::hex::decode(preimage).unwrap())
+                .unwrap();
+        assert_eq!(
+            state.hash(),
+            alloy_primitives::b256!(
+                "368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b"
+            )
+        );
+        let el_hash = B256::repeat_byte(0x11);
+        let args = comet_install_args(Path::new("/c/home"), Path::new("/c/stock"), el_hash, &state);
+        assert_eq!(
+            args,
+            [
+                "install",
+                "--home",
+                "/c/home",
+                "--stock-dir",
+                "/c/stock",
+                "--app-hash",
+                "0x381ceb5a317bd34b0b19b9972191a994c384b4873a3694cfd46cb155c7d8b451",
+            ]
+        );
+        assert!(!args.contains(&el_hash.to_string().into()));
     }
 
     /// The stock receipt must name the authenticated window and the own-L1 landed Comet hash.

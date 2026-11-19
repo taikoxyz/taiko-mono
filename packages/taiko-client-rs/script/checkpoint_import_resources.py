@@ -109,7 +109,7 @@ def profile(directory, executable, helper, height, period):
     stock = directory / "stock"
     installed = directory / "comet"
     r = json.loads(measure("stock-install", [helper, "install", "--home", installed,
-                                             "--stock-dir", stock, "--app-hash", v["el_hash"]],
+                                             "--stock-dir", stock, "--app-hash", v["app_hash"]],
                            directory, env))
     assert (r["first_height"], r["last_height"]) == (v["first_height"], height)
     assert r["block_id"]["hash"].removeprefix("0x").lower() == v["comet_hash"][2:]

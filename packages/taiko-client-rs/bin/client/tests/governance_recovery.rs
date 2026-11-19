@@ -24,7 +24,7 @@ async fn governance_recovery_command_produces_and_lands() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn governance_recovery_l7_overlap_preserves_global_grid() -> Result<()> {
+async fn governance_recovery_l7_keeps_the_global_epoch_schedule() -> Result<()> {
     checkpoint_roundtrip(7, false, false).await
 }
 

@@ -813,8 +813,7 @@ async fn registered_follow(
     );
     let (http, auth) = c.execution_endpoints(1, &f.l2);
     let mut lander = commands.lander_with_execution(f, &rpc, &http, &auth)?;
-    let next = new_height.div_ceil(6) * 6;
-    wait_checkpoint(f, &mut lander, next).await?;
+    wait_checkpoint(f, &mut lander, new_height).await?;
     lander.stop().await?;
     let (landed, hash) = f.checkpoint().await?;
     ensure!(

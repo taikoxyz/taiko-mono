@@ -20,7 +20,7 @@ use crate::{
     key::ConsensusKey,
     store::{Record, StoreError},
     test_utils::{powers, test_key},
-    valstate::{ValState, spec_41a_state, stock_lookup},
+    valstate::{ValState, spec_5c_state, stock_lookup},
 };
 
 /// A fresh app in `dir`, initialized like `source`, whose own L1 holds `source`'s chain, so it
@@ -486,21 +486,21 @@ fn an_installed_import_record_is_the_recompute_base() {
 
 /// SYNC-9-5c: a lost record is recomputed from the newest valid record below it with
 /// CometBFT's per-height arithmetic and the update records of the switch heights since: two
-/// increments, the second rescaling, never stock CometBFT's one bulk lookup (PROOF-6.2-41a.i/j,
-/// 5c.b, 5c.d). A switch height without its update record, or no valid record below, is
-/// missing data (5c.e).
+/// increments, the second rescaling, never stock CometBFT's one bulk lookup (5c.b, 5c.c,
+/// 5c.i). A switch height without its update record, or no valid record below, is missing data
+/// (SYNC-9-7).
 #[test]
 fn recompute_follows_per_height_arithmetic() {
     let dir = tempfile::tempdir().unwrap();
     let store = Store::volatile(dir.path().into());
-    let x = spec_41a_state(100);
+    let x = spec_5c_state(100);
     store.save_val_state(&x).unwrap();
 
     let recomputed = recompute_val_state(&store, 0, 102, |_| false).unwrap();
     assert_eq!(recomputed.height, 102);
     let priorities: Vec<i64> = recomputed.next.entries.iter().map(|e| e.priority).collect();
-    assert_eq!(priorities, [36, 35, -17, -53]); // 41a.i
-    assert_ne!(recomputed.next, stock_lookup(&x.next, 2)); // 41a.j
+    assert_eq!(priorities, [36, 35, -17, -53]); // 5c.c
+    assert_ne!(recomputed.next, stock_lookup(&x.next, 2)); // 5c.b
     assert_eq!(recomputed, x.advance(&[]).unwrap().advance(&[]).unwrap());
 
     // 101 is a switch height: its update record is required, an empty list included.
@@ -515,7 +515,7 @@ fn recompute_follows_per_height_arithmetic() {
 
     // A corrupt record is no base: the newest valid one below it is.
     std::fs::write(dir.path().join("val-state-100.bin"), b"corrupt").unwrap();
-    let earlier = spec_41a_state(94);
+    let earlier = spec_5c_state(94);
     store.save_val_state(&earlier).unwrap();
     let expected = (95..=102).try_fold(earlier, |state, _| state.advance(&[])).unwrap();
     assert_eq!(recompute_val_state(&store, 0, 102, |_| false).unwrap(), expected);
@@ -534,9 +534,9 @@ fn recompute_follows_per_height_arithmetic() {
 /// SYNC-9-5c: a retained height whose record is missing or corrupt (junk, the bare preimage
 /// without its checksum, or the well-formed record of another height) answers the state
 /// recomputed from the base at the checkpoint's s − 1 and the update records since, and
-/// records it again byte for byte, a corrupt file set aside first (5c.d). Without an update
+/// records it again byte for byte, a corrupt file set aside first (5c.i). Without an update
 /// record it needs, here the empty one of the switch to epoch 3 at the lost height itself, the
-/// state is missing data: refused and not recorded, until the update record is back (5c.e).
+/// state is missing data: refused and not recorded, until the update record is back (SYNC-9-7).
 #[tokio::test]
 async fn val_state_query_recomputes_lost_records_and_waits_without_their_inputs() {
     let fx = short_epochs();

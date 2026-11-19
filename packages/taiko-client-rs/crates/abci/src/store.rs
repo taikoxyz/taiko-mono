@@ -48,7 +48,7 @@ pub struct CommitteeState {
 }
 
 /// The one [`AppState`] schema; a state file of any other schema is refused, never migrated.
-pub const STATE_SCHEMA_VERSION: u32 = 19;
+pub const STATE_SCHEMA_VERSION: u32 = 20;
 
 /// The app's committed state, persisted at every `Commit`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -898,7 +898,7 @@ mod tests {
     /// A sidecar is `keccak256(preimage) ‖ preimage` (the record's own `valStateHash`, then the
     /// ENC-A-29a preimage). A checksum, decoding or height failure is a corrupt record, which
     /// the next save sets aside and replaces; only a well-formed record of the same height
-    /// holding another state conflicts (SYNC-9-5b/5c, SYNC-9-7).
+    /// holding another state conflicts (SYNC-9-5c, SYNC-9-7).
     #[test]
     fn val_state_records_are_checksummed_and_corruption_is_not_conflict() {
         let dir = tempfile::tempdir().unwrap();

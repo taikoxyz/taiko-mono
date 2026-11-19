@@ -280,7 +280,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
 }
 
 /// Recomputes the validator state after `height` from the records in `store` (SYNC-9-5c), with
-/// CometBFT v0.40.0's per-height arithmetic ([`ValState::advance`], PROOF-6.2-41a): from the
+/// CometBFT v0.40.0's per-height arithmetic ([`ValState::advance`], SYNC-9-5c 5c.c): from the
 /// newest record in `[origin, height)` that loads valid, one advance per height up to
 /// `height`, by the validator updates recorded at that height when `is_switch` says it is a
 /// switch height (an empty list included) and by none otherwise.

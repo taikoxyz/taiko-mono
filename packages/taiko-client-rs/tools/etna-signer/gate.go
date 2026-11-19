@@ -27,8 +27,8 @@ const controlSchema = 1
 
 // trustResponse is the part of the app's trust snapshot that the gate reads: the session, the
 // chain ID, which binds the generation (RECOV-8.2-5), and the phase, the app's only readiness
-// field. The app reports phase "ready" only after its own checkpoint target, validator-state and
-// InitChain checks (SYNC-9-5, RECOV-8.2-4), so every other snapshot field is ignored here.
+// field. The app reports phase "ready" only after its own checkpoint target and InitChain checks
+// (SYNC-9-5, RECOV-8.2-4), so every other snapshot field is ignored here.
 type trustResponse struct {
 	SchemaVersion uint64  `json:"schema_version"`
 	SessionID     string  `json:"session_id"`

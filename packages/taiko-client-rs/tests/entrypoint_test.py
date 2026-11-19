@@ -248,7 +248,7 @@ python3 -c 'import json, os, sys; target = os.environ.get("ETNA_BUILD_TARGET"); 
     def test_pull_request_tier_leaves_full_only_scenarios(self):
         pr_filter = self.tier_filter()
         for name in ("stale_l1_finality_pauses_and_resumes_l2",
-                     "governance_recovery_l7_overlap_preserves_global_grid"):
+                     "governance_recovery_l7_keeps_the_global_epoch_schedule"):
             with self.subTest(name=name):
                 self.assertIn(f"!test(={name})", pr_filter)
         self.assertEqual(self.tier_filter("--full"), "kind(test)")

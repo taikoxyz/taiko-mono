@@ -1349,7 +1349,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
     }
 }
 
-/// Selects the committee activated after this generation's origin on the unchanged epoch grid.
+/// Selects the committee activated after this generation's origin on the unchanged epoch
+/// schedule.
 fn committee_epoch(snapshot: &LandingSnapshot, schedule: &Schedule, height: u64) -> Result<u64> {
     schedule
         .active_committee_epoch_with_initial(

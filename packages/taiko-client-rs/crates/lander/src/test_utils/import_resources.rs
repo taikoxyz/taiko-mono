@@ -3,7 +3,9 @@
 //! ascending immutable frame stream. Its only online source serves proven L1 facts.
 use super::*;
 use crate::{
-    checkpoint_import::{ImportPackage, ImportValidator, WindowBlock, authenticate_import},
+    checkpoint_import::{
+        ImportPackage, ImportValidator, WindowBlock, authenticate_import, evidence_expired,
+    },
     test_utils::consensus::{BATCH_RECIPIENT, merkle, resign_at, sign_commit, timed_pair},
 };
 use abci::{L1Error, L1Source};
@@ -17,6 +19,18 @@ use std::{
 };
 
 const U: u64 = 65_532;
+
+/// The frame count s − w of the shortest window DATA-5.4-2 allows here, with block `h` at
+/// `100 + period · h` s. Block s − U + 1 carries the latest anchor witness, so the window
+/// reaches it and w = s − U. START-10-21's evidence limits reach back less far: the newest
+/// expired height is s − 901 at 4 s per block and s − 3,601 at 1 s.
+fn window(s: u64, period: u64) -> u64 {
+    let time =
+        |h: u64| tendermint::Time::from_unix_timestamp((100 + period * h) as i64, 0).unwrap();
+    let evidence = (1..=s).find(|n| evidence_expired(s, time(s), s - n, time(s - n))).unwrap();
+    assert!(evidence < U, "the evidence limits, not the latest anchor, bound the window");
+    U
+}
 
 #[derive(Serialize, Deserialize)]
 struct OwnFinality {
@@ -117,9 +131,8 @@ fn observe(fx: &mut Fixture, n: u64, time: u64, endpoint: (u64, B256, B256)) -> 
 }
 
 async fn generate(dir: &Path, s: u64, period: u64) {
-    let count = if period == 4 { 100_001 } else { 172_801 };
-    let w = s - count;
-    let q0 = (w - 1) / 6 * 6;
+    let w = s - window(s, period);
+    let q0 = w - 1;
     let terminal_q = s - U;
     let mut fx = Fixture::with_epoch(0, 0, 0, 600_000);
     fx.params.unsettled_limit = U;
@@ -199,7 +212,7 @@ async fn generate(dir: &Path, s: u64, period: u64) {
     let last_results = merkle(&[vec![]]);
     for h in w..=s {
         let q = h - 1;
-        let changed = q == terminal_q || (period == 1 && q == s - 110_004);
+        let changed = q == terminal_q;
         let witness = if changed {
             let comet = B256::from_slice(prior.block_id.hash.as_bytes());
             a = observe(&mut fx, a.number + 1, time(q), (q, parent.hash, comet));
@@ -315,7 +328,7 @@ async fn verify(dir: &Path, s: u64, period: u64) {
     let own: OwnFinality = read_json(&dir.join("own-l1.json"));
     let params = parameters();
     let pkg: ImportPackage = read_json(&dir.join("package.json"));
-    let w = s - if period == 4 { 100_001 } else { 172_801 };
+    let w = s - window(s, period);
     assert_eq!(pkg.execution_headers.len(), 1);
     assert_eq!(pkg.execution_headers[0].number, w);
     // As `abci-import import` does, the one authentication pass writes the stock dir's frames
@@ -351,12 +364,12 @@ async fn verify(dir: &Path, s: u64, period: u64) {
     assert_eq!(v.val_state_before().unwrap().encode(), pkg.validator_state.as_ref());
     assert_eq!(v.state().val_state.height, s);
     let calls = own.calls.lock().unwrap();
-    assert!(
-        calls
-            .iter()
-            .any(|(tag, n, slots)| tag == "proof" && *n == 11 && *slots == inbox::anchor_slots())
-    );
     write_json(&dir.join("l1-requests.json"), &*calls);
+    // Block w + 1 carries the latest anchor witness, of L1 12, in its envelope, so own L1 only
+    // confirms that header's canonical hash. No window block inherits the anchor of w (L1 11),
+    // so nothing below the window is read.
+    assert!(calls.iter().any(|(tag, n, _)| tag == "canonical" && *n == 12));
+    assert!(!calls.iter().any(|(_, n, _)| *n == 11));
     let manifest = HeaderManifest {
         schema: 1,
         chain_id: params.l2_chain_id,
@@ -372,6 +385,7 @@ async fn verify(dir: &Path, s: u64, period: u64) {
             "first_height": w+1,
             "last_height": s,
             "el_hash": v.landing().el_hash,
+            "app_hash": v.app_hash(),
             "comet_hash": v.landing().comet_hash,
             "part_hash": parts.hash.to_string(),
             "part_total": parts.total,

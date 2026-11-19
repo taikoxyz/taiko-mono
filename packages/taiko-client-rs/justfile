@@ -35,8 +35,8 @@ udeps:
 
 # The docker scenarios (`#[ignore = "docker"]`), one at a time; each boots its own
 # anvil + alethia-reth + CometBFT devnet. Needs a running docker daemon. This is the
-# pull-request tier: it leaves two slow scenarios (the L1 finality stall and the L=7 recovery
-# grid) to `test-full`.
+# pull-request tier: it leaves two slow scenarios (the L1 finality stall and the L=7 recovery)
+# to `test-full`.
 # Extra args are forwarded to nextest (e.g. `just test restart` runs one scenario).
 test *ARGS:
   ./tests/entrypoint.sh "$@"
@@ -118,7 +118,8 @@ supervisor-caps-test:
 runtime-image-test image platform:
   docker run --rm --platform {{platform}} -e ETNA_EXPECTED_PLATFORM={{platform}} --network none --entrypoint python3 -v "$PWD/tests:/app/tests:ro" {{image}} /app/tests/runtime_image_test.py
 
-# Complete height- and time-dominated evidence windows at two different prefix lengths.
+# Complete import windows, bound by the latest anchor (U frames), at two block periods and two
+# prefix lengths.
 checkpoint-import-resources:
   PYTHONDONTWRITEBYTECODE=1 python3 tests/checkpoint_import_resource_test.py
   bash ./script/build_etna_signer.sh
