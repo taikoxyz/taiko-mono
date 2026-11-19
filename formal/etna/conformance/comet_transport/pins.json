@@ -1,0 +1,14 @@
+{
+  "schema": "etna-comet-transport-pins-1",
+  "inputsSha256": {
+    "comet_transport/go.mod": "28677a48e92847945489f9d8731ebac720e4cc2229c32cea32fa017ea842dcb0",
+    "comet_transport/go.sum": "f79af3ec03edcbd7f173a87cca9318677d139fda4f3cb629873546b3ec71842a",
+    "comet_transport/transport_test.go": "4d55a5aa0ee756d62d26e130ffd354da4dee11ccdb873fdf0a7cd489bb39e223",
+    "comet_filepv/filepv_test.go": "02621e53d193c76d96f8b2ac0ca3a187f2aa57545715e0ec15db52877bd7804a",
+    "comet_signed/public-votes.json": "34932f8ddf991ae41eb1be94c873e99524f51cf96d427faed4a1bfc443dc960e",
+    "comet_filepv/pins.json": "f372d96cc9baa739febc44d5ea94321bf48cc209c82e5563d9235d211dfb71ee",
+    "run_comet_transport.py": "d6d3ef96186aca46755bbf6ec0cb6767c50232361feec5cce1c8456a893602cb",
+    "COMET_TRANSPORT.md": "45a83df59830db33c685343e266753c49839567b9dbaa074b9de17e7fb33285f",
+    "../tests/test_comet_transport.py": "daff9a9abe9cb2972d53f8ac71cce0a75efa4c2e8627104d6dec2751ee2f6bc7"
+  }
+}
