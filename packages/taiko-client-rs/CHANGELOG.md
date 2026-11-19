@@ -13,7 +13,7 @@
 - Checkpoint import takes the validator-state preimage after s − 1, checks it against header(s)'s app_hash and validator hashes, and applies block s's updates once (DATA-5.4-3). Packages use schema 2; export reads `/val_state/<s−1>` or the archive, which now keeps every height.
 - CometBFT evidence limits are 900 blocks, 1 h and 1 MiB (START-10-21). InitChain and `etna-comet-import` refuse a genesis with other values, and import windows follow the new limits.
 - Registry reads follow lowest-empty-slot admission (STAKE-4.1-14a).
-- Pin the protocol to `995ed0dd25` and regenerate the lander artifacts and the schema-8 shared vectors. The conformance record maps the specification at `2e6763e21b`.
+- Pin the protocol to `7cd9606af6` and regenerate the lander artifacts and the schema-8 shared vectors. The conformance record maps the specification at `2e6763e21b`.
 - Bump the app state from schema 19 to 20 and lander journals from 18 to 19.
 - etna-core: `verify_body_at_origin`, `verify_structure` and `verify_structure_at_origin` drop the `parent_el_hash` parameter, and `GRID_INTERVAL` and `GenesisRecord::is_grid_height` are removed (from abci too). Callers must adapt.
 
