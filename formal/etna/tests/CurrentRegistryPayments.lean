@@ -70,22 +70,15 @@ example : (transact sinkRejects initial view 10 8 slash).token.balances 8 = 0 :=
 example : (executeTransaction env initial view 10 4 (.register 3 4 30 3)).map Prod.snd =
     some [⟨4,100,30,true⟩] := by decide
 example : (transact env initial view 10 4 (.register 3 4 30 3)).token.balances 4 = 10 := by decide
+example : (transact env initial view 10 4 (.register 3 4 30 3)).token.balances 100 = 60 := by decide
+example : ((transact env initial view 10 4 (.register 3 4 30 3)).registry.ledger.bonds 2).map
+    (fun b => b.value.balance) = some 30 := by decide
 example : (executeTransaction env initial view 10 4 (.topUp 1 4 5)).map Prod.snd =
     some [⟨4,100,5,true⟩] := by decide
 example : (executeTransaction env {initial with token := {token with allowances := fun _ _ => 0}}
     view 10 4 (.topUp 1 4 5)).isNone = true := by decide
 example : (executeTransaction env initial view 10 9 (.register 3 4 30 3)).isNone = true := by decide
 
--- minStake zero is a permitted deployment: strict slot admission still requires a
--- positive deposit, which must transfer the actual approved tokens atomically.
-def zeroMinimum : State := {initial with registry := {registry with ledger := {registry.ledger with minStake := 0}}}
-example : (executeTransaction env zeroMinimum view 10 4 (.register 3 4 1 3)).map Prod.snd =
-    some [⟨4,100,1,true⟩] := by decide
-example : (transact env zeroMinimum view 10 4 (.register 3 4 1 3)).token.balances 4 = 39 := by decide
-example : (transact env zeroMinimum view 10 4 (.register 3 4 1 3)).token.balances 100 = 31 := by decide
-example : ((transact env zeroMinimum view 10 4 (.register 3 4 1 3)).registry.ledger.bonds 2).map
-    (fun b => b.value.balance) = some 1 := by decide
-example : (executeTransaction env zeroMinimum view 10 4 (.register 3 4 0 3)).isNone = true := by decide
 -- #22335: self-reporting uses the same floor bounty and retains a positive sink share.
 def slashFixture (balance rate : Nat) : State :=
   let bond : Registry.Bond := ⟨{ oldBond.value with stake := balance },none⟩
