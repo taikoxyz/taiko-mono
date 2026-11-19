@@ -1,14 +1,17 @@
 packages:
   - packages/*
-onlyBuiltDependencies:
-  - "@sveltejs/kit"
-  - bufferutil
-  - es5-ext
-  - esbuild
-  - keccak
-  - lefthook
-  - optimism
-  - protobufjs
-  - secp256k1
-  - svelte-preprocess
-  - utf-8-validate
+allowBuilds:
+  "@sveltejs/kit": true
+  bufferutil: true
+  es5-ext: true
+  esbuild: true
+  keccak: true
+  lefthook: true
+  "optimism@git+https://github.com/ethereum-optimism/optimism.git": true
+  protobufjs: true
+  secp256k1: true
+  svelte-preprocess: true
+  utf-8-validate: true
+
+# Keep Bridge UI's engine check. pnpm 12 only supports this setting workspace-wide.
+engineStrict: true

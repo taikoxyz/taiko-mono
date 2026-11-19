@@ -4,6 +4,13 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".nvmrc"
+      - ".github/actions/install-pnpm-dependencies/**"
+      - ".github/workflows/bridge-ui--deploy.yml"
+      - ".github/workflows/repo--vercel-deploy.yml"
       - "packages/bridge-ui/**"
   push:
     tags:
