@@ -1,0 +1,23 @@
+package state
+
+import (
+	dbm "github.com/cometbft/cometbft-db"
+	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/types"
+)
+
+// EtnaAppHashUpdate forwards the validator-update path from ApplyBlock.
+func EtnaAppHashUpdate(s State, id types.BlockID, header *types.Header, response *abci.ResponseFinalizeBlock) (State, error) {
+	if err := validateValidatorUpdates(response.ValidatorUpdates, s.ConsensusParams.Validator); err != nil {
+		return s, err
+	}
+	updates, err := types.PB2TM.ValidatorUpdates(response.ValidatorUpdates)
+	if err != nil {
+		return s, err
+	}
+	return updateState(s, id, header, response, updates)
+}
+
+func EtnaAppHashRawValidatorRow(db dbm.DB, height int64) ([]byte, error) {
+	return db.Get(calcValidatorsKey(height))
+}
