@@ -52,8 +52,8 @@ retain the frozen bounds, independent gates and explicit runtime premises.
 | Item | Selected scope | Current stage |
 | --- | --- | --- |
 | Y01 | Same-domain timestamp safety projection and fixed source scopes | COMPLETE selected code `717b6f426`; exact 5/4/4/1 quotient exhausted, source proof and independent controls passed; original unviewed timeout retained. |
-| Y02 | Repeated recovery at one nonzero checkpoint | NEXT; g0→g1→g2 origins, stale external authorization and fresh settlement. |
-| Y03 | Full ordered rule range and lossless software pause | PENDING; two ordinary rule writes and whole-range two-family premise. |
+| Y02 | Repeated recovery at one nonzero checkpoint | COMPLETE selected code `e7d6128a1`; finite safety, full g2 progress, actual origin fault/restoration and independent dispatch omission passed. |
+| Y03 | Full ordered rule range and lossless software pause | NEXT; two ordinary rule writes and whole-range two-family premise. |
 | Y04 | Actual funded pending forfeiture component | PENDING; closed fixture accounting, public PoPs and real withdrawal. |
 | Y05 | Positional registry snapshots and final-R selection | PENDING; width/holes, bond lifetime and block-close snapshots. |
 | Y06 | Actual terminal seen-commit reconstruction | PENDING; public signed votes, stock constructor/verifier/successor distinction. |
@@ -65,6 +65,13 @@ attribution negatives and 485 ordinary checks on each candidate/main-merge
 context. These results do not close W02's broader R01 or W06's P01 obligations,
 all nineteen archived searches, or missing client/EL/guest/proving/deployment
 interfaces. Selected item counts are not whole-protocol completion percentages.
+
+[Y02 evidence](REPORT.md#y02-repeated-recovery-at-a-fixed-nonzero-checkpoint)
+adds repeated recovery at c6, generation-only and nonce-only refusal, actual
+g2 landing/finality, source-fault restoration and an independent actual Next
+omission. Three source/attribution defects were repaired. Candidate/main-merge
+ordinary checks each pass506; wider recovery and runtime obligations remain
+OPEN/WAITING. Y01–Y02 are selected complete; five increments and final gates remain.
 
 ## Completed W01–W07 batch
 

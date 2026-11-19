@@ -40,11 +40,11 @@
 
 **Interfaces:** `reviewed_boundary(workspace_root: Path, fixed_claim_id: str) -> dict` delegates exact three-document classification and fixed `boundary-products` claim selection. Seven IDs are fixed by the design; the shared selector legitimately accepts each. A producer's `projection_receipt(..., expected_claim=None)` binds its fixed claim `timestamp-projection`, actual config/source/raw and rejects a swapped expectation. `audit_projection_source(product_bytes: bytes, wrapper_bytes: bytes) -> dict` binds reviewed source/read dependencies and projection contract. Raw replay uses the unchanged timestamp oracle.
 
-- [ ] Freeze original constants, guards, Next/Offers, invariants, source hashes and proof of edge lifting to/from `(s,bad)`; distinguish ordinary safety from witness `seen` predicates.
-- [ ] RED: projection omitting bad, an old-metadata guard dependency, lost primed receipt/event, swapped known claim at the actual producer and altered old claim rows must refuse. Historical/mixed/unknown workspace still refuses current-only scopes; do not reject a valid different claim at the generic selector.
-- [ ] Add separate wrapper/config and source-bound attribution. Preserve every old bundle/claim value and the legacy guard; test exact old/new inventories and both effective-workspace variants.
-- [ ] Root packet/smoke/full GO; compare original/projected small profiles and same-bounds projected StructuralSafety. Actual refused-event/frame source controls must remain visible and restore.
-- [ ] Independent source proof and different fault/omission audit, focused ordinary checks, commit/publication. If the quotient still times out, keep its safety acceptance OPEN rather than claim original full-state exhaustion.
+- [x] Freeze original constants, guards, Next/Offers, invariants, source hashes and proof of edge lifting to/from `(s,bad)`; distinguish ordinary safety from witness `seen` predicates.
+- [x] RED: projection omitting bad, an old-metadata guard dependency, lost primed receipt/event, swapped known claim at the actual producer and altered old claim rows must refuse. Historical/mixed/unknown workspace still refuses current-only scopes; do not reject a valid different claim at the generic selector.
+- [x] Add separate wrapper/config and source-bound attribution. Preserve every old bundle/claim value and the legacy guard; test exact old/new inventories and both effective-workspace variants.
+- [x] Root packet/smoke/full GO; compare original/projected small profiles and same-bounds projected StructuralSafety. Actual refused-event/frame source controls must remain visible and restore.
+- [x] Independent source proof and different fault/omission audit, focused ordinary checks, commit/publication. If the quotient still times out, keep its safety acceptance OPEN rather than claim original full-state exhaustion.
 
 ### Task 2: Y02 repeated recovery at a fixed nonzero c
 
@@ -52,11 +52,11 @@
 
 **Interfaces:** consume `boundary_scope.reviewed_boundary(..., "repeated-recovery")`, unchanged four-word cuts/statement adapter, and existing pure schedule operations where compatible. `audit(text: str, case: str) -> list[dict]` validates complete typed Init/adjacent frames, external authorization and named endpoint; no current-state rewriting of caller inputs.
 
-- [ ] Source-map RECOV8.3/8.4 and ACCEPTANCE2; freeze g0..2, previously settled c=6>S, head at most8, at most3 Produce calls and6 L1 advances. Use R1 number32/time101 and R2 number35/time104, immutable origins and explicit finalized-R observation. Use actual initial pending Rules1, first recover rules0, second recover rules2; authorized values must satisfy current nextRules+1. Empty lists and EL-validity are premises; do not claim the Unzen first-landing case.
-- [ ] RED: stale same-generation nonce after Invalidate, old-generation authorization, R1-only readiness for g2, overwritten g1 origin, incorrect rules0/nonzero reset and changed settled/FI record.
-- [ ] Implement free bounded actual calls and independent literal observer. Retain g1 suffix/job only as external archived evidence; reset g2 canonical/head to c. G2 first block uses genesis BFT104, empty LastBlockID/LastCommit, carried finalized anchor>=R2 and a distinct generation domain. Keep c/FI/slot284 and every earlier origin unchanged until actual Land.
-- [ ] Root reviewed smoke/full positive path through g2 Land/finality/next own anchor; primary origin-overwrite fault/restored, independent second-bootstrap/observe dispatch omission.
-- [ ] Reconsume complete raw trajectories with source scope, exact failures/restoration, independent gates and commit/publication. No end-to-end Q01 closure.
+- [x] Source-map RECOV8.3/8.4 and ACCEPTANCE2; freeze g0..2, previously settled c=6>S, head at most8, at most3 Produce calls and6 L1 advances. Use R1 number32/time101 and R2 number35/time104, immutable origins and explicit finalized-R observation. Use actual initial pending Rules1, first recover rules0, second recover rules2; authorized values must satisfy current nextRules+1. Empty lists and EL-validity are premises; do not claim the Unzen first-landing case.
+- [x] RED: stale same-generation nonce after Invalidate, old-generation authorization, R1-only readiness for g2, overwritten g1 origin, incorrect rules0/nonzero reset and changed settled/FI record.
+- [x] Implement free bounded actual calls and independent literal observer. Retain g1 suffix/job only as external archived evidence; reset g2 canonical/head to c. G2 first block uses genesis BFT104, empty LastBlockID/LastCommit, carried finalized anchor>=R2 and a distinct generation domain. Keep c/FI/slot284 and every earlier origin unchanged until actual Land.
+- [x] Root reviewed smoke/full positive path through g2 Land/finality/next own anchor; primary origin-overwrite fault/restored, independent second-bootstrap/observe dispatch omission.
+- [x] Reconsume complete raw trajectories with source scope, exact failures/restoration, independent gates and commit/publication. No end-to-end Q01 closure.
 
 ### Task 3: Y03 ordinary multi-rule batch and lossless pause
 

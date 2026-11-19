@@ -6153,3 +6153,84 @@ compositions, actual current Registry/client/EL/guest behavior, proving and
 end-to-end recovery/deployment retain their OPEN or WAITING status. No natural
 protocol defect is confirmed by this increment. Remaining Y02–Y07 scopes are in
 [the current worklist](WORKLIST.md) and require their own evidence and final gates.
+
+
+## Y02 repeated recovery at a fixed nonzero checkpoint
+
+Date: 2026-11-19. Selected code `e7d6128a1288eb3c87ad338cc3afebfe0c73d2dd`. Current normative bundle
+`2e6763e21bc236cfcda6011d164b32040f9e0c8d`; actual main
+`ce6d1887955343395305b5b1d89901816bd61a07`. Historical normative and
+native identities remain separate. Source and independent behavioral gates passed.
+See [source mapping and profiles](conformance/REPEATED_RECOVERY.md).
+
+The new product starts at settled c6>S0, keeps immutable external authorization
+operands and origins through g0→g1→g2, and distinguishes stale nonce from a
+generation-only refusal with matching nonce1. R1 is block32/time101 and R2 is
+block35/time104. G1's discarded suffix and exact captured job remain external
+archive data; live g2 head resets to c6. Its first block has BFT104, empty Comet
+predecessors, its own finalized R2 anchor and generation domain. A fresh Land at
+36 references35, preserves actual parent c6, advances checkpoint7 and committee
+snapshot35, then finality enables Produce8 using that exact new checkpoint.
+
+The finite domain is g0..2, L1 blocks31..37, head at most8 and at most three
+Produce attempts, including refusals. No safety projection or action reduction
+is used. The initial g0 committee cutoff24 is distinct from origin block25.
+Age1296 and the historical schedule write at time98 permit stop1394 and pending
+Rules1 activation1397. R1 clears stop while retaining the pending rule; R2
+installs Rules2. No Rules1 activation within this bounded clock is claimed.
+Valid ordinary g0 successors remain offered and their R1 truncation is checked.
+
+| Actual native profile | Required and observed result |
+| --- | --- |
+| Safety and same-file restored safety | Native0, Finished, 272,932 generated, 34,581 distinct, queue0, depth23 |
+| Fresh g2 progress | Native12 NoProgress, 20 fully replayed edges through two recoveries, Land/finality and Produce8 |
+| Stale nonce / old generation / R1-only finality | Native12 exact named predicates, respectively3/3/9 fully replayed edges |
+| Primary actual origin overwrite | Native12 FixedOrigins, 11 edges; actual g1 capture followed by R2 overwriting the earlier origin |
+| Independent g0 production/truncation | Native12 NoG0SuffixTruncated, 3 edges using the unmodified actual Next |
+| Independent original/restored progress | Native12 NoProgress, 20 fully replayed edges each |
+| Independent omitted-g2-Observe prefix and refusal | Native12 finalized-R2 prefix13 edges and R1-only refusal9 edges |
+| Same omitted Next, progress-absence graph | Native0, Finished, 213,838 generated, 26,506 distinct, queue0 |
+
+The independent omission changes only actual Next dispatch for eligible g2
+Observe35; CanObserve remains enabled. The genuine g2/archive/finalized35 prefix
+and correct-operand refusal remain reachable, while the same altered graph
+exhausts without progress. Original bytes, inode and mode are restored; fresh
+progress returns. The primary origin control likewise uses the same source inode
+and restores the exact ordinary graph. Named12 results establish existence;
+only the two explicitly completed graphs establish their bounded exhaustion.
+No phase timed out or retried, and budgets were not expanded.
+
+Independent literal replay consumed all eight genuine author outputs, validating
+complete typed Init/PRE/POST/arguments, raw execution status, hashes, full captured
+statements, exact landing parent and archived terms. It separately executed six
+native profiles. Java used the pinned 2.19 TLC/JRE, 1GiB heap, worker1 and seed1;
+all sources/tools were read-only in offline namespaces with disposable outputs.
+
+Three verification defects were fixed before publication: committee cutoff had
+equaled start block; the synthetic age/schedule excluded valid g0 successors;
+and same-basename native command substitutions could receive attribution.
+Six focused RED tests exposed eleven intended assertion failures, with no setup
+errors. Both repaired lanes passed32 targeted tests. One shared exact logical
+argv validator now serves Y01 and Y02. Six genuine archived Y01 records and two
+relocated identical readbacks still pass; six unchanged-raw Java/JAR/metadir
+substitutions refuse. Both legitimate old native cwd layouts remain accepted.
+Trusted same-run capture remains a premise, not cryptographic attestation.
+
+Fresh ordinary checks passed506 per context (320/166/20) on candidate tree
+`3ea6cf9e1d96078fcce2e56830a53dea3cf8fdb7` and actual main merge tree
+`d6613da9af2d8bd55eea87867d185e484f159f1d`. All1,871 staged source/harness
+identities and modes were stable; all631 pre-Y TLA/config Git identities remain
+unchanged. Source review SHA-256 `2508cf35e9706120d05f25251d693881eeb488948be7ff5fbd0d767c3bd9a384`;
+independent report `ee930121a5cf2970174624fd92a6333687714eca7842fdb975f950606b04d082`;
+primary safety raw `092c24488d16771f4f17e359f1755972538e4c63e730cb66513c89d99dbf687e`;
+independent omission raw `cfde334ef6f056564c0087fa326f523d8afe7d7a11919e6ff2bc67994fd4be16`.
+Local commits used separately verified checks with LEFTHOOK=0 because the worktree's
+prettier executable is unavailable; the local hook was not claimed to pass.
+
+Authenticated L1/registry history, EL validity, empty recovery lists, unchanged
+FI tail and the modeled g2 verified proof pair remain premises. No deployment,
+real CometBFT/EL recovery, signer persistence, actual proving, full governance
+policy or ACCEPTANCE §2/Q01 completion follows. W02 R01, W06 P01 and all nineteen
+archived INCONCLUSIVE searches remain open at their original scopes. No natural
+protocol defect was confirmed. This completes selected Y02; Y03–Y07 and the
+combined final gates remain unfinished, with no automatic eighth item.

@@ -65,7 +65,15 @@ only historical observations from TLC fingerprints. The quotient exhausted
 77,334 distinct states; source lifting, two actual faults/restorations and
 independent genuine-run attribution checks passed. The original unviewed timeout
 remains inconclusive. See [Y01 results](REPORT.md#y01-same-domain-timestamp-safety-projection)
-and the [next six boundary increments](WORKLIST.md#current-y01y07-boundary-composition-batch).
+and the [remaining boundary increments](WORKLIST.md#current-y01y07-boundary-composition-batch).
+
+The [repeated-recovery product](conformance/REPEATED_RECOVERY.md) preserves
+old origins and external authorizations through two recoveries at c6, then
+reaches a fresh g2 landing and finalized-checkpoint use. Its finite safety graph
+exhausted34,581 distinct states. Actual origin overwrite and independent missing
+Observe dispatch controls distinguish failures and restore. See
+[Y02 evidence](REPORT.md#y02-repeated-recovery-at-a-fixed-nonzero-checkpoint);
+real recovery/proving and full acceptance remain OPEN/WAITING.
 
 ## Run
 
