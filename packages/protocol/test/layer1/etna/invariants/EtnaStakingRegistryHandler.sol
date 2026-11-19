@@ -17,8 +17,8 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 /// real secp256k1 keys and proofs of possession, exit requests, exit confirmations, withdrawals,
 /// double-sign slashing with real vote signatures, recovery exclusions, landed snapshots and L1
 /// time, and keeps an independent model of the bonds, the slots they hold, owners,
-/// confirmations, registered keys, the admission threshold, stake and checkpoints the registry
-/// must hold.
+/// confirmations, registered keys, the empty slots, stake and checkpoints the registry must
+/// hold.
 /// @dev Every call is valid or broken in exactly one named way. The handler predicts the outcome
 /// from its model, success or the exact revert data, runs the call in try/catch and records a
 /// violation when the registry disagrees, so the handler itself never reverts and
@@ -57,8 +57,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         uint256 requestedExit;
         /// @dev The block of the slash; 0 if not slashed.
         uint256 slashedAt;
-        /// @dev The lowest exit a recovery exclusion, forfeiture or displacement forced;
-        /// `NO_EXIT` if none.
+        /// @dev The lowest exit a recovery exclusion or forfeiture forced; `NO_EXIT` if none.
         uint256 forcedExit;
         /// @dev The confirmation block and the landed snapshot at that block; 0 if unconfirmed.
         uint256 confirmedAt;
@@ -287,11 +286,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
     mapping(uint256 slot => bool) internal _isTouchedSlot;
     address[] internal _touchedKeys;
 
-    /// @dev A binary min-heap of slot keys `value << TREE_DEPTH | slot`, so the smallest key is
-    /// the smallest value, the lowest slot on a tie. Every change to a slot's value pushes the
-    /// slot's new key; a key is stale once its slot's modelled value differs, and `_threshold`
-    /// drops stale keys from the top.
-    uint256[] internal _valueHeap;
+    /// @dev A binary min-heap of the empty slots below `slotCount`: a withdrawal pushes the slot
+    /// it empties and a registration into an emptied slot pops it, so the top is the lowest one.
+    uint256[] internal _emptySlots;
     bool internal _prefilling;
 
     mapping(Property => uint256) public violations;
@@ -302,10 +299,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // ---------------------------------------------------------------
 
     uint256 public registrations;
-    /// @dev Registrations into an emptied slot, into a held slot (displacing its bond) and into
-    /// the last never-used slot (the 4096th).
+    /// @dev Registrations into an emptied slot and into the last never-used slot (the 4096th).
     uint256 public reuses;
-    uint256 public displacements;
     uint256 public capFills;
     uint256 public exitRequests;
     uint256 public exitsBeforeActivation;
@@ -524,7 +519,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
     /// @notice A reporter submits two conflicting votes of the same type, height, round and
     /// generation, each signed with the bond's key under this deployment's chain id for a past or
     /// the current generation, against a bond with stake: three times in four one with no exit
-    /// set, otherwise any, confirmed and displaced ones included. Sometimes the Inbox lock is
+    /// set, otherwise any, confirmed ones included. Sometimes the Inbox lock is
     /// held, which must reject the slash without effects. One call in four is broken instead: the
     /// Inbox uninitialized, a vote field out of range, no double sign, a future generation, an
     /// unissued bond, a withdrawn bond, a slashed bond or a wrong signature.
@@ -553,7 +548,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
 
     /// @notice A recovery exclusion through the Inbox: about half of the calls start a new
     /// recovery generation, then the Inbox moves one bond's exit to the current block (a no-op
-    /// when not earlier, as for every displaced or withdrawn bond). One call in four names a
+    /// when not earlier, as for every withdrawn bond). One call in four names a
     /// withdrawn bond or is broken instead: a caller other than the Inbox, an unissued bond, a
     /// wrong entry key or R at or above 2^48 - 1.
     function forceExit(uint256 _seed) external {
@@ -588,8 +583,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (defect == FORCE_BLOCK_OVERFLOW) vm.roll(executionBlock);
     }
 
-    /// @notice Deposits additional owner principal without changing the entry or checkpoint;
-    /// it raises the slot's admission value.
+    /// @notice Deposits additional owner principal without changing the entry or checkpoint.
     function topUp(uint256 _seed) external {
         (bool found, uint256 bondId) = _pick(_seed, NO_EXIT_SET);
         if (!found) return;
@@ -612,8 +606,6 @@ contract EtnaStakingRegistryHandler is CommonBase {
                 registry.checkpointCount() != checkpointsBefore
                     || registry.entriesRoot() != rootBefore
             ) _violate(Property.History, "deposit changed committee checkpoint");
-            _pushSlotValue(s.slot);
-            _checkThreshold();
         } catch (bytes memory reason) {
             _checkRevert(Property.Balance, "", reason, "topUp");
         }
@@ -863,10 +855,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // ---------------------------------------------------------------
 
     function _register(RegisterAttempt memory _a) internal {
-        uint256 value;
-        (_a.expectedSlot, value) = _threshold();
-        _a.expectedError = _expectRegister(_a, value);
-        if (!_prefilling) _checkThreshold();
+        bool full;
+        (full, _a.expectedSlot) = _nextSlot();
+        _a.expectedError = _expectRegister(_a, full);
         uint256 callerBefore = token.balanceOf(_a.caller);
         uint256 registryBefore = token.balanceOf(address(registry));
 
@@ -892,10 +883,10 @@ contract EtnaStakingRegistryHandler is CommonBase {
     }
 
     /// @dev The registration's expected revert data in the registry's check order (stake, key
-    /// encoding, proof of possession, key reuse, admission threshold `_value`), or empty.
+    /// encoding, proof of possession, key reuse, then an empty slot, none if `_full`), or empty.
     function _expectRegister(
         RegisterAttempt memory _a,
-        uint256 _value
+        bool _full
     )
         internal
         view
@@ -909,21 +900,14 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (_keyBond[vm.addr(_a.pk)] != 0) {
             return _err(IEtnaStakingRegistry.KeyAlreadyUsed.selector);
         }
-        if (_a.amount <= _value) return _err(IEtnaStakingRegistry.StakeTooLow.selector);
+        if (_full) return _err(IEtnaStakingRegistry.RegistryFull.selector);
         return "";
     }
 
     function _recordRegistration(RegisterAttempt memory _a, uint256 _bondId) internal {
         uint256 slot = _a.expectedSlot;
-        uint256 occupant = _slotBond[slot];
-        if (occupant != 0) {
-            Bond storage displaced = _bonds[occupant - 1];
-            displaced.holdsSlot = false;
-            displaced.forcedExit = _min(displaced.forcedExit, block.number);
-            _setExit(occupant - 1, _min(displaced.entry.exitEffectiveL1, block.number));
-            _checkBondRecord(occupant - 1, Property.Cap);
-            ++displacements;
-        } else if (slot < slotCount) {
+        if (slot < slotCount) {
+            _popEmptySlot();
             ++reuses;
         } else {
             ++slotCount;
@@ -1215,6 +1199,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (s.holdsSlot) {
             s.holdsSlot = false;
             delete _slotBond[s.slot];
+            _pushEmptySlot(s.slot);
             _checkBondRecord(_bondId, Property.Lifecycle);
             _touch(_bondId);
             _commitSlot(s.slot, Property.Lifecycle);
@@ -1610,10 +1595,9 @@ contract EtnaStakingRegistryHandler is CommonBase {
     }
 
     /// @dev After a successful call that changed bond `_bondId` but no slot's entry: checks that
-    /// the call wrote or rewrote no checkpoint, and the admission threshold.
+    /// the call wrote or rewrote no checkpoint.
     function _checkNoCheckpoint(uint256 _bondId) internal {
         _touch(_bondId);
-        if (_bonds[_bondId].holdsSlot) _pushSlotValue(_bonds[_bondId].slot);
         uint256 known = _checkpoints.length;
         if (registry.checkpointCount() != known) {
             _violate(Property.History, "a change to no slot's entry wrote a checkpoint");
@@ -1626,7 +1610,6 @@ contract EtnaStakingRegistryHandler is CommonBase {
                 _violate(Property.History, "a change to no slot's entry rewrote a checkpoint");
             }
         }
-        if (!_prefilling) _checkThreshold();
     }
 
     /// @dev Checks the registry's record of bond `_bondId` (fields, slot and withdrawal) and its
@@ -1650,9 +1633,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
     /// @dev After a successful call that changed the entry in `_slot`: checks the slot's entry
     /// and holder against the model, folds its leaf into the ghost tree, then checks that exactly
     /// the current block's checkpoint was written with the modelled count and root, refreshes
-    /// that block's checkpoint copy and snapshot, and checks the admission threshold.
+    /// that block's checkpoint copy and snapshot.
     function _commitSlot(uint256 _slot, Property _property) internal {
-        _pushSlotValue(_slot);
         if (!_prefilling && !_isTouchedSlot[_slot]) {
             _isTouchedSlot[_slot] = true;
             _touchedSlots.push(_slot);
@@ -1701,7 +1683,6 @@ contract EtnaStakingRegistryHandler is CommonBase {
                 leaves.push(_regLeaf(i, _slotEntry(i)));
             }
         }
-        if (!_prefilling) _checkThreshold();
     }
 
     /// @dev The modelled entry of `_slot`: its bond's fields, or all zero if it is empty.
@@ -1714,73 +1695,44 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (holder != 0) entry_ = _bonds[holder - 1].entry;
     }
 
-    /// @dev The modelled value of `_slot`: its bond's effStake + pendingTopUp, or 0 if empty.
-    function _slotValue(uint256 _slot) internal view returns (uint256) {
-        uint256 holder = _slotBond[_slot];
-        if (holder == 0) return 0;
-        return _bonds[holder - 1].entry.effStake + _bonds[holder - 1].pendingTopUp;
+    /// @dev The modelled slot the next registration takes: the lowest emptied slot, else the
+    /// next never-used one; `full_` if all `maxEntries` slots are held.
+    function _nextSlot() internal view returns (bool full_, uint256 slot_) {
+        if (_emptySlots.length != 0) return (false, _emptySlots[0]);
+        if (slotCount < maxEntries) return (false, slotCount);
+        return (true, 0);
     }
 
-    /// @dev The modelled admission threshold: the slot with the smallest value (its bond's
-    /// effStake + pendingTopUp, 0 if empty), the lowest on a tie, and that value. The smallest
-    /// current key of the value heap names it among the used slots; an unused slot, value 0,
-    /// wins unless a used slot already has value 0. The prefill registers into a registry with
-    /// no empty or zero-valued slot, so there it is the next slot.
-    function _threshold() internal returns (uint256 slot_, uint256 value_) {
-        if (_prefilling) return (slotCount, 0);
-        bool found;
-        while (_valueHeap.length != 0) {
-            uint256 key = _valueHeap[0];
-            (slot_, value_) = (key & (maxEntries - 1), key >> TREE_DEPTH);
-            if (_slotValue(slot_) == value_) {
-                found = true;
-                break;
-            }
-            _popValueHeap();
-        }
-        if (!found || (value_ != 0 && slotCount < maxEntries)) (slot_, value_) = (slotCount, 0);
-    }
-
-    /// @dev Pushes `_slot`'s current key onto the value heap.
-    function _pushSlotValue(uint256 _slot) internal {
-        uint256 key = _slotValue(_slot) << TREE_DEPTH | _slot;
-        uint256 i = _valueHeap.length;
-        _valueHeap.push(key);
+    /// @dev Pushes the emptied `_slot` onto the empty-slot heap.
+    function _pushEmptySlot(uint256 _slot) internal {
+        uint256 i = _emptySlots.length;
+        _emptySlots.push(_slot);
         while (i != 0) {
             uint256 parent = (i - 1) / 2;
-            uint256 parentKey = _valueHeap[parent];
-            if (parentKey <= key) break;
-            _valueHeap[i] = parentKey;
+            uint256 parentSlot = _emptySlots[parent];
+            if (parentSlot <= _slot) break;
+            _emptySlots[i] = parentSlot;
             i = parent;
         }
-        _valueHeap[i] = key;
+        _emptySlots[i] = _slot;
     }
 
-    /// @dev Removes the smallest key from the value heap.
-    function _popValueHeap() internal {
-        uint256 last = _valueHeap[_valueHeap.length - 1];
-        _valueHeap.pop();
-        uint256 n = _valueHeap.length;
+    /// @dev Removes the lowest slot from the empty-slot heap.
+    function _popEmptySlot() internal {
+        uint256 last = _emptySlots[_emptySlots.length - 1];
+        _emptySlots.pop();
+        uint256 n = _emptySlots.length;
         if (n == 0) return;
         uint256 i;
         while (true) {
             uint256 child = 2 * i + 1;
             if (child >= n) break;
-            if (child + 1 < n && _valueHeap[child + 1] < _valueHeap[child]) ++child;
-            if (_valueHeap[child] >= last) break;
-            _valueHeap[i] = _valueHeap[child];
+            if (child + 1 < n && _emptySlots[child + 1] < _emptySlots[child]) ++child;
+            if (_emptySlots[child] >= last) break;
+            _emptySlots[i] = _emptySlots[child];
             i = child;
         }
-        _valueHeap[i] = last;
-    }
-
-    /// @dev Checks the registry's admission threshold against the model.
-    function _checkThreshold() internal {
-        (uint256 slot, uint256 value) = _threshold();
-        (uint256 gotSlot, uint256 gotValue) = registry.admissionThreshold();
-        if (gotSlot != slot || gotValue != value) {
-            _violate(Property.Cap, "the admission threshold differs from the model");
-        }
+        _emptySlots[i] = last;
     }
 
     /// @dev Tracks `_bondId` as touched by a call outside the prefill.

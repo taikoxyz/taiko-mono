@@ -29,9 +29,9 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
     uint256 private constant _REGISTERED_AT = 30;
     uint48 private constant _EXIT = 60;
 
-    /// @dev 1000 bps of `MIN_STAKE` (1000 ether) to the reporter, the rest to the sink.
-    uint256 private constant _BOUNTY = 100 ether;
-    uint256 private constant _TO_SINK = 900 ether;
+    /// @dev 1000 bps of `MIN_STAKE` (250,000 ether) to the reporter, the rest to the sink.
+    uint256 private constant _BOUNTY = 25_000 ether;
+    uint256 private constant _TO_SINK = 225_000 ether;
 
     /// @dev The height and round of the votes `_vote` builds.
     uint64 private constant _HEIGHT = 1000;
@@ -65,11 +65,11 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
     // Slashing
     // ---------------------------------------------------------------
 
-    /// @dev Bob reports Alice's double sign at block 50: the whole stake goes, 1000 bps (100
-    /// ether) to Bob and 900 ether to the sink. The entry keeps its key and activation, its exit
-    /// moves from none to min(none, 50) = 50, and block 50's checkpoint is appended over the new
-    /// leaf before any stake moves. A landed committee covering block 50 then lets anyone confirm
-    /// the exit and, after the delay, withdraw the bond without payment (Lean
+    /// @dev Bob reports Alice's double sign at block 50: the whole stake goes, 1000 bps (25,000
+    /// ether) to Bob and 225,000 ether to the sink. The entry keeps its key and activation, its
+    /// exit moves from none to min(none, 50) = 50, and block 50's checkpoint is appended over the
+    /// new leaf before any stake moves. A landed committee covering block 50 then lets anyone
+    /// confirm the exit and, after the delay, withdraw the bond without payment (Lean
     /// `double_sign_then_release`).
     function test_slashDoubleSign_SlashesWholeStakeAndPaysBounty() external {
         (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) = _conflict(_CK_A);
@@ -127,17 +127,19 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
     /// @dev STAKE-4.1-34.g: an owner reporting its own signer receives only the bounty,
     /// calculated from effective and pending principal together.
     function test_slashDoubleSign_OwnerMaySelfReport() external {
-        _assertSlashPayout(800, 200, 1000, Alice, 100, 900);
+        _assertSlashPayout(MIN_STAKE, MIN_STAKE / 4, 1000, Alice, MIN_STAKE / 8, MIN_STAKE * 9 / 8);
     }
 
     /// @dev The signer may also report, independently of the bond's owner.
     function test_slashDoubleSign_SignerMaySelfReport() external {
-        _assertSlashPayout(800, 200, 1000, vm.addr(_CK_B), 100, 900);
+        _assertSlashPayout(
+            MIN_STAKE, MIN_STAKE / 4, 1000, vm.addr(_CK_B), MIN_STAKE / 8, MIN_STAKE * 9 / 8
+        );
     }
 
     /// @dev STAKE-4.1-34.i: the fractional bounty goes to the sink instead of rounding up.
     function test_slashDoubleSign_RoundsBountyDown() external {
-        _assertSlashPayout(1001, 0, 1000, Bob, 100, 901);
+        _assertSlashPayout(MIN_STAKE + 1, 0, 1000, Bob, MIN_STAKE / 10, MIN_STAKE * 9 / 10 + 1);
     }
 
     /// @dev STAKE-4.1-34.j: even the highest allowed bounty leaves a one-unit slash at the sink.
@@ -147,7 +149,7 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
 
     /// @dev PARAM-11-11.i: a zero rate sends all principal to the sink.
     function test_slashDoubleSign_ZeroBountyPaysAllPrincipalToSink() external {
-        _assertSlashPayout(1001, 0, 0, Bob, 0, 1001);
+        _assertSlashPayout(MIN_STAKE + 1, 0, 0, Bob, 0, MIN_STAKE + 1);
     }
 
     /// @dev A nil precommit and a precommit for a block in the same round have different block
@@ -331,10 +333,10 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
     }
 
     /// @dev A slot holder with no effective stake, only pending principal and an exit already
-    /// passed: a 90% forfeiture at block 40 takes all 1000 ether of effective stake and 800 of
-    /// the 1000 ether top-up and sets the exit to 40. Slashing it at block 50 changes no entry
-    /// field, so it writes no checkpoint, yet it takes the 200 ether pending, clears the top-up
-    /// and returns the slot's admission value to 0.
+    /// passed: a 90% forfeiture at block 40 takes all `MIN_STAKE` of effective stake and 80% of
+    /// the `MIN_STAKE` top-up and sets the exit to 40. Slashing it at block 50 changes no entry
+    /// field, so it writes no checkpoint, yet it takes the fifth of `MIN_STAKE` pending and
+    /// clears the top-up; the bond keeps its slot.
     function test_slashDoubleSign_PendingOnlyEntryWritesNoCheckpoint() external {
         IEtnaStakingRegistry.Config memory config =
             _registryConfig(address(token), address(mockInbox));
@@ -349,10 +351,7 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         uint48 exit = uint48(block.number);
         assertEq(registry.entryAt(0).effStake, 0, "no effective stake");
         (uint256 pending,) = registry.topUpOf(0);
-        assertEq(pending, 200 ether, "pending principal left");
-        (uint256 slot, uint256 value) = registry.admissionThreshold();
-        assertEq(slot, 1, "slot 0 still holds a value");
-        assertEq(value, 0, "the empty slot 1");
+        assertEq(pending, MIN_STAKE / 5, "pending principal left");
 
         vm.roll(50);
         uint256 checkpoints = registry.checkpointCount();
@@ -367,10 +366,9 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         (pending, readyAt) = registry.topUpOf(0);
         assertEq(pending, 0, "pending slashed");
         assertEq(readyAt, 0, "readiness cleared");
-        (slot, value) = registry.admissionThreshold();
-        assertEq(slot, 0, "slot 0 is the smallest again");
-        assertEq(value, 0, "slot 0's value");
-        assertEq(token.balanceOf(Bob), 20 ether, "bounty on the pending principal");
+        (bool holdsSlot, uint256 slot) = registry.slotOfBond(0);
+        assertTrue(holdsSlot && slot == 0, "the bond keeps slot 0");
+        assertEq(token.balanceOf(Bob), MIN_STAKE / 50, "bounty on the pending principal");
     }
 
     /// @dev The vector deployment (L1 chain 1, L2 chain 167001, Inbox 0x1111…) with the vector key
@@ -877,10 +875,19 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
     {
         IEtnaStakingRegistry.Config memory config =
             _registryConfig(address(token), address(mockInbox));
-        config.minStake = 1;
         config.slashBountyBps = _bps;
         registry = _deployRegistry(config);
-        _registerWith(Alice, _CK_B, _effective);
+        if (_effective >= MIN_STAKE) {
+            _registerWith(Alice, _CK_B, _effective);
+        } else {
+            // No registration stakes less than `minStake`: register the minimum, then plant
+            // `_effective` in bond 0's record (the `bonds` mapping at R + 7, effStake in its
+            // second word) and leave the registry holding exactly that.
+            _registerWith(Alice, _CK_B, MIN_STAKE);
+            uint256 bond = uint256(keccak256(abi.encode(0, REGISTRY_BASE + 7)));
+            vm.store(address(registry), bytes32(bond + 1), bytes32(_effective));
+            deal(address(token), address(registry), _effective);
+        }
         if (_pending != 0) {
             vm.roll(block.number + ACTIVATION_DELAY);
             _fund(Alice, _pending);

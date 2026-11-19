@@ -420,7 +420,7 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
     }
 
     // ---------------------------------------------------------------
-    // register after a withdrawal and displacement
+    // register after a withdrawal
     // ---------------------------------------------------------------
 
     /// @dev A registration after a withdrawal issues a new bond into the emptied slot: it starts
@@ -508,99 +508,84 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         _assertCheckpoint(registry.checkpointCount() - 1, block.number, 4, root);
     }
 
-    /// @dev A displaced bond keeps its owner, stake and pending top-up and leaves only through
-    /// `confirmExit` and `withdraw` (spec 4.1 vectors 13a.f, 14b.d-f, 26.g): it can neither top up
-    /// nor request an exit, its exit is confirmed once a landed snapshot covers the displacement
-    /// block, and its withdrawal pays both balances without touching its former slot or writing
-    /// a checkpoint (28.e, 36.e). An exclusion naming it is a no-op (spec 8 vector 40a.b), as is
-    /// one naming it after the withdrawal (40a.c); a wrong key still reverts.
-    function test_displacedBond_ExitsWithoutTouchingItsFormerSlot() external {
-        vm.roll(_REGISTERED_AT + ACTIVATION_DELAY);
-        _fund(Alice, MIN_STAKE);
-        vm.prank(Alice);
-        registry.topUp(0, 2);
-        _fillRegistry(1);
-        (uint256 slot, uint256 value) = registry.admissionThreshold();
-        assertEq(slot, 1, "slot 0 is worth MIN_STAKE + 2 with its pending top-up");
-        assertEq(value, MIN_STAKE + 1, "slot 1's stake");
-
-        // Bob displaces bond 1, leaving slots 0 to 2 tied, so Carol displaces bond 0.
-        vm.roll(block.number + 1);
-        _registerWith(Bob, _CK_B, MIN_STAKE + 2);
-        uint256 displacedAt = block.number;
-        uint256 next = registry.bondCount();
-        _fund(Carol, MIN_STAKE + 3);
-        bytes memory publicKey = EtnaTestKeys.publicKey(_CK_C);
-        bytes memory pop = EtnaTestKeys.popSig(_CK_C, registry, Carol);
-        vm.expectEmit(address(registry));
-        emit IEtnaStakingRegistry.BondDisplaced(0, 0, next);
-        vm.prank(Carol);
-        registry.register(publicKey, MIN_STAKE + 3, pop);
-        IEtnaStakingRegistry.Checkpoint memory latest =
-            registry.checkpointAt(registry.checkpointCount() - 1);
-        assertEq(latest.l1Block, displacedAt, "the displacement block's checkpoint");
-        assertEq(latest.entriesRoot, registry.entriesRoot(), "over the new entry");
-        IEtnaStakingRegistry.Bond memory bond = registry.bondAt(0);
-        assertFalse(bond.holdsSlot, "left its slot");
-        assertEq(bond.entry.effStake, MIN_STAKE, "stake kept");
-        assertEq(bond.entry.exitEffectiveL1, displacedAt, "exit at the displacement");
-        (uint256 pending,) = registry.topUpOf(0);
-        assertEq(pending, 2, "pending top-up kept");
-        assertEq(registry.ownerOf(0), Alice, "owner kept");
-
-        vm.expectRevert(IEtnaStakingRegistry.ExitAlreadySet.selector);
-        vm.prank(Alice);
-        registry.topUp(0, 1);
-        vm.expectRevert(IEtnaStakingRegistry.ExitAlreadySet.selector);
-        vm.prank(Alice);
-        registry.requestExit(0);
-
-        vm.roll(displacedAt + 1);
-        _assertForceExitKeeps(0, EtnaTestKeys.entryKey(_CK_A), "displaced bond");
-        mockInbox.setActiveCommitteeSnapshot(displacedAt - 1);
-        vm.expectRevert(IEtnaStakingRegistry.ExitNotCovered.selector);
-        registry.confirmExit(0);
-        mockInbox.setActiveCommitteeSnapshot(displacedAt);
-        registry.confirmExit(0);
-
-        vm.roll(block.number + WITHDRAWAL_DELAY);
-        IEtnaStakingRegistry.Entry memory slotEntry = registry.entryAt(0);
-        uint256 checkpoints = registry.checkpointCount();
-        bytes32 root = registry.entriesRoot();
-        uint256 aliceBefore = token.balanceOf(Alice);
-        vm.prank(Alice);
-        registry.withdraw(0, Alice);
-        assertEq(token.balanceOf(Alice), aliceBefore + MIN_STAKE + 2, "stake and top-up paid");
-        _assertSameEntry(registry.entryAt(0), slotEntry);
-        assertEq(registry.checkpointCount(), checkpoints, "no checkpoint");
-        assertEq(registry.entriesRoot(), root, "root");
-        (bool occupied, uint256 holder) = registry.bondInSlot(0);
-        assertTrue(occupied && holder == next, "the slot keeps its new bond");
-
-        _assertForceExitKeeps(0, EtnaTestKeys.entryKey(_CK_A), "withdrawn bond");
-        vm.expectRevert(IEtnaStakingRegistry.EntryKeyMismatch.selector);
-        mockInbox.forceExit(registry, 0, keccak256(abi.encode(0, 0)));
-    }
-
-    /// @dev Double-sign slashing of a displaced bond takes its whole principal and writes no
-    /// checkpoint (spec 4.1 vector 36.e). Its former slot keeps the new holder's admission value.
-    function test_displacedBond_SlashWritesNoCheckpoint() external {
-        _fillRegistry(1);
-        vm.roll(block.number + 1);
-        _registerWith(Bob, _CK_B, MIN_STAKE + 1);
-        assertFalse(registry.bondAt(0).holdsSlot, "bond 0 displaced");
-        uint256 checkpoints = registry.checkpointCount();
-        bytes32 root = registry.entriesRoot();
-        (uint256 slot, uint256 value) = registry.admissionThreshold();
-        assertEq(slot, 0, "the new holder's slot is the smallest");
-        assertEq(value, MIN_STAKE + 1, "at the new holder's value");
-
+    /// @dev Admission goes by occupancy, not by balance (STAKE-4.1-14a): a registration skips
+    /// slot 0, held by a bond slashed to a zero balance, and takes the lowest empty slot, then the
+    /// next empty one, then a new slot.
+    function test_register_takesLowestEmptySlot() external {
+        assertEq(_register(Bob, _CK_B), 1, "bond 1");
+        assertEq(_register(Carol, _CK_C), 2, "bond 2");
+        _registerWith(Bob, _CK_D, 3 * MIN_STAKE);
         vm.roll(block.number + 1);
         _slashDoubleSign(0, _CK_A);
-        assertEq(registry.bondAt(0).entry.effStake, 0, "slashed");
+        _withdrawBond(3);
+        _withdrawBond(1);
+        assertEq(registry.bondAt(0).entry.effStake, 0, "bond 0 has no balance");
+
+        assertEq(_register(David, _CK_E), 4, "bond 4");
+        _assertHolds(4, 1, "the lowest empty slot");
+        _assertHolds(0, 0, "the zero-balance bond keeps slot 0");
+        assertEq(_register(David, _CK_F), 5, "bond 5");
+        _assertHolds(5, 3, "the next empty slot");
+        assertEq(registry.entryCount(), 4, "no slot appended");
+        assertEq(_register(David, 0xC10), 6, "bond 6");
+        _assertHolds(6, 4, "then a new slot");
+        assertEq(registry.entryCount(), 5, "one slot appended");
+    }
+
+    /// @dev A bond slashed to a zero balance holds its slot until it is withdrawn
+    /// (STAKE-4.1-13a): with the 4,095 other slots held, a registration reverts `RegistryFull`,
+    /// replaces nobody and writes nothing, and the slashed bond still holds slot 0.
+    function test_register_zeroBalanceBondKeepsSlot() external {
+        _fillRegistry(0);
+        vm.roll(block.number + 1);
+        _slashDoubleSign(0, _CK_A);
+        (uint256 pending,) = registry.topUpOf(0);
+        assertEq(registry.bondAt(0).entry.effStake + pending, 0, "zero balance");
+        uint256 checkpoints = registry.checkpointCount();
+        bytes32 root = registry.entriesRoot();
+
+        vm.roll(block.number + 1);
+        _fund(Bob, 2 * MIN_STAKE);
+        bytes memory publicKey = EtnaTestKeys.publicKey(_CK_B);
+        bytes memory pop = EtnaTestKeys.popSig(_CK_B, registry, Bob);
+        vm.expectRevert(IEtnaStakingRegistry.RegistryFull.selector);
+        vm.prank(Bob);
+        registry.register(publicKey, 2 * MIN_STAKE, pop);
+
+        _assertHolds(0, 0, "the slashed bond keeps slot 0");
+        assertEq(registry.bondAt(0).entry.exitEffectiveL1, block.number - 1, "exit at the slash");
+        assertEq(registry.bondCount(), registry.MAX_ENTRIES(), "no bond issued");
+        (bool registered,) = registry.bondForKey(vm.addr(_CK_B));
+        assertFalse(registered, "key unused");
         assertEq(registry.checkpointCount(), checkpoints, "no checkpoint");
         assertEq(registry.entriesRoot(), root, "root");
-        _assertAdmissionThreshold(slot, value);
+    }
+
+    /// @dev Withdrawal leaves the slot empty (STAKE-4.1-28): with every slot held, withdrawing
+    /// the bonds in slots 4095 and 300 lets the next registrations take slot 300, then 4095, and
+    /// the one after reverts `RegistryFull` again.
+    function test_withdraw_freesSlotForNextRegistration() external {
+        _fillRegistry(0);
+        _withdrawBond(4095);
+        _withdrawBond(300);
+        (bool occupied,) = registry.bondInSlot(300);
+        assertFalse(occupied, "slot 300 emptied");
+        (occupied,) = registry.bondInSlot(4095);
+        assertFalse(occupied, "slot 4095 emptied");
+
+        uint256 next = registry.bondCount();
+        assertEq(_register(Bob, _CK_B), next, "bond 4096");
+        _assertHolds(next, 300, "the lower emptied slot");
+        assertEq(_register(Bob, _CK_C), next + 1, "bond 4097");
+        _assertHolds(next + 1, 4095, "then the higher one");
+        assertEq(registry.entryCount(), registry.MAX_ENTRIES(), "no slot appended");
+
+        _fund(Carol, MIN_STAKE);
+        bytes memory publicKey = EtnaTestKeys.publicKey(_CK_D);
+        bytes memory pop = EtnaTestKeys.popSig(_CK_D, registry, Carol);
+        vm.expectRevert(IEtnaStakingRegistry.RegistryFull.selector);
+        vm.prank(Carol);
+        registry.register(publicKey, MIN_STAKE, pop);
     }
 
     // ---------------------------------------------------------------
@@ -1015,6 +1000,16 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
 
     function _xOf(uint256 _pk) private returns (bytes32) {
         return bytes32(vm.createWallet(_pk).publicKeyX);
+    }
+
+    /// @dev Asserts that bond `_bondId` holds `_slot` through both lookups.
+    function _assertHolds(uint256 _bondId, uint256 _slot, string memory _label) private view {
+        (bool holdsSlot, uint256 slot) = registry.slotOfBond(_bondId);
+        assertTrue(holdsSlot, _label);
+        assertEq(slot, _slot, _label);
+        (bool occupied, uint256 holder) = registry.bondInSlot(_slot);
+        assertTrue(occupied, _label);
+        assertEq(holder, _bondId, _label);
     }
 
     /// @dev Forces bond `_bondId`'s exit in the current block through the Inbox and asserts nothing

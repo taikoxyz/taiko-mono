@@ -12,7 +12,7 @@ abstract contract EtnaRegistryGovernanceGasBase is EtnaStakingRegistryGasBase {
     function setUp() public virtual override {
         super.setUp();
         _register(Alice, CK_A);
-        _fund(Alice, 10_000 ether);
+        _fund(Alice, 2_500_000 ether);
         mockInbox.setInitialized(true);
         vm.roll(block.number + ACTIVATION_DELAY);
     }
@@ -23,7 +23,7 @@ contract EtnaRegistryTopUpGasTest is EtnaRegistryGovernanceGasBase {
         EtnaStakingRegistry target = registry;
         vm.startPrank(Alice);
         vm.startSnapshotGas("top_up");
-        target.topUp(0, 10_000 ether);
+        target.topUp(0, 2_500_000 ether);
         _stopSnapshot("top_up");
         vm.stopPrank();
         assertEq(registry.entryAt(0).effStake, MIN_STAKE);
@@ -35,7 +35,7 @@ contract EtnaRegistryActivateTopUpGasTest is EtnaRegistryGovernanceGasBase {
     function setUp() public override {
         super.setUp();
         vm.prank(Alice);
-        registry.topUp(0, 10_000 ether);
+        registry.topUp(0, 2_500_000 ether);
         vm.roll(block.number + ACTIVATION_DELAY);
     }
 
@@ -44,7 +44,7 @@ contract EtnaRegistryActivateTopUpGasTest is EtnaRegistryGovernanceGasBase {
         vm.startSnapshotGas("activate_top_up");
         target.activateTopUp(0);
         _stopSnapshot("activate_top_up");
-        assertEq(registry.entryAt(0).effStake, 11_000 ether);
+        assertEq(registry.entryAt(0).effStake, 2_750_000 ether);
     }
 }
 
@@ -54,7 +54,7 @@ contract EtnaRegistryForfeitGasTest is EtnaRegistryGovernanceGasBase {
     function setUp() public override {
         super.setUp();
         vm.prank(Alice);
-        registry.topUp(0, 10_000 ether);
+        registry.topUp(0, 2_500_000 ether);
         IEtnaStakingRegistry.Entry memory entry = registry.entryAt(0);
         _key = keccak256(abi.encode(entry.ckPrefix, entry.ckX));
         vm.roll(block.number + 1);
@@ -67,7 +67,7 @@ contract EtnaRegistryForfeitGasTest is EtnaRegistryGovernanceGasBase {
         vm.startSnapshotGas("forfeit_effective_and_pending");
         target.forfeit(0, key, bytes32(uint256(42)), deadline);
         _stopSnapshot("forfeit_effective_and_pending");
-        assertEq(token.balanceOf(SLASH_SINK), 1100 ether);
+        assertEq(token.balanceOf(SLASH_SINK), 275_000 ether);
         assertTrue(registry.forfeited(key));
     }
 }

@@ -7,22 +7,26 @@ import { MockEtnaInbox } from "./MockEtnaInbox.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
-import { TaikoToken } from "src/layer1/mainnet/TaikoToken.sol";
+import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
 /// @title EtnaStakingRegistryTestBase
-/// @notice Deploys a staking registry proxy staking TAIKO and fixed to a `MockEtnaInbox`.
-/// @dev The test contract holds the whole TAIKO supply and funds stakers from it.
+/// @notice Deploys a staking registry proxy staking a mintable stand-in for TAIKO and fixed to a
+/// `MockEtnaInbox`.
+/// @dev `_fund` mints, so a test may stake more than TAIKO's fixed 10^27 supply: filling all
+/// 4096 slots at `MIN_STAKE` takes 4096 × 250,000 = 1.024 × 10^27. That is test scaffolding,
+/// not a reachable state; with real TAIKO, bonds that still hold their registration stake
+/// cannot hold every slot (spec 12, item 11).
 abstract contract EtnaStakingRegistryTestBase is CommonTest, EtnaTestConstants {
     /// @dev The consensus private key `_fillRegistry` registers for slot `i` is `FILL_KEY + i`.
     uint256 internal constant FILL_KEY = 0xF1110000;
 
-    TaikoToken internal token;
+    TestERC20 internal token;
     MockEtnaInbox internal mockInbox;
     EtnaStakingRegistry internal registry;
 
     function setUpOnEthereum() internal virtual override {
-        token = deployTaikoToken();
+        token = new TestERC20("Taiko Token", "TAIKO");
     }
 
     function setUp() public virtual override {
@@ -62,9 +66,9 @@ abstract contract EtnaStakingRegistryTestBase is CommonTest, EtnaTestConstants {
         );
     }
 
-    /// @dev Sends `_amount` TAIKO to `_staker`, who approves the registry for any amount.
+    /// @dev Mints `_amount` TAIKO to `_staker`, who approves the registry for any amount.
     function _fund(address _staker, uint256 _amount) internal {
-        assertTrue(token.transfer(_staker, _amount), "fund");
+        token.mint(_staker, _amount);
         vm.prank(_staker);
         token.approve(address(registry), type(uint256).max);
     }
@@ -182,13 +186,6 @@ abstract contract EtnaStakingRegistryTestBase is CommonTest, EtnaTestConstants {
         assertEq(checkpoint.l1Block, _l1Block, "checkpoint l1Block");
         assertEq(checkpoint.count, _count, "checkpoint count");
         assertEq(checkpoint.entriesRoot, _root, "checkpoint entriesRoot");
-    }
-
-    /// @dev Asserts the slot the next registration takes and its value.
-    function _assertAdmissionThreshold(uint256 _slot, uint256 _value) internal view {
-        (uint256 slot, uint256 value) = registry.admissionThreshold();
-        assertEq(slot, _slot, "admission slot");
-        assertEq(value, _value, "admission value");
     }
 
     /// @dev Splits a 65-byte signature `R ‖ S ‖ V`.

@@ -144,7 +144,7 @@ contract EtnaCurrentRegistryConformanceTest is Test {
                         new EtnaStakingRegistry(
                             IEtnaStakingRegistry.Config({
                                 token: address(_token),
-                                minStake: 1,
+                                minStake: 250_000 ether,
                                 activationDelay: 1,
                                 exitDelay: 1,
                                 withdrawalDelay: 3,
@@ -285,7 +285,7 @@ contract EtnaCurrentRegistryConformanceTest is Test {
             _u(_j, _e, ".latestCheckpointBlock"),
             "new checkpoint"
         );
-        _checkReceipts(_logs, _x.caller, _x.amount, _u(_j, _e, ".receiptCount"), displaced);
+        _checkReceipts(_logs, _x.caller, _x.amount, _u(_j, _e, ".receiptCount"));
     }
 
     /// @dev Maps model payment receipts to actual token transfers and checks registry events.
@@ -293,20 +293,17 @@ contract EtnaCurrentRegistryConformanceTest is Test {
     /// @param _caller The owner paying the new principal.
     /// @param _amount The principal transferred to the registry.
     /// @param _expected The number of payment receipts expected by the model.
-    /// @param _displaced Whether the new bond displaced an occupied slot.
     function _checkReceipts(
         Vm.Log[] memory _logs,
         address _caller,
         uint256 _amount,
-        uint256 _expected,
-        bool _displaced
+        uint256 _expected
     )
         private
         view
     {
         uint256 payments;
         uint256 registrations;
-        uint256 displacements;
         bytes32 transfer = keccak256("Transfer(address,address,uint256)");
         for (uint256 i; i < _logs.length; ++i) {
             Vm.Log memory eventLog = _logs[i];
@@ -322,11 +319,9 @@ contract EtnaCurrentRegistryConformanceTest is Test {
             }
             if (eventLog.emitter != address(_registry)) continue;
             if (eventLog.topics[0] == IEtnaStakingRegistry.Registered.selector) ++registrations;
-            if (eventLog.topics[0] == IEtnaStakingRegistry.BondDisplaced.selector) ++displacements;
         }
         assertEq(payments, _expected, "payment receipts");
         assertEq(registrations, 1, "registration event");
-        assertEq(displacements, _displaced ? 1 : 0, "displacement only for an occupied slot");
     }
 
     /// @dev Compares all model bond fields, including the permanent key and bidirectional slot map.
@@ -377,15 +372,12 @@ contract EtnaCurrentRegistryConformanceTest is Test {
         view
         returns (bytes32 digest_)
     {
-        (uint256 slot, uint256 value) = _registry.admissionThreshold();
         (bool newKeyUsed, uint256 newKeyId) = _registry.bondForKey(vm.addr(_newKey));
         digest_ = keccak256(
             abi.encode(
                 _registry.bondCount(),
                 _registry.entryCount(),
                 _registry.entriesRoot(),
-                slot,
-                value,
                 _registry.checkpointCount(),
                 newKeyUsed,
                 newKeyId

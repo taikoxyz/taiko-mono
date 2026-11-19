@@ -191,23 +191,21 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         assertEq(registry.bondCount(), 4096);
         assertEq(registry.entriesRoot(), root);
         _assertPending(1 ether, 120);
-        (uint256 slot,) = registry.admissionThreshold();
-        assertEq(slot, 1, "the pending deposit lifts slot 0 above the others");
     }
 
     function test_forfeit_UsesExecutionBalanceAndAllPenaltyGoesToSink() external {
         mockInbox.setInitialized(true);
-        _deposit(10_000 ether);
+        _deposit(2_500_000 ether);
         vm.expectEmit();
         emit IEtnaStakingRegistry.CheckpointWritten(1, 110, 1, _forfeitedLeaf(0, 110));
         vm.expectEmit();
         emit IEtnaStakingRegistry.Forfeited(
-            0, _key, keccak256("incident"), 11_000 ether, 1100 ether
+            0, _key, keccak256("incident"), 2_750_000 ether, 275_000 ether
         );
         _forfeit(0);
         assertEq(registry.entryAt(0).effStake, 0, "effective stake exhausted first");
-        _assertPending(9900 ether, 120);
-        assertEq(token.balanceOf(SLASH_SINK), 1100 ether);
+        _assertPending(2_475_000 ether, 120);
+        assertEq(token.balanceOf(SLASH_SINK), 275_000 ether);
         assertEq(token.balanceOf(Bob), 0, "no reporter bounty");
         assertTrue(registry.forfeited(_key));
         assertEq(registry.entryAt(0).exitEffectiveL1, 110);
@@ -215,7 +213,7 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
 
     function test_forfeit_PendingOnlyPrincipalStillRequiresOwnerToWithdraw() external {
         mockInbox.setInitialized(true);
-        _deposit(10_000 ether);
+        _deposit(2_500_000 ether);
         _forfeit(0);
         mockInbox.setActiveCommitteeSnapshot(110);
         registry.confirmExit(0);
@@ -225,7 +223,7 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         registry.withdraw(0, Bob);
         vm.prank(Alice);
         registry.withdraw(0, Carol);
-        assertEq(token.balanceOf(Carol), 9900 ether);
+        assertEq(token.balanceOf(Carol), 2_475_000 ether);
         _assertPending(0, 0);
         assertTrue(registry.forfeited(_key));
     }
@@ -244,7 +242,7 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         vm.roll(170);
         vm.prank(Alice);
         registry.withdraw(0, Carol);
-        assertEq(token.balanceOf(Carol), 900 ether);
+        assertEq(token.balanceOf(Carol), 225_000 ether);
         assertTrue(registry.forfeited(_key), "withdrawal does not clear lifetime flag");
         assertEq(_register(Bob, 0xC0B), 1);
         assertTrue(registry.forfeited(_key), "reuse does not clear former key flag");
@@ -268,7 +266,7 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         registry.forfeit(0, _key, 0, 1000); // inclusive deadline
         vm.expectRevert(IEtnaStakingRegistry.AlreadyForfeited.selector);
         registry.forfeit(0, _key, keccak256("different incident"), 1000);
-        assertEq(token.balanceOf(SLASH_SINK), 100 ether);
+        assertEq(token.balanceOf(SLASH_SINK), 25_000 ether);
     }
 
     function test_forfeit_IncidentIdMayRepeatAcrossEntriesAndRecoveryDoesNotCancel() external {
@@ -281,7 +279,7 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         registry.forfeit(1, secondKey, keccak256("incident"), block.timestamp);
         assertTrue(registry.forfeited(_key));
         assertTrue(registry.forfeited(secondKey));
-        assertEq(token.balanceOf(SLASH_SINK), 200 ether);
+        assertEq(token.balanceOf(SLASH_SINK), 50_000 ether);
     }
 
     function test_forfeit_WithdrawFirstRejectsAndForfeitFirstPaysOnlyRemainder() external {
@@ -300,8 +298,8 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         _forfeit(0);
         vm.prank(Alice);
         registry.withdraw(0, Carol);
-        assertEq(token.balanceOf(Carol), 900 ether);
-        assertEq(token.balanceOf(SLASH_SINK), 100 ether);
+        assertEq(token.balanceOf(Carol), 225_000 ether);
+        assertEq(token.balanceOf(SLASH_SINK), 25_000 ether);
     }
 
     function test_slashDoubleSign_ConsumesDepositsMadeAfterEvidenceAndBlocksLaterForfeit()
@@ -312,8 +310,8 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         _deposit(7 ether);
         vm.prank(Bob);
         registry.slashDoubleSign(0, a, b);
-        assertEq(token.balanceOf(Bob), 100.7 ether);
-        assertEq(token.balanceOf(SLASH_SINK), 906.3 ether);
+        assertEq(token.balanceOf(Bob), 25_000.7 ether);
+        assertEq(token.balanceOf(SLASH_SINK), 225_006.3 ether);
         assertEq(registry.entryAt(0).effStake, 0);
         _assertPending(0, 0);
         vm.expectRevert(IEtnaStakingRegistry.NothingToForfeit.selector);
@@ -326,14 +324,14 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
 
     function test_slashDoubleSign_ForfeitFirstConsumesEntirePendingRemainder() external {
         mockInbox.setInitialized(true);
-        _deposit(10_000 ether);
+        _deposit(2_500_000 ether);
         _forfeit(0);
         (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) = _votes();
         vm.prank(Bob);
         registry.slashDoubleSign(0, a, b);
         _assertPending(0, 0);
-        assertEq(token.balanceOf(Bob), 990 ether);
-        assertEq(token.balanceOf(SLASH_SINK), 10_010 ether);
+        assertEq(token.balanceOf(Bob), 247_500 ether);
+        assertEq(token.balanceOf(SLASH_SINK), 2_502_500 ether);
         assertTrue(registry.forfeited(_key));
     }
 
@@ -470,34 +468,39 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         assertFalse(registry.forfeited(_entryKey(registry, 1)));
     }
 
-    /// @dev Forfeiting a displaced bond takes its penalty and sets the lifetime flag without
-    /// writing a checkpoint (spec 4.4 vectors 4.g and 11.e). Its former slot keeps the new
-    /// holder's admission value.
-    function test_forfeit_DisplacedBondWritesNoCheckpoint() external {
-        _fillRegistry(1);
-        vm.roll(block.number + 1);
-        _registerWith(Bob, 0xC0B, MIN_STAKE + 1);
-        assertFalse(registry.bondAt(0).holdsSlot, "bond 0 displaced");
-        uint256 checkpoints = registry.checkpointCount();
-        bytes32 root = registry.entriesRoot();
-        (uint256 slot, uint256 value) = registry.admissionThreshold();
-        assertEq(slot, 0, "the new holder's slot is the smallest");
-        assertEq(value, MIN_STAKE + 1, "at the new holder's value");
+    /// @dev A bond forfeited to a zero balance holds its slot until it is withdrawn
+    /// (STAKE-4.1-13a): with the 4,095 other slots held, a registration reverts `RegistryFull`
+    /// and the forfeited bond still holds slot 0.
+    function test_forfeit_ZeroBalanceBondKeepsSlot() external {
+        IEtnaStakingRegistry.Config memory cfg = _registryConfig(address(token), address(mockInbox));
+        cfg.forfeitBps = 10_000;
+        registry = _deployRegistry(cfg);
+        assertEq(_register(Alice, _PK), 0, "bond 0");
+        _fillRegistry(0);
         mockInbox.setInitialized(true);
-
         vm.roll(block.number + 1);
         _forfeit(0);
-        assertTrue(registry.forfeited(_key), "flag set");
-        assertEq(registry.bondAt(0).entry.effStake, 900 ether, "penalty taken");
-        assertEq(token.balanceOf(SLASH_SINK), 100 ether, "penalty to the sink");
-        assertEq(registry.checkpointCount(), checkpoints, "no checkpoint");
-        assertEq(registry.entriesRoot(), root, "root");
-        _assertAdmissionThreshold(slot, value);
+        (uint256 pending,) = registry.topUpOf(0);
+        assertEq(registry.bondAt(0).entry.effStake + pending, 0, "zero balance");
+
+        uint256 pk = 0xC0B;
+        _fund(Bob, 2 * MIN_STAKE);
+        bytes memory publicKey = EtnaTestKeys.publicKey(pk);
+        bytes memory pop = EtnaTestKeys.popSig(pk, registry, Bob);
+        vm.expectRevert(IEtnaStakingRegistry.RegistryFull.selector);
+        vm.prank(Bob);
+        registry.register(publicKey, 2 * MIN_STAKE, pop);
+
+        (bool holdsSlot, uint256 slot) = registry.slotOfBond(0);
+        assertTrue(holdsSlot && slot == 0, "the forfeited bond keeps slot 0");
+        (bool occupied, uint256 holder) = registry.bondInSlot(0);
+        assertTrue(occupied && holder == 0, "slot 0 still names bond 0");
+        assertEq(registry.bondCount(), registry.MAX_ENTRIES(), "no bond issued");
     }
 
     function test_topUp_RevertWhen_ZeroEffectiveStakeEvenWithoutExit() external {
-        // Bond 0's record: the `bonds` mapping at R + 6, its entry's effStake in the second word.
-        uint256 bond = uint256(keccak256(abi.encode(0, REGISTRY_BASE + 6)));
+        // Bond 0's record: the `bonds` mapping at R + 7, its entry's effStake in the second word.
+        uint256 bond = uint256(keccak256(abi.encode(0, REGISTRY_BASE + 7)));
         vm.store(address(registry), bytes32(bond + 1), bytes32(0));
         vm.expectRevert(IEtnaStakingRegistry.TopUpNotAllowed.selector);
         vm.prank(Alice);
@@ -525,7 +528,7 @@ contract EtnaStakingRegistryTopUpForfeitTest is EtnaStakingRegistryTestBase {
         // A failed transfer must revert every earlier write, including the lifetime flag.
         vm.mockCallRevert(
             address(token),
-            abi.encodeWithSignature("transfer(address,uint256)", SLASH_SINK, 100 ether),
+            abi.encodeWithSignature("transfer(address,uint256)", SLASH_SINK, 25_000 ether),
             abi.encodeWithSignature("Error(string)", "sink rejected")
         );
         bytes32 root = registry.entriesRoot();

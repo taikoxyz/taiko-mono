@@ -5,10 +5,9 @@ pragma solidity ^0.8.26;
 /// @notice The TAIKO staking registry the Etna committees are selected from (spec 4.1).
 /// @dev Section numbers refer to the Etna specification. Validators register a secp256k1
 /// consensus key with a stake. Each registration issues a new bond id, counting up from 0 and
-/// never reused, and takes the slot with the smallest value (an empty slot's value is 0, a held
-/// slot's its bond's effStake + pendingTopUp; ties go to the lowest slot), displacing its bond if
-/// it is held. A bond holds its slot until it is displaced or withdrawn; its record outlives the
-/// slot. Every L1 block that changes the entry in a slot ends with one checkpoint holding the slot
+/// never reused, and takes the lowest empty slot; it never moves or removes another bond. A bond
+/// holds its slot until it is withdrawn, whatever its balance; its record outlives the slot.
+/// Every L1 block that changes the entry in a slot ends with one checkpoint holding the slot
 /// count and the entries root at the end of that block. Nodes read only `checkpoints` (slot R)
 /// and the slot-indexed `entries` (slot R + 1) of the ERC-7201 namespace `taiko.etna.registry`
 /// with EIP-1186 proofs (spec appendix B); every packed word lays its fields out in declaration
@@ -23,7 +22,8 @@ interface IEtnaStakingRegistry {
     struct Config {
         /// @notice The staked TAIKO token.
         address token;
-        /// @notice The minimum stake of a registration in token base units; non-zero.
+        /// @notice The minimum stake of a registration in token base units; above 10^27 / 4096
+        /// (244,140.625 TAIKO), so 4096 × minStake exceeds TAIKO's fixed supply (spec 11).
         uint256 minStake;
         /// @notice The L1 blocks from registration until the entry is active; in [1, 2^32).
         uint256 activationDelay;
@@ -144,14 +144,6 @@ interface IEtnaStakingRegistry {
         uint48 activeFromL1
     );
 
-    /// @notice Emitted when a registration displaces the bond holding the slot it takes.
-    /// @param bondId The displaced bond.
-    /// @param slot The slot.
-    /// @param replacementBondId The new bond now holding the slot.
-    event BondDisplaced(
-        uint256 indexed bondId, uint256 indexed slot, uint256 indexed replacementBondId
-    );
-
     /// @notice Emitted when the bond owner sets an exit.
     /// @param bondId The bond id.
     /// @param exitEffectiveL1 The L1 block at which the exit takes effect.
@@ -241,12 +233,12 @@ interface IEtnaStakingRegistry {
     /// prefix 0x02 or 0x03 followed by the 32-byte big-endian X; the registry decompresses it
     /// (appendix A) and rejects any other encoding. `_popSig` is exactly 65 bytes R ‖ S ‖ V with
     /// V in {0, 1}, 0 < R < n and 0 < S <= n / 2, recovering over `registerDigest(msg.sender)` to
-    /// the key's address. Each key address registers once, ever. Takes the slot of
-    /// `admissionThreshold()` and requires `_amount >= minStake` and `_amount` above that slot's
-    /// value. A bond holding the slot is displaced: it leaves the slot, its exit becomes
-    /// min(its exit, block.number), `BondDisplaced` is emitted, and nothing else about it
-    /// changes. The new entry stores only `ckPrefix` and `ckX`, becomes active `activationDelay`
-    /// blocks later and has no exit set. Writes the current block's checkpoint.
+    /// the key's address. Each key address registers once, ever. Requires `_amount >= minStake`
+    /// (`StakeTooLow`, checked first) and takes the lowest empty slot, reverting `RegistryFull`
+    /// after the key checks if every slot is held; it never moves or removes another bond. A
+    /// rejected registration issues no bond id and leaves the key unused. The new entry stores
+    /// only `ckPrefix` and `ckX`, becomes active `activationDelay` blocks later and has no exit
+    /// set. Writes the current block's checkpoint.
     /// @param _publicKey The 33-byte compressed consensus key.
     /// @param _amount The stake; the caller must have approved it.
     /// @param _popSig The proof of possession.
@@ -269,9 +261,8 @@ interface IEtnaStakingRegistry {
     /// @notice Deposits principal into an active bond without using another slot (spec 4.1).
     /// @dev Only its owner, with positive effective stake, no exit and no pending deposit.
     /// Transfers `_amount` TAIKO and records readiness after activationDelay L1 blocks.
-    /// Pending principal has no voting power and changes no entry checkpoint, but it counts in
-    /// the slot's admission value. Available before Inbox initialization; a ready deposit still
-    /// requires explicit activation.
+    /// Pending principal has no voting power and changes no entry checkpoint. Available before
+    /// Inbox initialization; a ready deposit still requires explicit activation.
     /// @param _bondId The unwithdrawn bond.
     /// @param _amount The positive TAIKO base units approved to this registry.
     function topUp(uint256 _bondId, uint256 _amount) external;
@@ -358,10 +349,9 @@ interface IEtnaStakingRegistry {
     /// a positive effective plus pending principal, whether or not it holds a slot. Clears both
     /// balances and top-up readiness, sets exitEffectiveL1 to min(existing, block.number), pays
     /// floor(principal * slashBountyBps / 10000) to the caller and the remainder to slashSink.
-    /// The owner or signer may self-report and receives the same bounty. Sets the
-    /// slot's admission value to 0 if the bond holds a slot. Writes the current block's
-    /// checkpoint only if the bond holds a slot and its entry changed (a positive effStake or an
-    /// exit after the current block).
+    /// The owner or signer may self-report and receives the same bounty. The bond keeps its
+    /// slot until it is withdrawn. Writes the current block's checkpoint only if the bond holds a
+    /// slot and its entry changed (a positive effStake or an exit after the current block).
     /// @param _bondId The bond id.
     /// @param _voteA One vote.
     /// @param _voteB The conflicting vote.
@@ -376,7 +366,7 @@ interface IEtnaStakingRegistry {
     /// (spec 8 step 2).
     /// @dev The recovery exclusion path only; `forfeit` (spec 4.4) forces an exit on its own path,
     /// without `ExitForced`.
-    /// Only the Inbox. Requires an issued bond, displaced or withdrawn ones included, whose
+    /// Only the Inbox. Requires an issued bond, withdrawn ones included, whose
     /// key matches `_entryKey = keccak256(abi.encode(ckPrefix, ckX))`, and reverts
     /// `InvalidEventBlock` if `block.number >= 2^48 - 1`, the no-exit sentinel. If the current
     /// block is below the bond's exitEffectiveL1, sets it to that block without slashing, writes
@@ -432,17 +422,9 @@ interface IEtnaStakingRegistry {
 
     /// @notice Returns the slot a bond holds (appendix A).
     /// @param _bondId The bond id.
-    /// @return holdsSlot_ Whether the bond holds a slot; false for an unissued, displaced or
-    /// withdrawn bond.
+    /// @return holdsSlot_ Whether the bond holds a slot; false for an unissued or withdrawn bond.
     /// @return slot_ The slot; 0 if none.
     function slotOfBond(uint256 _bondId) external view returns (bool holdsSlot_, uint256 slot_);
-
-    /// @notice Returns the slot the next registration takes and its value: the smallest
-    /// effStake + pendingTopUp of a held slot, 0 for an empty one, ties going to the lowest slot.
-    /// @dev A registration must stake more than `value_` and at least `minStake`.
-    /// @return slot_ The slot.
-    /// @return value_ Its value.
-    function admissionThreshold() external view returns (uint256 slot_, uint256 value_);
 
     /// @notice Returns the owner of a bond.
     /// @param _bondId The bond id.
@@ -477,8 +459,10 @@ interface IEtnaStakingRegistry {
 
     /// @notice A constructor parameter is zero, codeless or out of bounds.
     error InvalidConfig();
-    /// @notice The stake is below `minStake` or not above the admission threshold.
+    /// @notice The stake is below `minStake`.
     error StakeTooLow();
+    /// @notice Every slot is held, so a registration has no empty slot to take.
+    error RegistryFull();
     /// @notice The public key is not a canonical 33-byte compressed secp256k1 point.
     error InvalidPublicKey();
     /// @notice The signature is malformed or does not recover to the expected key.
@@ -522,8 +506,6 @@ interface IEtnaStakingRegistry {
     error NothingToForfeit();
     /// @notice The bond's key does not match the expected entry key.
     error EntryKeyMismatch();
-    /// @notice A slot value is not below 2^244.
-    error BalanceTooLarge();
     /// @notice The checkpoint index does not exist.
     error UnknownCheckpoint();
     /// @notice The caller is not the Inbox.

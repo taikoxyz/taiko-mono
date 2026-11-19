@@ -199,7 +199,7 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         vm.setEnv("FI_MARGIN", "500");
         vm.setEnv("REMOTE_SIGNAL_SERVICE", vm.toString(_switch.l2SignalServiceAddress(167_001)));
         vm.setEnv("TAIKO_TOKEN", vm.toString(address(bondToken)));
-        vm.setEnv("REGISTRY_MIN_STAKE", "1000000000000000000000");
+        vm.setEnv("REGISTRY_MIN_STAKE", "250000000000000000000000");
         vm.setEnv("REGISTRY_ACTIVATION_DELAY", "10");
         vm.setEnv("REGISTRY_EXIT_DELAY", "20");
         vm.setEnv("REGISTRY_WITHDRAWAL_DELAY", "30");

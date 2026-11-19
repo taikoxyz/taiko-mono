@@ -8,7 +8,8 @@ import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.so
 import { LibCometVote } from "src/layer1/etna/libs/LibCometVote.sol";
 
 /// @title EtnaStakingRegistryGasBase
-/// @notice Gas snapshots of the staking registry's entry points on real TAIKO and real keys.
+/// @notice Gas snapshots of the staking registry's entry points on a mintable stand-in for TAIKO
+/// and real keys.
 /// @dev `setUp` and the measured test are separate transactions, so every contract's storage
 /// starts cold in the test. Each test loads its target, caller and arguments into memory before
 /// `vm.startSnapshotGas`, so the measured window holds only the call. The registry reads the Inbox
@@ -317,7 +318,7 @@ contract EtnaStakingRegistryNearCapGasTest is EtnaStakingRegistryGasBase {
 
 /// @title EtnaStakingRegistryFullCapGasTest
 /// @notice With all 4,096 slots held at the minimum stake and active: an exit request, a top-up,
-/// double-sign slashing and forfeiture of the bond in slot 0, and a registration displacing it.
+/// double-sign slashing and forfeiture of the bond in slot 0.
 contract EtnaStakingRegistryFullCapGasTest is EtnaStakingRegistryGasBase {
     function setUp() public override {
         super.setUp();
@@ -334,11 +335,6 @@ contract EtnaStakingRegistryFullCapGasTest is EtnaStakingRegistryGasBase {
         _measureExit("exit_at_4096", Carol, 0);
     }
 
-    function test_gas_DisplacingRegistration() external {
-        assertEq(_measureRegister("register_displacing", Bob, MIN_STAKE + 1), CAPACITY, "bond");
-        assertFalse(registry.bondAt(0).holdsSlot, "bond 0 displaced");
-    }
-
     function test_gas_TopUpAtFullCapacity() external {
         EtnaStakingRegistry target = registry;
         vm.startPrank(Carol);
@@ -346,8 +342,8 @@ contract EtnaStakingRegistryFullCapGasTest is EtnaStakingRegistryGasBase {
         target.topUp(0, MIN_STAKE);
         _stopSnapshot("top_up_at_4096");
         vm.stopPrank();
-        (uint256 slot,) = registry.admissionThreshold();
-        assertEq(slot, 1, "slot 0 is no longer the smallest");
+        (uint256 pending,) = registry.topUpOf(0);
+        assertEq(pending, MIN_STAKE, "pending");
     }
 
     function test_gas_SlashAtFullCapacity() external {
@@ -384,42 +380,23 @@ contract EtnaStakingRegistryFullCapActivateGasTest is EtnaStakingRegistryGasBase
     }
 }
 
-/// @title EtnaStakingRegistryDisplacedGasTest
-/// @notice With all 4,096 slots held: bond 0 displaced by bond 4096 and bond 1 exiting, both
-/// confirmed and past the withdrawal delay. Withdrawing the slot holder (bond 1) against
-/// withdrawing, slashing and forfeiting the displaced bond 0, which touch no slot.
-contract EtnaStakingRegistryDisplacedGasTest is EtnaStakingRegistryGasBase {
+/// @title EtnaStakingRegistryFullCapWithdrawalGasTest
+/// @notice With all 4,096 slots held: bond 1's exit confirmed and past the withdrawal delay.
+/// Withdrawing it empties slot 1 in a full occupancy word.
+contract EtnaStakingRegistryFullCapWithdrawalGasTest is EtnaStakingRegistryGasBase {
     function setUp() public override {
         super.setUp();
         vm.roll(10);
         _prefill(CAPACITY);
         mockInbox.setInitialized(true);
-        _prepareRegistration(Bob, CK_B);
-        vm.prank(Bob);
-        registry.register(publicKey, MIN_STAKE + 1, pop);
-        assertFalse(registry.bondAt(0).holdsSlot, "bond 0 displaced");
         vm.prank(Carol);
         registry.requestExit(1);
         vm.roll(registry.bondAt(1).entry.exitEffectiveL1);
-        _confirmExit(0);
         _confirmExit(1);
         vm.roll(block.number + WITHDRAWAL_DELAY);
-        (voteA, voteB) = _conflictingVotes(PREFILL_KEY);
     }
 
     function test_gas_WithdrawHolder() external {
         _measureWithdraw("withdraw_holder_at_4096", Carol, 1);
-    }
-
-    function test_gas_WithdrawDisplaced() external {
-        _measureWithdraw("withdraw_displaced", Carol, 0);
-    }
-
-    function test_gas_SlashDisplaced() external {
-        _measureSlash("slash_displaced", 0);
-    }
-
-    function test_gas_ForfeitDisplaced() external {
-        _measureForfeit("forfeit_displaced", 0);
     }
 }

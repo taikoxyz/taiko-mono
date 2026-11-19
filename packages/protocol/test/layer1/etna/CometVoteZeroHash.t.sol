@@ -38,8 +38,8 @@ contract CometVoteZeroHashTest is EtnaStakingRegistryTestBase {
         registry.slashDoubleSign(0, a, b);
 
         assertEq(registry.bondAt(0).entry.effStake, 0);
-        assertEq(token.balanceOf(Bob), 100 ether);
-        assertEq(token.balanceOf(SLASH_SINK), 900 ether);
+        assertEq(token.balanceOf(Bob), 25_000 ether);
+        assertEq(token.balanceOf(SLASH_SINK), 225_000 ether);
     }
 
     /// @dev The vote fields checked by CometBFT v0.40.0's Vote.ValidateBasic and

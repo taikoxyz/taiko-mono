@@ -127,8 +127,8 @@ abstract contract EtnaStakingRegistryInvariantBase is EtnaStakingRegistryTestBas
 
     /// @dev Per unwithdrawn bond: it activates exactly `activationDelay` after its registration;
     /// its exit is the earliest of the requested exit (the exit delay after the later of request
-    /// and activation), the slash block and every forced exit (recovery R, forfeiture or
-    /// displacement), so it never moved later; and a confirmed exit is at or before the landed
+    /// and activation), the slash block and every forced exit (recovery R or forfeiture), so it
+    /// never moved later; and a confirmed exit is at or before the landed
     /// snapshot of its confirmation.
     function _assertTiming(uint256 _bondId) internal view {
         EtnaStakingRegistryHandler.Bond memory bond = handler.bondAt(_bondId);
@@ -468,7 +468,7 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
 
     /// @notice 3. Each checkpoint matches the snapshot of every modelled entry taken at the end
     /// of its block: the snapshot's length is the checkpoint's count and its naive root the
-    /// checkpoint's root, even after later registrations reuse emptied slots or displace bonds.
+    /// checkpoint's root, even after later registrations reuse emptied slots.
     function invariant_snapshotsSurviveSlotReuse() external view {
         _assertModelHeld();
         _assertSnapshots();
@@ -483,10 +483,10 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
 
     /// @notice 4. Every issued bond's record, owner and confirmation (getters and the raw words of
     /// their namespaces) are the model's: a withdrawn bond keeps its key and exit with no stake,
-    /// owner or confirmation, and every other bond, displaced or not, holds its modelled fields
-    /// and slot. Each slot holds the modelled bond or is empty with zero entry words, and no bond
-    /// has a confirmation from before its registration. An unwithdrawn bond without an exit
-    /// holds its slot, which `topUp` relies on.
+    /// owner or confirmation, and every other bond holds its modelled fields and slot. Each slot
+    /// holds the modelled bond or is empty with zero entry words, and no bond has a confirmation
+    /// from before its registration. An unwithdrawn bond holds its slot whatever its exit or
+    /// balance (STAKE-4.1-13a).
     function invariant_bondsAndSlotsMatchTheModel() external view {
         _assertModelHeld();
         uint256 bonds = registry.bondCount();
@@ -503,10 +503,8 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
             _assertModelled(i);
             if (handler.bondAt(i).withdrawn) continue;
             assertTrue(owner != address(0), "an unwithdrawn bond has an owner");
-            if (registry.bondAt(i).entry.exitEffectiveL1 == NO_EXIT) {
-                (bool holdsSlot,) = registry.slotOfBond(i);
-                assertTrue(holdsSlot, "a bond without an exit holds its slot");
-            }
+            (bool holdsSlot,) = registry.slotOfBond(i);
+            assertTrue(holdsSlot, "an unwithdrawn bond holds its slot");
             if (confirmedAt != 0) {
                 assertGe(confirmedAt, handler.bondAt(i).registeredAt, "no earlier confirmation");
                 assertNotEq(registry.bondAt(i).entry.exitEffectiveL1, NO_EXIT, "exit is set");
@@ -554,9 +552,9 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
         }
     }
 
-    /// @notice 6. The registry holds exactly the stake of its unwithdrawn bonds, displaced ones
-    /// included, which is every deposit minus the stake paid to owners and the recipient and the
-    /// stake slashed; the sink and the reporters hold exactly the slashed stake (bounties at
+    /// @notice 6. The registry holds exactly the stake of its unwithdrawn bonds, which is every
+    /// deposit minus the stake paid to owners and the recipient and the stake slashed; the sink
+    /// and the reporters hold exactly the slashed stake (bounties at
     /// `slashBountyBps`), and the stakers hold their funding minus deposits plus what they
     /// withdrew. A slashed bond has no stake and an unslashed one keeps its modelled stake.
     function invariant_tokenBalanceEqualsStakes() external view {
@@ -618,8 +616,8 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
         }
     }
 
-    /// @notice 8. Entries never exceed the 4096 slots; the slot count, the slot holders and the
-    /// admission threshold are the model's.
+    /// @notice 8. Entries never exceed the 4096 slots; the slot count and the slot holders are
+    /// the model's.
     function invariant_entriesStayWithinTheCap() external view {
         _assertModelHeld();
         assertEq(registry.MAX_ENTRIES(), CAPACITY, "4096 slots");

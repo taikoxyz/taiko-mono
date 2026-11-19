@@ -8,7 +8,7 @@ import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry
 abstract contract EtnaTestConstants {
     uint64 internal constant L2_CHAIN_ID = 167_001;
 
-    uint256 internal constant MIN_STAKE = 1000 ether;
+    uint256 internal constant MIN_STAKE = 250_000 ether;
     uint256 internal constant ACTIVATION_DELAY = 10;
     uint256 internal constant EXIT_DELAY = 20;
     uint256 internal constant WITHDRAWAL_DELAY = 30;

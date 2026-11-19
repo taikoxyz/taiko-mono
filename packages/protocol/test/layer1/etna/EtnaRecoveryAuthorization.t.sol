@@ -124,7 +124,7 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         vm.expectRevert(IEtnaStakingRegistry.ExitAlreadySet.selector);
         registry.activateTopUp(0);
         registry.forfeit(0, _entryKey(registry, 0), 0, block.timestamp);
-        assertEq(registry.entryAt(0).effStake, 899.3 ether);
+        assertEq(registry.entryAt(0).effStake, 224_999.3 ether);
         (pendingAfter,) = registry.topUpOf(0);
         assertEq(pendingAfter, 7 ether);
         assertEq(_inbox().recoveryNonce(), 1, "independent forfeiture leaves nonce");

@@ -6,14 +6,15 @@ import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry
 
 /// @title EtnaStakingRegistryNearCapInvariantBase
 /// @notice Prefills the registry with 4,095 real registrations, one short of the 4,096 slots, so
-/// runs take the last slot, then admit only stakes above the smallest slot value, displacing its
-/// bond, and reuse withdrawn bonds' slots at the cap.
+/// runs take the last slot, then reject every registration with `RegistryFull` until a withdrawal
+/// empties a slot, and reuse withdrawn bonds' slots at the cap.
 /// @dev The prefill registers through the handler in four blocks (four checkpoints), so the
 /// model, ghost tree and checkpoint copies cover every entry. Four prefilled bonds then request
 /// their exits and two of those are confirmed, so a run can empty a slot within a few calls.
 /// Per-call checks stay cheap: the handler compares every root with its incremental ghost tree
-/// and every admission threshold with its value heap, the invariants check only the bonds and
-/// slots a run touched against the model, and `afterInvariant` checks every slot once per run.
+/// and every slot a registration takes with its heap of emptied slots, the invariants check only
+/// the bonds and slots a run touched against the model, and `afterInvariant` checks every slot
+/// once per run.
 abstract contract EtnaStakingRegistryNearCapInvariantBase is EtnaStakingRegistryInvariantBase {
     /// @dev The first prefilled consensus key, outside the handler's pool.
     uint256 internal constant PREFILL_KEY = 0x10000;
@@ -72,25 +73,24 @@ abstract contract EtnaStakingRegistryNearCapInvariantBase is EtnaStakingRegistry
 /// forge-config: default.invariant.depth = 50
 /// forge-config: default.invariant.fail_on_revert = true
 contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapInvariantBase {
-    /// @notice The 4,096th registration takes the last slot. With every slot at the minimum
-    /// stake, a minimum registration reverts `StakeTooLow` and a double one displaces the bond in
-    /// slot 0; after bond 1 is withdrawn, the next minimum registration takes its emptied slot.
-    /// With the slot empty and again after it is taken, the naive root over all 4,096 raw entries
-    /// equals `entriesRoot()` and the ghost tree's root.
-    function test_handler_FillsDisplacesAndReusesAtTheCap() external {
+    /// @notice The 4,096th registration takes the last slot. With every slot held, a minimum
+    /// registration and a double one both revert `RegistryFull` and bond 0 keeps slot 0; after
+    /// bond 1 is withdrawn, the next minimum registration takes its emptied slot. With the slot
+    /// empty and again after it is taken, the naive root over all 4,096 raw entries equals
+    /// `entriesRoot()` and the ghost tree's root.
+    function test_handler_FillsRejectsAndReusesAtTheCap() external {
         handler.register(0, 0, 0);
         assertEq(registry.entryCount(), CAPACITY, "the 4096th registration");
         assertEq(handler.capFills(), 1, "cap filled");
         handler.register(1, 1, 0);
-        assertEq(
-            handler.rejections(0, IEtnaStakingRegistry.StakeTooLow.selector),
-            1,
-            "not above the smallest value"
-        );
         handler.register(2, 2, 1);
-        assertEq(handler.displacements(), 1, "a double stake displaces");
-        (bool holdsSlot,) = registry.slotOfBond(0);
-        assertFalse(holdsSlot, "bond 0 displaced from slot 0");
+        assertEq(
+            handler.rejections(0, IEtnaStakingRegistry.RegistryFull.selector),
+            2,
+            "no empty slot, whatever the stake"
+        );
+        (bool holdsSlot, uint256 slot) = registry.slotOfBond(0);
+        assertTrue(holdsSlot && slot == 0, "bond 0 keeps slot 0");
 
         handler.advanceToWithdrawal(0);
         address owner = registry.ownerOf(1);
@@ -108,10 +108,11 @@ contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapIn
     }
 
     /// @notice 8. Entries never exceed the 4,096 slots: at the cap a registration takes the
-    /// slot of the smallest value (the per-call checks hold the admission threshold to the
-    /// model) and the touched slots' holders are the model's. Every bond and key a run touched matches the
-    /// model, and the registry's balance is the modelled stake. `entriesRoot()` is the ghost
-    /// tree's root over all modelled entries, and the latest checkpoint holds it and the count.
+    /// lowest emptied slot or reverts `RegistryFull` (the per-call checks hold the slot taken to
+    /// the model) and the touched slots' holders are the model's. Every bond and key a run
+    /// touched matches the model, and the registry's balance is the modelled stake.
+    /// `entriesRoot()` is the ghost tree's root over all modelled entries, and the latest
+    /// checkpoint holds it and the count.
     function invariant_entriesStayWithinTheCap() external view {
         _assertModelHeld();
         uint256 count = registry.entryCount();
@@ -171,7 +172,7 @@ contract EtnaStakingRegistryNearCapInvariantTest is EtnaStakingRegistryNearCapIn
     }
 
     /// @notice 3. Each checkpoint matches its end-of-block snapshot (count and root of the
-    /// modelled entries) after bonds are displaced and slots reused at the cap.
+    /// modelled entries) after slots are reused at the cap.
     function invariant_snapshotsSurviveSlotReuse() external view {
         _assertModelHeld();
         _assertSnapshots();

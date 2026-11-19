@@ -99,7 +99,6 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
         emit IEtnaStakingRegistry.TopUpActivated(0, 100);
         emit IEtnaStakingRegistry.Forfeited(0, key, bytes32(uint256(42)), 100, 10);
         emit IEtnaInbox.RecoveryNonceInvalidated(7, 8);
-        emit IEtnaStakingRegistry.BondDisplaced(12, 7, 4096);
         // The packed slot 293 word of the ordinary `inbox_293` item.
         emit IEtnaInbox
             .RulesScheduleUpdated(uint256(
@@ -112,13 +111,12 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
         emit IEtnaInbox.ProtocolFeesSwept(1_000_000_000);
         emit IEtnaInbox.Recovered(2, 12, 50, 1_700_000_123, exclusions, blanks);
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        assertEq(logs.length, 12);
-        string[12] memory names = [
+        assertEq(logs.length, 11);
+        string[11] memory names = [
             "top_up_deposited",
             "top_up_activated",
             "forfeited",
             "recovery_nonce_invalidated",
-            "bond_displaced",
             "rules_schedule_updated",
             "start_written",
             "etna_initialized",
@@ -205,12 +203,13 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
         }
     }
 
-    /// @dev A registry with `minStake` 1 and `_forfeitBps` whose bond 0 holds `_effective`
-    /// effective and `_pending` pending principal. It registers one base unit, then plants the
-    /// split in bond 0's record (the `bonds` mapping at R + 6, effStake in its second word) and
-    /// the top-ups namespace, with the registry holding all of it: the uint256 maximum does not
-    /// fit an admission value, and pending-only principal cannot be deposited. All authorization,
-    /// arithmetic, checkpoint and token-transfer code remains real.
+    /// @dev A registry with `_forfeitBps` whose bond 0 holds `_effective` effective and `_pending`
+    /// pending principal. It registers `MIN_STAKE`, then plants the split in bond 0's record (the
+    /// `bonds` mapping at R + 7, effStake in its second word) and the top-ups namespace, with the
+    /// registry holding at least all of it: no registration stakes less than `minStake`, minting
+    /// the uint256 maximum on top of a registration overflows the supply, and pending-only
+    /// principal cannot be deposited. All authorization, arithmetic, checkpoint and
+    /// token-transfer code remains real.
     function _forfeitureFixture(
         uint256 _effective,
         uint256 _pending,
@@ -222,18 +221,18 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
         token_ = new ReentrantERC20();
         IEtnaStakingRegistry.Config memory cfg =
             _registryConfig(address(token_), address(mockInbox));
-        cfg.minStake = 1;
         cfg.forfeitBps = _forfeitBps;
         actual_ = _deployRegistry(cfg);
-        token_.mint(Alice, 1);
-        token_.mint(address(actual_), _effective + _pending - 1);
+        token_.mint(Alice, MIN_STAKE);
+        uint256 principal = _effective + _pending;
+        if (principal > MIN_STAKE) token_.mint(address(actual_), principal - MIN_STAKE);
         vm.prank(Alice);
         token_.approve(address(actual_), type(uint256).max);
         bytes memory publicKey = EtnaTestKeys.publicKey(0xC0A);
         bytes memory pop = EtnaTestKeys.popSig(0xC0A, actual_, Alice);
         vm.prank(Alice);
-        actual_.register(publicKey, 1, pop);
-        uint256 bondSlot = uint256(keccak256(abi.encode(uint256(0), REGISTRY_BASE + 6)));
+        actual_.register(publicKey, MIN_STAKE, pop);
+        uint256 bondSlot = uint256(keccak256(abi.encode(uint256(0), REGISTRY_BASE + 7)));
         vm.store(address(actual_), bytes32(bondSlot + 1), bytes32(_effective));
         if (_pending != 0) {
             bytes32 pendingSlot =
