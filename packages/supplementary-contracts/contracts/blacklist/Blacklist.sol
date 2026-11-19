@@ -61,10 +61,7 @@ contract Blacklist is IMinimalBlacklist, AccessControlEnumerable {
      * @notice Remove addresses from the blacklist
      * @param blacklistEntriesToRemove Addresses to remove from the blacklist
      */
-    function removeFromBlacklist(address[] calldata blacklistEntriesToRemove)
-        external
-        onlyUpdater
-    {
+    function removeFromBlacklist(address[] calldata blacklistEntriesToRemove) external onlyUpdater {
         _removeFromBlacklist(blacklistEntriesToRemove);
     }
 
