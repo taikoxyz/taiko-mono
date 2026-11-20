@@ -27,12 +27,13 @@ signal_service_implementation = "0x0000000000000000000000000000000000000002"
 Addresses and timestamp above are placeholders. `unzen_inbox` must equal `--shasta.inbox`;
 `signal_service_implementation` is the Etna L2 SignalService implementation, not the proxy. The
 configuration file does not authenticate S. While S is the latest landing checkpoint, the app
-verifies the L2 SignalService proxy's implementation proof at S (SYNC-9-5a). Before every trust
-grant, whatever the latest checkpoint, it also calls `beaconRootsFrom()` on that implementation
-address, not through the proxy, in its own EL's state at the checkpoint block. Signing stays
-closed if that value is unavailable, and a mismatch with `fork_timestamp` halts the app. A
-nonzero S without a `[switch]` table also keeps signing closed, at every checkpoint. Formal
-network parameters must be compiled into their chain configuration.
+verifies the L2 SignalService proxy's implementation proof at S, S's header timestamp below the
+fork time and its state root against the Inbox's start record, and that S is the last Unzen block
+(SYNC-9-5a). Before every trust grant, whatever the latest checkpoint, it also reads the switching
+EtnaInbox's immutable `etnaForkTime()` by `eth_call` at the hash of the own finalized L1 block
+that proved the checkpoint. Signing stays closed if that value is unavailable, and a mismatch with
+`fork_timestamp` halts the app. A nonzero S without a `[switch]` table also keeps signing closed,
+at every checkpoint. Formal network parameters must be compiled into their chain configuration.
 
 ### The EL's Etna time
 
