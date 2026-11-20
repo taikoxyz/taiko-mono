@@ -1,10 +1,11 @@
 # Unzen derivation verification
 
 This package proves safety properties of an executable Lean model of Taiko's Unzen block
-derivation. It pins the specification at revision `5a987fe921743af9fdfe33de7aba6671b18c8a69`
+derivation. It pins the specification at revision `31d283af894cd4ed618079aaa79230d143b63b2f`
 in [`spec-coverage.json`](spec-coverage.json). The model follows the Go driver
-(`packages/taiko-client`) and the Rust driver as it was at that revision;
+(`packages/taiko-client`) and the Rust driver as it was at main `5a987fe921743af9fdfe33de7aba6671b18c8a69`;
 `packages/taiko-client-rs` no longer contains that Rust driver.
+The four-second Etna base-fee target in that revision falls under the existing Etna and base-fee exclusions.
 The theorems concern this model; they do not establish equivalence of production clients.
 
 ## Scope

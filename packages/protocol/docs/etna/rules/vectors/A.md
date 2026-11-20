@@ -4,7 +4,7 @@
 
 `accept` means the described encoding satisfies the rule cited. `reject` means a stated requirement is violated. Appendix A states one consequence: ENC-A-16's "any violation makes the proposal invalid". It covers the envelope grammar (ENC-A-11–ENC-A-15) and the strict-decoding conditions (ENC-A-16–ENC-A-22), so those reject rows say "proposal invalid (ENC-A-16)". Rows elsewhere say "violates ENC-A-N" where the text states no consequence. Where a definition spans several lines, the marker and the ID sit above its first line, and the ID cites the whole definition (see [../README.md](../README.md#how-far-an-id-extends)).
 
-**Scope note.** Appendix A's grammar — `chainDomain`, `chain_id`, `extraData`, the envelope and payload layouts, `AccountWitness`, `cutLeaf`, `valStateHash`, `appHash`, `cutHash`, `statement`, `committeeConfigHash`, `regLeaf`, `entriesRoot`, `setKey`/`setLeaf`/`setNode`/`record`, `voteSignBytes`, registration and the `recover` interface — sits inside four fenced blocks in appendix A. Under the `code-before` exception in [../README.md](../README.md), ENC-A-6–ENC-A-50 mark the definition lines (ENC-A-51–ENC-A-55 are a separate supplement); each marker is a new `// [ID]` line above an unchanged governed line. Lines in those blocks that carry no ID remain uncited. The form question (whether to restructure the blocks into prose or tables) is still [Q-A-1](../review/A.md#q-a-1).
+**Scope note.** Appendix A's grammar — `chainDomain`, `chain_id`, `extraData`, the envelope and payload layouts, `AccountWitness`, `cutLeaf`, `valStateHash`, `appHash`, `cutHash`, `statement`, `committeeConfigHash`, `regLeaf`, `entriesRoot`, `setKey`/`setHash`/`record`, `voteSignBytes`, registration and the `recover` interface — sits inside four fenced blocks in appendix A. Under the `code-before` exception in [../README.md](../README.md), ENC-A-6–ENC-A-50 mark the definition lines (ENC-A-51–ENC-A-55 are a separate supplement); each marker is a new `// [ID]` line above an unchanged governed line. Lines in those blocks that carry no ID remain uncited. The form question (whether to restructure the blocks into prose or tables) is still [Q-A-1](../review/A.md#q-a-1).
 
 ## ENC-A-1
 
@@ -54,17 +54,17 @@ _Which fields occupy the three words: [STOR-B-9](B.md#stor-b-9)._
 
 ## ENC-A-5
 
-| Vector      | Setup                                                                                                             | Expected                                                                                                                  |
-| ----------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| 5.a accept  | `cutHash`, `statement` and `chainDomain` preimages are `abi.encode(...)`                                          | matches                                                                                                                   |
-| 5.b accept  | a domain tag is its ASCII bytes followed by zero bytes to 32 (for example `ETNA_LAND_CUTS_V1` plus 15 zero bytes) | matches "right-zero-padded `bytes32` ASCII"                                                                               |
-| 5.c accept  | an `entriesRoot` inner node is keccak256(left concatenated with right)                                            | stated exception                                                                                                          |
-| 5.d accept  | the blob hash list and the cut leaf list are hashed with `abi.encodePacked`                                       | stated exceptions                                                                                                         |
-| 5.e reject  | a protocol hash uses `abi.encodePacked` where the rule requires `abi.encode`                                      | violates ENC-A-5                                                                                                          |
-| 5.f reject  | a domain tag is left-padded with zeros                                                                            | violates ENC-A-5 ("right-zero-padded")                                                                                    |
-| 5.h reject  | the blob hash list is hashed as keccak256(abi.encode(blobHashes))                                                 | violates ENC-A-5                                                                                                          |
-| 5.i reject  | the cut leaf list is hashed with `abi.encode`                                                                     | violates ENC-A-5                                                                                                          |
-| 5.j pending | a disputed registry/committee hash preimage encodes its bare-literal domain tag as a dynamic string               | no conformance verdict until [Q-A-2](../review/A.md#q-a-2) is resolved: ENC-A-5 and the bare-literal definitions disagree |
+| Vector     | Setup                                                                                                                                      | Expected                                               |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| 5.a accept | `cutHash`, `statement` and `chainDomain` preimages are `abi.encode(...)`                                                                   | matches                                                |
+| 5.b accept | a domain tag is its ASCII bytes followed by zero bytes to 32 (for example `ETNA_LAND_CUTS_V1` plus 15 zero bytes)                          | matches "right-zero-padded `bytes32` ASCII"            |
+| 5.c accept | an `entriesRoot` inner node is keccak256(left concatenated with right)                                                                     | stated exception                                       |
+| 5.d accept | the blob hash list and the cut leaf list are hashed with `abi.encodePacked`                                                                | stated exceptions                                      |
+| 5.e reject | a protocol hash uses `abi.encodePacked` where the rule requires `abi.encode`                                                               | violates ENC-A-5                                       |
+| 5.f reject | a domain tag is left-padded with zeros                                                                                                     | violates ENC-A-5 ("right-zero-padded")                 |
+| 5.h reject | the blob hash list is hashed as keccak256(abi.encode(blobHashes))                                                                          | violates ENC-A-5                                       |
+| 5.i reject | the cut leaf list is hashed with `abi.encode`                                                                                              | violates ENC-A-5                                       |
+| 5.j reject | a registry or committee hash preimage encodes its domain tag as a dynamic string (for `regLeaf`, a 288-byte preimage instead of 224 bytes) | violates ENC-A-5 ("never encoded as a dynamic string") |
 
 _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` followed by `right`, so it is not a separate reject case for the `entriesRoot` exception._
 
@@ -120,6 +120,34 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 | 10.d reject | generation is little-endian                                                         | violates ENC-A-10 (`uint48_be`)  |
 | 10.e reject | anchor number precedes generation                                                   | violates ENC-A-10 (field order)  |
 | 10.f accept | generation 0 and anchor number 0                                                    | `0x64` followed by 12 zero bytes |
+
+## ENC-A-10a
+
+Chain id 167000 unless a row says otherwise. The parent's gasLimit is 30,000,000 in every row, so `target` is 15,000,000. Amounts are in wei.
+
+| Vector       | Setup                                                                                      | Expected                                                                                         |
+| ------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| 10a.a accept | parent base fee 100,000,000, gasUsed 15,000,000; parent minus grandparent timestamp is 4 s | `adjusted` = 15,000,000 = gasUsed; base fee 100,000,000                                          |
+| 10a.b accept | parent base fee 100,000,000, gasUsed 30,000,000; interval 4 s                              | `delta` = 12,500,000; base fee 112,500,000                                                       |
+| 10a.c accept | parent base fee 100,000,000, gasUsed 15,000,000; interval 8 s                              | `adjusted` = min(30,000,000, 28,500,000) = 28,500,000; `delta` = 11,250,000; base fee 88,750,000 |
+| 10a.d accept | parent base fee 10,000,000, gasUsed 0; interval 4 s                                        | `raw` = 8,750,000, raised to the minimum 10,000,000                                              |
+| 10a.e accept | the parent of 10a.d on a chain id other than 167000                                        | 8,750,000                                                                                        |
+| 10a.f accept | parent base fee 10,000,000, gasUsed 15,000,001; interval 4 s                               | `delta` floors to 0 and counts as 1; base fee 10,000,001                                         |
+| 10a.g accept | parent base fee 950,000,000, gasUsed 30,000,000; interval 4 s                              | `raw` = 1,068,750,000, lowered to 1,000,000,000                                                  |
+| 10a.h reject | the interval is the block's own timestamp minus its parent's                               | violates ENC-A-10a (`p.timestamp - g.timestamp`); block invalid (3.4 rule 7)                     |
+| 10a.i reject | a division rounds to nearest instead of flooring                                           | violates ENC-A-10a ("every division floors"); block invalid (3.4 rule 7)                         |
+| 10a.j reject | the parent's gasLimit is reduced by a reserve before `target` is computed                  | violates ENC-A-10a ("the values in p's header"); block invalid (3.4 rule 7)                      |
+| 10a.k accept | parent base fee 100,000,000, gasUsed 7,500,000; interval 2 s                               | `adjusted` = 7,500,000 = gasUsed; base fee 100,000,000                                           |
+| 10a.l accept | parent base fee 100,000,000, gasUsed 15,000,000; interval 2 s                              | `adjusted` = 7,500,000; `delta` = 6,250,000; base fee 106,250,000                                |
+| 10a.m reject | the interval is divided by 2 s, Unzen's target, for an Etna block                          | violates ENC-A-10a (`BLOCK_TIME_TARGET = 4 s`); block invalid (3.4 rule 7)                       |
+
+## ENC-A-10b
+
+| Vector       | Setup                                                                  | Expected                                                                       |
+| ------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 10b.a accept | the parent's `difficulty` is 1,000,000 and the block's number is 12345 | `mixHash = 0x05a173eee05e0e03682acaef0ca4dea2f32b47cd3e10eed85233465b524d4507` |
+| 10b.b reject | the preimage is packed without padding instead of two 32-byte words    | violates ENC-A-10b (`abi.encode`, 64 bytes); block invalid (3.4 rule 7)        |
+| 10b.c reject | the first word is the parent's `mixHash` instead of its `difficulty`   | violates ENC-A-10b; block invalid (3.4 rule 7)                                 |
 
 ## ENC-A-11
 
@@ -250,13 +278,48 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 ## ENC-A-23
 
-| Vector      | Setup                                                                                                               | Expected                   |
-| ----------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| 23.a accept | `0x06`, then a zlib stream whose decompressed bytes are one RLP list of `rlp([elHeader, [tx, ...]])` items          | matches                    |
-| 23.b reject | prefix is `0x07`                                                                                                    | violates ENC-A-23 (`0x06`) |
-| 23.c reject | the bytes after `0x06` are raw RLP, not a zlib stream                                                               | violates ENC-A-23          |
-| 23.d reject | the zlib stream decompresses to something that is not an RLP list                                                   | violates ENC-A-23          |
-| 23.e reject | a block item in the decompressed list is a nested list rather than the RLP byte string `rlp([elHeader, [tx, ...]])` | violates ENC-A-23          |
+| Vector      | Setup                                                                                                                                         | Expected                                  |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| 23.a accept | `0x06`, then a zlib stream whose decompressed bytes are one RLP list whose items are the lists `[elHeader, [tx, ...]]`                        | matches                                   |
+| 23.b reject | prefix is `0x07`                                                                                                                              | violates ENC-A-23 (`0x06`)                |
+| 23.c reject | the bytes after `0x06` are raw RLP, not a zlib stream                                                                                         | violates ENC-A-23                         |
+| 23.d reject | the zlib stream decompresses to something that is not an RLP list                                                                             | violates ENC-A-23                         |
+| 23.e reject | a block item in the decompressed list is an RLP byte string that holds the encoding `rlp([elHeader, [tx, ...]])` rather than that list itself | violates ENC-A-23 ("a list encoded once") |
+
+## ENC-A-23a
+
+| Vector       | Setup                                                                                             | Expected                                   |
+| ------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 23a.a accept | a blob is read as 4096 field elements of 32 bytes, each one header byte followed by 31 body bytes | matches                                    |
+| 23a.b reject | the header byte is read from the end of each field element                                        | violates ENC-A-23a (`hdr[i] \|\| body[i]`) |
+
+## ENC-A-23b
+
+| Vector       | Setup                                                                                                      | Expected                                                                                                                                               |
+| ------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 23b.a accept | data is 28 bytes of `0xff`, so its last byte is round 0's `x`                                              | `hdr[0] = 0x3f` and `hdr[1] = 0x30`: blob bytes 0 to 4 are `3f 00 00 00 1c`, bytes 5 to 31 are `0xff`, byte 32 is `0x30`, and every other byte is zero |
+| 23b.b reject | `x` is stored whole in `hdr[4r]`                                                                           | violates ENC-A-23b (`x & 0x3f`)                                                                                                                        |
+| 23b.c reject | the three single bytes are taken from the end of the round instead of after each of its first three bodies | violates ENC-A-23b (stream order)                                                                                                                      |
+
+## ENC-A-23c
+
+| Vector       | Setup                               | Expected                                                                |
+| ------------ | ----------------------------------- | ----------------------------------------------------------------------- |
+| 23c.a accept | data is the single byte `0xff`      | blob bytes 0 to 5 are `00 00 00 00 01 ff`, and every other byte is zero |
+| 23c.b accept | data is 130,044 bytes               | the length bytes are `01 fb fc` and the stream has no fill              |
+| 23c.c reject | the length is written little-endian | violates ENC-A-23c (`uint24_be`)                                        |
+| 23c.d reject | data is 130,045 bytes in one blob   | violates ENC-A-23c (`n <= 130,044`)                                     |
+
+## ENC-A-23d
+
+| Vector       | Setup                                                                                                                                                                                       | Expected                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 23d.a reject | the version byte is `0x01`                                                                                                                                                                  | violates ENC-A-23d; the blob does not decode                  |
+| 23d.b reject | the length bytes give n = 130,045                                                                                                                                                           | violates ENC-A-23d; the blob does not decode                  |
+| 23d.c reject | a header byte has one of its top two bits set, the first field element's included                                                                                                           | violates ENC-A-23d ("every hdr[i]"); the blob does not decode |
+| 23d.d reject | a stream byte after data is nonzero                                                                                                                                                         | violates ENC-A-23d; the blob does not decode                  |
+| 23d.e accept | two blobs carry D0 of 130,044 bytes and D1                                                                                                                                                  | the blob payload is D0 followed by D1                         |
+| 23d.f reject | the blob of 23c.a with byte 0 changed from `0x00` to `0x40`: the first field element is still below the BLS12-381 modulus, and a decoder that masks the two bits would return the same data | violates ENC-A-23d ("every hdr[i]"); the blob does not decode |
 
 ## ENC-A-24
 
@@ -304,10 +367,10 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 | Vector      | Setup                                                                                          | Expected                  |
 | ----------- | ---------------------------------------------------------------------------------------------- | ------------------------- |
-| 27.a accept | exactly five fields in order: targetEpoch, cutoffL1Block, checkpointIndex, setRoot, totalPower | matches                   |
+| 27.a accept | exactly five fields in order: targetEpoch, cutoffL1Block, checkpointIndex, setHash, totalPower | matches                   |
 | 27.b reject | four or six fields                                                                             | violates ENC-A-27         |
 | 27.c reject | checkpointIndex precedes cutoffL1Block                                                         | violates ENC-A-27 (order) |
-| 27.d reject | setRoot is omitted                                                                             | violates ENC-A-27         |
+| 27.d reject | setHash is omitted                                                                             | violates ENC-A-27         |
 
 ## ENC-A-28
 
@@ -347,7 +410,7 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 | 29a.l accept | x = 6; current = [(2, 0x0000000000000000000000000000000000000000000000000000000000000001, 10, −5), (3, 0x0000000000000000000000000000000000000000000000000000000000000002, 10, 5)] with currentProposer 1; next = [(2, 0x0000000000000000000000000000000000000000000000000000000000000001, 10, 5), (3, 0x0000000000000000000000000000000000000000000000000000000000000002, 10, −5)] with nextProposer 0; the encoding is 768 bytes (six head words, then 9 words per array) | valStateHash = `0x368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b`                           |
 | 29a.m reject | a cut leaf, a slot 285 record or the statement carries `valStateHash`                                                                                                                                                                                                                                                                                                                                                                                                       | violates ENC-A-29a ("no L1 record, cut or statement holds valStateHash")                                      |
 | 29a.n accept | equal power 1 for addresses A < B, priorities (−3, 2), one increment                                                                                                                                                                                                                                                                                                                                                                                                        | spread 5 exceeds 4, rescale toward zero to (−1, 1), centre to (−1, 1); B wins and final priorities are (0, 0) |
-| 29a.o accept | same members with priorities (−1, 0), one increment                                                                                                                                                                                                                                                                                                                                                                                                                         | the average floors to −1, centred priorities are (0, 1), B wins and final priorities are (1, 0)               |
+| 29a.o accept | same members with priorities (−1, 0), no update, spread below the rescale threshold, one increment                                                                                                                                                                                                                                                                                                                                                                          | the average floors to −1, centred priorities are (0, 1), B wins and final priorities are (1, 0)               |
 | 29a.p accept | an update adds a new member and removes another; power after additions and reweights but before removals is 17                                                                                                                                                                                                                                                                                                                                                              | new priority starts at −19 before rescaling and centering                                                     |
 
 _29a.l checks only the byte encoding of the entries as given; whether that order is CometBFT's set order depends on the real addresses of the keys._
@@ -441,16 +504,18 @@ _Reproduce 29a.l with Foundry's `cast`: `cast keccak $(cast abi-encode 'f(bytes3
 
 ## ENC-A-37
 
-| Vector       | Setup                                                                                                                                                      | Expected                                                                                                                             |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 37.a pending | `keccak256(abi.encode("ETNA_REG_ENTRY_V1", j, ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1))`                                                    | no conformance verdict; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
-| 37.b reject  | tag is `ETNA_REG_ENTRY_V2`                                                                                                                                 | violates ENC-A-37                                                                                                                    |
-| 37.c reject  | `j` or `exitEffectiveL1` is omitted                                                                                                                        | violates ENC-A-37                                                                                                                    |
-| 37.d reject  | `ckX` precedes `ckPrefix`                                                                                                                                  | violates ENC-A-37 (order)                                                                                                            |
-| 37.e accept  | slots 0 to 6 are held and the bond in slot 7 has been withdrawn; the next registration creates bond 4096 in slot 7; its entry is hashed into `entriesRoot` | `j = 7`; the other entry fields come from bond 4096 (STAKE-4.1-13a, STOR-B-21)                                                       |
-| 37.f reject  | the same entry is hashed with `j = 4096`                                                                                                                   | violates STAKE-4.1-13a and ENC-A-37; `j` is the slot number, not the bond id                                                         |
-| 37.g accept  | bonds 0 and 1 hold slots 0 and 1; bond 0 is withdrawn; the next registration creates bond 2 in slot 0                                                      | the new entry uses `j = 0` even before any bond id reaches 4096                                                                      |
-| 37.h reject  | the new entry for bond 2 in slot 0 uses `j = 2`                                                                                                            | violates STAKE-4.1-13a and ENC-A-37                                                                                                  |
+| Vector      | Setup                                                                                                                                                                                                                                            | Expected                                                                       |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| 37.a accept | `keccak256(abi.encode(bytes32("ETNA_REG_ENTRY_V1"), j, ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1))` for slot j = 1 with all-zero entry fields: a 224-byte preimage whose first word is the tag's ASCII bytes followed by zero bytes | `0x21d961646cf730220ee47cda213ec296eba41d18fc39f8f6cb1e1350f77c907d`           |
+| 37.b reject | tag is `ETNA_REG_ENTRY_V2`                                                                                                                                                                                                                       | violates ENC-A-37                                                              |
+| 37.c reject | `j` or `exitEffectiveL1` is omitted                                                                                                                                                                                                              | violates ENC-A-37                                                              |
+| 37.d reject | `ckX` precedes `ckPrefix`                                                                                                                                                                                                                        | violates ENC-A-37 (order)                                                      |
+| 37.e accept | slots 0 to 6 are held and the bond in slot 7 has been withdrawn; the next registration creates bond 4096 in slot 7; its entry is hashed into `entriesRoot`                                                                                       | `j = 7`; the other entry fields come from bond 4096 (STAKE-4.1-13a, STOR-B-21) |
+| 37.f reject | the same entry is hashed with `j = 4096`                                                                                                                                                                                                         | violates STAKE-4.1-13a and ENC-A-37; `j` is the slot number, not the bond id   |
+| 37.g accept | bonds 0 and 1 hold slots 0 and 1; bond 0 is withdrawn; the next registration creates bond 2 in slot 0                                                                                                                                            | the new entry uses `j = 0` even before any bond id reaches 4096                |
+| 37.h reject | the new entry for bond 2 in slot 0 uses `j = 2`                                                                                                                                                                                                  | violates STAKE-4.1-13a and ENC-A-37                                            |
+| 37.i accept | slot j = 0, ckPrefix = 2, ckX = `0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798`, effStake = 250,000 × 10^18, activeFromL1 = 100, exitEffectiveL1 = 2^48 − 1                                                                 | `0xe7283e6153912ee69d614724bff4c2c09b9d20287fa4e0840db13c883df21387`           |
+| 37.j reject | the entry of 37.a is hashed with the tag encoded as a dynamic string: a 288-byte preimage with hash `0x6be6938b2da71c3451f504f138ac0f40a3402012cec0d51f5eb7d37d1fd574e7`                                                                         | violates ENC-A-37 and ENC-A-5                                                  |
 
 ## ENC-A-38
 
@@ -469,48 +534,39 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 
 ## ENC-A-39
 
-| Vector       | Setup                                                                | Expected                                                                                                                             |
-| ------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 39.a pending | `keccak256(abi.encode("ETNA_SET_KEY_V1", l2ChainId, ckPrefix, ckX))` | no conformance verdict; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
-| 39.b reject  | tag is `ETNA_SET_KEY_V2`                                             | violates ENC-A-39                                                                                                                    |
-| 39.c reject  | `l2ChainId` or `ckX` is omitted                                      | violates ENC-A-39                                                                                                                    |
-| 39.d reject  | `ckX` precedes `ckPrefix`                                            | violates ENC-A-39 (order)                                                                                                            |
+| Vector      | Setup                                                                                                                                                       | Expected                                                             |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| 39.a accept | `keccak256(abi.encode(bytes32("ETNA_SET_KEY_V1"), l2ChainId, ckPrefix, ckX))` for l2ChainId = 167000, ckPrefix = 2 and the ckX of 37.i: a 128-byte preimage | `0x7529ec50109faf073e202f03d7b4804a32a3571765e9749536cc42cc37acb437` |
+| 39.b reject | tag is `ETNA_SET_KEY_V2`                                                                                                                                    | violates ENC-A-39                                                    |
+| 39.c reject | `l2ChainId` or `ckX` is omitted                                                                                                                             | violates ENC-A-39                                                    |
+| 39.d reject | `ckX` precedes `ckPrefix`                                                                                                                                   | violates ENC-A-39 (order)                                            |
 
-## ENC-A-40
+## ENC-A-39a
 
-| Vector       | Setup                                                                                                | Expected                                                                                                                             |
-| ------------ | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 40.a pending | `keccak256(abi.encode("ETNA_SET_LEAF_V1", l2ChainId, k, i, ckPrefix, ckX, effStake, assignedPower))` | no conformance verdict; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
-| 40.b reject  | `k`, `i` or `assignedPower` is omitted                                                               | violates ENC-A-40                                                                                                                    |
-| 40.c reject  | `i` precedes `k`                                                                                     | violates ENC-A-40 (order)                                                                                                            |
-| 40.d reject  | tag is `ETNA_SET_LEAF_V2`                                                                            | violates ENC-A-40                                                                                                                    |
-
-## ENC-A-41
-
-| Vector       | Setup                                                                | Expected                                                                                                                             |
-| ------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 41.a pending | `keccak256(abi.encode("ETNA_SET_NODE", l2ChainId, k, left, right))`  | no conformance verdict; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
-| 41.b accept  | an odd last node is promoted unchanged (no hash with a zero sibling) | stated                                                                                                                               |
-| 41.c reject  | an odd last node is hashed with a zero right child                   | violates ENC-A-41                                                                                                                    |
-| 41.d reject  | `left` and `right` are swapped                                       | violates ENC-A-41 (order)                                                                                                            |
-| 41.e reject  | `k` is omitted                                                       | violates ENC-A-41                                                                                                                    |
-| 41.f reject  | the tag is written `ETNA_SET_NODE_V1`                                | violates ENC-A-41 (tag as written); versioning question — [Q-A-2](../review/A.md#q-a-2)                                              |
+| Vector       | Setup                                                                                                                                                                                                                                                                                                   | Expected                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| 39a.a accept | `keccak256(abi.encode(bytes32("ETNA_SET_V1"), l2ChainId, k, members))` for l2ChainId = 167000, k = 1 and one member (ckPrefix = 2, the ckX of 37.i, effStake = 250,000 × 10^18, assignedPower = 250,000 × 10^9): a 288-byte preimage of four head words, the array length and four words for the member | `0x0c09cd574e795c943cf299b730422425455959f85c169641a97030f4d287566d` |
+| 39a.b accept | several members listed in ascending set-key order                                                                                                                                                                                                                                                       | matches                                                              |
+| 39a.c reject | the same members listed in another order, such as descending effStake                                                                                                                                                                                                                                   | violates ENC-A-39a                                                   |
+| 39a.d reject | `l2ChainId` or `k` is omitted, or a member omits `effStake` or `assignedPower`                                                                                                                                                                                                                          | violates ENC-A-39a                                                   |
+| 39a.e reject | the set is committed as a Merkle root over one leaf per member                                                                                                                                                                                                                                          | violates ENC-A-39a ("one hash commits the whole set")                |
+| 39a.f reject | the tag is encoded as a dynamic string                                                                                                                                                                                                                                                                  | violates ENC-A-39a and ENC-A-5                                       |
 
 ## ENC-A-42
 
-| Vector       | Setup                                                                                                                     | Expected                                                                                                                             |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 42.a pending | `keccak256(abi.encode("ETNA_COMMITTEE_V1", l2ChainId, targetEpoch, cutoffL1Block, checkpointIndex, setRoot, totalPower))` | no conformance verdict; whether the bare tag is a padded `bytes32` word or a dynamic string is pending [Q-A-2](../review/A.md#q-a-2) |
-| 42.b reject  | tag is `ETNA_COMMITTEE_V2`                                                                                                | violates ENC-A-42                                                                                                                    |
-| 42.c reject  | `checkpointIndex` or `totalPower` is omitted                                                                              | violates ENC-A-42                                                                                                                    |
-| 42.d reject  | `cutoffL1Block` precedes `targetEpoch`                                                                                    | violates ENC-A-42 (order)                                                                                                            |
+| Vector      | Setup                                                                                                                                                                                                                                                                                           | Expected                                                             |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| 42.a accept | `keccak256(abi.encode(bytes32("ETNA_COMMITTEE_V1"), l2ChainId, targetEpoch, cutoffL1Block, checkpointIndex, setHash, totalPower))` for l2ChainId = 167000, targetEpoch = 0, cutoffL1Block = 100, checkpointIndex = 0, the setHash of 39a.a and totalPower = 250,000 × 10^9: a 224-byte preimage | `0x6fa2491c7f7f68e27ae6e55fa1a5cbcc0dfb095bef60d4a69ed7498417368634` |
+| 42.b reject | tag is `ETNA_COMMITTEE_V2`                                                                                                                                                                                                                                                                      | violates ENC-A-42                                                    |
+| 42.c reject | `checkpointIndex` or `totalPower` is omitted                                                                                                                                                                                                                                                    | violates ENC-A-42                                                    |
+| 42.d reject | `cutoffL1Block` precedes `targetEpoch`                                                                                                                                                                                                                                                          | violates ENC-A-42 (order)                                            |
 
 ## ENC-A-42a
 
-| Vector       | Setup                                                                           | Expected           |
-| ------------ | ------------------------------------------------------------------------------- | ------------------ |
-| 42a.a accept | the committee for `targetEpoch = t` uses `k = t + 1` in `setLeaf` and `setNode` | matches            |
-| 42a.b reject | `k = targetEpoch`                                                               | violates ENC-A-42a |
+| Vector       | Setup                                                             | Expected           |
+| ------------ | ----------------------------------------------------------------- | ------------------ |
+| 42a.a accept | the committee for `targetEpoch = t` uses `k = t + 1` in `setHash` | matches            |
+| 42a.b reject | `k = targetEpoch`                                                 | violates ENC-A-42a |
 
 ## ENC-A-43
 
@@ -649,9 +705,8 @@ _`abi.encode(left, right)` of two `bytes32` words equals their plain concatenati
 
 Everything below is a question, not a vector. Each has an entry in [review/A.md](../review/A.md).
 
-| Rule                        | Gap                                                                                                                                  | Question                      |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
-| ENC-A-6 to ENC-A-55         | whether the now-citable blocks should still be restructured into prose or tables                                                     | [Q-A-1](../review/A.md#q-a-1) |
-| ENC-A-37, ENC-A-39–ENC-A-42 | whether a bare tag literal is a padded `bytes32` word or a dynamic string, and whether `ETNA_SET_NODE` is deliberately unversioned   | [Q-A-2](../review/A.md#q-a-2) |
-| ENC-A-24, ENC-A-25a         | whether an out-of-order, extra or missing witness slot list makes a witness invalid; the order is now stated, the consequence is not | [Q-A-4](../review/A.md#q-a-4) |
-| Shared vectors              | the obligation itself is un-numbered and has no owner                                                                                | [Q-A-5](../review/A.md#q-a-5) |
+| Rule                | Gap                                                                                                                                  | Question                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| ENC-A-6 to ENC-A-55 | whether the now-citable blocks should still be restructured into prose or tables                                                     | [Q-A-1](../review/A.md#q-a-1) |
+| ENC-A-24, ENC-A-25a | whether an out-of-order, extra or missing witness slot list makes a witness invalid; the order is now stated, the consequence is not | [Q-A-4](../review/A.md#q-a-4) |
+| Shared vectors      | the obligation itself is un-numbered and has no owner                                                                                | [Q-A-5](../review/A.md#q-a-5) |

@@ -396,7 +396,7 @@ Late-proof handling on L1 may trigger at most one liveness-bond settlement for t
 
 ## Base Fee Calculation
 
-The calculation of block base fee shall follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification). It uses the parent header's `gasLimit` and `gasUsed` as recorded, without subtracting the anchor reserve, including for the parent of the first Etna block.
+The calculation of block base fee shall follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification). It uses the parent header's `gasLimit` and `gasUsed` as recorded, without subtracting the anchor reserve, including for the parent of the first Etna block. Etna blocks use a block time target of 4 seconds in place of `BLOCK_TIME_TARGET` (appendix A of the [Etna specification](etna/SPEC.md)).
 
 The consensus engine pins the base fee at `INITIAL_BASE_FEE` for the very first block when the Shasta fork starts from genesis, because the parent block time (`parent.timestamp - parent.parent.timestamp`) needed for calculation is unavailable. If the fork activates later or once the block height exceeds `1`, base fee computation should follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification), and the calculated value must be clamped within a chain-specific lower bound and `MAX_BASE_FEE`.
 
