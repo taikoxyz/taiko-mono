@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Regenerates testdata/etna_vectors/vectors.json (schema "9").
 
-Run from the repository root with Foundry's `cast` and Go on PATH and the workspace's pnpm
-dependencies installed (the output is formatted with the repository's prettier):
+Run from the repository root with Foundry's `cast` and Go on PATH and the workspace's
+dependencies installed (the output is formatted with the repository root's
+`node_modules/.bin/prettier`, run directly):
 
     python3 -I testdata/etna_vectors/generate.py
 
@@ -48,6 +49,8 @@ import valset_model  # noqa: E402
 
 ROOT = HERE.parents[1]
 OUTPUT = HERE / "vectors.json"
+# The repository's prettier, run directly rather than through a package manager.
+PRETTIER = ROOT / "node_modules" / ".bin" / "prettier"
 
 WORD_MOD = 2**256
 U48_MAX = 2**48 - 1
@@ -3138,10 +3141,146 @@ def dynamic_tag_rejects(sources):
     return out
 
 
+# ENC-A-29a 29a.n-p: validator-set arithmetic on sets with given priorities, members from the
+# val_state_chains keys (c1's address is below c2's, so c1 is A and c2 is B): name, vector, the
+# set as [key, votingPower, proposerPriority] in CometBFT's set order, and FinalizeBlock's changes.
+VAL_ARITHMETIC_CASES = (
+    ("enc_a_29a_n", "ENC-A-29a 29a.n", (("c1", 1, -3), ("c2", 1, 2)), ()),
+    ("enc_a_29a_o", "ENC-A-29a 29a.o", (("c1", 1, -1), ("c2", 1, 0)), ()),
+    # c4 joins at power 5 and c3 leaves: the total after additions and reweights but before
+    # removals is 5 + 4 + 3 + 5 = 17, so c4 starts at -(17 + (17 >> 3)) = -19.
+    (
+        "enc_a_29a_p",
+        "ENC-A-29a 29a.p",
+        (("c1", 5, 3), ("c2", 4, -1), ("c3", 3, -2)),
+        (("c4", 5), ("c3", 0)),
+    ),
+)
+# What vectors/A.md states for each case.
+VAL_ARITHMETIC_LITERALS = {
+    "enc_a_29a_n": {"spread": 5, "diff_max": 4, "rescaled": [-1, 1], "centred": [-1, 1],
+                    "proposer_key": "c2", "final_priorities": [0, 0]},
+    "enc_a_29a_o": {"rescaled": [-1, 0], "centre_shift": -1, "centred": [0, 1],
+                    "proposer_key": "c2", "final_priorities": [1, 0]},
+    "enc_a_29a_p": {"total_before_removals": 17, "new_member_priority": -19},
+}
+
+
+def val_arithmetic_examples():
+    """ENC-A-29a 29a.n-p computed with `valset_model.py`, step by step, and checked against stock
+    CometBFT v0.40.0's UpdateWithChangeSet and IncrementProposerPriority (`valgen/`)."""
+    keys = {k["name"]: k for k in val_state_keys() if k["name"] in ("c1", "c2", "c3", "c4")}
+    address = {name: key["ck_addr"][2:] for name, key in keys.items()}
+    assert address["c1"] < address["c2"]
+    result = run_valgen(
+        {
+            "keys": [{"name": n, "private_key": k["private_key"]} for n, k in keys.items()],
+            "chains": [],
+            "cases": [
+                {
+                    "name": name,
+                    "members": [
+                        {"key": k, "power": str(p), "priority": str(pr)} for k, p, pr in members
+                    ],
+                    "changes": [{"key": k, "power": str(p)} for k, p in changes],
+                }
+                for name, _, members, changes in VAL_ARITHMETIC_CASES
+            ],
+        }
+    )
+    for generated in result["keys"]:
+        assert generated["address"] == keys[generated["name"]]["ck_addr"], generated["name"]
+    cometbft = {case["name"]: case for case in result["cases"]}
+
+    def rows(entries):
+        return [[e["key"], int(e["voting_power"]), int(e["proposer_priority"])] for e in entries]
+
+    out = {}
+    for name, vector, members, changes in VAL_ARITHMETIC_CASES:
+        model = valset_model.Model(address)
+        start = valset_model.ValSet([valset_model.Member(*m) for m in members], None)
+        ordered = start.entries()
+        model._sort(start.members)
+        assert start.entries() == ordered, "members are listed in set order"
+        item = {"vector": vector, "members": ordered}
+        if changes:
+            powers = {k: p for k, p, _ in members}
+            total = sum(powers.values()) + sum(
+                p - powers.get(k, 0) for k, p in changes if p > 0
+            )
+            new_priority = -(total + (total >> 3))
+            updated = start.copy()
+            model._update(updated, list(changes))
+            # The same update written out: kept members keep their priorities, the joining member
+            # starts at new_priority, the leaving one goes, then rescale, centre and sort.
+            change = dict(changes)
+            written = [valset_model.Member(k, change.get(k, p), pr) for k, p, pr in members
+                       if change.get(k) != 0]
+            written += [valset_model.Member(k, p, new_priority) for k, p in changes
+                        if p > 0 and k not in powers]
+            model._rescale(written, 2 * sum(m.power for m in written))
+            model._center(written)
+            model._sort(written)
+            assert [[m.key, m.power, m.priority] for m in written] == updated.entries(), name
+            item.update(
+                {
+                    "changes": [list(c) for c in changes],
+                    "total_before_removals": total,
+                    "new_member_priority": new_priority,
+                    "updated": updated.entries(),
+                }
+            )
+            start = updated
+        # One IncrementProposerPriority(1), step by step, and the model's own increment.
+        steps, total = start.copy(), start.total()
+        priorities = [m.priority for m in steps.members]
+        model._rescale(steps.members, 2 * total)
+        rescaled = [m.priority for m in steps.members]
+        shift = sum(rescaled) // len(rescaled)
+        model._center(steps.members)
+        centred = [m.priority for m in steps.members]
+        assert centred == [p - shift for p in rescaled]
+        final = start.copy()
+        model._increment(final)
+        raised = [p + m.power for p, m in zip(centred, final.members)]
+        winner = min(range(len(raised)), key=lambda i: (-raised[i], address[final.members[i].key]))
+        raised[winner] -= total
+        assert [m.priority for m in final.members] == raised
+        assert final.proposer_index() == winner
+        item.update(
+            {
+                "total_power": total,
+                "spread": max(priorities) - min(priorities),
+                "diff_max": 2 * total,
+                "rescaled": rescaled,
+                "centre_shift": shift,
+                "centred": centred,
+                "final": final.entries(),
+                "proposer": winner,
+            }
+        )
+        stock = cometbft[name]
+        assert rows(stock["updated"]) == item.get("updated", []), (name, stock)
+        assert rows(stock["incremented"]) == item["final"], (name, stock)
+        assert int(stock["proposer"]) == winner, (name, stock)
+        literal = VAL_ARITHMETIC_LITERALS[name]
+        computed = {
+            **item,
+            "proposer_key": item["final"][winner][0],
+            "final_priorities": [row[2] for row in item["final"]],
+        }
+        for field, value in literal.items():
+            if computed[field] != value:
+                raise SystemExit(f"{name}: appendix A's {field} does not reproduce\n"
+                                 f"  computed: {computed[field]}\n  A.md:     {value}")
+        out[name] = item
+    return out
+
+
 def appendix_a_examples(config, entries, sets, states, apps, cut_vectors, statements, domains,
                         vote_vectors):
-    """Every literal hash and byte string of the spec's vectors/A.md, recomputed; 29a.l and 29b.g
-    are `validator_states` and `app_hashes`. 36.a is `committee_config`'s shape, and 38.h the
+    """Every literal hash and byte string of the spec's vectors/A.md, recomputed, and the
+    validator-set arithmetic of 29a.n-p; 29a.l and 29b.g are `validator_states` and `app_hashes`. 36.a is `committee_config`'s shape, and 38.h the
     interior-empty-slot checkpoint of `registry_entries.checkpoints`."""
     out = {}
     mix_preimage = abi_encode("f(bytes32,uint256)", word(1_000_000), 12_345)
@@ -3183,6 +3322,7 @@ def appendix_a_examples(config, entries, sets, states, apps, cut_vectors, statem
         "blob_prefix": flipped,
         "decodes": False,
     }
+    out.update(val_arithmetic_examples())
     out["enc_a_36_a"] = {
         "vector": "ENC-A-36 36.a",
         "preimage_bytes": len(config["preimage"]) // 2 - 1,
@@ -3382,7 +3522,9 @@ def main():
         ),
     }
     OUTPUT.write_text(json.dumps(vectors, indent=2) + "\n")
-    subprocess.run(["pnpm", "exec", "prettier", "--write", str(OUTPUT)], cwd=ROOT, check=True)
+    if not os.access(PRETTIER, os.X_OK):
+        raise SystemExit(f"prettier not found at {PRETTIER}: install the workspace's dependencies")
+    subprocess.run([str(PRETTIER), "--write", str(OUTPUT)], cwd=ROOT, check=True)
     run_ficheck()
 
 

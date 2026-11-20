@@ -2455,6 +2455,77 @@ class VectorsTest(unittest.TestCase):
                          ("-1", "0"))
         self.assertIn(ts["timestamp_field"][2:], vote["sign_bytes"])
 
+    def test_appendix_a_validator_set_arithmetic(self):
+        examples = V["appendix_a_examples"]
+        address = {k["name"]: k["ck_addr"][2:] for k in V["val_state_chains"]["keys"]}
+
+        def priorities(rows):
+            return [int(row[2]) for row in rows]
+
+        # 29a.n, from A.md: equal power 1 for addresses A < B, priorities (-3, 2), one increment:
+        # spread 5 exceeds 4, rescale toward zero to (-1, 1), centre to (-1, 1); B wins and the
+        # final priorities are (0, 0).
+        n = examples["enc_a_29a_n"]
+        a, b = (row[0] for row in n["members"])
+        self.assertLess(address[a], address[b])
+        self.assertEqual([(int(r[1]), int(r[2])) for r in n["members"]], [(1, -3), (1, 2)])
+        self.assertEqual((int(n["spread"]), int(n["diff_max"])), (5, 4))
+        self.assertEqual([int(p) for p in n["rescaled"]], [-1, 1])
+        self.assertEqual([int(p) for p in n["centred"]], [-1, 1])
+        self.assertEqual(n["final"][int(n["proposer"])][0], b)
+        self.assertEqual(priorities(n["final"]), [0, 0])
+        # 29a.o: the same members with priorities (-1, 0), no update, below the rescale
+        # threshold: the average floors to -1, centred (0, 1), B wins and the final priorities
+        # are (1, 0).
+        o = examples["enc_a_29a_o"]
+        self.assertEqual([row[0] for row in o["members"]], [a, b])
+        self.assertEqual([(int(r[1]), int(r[2])) for r in o["members"]], [(1, -1), (1, 0)])
+        self.assertNotIn("changes", o)
+        self.assertLess(int(o["spread"]), int(o["diff_max"]))
+        self.assertEqual([int(p) for p in o["rescaled"]], [-1, 0])
+        self.assertEqual(int(o["centre_shift"]), -1)
+        self.assertEqual([int(p) for p in o["centred"]], [0, 1])
+        self.assertEqual(o["final"][int(o["proposer"])][0], b)
+        self.assertEqual(priorities(o["final"]), [1, 0])
+        # 29a.p: an update adds a member and removes another; the power after additions and
+        # reweights but before removals is 17, so the new member starts at -19 before rescaling
+        # and centring.
+        p = examples["enc_a_29a_p"]
+        old = {row[0]: (int(row[1]), int(row[2])) for row in p["members"]}
+        changes = {key: int(power) for key, power in p["changes"]}
+        (joining,) = [k for k, power in changes.items() if power > 0 and k not in old]
+        (leaving,) = [k for k, power in changes.items() if power == 0]
+        total = sum(w for w, _ in old.values()) + sum(
+            power - old.get(k, (0, 0))[0] for k, power in changes.items() if power > 0
+        )
+        self.assertEqual((total, int(p["total_before_removals"])), (17, 17))
+        self.assertEqual(-(total + (total >> 3)), -19)
+        self.assertEqual(int(p["new_member_priority"]), -19)
+        updated = {row[0]: int(row[2]) for row in p["updated"]}
+        self.assertIn(joining, updated)
+        self.assertNotIn(leaving, updated)
+        # Kept members keep their priorities; the spread stays within 2 * total, so only the
+        # centring by floor(sum / n) moves them.
+        before = {k: old[k][1] for k in updated if k in old} | {joining: -19}
+        new_total = sum(int(row[1]) for row in p["updated"])
+        self.assertLessEqual(max(before.values()) - min(before.values()), 2 * new_total)
+        shift = sum(before.values()) // len(before)
+        self.assertEqual(updated, {k: v - shift for k, v in before.items()})
+        # Every case replays with valset_model.py.
+        for name in ("enc_a_29a_n", "enc_a_29a_o", "enc_a_29a_p"):
+            case = examples[name]
+            model = valset_model.Model(address)
+            valset = valset_model.ValSet(
+                [valset_model.Member(k, int(w), int(pr)) for k, w, pr in case["members"]], None
+            )
+            if "changes" in case:
+                model._update(valset, [(k, int(w)) for k, w in case["changes"]])
+                self.assertEqual(valset.entries(), as_entries(case["updated"]), name)
+            self.assertEqual(valset.total(), int(case["total_power"]), name)
+            model._increment(valset)
+            self.assertEqual(valset.entries(), as_entries(case["final"]), name)
+            self.assertEqual(valset.proposer_index(), int(case["proposer"]), name)
+
     def test_appendix_a_blobs(self):
         examples = V["appendix_a_examples"]
         # 23b.a and 23c.a, copied from A.md: blob bytes up to the last nonzero one.
