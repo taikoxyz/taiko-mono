@@ -804,7 +804,7 @@ pub(crate) fn decode_snapshot(
             record.forced_head == word_u48(head_tail, 0) &&
             if height == genesis.genesis_height {
                 record.parent_height == height &&
-                    (record.generation == 0 || params.switch.is_some()) &&
+                    record.generation == 0 &&
                     record.forced_head == 0 &&
                     record.el_hash == genesis.genesis_hash &&
                     record.comet_hash.is_zero()

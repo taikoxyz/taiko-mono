@@ -49,24 +49,6 @@ mod tests {
         assert_eq!(origin.el_hash, witness.el_header.hash_slow());
     }
 
-    #[tokio::test]
-    async fn corrected_switch_uses_new_start_and_keeps_origin_zero() {
-        for (old, new) in [(8, 6), (8, 8), (8, 10)] {
-            let (fx, l1, engine, w) = crate::test_utils::corrected_switch_fixture(old, new);
-            let doc = build_recovery_genesis(&l1, &engine, &fx.params, 1).await.unwrap();
-            let fixed = crate::genesis::verify_original_genesis(&doc, &fx.params).unwrap();
-            assert_eq!(fixed.genesis.genesis_height, new);
-            assert_eq!(fixed.genesis.genesis_hash, w.el_header.hash_slow());
-            assert_eq!(fixed.genesis.genesis_state_root, w.el_header.state_root);
-            assert_eq!(doc.initial_height, (new + 1).to_string());
-            assert_eq!(fixed.recovery.unwrap().comet_hash, B256::ZERO);
-
-            let mut no_switch = fx.params;
-            no_switch.switch = None;
-            assert!(verify_recovery_witness(&w, &no_switch).is_err());
-        }
-    }
-
     #[test]
     fn recovery_rejects_each_tampered_proven_origin_or_landing_word() {
         let (fx, _, _, w) = fixture(1, 6, 1);

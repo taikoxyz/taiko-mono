@@ -168,11 +168,9 @@ pub fn verify_genesis_inbox(
         max_anchor_age: word_u48(forced_config, 48),
     };
     let [start, number, timestamp] = inbox::origin_slots(0).map(|slot| word(&storage, slot));
-    let generation = inbox_word(&storage, inbox::RECOVERY_GENERATION);
-    // A corrected switching start may differ from the immutable origin-zero record.
-    if start >= U256::from(1u64 << 48) ||
-        (start != U256::from(genesis.genesis_height) &&
-            (generation.is_zero() || start.is_zero() || genesis.genesis_height == 0)) ||
+    // Generation zero's origin is the start the start write recorded, written once
+    // (START-10-5b/5c).
+    if start != U256::from(genesis.genesis_height) ||
         number != U256::from(genesis.l1_0) ||
         timestamp > U256::from(u64::MAX)
     {
@@ -586,14 +584,31 @@ mod tests {
         }
     }
 
-    /// A valid storage proof cannot make a non-genesis L2 height a supported bootstrap.
+    /// START-10-5b/5c: generation zero's origin record holds the start S of the one start
+    /// write. A nonzero S (a switching network) is accepted when they agree; an origin-zero
+    /// start other than S is refused, as is a later "corrected" start.
     #[test]
-    fn genesis_rejects_nonzero_l2_height() {
+    fn genesis_rejects_an_origin_zero_start_other_than_s() {
         let mut genesis = sample_genesis_record();
         genesis.genesis_height = 1;
         let storage = InboxStorage::genesis(genesis, committee_e0());
         let (w, state) = genesis_inbox_witness(INBOX, &storage);
-        assert!(verify_genesis_inbox(state.state_root(), &w, INBOX).is_err());
+        let (verified, _, _) = verify_genesis_inbox(state.state_root(), &w, INBOX).unwrap();
+        assert_eq!(verified.genesis_height, 1);
+        for start in [0u64, 2] {
+            let mut words = storage.slots();
+            words.iter_mut().find(|(s, _)| *s == inbox::origin_slots(0)[0]).unwrap().1 =
+                U256::from(start);
+            let mut accounts = filler_accounts();
+            accounts.push((INBOX, 1, U256::ZERO, keccak256(b"etna inbox code"), words));
+            let state = TestState::new(accounts);
+            let w = state.witness(INBOX, &inbox::genesis_slots());
+            assert_eq!(
+                verify_genesis_inbox(state.state_root(), &w, INBOX),
+                Err(WitnessError::InvalidOrigin),
+                "origin-zero start {start}"
+            );
+        }
     }
 
     #[test]

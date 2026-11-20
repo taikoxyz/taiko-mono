@@ -24,6 +24,7 @@
 ### Contracts, execution engine and switch for #22422
 
 - **BREAKING:** pin the protocol to #22286 at `2f496d31b` and regenerate the lander artifacts, the SignalService binding (`usesBeaconRoots` replaces `beaconRootsFrom`) and the shared vectors, now schema 9; the vector tests refuse schema 8. The real-contract fixtures follow the new ABI: the EtnaInbox `Config` drops `originWriter` and adds `recoveryCapacity` (the devnet default F = 212), `CommitteeConfig` drops `sMin`, `recover` takes strictly increasing bond ids as exclusions, `scheduleRules` and `scheduleStop` take the expected generation first, `forfeit` takes a bond id and the SignalService constructor takes `bool usesBeaconRoots`. The vector tests check ENC-A-39a set hashes and the registry checkpoint sequence whose count shrinks after withdrawal.
+- The Etna start is written once (START-10-5c): corrected switching starts are gone. Generation zero's origin must name S, every recovery witness must show the deployment's start, hash and state root unchanged, and a recovery at c = S starts from the start write's own anchor. A recovery in the start write's L1 block, whose deployment proof at `L1_0` already shows the next generation, is accepted.
 
 ### Etna specification simplification (#22412)
 

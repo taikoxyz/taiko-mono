@@ -575,31 +575,6 @@ pub(crate) fn recovery_fixture_with_spec(
     c: u64,
     r_generation: u64,
 ) -> (Fixture, MockL1, MockEngine, crate::recovery::RecoveryWitness) {
-    recovery_fixture_at(spec, generation, c, r_generation, false)
-}
-
-/// A corrected switch, with the original nonzero start retained in origin zero.
-pub(crate) fn corrected_switch_fixture(
-    original: u64,
-    corrected: u64,
-) -> (Fixture, MockL1, MockEngine, crate::recovery::RecoveryWitness) {
-    let mut spec = GenesisSpec::new(2);
-    spec.genesis_height = original;
-    spec.params.switch = Some(crate::config::SwitchConfig {
-        unzen_inbox: Address::repeat_byte(0xb1),
-        signal_service_implementation: Address::repeat_byte(0xb2),
-        fork_timestamp: Fixture::l1_timestamp(spec.l1_0),
-    });
-    recovery_fixture_at(spec, 1, corrected, 1, true)
-}
-
-fn recovery_fixture_at(
-    spec: GenesisSpec,
-    generation: u64,
-    c: u64,
-    r_generation: u64,
-    corrected: bool,
-) -> (Fixture, MockL1, MockEngine, crate::recovery::RecoveryWitness) {
     use super::registry_account;
     use crate::{
         committee::{Snapshot, derive},
@@ -609,7 +584,7 @@ fn recovery_fixture_at(
     let l1 = fx.l1();
     let parent =
         Header { number: c.saturating_sub(1), timestamp: 1_760_000_060, ..Header::default() };
-    let mut el = if c == 0 {
+    let el = if c == 0 {
         fx.el_chain[0].clone()
     } else {
         Header {
@@ -627,9 +602,6 @@ fn recovery_fixture_at(
             ..Header::default()
         }
     };
-    if corrected {
-        el.extra_data = Default::default(); // the origin is still an Unzen block
-    }
     let engine = MockEngine::with_chain(if c == 0 {
         vec![el.clone()]
     } else {
@@ -641,36 +613,17 @@ fn recovery_fixture_at(
     storage.recovery_generation = generation;
     storage.forced_inclusion_head = 8;
     storage.forced_inclusion_tail = 10;
-    if corrected {
-        let genesis = storage.genesis.as_mut().unwrap();
-        genesis.genesis_height = c;
-        genesis.genesis_hash = el.hash_slow();
-        genesis.genesis_state_root = el.state_root;
-        storage.last_checkpoint_height = c;
-        storage.last_checkpoint_hash = el.hash_slow();
-        storage.last_checkpoint_comet_hash = B256::ZERO;
-        storage.forced_inclusion_head = 0;
-    }
     let mut words = storage.slots();
-    // A correction changes slot 272 and does not edit the fixed origin-zero record.
-    words.iter_mut().find(|(s, _)| *s == inbox::origin_slots(0)[0]).unwrap().1 =
-        U256::from(fx.genesis.genesis_height);
     words.extend(inbox::origin_slots(generation).into_iter().zip([
         U256::from(c),
         U256::from(100),
         U256::from(Fixture::l1_timestamp(100)),
     ]));
-    if corrected {
-        let landing = inbox::landing_record_slots(c)[0];
-        words.iter_mut().find(|(s, _)| *s == landing).unwrap().1 =
-            U256::from(c) | (U256::from(generation) << 48);
-    } else {
-        words.extend(inbox::landing_record_slots(c).into_iter().zip([
-            U256::from(if c == 0 { 0 } else { 3 }) << 96,
-            el.hash_slow().into(),
-            if c == 0 { U256::ZERO } else { B256::repeat_byte(0xcc).into() },
-        ]));
-    }
+    words.extend(inbox::landing_record_slots(c).into_iter().zip([
+        U256::from(if c == 0 { 0 } else { 3 }) << 96,
+        el.hash_slow().into(),
+        if c == 0 { U256::ZERO } else { B256::repeat_byte(0xcc).into() },
+    ]));
     // Same-block recoveries leave the end-of-R generation higher than the requested one.
     let state_for = |current: u64| {
         let mut words = words.clone();
