@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 
 /// Own-L1 authentication, bounded reconstruction and native block verification.
 mod authenticate;
-/// Evidence expiry and complete suffix proof.
+/// Evidence age limits and the complete-window proof.
 mod window;
 
 pub use authenticate::{authenticate_import, select_export};
@@ -90,7 +90,8 @@ pub struct ImportValidator {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WindowBlock {
-    /// Original unmodified stock protobuf, including evidence and LastCommit.
+    /// Original unmodified stock protobuf, including its evidence list, which must be empty
+    /// (CONS-3.1-10), and LastCommit.
     pub block: Bytes,
     /// Original canonical own-height commit protobuf; nonterminal copies equal LastCommit.
     pub commit: Bytes,

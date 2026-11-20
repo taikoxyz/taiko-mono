@@ -242,6 +242,7 @@ where
         // own APP_VERSION and chain id checks would call a landed header a bad certificate.
         if let Some(fault) =
             fixed_header_fault(&pair.block.header, &package.genesis.chain_id, fixed_params_hash)
+                .or_else(|| evidence_fault(&pair.block.header))
         {
             rejected = Some((h, pair.block.header.hash(), fault));
             break;
@@ -966,6 +967,17 @@ fn fixed_header_fault(
                 .into(),
         )
     })
+}
+
+/// Every Comet block has an empty evidence list (CONS-3.1-10, DATA-5.4-2). The header's
+/// EvidenceHash commits the list, so a header naming any other root carries evidence whatever
+/// body a publisher pairs with it: a landed one contradicts the rule and halts (DATA-5.4-5).
+fn evidence_fault(header: &tendermint::block::Header) -> Option<ContentFault> {
+    let empty = tendermint::Hash::Sha256(tendermint::merkle::simple_hash_from_byte_vectors::<
+        tendermint::crypto::default::Sha256,
+    >(&[] as &[Vec<u8>]));
+    (header.evidence_hash != Some(empty))
+        .then(|| ContentFault::Rule("native block carries evidence (CONS-3.1-10)".into()))
 }
 
 /// Content checks report rule failures as candidate errors; those wait for the chain.

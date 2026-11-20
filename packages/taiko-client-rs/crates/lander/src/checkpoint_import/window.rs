@@ -15,10 +15,16 @@ pub fn evidence_expired(
         post_time.duration_since(evidence_time).is_ok_and(|age| age > EVIDENCE_MAX_AGE_DURATION)
 }
 
-/// Prove the window (w, s] holds every height DATA-5.4-2 requires, using the authenticated time
-/// at w. ACCEPTANCE 7.5 rejects only a shorter window, so a longer one is accepted: the caller
-/// still checks w >= o, and evidence at w must still be expired.
-/// Only timestamps and heights are retained; no older block/set/commit is ever requested.
+/// Prove the window (w, s] holds every height DATA-5.4-2 requires: every current-generation
+/// height x <= s still within either stock evidence age limit at s (`s - x <= MaxAgeNumBlocks`
+/// or `Time(s) - Time(x) <= MaxAgeDuration`, by authenticated Comet header times), the latest
+/// block carrying an anchor witness, and the S(t) and, above o, the D(t) of each non-initial
+/// committee signing s + 1 or s + 2. The window stops at the origin (w = o) or at a w whose
+/// header, linked by w + 1's LastBlockID (`verify_boundary`), establishes both strict
+/// expiry inequalities; header times increase along the chain, so every lower height has expired
+/// too. ACCEPTANCE 7.5 rejects only a shorter window, so a longer one is accepted: the caller
+/// still checks w >= o. Only timestamps and heights are retained; no older block, set or commit
+/// is ever requested.
 pub(super) fn verify_complete_window(
     w: u64,
     heights: &[(u64, tendermint::Time)],
