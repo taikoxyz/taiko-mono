@@ -158,7 +158,7 @@ fi
 if [[ "$all_helpers" == 1 ]]; then
     # Listing without the caller's arguments still builds every binary and records the client's path.
     run_child cargo nextest list "${common[@]}" --message-format json > "$selection_dir/tests.json"
-    dependencies='docker signer comet el recovery'
+    dependencies=$(python3 ./tests/selected_dependencies.py --all)
 fi
 
 # An empty selection keeps nextest's own no-tests result (including --no-tests/env overrides).
@@ -176,35 +176,46 @@ if ! docker info > /dev/null 2>&1; then
 fi
 docker_ready=1
 
-# Pinned to the anvil release the scenarios are verified with: a moving tag could change its
-# JSON-RPC behaviour under them (e.g. whether it serves debug_getRawHeader).
-export ANVIL_IMAGE=${ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.5.1}
-# The reviewed alethia-reth image supports canonical-config alloc-only Etna genesis.
-# Real contracts require canonical zero-storage proofs and modern EIP-7594 wrappers.
-export LANDER_ANVIL_IMAGE=${LANDER_ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.8.5}
-# Without an explicit override, build the pinned EL source into a local image once; it is reused
-# while present and never pulled. A set CARGO_BUILD_JOBS reaches that in-Docker cargo build.
-default_el_image=alethia-reth:etna-53f33b708d869cfb3f8cccd597381fa2e92a5be5
-if [[ -z "${ALETHIA_RETH_IMAGE:-}" ]]; then
-    export ALETHIA_RETH_IMAGE="$default_el_image"
-    if ! docker image inspect "$ALETHIA_RETH_IMAGE" > /dev/null 2>&1; then
-        ETNA_BUILD_TARGET=execution-runtime ETNA_RECOVERY_IMAGE="$ALETHIA_RETH_IMAGE" \
-            run_child bash ./script/build_recovery_runtime.sh
-    fi
-fi
-export COMETBFT_IMAGE=${COMETBFT_IMAGE:-cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798}
-
-# Pull before the first scenario so downloads don't eat into its readiness deadlines. The EL image
-# is ready before the helpers, so the Linux EL runtime can copy out of the default image.
-for image in "$ANVIL_IMAGE" "$LANDER_ANVIL_IMAGE" "$ALETHIA_RETH_IMAGE" "$COMETBFT_IMAGE"; do
-    if [[ "$image" == "$default_el_image" ]] || \
-        { [[ "${PULL_POLICY:-always}" == "missing" ]] && docker image inspect "$image" > /dev/null 2>&1; }; then
+# Prepare selected images before the scenarios so downloads stay outside their readiness deadlines.
+prepare_image() {
+    local image=$1
+    if [[ "${PULL_POLICY:-always}" == "missing" ]] && docker image inspect "$image" > /dev/null 2>&1; then
         echo "Using local image $image"
     else
         echo "Pulling $image"
         run_child docker pull --quiet "$image"
     fi
-done
+}
+
+if [[ " $dependencies " == *' anvil-image '* ]]; then
+    export ANVIL_IMAGE=${ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.5.1}
+    prepare_image "$ANVIL_IMAGE"
+fi
+if [[ " $dependencies " == *' lander-anvil-image '* ]]; then
+    # Contract fixtures require canonical zero-storage proofs and modern EIP-7594 wrappers.
+    export LANDER_ANVIL_IMAGE=${LANDER_ANVIL_IMAGE:-ghcr.io/foundry-rs/foundry:v1.8.5}
+    prepare_image "$LANDER_ANVIL_IMAGE"
+fi
+default_el_image=alethia-reth:etna-53f33b708d869cfb3f8cccd597381fa2e92a5be5
+if [[ " $dependencies " == *' reth-image '* ]]; then
+    # The Linux EL helper can extract the pinned binary from this image after it is prepared.
+    if [[ -z "${ALETHIA_RETH_IMAGE:-}" ]]; then
+        export ALETHIA_RETH_IMAGE="$default_el_image"
+        if ! docker image inspect "$ALETHIA_RETH_IMAGE" > /dev/null 2>&1; then
+            ETNA_BUILD_TARGET=execution-runtime ETNA_RECOVERY_IMAGE="$ALETHIA_RETH_IMAGE" \
+                run_child bash ./script/build_recovery_runtime.sh
+        fi
+    fi
+    if [[ "$ALETHIA_RETH_IMAGE" == "$default_el_image" ]]; then
+        echo "Using local image $ALETHIA_RETH_IMAGE"
+    else
+        prepare_image "$ALETHIA_RETH_IMAGE"
+    fi
+fi
+if [[ " $dependencies " == *' comet-image '* ]]; then
+    export COMETBFT_IMAGE=${COMETBFT_IMAGE:-cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798}
+    prepare_image "$COMETBFT_IMAGE"
+fi
 
 if [[ " $dependencies " == *' signer '* ]]; then
     run_child bash ./script/build_etna_signer.sh

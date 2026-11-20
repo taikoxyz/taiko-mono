@@ -66,6 +66,10 @@ unit *ARGS:
   fi
   cargo test -p abci --doc
 
+# Run local checks and Docker scenarios selected from the current changes.
+test-dev *ARGS:
+  python3 ./tests/test_dev.py "$@"
+
 # Four representative Docker scenarios for local iteration. Use `test` for subsets
 # or output arguments; this named tier deliberately accepts no extra filters.
 test-smoke:
@@ -106,6 +110,7 @@ supervisor-test:
   PYTHONDONTWRITEBYTECODE=1 python3 tests/bindings_generation_test.py
   python3 tests/supervisor_test.py
   PYTHONDONTWRITEBYTECODE=1 python3 tests/entrypoint_test.py
+  PYTHONDONTWRITEBYTECODE=1 python3 tests/test_dev_test.py
   PYTHONDONTWRITEBYTECODE=1 python3 tests/checkpoint_import_resource_test.py
   PYTHONDONTWRITEBYTECODE=1 python3 tests/runtime_build_test.py
 

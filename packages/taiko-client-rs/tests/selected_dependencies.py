@@ -7,6 +7,21 @@ import sys
 # The only (package, binary) whose cases need stock Comet, the native EL or the recovery image.
 # The entrypoint's `native` lane selects exactly this binary; widen both together.
 NATIVE_SUITE = ("taiko-client", "governance_recovery")
+DEVNET_IMAGES = {"anvil-image", "reth-image", "comet-image"}
+CONTRACT_IMAGES = {"lander-anvil-image", "reth-image"}
+SUITE_IMAGES = {
+    ("test-harness", "cleanup"): {"lander-anvil-image"},
+    ("test-harness", "standalone_reth"): {"reth-image"},
+    ("taiko-client", "lander_cli"): CONTRACT_IMAGES,
+    NATIVE_SUITE: CONTRACT_IMAGES,
+    ("lander", "landing"): CONTRACT_IMAGES,
+    ("lander", "recovery"): CONTRACT_IMAGES,
+    ("lander", "native_acceptance"): CONTRACT_IMAGES | {"comet-image"},
+    ("lander", "staking"): CONTRACT_IMAGES | {"comet-image"},
+    ("lander", "collector"): DEVNET_IMAGES,
+}
+ALL_IMAGES = DEVNET_IMAGES | CONTRACT_IMAGES
+ALL_DEPENDENCIES = ALL_IMAGES | {"docker", "signer", "comet", "el", "recovery"}
 RECOVERY_IMAGE = {
     "governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registered_key",
 }
@@ -26,21 +41,23 @@ def dependencies(data):
     for suite in data["rust-suites"].values():
         if suite["status"] != "listed":
             continue
+        binary = (suite["package-name"], suite["binary-name"])
         for name, case in suite["testcases"].items():
             if case["filter-match"]["status"] != "matches":
                 continue
             needed.add("docker")
-            recovery = (suite["package-name"], suite["binary-name"]) == NATIVE_SUITE
-            if recovery and name == LONG_FENCE:
+            if binary == NATIVE_SUITE and name == LONG_FENCE:
+                # This case only starts the native EL. Its helper can reuse a cached image on Linux.
                 needed.add("el")
                 continue
-            docker_only = (suite["package-name"], suite["binary-name"]) in {
+            # Unknown test binaries get every image. ABCI scenarios share the standard devnet.
+            needed.update(SUITE_IMAGES.get(binary, DEVNET_IMAGES if binary[0] == "abci" else ALL_IMAGES))
+            if binary not in {
                 ("test-harness", "cleanup"),
                 ("test-harness", "standalone_reth"),
-            }
-            if not docker_only:
+            }:
                 needed.add("signer")
-            if recovery:
+            if binary == NATIVE_SUITE:
                 needed.add("comet")
                 if name in NATIVE_EL:
                     needed.add("el")
@@ -61,7 +78,12 @@ def client_binary(data):
 
 
 if __name__ == "__main__":
-    if sys.argv[1:] not in ([], ["--client-bin"]):
-        raise SystemExit("usage: selected_dependencies.py [--client-bin] < nextest-list.json")
-    listing = json.load(sys.stdin)
-    print(client_binary(listing) if sys.argv[1:] else dependencies(listing))
+    match sys.argv[1:]:
+        case ["--all"]:
+            print(" ".join(sorted(ALL_DEPENDENCIES)))
+        case ["--client-bin"]:
+            print(client_binary(json.load(sys.stdin)))
+        case []:
+            print(dependencies(json.load(sys.stdin)))
+        case _:
+            raise SystemExit("usage: selected_dependencies.py [--all | --client-bin] < nextest-list.json")

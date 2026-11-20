@@ -986,6 +986,10 @@ and retain one documented height-bound divergence; they do not establish conform
 to the latest Etna specification. Current registry admission vectors belong to the
 contract harness.
 
+- `just test-dev` prints and runs native tests and Docker scenarios selected from local changes.
+  It includes staged, unstaged and untracked files. Pass a Git ref to include commits since its
+  merge base with HEAD, or add `--dry-run` to preview the commands. Shared changes add `just unit`
+  and `just test-smoke`. A clean worktree runs smoke. This recipe defaults to `PULL_POLICY=missing`.
 - `just unit` runs all unit tests, the Docker-free CLI startup/shutdown and entrypoint cleanup
   process tests and abci's Etna conformance vectors, then the abci doctests. No docker needed. It
   builds only those targets, and without extra arguments runs lander's library tests in one
@@ -1013,8 +1017,9 @@ contract harness.
   e.g. `just test restart` runs one scenario. Pull requests
   skip the L1 finality stall and the L=7 recovery (L=6 and L=8 cover the same recovery path);
   `just test-full` runs every scenario, as CI does on main, nightly and on manual dispatch.
-  `tests/entrypoint.sh` lists selected cases before Docker checks and builds only the native
-  helpers they need, including the recovery image for its Linux consumer. On an ubuntu or
+  `tests/entrypoint.sh` lists selected cases before Docker checks and prepares their images and
+  native helpers. For example, `just test --test cleanup` only needs the Foundry 1.8.5 image.
+  The recovery image is built for its Linux consumer. On an ubuntu or
   debian Linux host, that image is the test-only `tests/docker/recovery-runtime.Dockerfile` on
   the host's own distribution, holding the client binary the listing built and the host-built
   signer and Comet helpers; other hosts build the production `Dockerfile`, which compiles the
@@ -1023,8 +1028,8 @@ contract harness.
   and reuses it while present; it never pulls that image. When the native EL is needed, a Linux
   host whose Docker daemon has the same architecture copies it out of that image; another host,
   an overridden `ALETHIA_RETH_IMAGE` or a missing image builds it from the pinned source.
-  Unsupported nextest run-only options conservatively prepare all helpers, after listing without
-  them. It pulls the other images before the tests; override them with `ANVIL_IMAGE`,
+  Unsupported nextest run-only options conservatively prepare all images and helpers, after listing
+  without those options. Override images with `ANVIL_IMAGE`,
   `ALETHIA_RETH_IMAGE`, `COMETBFT_IMAGE` and `LANDER_ANVIL_IMAGE`, or set
   `PULL_POLICY=missing` to reuse local images. `just unit` also verifies the pinned contract
   artifact hashes.

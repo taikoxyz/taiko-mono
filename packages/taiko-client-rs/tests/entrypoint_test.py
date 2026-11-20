@@ -22,6 +22,9 @@ TESTS = ROOT / "bin/client/tests"
 CLIENT_ID = "path+file:///t/bin/client#taiko-client@2.3.0"
 CLIENT_BIN = {"name": "taiko-client", "kind": "bin-exe", "path": "debug/taiko-client", "build-platform": "target"}
 DEFAULT_EL_IMAGE = re.search(r"^default_el_image=(\S+)$", (ROOT / "tests/entrypoint.sh").read_text(), re.M).group(1)
+ANVIL = "ghcr.io/foundry-rs/foundry:v1.5.1"
+LANDER_ANVIL = "ghcr.io/foundry-rs/foundry:v1.8.5"
+COMET = "cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798"
 
 
 def build_meta(*binaries):
@@ -44,7 +47,8 @@ class Entrypoint(unittest.TestCase):
                         CALLS=str(self.log), TAIKO_CLIENT_RS_TEST_RUN="fixture-run",
                         SELECTION=json.dumps({"rust-build-meta": build_meta(CLIENT_BIN), "rust-suites": {}}))
         for key in ("ETNA_RECOVERY_IMAGE", "ETNA_EL_BIN", "ETNA_EL_IMPORT_BIN", "NEXTEST_PROFILE",
-                    "ALETHIA_RETH_IMAGE", "PULL_POLICY", "TAIKO_CLIENT_RS_TEST_LANE"):
+                    "ALETHIA_RETH_IMAGE", "ANVIL_IMAGE", "LANDER_ANVIL_IMAGE", "COMETBFT_IMAGE",
+                    "PULL_POLICY", "TAIKO_CLIENT_RS_TEST_LANE"):
             self.env.pop(key, None)
         self.executable("bin/cargo", '''#!/usr/bin/env python3
 import json, os, pathlib, sys, time
@@ -105,6 +109,9 @@ python3 -c 'import json, os, sys; target = os.environ.get("ETNA_BUILD_TARGET"); 
     def builds(self):
         return [row[1] for row in self.calls() if row[0] == "build"]
 
+    def pulls(self):
+        return {row[3] for row in self.calls() if row[:3] == ["docker", "pull", "--quiet"]}
+
     def assert_lists_once_without_caller_arguments(self, *args):
         """Fallback preparation still builds the binaries and records their paths, before any helper."""
         calls = self.calls()
@@ -121,6 +128,7 @@ python3 -c 'import json, os, sys; target = os.environ.get("ETNA_BUILD_TARGET"); 
         result = self.run_entrypoint(*args)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.builds(), ["etna_signer"])
+        self.assertEqual(self.pulls(), {ANVIL, COMET})
         calls = self.calls()
         self.assertEqual(calls[0][0:3], ["cargo", "nextest", "list"])
         run = next(row for row in calls if row[:3] == ["cargo", "nextest", "run"])
@@ -141,12 +149,24 @@ python3 -c 'import json, os, sys; target = os.environ.get("ETNA_BUILD_TARGET"); 
         self.assertNotIn("--nocapture", listed)
         self.assertEqual(run[-2:], ["--nocapture", "restart"])
 
-    def test_standalone_reth_only_prepares_docker(self):
+    def test_standalone_reth_only_prepares_its_image(self):
         self.select("standalone_reth", "occupied_initial_auth_port_recovers_and_preserves_restart_endpoints")
         result = self.run_entrypoint()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.builds(), [])
+        self.assertEqual(self.pulls(), set())
+        self.assertIn(["docker", "image", "inspect", DEFAULT_EL_IMAGE], self.calls())
         self.assertIn(["docker", "info"], self.calls())
+
+    def test_cleanup_only_prepares_its_anvil_even_when_reth_is_missing(self):
+        self.select("cleanup", "sigterm_removes_owned_resources_and_preserves_sibling_devnets")
+        self.env["EL_IMAGE_MISSING"] = "1"
+        self.env["LANDER_ANVIL_IMAGE"] = "reviewed:anvil"
+        result = self.run_entrypoint("--test", "cleanup")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.pulls(), {"reviewed:anvil"})
+        self.assertEqual(self.builds(), [])
+        self.assertNotIn(["docker", "image", "inspect", DEFAULT_EL_IMAGE], self.calls())
 
     def test_missing_default_el_image_builds_the_pinned_runtime(self):
         self.select("standalone_reth", "occupied_initial_auth_port_recovers_and_preserves_restart_endpoints")
@@ -174,6 +194,7 @@ python3 -c 'import json, os, sys; target = os.environ.get("ETNA_BUILD_TARGET"); 
         result = self.run_entrypoint()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(set(self.builds()), {"etna_signer", "stock_comet", "etna_el_import", "etna_el_runtime"})
+        self.assertEqual(self.pulls(), {LANDER_ANVIL})
         # The default EL image is ready before the Linux EL copy reads it, and is never pulled.
         calls = self.calls()
         self.assertLess(calls.index(["docker", "image", "inspect", DEFAULT_EL_IMAGE]), calls.index(["build", "etna_el_runtime"]))
@@ -223,6 +244,7 @@ python3 -c 'import json, os, sys; target = os.environ.get("ETNA_BUILD_TARGET"); 
         result = self.run_entrypoint("--retries", "1", "restart")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(set(self.builds()), {"etna_signer", "stock_comet", "etna_el_import", "etna_el_runtime", "recovery_runtime"})
+        self.assertEqual(self.pulls(), {ANVIL, LANDER_ANVIL, COMET})
         self.assert_lists_once_without_caller_arguments("--retries", "1", "restart")
 
     def test_run_reporter_uses_conservative_preparation(self):
@@ -278,6 +300,8 @@ python3 -c 'import json, os, sys; target = os.environ.get("ETNA_BUILD_TARGET"); 
         result = self.run_entrypoint()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(set(self.builds()), {"etna_el_import", "etna_el_runtime"})
+        self.assertEqual(self.pulls(), set())
+        self.assertNotIn(["docker", "image", "inspect", DEFAULT_EL_IMAGE], self.calls())
 
     def test_sigterm_during_discovery_does_not_prepare_or_touch_docker(self):
         ready = self.root / "listing"
