@@ -183,8 +183,8 @@ func syncStockTree(path string) (err error) {
 }
 
 // Install decodes the stock dir, creates the absent home with config/genesis.json, the stock
-// state and blockstore databases and an empty evidence database, then reopens them read-only and
-// checks them. It is the offline store tool CONS-3.1-1 permits for 5.4 import: it runs with
+// state and blockstore databases, an empty evidence database and a fresh store instance ID
+// (data/etna-store-instance), then reopens them read-only and checks them. It is the offline store tool CONS-3.1-1 permits for 5.4 import: it runs with
 // CometBFT stopped and the signer disconnected, never runs consensus or signs, and never reads
 // signer keys, signer state or the WAL (DATA-5.4-5/7). nMax is the committee cap the caller
 // authenticated (committeeConfigHash covers it); the genesis must carry the consensus params it
@@ -226,6 +226,11 @@ func installFresh(home, stockDir string, appHash []byte, nMax int64, flushTree f
 		return Report{}, err
 	}
 	if report, err = writeStores(filepath.Join(home, "data"), in); err != nil {
+		return Report{}, err
+	}
+	// New stores get a fresh instance ID, so a signer that signed on another home fences its
+	// last signed height here (RECOV-8.2-2, DATA-5.4-7).
+	if _, err = writeStoreInstance(filepath.Join(home, "data")); err != nil {
 		return Report{}, err
 	}
 	if err = flushTree(home); err != nil {

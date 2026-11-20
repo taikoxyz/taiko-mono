@@ -402,7 +402,11 @@ async fn install_writes_genesis_config_and_p2p_key_into_fresh_stores() {
         };
         assert_eq!(names(&x.home), ["config", "data", "run"]);
         assert_eq!(names(&x.home.join("config")), ["config.toml", "genesis.json", "node_key.json"]);
-        assert!(names(&x.home.join("data")).is_empty() && names(&x.home.join("run")).is_empty());
+        // data/ holds only a fresh store instance ID (RECOV-8.2-2).
+        assert_eq!(names(&x.home.join("data")), [crate::store_instance::FILE]);
+        assert!(crate::store_instance::valid(&read("data/etna-store-instance")));
+        assert_eq!(mode(&x.home.join("data/etna-store-instance")), 0o600);
+        assert!(names(&x.home.join("run")).is_empty());
         assert!(x.app.is_dir() && x.app.read_dir().unwrap().next().is_none());
         // I3: run/ always exists, private, for the supervisor's per-start signer sockets.
         for dir in
@@ -433,13 +437,19 @@ async fn install_is_idempotent_and_completes_after_interruption() {
     assert_eq!(std::fs::read(x.home.join("config/genesis.json")).unwrap(), plan.genesis);
     assert!(!x.home.join("config/.genesis.json.tmp").exists());
     let inode = |name: &str| std::fs::metadata(x.home.join(name)).unwrap().ino();
-    let before: Vec<_> =
-        ["config/config.toml", "config/node_key.json", "config/genesis.json"].map(inode).to_vec();
-    // A second install is a no-op: nothing is rewritten.
+    let files = [
+        "config/config.toml",
+        "config/node_key.json",
+        "config/genesis.json",
+        "data/etna-store-instance",
+    ];
+    let before: Vec<_> = files.map(inode).to_vec();
+    let id = std::fs::read(x.home.join("data/etna-store-instance")).unwrap();
+    // A second install is a no-op: nothing is rewritten, the store instance ID included.
     x.install(&plan).unwrap();
-    let after: Vec<_> =
-        ["config/config.toml", "config/node_key.json", "config/genesis.json"].map(inode).to_vec();
+    let after: Vec<_> = files.map(inode).to_vec();
     assert_eq!(before, after);
+    assert_eq!(std::fs::read(x.home.join("data/etna-store-instance")).unwrap(), id);
     assert!(x.app.read_dir().unwrap().next().is_none());
 }
 

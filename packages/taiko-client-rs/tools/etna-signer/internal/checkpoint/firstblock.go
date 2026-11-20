@@ -20,8 +20,6 @@ package checkpoint
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,11 +41,6 @@ import (
 	"github.com/cometbft/cometbft/types"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
-
-// StoreInstanceFile is the store instance ID's name under <comet home>/data (RECOV-8.2-2): 32
-// lowercase hex characters and a newline, mode 0600, replaced with a fresh value by every path
-// that creates, imports, restores or rebuilds the Comet stores.
-const StoreInstanceFile = "etna-store-instance"
 
 // ErrFirstBlockContradiction marks an authenticated contradiction found by the repair: two
 // different certified blocks for the first height, an app whose result differs from the one the
@@ -570,31 +563,6 @@ func copyTree(from, to string) error {
 	default:
 		return fmt.Errorf("unexpected inode %s", from)
 	}
-}
-
-// writeStoreInstance replaces data/StoreInstanceFile with a fresh 128-bit random ID: written to a
-// private temporary file, synced, renamed over the old one and the directory synced. The signer
-// then fences through its last signed height until a committed chain covers it (RECOV-8.2-2).
-func writeStoreInstance(data string) (string, error) {
-	var id [16]byte
-	if _, err := rand.Read(id[:]); err != nil {
-		return "", err
-	}
-	value := hex.EncodeToString(id[:])
-	temp, err := os.CreateTemp(data, "."+StoreInstanceFile+".*")
-	if err != nil {
-		return "", err
-	}
-	name := temp.Name()
-	defer os.Remove(name)
-	_, writeErr := temp.WriteString(value + "\n")
-	if err = errors.Join(writeErr, temp.Chmod(0o600), temp.Sync(), temp.Close()); err != nil {
-		return "", err
-	}
-	if err = os.Rename(name, filepath.Join(data, StoreInstanceFile)); err != nil {
-		return "", err
-	}
-	return value, syncDir(data)
 }
 
 // readBounded reads a regular file of at most limit bytes.

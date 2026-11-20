@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	pv "github.com/cometbft/cometbft/proto/tendermint/privval"
@@ -17,22 +18,31 @@ import (
 
 // ACCEPTANCE §2.4: signers keep HRS state through crashes, restarts and failover, without reset
 // or rollback. The real binary serves the official privval wire to a Comet-owned Unix listener,
-// with a trust peer that begins closed sessions and reports them Ready.
+// with a trust peer that begins closed sessions and reports them Ready, and a supervisor channel
+// that reports that listener's process and its home's store instance.
 //
 //  1. Host 1, set up with keygen, init-domains-log and init-state in separate key, hrs/ and
-//     domains/ directories, signs prevote H5 R0 for block A.
-//  2. After a SIGKILL and a restart, the identical vote returns the same signature, block B at
-//     the same HRS is conflicting data and H4 is a height regression (RECOV-8.2-1, SYNC-9-13).
+//     domains/ directories, signs prevote H5 R0 for block A, bound to host 1's store instance.
+//  2. After a SIGKILL and a restart on the same home, same-height continuity is not established,
+//     so the new session takes the durable floor 6 before it is admitted: the identical vote,
+//     block B at the same HRS and H4 are all refused, and the HRS is unchanged (RECOV-8.2-1/2,
+//     SYNC-9-13).
 //  3. Failover is operational practice (RECOV-8.2-6): with host 1 stopped, its key, state and
 //     log move byte for byte to host 2, the state and the log again in separate directories,
-//     and host 1's state is removed, so host 1 refuses to serve again. Host 2 gives the same
-//     three answers and then signs precommit H5 R0 A into its own copy.
+//     and host 1's state is removed, so host 1 refuses to serve again. Host 2's home has its own
+//     store instance; the floor stays 6, H5 stays refused, and host 2 signs precommit H6 once
+//     the app makes H6 eligible.
 //  4. A failover that moves the state without its log, or the log without its state, is lost
 //     signing state: exit 3, nothing created (RECOV-8.2-3). The log detects absence only; it
 //     cannot detect a state restored from a backup, which is forbidden.
 func TestHRSSurvivesCrashRestartAndFailover(t *testing.T) {
 	binary := signerBinary(t)
-	trust := control(t, func(request map[string]any) any { return snapshotAt(request["op"] != "begin_session", 5) })
+	var eligible atomic.Uint64
+	eligible.Store(5)
+	trust := control(t, func(request map[string]any) any { return snapshotAt(request["op"] != "begin_session", eligible.Load()) })
+	var instance atomic.Value
+	instance.Store(testInstance)
+	supervisor := serveSupervisor(t, func() *cometProcess { return reportsComet(instance.Load().(string))() })
 	logs := signerLogs(t)
 	type host struct{ key, state, log string }
 	base := t.TempDir()
@@ -55,7 +65,7 @@ func TestHRSSurvivesCrashRestartAndFailover(t *testing.T) {
 	serve := func(h host) (*exec.Cmd, net.Conn) {
 		t.Helper()
 		socket := filepath.Join(shortTemp(t), "comet.sock")
-		args := []string{"--comet-signer-addr", "unix://" + socket, "--trust-socket", trust, "--chain-id", chain, "--priv-key", h.key, "--priv-state", h.state, "--domains-log", h.log}
+		args := []string{"--comet-signer-addr", "unix://" + socket, "--trust-socket", trust, "--supervisor-socket", supervisor, "--chain-id", chain, "--priv-key", h.key, "--priv-state", h.state, "--domains-log", h.log}
 		return serveDirectly(t, listenComet(t, socket), logs, args)
 	}
 	kill := func(child *exec.Cmd) {
@@ -81,15 +91,30 @@ func TestHRSSurvivesCrashRestartAndFailover(t *testing.T) {
 			t.Fatalf("signed instead of refusing with %q: %v", reason, remote)
 		}
 	}
-	var sigA []byte
-	// The answers of a signer whose HRS is prevote H5 R0 for A.
-	continues := func(conn net.Conn) {
+	// The answers of a fenced signer whose HRS is prevote H5 R0 for A.
+	fenced := func(conn net.Conn) {
 		t.Helper()
-		if again := sign(conn, heightVote(tm.PrevoteType, 5, 1)); !bytes.Equal(again, sigA) {
-			t.Fatal("the identical prevote did not return the stored signature")
-		}
-		refused(conn, heightVote(tm.PrevoteType, 5, 3), "conflicting data")
+		refused(conn, heightVote(tm.PrevoteType, 5, 1), "durable floor")
+		refused(conn, heightVote(tm.PrevoteType, 5, 3), "durable floor")
+		refused(conn, heightVote(tm.PrecommitType, 5, 1), "durable floor")
 		refused(conn, heightVote(tm.PrevoteType, 4, 1), "not the eligible height 5")
+	}
+	// hrs is the HRS part of a state: the floor and binding may change, never the HRS.
+	hrs := func(raw []byte) string {
+		t.Helper()
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &fields); err != nil {
+			t.Fatal(err)
+		}
+		return string(fields["height"]) + string(fields["round"]) + string(fields["step"]) + string(fields["signature"]) + string(fields["signbytes"])
+	}
+	floor := func(raw []byte) string {
+		t.Helper()
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &fields); err != nil {
+			t.Fatal(err)
+		}
+		return string(fields["floor"]) + " " + string(fields["store_instance"])
 	}
 
 	// 1. Host 1 signs prevote H5 R0 A.
@@ -98,7 +123,7 @@ func TestHRSSurvivesCrashRestartAndFailover(t *testing.T) {
 	command("init-domains-log", "--domains-log", h1.log)
 	command("init-state", "--chain-id", chain, "--priv-key", h1.key, "--priv-state", h1.state, "--domains-log", h1.log)
 	child, conn := serve(h1)
-	sigA = sign(conn, heightVote(tm.PrevoteType, 5, 1))
+	sign(conn, heightVote(tm.PrevoteType, 5, 1))
 	signedA := readFile(t, h1.state)
 
 	// 2. Crash and restart on host 1.
@@ -107,9 +132,12 @@ func TestHRSSurvivesCrashRestartAndFailover(t *testing.T) {
 		t.Fatal("a crash changed the HRS")
 	}
 	child, conn = serve(h1)
-	continues(conn)
-	if !bytes.Equal(readFile(t, h1.state), signedA) {
-		t.Fatal("cached and refused requests changed the HRS")
+	fenced(conn)
+	if hrs(readFile(t, h1.state)) != hrs(signedA) {
+		t.Fatal("refused requests changed the HRS")
+	}
+	if got := floor(readFile(t, h1.state)); got != `"6" "`+testInstance+`"` {
+		t.Fatalf("restart floor and binding: %s", got)
 	}
 
 	// 3. Failover: host 1 is stopped, and its latest files move to host 2.
@@ -132,14 +160,19 @@ func TestHRSSurvivesCrashRestartAndFailover(t *testing.T) {
 	if _, err := os.Lstat(h1.state); !os.IsNotExist(err) {
 		t.Fatal("host 1 recreated its moved state")
 	}
+	instance.Store(otherInstance)
 	_, conn = serve(h2)
-	continues(conn)
-	sign(conn, heightVote(tm.PrecommitType, 5, 1))
+	fenced(conn)
+	if got := floor(readFile(t, h2.state)); got != `"6" "`+otherInstance+`"` {
+		t.Fatalf("failover floor and binding: %s", got)
+	}
+	eligible.Store(6)
+	sign(conn, heightVote(tm.PrecommitType, 6, 1))
 	var persisted map[string]json.RawMessage
 	if err := json.Unmarshal(readFile(t, h2.state), &persisted); err != nil {
 		t.Fatal(err)
 	}
-	if string(persisted["height"]) != `"5"` || string(persisted["round"]) != "0" || string(persisted["step"]) != "3" {
+	if string(persisted["height"]) != `"6"` || string(persisted["round"]) != "0" || string(persisted["step"]) != "3" {
 		t.Fatalf("host 2 HRS after the precommit: %s", readFile(t, h2.state))
 	}
 	for path, raw := range moved {

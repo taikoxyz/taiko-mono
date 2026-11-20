@@ -22,6 +22,8 @@ import (
 
 type shutdownFixture struct {
 	Key, State, Log, Control, Comet, Entered, Release string
+	// CometPID is the process that listens at Comet: the parent test.
+	CometPID int
 }
 
 // The child runs the production shutdown path with stock transport and FilePV.
@@ -61,6 +63,8 @@ func TestSignerSignalDuringSyncHelper(t *testing.T) {
 		}
 	}
 	gate := newGate(fixture.Control, time.Second)
+	// The parent test process runs the Comet listener; the supervisor reports it.
+	gate.supervisor = reporting(cometAt(fixture.CometPID))
 	endpoint := privval.NewSignerDialerEndpoint(log.NewTMLogger(os.Stderr), gate.dialer(privval.DialUnixFn(fixture.Comet)))
 	server := privval.NewSignerServer(endpoint, chain, signer)
 	server.SetRequestHandler(gate.handle)
@@ -87,7 +91,7 @@ func TestSignerSignalWaitsForInFlightPersistence(t *testing.T) {
 		t.Run(fmt.Sprintf("directory-fault=%v", fault), func(t *testing.T) {
 			_, key, state := filePV(t)
 			root := shortTemp(t)
-			fixture := shutdownFixture{
+			fixture := shutdownFixture{CometPID: os.Getpid(),
 				Key: key, State: state, Log: domainsLogOf(state), Control: control(t, func(request map[string]any) any { return snapshot(request["op"] != "begin_session") }),
 				Comet: filepath.Join(root, "comet.sock"), Entered: filepath.Join(root, "entered"), Release: filepath.Join(root, "release"),
 			}

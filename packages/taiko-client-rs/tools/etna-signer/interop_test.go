@@ -112,10 +112,15 @@ func TestGuardedFilePVMatchesCanonicalVoteVectors(t *testing.T) {
 			if !bytes.Equal(types.VoteSignBytes(c.Chain, vote), fromHex(t, c.SignBytes)) {
 				t.Fatal("canonical Comet sign bytes mismatch")
 			}
-			dir := t.TempDir()
-			key, state := filepath.Join(dir, "key"), filepath.Join(dir, "state")
-			signer := privval.NewFilePV(secp256k1eth.PrivKey(fromHex(t, fixture.Votes.Key.Private)), key, state)
-			signer.Save()
+			state := filepath.Join(t.TempDir(), c.Chain+".json")
+			private := secp256k1eth.PrivKey(fromHex(t, fixture.Votes.Key.Private))
+			if err := os.WriteFile(state, zeroStateBytes(c.Chain), 0600); err != nil {
+				t.Fatal(err)
+			}
+			signer := newGuardedPV(private, c.Chain, state, zeroState(c.Chain))
+			if err := signer.admit(cometReport{Process: testComet()}); err != nil {
+				t.Fatal(err)
+			}
 			path := control(t, func(map[string]any) any {
 				r := snapshotAt(true, uint64(vote.Height))
 				r["chain_id"] = c.Chain
@@ -130,7 +135,7 @@ func TestGuardedFilePVMatchesCanonicalVoteVectors(t *testing.T) {
 			if signed.Error != nil || "0x"+hex.EncodeToString(signed.Vote.Signature) != c.Signature {
 				t.Fatal("native FilePV signature differs from pinned stock vector")
 			}
-			if "0x"+hex.EncodeToString(signer.Key.PubKey.Bytes()) != fixture.Votes.Key.Public || "0x"+hex.EncodeToString(signer.Key.Address) != fixture.Votes.Key.Signer {
+			if "0x"+hex.EncodeToString(signer.pub.Bytes()) != fixture.Votes.Key.Public || "0x"+hex.EncodeToString(signer.pub.Address()) != fixture.Votes.Key.Signer {
 				t.Fatal("native identity mismatch")
 			}
 		})
@@ -194,7 +199,7 @@ func TestRuntimeNeverRecreatesMissingStateForExistingNativeKey(t *testing.T) {
 	if err = os.Remove(state); err != nil {
 		t.Fatal(err)
 	}
-	args := []string{"--comet-signer-addr", "bad://transport", "--trust-socket", "/absent", "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", domainsLogOf(state)}
+	args := []string{"--comet-signer-addr", "bad://transport", "--trust-socket", "/absent", "--supervisor-socket", "/absent-supervisor", "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", domainsLogOf(state)}
 	if code, stderr := runSigner(t, args...); code != exitSigningStateUnsafe || !strings.Contains(stderr, "missing") {
 		t.Fatalf("missing state accepted: exit %d %s", code, stderr)
 	}

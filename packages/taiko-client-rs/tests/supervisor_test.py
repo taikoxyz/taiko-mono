@@ -11,6 +11,7 @@ import re
 import shutil
 import socket
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -194,9 +195,20 @@ class SupervisorLifecycle(TrustPeer):
                        ' comet_seen=[seen,seen is not None and alive(seen)])\n'
                        'signers.open("a").write(json.dumps(record)+"\\n")\n'
                        'if code("signer_exit_on_start") is not None: sys.exit(code("signer_exit_on_start"))\n'
+                       'def query():\n'
+                       ' import socket\n'
+                       ' with socket.socket(socket.AF_UNIX) as c:\n'
+                       '  c.connect(sys.argv[sys.argv.index("--supervisor-socket")+1])\n'
+                       '  body=(root/"signer_query").read_text().strip() or "comet"\n'
+                       '  request=dict(schema=1,id=1,**(json.loads(body) if body.startswith("{") else dict(op=body)))\n'
+                       '  c.sendall(json.dumps(request).encode()+b"\\n")\n'
+                       '  return c.makefile("rb").readline()\n'
                        'while not Path(os.environ["COMET_PID"]).with_name("release_signer").exists():\n'
                        ' now=code("signer_exit_now")\n'
                        ' if now is not None: (root/"signer_exit_now").unlink(); sys.exit(now)\n'
+                       ' if (root/"signer_query").exists() and not (root/"signer_reply").exists():\n'
+                       '  reply=query()\n'
+                       '  if json.loads(reply).get("comet", True) is not None: (root/"signer_reply").write_bytes(reply)\n'
                        ' time.sleep(.05)'),
         }.items():
             path = self.bin / name
@@ -239,7 +251,13 @@ class SupervisorLifecycle(TrustPeer):
                 'if Path(os.environ["COMET_PID"]).with_name("comet_exit_on_start").exists(): sys.exit(1)\n'
                 'c=Path(os.environ["COMET_PID"]);t=c.with_name(".comet.pid.%d"%os.getpid())\n'
                 't.write_text(str(os.getpid()));os.replace(t,c)\n\n'
-                'while not Path(os.environ["COMET_PID"]).with_name("release_comet").exists(): time.sleep(.05)')
+                'printed=0\n'
+                'while not Path(os.environ["COMET_PID"]).with_name("release_comet").exists():\n'
+                ' r=Path(os.environ["COMET_PID"]).with_name("comet_records")\n'
+                ' lines=r.read_text().splitlines() if r.exists() else []\n'
+                ' for line in lines[printed:]: print(line, flush=True)\n'
+                ' printed=len(lines)\n'
+                ' time.sleep(.05)')
 
     def starts(self):
         return len(self.count.read_text().splitlines()) if self.count.exists() else 0
@@ -553,6 +571,7 @@ class SupervisorLifecycle(TrustPeer):
         root = self.root.resolve()
         self.assertEqual(self.signers()[0]["argv"], [
             "--trust-socket", str(self.store.resolve() / "checkpoint-trust.sock"),
+            "--supervisor-socket", str(self.store.resolve() / "supervisor/signer.sock"),
             "--chain-id", self.chain, "--priv-key", str(root / "key.json"),
             "--priv-state", str(root / "hrs" / (self.chain + ".json")),
             "--domains-log", str(root / "domains/domains.log"),
@@ -946,6 +965,63 @@ class SupervisorLifecycle(TrustPeer):
             return False
         return True
 
+    def store_instance(self):
+        return (self.home / "data/etna-store-instance").read_text()
+
+    def channel_reply(self, op="comet"):
+        """The signer's query over the supervisor channel, as the running fake signer makes it
+        once asked to."""
+        (self.root / "signer_reply").unlink(missing_ok=True)
+        (self.root / "signer_query").write_text(op)
+        self.wait(lambda: (self.root / "signer_reply").exists())
+        (self.root / "signer_query").unlink()
+        return json.loads((self.root / "signer_reply").read_text())
+
+    def test_store_instance_is_assigned_once_and_reported_to_the_signer(self):
+        """A home without a store instance ID gets a fresh one before Comet starts, durably and
+        privately; the signer channel reports, to the signer, the Comet process the supervisor
+        runs (PID and kernel start time) and that ID; a restart keeps the ID (RECOV-8.2-2)."""
+        instance = self.store_instance()
+        self.assertRegex(instance, r"^[0-9a-f]{32}\n$")
+        self.assertEqual(stat.S_IMODE((self.home / "data/etna-store-instance").stat().st_mode), 0o600)
+        self.assertIn(f"etna_supervisor_store_instance_assigned: {instance.strip()}", Path(self.log.name).read_text())
+        comet = self.comets()[-1]["pid"]
+        start = Path(f"/proc/{comet}/stat").read_bytes().rsplit(b")", 1)[1].split()[19].decode()
+        self.assertEqual(self.channel_reply(), dict(schema=1, id=1, comet=dict(pid=comet, start=start, store_instance=instance.strip(), replay=None)))
+        self.restart_with()
+        self.assertEqual(self.store_instance(), instance)
+        self.assertEqual(self.channel_reply()["comet"]["pid"], self.comets()[-1]["pid"])
+        self.assertEqual(Path(self.log.name).read_text().count("etna_supervisor_store_instance_assigned"), 1)
+
+    def test_stores_without_an_instance_id_get_a_fresh_one(self):
+        """Stores whose ID file is gone are treated as rebuilt: the next start assigns a fresh ID,
+        so the signer's binding changes and it fences its last signed height (RECOV-8.2-2)."""
+        before = self.store_instance()
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=5), 0)
+        (self.home / "data/blockstore.db").mkdir()
+        (self.home / "data/etna-store-instance").unlink()
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                     env=self.env, stdout=self.log, stderr=self.log)
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+        self.assertNotEqual(self.store_instance(), before)
+        self.assertEqual(self.channel_reply()["comet"]["store_instance"], self.store_instance().strip())
+
+    def test_channel_refuses_every_peer_but_the_signer(self):
+        """Only the signer the supervisor started may use the channel: another process of the same
+        user is refused by its peer credentials and gets no answer."""
+        with socket.socket(socket.AF_UNIX) as peer:
+            peer.settimeout(3)
+            peer.connect(str(self.store / "supervisor/signer.sock"))
+            peer.sendall(b'{"schema":1,"id":1,"op":"comet"}\n')
+            try:
+                answer = peer.recv(1024)
+            except ConnectionResetError:
+                answer = b""
+            self.assertEqual(answer, b"")
+        self.wait(lambda: "etna_supervisor_channel_refused" in Path(self.log.name).read_text())
+        self.assertEqual(stat.S_IMODE((self.store / "supervisor").stat().st_mode), 0o700)
+
     def test_half_a_comet_identity_is_refused_before_children(self):
         """ETNA_COMET_UID and ETNA_COMET_GID are set together or not at all, as for the full node."""
         for variable, value in (("ETNA_COMET_UID", os.geteuid()), ("ETNA_COMET_GID", os.getegid())):
@@ -1103,6 +1179,124 @@ class UnixSupervisorTests(SupervisorLifecycle, unittest.TestCase):
         self.assert_refused()
         self.assertIn("signer-dddd.sock", Path(self.log.name).read_text(errors="replace"))
         self.assertTrue(blocker.is_dir())
+
+    def test_log_observer_follows_comet_through_its_own_pipe(self):
+        """With the stock JSON log format and the consensus module at Info, the supervisor owns a
+        fresh pipe for each Comet process's stdout: it forwards every line and follows the replay
+        attempts it announces, which the signer's observe op reports after consuming every record
+        already written (RECOV-8.2-2). Without them the observer is off, reported once, and the
+        channel reports no replay."""
+        self.assertIn("etna_supervisor_log_observer_disabled: log_format is ['plain']", Path(self.log.name).read_text())
+        self.assertIsNone(self.channel_reply()["comet"]["replay"])
+        self.assertIn("is unavailable", self.channel_reply("observe")["error"])
+        records = self.root / "comet_records"
+        records.write_text("\n".join(json.dumps(record) for record in [
+            dict(level="info", module="consensus", _msg="Catchup by replaying consensus messages", height=7),
+            dict(level="info", module="p2p", _msg="Replay: Done"),
+        ]) + "\n")
+        self.restart_over_settings('log_format = "json"\nlog_level = "consensus:info,*:error"')
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+        self.wait(lambda: '"_msg": "Catchup by replaying consensus messages"' in Path(self.log.name).read_text())
+        self.assertEqual(self.channel_reply("observe")["replay"],
+                         dict(attempt=1, open=True, height=7, tainted=False, repaired=False))
+        with records.open("a") as out:
+            out.write(json.dumps(dict(level="info", module="consensus", _msg="Replay: Done")) + "\n")
+        self.wait(lambda: Path(self.log.name).read_text().count('"_msg": "Replay: Done"') == 2)
+        self.assertEqual(self.channel_reply("observe")["replay"]["open"], False)
+        self.assertEqual(Path(self.log.name).read_text().count("etna_supervisor_log_observer_disabled"), 1)
+
+    def test_torn_wal_tail_restarts_the_pair_after_the_stock_repair(self):
+        """RECOV-8.2-2 vector 2.l: when the startup check finds a torn tail after all bound input,
+        the channel reports the replay as needing a repair (the signer keeps that height closed
+        without a floor); once Comet's records show the stock repair and trust is Ready, the
+        supervisor restarts the pair so a clean replay from the verified predecessor can confirm
+        again. The WAL and store helpers run with the saved binding read from the signer state."""
+        helper = self.bin / "helper"
+        calls = self.root / "helper_calls"
+        helper.write_text("#!/usr/bin/env python3\nimport json,sys\n"
+                          f"open({str(calls)!r},'a').write(json.dumps(sys.argv[1:])+'\\n')\n"
+                          "if sys.argv[1]=='comet-head': print(json.dumps(dict(height=4,hash='AB'*32)))\n"
+                          "elif sys.argv[1]=='wal-preflight': print(json.dumps(dict(eligible=False,repair=True,reason='torn',"
+                          "startup=dict(marker=4,wal_length=120,wal_sha256='cd'*32))))\n"
+                          "else: print(json.dumps(dict(binding=None)))\n")
+        helper.chmod(0o755)
+        binding = dict(marker="4", predecessor="AB" * 32, wal_length="100", wal_sha256="CD" * 32)
+        self.state.write_text(json.dumps(dict(schema=2, chain_id=self.chain, height="5", round=0, step=2, replay=binding)))
+        (self.home / "data/state.db").mkdir()
+        (self.root / "comet_records").write_text("\n".join(json.dumps(dict(level="info", module="consensus", _msg=message))
+                                                       for message in ("the WAL file is corrupted; attempting repair",
+                                                                       "successful WAL repair")) + "\n")
+        self.env["ETNA_SIGNER_HELPER_JSON"] = json.dumps([str(helper)])
+        self.restart_over_settings('log_format = "json"')
+        # This stand-in repeats the repair at every start: the supervisor restarts at most three
+        # times, then leaves the height closed.
+        restarts = lambda: Path(self.log.name).read_text().count("etna_supervisor_restarted_after_wal_repair")
+        self.wait(lambda: restarts() == 3 and self.starts() == 5 and len(self.signers()) == 5)
+        time.sleep(1)
+        self.assertEqual((restarts(), self.starts()), (3, 5))
+        preflights = [json.loads(line) for line in calls.read_text().splitlines() if '"wal-preflight"' in line]
+        self.assertEqual(len(preflights), 4)
+        self.assertEqual(preflights[0][preflights[0].index("--length") + 1], "100")
+        self.assertEqual(preflights[0][preflights[0].index("--predecessor") + 1], "ab" * 32)
+        report = self.channel_reply()["comet"]["replay"]
+        self.assertEqual(report, dict(height=5, repair=True, binding=dict(marker=4, predecessor="ab" * 32, wal_length=100, wal_sha256="cd" * 32),
+                                      startup=dict(marker=4, predecessor="ab" * 32, wal_length=120, wal_sha256="cd" * 32)))
+
+    def test_stop_on_precommit_for_a_planned_upgrade(self):
+        """START-10.1-14b, RECOV-8.2-2: the operator's stop-on-precommit command arms the signer
+        through the channel; once the signer reports that its gate closed after a precommit, the
+        supervisor waits for Comet to record and send it, stops Comet and then the signer, prints
+        the outcome through the command and stays quiescent without restarting the pair."""
+        command = subprocess.Popen([sys.executable, str(ROOT / "script/etna_validator.py"), "stop-on-precommit",
+                                    "--timeout", "20"], env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            self.wait(lambda: (self.store / "supervisor/stop-on-precommit").exists())
+            self.wait(lambda: "etna_supervisor_stop_on_precommit_armed" in Path(self.log.name).read_text())
+            self.assertEqual(self.channel_reply("stop")["stop"], True)
+            # Only an armed supervisor accepts the signer's report, and only with its HRS.
+            self.assertEqual(self.channel_reply(json.dumps(dict(op="stopped", height=5, round=1)))["stopped"], True)
+            output, error = command.communicate(timeout=20)
+        finally:
+            if command.poll() is None:
+                command.kill()
+                command.wait()
+        self.assertEqual(command.returncode, 0, error)
+        self.assertEqual(json.loads(output), dict(stopped=True, height=5, round=1))
+        lifecycle = (self.root / "lifecycle").read_text().splitlines()
+        self.assertEqual(lifecycle, ["comet_reaped", "signer_stopped"])
+        self.assertFalse((self.store / "supervisor/stop-on-precommit").exists())
+        time.sleep(1)
+        self.assertEqual((self.starts(), len(self.signers())), (1, 1))
+        self.assertIsNone(self.proc.poll())
+        self.assertIn("etna_supervisor_stopped_for_upgrade", Path(self.log.name).read_text())
+        self.assertFalse((self.store / "validator-supervisor.halted").exists())
+
+    def test_malformed_store_instance_is_refused_before_children(self):
+        """A store instance file that is not exactly one ID, or not a regular file, refuses the
+        start: it is never repaired or replaced."""
+        path = self.home / "data/etna-store-instance"
+        for content in ("short\n", "00112233445566778899AABBCCDDEEFF\n", "00112233445566778899aabbccddeeff",
+                        "00112233445566778899aabbccddeeff\nextra\n"):
+            with self.subTest(content=content):
+                path.write_text(content)
+                self.assert_refused_before_children("is not a store instance ID")
+                self.assertEqual(path.read_text(), content)
+        path.unlink()
+        path.symlink_to(self.root / "elsewhere")
+        self.assert_refused_before_children("not a regular file")
+
+    def test_unsafe_supervisor_run_directory_is_refused(self):
+        """The signer channel lives in a directory private to the supervisor: one open to others,
+        or a symlink, is refused before any child starts."""
+        run = self.store / "supervisor"
+        run.chmod(0o755)
+        self.assert_refused_before_children("must be a directory private to the supervisor")
+        run.chmod(0o700)
+        os.rmdir(run) if not any(run.iterdir()) else shutil.rmtree(run)
+        target = self.root / "run-elsewhere"
+        target.mkdir(mode=0o700)
+        run.symlink_to(target)
+        self.assert_refused_before_children("must be a directory private to the supervisor")
 
     def test_overlong_socket_path_is_refused_before_children(self):
         self.stop_supervisor()
@@ -1924,13 +2118,83 @@ class SupervisorUnitTests(unittest.TestCase):
         runtime.home, runtime.unix_run = Path("/private/runtime"), None
         runtime.comet_command, runtime.comet_listener = ["/cometbft", "start"], "unix:///private/runtime/run/signer.sock"
         runtime.child_options = lambda: {}
+        runtime.observer_reason, runtime.preflight = "log observer disabled", None
         for current_uid, current_gid, uid, gid, expected in [
                 (501, 20, 501, 20, {}),
                 (0, 0, 10001, 10001, dict(user=10001, group=10001, extra_groups=[])),
                 (501, 20, 10001, 10001, dict(user=10001, group=10001, extra_groups=[]))]:
             with self.subTest(current_uid=current_uid, uid=uid), patch.dict(os.environ, {"ETNA_COMET_UID":str(uid), "ETNA_COMET_GID":str(gid)}), patch.object(module.os, "geteuid", return_value=current_uid), patch.object(module.os, "getegid", return_value=current_gid), patch.object(module.subprocess, "Popen") as spawn:
-                runtime.start_comet()
+                runtime.start_comet("00112233445566778899aabbccddeeff")
                 self.assertEqual(spawn.call_args.kwargs, dict(cwd=runtime.home, **expected))
+
+    def test_consensus_log_level_follows_stock_parsing(self):
+        module = supervisor_module("etna_log_level")
+        for value, level in [("info", "info"), ("debug", "debug"), ("error", "error"),
+                             ("consensus:info,*:error", "info"), ("*:error", "error"),
+                             ("consensus:error,*:info", "error"), ("p2p:debug", "info"),
+                             ("consensus:none", "none"), ("consensus:loud", None), ("a:b:c", None)]:
+            with self.subTest(value=value):
+                self.assertEqual(module.consensus_log_level(value), level)
+
+    def test_observer_refusal_reports_the_failed_setting(self):
+        """START-10-6: the effective configuration, overrides included, must select the pinned JSON
+        format and let the consensus module emit Info and Error; the failed setting is reported."""
+        module = supervisor_module("etna_observer_refusal")
+        runtime = object.__new__(module.Supervisor)
+        runtime.comet_command = ["/cometbft", "start"]
+        for config, env, argv, refusal in [
+                ({}, {}, [], "log_format is ['plain']"),
+                ({"log_format": ["json"]}, {}, [], None),
+                ({"log_format": ["json"], "log_level": ["consensus:info,*:error"]}, {}, [], None),
+                ({"log_format": ["json"], "log_level": ["*:error"]}, {}, [], "does not emit the consensus module's Info"),
+                ({"log_format": ["json"], "log_level": ["consensus:error"]}, {}, [], "does not emit"),
+                ({"log_format": ["json"]}, {"CMT_LOG_FORMAT": "plain"}, [], "log_format is"),
+                ({"log_format": ["json"]}, {"CMT_LOG_LEVEL": "warn"}, [], "does not emit"),
+                ({"log_format": ["json"]}, {}, ["--log_level=error"], "argv sets --log_level"),
+                ({"log_format": ["json"]}, {}, ["--log_format", "plain"], "argv sets --log_format")]:
+            with self.subTest(config=config, env=env, argv=argv), patch.dict(os.environ, env):
+                for name in [name for name in os.environ if name.startswith("CMT") and name not in env]:
+                    os.environ.pop(name)
+                runtime.config_settings = config
+                runtime.comet_command = ["/cometbft", "start", *argv]
+                reason = runtime.observer_refusal()
+                if refusal is None:
+                    self.assertIsNone(reason)
+                else:
+                    self.assertIn(refusal, reason)
+
+    def test_log_observer_follows_replay_attempts_losslessly(self):
+        """Each record already written is consumed before a snapshot; Catchup opens an attempt,
+        Replay: Done ends it, corruption, repair and replay-error records cancel it and taint the
+        process, a second Catchup in one process taints it, other modules and malformed lines are
+        ignored, committed block hashes are kept, and the pipe's end taints too."""
+        module = supervisor_module("etna_log_observer")
+        read_end, write_end = os.pipe()
+        observer = module.LogObserver(read_end)
+        def emit(*records, raw=b""):
+            os.write(write_end, b"".join(json.dumps(record).encode() + b"\n" for record in records) + raw)
+        consensus = lambda message, **fields: dict(level="info", module="consensus", _msg=message, **fields)
+        with patch.object(module.LogObserver, "forward", staticmethod(lambda line: None)):
+            emit(consensus("finalizing commit of block", height=4, hash="ABCD"), dict(level="info", module="p2p", _msg="Catchup by replaying consensus messages", height=9), raw=b"not json\n")
+            self.assertEqual(observer.snapshot(), dict(attempt=0, open=False, height=0, tainted=False, repaired=False))
+            self.assertEqual(observer.committed_hash(4), "abcd")
+            emit(consensus("Catchup by replaying consensus messages", height=5))
+            self.assertEqual(observer.snapshot(), dict(attempt=1, open=True, height=5, tainted=False, repaired=False))
+            emit(consensus("Replay: Done"))
+            self.assertEqual(observer.snapshot()["open"], False)
+            emit(consensus("the WAL file is corrupted; attempting repair"), consensus("successful WAL repair"))
+            self.assertEqual(observer.snapshot(), dict(attempt=1, open=False, height=5, tainted=True, repaired=True))
+            emit(consensus("Catchup by replaying consensus messages", height=5))
+            self.assertEqual(observer.snapshot()["open"], False)
+        second_read, second_write = os.pipe()
+        other = module.LogObserver(second_read)
+        with patch.object(module.LogObserver, "forward", staticmethod(lambda line: None)):
+            os.write(second_write, json.dumps(consensus("error on catchup replay; proceeding to start state anyway")).encode() + b"\n")
+            self.assertEqual(other.snapshot()["tainted"], True)
+            os.close(second_write)
+            time.sleep(.3)
+            self.assertEqual(other.snapshot()["tainted"], True)
+        os.close(write_end)
 
     def test_explicit_command_prefix_preserves_arguments_without_shell(self):
         spec = importlib.util.spec_from_file_location("etna_command_supervisor", ROOT / "script/etna_validator.py")

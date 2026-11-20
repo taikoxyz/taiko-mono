@@ -1,6 +1,7 @@
 //! Fresh stores for a prepared generation: a new Comet home holding only its config, the
-//! original P2P key and the plan's genesis, and a new empty app directory. Install never reads,
-//! copies or creates a registered key, HRS or signing authority (RECOV-8.2-1..3).
+//! original P2P key, the plan's genesis and a fresh store instance ID, and a new empty app
+//! directory. Install never reads, copies or creates a registered key, HRS or signing authority
+//! (RECOV-8.2-1..3).
 use super::{
     RecoveryCommandError,
     plan::{RecoveryPlan, parent, read_bounded, sync_dir, write_new},
@@ -29,9 +30,10 @@ const HOME_DIRS: [&str; 3] = ["config", "data", "run"];
 /// is not absent or empty, since an earlier generation's latches and records must never count
 /// for the new one (RECOV-8-14/16, SYNC-9-5c), and a home holding anything but the exact files
 /// this install writes; create `home/{config,data,run}` and `app_dir` with mode 0700; write
-/// config.toml, node_key.json and, last, genesis.json with mode 0600, each through a temporary
-/// file, fsync and rename. genesis.json is the completion marker. Nothing is chowned: packaged
-/// deployments chown the home to the Comet UID afterwards.
+/// config.toml, node_key.json, a fresh store instance ID in `data/` (RECOV-8.2-2) and, last,
+/// genesis.json with mode 0600, each through a temporary file, fsync and rename. genesis.json is
+/// the completion marker; an interrupted install keeps the ID it already wrote. Nothing is
+/// chowned: packaged deployments chown the home to the Comet UID afterwards.
 pub fn install(
     plan: &RecoveryPlan,
     comet_config: &Path,
@@ -66,6 +68,8 @@ pub fn install(
     for (name, bytes) in contents {
         publish(&config_dir, name, bytes)?;
     }
+    crate::store_instance::ensure(&home.join("data"))
+        .map_err(|_| RecoveryCommandError::Io("store instance ID"))?;
     for dir in HOME_DIRS.iter().map(|name| home.join(name)).chain([home.to_path_buf()]) {
         sync_dir(&dir)?;
     }
@@ -133,8 +137,9 @@ fn check_fresh_app(app_dir: &Path) -> Result<(), RecoveryCommandError> {
     Ok(())
 }
 
-/// The home may only hold what an earlier run of this same install wrote: empty `data/` and
-/// `run/`, and in `config/` byte-identical final files or this install's temporary files.
+/// The home may only hold what an earlier run of this same install wrote: `data/` with at most
+/// its store instance ID (or that ID's temporary file), an empty `run/`, and in `config/`
+/// byte-identical final files or this install's temporary files.
 fn check_fresh_home(home: &Path, files: &[(&str, Vec<u8>)]) -> Result<(), RecoveryCommandError> {
     const FRESH: &str = "fresh Comet home";
     if !existing_dir(home, FRESH)? {
@@ -144,7 +149,12 @@ fn check_fresh_home(home: &Path, files: &[(&str, Vec<u8>)]) -> Result<(), Recove
         if !HOME_DIRS.contains(&name.as_str()) || !existing_dir(&home.join(&name), FRESH)? {
             return Err(RecoveryCommandError::Missing(FRESH));
         }
-        if name != "config" && !entries(&home.join(&name))?.is_empty() {
+        let own = |entry: &String| {
+            name == "data" &&
+                [crate::store_instance::FILE, crate::store_instance::TEMPORARY]
+                    .contains(&entry.as_str())
+        };
+        if name != "config" && !entries(&home.join(&name))?.iter().all(own) {
             return Err(RecoveryCommandError::Missing(FRESH));
         }
     }

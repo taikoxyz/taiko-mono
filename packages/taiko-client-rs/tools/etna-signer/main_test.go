@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"io/fs"
@@ -19,10 +20,21 @@ import (
 	tm "github.com/cometbft/cometbft/proto/tendermint/types"
 )
 
-// serveArgs are the full serve flags; the absent Comet and trust sockets keep a signer that
-// passed every startup check alive and retrying.
+// serveArgs are the full serve flags, the domains log last; the absent Comet, trust and
+// supervisor sockets keep a signer that passed every startup check alive and retrying.
 func serveArgs(key, state, log string) []string {
-	return []string{"--comet-signer-addr", "unix:///nonexistent-comet.sock", "--trust-socket", "/nonexistent-trust.sock", "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", log}
+	return []string{"--comet-signer-addr", "unix:///nonexistent-comet.sock", "--trust-socket", "/nonexistent-trust.sock", "--supervisor-socket", "/nonexistent-supervisor.sock", "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", log}
+}
+
+// writeSignedState writes chain's schema-2 state at path holding the stock last-sign state lss,
+// bound to testInstance.
+func writeSignedState(t *testing.T, path string, lss privval.FilePVLastSignState) {
+	t.Helper()
+	state := zeroState(chain)
+	state.Height, state.Round, state.Step, state.Signature, state.SignBytes, state.StoreInstance = lss.Height, lss.Round, lss.Step, lss.Signature, lss.SignBytes, testInstance
+	if err := os.WriteFile(path, state.encode(), 0600); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // runSigner runs the real binary to its exit and returns the exit code and stderr.
@@ -101,11 +113,28 @@ func TestServeRefusalMatrix(t *testing.T) {
 			}
 			key = native
 		}
-		pv := privval.NewFilePV(key, filepath.Join(t.TempDir(), "k.json"), l.state(chain))
+		pv := privval.NewFilePV(key, filepath.Join(t.TempDir(), "k.json"), filepath.Join(t.TempDir(), "s.json"))
 		request := voteRequest(tm.PrecommitType, 0, false)
 		if err := pv.SignVote(domain, request.GetSignVoteRequest().Vote); err != nil {
 			t.Fatal(err)
 		}
+		writeSignedState(t, l.state(chain), pv.LastSignState)
+	}
+	// schema2 is a schema-2 state for chain with fields replaced or added.
+	schema2 := func(changes map[string]any) string {
+		fields := map[string]any{"schema": 2, "chain_id": chain, "height": "0", "round": 0, "step": 0, "store_instance": "", "floor": "0", "replay": nil}
+		for key, value := range changes {
+			if value == nil {
+				delete(fields, key)
+			} else {
+				fields[key] = value
+			}
+		}
+		raw, err := json.Marshal(fields)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(raw)
 	}
 	for _, c := range []struct {
 		name   string
@@ -136,20 +165,42 @@ func TestServeRefusalMatrix(t *testing.T) {
 		{"chain-not-in-log", func(l stateLayout) []string {
 			os.Remove(l.state(chain))
 			write(l.log, domainsLogHeader+"\netna-other\n")
-			write(l.state("etna-other"), string(zeroHRS()))
+			write(l.state("etna-other"), string(zeroStateBytes("etna-other")))
 			return nil
 		}, 3, "not initialized"},
 		// An init-state interrupted before its log line leaves an unlogged zero state.
 		{"unlogged-state", func(l stateLayout) []string { write(l.log, domainsLogHeader+"\n"); return nil }, 3, "not initialized"},
 		{"logged-state-missing", func(l stateLayout) []string { os.Remove(l.state(chain)); return nil }, 3, "missing"},
 		{"logged-state-directory-missing", func(l stateLayout) []string { os.RemoveAll(l.hrs); return nil }, 3, "missing"},
-		{"hrs-unauthentic", func(l stateLayout) []string { write(l.state(chain), `{"height":"9","round":0,"step":3}`); return nil }, 3, "HRS"},
-		{"hrs-signed-by-another-key", func(l stateLayout) []string { signedFor(l, "other", chain); return nil }, 3, "HRS"},
-		{"hrs-signed-for-another-chain", func(l stateLayout) []string { signedFor(l, "own", "etna-other"); return nil }, 3, "HRS"},
-		{"hrs-ambiguous-duplicate-field", func(l stateLayout) []string {
-			write(l.state(chain), `{"height":"0","height":"0","round":0,"step":0}`)
+		// The stock FilePV state of earlier signers, and every other schema, is refused without
+		// migration.
+		{"stock-filepv-state", func(l stateLayout) []string { write(l.state(chain), `{"height":"0","round":0,"step":0}`); return nil }, 3, "no schema"},
+		{"other-schema", func(l stateLayout) []string { write(l.state(chain), schema2(map[string]any{"schema": 3})); return nil }, 3, "schema 3 is not 2"},
+		{"string-schema", func(l stateLayout) []string {
+			write(l.state(chain), schema2(map[string]any{"schema": "2"}))
 			return nil
-		}, 3, "HRS"},
+		}, 3, "is not 2"},
+		{"unknown-field", func(l stateLayout) []string { write(l.state(chain), schema2(map[string]any{"lock": "x"})); return nil }, 3, "unknown signer state field"},
+		{"missing-floor", func(l stateLayout) []string { write(l.state(chain), schema2(map[string]any{"floor": nil})); return nil }, 3, "missing signer state field"},
+		{"other-chain-id", func(l stateLayout) []string {
+			write(l.state(chain), schema2(map[string]any{"chain_id": "etna-other"}))
+			return nil
+		}, 3, "is for chain"},
+		{"invalid-store-instance", func(l stateLayout) []string {
+			write(l.state(chain), schema2(map[string]any{"store_instance": strings.ToUpper(testInstance)}))
+			return nil
+		}, 3, "invalid store instance"},
+		{"unsigned-with-floor", func(l stateLayout) []string { write(l.state(chain), schema2(map[string]any{"floor": "1"})); return nil }, 3, "no floor or replay"},
+		{"hrs-unauthentic", func(l stateLayout) []string {
+			write(l.state(chain), schema2(map[string]any{"height": "9", "step": 3, "store_instance": testInstance}))
+			return nil
+		}, 3, "unauthentic HRS"},
+		{"hrs-signed-by-another-key", func(l stateLayout) []string { signedFor(l, "other", chain); return nil }, 3, "unauthentic HRS"},
+		{"hrs-signed-for-another-chain", func(l stateLayout) []string { signedFor(l, "own", "etna-other"); return nil }, 3, "domain/height/round mismatch"},
+		{"hrs-ambiguous-duplicate-field", func(l stateLayout) []string {
+			write(l.state(chain), strings.Replace(schema2(nil), `"height":"0"`, `"height":"0","height":"0"`, 1))
+			return nil
+		}, 3, "duplicate"},
 		{"state-hardlinked", func(l stateLayout) []string {
 			if err := os.Link(l.state(chain), filepath.Join(t.TempDir(), chain+".json")); err != nil {
 				t.Fatal(err)
@@ -183,8 +234,13 @@ func TestServeRefusalMatrix(t *testing.T) {
 			return nil
 		}, 3, "signer-unsafe marker"},
 		{"missing-domains-log-flag", func(l stateLayout) []string {
-			return serveArgs(l.key, l.state(chain), l.log)[:10]
+			args := serveArgs(l.key, l.state(chain), l.log)
+			return args[:len(args)-2]
 		}, 1, "domains log"},
+		{"missing-supervisor-socket-flag", func(l stateLayout) []string {
+			args := serveArgs(l.key, l.state(chain), l.log)
+			return append(args[:4], args[6:]...)
+		}, 1, "sockets"},
 		{"key-owned", func(l stateLayout) []string { holdLock(t, l.key+".lock"); return nil }, 1, "another signer owns"},
 		{"state-owned", func(l stateLayout) []string { holdLock(t, l.state(chain)+".lock"); return nil }, 1, "another signer owns"},
 		{"state-named-for-another-chain", func(l stateLayout) []string {

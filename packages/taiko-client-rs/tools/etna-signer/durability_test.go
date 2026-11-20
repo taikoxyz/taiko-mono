@@ -39,7 +39,7 @@ func familyRequest(family string, conflict bool) pv.Message {
 }
 
 // signFamily signs one request directly on the durable FilePV and returns what the caller received.
-func signFamily(signer *durableFilePV, request pv.Message) ([]byte, error) {
+func signFamily(signer *guardedPV, request pv.Message) ([]byte, error) {
 	if vote := request.GetSignVoteRequest(); vote != nil {
 		err := signer.SignVote(chain, vote.Vote)
 		return append(append([]byte{}, vote.Vote.Signature...), vote.Vote.ExtensionSignature...), err
@@ -87,10 +87,10 @@ func readFence(t *testing.T, state string) fenceRecord {
 }
 
 // A signing step first makes an inflight marker naming this boot durable, its file and then
-// the directory, before stock FilePV writes; then it fsyncs the state file and its directory
-// after FilePV's synchronous write and rename, and removes the marker. That is four fsyncs, in
-// that order, and no fence (SYNC-9-13). A cached same-HRS retry is synchronized the same way,
-// since an earlier synchronization may have failed after FilePV updated its in-memory state.
+// the directory, before the state is written; then it fsyncs the written temporary state and,
+// after its rename, the directory, and removes the marker. That is four fsyncs, in that order,
+// and no fence (SYNC-9-13). A cached same-HRS retry fsyncs the state file and its directory the
+// same way, since an earlier synchronization may have failed.
 func TestSigningMakesTheMarkerDurableThenSyncsTheStateWithoutFence(t *testing.T) {
 	if bootID() == "" {
 		t.Fatal("no boot identity on this platform")
@@ -98,7 +98,7 @@ func TestSigningMakesTheMarkerDurableThenSyncsTheStateWithoutFence(t *testing.T)
 	for _, family := range signingFamilies {
 		t.Run(family, func(t *testing.T) {
 			_, key, state := filePV(t)
-			signer := loadDurableFilePV(key, state)
+			signer := reopen(t, key, state)
 			var order []string
 			marked := func(when string) {
 				if _, err := os.Lstat(fencePath(state)); !os.IsNotExist(err) {
@@ -122,7 +122,7 @@ func TestSigningMakesTheMarkerDurableThenSyncsTheStateWithoutFence(t *testing.T)
 			signer.syncDir = func(directory string) error {
 				marked("directory fsync")
 				if len(order) == 1 && !bytes.Equal(before, readFile(t, state)) {
-					t.Error("stock FilePV wrote between the marker's file and directory fsyncs")
+					t.Error("the state was written between the marker's file and directory fsyncs")
 				}
 				order = append(order, "directory")
 				if directory != filepath.Dir(state) {
@@ -164,14 +164,14 @@ func TestSigningMakesTheMarkerDurableThenSyncsTheStateWithoutFence(t *testing.T)
 	}
 }
 
-// A marker whose own fsync fails refuses the step before stock FilePV writes: the HRS is
+// A marker whose own fsync fails refuses the step before the state is written: the HRS is
 // unchanged and nothing is signed. The HRS volume is failing, so the signer latches and writes
 // the fence like any failed fsync (RECOV-8.2-3).
 func TestMarkerSyncFailureRefusesBeforeTheStateChanges(t *testing.T) {
 	for _, failing := range []string{"file", "directory"} {
 		t.Run(failing, func(t *testing.T) {
 			_, key, state := filePV(t)
-			signer := loadDurableFilePV(key, state)
+			signer := reopen(t, key, state)
 			if failing == "file" {
 				signer.syncFile = func(*os.File) error { return syscall.EIO }
 			} else {
@@ -183,12 +183,12 @@ func TestMarkerSyncFailureRefusesBeforeTheStateChanges(t *testing.T) {
 				t.Fatalf("failed marker fsync signed: %v", err)
 			}
 			if !bytes.Equal(before, readFile(t, state)) {
-				t.Fatal("stock FilePV wrote before the marker was durable")
+				t.Fatal("the state was written before the marker was durable")
 			}
 			if record := readFence(t, state); !strings.Contains(record.Error, "inflight marker") {
 				t.Fatalf("fence %+v", record)
 			}
-			if err := signer.signDurably(func() error { t.Error("stock signing ran after the latch"); return nil }); !errors.Is(err, errSigningStateUnsafe) {
+			if err := signer.durably(func() error { t.Error("stock signing ran after the latch"); return nil }); !errors.Is(err, errSigningStateUnsafe) {
 				t.Fatalf("latch: %v", err)
 			}
 		})
@@ -197,14 +197,15 @@ func TestMarkerSyncFailureRefusesBeforeTheStateChanges(t *testing.T) {
 
 // A failed state fsync makes the latest state uncertain (RECOV-8.2-3): the signature is
 // withheld, the fence records the cause, the in-memory latch refuses every later request
-// without reaching stock signing, and the gate reports the terminal error so the process
-// exits 3. A restart refuses on the fence; only an operator's removal of it lets a new
-// process resume, and that process keeps the stock HRS protection.
+// without reaching the HRS, and the gate reports the terminal error so the process exits 3. A
+// restart refuses on the fence; only an operator's removal of it lets a new process resume. The
+// failed write never replaced the state, so that process continues from the last durable HRS,
+// here the unsigned one, with the stock HRS protection.
 func TestStateSyncFailureWritesFenceLatchesAndStops(t *testing.T) {
 	for _, family := range signingFamilies {
 		t.Run(family, func(t *testing.T) {
 			_, key, state := filePV(t)
-			signer := loadDurableFilePV(key, state)
+			signer := reopen(t, key, state)
 			var files int
 			signer.syncFile = func(file *os.File) error {
 				if strings.HasSuffix(file.Name(), inflightSuffix) {
@@ -240,7 +241,7 @@ func TestStateSyncFailureWritesFenceLatchesAndStops(t *testing.T) {
 					t.Fatalf("latched signer signed (conflict %v): %v", conflict, err)
 				}
 			}
-			if err := signer.signDurably(func() error { t.Error("stock signing ran after the latch"); return nil }); !errors.Is(err, errSigningStateUnsafe) {
+			if err := signer.durably(func() error { t.Error("stock signing ran after the latch"); return nil }); !errors.Is(err, errSigningStateUnsafe) {
 				t.Fatalf("latch: %v", err)
 			}
 			if files != 1 {
@@ -265,12 +266,19 @@ func TestStateSyncFailureWritesFenceLatchesAndStops(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer release()
-			if signature, err := signFamily(restarted, familyRequest(family, true)); err == nil || !strings.Contains(err.Error(), "conflicting data") || len(signature) != 0 {
-				t.Fatalf("repaired restart lost double-sign protection: %v", err)
+			continued(restarted)
+			if restarted.state.signed() {
+				t.Fatal("the failed write replaced the state")
 			}
 			signature, err := signFamily(restarted, familyRequest(family, false))
 			persisted := privval.LoadFilePV(key, state).LastSignState
 			if err != nil || len(signature) < 65 || !bytes.Equal(signature[:65], persisted.Signature) || persisted.Height != 1 {
+				t.Fatalf("repaired restart did not sign from the durable HRS: %v", err)
+			}
+			if signature, err := signFamily(restarted, familyRequest(family, true)); err == nil || !strings.Contains(err.Error(), "conflicting data") || len(signature) != 0 {
+				t.Fatalf("repaired restart lost double-sign protection: %v", err)
+			}
+			if again, err := signFamily(restarted, familyRequest(family, false)); err != nil || !bytes.Equal(again[:65], signature[:65]) {
 				t.Fatalf("repaired restart did not return the stored signature: %v", err)
 			}
 		})
@@ -324,6 +332,7 @@ func TestInflightMarkerRefusesOnlyTheSameBoot(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer release()
+			continued(signer)
 			if _, err := os.Lstat(inflightPath(state)); !os.IsNotExist(err) {
 				t.Fatalf("startup kept the stale marker: %v", err)
 			}
@@ -343,7 +352,7 @@ func TestInflightMarkerRefusesOnlyTheSameBoot(t *testing.T) {
 	// restart then refuses the inode left at the marker's path (refuseInflight).
 	t.Run("uncreatable", func(t *testing.T) {
 		_, key, state := filePV(t)
-		signer := loadDurableFilePV(key, state)
+		signer := reopen(t, key, state)
 		if err := os.Mkdir(inflightPath(state), 0700); err != nil {
 			t.Fatal(err)
 		}
@@ -359,7 +368,7 @@ func TestInflightMarkerRefusesOnlyTheSameBoot(t *testing.T) {
 			t.Fatalf("panic %v", recovered)
 		}
 		if !bytes.Equal(before, readFile(t, state)) {
-			t.Fatal("stock FilePV wrote without a marker")
+			t.Fatal("the state was written without a marker")
 		}
 		if _, err := os.Lstat(fencePath(state)); !os.IsNotExist(err) {
 			t.Fatalf("an unwritten marker wrote a fence: %v", err)
@@ -376,12 +385,12 @@ func TestInflightMarkerRefusesOnlyTheSameBoot(t *testing.T) {
 // 2 without a fence and the supervisor's restart on this boot serves the unchanged HRS.
 func TestStockPanicRemovesTheMarkerSoTheRestartServes(t *testing.T) {
 	_, key, state := filePV(t)
-	signer := loadDurableFilePV(key, state)
+	signer := reopen(t, key, state)
 	before := readFile(t, state)
 	var recovered any
 	func() {
 		defer func() { recovered = recover() }()
-		signer.signDurably(func() error {
+		signer.durably(func() error {
 			if marker, err := os.ReadFile(inflightPath(state)); err != nil || string(marker) != bootID()+"\n" {
 				t.Errorf("stock signing ran without this boot's durable marker: %q %v", marker, err)
 			}
@@ -406,6 +415,7 @@ func TestStockPanicRemovesTheMarkerSoTheRestartServes(t *testing.T) {
 		t.Fatalf("the restart after a stock panic refused: %v", err)
 	}
 	defer release()
+	continued(restarted)
 	if signature, err := signFamily(restarted, familyRequest("prevote", false)); err != nil || len(signature) != 65 {
 		t.Fatalf("the restart did not sign: %v", err)
 	}
@@ -457,8 +467,8 @@ func serveDirectly(t *testing.T, listener net.Listener, logs *os.File, args []st
 	return child, conn
 }
 
-// The state directory stays writable and searchable, so stock FilePV replaces its HRS file,
-// but opening the directory for fsync fails. The serving process withholds the signature,
+// The state directory stays writable and searchable, so the state file could be replaced, but
+// opening the directory for fsync fails. The serving process withholds the signature,
 // writes the fence and exits 3; a restart exits 3 on the fence and leaves the HRS unchanged
 // (RECOV-8.2-3, SYNC-9-13).
 func TestFsyncFailureExitsThreeAndFenceRefusesRestart(t *testing.T) {
@@ -475,7 +485,7 @@ func TestFsyncFailureExitsThreeAndFenceRefusesRestart(t *testing.T) {
 			directory := filepath.Dir(state)
 			trust := control(t, func(request map[string]any) any { return snapshot(request["op"] != "begin_session") })
 			socket := filepath.Join(shortTemp(t), "comet.sock")
-			args := []string{"--comet-signer-addr", "unix://" + socket, "--trust-socket", trust, "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", domainsLogOf(state)}
+			args := []string{"--comet-signer-addr", "unix://" + socket, "--trust-socket", trust, "--supervisor-socket", serveSupervisor(t, reportsComet(testInstance)), "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", domainsLogOf(state)}
 			child, conn := serveDirectly(t, listenComet(t, socket), signerLogs(t), args)
 			if err = os.Chmod(directory, 0300); err != nil {
 				t.Fatal(err)
@@ -528,7 +538,7 @@ func TestFsyncFailureExitsThreeAndFenceRefusesRestart(t *testing.T) {
 	}
 }
 
-// SYNC-9-13 through the gate and the durable stock FilePV, for votes and proposals: the HRS,
+// SYNC-9-13 through the gate and the guarded signer's stock HRS rules, for votes and proposals: the HRS,
 // canonical sign bytes and signature are on disk when the reply is released; at equal HRS an
 // identical request returns the saved signature, and a stock timestamp-only retry gets the
 // original timestamp restored with that signature; any other conflict at that HRS and every
@@ -538,7 +548,7 @@ func TestPersistedSignatureAndRetrySemantics(t *testing.T) {
 	eligible.Store(3)
 	g := armed(control(t, func(map[string]any) any { return snapshotAt(true, eligible.Load()) }))
 	_, key, state := filePV(t)
-	signer := loadDurableFilePV(key, state)
+	signer := reopen(t, key, state)
 	sign := func(request pv.Message) (pv.Message, error) {
 		t.Helper()
 		return g.handle(signer, request, chain)

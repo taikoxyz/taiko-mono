@@ -142,6 +142,30 @@ stop time, at any height; governance recovery clears the stop. Recovery preparat
 refuses rules it cannot implement at R. Rules scheduled after R do not change that fixed
 recovery origin.
 
+A validator that upgrades during a pause at an undecided height H follows RECOV-8.2-2's
+precommit procedure (START-10.1-14b), so that the old software's last vote at H is a precommit
+the upgraded node can confirm on replay:
+
+1. With the supervisor running, and the same environment, run `python3
+   script/etna_validator.py stop-on-precommit` (`--timeout S`, 600 s by default). It writes
+   `stop-on-precommit` into the supervisor's run directory. The supervisor arms the signer through
+   its channel: the signer keeps signing prevotes, persists and returns its next precommit (nil or
+   block) as its last signature and then refuses every later request; if its last signature
+   already is a precommit, the gate closes at once under the same signing lock. Once the signer
+   reports the closing precommit, the supervisor waits 2 s for Comet to record and send it, stops
+   Comet and then the signer, writes the outcome to `stop-on-precommit.done` and stays alive and
+   quiescent (`etna_supervisor_stopped_for_upgrade`). The command prints that outcome, for example
+   `{"stopped": true, "height": 1205, "round": 3}`, and exits 0; on its timeout it exits 1 and the
+   stop stays armed until the supervisor restarts.
+2. Stop the supervisor, install the upgraded app, signer and supervisor, and start them again
+   with the same stores, WAL and signer state. Never reset the signer state.
+3. On restart, the replay of H refuses any prevote that conflicts with the saved precommit or is
+   below it, and confirms the saved precommit when stock asks for it again (its timestamp-only
+   retry included); only then does it sign higher steps at H. This needs the log observer and an
+   eligible replay ([same-height replay](tools/etna-signer/README.md#same-height-replay)). If the
+   precommit cannot be confirmed, H stays fenced and the validator signs again above H once its
+   node has committed H.
+
 The ABCI app supports new networks with Etna start S = 0 and authenticated nonzero starts
 through [the restored Unzen driver handoff](docs/unzen-etna-handoff.md). The standalone lander
 lands batches ending at any height above S, with committee 0 bootstrap and first-landing switch
@@ -628,10 +652,33 @@ committing those values to the Inbox.
      bash script/start_etna_validator.sh
    ```
 
-   The signer serves only `<ETNA_PRIV_STATE_DIR>/<ETNA_CHAIN_ID>.json`, one stock HRS per full
-   chain_id, and refuses with exit 3 a missing or malformed domains log, a chain_id the log does
-   not list, a logged chain_id whose state is missing and an unauthentic or ambiguous HRS
-   (RECOV-8.2-1..3); see [the signer README](tools/etna-signer/README.md#refusal-matrix-and-exit-codes).
+   The signer serves only `<ETNA_PRIV_STATE_DIR>/<ETNA_CHAIN_ID>.json`, one schema-2 signer state
+   per full chain_id (the stock HRS fields plus its store binding and height floor), and refuses
+   with exit 3 a missing or malformed domains log, a chain_id the log does not list, a logged
+   chain_id whose state is missing, the stock FilePV state of earlier signers and an unauthentic or
+   ambiguous HRS (RECOV-8.2-1..3); see [the signer README](tools/etna-signer/README.md#refusal-matrix-and-exit-codes).
+
+   The supervisor serves the signer's private channel at `<run>/signer.sock` in its run directory,
+   `ETNA_SUPERVISOR_RUN_DIR` (default `<app-store>/supervisor`, created mode 0700 and refused if
+   another UID owns it, it is open to others or it is a symlink), and tells the signer, on every
+   Comet connection, which Comet process it started and the store instance ID in
+   `<comet-home>/data/etna-store-instance`, which it writes fresh for a home without one. The
+   signer binds its key to that ID and, for a key that signed at H, fences H with a durable floor
+   of H + 1 whenever continuity with the last decision is not established: a rebuilt or imported
+   home, a changed ID, and a restarted Comet whose replay of H cannot be confirmed (RECOV-8.2-2;
+   [Store binding and the height floor](tools/etna-signer/README.md#store-binding-and-the-height-floor)).
+   Never copy that file between homes or restore it with an older database.
+
+   A restarted pair can resume at an undecided height only through a confirmed [same-height
+   replay](tools/etna-signer/README.md#same-height-replay), and only when the supervisor can follow
+   Comet's replay: set `log_format = "json"` in config.toml, keep the consensus module at Info
+   (`log_level = "info"`, the stock default, or for example `consensus:info,*:error`) and use
+   goleveldb stores. The supervisor then gives Comet's stdout a pipe it owns and forwards every
+   line to its own stdout, and before every start runs `etna-signer wal-preflight` and
+   `comet-head` as the Comet UID against the stopped stores and WAL. With another log
+   configuration it reports `etna_supervisor_log_observer_disabled` at startup and every restart
+   fences the last signed height: a restart of every validator at the same undecided height then
+   stalls that height until governance recovery.
 
    The host supervisor requires Bash and Python 3.11+ (`tomllib`); the production image
    includes Python, the signer, this supervisor and stock Comet v0.40.0 (source
@@ -698,7 +745,7 @@ committing those values to the Inbox.
    the request's height as `eligible_height`, the one height the app admits (SYNC-9-10); the app
    reports `ready` only after its checkpoint and InitChain checks. Unavailable or malformed
    control, a closed or halted phase, a stale session and another height deny signing without
-   touching FilePV; a pending decision is held for at most 3.5 s. The helper locks the existing
+   touching the HRS; a pending decision is held for at most 3.5 s. The helper locks the existing
    state against a second helper process. No local signing fallback exists in the validator
    startup recipe.
 

@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -356,13 +357,16 @@ func heightVote(typ tm.SignedMsgType, height int64, block byte) pv.Message {
 // (SYNC-9-14). The supervisor reaps the dead signer and Comet, then starts a new real signer on
 // the same state path together with Comet; the signer reconnects over Noise with a fresh closed
 // session (SYNC-9-12). The new signer holds the key and state flocks, so the old one released
-// them (RECOV-8.2-2), and stock FilePV continues from the HRS on disk (RECOV-8.2-1, SYNC-9-13):
-//   - sigkill: SIGKILL after a released prevote. The identical prevote returns the same
-//     signature; another block at that HRS is conflicting data; a lower height is refused.
+// them (RECOV-8.2-2), and it continues from the signer state on disk (RECOV-8.2-1, SYNC-9-13).
+// The restarted Comet is a new process on the same store instance, and this home has no WAL
+// that could replay the last signed height, so the new session takes the durable floor H + 1
+// before it is admitted (RECOV-8.2-2): every request at H5 is refused, and H6 signs once the
+// app makes it eligible.
+//   - sigkill: SIGKILL after a released prevote.
 //   - write-panic (exit 2): the state directory loses write permission, so the signer cannot
-//     create the precommit's inflight marker and panics, as a failed stock write does, before
-//     any fsync, stock write or signature. The HRS on disk is unchanged; after the restart the
-//     precommit signs once, and another block at that HRS is refused.
+//     create the precommit's inflight marker and panics, as a failed write does, before any
+//     fsync, write or signature. The state on disk is unchanged, and the withheld precommit at
+//     H5 stays refused after the restart.
 func TestSupervisorRestartsCrashedSignerFromItsHRS(t *testing.T) {
 	python, err := exec.LookPath("python3")
 	if err != nil {
@@ -375,7 +379,9 @@ func TestSupervisorRestartsCrashedSignerFromItsHRS(t *testing.T) {
 				t.Skip("root bypasses the directory-write permission fault")
 			}
 			_, key, state := filePV(t)
-			controlPath := control(t, func(request map[string]any) any { return snapshotAt(request["op"] != "begin_session", 5) })
+			var eligible atomic.Uint64
+			eligible.Store(5)
+			controlPath := control(t, func(request map[string]any) any { return snapshotAt(request["op"] != "begin_session", eligible.Load()) })
 			root := shortTemp(t)
 			home, store := filepath.Join(root, "comet"), filepath.Join(root, "app")
 			for _, path := range []string{filepath.Join(home, "config"), store} {
@@ -488,21 +494,16 @@ func TestSupervisorRestartsCrashedSignerFromItsHRS(t *testing.T) {
 					t.Fatalf("restarted signer did not refuse with %q: %v", reason, remote)
 				}
 			}
-			if crash == "sigkill" {
-				if again, remote := released(signerExchange(t, conn, heightVote(tm.PrevoteType, 5, 1))); remote != nil || !bytes.Equal(again, sigA) {
-					t.Fatalf("restart did not return the stored prevote signature: %v", remote)
-				}
-				refused(heightVote(tm.PrevoteType, 5, 3), "conflicting data")
-			} else {
-				if signature, remote := released(signerExchange(t, conn, heightVote(tm.PrecommitType, 5, 1))); remote != nil || len(signature) == 0 {
-					t.Fatalf("restart did not sign the precommit the panic withheld: %v", remote)
-				}
-				refused(heightVote(tm.PrecommitType, 5, 3), "conflicting data")
-				refused(heightVote(tm.PrevoteType, 5, 1), "step regression")
+			for _, request := range []pv.Message{heightVote(tm.PrevoteType, 5, 1), heightVote(tm.PrevoteType, 5, 3), heightVote(tm.PrecommitType, 5, 1), heightVote(tm.PrecommitType, 5, 0)} {
+				refused(request, "durable floor")
 			}
 			refused(heightVote(tm.PrevoteType, 4, 1), "not the eligible height 5")
-			if persisted := privval.LoadFilePV(key, state).LastSignState; persisted.Height != 5 {
-				t.Fatalf("persisted HRS height %d", persisted.Height)
+			if persisted := privval.LoadFilePV(key, state).LastSignState; persisted.Height != 5 || persisted.Step != 2 || !bytes.Equal(persisted.Signature, sigA) {
+				t.Fatalf("persisted HRS %d/%d", persisted.Height, persisted.Step)
+			}
+			eligible.Store(6)
+			if signature, remote := released(signerExchange(t, conn, heightVote(tm.PrecommitType, 6, 1))); remote != nil || len(signature) == 0 {
+				t.Fatalf("restart did not sign above its floor: %v", remote)
 			}
 			if len(lines(pids)) != 2 {
 				t.Fatalf("the restarted signer did not keep the flocks: %q", lines(pids))

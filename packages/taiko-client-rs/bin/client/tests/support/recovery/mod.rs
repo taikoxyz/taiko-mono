@@ -433,8 +433,8 @@ impl Commands {
 
 /// The runbook's signer step for a new generation (RECOV-8.2-1/8.2-5): `etna-signer init-state`
 /// for the new chain_id with the same key, state directory and domains log, the old signer
-/// stopped. It adds exactly the new chain's zero HRS and log line; every earlier HRS keeps its
-/// bytes and is never reused.
+/// stopped. It adds exactly the new chain's unsigned schema-2 state and log line; every earlier
+/// state keeps its bytes and is never reused.
 pub fn init_signer_state(key_dir: &Path, chain_id: &str) -> Result<()> {
     let log = test_harness::signer_domains_log(key_dir);
     let hrs = key_dir.join("hrs");
@@ -445,7 +445,11 @@ pub fn init_signer_state(key_dir: &Path, chain_id: &str) -> Result<()> {
     ensure!(fs::read(&log)? == expected, "init-state appends exactly the new chain_id");
     let created = test_harness::signer_hrs(key_dir, chain_id);
     let zero: Value = serde_json::from_slice(&fs::read(&created)?)?;
-    ensure!(zero == serde_json::json!({"height": "0", "round": 0, "step": 0}), "{zero}");
+    let unsigned = serde_json::json!({
+        "schema": 2, "chain_id": chain_id, "height": "0", "round": 0, "step": 0,
+        "store_instance": "", "floor": "0", "replay": null
+    });
+    ensure!(zero == unsigned, "{zero}");
     let mut states_after = snapshot(&[&hrs])?;
     states_after.retain(|(path, _)| *path != created);
     ensure!(states_after == states_before, "init-state changed an earlier generation's HRS");

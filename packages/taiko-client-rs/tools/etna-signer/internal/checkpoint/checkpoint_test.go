@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -208,6 +209,31 @@ func loadState(t *testing.T, home string) sm.State {
 		t.Fatal(err)
 	}
 	return s
+}
+
+// Every install gives its new stores a fresh store instance ID (RECOV-8.2-2): 32 lowercase hex
+// characters and a newline, mode 0600, never the same twice.
+func TestInstallWritesAFreshStoreInstance(t *testing.T) {
+	p, term, _ := fixture(t)
+	seen := map[string]bool{}
+	for range 2 {
+		home, _ := install(t, p, term)
+		path := filepath.Join(home, "data", StoreInstanceFile)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !regexp.MustCompile(`^[0-9a-f]{32}\n$`).Match(raw) || seen[string(raw)] {
+			t.Fatalf("store instance %q", raw)
+		}
+		seen[string(raw)] = true
+		if info, err := os.Lstat(path); err != nil || info.Mode().Perm() != 0600 {
+			t.Fatalf("store instance mode: %v %v", info, err)
+		}
+		if leftovers, _ := filepath.Glob(filepath.Join(home, "data", ".*tmp")); len(leftovers) != 0 {
+			t.Fatalf("temporary files left: %v", leftovers)
+		}
+	}
 }
 
 // The helper reports the installed terminal and installs the DATA-5.4-4 post-s state.

@@ -1,7 +1,8 @@
 //! Offline checkpoint import (DATA-5.4-5): authenticate a package against own finalized L1,
 //! install fresh app, stock Comet and EL stores in a private stage, then publish them together by
 //! one rename. The import never reads or writes signer files, and completion alone grants no
-//! signing authority (DATA-5.4-7): the published stores run as ordinary ones.
+//! signing authority (DATA-5.4-7): the published stores run as ordinary ones, under a fresh store
+//! instance ID, so a signer that signed elsewhere fences its last signed height (RECOV-8.2-2).
 //!
 //! Root layout:
 //! - `ROOT/import.lock`: the one flock. `import` holds it and its helper children inherit it.
@@ -319,6 +320,8 @@ pub async fn import(own: &Own, inputs: &Inputs, root: &Path) -> R<Value> {
         )?;
     }
     mkdir(&comet.join("run"))?;
+    // New stores: a fresh instance ID, replacing the one the stock helper wrote (RECOV-8.2-2).
+    crate::store_instance::write_fresh(&comet.join("data")).map_err(io)?;
     write_new(&comet.join("config/config.toml"), &config)?;
     mkdir(&stage.join("scratch"))?;
     let manifest = latch(root, helpers::Manifest::new(&params, &v))?;

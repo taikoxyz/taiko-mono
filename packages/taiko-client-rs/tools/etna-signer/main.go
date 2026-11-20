@@ -1,6 +1,7 @@
-// etna-signer delegates signing and anti-double-sign persistence to CometBFT's
-// pinned FilePV, authorizing each signature against the local app trust session. It serves
-// one full chain_id from that chain's own HRS state, which init-state created and logged.
+// etna-signer signs with stock FilePV's HRS rules over its own schema-2 signer state, authorizing
+// each signature against the local app trust session and the supervisor's continuity checks
+// (RECOV-8.2-2). It serves one full chain_id from that chain's own state, which init-state created
+// and logged.
 package main
 
 import (
@@ -20,8 +21,8 @@ import (
 	"github.com/cometbft/cometbft/types"
 )
 
-// Resolve directory and file symlinks before both owner locking and FilePV loading.
-// FilePV atomically replaces the state path, so loading via an alias would fork HRS.
+// Resolve directory and file symlinks before both owner locking and state loading.
+// Every write atomically replaces the state path, so loading via an alias would fork HRS.
 func existingFile(path string) (string, error) {
 	absolute, err := filepath.Abs(path)
 	if err != nil {
@@ -41,7 +42,7 @@ func existingFile(path string) (string, error) {
 	return canonical, nil
 }
 
-// Hard links cannot be canonicalized to a unique pathname and FilePV's atomic
+// Hard links cannot be canonicalized to a unique pathname and the state's atomic
 // replacement would split them. Refuse this configuration without changing it.
 func singleLinkState(path string) error {
 	info, err := os.Stat(path)
@@ -75,11 +76,18 @@ func run() error {
 			return initStateCommand(os.Args[2:])
 		case "transport-keygen":
 			return transportKeygen(os.Args[2:], os.Stdout)
+		case "wal-binding":
+			return walBindingCommand(os.Args[2:], os.Stdout)
+		case "wal-preflight":
+			return walPreflightCommand(os.Args[2:], os.Stdout)
+		case "comet-head":
+			return cometHeadCommand(os.Args[2:], os.Stdout)
 		}
 	}
 	addr := flag.String("comet-signer-addr", "", "Comet's signer listener: unix://<path> or noise://<comet-node-peer-id>@<ip>:<port>; bare tcp:// is refused")
 	transportKey := flag.String("transport-key", "", "the signer's persistent Ed25519 Noise transport key (transport-keygen), required for noise:// and refused for unix://")
 	control := flag.String("trust-socket", "", "private <app-store>/checkpoint-trust.sock")
+	supervisorSocket := flag.String("supervisor-socket", "", "the supervisor's private channel socket; only the process that started this signer may serve it")
 	chain := flag.String("chain-id", "", "verified full Comet chain ID; the signer serves only this signing domain")
 	key := flag.String("priv-key", "", "existing registered Comet FilePV private key")
 	state := flag.String("priv-state", "", "existing <state-dir>/<chain-id>.json HRS that init-state created (never reset)")
@@ -87,8 +95,8 @@ func run() error {
 	denial := flag.String("denial-file", "", "private atomic refusal event file for the local supervisor")
 	timeout := flag.Duration("trust-timeout", time.Second, "per-query private control deadline (0 < timeout <= 2s); a signing request's whole trust decision takes at most 3.5s")
 	flag.Parse()
-	if flag.NArg() != 0 || *addr == "" || *control == "" || *chain == "" || *key == "" || *state == "" || *domains == "" || !validTrustTimeout(*timeout) {
-		return errors.New("all addresses, chain ID, existing key/state paths and the domains log are required; timeout must be in (0,2s]")
+	if flag.NArg() != 0 || *addr == "" || *control == "" || *supervisorSocket == "" || *chain == "" || *key == "" || *state == "" || *domains == "" || !validTrustTimeout(*timeout) {
+		return errors.New("all addresses and sockets, chain ID, existing key/state paths and the domains log are required; timeout must be in (0,2s]")
 	}
 	signer, release, err := openSigningState(*chain, *key, *state, *domains)
 	if err != nil {
@@ -100,7 +108,11 @@ func run() error {
 		return err
 	}
 	logger := log.NewTMLogger(log.NewSyncWriter(os.Stderr))
+	signer.logger = logger
 	gate := newGate(*control, *timeout)
+	// The supervisor that started this signer is its parent; a later parent, after it died, is
+	// not trusted.
+	gate.supervisor = newSupervisorChannel(*supervisorSocket, os.Getppid())
 	gate.hold = signingHold
 	gate.denialPath = *denial
 	gate.authorized = func(r *trustResponse) {
@@ -115,6 +127,7 @@ func run() error {
 	if err := server.Start(); err != nil {
 		return err
 	}
+	go gate.pollStop(signer, 250*time.Millisecond)
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(signals)

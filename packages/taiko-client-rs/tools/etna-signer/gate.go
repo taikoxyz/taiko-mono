@@ -58,7 +58,7 @@ var errTrustPending = errors.New("checkpoint trust pending")
 // Comet replays after a refusal, waits for that session's check instead of being refused at
 // once (SYNC-9-12). A refusal reaches Comet well before its fixed 5 s signer read timeout,
 // after which Comet would retry the request instead of giving up on it (SYNC-9-11), and an
-// authorized step keeps 1.5 s for FilePV's four fsyncs.
+// authorized step keeps 1.5 s for its four fsyncs.
 const signingHold = 3500 * time.Millisecond
 
 // trustPoll is the pause between two trust rounds of one held signing request.
@@ -69,8 +69,13 @@ type gate struct {
 	timeout time.Duration
 	// hold is the trust decision budget of one signing request; zero makes one round of at
 	// most two queries, each bounded by timeout.
-	hold        time.Duration
-	session     atomic.Pointer[string]
+	hold    time.Duration
+	session atomic.Pointer[string]
+	// conn is the current Comet transport and the Comet process its session was admitted for.
+	conn atomic.Pointer[cometConn]
+	// supervisor reports which Comet process the supervisor started, and on which store
+	// instance, over the authenticated supervisor channel (RECOV-8.2-2).
+	supervisor  supervisorClient
 	authorized  func(*trustResponse)
 	unavailable func(error)
 	denialPath  string
@@ -205,7 +210,7 @@ func uniqueJSON(d *json.Decoder) error {
 // app's only readiness field: every value other than the exact string "ready" refuses
 // (SYNC-9-10/9-11). A halted app and another chain_id are final; another closed phase, and a
 // null chain_id before InitChain, are pending. A ready reply admits only its eligible height,
-// and any other height is refused before FilePV changes the HRS (SYNC-9-10). The session is
+// and any other height is refused before the HRS can change (SYNC-9-10). The session is
 // matched by the caller.
 func verdict(r *trustResponse, chain string, height int64) error {
 	reason := ""
@@ -227,10 +232,12 @@ func verdict(r *trustResponse, chain string, height int64) error {
 	return nil
 }
 
-// authorize decides one signing request at height within the gate's hold: it repeats trust
-// rounds while the decision is pending and time remains, and returns the first final answer.
-// Without a hold it makes one round of at most two queries.
-func (g *gate) authorize(chain string, height int64) error {
+// authorize decides one signing request at height within the gate's hold: it repeats rounds
+// while the decision is pending and time remains, and returns the first final answer. A round is
+// the session's trust check and then its continuity admission (admitSession). Without a hold it
+// makes one round. It returns the decision's deadline, which also bounds what the request still
+// asks the supervisor.
+func (g *gate) authorize(signer types.PrivValidator, chain string, height int64) (time.Time, error) {
 	budget := g.hold
 	if budget <= 0 {
 		budget = 2 * g.timeout
@@ -238,8 +245,11 @@ func (g *gate) authorize(chain string, height int64) error {
 	deadline := time.Now().Add(budget)
 	for {
 		err := g.check(chain, height, deadline)
+		if err == nil {
+			err = g.admitSession(signer, deadline)
+		}
 		if err == nil || g.hold <= 0 || !errors.Is(err, errTrustPending) || time.Until(deadline) <= trustPoll || g.isStopping() {
-			return err
+			return deadline, err
 		}
 		time.Sleep(trustPoll)
 	}
@@ -346,8 +356,8 @@ func (g *gate) begin(deadline time.Time) (string, error) {
 	return response.SessionID, nil
 }
 
-// dialer connects to Comet promptly and begins the connection's own closed session before
-// exposing it, so Comet's first GetPubKey, which has only its 3 s accept and 5 s read timeouts,
+// dialer connects to Comet promptly, records the transport's peer for the session's continuity
+// admission, and begins the connection's own closed session before exposing it, so Comet's first GetPubKey, which has only its 3 s accept and 5 s read timeouts,
 // is answered even when trust can return only after Comet has synced (START-10-6, SYNC-9-12).
 // PubKey and Ping never wait for trust. If the app cannot begin a session now, the connection
 // is exposed without one and its first signing request begins it; the empty session published
@@ -360,10 +370,12 @@ func (g *gate) dialer(base privval.SocketDialer) privval.SocketDialer {
 			return nil, errors.New("signer stopped")
 		}
 		g.session.Store(nil)
+		g.conn.Store(nil)
 		conn, err := base()
 		if err != nil {
 			return nil, err
 		}
+		g.conn.Store(newCometConn(conn))
 		conn, err = g.trackTransport(conn)
 		if err != nil {
 			return nil, err
@@ -424,10 +436,25 @@ func (g *gate) handle(signer types.PrivValidator, req pv.Message, chain string) 
 			// created; a recovered generation is another chain_id with another state
 			// (RECOV-8.2-1/8.2-5). So the request's chain, matched above, and this fresh
 			// check of the session and eligible height bind every signature to that state
-			// (RECOV-8.2-4, SYNC-9-10).
-			err = g.authorize(chain, height)
+			// (RECOV-8.2-4, SYNC-9-10); the session's continuity admission binds it to the
+			// supervisor's Comet process and store instance (RECOV-8.2-2).
+			var deadline time.Time
+			if deadline, err = g.authorize(signer, chain, height); err == nil {
+				if pv, ok := signer.(continuitySigner); ok {
+					var request requestContext
+					if request, err = g.requestFor(pv, height, deadline); err == nil {
+						pv.setRequest(request)
+						defer pv.setRequest(requestContext{})
+					}
+				}
+			}
 		}
 		if err != nil {
+			// A refusal before the signer state is consulted: a session in same-height replay
+			// keeps the height closed without fencing it, as a guarded restart retries it.
+			if pv, ok := signer.(continuitySigner); ok && !invalid {
+				pv.refusedAt(height)
+			}
 			if !g.stopIfUncertain(err) {
 				g.publishObservation(true)
 			}
@@ -443,5 +470,10 @@ func (g *gate) handle(signer types.PrivValidator, req pv.Message, chain string) 
 	}
 	response, err := privval.DefaultValidationRequestHandler(signer, req, chain)
 	g.stopIfUncertain(err)
+	if pv, ok := signer.(continuitySigner); ok && signing {
+		if closed, height, round := pv.stoppedAfter(); closed {
+			g.reportStop(height, round, time.Now().Add(time.Second))
+		}
+	}
 	return response, err
 }
