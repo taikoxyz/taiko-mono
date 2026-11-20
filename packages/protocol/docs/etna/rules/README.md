@@ -69,7 +69,7 @@ The governed line is unchanged. Rules for this mode (`code-before`):
 - The statement carrying the ID is the **full line, including its original indentation**, and that exact line must occur once in the file. A partial match puts the marker in the wrong place.
 - The marker is inserted as a new line `<indent>// [ID]` immediately above it, using the target line's indentation. It covers that line and the lines after it, up to the next blank line or the next marker (see [How far an ID extends](#how-far-an-id-extends)).
 - One ID per line. Do not place IDs in example or illustrative blocks - only in definition blocks whose lines state requirements.
-- A fenced block that carries no IDs remains non-normative.
+- A fenced block that carries no IDs remains non-normative, unless a numbered rule outside the block says its content binds, as LAND-6.1-10 does for the checks of the `land` reference.
 
 Why not restructure the blocks into tables now: that is a change to the specification's form, not its content, and belongs to the owner as a separate decision. It is recorded as a question in [review/A.md](review/A.md).
 

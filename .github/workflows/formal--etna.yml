@@ -1,0 +1,111 @@
+name: Etna formal verification
+
+# Spec documents are deliberately not trigger paths: a docs-only pull request must not fail on
+# the formal package's authority pins. Spec drift surfaces in the next formal pull request (its
+# merge commit contains the new spec) and in the nightly full suite (formal--etna-full.yml).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "formal/etna/**"
+      - "testdata/etna_current_conformance/**"
+      - ".github/workflows/formal--etna.yml"
+  push:
+    branches: [main]
+    paths:
+      - "formal/etna/**"
+      - "testdata/etna_current_conformance/**"
+      - ".github/workflows/formal--etna.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: etna-formal-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  LEAN_VERSION: "4.35.0"
+  LEAN_SHA256: "7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d"
+
+jobs:
+  etna-formal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: formal/etna
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Before any Lean/Lake runs: no build-time code, foreign imports or extra targets.
+      - name: Lint Lean sources and package configuration
+        run: python3 scripts/lint_sources.py
+      # Model/Statements hold no proofs; imports only point down Witnesses -> Proofs -> Statements -> Model.
+      - name: Check the library import graph
+        run: python3 scripts/check_imports.py
+      # Review the pinned authority bytes and exact rule evidence before expensive builds.
+      - name: Check reviewed authorities and exact rule evidence
+        run: |
+          python3 scripts/check_spec_coverage.py
+          python3 scripts/rule_coverage.py --check
+      - name: Install exact Lean toolchain
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          etna_tools="${RUNNER_TEMP}/etna-lean"
+          archive="lean-${LEAN_VERSION}-linux.tar.zst"
+          mkdir -p "$etna_tools"
+          gh release download "v${LEAN_VERSION}" --repo leanprover/lean4 --pattern "$archive" --dir "$etna_tools"
+          echo "${LEAN_SHA256}  ${etna_tools}/${archive}" | sha256sum -c -
+          tar --zstd -xf "${etna_tools}/${archive}" -C "$etna_tools"
+          echo "${etna_tools}/lean-${LEAN_VERSION}-linux/bin" >> "$GITHUB_PATH"
+      # Lake rebuilds every module whose source or dependencies changed; the cache only saves
+      # unchanged work. Pull requests read caches written by main and by their own branch.
+      - name: Restore the Lake build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: formal/etna/.lake
+          key: etna-lake-${{ runner.os }}-${{ env.LEAN_VERSION }}-${{ hashFiles('formal/etna/lakefile.toml', 'formal/etna/lake-manifest.json') }}-${{ hashFiles('formal/etna/Etna*.lean', 'formal/etna/Etna*/**/*.lean') }}
+          restore-keys: |
+            etna-lake-${{ runner.os }}-${{ env.LEAN_VERSION }}-${{ hashFiles('formal/etna/lakefile.toml', 'formal/etna/lake-manifest.json') }}-
+      - name: Build
+        run: lake build
+      - name: Require an unmodified tree after build
+        run: |
+          dirty="$(git status --porcelain --untracked-files=all -- .)"
+          if [ -n "$dirty" ]; then
+            printf '%s\n' "$dirty"
+            echo "::error::lake build modified or created non-ignored files"
+            exit 1
+          fi
+      - name: Check the conformance vectors and the review-surface lock are fresh
+        run: |
+          python3 scripts/check_current_vectors.py
+          python3 scripts/review_surface.py --check
+      # Kernel-check exact headline types, theorem roles, standard axioms, consumed premise
+      # fields, library contents and a fresh whole-kernel replay.
+      - name: Audit
+        run: |
+          python3 scripts/generate_artifacts.py
+          python3 scripts/generate_artifacts.py --check
+          python3 scripts/audit_proofs.py
+      - name: Run the fast regression and gate tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Build the offline statements reader
+        run: python3 scripts/generate_statements.py --out "${RUNNER_TEMP}/STATEMENTS.html"
+      - name: Upload the offline statements reader
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: etna-statements
+          path: ${{ runner.temp }}/STATEMENTS.html
+          if-no-files-found: error
+          retention-days: 30
+      - name: Require an unmodified tree after audit and tests
+        run: |
+          dirty="$(git status --porcelain --untracked-files=all -- .)"
+          if [ -n "$dirty" ]; then
+            printf '%s\n' "$dirty"
+            echo "::error::the audit or tests modified or created non-ignored files"
+            exit 1
+          fi

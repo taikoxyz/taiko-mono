@@ -1,0 +1,36 @@
+import EtnaModel.Common
+
+namespace Etna.Design.Committee
+
+def eligible (unit minimum cutoff : Nat) (e : Entry) : Bool :=
+  decide (e.activeFrom ≤ cutoff ∧ cutoff < e.exitAt ∧ max minimum unit ≤ e.stake)
+
+def rank (a b : Entry) : Bool :=
+  decide (b.stake < a.stake ∨ (a.stake = b.stake ∧ a.key ≤ b.key))
+
+def chosen (unit minimum cutoff nMax : Nat) (entries : List Entry) : List Entry :=
+  (((entries.filter (eligible unit minimum cutoff)).mergeSort rank).take nMax).mergeSort
+    (fun a b => decide (a.key ≤ b.key))
+
+def power (unit : Nat) (e : Entry) : Nat := e.stake/unit
+def totalPower (unit : Nat) (es : List Entry) : Nat := (es.map (power unit)).sum
+def maxPower : Nat := (2^63-1)/8
+
+def minUnit : Nat := 867361738
+
+/-- The spec's selection rule (COMM-4.3-1 to COMM-4.3-8); the spec does not say "election".
+Duplicate keys invalidate the state only among eligible entries: released slots are all
+zero (exitEffectiveL1 = 0, so never eligible) and legitimately repeat the zero key. -/
+def election (unit minimum cutoff nMax : Nat) (entries : List Entry) : Option (List Entry) :=
+  let selected := chosen unit minimum cutoff nMax entries
+  if 0 < unit ∧ unit ≤ minimum ∧ 1 ≤ nMax ∧ nMax ≤ 4096 ∧
+     ((entries.filter (eligible unit minimum cutoff)).map Entry.key).Nodup ∧ selected ≠ [] ∧
+     (∀ e ∈ selected, 0 < power unit e) ∧ totalPower unit selected ≤ maxPower
+  then some selected else none
+
+/-- START-10-7 and START-10-10: L ≥ 3 and L+1 < 2^48; 1 ≤ U ≤ 65,536 (target deployment
+U = 3,600). U and L have no dependency. -/
+def configOK (l u : Nat) : Bool :=
+  decide (3 ≤ l ∧ l+1 < limit48 ∧ 1 ≤ u ∧ u ≤ 65536)
+
+end Etna.Design.Committee

@@ -1,0 +1,61 @@
+name: Etna formal review surface
+
+# The statement lock. pull_request_target runs this workflow file and the judge script from the
+# base branch, so a pull request cannot edit or skip the check it is judged by. The pull
+# request's commits are fetched as git objects only: nothing from them is checked out or
+# executed, and the token is read-only. The label is an acknowledgement, not the control: the
+# repository ruleset's code-owner review with last-push approval is what blocks a merge.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths:
+      - "formal/etna/**"
+      - ".github/workflows/formal--etna*.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: etna-review-surface-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  etna-review-surface:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compare the pull request's review surface and gate files with its merge base
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'formal-statement-change') }}
+        run: |
+          git fetch --no-tags origin "refs/pull/${PR_NUMBER}/head"
+          if ! git cat-file -e "${HEAD_SHA}^{commit}" 2>/dev/null; then
+            echo "::error::pull request head ${HEAD_SHA} is no longer fetchable; a newer push supersedes this run"
+            exit 1
+          fi
+          set +e
+          python3 -I formal/etna/scripts/review_surface.py --against "$BASE_SHA" --head "$HEAD_SHA" \
+            > "${RUNNER_TEMP}/surface.md"
+          status=$?
+          set -e
+          cat "${RUNNER_TEMP}/surface.md"
+          cat "${RUNNER_TEMP}/surface.md" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+          if [ "$status" -eq 3 ] && [ "$APPROVED" = "true" ]; then
+            echo "::notice::Review-surface or gate changes acknowledged by the formal-statement-change label"
+            exit 0
+          fi
+          if [ "$status" -eq 3 ]; then
+            echo "::error::The review surface or gate files changed; a reviewer must read the job summary and apply the formal-statement-change label"
+          fi
+          exit 1
