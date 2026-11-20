@@ -56,8 +56,8 @@ checks do not implement the missing contracts, app, guest or deployment.
 | Item | Selected scope | Stage |
 | --- | --- | --- |
 | Z01 | Generation-bound rules/stop updates, recovery carry and same-generation rollback | COMPLETE selected model at `2d9ef5607`; independent source/behavior gates and both document-context regressions passed. |
-| Z02 | Permanent bondId forfeiture, funded top-up, self-report order and slot reuse | IN PROGRESS; source-based independent oracle prepared, implementation underway. |
-| Z03 | Issued/withdrawn exclusions, FI blanking and recovery replay/atomic projection | PENDING. |
+| Z02 | Permanent bondId forfeiture, funded top-up, self-report order and slot reuse | COMPLETE selected model at `62b1313a4`; typed slot boundary repaired, independent source/behavior and actual-main merge regressions passed. |
+| Z03 | Issued/withdrawn exclusions, FI blanking and recovery replay/atomic projection | IN PROGRESS; independent source oracle frozen, implementation underway. |
 | Z04 | Minimal positional snapshot count/root and authenticated minStake | PENDING. |
 | Z05 | Final-R snapshot versus transaction order and safe empty committee | PENDING. |
 | Z06 | Permissionless proven Unzen origin versus node and guest trust | PENDING. |
@@ -70,7 +70,10 @@ originally observed no pending value, and optimized Python removing invariant
 assertions. Normal graph and directed checks were independently audited;
 optimized exploration now refuses before visiting any action. Current-source
 model execution remains separate from source classification and from runtime.
-The other six and the accumulated whole-seven/publication gate remain unfinished.
+[Z02 evidence](REPORT.md#z02-permanent-bond-forfeiture-and-reuse) separates its
+conditional14-unit graphs from a legal-denomination14Q directed edge; it grants
+no deployed-state quotient, actual ABI, cryptography or EVM rollback credit.
+Z03–Z07 and the accumulated whole-seven/publication gate remain unfinished.
 No eighth starts automatically. Hourly feedback-first checks continue.
 
 ## Completed Y01–Y07 boundary-composition batch

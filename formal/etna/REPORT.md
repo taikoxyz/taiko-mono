@@ -7065,3 +7065,92 @@ No natural protocol defect is confirmed. Actual contracts, proof/guest,
 cryptography, governance authorization, EVM atomicity and chain finality remain
 unverified. Z02–Z07 and the accumulated final gate are still unfinished; this is
 a selected first-item checkpoint, not whole-batch completion or readiness.
+
+## Z02 permanent-bond forfeiture and reuse
+
+Selected implementation `62b1313a49c8ccf83843dec31881963df9aaf7b1` completes the
+second of seven current-rule items against exact f556. It adds an immutable
+projection of registry funds, permanently issued bond/key identity, optional
+slot occupancy and lifetime forfeiture flags, plus admitted Inbox operations.
+Source admission, cryptographic evidence, token-transfer success and atomic
+transactions are premises. This is not a current Registry implementation.
+
+Three initial fixtures partition14 tracked units as(eff,pending,reserve)
+(9,4,1),(4,9,1),(4,0,10). At3333bps the13-unit balance pays5, debiting effective
+stake first; the second seed actually consumes one pending unit. The third
+has a real modeled9-unit top-up after the authorization was fixed. Activation,
+requested/confirmed exits, two selected withdrawal recipients, public zero
+withdrawal, old-ID refusal after reuse, same-incident forfeiture of a different
+bond and independent nonce/recovery/rollback operations are observed with full
+state and selected events. A self-reporter receives a bounty of floor(balance×1000/10000); the remaining
+principal goes to the sink. The separate9500bps and one-unit cases preserve the
+source's rounding caveat.
+An independent successful forfeiture is never undone by a later failed,
+separate recover call. Rollback preserves the lifetime flag and rechecks exit
+confirmation against the restored snapshot.
+
+The default integer fixtures have MIN_STAKE1 and short block delays. They are
+conditional arithmetic/identity model states, not realizable deployment
+registrations or a sound denomination quotient. Ceiling and floor do not commute
+with scaling. A separate directed edge therefore uses the same transition code
+with Q=10^23: a pre-established active bond has3Q effective stake and its owner
+has11Q reserve; TopUp(10Q+1) leaves Q−1 reserve, and forfeiture transfers
+433,290,000,000,000,000,000,001 to the sink, leaves effective0 and pending
+866,710,000,000,000,000,000,000, and preserves14Q across all selected accounts.
+MinStake3Q satisfies the source's fixed-supply admission floor. This edge uses
+literal full-state/event comparisons outside the14-unit graph checker; it does
+not establish deployment or general numeric abstraction. Symbolic key/address
+labels stand for authenticated nonzero identities, not literal zero addresses.
+
+| Seed | States | Accepted edges | Refused edges |
+| --- | ---: | ---: | ---: |
+|9/4/1|6,180|15,322|69,056|
+|4/9/1|5,502|13,808|61,393|
+|4/0/10|11,676|31,314|128,283|
+
+The three declared banks exhaust23,358 states,60,444 accepted and258,732 refused
+edges. The clock advances from(block100,time1000) through(105,1060) in the
+explicit six-point bank; validUntil1048 is inclusive. Fixed nonce/generation
+requests bound their observed changes. Registration of omitted keys/occupants
+and valid calls beyond the clock bank remain legal in the step function and
+are separately tested;7,986 representative legal registration offers are absent
+from this finite bank. All successful transitions are observed, with shortest
+live/deadline/expiry/withdrawal/reuse witnesses. The funded-top-up witness is
+required in seed C and its actual path contains TopUp; seed B's equal endpoint
+alone cannot establish that history. These are selected banks, not the4096-slot
+lifecycle product or unconditional progress.
+
+The independent oracle predates the candidate. Its actual offline replay checked
+42 literal accepted and30 refused transitions with complete state/events,
+the legal14Q edge, every bank edge, cap refusal and separately legal outside-bank
+calls. A source-facing helper defect was found during independent code review:
+slot_holder(4096) returned the same absence pair as a legal empty slot. It now
+requires a typed integer from0 through4095 before lookup. Independent rechecks
+verify live bond0→(true,0), legal empty4095→(false,0) and refusal of4096,
+negative, float and boolean indices without state change. The source-facing
+reciprocal slotOfBond getter is unimplemented/unverified; optional bond slots
+and permanently issued records are model observations, not full ABI conformance.
+
+Author RED initially had10 intended missing-model assertions and no import
+errors. The final standalone suite passes12 tests. An actual private
+pending-first source control preserves the penalty event and cash totals but
+changes the pending/effective split; it triggers10 intended failures, including
+the concrete-denomination edge. Restoring the original source bytes returns all12
+tests to green. The slot-bound regression also fails on the original invalid
+absence result. Original and corrected graphs have identical counts/paths.
+The same source reviewer closed the exact lookup fix; the independent verifier
+reran its full selected gate on the corrected bytes. Final model SHA-256 is
+`495f3a7f27eee542c00a72212c5e76cc5d14185a0884d7dc27999ff0a681669a`,
+and tests `36024bae0d979fefc661b98449ad25ecb7741bb927cab861e3e36fbe6f5aff5c`.
+
+The actual main-f556 merge candidate tree
+`3182199a207eeb174c6ca28eb4ddc863beff1c9b` passed671 ordinary tests
+(485main/166conformance/20sensitivity), with no errors, failures or skips.
+After code commit the separately computed three-way tree matched that tested
+tree exactly. Tests ran in the inspected offline read-only namespace with the
+managed interpreter and inner/outer signal reset. A temporary index resolved
+only independently checked main-deleted/branch-unchanged paths; the real index,
+worktree and branch were not merged. Complete diff, whitespace and path checks
+ran; the repository-wide formatter hook did not. No new native/contract/proof
+claim follows, and all current runtime obligations remain WAITING. Z03–Z07 and
+the whole-seven final gate are still unfinished.
