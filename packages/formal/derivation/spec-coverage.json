@@ -2,8 +2,8 @@
   "sources": [
     {
       "path": "packages/protocol/docs/Derivation.md",
-      "revision": "5a987fe921743af9fdfe33de7aba6671b18c8a69",
-      "sha256": "461761a1118493c2b138e8868c2ce3b85dcd75b26518f1099d062bb5cbf7c562"
+      "revision": "31d283af894cd4ed618079aaa79230d143b63b2f",
+      "sha256": "4662dde971c1208003ae34507ad890e5b1dc4483f51962107a88f641e0a18cf4"
     }
   ],
   "claims": {
