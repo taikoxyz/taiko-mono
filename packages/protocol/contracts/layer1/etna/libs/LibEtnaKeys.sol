@@ -57,6 +57,9 @@ library LibEtnaKeys {
     }
 
     /// @dev Derives the Y coordinate of the point with the given X and SEC1 prefix (appendix A).
+    /// Only registration decodes a key: double-sign slashing compares the recovered signer with
+    /// the lifetime `ckAddr` lookup that registration wrote, without decompressing again
+    /// (STAKE-4.1-33).
     /// Reverts with `InvalidPublicKey` if the prefix is not 0x02 or 0x03, X is not below p (X is
     /// never reduced), x^3 + 7 has no square root mod p, or the modexp call fails or returns
     /// anything but one 32-byte root below p.
@@ -90,15 +93,6 @@ library LibEtnaKeys {
     /// @return The key's address.
     function ckAddr(bytes32 _x, bytes32 _y) internal pure returns (address) {
         return address(uint160(uint256(keccak256(abi.encodePacked(_x, _y)))));
-    }
-
-    /// @dev The lifetime identity of a bond's consensus key, used by recovery exclusions and
-    /// responsibility forfeiture: keccak256(abi.encode(uint256(prefix), X)) (appendix A).
-    /// @param _prefix The SEC1 prefix.
-    /// @param _x The X coordinate.
-    /// @return The entry key.
-    function entryKey(uint8 _prefix, bytes32 _x) internal pure returns (bytes32) {
-        return keccak256(abi.encode(uint256(_prefix), _x));
     }
 
     /// @dev Recovers the signer of `_digest`. Reverts with `InvalidSignature` if `parseSignature`

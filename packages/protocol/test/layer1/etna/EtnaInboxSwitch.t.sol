@@ -2,16 +2,19 @@
 pragma solidity ^0.8.26;
 
 import { EtnaInboxSwitchTestBase } from "./EtnaInboxSwitchTestBase.sol";
+import { MockUnzenInbox } from "./MockUnzenInbox.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
+import { IUnzenProposeCutoff } from "src/layer1/etna/iface/IUnzenProposeCutoff.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
 /// @title EtnaInboxSwitchTest
-/// @notice The Etna start on a switching network (spec 10 steps 5-5b, SWITCH.md): `init` without a
-/// start, `setOrigin`, landings at any height above S (6.1) and the first-landing Unzen check
-/// (LAND-6.1-8a), with the vector numbers of rules/vectors/10.md and 6.1.md.
+/// @notice The Etna start on a switching network (spec 10 steps 5-5c, SWITCH.md): `init` without a
+/// start, the permissionless `setOrigin(S)` latch over the live Unzen Inbox (START-10-5a,
+/// LAND-6.1-8a), the Unzen checkpoint forwarder (START-10-5) and landings at any height above S
+/// (6.1), with the vector numbers of rules/vectors/10.md at 994960561.
 contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
     uint256 private constant _TWO_POW_48 = 2 ** 48;
 
@@ -50,11 +53,10 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         _inbox().saveForcedInclusion{ value: 1 ether }(hex"c0");
         _expectLandRevert(_input(0, 6), _leaves(0, 6), IEtnaInbox.MissingOrigin.selector);
         vm.expectRevert(IEtnaInbox.StartNotWritten.selector);
-        _inbox()
-            .recover(0, 0, 0, type(uint256).max, new IEtnaInbox.Exclusion[](0), new uint256[](0), 0);
+        _inbox().recover(0, 0, 0, type(uint256).max, _noExclusions(), new uint256[](0), 0);
 
         _inbox().invalidateRecoveryNonce(0);
-        _inbox().scheduleStop(uint48(block.timestamp + MAX_ANCHOR_AGE));
+        _inbox().scheduleStop(0, uint48(block.timestamp + MAX_ANCHOR_AGE));
         assertEq(_inbox().recoveryNonce(), 1, "nonce invalidated");
     }
 
@@ -76,15 +78,37 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         _upgradeAndInit(inboxImpl, _switchInitParams());
     }
 
+    /// @dev PARAM-11-12a: the Unzen Inbox and the fork time are both set or both zero, and the
+    /// Unzen Inbox has code. There is no originWriter.
+    function test_constructor_RevertWhen_SwitchConfigIsMixed() external {
+        IEtnaInbox.Config memory config = _switchConfig();
+        config.etnaForkTime = 0;
+        vm.expectRevert(IEtnaInbox.InvalidSwitchConfig.selector);
+        new EtnaInbox(config);
+
+        config = _switchConfig();
+        config.unzenInbox = address(0);
+        vm.expectRevert(IEtnaInbox.InvalidSwitchConfig.selector);
+        new EtnaInbox(config);
+
+        config = _switchConfig();
+        config.unzenInbox = address(0xC0DE);
+        vm.expectRevert(IEtnaInbox.InvalidSwitchConfig.selector);
+        new EtnaInbox(config);
+    }
+
     // ---------------------------------------------------------------
-    // setOrigin (START-10-5a, 10-5b, 10-5c)
+    // setOrigin (START-10-5a, LAND-6.1-8a, START-10-5b, START-10-5c)
     // ---------------------------------------------------------------
 
-    /// @dev 5a.a, 5b.a, 5b.e, 5c.a: Carol's call at exactly `FORK_TIME` in L1 block B writes slot
-    /// 272 = (1000, B, L), slots 273/274, origins(0) = (1000, B, FORK_TIME), the checkpoint
-    /// (1000, H) and landings(1000) = (1000, 0, 0, H, 0), saves no SignalService checkpoint and
-    /// opens the forced inclusion queue at head 0.
-    function test_setOrigin_WritesTheStart() external {
+    /// @dev 5a.a, 8a.a, 5b.a, 5b.e, 5c.a: with the proposal set closed and fully proven (next ID
+    /// 8, last finalized 7, tip H) and the checkpoint (H, R) at S, Carol, an unrelated caller,
+    /// latches S at exactly `FORK_TIME` in L1 block B. The start write takes H and R from the
+    /// checkpoint and writes slot 272 = (1000, B, L), slots 273/274, origins(0) = (1000, B,
+    /// FORK_TIME), the checkpoint (1000, H) and landings(1000) = (1000, 0, 0, H, 0); it leaves the
+    /// SignalService checkpoint untouched and opens the forced inclusion queue at head 0.
+    function test_setOrigin_LatchesTheFinalizedUnzenTip() external {
+        _finalizeUnzen();
         vm.warp(FORK_TIME);
         uint256 b = block.number;
         vm.expectCall(
@@ -92,10 +116,15 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
             abi.encodeWithSelector(ICheckpointStore.saveCheckpoint.selector),
             0
         );
+        vm.expectCall(address(unzen), abi.encodeCall(IUnzenProposeCutoff.proposeCutoff, ()));
+        vm.expectCall(address(unzen), abi.encodeCall(MockUnzenInbox.getCoreState, ()));
+        vm.expectCall(
+            address(signalService), abi.encodeCall(ICheckpointStore.getCheckpoint, (uint48(S)))
+        );
         vm.expectEmit(inboxProxy);
         emit IEtnaInbox.StartWritten(S, _startHash(), _startStateRoot());
         vm.prank(Carol);
-        _inbox().setOrigin(S, _startHash(), _startStateRoot());
+        _inbox().setOrigin(uint48(S));
 
         assertEq(uint256(_inboxWord(GENESIS_PACKED_SLOT)), S | b << 48 | EPOCH_LEN_L2 << 96, "272");
         assertEq(_inboxWord(GENESIS_BLOCK_HASH_SLOT), _startHash(), "273");
@@ -109,62 +138,145 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         _assertCheckpoint(S, _startHash());
         _assertLanding(S, _record(S, 0, 0, S));
         _assertStart(S, _startHash());
+        _assertCheckpoint(S, _startHash(), _startStateRoot());
 
         vm.deal(Alice, 1 ether);
         _saveForcedInclusions(1);
         _assertQueue(0, 1);
     }
 
-    /// @dev 5a.b, 5a.c, 5a.e: only Carol, at or after `FORK_TIME`, on an initialized Inbox.
-    function test_setOrigin_RevertWhen_CallerTimeOrInitializationIsWrong() external {
-        vm.warp(FORK_TIME);
-        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
-        _inbox().setOrigin(S, _startHash(), _startStateRoot());
-
+    /// @dev 5a.b: one second before the fork the call reverts, even with the tip proven.
+    function test_setOrigin_RevertWhen_BeforeTheForkTime() external {
+        _finalizeUnzen();
         vm.warp(FORK_TIME - 1);
-        _expectSetOriginRevert(
-            S, _startHash(), _startStateRoot(), IEtnaInbox.BeforeEtnaForkTime.selector
-        );
+        _expectSetOriginRevert(S, IEtnaInbox.BeforeEtnaForkTime.selector);
+    }
+
+    /// @dev 5a.b: a `proposeCutoff()` that reverts, returns zero or returns a future timestamp
+    /// rejects the call, even with the current tip proven: an open proposal set cannot supply a
+    /// start.
+    function test_setOrigin_RevertWhen_ProposalsAreNotClosed() external {
+        _finalizeUnzen();
+        vm.warp(FORK_TIME);
+
+        unzen.setProposeCutoffReverts(true);
+        _expectSetOriginRevert(S, MockUnzenInbox.ProposeCutoffUnavailable.selector);
+        unzen.setProposeCutoffReverts(false);
+
+        unzen.setProposeCutoff(0);
+        _expectSetOriginRevert(S, IEtnaInbox.ProposalsNotClosed.selector);
+
+        unzen.setProposeCutoff(FORK_TIME + 1);
+        _expectSetOriginRevert(S, IEtnaInbox.ProposalsNotClosed.selector);
+    }
+
+    /// @dev 5a.e: a cutoff equal to the current timestamp passes the cutoff predicate.
+    function test_setOrigin_CutoffReachedExactly() external {
+        _finalizeUnzen();
+        vm.warp(FORK_TIME + 100);
+        unzen.setProposeCutoff(FORK_TIME + 100);
+        vm.prank(Carol);
+        _inbox().setOrigin(uint48(S));
+        _assertStart(S, _startHash());
+    }
+
+    /// @dev 5a.c: a repeated call, an uninitialized Inbox and a new network all revert.
+    function test_setOrigin_RevertWhen_RepeatedUninitializedOrNotSwitching() external {
+        _writeStart();
+        _expectSetOriginRevert(S, IEtnaInbox.StartAlreadyWritten.selector);
 
         _deployFreshInbox(_switchConfig(), _switchInitParams(), false);
         _inbox().upgradeTo(address(inboxImpl));
         vm.warp(FORK_TIME);
-        _expectSetOriginRevert(
-            S, _startHash(), _startStateRoot(), IEtnaInbox.NotInitialized.selector
-        );
+        _expectSetOriginRevert(S, IEtnaInbox.NotInitialized.selector);
+
+        // A new network's `init` wrote its start at block 0, so the latch is closed there; with
+        // slot 273 cleared, its zero Unzen Inbox and fork time still reject the call.
+        _deployFreshInbox(true);
+        _expectSetOriginRevert(S, IEtnaInbox.StartAlreadyWritten.selector);
+        _storeInboxWord(GENESIS_BLOCK_HASH_SLOT, 0);
+        _expectSetOriginRevert(S, IEtnaInbox.NotSwitching.selector);
     }
 
-    /// @dev 5a.i, 5a.j, 5a.k, 5a.l, 5a.n: S in (0, 2^48) with a non-zero hash and state root.
-    function test_setOrigin_RevertWhen_StartIsInvalid() external {
+    /// @dev 5a.d: of S = 0, 2^48 - 1 and 2^48, only 2^48 - 1 passes the height check; 2^48 does
+    /// not decode as a `uint48`.
+    function test_setOrigin_HeightBoundaries() external {
+        _finalizeUnzen();
         vm.warp(FORK_TIME);
-        bytes4 invalid = IEtnaInbox.InvalidStart.selector;
-        _expectSetOriginRevert(S, 0, _startStateRoot(), invalid);
-        _expectSetOriginRevert(S, _startHash(), 0, invalid);
-        _expectSetOriginRevert(0, _startHash(), _startStateRoot(), invalid);
-        _expectSetOriginRevert(_TWO_POW_48, _startHash(), _startStateRoot(), invalid);
+        _expectSetOriginRevert(0, IEtnaInbox.InvalidStart.selector);
 
+        (bool ok,) = inboxProxy.call(abi.encodeWithSignature("setOrigin(uint48)", _TWO_POW_48));
+        assertFalse(ok, "2^48 does not decode");
+        _assertStart(0, 0);
+
+        bytes32 tip = bytes32(uint256(0x7e));
+        unzen.setCoreState(8, 7, tip);
+        _forwardUnzenCheckpoint(_TWO_POW_48 - 1, tip, bytes32(uint256(0x7f)));
         vm.prank(Carol);
-        _inbox().setOrigin(_TWO_POW_48 - 1, _startHash(), _startStateRoot());
-        _assertStart(_TWO_POW_48 - 1, _startHash());
+        _inbox().setOrigin(type(uint48).max);
+        _assertStart(_TWO_POW_48 - 1, tip);
     }
 
-    /// @dev 5a.d, 5c.c: the start is written once.
-    function test_setOrigin_RevertWhen_StartIsWritten() external {
-        _writeStart();
-        _expectSetOriginRevert(
-            S + 6, bytes32(uint256(1)), bytes32(uint256(2)), IEtnaInbox.StartAlreadyWritten.selector
+    /// @dev 8a.b: an unfinalized proposal (next ID 9, last finalized 7) rejects the call without
+    /// writing state; once the final proof finalizes it, anyone retries with its height.
+    function test_setOrigin_RevertWhen_UnzenIsNotFinalized() external {
+        _finalizeUnzen();
+        vm.warp(FORK_TIME);
+        unzen.setCoreState(9, 7, _startHash());
+        _expectSetOriginRevert(S, IEtnaInbox.UnzenNotFinalized.selector);
+
+        bytes32 tip = bytes32(uint256(0x7e));
+        unzen.setCoreState(9, 8, tip);
+        _forwardUnzenCheckpoint(S + 3, tip, bytes32(uint256(0x7f)));
+        vm.prank(David);
+        _inbox().setOrigin(uint48(S + 3));
+        _assertStart(S + 3, tip);
+    }
+
+    /// @dev 8a.c, 8a.d: an earlier checkpointed height whose hash is not the finalized tip, a
+    /// height without a checkpoint, a zero finalized hash and a zero checkpoint state root all
+    /// revert, and Etna forced inclusion stays closed.
+    function test_setOrigin_RevertWhen_TheCheckpointIsNotTheFinalizedTip() external {
+        _finalizeUnzen();
+        _forwardUnzenCheckpoint(S - 1, bytes32(100 + S - 1), _stateRoot(S - 1));
+        vm.warp(FORK_TIME);
+
+        _expectSetOriginRevert(S - 1, IEtnaInbox.UnzenStartMismatch.selector);
+        _expectSetOriginRevert(S + 1, SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
+        unzen.setCoreState(8, 7, bytes32(uint256(1)));
+        _expectSetOriginRevert(S, IEtnaInbox.UnzenStartMismatch.selector);
+        unzen.setCoreState(8, 7, 0);
+        _expectSetOriginRevert(S, IEtnaInbox.UnzenStartMismatch.selector);
+
+        // The SignalService rejects a zero state root, so a zero one can only be read back from a
+        // store that holds it.
+        unzen.setCoreState(8, 7, _startHash());
+        vm.mockCall(
+            address(signalService),
+            abi.encodeCall(ICheckpointStore.getCheckpoint, (uint48(S))),
+            abi.encode(
+                ICheckpointStore.Checkpoint({
+                        blockNumber: uint48(S), blockHash: _startHash(), stateRoot: 0
+                    })
+            )
         );
+        _expectSetOriginRevert(S, IEtnaInbox.InvalidStart.selector);
+        vm.clearMockedCalls();
+
+        vm.deal(Alice, 1 ether);
+        vm.expectRevert(IEtnaInbox.StartNotWritten.selector);
+        vm.prank(Alice);
+        _inbox().saveForcedInclusion{ value: 1 ether }(hex"c0");
     }
 
     /// @dev Every Inbox entry point refuses to run while the registry holds its lock (the shared
     /// lock in the Etna README, beyond the entry points RECOV-8.3-19 lists): `init` and the start
     /// write revert and write nothing.
     function test_initAndSetOrigin_RevertWhen_RegistryLocked() external {
+        _finalizeUnzen();
         vm.warp(FORK_TIME);
         _mockRegistryLocked();
-        vm.expectRevert(IEtnaInbox.RegistryLocked.selector);
-        vm.prank(Carol);
-        _inbox().setOrigin(S, _startHash(), _startStateRoot());
+        _expectSetOriginRevert(S, IEtnaInbox.RegistryLocked.selector);
         _assertStart(0, 0);
 
         // A fresh proxy, still on its bootstrap implementation, with a new registry.
@@ -172,17 +284,6 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         _mockRegistryLocked();
         vm.expectRevert(IEtnaInbox.RegistryLocked.selector);
         _upgradeAndInit(inboxImpl, _switchInitParams());
-    }
-
-    /// @dev 5a.m: a new network's Inbox has no originWriter (and `init` wrote its start), so no
-    /// call succeeds.
-    function test_setOrigin_RevertWhen_NewNetwork() external {
-        _deployFreshInbox(true);
-        vm.warp(FORK_TIME);
-        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
-        vm.prank(Carol);
-        _inbox().setOrigin(S, _startHash(), _startStateRoot());
-        _assertStart(0, GENESIS_BLOCK_HASH);
     }
 
     // ---------------------------------------------------------------
@@ -199,23 +300,24 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         _assertCheckpoint(1, bytes32(uint256(3)), bytes32(uint256(4)));
     }
 
-    /// @dev 5.o and 5.n: once the start is written, the checkpoint at exactly S passes and one
-    /// above S reverts, saving nothing.
-    function test_saveCheckpoint_BoundsHeightsByTheStartOnceWritten() external {
+    /// @dev 5.n, 5.o: once the start is written the forwarder reverts at every height, below, at
+    /// and above S, and the stored checkpoints stay unchanged.
+    function test_saveCheckpoint_ClosedAtEveryHeightOnceTheStartIsWritten() external {
         _writeStart();
-        _forwardUnzenCheckpoint(S, _startHash(), _startStateRoot());
-        _forwardUnzenCheckpoint(S - 1, bytes32(uint256(1)), bytes32(uint256(2)));
+        uint256[3] memory heights = [S - 1, S, S + 1];
+        for (uint256 i; i < heights.length; ++i) {
+            vm.expectRevert(IEtnaInbox.ForwardingClosed.selector);
+            _forwardUnzenCheckpoint(heights[i], bytes32(uint256(1)), bytes32(uint256(2)));
+        }
         _assertCheckpoint(S, _startHash(), _startStateRoot());
-        _assertCheckpoint(S - 1, bytes32(uint256(1)), bytes32(uint256(2)));
-
-        vm.expectRevert(IEtnaInbox.CheckpointAboveStart.selector);
-        _forwardUnzenCheckpoint(S + 1, bytes32(uint256(1)), bytes32(uint256(2)));
+        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
+        signalService.getCheckpoint(uint48(S - 1));
         vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
         signalService.getCheckpoint(uint48(S + 1));
     }
 
-    /// @dev 5.r: only the Unzen Inbox may call it; the Inbox's owner and the originWriter may
-    /// not, and on a new network nobody may.
+    /// @dev 5.r: only the Unzen Inbox may call it; the Inbox's owner and others may not, and on a
+    /// new network nobody may.
     function test_saveCheckpoint_RevertWhen_CallerIsNotTheUnzenInbox() external {
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: uint48(S), blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
@@ -253,113 +355,70 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
     }
 
     // ---------------------------------------------------------------
-    // Any height above S (LAND-6.1-5)
+    // Landing from S (LAND-6.1-5, vector 8a.e)
     // ---------------------------------------------------------------
 
     /// @dev With S = 1000, landings end at any height above the checkpoint: 1002 and 1008 land.
     function test_land_AnyHeightFromTheStart() external {
         _writeStart();
-        _finalizeUnzen();
         _land(S, S + 2);
         _land(S + 2, S + 8);
         _land(S + 8, S + 18);
         _assertLanding(S + 18, _record(S + 8, 0, 0, S + 18));
     }
 
-    // ---------------------------------------------------------------
-    // The Unzen start check (LAND-6.1-8a)
-    // ---------------------------------------------------------------
-
-    /// @dev 8a.a, 8a.k, 8a.f: with every Unzen proposal finalized (next 8, last finalized 7), the
-    /// Unzen Inbox's last finalized hash H and the SignalService checkpoint (H, R) at S, the first
-    /// landing settles; once c is above S the check no longer applies.
-    function test_land_UnzenCheckPassesThenStopsApplying() external {
+    /// @dev 8a.e: after the start write the first landing from S uses S's recorded origin and
+    /// reads nothing from the Unzen Inbox, even once its state no longer shows the tip.
+    function test_land_FirstLandingReadsNoUnzenState() external {
         _writeStart();
-        _finalizeUnzen();
-        _land(S, S + 6);
-
         unzen.setCoreState(9, 7, bytes32(uint256(1)));
-        _land(S + 6, S + 12);
-        _assertCheckpoint(S + 12, bytes32(100 + S + 12));
-    }
-
-    /// @dev 8a.b, 8a.c, 8a.i, 8a.l: an unfinalized Unzen proposal or a different last finalized hash
-    /// rejects the landing before proof verification; the verifier would reject it too.
-    function test_land_RevertWhen_UnzenIsNotFinalizedAtTheStart() external {
-        _writeStart();
-        _finalizeUnzen();
-        landVerifier.setRejects(true);
-        IEtnaInbox.LandInput memory input = _input(S, S + 6);
-
-        unzen.setCoreState(9, 7, _startHash());
-        _expectLandRevert(input, new bytes32[](0), IEtnaInbox.UnzenNotFinalized.selector);
-
-        unzen.setCoreState(8, 7, bytes32(100 + S - 1));
-        _expectLandRevert(input, new bytes32[](0), IEtnaInbox.UnzenStartMismatch.selector);
-
-        // An empty proposer source still derives a successor block. A matching checkpoint at
-        // the earlier S cannot substitute for the hash of the last finalized Unzen block.
-        unzen.setCoreState(8, 7, bytes32(100 + S + 1));
-        _expectLandRevert(input, new bytes32[](0), IEtnaInbox.UnzenStartMismatch.selector);
-    }
-
-    /// @dev 8a.d, 8a.e, 8a.j: the SignalService checkpoint at S must exist and hold the start's
-    /// hash and state root.
-    function test_land_RevertWhen_StartCheckpointIsMissingOrDiffers() external {
-        _writeStart();
-        unzen.setCoreState(8, 7, _startHash());
-        IEtnaInbox.LandInput memory input = _input(S, S + 6);
-        _expectLandRevert(input, new bytes32[](0), SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
-
-        _saveUnzenCheckpoint(_startHash(), bytes32(uint256(1)));
-        _expectLandRevert(input, new bytes32[](0), IEtnaInbox.StartCheckpointMismatch.selector);
-
-        _saveUnzenCheckpoint(bytes32(uint256(1)), _startStateRoot());
-        _expectLandRevert(input, new bytes32[](0), IEtnaInbox.StartCheckpointMismatch.selector);
-
-        _saveUnzenCheckpoint(_startHash(), _startStateRoot());
+        unzen.setProposeCutoffReverts(true);
+        vm.expectCall(address(unzen), "", 0);
         _land(S, S + 6);
+        _assertCheckpoint(S + 6, bytes32(100 + S + 6));
     }
 
-    /// @dev 8a.g: a governance recovery at c = S keeps the check for generation 1's landings.
-    function test_land_UnzenCheckAppliesAfterRecoveryAtTheStart() external {
+    /// @dev 5c.b: neither a landing nor a governance recovery at c = S rewrites the start, and the
+    /// recovery generation lands from S without an Unzen read.
+    function test_start_SurvivesRecoveryAtTheStart() external {
         _writeStart();
-        _inbox()
-            .recover(0, S, 0, type(uint256).max, new IEtnaInbox.Exclusion[](0), new uint256[](0), 0);
+        bytes32[3] memory start = [
+            _inboxWord(GENESIS_PACKED_SLOT),
+            _inboxWord(GENESIS_BLOCK_HASH_SLOT),
+            _inboxWord(GENESIS_STATE_ROOT_SLOT)
+        ];
+        _inbox().recover(0, S, 0, type(uint256).max, _noExclusions(), new uint256[](0), 0);
         assertEq(_inbox().generationStartHeight(), S, "generation 1 starts at S");
-        unzen.setCoreState(8, 6, _startHash());
-        _saveUnzenCheckpoint(_startHash(), _startStateRoot());
-        _expectLandRevert(_input(S, S + 6), new bytes32[](0), IEtnaInbox.UnzenNotFinalized.selector);
-
-        unzen.setCoreState(8, 7, _startHash());
+        unzen.setCoreState(9, 7, bytes32(uint256(1)));
+        vm.expectCall(address(unzen), "", 0);
         _land(S, S + 6);
         assertEq(_inbox().landings(S + 6).generation, 1, "generation 1 landing");
+
+        assertEq(_inboxWord(GENESIS_PACKED_SLOT), start[0], "272 unchanged");
+        assertEq(_inboxWord(GENESIS_BLOCK_HASH_SLOT), start[1], "273 unchanged");
+        assertEq(_inboxWord(GENESIS_STATE_ROOT_SLOT), start[2], "274 unchanged");
+        _assertCheckpoint(S, _startHash(), _startStateRoot());
     }
 
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
 
-    /// @dev Expects Carol's `setOrigin` to revert with `_selector`, writing no start.
-    function _expectSetOriginRevert(
-        uint256 _height,
-        bytes32 _blockHash,
-        bytes32 _stateRoot,
-        bytes4 _selector
-    )
-        private
-    {
-        bytes32[3] memory before = [
+    /// @dev Expects Carol's `setOrigin(_s)` to revert with `_selector`, writing no start.
+    function _expectSetOriginRevert(uint256 _s, bytes4 _selector) private {
+        bytes32[4] memory before = [
             _inboxWord(GENESIS_PACKED_SLOT),
+            _inboxWord(GENESIS_BLOCK_HASH_SLOT),
             _inboxWord(LAST_CHECKPOINT_HEIGHT_SLOT),
             _inboxWord(_originSlot(0) + 1)
         ];
         vm.expectRevert(_selector);
         vm.prank(Carol);
-        _inbox().setOrigin(_height, _blockHash, _stateRoot);
+        _inbox().setOrigin(uint48(_s));
         assertEq(_inboxWord(GENESIS_PACKED_SLOT), before[0], "272 unchanged");
-        assertEq(_inboxWord(LAST_CHECKPOINT_HEIGHT_SLOT), before[1], "270 unchanged");
-        assertEq(_inboxWord(_originSlot(0) + 1), before[2], "origins(0) unchanged");
+        assertEq(_inboxWord(GENESIS_BLOCK_HASH_SLOT), before[1], "273 unchanged");
+        assertEq(_inboxWord(LAST_CHECKPOINT_HEIGHT_SLOT), before[2], "270 unchanged");
+        assertEq(_inboxWord(_originSlot(0) + 1), before[3], "origins(0) unchanged");
     }
 
     /// @dev Checks the SignalService checkpoint at `_height`.

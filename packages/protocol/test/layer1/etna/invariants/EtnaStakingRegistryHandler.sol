@@ -185,9 +185,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
     uint256 internal constant FORCE_NOT_INBOX = 1;
     uint256 internal constant FORCE_UNKNOWN_BOND = 2;
     uint256 internal constant FORCE_WITHDRAWN = 3;
-    uint256 internal constant FORCE_WRONG_KEY = 4;
-    uint256 internal constant FORCE_BLOCK_OVERFLOW = 5;
-    uint256 internal constant FORCE_MODES = 6;
+    uint256 internal constant FORCE_BLOCK_OVERFLOW = 4;
+    uint256 internal constant FORCE_MODES = 5;
 
     /// @dev Bond picks: which bonds a pick may return.
     uint256 internal constant ANY_UNWITHDRAWN = 0;
@@ -241,7 +240,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
 
     mapping(uint256 bondId => Bond) internal _bonds;
     uint256 public bondCount;
-    /// @dev The slots used so far, `entries.length`.
+    /// @dev The count, `entries.length`: zero if every slot is empty, else one plus the highest
+    /// occupied slot (STAKE-4.1-36).
     uint256 public slotCount;
     /// @dev Bond id + 1 of every held slot.
     mapping(uint256 slot => uint256 bondIdPlusOne) internal _slotBond;
@@ -261,7 +261,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
     uint256 public paidToRecipient;
     uint256 public slashedTotal;
     uint256 public forfeitedTotal;
-    mapping(bytes32 entryKey => bool) public lifetimeForfeited;
+    mapping(uint256 bondId => bool) public lifetimeForfeited;
     uint256 public bountiesPaid;
     uint256 public sinkPaid;
 
@@ -302,6 +302,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
     /// @dev Registrations into an emptied slot and into the last never-used slot (the 4096th).
     uint256 public reuses;
     uint256 public capFills;
+    /// @dev Withdrawals that emptied the highest occupied slot and shrank the count.
+    uint256 public shrinks;
     uint256 public exitRequests;
     uint256 public exitsBeforeActivation;
     uint256 public confirmations;
@@ -567,18 +569,12 @@ contract EtnaStakingRegistryHandler is CommonBase {
         }
         if (!found) bondId = _unknownBond(_seed);
 
-        Bond storage s = _bonds[bondId];
-        bytes32 entryKey = s.entry.ckPrefix != 0
-            ? _entryKeyOf(s.entry.ckPrefix, s.entry.ckX)
-            : bytes32(_rand(_seed, "entry key"));
-        if (defect == FORCE_WRONG_KEY) entryKey = _wrongEntryKey(bondId, entryKey, _seed);
-
         uint256 executionBlock = block.number;
         if (defect == FORCE_BLOCK_OVERFLOW) {
             uint256 kind = _rand(_seed, "overflow") % 3;
             vm.roll(kind == 0 ? NO_EXIT : kind == 1 ? uint256(NO_EXIT) + 1 : type(uint256).max);
         }
-        _forceExit(bondId, entryKey, defect == FORCE_NOT_INBOX);
+        _forceExit(bondId, defect == FORCE_NOT_INBOX);
         // Boundary calls must revert without advancing the campaign into overflowing arithmetic.
         if (defect == FORCE_BLOCK_OVERFLOW) vm.roll(executionBlock);
     }
@@ -642,17 +638,16 @@ contract EtnaStakingRegistryHandler is CommonBase {
         (bool found, uint256 bondId) = _pick(_seed, ANY_UNWITHDRAWN);
         if (!found) return;
         Bond storage s = _bonds[bondId];
-        bytes32 key = _entryKeyOf(s.entry.ckPrefix, s.entry.ckX);
         uint256 principal = s.entry.effStake + s.pendingTopUp;
         bytes memory expected;
-        if (lifetimeForfeited[key]) {
+        if (lifetimeForfeited[bondId]) {
             expected = _err(IEtnaStakingRegistry.AlreadyForfeited.selector);
         } else if (principal == 0) {
             expected = _err(IEtnaStakingRegistry.NothingToForfeit.selector);
         }
         address dao = registry.owner();
         vm.prank(dao);
-        try registry.forfeit(bondId, key, bytes32(_seed % 3), block.timestamp) {
+        try registry.forfeit(bondId, bytes32(_seed % 3), block.timestamp) {
             if (expected.length != 0) {
                 _violate(Property.Balance, "invalid forfeiture accepted");
                 return;
@@ -662,7 +657,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
             s.entry.effStake -= fromEffective;
             s.pendingTopUp -= penalty - fromEffective;
             if (s.pendingTopUp == 0) s.topUpReadyAtL1 = 0;
-            lifetimeForfeited[key] = true;
+            lifetimeForfeited[bondId] = true;
             forfeitedTotal += penalty;
             sinkPaid += penalty;
             staked -= penalty;
@@ -1199,9 +1194,13 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (s.holdsSlot) {
             s.holdsSlot = false;
             delete _slotBond[s.slot];
-            _pushEmptySlot(s.slot);
             _checkBondRecord(_bondId, Property.Lifecycle);
             _touch(_bondId);
+            if (s.slot + 1 == slotCount) {
+                _shrink(s.slot);
+            } else {
+                _pushEmptySlot(s.slot);
+            }
             _commitSlot(s.slot, Property.Lifecycle);
         } else {
             _commit(_bondId, Property.Lifecycle);
@@ -1476,7 +1475,7 @@ contract EtnaStakingRegistryHandler is CommonBase {
     // ---------------------------------------------------------------
 
     /// @dev Models an Inbox exclusion using the actual execution block, including its bounds.
-    function _forceExit(uint256 _bondId, bytes32 _entryKey, bool _notInbox) internal {
+    function _forceExit(uint256 _bondId, bool _notInbox) internal {
         uint256 r = block.number;
         Bond storage s = _bonds[_bondId];
         bytes memory expected;
@@ -1484,8 +1483,6 @@ contract EtnaStakingRegistryHandler is CommonBase {
             expected = _err(IEtnaStakingRegistry.NotInbox.selector);
         } else if (_bondId >= bondCount) {
             expected = _err(IEtnaStakingRegistry.UnknownBond.selector);
-        } else if (_entryKey != _entryKeyOf(s.entry.ckPrefix, s.entry.ckX)) {
-            expected = _err(IEtnaStakingRegistry.EntryKeyMismatch.selector);
         } else if (r >= NO_EXIT) {
             expected = _err(IEtnaStakingRegistry.InvalidEventBlock.selector);
         }
@@ -1495,13 +1492,13 @@ contract EtnaStakingRegistryHandler is CommonBase {
         bytes memory reason;
         if (_notInbox) {
             vm.prank(_reporters[0]);
-            try registry.forceExit(_bondId, _entryKey) {
+            try registry.forceExit(_bondId) {
                 ok = true;
             } catch (bytes memory err) {
                 reason = err;
             }
         } else {
-            try inbox.forceExit(registry, _bondId, _entryKey) {
+            try inbox.forceExit(registry, _bondId) {
                 ok = true;
             } catch (bytes memory err) {
                 reason = err;
@@ -1528,31 +1525,6 @@ contract EtnaStakingRegistryHandler is CommonBase {
             ++forcedExits;
             _commit(_bondId, Property.Timing);
         }
-    }
-
-    /// @dev Another entry key than `_bondId`'s: another bond's, the flipped prefix, or another X.
-    function _wrongEntryKey(
-        uint256 _bondId,
-        bytes32 _key,
-        uint256 _seed
-    )
-        internal
-        view
-        returns (bytes32)
-    {
-        Bond storage s = _bonds[_bondId];
-        uint256 kind = _rand(_seed, "wrong key") % 3;
-        if (kind == 0 && bondCount > 1) {
-            Bond storage other = _bonds[(_bondId + 1 + _seed % (bondCount - 1)) % bondCount];
-            if (other.entry.ckPrefix != 0) {
-                return _entryKeyOf(other.entry.ckPrefix, other.entry.ckX);
-            }
-        }
-        if (kind == 1 && s.entry.ckPrefix != 0) {
-            return _entryKeyOf(s.entry.ckPrefix ^ 1, s.entry.ckX);
-        }
-        bytes32 wrong = _entryKeyOf(s.entry.ckPrefix, bytes32(uint256(s.entry.ckX) ^ 1));
-        return wrong == _key ? bytes32(uint256(_key) ^ 1) : wrong;
     }
 
     // ---------------------------------------------------------------
@@ -1648,7 +1620,8 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (occupied != (modelHolder != 0) || (occupied && holder != modelHolder - 1)) {
             _violate(_property, "the slot's bond differs from the model");
         }
-        _setLeaf(_slot, _regLeaf(_slot, entry));
+        // A slot at or beyond the count is padding: `_shrink` already zeroed its leaf.
+        if (_slot < slotCount) _setLeaf(_slot, _regLeaf(_slot, entry));
         if (modelHolder != 0) _touch(modelHolder - 1);
 
         uint256 count = registry.checkpointCount();
@@ -1701,6 +1674,26 @@ contract EtnaStakingRegistryHandler is CommonBase {
         if (_emptySlots.length != 0) return (false, _emptySlots[0]);
         if (slotCount < maxEntries) return (false, slotCount);
         return (true, 0);
+    }
+
+    /// @dev The highest occupied slot `_slot` was emptied: the count becomes one plus the next
+    /// occupied slot below it, or zero (STAKE-4.1-36). Every slot from the new count on becomes
+    /// padding, a zero leaf in the ghost tree (ENC-A-38), and leaves the empty-slot heap.
+    function _shrink(uint256 _slot) internal {
+        uint256 count = _slot;
+        while (count != 0 && _slotBond[count - 1] == 0) {
+            --count;
+        }
+        for (uint256 i = count; i < slotCount; ++i) {
+            _setLeaf(i, 0);
+        }
+        slotCount = count;
+        ++shrinks;
+        uint256[] memory kept = _emptySlots;
+        delete _emptySlots;
+        for (uint256 i; i < kept.length; ++i) {
+            if (kept[i] < count) _pushEmptySlot(kept[i]);
+        }
     }
 
     /// @dev Pushes the emptied `_slot` onto the empty-slot heap.
@@ -1980,12 +1973,6 @@ contract EtnaStakingRegistryHandler is CommonBase {
                 uint256(_entry.exitEffectiveL1)
             )
         );
-    }
-
-    /// @dev The bond identity recovery exclusions name: keccak256(abi.encode(uint256(prefix), X))
-    /// (appendix A).
-    function _entryKeyOf(uint8 _prefix, bytes32 _x) internal pure returns (bytes32) {
-        return keccak256(abi.encode(uint256(_prefix), _x));
     }
 
     function _xOf(bytes memory _publicKey) internal pure returns (bytes32 x_) {

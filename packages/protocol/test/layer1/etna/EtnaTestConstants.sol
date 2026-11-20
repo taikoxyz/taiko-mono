@@ -44,19 +44,6 @@ abstract contract EtnaTestConstants {
         });
     }
 
-    /// @dev The entry key of bond `_bondId` in `_registry`: keccak256(abi.encode(ckPrefix, ckX)).
-    function _entryKey(
-        IEtnaStakingRegistry _registry,
-        uint256 _bondId
-    )
-        internal
-        view
-        returns (bytes32)
-    {
-        IEtnaStakingRegistry.Entry memory entry = _registry.bondAt(_bondId).entry;
-        return keccak256(abi.encode(entry.ckPrefix, entry.ckX));
-    }
-
     /// @dev `keccak256(abi.encode(uint256(keccak256(_namespace)) - 1)) & ~0xff`.
     function _erc7201(string memory _namespace) internal pure returns (bytes32) {
         return

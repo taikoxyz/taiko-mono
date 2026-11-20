@@ -14,7 +14,6 @@ import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.so
 contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
     function test_vectors_GovernanceSelectorsAndCalldataMatchSolidityAbi() external view {
         string memory j = LibEtnaVectors.load();
-        bytes32 key = 0x7268c66e6d00f6fb2bc2a14b5bd15892af0853ac758024d8795d61a5acedf607;
         _assertAbi(
             j,
             "top_up",
@@ -31,12 +30,9 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
             j,
             "forfeit",
             IEtnaStakingRegistry.forfeit.selector,
-            abi.encodeCall(
-                IEtnaStakingRegistry.forfeit, (0, key, bytes32(uint256(42)), 1_700_000_123)
-            )
+            abi.encodeCall(IEtnaStakingRegistry.forfeit, (0, bytes32(uint256(42)), 1_700_000_123))
         );
-        IEtnaInbox.Exclusion[] memory exclusions = new IEtnaInbox.Exclusion[](1);
-        exclusions[0] = IEtnaInbox.Exclusion(0, key);
+        uint256[] memory exclusions = _exclusions();
         uint256[] memory blanks = new uint256[](2);
         blanks[0] = 3;
         blanks[1] = 5;
@@ -56,21 +52,19 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
             j,
             "schedule_rules",
             IEtnaInbox.scheduleRules.selector,
-            abi.encodeCall(IEtnaInbox.scheduleRules, (2, 1_700_003_600))
+            abi.encodeCall(IEtnaInbox.scheduleRules, (1, 2, 1_700_003_600))
         );
         _assertAbi(
             j,
             "schedule_stop",
             IEtnaInbox.scheduleStop.selector,
-            abi.encodeCall(IEtnaInbox.scheduleStop, (1_700_007_200))
+            abi.encodeCall(IEtnaInbox.scheduleStop, (1, 1_700_007_200))
         );
         _assertAbi(
             j,
             "set_origin",
             IEtnaInbox.setOrigin.selector,
-            abi.encodeCall(
-                IEtnaInbox.setOrigin, (1000, bytes32(uint256(0x51)), bytes32(uint256(0x52)))
-            )
+            abi.encodeCall(IEtnaInbox.setOrigin, (1000))
         );
         _assertAbi(
             j,
@@ -88,16 +82,14 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
 
     function test_vectors_GovernanceEventTopicsAndDataMatchDeclaredAbi() external {
         string memory j = LibEtnaVectors.load();
-        bytes32 key = 0x7268c66e6d00f6fb2bc2a14b5bd15892af0853ac758024d8795d61a5acedf607;
-        IEtnaInbox.Exclusion[] memory exclusions = new IEtnaInbox.Exclusion[](1);
-        exclusions[0] = IEtnaInbox.Exclusion(0, key);
+        uint256[] memory exclusions = _exclusions();
         uint256[] memory blanks = new uint256[](2);
         blanks[0] = 3;
         blanks[1] = 5;
         vm.recordLogs();
         emit IEtnaStakingRegistry.TopUpDeposited(0, 100, 42);
         emit IEtnaStakingRegistry.TopUpActivated(0, 100);
-        emit IEtnaStakingRegistry.Forfeited(0, key, bytes32(uint256(42)), 100, 10);
+        emit IEtnaStakingRegistry.Forfeited(0, bytes32(uint256(42)), 100, 10);
         emit IEtnaInbox.RecoveryNonceInvalidated(7, 8);
         // The packed slot 293 word of the ordinary `inbox_293` item.
         emit IEtnaInbox
@@ -165,11 +157,12 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
         assertEq(base, _erc7201("taiko.etna.registry.forfeitures"));
         for (uint256 i; i < 2; ++i) {
             string memory row = string.concat(p, ".slots[", vm.toString(i), "]");
-            bytes32 key = LibEtnaVectors.bytes32At(j, string.concat(row, ".entry_key"));
+            uint256 bondId = LibEtnaVectors.uintAt(j, string.concat(row, ".bond_id"));
             bytes32 slot = LibEtnaVectors.bytes32At(j, string.concat(row, ".slot"));
-            assertEq(slot, keccak256(abi.encode(key, base)));
+            assertEq(slot, keccak256(abi.encode(bondId, base)));
+            assertFalse(registry.forfeited(bondId));
             vm.store(address(registry), slot, bytes32(uint256(1)));
-            assertTrue(registry.forfeited(key));
+            assertTrue(registry.forfeited(bondId));
         }
     }
 
@@ -184,9 +177,7 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
                 effective, pending, LibEtnaVectors.uintAt(j, string.concat(row, ".forfeit_bps"))
             );
             IEtnaStakingRegistry.Entry memory entry = actual.bondAt(0).entry;
-            actual.forfeit(
-                0, keccak256(abi.encode(entry.ckPrefix, entry.ckX)), bytes32(i), block.timestamp
-            );
+            actual.forfeit(0, bytes32(i), block.timestamp);
             assertEq(
                 actualToken.balanceOf(SLASH_SINK),
                 LibEtnaVectors.uintAt(j, string.concat(row, ".penalty"))
@@ -240,6 +231,12 @@ contract EtnaGovernanceVectorsTest is EtnaStakingRegistryTestBase {
             vm.store(address(actual_), pendingSlot, bytes32(_pending));
             vm.store(address(actual_), bytes32(uint256(pendingSlot) + 1), bytes32(uint256(123)));
         }
+    }
+
+    /// @dev The exclusions of ENC-A-51 vector 51.a: bond ids 1, 5 and 9, strictly increasing.
+    function _exclusions() private pure returns (uint256[] memory list_) {
+        list_ = new uint256[](3);
+        (list_[0], list_[1], list_[2]) = (1, 5, 9);
     }
 
     function _assertAbi(

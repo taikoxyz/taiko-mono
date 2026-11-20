@@ -128,7 +128,7 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         );
         address pauser = _signalPauser(vm.envAddress("SIGNAL_SERVICE"));
         vm.startBroadcast(_privateKey());
-        signalImpl_ = address(new SignalService(proxy, remote, pauser, 0));
+        signalImpl_ = address(new SignalService(proxy, remote, pauser, false));
         vm.stopBroadcast();
         console2.log("L1 SignalService implementation (VERSION=1):", signalImpl_);
         console2.log("Existing pauser:", pauser);
@@ -228,7 +228,6 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         config_ = super._inboxConfig();
         address proxy = cutoffConfig.signalService;
         _requireOwner(config_.stakingRegistry);
-        config_.originWriter = vm.envAddress("ORIGIN_WRITER");
         config_.unzenInbox = vm.envAddress("UNZEN_INBOX");
         config_.etnaForkTime = _forkTime();
         InboxWithEtnaCutoffs cutoff =
@@ -238,7 +237,6 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
                 && keccak256(abi.encode(cutoff.getConfig())) == keccak256(abi.encode(cutoffConfig)),
             SwitchIdentityMismatch()
         );
-        require(config_.originWriter != address(0), SwitchIdentityMismatch());
         require(
             IEtnaStakingRegistry(config_.stakingRegistry).inbox() == proxy
                 && IEtnaStakingRegistry(config_.stakingRegistry).l2ChainId() == config_.l2ChainId,

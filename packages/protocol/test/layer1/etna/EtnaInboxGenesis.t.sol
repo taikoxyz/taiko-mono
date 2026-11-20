@@ -39,27 +39,23 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
             "fee threshold"
         );
         assertEq(impl.protocolFeeRecipient(), PROTOCOL_FEE_RECIPIENT, "protocol fee recipient");
-        assertEq(impl.originWriter(), address(0), "new network: no origin writer");
         assertEq(impl.unzenInbox(), address(0), "new network: no Unzen Inbox");
         assertEq(impl.etnaForkTime(), 0, "new network: no fork time");
+        assertEq(impl.recoveryCapacity(), RECOVERY_CAPACITY, "recovery capacity");
     }
 
-    /// @dev PARAM-11-12a: the three switching immutables are all zero (a new network) or all
-    /// non-zero (a switching network), and the Unzen Inbox must have code.
+    /// @dev PARAM-11-12a: the two switching immutables are both zero (a new network) or both
+    /// non-zero (a switching network), and the Unzen Inbox must have code. There is no
+    /// originWriter (vector 11 12a).
     function test_constructor_RevertWhen_SwitchConfigIsMixed() external {
         address unzen = address(registry); // any contract
         IEtnaInbox.Config memory cfg = _defaultConfig();
-        (cfg.originWriter, cfg.unzenInbox, cfg.etnaForkTime) = (Carol, unzen, 1);
+        (cfg.unzenInbox, cfg.etnaForkTime) = (unzen, 1);
         EtnaInbox impl = _newInboxImpl(cfg);
-        assertEq(impl.originWriter(), Carol, "origin writer");
         assertEq(impl.unzenInbox(), unzen, "Unzen Inbox");
         assertEq(impl.etnaForkTime(), 1, "fork time");
 
-        cfg.originWriter = address(0);
-        vm.expectRevert(IEtnaInbox.InvalidSwitchConfig.selector);
-        _newInboxImpl(cfg);
-
-        (cfg.originWriter, cfg.etnaForkTime) = (Carol, 0);
+        cfg.etnaForkTime = 0;
         vm.expectRevert(IEtnaInbox.InvalidSwitchConfig.selector);
         _newInboxImpl(cfg);
 
@@ -70,6 +66,21 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         cfg.unzenInbox = address(0x1234); // no code
         vm.expectRevert(IEtnaInbox.InvalidSwitchConfig.selector);
         _newInboxImpl(cfg);
+    }
+
+    /// @dev START-10-18: the implementation fixes a positive recovery capacity F <= 4096.
+    function test_constructor_RevertWhen_RecoveryCapacityOutOfRange() external {
+        IEtnaInbox.Config memory cfg = _defaultConfig();
+        cfg.recoveryCapacity = 0;
+        vm.expectRevert(IEtnaInbox.InvalidRecoveryCapacity.selector);
+        _newInboxImpl(cfg);
+        cfg.recoveryCapacity = 4097;
+        vm.expectRevert(IEtnaInbox.InvalidRecoveryCapacity.selector);
+        _newInboxImpl(cfg);
+        cfg.recoveryCapacity = 1;
+        assertEq(_newInboxImpl(cfg).recoveryCapacity(), 1, "F = 1");
+        cfg.recoveryCapacity = 4096;
+        assertEq(_newInboxImpl(cfg).recoveryCapacity(), 4096, "F = 4096");
     }
 
     function test_constructor_RevertWhen_AddressIsZero() external {
@@ -190,7 +201,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
                 uint256(L2_CHAIN_ID),
                 address(registry),
                 uint256(1e9),
-                uint256(1000 ether),
+                uint256(250_000 ether), // the registry's minStake (ENC-A-36)
                 uint256(128),
                 uint256(3600)
             )
@@ -421,14 +432,52 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         _assertInitAccepts(params);
     }
 
-    function test_init_RevertWhen_SMinBelowVpUnit() external {
+    /// @dev START-10-12 vectors 12.c, 12.d: the registry's minStake must be at least vp_unit;
+    /// there is no separate s_min input.
+    function test_init_RevertWhen_MinStakeBelowVpUnit() external {
         IEtnaInbox.InitParams memory params = _defaultInitParams();
-        params.committeeConfig.sMin = 0;
+        params.committeeConfig.vpUnit = MIN_STAKE + 1;
         _assertInitRejects(params, IEtnaInbox.InvalidCommitteeConfig.selector);
-        params.committeeConfig.sMin = VP_UNIT - 1;
-        _assertInitRejects(params, IEtnaInbox.InvalidCommitteeConfig.selector);
-        params.committeeConfig.sMin = VP_UNIT;
+        params.committeeConfig.vpUnit = MIN_STAKE;
         _assertInitAccepts(params);
+    }
+
+    /// @dev START-10-12 vectors 12.e, 12.f: `init` also checks 4096 * minStake > 10^27 on the
+    /// registry's value (the registry's constructor enforces it too, so it is mocked here).
+    function test_init_RevertWhen_MinStakeAtTheSupplyBound() external {
+        IEtnaInbox.InitParams memory params = _defaultInitParams();
+        _mockMinStake(244_140_625_000_000_000_000_000);
+        _assertInitRejects(params, IEtnaInbox.InvalidCommitteeConfig.selector);
+        _mockMinStake(244_140_625_000_000_000_000_001);
+        _assertInitAccepts(params);
+    }
+
+    /// @dev START-10-14 vectors 14.c, 14.d and START-10-18 vector 18.f with F = 128: minStake =
+    /// floor(10^27 / 129) admits K = 129 eligible bonds and reverts, one base unit more bounds
+    /// K at 128 = F and initializes.
+    function test_init_RevertWhen_EligibleBondsExceedRecoveryCapacity() external {
+        IEtnaInbox.Config memory cfg = _defaultConfig();
+        cfg.recoveryCapacity = 128;
+        EtnaInbox impl = _newInboxImpl(cfg);
+        IEtnaInbox.InitParams memory params = _defaultInitParams();
+        uint256 minStake = uint256(10 ** 27) / 129;
+        assertEq(uint256(10 ** 27) / minStake, 129, "K = F + 1");
+        _mockMinStake(minStake);
+        vm.expectRevert(IEtnaInbox.RecoveryCapacityExceeded.selector);
+        _upgradeAndInit(impl, params);
+
+        assertEq(uint256(10 ** 27) / (minStake + 1), 128, "K = F");
+        _mockMinStake(minStake + 1);
+        _assertInitAccepts(impl, params);
+    }
+
+    /// @dev Makes the registry report `_minStake` as its immutable minimum stake.
+    function _mockMinStake(uint256 _minStake) private {
+        vm.mockCall(
+            address(registry),
+            abi.encodeWithSelector(IEtnaStakingRegistry.minStake.selector),
+            abi.encode(_minStake)
+        );
     }
 
     function test_init_RevertWhen_NMaxOutOfRange() external {
@@ -633,7 +682,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
                 uint256(L2_CHAIN_ID),
                 _impl.stakingRegistry(),
                 c.vpUnit,
-                c.sMin,
+                IEtnaStakingRegistry(_impl.stakingRegistry()).minStake(),
                 c.nMax,
                 c.unsettledLimit
             )

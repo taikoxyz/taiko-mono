@@ -4,10 +4,13 @@ pragma solidity ^0.8.26;
 import { EtnaInboxSwitchTestBase } from "./EtnaInboxSwitchTestBase.sol";
 import { EtnaLandTestBase } from "./EtnaLandTestBase.sol";
 import { EtnaTestKeys } from "./EtnaTestKeys.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { DeployEtnaDevnet } from "script/layer1/etna/DeployEtnaDevnet.s.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
-import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
-import { LibEtnaKeys } from "src/layer1/etna/libs/LibEtnaKeys.sol";
+import { MainnetDAOController } from "src/layer1/mainnet/MainnetDAOController.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { Controller } from "src/shared/governance/Controller.sol";
 
 /// @title EtnaInboxGasBase
 /// @notice Gas snapshots of the Inbox's entry points on the `EtnaLandTestBase` chain.
@@ -142,7 +145,7 @@ contract EtnaInboxRecoverGasTest is EtnaInboxGasBase {
     uint256 private constant _BOB_PK = 0xB0B;
 
     /// @dev The recovery lists the test passes.
-    IEtnaInbox.Exclusion[] internal exclusions;
+    uint256[] internal exclusions;
     uint256[] internal fiToClear;
 
     function setUp() public override {
@@ -151,12 +154,7 @@ contract EtnaInboxRecoverGasTest is EtnaInboxGasBase {
         _landHonestly(0, 6);
         vm.roll(block.number + 1);
 
-        IEtnaStakingRegistry.Entry memory entry = registry.entryAt(1);
-        exclusions.push(
-            IEtnaInbox.Exclusion({
-                bondId: 1, entryKey: LibEtnaKeys.entryKey(entry.ckPrefix, entry.ckX)
-            })
-        );
+        exclusions.push(1);
         fiToClear.push(2);
         assertEq(_inbox().owner(), address(this), "this test is the owner");
         _assertQueue(1, LEAN_FORCED_INCLUSIONS);
@@ -164,7 +162,7 @@ contract EtnaInboxRecoverGasTest is EtnaInboxGasBase {
 
     function test_gas_RecoverWithOneExclusionAndOneBlank() external {
         EtnaInbox target = EtnaInbox(inboxProxy);
-        IEtnaInbox.Exclusion[] memory exclusionList = exclusions;
+        uint256[] memory exclusionList = exclusions;
         uint256[] memory blanks = fiToClear;
         vm.startSnapshotGas("recover_1_exclusion_1_blank");
         target.recover(0, 6, 0, type(uint256).max, exclusionList, blanks, 0);
@@ -176,14 +174,12 @@ contract EtnaInboxRecoverGasTest is EtnaInboxGasBase {
     }
 }
 
-/// @title EtnaInboxRecoverFullRegistryGasTest
-/// @notice The owner's recovery at c = 6 with all 4,096 registry slots held at the minimum stake,
-/// forcing out one bond and then 16, with no blanking: the full-registry exclusion cost of
-/// ACCEPTANCE section 7. Each exclusion rewrites its slot's path through the entries tree, so the
-/// 16 bonds sit 256 slots apart and share only the top four levels of their paths.
-contract EtnaInboxRecoverFullRegistryGasTest is EtnaInboxGasBase {
+/// @title EtnaInboxFullRegistryGasBase
+/// @notice An Inbox at c = 6 whose registry holds all 4,096 slots, each bond at the minimum stake
+/// in its own slot (bond i in slot i): the full-capacity state of ACCEPTANCE section 7.
+abstract contract EtnaInboxFullRegistryGasBase is EtnaInboxGasBase {
     /// @dev The registry's capacity.
-    uint256 private constant _CAPACITY = 4096;
+    uint256 internal constant CAPACITY = 4096;
 
     /// @dev The first prefilled consensus key.
     uint256 private constant _PREFILL_KEY = 0x10000;
@@ -191,15 +187,6 @@ contract EtnaInboxRecoverFullRegistryGasTest is EtnaInboxGasBase {
     /// @dev Registrations per `prefillBatch` call: one call frame's memory must stay within the
     /// transaction gas cap.
     uint256 private constant _PREFILL_CALL = 128;
-
-    /// @dev The longest exclusion list measured; it must stay below `GAS_LIMIT`.
-    uint256 private constant _MAX_EXCLUSIONS = 16;
-
-    /// @dev The distance between the excluded bonds, which hold the slots of the same number.
-    uint256 private constant _EXCLUSION_STRIDE = _CAPACITY / _MAX_EXCLUSIONS;
-
-    /// @dev Bonds 1, 1 + `_EXCLUSION_STRIDE`, ... with their entry keys, sorted by bond id.
-    IEtnaInbox.Exclusion[] internal exclusions;
 
     /// @notice Carol registers `_count` minimum stakes with the consensus keys `_firstKey`,
     /// `_firstKey + 1`, ... in the current block.
@@ -215,11 +202,11 @@ contract EtnaInboxRecoverFullRegistryGasTest is EtnaInboxGasBase {
         }
     }
 
-    function setUp() public override {
+    function setUp() public virtual override {
         super.setUp();
         _landHonestly(0, 6);
 
-        uint256 count = _CAPACITY - registry.entryCount();
+        uint256 count = CAPACITY - registry.entryCount();
         taikoToken.mint(Carol, count * MIN_STAKE);
         vm.prank(Carol);
         taikoToken.approve(address(registry), type(uint256).max);
@@ -230,18 +217,32 @@ contract EtnaInboxRecoverFullRegistryGasTest is EtnaInboxGasBase {
             vm.roll(block.number + 1);
         }
         vm.resumeGasMetering();
-        assertEq(registry.entryCount(), _CAPACITY, "every slot used");
-        assertEq(registry.bondCount(), _CAPACITY, "one bond per slot");
+        assertEq(registry.entryCount(), CAPACITY, "every slot used");
+        assertEq(registry.bondCount(), CAPACITY, "one bond per slot");
+    }
+}
 
+/// @title EtnaInboxRecoverFullRegistryGasTest
+/// @notice The owner's recovery at c = 6 with all 4,096 registry slots held at the minimum stake,
+/// forcing out one bond and then 16, with no blanking: the full-registry exclusion cost of
+/// ACCEPTANCE section 7. Each exclusion rewrites its slot's path through the entries tree, so the
+/// 16 bonds sit 256 slots apart and share only the top four levels of their paths.
+contract EtnaInboxRecoverFullRegistryGasTest is EtnaInboxFullRegistryGasBase {
+    /// @dev The longest exclusion list measured; it must stay below `GAS_LIMIT`.
+    uint256 private constant _MAX_EXCLUSIONS = 16;
+
+    /// @dev The distance between the excluded bonds, which hold the slots of the same number.
+    uint256 private constant _EXCLUSION_STRIDE = CAPACITY / _MAX_EXCLUSIONS;
+
+    /// @dev Bonds 1, 1 + `_EXCLUSION_STRIDE`, ..., strictly increasing.
+    uint256[] internal exclusions;
+
+    function setUp() public override {
+        super.setUp();
         for (uint256 i; i < _MAX_EXCLUSIONS; ++i) {
             uint256 bondId = 1 + i * _EXCLUSION_STRIDE;
             assertEq(registry.bondAt(bondId).slot, bondId, "bond in its own slot");
-            IEtnaStakingRegistry.Entry memory entry = registry.entryAt(bondId);
-            exclusions.push(
-                IEtnaInbox.Exclusion({
-                    bondId: bondId, entryKey: LibEtnaKeys.entryKey(entry.ckPrefix, entry.ckX)
-                })
-            );
+            exclusions.push(bondId);
         }
         assertEq(_inbox().owner(), address(this), "this test is the owner");
     }
@@ -257,7 +258,7 @@ contract EtnaInboxRecoverFullRegistryGasTest is EtnaInboxGasBase {
     /// @dev Recovers at c = 6 forcing out the first `_count` bonds of `exclusions`.
     function _measureRecover(string memory _label, uint256 _count) private {
         EtnaInbox target = EtnaInbox(inboxProxy);
-        IEtnaInbox.Exclusion[] memory exclusionList = new IEtnaInbox.Exclusion[](_count);
+        uint256[] memory exclusionList = new uint256[](_count);
         for (uint256 i; i < _count; ++i) {
             exclusionList[i] = exclusions[i];
         }
@@ -267,9 +268,104 @@ contract EtnaInboxRecoverFullRegistryGasTest is EtnaInboxGasBase {
         _stopSnapshot(_label);
 
         assertEq(_inbox().recoveryGeneration(), 1, "generation");
-        uint256 last = exclusions[_count - 1].bondId;
+        uint256 last = exclusions[_count - 1];
         assertEq(registry.entryAt(last).exitEffectiveL1, block.number, "last bond forced out");
         assertEq(registry.entryAt(last + 1).exitEffectiveL1, 2 ** 48 - 1, "neighbor kept");
+    }
+}
+
+/// @title EtnaInboxRecoveryCapacityGasTest
+/// @notice START-10-18: the worst-case ordinary `recover` with F exclusions, every one a real
+/// registered bond holding a slot and without an exit, one forced inclusion to clear and ruleset 1
+/// installed over an all-zero slot 293 (a zero-to-nonzero write), executed by the DAO's
+/// `MainnetDAOController` that owns the Inbox, fits EIP-7825's 2^24 per-transaction gas cap before
+/// refunds. The registry holds all 4,096 slots, so every path through the entries
+/// tree has 13 levels, and the excluded bonds are spread evenly across the slots, which maximizes
+/// the tree nodes the exclusions write. The transaction's cost is its intrinsic 21,000, plus the
+/// larger of EIP-7623's calldata floor (10 gas per token) and the standard calldata cost (4 gas
+/// per token) plus the measured execution of `execute`, which runs cold and includes the cold
+/// access to the controller that a real transaction prepays. F is the deploy scripts' default
+/// `DEFAULT_RECOVERY_CAPACITY`; F + 1 exclusions no longer fit, so F is the largest capacity this
+/// bytecode supports.
+contract EtnaInboxRecoveryCapacityGasTest is EtnaInboxFullRegistryGasBase {
+    /// @dev EIP-7825's per-transaction gas cap.
+    uint256 private constant _TX_GAS_CAP = 2 ** 24;
+
+    /// @dev The DAO executor that owns the Inbox.
+    MainnetDAOController internal controller;
+
+    function setUp() public override {
+        super.setUp();
+        controller = MainnetDAOController(
+            payable(address(
+                    new ERC1967Proxy(
+                        address(new MainnetDAOController()),
+                        abi.encodeCall(MainnetDAOController.init, (address(this)))
+                    )
+                ))
+        );
+        EssentialContract(inboxProxy).transferOwnership(address(controller));
+        controller.acceptOwnershipOf(inboxProxy);
+        assertEq(_inbox().owner(), address(controller), "the controller owns the Inbox");
+        _assertQueue(1, LEAN_FORCED_INCLUSIONS);
+    }
+
+    function test_gas_RecoverAtRecoveryCapacityFitsTheTransactionCap() external {
+        uint256 txGas = _measureCapacity(_F());
+        emit log_named_uint("recover_at_capacity_tx_gas", txGas);
+        assertLe(txGas, _TX_GAS_CAP, "F exclusions and one blank fit 2^24");
+    }
+
+    function test_gas_RecoverAboveRecoveryCapacityExceedsTheTransactionCap() external {
+        uint256 txGas = _measureCapacity(_F() + 1);
+        emit log_named_uint("recover_above_capacity_tx_gas", txGas);
+        assertGt(txGas, _TX_GAS_CAP, "F + 1 exclusions do not fit 2^24");
+    }
+
+    /// @dev The default recovery capacity F of the deploy scripts.
+    function _F() private returns (uint256) {
+        return new DeployEtnaDevnet().DEFAULT_RECOVERY_CAPACITY();
+    }
+
+    /// @dev Has the controller execute `recover` at c = 6 with `_count` exclusions spread evenly
+    /// over the 4,096 bonds, queue entry 2 blanked and ruleset 1, and returns the transaction's gas
+    /// before refunds.
+    function _measureCapacity(uint256 _count) private returns (uint256 txGas_) {
+        uint256[] memory exclusionList = new uint256[](_count);
+        for (uint256 i; i < _count; ++i) {
+            exclusionList[i] = i * CAPACITY / _count;
+            if (i != 0) assertGt(exclusionList[i], exclusionList[i - 1], "strictly increasing");
+        }
+        uint256[] memory blanks = new uint256[](1);
+        blanks[0] = 2;
+        Controller.Action[] memory actions = new Controller.Action[](1);
+        actions[0] = Controller.Action({
+            target: inboxProxy,
+            value: 0,
+            data: abi.encodeCall(
+                EtnaInbox.recover, (0, 6, 0, type(uint256).max, exclusionList, blanks, 1)
+            )
+        });
+        bytes memory actionData = abi.encode(actions);
+        bytes memory txData = abi.encodeCall(MainnetDAOController.execute, (actionData));
+        MainnetDAOController target = controller;
+
+        uint256 gasBefore = gasleft();
+        target.execute(actionData);
+        uint256 execution = gasBefore - gasleft();
+
+        uint256 tokens;
+        for (uint256 i; i < txData.length; ++i) {
+            tokens += txData[i] == 0 ? 1 : 4;
+        }
+        uint256 standard = 4 * tokens + execution;
+        uint256 floor = 10 * tokens;
+        txGas_ = 21_000 + (standard > floor ? standard : floor);
+
+        assertEq(_inbox().recoveryGeneration(), 1, "recovered");
+        uint256 last = exclusionList[_count - 1];
+        assertEq(registry.entryAt(last).exitEffectiveL1, block.number, "last bond forced out");
+        assertEq(_inbox().getForcedInclusion(2).txHash, keccak256(""), "blanked");
     }
 }
 
@@ -328,8 +424,8 @@ contract EtnaInboxForcedInclusionGasTest is EtnaInboxGasBase {
 }
 
 /// @title EtnaInboxLandFromStartGasTest
-/// @notice The first landing (0, 6] on a new network, where c is the start S = 0 and no Unzen
-/// check applies; the queue head stays 0, as in `EtnaInboxLandFromUnzenStartGasTest`.
+/// @notice The first landing (0, 6] on a new network, where c is the start S = 0; the queue head
+/// stays 0, as in `EtnaInboxLandFromUnzenStartGasTest`.
 contract EtnaInboxLandFromStartGasTest is EtnaInboxGasBase {
     function setUp() public override {
         super.setUp();
@@ -360,13 +456,12 @@ contract EtnaInboxLandFromStartGasTest is EtnaInboxGasBase {
 }
 
 /// @title EtnaInboxLandFromUnzenStartGasTest
-/// @notice The first landing (S, S + 6] on a switching network: c is S, so `land` also reads the
-/// Unzen Inbox's core state and the SignalService checkpoint at S (LAND-6.1-8a).
+/// @notice The first landing (S, S + 6] on a switching network. `setOrigin` checked the Unzen tip,
+/// so the landing reads no Unzen state (vector 8a.e) and costs what a landing from S = 0 does.
 contract EtnaInboxLandFromUnzenStartGasTest is EtnaInboxSwitchTestBase {
     function setUp() public override {
         super.setUp();
         _writeStart();
-        _finalizeUnzen();
         IEtnaInbox.LandInput memory input = _input(S, S + 6);
         landVerifier.setExpectedStatementHash(
             _statement(input, _inbox().landings(S), _cutHash(input, _leaves(S, S + 6)))
@@ -389,22 +484,24 @@ contract EtnaInboxLandFromUnzenStartGasTest is EtnaInboxSwitchTestBase {
 }
 
 /// @title EtnaInboxSetOriginGasTest
-/// @notice The originWriter's start write on a switching network.
+/// @notice The permissionless start write on a switching network, with the Unzen proposals
+/// closed and finalized up to S and its checkpoint forwarded (START-10-5a, LAND-6.1-8a).
 contract EtnaInboxSetOriginGasTest is EtnaInboxSwitchTestBase {
     function setUp() public override {
         super.setUp();
+        _finalizeUnzen();
         vm.warp(FORK_TIME);
     }
 
     function test_gas_SetOrigin() external {
         EtnaInbox target = EtnaInbox(inboxProxy);
-        (bytes32 hash, bytes32 stateRoot) = (_startHash(), _startStateRoot());
+        uint48 s = uint48(S);
         vm.startPrank(Carol);
         vm.startSnapshotGas("set_origin");
-        target.setOrigin(S, hash, stateRoot);
+        target.setOrigin(s);
         emit log_named_uint("set_origin", vm.stopSnapshotGas());
         vm.stopPrank();
-        _assertCheckpoint(S, hash);
+        _assertCheckpoint(S, _startHash());
     }
 }
 
@@ -415,7 +512,7 @@ contract EtnaInboxScheduleRulesGasTest is EtnaInboxGasBase {
         EtnaInbox target = EtnaInbox(inboxProxy);
         uint48 time = uint48(block.timestamp + MAX_ANCHOR_AGE);
         vm.startSnapshotGas("schedule_rules");
-        target.scheduleRules(1, time);
+        target.scheduleRules(0, 1, time);
         _stopSnapshot("schedule_rules");
         assertEq(_inbox().rulesSchedule().nextRules, 1, "scheduled");
     }

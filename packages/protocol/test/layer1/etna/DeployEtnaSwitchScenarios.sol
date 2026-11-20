@@ -26,12 +26,15 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
     uint48 private constant _FORK_TIME = 1_000_000;
     uint48 private constant _NEW_FORK_TIME = _FORK_TIME + 5000;
     uint256 private constant _VALIDATOR_KEY = 0xC0A;
-    uint256 private constant _MIN_STAKE = 250_000 ether;
+    /// @dev Bounds K at the scripts' default recovery capacity F = 212 (START-10-14).
+    uint256 private constant _MIN_STAKE = 4_700_000 ether;
     uint256 private constant _EPOCH_LEN = 5;
     bytes32 private constant _COMMITTEE_RECORD_HASH = bytes32(uint256(123));
 
     DeployEtnaSwitch private _switch;
     DeployEtnaVerifiers private _verifiers;
+    /// @dev The last Unzen block, whose checkpoint the proof in `_switchAndProve` saves.
+    uint48 private _unzenTip;
 
     function _buildConfig() internal override returns (IInbox.Config memory config_) {
         config_ = super._buildConfig();
@@ -87,7 +90,7 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         assertEq(EssentialContract(proxy).owner(), address(this));
 
         address signalImpl = _switch.deploySignalServiceImplementation();
-        assertEq(SignalService(signalImpl).beaconRootsFrom(), 0);
+        assertFalse(SignalService(signalImpl).usesBeaconRoots());
         assertEq(SignalService(signalImpl).VERSION(), 1);
 
         // Before the first proposal executes, every preparer refuses an Etna target that is the
@@ -165,6 +168,7 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
             blockHash: input.commitment.transitions[0].blockHash,
             stateRoot: input.commitment.endStateRoot
         });
+        _unzenTip = checkpoint.blockNumber;
         vm.mockCall(
             config.proofVerifier, abi.encodeWithSelector(IProofVerifier.verifyProof.selector), ""
         );
@@ -206,18 +210,19 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         assertEq(etna.committeeConfigHash(), committeeConfigHash);
         _assertStartUnwritten(etna);
 
+        // The rescheduled Unzen Inbox closes its proposals at the new cutoff; the start latches
+        // its finalized tip only from the new fork time on, through the real Unzen getters.
         uint256 snapshot = vm.snapshotState();
-        bytes32 startHash = bytes32(uint256(456));
-        bytes32 startRoot = bytes32(uint256(789));
+        assertEq(InboxWithEtnaCutoffs(address(inbox)).proposeCutoff(), _NEW_FORK_TIME - 12);
         vm.warp(_FORK_TIME);
         vm.expectRevert(IEtnaInbox.BeforeEtnaForkTime.selector);
         vm.prank(Carol);
-        etna.setOrigin(100, startHash, startRoot);
+        etna.setOrigin(_unzenTip);
 
         vm.warp(_NEW_FORK_TIME);
         vm.prank(Carol);
-        etna.setOrigin(100, startHash, startRoot);
-        assertEq(etna.generationStartHeight(), 100);
+        etna.setOrigin(_unzenTip);
+        assertEq(etna.generationStartHeight(), _unzenTip);
         vm.expectRevert(DeployEtnaSwitch.SwitchAlreadyStarted.selector);
         _switch.ownerUpgradeCall(implementation);
         assertTrue(vm.revertToState(snapshot));
@@ -286,7 +291,6 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         vm.setEnv("L2_CHAIN_ID", "167001");
         vm.setEnv("UNZEN_INBOX", vm.toString(address(inbox)));
         vm.setEnv("SIGNAL_SERVICE", vm.toString(address(signalService)));
-        vm.setEnv("ORIGIN_WRITER", vm.toString(Carol));
         vm.setEnv("ETNA_FORK_TIME", vm.toString(_FORK_TIME));
         vm.setEnv("PROPOSE_MARGIN", "12");
         vm.setEnv("FI_MARGIN", "500");
@@ -303,7 +307,6 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         vm.setEnv("EPOCH_LEN_L2", vm.toString(_EPOCH_LEN));
         vm.setEnv("COMMITTEE_RECORD_HASH", vm.toString(_COMMITTEE_RECORD_HASH));
         vm.setEnv("ETNA_VP_UNIT", "1000000000");
-        vm.setEnv("ETNA_S_MIN", "1000000000");
         vm.setEnv("ETNA_N_MAX", "32");
         vm.setEnv("ETNA_UNSETTLED_LIMIT", "64");
         vm.setEnv("FORCED_INCLUSION_DELAY", "1200");

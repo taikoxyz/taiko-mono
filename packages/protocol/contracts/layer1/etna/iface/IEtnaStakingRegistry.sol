@@ -7,8 +7,8 @@ pragma solidity ^0.8.26;
 /// consensus key with a stake. Each registration issues a new bond id, counting up from 0 and
 /// never reused, and takes the lowest empty slot; it never moves or removes another bond. A bond
 /// holds its slot until it is withdrawn, whatever its balance; its record outlives the slot.
-/// Every L1 block that changes the entry in a slot ends with one checkpoint holding the slot
-/// count and the entries root at the end of that block. Nodes read only `checkpoints` (slot R)
+/// Every L1 block that changes the entry in a slot ends with one checkpoint holding the count, 0
+/// or 1 + the highest occupied slot, and the entries root at the end of that block. Nodes read only `checkpoints` (slot R)
 /// and the slot-indexed `entries` (slot R + 1) of the ERC-7201 namespace `taiko.etna.registry`
 /// with EIP-1186 proofs (spec appendix B); every packed word lays its fields out in declaration
 /// order from the least-significant bit. The Inbox proxy is fixed at deployment.
@@ -22,8 +22,10 @@ interface IEtnaStakingRegistry {
     struct Config {
         /// @notice The staked TAIKO token.
         address token;
-        /// @notice The minimum stake of a registration in token base units; above 10^27 / 4096
-        /// (244,140.625 TAIKO), so 4096 × minStake exceeds TAIKO's fixed supply (spec 11).
+        /// @notice The minimum stake of a registration and of an eligible entry in token base
+        /// units; above 10^27 / 4096 (244,140.625 TAIKO), so 4096 × minStake exceeds TAIKO's fixed
+        /// supply (spec 11). It is the fifth word of the Inbox's committee config hash, and the
+        /// Inbox's `init` requires K = min(4096, floor(10^27 / minStake)) <= its recovery capacity.
         uint256 minStake;
         /// @notice The L1 blocks from registration until the entry is active; in [1, 2^32).
         uint256 activationDelay;
@@ -55,9 +57,10 @@ interface IEtnaStakingRegistry {
     struct Checkpoint {
         /// @notice The L1 block.
         uint48 l1Block;
-        /// @notice The number of slots used so far, empty ones included.
+        /// @notice Zero if every slot is empty, otherwise one plus the highest occupied slot,
+        /// counting occupied slots with zero balance (STAKE-4.1-36). It shrinks after withdrawal.
         uint48 count;
-        /// @notice The entries root over the first `count` entries (appendix A).
+        /// @notice The entries root over the first `count` slots (appendix A, ENC-A-38).
         bytes32 entriesRoot;
     }
 
@@ -162,16 +165,11 @@ interface IEtnaStakingRegistry {
 
     /// @notice Emitted when the DAO deducts principal and forces an exit (spec 4.4).
     /// @param bondId The bond id.
-    /// @param entryKey The lifetime consensus-key identity.
     /// @param incidentId The DAO's published attribution identifier; not globally unique.
     /// @param balanceBefore The effective and pending principal at execution.
     /// @param penalty The amount sent to slashSink.
     event Forfeited(
-        uint256 indexed bondId,
-        bytes32 indexed entryKey,
-        bytes32 incidentId,
-        uint256 balanceBefore,
-        uint256 penalty
+        uint256 indexed bondId, bytes32 incidentId, uint256 balanceBefore, uint256 penalty
     );
 
     /// @notice Emitted when an exit is first confirmed.
@@ -217,7 +215,7 @@ interface IEtnaStakingRegistry {
     /// is appended or overwritten; it is not the Inbox's landed checkpoint.
     /// @param index The checkpoint index.
     /// @param l1Block The L1 block of the checkpoint, the current block.
-    /// @param count The number of slots used so far.
+    /// @param count Zero if every slot is empty, otherwise one plus the highest occupied slot.
     /// @param entriesRoot The entries root.
     event CheckpointWritten(
         uint256 indexed index, uint48 l1Block, uint48 count, bytes32 entriesRoot
@@ -279,25 +277,20 @@ interface IEtnaStakingRegistry {
     /// bond without principal reverts `NothingToForfeit`. It also forces an exit,
     /// exitEffectiveL1 = min(existing, block.number), reported by `Forfeited`; `forceExit` and
     /// `ExitForced` are the recovery exclusion path only.
-    /// Registry owner only after Inbox initialization, once per lifetime entryKey, through
-    /// any DAO execution path. Checks the bond's key, positive effective plus pending principal,
-    /// and block.timestamp <= _validUntil, whether or not the bond holds a slot. Deducts
+    /// Registry owner only after Inbox initialization, once per issued bond id (bond ids are
+    /// never reused, so the id always denotes the same bond and registered key), through any
+    /// DAO execution path. Requires an issued, unwithdrawn bond (`UnknownBond`, `BondWithdrawn`),
+    /// `forfeited(_bondId) == false` (`AlreadyForfeited`), block.timestamp <= _validUntil and
+    /// positive effective plus pending principal, whether or not the bond holds a slot. Deducts
     /// ceil(balance * forfeitBps / 10000) from effective stake first, then pending funds; pays
     /// only slashSink. Writes a checkpoint only if the bond holds a slot and its entry changed.
     /// Preserves any exit confirmation. No nonce, revocation, freeze or additional delay; landing
-    /// and recovery do not invalidate an unexecuted authorization. Attribution is a governance
-    /// responsibility.
+    /// and recovery do not invalidate an unexecuted authorization. Attribution, including that the
+    /// id names the intended bond and key, is a governance responsibility (FORF-4.4-2).
     /// @param _bondId The unwithdrawn bond, including requested or confirmed exits.
-    /// @param _entryKey keccak256(abi.encode(ckPrefix, ckX)) of the bond's key.
     /// @param _incidentId The published attribution identifier.
     /// @param _validUntil The inclusive L1 Unix timestamp deadline in seconds.
-    function forfeit(
-        uint256 _bondId,
-        bytes32 _entryKey,
-        bytes32 _incidentId,
-        uint256 _validUntil
-    )
-        external;
+    function forfeit(uint256 _bondId, bytes32 _incidentId, uint256 _validUntil) external;
 
     /// @notice Returns pending principal and its readiness block, both zero after withdrawal.
     /// @param _bondId The bond id.
@@ -308,10 +301,11 @@ interface IEtnaStakingRegistry {
         view
         returns (uint256 pendingTopUp_, uint48 readyAtL1_);
 
-    /// @notice Returns the lifetime forfeiture flag, never reset by withdrawal or recovery.
-    /// @param _entryKey The consensus-key identity.
-    /// @return forfeited_ Whether responsibility forfeiture already executed for this key.
-    function forfeited(bytes32 _entryKey) external view returns (bool forfeited_);
+    /// @notice Returns the lifetime forfeiture flag of a bond id, never reset by withdrawal, slot
+    /// reuse, recovery or verifier-failure rollback (STOR-B-32).
+    /// @param _bondId The bond id.
+    /// @return forfeited_ Whether responsibility forfeiture already executed for this bond.
+    function forfeited(uint256 _bondId) external view returns (bool forfeited_);
 
     /// @notice Returns the deployment's fixed responsibility-forfeiture rate.
     /// @return forfeitBps_ The basis points, in [1, 10,000].
@@ -344,9 +338,13 @@ interface IEtnaStakingRegistry {
     /// @notice Slashes an entry's whole stake for a same-round double sign (spec 4.1).
     /// @dev Callable by anyone once the Inbox is initialized. Both votes have the same type
     /// (prevote or precommit), height, round and generation and different block ids, and the
-    /// generation is at most the Inbox's recoveryGeneration. Each signature recovers, over
-    /// keccak256 of the vote's sign bytes under this deployment's chain id for that generation
-    /// (appendix A), to the address of the bond's stored key. The bond must be unwithdrawn with
+    /// generation is at most the Inbox's recoveryGeneration. Both signatures recover, over
+    /// keccak256 of each vote's sign bytes under this deployment's chain id for that generation
+    /// (appendix A), to the same nonzero address, and the lifetime key lookup of that address,
+    /// `bondForKey`, must return exactly `(true, _bondId)` (STAKE-4.1-33): registration wrote it
+    /// from the decompressed key and nothing releases it, so no key is decompressed here. A key
+    /// registered to another bond or to none reverts `InvalidSignature`. The bond must be
+    /// unwithdrawn with
     /// a positive effective plus pending principal, whether or not it holds a slot. Clears both
     /// balances and top-up readiness, sets exitEffectiveL1 to min(existing, block.number), pays
     /// floor(principal * slashBountyBps / 10000) to the caller and the remainder to slashSink.
@@ -363,26 +361,17 @@ interface IEtnaStakingRegistry {
     )
         external;
 
-    /// @notice Checks a recovery exclusion before any registry writes (RECOV-8-39).
-    /// @dev Requires an issued bond with the expected key and an L1 block below the no-exit
-    /// sentinel. A previously withdrawn bond is still issued.
-    /// @param _bondId The bond id.
-    /// @param _entryKey The bond's expected key.
-    function validateExclusion(uint256 _bondId, bytes32 _entryKey) external view;
-
     /// @notice Moves a bond's exit to the recovery execution block during governance recovery
     /// (spec 8 step 2).
     /// @dev The recovery exclusion path only; `forfeit` (spec 4.4) forces an exit on its own path,
     /// without `ExitForced`.
-    /// Only the Inbox. Requires an issued bond, withdrawn ones included, whose
-    /// key matches `_entryKey = keccak256(abi.encode(ckPrefix, ckX))`, and reverts
-    /// `InvalidEventBlock` if `block.number >= 2^48 - 1`, the no-exit sentinel. If the current
-    /// block is below the bond's exitEffectiveL1, sets it to that block without slashing, writes
-    /// the checkpoint if the bond holds a slot and emits `ExitForced`; otherwise it keeps the
-    /// existing exit and writes nothing.
+    /// Only the Inbox. Requires an issued bond, withdrawn ones included (`UnknownBond`,
+    /// RECOV-8-40a), and reverts `InvalidEventBlock` if `block.number >= 2^48 - 1`, the no-exit
+    /// sentinel. If the current block is below the bond's exitEffectiveL1, sets it to that block
+    /// without slashing, writes the checkpoint if the bond holds a slot and emits `ExitForced`;
+    /// otherwise it keeps the existing exit and writes nothing.
     /// @param _bondId The bond id.
-    /// @param _entryKey The bond's expected key.
-    function forceExit(uint256 _bondId, bytes32 _entryKey) external;
+    function forceExit(uint256 _bondId) external;
 
     /// @notice Returns the number of checkpoints.
     /// @return The number of checkpoints.
@@ -393,8 +382,9 @@ interface IEtnaStakingRegistry {
     /// @return The checkpoint.
     function checkpointAt(uint256 _index) external view returns (Checkpoint memory);
 
-    /// @notice Returns the number of slots used so far, empty ones included.
-    /// @return The number of entries.
+    /// @notice Returns the current count: zero if every slot is empty, otherwise one plus the
+    /// highest occupied slot (STAKE-4.1-36).
+    /// @return The number of entries `entriesRoot` covers, interior empty slots included.
     function entryCount() external view returns (uint256);
 
     /// @notice Returns the entry of a slot.
@@ -402,8 +392,8 @@ interface IEtnaStakingRegistry {
     /// @return entry_ The entry; all zero for an empty slot.
     function entryAt(uint256 _slot) external view returns (Entry memory entry_);
 
-    /// @notice Returns the entries root over all `entryCount()` entries (appendix A).
-    /// @dev Equals the latest checkpoint's root; zero with no entry.
+    /// @notice Returns the entries root over all `entryCount()` entries (appendix A, ENC-A-38).
+    /// @dev Equals the latest checkpoint's root; zero when every slot is empty.
     /// @return The entries root.
     function entriesRoot() external view returns (bytes32);
 
@@ -456,6 +446,13 @@ interface IEtnaStakingRegistry {
     /// @notice Returns the Etna Inbox proxy fixed at deployment.
     /// @return The Inbox address.
     function inbox() external view returns (address);
+
+    /// @notice Returns the immutable minimum stake: the least a registration may stake and the
+    /// least effective stake of an eligible entry (STAKE-4.1-1, COMM-4.3-3).
+    /// @dev The Inbox's `init` reads it for the committee config hash and the K <= F check
+    /// (START-10-14).
+    /// @return The minimum stake in token base units.
+    function minStake() external view returns (uint256);
 
     /// @notice Returns the chain id of the Etna L2.
     /// @return The L2 chain id.
@@ -512,8 +509,6 @@ interface IEtnaStakingRegistry {
     error NothingToSlash();
     /// @notice The bond has no principal to forfeit.
     error NothingToForfeit();
-    /// @notice The bond's key does not match the expected entry key.
-    error EntryKeyMismatch();
     /// @notice The checkpoint index does not exist.
     error UnknownCheckpoint();
     /// @notice The caller is not the Inbox.
@@ -526,7 +521,7 @@ interface IEtnaStakingRegistry {
     error TopUpPending();
     /// @notice No top-up is pending or its readiness block has not been reached.
     error TopUpNotReady();
-    /// @notice The entry key was already forfeited.
+    /// @notice The bond was already forfeited.
     error AlreadyForfeited();
     /// @notice The authorization's `validUntil` deadline has passed.
     error AuthorizationExpired();

@@ -526,13 +526,13 @@ contract EtnaInboxForcedInclusionTest is EtnaInboxTestBase {
         _assertRejectsEther(
             abi.encodeCall(
                 IEtnaInbox.recover,
-                (0, 0, 0, type(uint256).max, new IEtnaInbox.Exclusion[](0), new uint256[](0), 0)
+                (0, 0, 0, type(uint256).max, new uint256[](0), new uint256[](0), 0)
             ),
             "recover"
         );
-        _assertRejectsEther(abi.encodeCall(IEtnaInbox.setOrigin, (1, bytes32(0), 0)), "setOrigin");
-        _assertRejectsEther(abi.encodeCall(IEtnaInbox.scheduleRules, (1, 0)), "scheduleRules");
-        _assertRejectsEther(abi.encodeCall(IEtnaInbox.scheduleStop, (0)), "scheduleStop");
+        _assertRejectsEther(abi.encodeCall(IEtnaInbox.setOrigin, (1)), "setOrigin");
+        _assertRejectsEther(abi.encodeCall(IEtnaInbox.scheduleRules, (0, 1, 0)), "scheduleRules");
+        _assertRejectsEther(abi.encodeCall(IEtnaInbox.scheduleStop, (0, 0)), "scheduleStop");
         _assertRejectsEther(abi.encodeCall(IEtnaInbox.sweepProtocolFees, ()), "sweep");
         _assertRejectsEther("", "plain transfer");
         _assertRejectsEther(hex"deadbeef", "unknown selector");

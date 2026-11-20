@@ -208,7 +208,12 @@ contract EtnaCurrentRegistryConformanceTest is Test {
             _slash(_j, string.concat(_p, ".slashLifecycle"), low, lowStake);
         }
         assertEq(_registry.bondCount(), count, "opening bonds");
-        assertEq(_registry.entryCount(), count, "opening slots");
+        // STAKE-4.1-36 (994960561): the count is one plus the highest occupied slot, so vacating
+        // the last opening slot shrinks it to the slot below, which every vector keeps held. The
+        // fixture predates that rule and states no count; the slot assignment it pins is
+        // unchanged.
+        bool lastVacated = vm.parseJsonBool(_j, string.concat(_p, ".vacantLow")) && low + 1 == count;
+        assertEq(_registry.entryCount(), lastVacated ? low : count, "opening slots");
         assertEq(_registry.checkpointAt(0).l1Block, 0, "retained opening checkpoint");
     }
 

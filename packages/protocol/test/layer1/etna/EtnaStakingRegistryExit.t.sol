@@ -283,9 +283,10 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
     // ---------------------------------------------------------------
 
     /// @dev Confirmed at 100 with a 30-block delay: block 129 is too early, block 130 withdraws
-    /// the bond, paying `to` (Lean `confirmation_starts_new_timer`). The emptied slot keeps its
-    /// place in the tree with the all-zero entry's leaf, not a zero leaf; the bond keeps its key,
-    /// activation and exit, with no stake (spec 4.1 vector 28.a).
+    /// the bond, paying `to` (Lean `confirmation_starts_new_timer`). Slot 0 was the only occupied
+    /// slot, so the count shrinks to 0 and the root is 0 (STAKE-4.1-36 vector 36.g, ENC-A-38
+    /// vector 38.e); the bond keeps its key, activation and exit, with no stake (spec 4.1 vector
+    /// 28.a).
     function test_withdraw_WaitsFullDelayFromConfirmation() external {
         _requestExitCovered();
         vm.roll(100);
@@ -300,9 +301,9 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         IEtnaStakingRegistry.Entry memory zero;
         IEtnaStakingRegistry.Entry memory kept = registry.entryAt(0);
         kept.effStake = 0;
-        bytes32 emptyLeaf = LibEntriesTree.leaf(0, zero);
+        bytes32 openingRoot = registry.entriesRoot();
         vm.expectEmit(address(registry));
-        emit IEtnaStakingRegistry.CheckpointWritten(1, 130, 1, emptyLeaf);
+        emit IEtnaStakingRegistry.CheckpointWritten(1, 130, 0, 0);
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.StakeWithdrawn(0, Bob, MIN_STAKE);
         vm.prank(Alice);
@@ -320,11 +321,11 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         assertFalse(occupied, "slot empty");
         assertEq(registry.ownerOf(0), address(0), "owner cleared");
         assertEq(registry.exitConfirmedAtL1(0), 0, "confirmation cleared");
-        assertEq(registry.entryCount(), 1, "count keeps the empty slot");
-        assertTrue(emptyLeaf != bytes32(0), "the empty slot's leaf is not zero");
-        assertEq(registry.entriesRoot(), emptyLeaf, "root over the empty slot's leaf");
+        assertEq(registry.entryCount(), 0, "no occupied slot: count 0");
+        assertEq(registry.entriesRoot(), 0, "root 0");
         assertEq(registry.checkpointCount(), 2, "checkpoint appended");
-        _assertCheckpoint(1, 130, 1, emptyLeaf);
+        _assertCheckpoint(1, 130, 0, 0);
+        _assertCheckpoint(0, _REGISTERED_AT, 1, openingRoot);
         (bool registered, uint256 bondId) = registry.bondForKey(vm.addr(_CK_A));
         assertTrue(registered && bondId == 0, "key stays registered to bond 0");
     }
@@ -480,25 +481,29 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
     }
 
     /// @dev Registrations take the lowest empty slot, whatever the order of the withdrawals, then
-    /// a new slot; each withdrawal writes the all-zero entry's leaf, and each entry's leaf uses
-    /// its slot, not its bond id (spec 4.1 vector 14a.a, appendix A vector 37.h).
+    /// a new slot; each entry's leaf uses its slot, not its bond id (spec 4.1 vector 14a.a,
+    /// appendix A vector 37.h). Withdrawing slot 2, the highest occupied one, shrinks the count
+    /// to 2; withdrawing slot 0 then writes the all-zero entry's leaf at the interior slot
+    /// (STAKE-4.1-36, ENC-A-38).
     function test_register_TakesTheLowestEmptySlot() external {
         assertEq(_register(Alice, _CK_B), 1, "bond 1");
         assertEq(_register(Alice, _CK_C), 2, "bond 2");
         _withdrawBond(2);
+        assertEq(registry.entryCount(), 2, "the count shrinks to slot 1");
         _withdrawBond(0);
+        assertEq(registry.entryCount(), 2, "an interior empty slot keeps the count");
         IEtnaStakingRegistry.Entry memory zero;
         assertEq(
             registry.entriesRoot(),
-            _rootOfFour(LibEntriesTree.leaf(0, zero), _leafAt(1), LibEntriesTree.leaf(2, zero), 0),
-            "root over the emptied leaves"
+            keccak256(abi.encodePacked(LibEntriesTree.leaf(0, zero), _leafAt(1))),
+            "root over the emptied leaf and slot 1"
         );
 
         assertEq(_register(Bob, _CK_D), 3, "bond 3");
         assertEq(registry.entryAt(0).ckX, _xOf(_CK_D), "into the lowest empty slot");
         assertEq(_register(Bob, _CK_E), 4, "bond 4");
-        assertEq(registry.entryAt(2).ckX, _xOf(_CK_E), "then the next empty slot");
-        assertEq(registry.entryCount(), 3, "no slot appended");
+        assertEq(registry.entryAt(2).ckX, _xOf(_CK_E), "then slot 2, beyond the count");
+        assertEq(registry.entryCount(), 3, "the count grows back to 3");
         assertEq(_register(Bob, _CK_F), 5, "bond 5");
         assertEq(registry.entryAt(3).ckX, _xOf(_CK_F), "then a new slot");
         assertEq(registry.entryCount(), 4, "entry count");
@@ -592,18 +597,22 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
     // forceExit
     // ---------------------------------------------------------------
 
-    /// @dev The two-argument selector derives the exit from the execution block, keeps an
-    /// earlier exit on a later recovery, and leaves the stake available for slashing.
-    function test_forceExit_TwoArgumentSelectorUsesCurrentBlock() external {
-        bytes memory callData =
-            abi.encodeWithSignature("forceExit(uint256,bytes32)", 0, EtnaTestKeys.entryKey(_CK_A));
+    /// @dev The one-argument selector (RECOV-8-40a: a bond id alone) derives the exit from the
+    /// execution block, keeps an earlier exit on a later recovery, and leaves the stake available
+    /// for slashing. The earlier `forceExit(uint256,bytes32)` with an entry key is gone.
+    function test_forceExit_BondIdSelectorUsesCurrentBlock() external {
+        bytes memory callData = abi.encodeWithSignature("forceExit(uint256)", 0);
         uint256 stake = registry.entryAt(0).effStake;
         uint256 balance = token.balanceOf(address(registry));
         vm.roll(50);
 
         vm.prank(address(mockInbox));
-        (bool success,) = address(registry).call(callData);
-        assertTrue(success, "two-argument forceExit succeeds");
+        (bool success,) = address(registry)
+            .call(abi.encodeWithSignature("forceExit(uint256,bytes32)", 0, bytes32(0)));
+        assertFalse(success, "no entry-key selector");
+        vm.prank(address(mockInbox));
+        (success,) = address(registry).call(callData);
+        assertTrue(success, "bond-id forceExit succeeds");
         assertEq(registry.entryAt(0).exitEffectiveL1, 50, "exit uses the execution block");
         assertEq(registry.entryAt(0).effStake, stake, "stake unchanged");
 
@@ -621,7 +630,6 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
     /// activation stay and no TAIKO moves (Lean `exclusion_keeps_stake`). Once a landed committee
     /// covers block 50 the exit is confirmed, and after the delay Alice withdraws her whole stake.
     function test_forceExit_MovesExitToRWithoutSlashing() external {
-        bytes32 key = EtnaTestKeys.entryKey(_CK_A);
         IEtnaStakingRegistry.Entry memory expected = registry.entryAt(0);
         assertEq(expected.exitEffectiveL1, _NO_EXIT, "no exit");
         expected.exitEffectiveL1 = 50;
@@ -633,7 +641,7 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.ExitForced(0, 50);
         vm.recordLogs();
-        mockInbox.forceExit(registry, 0, key);
+        mockInbox.forceExit(registry, 0);
 
         assertEq(vm.getRecordedLogs().length, 2, "no other event, no TAIKO transfer");
         _assertEntry(0, expected);
@@ -660,7 +668,6 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
     /// exits are unaffected); the mock snapshot covers block 60 early so the exit can be
     /// confirmed, at block 40, before R.
     function test_forceExit_MovesALaterExitEarlier() external {
-        bytes32 key = EtnaTestKeys.entryKey(_CK_A);
         _requestExitCovered();
         assertEq(registry.entryAt(0).exitEffectiveL1, _EXIT, "requested");
         vm.roll(40);
@@ -669,7 +676,7 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
 
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.ExitForced(0, 50);
-        mockInbox.forceExit(registry, 0, key);
+        mockInbox.forceExit(registry, 0);
 
         assertEq(registry.entryAt(0).exitEffectiveL1, 50, "moved earlier");
         assertEq(registry.checkpointCount(), 2, "checkpoint appended");
@@ -681,34 +688,31 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
     /// exit (block 60) meets recoveries at blocks 60 and 70, and bond 1's exit, forced at block
     /// 70, meets a later recovery at block 90.
     function test_forceExit_KeepsAnEarlierExitWithoutCheckpoint() external {
-        bytes32 aliceKey = EtnaTestKeys.entryKey(_CK_A);
-        bytes32 bobKey = EtnaTestKeys.entryKey(_CK_B);
         vm.prank(Alice);
         registry.requestExit(0);
         IEtnaStakingRegistry.Entry memory alice = registry.entryAt(0);
         bytes32 root = registry.entriesRoot();
 
         vm.roll(_EXIT);
-        _assertForceExitKeeps(0, aliceKey, "R equals the exit");
+        _assertForceExitKeeps(0, "R equals the exit");
         vm.roll(70);
-        _assertForceExitKeeps(0, aliceKey, "R after the exit");
+        _assertForceExitKeeps(0, "R after the exit");
         _assertEntry(0, alice);
         assertEq(registry.checkpointCount(), 1, "no checkpoint");
         _assertCheckpoint(0, _REGISTERED_AT, 1, root);
 
         assertEq(_register(Bob, _CK_B), 1, "bond 1");
-        mockInbox.forceExit(registry, 1, bobKey);
+        mockInbox.forceExit(registry, 1);
         assertEq(registry.entryAt(1).exitEffectiveL1, 70, "forced");
         vm.roll(90);
-        _assertForceExitKeeps(1, bobKey, "earlier forced exit");
+        _assertForceExitKeeps(1, "earlier forced exit");
     }
 
     /// @dev A forced exit is a set exit, so the owner cannot request another afterwards and the
     /// exit, forced at block 35 before the activation, never moves later.
     function test_forceExit_BlocksLaterRequestExit() external {
-        bytes32 key = EtnaTestKeys.entryKey(_CK_A);
         vm.roll(35);
-        mockInbox.forceExit(registry, 0, key);
+        mockInbox.forceExit(registry, 0);
         assertEq(registry.entryAt(0).exitEffectiveL1, 35, "forced");
 
         vm.expectRevert(IEtnaStakingRegistry.ExitAlreadySet.selector);
@@ -724,17 +728,15 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
     /// @dev A recovery excluding several bonds in one block leaves one checkpoint for that block,
     /// over both new leaves.
     function test_forceExit_SeveralExclusionsInOneBlockLeaveOneCheckpoint() external {
-        bytes32 aliceKey = EtnaTestKeys.entryKey(_CK_A);
-        bytes32 bobKey = EtnaTestKeys.entryKey(_CK_B);
         assertEq(_register(Bob, _CK_B), 1, "bond 1");
         vm.roll(50);
 
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.ExitForced(0, 50);
-        mockInbox.forceExit(registry, 0, aliceKey);
+        mockInbox.forceExit(registry, 0);
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.ExitForced(1, 50);
-        mockInbox.forceExit(registry, 1, bobKey);
+        mockInbox.forceExit(registry, 1);
 
         assertEq(registry.entryAt(0).exitEffectiveL1, 50, "bond 0");
         assertEq(registry.entryAt(1).exitEffectiveL1, 50, "bond 1");
@@ -746,10 +748,8 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
 
     /// @dev A slashed entry keeps its key and slot, so an exclusion naming it succeeds. The slash
     /// at block 45 already moved the exit to 45, so recovery at block 50 keeps it with no write
-    /// or event. The key is still checked.
+    /// or event.
     function test_forceExit_AllowsSlashedEntry() external {
-        bytes32 aliceKey = EtnaTestKeys.entryKey(_CK_A);
-        bytes32 bobKey = EtnaTestKeys.entryKey(_CK_B);
         vm.roll(45);
         _slashDoubleSign(0, _CK_A);
         IEtnaStakingRegistry.Entry memory slashed = registry.entryAt(0);
@@ -757,20 +757,16 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         assertEq(slashed.exitEffectiveL1, 45, "exit at the slash");
 
         vm.roll(50);
-        _assertForceExitKeeps(0, aliceKey, "slashed entry");
+        _assertForceExitKeeps(0, "slashed entry");
         _assertEntry(0, slashed);
-
-        vm.expectRevert(IEtnaStakingRegistry.EntryKeyMismatch.selector);
-        mockInbox.forceExit(registry, 0, bobKey);
     }
 
     /// @dev An exclusion takes no stake, so double-sign evidence can still take all of it (spec 8
     /// step 2): bond 0, forced to exit at block 50, is slashed at block 60, which keeps the
     /// earlier exit.
     function test_forceExit_LeavesTheStakeToDoubleSignSlashing() external {
-        bytes32 key = EtnaTestKeys.entryKey(_CK_A);
         vm.roll(50);
-        mockInbox.forceExit(registry, 0, key);
+        mockInbox.forceExit(registry, 0);
 
         vm.roll(60);
         _slashDoubleSign(0, _CK_A);
@@ -781,99 +777,72 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
     }
 
     /// @dev Only the Inbox fixed in the registry: not the registry owner, the bond owner, anyone
-    /// else or another Inbox. The caller is checked first, before the bond, the key and R.
+    /// else or another Inbox. The caller is checked first, before the bond and R.
     function test_forceExit_RevertWhen_NotInbox() external {
-        bytes32 key = EtnaTestKeys.entryKey(_CK_A);
         MockEtnaInbox otherInbox = new MockEtnaInbox();
 
         vm.expectRevert(IEtnaStakingRegistry.NotInbox.selector);
-        registry.forceExit(0, key);
+        registry.forceExit(0);
         vm.expectRevert(IEtnaStakingRegistry.NotInbox.selector);
         vm.prank(Alice);
-        registry.forceExit(0, key);
+        registry.forceExit(0);
         vm.expectRevert(IEtnaStakingRegistry.NotInbox.selector);
         vm.prank(Bob);
-        registry.forceExit(0, key);
+        registry.forceExit(0);
         vm.expectRevert(IEtnaStakingRegistry.NotInbox.selector);
-        otherInbox.forceExit(registry, 0, key);
+        otherInbox.forceExit(registry, 0);
 
         vm.expectRevert(IEtnaStakingRegistry.NotInbox.selector);
-        registry.forceExit(1, key);
-        vm.expectRevert(IEtnaStakingRegistry.NotInbox.selector);
-        registry.forceExit(0, bytes32(0));
+        registry.forceExit(1);
         vm.roll(_NO_EXIT);
         vm.expectRevert(IEtnaStakingRegistry.NotInbox.selector);
-        registry.forceExit(0, key);
+        registry.forceExit(0);
         assertEq(registry.entryAt(0).exitEffectiveL1, _NO_EXIT, "unchanged");
 
         vm.roll(_REGISTERED_AT);
-        mockInbox.forceExit(registry, 0, key);
+        mockInbox.forceExit(registry, 0);
         assertEq(registry.entryAt(0).exitEffectiveL1, 30, "the Inbox forces");
     }
 
-    /// @dev A bond id never issued, checked before the key and R.
+    /// @dev A bond id never issued, checked before R: the next id (40a.d, 40a.f) and the largest
+    /// id revert `UnknownBond`, even at the no-exit sentinel block.
     function test_forceExit_RevertWhen_UnknownBond() external {
-        bytes32 key = EtnaTestKeys.entryKey(_CK_A);
         vm.expectRevert(IEtnaStakingRegistry.UnknownBond.selector);
-        mockInbox.forceExit(registry, 1, key);
+        mockInbox.forceExit(registry, 1);
         vm.expectRevert(IEtnaStakingRegistry.UnknownBond.selector);
-        mockInbox.forceExit(registry, type(uint256).max, key);
+        mockInbox.forceExit(registry, type(uint256).max);
         vm.roll(_NO_EXIT);
         vm.expectRevert(IEtnaStakingRegistry.UnknownBond.selector);
-        mockInbox.forceExit(registry, 1, keccak256(abi.encode(0, 0)));
+        mockInbox.forceExit(registry, 1);
     }
 
-    /// @dev A withdrawn bond keeps its key and exit, so an exclusion naming it with its key is a
-    /// no-op (spec 8 vector 40a.c), while the emptied slot's all-zero key keccak256(abi.encode(0,
-    /// 0)) does not match it (40a.f, 40a.g).
+    /// @dev A withdrawn bond is still issued and keeps its exit, so an exclusion naming it is a
+    /// no-op (40a.g).
     function test_forceExit_AcceptsAWithdrawnBondAsANoOp() external {
-        bytes32 aliceKey = EtnaTestKeys.entryKey(_CK_A);
-        bytes32 emptyKey = keccak256(abi.encode(0, 0));
         _withdrawBond(0);
-
-        _assertForceExitKeeps(0, aliceKey, "withdrawn bond");
-        vm.expectRevert(IEtnaStakingRegistry.EntryKeyMismatch.selector);
-        mockInbox.forceExit(registry, 0, emptyKey);
-        vm.roll(_NO_EXIT);
-        vm.expectRevert(IEtnaStakingRegistry.EntryKeyMismatch.selector);
-        mockInbox.forceExit(registry, 0, emptyKey);
+        _assertForceExitKeeps(0, "withdrawn bond");
     }
 
-    /// @dev After Alice withdrew, Bob's bond 1 took slot 0: Alice's key does not exclude Bob
-    /// (Lean `stale_exclusion_identity_rejected`). Neither do Bob's X under the other prefix
-    /// (another point), the zero key or Bob's key against Carol's bond 2, and the key is checked
-    /// before R. Bob's own key then excludes him.
-    function test_forceExit_RevertWhen_EntryKeyMismatch() external {
-        bytes32 aliceKey = EtnaTestKeys.entryKey(_CK_A);
-        bytes32 bobKey = EtnaTestKeys.entryKey(_CK_B);
+    /// @dev 40a.c: after Alice withdrew, Bob's bond 1 took slot 0. An exclusion naming Alice's
+    /// bond 0 is a no-op that leaves Bob's entry, the root and the checkpoints alone; the id, not
+    /// the slot, names the bond (FORF-4.4-16: ids are never reused). Bob's own id then excludes
+    /// him.
+    function test_forceExit_NamesTheBondNotTheSlotHolder() external {
         _withdrawBond(0);
         assertEq(_register(Bob, _CK_B), 1, "Bob's bond 1 takes slot 0");
         assertEq(_register(Carol, _CK_C), 2, "bond 2");
         IEtnaStakingRegistry.Entry memory bob = registry.entryAt(0);
-        bytes32 otherPrefixKey = keccak256(abi.encode(uint256(bob.ckPrefix ^ 1), bob.ckX));
         uint256 checkpoints = registry.checkpointCount();
         bytes32 root = registry.entriesRoot();
         uint256 r = block.number;
 
-        vm.expectRevert(IEtnaStakingRegistry.EntryKeyMismatch.selector);
-        mockInbox.forceExit(registry, 1, aliceKey);
-        vm.expectRevert(IEtnaStakingRegistry.EntryKeyMismatch.selector);
-        mockInbox.forceExit(registry, 1, otherPrefixKey);
-        vm.expectRevert(IEtnaStakingRegistry.EntryKeyMismatch.selector);
-        mockInbox.forceExit(registry, 1, bytes32(0));
-        vm.expectRevert(IEtnaStakingRegistry.EntryKeyMismatch.selector);
-        mockInbox.forceExit(registry, 2, bobKey);
-        vm.roll(_NO_EXIT);
-        vm.expectRevert(IEtnaStakingRegistry.EntryKeyMismatch.selector);
-        mockInbox.forceExit(registry, 1, aliceKey);
-        vm.roll(r);
-
+        _assertForceExitKeeps(0, "Alice's withdrawn bond");
         _assertEntry(1, bob);
         assertEq(registry.entryAt(1).exitEffectiveL1, _NO_EXIT, "bond 2 unchanged");
         assertEq(registry.checkpointCount(), checkpoints, "no checkpoint");
         assertEq(registry.entriesRoot(), root, "root");
 
-        mockInbox.forceExit(registry, 1, bobKey);
+        mockInbox.forceExit(registry, 1);
         assertEq(registry.entryAt(0).exitEffectiveL1, r, "Bob excluded");
     }
 
@@ -882,8 +851,6 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
     /// written: min(no exit, R) would leave an excluded entry without an exit, still selectable.
     /// An entry that already exits rejects it too. One block less fits.
     function test_forceExit_RevertWhen_CurrentBlockReachesSentinel() external {
-        bytes32 aliceKey = EtnaTestKeys.entryKey(_CK_A);
-        bytes32 bobKey = EtnaTestKeys.entryKey(_CK_B);
         assertEq(_register(Bob, _CK_B), 1, "bond 1");
         vm.prank(Bob);
         registry.requestExit(1);
@@ -892,16 +859,16 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
 
         vm.roll(_NO_EXIT);
         vm.expectRevert(IEtnaStakingRegistry.InvalidEventBlock.selector);
-        mockInbox.forceExit(registry, 0, aliceKey);
+        mockInbox.forceExit(registry, 0);
         vm.roll(2 ** 48);
         vm.expectRevert(IEtnaStakingRegistry.InvalidEventBlock.selector);
-        mockInbox.forceExit(registry, 0, aliceKey);
+        mockInbox.forceExit(registry, 0);
         vm.roll(type(uint256).max);
         vm.expectRevert(IEtnaStakingRegistry.InvalidEventBlock.selector);
-        mockInbox.forceExit(registry, 0, aliceKey);
+        mockInbox.forceExit(registry, 0);
         vm.roll(_NO_EXIT);
         vm.expectRevert(IEtnaStakingRegistry.InvalidEventBlock.selector);
-        mockInbox.forceExit(registry, 1, bobKey);
+        mockInbox.forceExit(registry, 1);
 
         assertEq(registry.entryAt(0).exitEffectiveL1, _NO_EXIT, "bond 0 keeps no exit");
         assertEq(registry.entryAt(1).exitEffectiveL1, _EXIT, "bond 1 keeps its exit");
@@ -911,7 +878,7 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         vm.roll(_NO_EXIT - 1);
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.ExitForced(0, _NO_EXIT - 1);
-        mockInbox.forceExit(registry, 0, aliceKey);
+        mockInbox.forceExit(registry, 0);
         assertEq(registry.entryAt(0).exitEffectiveL1, _NO_EXIT - 1, "one block less fits");
     }
 
@@ -926,8 +893,7 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         reentrant.approve(address(registry), MIN_STAKE);
         bytes memory publicKey = EtnaTestKeys.publicKey(_CK_A);
         bytes memory pop = EtnaTestKeys.popSig(_CK_A, registry, Alice);
-        bytes memory forceExitCall =
-            abi.encodeCall(MockEtnaInbox.forceExit, (registry, 0, EtnaTestKeys.entryKey(_CK_A)));
+        bytes memory forceExitCall = abi.encodeCall(MockEtnaInbox.forceExit, (registry, 0));
 
         reentrant.armReentry(address(mockInbox), forceExitCall);
         vm.expectRevert(EssentialContract.REENTRANT_CALL.selector);
@@ -1021,19 +987,13 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
 
     /// @dev Forces bond `_bondId`'s exit in the current block through the Inbox and asserts nothing
     /// changes: no event, checkpoint, root or exit.
-    function _assertForceExitKeeps(
-        uint256 _bondId,
-        bytes32 _key,
-        string memory _label
-    )
-        private
-    {
+    function _assertForceExitKeeps(uint256 _bondId, string memory _label) private {
         uint256 checkpoints = registry.checkpointCount();
         bytes32 root = registry.entriesRoot();
         uint48 exit = registry.bondAt(_bondId).entry.exitEffectiveL1;
 
         vm.recordLogs();
-        mockInbox.forceExit(registry, _bondId, _key);
+        mockInbox.forceExit(registry, _bondId);
 
         assertEq(vm.getRecordedLogs().length, 0, string.concat(_label, ": no event"));
         assertEq(registry.checkpointCount(), checkpoints, string.concat(_label, ": no checkpoint"));

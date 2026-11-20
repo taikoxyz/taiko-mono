@@ -725,7 +725,7 @@ contract EtnaStakingRegistryTest is EtnaStakingRegistryTestBase {
         _assertLookup(registry.bondForKey, _ckAddr, false, 0, "key unused");
         _assertSlotHolder(0, false, 0, "slot kept empty");
         assertEq(registry.bondCount(), 1, "no bond issued");
-        assertEq(registry.entryCount(), 1, "no slot appended");
+        assertEq(registry.entryCount(), 0, "the count stays 0");
         assertEq(registry.ownerOf(0), address(0), "no owner");
         assertEq(registry.checkpointCount(), _checkpoints, "no checkpoint");
         assertEq(registry.entriesRoot(), _root, "root");

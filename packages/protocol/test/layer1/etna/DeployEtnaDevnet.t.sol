@@ -118,7 +118,6 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setEnv("GENESIS_CUTOFF", "0");
         vm.setEnv("COMMITTEE_RECORD_HASH", vm.toString(COMMITTEE_RECORD_HASH));
         vm.setEnv("ETNA_VP_UNIT", vm.toString(VP_UNIT));
-        vm.setEnv("ETNA_S_MIN", vm.toString(S_MIN));
         vm.setEnv("ETNA_N_MAX", vm.toString(N_MAX));
         vm.setEnv("ETNA_UNSETTLED_LIMIT", vm.toString(UNSETTLED_LIMIT));
         vm.setEnv("FORCED_INCLUSION_DELAY", vm.toString(FORCED_INCLUSION_DELAY));
@@ -168,7 +167,14 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertFalse(IEtnaInbox(deployed.inbox()).isInitialized(), "Inbox not initialized yet");
         assertEq(deployed.l2ChainId(), L2_CHAIN_ID, "L2 chain id");
         assertEq(deployed.forfeitBps(), FORFEIT_BPS, "explicit forfeiture rate");
-        assertEq(_deployment.DEFAULT_REGISTRY_MIN_STAKE(), 250_000 ether, "devnet default");
+        assertEq(_deployment.DEFAULT_REGISTRY_MIN_STAKE(), 4_700_000 ether, "devnet default");
+        // START-10-14: the default minimum stake bounds K at the default recovery capacity F.
+        assertEq(_deployment.DEFAULT_RECOVERY_CAPACITY(), 212, "default F");
+        assertEq(
+            uint256(10 ** 27) / _deployment.DEFAULT_REGISTRY_MIN_STAKE(),
+            _deployment.DEFAULT_RECOVERY_CAPACITY(),
+            "K = F"
+        );
         assertEq(
             deployed.minStake(), _deployment.DEFAULT_REGISTRY_MIN_STAKE(), "default minimum stake"
         );
@@ -395,7 +401,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         private
         returns (uint256 bondId_)
     {
-        bondId_ = _registerValidator(_registry, Alice, VALIDATOR_PK);
+        bondId_ = _registerValidator(_registry, Alice, VALIDATOR_PK, _registry.minStake());
         assertEq(_registry.checkpointAt(0).l1Block, block.number, "first registry checkpoint");
         vm.setEnv("GENESIS_CUTOFF", vm.toString(block.number));
         vm.roll(block.number + 1);
@@ -468,8 +474,10 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
             "fee threshold"
         );
         assertEq(_inbox.protocolFeeRecipient(), PROTOCOL_FEE_RECIPIENT, "protocol fee recipient");
+        assertEq(
+            _inbox.recoveryCapacity(), _deployment.DEFAULT_RECOVERY_CAPACITY(), "recovery capacity"
+        );
         // A new network: no switch from Unzen.
-        assertEq(_inbox.originWriter(), address(0), "no origin writer");
         assertEq(_inbox.unzenInbox(), address(0), "no Unzen Inbox");
         assertEq(_inbox.etnaForkTime(), 0, "no fork time");
     }
@@ -576,15 +584,15 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     }
 
     /// @dev `committeeConfigHash` over the environment's L2 chain id and `ETNA_*` values for
-    /// `_registry` (appendix A).
-    function _committeeConfigHash(address _registry) private pure returns (bytes32) {
+    /// `_registry`, whose immutable minStake is the fifth word (appendix A, ENC-A-36).
+    function _committeeConfigHash(address _registry) private view returns (bytes32) {
         return keccak256(
             abi.encode(
                 bytes32("ETNA_PARENT_ANCHOR_V1"),
                 uint256(L2_CHAIN_ID),
                 _registry,
                 VP_UNIT,
-                S_MIN,
+                EtnaStakingRegistry(_registry).minStake(),
                 N_MAX,
                 UNSETTLED_LIMIT
             )

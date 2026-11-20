@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import { MockLandProofVerifier } from "./EtnaInboxTestBase.sol";
 import { EtnaLandTestBase } from "./EtnaLandTestBase.sol";
-import { EtnaTestKeys } from "./EtnaTestKeys.sol";
 import { VmSafe } from "forge-std/src/Vm.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
@@ -35,9 +34,12 @@ contract LockProbeRegistry {
         recoverCall = _recoverCall;
     }
 
-    function validateExclusion(uint256, bytes32) external pure { }
+    /// @dev Large enough that every exclusion a test names is issued.
+    function bondCount() external pure returns (uint256) {
+        return type(uint256).max;
+    }
 
-    function forceExit(uint256, bytes32) external {
+    function forceExit(uint256) external {
         ++forceExits;
         lockHeld = EssentialContract(msg.sender).inNonReentrant();
         (landSucceeded, landError) = msg.sender.call(landCall);
@@ -134,7 +136,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertGt(balance, 0, "the forced inclusion fees");
 
         vm.startStateDiffRecording();
-        _recover(0, 12, _exclusions(1, _BOB_PK), fiToClear);
+        _recover(0, 12, _exclusions(1), fiToClear);
         VmSafe.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
 
         bytes32[] memory settledAfter = _settledWords();
@@ -183,7 +185,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.ExitForced(1, uint48(_LEAN_R));
         // `_recover` expects `Recovered(1, 0, 11, 61, [(1, Bob's key)], [0])`.
-        _recover(0, 0, _exclusions(1, _BOB_PK), _indices(0));
+        _recover(0, 0, _exclusions(1), _indices(0));
 
         bob.exitEffectiveL1 = uint48(_LEAN_R);
         _assertEntry(1, bob);
@@ -206,9 +208,9 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     /// @dev Lean `empty_election_is_not_an_inbox_check`: excluding every entry still executes,
     /// leaving no entry eligible at R. Another recovery at the same c, with R = 12, can follow.
     function test_recover_ExcludingEveryoneStillExecutes() external {
-        IEtnaInbox.Exclusion[] memory everyone = new IEtnaInbox.Exclusion[](2);
-        everyone[0] = _exclusion(0, VALIDATOR_PK);
-        everyone[1] = _exclusion(1, _BOB_PK);
+        uint256[] memory everyone = new uint256[](2);
+        everyone[0] = 0;
+        everyone[1] = 1;
 
         _recover(0, 0, everyone, _noIndices());
         assertEq(registry.entryAt(0).exitEffectiveL1, _LEAN_R, "Alice exits at R");
@@ -232,13 +234,13 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     function test_recover_RevertWhen_NotOwner() external {
         bytes memory notOwner =
             abi.encodeWithSignature("Error(string)", "Ownable: caller is not the owner");
-        IEtnaInbox.Exclusion[] memory none = _noExclusions();
+        uint256[] memory none = _noExclusions();
         uint256[] memory noIndices = _noIndices();
 
         _expectRecoverRevert(Bob, 0, 0, none, noIndices, notOwner);
         _expectRecoverRevert(Alice, 0, 0, none, noIndices, notOwner);
         _expectRecoverRevert(address(registry), 0, 0, none, noIndices, notOwner);
-        _expectRecoverRevert(Bob, 5, 7, _exclusions(1, _BOB_PK), _indices(9), notOwner);
+        _expectRecoverRevert(Bob, 5, 7, _exclusions(1), _indices(9), notOwner);
 
         _inbox().transferOwnership(Carol);
         _expectRecoverRevert(Carol, 0, 0, none, noIndices, notOwner);
@@ -255,7 +257,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     /// expected generation must equal the current one, below or above it, and is checked before
     /// the checkpoint.
     function test_recover_RevertWhen_ExpectedGenerationStale() external {
-        IEtnaInbox.Exclusion[] memory none = _noExclusions();
+        uint256[] memory none = _noExclusions();
         uint256[] memory noIndices = _noIndices();
         bytes4 mismatch = IEtnaInbox.GenerationMismatch.selector;
 
@@ -272,7 +274,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     /// once a landing moves c to 6, nor can one naming a c above it; the checkpoint is checked
     /// before the lists. An authorization at the new c executes.
     function test_recover_RevertWhen_LandingMovedCheckpoint() external {
-        IEtnaInbox.Exclusion[] memory none = _noExclusions();
+        uint256[] memory none = _noExclusions();
         uint256[] memory noIndices = _noIndices();
         bytes4 mismatch = IEtnaInbox.CheckpointMismatch.selector;
         _land(0, 6);
@@ -301,7 +303,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     /// recovery fails on its stale generation; one authorized for generation 1 at the same c
     /// writes origins(2) and keeps origins(1).
     function test_recover_ReplayNeedsNewGeneration() external {
-        IEtnaInbox.Exclusion[] memory none = _noExclusions();
+        uint256[] memory none = _noExclusions();
         uint256[] memory noIndices = _noIndices();
 
         _recover(0, 0, none, noIndices);
@@ -323,26 +325,21 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     // Lists
     // ---------------------------------------------------------------
 
-    /// @dev Lean `stale_exclusion_identity_rejected` and spec 8 RECOV-8-40a: the registry checks
-    /// each exclusion's entry key and rejects an exclusion whose key does not
-    /// match its bond, or an unissued bond. Each rejected list starts with a valid exclusion of
-    /// Alice and lists a blanking: the whole call reverts, so Alice's exit, the queue entry and
-    /// the generation stay as they were. A withdrawn bond named with its own key is accepted and
-    /// keeps its earlier exit, while the emptied slot's all-zero key does not match it.
-    function test_recover_RevertWhen_ExclusionKeyStaleOrUnissued() external {
-        IEtnaInbox.Exclusion[] memory list = new IEtnaInbox.Exclusion[](2);
-        list[0] = _exclusion(0, VALIDATOR_PK);
+    /// @dev Spec 8 RECOV-8-40a (vectors 40a.d-40a.g): every excluded id must be issued at
+    /// execution. Each rejected list starts with a valid exclusion of Alice and lists a blanking:
+    /// the whole call reverts before any exit, so Alice's exit, the queue entry and the generation
+    /// stay as they were. A withdrawn bond, still issued, is accepted and keeps its earlier exit.
+    function test_recover_RevertWhen_ExclusionUnissued() external {
+        uint256[] memory list = new uint256[](2);
+        list[0] = 0;
 
-        list[1] = _exclusion(1, VALIDATOR_PK);
+        list[1] = 2;
+        _expectRecoverRevert(0, 0, list, _indices(0), IEtnaInbox.UnissuedExclusion.selector);
+        list[1] = type(uint256).max;
+        _expectRecoverRevert(0, 0, list, _indices(0), IEtnaInbox.UnissuedExclusion.selector);
         _expectRecoverRevert(
-            0, 0, list, _indices(0), IEtnaStakingRegistry.EntryKeyMismatch.selector
+            0, 0, _exclusions(2), _noIndices(), IEtnaInbox.UnissuedExclusion.selector
         );
-        list[1].entryKey = bytes32(uint256(999));
-        _expectRecoverRevert(
-            0, 0, list, _indices(0), IEtnaStakingRegistry.EntryKeyMismatch.selector
-        );
-        list[1] = _exclusion(2, _BOB_PK);
-        _expectRecoverRevert(0, 0, list, _indices(0), IEtnaStakingRegistry.UnknownBond.selector);
 
         // Bob exits, a landing's committee covers the exit, and he withdraws bond 1.
         vm.prank(Bob);
@@ -357,30 +354,23 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         registry.withdraw(1, Bob);
         assertEq(registry.entryAt(1).ckPrefix, 0, "slot 1 emptied");
 
-        list[1] = _exclusion(1, _BOB_PK);
-        list[1].entryKey = keccak256(abi.encode(0, 0));
-        _expectRecoverRevert(
-            0, 6, list, _indices(1), IEtnaStakingRegistry.EntryKeyMismatch.selector
-        );
         assertEq(registry.entryAt(0).exitEffectiveL1, _NO_EXIT, "Alice keeps no exit");
-
-        list[1] = _exclusion(1, _BOB_PK);
+        list[1] = 1;
         _recover(0, 6, list, _indices(1));
         assertEq(registry.entryAt(0).exitEffectiveL1, block.number, "Alice excluded");
         assertEq(registry.bondAt(1).entry.exitEffectiveL1, bobExit, "Bob's earlier exit stands");
     }
 
+    /// @dev RECOV-8-39: an unissued last id is caught before any exclusion reaches the registry.
     function test_recover_RevertWhen_LaterExclusionInvalidBeforeAnyExit() external {
-        IEtnaInbox.Exclusion[] memory list = new IEtnaInbox.Exclusion[](2);
-        list[0] = _exclusion(0, VALIDATOR_PK);
-        list[1] = _exclusion(1, VALIDATOR_PK);
+        uint256[] memory list = new uint256[](2);
+        list[0] = 0;
+        list[1] = 2;
 
         vm.expectCall(
             address(registry), abi.encodePacked(IEtnaStakingRegistry.forceExit.selector), 0
         );
-        _expectRecoverRevert(
-            0, 0, list, _indices(0), IEtnaStakingRegistry.EntryKeyMismatch.selector
-        );
+        _expectRecoverRevert(0, 0, list, _indices(0), IEtnaInbox.UnissuedExclusion.selector);
     }
 
     /// @dev Both lists must be strictly increasing: equal or descending neighbours, anywhere in
@@ -390,9 +380,9 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         vm.expectCall(
             address(registry), abi.encodePacked(IEtnaStakingRegistry.forceExit.selector), 0
         );
-        IEtnaInbox.Exclusion memory alice = _exclusion(0, VALIDATOR_PK);
-        IEtnaInbox.Exclusion memory bob = _exclusion(1, _BOB_PK);
-        IEtnaInbox.Exclusion[] memory list = new IEtnaInbox.Exclusion[](2);
+        uint256 alice = 0;
+        uint256 bob = 1;
+        uint256[] memory list = new uint256[](2);
         bytes4 exclusionsNotSorted = IEtnaInbox.ExclusionsNotSorted.selector;
         bytes4 indicesNotSorted = IEtnaInbox.FiToClearNotSorted.selector;
 
@@ -401,7 +391,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         (list[0], list[1]) = (bob, bob);
         _expectRecoverRevert(0, 0, list, _noIndices(), exclusionsNotSorted);
         _expectRecoverRevert(0, 0, _unsortedExclusions(), _noIndices(), exclusionsNotSorted);
-        IEtnaInbox.Exclusion[] memory three = new IEtnaInbox.Exclusion[](3);
+        uint256[] memory three = new uint256[](3);
         (three[0], three[1], three[2]) = (alice, bob, bob);
         _expectRecoverRevert(0, 0, three, _noIndices(), exclusionsNotSorted);
 
@@ -421,7 +411,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         vm.expectCall(
             address(registry), abi.encodePacked(IEtnaStakingRegistry.forceExit.selector), 0
         );
-        IEtnaInbox.Exclusion[] memory bob = _exclusions(1, _BOB_PK);
+        uint256[] memory bob = _exclusions(1);
         bytes4 outOfRange = IEtnaInbox.FiIndexOutOfRange.selector;
         _assertQueue(0, 3);
 
@@ -458,7 +448,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
 
         bytes4 overflow = IEtnaInbox.ValueOverflow.selector;
         _expectRecoverRevert(last, 0, _noExclusions(), _noIndices(), overflow);
-        _expectRecoverRevert(last, 0, _exclusions(1, _BOB_PK), _indices(0), overflow);
+        _expectRecoverRevert(last, 0, _exclusions(1), _indices(0), overflow);
         _assertOrigin(_TWO_POW_48, 0, 0, 0);
     }
 
@@ -472,7 +462,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _storeInboxWord(slot + 2, bytes32(uint256(8)));
 
         _expectRecoverRevert(
-            0, 0, _exclusions(1, _BOB_PK), _indices(0), IEtnaInbox.OriginAlreadyWritten.selector
+            0, 0, _exclusions(1), _indices(0), IEtnaInbox.OriginAlreadyWritten.selector
         );
         assertEq(_inbox().recoveryGeneration(), 0, "generation kept");
         assertEq(registry.entryAt(1).exitEffectiveL1, _NO_EXIT, "Bob keeps no exit");
@@ -483,13 +473,11 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     /// including the exclusion and the blanking it lists; at 2^48 - 1 it executes.
     function test_recover_RevertWhen_TimestampOverflows48Bits() external {
         vm.warp(_TWO_POW_48);
-        _expectRecoverRevert(
-            0, 0, _exclusions(1, _BOB_PK), _indices(0), IEtnaInbox.ValueOverflow.selector
-        );
+        _expectRecoverRevert(0, 0, _exclusions(1), _indices(0), IEtnaInbox.ValueOverflow.selector);
         assertEq(registry.entryAt(1).exitEffectiveL1, _NO_EXIT, "Bob keeps no exit");
 
         vm.warp(_TWO_POW_48 - 1);
-        _recover(0, 0, _exclusions(1, _BOB_PK), _indices(0));
+        _recover(0, 0, _exclusions(1), _indices(0));
         _assertOrigin(1, 0, _LEAN_R, _TWO_POW_48 - 1);
     }
 
@@ -502,11 +490,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
 
         vm.roll(_NO_EXIT);
         _expectRecoverRevert(
-            0,
-            0,
-            _exclusions(1, _BOB_PK),
-            _indices(0),
-            IEtnaStakingRegistry.InvalidEventBlock.selector
+            0, 0, _exclusions(1), _indices(0), IEtnaStakingRegistry.InvalidEventBlock.selector
         );
         _recover(0, 0, _noExclusions(), _indices(0));
         _assertOrigin(1, 0, _NO_EXIT, _LEAN_R_TIMESTAMP);
@@ -539,7 +523,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
                 0,
                 uint256(_inboxWord(RECOVERY_NONCE_SLOT)),
                 type(uint256).max,
-                _exclusions(0, VALIDATOR_PK),
+                _exclusions(0),
                 _indices(0),
                 0
             );
@@ -578,7 +562,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             )
         );
 
-        _recover(0, 0, _exclusions(0, VALIDATOR_PK), _noIndices());
+        _recover(0, 0, _exclusions(0), _noIndices());
 
         bytes memory reentrant = abi.encodeWithSelector(EssentialContract.REENTRANT_CALL.selector);
         assertEq(probe.forceExits(), 1, "one exclusion");
@@ -591,12 +575,13 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(_inbox().recoveryGeneration(), 1, "one generation");
     }
 
-    /// @dev `recover` validates all exclusions in the registry before forcing exits in list
-    /// order. It sends no ETH and never calls the SignalService or the verifier.
+    /// @dev `recover` reads the registry's bond count once, which shows every strictly increasing
+    /// exclusion issued, before forcing exits in list order. It sends no ETH and never calls the
+    /// SignalService or the verifier.
     function test_recover_CallsOnlyTheRegistry() external {
-        IEtnaInbox.Exclusion[] memory everyone = new IEtnaInbox.Exclusion[](2);
-        everyone[0] = _exclusion(0, VALIDATOR_PK);
-        everyone[1] = _exclusion(1, _BOB_PK);
+        uint256[] memory everyone = new uint256[](2);
+        everyone[0] = 0;
+        everyone[1] = 1;
         address registryImpl = registry.impl();
 
         vm.startStateDiffRecording();
@@ -629,24 +614,20 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
                     if (bytes4(a.data) == EssentialContract.inNonReentrant.selector) {
                         continue;
                     }
-                    IEtnaInbox.Exclusion memory exclusion = everyone[validated++];
                     assertEq(
                         a.data,
-                        abi.encodeCall(
-                            IEtnaStakingRegistry.validateExclusion,
-                            (exclusion.bondId, exclusion.entryKey)
-                        ),
-                        "registry exclusion validation"
+                        abi.encodeCall(IEtnaStakingRegistry.bondCount, ()),
+                        "one issuance read"
                     );
+                    ++validated;
                     continue;
                 }
                 assertEq(uint8(a.kind), uint8(VmSafe.AccountAccessKind.Call), "registry forceExit");
-                assertEq(validated, everyone.length, "all exclusions validated before forceExit");
-                IEtnaInbox.Exclusion memory x = everyone[forceExits++];
+                assertEq(validated, 1, "issuance read before forceExit");
                 assertEq(
                     a.data,
-                    abi.encodeCall(IEtnaStakingRegistry.forceExit, (x.bondId, x.entryKey)),
-                    "forceExit(bondId, entryKey)"
+                    abi.encodeCall(IEtnaStakingRegistry.forceExit, (everyone[forceExits++])),
+                    "forceExit(bondId)"
                 );
             } else if (a.account == registryImpl) {
                 assertEq(
@@ -816,7 +797,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     function _recover(
         uint48 _generation,
         uint256 _c,
-        IEtnaInbox.Exclusion[] memory _exclusionList,
+        uint256[] memory _exclusionList,
         uint256[] memory _fiToClear
     )
         private
@@ -842,7 +823,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     function _expectRecoverRevert(
         uint48 _generation,
         uint256 _c,
-        IEtnaInbox.Exclusion[] memory _exclusionList,
+        uint256[] memory _exclusionList,
         uint256[] memory _fiToClear,
         bytes4 _selector
     )
@@ -866,7 +847,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         address _caller,
         uint48 _generation,
         uint256 _c,
-        IEtnaInbox.Exclusion[] memory _exclusionList,
+        uint256[] memory _exclusionList,
         uint256[] memory _fiToClear,
         bytes memory _revertData
     )
@@ -1005,32 +986,15 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(entry.exitEffectiveL1, _expected.exitEffectiveL1, "exitEffectiveL1");
     }
 
-    function _exclusion(
-        uint256 _bondId,
-        uint256 _pk
-    )
-        private
-        returns (IEtnaInbox.Exclusion memory)
-    {
-        return IEtnaInbox.Exclusion({ bondId: _bondId, entryKey: EtnaTestKeys.entryKey(_pk) });
+    function _exclusions(uint256 _bondId) private pure returns (uint256[] memory list_) {
+        list_ = new uint256[](1);
+        list_[0] = _bondId;
     }
 
-    function _exclusions(
-        uint256 _bondId,
-        uint256 _pk
-    )
-        private
-        returns (IEtnaInbox.Exclusion[] memory list_)
-    {
-        list_ = new IEtnaInbox.Exclusion[](1);
-        list_[0] = _exclusion(_bondId, _pk);
-    }
-
-    /// @dev Bob's exclusion before Alice's.
-    function _unsortedExclusions() private returns (IEtnaInbox.Exclusion[] memory list_) {
-        list_ = new IEtnaInbox.Exclusion[](2);
-        list_[0] = _exclusion(1, _BOB_PK);
-        list_[1] = _exclusion(0, VALIDATOR_PK);
+    /// @dev Bob's bond 1 before Alice's bond 0.
+    function _unsortedExclusions() private pure returns (uint256[] memory list_) {
+        list_ = new uint256[](2);
+        (list_[0], list_[1]) = (1, 0);
     }
 
     function _noIndices() private pure returns (uint256[] memory) {

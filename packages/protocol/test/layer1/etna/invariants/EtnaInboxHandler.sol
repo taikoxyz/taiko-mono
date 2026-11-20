@@ -93,7 +93,7 @@ contract EtnaInboxHandler is CommonBase {
         uint256 expectedC;
         uint256 expectedNonce;
         uint256 validUntil;
-        IEtnaInbox.Exclusion[] exclusions;
+        uint256[] exclusions;
         uint256[] fiToClear;
         bytes expectedError;
     }
@@ -129,11 +129,10 @@ contract EtnaInboxHandler is CommonBase {
     uint256 internal constant EXCLUSIONS_UNSORTED = 4;
     uint256 internal constant FI_UNSORTED = 5;
     uint256 internal constant FI_OUT_OF_RANGE = 6;
-    uint256 internal constant ENTRY_KEY_MISMATCH = 7;
-    uint256 internal constant UNKNOWN_BOND = 8;
-    uint256 internal constant NONCE_MISMATCH = 9;
-    uint256 internal constant AUTHORIZATION_EXPIRED = 10;
-    uint256 internal constant RECOVERY_MODES = 11;
+    uint256 internal constant UNKNOWN_BOND = 7;
+    uint256 internal constant NONCE_MISMATCH = 8;
+    uint256 internal constant AUTHORIZATION_EXPIRED = 9;
+    uint256 internal constant RECOVERY_MODES = 10;
 
     /// @dev The EIP-2935 history storage contract and its runtime code.
     address internal constant HISTORY_STORAGE = 0x0000F90827F1C53a10cb7A02335B175320002935;
@@ -167,8 +166,8 @@ contract EtnaInboxHandler is CommonBase {
     address[] internal _senders;
     address[] internal _landers;
     address internal immutable _sweeper;
-    /// @dev The entry key of every registered bond, by bond id.
-    bytes32[] internal _entryKeys;
+    /// @dev The number of bonds registered before the campaign; ids 0 .. count - 1 are issued.
+    uint256 internal _bondCount;
 
     // ---------------------------------------------------------------
     // Ghost state
@@ -247,10 +246,9 @@ contract EtnaInboxHandler is CommonBase {
         _sweeper = vm.addr(0xe7a5ee);
 
         uint256 bonds = _deployment.registry.entryCount();
+        _bondCount = bonds;
         for (uint256 b; b < bonds; ++b) {
-            IEtnaStakingRegistry.Entry memory entry = _deployment.registry.entryAt(b);
-            _entryKeys.push(keccak256(abi.encode(uint256(entry.ckPrefix), entry.ckX)));
-            ghostExit[b] = entry.exitEffectiveL1;
+            ghostExit[b] = _deployment.registry.entryAt(b).exitEffectiveL1;
         }
 
         _checkpoints.push(0);
@@ -436,7 +434,7 @@ contract EtnaInboxHandler is CommonBase {
     }
 
     function bondCount() external view returns (uint256) {
-        return _entryKeys.length;
+        return _bondCount;
     }
 
     // ---------------------------------------------------------------
@@ -983,19 +981,15 @@ contract EtnaInboxHandler is CommonBase {
     // Recoveries
     // ---------------------------------------------------------------
 
-    /// @dev A subset of the registered bonds, sorted by bond id, with their entry keys.
-    function _validExclusions(uint256 _seed)
-        internal
-        view
-        returns (IEtnaInbox.Exclusion[] memory list_)
-    {
-        uint256 bonds = _entryKeys.length;
+    /// @dev A subset of the registered bonds' ids, strictly increasing.
+    function _validExclusions(uint256 _seed) internal view returns (uint256[] memory list_) {
+        uint256 bonds = _bondCount;
         uint256 mask = _seed % (1 << bonds);
-        list_ = new IEtnaInbox.Exclusion[](_popCount(mask));
+        list_ = new uint256[](_popCount(mask));
         uint256 n;
         for (uint256 b; b < bonds; ++b) {
             if (mask & (1 << b) == 0) continue;
-            list_[n++] = IEtnaInbox.Exclusion({ bondId: b, entryKey: _entryKeys[b] });
+            list_[n++] = b;
         }
     }
 
@@ -1063,19 +1057,10 @@ contract EtnaInboxHandler is CommonBase {
                 ? _prepend(_attempt.fiToClear, (_seed >> 1) % ghostHead)
                 : _append(_attempt.fiToClear, ghostTail + (_seed >> 1) % 3);
             selector = IEtnaInbox.FiIndexOutOfRange.selector;
-        } else if (defect == ENTRY_KEY_MISMATCH) {
-            _breakEntryKey(_attempt, _seed);
-            selector = IEtnaStakingRegistry.EntryKeyMismatch.selector;
         } else {
-            // UNKNOWN_BOND, the last defect.
-            _attempt.exclusions = _appendExclusion(
-                _attempt.exclusions,
-                IEtnaInbox.Exclusion({
-                    bondId: _entryKeys.length + _seed % 3,
-                    entryKey: keccak256(abi.encode("etna unknown bond", _seed))
-                })
-            );
-            selector = IEtnaStakingRegistry.UnknownBond.selector;
+            // UNKNOWN_BOND, the last defect: an id the registry has not issued (RECOV-8-40a).
+            _attempt.exclusions = _append(_attempt.exclusions, _bondCount + _seed % 3);
+            selector = IEtnaInbox.UnissuedExclusion.selector;
         }
         _attempt.expectedError = abi.encodeWithSelector(selector);
         return true;
@@ -1089,16 +1074,14 @@ contract EtnaInboxHandler is CommonBase {
         internal
         view
     {
-        IEtnaInbox.Exclusion[] memory list = _attempt.exclusions;
+        uint256[] memory list = _attempt.exclusions;
         if (list.length >= 2) {
             (list[0], list[1]) = (list[1], list[0]);
             return;
         }
-        uint256 bondId = _seed % _entryKeys.length;
-        IEtnaInbox.Exclusion memory exclusion =
-            IEtnaInbox.Exclusion({ bondId: bondId, entryKey: _entryKeys[bondId] });
-        _attempt.exclusions = new IEtnaInbox.Exclusion[](2);
-        (_attempt.exclusions[0], _attempt.exclusions[1]) = (exclusion, exclusion);
+        uint256 bondId = _seed % _bondCount;
+        _attempt.exclusions = new uint256[](2);
+        (_attempt.exclusions[0], _attempt.exclusions[1]) = (bondId, bondId);
     }
 
     /// @dev Swaps the first two indices, or lists one pending index twice.
@@ -1111,18 +1094,6 @@ contract EtnaInboxHandler is CommonBase {
         uint256 index = ghostHead + _seed % (ghostTail - ghostHead);
         _attempt.fiToClear = new uint256[](2);
         (_attempt.fiToClear[0], _attempt.fiToClear[1]) = (index, index);
-    }
-
-    /// @dev Gives one listed exclusion, or a single new one, a key other than its entry's.
-    function _breakEntryKey(RecoveryAttempt memory _attempt, uint256 _seed) internal view {
-        bytes32 wrongKey = keccak256(abi.encode("etna wrong key", _seed));
-        if (_attempt.exclusions.length != 0) {
-            _attempt.exclusions[_seed % _attempt.exclusions.length].entryKey = wrongKey;
-            return;
-        }
-        _attempt.exclusions = new IEtnaInbox.Exclusion[](1);
-        _attempt.exclusions[0] =
-            IEtnaInbox.Exclusion({ bondId: _seed % _entryKeys.length, entryKey: wrongKey });
     }
 
     /// @dev Starts the next generation at c with origin (c, R, R's timestamp), blanks the listed
@@ -1140,7 +1111,7 @@ contract EtnaInboxHandler is CommonBase {
             _saved[_attempt.fiToClear[i]].blanked = true;
         }
         for (uint256 i; i < _attempt.exclusions.length; ++i) {
-            uint256 bondId = _attempt.exclusions[i].bondId;
+            uint256 bondId = _attempt.exclusions[i];
             if (block.number < ghostExit[bondId]) ghostExit[bondId] = block.number;
         }
         ++recoveries;
@@ -1234,20 +1205,5 @@ contract EtnaInboxHandler is CommonBase {
         for (uint256 i; i < _list.length; ++i) {
             list_[i + 1] = _list[i];
         }
-    }
-
-    function _appendExclusion(
-        IEtnaInbox.Exclusion[] memory _list,
-        IEtnaInbox.Exclusion memory _exclusion
-    )
-        internal
-        pure
-        returns (IEtnaInbox.Exclusion[] memory list_)
-    {
-        list_ = new IEtnaInbox.Exclusion[](_list.length + 1);
-        for (uint256 i; i < _list.length; ++i) {
-            list_[i] = _list[i];
-        }
-        list_[_list.length] = _exclusion;
     }
 }

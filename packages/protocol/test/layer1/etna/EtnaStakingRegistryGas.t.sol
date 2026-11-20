@@ -148,13 +148,11 @@ abstract contract EtnaStakingRegistryGasBase is EtnaStakingRegistryTestBase {
     /// @dev Measures the registry owner's forfeiture of `_bondId` as `_label`.
     function _measureForfeit(string memory _label, uint256 _bondId) internal {
         EtnaStakingRegistry target = registry;
-        IEtnaStakingRegistry.Entry memory entry = registry.bondAt(_bondId).entry;
-        bytes32 entryKey = keccak256(abi.encode(uint256(entry.ckPrefix), entry.ckX));
         uint256 validUntil = block.timestamp;
         vm.startSnapshotGas(_label);
-        target.forfeit(_bondId, entryKey, bytes32(0), validUntil);
+        target.forfeit(_bondId, bytes32(0), validUntil);
         _stopSnapshot(_label);
-        assertTrue(registry.forfeited(entryKey), "forfeited");
+        assertTrue(registry.forfeited(_bondId), "forfeited");
     }
 
     /// @dev Measures `_owner`'s withdrawal of `_bondId` to itself as `_label`.

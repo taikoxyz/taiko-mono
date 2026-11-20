@@ -30,6 +30,12 @@ import "./EtnaStakingRegistry_Layout.sol"; // DO NOT DELETE
 /// every slot of word `w` is held. The lowest empty slot is the lowest clear bit of the first
 /// word whose summary bit is clear, two storage reads. Registration sets a bit and only
 /// withdrawal clears one; balances never touch the index.
+///
+/// The `entries` array has exactly `count` elements, where count is zero if every slot is empty
+/// and otherwise one plus the highest occupied slot (STAKE-4.1-36): every slot from `count` on is
+/// empty and its storage zero. Registration into slot `count` appends; withdrawal from the highest
+/// occupied slot shrinks the array to one plus the next occupied slot below it, found by scanning
+/// the occupancy words downwards (at most 16 reads).
 /// @custom:security-contact security@taiko.xyz
 contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     using SafeERC20 for IERC20;
@@ -84,7 +90,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
 
     /// @custom:storage-location erc7201:taiko.etna.registry.forfeitures
     struct ForfeituresStorage {
-        mapping(bytes32 entryKey => bool forfeited) forfeitures;
+        mapping(uint256 bondId => bool forfeited) forfeitures;
     }
 
     // ---------------------------------------------------------------
@@ -151,8 +157,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @notice The staked TAIKO token.
     IERC20 public immutable token;
 
-    /// @notice The minimum stake of a registration in token base units.
-    uint256 public immutable minStake;
+    /// @inheritdoc IEtnaStakingRegistry
+    uint256 public immutable override minStake;
 
     /// @notice The L1 blocks from registration until the entry is active.
     uint256 public immutable activationDelay;
@@ -326,13 +332,12 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
             uint256 slot = bond.slot;
             bond.holdsSlot = false;
             delete $.slotBond[slot];
-            Entry memory empty;
-            _commit($, slot, empty);
             uint256 word = slot >> 8;
             /// forge-lint: disable-start(incorrect-shift)
             $.occupied[word] &= ~(1 << (slot & 255));
             $.fullWords &= ~(1 << word);
             /// forge-lint: disable-end
+            _vacate($, slot);
         }
 
         // Nothing is paid without principal, so the event names no recipient a caller picked.
@@ -344,8 +349,9 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @inheritdoc IEtnaStakingRegistry
     /// @dev Checks in order: the Inbox's initialization, both votes' ranges, the pair (same type,
     /// height, round and generation, different block ids), the generation, the bond and its
-    /// stake, then both signatures. The slash is written before either transfer. Unaffected by
-    /// pause. The Inbox lock rejects callbacks into slashing from any Inbox entry point.
+    /// stake, then both signers against the lifetime key lookup. The slash is written before
+    /// either transfer. Unaffected by pause. The Inbox lock rejects callbacks into slashing from
+    /// any Inbox entry point.
     function slashDoubleSign(
         uint256 _bondId,
         Vote calldata _voteA,
@@ -372,18 +378,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         Entry memory entry = bond.entry;
         uint256 amount = entry.effStake + _topUpsStorage().topUps[_bondId].pendingTopUp;
         require(amount != 0, NothingToSlash());
-
-        // The key was validated at registration, so it decompresses.
-        address signer =
-            LibEtnaKeys.ckAddr(entry.ckX, LibEtnaKeys.decompress(entry.ckPrefix, entry.ckX));
-        bytes memory cometChainId = LibCometVote.chainId(
-            LibCometVote.chainDomain(block.chainid, l2ChainId, inbox, voteA.generation)
-        );
-        require(
-            _voteSigner(voteA, cometChainId) == signer
-                && _voteSigner(voteB, cometChainId) == signer,
-            InvalidSignature()
-        );
+        _checkDoubleSigner(_bondId, voteA, voteB);
 
         delete _topUpsStorage().topUps[_bondId];
         // The entry changes only if it has effective stake or its exit is later than this block.
@@ -411,16 +406,12 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     }
 
     /// @inheritdoc IEtnaStakingRegistry
-    function validateExclusion(uint256 _bondId, bytes32 _entryKey) external view {
-        _validateExclusion(_registryStorage(), _bondId, _entryKey);
-    }
-
-    /// @inheritdoc IEtnaStakingRegistry
     /// @dev Unaffected by pause.
-    function forceExit(uint256 _bondId, bytes32 _entryKey) external nonReentrant {
+    function forceExit(uint256 _bondId) external nonReentrant {
         require(msg.sender == inbox, NotInbox());
         RegistryStorage storage $ = _registryStorage();
-        (Bond storage bond, uint48 r) = _validateExclusion($, _bondId, _entryKey);
+        Bond storage bond = _issuedBond($, _bondId);
+        uint48 r = _toExitBlock(block.number);
         Entry memory entry = bond.entry;
         if (r >= entry.exitEffectiveL1) return;
 
@@ -468,7 +459,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @inheritdoc IEtnaStakingRegistry
     function forfeit(
         uint256 _bondId,
-        bytes32 _entryKey,
         bytes32 _incidentId,
         uint256 _validUntil
     )
@@ -482,9 +472,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         RegistryStorage storage $ = _registryStorage();
         Bond storage bond = _unwithdrawnBond($, _bondId);
         Entry memory entry = bond.entry;
-        require(_entryKey == LibEtnaKeys.entryKey(entry.ckPrefix, entry.ckX), EntryKeyMismatch());
         ForfeituresStorage storage flags = _forfeituresStorage();
-        require(!flags.forfeitures[_entryKey], AlreadyForfeited());
+        require(!flags.forfeitures[_bondId], AlreadyForfeited());
         TopUp storage pending = _topUpsStorage().topUps[_bondId];
         uint256 balance = entry.effStake + pending.pendingTopUp;
         require(balance != 0, NothingToForfeit());
@@ -493,14 +482,14 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         entry.effStake -= fromEffective;
         pending.pendingTopUp -= penalty - fromEffective;
         if (pending.pendingTopUp == 0) pending.readyAtL1 = 0;
-        flags.forfeitures[_entryKey] = true;
+        flags.forfeitures[_bondId] = true;
         uint48 exit = uint48(Math.min(entry.exitEffectiveL1, _toExitBlock(block.number)));
         if (fromEffective != 0 || exit != entry.exitEffectiveL1) {
             entry.exitEffectiveL1 = exit;
             _save($, bond, entry);
         }
         token.safeTransfer(slashSink, penalty);
-        emit Forfeited(_bondId, _entryKey, _incidentId, balance, penalty);
+        emit Forfeited(_bondId, _incidentId, balance, penalty);
     }
 
     /// @inheritdoc IEtnaStakingRegistry
@@ -514,8 +503,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     }
 
     /// @inheritdoc IEtnaStakingRegistry
-    function forfeited(bytes32 _entryKey) external view returns (bool forfeited_) {
-        return _forfeituresStorage().forfeitures[_entryKey];
+    function forfeited(uint256 _bondId) external view returns (bool forfeited_) {
+        return _forfeituresStorage().forfeitures[_bondId];
     }
 
     /// @inheritdoc IEtnaStakingRegistry
@@ -649,8 +638,8 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         $.occupied[word] = bits;
         if (bits == type(uint256).max) $.fullWords = fullWords | wordBit;
         uint256 slot = word << 8 | Math.log2(slotBit);
-        // No slot from `entries.length` on was ever held, so the lowest empty slot is at most
-        // `entries.length`; a slot never used before is appended.
+        // No slot from `entries.length`, the count, on is held, so the lowest empty slot is at
+        // most the count; taking slot `count` appends it and grows the count by one.
         if (slot == $.entries.length) $.entries.push();
         $.slotBond[slot] = _bondId + 1;
         Bond storage bond = $.bonds[_bondId];
@@ -674,9 +663,7 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
         if (_bond.holdsSlot) _commit($, _bond.slot, _entry);
     }
 
-    /// @dev Writes the entry of `_slot`, its tree leaf and the current block's checkpoint. The
-    /// checkpoint overwrites the last one if that is from this block and is appended otherwise,
-    /// so every L1 block that changes the entry in a slot ends with exactly one checkpoint.
+    /// @dev Writes the entry of `_slot`, its tree leaf and the current block's checkpoint.
     /// @param $ The registry storage.
     /// @param _slot The slot, below `entries.length`.
     /// @param _entry The slot's new entry.
@@ -689,20 +676,77 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     {
         $.entries[_slot] = _entry;
         uint256 count = $.entries.length;
-        bytes32 root =
-            LibEntriesTree.update($.tree, count, _slot, LibEntriesTree.leaf(_slot, _entry));
+        _checkpoint(
+            $,
+            count,
+            LibEntriesTree.update($.tree, count, _slot, LibEntriesTree.leaf(_slot, _entry))
+        );
+    }
 
+    /// @dev Empties a slot whose bond was just withdrawn and writes the current block's
+    /// checkpoint (STAKE-4.1-28, STAKE-4.1-36). An interior slot keeps the count and gets the
+    /// all-zero entry's leaf. The highest occupied slot instead shrinks the count to one plus the
+    /// next occupied slot below it, or to zero: its zeroed entry becomes padding, and the path of
+    /// the new last leaf is rewritten with zero padding to its right (ENC-A-38).
+    /// @param $ The registry storage.
+    /// @param _slot The slot, below `entries.length`, already cleared in the occupancy index.
+    function _vacate(RegistryStorage storage $, uint256 _slot) private {
+        Entry memory empty;
+        if (_slot + 1 < $.entries.length) {
+            _commit($, _slot, empty);
+            return;
+        }
+
+        $.entries[_slot] = empty;
+        uint256 count = _countBelow($, _slot);
+        Entry[] storage entries = $.entries;
+        // Every slot from `count` through `_slot` is empty and its entry storage zero, so the
+        // array shrinks without clearing elements.
+        assembly ("memory-safe") {
+            sstore(entries.slot, count)
+        }
+        _checkpoint($, count, LibEntriesTree.truncate($.tree, count));
+    }
+
+    /// @dev Returns one plus the highest occupied slot below `_slot`, or zero if none is occupied,
+    /// by scanning the occupancy words from `_slot`'s word down to word 0.
+    /// @param $ The registry storage.
+    /// @param _slot The slot whose lower neighbours are scanned; its own bit is already clear.
+    /// @return The new count.
+    function _countBelow(
+        RegistryStorage storage $,
+        uint256 _slot
+    )
+        private
+        view
+        returns (uint256)
+    {
+        // `word` runs one above the occupancy word it reads, from `_slot`'s word down to word 0.
+        for (uint256 word = (_slot >> 8) + 1; word != 0; --word) {
+            uint256 bits = $.occupied[word - 1];
+            if (bits != 0) return ((word - 1) << 8 | Math.log2(bits)) + 1;
+        }
+        return 0;
+    }
+
+    /// @dev Writes the current block's checkpoint (l1Block, count, entriesRoot). It overwrites
+    /// the last one if that is from this block and is appended otherwise, so every L1 block that
+    /// changes the entry in a slot ends with exactly one checkpoint.
+    /// @param $ The registry storage.
+    /// @param _count The count after this change, at most MAX_ENTRIES.
+    /// @param _root The entries root over `_count` slots.
+    function _checkpoint(RegistryStorage storage $, uint256 _count, bytes32 _root) private {
         uint48 l1Block = _toEventBlock(block.number);
-        // `count` is at most MAX_ENTRIES.
+        // `_count` is at most MAX_ENTRIES.
         Checkpoint memory checkpoint =
-            Checkpoint({ l1Block: l1Block, count: uint48(count), entriesRoot: root });
+            Checkpoint({ l1Block: l1Block, count: uint48(_count), entriesRoot: _root });
         uint256 index = $.checkpoints.length;
         if (index != 0 && $.checkpoints[index - 1].l1Block == l1Block) {
             $.checkpoints[--index] = checkpoint;
         } else {
             $.checkpoints.push(checkpoint);
         }
-        emit CheckpointWritten(index, l1Block, uint48(count), root);
+        emit CheckpointWritten(index, l1Block, uint48(_count), _root);
     }
 
     /// @dev Returns the lowest clear bit of a word that is not all ones.
@@ -719,6 +763,33 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// @return bondId_ The bond id; 0 if none.
     function _lookup(uint256 _bondIdPlusOne) private pure returns (bool found_, uint256 bondId_) {
         if (_bondIdPlusOne != 0) return (true, _bondIdPlusOne - 1);
+    }
+
+    /// @dev STAKE-4.1-33: recomputes both votes' sign bytes under this deployment's chain id for
+    /// their shared generation and requires both signers to be the same nonzero address
+    /// (`_voteSigner` never returns zero) whose lifetime key lookup, written at registration from
+    /// the decompressed key and never released, names exactly `_bondId`. No key is decompressed.
+    /// Reverts with `InvalidSignature` otherwise.
+    /// @param _bondId The bond the evidence names; issued, so `_bondId + 1` cannot overflow.
+    /// @param _voteA One vote.
+    /// @param _voteB The conflicting vote, of the same generation.
+    function _checkDoubleSigner(
+        uint256 _bondId,
+        Vote memory _voteA,
+        Vote memory _voteB
+    )
+        private
+        view
+    {
+        bytes memory cometChainId = LibCometVote.chainId(
+            LibCometVote.chainDomain(block.chainid, l2ChainId, inbox, _voteA.generation)
+        );
+        address signer = _voteSigner(_voteA, cometChainId);
+        require(
+            _voteSigner(_voteB, cometChainId) == signer
+                && _registryStorage().keyBond[signer] == _bondId + 1,
+            InvalidSignature()
+        );
     }
 
     /// @dev Recovers the signer of a vote from its signature over keccak256 of its CometBFT sign
@@ -745,27 +816,6 @@ contract EtnaStakingRegistry is EssentialContract, IEtnaStakingRegistry {
     /// execution. Only the Inbox-authorized forceExit deliberately skips this reciprocal check.
     function _checkInboxUnlocked() private view {
         require(!EssentialContract(inbox).inNonReentrant(), InboxLocked());
-    }
-
-    /// @dev Checks the identity of an issued exclusion bond and validates the exit block.
-    /// @param $ The registry storage.
-    /// @param _bondId The excluded bond id.
-    /// @param _entryKey The expected entry key.
-    /// @return bond_ The issued bond, including a withdrawn bond.
-    /// @return exitBlock_ The validated L1 block number for the forced exit.
-    function _validateExclusion(
-        RegistryStorage storage $,
-        uint256 _bondId,
-        bytes32 _entryKey
-    )
-        private
-        view
-        returns (Bond storage bond_, uint48 exitBlock_)
-    {
-        bond_ = _issuedBond($, _bondId);
-        Entry storage entry = bond_.entry;
-        require(_entryKey == LibEtnaKeys.entryKey(entry.ckPrefix, entry.ckX), EntryKeyMismatch());
-        exitBlock_ = _toExitBlock(block.number);
     }
 
     /// @dev Narrows an L1 height to its packed storage width.

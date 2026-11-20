@@ -325,8 +325,8 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
     }
 
     /// @dev An empty exclusion list.
-    function _noExclusions() internal pure returns (IEtnaInbox.Exclusion[] memory) {
-        return new IEtnaInbox.Exclusion[](0);
+    function _noExclusions() internal pure returns (uint256[] memory) {
+        return new uint256[](0);
     }
 
     /// @dev Whether a recorded account access is a call or a create.

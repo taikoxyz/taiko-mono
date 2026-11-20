@@ -7,11 +7,14 @@ import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 /// @title EtnaInboxRulesScheduleTest
 /// @notice The rules schedule in slot 293 (spec 10.1): `scheduleRules`, `scheduleStop` and
 /// `recover`'s `rules`, with the vector numbers of rules/vectors/10.1.md and 8.md 47a. M is
-/// `maxAnchorAge`, two hours.
+/// `maxAnchorAge`, two hours. The schedule helpers authorize the current generation `_g`.
 contract EtnaInboxRulesScheduleTest is EtnaLandTestBase {
     uint256 private constant _NOW = 1_000_000;
     uint256 private constant _M = MAX_ANCHOR_AGE;
     uint48 private constant _MAX = type(uint48).max;
+
+    /// @dev The generation the helpers' schedule calls are authorized for.
+    uint48 private _g;
 
     function setUp() public override {
         super.setUp();
@@ -118,17 +121,54 @@ contract EtnaInboxRulesScheduleTest is EtnaLandTestBase {
     function test_schedule_RevertWhen_NotOwnerOrNotInitialized() external {
         vm.startPrank(Bob);
         vm.expectRevert("Ownable: caller is not the owner");
-        _inbox().scheduleRules(1, uint48(_NOW + _M));
+        _inbox().scheduleRules(0, 1, uint48(_NOW + _M));
         vm.expectRevert("Ownable: caller is not the owner");
-        _inbox().scheduleStop(uint48(_NOW + _M));
+        _inbox().scheduleStop(0, uint48(_NOW + _M));
         vm.stopPrank();
 
         _deployFreshInbox(false);
         _inbox().upgradeTo(address(inboxImpl));
         vm.expectRevert(IEtnaInbox.NotInitialized.selector);
-        _inbox().scheduleRules(1, uint48(_NOW + _M));
+        _inbox().scheduleRules(0, 1, uint48(_NOW + _M));
         vm.expectRevert(IEtnaInbox.NotInitialized.selector);
-        _inbox().scheduleStop(uint48(_NOW + _M));
+        _inbox().scheduleStop(0, uint48(_NOW + _M));
+    }
+
+    /// @dev 5c.g: a rule update or stop authorized for generation 0 reverts once `recover`
+    /// advanced to generation 1, with c unchanged and ample lead, before slot 293 is written or a
+    /// schedule update is emitted. The generation is checked before the schedule itself: a
+    /// pending ruleset that would be locked still reports the mismatch.
+    function test_schedule_RevertWhen_AuthorizedForAnEarlierGeneration() external {
+        _recover(0, [uint256(0), 0, 0, 0]);
+        _expectScheduleRulesRevert(1, _NOW + _M, IEtnaInbox.GenerationMismatch.selector);
+        _expectScheduleStopRevert(_NOW + _M, IEtnaInbox.GenerationMismatch.selector);
+        _plant([uint256(0), 1, _NOW + 1, 0]);
+        _expectScheduleRulesRevert(1, _NOW + _M, IEtnaInbox.GenerationMismatch.selector);
+
+        // A future generation is no better.
+        _g = 2;
+        _expectScheduleRulesRevert(1, _NOW + _M, IEtnaInbox.GenerationMismatch.selector);
+        _expectScheduleStopRevert(_NOW + _M, IEtnaInbox.GenerationMismatch.selector);
+    }
+
+    /// @dev 5c.h: a cancellation authorized for generation 0 reverts after recovery into
+    /// generation 1, even though the schedule would admit cancelling (the stop is far ahead).
+    function test_scheduleStop_RevertWhen_CancellationIsForAnEarlierGeneration() external {
+        _plant([uint256(0), 0, 0, _NOW + 10 * _M]);
+        _inbox().recover(0, 0, 0, _NOW, _noExclusions(), new uint256[](0), 0);
+        _plant([uint256(0), 0, 0, _NOW + 10 * _M]);
+        _expectScheduleStopRevert(0, IEtnaInbox.GenerationMismatch.selector);
+        _expectScheduleRulesRevert(0, _MAX, IEtnaInbox.GenerationMismatch.selector);
+    }
+
+    /// @dev 5c.i: a new authorization naming generation 1 changes the schedule in generation 1
+    /// and emits its new value.
+    function test_schedule_AuthorizedForTheCurrentGeneration() external {
+        _recover(0, [uint256(0), 0, 0, 0]);
+        _g = 1;
+        _scheduleRules(1, _NOW + _M, [uint256(0), 1, _NOW + _M, 0]);
+        _scheduleStop(_NOW + _M + 1, [uint256(0), 1, _NOW + _M, _NOW + _M + 1]);
+        _scheduleStop(0, [uint256(0), 1, _NOW + _M, 0]);
     }
 
     // ---------------------------------------------------------------
@@ -189,14 +229,14 @@ contract EtnaInboxRulesScheduleTest is EtnaLandTestBase {
     {
         vm.expectEmit(inboxProxy);
         emit IEtnaInbox.RulesScheduleUpdated(_pack(_expected));
-        _inbox().scheduleRules(_rules, uint48(_time));
+        _inbox().scheduleRules(_g, _rules, uint48(_time));
         _assertSchedule(_expected);
     }
 
     function _scheduleStop(uint256 _time, uint256[4] memory _expected) private {
         vm.expectEmit(inboxProxy);
         emit IEtnaInbox.RulesScheduleUpdated(_pack(_expected));
-        _inbox().scheduleStop(uint48(_time));
+        _inbox().scheduleStop(_g, uint48(_time));
         _assertSchedule(_expected);
     }
 
@@ -208,15 +248,19 @@ contract EtnaInboxRulesScheduleTest is EtnaLandTestBase {
         private
     {
         bytes32 before = _inboxWord(RULES_SCHEDULE_SLOT);
+        vm.recordLogs();
         vm.expectRevert(_selector);
-        _inbox().scheduleRules(_rules, uint48(_time));
+        _inbox().scheduleRules(_g, _rules, uint48(_time));
+        assertEq(vm.getRecordedLogs().length, 0, "no schedule update");
         assertEq(_inboxWord(RULES_SCHEDULE_SLOT), before, "slot 293 unchanged");
     }
 
     function _expectScheduleStopRevert(uint256 _time, bytes4 _selector) private {
         bytes32 before = _inboxWord(RULES_SCHEDULE_SLOT);
+        vm.recordLogs();
         vm.expectRevert(_selector);
-        _inbox().scheduleStop(uint48(_time));
+        _inbox().scheduleStop(_g, uint48(_time));
+        assertEq(vm.getRecordedLogs().length, 0, "no schedule update");
         assertEq(_inboxWord(RULES_SCHEDULE_SLOT), before, "slot 293 unchanged");
     }
 

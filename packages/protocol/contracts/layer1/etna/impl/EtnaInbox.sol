@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import { IEtnaInbox } from "../iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "../iface/IEtnaStakingRegistry.sol";
+import { IUnzenProposeCutoff } from "../iface/IUnzenProposeCutoff.sol";
 import { LibEtnaForcedInclusion } from "../libs/LibEtnaForcedInclusion.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
@@ -17,7 +18,8 @@ import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 /// @notice The L1 Inbox of an Etna PoS chain; see `IEtnaInbox`.
 /// @dev The proxy first runs `EtnaInboxBootstrap`; its owner then upgrades to this contract and
 /// calls `init`. On a new network `init` also writes the Etna start at block 0; on a switching
-/// network the originWriter writes it later with `setOrigin`. Storage follows spec appendix B
+/// network anyone writes it later with `setOrigin`, once the Unzen Inbox's proposals are closed
+/// and fully proven. Storage follows spec appendix B
 /// exactly: its named slots 258, 268-274, 278-282, 284, 285, 290, 292 and 293 sit where it lists
 /// them, reserved slots 283, 286-289 and 291 are never read or written, and slots 251-257,
 /// 259-267 and 275-277 are unused padding.
@@ -93,8 +95,13 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// (spec 4.3).
     uint256 private constant _MIN_VP_UNIT = 867_361_738;
 
-    /// @dev The maximum `n_max`, the registry's capacity.
+    /// @dev The maximum `n_max`, the registry's capacity, and the largest recovery capacity F
+    /// (START-10-18).
     uint256 private constant _MAX_COMMITTEE_SIZE = 4096;
+
+    /// @dev TAIKO's fixed total supply in base units (spec 4.3): K = min(4096, floor(10^27 /
+    /// minStake)) bounds the eligible bonds at one snapshot (START-10-18).
+    uint256 private constant _TAIKO_SUPPLY = 10 ** 27;
 
     /// @dev The maximum `U` (spec 10).
     uint256 private constant _MAX_UNSETTLED_LIMIT = 65_536;
@@ -160,13 +167,13 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     address public immutable override protocolFeeRecipient;
 
     /// @inheritdoc IEtnaInbox
-    address public immutable override originWriter;
-
-    /// @inheritdoc IEtnaInbox
     address public immutable override unzenInbox;
 
     /// @inheritdoc IEtnaInbox
     uint48 public immutable override etnaForkTime;
+
+    /// @inheritdoc IEtnaInbox
+    uint16 public immutable override recoveryCapacity;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -240,15 +247,19 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @notice Sets the implementation's immutable parameters.
     /// @param _config The configuration: non-zero addresses and L2 chain id, `maxBatchBlocks` in
-    /// [1, 12,951], non-zero forced inclusion fee parameters, and either no switching parameters
-    /// (a new network) or all three with an Unzen Inbox that has code (a switching network).
+    /// [1, 12,951], non-zero forced inclusion fee parameters, a recovery capacity in [1, 4096],
+    /// and either no switching parameters (a new network) or both with an Unzen Inbox that has
+    /// code (a switching network).
     constructor(Config memory _config) {
         bool switching = _config.unzenInbox != address(0);
         require(
-            (_config.originWriter != address(0)) == switching
-                && (_config.etnaForkTime != 0) == switching
+            (_config.etnaForkTime != 0) == switching
                 && (!switching || _config.unzenInbox.code.length != 0),
             InvalidSwitchConfig()
+        );
+        require(
+            _config.recoveryCapacity != 0 && _config.recoveryCapacity <= _MAX_COMMITTEE_SIZE,
+            InvalidRecoveryCapacity()
         );
         require(_config.proofVerifier != address(0), ZERO_ADDRESS());
         require(_config.signalService != address(0), ZERO_ADDRESS());
@@ -272,9 +283,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
         forcedInclusionFeeDoubleThreshold = _config.forcedInclusionFeeDoubleThreshold;
         protocolFeeRecipient = _config.protocolFeeRecipient;
-        originWriter = _config.originWriter;
         unzenInbox = _config.unzenInbox;
         etnaForkTime = _config.etnaForkTime;
+        recoveryCapacity = _config.recoveryCapacity;
     }
 
     // ---------------------------------------------------------------
@@ -288,9 +299,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     function init(InitParams calldata _params) external reinitializer(2) onlyOwner {
         _checkRegistryUnlocked();
         _validateInitialState();
-        _validateInitParams(_params);
+        uint256 minStake = _validateInitParams(_params);
 
-        bytes32 configHash = _hashCommitteeConfig(_params.committeeConfig);
+        bytes32 configHash = _hashCommitteeConfig(_params.committeeConfig, minStake);
         uint48 cutoff = uint48(_params.genesisCutoff);
 
         _initStatus = INITIALIZED_STATUS;
@@ -318,46 +329,55 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @inheritdoc IEtnaInbox
-    /// @dev Unaffected by pause. Makes no external call besides the registry lock check.
-    function setOrigin(
-        uint256 _height,
-        bytes32 _blockHash,
-        bytes32 _stateRoot
-    )
-        external
-        onlyFrom(originWriter)
-        nonReentrant
-    {
+    /// @dev Follows the START-10-5a reference Solidity check for check, plus the registry lock and
+    /// the 48-bit checks of the start write. Unaffected by pause. Its external calls are the
+    /// registry's lock view and three static reads: the Unzen Inbox's `proposeCutoff()` and
+    /// `getCoreState()` and the SignalService's `getCheckpoint(S)`.
+    function setOrigin(uint48 _s) external nonReentrant {
         _checkRegistryUnlocked();
         require(_initStatus == INITIALIZED_STATUS, NotInitialized());
         require(_genesis.startBlockHash == 0, StartAlreadyWritten());
+        require(unzenInbox != address(0) && etnaForkTime != 0, NotSwitching());
+        require(_s != 0, InvalidStart());
         require(block.timestamp >= etnaForkTime, BeforeEtnaForkTime());
+
+        uint48 cutoff = IUnzenProposeCutoff(unzenInbox).proposeCutoff();
+        require(cutoff != 0 && block.timestamp >= cutoff, ProposalsNotClosed());
+
+        IInbox.CoreState memory unzen = IInbox(unzenInbox).getCoreState();
+        // Activation proposal 0 counts as finalized, so a closed and fully proven proposal set
+        // has nextProposalId == lastFinalizedProposalId + 1.
         require(
-            _height != 0 && _height < _HEIGHT_LIMIT && _blockHash != 0 && _stateRoot != 0,
-            InvalidStart()
+            uint256(unzen.nextProposalId) == uint256(unzen.lastFinalizedProposalId) + 1,
+            UnzenNotFinalized()
         );
+        // Reverts if the SignalService holds no checkpoint at S.
+        ICheckpointStore.Checkpoint memory checkpoint = _signalService.getCheckpoint(_s);
+        require(
+            checkpoint.blockHash != 0 && checkpoint.blockHash == unzen.lastFinalizedBlockHash,
+            UnzenStartMismatch()
+        );
+        require(checkpoint.stateRoot != 0, InvalidStart());
         require(
             block.number <= type(uint48).max && block.timestamp <= type(uint48).max, ValueOverflow()
         );
-        _writeStart(_height, _blockHash, _stateRoot);
+        _writeStart(_s, checkpoint.blockHash, checkpoint.stateRoot);
     }
 
     /// @notice Forwards a checkpoint from the Unzen Inbox's `prove` to the SignalService on a
-    /// switching network (spec 10 step 5). The L1 SignalService accepts checkpoints only from
-    /// this Inbox, so the Unzen Inbox's final checkpoints, including the one at S, reach it here.
+    /// switching network (START-10-5). The L1 SignalService accepts checkpoints only from this
+    /// Inbox, so the Unzen Inbox's final checkpoints, including the one at S, reach it here.
     /// @dev Accepts calls only from `unzenInbox`, so it always reverts on a new network. Accepts
-    /// any height before the start write and heights at or below S once it is written (slot 273
-    /// nonzero, S in slot 272), so a START-10-5c rewrite moves the bound with it. Passes the
-    /// checkpoint unchanged and reverts for no other reason than these checks and the
-    /// SignalService's own: it ignores pause, initialization and the registry lock.
+    /// any height while slot 273 is zero and reverts at every height once it is nonzero: the
+    /// start write closes the forwarder (`ForwardingClosed`). Passes the checkpoint unchanged and
+    /// reverts for no other reason than these checks and the SignalService's own: it ignores
+    /// pause, initialization and the registry lock.
     /// @param _checkpoint The checkpoint the Unzen Inbox's `prove` saves.
     function saveCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint)
         external
         onlyFrom(unzenInbox)
     {
-        if (_genesis.startBlockHash != 0) {
-            require(_checkpoint.blockNumber <= _genesis.genesisHeight, CheckpointAboveStart());
-        }
+        require(_genesis.startBlockHash == 0, ForwardingClosed());
         _signalService.saveCheckpoint(_checkpoint);
     }
 
@@ -365,8 +385,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev Follows the spec 6.1 reference Solidity: its checks in its order, all before any
     /// write. Before the start write it needs no extra check: c = 0 forces p = 0, and the
     /// unwritten landings[0] fails step 2. Unaffected by pause. The only external calls are the
-    /// registry's lock view, the proof verifier, the EIP-2935 history contract, the Unzen Inbox
-    /// and SignalService views while c is S on a switching network (all static) and the
+    /// registry's lock view, the proof verifier, the EIP-2935 history contract (static) and the
     /// SignalService checkpoint write.
     function land(
         LandInput calldata _input,
@@ -443,16 +462,17 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @inheritdoc IEtnaInbox
     /// @dev Checks the recovery state, nonce increment, ruleset and both lists before any
-    /// transition. A read-only pass over the exclusions validates each bond identity and exit
-    /// block before the first `forceExit`. The transition applies exclusions and FI blanking,
-    /// writes the generation, nonce and origin, emits `Recovered` and writes the rules schedule.
-    /// A failure reverts all effects. Unaffected by pause.
+    /// transition. The exclusions are strictly increasing, so one read of the registry's bond
+    /// count shows that every excluded id is issued before the first `forceExit`. The transition
+    /// applies exclusions and FI blanking, writes the generation, nonce and origin, emits
+    /// `Recovered` and writes the rules schedule. A failure reverts all effects. Unaffected by
+    /// pause.
     function recover(
         uint48 _expectedGeneration,
         uint256 _expectedC,
         uint256 _expectedRecoveryNonce,
         uint256 _validUntil,
-        Exclusion[] calldata _exclusions,
+        uint256[] calldata _exclusions,
         uint256[] calldata _fiToClear,
         uint48 _rules
     )
@@ -469,10 +489,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint256 nextNonce = _expectedRecoveryNonce + 1;
 
         for (uint256 i; i < _exclusions.length; ++i) {
-            _stakingRegistry.validateExclusion(_exclusions[i].bondId, _exclusions[i].entryKey);
-        }
-        for (uint256 i; i < _exclusions.length; ++i) {
-            _stakingRegistry.forceExit(_exclusions[i].bondId, _exclusions[i].entryKey);
+            _stakingRegistry.forceExit(_exclusions[i]);
         }
         for (uint256 i; i < _fiToClear.length; ++i) {
             _forcedInclusions.queue[_fiToClear[i]].txHash = _BLANK_TX_HASH;
@@ -489,9 +506,16 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @inheritdoc IEtnaInbox
     /// @dev Unaffected by pause. The promotion of a due `nextRules` happens in memory, so a failed
     /// check keeps it from being stored.
-    function scheduleRules(uint48 _rules, uint48 _time) external onlyOwner nonReentrant {
-        _checkRegistryUnlocked();
-        require(_initStatus == INITIALIZED_STATUS, NotInitialized());
+    function scheduleRules(
+        uint48 _expectedGeneration,
+        uint48 _rules,
+        uint48 _time
+    )
+        external
+        onlyOwner
+        nonReentrant
+    {
+        _checkScheduleCall(_expectedGeneration);
         RulesSchedule memory schedule = _rulesSchedule;
         uint256 earliest = block.timestamp + _forcedInclusionConfig.maxAnchorAge;
 
@@ -513,9 +537,15 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @inheritdoc IEtnaInbox
     /// @dev Unaffected by pause.
-    function scheduleStop(uint48 _time) external onlyOwner nonReentrant {
-        _checkRegistryUnlocked();
-        require(_initStatus == INITIALIZED_STATUS, NotInitialized());
+    function scheduleStop(
+        uint48 _expectedGeneration,
+        uint48 _time
+    )
+        external
+        onlyOwner
+        nonReentrant
+    {
+        _checkScheduleCall(_expectedGeneration);
         RulesSchedule memory schedule = _rulesSchedule;
         uint256 earliest = block.timestamp + _forcedInclusionConfig.maxAnchorAge;
 
@@ -698,8 +728,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @dev Spec 6.1 steps 1 and 2: generationStartHeight() <= p <= c < h < 2^48,
-    /// h - p <= maxBatchBlocks, a retained origin record in the current generation unless p is the
-    /// generation's start height, and the Unzen start check while c is S on a switching network.
+    /// h - p <= maxBatchBlocks, and a retained origin record in the current generation unless p is
+    /// the generation's start height. The reference's `isValidLanding(p)` is the written-record
+    /// check: these contracts have no rollback, so no written record is ever voided.
     /// @param _input The landing inputs.
     /// @param _c The checkpoint height.
     /// @param _generation The recovery generation.
@@ -716,7 +747,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         uint256 p = _input.parentHeight;
         uint256 h = _input.lastHeight;
         uint256 startHeight = _origins[_generation].startHeight;
-        uint256 s = _genesis.genesisHeight;
 
         require(_c < h, AlreadySettled());
         require(startHeight <= p && p <= _c && h < _HEIGHT_LIMIT, InvalidRange());
@@ -727,36 +757,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         // and `land` saves each hash as a SignalService checkpoint, which rejects a zero hash.
         require(origin_.elHash != 0, MissingOrigin());
         require(origin_.generation == _generation || p == startHeight, ForeignGeneration());
-
-        // c == S forces p == S, so origin_ is S's record.
-        if (_c == s && unzenInbox != address(0)) _checkUnzenStart(_c, origin_.elHash);
-    }
-
-    /// @dev Spec 6.1 LAND-6.1-8a: the Unzen Inbox has finalized every proposal (it numbers them
-    /// from 1 after its finalized activation proposal 0) up to the block whose hash is the
-    /// start's, and the SignalService checkpoint the Unzen Inbox saved at S holds that hash and
-    /// the start's state root (slot 274).
-    /// @param _s The Etna start S, equal to c.
-    /// @param _startHash The EL hash in S's landing record.
-    function _checkUnzenStart(uint256 _s, bytes32 _startHash) private view {
-        IInbox.CoreState memory state = IInbox(unzenInbox).getCoreState();
-        require(
-            uint256(state.nextProposalId) == uint256(state.lastFinalizedProposalId) + 1,
-            UnzenNotFinalized()
-        );
-        require(state.lastFinalizedBlockHash == _startHash, UnzenStartMismatch());
-
-        // Reverts if the SignalService has no checkpoint at S.
-        ICheckpointStore.Checkpoint memory checkpoint = _signalService.getCheckpoint(uint48(_s));
-        require(
-            checkpoint.blockHash == _startHash && checkpoint.stateRoot == _genesis.startStateRoot,
-            StartCheckpointMismatch()
-        );
     }
 
     /// @dev Spec 6.1 steps 3 and 4: exactly the h - p - 1 leaves of the heights strictly inside
-    /// (p, h), c's recorded queue head equal to the queue head, the leaf at c equal to cutLeaf(c)
-    /// over c's record if c > p, and a new queue head in [head, tail] at most h - c past the head.
+    /// (p, h), c's recorded queue head equal to the queue head, an `activeCommitteeSnapshot` no
+    /// lower than the stored one (STAKE-4.1-29), the leaf at c equal to cutLeaf(c) over c's
+    /// record if c > p, and a new queue head in [head, tail] at most h - c past the head.
     /// @param _input The landing inputs.
     /// @param _leaves The cut leaves of the heights p + 1, ..., h - 1.
     /// @param _c The checkpoint height.
@@ -778,6 +784,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         Landing storage cur = _landings[_c];
         uint256 head = cur.head;
         require(head == _forcedInclusions.head, ForcedInclusionHeadMismatch());
+        require(
+            _input.activeCommitteeSnapshot >= _activeCommitteeSnapshot, CommitteeSnapshotRegressed()
+        );
         if (_c > p) {
             require(
                 _leaves[_c - p - 1] == keccak256(abi.encode(_c, cur.elHash, cur.cometHash, head)),
@@ -793,7 +802,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
     }
 
-    /// @dev Spec 10 step 5b: the start write. Writes slot 272 as (S, L1_0 = block.number, L),
+    /// @dev START-10-5b: the start write. Writes slot 272 as (S, L1_0 = block.number, L),
     /// slots 273/274, generation 0's origin (S, L1_0, block.timestamp), the checkpoint (S, hash)
     /// and landings[S] = (S, 0, 0, hash, 0), and emits `StartWritten`. Callers check that S,
     /// block.number and block.timestamp fit 48 bits.
@@ -882,20 +891,28 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
                 << 48 | uint256(_schedule.rulesTime) << 96 | uint256(_schedule.stopTime) << 144);
     }
 
-    /// @dev Spec 8 steps 1-3: exclusions sorted strictly by bond id, then queue indices strictly
-    /// increasing and within [head, tail). Strict order makes the first and last indices bound
-    /// the whole list.
-    /// @param _exclusions The entries to force out.
+    /// @dev Spec 8 steps 1-3 (RECOV-8-38, RECOV-8-40a, RECOV-8-43): exclusions strictly increasing
+    /// bond ids, every one issued, then queue indices strictly increasing and within
+    /// [head, tail). Strict order makes the last id and the first and last indices bound the
+    /// whole lists: ids are issued from 0 up and never reused, so the last id is issued exactly
+    /// when it is below the registry's bond count.
+    /// @param _exclusions The bond ids to force out.
     /// @param _fiToClear The queue indices to blank.
     function _checkRecoveryLists(
-        Exclusion[] calldata _exclusions,
+        uint256[] calldata _exclusions,
         uint256[] calldata _fiToClear
     )
         private
         view
     {
-        for (uint256 i = 1; i < _exclusions.length; ++i) {
-            require(_exclusions[i - 1].bondId < _exclusions[i].bondId, ExclusionsNotSorted());
+        uint256 exclusionCount = _exclusions.length;
+        if (exclusionCount != 0) {
+            for (uint256 i = 1; i < exclusionCount; ++i) {
+                require(_exclusions[i - 1] < _exclusions[i], ExclusionsNotSorted());
+            }
+            require(
+                _exclusions[exclusionCount - 1] < _stakingRegistry.bondCount(), UnissuedExclusion()
+            );
         }
 
         uint256 count = _fiToClear.length;
@@ -1039,7 +1056,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// Every stored 48-bit field fits once these pass: the cutoff is below `block.number`, itself
     /// below 2^48.
     /// @param _params The initialization inputs.
-    function _validateInitParams(InitParams calldata _params) private view {
+    /// @return minStake_ The registry's immutable minimum stake, the fifth word of the config hash.
+    function _validateInitParams(InitParams calldata _params)
+        private
+        view
+        returns (uint256 minStake_)
+    {
         bool newNetwork = unzenInbox == address(0);
         require(
             (_params.genesisBlockHash != 0) == newNetwork
@@ -1052,7 +1074,21 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             _params.epochLenL2 >= _MIN_EPOCH_LEN_L2 && _params.epochLenL2 < type(uint48).max,
             InvalidEpochLength()
         );
-        require(_isValidCommitteeConfig(_params.committeeConfig), InvalidCommitteeConfig());
+        // The registry must be this Inbox's before its minStake and checkpoints are trusted
+        // (spec 4.1).
+        require(
+            _stakingRegistry.inbox() == address(this) && _stakingRegistry.l2ChainId() == l2ChainId
+                && EssentialContract(address(_stakingRegistry)).owner() == owner()
+                && EssentialContract(address(_stakingRegistry)).pendingOwner() == address(0)
+                && pendingOwner() == address(0),
+            RegistryMismatch()
+        );
+        minStake_ = _stakingRegistry.minStake();
+        require(
+            _isValidCommitteeConfig(_params.committeeConfig, minStake_), InvalidCommitteeConfig()
+        );
+        // 4096 * minStake > 10^27 holds, so floor(10^27 / minStake) < 4096 and is K itself.
+        require(_TAIKO_SUPPLY / minStake_ <= recoveryCapacity, RecoveryCapacityExceeded());
         require(
             _params.forcedInclusionDelay != 0 && _params.forcedInclusionDelay <= type(uint48).max,
             InvalidForcedInclusionDelay()
@@ -1063,14 +1099,6 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         );
         require(
             block.number <= type(uint48).max && block.timestamp <= type(uint48).max, ValueOverflow()
-        );
-        // The registry must be this Inbox's before its checkpoints are trusted (spec 4.1).
-        require(
-            _stakingRegistry.inbox() == address(this) && _stakingRegistry.l2ChainId() == l2ChainId
-                && EssentialContract(address(_stakingRegistry)).owner() == owner()
-                && EssentialContract(address(_stakingRegistry)).pendingOwner() == address(0)
-                && pendingOwner() == address(0),
-            RegistryMismatch()
         );
         require(_isValidGenesisCutoff(_params.genesisCutoff), InvalidGenesisCutoff());
     }
@@ -1114,14 +1142,25 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @dev Returns whether the committee configuration is within the spec 10 bounds:
-    /// 1 <= U <= 65,536, vp_unit >= 867,361,738, s_min >= vp_unit and 1 <= n_max <= 4096.
+    /// 1 <= U <= 65,536, vp_unit >= 867,361,738, 1 <= n_max <= 4096 and, for the registry's
+    /// minStake, minStake >= vp_unit and 4096 * minStake > 10^27 (START-10-12).
     /// @param _config The committee configuration.
+    /// @param _minStake The registry's minimum stake.
     /// @return Whether the configuration is valid.
-    function _isValidCommitteeConfig(CommitteeConfig calldata _config) private pure returns (bool) {
+    function _isValidCommitteeConfig(
+        CommitteeConfig calldata _config,
+        uint256 _minStake
+    )
+        private
+        pure
+        returns (bool)
+    {
         uint256 unsettledLimit = _config.unsettledLimit;
+        // 4096 divides 10^27, so the last check is exactly 4096 * minStake > 10^27.
         return unsettledLimit != 0 && unsettledLimit <= _MAX_UNSETTLED_LIMIT
-            && _config.vpUnit >= _MIN_VP_UNIT && _config.sMin >= _config.vpUnit && _config.nMax != 0
-            && _config.nMax <= _MAX_COMMITTEE_SIZE;
+            && _config.vpUnit >= _MIN_VP_UNIT && _minStake >= _config.vpUnit && _config.nMax != 0
+            && _config.nMax <= _MAX_COMMITTEE_SIZE
+            && _minStake > _TAIKO_SUPPLY / _MAX_COMMITTEE_SIZE;
     }
 
     /// @dev Narrows `_value` to a 48-bit storage field (appendix B).
@@ -1133,21 +1172,38 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @dev Returns `committeeConfigHash`: keccak256 over the seven words (224 bytes) of the tag,
-    /// the L2 chain id, the registry and the four configuration values (appendix A).
+    /// the L2 chain id, the registry, vp_unit, the registry's minStake, n_max and U (ENC-A-36).
     /// @param _config The committee configuration.
+    /// @param _minStake The registry's minimum stake.
     /// @return The configuration hash.
-    function _hashCommitteeConfig(CommitteeConfig calldata _config) private view returns (bytes32) {
+    function _hashCommitteeConfig(
+        CommitteeConfig calldata _config,
+        uint256 _minStake
+    )
+        private
+        view
+        returns (bytes32)
+    {
         return keccak256(
             abi.encode(
                 _COMMITTEE_CONFIG_TAG,
                 uint256(l2ChainId),
                 address(_stakingRegistry),
                 _config.vpUnit,
-                _config.sMin,
+                _minStake,
                 _config.nMax,
                 _config.unsettledLimit
             )
         );
+    }
+
+    /// @dev The checks `scheduleRules` and `scheduleStop` share before reading the schedule: the
+    /// registry lock, initialization and the authorized generation (START-10.1-5c).
+    /// @param _expectedGeneration The recovery generation the call was authorized for.
+    function _checkScheduleCall(uint48 _expectedGeneration) private view {
+        _checkRegistryUnlocked();
+        require(_initStatus == INITIALIZED_STATUS, NotInitialized());
+        require(_expectedGeneration == _recoveryGeneration, GenerationMismatch());
     }
 
     /// @dev Rejects callbacks from token transfers and other registry mutations. The reciprocal

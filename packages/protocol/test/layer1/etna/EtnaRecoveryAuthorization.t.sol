@@ -74,36 +74,35 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
     }
 
     function test_recover_FailedRegistryExclusionAndRetryPreserveNonceAtomicity() external {
-        IEtnaInbox.Exclusion[] memory exclusions = new IEtnaInbox.Exclusion[](2);
-        exclusions[0] = IEtnaInbox.Exclusion(0, _entryKey(registry, 0));
-        exclusions[1] = IEtnaInbox.Exclusion(1, bytes32(0));
+        uint256[] memory exclusions = new uint256[](2);
+        exclusions[0] = 0;
+        exclusions[1] = 1;
         uint256[] memory blanks = new uint256[](1);
         blanks[0] = 0;
         bytes32 txHash = _inbox().getForcedInclusion(0).txHash;
-        vm.expectRevert(IEtnaStakingRegistry.UnknownBond.selector);
+        vm.expectRevert(IEtnaInbox.UnissuedExclusion.selector);
         _inbox().recover(0, 0, 0, block.timestamp, exclusions, blanks, 0);
         assertEq(_inbox().recoveryNonce(), 0);
         assertEq(_inbox().recoveryGeneration(), 0);
         assertEq(registry.entryAt(0).exitEffectiveL1, type(uint48).max);
         assertEq(_inbox().getForcedInclusion(0).txHash, txHash);
-        exclusions = new IEtnaInbox.Exclusion[](1);
-        exclusions[0] = IEtnaInbox.Exclusion(0, _entryKey(registry, 0));
+        exclusions = new uint256[](1);
+        exclusions[0] = 0;
         _inbox().recover(0, 0, 0, block.timestamp, exclusions, blanks, 0);
         assertEq(_inbox().recoveryNonce(), 1);
         assertEq(registry.entryAt(0).effStake, MIN_STAKE, "exclusion is not a deduction");
     }
 
     function test_land_AndForfeitDoNotConsumeNonceOrInvalidateUnexpiredForfeiture() external {
-        bytes32 key = _entryKey(registry, 0);
         _land(0, 6);
         assertEq(_inbox().recoveryNonce(), 0);
         _recover(0, 6, 0, block.timestamp);
         assertEq(_inbox().recoveryNonce(), 1);
-        registry.forfeit(0, key, keccak256("incident authorized earlier"), block.timestamp);
+        registry.forfeit(0, keccak256("incident authorized earlier"), block.timestamp);
         assertEq(_inbox().recoveryNonce(), 1);
-        assertTrue(registry.forfeited(key));
+        assertTrue(registry.forfeited(0));
         _recover(1, 6, 1, block.timestamp);
-        assertTrue(registry.forfeited(key), "recovery does not clear lifetime flag");
+        assertTrue(registry.forfeited(0), "recovery does not clear lifetime flag");
     }
 
     function test_recover_ExclusionPreservesPendingPrincipalAndDisablesActivation() external {
@@ -113,8 +112,8 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         vm.prank(Alice);
         registry.topUp(0, 7 ether);
         (uint256 pendingBefore, uint48 readyBefore) = registry.topUpOf(0);
-        IEtnaInbox.Exclusion[] memory exclusions = new IEtnaInbox.Exclusion[](1);
-        exclusions[0] = IEtnaInbox.Exclusion(0, _entryKey(registry, 0));
+        uint256[] memory exclusions = new uint256[](1);
+        exclusions[0] = 0;
         _inbox().recover(0, 0, 0, block.timestamp, exclusions, new uint256[](0), 0);
         (uint256 pendingAfter, uint48 readyAfter) = registry.topUpOf(0);
         assertEq(pendingAfter, pendingBefore, "recovery preserves pending principal");
@@ -123,7 +122,7 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         vm.roll(readyAfter);
         vm.expectRevert(IEtnaStakingRegistry.ExitAlreadySet.selector);
         registry.activateTopUp(0);
-        registry.forfeit(0, _entryKey(registry, 0), 0, block.timestamp);
+        registry.forfeit(0, 0, block.timestamp);
         assertEq(registry.entryAt(0).effStake, 224_999.3 ether);
         (pendingAfter,) = registry.topUpOf(0);
         assertEq(pendingAfter, 7 ether);
@@ -155,8 +154,7 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         _inbox().acceptOwnership();
         bytes[] memory attacks = new bytes[](3);
         attacks[0] = abi.encodeCall(
-            IEtnaInbox.recover,
-            (0, 0, 0, block.timestamp, new IEtnaInbox.Exclusion[](0), new uint256[](0), 0)
+            IEtnaInbox.recover, (0, 0, 0, block.timestamp, new uint256[](0), new uint256[](0), 0)
         );
         attacks[1] = abi.encodeCall(IEtnaInbox.invalidateRecoveryNonce, (0));
         attacks[2] = abi.encodeCall(IEtnaInbox.land, (_input(0, 6), new bytes32[](0), PROOF));
@@ -191,9 +189,9 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
         vm.expectRevert(IEtnaInbox.RegistryLocked.selector);
         _inbox().sweepProtocolFees();
         vm.expectRevert(IEtnaInbox.RegistryLocked.selector);
-        _inbox().scheduleRules(1, uint48(block.timestamp + 1 days));
+        _inbox().scheduleRules(0, 1, uint48(block.timestamp + 1 days));
         vm.expectRevert(IEtnaInbox.RegistryLocked.selector);
-        _inbox().scheduleStop(uint48(block.timestamp + 1 days));
+        _inbox().scheduleStop(0, uint48(block.timestamp + 1 days));
 
         (uint48 headAfter, uint48 tailAfter) = _inbox().getForcedInclusionState();
         assertEq(headAfter, head, "queue head");
@@ -218,15 +216,6 @@ contract EtnaRecoveryAuthorizationTest is EtnaLandTestBase {
     )
         private
     {
-        _inbox()
-            .recover(
-                _generation,
-                _c,
-                _nonce,
-                _deadline,
-                new IEtnaInbox.Exclusion[](0),
-                new uint256[](0),
-                0
-            );
+        _inbox().recover(_generation, _c, _nonce, _deadline, new uint256[](0), new uint256[](0), 0);
     }
 }

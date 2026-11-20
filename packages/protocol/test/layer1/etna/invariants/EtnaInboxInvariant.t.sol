@@ -57,7 +57,7 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
                 uint256(L2_CHAIN_ID),
                 address(registry),
                 VP_UNIT,
-                S_MIN,
+                MIN_STAKE,
                 N_MAX,
                 UNSETTLED_LIMIT
             )

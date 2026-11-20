@@ -67,9 +67,12 @@ contract RecoverRegistryProbe {
         _secondCall = _second;
     }
 
-    function validateExclusion(uint256, bytes32) external pure { }
+    /// @dev Large enough that every exclusion a test names is issued.
+    function bondCount() external pure returns (uint256) {
+        return type(uint256).max;
+    }
 
-    function forceExit(uint256, bytes32) external {
+    function forceExit(uint256) external {
         ++forceExits;
         (firstSucceeded, firstResult) = _registry.call(_firstCall);
         (secondSucceeded, secondResult) = _registry.call(_secondCall);
@@ -247,7 +250,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         _land(6, 12);
         vm.roll(20);
         uint256 r = block.number;
-        IEtnaInbox.Exclusion[] memory exclusions = _exclusionOf(0);
+        uint256[] memory exclusions = _exclusionOf(0);
 
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.ExitForced(0, uint48(r));
@@ -450,7 +453,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
         uint256 confirmedAt = block.number;
         assertEq(registry.exitConfirmedAtL1(0), confirmedAt, "confirmed");
 
-        IEtnaInbox.Exclusion[] memory exclusions = _exclusionOf(bobBond);
+        uint256[] memory exclusions = _exclusionOf(bobBond);
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.ExitForced(bobBond, uint48(block.number));
         _recover(0, 12, exclusions);
@@ -516,7 +519,7 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
     function _recover(
         uint48 _generation,
         uint256 _c,
-        IEtnaInbox.Exclusion[] memory _exclusions
+        uint256[] memory _exclusions
     )
         private
     {
@@ -534,16 +537,10 @@ contract EtnaIntegrationTest is EtnaLandTestBase {
     }
 
     /// @dev The exclusion of `_bondId`'s current occupant: keccak256(abi.encode(ckPrefix, ckX)).
-    function _exclusionOf(uint256 _bondId)
-        private
-        view
-        returns (IEtnaInbox.Exclusion[] memory list_)
-    {
+    function _exclusionOf(uint256 _bondId) private view returns (uint256[] memory list_) {
         IEtnaStakingRegistry.Entry memory entry = registry.bondAt(_bondId).entry;
-        list_ = new IEtnaInbox.Exclusion[](1);
-        list_[0] = IEtnaInbox.Exclusion({
-            bondId: _bondId, entryKey: keccak256(abi.encode(uint256(entry.ckPrefix), entry.ckX))
-        });
+        list_ = new uint256[](1);
+        list_[0] = _bondId;
     }
 
     /// @dev Upgrades the Inbox proxy to the lock harness, with the deployment's configuration.

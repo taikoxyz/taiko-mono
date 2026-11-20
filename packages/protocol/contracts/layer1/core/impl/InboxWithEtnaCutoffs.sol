@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { Inbox } from "./Inbox.sol";
+import { IUnzenProposeCutoff } from "src/layer1/etna/iface/IUnzenProposeCutoff.sol";
 
 /// @title InboxWithEtnaCutoffs
 /// @notice Stops Unzen proposals and forced inclusion submissions before the Etna fork.
@@ -9,15 +10,16 @@ import { Inbox } from "./Inbox.sol";
 /// except that `signalService` names the Etna Inbox proxy: `prove` then saves its checkpoints
 /// through the Etna Inbox, which forwards them to the L1 SignalService, and `getConfig()` reports
 /// the Etna Inbox. All switch parameters are immutable, so the inherited storage layout, proof
-/// verification, bond accounting and core-state numbering are unchanged (START-10-5d).
+/// verification, bond accounting and core-state numbering are unchanged (START-10-5d). It exposes
+/// the propose cutoff through `proposeCutoff()`, which `EtnaInbox.setOrigin` reads.
 /// @custom:security-contact security@taiko.xyz
-contract InboxWithEtnaCutoffs is Inbox {
+contract InboxWithEtnaCutoffs is Inbox, IUnzenProposeCutoff {
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
 
-    /// @notice Canonical Etna fork timestamp, shared with the Etna Inbox and the L2 SignalService's
-    /// `beaconRootsFrom`.
+    /// @notice Canonical Etna fork timestamp, shared with the Etna Inbox's `etnaForkTime()`. No L2
+    /// contract holds it.
     uint48 public immutable ETNA_FORK_TIME;
 
     /// @notice Time before the fork at which Unzen proposals stop being accepted.
@@ -67,6 +69,16 @@ contract InboxWithEtnaCutoffs is Inbox {
         FI_MARGIN = _fiMargin;
         PROPOSE_CUTOFF = _etnaForkTime - _proposeMargin;
         FI_CUTOFF = _etnaForkTime - _fiMargin;
+    }
+
+    // ---------------------------------------------------------------
+    // External Functions
+    // ---------------------------------------------------------------
+
+    /// @inheritdoc IUnzenProposeCutoff
+    /// @dev `PROPOSE_CUTOFF`, never zero: `_checkProposeAllowed` reverts from it on.
+    function proposeCutoff() external view returns (uint48) {
+        return PROPOSE_CUTOFF;
     }
 
     // ---------------------------------------------------------------

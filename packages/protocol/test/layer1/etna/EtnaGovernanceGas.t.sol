@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
 import { EtnaStakingRegistryGasBase } from "./EtnaStakingRegistryGas.t.sol";
-import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
 
@@ -49,26 +48,21 @@ contract EtnaRegistryActivateTopUpGasTest is EtnaRegistryGovernanceGasBase {
 }
 
 contract EtnaRegistryForfeitGasTest is EtnaRegistryGovernanceGasBase {
-    bytes32 private _key;
-
     function setUp() public override {
         super.setUp();
         vm.prank(Alice);
         registry.topUp(0, 2_500_000 ether);
-        IEtnaStakingRegistry.Entry memory entry = registry.entryAt(0);
-        _key = keccak256(abi.encode(entry.ckPrefix, entry.ckX));
         vm.roll(block.number + 1);
     }
 
     function test_gas_ForfeitFromBothPrincipalSources() external {
         EtnaStakingRegistry target = registry;
-        bytes32 key = _key;
         uint256 deadline = block.timestamp;
         vm.startSnapshotGas("forfeit_effective_and_pending");
-        target.forfeit(0, key, bytes32(uint256(42)), deadline);
+        target.forfeit(0, bytes32(uint256(42)), deadline);
         _stopSnapshot("forfeit_effective_and_pending");
         assertEq(token.balanceOf(SLASH_SINK), 275_000 ether);
-        assertTrue(registry.forfeited(key));
+        assertTrue(registry.forfeited(0));
     }
 }
 

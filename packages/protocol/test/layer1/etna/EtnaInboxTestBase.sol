@@ -91,6 +91,9 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
     uint64 internal constant MAX_BATCH_BLOCKS_CAP = 12_951;
     uint64 internal constant FORCED_INCLUSION_FEE_GWEI = 10_000_000;
     uint64 internal constant FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD = 50;
+    /// @dev F in the shared fixtures: 4096 admits every registry minStake (K <= 4095), so suites
+    /// other than the capacity tests are independent of the measured production value.
+    uint16 internal constant RECOVERY_CAPACITY = 4096;
     address internal constant PROTOCOL_FEE_RECIPIENT = address(0xfee);
     address internal constant REMOTE_SIGNAL_SERVICE = address(0xdead);
 
@@ -103,7 +106,6 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
     bytes32 internal constant COMMITTEE_RECORD_HASH = keccak256("Etna committee 0 record");
     uint256 internal constant EPOCH_LEN_L2 = 10;
     uint256 internal constant VP_UNIT = 1e9;
-    uint256 internal constant S_MIN = 1000 ether;
     uint256 internal constant N_MAX = 128;
     uint256 internal constant UNSETTLED_LIMIT = 3600;
     uint256 internal constant FORCED_INCLUSION_DELAY = 1 hours;
@@ -222,18 +224,32 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
         internal
         returns (uint256 bondId_)
     {
-        taikoToken.mint(_staker, MIN_STAKE);
+        return _registerValidator(_registry, _staker, _pk, MIN_STAKE);
+    }
+
+    /// @dev Mints `_amount` to `_staker`, who registers the consensus key of `_pk` with it at
+    /// `_registry`.
+    function _registerValidator(
+        EtnaStakingRegistry _registry,
+        address _staker,
+        uint256 _pk,
+        uint256 _amount
+    )
+        internal
+        returns (uint256 bondId_)
+    {
+        taikoToken.mint(_staker, _amount);
         bytes memory publicKey = EtnaTestKeys.publicKey(_pk);
         bytes memory pop = EtnaTestKeys.popSig(_pk, _registry, _staker);
         vm.startPrank(_staker);
-        taikoToken.approve(address(_registry), MIN_STAKE);
-        bondId_ = _registry.register(publicKey, MIN_STAKE, pop);
+        taikoToken.approve(address(_registry), _amount);
+        bondId_ = _registry.register(publicKey, _amount, pop);
         vm.stopPrank();
     }
 
     /// @dev Deploys a SignalService proxy that accepts checkpoints only from `_inbox`.
     function _deploySignalService(address _inbox) internal returns (SignalService) {
-        SignalService impl = new SignalService(_inbox, REMOTE_SIGNAL_SERVICE, address(0), 0);
+        SignalService impl = new SignalService(_inbox, REMOTE_SIGNAL_SERVICE, address(0), false);
         return SignalService(
             address(
                 new ERC1967Proxy(address(impl), abi.encodeCall(SignalService.init, (address(this))))
@@ -265,15 +281,15 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
             forcedInclusionFeeInGwei: FORCED_INCLUSION_FEE_GWEI,
             forcedInclusionFeeDoubleThreshold: FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD,
             protocolFeeRecipient: PROTOCOL_FEE_RECIPIENT,
-            originWriter: address(0),
             unzenInbox: address(0),
-            etnaForkTime: 0
+            etnaForkTime: 0,
+            recoveryCapacity: RECOVERY_CAPACITY
         });
     }
 
     /// @dev The genesis inputs of the latest deployment: L = 10, the registry's first checkpoint
-    /// as cutoff, committee configuration (1e9, 1000 TAIKO, 128, 3600), a one-hour forced
-    /// inclusion delay and a two-hour maximum anchor age.
+    /// as cutoff, committee configuration (vp_unit 1e9, n_max 128, U 3600; `init` reads minStake
+    /// from the registry), a one-hour forced inclusion delay and a two-hour maximum anchor age.
     function _defaultInitParams() internal view returns (IEtnaInbox.InitParams memory) {
         return IEtnaInbox.InitParams({
             genesisBlockHash: GENESIS_BLOCK_HASH,
@@ -282,7 +298,7 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
             genesisCutoff: registryCheckpointBlock,
             committeeRecordHash: COMMITTEE_RECORD_HASH,
             committeeConfig: IEtnaInbox.CommitteeConfig({
-                vpUnit: VP_UNIT, sMin: S_MIN, nMax: N_MAX, unsettledLimit: UNSETTLED_LIMIT
+                vpUnit: VP_UNIT, nMax: N_MAX, unsettledLimit: UNSETTLED_LIMIT
             }),
             forcedInclusionDelay: FORCED_INCLUSION_DELAY,
             maxAnchorAge: MAX_ANCHOR_AGE

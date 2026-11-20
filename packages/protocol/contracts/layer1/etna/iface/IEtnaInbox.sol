@@ -35,26 +35,28 @@ interface IEtnaInbox {
         /// @notice The DAO treasury that receives the swept forced inclusion fees (spec 7.1);
         /// non-zero.
         address protocolFeeRecipient;
-        /// @notice The multisig that performs the one-time start write with `setOrigin` on a
-        /// switching network, recording the Etna start S; zero on a new network (spec 11).
-        address originWriter;
         /// @notice The live Unzen Inbox proxy on a switching network, which must have code; zero
-        /// on a new network.
+        /// on a new network (PARAM-11-12a).
         address unzenInbox;
         /// @notice `ETNA_FORK_TIME` in L1 Unix seconds on a switching network; zero on a new
-        /// network.
+        /// network (PARAM-11-12a).
         uint48 etnaForkTime;
+        /// @notice `F`, the recovery capacity: the largest number of exclusions for which the
+        /// worst-case ordinary `recover`, with one forced inclusion to clear, fits the L1
+        /// per-transaction gas cap for this bytecode (START-10-18); in [1, 4096]. `init` requires
+        /// `K = min(4096, floor(10^27 / minStake)) <= F` (START-10-14).
+        uint16 recoveryCapacity;
     }
 
     /// @notice The committee derivation parameters opened by `committeeConfigHash` (spec 4.3, 6.4).
     /// @dev committeeConfigHash = keccak256(abi.encode(bytes32("ETNA_PARENT_ANCHOR_V1"),
-    /// uint256(l2ChainId), stakingRegistry, vpUnit, sMin, nMax, unsettledLimit)): seven words,
-    /// 224 bytes (appendix A).
+    /// uint256(l2ChainId), stakingRegistry, vpUnit, minStake, nMax, unsettledLimit)): seven words,
+    /// 224 bytes (appendix A, ENC-A-36). `minStake` is not an input: `init` reads the registry's
+    /// immutable `minStake()`, which governs both registration and selection (COMM-4.3-3).
     struct CommitteeConfig {
-        /// @notice `vp_unit`: the stake per unit of voting power; at least 867,361,738.
+        /// @notice `vp_unit`: the stake per unit of voting power; at least 867,361,738 and at most
+        /// the registry's `minStake` (START-10-12).
         uint256 vpUnit;
-        /// @notice `s_min`: the minimum effective stake of an eligible entry; at least `vpUnit`.
-        uint256 sMin;
         /// @notice `n_max`: the maximum committee size, in [1, 4096].
         uint256 nMax;
         /// @notice `U`: the maximum number of unsettled L2 blocks, in [1, 65,536].
@@ -195,14 +197,6 @@ interface IEtnaInbox {
         uint48 l1Block;
     }
 
-    /// @notice A registry entry that recovery forces to exit at `R` (spec 8 step 2).
-    struct Exclusion {
-        /// @notice The bond id.
-        uint256 bondId;
-        /// @notice keccak256(abi.encode(ckPrefix, ckX)) of the bond's key.
-        bytes32 entryKey;
-    }
-
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
@@ -220,7 +214,7 @@ interface IEtnaInbox {
     );
 
     /// @notice Emitted once, by the start write: `init` on a new network, `setOrigin` on a
-    /// switching network (spec 10 step 5).
+    /// switching network (START-10-5b).
     /// @param height The Etna start S.
     /// @param blockHash The EL block hash of S.
     /// @param stateRoot The state root of S.
@@ -267,14 +261,14 @@ interface IEtnaInbox {
     /// @param checkpointHeight `c`, the checkpoint the generation starts from.
     /// @param l1BlockNumber The number of the execution block `R`.
     /// @param l1Timestamp The timestamp of `R`.
-    /// @param exclusions The entries forced to exit at `R`, sorted strictly by bond id.
+    /// @param exclusions The bond ids whose exit moved to at most `R`, strictly increasing.
     /// @param fiToClear The blanked forced inclusion indices, strictly increasing.
     event Recovered(
         uint48 indexed newGeneration,
         uint256 checkpointHeight,
         uint256 l1BlockNumber,
         uint256 l1Timestamp,
-        Exclusion[] exclusions,
+        uint256[] exclusions,
         uint256[] fiToClear
     );
 
@@ -286,11 +280,15 @@ interface IEtnaInbox {
     /// @dev Only the owner, by upgrading the proxy from its bootstrap implementation. Validates the
     /// spec 10 deployment constraints it can check: a non-zero committee record; L >= 3 and
     /// L + 1 < 2^48; a genesis cutoff below block.number and at or after the registry's first
-    /// checkpoint; the committee configuration bounds; forcedInclusionDelay in [1, 2^48);
-    /// maxAnchorAge in [1152, 2^48); block.number and block.timestamp below 2^48. The registry's
-    /// fixed Inbox must be this proxy and its l2ChainId this Inbox's (spec 4.1). Stores
-    /// committeeConfigHash (slot 269), L, the committee 0 record and cutoff, and
-    /// activeCommitteeSnapshot = genesisCutoff; generation, nonce and rules schedule stay 0.
+    /// checkpoint (START-10-8); 1 <= U <= 65,536, 1 <= n_max <= 4096, vp_unit >= 867,361,738 and,
+    /// with minStake the registry's immutable `minStake()`, minStake >= vp_unit and
+    /// 4096 * minStake > 10^27 (START-10-12); K = min(4096, floor(10^27 / minStake)) <= F, the
+    /// `recoveryCapacity()` (START-10-14, START-10-18, `RecoveryCapacityExceeded`);
+    /// forcedInclusionDelay in [1, 2^48); maxAnchorAge in [1152, 2^48); block.number and
+    /// block.timestamp below 2^48. The registry's fixed Inbox must be this proxy and its l2ChainId
+    /// this Inbox's (spec 4.1). Stores committeeConfigHash (slot 269) over that same minStake, L,
+    /// the committee 0 record and cutoff, and activeCommitteeSnapshot = genesisCutoff;
+    /// generation, nonce and rules schedule stay 0.
     /// On a new network (`unzenInbox() == address(0)`) the genesis hash and state root must be
     /// non-zero, and the same call performs the start write with S = 0 (see `setOrigin`) and
     /// saves the block-0 SignalService checkpoint. On a switching network both must be zero and
@@ -298,37 +296,41 @@ interface IEtnaInbox {
     /// @param _params The initialization inputs.
     function init(InitParams calldata _params) external;
 
-    /// @notice Writes the Etna start on a switching network (spec 10 step 5a).
+    /// @notice Writes the Etna start S on a switching network (START-10-5a, LAND-6.1-8a,
+    /// START-10-5b, START-10-5c).
     /// @dev The one-time start write that records the Etna start S (the spec's "start write").
     /// "Origin" in the name is that start, not the slot 290 `Origin` record and not the proof
-    /// origin `p` of `land`; a second call reverts `StartAlreadyWritten`.
-    /// Only `originWriter()`, once, on an initialized Inbox whose start is unwritten, at
-    /// block.timestamp >= etnaForkTime(), with a non-zero hash and state root, 0 < _height < 2^48
-    /// and block.number and block.timestamp below 2^48. A new-network Inbox has no originWriter,
-    /// so every call reverts there. The start write sets slot 272 to (S, L1_0 = block.number, L),
-    /// slots 273/274 to the hash and state root, origins[0] = (S, L1_0, block.timestamp), the
-    /// checkpoint to (S, hash) and landings[S] = (S, 0, 0, hash, 0), opens the forced inclusion
-    /// queue and emits `StartWritten`. It writes no SignalService checkpoint: the one at S is the
-    /// Unzen Inbox's, which `land` checks while c is S.
-    /// @param _height The Etna start S, the last Unzen block.
-    /// @param _blockHash The EL block hash of S.
-    /// @param _stateRoot The state root of S.
-    function setOrigin(uint256 _height, bytes32 _blockHash, bytes32 _stateRoot) external;
+    /// origin `p` of `land`. Permissionless. Before writing anything it requires, in order: an
+    /// initialized Inbox whose start is unwritten (`NotInitialized`, `StartAlreadyWritten`); a
+    /// switching network, `unzenInbox()` and `etnaForkTime()` non-zero (`NotSwitching`); S != 0
+    /// (`InvalidStart`); block.timestamp >= etnaForkTime() (`BeforeEtnaForkTime`); the live Unzen
+    /// Inbox's `proposeCutoff()` non-zero and reached, block.timestamp >= cutoff
+    /// (`ProposalsNotClosed`); its `getCoreState()` with nextProposalId ==
+    /// lastFinalizedProposalId + 1 (`UnzenNotFinalized`); the L1 SignalService's
+    /// `getCheckpoint(S)` with a non-zero block hash equal to the Unzen Inbox's
+    /// lastFinalizedBlockHash (`UnzenStartMismatch`) and a non-zero state root (`InvalidStart`);
+    /// and block.number and block.timestamp below 2^48 (`ValueOverflow`). A failing read reverts
+    /// the call. The start write takes the hash and state root from that checkpoint and sets slot
+    /// 272 to (S, L1_0 = block.number, L), slots 273/274 to them, origins[0] = (S, L1_0,
+    /// block.timestamp), the checkpoint to (S, hash) and landings[S] = (S, 0, 0, hash, 0), closes
+    /// the checkpoint forwarder, opens the forced inclusion queue and emits `StartWritten`. It
+    /// leaves the SignalService checkpoint at S untouched. A new-network Inbox reverts every call.
+    /// @param _s The Etna start S, the last Unzen block.
+    function setOrigin(uint48 _s) external;
 
     /// @notice Lands a proven batch: settles `(c, h]` with a proof covering `(p, h]` (spec 6.1).
     /// @dev Permissionless and nonpayable; shares `recover`'s reentrancy lock. Before the start
-    /// write no landing passes check 2, because landings[0] is unwritten. With S the Etna start and
-    /// `c` the latest checkpoint height read at execution, it requires, before any state change:
+    /// write no landing passes check 2, because landings[0] is unwritten. With `c` the latest
+    /// checkpoint height read at execution, it requires, before any state change:
     /// 1. generationStartHeight() <= p <= c < h < 2^48 (c >= h means already settled) and
     ///    h - p <= maxBatchBlocks;
     /// 2. landings[p].elHash != 0, and landings[p].generation == recoveryGeneration unless p is
-    ///    the current generation's start height; on a switching network while c == S, the Unzen
-    ///    Inbox's getCoreState() shows nextProposalId == lastFinalizedProposalId + 1 and
-    ///    lastFinalizedBlockHash == landings[c].elHash, and the SignalService checkpoint at S
-    ///    holds that hash and the start's state root;
-    /// 3. _leaves.length == h - p - 1 and landings[c].head equal to the queue head; if c > p,
-    ///    _leaves[c - p - 1] == keccak256(abi.encode(c, elHash, cometHash, uint256(head))) over
-    ///    landings[c];
+    ///    the current generation's start height. The spec's `isValidLanding(p)` is this written-
+    ///    record check: these contracts have no rollback that voids records;
+    /// 3. _leaves.length == h - p - 1, landings[c].head equal to the queue head and
+    ///    activeCommitteeSnapshot at least the stored one (`CommitteeSnapshotRegressed`,
+    ///    STAKE-4.1-29); if c > p, _leaves[c - p - 1] == keccak256(abi.encode(c, elHash,
+    ///    cometHash, uint256(head))) over landings[c];
     /// 4. head <= forcedInclusionHead <= tail and forcedInclusionHead - head <= h - c;
     /// 5. l1ReferenceBlockNumber < block.number with a non-zero hash from `blockhash` (256 blocks)
     ///    or the EIP-2935 history contract (8191 blocks), and 1 to 6 blobs;
@@ -376,12 +378,15 @@ interface IEtnaInbox {
     /// (`RecoveryNonceMismatch`) and block.timestamp <= _validUntil (`AuthorizationExpired`).
     /// A non-zero _rules must equal the schedule's nextRules + 1 (`InvalidRules`). Increments the
     /// authorization nonce without wrapping on success. The new generation, block.number and
-    /// block.timestamp each below 2^48 (`ValueOverflow`); exclusions sorted strictly by bond id
-    /// and fiToClear strictly increasing within [head, tail). With R = block.number, the registry
-    /// checks all exclusions before any recovery writes and then sets each exitEffectiveL1
-    /// to min(existing, R) (`IEtnaStakingRegistry.forceExit`). An otherwise valid exclusion reverts
+    /// block.timestamp each below 2^48 (`ValueOverflow`); exclusions strictly increasing bond ids,
+    /// every one issued by the registry at execution (`ExclusionsNotSorted`,
+    /// `UnissuedExclusion`, RECOV-8-38/40a), withdrawn bonds included; fiToClear strictly
+    /// increasing within [head, tail). All of these are checked before any write. With R =
+    /// block.number, the registry then sets each excluded bond's exitEffectiveL1 to
+    /// min(existing, R) (`IEtnaStakingRegistry.forceExit`). An otherwise valid exclusion reverts
     /// `InvalidEventBlock` at block.number == 2^48 - 1, the registry's no-exit sentinel. Each
-    /// listed queue entry's txHash becomes keccak256("").
+    /// listed queue entry's txHash becomes keccak256(""). The list length is not bounded here:
+    /// `recoveryCapacity()` is the length up to which the call is known to fit the gas cap.
     /// Increments the generation, writes origins[generation] = (c, R, block.timestamp) once
     /// (`OriginAlreadyWritten` if that record already exists) and emits `Recovered`. It then
     /// clears the planned stop and, for a non-zero _rules, sets activeRules = nextRules = _rules
@@ -391,7 +396,7 @@ interface IEtnaInbox {
     /// @param _expectedC The checkpoint height the call was authorized for.
     /// @param _expectedRecoveryNonce The exact current authorization nonce (slot 292).
     /// @param _validUntil The inclusive L1 Unix timestamp deadline in seconds.
-    /// @param _exclusions The entries to force out, sorted strictly by bond id.
+    /// @param _exclusions The bond ids to force out, strictly increasing (ENC-A-51).
     /// @param _fiToClear The queue indices to blank, strictly increasing.
     /// @param _rules Zero, or the ruleset the new generation runs from its first block.
     function recover(
@@ -399,30 +404,42 @@ interface IEtnaInbox {
         uint256 _expectedC,
         uint256 _expectedRecoveryNonce,
         uint256 _validUntil,
-        Exclusion[] calldata _exclusions,
+        uint256[] calldata _exclusions,
         uint256[] calldata _fiToClear,
         uint48 _rules
     )
         external;
 
-    /// @notice Schedules the next ruleset (spec 10.1).
-    /// @dev Owner only after initialization, under the Inbox lock. With M = maxAnchorAge(): if
-    /// block.timestamp >= rulesTime it first sets activeRules = nextRules, otherwise it requires
-    /// block.timestamp + M < rulesTime (`RulesLocked`). It then requires _rules to be nextRules
-    /// or nextRules + 1 (`InvalidRules`) and _time >= block.timestamp + M (`InvalidScheduleTime`),
-    /// sets nextRules = _rules and rulesTime = _time and emits `RulesScheduleUpdated`. An equal
-    /// _rules reschedules the pending ruleset and _time = 2^48 - 1 cancels it.
+    /// @notice Schedules the next ruleset (spec 10.1, START-10.1-5a).
+    /// @dev Owner only after initialization, under the Inbox lock. First requires
+    /// _expectedGeneration == recoveryGeneration() (`GenerationMismatch`, START-10.1-5c), so an
+    /// authorization for an earlier generation cannot change or cancel a schedule. With M =
+    /// maxAnchorAge(): if block.timestamp >= rulesTime it first sets activeRules = nextRules,
+    /// otherwise it requires block.timestamp + M < rulesTime (`RulesLocked`). It then requires
+    /// _rules to be nextRules or nextRules + 1 (`InvalidRules`) and _time >= block.timestamp + M
+    /// (`InvalidScheduleTime`), sets nextRules = _rules and rulesTime = _time and emits
+    /// `RulesScheduleUpdated`. An equal _rules reschedules the pending ruleset and
+    /// _time = 2^48 - 1 cancels it.
+    /// @param _expectedGeneration The recovery generation the call was authorized for.
     /// @param _rules The ruleset number.
     /// @param _time The L2 timestamp from which it applies.
-    function scheduleRules(uint48 _rules, uint48 _time) external;
+    function scheduleRules(
+        uint48 _expectedGeneration,
+        uint48 _rules,
+        uint48 _time
+    )
+        external;
 
-    /// @notice Schedules, moves or cancels the planned stop (spec 10.1).
-    /// @dev Owner only after initialization, under the Inbox lock. With M = maxAnchorAge(): if a
-    /// stop is set it requires block.timestamp + M < stopTime (`StopLocked`). It then requires
-    /// _time to be 0, which cancels the stop, or at least block.timestamp + M (`InvalidStop`),
-    /// sets stopTime = _time and emits `RulesScheduleUpdated`.
+    /// @notice Schedules, moves or cancels the planned stop (spec 10.1, START-10.1-5b).
+    /// @dev Owner only after initialization, under the Inbox lock. First requires
+    /// _expectedGeneration == recoveryGeneration() (`GenerationMismatch`, START-10.1-5c). With
+    /// M = maxAnchorAge(): if a stop is set it requires block.timestamp + M < stopTime
+    /// (`StopLocked`). It then requires _time to be 0, which cancels the stop, or at least
+    /// block.timestamp + M (`InvalidStop`), sets stopTime = _time and emits
+    /// `RulesScheduleUpdated`.
+    /// @param _expectedGeneration The recovery generation the call was authorized for.
     /// @param _time The stop time, or 0 for no stop.
-    function scheduleStop(uint48 _time) external;
+    function scheduleStop(uint48 _expectedGeneration, uint48 _time) external;
 
     /// @notice Invalidates all unexecuted recovery authorizations carrying the current nonce.
     /// @dev Owner only after initialization, under the Inbox lock. Requires an exact nonce and
@@ -458,8 +475,8 @@ interface IEtnaInbox {
     /// @return The start record; only L before the start write, zero before initialization.
     function genesis() external view returns (GenesisRecord memory);
 
-    /// @notice Returns the Etna start: the slots `saveCheckpoint` reads to bound the Unzen Inbox's
-    /// checkpoints (spec 10 step 5).
+    /// @notice Returns the Etna start: S and the start hash, whose non-zero value closes the Unzen
+    /// checkpoint forwarder `saveCheckpoint` (START-10-5).
     /// @return height_ S (slot 272).
     /// @return blockHash_ The EL block hash of S (slot 273); zero exactly before the start write.
     function etnaStart() external view returns (uint48 height_, bytes32 blockHash_);
@@ -505,9 +522,8 @@ interface IEtnaInbox {
     /// @notice Returns the current generation's start height,
     /// `origins(recoveryGeneration()).startHeight`.
     /// @dev Reverts with `StartNotWritten` before the start write, which writes generation 0's
-    /// record: a missing record has no default (spec 8.4). Whatever starts a later generation
-    /// (`recover`, or an Inbox upgrade correcting the start under spec 10 step 5c) writes its record
-    /// in the same transaction.
+    /// record: a missing record has no default (spec 8.4). `recover`, which starts every later
+    /// generation, writes its record in the same transaction.
     /// @return The start height.
     function generationStartHeight() external view returns (uint256);
 
@@ -580,18 +596,21 @@ interface IEtnaInbox {
     /// @return The protocol fee recipient.
     function protocolFeeRecipient() external view returns (address);
 
-    /// @notice Returns the multisig that may perform the one-time start write (`setOrigin`), which
-    /// records the Etna start S; zero on a new network.
-    /// @return The origin writer.
-    function originWriter() external view returns (address);
-
-    /// @notice Returns the Unzen Inbox `land` checks while c is S; zero on a new network.
+    /// @notice Returns the live Unzen Inbox whose checkpoints `saveCheckpoint` forwards and whose
+    /// closed, fully proven tip `setOrigin` records; zero on a new network.
     /// @return The Unzen Inbox proxy.
     function unzenInbox() external view returns (address);
 
     /// @notice Returns `ETNA_FORK_TIME`, the earliest time of `setOrigin`; zero on a new network.
     /// @return The fork time in L1 Unix seconds.
     function etnaForkTime() external view returns (uint48);
+
+    /// @notice Returns `F`, the recovery capacity this implementation fixes (START-10-18).
+    /// @dev The worst-case ordinary `recover` with up to F exclusions, each a registered bond,
+    /// and one forced inclusion to clear fits EIP-7825's 2^24 per-transaction gas cap. `init`
+    /// requires K = min(4096, floor(10^27 / minStake)) <= F.
+    /// @return The capacity, in [1, 4096].
+    function recoveryCapacity() external view returns (uint16);
 
     // ---------------------------------------------------------------
     // Errors
@@ -607,20 +626,28 @@ interface IEtnaInbox {
     error OriginAlreadyWritten();
     /// @notice `setOrigin` is called before `etnaForkTime()`.
     error BeforeEtnaForkTime();
-    /// @notice The start height is 0 or at least 2^48, or its hash or state root is zero.
+    /// @notice `setOrigin` names S = 0, or the SignalService checkpoint at S has a zero state
+    /// root.
     error InvalidStart();
-    /// @notice The switching-network immutables are neither all zero nor all non-zero, or the
+    /// @notice `setOrigin` is called on a new network, which has no Unzen Inbox or fork time.
+    error NotSwitching();
+    /// @notice The switching-network immutables are neither both zero nor both non-zero, or the
     /// Unzen Inbox has no code.
     error InvalidSwitchConfig();
+    /// @notice The recovery capacity F is zero or above 4096.
+    error InvalidRecoveryCapacity();
+    /// @notice K = min(4096, floor(10^27 / minStake)) exceeds the recovery capacity F.
+    error RecoveryCapacityExceeded();
+    /// @notice The Unzen Inbox's `proposeCutoff()` is zero or not yet reached.
+    error ProposalsNotClosed();
     /// @notice The Unzen Inbox has an unfinalized proposal.
     error UnzenNotFinalized();
-    /// @notice The Unzen Inbox's last finalized block hash differs from the start's hash.
+    /// @notice The SignalService checkpoint at S has a zero block hash or one that differs from
+    /// the Unzen Inbox's last finalized block hash.
     error UnzenStartMismatch();
-    /// @notice The SignalService checkpoint at S (not the landed checkpoint) differs from the
-    /// start's hash or state root.
-    error StartCheckpointMismatch();
-    /// @notice The Unzen Inbox forwarded a checkpoint above S after the start write.
-    error CheckpointAboveStart();
+    /// @notice The Unzen Inbox forwarded a checkpoint after the start write, which closes the
+    /// forwarder at every height.
+    error ForwardingClosed();
     /// @notice The ruleset is neither `nextRules` nor `nextRules + 1`, or not `nextRules + 1` in
     /// `recover`.
     error InvalidRules();
@@ -677,6 +704,8 @@ interface IEtnaInbox {
     error ForeignGeneration();
     /// @notice The number of cut leaves is not `h - p - 1`.
     error LeafCountMismatch();
+    /// @notice The landing's `activeCommitteeSnapshot` is below the stored one (STAKE-4.1-29).
+    error CommitteeSnapshotRegressed();
     /// @notice The forced-inclusion cursor in the checkpoint's landing record (`Landing.head`, the
     /// spec's "FI cursor") differs from the Inbox queue head (slot 281), which must equal it once
     /// that height is the checkpoint.
@@ -699,8 +728,10 @@ interface IEtnaInbox {
     /// @notice The expected checkpoint height is not the landed checkpoint's
     /// (`lastCheckpoint().height`).
     error CheckpointMismatch();
-    /// @notice The exclusions are not sorted strictly by bond id.
+    /// @notice The exclusions are not strictly increasing bond ids.
     error ExclusionsNotSorted();
+    /// @notice An exclusion names a bond id the registry has not issued (RECOV-8-40a).
+    error UnissuedExclusion();
     /// @notice The forced inclusion indices to clear are not strictly increasing.
     error FiToClearNotSorted();
     /// @notice A forced inclusion index to clear is outside [head, tail).

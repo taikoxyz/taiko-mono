@@ -270,9 +270,10 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
 
         vm.roll(130);
         IEtnaStakingRegistry.Entry memory zero;
-        bytes32 emptyLeaf = LibEntriesTree.leaf(0, zero);
+        // Slot 0 was the only occupied slot: the count shrinks to 0 and the root is 0
+        // (STAKE-4.1-36).
         vm.expectEmit(address(registry));
-        emit IEtnaStakingRegistry.CheckpointWritten(2, 130, 1, emptyLeaf);
+        emit IEtnaStakingRegistry.CheckpointWritten(2, 130, 0, 0);
         // Nothing is paid, so the event names no recipient, whatever `_to` the caller passes.
         vm.expectEmit(address(registry));
         emit IEtnaStakingRegistry.StakeWithdrawn(0, address(0), 0);
@@ -292,7 +293,8 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         assertTrue(registry.bondAt(0).withdrawn, "withdrawn");
         assertEq(registry.ownerOf(0), address(0), "owner cleared");
         assertEq(registry.exitConfirmedAtL1(0), 0, "confirmation cleared");
-        assertEq(registry.entriesRoot(), emptyLeaf, "root");
+        assertEq(registry.entriesRoot(), 0, "root");
+        assertEq(registry.entryCount(), 0, "count");
     }
 
     /// @dev A slash neither confirms the exit nor skips the delay (Lean `zero_stake_still_waits`).
@@ -347,7 +349,7 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         _fund(Alice, MIN_STAKE);
         vm.prank(Alice);
         registry.topUp(0, MIN_STAKE);
-        registry.forfeit(0, _entryKey(registry, 0), 0, block.timestamp);
+        registry.forfeit(0, 0, block.timestamp);
         uint48 exit = uint48(block.number);
         assertEq(registry.entryAt(0).effStake, 0, "no effective stake");
         (uint256 pending,) = registry.topUpOf(0);

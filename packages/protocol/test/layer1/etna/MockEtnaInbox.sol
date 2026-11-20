@@ -30,13 +30,7 @@ contract MockEtnaInbox {
     }
 
     /// @dev Calls `_registry.forceExit` as the Inbox.
-    function forceExit(
-        IEtnaStakingRegistry _registry,
-        uint256 _bondId,
-        bytes32 _entryKey
-    )
-        external
-    {
-        _registry.forceExit(_bondId, _entryKey);
+    function forceExit(IEtnaStakingRegistry _registry, uint256 _bondId) external {
+        _registry.forceExit(_bondId);
     }
 }

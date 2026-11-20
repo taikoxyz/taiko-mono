@@ -302,22 +302,42 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         _land(0, 6);
     }
 
-    /// @dev Spec 6.1 step 7 stores the snapshot as proven, with no bound against the stored one
-    /// or the reference block: `land` adds no snapshot check to the reference Solidity.
-    function test_land_StoresTheProvenSnapshotWithoutBounds() external {
+    /// @dev Spec 6.1 step 3 (STAKE-4.1-29): `activeCommitteeSnapshot` never decreases. A landing
+    /// proving a snapshot below the stored one reverts before the verifier is called, which
+    /// would reject it too; an equal snapshot lands, and the stored value moves only forward.
+    function test_land_RevertWhen_SnapshotRegresses() external {
+        uint256 stored = _inbox().activeCommitteeSnapshot();
+        assertGt(stored, 0, "the genesis cutoff");
         IEtnaInbox.LandInput memory input = _input(0, 6);
-        input.activeCommitteeSnapshot = 0;
+        input.activeCommitteeSnapshot = stored - 1;
+        // The verifier rejects every proof, so the snapshot error shows the check runs first.
+        landVerifier.setRejects(true);
+        _expectLandRevert(input, _leaves(0, 6), IEtnaInbox.CommitteeSnapshotRegressed.selector);
+        landVerifier.setRejects(false);
+
+        input.activeCommitteeSnapshot = stored;
         _land(input, _leaves(0, 6));
-        assertEq(_inbox().activeCommitteeSnapshot(), 0, "below the stored snapshot");
+        assertEq(_inbox().activeCommitteeSnapshot(), stored, "equal snapshot lands");
 
         input = _input(6, 12);
+        input.activeCommitteeSnapshot = 0;
+        _expectLandRevert(input, _leaves(6, 12), IEtnaInbox.CommitteeSnapshotRegressed.selector);
+    }
+
+    /// @dev Spec 6.1 step 7 stores the snapshot as proven: no bound applies above the stored one,
+    /// not even the reference block, which the proof binds instead.
+    function test_land_StoresAHigherProvenSnapshotWithoutUpperBound() external {
+        IEtnaInbox.LandInput memory input = _input(0, 6);
         input.activeCommitteeSnapshot = type(uint256).max;
-        _land(input, _leaves(6, 12));
+        _land(input, _leaves(0, 6));
         assertEq(
             uint256(_inboxWord(ACTIVE_COMMITTEE_SNAPSHOT_SLOT)),
             type(uint256).max,
             "beyond the reference block"
         );
+        // Every later landing must prove at least that snapshot.
+        input = _input(6, 12);
+        _expectLandRevert(input, _leaves(6, 12), IEtnaInbox.CommitteeSnapshotRegressed.selector);
     }
 
     /// @dev Lean `protocol_fee_is_preserved_by_landing`: with four entries saved, landing (0, 6]

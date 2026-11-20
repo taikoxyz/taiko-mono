@@ -14,6 +14,10 @@ contract LibEntriesTreeHarness {
         return LibEntriesTree.update(_tree, _count, _index, _leaf);
     }
 
+    function truncate(uint256 _count) external returns (bytes32) {
+        return LibEntriesTree.truncate(_tree, _count);
+    }
+
     function root(uint256 _count) external view returns (bytes32) {
         return LibEntriesTree.root(_tree, _count);
     }
@@ -184,9 +188,11 @@ contract LibEntriesTreeTest is CommonTest {
         for (uint256 i; i < n; ++i) {
             assertEq(tree.leaf(i, _vectorEntry(json, i)), _vectorLeaf(json, i), "entry leaf");
         }
+        // ENC-A-37 vector 37.a / ENC-A-38 vector 38.h `Z1`: an interior empty slot's all-zero
+        // entry still hashes to a non-zero leaf.
         IEtnaStakingRegistry.Entry memory empty;
         uint256 slot = LibEtnaVectors.uintAt(json, ".registry_entries.empty_slot.slot");
-        assertEq(slot, n);
+        assertEq(slot, 1);
         assertEq(
             tree.leaf(slot, empty),
             LibEtnaVectors.bytes32At(json, ".registry_entries.empty_slot.leaf"),
@@ -226,18 +232,98 @@ contract LibEntriesTreeTest is CommonTest {
     function test_root_MatchesTheSharedVectors() external {
         string memory json = LibEtnaVectors.load();
         uint256 n = LibEtnaVectors.lengthAt(json, ".registry_entries.roots");
-        assertEq(n, _ENTRIES + 2);
+        // Counts 0 to 5: a nonempty list ends in an occupied slot (STAKE-4.1-36).
+        assertEq(n, _ENTRIES + 1);
         assertEq(LibEtnaVectors.uintAt(json, ".registry_entries.roots[0].count"), 0);
         assertEq(tree.root(0), _vectorRoot(json, 0), "no entry");
         for (uint256 count = 1; count < n; ++count) {
             string memory root = string.concat(".registry_entries.roots[", vm.toString(count), "]");
             assertEq(LibEtnaVectors.uintAt(json, string.concat(root, ".count")), count);
-            bytes32 leaf = count <= _ENTRIES
-                ? _vectorLeaf(json, count - 1)
-                : LibEtnaVectors.bytes32At(json, ".registry_entries.empty_slot.leaf");
+            bytes32 leaf = _vectorLeaf(json, count - 1);
             assertEq(tree.update(count, count - 1, leaf), _vectorRoot(json, count), "update");
             assertEq(tree.root(count), _vectorRoot(json, count), "root");
         }
+    }
+
+    /// @dev The shared `registry_entries.checkpoints` sequence (STAKE-4.1-36 vectors 36.f, 36.g,
+    /// ENC-A-38 vectors 38.h, 38.i, COMM-4.3-2 vector 2.d) replayed through `update` and
+    /// `truncate` as the registry applies it: three bonds; slot 1 withdrawn (an interior empty
+    /// slot keeps the count, root K(K(L0,Z1),K(L2,0))); slot 2 slashed to zero balance (still
+    /// occupied); slot 2 withdrawn (count 1, root L0); slot 0 withdrawn (count 0, root 0). Each
+    /// state's root also equals the naive padded root over its own slot list, and none equals the
+    /// vectors' wrong roots.
+    function test_truncate_MatchesTheSharedCheckpointSequence() external {
+        string memory json = LibEtnaVectors.load();
+        string memory cps = ".registry_entries.checkpoints";
+        uint256 n = LibEtnaVectors.lengthAt(json, cps);
+        assertEq(n, 5);
+        uint256 previous;
+        for (uint256 i; i < n; ++i) {
+            string memory p = string.concat(cps, "[", vm.toString(i), "].");
+            uint256 count = LibEtnaVectors.uintAt(json, string.concat(p, "count"));
+            bytes32 expected = LibEtnaVectors.bytes32At(json, string.concat(p, "entries_root"));
+            bytes32[] memory leaves = new bytes32[](count);
+            for (uint256 j; j < count; ++j) {
+                string memory slot = string.concat(p, "slots[", vm.toString(j), "].");
+                leaves[j] = tree.leaf(j, _entryAt(json, slot));
+                assertEq(
+                    leaves[j],
+                    LibEtnaVectors.bytes32At(
+                        json, string.concat(p, "leaves[", vm.toString(j), "]")
+                    ),
+                    "slot leaf"
+                );
+            }
+            assertEq(_naiveRoot(leaves, count), expected, "naive root");
+            if (count != 0) {
+                string memory last = string.concat(p, "slots[", vm.toString(count - 1), "].");
+                assertTrue(
+                    vm.parseJsonBool(json, string.concat(last, "occupied")),
+                    "a nonempty list ends in an occupied slot"
+                );
+            }
+
+            bytes32 root;
+            if (i == 0) {
+                for (uint256 j; j < count; ++j) {
+                    root = tree.update(j + 1, j, leaves[j]);
+                }
+            } else if (count < previous) {
+                root = tree.truncate(count);
+            } else {
+                // One slot changed in place: rewrite every leaf; unchanged ones are no-ops.
+                for (uint256 j; j < count; ++j) {
+                    root = tree.update(count, j, leaves[j]);
+                }
+            }
+            assertEq(root, expected, "incremental root");
+            assertEq(tree.root(count), expected, "root view");
+            previous = count;
+        }
+
+        string memory wrong = string.concat(cps, "[1].wrong_roots");
+        bytes32 right = LibEtnaVectors.bytes32At(json, string.concat(cps, "[1].entries_root"));
+        string[] memory keys = vm.parseJsonKeys(json, wrong);
+        assertGt(keys.length, 0, "wrong roots");
+        for (uint256 k; k < keys.length; ++k) {
+            assertNotEq(
+                LibEtnaVectors.bytes32At(json, string.concat(wrong, ".", keys[k])), right, keys[k]
+            );
+        }
+    }
+
+    /// @dev Truncating to zero leaves gives the zero root; truncating to `n` rewrites the new last
+    /// leaf's path with zero padding, so a stale interior leaf beyond `n` no longer counts.
+    function test_truncate_PadsTheNewLastLeafWithZeros() external {
+        _append(0, 5);
+        bytes32 l0 = tree.leaf(0, _sampleEntry(0));
+        bytes32 l1 = tree.leaf(1, _sampleEntry(1));
+        bytes32 l2 = tree.leaf(2, _sampleEntry(2));
+        assertEq(tree.truncate(3), _hash(_hash(l0, l1), _hash(l2, bytes32(0))), "count 3");
+        assertEq(tree.root(3), _hash(_hash(l0, l1), _hash(l2, bytes32(0))));
+        assertEq(tree.truncate(1), l0, "count 1");
+        assertEq(tree.truncate(0), bytes32(0), "count 0");
+        assertEq(tree.root(0), bytes32(0));
     }
 
     // ---------------------------------------------------------------
@@ -342,6 +428,41 @@ contract LibEntriesTreeTest is CommonTest {
             bytes32 root = tree.update(_count, index, leaves[index]);
             assertEq(root, _naiveRoot(leaves, _count));
             assertEq(tree.root(_count), root);
+        }
+    }
+
+    /// @dev Random appends, in-place rewrites and truncations, as the registry's registrations,
+    /// entry changes and highest-slot withdrawals produce them, always match the naive padded
+    /// tree over the current count (ENC-A-38).
+    function testFuzz_truncate_MatchesNaiveRootAcrossShrinkAndRegrow(
+        uint256 _seed,
+        uint256 _steps
+    )
+        external
+    {
+        _steps = bound(_steps, 1, 48);
+        bytes32[] memory leaves = new bytes32[](40);
+        uint256 count;
+        for (uint256 step; step < _steps; ++step) {
+            uint256 r = uint256(keccak256(abi.encode(_seed, "step", step)));
+            uint256 kind = r % 3;
+            bytes32 root;
+            if ((kind == 0 || count == 0) && count < leaves.length) {
+                leaves[count] = keccak256(abi.encode(_seed, "append", step));
+                root = tree.update(count + 1, count, leaves[count]);
+                ++count;
+            } else if (kind == 1 && count != 0) {
+                uint256 index = (r >> 8) % count;
+                leaves[index] = keccak256(abi.encode(_seed, "rewrite", step));
+                root = tree.update(count, index, leaves[index]);
+            } else if (count != 0) {
+                count = (r >> 8) % count;
+                root = tree.truncate(count);
+            } else {
+                continue;
+            }
+            assertEq(root, _naiveRoot(leaves, count), "incremental root");
+            assertEq(tree.root(count), root, "root view");
         }
     }
 

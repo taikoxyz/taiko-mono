@@ -25,10 +25,6 @@ contract LibEtnaKeysHarness {
         return LibEtnaKeys.ckAddr(_x, _y);
     }
 
-    function entryKey(uint8 _prefix, bytes32 _x) external pure returns (bytes32) {
-        return LibEtnaKeys.entryKey(_prefix, _x);
-    }
-
     function recoverSigner(
         bytes32 _digest,
         bytes calldata _sig
@@ -148,7 +144,7 @@ contract LibEtnaKeysTest is CommonTest, EtnaVectorReader {
     }
 
     /// @dev The other prefix decodes to the negated point (y' = p - y, opposite parity), which
-    /// has a different `ckAddr` and `entryKey`.
+    /// has a different `ckAddr`.
     function test_decompress_ParityFlipGivesNegatedPoint() external view {
         string memory j = LibEtnaVectors.load();
         uint256 n = LibEtnaVectors.lengthAt(j, ".keys");
@@ -166,7 +162,6 @@ contract LibEtnaKeysTest is CommonTest, EtnaVectorReader {
             assertEq(uint256(flipped), _P - uint256(y), name);
             assertEq(uint256(flipped) & 1, flippedPrefix - 2, name);
             assertNotEq(keys.ckAddr(x, flipped), keys.ckAddr(x, y), name);
-            assertNotEq(keys.entryKey(flippedPrefix, x), keys.entryKey(prefix, x), name);
         }
     }
 
@@ -290,7 +285,7 @@ contract LibEtnaKeysTest is CommonTest, EtnaVectorReader {
     }
 
     // ---------------------------------------------------------------
-    // ckAddr and entryKey
+    // ckAddr
     // ---------------------------------------------------------------
 
     /// @dev `ckAddr` hashes the two 32-byte coordinates, not the compressed encoding.
@@ -305,19 +300,6 @@ contract LibEtnaKeysTest is CommonTest, EtnaVectorReader {
             assertEq(addr, _address(j, p, "ck_addr"));
             assertEq(addr, address(uint160(uint256(keccak256(abi.encodePacked(x, y))))));
             assertEq(addr, vm.addr(_uint(j, p, "private_key")));
-        }
-    }
-
-    function test_entryKey_MatchesVectors() external view {
-        string memory j = LibEtnaVectors.load();
-        uint256 n = LibEtnaVectors.lengthAt(j, ".keys");
-        for (uint256 i; i < n; ++i) {
-            string memory p = _at(".keys", i);
-            uint8 prefix = uint8(_uint(j, p, "ck_prefix"));
-            bytes32 x = _bytes32(j, p, "ck_x");
-            bytes32 key = keys.entryKey(prefix, x);
-            assertEq(key, _bytes32(j, p, "entry_key"), _string(j, p, "name"));
-            assertEq(key, keccak256(abi.encode(uint256(prefix), x)));
         }
     }
 

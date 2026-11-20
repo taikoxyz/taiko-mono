@@ -326,6 +326,8 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         assertEq(_u(_j, c, ".forcedInclusionDelay"), _FORCED_INCLUSION_DELAY, "delay");
         assertEq(_u(_j, c, ".maxAnchorAge"), _MAX_ANCHOR_AGE, "maxAnchorAge");
         assertEq(_u(_j, c, ".vpUnit"), _VP_UNIT, "vpUnit");
+        // The historical machine's independent s_min; the Inbox now takes the registry's
+        // minStake as the fifth config word (ENC-A-36), and neither family reads a stake.
         assertEq(_u(_j, c, ".sMin"), _VP_UNIT, "sMin");
         assertEq(_u(_j, c, ".nMax"), _N_MAX, "nMax");
         assertEq(_u(_j, c, ".referenceHash"), _REFERENCE_HASH, "referenceHash");
@@ -368,7 +370,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
         signalService = SignalService(
             address(
                 new ERC1967Proxy(
-                    address(new SignalService(inbox, _REMOTE_SIGNAL_SERVICE, address(0), 0)),
+                    address(new SignalService(inbox, _REMOTE_SIGNAL_SERVICE, address(0), false)),
                     abi.encodeCall(SignalService.init, (address(this)))
                 )
             )
@@ -384,9 +386,9 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
                 forcedInclusionFeeInGwei: uint64(_d.feeGwei),
                 forcedInclusionFeeDoubleThreshold: uint64(_d.threshold),
                 protocolFeeRecipient: recipient,
-                originWriter: address(0),
                 unzenInbox: address(0),
-                etnaForkTime: 0
+                etnaForkTime: 0,
+                recoveryCapacity: 4096
             })
         );
         EssentialContract(inbox)
@@ -422,7 +424,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
             genesisCutoff: _REGISTERED_AT,
             committeeRecordHash: keccak256("etna conformance committee 0"),
             committeeConfig: IEtnaInbox.CommitteeConfig({
-                vpUnit: _VP_UNIT, sMin: _VP_UNIT, nMax: _N_MAX, unsettledLimit: _unsettled
+                vpUnit: _VP_UNIT, nMax: _N_MAX, unsettledLimit: _unsettled
             }),
             forcedInclusionDelay: _FORCED_INCLUSION_DELAY,
             maxAnchorAge: _MAX_ANCHOR_AGE
@@ -570,7 +572,7 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
                     _u(_j, _a, ".expectedC"),
                     _u(_j, _a, ".expectedRecoveryNonce"),
                     _u(_j, _a, ".validUntil"),
-                    new IEtnaInbox.Exclusion[](0),
+                    new uint256[](0),
                     vm.parseJsonUintArray(_j, string.concat(_a, ".fiToClear")),
                     uint48(0)
                 )

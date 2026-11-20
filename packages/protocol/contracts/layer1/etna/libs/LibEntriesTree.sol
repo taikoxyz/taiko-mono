@@ -11,14 +11,21 @@ import { IEtnaStakingRegistry } from "../iface/IEtnaStakingRegistry.sol";
 /// `zero(l) = keccak256(zero(l - 1) ‖ zero(l - 1))`.
 ///
 /// The root over the first `count` leaves is the node at level `ceil(log2(count))`, index 0,
-/// which equals the root of those leaves padded with zero leaves to the next power of two.
+/// which equals the root of those leaves padded with zero leaves to the next power of two
+/// (appendix A, ENC-A-38).
 ///
 /// Node `(level, index)` lives at key `(level << 32) | index` of the caller's mapping.
 ///
-/// Leaves are appended in index order and may be rewritten afterwards. Because the leaf count
-/// never decreases, `update` stops at the root level of the current count: a node above it covers
-/// no leaf outside its leftmost child, is never read before the count grows past it, and is
-/// written on the path of the leaf whose append makes it the root.
+/// The count grows by one leaf at a time, by appending leaf `count`, and may shrink with
+/// `truncate`; leaves below the count may be rewritten at any time. The tree keeps this
+/// invariant: every stored node at or below the root level whose leaves all lie below the count
+/// is correct, and so is every node on the path of leaf `count - 1`, the only nodes that cover
+/// both a leaf below the count and padding. `update` rewrites the path of its leaf up to the root
+/// level, reading a sibling from storage only if it starts below the count, which makes it either
+/// a node of the first kind or one on that path, and treating any other sibling as padding.
+/// `truncate` rewrites the path of the new last leaf with padding to its right. Nodes above the
+/// root level, and nodes whose leaves all lie at or beyond the count, may be stale: no update reads
+/// them before an append rewrites them on the new last leaf's path.
 /// @custom:security-contact security@taiko.xyz
 library LibEntriesTree {
     // ---------------------------------------------------------------
@@ -135,9 +142,27 @@ library LibEntriesTree {
         root_ = hash;
     }
 
+    /// @dev Shrinks the tree to its first `_count` leaves after the leaves from `_count` on became
+    /// padding, and returns the new root. Rewrites the path of leaf `_count - 1`, whose stored
+    /// value is current, with zero padding to its right; with no leaf left the root is zero.
+    /// @param _tree The tree nodes.
+    /// @param _count The new number of leaves, below the previous one.
+    /// @return root_ The root over the first `_count` leaves (see `root`).
+    function truncate(
+        mapping(uint256 node => bytes32) storage _tree,
+        uint256 _count
+    )
+        internal
+        returns (bytes32 root_)
+    {
+        if (_count == 0) return 0;
+        // Level 0, index `_count - 1`: the leaf, written when its entry was last written.
+        root_ = update(_tree, _count, _count - 1, _tree[_count - 1]);
+    }
+
     /// @dev Returns the root over the first `_count` leaves: `bytes32(0)` for no leaf, leaf 0
     /// for one leaf, otherwise the node at level `ceil(log2(_count))`, index 0. The tree keeps
-    /// only its current state, so `_count` must be the number of leaves written so far.
+    /// only its current state, so `_count` must be its current leaf count.
     /// @param _tree The tree nodes.
     /// @param _count The number of leaves written so far, at most `CAPACITY`.
     /// @return root_ The root.

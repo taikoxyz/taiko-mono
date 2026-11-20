@@ -7,6 +7,7 @@ import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
+import { LibEntriesTree } from "src/layer1/etna/libs/LibEntriesTree.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
@@ -24,6 +25,18 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         bytes32 ckX;
         uint64 votingPower;
         int64 proposerPriority;
+    }
+
+    /// @dev The ckX of A.md 37.i, 39.a and 39a.a: secp256k1's generator X.
+    bytes32 private constant _A_37I_X =
+        0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798;
+
+    /// @dev ENC-A-39a's committee member, in ascending set-key order.
+    struct SetMember {
+        uint8 ckPrefix;
+        bytes32 ckX;
+        uint256 effStake;
+        uint64 assignedPower;
     }
 
     /// @dev The published encoding-only example pins signed priorities and both stored proposers.
@@ -107,8 +120,10 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         return false;
     }
 
-    function test_schema_IsVersionEight() external view {
-        assertEq(LibEtnaVectors.stringAt(LibEtnaVectors.load(), ".schema_version"), "8");
+    /// @dev Schema 9 is the #22422 (994960561) format: setHash, the registry minStake in the
+    /// config hash, the shrinking registry count, bond-id forfeiture flags and the new ABIs.
+    function test_schema_IsVersionNine() external view {
+        assertEq(LibEtnaVectors.stringAt(LibEtnaVectors.load(), ".schema_version"), "9");
     }
 
     // ---------------------------------------------------------------
@@ -395,16 +410,18 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         assertEq(_address(j, p, "registry"), _address(j, ".deployment.", "registry"), "registry");
         IEtnaInbox.CommitteeConfig memory config = IEtnaInbox.CommitteeConfig({
             vpUnit: _uint(j, p, "vp_unit"),
-            sMin: _uint(j, p, "s_min"),
             nMax: _uint(j, p, "n_max"),
             unsettledLimit: _uint(j, p, "unsettled_limit")
         });
+        // ENC-A-36: the fifth word is the registry's minStake, the deployment's one value.
+        uint256 minStake = _uint(j, p, "min_stake");
+        assertEq(minStake, _uint(j, ".deployment.", "min_stake"), "deployment minStake");
         bytes memory preimage = abi.encode(
             bytes32("ETNA_PARENT_ANCHOR_V1"),
             uint256(L2_CHAIN_ID),
             _address(j, p, "registry"),
             config.vpUnit,
-            config.sMin,
+            minStake,
             config.nMax,
             config.unsettledLimit
         );
@@ -441,10 +458,11 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         params.genesisCutoff = cutoff;
         params.committeeConfig = IEtnaInbox.CommitteeConfig({
             vpUnit: _uint(j, p, "vp_unit"),
-            sMin: _uint(j, p, "s_min"),
             nMax: _uint(j, p, "n_max"),
             unsettledLimit: _uint(j, p, "unsettled_limit")
         });
+        // `init` reads minStake from the registry, which must be the vector's.
+        assertEq(at.minStake(), _uint(j, p, "min_stake"), "registry minStake");
         _upgradeAndInit(_newInboxImpl(cfg), params);
 
         bytes32 expected = _bytes32(j, ".committee_config.", "hash");
@@ -452,15 +470,15 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         assertEq(inbox.committeeConfigHash(), expected, "committeeConfigHash");
     }
 
-    function test_committeeSets_EncodeSetKeysLeavesNodesAndRecords() external view {
+    function test_committeeSets_EncodeSetKeysSetHashesAndRecords() external view {
         string memory j = LibEtnaVectors.load();
         assertEq(LibEtnaVectors.lengthAt(j, ".committee_sets"), 4);
-        // Spec 4.3 rejects an empty committee, so case 0 carries no root or record.
+        // Spec 4.3 rejects an empty committee, so case 0 carries no set hash or record.
         string memory empty = _at(".committee_sets", 0);
         assertEq(LibEtnaVectors.lengthAt(j, string.concat(empty, "members")), 0);
         assertFalse(vm.parseJsonBool(j, string.concat(empty, "valid")));
         assertEq(LibEtnaVectors.stringAt(j, string.concat(empty, "reason")), "empty_committee");
-        assertFalse(vm.keyExistsJson(j, string.concat(empty, "set_root")));
+        assertFalse(vm.keyExistsJson(j, string.concat(empty, "set_hash")));
 
         uint256[3] memory sizes = [uint256(1), 3, 5];
         for (uint256 c = 1; c < 4; ++c) {
@@ -1056,28 +1074,18 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
         assertEq(k, _uint(_j, _p, "target_epoch") + 1, "k = targetEpoch + 1");
         assertEq(LibEtnaVectors.lengthAt(_j, string.concat(_p, "members")), _size);
 
-        bytes32[] memory level = new bytes32[](_size);
+        SetMember[] memory members = new SetMember[](_size);
         uint256 totalPower;
         for (uint256 i; i < _size; ++i) {
-            level[i] = _memberLeaf(_j, _p, i, k);
-            totalPower += _uint(_j, _member(_p, i), "power");
+            members[i] = _setMember(_j, _p, i);
+            totalPower += members[i].assignedPower;
         }
-        for (uint256 width = _size; width > 1; width = (width + 1) / 2) {
-            for (uint256 i; i < width; i += 2) {
-                level[i / 2] = i + 1 == width
-                    ? level[i]
-                    : keccak256(
-                        abi.encode(
-                            bytes32("ETNA_SET_NODE"),
-                            uint256(L2_CHAIN_ID),
-                            k,
-                            level[i],
-                            level[i + 1]
-                        )
-                    );
-            }
-        }
-        assertEq(level[0], _bytes32(_j, _p, "set_root"), "setRoot");
+        // ENC-A-39a: one hash over the whole set, four head words then the member array.
+        bytes memory preimage = abi.encode(bytes32("ETNA_SET_V1"), uint256(L2_CHAIN_ID), k, members);
+        assertEq(preimage.length, 32 * (4 + 1 + 4 * _size), "set hash preimage size");
+        assertEq(preimage, _bytes(_j, _p, "set_hash_preimage"), "set hash preimage");
+        bytes32 setHash = keccak256(preimage);
+        assertEq(setHash, _bytes32(_j, _p, "set_hash"), "setHash");
         assertEq(totalPower, _uint(_j, _p, "total_power"), "totalPower");
 
         bytes memory record = abi.encode(
@@ -1086,45 +1094,206 @@ contract EtnaVectorsTest is EtnaInboxTestBase, EtnaVectorReader {
             _uint(_j, _p, "target_epoch"),
             _uint(_j, _p, "cutoff_l1_block"),
             _uint(_j, _p, "checkpoint_index"),
-            level[0],
+            setHash,
             totalPower
         );
         assertEq(record, _bytes(_j, _p, "record_preimage"), "record preimage");
         assertEq(keccak256(record), _bytes32(_j, _p, "record_hash"), "record hash");
     }
 
-    /// @dev Checks member `_i`'s set key, order and power, and returns its leaf.
-    function _memberLeaf(
+    /// @dev Checks member `_i`'s set key, ascending order and power, and returns it.
+    function _setMember(
         string memory _j,
         string memory _p,
-        uint256 _i,
-        uint256 _k
+        uint256 _i
     )
         private
         pure
-        returns (bytes32 leaf_)
+        returns (SetMember memory member_)
     {
         string memory m = _member(_p, _i);
-        uint256 ckPrefix = _uint(_j, m, "ck_prefix");
-        bytes32 ckX = _bytes32(_j, m, "ck_x");
-        bytes32 setKey =
-            keccak256(abi.encode(bytes32("ETNA_SET_KEY_V1"), uint256(L2_CHAIN_ID), ckPrefix, ckX));
+        member_.ckPrefix = uint8(_uint(_j, m, "ck_prefix"));
+        member_.ckX = _bytes32(_j, m, "ck_x");
+        member_.effStake = _uint(_j, m, "eff_stake");
+        member_.assignedPower = uint64(_uint(_j, m, "power"));
+        bytes32 setKey = keccak256(
+            abi.encode(
+                bytes32("ETNA_SET_KEY_V1"),
+                uint256(L2_CHAIN_ID),
+                uint256(member_.ckPrefix),
+                member_.ckX
+            )
+        );
         assertEq(setKey, _bytes32(_j, m, "set_key"), "setKey");
         if (_i != 0) {
             assertGt(uint256(setKey), uint256(_bytes32(_j, _member(_p, _i - 1), "set_key")));
         }
         uint256 vpUnit = _uint(_j, ".committee_config.inputs.", "vp_unit");
-        assertEq(_uint(_j, m, "power"), _uint(_j, m, "eff_stake") / vpUnit, "power");
+        assertEq(member_.assignedPower, member_.effStake / vpUnit, "power");
+        assertGe(member_.effStake, _uint(_j, ".deployment.", "min_stake"), "eligible stake");
+    }
 
-        // The eight leaf words, split in two to stay within the legacy pipeline's stack.
-        bytes memory preimage = bytes.concat(
-            abi.encode(bytes32("ETNA_SET_LEAF_V1"), uint256(L2_CHAIN_ID), _k, _i),
-            abi.encode(ckPrefix, ckX, _uint(_j, m, "eff_stake"), _uint(_j, m, "power"))
+    // ---------------------------------------------------------------
+    // Appendix A literals (rules/vectors/A.md at 994960561)
+    // ---------------------------------------------------------------
+
+    /// @dev A.md 37.a, 37.i and 37.j (the dynamic-tag reject), rebuilt with `abi.encode` and
+    /// compared with the literal copied from A.md and with the vector file.
+    function test_appendixA_RegLeafLiteralsReproduce() external view {
+        string memory j = LibEtnaVectors.load();
+        string memory a = ".appendix_a_examples.";
+        IEtnaStakingRegistry.Entry memory zero;
+        bytes32 x = _A_37I_X;
+
+        bytes32 z1 = keccak256(abi.encode(bytes32("ETNA_REG_ENTRY_V1"), uint256(1), 0, 0, 0, 0, 0));
+        assertEq(z1, 0x21d961646cf730220ee47cda213ec296eba41d18fc39f8f6cb1e1350f77c907d, "37.a");
+        assertEq(z1, _bytes32(j, string.concat(a, "enc_a_37_a."), "hash"), "37.a file");
+        assertEq(z1, _leafOf(1, zero), "37.a LibEntriesTree");
+
+        bytes32 l37i = keccak256(
+            abi.encode(
+                bytes32("ETNA_REG_ENTRY_V1"),
+                uint256(0),
+                uint256(2),
+                x,
+                uint256(250_000 ether),
+                uint256(100),
+                uint256(type(uint48).max)
+            )
         );
-        string memory index = string.concat("[", vm.toString(_i), "]");
-        assertEq(preimage, _bytes(_j, _p, string.concat("set_leaf_preimages", index)), "preimage");
-        leaf_ = keccak256(preimage);
-        assertEq(leaf_, _bytes32(_j, _p, string.concat("set_leaves", index)), "leaf");
+        assertEq(l37i, 0xe7283e6153912ee69d614724bff4c2c09b9d20287fa4e0840db13c883df21387, "37.i");
+        assertEq(l37i, _bytes32(j, string.concat(a, "enc_a_37_i."), "hash"), "37.i file");
+
+        bytes memory dynamicTag = abi.encode("ETNA_REG_ENTRY_V1", uint256(1), 0, 0, 0, 0, 0);
+        assertEq(dynamicTag.length, 288, "37.j preimage");
+        assertEq(
+            keccak256(dynamicTag),
+            0x6be6938b2da71c3451f504f138ac0f40a3402012cec0d51f5eb7d37d1fd574e7,
+            "37.j"
+        );
+        assertEq(keccak256(dynamicTag), _bytes32(j, string.concat(a, "enc_a_37_j."), "hash"));
+    }
+
+    /// @dev A.md 39.a, 39a.a and 42.a (l2ChainId 167000), rebuilt with `abi.encode` and compared
+    /// with the literal copied from A.md and with the vector file.
+    function test_appendixA_SetKeySetHashAndRecordLiteralsReproduce() external view {
+        string memory j = LibEtnaVectors.load();
+        string memory a = ".appendix_a_examples.";
+        bytes32 x = _A_37I_X;
+        bytes32 setKey = keccak256(abi.encode(bytes32("ETNA_SET_KEY_V1"), uint256(167_000), 2, x));
+        assertEq(setKey, 0x7529ec50109faf073e202f03d7b4804a32a3571765e9749536cc42cc37acb437, "39.a");
+        assertEq(setKey, _bytes32(j, string.concat(a, "enc_a_39_a."), "hash"), "39.a file");
+
+        SetMember[] memory one = new SetMember[](1);
+        one[0] = SetMember({
+            ckPrefix: 2, ckX: x, effStake: 250_000 ether, assignedPower: 250_000 * 1e9
+        });
+        bytes memory setPreimage = abi.encode(bytes32("ETNA_SET_V1"), uint256(167_000), 1, one);
+        assertEq(setPreimage.length, 288, "39a.a preimage");
+        bytes32 setHash = keccak256(setPreimage);
+        assertEq(
+            setHash, 0x0c09cd574e795c943cf299b730422425455959f85c169641a97030f4d287566d, "39a.a"
+        );
+        assertEq(setHash, _bytes32(j, string.concat(a, "enc_a_39a_a."), "hash"), "39a.a file");
+
+        bytes32 record = keccak256(
+            abi.encode(
+                bytes32("ETNA_COMMITTEE_V1"),
+                uint256(167_000),
+                uint256(0),
+                uint256(100),
+                uint256(0),
+                setHash,
+                uint256(250_000 * 1e9)
+            )
+        );
+        assertEq(record, 0x6fa2491c7f7f68e27ae6e55fa1a5cbcc0dfb095bef60d4a69ed7498417368634, "42.a");
+        assertEq(record, _bytes32(j, string.concat(a, "enc_a_42_a."), "hash"), "42.a file");
+    }
+
+    /// @dev A.md 38.h (count 3 with slots 0 and 2 occupied: K(K(L0,Z1),K(L2,P))) and the 36.a
+    /// 224-byte opening of the shared config.
+    function test_appendixA_TreeAndConfigLiteralsReproduce() external view {
+        string memory j = LibEtnaVectors.load();
+        string memory a = ".appendix_a_examples.";
+        bytes32 z1 = 0x21d961646cf730220ee47cda213ec296eba41d18fc39f8f6cb1e1350f77c907d;
+        string memory h = string.concat(a, "enc_a_38_h.");
+        bytes32 l0 = _bytes32(j, h, "l0");
+        bytes32 l2 = _bytes32(j, h, "l2");
+        assertEq(_bytes32(j, h, "z1"), z1, "38.h Z1");
+        bytes32 root = keccak256(
+            abi.encodePacked(
+                keccak256(abi.encodePacked(l0, z1)), keccak256(abi.encodePacked(l2, bytes32(0)))
+            )
+        );
+        assertEq(root, _bytes32(j, h, "root"), "38.h");
+
+        string memory c = string.concat(a, "enc_a_36_a.");
+        assertEq(_uint(j, c, "preimage_bytes"), 224, "36.a");
+        assertEq(_bytes32(j, c, "hash"), _bytes32(j, ".committee_config.", "hash"), "36.a hash");
+    }
+
+    /// @dev ENC-A-5: a protocol hash whose domain tag is encoded as a dynamic string is a different
+    /// hash for every tag (the 37.j shape), so no contract accepts it in place of the static word.
+    function test_appendixA_DynamicTagRejectsDiffer() external view {
+        string memory j = LibEtnaVectors.load();
+        string memory list = ".appendix_a_examples.dynamic_tag_rejects";
+        uint256 n = LibEtnaVectors.lengthAt(j, list);
+        assertGt(n, 0, "rejects");
+        for (uint256 i; i < n; ++i) {
+            string memory p = string.concat(list, "[", vm.toString(i), "].");
+            bytes memory preimage = _bytes(j, p, "preimage");
+            bytes32 hash = keccak256(preimage);
+            assertEq(hash, _bytes32(j, p, "hash"), "reject hash");
+            assertNotEq(hash, _bytes32(j, p, "accepted_hash"), "differs from the accepted hash");
+        }
+    }
+
+    /// @dev The registry's `minStake()` and `forfeited(uint256)` and the Unzen cutoff getter's
+    /// `proposeCutoff()` take `view_abi`'s selectors and calldata (schema 9).
+    function test_lookups_NewViewsMatchTheVectorAbi() external {
+        string memory j = LibEtnaVectors.load();
+        string memory v = ".view_abi.";
+        assertEq(
+            bytes4(_bytes(j, string.concat(v, "min_stake."), "selector")),
+            IEtnaStakingRegistry.minStake.selector
+        );
+        assertEq(
+            bytes4(_bytes(j, string.concat(v, "forfeited."), "selector")),
+            IEtnaStakingRegistry.forfeited.selector
+        );
+        assertEq(
+            _bytes(j, string.concat(v, "forfeited."), "calldata"),
+            abi.encodeCall(IEtnaStakingRegistry.forfeited, (0))
+        );
+        assertEq(
+            bytes4(_bytes(j, string.concat(v, "propose_cutoff."), "selector")),
+            bytes4(keccak256("proposeCutoff()"))
+        );
+        (bool ok, bytes memory data) =
+            address(registry).staticcall(abi.encodeCall(IEtnaStakingRegistry.minStake, ()));
+        assertTrue(ok);
+        assertEq(abi.decode(data, (uint256)), _uint(j, ".deployment.", "min_stake"), "minStake");
+        (ok, data) =
+            address(registry).staticcall(_bytes(j, string.concat(v, "forfeited."), "calldata"));
+        assertTrue(ok);
+        assertEq(
+            data,
+            _bytes(j, string.concat(v, "forfeited."), "results[1].data"),
+            "an unforfeited bond"
+        );
+    }
+
+    /// @dev The registry leaf of `_slot` through `LibEntriesTree`.
+    function _leafOf(
+        uint256 _slot,
+        IEtnaStakingRegistry.Entry memory _entry
+    )
+        private
+        pure
+        returns (bytes32)
+    {
+        return LibEntriesTree.leaf(_slot, _entry);
     }
 
     /// @dev Checks one cut hash case, rebuilding its leaves from the cut model; returns whether

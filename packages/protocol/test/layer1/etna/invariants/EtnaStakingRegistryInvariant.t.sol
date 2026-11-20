@@ -236,8 +236,7 @@ abstract contract EtnaStakingRegistryInvariantBase is EtnaStakingRegistryTestBas
         (uint256 pending, uint48 ready) = registry.topUpOf(_bondId);
         assertEq(pending, model.pendingTopUp, "modelled pending principal");
         assertEq(ready, model.topUpReadyAtL1, "modelled readiness");
-        bytes32 key = keccak256(abi.encode(bond.entry.ckPrefix, bond.entry.ckX));
-        assertEq(registry.forfeited(key), handler.lifetimeForfeited(key), "lifetime flag");
+        assertEq(registry.forfeited(_bondId), handler.lifetimeForfeited(_bondId), "lifetime flag");
     }
 
     /// @dev Reads entry `_index` from its three raw slot R + 1 words, checking that the packed
@@ -449,9 +448,15 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
         assertEq(registry.entriesRoot(), root, "entriesRoot is the naive root");
         assertEq(handler.ghostRoot(), root, "the ghost tree is the naive tree");
 
+        // STAKE-4.1-36: a nonempty list ends in an occupied slot, so the count is one plus the
+        // highest occupied slot.
+        if (count != 0) {
+            (bool lastOccupied,) = handler.slotHolder(count - 1);
+            assertTrue(lastOccupied, "the count ends in an occupied slot");
+        }
         uint256 checkpointCount = registry.checkpointCount();
-        if (count == 0) {
-            assertEq(checkpointCount, 0, "no checkpoint before the first entry");
+        if (checkpointCount == 0) {
+            assertEq(count, 0, "no checkpoint before the first entry");
             return;
         }
         IEtnaStakingRegistry.Checkpoint memory latest = registry.checkpointAt(checkpointCount - 1);

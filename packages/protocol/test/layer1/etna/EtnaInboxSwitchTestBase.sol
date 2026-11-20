@@ -9,18 +9,23 @@ import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title EtnaInboxSwitchTestBase
-/// @notice An Inbox on a network that switches from Unzen (SWITCH.md): initialized with Carol as
-/// the originWriter, a mock Unzen Inbox and `FORK_TIME`, its start not yet written, L1 at block 11
-/// with reference block 10 and two blobs per landing.
+/// @notice An Inbox on a network that switches from Unzen (SWITCH.md): initialized with a mock
+/// Unzen Inbox and `FORK_TIME`, its start not yet written, L1 at block 11 with reference block 10
+/// and two blobs per landing.
 /// @dev The committed chain is the base's from the start S = 1000 on, with forced inclusion
-/// cursor 0 throughout and Comet hash 0 at S. `_writeStart` has Carol write S at `FORK_TIME`;
-/// `_finalizeUnzen` makes the Unzen side pass the first-landing check (spec 6.1 LAND-6.1-8a).
+/// cursor 0 throughout and Comet hash 0 at S. `_finalizeUnzen` closes the Unzen proposals at
+/// `PROPOSE_CUTOFF` and finalizes them up to S, whose checkpoint the final proof saves through the
+/// forwarder; `_writeStart` then has Carol, any caller, latch S at `FORK_TIME` (START-10-5a,
+/// LAND-6.1-8a).
 abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
     /// @dev The Etna start, the last Unzen block.
     uint256 internal constant S = 1000;
 
     /// @dev `ETNA_FORK_TIME`.
     uint48 internal constant FORK_TIME = 1_000_000;
+
+    /// @dev The Unzen Inbox's propose cutoff, `ETNA_FORK_TIME - PROPOSE_MARGIN` with a 12 s margin.
+    uint48 internal constant PROPOSE_CUTOFF = FORK_TIME - 12;
 
     MockUnzenInbox internal unzen;
 
@@ -45,11 +50,10 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
         return (bytes32(100 + _x), _x == S ? bytes32(0) : bytes32(200 + _x), 0);
     }
 
-    /// @dev The default configuration with Carol, the mock Unzen Inbox and `FORK_TIME`.
+    /// @dev The default configuration with the mock Unzen Inbox and `FORK_TIME`.
     function _switchConfig() internal view returns (IEtnaInbox.Config memory config_) {
         config_ = _defaultConfig();
-        (config_.originWriter, config_.unzenInbox, config_.etnaForkTime) =
-            (Carol, address(unzen), FORK_TIME);
+        (config_.unzenInbox, config_.etnaForkTime) = (address(unzen), FORK_TIME);
     }
 
     /// @dev The default inputs without a genesis hash or state root.
@@ -66,16 +70,20 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
         return _stateRoot(S);
     }
 
-    /// @dev Carol writes the start S at `FORK_TIME`.
+    /// @dev Finalizes Unzen up to S (`_finalizeUnzen`), then Carol, an unrelated caller, latches
+    /// the start S at `FORK_TIME`.
     function _writeStart() internal {
+        _finalizeUnzen();
         vm.warp(FORK_TIME);
         vm.prank(Carol);
-        _inbox().setOrigin(S, _startHash(), _startStateRoot());
+        _inbox().setOrigin(uint48(S));
     }
 
-    /// @dev The Unzen Inbox has finalized proposals 1 to 7 up to S, whose checkpoint its final
-    /// proof saved through the Inbox's `saveCheckpoint` forwarder.
+    /// @dev The Unzen Inbox's proposals closed at `PROPOSE_CUTOFF` and it has finalized proposals
+    /// 1 to 7 up to S, whose checkpoint its final proof saved through the Inbox's `saveCheckpoint`
+    /// forwarder. Only before the start write: the start write closes the forwarder.
     function _finalizeUnzen() internal {
+        unzen.setProposeCutoff(PROPOSE_CUTOFF);
         unzen.setCoreState(8, 7, _startHash());
         _saveUnzenCheckpoint(_startHash(), _startStateRoot());
     }
