@@ -10,6 +10,7 @@ pub mod flags;
 pub mod import;
 pub mod metrics;
 pub mod recovery;
+pub mod store_instance;
 
 fn main() {
     use clap::Parser;
