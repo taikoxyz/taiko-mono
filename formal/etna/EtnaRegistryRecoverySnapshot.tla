@@ -175,7 +175,7 @@ Tick ==
 Land(snapshot) ==
   LET valid == snapshot = 7
       next == IF valid THEN [s EXCEPT !.activeSnapshot = snapshot] ELSE s
-  IN /\ s.now = 8 /\ s.origin.at = 7 /\ snapshot \in {7, 8}
+  IN /\ s.now = 8 /\ ~s.closed[8] /\ s.origin.at = 7 /\ snapshot \in {7, 8}
      /\ IF valid THEN s.activeSnapshot = 3 ELSE ~marks.badLand
      /\ Finish(next, "land", <<snapshot>>, valid,
           IF valid THEN marks ELSE [marks EXCEPT !.badLand = TRUE, !.atomic = @ /\ next = s])
@@ -212,6 +212,7 @@ SnapshotsFrozen == \A t \in 1..8 : s.closed[t] =>
   /\ s.snapshots[t].checkpointAt <= t
 LandUsesTerminal == s.activeSnapshot \in {0, 3, 7}
 FramesExact == marks.atomic
+TransactionsBeforeClose == receipt.kind \in {"init", "close", "tick"} \/ ~s.closed[s.now]
 
 Done == s.now = 8 /\ s.closed[8] /\ s.activeSnapshot = 7 /\ marks.badLand
         /\ marks.invalid = <<TRUE, TRUE, TRUE>> /\ marks.transientHole

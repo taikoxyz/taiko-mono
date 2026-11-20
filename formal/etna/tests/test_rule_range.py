@@ -203,6 +203,31 @@ class RuleRange(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "witness|carry|anchor"):
             self.module.resolve_blocks(blocks, VIEWS)
 
+    def test_correlated_second_first_marker_cannot_turn_inheritance_into_carry(self):
+        false_first = dict(BLOCKS[1], first=True, carry=True, originTime=3600)
+        for blocks in (BLOCKS[:1] + (false_first,) + BLOCKS[2:], (false_first,) + BLOCKS[2:]):
+            with self.subTest(start=blocks[0]["cut"][0]), self.assertRaises(ValueError):
+                self.module.resolve_blocks(blocks, VIEWS)
+
+    def test_fixed_generation_and_origin_cannot_shift_as_a_unit(self):
+        for context in (dict(generation=1), dict(origin=26, originTime=312), dict(originTime=301)):
+            blocks = tuple(dict(block, **context) for block in BLOCKS)
+            with self.subTest(context=context), self.assertRaises(ValueError):
+                self.module.resolve_blocks(blocks, VIEWS)
+
+    def test_genesis_prefix_uses_only_the_selected_first_block_context(self):
+        self.assertEqual(self.module.resolve_blocks(PREFIX, VIEWS), (0, 0, 0, 0))
+        for change in (dict(first=False), dict(bftTime=301, originTime=301),
+                       dict(parentAnchor=300), dict(lastBlockID=200)):
+            blocks = (dict(PREFIX[0], **change),) + PREFIX[1:]
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                self.module.resolve_blocks(blocks, VIEWS)
+
+    def test_independent_first_flags_do_not_relax_range_continuity(self):
+        blocks = BLOCKS[:1] + (dict(BLOCKS[1], lastBlockID=206),) + BLOCKS[2:]
+        with self.assertRaisesRegex(ValueError, "continuity"):
+            self.module.resolve_blocks(blocks, VIEWS)
+
     def test_checkpoint_of_same_anchor_covers_both_blocks(self):
         views = tuple(dict(v, checkpoint=CUTS[3]) if v["number"] == 288 else v for v in VIEWS)
         with self.assertRaisesRegex(ValueError, "checkpoint|pressure|unsettled"):

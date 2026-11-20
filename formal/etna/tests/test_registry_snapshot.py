@@ -424,6 +424,21 @@ class RegistrySnapshotHistories(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "endpoint not reached"):
             self.audit(sample()[:-1])
 
+    def test_close_eight_ends_accepted_and_refused_land_offers(self):
+        stages = sample()
+        refusal, landing, close = stages[-3:]
+        closed_before_land = (dict(close[0], activeSnapshot=3), close[1],
+                              dict(close[2], badLand=False))
+        late_land = (dict(close[0]), landing[1], dict(landing[2], badLand=False))
+        late_refusal = (dict(close[0]), refusal[1], dict(refusal[2]))
+        for case, suffix in (
+            ("accepted", (closed_before_land, late_land, late_refusal)),
+            ("refused", ((landing[0], landing[1], dict(landing[2], badLand=False)),
+                         (close[0], close[1], dict(close[2], badLand=False)), late_refusal)),
+        ):
+            with self.subTest(case=case), self.assertRaisesRegex(ValueError, "open block|closed block"):
+                self.audit(stages[:-3] + list(suffix))
+
     def test_later_live_entries_cannot_replace_the_closed_r_snapshot(self):
         stages = sample()
         stages[-1][0]["snapshots"][6]["entries"][1]["eff"] = 6

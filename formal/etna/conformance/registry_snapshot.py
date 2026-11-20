@@ -240,6 +240,8 @@ def _transition(pre, before_marks, kind, args, route, *, wrong_occupant=False):
     state, marks = deepcopy(pre), deepcopy(before_marks)
     now, bonds = pre["now"], pre["bonds"]
     _need(type(args) is tuple, "call arguments must be a sequence")
+    if kind not in ("close", "tick"):
+        _need(not pre["closed"][now - 1], kind + " requires an open block")
     accepted = True
     if kind == "register":
         _need(len(args) == 4 and all(type(value) is int for value in args), "register input shape")
@@ -290,8 +292,8 @@ def _transition(pre, before_marks, kind, args, route, *, wrong_occupant=False):
               and same(args[1], 4), "activate actor/identity")
         identity, _ = args
         bond = bonds[identity]
-        _need(bond["pending"] > 0 and bond["ready"] <= now and bond["exit"] == 11
-              and not pre["closed"][now - 1], "activate maturity/exit/block close")
+        _need(bond["pending"] > 0 and bond["ready"] <= now and bond["exit"] == 11,
+              "activate maturity/exit")
         state["bonds"] = _replace(bonds, identity, dict(bond, eff=bond["eff"] + bond["pending"],
                                                        pending=0, ready=0))
         if identity == 2 and now == 7:
@@ -300,7 +302,7 @@ def _transition(pre, before_marks, kind, args, route, *, wrong_occupant=False):
         _need(len(args) == 2 and type(args[0]) is int and 1 <= args[0] <= 4
               and same(args[1], _lists()[args[0] - 1]), "recover fixed external list")
         index, exclusions = args
-        _need(now == 7 and not pre["closed"][6] and (pre["generation"] == 0 if index == 1
+        _need(now == 7 and (pre["generation"] == 0 if index == 1
               else not before_marks["invalid"][index - 2]), "recover offer")
         accepted = (all(bonds[row["bond"]]["issued"] and bonds[row["bond"]]["key"] == row["key"]
                         for row in exclusions)

@@ -18,6 +18,7 @@ import sys
 from typing import NamedTuple
 
 import run_comet_signed as SIGNED
+import leased_execution as LEASED
 from boundary_scope import require_healthy_native, reviewed_boundary
 
 ROOT = Path(__file__).resolve().parent
@@ -132,7 +133,7 @@ def load_inputs(profile):
                      afterSha256=digest(profile.fault_after), mutantSha256=fault.get("mutantSha256")),
          "source fault pins")
     SIGNED.match(r"[0-9a-f]{64}", fault["mutantSha256"], "mutant source digest")
-    for path in (Path(__file__), ROOT / "boundary_scope.py", ROOT / "current_spec.py",
+    for path in (Path(__file__), LEASED.PATH, ROOT / "boundary_scope.py", ROOT / "current_spec.py",
                  ROOT / "current_spec_boundaries.json", ROOT / "run_comet_apphash.py", pins_path,
                  ROOT / ("run_comet_terminal.py" if profile.claim == "terminal-seen-commit" else "run_comet_evidence.py")):
         watched[path] = digest(path.read_bytes())
@@ -286,7 +287,13 @@ def source_fault(profile, source, manifest, pins, restoration):
         SIGNED.write_json(restoration, dict(source=restored, file=identity(path), sha256=digest(path.read_bytes())))
 
 
-def run_trial(profile, phase, source, manifest, args, pins, sources, watched, tools):
+def _require_not_cancelled(cancelled):
+    if cancelled():
+        raise ValueError("INCONCLUSIVE: campaign cancellation requested")
+
+
+def run_trial(profile, phase, source, manifest, args, pins, sources, watched, tools, *, lease_fd, cancelled):
+    _require_not_cancelled(cancelled)
     SIGNED.require_stable(watched | tools, "boundary campaign inputs")
     before = COMET.verify_snapshot(source, manifest, pins["source"]["commit"])
     native_modes = inventory(source / name for name in manifest["files"])
@@ -303,12 +310,14 @@ def run_trial(profile, phase, source, manifest, args, pins, sources, watched, to
     executed_before = inventory(executed)
     selected = "^" + profile.parent + "$" + ("/^" + profile.smoke + "$" if phase == "smoke" else "")
     command = isolation_command(profile, trial, source, args, selected)
-    result = COMET.EXECUTION.execute(command, ROOT, 110)
+    _require_not_cancelled(cancelled)
+    result = LEASED.execute(command, ROOT, 110, lease_fd=lease_fd, cancellation=cancelled)
     raw = result["output"].encode("utf-8")
     (trial / "combined.log").write_bytes(raw)
-    record = dict(schema="etna-comet-boundary-trial-1", claim=profile.claim, phase=phase,
+    record = dict(schema="etna-comet-boundary-trial-2", claim=profile.claim, phase=phase,
                   package=profile.package, parent=profile.parent, selectedFilter=selected,
                   command=command, supervisorCommand=result["supervisor_argv"],
+                  supervisorReturncode=result["supervisor_returncode"],
                   returncode=result["returncode"], timedOut=result["timeout"], seconds=result["seconds"],
                   streamsCombined=True, outputDecoding="utf-8-errors-replace", combinedOutputFile="combined.log",
                   combinedOutputSha256=digest(raw), sourceBefore=before,
@@ -324,9 +333,11 @@ def run_trial(profile, phase, source, manifest, args, pins, sources, watched, to
                   executedInputsAfter=expected_inputs(profile, pins),
                   executedFileIdentityAfter=record["executedFileIdentityBefore"])
     SIGNED.write_json(trial / "execution.json", record)
+    _require_not_cancelled(cancelled)
     if result["timeout"] is not False or result["returncode"] == 125:
         raise ValueError("INCONCLUSIVE: native deadline or supervisor failure")
     record["outcomes"] = collect(profile, raw, result["returncode"], phase)
+    _require_not_cancelled(cancelled)
     SIGNED.write_json(trial / "execution.json", record)
     return record
 
@@ -336,7 +347,7 @@ def require_capture(profile, directory, pins, phase, manifest, args):
     record = metadata_json((directory / "execution.json").read_bytes())
     raw = (directory / "combined.log").read_bytes()
     expected_keys = {"schema", "claim", "phase", "package", "parent", "selectedFilter", "command",
-                     "supervisorCommand", "returncode", "timedOut", "seconds", "streamsCombined",
+                     "supervisorCommand", "supervisorReturncode", "returncode", "timedOut", "seconds", "streamsCombined",
                      "outputDecoding", "combinedOutputFile", "combinedOutputSha256", "sourceBefore",
                      "sourceAfter", "sourceManifestSha256", "toolsSha256", "executedInputsBefore",
                      "executedInputsAfter", "executedFileIdentityBefore", "executedFileIdentityAfter", "outcomes"}
@@ -348,16 +359,20 @@ def require_capture(profile, directory, pins, phase, manifest, args):
     private = directory.parent / "private-upstream"
     command = isolation_command(profile, directory, private, args, selected)
     supervisor = record["supervisorCommand"]
-    if (type(supervisor) is not list or len(supervisor) != 7 + len(command)
-            or supervisor[:4] != [sys.executable, "-B", str(COMET.EXECUTION_PATH), "--_supervise"]
+    if (type(supervisor) is not list or len(supervisor) != 8 + len(command)
+            or supervisor[:4] != [sys.executable, "-B", str(LEASED.PATH), "--_supervise_leased"]
             or type(supervisor[4]) is not str or not re.fullmatch(r"[1-9][0-9]*", supervisor[4])
-            or supervisor[5:] != ["110", str(ROOT), *command]):
+            or int(supervisor[4]) < 3
+            or type(supervisor[5]) is not str or not re.fullmatch(r"[1-9][0-9]*", supervisor[5])
+            or supervisor[6:] != ["110", str(ROOT), *command]):
         raise ValueError("wrong native supervisor command")
     expected_source = dict(files=len(manifest["files"]), commit=pins["source"]["commit"], status="INPUTS_VERIFIED")
-    for key, expected in (("schema", "etna-comet-boundary-trial-1"), ("claim", profile.claim),
+    native_status = 1 if phase == "mutant" else 0
+    for key, expected in (("schema", "etna-comet-boundary-trial-2"), ("claim", profile.claim),
                           ("phase", phase), ("package", profile.package), ("parent", profile.parent),
                           ("selectedFilter", selected), ("command", command),
-                          ("timedOut", False), ("returncode", 1 if phase == "mutant" else 0),
+                          ("timedOut", False), ("returncode", native_status),
+                          ("supervisorReturncode", LEASED.LEASED_EXIT_CODES[native_status]),
                           ("streamsCombined", True), ("outputDecoding", "utf-8-errors-replace"),
                           ("combinedOutputFile", "combined.log"), ("combinedOutputSha256", digest(raw)),
                           ("sourceBefore", expected_source), ("sourceAfter", expected_source),
@@ -403,6 +418,15 @@ def arguments(argv=None):
 
 
 def run_profile(profile, args):
+    with LEASED.cancellation_scope() as cancelled:
+        try:
+            return _run_profile(profile, args, cancelled)
+        finally:
+            # All private finally blocks finish under the recording handler.
+            _require_not_cancelled(cancelled)
+
+
+def _run_profile(profile, args, cancelled):
     pins, manifest, sources, watched = load_inputs(profile)
     boundary = reviewed_boundary(args.workspace_root, profile.claim)
     for name, item in boundary["workspace"]["documents"].items():
@@ -419,8 +443,14 @@ def run_profile(profile, args):
     if any(lock_path == path or lock_path.is_relative_to(path) for path in
            (args.output, args.source, args.go_root, args.module_cache)):
         raise ValueError("shared lock must be an independent existing physical file")
+    _require_not_cancelled(cancelled)
     fd = os.open(lock_path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
     try:
+        if fd < 3:
+            # The supervisor needs a descriptor distinct from its redirected streams.
+            original_fd = fd
+            fd = fcntl.fcntl(original_fd, fcntl.F_DUPFD_CLOEXEC, 3)
+            os.close(original_fd)
         info = os.fstat(fd)
         same(dict(device=info.st_dev, inode=info.st_ino, mode=stat.S_IMODE(info.st_mode), links=info.st_nlink), lock_id, "opened cache lock")
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -437,15 +467,18 @@ def run_profile(profile, args):
         source = args.output / "private-upstream"
         shutil.copytree(args.source, source)
         if args.smoke:
-            reports = [run_trial(profile, "smoke", source, manifest, args, pins, sources, watched, tools)]
+            reports = [run_trial(profile, "smoke", source, manifest, args, pins, sources, watched, tools, lease_fd=fd, cancelled=cancelled)]
         else:
-            reports = [run_trial(profile, "normal", source, manifest, args, pins, sources, watched, tools)]
+            reports = [run_trial(profile, "normal", source, manifest, args, pins, sources, watched, tools, lease_fd=fd, cancelled=cancelled)]
             restoration = args.output / "actual-restoration.json"
+            _require_not_cancelled(cancelled)
             with source_fault(profile, source, manifest, pins, restoration) as mutant:
+                _require_not_cancelled(cancelled)
                 SIGNED.write_json(args.output / "mutant-manifest.json", mutant)
                 (args.output / "mutant-source.go").write_bytes((source / profile.fault_path).read_bytes())
-                reports.append(run_trial(profile, "mutant", source, mutant, args, pins, sources, watched, tools))
-            reports.append(run_trial(profile, "restored", source, manifest, args, pins, sources, watched, tools))
+                reports.append(run_trial(profile, "mutant", source, mutant, args, pins, sources, watched, tools, lease_fd=fd, cancelled=cancelled))
+            reports.append(run_trial(profile, "restored", source, manifest, args, pins, sources, watched, tools, lease_fd=fd, cancelled=cancelled))
+        _require_not_cancelled(cancelled)
         require_inventory(watched | tools, before_files, "boundary source/tool identities")
         require_inventory((args.source / name for name in manifest["files"]), original_modes, "original source identities")
         original_after = COMET.verify_snapshot(args.source, manifest, pins["source"]["commit"])
@@ -458,7 +491,11 @@ def run_profile(profile, args):
                        physicalBuildLock=dict(path=str(lock_path), **lock_id), cacheIdentity=cache_ids,
                        watchedSha256={str(path): sha for path, sha in watched.items()},
                        sourceFault=pins["sourceFault"] if not args.smoke else None)
+        _require_not_cancelled(cancelled)
         SIGNED.write_json(args.output / "summary.json", summary)
+        if cancelled():
+            (args.output / "summary.json").unlink()
+            _require_not_cancelled(cancelled)
         return summary
     finally:
         os.close(fd)

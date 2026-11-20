@@ -85,7 +85,7 @@ BLOCK_BANK = (_block(7, 3598, 3599, 3599, 288, 192, True, 0),
 
 
 def resolve_blocks(blocks, authenticated_views) -> tuple[int, ...]:
-    """Derive every rule from its own immutable, externally authenticated view.
+    """Derive ordinary generation-zero rules from each authenticated own view.
 
     Integer hash/root labels stand for authenticated identities. Matching labels
     checks binding; it does not implement header hashing or storage proofs.
@@ -113,11 +113,18 @@ def resolve_blocks(blocks, authenticated_views) -> tuple[int, ...]:
                  "exact Boolean witness flags required")
         _checked_cut(block["cut"])
         anchor, height = block["anchor"], block["cut"][0]
+        _require((block["generation"], block["origin"], block["originTime"])
+                 == (0, ORIGIN_L1, _time(ORIGIN_L1)), "block differs from the fixed ordinary origin")
+        first = height == 1
+        _require(block["first"] is first, "first block must follow the ordinary genesis checkpoint")
+        if first:
+            _require((block["parentTime"], block["parentAnchor"], block["lastBlockID"]) == (0, ORIGIN_L1, 0),
+                     "genesis predecessor differs from the selected origin")
         _require(anchor in views, "missing own anchor view")
         view = views[anchor]
         _require((block["anchorRoot"], block["anchorHash"]) == (view["root"], view["hash"]),
                  "own anchor root/hash differs from authenticated view")
-        _require(block["carry"] is (block["first"] or anchor != block["parentAnchor"]),
+        _require(block["carry"] is (first or anchor != block["parentAnchor"]),
                  "anchor witness must carry or inherit exactly")
         _require(view["checkpoint"][0] <= height - 1 and height - view["checkpoint"][0] <= 4,
                  "anchor checkpoint violates unsettled back-pressure")
@@ -125,15 +132,14 @@ def resolve_blocks(blocks, authenticated_views) -> tuple[int, ...]:
             _require(height == previous["cut"][0] + 1
                      and block["parentTime"] == previous["elTime"]
                      and block["parentAnchor"] == previous["anchor"]
-                     and block["lastBlockID"] == previous["cut"][2]
-                     and block["generation"] == previous["generation"],
+                     and block["lastBlockID"] == previous["cut"][2],
                      "block parent time/hash/anchor continuity differs")
         decision = candidate(Schedule(*view["schedule"]), parent_time=block["parentTime"],
                              bft_time=block["bftTime"], anchor_number=anchor,
                              anchor_time=view["time"], parent_anchor_number=block["parentAnchor"],
-                             origin_number=block["origin"], max_age=1296,
-                             supported=frozenset(view["schedule"][:2]), first=block["first"],
-                             origin_time=block["originTime"])
+                             origin_number=ORIGIN_L1, max_age=1296,
+                             supported=frozenset(view["schedule"][:2]), first=first,
+                             origin_time=_time(ORIGIN_L1))
         _require(decision.outcome == "ACCEPT" and decision.el_time == block["elTime"],
                  "literal timestamp successor or planned stop differs")
         _require(decision.rule == block["rule"], "block rule differs from own historical schedule")
