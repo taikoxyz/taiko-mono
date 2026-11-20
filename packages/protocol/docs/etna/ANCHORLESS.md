@@ -76,7 +76,11 @@ function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
     if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
     // An Etna block has a nonzero EIP-4788 root for its own timestamp, so no checkpoint can be saved
     // from Etna on and the public golden touch key cannot forge one.
-    if (usesBeaconRoots && _beaconRoot(block.timestamp) != 0) revert SS_CHECKPOINTS_CLOSED();
+    // A failed read rejects as well, so a missing EIP-4788 contract fails closed.
+    if (usesBeaconRoots) {
+        (bool ok, bytes32 root) = _beaconRoot(block.timestamp);
+        if (!ok || root != 0) revert SS_CHECKPOINTS_CLOSED();
+    }
     // Unchanged: reject zero fields, store under VERSION and emit CheckpointSaved.
 }
 
@@ -86,23 +90,23 @@ function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
 function _getStateRoot(uint64 _blockId) private view returns (bytes32 stateRoot_) {
     // A checkpoint answers first. Both stores hold only L1 state roots, so either may answer.
     if (_blockId <= type(uint48).max) stateRoot_ = _checkpoints[VERSION][uint48(_blockId)].stateRoot;
-    if (stateRoot_ == 0 && usesBeaconRoots) stateRoot_ = _beaconRoot(_blockId);
-    require(stateRoot_ != 0);
+    if (stateRoot_ == 0 && usesBeaconRoots) (, stateRoot_) = _beaconRoot(_blockId);
+    if (stateRoot_ == 0) revert SS_CHECKPOINT_NOT_FOUND();
 }
 
 /// @dev Reads EIP-4788. Its whole calldata is the 32-byte timestamp, with no selector. It reverts for
 ///      a timestamp it does not hold, and a call to an address without code succeeds with no return
-///      data, which is rejected here. A block before Etna reads as a zero root.
-function _beaconRoot(uint256 _timestamp) private view returns (bytes32 root_) {
-    (bool ok, bytes memory ret) = BEACON_ROOTS.staticcall(abi.encode(_timestamp));
-    require(ok && ret.length == 32);
-    root_ = abi.decode(ret, (bytes32));
+///      data; both give ok_ false. A block before Etna reads as a zero root.
+function _beaconRoot(uint256 _timestamp) private view returns (bool ok_, bytes32 root_) {
+    (bool success, bytes memory ret) = BEACON_ROOTS.staticcall(abi.encode(_timestamp));
+    ok_ = success && ret.length == 32;
+    if (ok_) root_ = abi.decode(ret, (bytes32));
 }
 ```
 
 - **Proof format**: the existing single-hop `HopProof`. Its `blockId` is the L1 block number of a checkpoint or the timestamp of an Etna L2 block. The `SignalService` uses a checkpoint when it holds one for that id and reads EIP-4788 otherwise; the choice does not depend on the block that verifies the proof. `rootHash` must equal the resolved root, and the account and storage proofs are checked against the L1 `SignalService` as before. No caller-supplied L1 number, hash or root is trusted.
 - **No new checkpoints from the fork on**: the L2 `SignalService` saves none in an Etna block. The checkpoints it saved before the fork stay usable in proofs: each is an L1 state root that a real anchor transaction recorded, and a signal proven under an older root was sent (section 5). A signal proven once stays cached, and an empty proof for a cached signal keeps working after its EIP-4788 entry expires.
-- **Root resolution**: `_verifySignalReceived` uses `_getStateRoot` for both the `rootHash` comparison and Merkle-proof verification. The `uint48` bound belongs only to the checkpoint lookup; the EIP-4788 path takes the full `uint64` timestamp. Both stores hold only L1 state roots, so it does not matter which one answers for an id. An id with no checkpoint and no live EIP-4788 entry, a missing return value or a zero root rejects the proof.
+- **Root resolution**: `_verifySignalReceived` uses `_getStateRoot` for both the `rootHash` comparison and Merkle-proof verification. The `uint48` bound belongs only to the checkpoint lookup; the EIP-4788 path takes the full `uint64` timestamp. Both stores hold only L1 state roots, so it does not matter which one answers for an id. An id with no checkpoint and no live EIP-4788 entry, a missing return value or a zero root rejects the proof with `SS_CHECKPOINT_NOT_FOUND`, the error relayers already treat as transient (section 8).
 - **Checkpoint authorization**: the shared implementation accepts checkpoints only from `_authorizedSyncer`, while its checkpoint store is open. On L2 the `Anchor` keeps saving checkpoints until the fork; the `Anchor` itself needs no change for Etna (section 8).
 - **Storage**: the shared `SignalService` keeps checkpoints and cached signals in its current `VERSION` storage namespace; immutables add no proxy storage slots. Section 8 covers the L2 migration.
 - **Fork time**: no L2 contract holds it. The `SignalService` only needs to know whether the current block is an Etna block, and the block's own EIP-4788 root tells it.

@@ -250,13 +250,13 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 
 ## ENC-A-23
 
-| Vector      | Setup                                                                                                               | Expected                   |
-| ----------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| 23.a accept | `0x06`, then a zlib stream whose decompressed bytes are one RLP list of `rlp([elHeader, [tx, ...]])` items          | matches                    |
-| 23.b reject | prefix is `0x07`                                                                                                    | violates ENC-A-23 (`0x06`) |
-| 23.c reject | the bytes after `0x06` are raw RLP, not a zlib stream                                                               | violates ENC-A-23          |
-| 23.d reject | the zlib stream decompresses to something that is not an RLP list                                                   | violates ENC-A-23          |
-| 23.e reject | a block item in the decompressed list is a nested list rather than the RLP byte string `rlp([elHeader, [tx, ...]])` | violates ENC-A-23          |
+| Vector      | Setup                                                                                                                  | Expected                   |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| 23.a accept | `0x06`, then a zlib stream whose decompressed bytes are one RLP list whose items are the lists `[elHeader, [tx, ...]]` | matches                    |
+| 23.b reject | prefix is `0x07`                                                                                                       | violates ENC-A-23 (`0x06`) |
+| 23.c reject | the bytes after `0x06` are raw RLP, not a zlib stream                                                                  | violates ENC-A-23          |
+| 23.d reject | the zlib stream decompresses to something that is not an RLP list                                                      | violates ENC-A-23          |
+| 23.e reject | a block item in the decompressed list is a nested list rather than the RLP byte string `rlp([elHeader, [tx, ...]])`    | violates ENC-A-23          |
 
 ## ENC-A-24
 
