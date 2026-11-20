@@ -7,10 +7,10 @@ checkpoints. These are its L1 contracts; the L2 changes are listed under
 [Etna PoS + ZK design specification](../../../docs/etna/SPEC.md); appendix A is its
 encodings and appendix B its L1 storage layout.
 
-The current specification baseline is the Etna spec at docs PR
-[#22422](https://github.com/taikoxyz/taiko-mono/pull/22422) head
-`994960561490b882558da7847a21a41a271350c5`, on top of main `f556fa941`
-([#22419](https://github.com/taikoxyz/taiko-mono/pull/22419)). Against the earlier baseline it makes
+The current specification baseline is the Etna spec on main at
+`3602629758beb653423a23608fd1960810efcfac`
+([#22422](https://github.com/taikoxyz/taiko-mono/pull/22422), on top of
+[#22419](https://github.com/taikoxyz/taiko-mono/pull/22419)). Against the earlier baseline it makes
 the start write a permissionless latch over the closed and fully proven Unzen Inbox, removes the
 originWriter, closes the Unzen checkpoint forwarder at the start write, replaces the L2
 SignalService's fork time with `usesBeaconRoots`, keys forfeiture and recovery exclusions by bond id

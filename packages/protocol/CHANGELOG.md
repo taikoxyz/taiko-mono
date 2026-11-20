@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Etna (BREAKING, spec #22422 at 994960561): `SignalService` takes a fourth constructor argument,
+- Etna (BREAKING, spec on main 360262975, #22422): `SignalService` takes a fourth constructor argument,
   `bool usesBeaconRoots`: false on L1, true on L2. No contract holds the Etna fork time. With it
   true, `saveCheckpoint` accepts a checkpoint only in a block whose own EIP-4788 root reads as zero:
   every block before Etna and none from Etna on, and a failed read rejects. Proof roots resolve from
