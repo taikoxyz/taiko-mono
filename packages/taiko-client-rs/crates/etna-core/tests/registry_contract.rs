@@ -184,11 +184,11 @@ fn entry_count_is_at_most_4096_and_ends_in_an_occupied_slot() {
         verify_snapshot(proof.root, Address::ZERO, 0, entries, &proof, 10).map(|s| s.entries)
     };
     assert_eq!(
-        check(MAX_REGISTRY_SLOTS, &[occupied.clone()]),
+        check(MAX_REGISTRY_SLOTS, std::slice::from_ref(&occupied)),
         Err(CommitteeError::EntryCountMismatch { expected: MAX_REGISTRY_SLOTS, got: 1 })
     );
     assert_eq!(
-        check(MAX_REGISTRY_SLOTS + 1, &[occupied.clone()]),
+        check(MAX_REGISTRY_SLOTS + 1, std::slice::from_ref(&occupied)),
         Err(CommitteeError::TooManyEntries { count: MAX_REGISTRY_SLOTS + 1 })
     );
     let interior = [occupied.clone(), empty.clone(), occupied.clone()];

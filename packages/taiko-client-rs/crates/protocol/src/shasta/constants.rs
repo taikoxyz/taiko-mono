@@ -378,8 +378,10 @@ mod tests {
             SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee_for_parent,
             calculate_next_etna_block_eip4396_base_fee_for_parent,
         };
+        /// A parent-header base-fee rule.
+        type Rule = fn(u64, u64, u64, u64, Option<u64>, u64, u64) -> Option<u64>;
         assert_eq!((ETNA_BLOCK_TIME_TARGET, BLOCK_TIME_TARGET), (4, 2));
-        let fee = |f: fn(u64, u64, u64, u64, Option<u64>, u64, u64) -> Option<u64>, parent| {
+        let fee = |f: Rule, parent| {
             f(parent, 30_000_000, 15_000_000, 104, Some(100_000_000), 100, MAINNET_MIN_BASE_FEE)
         };
         assert_eq!(

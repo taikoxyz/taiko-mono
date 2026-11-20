@@ -39,7 +39,7 @@ class ProfileCommands(unittest.TestCase):
                         comet_hash="0x" + "33" * 32,
                         part_hash="44" * 32, part_total=1, state_root=state_root,
                         genesis_hash="0x" + "55" * 32, finalized_hash="0x" + "66" * 32, l1_calls=17,
-                        frames=2, el_prefix_headers=1, terminal_q=4)
+                        frames=2, el_prefix_headers=1, terminal_q=4, n_max=128)
         receipts = {
             "el-install": dict(header_count=65_533, first_header=4, height=5, block_hash=el_hash,
                                state_root=state_root, finalized_hash=verified["finalized_hash"]),
@@ -77,6 +77,7 @@ class ProfileCommands(unittest.TestCase):
         self.assertEqual(stock[0][1], "install")
         self.assertEqual(stock[0][stock[0].index("--stock-dir") + 1], str(directory / "stock"))
         self.assertEqual(stock[0][stock[0].index("--app-hash") + 1], app_hash)
+        self.assertEqual(stock[0][stock[0].index("--n-max") + 1], "128")
 
 
 if __name__ == "__main__":
