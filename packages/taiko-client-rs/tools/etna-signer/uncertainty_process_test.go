@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -47,7 +48,12 @@ func TestSupervisorSIGKILLBeforeHaltRetainsSignerFence(t *testing.T) {
 	if err := os.Symlink(fixture.Control, filepath.Join(store, "checkpoint-trust.sock")); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(home, "config", "config.toml"), []byte("priv_validator_laddr = \"tcp://127.0.0.1:1\"\n"), 0600); err != nil {
+	// The re-executed helper dials fixture.Comet itself; the supervisor's own Unix transport
+	// only needs its private run/ directory.
+	if err := os.Mkdir(filepath.Join(home, "run"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, "config", "config.toml"), validatorConfig("unix://run/signer.sock"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	genesis, _ := json.Marshal(map[string]any{"chain_id": chain})
@@ -67,7 +73,8 @@ func TestSupervisorSIGKILLBeforeHaltRetainsSignerFence(t *testing.T) {
 	signerCommand, _ := json.Marshal([]string{os.Args[0], "-test.run=^TestSignerSignalDuringSyncHelper$", "--"})
 	environment := supervisorEnvironment(home, store, key, state,
 		"ETNA_SIGNER_COMMAND_JSON="+string(signerCommand), "ETNA_SIGNER_SHUTDOWN_CONFIG="+configPath,
-		"ETNA_COMET_COMMAND_JSON="+string(cometCommand), "COMET_STARTS="+starts, "COMET_PID="+cometPID)
+		"ETNA_COMET_COMMAND_JSON="+string(cometCommand), "COMET_STARTS="+starts, "COMET_PID="+cometPID,
+		cometManifest(t, root, python))
 	logs, err := os.Create(filepath.Join(root, "supervisor.log"))
 	if err != nil {
 		t.Fatal(err)
@@ -197,7 +204,11 @@ func TestSupervisorSIGKILLBeforeHaltRetainsSignerFence(t *testing.T) {
 func TestSIGKILLMidSignRefusesTheSameBootAndResumesAfterReboot(t *testing.T) {
 	_, key, state := filePV(t)
 	root := shortTemp(t)
-	trust := control(t, func(request map[string]any) any { return snapshot(request["op"] != "begin_session") })
+	var eligible atomic.Uint64
+	eligible.Store(1)
+	trust := control(t, func(request map[string]any) any {
+		return snapshotAt(request["op"] != "begin_session", eligible.Load())
+	})
 	fixture := shutdownFixture{
 		Key: key, State: state, Log: domainsLogOf(state), Control: trust,
 		Comet: filepath.Join(root, "comet.sock"), Entered: filepath.Join(root, "entered"), Release: filepath.Join(root, "release"),
@@ -277,6 +288,7 @@ func TestSIGKILLMidSignRefusesTheSameBootAndResumesAfterReboot(t *testing.T) {
 	}
 	next := voteRequest(tm.PrevoteType, 0, false)
 	next.GetSignVoteRequest().Vote.Height = 2
+	eligible.Store(2) // The app committed height 1.
 	signature, remote = released(signerExchange(t, conn, next))
 	if persisted = privval.LoadFilePV(key, state).LastSignState; remote != nil || len(signature) != 65 || persisted.Height != 2 || !bytes.Equal(signature, persisted.Signature) {
 		t.Fatalf("restart did not sign the next height: %v", remote)

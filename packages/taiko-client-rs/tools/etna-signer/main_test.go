@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -315,9 +317,10 @@ func TestHardlinkedStateCannotSplitSigningHistory(t *testing.T) {
 	}
 }
 
-// A refusal makes at most two trust queries, so a timeout above 2 s could leave a refused
-// request unanswered past CometBFT's fixed 5 s signer read timeout, and Comet retries an
-// unanswered request instead of giving up on it (SYNC-9-11). The binary refuses to start.
+// Every trust query is bounded by --trust-timeout and a signing request's whole decision by the
+// 3.5 s hold, so a refused request is answered before CometBFT's fixed 5 s signer read timeout,
+// after which Comet would retry it instead of giving up on it (SYNC-9-11). A timeout above 2 s
+// is refused at startup.
 func TestTrustTimeoutAbove2sIsRejected(t *testing.T) {
 	for _, c := range []struct {
 		timeout time.Duration
@@ -338,6 +341,45 @@ func TestTrustTimeoutAbove2sIsRejected(t *testing.T) {
 	dir := t.TempDir()
 	args := append(serveArgs(filepath.Join(dir, "key.json"), filepath.Join(dir, chain+".json"), filepath.Join(dir, "domains.log")), "--trust-timeout", "2001ms")
 	if code, stderr := runSigner(t, args...); code != 1 || !strings.Contains(stderr, "timeout must be in (0,2s]") {
+		t.Fatalf("exit %d, stderr %q", code, stderr)
+	}
+}
+
+// The binary accepts only unix:// and noise:// signer transports (START-10-6): bare tcp://,
+// whose stock listener generates a fresh identity at every start, another scheme, Noise
+// without its transport key and a key for a Unix transport are configuration errors (exit 1)
+// once the signing state checks pass, and nothing is signed or changed.
+func TestServeRefusesUnsupportedTransports(t *testing.T) {
+	_, key, state := filePV(t)
+	transportKey := filepath.Join(t.TempDir(), "transport.json")
+	if err := transportKeygen([]string{"--transport-key", transportKey}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	before := readFile(t, state)
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--comet-signer-addr", "tcp://127.0.0.1:26659"}, "bare tcp:// is refused"},
+		{[]string{"--comet-signer-addr", "tcp://127.0.0.1:26659", "--transport-key", transportKey}, "bare tcp:// is refused"},
+		{[]string{"--comet-signer-addr", "noise://12D3KooWGzh6yCKdySLJk7wFzTPEgmQSBFuHcZcG7HGwMzRB5xkS@127.0.0.1:26659"}, "needs --transport-key"},
+		{[]string{"--comet-signer-addr", "unix:///nonexistent-comet.sock", "--transport-key", transportKey}, "only for a noise://"},
+	} {
+		args := serveArgs(key, state, domainsLogOf(state))
+		args = append(args[2:], c.args...)
+		if code, stderr := runSigner(t, args...); code != 1 || !strings.Contains(stderr, c.want) {
+			t.Errorf("%v: exit %d, stderr %q", c.args, code, stderr)
+		}
+	}
+	if !bytes.Equal(before, readFile(t, state)) {
+		t.Fatal("a refused transport changed the HRS")
+	}
+}
+
+// The await-trust recovery mode is gone: the signer always connects promptly (SYNC-9-12).
+func TestAwaitTrustFlagIsGone(t *testing.T) {
+	_, key, state := filePV(t)
+	if code, stderr := runSigner(t, append(serveArgs(key, state, domainsLogOf(state)), "--await-trust")...); code == 0 || !strings.Contains(stderr, "await-trust") {
 		t.Fatalf("exit %d, stderr %q", code, stderr)
 	}
 }

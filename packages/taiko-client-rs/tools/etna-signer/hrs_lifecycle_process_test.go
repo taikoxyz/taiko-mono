@@ -32,7 +32,7 @@ import (
 //     cannot detect a state restored from a backup, which is forbidden.
 func TestHRSSurvivesCrashRestartAndFailover(t *testing.T) {
 	binary := signerBinary(t)
-	trust := control(t, func(request map[string]any) any { return snapshot(request["op"] != "begin_session") })
+	trust := control(t, func(request map[string]any) any { return snapshotAt(request["op"] != "begin_session", 5) })
 	logs := signerLogs(t)
 	type host struct{ key, state, log string }
 	base := t.TempDir()
@@ -89,7 +89,7 @@ func TestHRSSurvivesCrashRestartAndFailover(t *testing.T) {
 			t.Fatal("the identical prevote did not return the stored signature")
 		}
 		refused(conn, heightVote(tm.PrevoteType, 5, 3), "conflicting data")
-		refused(conn, heightVote(tm.PrevoteType, 4, 1), "height regression")
+		refused(conn, heightVote(tm.PrevoteType, 4, 1), "not the eligible height 5")
 	}
 
 	// 1. Host 1 signs prevote H5 R0 A.

@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -524,5 +525,86 @@ func TestFsyncFailureExitsThreeAndFenceRefusesRestart(t *testing.T) {
 				t.Fatal("refused restart changed the HRS or the fence")
 			}
 		})
+	}
+}
+
+// SYNC-9-13 through the gate and the durable stock FilePV, for votes and proposals: the HRS,
+// canonical sign bytes and signature are on disk when the reply is released; at equal HRS an
+// identical request returns the saved signature, and a stock timestamp-only retry gets the
+// original timestamp restored with that signature; any other conflict at that HRS and every
+// HRS regression (height, round and step) are refused with the state unchanged.
+func TestPersistedSignatureAndRetrySemantics(t *testing.T) {
+	var eligible atomic.Uint64
+	eligible.Store(3)
+	g := armed(control(t, func(map[string]any) any { return snapshotAt(true, eligible.Load()) }))
+	_, key, state := filePV(t)
+	signer := loadDurableFilePV(key, state)
+	sign := func(request pv.Message) (pv.Message, error) {
+		t.Helper()
+		return g.handle(signer, request, chain)
+	}
+	at := func(request pv.Message, height int64, round int32, seconds int64) pv.Message {
+		if vote := request.GetSignVoteRequest(); vote != nil {
+			vote.Vote.Height, vote.Vote.Round, vote.Vote.Timestamp = height, round, time.Unix(seconds, 0)
+		} else {
+			proposal := request.GetSignProposalRequest().Proposal
+			proposal.Height, proposal.Round, proposal.Timestamp = height, round, time.Unix(seconds, 0)
+		}
+		return request
+	}
+	timestamp := func(response pv.Message) time.Time {
+		if vote := response.GetSignedVoteResponse(); vote != nil {
+			return vote.Vote.Timestamp
+		}
+		return response.GetSignedProposalResponse().Proposal.Timestamp
+	}
+	refused := func(request pv.Message, reason string) {
+		t.Helper()
+		before := readFile(t, state)
+		response, err := sign(request)
+		signature, remote := released(response)
+		if err == nil || remote == nil || len(signature) != 0 || !strings.Contains(err.Error(), reason) {
+			t.Fatalf("not refused with %q: %v %v", reason, remote, err)
+		}
+		if !bytes.Equal(before, readFile(t, state)) {
+			t.Fatal("a refusal changed the HRS")
+		}
+	}
+	for _, step := range []struct {
+		family string
+		round  int32
+	}{{"proposal", 1}, {"prevote", 1}, {"precommit", 1}} {
+		request := at(familyRequest(step.family, false), 3, step.round, 100)
+		response, err := sign(request)
+		original, remote := released(response)
+		// A non-nil precommit also carries stock's extension signature after the vote's own.
+		if err != nil || remote != nil || len(original) < 65 {
+			t.Fatalf("%s: %v %v", step.family, remote, err)
+		}
+		persisted := privval.LoadFilePV(key, state).LastSignState
+		if persisted.Height != 3 || persisted.Round != step.round || !bytes.Equal(persisted.Signature, original[:65]) || len(persisted.SignBytes) == 0 {
+			t.Fatalf("%s reply released before its HRS, sign bytes and signature were on disk: %+v", step.family, persisted)
+		}
+		// Identical request at equal HRS: the saved signature.
+		response, err = sign(at(familyRequest(step.family, false), 3, step.round, 100))
+		if again, remote := released(response); err != nil || remote != nil || !bytes.Equal(again, original) {
+			t.Fatalf("%s identical retry: %v %v", step.family, remote, err)
+		}
+		// Stock timestamp-only retry: the original timestamp and the saved signature.
+		response, err = sign(at(familyRequest(step.family, false), 3, step.round, 200))
+		if again, remote := released(response); err != nil || remote != nil || !bytes.Equal(again, original) || !timestamp(response).Equal(time.Unix(100, 0)) {
+			t.Fatalf("%s timestamp-only retry: %v %v %v", step.family, remote, err, timestamp(response))
+		}
+		// Any other conflict at that HRS.
+		refused(at(familyRequest(step.family, true), 3, step.round, 100), "conflicting data")
+	}
+	// Regressions: an earlier step of the same round, an earlier round and an earlier height.
+	refused(at(familyRequest("prevote", false), 3, 1, 100), "step regression")
+	refused(at(familyRequest("proposal", false), 3, 1, 100), "step regression")
+	refused(at(familyRequest("precommit", false), 3, 0, 100), "round regression")
+	eligible.Store(2) // A stale eligible height still cannot move the HRS back.
+	refused(at(familyRequest("precommit", false), 2, 5, 100), "height regression")
+	if persisted := privval.LoadFilePV(key, state).LastSignState; persisted.Height != 3 || persisted.Round != 1 || persisted.Step != 3 {
+		t.Fatalf("HRS moved: %+v", persisted)
 	}
 }
