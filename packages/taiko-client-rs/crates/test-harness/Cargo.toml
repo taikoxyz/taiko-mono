@@ -36,6 +36,7 @@ url = { workspace = true }
 # serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
+toml = { workspace = true }
 
 # testing
 base64 = { workspace = true }

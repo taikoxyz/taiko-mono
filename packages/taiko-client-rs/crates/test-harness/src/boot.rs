@@ -28,7 +28,7 @@ use crate::{
     l1::finalized_number,
     lander::{Lander, LanderCtx},
     planter::{InboxValues, Planter, registry_entry},
-    signer::{CometLaunch, SignerNode},
+    signer::{CometLaunch, SignerNode, signer_transport_keygen},
     wait::wait_until,
 };
 
@@ -225,10 +225,13 @@ pub(crate) async fn boot(
     let mut rpc_ports = Vec::with_capacity(n);
     for i in 0..n {
         let home = tmp.join(format!("cmt-{i}"));
-        // Fixed host ports survive container restarts. Comet listens in the container; the
-        // host supervisor's signer dials the configured published address.
+        // Fixed host ports survive container restarts. Comet listens in the container on the
+        // Noise transport pinning the signer's transport key; the host supervisor's signer
+        // dials the configured published address, pinning Comet's node key.
         let rpc_port = free_port()?;
         let signer_port = free_port()?;
+        let transport_key = tmp.join(format!("transport-{i}.json"));
+        let signer_peer = signer_transport_keygen(&transport_key)?;
         let peers = (0..n)
             .filter(|j| *j != i)
             .map(|j| format!("{}@{}:26656", node_keys[j].node_id(), cmt_names[j]))
@@ -242,7 +245,7 @@ pub(crate) async fn boot(
                 timeout_commit_ms: spec.timeout_commit_ms,
                 persistent_peers: &peers,
                 genesis_json: &genesis_json,
-                signer_addr: &format!("tcp://127.0.0.1:{signer_port}"),
+                signer_addr: &format!("noise://{signer_peer}@127.0.0.1:{signer_port}"),
                 node: &node_keys[i],
             },
         )?;
@@ -252,11 +255,15 @@ pub(crate) async fn boot(
             genesis_doc.chain_id.clone(),
             &keys[i],
         )?
-        .supervised(home.clone(), CometLaunch::Docker(cmt_names[i].clone()));
+        .supervised(
+            home.clone(),
+            CometLaunch::Docker { container: cmt_names[i].clone(), transport_key },
+        );
         make_world_writable(&home)?;
         let mount = format!("{}:/cometbft", home.display());
         let rpc = format!("127.0.0.1:{rpc_port}:26657");
         let pv = format!("127.0.0.1:{signer_port}:26659");
+        let listener = format!("noise://{signer_peer}@0.0.0.0:26659");
         let args = [
             "--add-host",
             "host.docker.internal:host-gateway",
@@ -275,7 +282,7 @@ pub(crate) async fn boot(
             "--home",
             "/cometbft",
             "--priv_validator_laddr",
-            "tcp://0.0.0.0:26659",
+            &listener,
         ];
         docker.create_container(&cmt_names[i], &args).await?;
         // The supervisor starts Comet, which owns the listener and waits for PubKey before its

@@ -11,8 +11,10 @@ use std::{
 };
 
 use anyhow::{Context, Result, ensure};
+use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 
-use crate::{docker::docker_executable, keys::ValidatorKey};
+use crate::{cometbft::inbound_peer_ids, docker::docker_executable, keys::ValidatorKey};
 
 /// Runs an existing stopped Comet container in the foreground for the supervisor:
 /// `sh -c DOCKER_COMET docker-comet <docker> <container>`. `docker start --attach` forwards
@@ -27,11 +29,77 @@ exit "$("$1" wait "$2" || echo 1)""#;
 /// How the supervisor runs stock Comet.
 #[derive(Debug)]
 pub(crate) enum CometLaunch {
-    /// This existing, stopped Docker container: the TCP signer transport, as Unix sockets do
-    /// not cross the Docker Desktop VM.
-    Docker(String),
+    /// This existing, stopped Docker container, over the Noise signer transport, as Unix
+    /// sockets do not cross the Docker Desktop VM (START-10-6 refuses bare `tcp://`). The
+    /// container's Comet listens on `noise://<signer-peer-id>@0.0.0.0:26659`; the home's
+    /// `priv_validator_laddr` names the published host port and the same signer peer ID.
+    Docker {
+        /// The stopped container.
+        container: String,
+        /// The signer's Noise transport key ([`signer_transport_keygen`]), outside the Comet
+        /// home and app store.
+        transport_key: PathBuf,
+    },
     /// The pinned host binary `ETNA_COMET_BIN`, over the production Unix signer transport.
     Native,
+}
+
+/// `etna-signer transport-keygen --transport-key <path>`: creates the signer's persistent
+/// Ed25519 Noise transport key at the new `path` and returns its libp2p peer ID, which a
+/// `noise://` `priv_validator_laddr` pins.
+pub(crate) fn signer_transport_keygen(path: &Path) -> Result<String> {
+    let output = Command::new(signer_binary()?)
+        .arg("transport-keygen")
+        .arg("--transport-key")
+        .arg(path)
+        .output()?;
+    ensure!(
+        output.status.success(),
+        "etna-signer transport-keygen: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let printed: Value = serde_json::from_slice(&output.stdout)?;
+    Ok(printed["peerId"].as_str().context("transport-keygen printed no peerId")?.to_owned())
+}
+
+/// This host's platform as the supervisor's deployment manifest names it (`linux/amd64`).
+fn comet_platform() -> String {
+    let os = match std::env::consts::OS {
+        "macos" => "darwin",
+        os => os,
+    };
+    let arch = match std::env::consts::ARCH {
+        "x86_64" => "amd64",
+        "aarch64" => "arm64",
+        arch => arch,
+    };
+    format!("{os}/{arch}")
+}
+
+/// Writes to `path` the test manifest a Docker-mode supervisor checks its Comet executable
+/// against (CONS-3.1-1). That supervisor's Comet argv starts with `/bin/sh`, the wrapper that
+/// runs the official image's container (pinned by digest), so the manifest pins this host's
+/// `/bin/sh` for this platform; everything else is the shipped `comet-manifest.json`'s. A test
+/// manifest only: it names no Comet executable.
+fn write_docker_wrapper_manifest(path: &Path) -> Result<()> {
+    let shipped = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../comet-manifest.json");
+    let mut manifest: serde_json::Map<String, Value> =
+        serde_json::from_slice(&fs::read(&shipped)?)?;
+    let shell = fs::canonicalize("/bin/sh")?;
+    let digest = alloy_primitives::hex::encode(Sha256::digest(fs::read(&shell)?));
+    manifest.remove("unsupported_platforms");
+    manifest.insert(
+        "platforms".into(),
+        json!({ comet_platform(): {
+            "sha256": digest,
+            "artifact": format!(
+                "{}: the test harness's /bin/sh wrapper that runs the official image's container",
+                shell.display()
+            ),
+        }}),
+    );
+    fs::write(path, serde_json::to_vec_pretty(&manifest)?)?;
+    Ok(())
 }
 
 /// A validator directory's per-chain HRS state, `<key_dir>/hrs/<chain_id>.json`.
@@ -103,6 +171,11 @@ pub fn init_signer_state(key_dir: &Path, chain_id: &str) -> Result<()> {
 /// `app_store` and the registered key, HRS states and domains log in `key_dir`, serving
 /// `chain_id`. The caller adds `ETNA_SIGNER_BIN` and how Comet is run. The one place the Rust
 /// tests spell the supervisor's environment.
+///
+/// When `home`'s config is readable here, `ETNA_P2P_INBOUND_PEER_IDS` lists its unconditional
+/// peers, as the operator lists them (LIMIT-12-2). Without an explicit `ETNA_COMET_MANIFEST`, a
+/// host without the official executable uses the test manifest `script/build_stock_comet.sh`
+/// wrote for its source build; the official linux/amd64 executable needs none.
 pub fn supervisor_command(
     home: &Path,
     app_store: &Path,
@@ -118,6 +191,14 @@ pub fn supervisor_command(
         .env("ETNA_PRIV_STATE_DIR", key_dir.join("hrs"))
         .env("ETNA_DOMAINS_LOG", signer_domains_log(key_dir))
         .env("ETNA_CHAIN_ID", chain_id);
+    if let Some(inbound) = inbound_peer_ids(home) {
+        command.env("ETNA_P2P_INBOUND_PEER_IDS", inbound);
+    }
+    let test_manifest = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../target/etna-signer/comet-manifest.test.json");
+    if std::env::var_os("ETNA_COMET_MANIFEST").is_none() && test_manifest.is_file() {
+        command.env("ETNA_COMET_MANIFEST", test_manifest);
+    }
     command
 }
 
@@ -212,10 +293,16 @@ impl SignerNode {
         );
         command.env("ETNA_SIGNER_BIN", &binary);
         match launch {
-            CometLaunch::Docker(container) => {
+            CometLaunch::Docker { container, transport_key } => {
                 let docker = docker_executable()?.display().to_string();
                 let argv = ["/bin/sh", "-c", DOCKER_COMET, "docker-comet", &docker, container];
-                command.env("ETNA_COMET_COMMAND_JSON", serde_json::to_string(&argv)?);
+                // Beside the transport key, never in a caller's signer directory.
+                let manifest = transport_key.with_extension("comet-manifest.json");
+                write_docker_wrapper_manifest(&manifest)?;
+                command
+                    .env("ETNA_COMET_COMMAND_JSON", serde_json::to_string(&argv)?)
+                    .env("ETNA_SIGNER_TRANSPORT_KEY", transport_key)
+                    .env("ETNA_COMET_MANIFEST", manifest);
             }
             CometLaunch::Native => {
                 let comet = std::env::var_os("ETNA_COMET_BIN")

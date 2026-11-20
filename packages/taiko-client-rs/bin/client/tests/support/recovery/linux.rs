@@ -233,8 +233,9 @@ impl LinuxRuntime {
         .await
         .context("recovered app never listened")??;
         // The supervisor's environment from the one harness definition; the image supplies
-        // ETNA_SIGNER_BIN and the Comet UID.
-        let env: Vec<(String, String)> = test_harness::supervisor_command(
+        // ETNA_SIGNER_BIN, the Comet UID and the official executable's manifest. The installed
+        // home is in the container, so its inbound peers are added here (LIMIT-12-2).
+        let mut env: Vec<(String, String)> = test_harness::supervisor_command(
             Path::new(HOME),
             Path::new(APP),
             Path::new(SIGNER),
@@ -242,7 +243,14 @@ impl LinuxRuntime {
         )
         .get_envs()
         .filter_map(|(key, value)| Some((key.to_str()?.to_owned(), value?.to_str()?.to_owned())))
+        .filter(|(key, _)| key != "ETNA_COMET_MANIFEST")
         .collect();
+        let inbound = config
+            .get("p2p")
+            .and_then(|p2p| p2p.get("unconditional_peer_ids"))
+            .and_then(toml::Value::as_str)
+            .unwrap_or_default();
+        env.push(("ETNA_P2P_INBOUND_PEER_IDS".into(), inbound.into()));
         let supervisor = Process::in_container(
             &self.name,
             "/usr/bin/python3",

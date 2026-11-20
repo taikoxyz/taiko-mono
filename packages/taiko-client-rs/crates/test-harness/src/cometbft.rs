@@ -20,11 +20,14 @@ pub(crate) struct HomeConfig<'a> {
     pub proxy_app: &'a str,
     /// `[consensus] timeout_commit`, in milliseconds.
     pub timeout_commit_ms: u64,
-    /// `[p2p] persistent_peers` (`<node id>@<host>:<port>`, comma separated).
+    /// `[p2p] persistent_peers` (`<node id>@<host>:<port>`, comma separated). Every listed
+    /// peer may also dial in: [`write_home`] makes their node IDs the only unconditional, and so
+    /// the only inbound, peers (LIMIT-12-2).
     pub persistent_peers: &'a str,
     /// The genesis document.
     pub genesis_json: &'a str,
-    /// Mandatory remote guarded signer listener; the real key is outside this home.
+    /// Mandatory remote guarded signer listener, `unix://…` or
+    /// `noise://<signer-peer-id>@<ip>:<port>`; the real key is outside this home.
     pub signer_addr: &'a str,
     /// The node key (`node_key.json`).
     pub node: &'a crate::keys::NodeKey,
@@ -32,9 +35,20 @@ pub(crate) struct HomeConfig<'a> {
 
 /// Writes a CometBFT home into `dir`: a minimal `config/config.toml`, `config/genesis.json`,
 /// the node key, a mandatory remote signer listener and the supervisor's private `run/` for
-/// Unix signer sockets. The real FilePV files live elsewhere.
+/// Unix signer sockets. The real FilePV files live elsewhere. The validator P2P settings are the
+/// ones the supervisor and `abci-recover install` require (START-10-6, LIMIT-12-2): no peer
+/// exchange, seeds, seed mode, unsafe RPC or libp2p switch, and no inbound slot, so only the
+/// persistent peers, listed as unconditional peers, connect inbound. The supervisor's
+/// `ETNA_P2P_INBOUND_PEER_IDS` must list the same IDs ([`inbound_peer_ids`]).
 pub(crate) fn write_home(dir: &Path, c: &HomeConfig<'_>) -> Result<()> {
     ensure!(!c.signer_addr.is_empty(), "validator harness requires priv_validator_laddr");
+    let inbound = c
+        .persistent_peers
+        .split(',')
+        .filter(|peer| !peer.trim().is_empty())
+        .map(|peer| peer.split_once('@').map(|(id, _)| id.trim()).context("peer without node ID"))
+        .collect::<Result<Vec<_>>>()?
+        .join(",");
     let config = dir.join("config");
     let data = dir.join("data");
     fs::create_dir_all(&config)?;
@@ -47,12 +61,21 @@ priv_validator_laddr = "{signer_addr}"
 
 [rpc]
 laddr = "tcp://0.0.0.0:26657"
+unsafe = false
 
 [p2p]
 laddr = "tcp://0.0.0.0:26656"
 persistent_peers = "{peers}"
+unconditional_peer_ids = "{inbound}"
+max_num_inbound_peers = 0
+pex = false
+seeds = ""
+seed_mode = false
 allow_duplicate_ip = true
 addr_book_strict = false
+
+[p2p.libp2p]
+enabled = false
 
 [mempool]
 type = "nop"
@@ -64,6 +87,7 @@ timeout_commit = "{timeout_commit}ms"
         moniker = c.moniker,
         signer_addr = c.signer_addr,
         peers = c.persistent_peers,
+        inbound = inbound,
         timeout_commit = c.timeout_commit_ms,
     );
     fs::write(config.join("config.toml"), toml)?;
@@ -73,6 +97,14 @@ timeout_commit = "{timeout_commit}ms"
         serde_json::to_string_pretty(&c.node.node_key_json())?,
     )?;
     Ok(())
+}
+
+/// The `[p2p] unconditional_peer_ids` of the Comet home `home`, which the supervisor's
+/// `ETNA_P2P_INBOUND_PEER_IDS` must equal (LIMIT-12-2); `None` without a readable config.
+pub(crate) fn inbound_peer_ids(home: &Path) -> Option<String> {
+    let config: toml::Table =
+        toml::from_str(&fs::read_to_string(home.join("config/config.toml")).ok()?).ok()?;
+    Some(config.get("p2p")?.get("unconditional_peer_ids")?.as_str()?.to_owned())
 }
 
 /// One validator of a CometBFT validator set.

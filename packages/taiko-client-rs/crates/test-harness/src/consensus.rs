@@ -5,7 +5,7 @@ use crate::{
     boot::{RethNode, host_user, jwt_path, local_url, make_world_writable},
     cometbft::{HomeConfig, write_home},
     docker::{DockerEnv, docker},
-    signer::{CometLaunch, SignerNode},
+    signer::{CometLaunch, SignerNode, signer_transport_keygen},
     wait_until,
 };
 use abci::{ChainParams, RpcL1Source, build_genesis};
@@ -124,11 +124,17 @@ impl ContractConsensus {
             );
             // Native Comet uses the production Unix transport: this marker only selects it, and
             // the supervisor assigns each start a fresh run/signer-<16 hex>.sock. Docker Comet
-            // listens in its container; the host signer dials the configured published port.
-            let signer_address = if native {
-                "unix://run/signer.sock".into()
+            // listens in its container on the Noise transport pinning the signer's transport
+            // key; the host signer dials the configured published port, pinning Comet's node key.
+            let transport_key = tmp.path().join(format!("transport-{i}.json"));
+            let (signer_address, listener) = if native {
+                ("unix://run/signer.sock".into(), String::new())
             } else {
-                format!("tcp://127.0.0.1:{signer_port}")
+                let peer = signer_transport_keygen(&transport_key)?;
+                (
+                    format!("noise://{peer}@127.0.0.1:{signer_port}"),
+                    format!("noise://{peer}@0.0.0.0:26659"),
+                )
             };
             write_home(
                 &home,
@@ -166,7 +172,10 @@ impl ContractConsensus {
                 signers.push(signer);
                 continue;
             }
-            let signer = signer.supervised(home.clone(), CometLaunch::Docker(names[i].clone()));
+            let signer = signer.supervised(
+                home.clone(),
+                CometLaunch::Docker { container: names[i].clone(), transport_key },
+            );
             make_world_writable(&home)?;
             let mount = format!("{}:/cometbft", home.display());
             let rpc = format!("127.0.0.1:{rpc_port}:26657");
@@ -192,7 +201,7 @@ impl ContractConsensus {
                         "--home",
                         "/cometbft",
                         "--priv_validator_laddr",
-                        "tcp://0.0.0.0:26659",
+                        &listener,
                     ],
                 )
                 .await?;
