@@ -499,6 +499,9 @@ or config opening differs.
    ```toml
    proxy_app = "tcp://127.0.0.1:26658"   # taiko-client abci's --abci.addr
    priv_validator_laddr = "unix://run/signer.sock"   # validator marker; the supervisor assigns run/signer-<nonce>.sock
+   # Or network signing over stock Noise (START-10-6), with the peer ID `etna-signer
+   # transport-keygen` printed and ETNA_SIGNER_TRANSPORT_KEY naming that key:
+   # priv_validator_laddr = "noise://<signer-peer-id>@127.0.0.1:26659"
 
    [mempool]
    type = "nop"                          # user transactions travel over the EL's devp2p
@@ -507,10 +510,28 @@ or config opening differs.
    timeout_commit = "1s"                 # block cadence; keep it at 1s or more
 
    [p2p]
-   persistent_peers = "<node id>@<host>:26656,…"
+   persistent_peers = "<sentry id>@<host>:26656,…"   # the only nodes this validator dials
+   pex = false                           # no peer exchange
+   max_num_inbound_peers = 0             # no inbound slot for unlisted nodes
+   unconditional_peer_ids = "<sentry id>,…"           # exactly ETNA_P2P_INBOUND_PEER_IDS
    ```
 
-   Leave `create_empty_blocks = true` (the default).
+   Leave `create_empty_blocks = true` (the default). A `tcp://` `priv_validator_laddr` is refused:
+   its stock listener generates a fresh identity at every start, so neither side could
+   authenticate the other. In Noise mode the supervisor derives the peer ID the signer pins from
+   Comet's persistent node key (`config/node_key.json`, created by `cometbft init`) and refuses
+   to start without it.
+
+   A validator exchanges P2P messages only with nodes its operator lists, such as its own sentry
+   nodes (START-10-6): it has peer exchange off, dials only `persistent_peers` and accepts an
+   inbound connection only from the listed IDs. Stock CometBFT v0.40.0 writes a peer's consensus
+   message to the WAL before it verifies it and allows 40 inbound peers by default, so unlisted
+   direct peers could push the WAL past its 1 GiB limit within seconds and cost the validator
+   same-height resumption (LIMIT-12-2). The supervisor refuses to start a validator unless
+   `p2p.pex = false`, `p2p.max_num_inbound_peers = 0`, `p2p.unconditional_peer_ids` holds
+   exactly the comma-separated IDs in `ETNA_P2P_INBOUND_PEER_IDS` (none when unset), and nothing
+   else dials: `p2p.seeds` empty, `p2p.seed_mode = false`, `rpc.unsafe = false` (its
+   `dial_peers` would dial any node) and `p2p.libp2p.enabled = false`.
 
    Every validator also keeps three CometBFT v0.40.0 settings at their stock defaults (SPEC
    START-10-6). Leave them out or set them to exactly these values; the supervisor refuses to
@@ -533,8 +554,16 @@ or config opening differs.
    time is not earlier than the node's clock plus the tolerance, so a node whose clock lags that
    far prevotes nil, and once more than 2/3 of the voting power prevotes for or decides the block
    anyway, its consensus stops, and its block sync stalls, until it is restarted after its clock is
-   corrected. The check reads only `config.toml`: do not override these settings with `CMT_*`
-   environment variables or `cometbft start` flags.
+   corrected.
+
+   These checks read the effective values: every spelling in `config.toml` (Viper folds key case
+   and reads literal dotted keys), or the stock default when there is none, and every `CMT_*`
+   override in the supervisor's environment, which Comet inherits, in both the `CMT_P2P_PEX` and
+   the copied `CMTP2P_PEX` spelling. Each candidate must pass, an override that cannot be
+   evaluated exactly is refused, and so are a `CMTHOME`/`TMHOME` that would move Comet off
+   `ETNA_COMET_HOME` and an explicit Comet argv (`ETNA_COMET_COMMAND_JSON`) that sets any of these
+   settings, `db_dir`, `db_backend`, `node_key_file` or `priv_validator_laddr` by flag. Keep the
+   values in `config.toml`.
 
 4. **Start alethia-reth** with Etna active and the agreed L2 genesis allocation (devnet example):
 
@@ -586,13 +615,23 @@ committing those values to the Inbox.
    (RECOV-8.2-1..3); see [the signer README](tools/etna-signer/README.md#refusal-matrix-and-exit-codes).
 
    The host supervisor requires Bash and Python 3.11+ (`tomllib`); the production image
-   includes Python, the signer, this supervisor and a native build of unmodified stock
-   Comet v0.40.0 source `0880b4d378f347ab16e54ec677ff50d803f37d62`. The pinned Go1.27.2
-   builder uses the official `make build-linux` target with explicit target architecture,
-   default build tags and readonly modules; source identity and a clean tree are checked.
-   The official v0.40.0 ARM64 image contains an x86-64 Comet executable, so it is not used
-   as the binary source. CI checks every bundled ELF against the declared matrix platform
-   before publishing the multiarch tag; emulated execution alone is insufficient.
+   includes Python, the signer, this supervisor and stock Comet v0.40.0 (source
+   `0880b4d378f347ab16e54ec677ff50d803f37d62`). Validators run the official upstream executable
+   (CONS-3.1-1). [`comet-manifest.json`](comet-manifest.json), installed as
+   `/app/comet-manifest.json`, is the deployment manifest: for each supported platform it names
+   the upstream release artifact, the executable's digest, the source commit, the published build
+   recipe and flags, and the configuration the supervisor enforces. On linux/amd64 the image
+   copies `/usr/bin/cometbft` from the official image
+   `cometbft/cometbft:v0.40.0@sha256:0703fb88…` (platform manifest `sha256:53421974…`) and checks
+   its sha256 `5fbb1bf5…`; the supervisor checks the digest again before every Comet start, since
+   a reported version string alone does not identify the build (the official executable also
+   reports `0.39.0+0880b4d`). Upstream published no arm64 executable for v0.40.0: the GitHub
+   release has no assets, and the official linux/arm64 image holds the same x86-64 executable.
+   The arm64 image therefore keeps an unmodified source build only for development, and the
+   supervisor refuses to start a validator on linux/arm64, naming that reason. `ETNA_COMET_MANIFEST`
+   names another manifest, for example the one `script/build_stock_comet.sh` writes for a local
+   source build in tests. CI checks every bundled ELF against the declared matrix platform before
+   publishing the multiarch tag; emulated execution alone is insufficient.
    Its default entrypoint remains the app; the validator supervisor container uses
    `command: ["python3", "/app/script/etna_validator.py"]` with the same environment below.
    Run the app in a separate container sharing the private app-store socket and persisted
@@ -616,46 +655,52 @@ committing those values to the Inbox.
    the supervisor writes the `<chain_id>.signer-unsafe` marker beside the log, and the signer
    holds a lock on the log while it serves. The supervisor requires
    `priv_validator_laddr`, signing paths outside the Comet home and app store, and a matching
-   genesis chain ID. A `unix://` value only selects Unix mode and is
-   preferred; `tcp://` uses CometBFT's official
-   encrypted SecretConnection, never raw signer protobuf over TCP. A nonvalidator full node
-   may run stock Comet without the helper, using an unregistered local identity.
+   genesis chain ID. A `unix://` value only selects Unix mode and is preferred; `noise://`
+   uses stock Noise with both transport peer IDs pinned, and bare `tcp://` is refused. A
+   nonvalidator full node may run stock Comet without the helper, using an unregistered local
+   identity.
+
+   Every time it starts Comet, with Comet stopped, the supervisor deletes the node's
+   pending-evidence store, `<db_dir>/evidence.db` (stock goleveldb or pebbledb; `data/evidence.db`
+   by default), and nothing else: the WAL, block and state stores, the app and EL stores and the
+   signer's files stay (CONS-3.1-10). No block commits evidence (`evidence.max_bytes = 0`), so only
+   expiry bounds the stock pool, and restarting a node under pressure empties it (LIMIT-12-22).
 
    Every Comet signer transport opens a new local trust session through the app's private
    mode-0600 `<data-dir>/checkpoint-trust.sock`. PubKey and Ping work while closed so the ABCI
    handshake can proceed. Each proposal, prevote or precommit (including nil votes, locked
    blocks, retained proposals and already signed retries) needs a fresh bounded CheckSession
-   reply for the transport's current session that names the served chain ID and phase `ready`;
-   the app reports `ready` only after its checkpoint and InitChain checks.
-   Unavailable or malformed control, a closed or halted phase and a stale session deny signing
-   without touching FilePV. The helper locks the existing state against a second helper
-   process. No local signing fallback exists in the validator startup recipe.
+   reply for the transport's current session that names the served chain ID, phase `ready` and
+   the request's height as `eligible_height`, the one height the app admits (SYNC-9-10); the app
+   reports `ready` only after its checkpoint and InitChain checks. Unavailable or malformed
+   control, a closed or halted phase, a stale session and another height deny signing without
+   touching FilePV; a pending decision is held for at most 3.5 s. The helper locks the existing
+   state against a second helper process. No local signing fallback exists in the validator
+   startup recipe.
 
    The helper atomically publishes private `signer-denial.json` observations: sequence zero
-   establishes the current session; a positive sequence records a refused signing request,
-   including one whose trust query timed out. The supervisor's private `observe` request
-   neither rearms the session nor authorizes signing. Stock Comet gives up at once only on a
-   request the helper answered with an error and retries any other failure (no answer within
-   its fixed 5 s signer read timeout, a dropped connection, a malformed answer), so the helper
-   always refuses explicitly and in time: `--trust-timeout` is at most 2 s and a refusal makes
-   at most two trust queries. Comet never retries such a refusal; only a restarted Comet's WAL
-   replay asks for that step again. So once exact deployment
-   identity and private trust return Ready, a denial triggers a bounded stop/reap of both
-   children and a restart in this order: the signer alone with `--await-trust`, which begins
-   a fresh closed session and connects to `priv_validator_laddr` only after the app has
-   authenticated it; then Comet, once `observe` reports that published session Ready; then
-   WAL replay requests the refused step again and it is signed. This also handles a signer
-   timeout while the app stays Ready. While the signer waits, closed trust keeps it waiting,
-   logged, without another restart, except that a pinned checkpoint above the committed head,
-   which only Comet can reach, starts the signer and Comet together. A first start always
-   runs both together without `--await-trust`: a node that is behind regains trust only after
-   Comet syncs, and Comet's startup needs the signer. Its new transport initially closes
-   trust; PubKey/Ping and safe catchup remain available while signing waits for revalidation.
+   establishes the session of a new connection (empty while the app could not begin one); a
+   positive sequence records a refused signing request, including one whose trust query timed
+   out. The supervisor's private `observe` request neither rearms the session nor authorizes
+   signing. Stock Comet gives up at once only on a request the helper answered with an error and
+   retries any other failure (no answer within its fixed 5 s signer read timeout, a dropped
+   connection, a malformed answer), so the helper always refuses explicitly and in time. Comet
+   never retries such a refusal; only a restarted Comet's WAL replay asks for that step again. So
+   once exact deployment identity and private trust return Ready, a denial triggers a bounded
+   stop/reap of both children and a restart of the pair together (SYNC-9-12): the signer connects
+   to `priv_validator_laddr` promptly, begins a fresh closed session that the app checks while
+   Comet's handshake runs, and holds the step that WAL replay requests again until that session
+   is trusted. Another refusal repeats this once trust is Ready. This also handles a signer
+   timeout while the app stays Ready. Every start, the first included, runs both together: a node
+   that is behind regains trust only after Comet syncs, and Comet's startup needs the signer. If
+   Comet exits before the signer's transport connected, as when the signer misses the 3 s accept
+   of Comet's first GetPubKey, the supervisor starts the pair again after 1 s with the same signer
+   state and no latch.
    Halted trust, another chain_id, an unsafe signer exit or unexplained Comet exit creates
    `<data-dir>/validator-supervisor.halted` and leaves the supervisor alive and quiescent.
    Any other signer exit (0, 1, 2 or a signal that the supervisor did not send) restarts the
-   pair like a refusal: Comet is reaped, a fresh signer on the same state path begins a new
-   closed session with `--await-trust`, and Comet starts once that session is Ready. Exit 3,
+   pair: Comet is reaped, then a fresh signer on the same state path and Comet start together,
+   and the signer begins a new closed session on the fresh transport. Exit 3,
    a retained fence, a signer still running 5 s after the supervisor's SIGTERM (it is
    SIGKILLed) and the fifth such exit within 600 s latch instead (SYNC-9-14); the exit count
    lives in memory, so a supervisor restart resets it. All but the crash loop also create
@@ -684,15 +729,16 @@ committing those values to the Inbox.
    shutdown revocations wait for a fresh app incarnation; they never authorize signing.
    Repair the underlying cause and review durable evidence before explicitly removing it.
    Missing registered signing state fails closed; startup never creates replacement HRS.
-   Each signer+Comet start gets a fresh `<comet-home>/run/signer-<16 hex>.sock`: Comet is
-   started with `--priv_validator_laddr unix://<that path>` and the signer dials the same
-   address. Before each start, with both old children reaped and the home owner lock held,
+   In Unix mode each signer+Comet start gets a fresh `<comet-home>/run/signer-<16 hex>.sock`:
+   Comet is started with `--priv_validator_laddr unix://<that path>` and the signer dials the
+   same address. Before each start, with both old children reaped and the home owner lock held,
    the supervisor opens `run/` without following a symlink and unlinks every
    `signer-*.sock` entry through that directory. These names are the supervisor's own
    namespace, so the stale socket of an unclean Comet exit is removed without type, inode
    or liveness checks; other names in `run/` are left alone. A missing or symlinked `run/`,
    a sticky `run/`, a `run/` not owned by `ETNA_COMET_UID` (by default the supervisor's
-   effective UID), a prefixed entry that cannot be unlinked (such as a directory), and a
+   effective UID), a `run/` open to its group or others (it must be mode 0700, so no other user
+   can replace the socket), a prefixed entry that cannot be unlinked (such as a directory), and a
    Comet home whose socket path would exceed 103 bytes (the macOS `sun_path` limit, checked
    at startup) all fail startup. The `run/` checks run before every start, so a
    misconfigured `run/` fails the first start rather than the restart after an unclean
@@ -703,7 +749,8 @@ committing those values to the Inbox.
    On restart, CometBFT replays missing app commits while signing stays closed until the app
    authenticates its own latest finalized-L1 checkpoint and links it to durable committed
    state. A Comet-only restart/reconnect rearms trust. An app-only restart changes the session;
-   the first stale signing request is denied and rearms a new closed session. Keep WAL,
+   the first stale signing request begins a new closed session and is held there for at most
+   3.5 s, then signed if the app has checked that session, or refused and recovered as above. Keep WAL,
    blockstore, app state and FilePV state intact. Shutdown stops and reaps Comet before the
    signer; keep the app available until Comet has stopped. A signature already authorized by
    a fresh check can finish after a concurrent app crash; there is no cross-process atomic
