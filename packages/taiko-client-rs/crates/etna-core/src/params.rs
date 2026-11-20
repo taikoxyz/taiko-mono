@@ -133,6 +133,29 @@ impl ChainParams {
 mod tests {
     use super::*;
 
+    /// A switch configuration names the Etna L2 SignalService implementation; the replaced
+    /// `anchor_implementation` key is unknown and refused, alone or beside the new key.
+    #[test]
+    fn switch_configuration_refuses_the_old_anchor_implementation_key() {
+        let config = |keys: &str| {
+            serde_json::from_str::<SwitchConfig>(&format!(
+                r#"{{"unzen_inbox": "0x0000000000000000000000000000000000000001",
+                    "fork_timestamp": 1800000000, {keys}}}"#
+            ))
+        };
+        let new_key =
+            r#""signal_service_implementation": "0x0000000000000000000000000000000000000002""#;
+        let old_key = r#""anchor_implementation": "0x0000000000000000000000000000000000000002""#;
+        assert_eq!(
+            config(new_key).unwrap().signal_service_implementation,
+            Address::with_last_byte(2)
+        );
+        for keys in [old_key.to_string(), format!("{new_key}, {old_key}")] {
+            let error = config(&keys).unwrap_err();
+            assert!(error.to_string().contains("anchor_implementation"), "{error}");
+        }
+    }
+
     /// BACKP-6.4-2, PARAM-11-8: U is any integer in 1..=65,536, not only a multiple of a grid
     /// interval.
     #[test]

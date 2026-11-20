@@ -33,10 +33,11 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+/// A state trie of accounts with storage, whose EIP-1186 witnesses verify under `root`.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
-struct State {
+pub(crate) struct State {
     accounts: BTreeMap<Address, (BTreeMap<B256, U256>, B256)>,
-    root: B256,
+    pub(crate) root: B256,
 }
 
 fn trie(leaves: BTreeMap<B256, Vec<u8>>, targets: Vec<Nibbles>) -> (B256, ProofNodes) {
@@ -64,7 +65,8 @@ fn nodes(proofs: &ProofNodes, key: B256) -> Vec<Bytes> {
     proofs.matching_nodes_sorted(&Nibbles::unpack(key)).into_iter().map(|(_, node)| node).collect()
 }
 impl State {
-    fn new(accounts: Vec<(Address, Vec<(B256, U256)>)>) -> Self {
+    /// The state holding `accounts` and their nonzero storage words.
+    pub(crate) fn new(accounts: Vec<(Address, Vec<(B256, U256)>)>) -> Self {
         let accounts = accounts
             .into_iter()
             .map(|(address, slots)| {
@@ -104,7 +106,8 @@ impl State {
             })
             .collect()
     }
-    fn witness(&self, address: Address, slots: &[B256]) -> AccountWitness {
+    /// An exact-slot witness of `address`, as `eth_getProof` returns it.
+    pub(crate) fn witness(&self, address: Address, slots: &[B256]) -> AccountWitness {
         let (storage, root) = &self.accounts[&address];
         let (_, account_proofs) =
             trie(Self::leaves(&self.accounts), vec![Nibbles::unpack(keccak256(address))]);

@@ -609,4 +609,114 @@ mod tests {
             assert!(error.to_string().contains(expected), "{expected}: {error}");
         }
     }
+
+    /// PROOF-6.2-46a, host side: the first proof from S carries an EIP-1186 proof, under S's own
+    /// header, that the L2 SignalService proxy's EIP-1967 slot holds the built-in implementation.
+    /// A proof from a later parent, or on a network without a switch, carries none.
+    #[test]
+    fn start_signal_service_witness_proves_the_built_in_implementation_at_s() {
+        use crate::test_utils::consensus_mpt::{Fixture, State};
+        const S: u64 = 7;
+        const FORK: u64 = 1_000;
+        let implementation = Address::repeat_byte(0x42);
+        let fixture = Fixture::new(0, 2);
+        let mut params = fixture.params.clone();
+        params.switch = Some(abci::SwitchConfig {
+            unzen_inbox: Address::repeat_byte(0x41),
+            fork_timestamp: FORK,
+            signal_service_implementation: implementation,
+        });
+        let proxy = abci::l2_signal_service_address(params.l2_chain_id);
+        let other_account = Address::repeat_byte(0x43);
+        let word = |address: Address| U256::from_be_bytes(address.into_word().0);
+        // An L2 state whose proxy (and another account) hold `value` in the EIP-1967 slot.
+        let state = |value: U256| {
+            State::new(vec![
+                (proxy, vec![(IMPLEMENTATION_SLOT, value)]),
+                (other_account, vec![(IMPLEMENTATION_SLOT, value)]),
+            ])
+        };
+        // The snapshot at checkpoint S whose start record names `header`.
+        let at_s = |header: &Header| {
+            let mut snapshot = fixture.snapshot.clone();
+            snapshot.genesis.genesis_height = S;
+            snapshot.genesis.genesis_hash = header.hash_slow();
+            snapshot.genesis.genesis_state_root = header.state_root;
+            snapshot.checkpoint_height = S;
+            snapshot.checkpoint_hash = header.hash_slow();
+            snapshot
+        };
+        let start = |root: B256| Header {
+            number: S,
+            parent_hash: B256::repeat_byte(6),
+            state_root: root,
+            timestamp: FORK - 1,
+            ..Default::default()
+        };
+        let check =
+            |snapshot: &LandingSnapshot, header: &Header, witness: Option<&AccountWitness>| {
+                verify_start_signal_service_witness(snapshot, header, &params, witness)
+            };
+        let safety = |result: Result<()>, expected: &str| {
+            assert!(
+                matches!(&result, Err(LanderError::Safety(reason)) if reason.contains(expected)),
+                "{expected}: {result:?}"
+            );
+        };
+
+        let l2 = state(word(implementation));
+        let header = start(l2.root);
+        let snapshot = at_s(&header);
+        let witness = l2.witness(proxy, &[IMPLEMENTATION_SLOT]);
+        check(&snapshot, &header, Some(&witness)).unwrap();
+        assert!(matches!(check(&snapshot, &header, None), Err(LanderError::Unavailable(_))));
+
+        // Another implementation, or the built-in one with dirty address padding.
+        for value in
+            [word(Address::repeat_byte(0x44)), word(implementation) | (U256::from(1) << 160)]
+        {
+            let other = state(value);
+            let header = start(other.root);
+            let witness = other.witness(proxy, &[IMPLEMENTATION_SLOT]);
+            safety(check(&at_s(&header), &header, Some(&witness)), "differs from switch");
+        }
+
+        // A header at another height, under another parent or state root, or at the fork, is
+        // not the S the Inbox recorded; neither is another account's proof.
+        for changed in [
+            Header { number: S + 1, ..header.clone() },
+            Header { parent_hash: B256::repeat_byte(9), ..header.clone() },
+            Header { state_root: state(U256::from(1)).root, ..header.clone() },
+        ] {
+            safety(check(&snapshot, &changed, Some(&witness)), "contradicts the S header");
+        }
+        let at_fork = Header { timestamp: FORK, ..header.clone() };
+        safety(check(&at_s(&at_fork), &at_fork, Some(&witness)), "contradicts the S header");
+        let foreign = l2.witness(other_account, &[IMPLEMENTATION_SLOT]);
+        safety(check(&snapshot, &header, Some(&foreign)), "contradicts the S header");
+
+        // Malformed proofs: a tampered node, a value the proof does not carry, no slot proof.
+        let mut tampered = witness.clone();
+        let mut node = tampered.account_proof[0].to_vec();
+        node[3] ^= 1;
+        tampered.account_proof[0] = node.into();
+        let mut forged = witness.clone();
+        forged.storage[0].value = word(Address::repeat_byte(0x44));
+        let mut missing = witness.clone();
+        missing.storage.clear();
+        for malformed in [tampered, forged, missing] {
+            safety(check(&snapshot, &header, Some(&malformed)), "implementation proof");
+        }
+
+        // After S, and on a network without a switch, the proof carries no witness.
+        let later = LandingSnapshot { checkpoint_height: S + 1, ..snapshot.clone() };
+        check(&later, &header, None).unwrap();
+        safety(check(&later, &header, Some(&witness)), "unexpected");
+        let fresh = abci::ChainParams { switch: None, ..params.clone() };
+        verify_start_signal_service_witness(&snapshot, &header, &fresh, None).unwrap();
+        assert!(matches!(
+            verify_start_signal_service_witness(&snapshot, &header, &fresh, Some(&witness)),
+            Err(LanderError::Safety(_))
+        ));
+    }
 }

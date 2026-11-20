@@ -330,6 +330,23 @@ mod tests {
             assert!(devnet().with_overrides(input).is_err(), "{input}");
         }
     }
+    /// The `[switch]` table names the Etna L2 SignalService implementation; the replaced
+    /// `anchor_implementation` key is unknown and refused, alone or beside the new key.
+    #[test]
+    fn switch_table_refuses_the_old_anchor_implementation_key() {
+        let table = "[switch]\nunzen_inbox = '0x0000000000000000000000000000000000000001'\n\
+                     fork_timestamp = 1800000000\n";
+        let new_key =
+            "signal_service_implementation = '0x0000000000000000000000000000000000000002'";
+        let old_key = "anchor_implementation = '0x0000000000000000000000000000000000000002'";
+        let p = devnet().with_overrides(&format!("{table}{new_key}")).unwrap();
+        assert_eq!(p.switch.unwrap().signal_service_implementation, Address::with_last_byte(2));
+        for keys in [old_key.to_string(), format!("{new_key}\n{old_key}")] {
+            let error = devnet().with_overrides(&format!("{table}{keys}")).unwrap_err();
+            assert!(matches!(error, ConfigError::Toml(_)), "{error}");
+            assert!(error.to_string().contains("anchor_implementation"), "{error}");
+        }
+    }
     #[test]
     fn unconfigured_chains_fail() {
         for chain in [1, 167000, 167013] {
