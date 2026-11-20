@@ -84,7 +84,7 @@ impl Validators {
 impl AuthenticatedCommittee {
     /// Builds the CometBFT validator set of a committee that
     /// [`abci::committee::verify_committee_witness_at_cutoff`] derived, which already guarantees
-    /// its epoch, member order, stake/power mapping, totals and set root. Fails only on a voting
+    /// its epoch, member order, stake/power mapping, totals and set hash. Fails only on a voting
     /// power outside CometBFT's `int64` range.
     pub fn new(state: CommitteeState) -> Result<Self, KeyError> {
         let validators = Validators::from_members(&state.members)?;

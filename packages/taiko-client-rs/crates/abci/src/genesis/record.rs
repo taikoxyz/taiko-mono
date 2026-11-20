@@ -26,7 +26,7 @@ pub struct GenesisCommitteeRecord {
     /// Required genesis deployment input authenticating the local derivation parameters.
     pub committee_config_hash: B256,
     /// The derived record: target epoch `e_0`, snapshot cutoff `genesisCutoff`, the snapshot's
-    /// checkpoint index, set root and totals.
+    /// checkpoint index, set hash and totals.
     #[serde(serialize_with = "serialize_record")]
     pub record: CommitteeRecord,
     /// The members, in set-key order; their powers become the genesis validator set.

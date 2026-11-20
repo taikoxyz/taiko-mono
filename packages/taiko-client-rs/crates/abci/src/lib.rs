@@ -16,7 +16,7 @@
 
 /// The ABCI++ application: request dispatch and the per-method handlers.
 pub mod app;
-/// Committee derivation from staking-registry snapshots, set roots and record hashes.
+/// Committee derivation from staking-registry snapshots, set hashes and record hashes.
 pub mod committee;
 /// Chain parameters (built-in per L2 chain id, optional TOML override).
 pub mod config;

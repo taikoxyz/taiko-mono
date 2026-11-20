@@ -87,7 +87,7 @@ pub struct RecoveryTrustOrigin {
     pub comet_hash: B256,
     /// Authenticated forced-inclusion cursor at c.
     pub forced_cursor: u64,
-    /// Initial independently derived committee set root.
+    /// Initial independently derived committee set hash (ENC-A-39a).
     pub committee_hash: B256,
 }
 
