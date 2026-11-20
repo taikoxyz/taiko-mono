@@ -39,7 +39,9 @@ pub(crate) struct HomeConfig<'a> {
 /// ones the supervisor and `abci-recover install` require (START-10-6, LIMIT-12-2): no peer
 /// exchange, seeds, seed mode, unsafe RPC or libp2p switch, and no inbound slot, so only the
 /// persistent peers, listed as unconditional peers, connect inbound. The supervisor's
-/// `ETNA_P2P_INBOUND_PEER_IDS` must list the same IDs ([`inbound_peer_ids`]).
+/// `ETNA_P2P_INBOUND_PEER_IDS` must list the same IDs ([`inbound_peer_ids`]). Comet logs JSON so
+/// the supervisor's log observer can follow its replay and a restarted validator can resume an
+/// undecided height instead of fencing it (RECOV-8.2-2).
 pub(crate) fn write_home(dir: &Path, c: &HomeConfig<'_>) -> Result<()> {
     ensure!(!c.signer_addr.is_empty(), "validator harness requires priv_validator_laddr");
     let inbound = c
@@ -58,6 +60,7 @@ pub(crate) fn write_home(dir: &Path, c: &HomeConfig<'_>) -> Result<()> {
         r#"proxy_app = "{proxy_app}"
 moniker = "{moniker}"
 priv_validator_laddr = "{signer_addr}"
+log_format = "json"
 
 [rpc]
 laddr = "tcp://0.0.0.0:26657"
