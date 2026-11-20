@@ -181,7 +181,7 @@ fn mode(path: &Path) -> u32 {
 }
 
 /// A stock validator template: the signer address only selects the external-signer role.
-const VALIDATOR_TEMPLATE: &str = "proxy_app = 'tcp://127.0.0.1:26658'\npriv_validator_laddr = 'tcp://127.0.0.1:26659'\ndb_dir = '/old-private/database'\nnode_key_file = '/old-private/key'\n[rpc]\nladdr = 'tcp://127.0.0.1:26657'\n[p2p]\nladdr = 'tcp://0.0.0.0:26656'\npersistent_peers = 'abcd@peer.example:26656'\naddr_book_file = '/old-private/addrbook'\n[mempool]\nwal_dir = '/old-private/mempool'\n[consensus]\nwal_file = '/old-private/wal'\n[statesync]\nenable = false\ntemp_dir = '/old-private/snapshots'\n";
+const VALIDATOR_TEMPLATE: &str = "proxy_app = 'tcp://127.0.0.1:26658'\npriv_validator_laddr = 'tcp://127.0.0.1:26659'\ndb_dir = '/old-private/database'\nnode_key_file = '/old-private/key'\n[rpc]\nladdr = 'tcp://127.0.0.1:26657'\n[p2p]\nladdr = 'tcp://0.0.0.0:26656'\npersistent_peers = 'abcd@peer.example:26656'\nunconditional_peer_ids = 'abcd'\npex = false\nmax_num_inbound_peers = 0\naddr_book_file = '/old-private/addrbook'\n[mempool]\nwal_dir = '/old-private/mempool'\n[consensus]\nwal_file = '/old-private/wal'\n[statesync]\nenable = false\ntemp_dir = '/old-private/snapshots'\n";
 /// A full-node template has no signer.
 const FULL_NODE_TEMPLATE: &str = "proxy_app = 'tcp://127.0.0.1:26658'\npriv_validator_laddr = ''\n[p2p]\npersistent_peers = ''\n";
 

@@ -244,21 +244,43 @@ fn validator_template(table: &toml::Table) -> Result<bool, RecoveryCommandError>
         .is_empty())
 }
 
-/// Whether a template keeps the CometBFT v0.40.0 settings every validator leaves at their stock
-/// defaults (START-10-6): `adaptive_sync` off, `double_sign_check_height` 0 and
-/// `block_time_tolerance` 60 s. An absent setting is the default; a bare integer tolerance is
-/// nanoseconds to Comet, so only the duration strings count.
+/// Whether a template keeps the CometBFT v0.40.0 settings every validator pins (START-10-6,
+/// LIMIT-12-2). `adaptive_sync` off, `double_sign_check_height` 0, `block_time_tolerance` 60 s,
+/// no seeds or seed mode, no unsafe RPC and the stock (non-libp2p) switch are the stock defaults,
+/// so an absent setting passes; a bare integer tolerance is nanoseconds to Comet, so only the
+/// duration strings count. `p2p.pex = false` and `p2p.max_num_inbound_peers = 0` override stock
+/// defaults and must be present. The supervisor also checks `unconditional_peer_ids` against the
+/// operator's inbound peer list at every start.
 fn stock_validator_settings(table: &toml::Table) -> bool {
-    let stock = |section: &str, key: &str, allowed: fn(&toml::Value) -> bool| {
-        table.get(section).is_none_or(|fields| {
-            fields.as_table().is_some_and(|fields| fields.get(key).is_none_or(allowed))
+    // The table at `path`: `Ok(None)` when a section on it is absent, `Err` when one is not a
+    // table.
+    let section = |path: &[&str]| {
+        path.iter().try_fold(Some(table), |fields, name| match fields.and_then(|f| f.get(*name)) {
+            None => Ok(None),
+            Some(value) => value.as_table().map(Some).ok_or(()),
         })
     };
-    stock("blocksync", "adaptive_sync", |v| v.as_bool() == Some(false)) &&
-        stock("consensus", "double_sign_check_height", |v| v.as_integer() == Some(0)) &&
-        stock("consensus", "block_time_tolerance", |v| {
+    // An absent setting (or section) keeps the stock default, which passes.
+    let stock = |path: &[&str], key: &str, allowed: fn(&toml::Value) -> bool| {
+        section(path).is_ok_and(|fields| fields.is_none_or(|f| f.get(key).is_none_or(allowed)))
+    };
+    let set = |path: &[&str], key: &str, allowed: fn(&toml::Value) -> bool| {
+        section(path).is_ok_and(|fields| fields.and_then(|f| f.get(key)).is_some_and(allowed))
+    };
+    let off = |v: &toml::Value| v.as_bool() == Some(false);
+    stock(&["blocksync"], "adaptive_sync", off) &&
+        stock(&["consensus"], "double_sign_check_height", |v| v.as_integer() == Some(0)) &&
+        stock(&["consensus"], "block_time_tolerance", |v| {
             v.as_str().is_some_and(|s| matches!(s, "1m0s" | "60s" | "1m"))
-        })
+        }) &&
+        set(&["p2p"], "pex", off) &&
+        set(&["p2p"], "max_num_inbound_peers", |v| v.as_integer() == Some(0)) &&
+        stock(&["p2p"], "seeds", |v| {
+            v.as_str().is_some_and(|seeds| seeds.split(',').all(|s| s.trim_matches(' ').is_empty()))
+        }) &&
+        stock(&["p2p"], "seed_mode", off) &&
+        stock(&["p2p", "libp2p"], "enabled", off) &&
+        stock(&["rpc"], "unsafe", off)
 }
 
 /// Normalize all stock path-bearing fields to the new home, keeping the template's own
@@ -416,12 +438,14 @@ mod effective_config_tests {
 
     #[test]
     fn normalized_config_refuses_non_stock_validator_settings() {
-        let normalized = |signer: &str, settings: &str| {
+        let template = |signer: &str, settings: &str, p2p: &str| {
             let input = format!(
-                "proxy_app='tcp://127.0.0.1:26658'\npriv_validator_laddr='{signer}'\n{settings}\n[p2p]\npex=false"
+                "proxy_app='tcp://127.0.0.1:26658'\npriv_validator_laddr='{signer}'\n{settings}\n[p2p]\n{p2p}"
             );
             parse_comet_template(input.as_bytes()).and_then(normalized_comet_config)
         };
+        let pinned = "pex=false\nmax_num_inbound_peers=0";
+        let normalized = |signer: &str, settings: &str| template(signer, settings, pinned);
         let validator = "tcp://127.0.0.1:26659";
         for settings in [
             "[blocksync]\nadaptive_sync=true",
@@ -429,6 +453,7 @@ mod effective_config_tests {
             "[consensus]\nblock_time_tolerance='2m0s'",
             // Stock Comet reads a bare integer as nanoseconds.
             "[consensus]\nblock_time_tolerance=60",
+            "[rpc]\nunsafe=true",
         ] {
             assert!(
                 matches!(
@@ -447,7 +472,32 @@ mod effective_config_tests {
             assert!(normalized(validator, &stock).is_ok(), "refused {stock}");
         }
         assert!(normalized(validator, "").is_ok(), "refused absent settings");
+        // LIMIT-12-2: a validator overrides the stock pex and inbound slots and keeps no seeds,
+        // seed mode or libp2p switch.
+        for p2p in [
+            "max_num_inbound_peers=0",
+            "pex=false",
+            "pex=true\nmax_num_inbound_peers=0",
+            "pex=false\nmax_num_inbound_peers=40",
+            "pex=false\nmax_num_inbound_peers=0\nseeds='aa@seed.example:26656'",
+            "pex=false\nmax_num_inbound_peers=0\nseed_mode=true",
+            "pex=false\nmax_num_inbound_peers=0\n[p2p.libp2p]\nenabled=true",
+        ] {
+            assert!(
+                matches!(
+                    template(validator, "", p2p),
+                    Err(RecoveryCommandError::Missing(
+                        "stock CometBFT validator settings (START-10-6)"
+                    ))
+                ),
+                "accepted {p2p}"
+            );
+        }
+        let explicit = "pex=false\nmax_num_inbound_peers=0\nseeds=' , '\nseed_mode=false\n\
+            unconditional_peer_ids='aa'\n[p2p.libp2p]\nenabled=false";
+        assert!(template(validator, "[rpc]\nunsafe=false", explicit).is_ok());
         // The pins are for validators: a full-node template keeps its own.
         assert!(normalized("", "[blocksync]\nadaptive_sync=true").is_ok());
+        assert!(template("", "", "pex=true").is_ok());
     }
 }

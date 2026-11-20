@@ -27,6 +27,7 @@
 - The Etna start is written once (START-10-5c): corrected switching starts are gone. Generation zero's origin must name S, every recovery witness must show the deployment's start, hash and state root unchanged, and a recovery at c = S starts from the start write's own anchor. A recovery in the start write's L1 block, whose deployment proof at `L1_0` already shows the next generation, is accepted.
 - The lander builds the first landing from S without reading the Unzen Inbox: the permissionless start write `setOrigin(S)` already requires closed, fully proven Unzen proposals (START-10-5a, LAND-6.1-8a), and `land` no longer checks Unzen state. Checkpoint import at s = S still compares the SignalService checkpoint at S with the start record (DATA-5.3-4). The [handoff runbook](docs/unzen-etna-handoff.md#writing-the-etna-start) shows the start write as `cast send … 'setOrigin(uint48)' S` from any account.
 - Pin alethia-reth to #248 at `ad58432` (a 4 s EIP-4396 target for every Etna block, base-fee sharing 100). `protocol` re-exports its `ETNA_BLOCK_TIME_TARGET` and `SHASTA_BLOCK_TIME_TARGET` and takes the target from its `block_time_target`. The Dockerfile's EL source build, the default EL image tag, the EL import helper and the Docker harness's EL inputs follow.
+- `abci-recover install` also refuses a validator template without the P2P pins (START-10-6, LIMIT-12-2): `p2p.pex = false` and `p2p.max_num_inbound_peers = 0` set explicitly, and no seeds, seed mode, unsafe RPC or libp2p switch.
 
 ### Etna specification simplification (#22412)
 
