@@ -516,6 +516,107 @@ async fn recovery_init_waits_with_trust_closed_until_the_el_serves_origin_state(
     assert_eq!(app.store.load().unwrap().unwrap().last_height, 6);
 }
 
+/// A node whose EL holds its own blocks from c - 1 on, where L1 settled other ones (vector 7.l
+/// of RECOV-8.1-7), takes the settled block at c in place of its own. InitChain points the EL
+/// at c's authenticated hash and, while the EL lacks that block, waits with trust closed and
+/// stores nothing (SYNC-9-7) instead of halting. Once the EL has synced the settled blocks
+/// from a peer, InitChain completes on them and the origin's checkpoint trust opens.
+#[tokio::test]
+async fn recovery_init_takes_the_settled_block_at_c_in_place_of_its_own() {
+    use alloy_consensus::Header;
+    use std::time::Duration;
+    let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
+    checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
+    let settled = [w.parent_headers[0].clone(), w.el_header.clone()];
+    let hash = w.el_header.hash_slow();
+    let own_parent = Header { timestamp: settled[0].timestamp + 1, ..settled[0].clone() };
+    let own = Header { parent_hash: own_parent.hash_slow(), ..settled[1].clone() };
+    {
+        let mut state = engine.state();
+        for header in &settled {
+            state.known.remove(&header.hash_slow());
+        }
+        for header in [own_parent, own] {
+            state.known.insert(header.hash_slow(), header.clone());
+            state.chain.insert(header.number, header);
+        }
+    }
+    let opts = AppOptions { elsync_timeout: Duration::from_millis(20), ..AppOptions::default() };
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), opts);
+    let trust = app.trust_handle();
+    let req = request(&document(&fx, &w));
+    let waiting =
+        tokio::time::timeout(Duration::from_millis(300), init_chain(&mut app, req.clone())).await;
+    assert!(waiting.is_err(), "another block at c must keep InitChain pending: {waiting:?}");
+    assert!(app.store.load().unwrap().is_none());
+    assert!(app.store.fatal_evidence().unwrap().is_none(), "another block at c is not a halt");
+    let closed = trust.snapshot();
+    assert!(!closed.is_ready());
+    assert!(
+        closed.reason.as_deref().is_some_and(|reason| reason.contains("did not reach block 6")),
+        "{closed:?}"
+    );
+    let pointed = EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: B256::ZERO };
+    assert!(app.engine.calls().contains(&pointed), "{:?}", app.engine.calls());
+    // The EL syncs the settled blocks from a peer that holds them.
+    app.engine.state().backfill.extend(settled.iter().map(|h| (h.number, h.clone())));
+    let result = tokio::time::timeout(Duration::from_secs(3), init_chain(&mut app, req))
+        .await
+        .expect("InitChain completes once the EL serves the settled block")
+        .unwrap();
+    let state = app.store.load().unwrap().unwrap();
+    assert_eq!(result.app_hash, crate::app::app_hash(&state));
+    assert_eq!((state.last_height, state.parent.hash), (6, hash));
+    assert_eq!(app.engine.state().chain.get(&5), Some(&settled[0]));
+    assert_eq!(app.engine.state().chain.get(&6), Some(&settled[1]));
+    app.refresh_trust().await.unwrap();
+    assert!(trust.snapshot().is_ready());
+}
+
+/// An EL that answers a request for c's authenticated hash or height with another block still
+/// contradicts itself (SYNC-9-7): one that accepts c's hash and keeps serving its own block at
+/// c, or answers the read of c with a header of another height or one that does not hash to the
+/// hash it reports. Recovery InitChain halts with fatal evidence and stores nothing.
+#[tokio::test]
+async fn recovery_init_halts_when_the_el_answers_c_with_another_block() {
+    use alloy_consensus::Header;
+    for answer in ["accepts c and serves its own", "another height", "another hash"] {
+        let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
+        let hash = w.el_header.hash_slow();
+        let own = Header { timestamp: w.el_header.timestamp + 1, ..w.el_header.clone() };
+        {
+            let mut state = engine.state();
+            match answer {
+                "accepts c and serves its own" => {
+                    state.known.remove(&hash);
+                    state.chain.insert(6, own);
+                    state.forkchoice_script.push_back(Ok(crate::engine::PayloadVerdict::Valid));
+                }
+                "another height" => state
+                    .header_script
+                    .push_back(Err(EngineError::HeaderNumberMismatch { requested: 6, got: 5 })),
+                _ => state.header_script.push_back(Err(EngineError::HeaderHashMismatch {
+                    number: 6,
+                    reported: hash,
+                    computed: own.hash_slow(),
+                })),
+            }
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(3),
+            init_chain(&mut app, request(&document(&fx, &w))),
+        )
+        .await
+        .expect("a contradiction must not wait");
+        assert!(matches!(&result, Err(AbciError::SafetyHalt(_))), "{answer}: {result:?}");
+        assert!(app.store.fatal_evidence().unwrap().is_some(), "{answer}");
+        assert!(app.store.load().unwrap().is_none(), "{answer}");
+    }
+}
+
 #[tokio::test]
 async fn recovery_init_restart_reuses_authenticated_historical_sidecar_when_state_is_pruned() {
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);

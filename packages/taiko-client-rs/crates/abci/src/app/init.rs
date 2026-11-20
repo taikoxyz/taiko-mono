@@ -37,12 +37,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// [`AbciError::AlreadyInitialized`]. Temporary L1/EL acquisition failures keep the same
     /// request pending; authenticated contradictions still fail for safety.
     ///
-    /// See [`App::verify_genesis`] for the checks; as they make sure the EL serves the Etna start
-    /// block, a successful `InitChain` also counts as the EL reconcile of the current set of ABCI
-    /// connections (see [`App::info`]). Answers with appHash(o) (CONS-3.1-8, ENC-A-29b.e) of the
-    /// authenticated origin EL hash, the start hash or ELHash(c), and the generation's genesis
-    /// validator state at o: the same on every re-sent `InitChain`, even when the EL already
-    /// holds the generation's first block after a crash before its `Commit` (CONS-3.1-9).
+    /// See [`App::verify_genesis`] for the checks; as they make sure the EL serves the origin
+    /// block (the Etna start block or c), a successful `InitChain` also counts as the EL reconcile
+    /// of the current set of ABCI connections (see [`App::info`]). Answers with appHash(o)
+    /// (CONS-3.1-8, ENC-A-29b.e) of the authenticated origin EL hash, the start hash or
+    /// ELHash(c), and the generation's genesis validator state at o: the same on every re-sent
+    /// `InitChain`, even when the EL already holds the generation's first block after a crash
+    /// before its `Commit` (CONS-3.1-9).
     pub(super) async fn init_chain(
         &mut self,
         req: request::InitChain,
@@ -191,7 +192,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// the own finalized L1 view ([`check_recovery_canonicality`]); takes the historical anchor
     /// from the immutable sidecar a previous attempt stored (which must retain `w` exactly, with
     /// its anchor still final and canonical) or fetches it from the own L1
-    /// ([`recovery_bootstrap`]); and requires the EL to serve c and its parent exactly as `w`
+    /// ([`recovery_bootstrap`]); then points the EL at c's authenticated hash
+    /// ([`App::sync_el_to`]) and requires it to serve c and its parent exactly as `w`
     /// authenticates them, and c's state. Returns the sidecar to store and what its verification
     /// authenticates.
     ///
@@ -247,27 +249,28 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 .await?
             }
         };
-        let header = self.el_header(w.el_header.number).await?;
-        if header != w.el_header {
-            return Err(AbciError::SafetyHalt(
-                "EL contradicts authenticated recovery origin".into(),
-            ));
-        }
+        // An EL holding another block at c, or none, takes the settled block there in place of
+        // its own (RECOV-8.1-7): point it at c's authenticated hash, as at the Etna start. Until
+        // it serves that block and its authenticated parent, c is missing data (SYNC-9-7). An EL
+        // that rejects that hash, or accepts it and keeps serving another block, contradicts it.
+        let (number, hash) = (w.el_header.number, w.el_header.hash_slow());
+        self.sync_el_to("EL sync to the recovery origin", number, hash).await?;
         if let Some(parent) = w.parent_headers.first() &&
             self.el_header(parent.number).await? != *parent
         {
-            return Err(AbciError::SafetyHalt(
-                "EL contradicts authenticated recovery parent".into(),
-            ));
+            return Err(crate::RecoveryError::Unavailable(format!(
+                "execution engine does not serve the authenticated parent of recovery origin \
+                 {number}"
+            ))
+            .into());
         }
         // The first recovered block executes on c's state. An EL that pruned it after
         // `prepare`, or was replaced since, is missing data: InitChain waits with trust closed
         // instead of reporting Ready and halting on that first execution (SYNC-9-7).
-        let state = self.engine.historical_state_available(w.el_header.hash_slow());
+        let state = self.engine.historical_state_available(hash);
         if !within("EL recovery origin state read", self.opts.engine_timeout, state).await? {
             return Err(crate::RecoveryError::Unavailable(format!(
-                "execution engine lacks the state of recovery origin {}",
-                w.el_header.number
+                "execution engine lacks the state of recovery origin {number}"
             ))
             .into());
         }
