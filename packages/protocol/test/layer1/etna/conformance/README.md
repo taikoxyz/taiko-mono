@@ -71,6 +71,13 @@ slot, checkpoint and payment observations, checks that slots are used in order, 
 that a rejected registration leaves the whole registry and token state unchanged. The model's
 receipt count means successful payment receipts, not the total number of Solidity events.
 
+The file predates the shrinking count of #22422 (STAKE-4.1-36: 0 or one plus the highest occupied
+slot) and states no count. The harness therefore expects 4,095 opening slots, not 4,096, after the
+`empty-last-slot` vacancy of slot 4095; the slot assignment and every listed observation are
+unchanged. The historical forced and land families still carry an independent `sMin` constant,
+which the harness checks as written but no longer passes to the Inbox: `init` takes the registry's
+`minStake` as the config hash's fifth word, and neither family reads a stake.
+
 ## Refresh and verify
 
 Regenerate the current admission file in a checkout of the formal branch, from `formal/etna`,

@@ -470,7 +470,8 @@ interface IEtnaStakingRegistry {
     error RegistryFull();
     /// @notice The public key is not a canonical 33-byte compressed secp256k1 point.
     error InvalidPublicKey();
-    /// @notice The signature is malformed or does not recover to the expected key.
+    /// @notice The signature is malformed, the two votes recover different signers, or the
+    /// signer's lifetime key lookup does not name the bond.
     error InvalidSignature();
     /// @notice The consensus key was already registered.
     error KeyAlreadyUsed();

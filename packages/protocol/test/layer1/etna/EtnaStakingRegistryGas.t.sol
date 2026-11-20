@@ -398,3 +398,72 @@ contract EtnaStakingRegistryFullCapWithdrawalGasTest is EtnaStakingRegistryGasBa
         _measureWithdraw("withdraw_holder_at_4096", Carol, 1);
     }
 }
+
+/// @title EtnaStakingRegistrySoleLastSlotWithdrawalGasTest
+/// @notice ACCEPTANCE section 2 item 7: bond 4095 holds slot 4095, the only occupied slot, with
+/// every lower slot emptied by withdrawal. Withdrawing it scans all 16 occupancy words downwards
+/// for a lower occupied slot, finds none and shrinks the count from 4096 to 0 (STAKE-4.1-36).
+contract EtnaStakingRegistrySoleLastSlotWithdrawalGasTest is EtnaStakingRegistryGasBase {
+    /// @dev Bonds per `drainBatch` call.
+    uint256 private constant _DRAIN_CALL = 256;
+
+    /// @notice Runs `_step` (0: request exit, 1: confirm, 2: withdraw) on bonds `_first` up to
+    /// `_first + _count - 1`, which Carol owns.
+    /// @dev Called by this contract only, as an external call so each batch starts with empty
+    /// memory.
+    function drainBatch(uint256 _step, uint256 _first, uint256 _count) external {
+        require(msg.sender == address(this), "self only");
+        for (uint256 id = _first; id < _first + _count; ++id) {
+            if (_step == 0) {
+                vm.prank(Carol);
+                registry.requestExit(id);
+            } else if (_step == 1) {
+                registry.confirmExit(id);
+            } else {
+                vm.prank(Carol);
+                registry.withdraw(id, Carol);
+            }
+        }
+    }
+
+    function setUp() public override {
+        super.setUp();
+        vm.roll(10);
+        _prefill(CAPACITY);
+        mockInbox.setInitialized(true);
+        vm.pauseGasMetering();
+        for (uint256 step; step < 3; ++step) {
+            if (step == 1) {
+                vm.roll(registry.bondAt(CAPACITY - 1).entry.exitEffectiveL1);
+                mockInbox.setActiveCommitteeSnapshot(block.number);
+            } else if (step == 2) {
+                vm.roll(block.number + WITHDRAWAL_DELAY);
+            }
+            for (uint256 done; done < CAPACITY; done += _DRAIN_CALL) {
+                uint256 count = done + _DRAIN_CALL > CAPACITY ? CAPACITY - done : _DRAIN_CALL;
+                // Bond 4095 exits and is confirmed with the others but withdraws last.
+                if (step == 2 && done + count == CAPACITY) --count;
+                this.drainBatch(step, done, count);
+            }
+        }
+        vm.resumeGasMetering();
+        vm.roll(block.number + 1);
+        (bool occupied,) = registry.bondInSlot(CAPACITY - 1);
+        assertTrue(occupied, "slot 4095 held");
+        for (uint256 slot; slot < CAPACITY - 1; slot += 255) {
+            (occupied,) = registry.bondInSlot(slot);
+            assertFalse(occupied, "lower slots empty");
+        }
+        assertEq(registry.entryCount(), CAPACITY, "the count still ends at slot 4095");
+    }
+
+    function test_gas_WithdrawSoleLastSlot() external {
+        _measureWithdraw("withdraw_sole_slot_4095", Carol, CAPACITY - 1);
+        assertEq(registry.entryCount(), 0, "count 0");
+        assertEq(registry.entriesRoot(), 0, "root 0");
+        IEtnaStakingRegistry.Checkpoint memory latest =
+            registry.checkpointAt(registry.checkpointCount() - 1);
+        assertEq(latest.count, 0, "checkpoint count 0");
+        assertEq(latest.entriesRoot, 0, "checkpoint root 0");
+    }
+}

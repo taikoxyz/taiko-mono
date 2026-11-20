@@ -370,7 +370,12 @@ contract EtnaStakingRegistryInvariantTest is EtnaStakingRegistryInvariantBase {
         assertEq(handler.registrations(), 2, "registrations");
         assertEq(handler.confirmations(), 1, "confirmations");
         assertEq(handler.withdrawals(), 1, "withdrawals");
-        assertEq(handler.reuses(), 1, "the emptied slot reused");
+        // The only slot emptied, so the withdrawal shrank the count to 0 (STAKE-4.1-36) and the
+        // new bond takes slot 0 again by appending it.
+        assertEq(handler.shrinks(), 1, "the count shrank");
+        assertEq(handler.reuses(), 0, "no interior empty slot to reuse");
+        (bool occupied, uint256 holder) = registry.bondInSlot(0);
+        assertTrue(occupied && holder == 1, "bond 1 holds slot 0");
         assertEq(registry.entryCount(), 1, "one slot");
         assertEq(registry.bondCount(), 2, "two bonds");
         _assertModelHeld();

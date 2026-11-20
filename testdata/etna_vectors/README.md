@@ -196,8 +196,7 @@ unchanged; their absent hash inputs now use `"0x"` explicitly.
 
 This changes the `slashDoubleSign` tuple and selector. `votes.slash_abi` pins the signature,
 selector and calldata of the zero-parts-hash conflict. Clients must refresh the registry ABI and
-read schema 7 or later before submitting evidence; the other vector sections and fixed storage slots
-are unchanged.
+read this schema (9) before submitting evidence.
 
 ### Vote timestamps
 

@@ -21,6 +21,8 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
     /// @dev Consensus private keys.
     uint256 private constant _CK_A = 0xC0A;
     uint256 private constant _CK_B = 0xC0B;
+    /// @dev A consensus key no bond registers.
+    uint256 private constant _CK_UNREGISTERED = 0xC0F;
 
     /// @dev The `exitEffectiveL1` of an entry with no exit set.
     uint48 private constant _NO_EXIT = type(uint48).max;
@@ -598,6 +600,52 @@ contract EtnaStakingRegistrySlashTest is EtnaStakingRegistryTestBase {
         _slash(1, aB, bB);
         assertEq(registry.entryAt(1).effStake, 0, "bond 1 slashed");
         assertEq(registry.entryAt(0).effStake, MIN_STAKE, "bond 0 untouched");
+    }
+
+    /// @dev STAKE-4.1-33 vector 33.e: a double sign by a key registered to no bond slashes
+    /// nothing, whichever bond it names.
+    function test_slashDoubleSign_RevertWhen_SignerKeyIsUnregistered() external {
+        (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) =
+            _conflict(_CK_UNREGISTERED);
+        (bool registered,) = registry.bondForKey(vm.addr(_CK_UNREGISTERED));
+        assertFalse(registered, "unused key");
+        _assertSlashReverts(
+            0, a, b, IEtnaStakingRegistry.InvalidSignature.selector, "unregistered key"
+        );
+        assertEq(registry.entryAt(0).effStake, MIN_STAKE, "bond 0 untouched");
+    }
+
+    /// @dev STAKE-4.1-33 vector 33.f: after bond 0 is withdrawn and bond 1 takes slot 0, evidence
+    /// signed by bond 0's key resolves to bond 0, never to the slot's new holder: naming bond 1
+    /// fails the key lookup and naming bond 0 fails as withdrawn (STAKE-4.1-34).
+    function test_slashDoubleSign_RevertWhen_OldKeyNamesTheSlotsNewHolder() external {
+        _withdrawBond(0);
+        assertEq(_register(Bob, _CK_B), 1, "bond 1");
+        (bool holdsSlot, uint256 slot) = registry.slotOfBond(1);
+        assertTrue(holdsSlot && slot == 0, "bond 1 takes slot 0");
+        (bool registered, uint256 bondId) = registry.bondForKey(vm.addr(_CK_A));
+        assertTrue(registered && bondId == 0, "bond 0's key still names bond 0");
+
+        (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) = _conflict(_CK_A);
+        _assertSlashReverts(
+            1, a, b, IEtnaStakingRegistry.InvalidSignature.selector, "the slot's new holder"
+        );
+        _assertSlashReverts(0, a, b, IEtnaStakingRegistry.BondWithdrawn.selector, "withdrawn");
+        assertEq(registry.entryAt(0).effStake, MIN_STAKE, "bond 1 untouched");
+    }
+
+    /// @dev STAKE-4.1-33: the lifetime key lookup written at registration decides, and the stored
+    /// key is not decompressed again. With bond 0's stored X overwritten, its own key's evidence
+    /// still slashes it, while evidence of a key whose address equals nothing stored fails.
+    function test_slashDoubleSign_UsesTheLifetimeKeyLookupNotTheStoredKey() external {
+        bytes32 bondRecord = keccak256(abi.encode(uint256(0), REGISTRY_BASE + 7));
+        assertEq(vm.load(address(registry), bondRecord), registry.bondAt(0).entry.ckX, "ckX word");
+        vm.store(address(registry), bondRecord, bytes32(uint256(1)));
+        assertEq(registry.bondAt(0).entry.ckX, bytes32(uint256(1)), "stored X overwritten");
+
+        (IEtnaStakingRegistry.Vote memory a, IEtnaStakingRegistry.Vote memory b) = _conflict(_CK_A);
+        _slash(0, a, b);
+        assertEq(registry.bondAt(0).entry.effStake, 0, "slashed through the key lookup");
     }
 
     /// @dev A 65-byte signature passes the range check; a V outside {0, 1} or a high S is then

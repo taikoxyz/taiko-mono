@@ -513,6 +513,56 @@ contract EtnaStakingRegistryExitTest is EtnaStakingRegistryTestBase {
         _assertCheckpoint(registry.checkpointCount() - 1, block.number, 4, root);
     }
 
+    /// @dev STAKE-4.1-36 vectors 36.f, 36.g, 36.i and ENC-A-38 vector 38.h: the count is one plus
+    /// the highest occupied slot, not the number of occupied slots. With bonds in slots 0-2,
+    /// withdrawing slot 1 keeps count 3 with slot 1's all-zero leaf; slashing slot 2 to a zero
+    /// balance keeps count 3; withdrawing slot 2 shrinks the count to 1 and then slot 0 to 0. Each
+    /// earlier checkpoint keeps its own count and root.
+    function test_checkpoint_CountIsOnePlusTheHighestOccupiedSlot() external {
+        assertEq(_register(Bob, _CK_B), 1, "bond 1");
+        assertEq(_register(Carol, _CK_C), 2, "bond 2");
+        assertEq(registry.entryCount(), 3, "count 3");
+        bytes32 l0 = _leafAt(0);
+        bytes32 l2 = _leafAt(2);
+
+        _withdrawBond(1);
+        IEtnaStakingRegistry.Entry memory zero;
+        bytes32 rootWithInterior = _rootOfFour(l0, LibEntriesTree.leaf(1, zero), l2, 0);
+        assertEq(registry.entryCount(), 3, "36.i: two occupied slots, count 3");
+        assertEq(registry.entriesRoot(), rootWithInterior, "38.h root K(K(L0,Z1),K(L2,0))");
+        uint256 interiorIndex = registry.checkpointCount() - 1;
+        _assertCheckpoint(interiorIndex, block.number, 3, rootWithInterior);
+
+        vm.roll(block.number + 1);
+        _slashDoubleSign(2, _CK_C);
+        assertEq(registry.entryAt(2).effStake, 0, "zero balance");
+        assertEq(registry.entryCount(), 3, "36.f: a zero-balance holder still counts");
+
+        // The slash set the exit; anyone withdraws the zero-balance bond once it is confirmed.
+        _confirmExit(2);
+        vm.roll(block.number + WITHDRAWAL_DELAY);
+        registry.withdraw(2, address(0));
+        assertEq(registry.entryCount(), 1, "36.g: count 1");
+        assertEq(registry.entriesRoot(), l0, "one leaf is its own root");
+        uint256 shrunk = registry.checkpointCount() - 1;
+        _assertCheckpoint(shrunk, block.number, 1, l0);
+        _assertCheckpoint(
+            interiorIndex, registry.checkpointAt(interiorIndex).l1Block, 3, rootWithInterior
+        );
+
+        vm.roll(block.number + 1);
+        _withdrawBond(0);
+        assertEq(registry.entryCount(), 0, "36.g: count 0");
+        assertEq(registry.entriesRoot(), 0, "no entry: root 0");
+        _assertCheckpoint(registry.checkpointCount() - 1, block.number, 0, 0);
+        _assertCheckpoint(shrunk, registry.checkpointAt(shrunk).l1Block, 1, l0);
+
+        // The count grows back one slot at a time from the lowest empty slot.
+        assertEq(_register(Bob, _CK_D), 3, "bond 3");
+        assertEq(registry.entryCount(), 1, "slot 0 again");
+        assertEq(registry.entriesRoot(), _leafAt(0), "root over the new slot 0");
+    }
+
     /// @dev Admission goes by occupancy, not by balance (STAKE-4.1-14a): a registration skips
     /// slot 0, held by a bond slashed to a zero balance, and takes the lowest empty slot, then the
     /// next empty one, then a new slot.
