@@ -54,6 +54,7 @@ never runs consensus or signs, and the official executable starts only on the re
    prints one JSON line naming the height, the BlockID, the app hash, `"source"` (`local` or
    `peer`), `"applied"` (`executed`, `replayed` or `already_repaired`), the backup and the new
    store instance ID.
+
 4. Start the supervisor. Comet's handshake finds its state, its block store and the app at the
    first height and resumes stock operation from the next one.
 

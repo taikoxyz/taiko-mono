@@ -75,6 +75,7 @@ Stock CometBFT cannot be told to stop at a height, and a landing can end at any 
    - another lander reaches or passes s first.
 
    In any of these cases, take a new snapshot from step 2, with the regular lander still stopped.
+
 6. Restart your regular lander.
 7. Once your own L1 has finalized the landing, export s = 600 with `--comet-state-dir /srv/etna/stock-state`.
 

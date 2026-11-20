@@ -146,8 +146,8 @@ A validator that upgrades during a pause at an undecided height H follows RECOV-
 precommit procedure (START-10.1-14b), so that the old software's last vote at H is a precommit
 the upgraded node can confirm on replay:
 
-1. With the supervisor running, and the same environment, run `python3
-   script/etna_validator.py stop-on-precommit` (`--timeout S`, 600 s by default). It writes
+1. With the supervisor running, and the same environment, run
+   `python3 script/etna_validator.py stop-on-precommit` (`--timeout S`, 600 s by default). It writes
    `stop-on-precommit` into the supervisor's run directory. The supervisor arms the signer through
    its channel: the signer keeps signing prevotes, persists and returns its next precommit (nil or
    block) as its last signature and then refuses every later request; if its last signature
