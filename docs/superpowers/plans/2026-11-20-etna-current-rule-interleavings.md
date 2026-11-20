@@ -19,6 +19,7 @@
 - Declare complete finite action banks, retain actual accepted/refused edges and shortest witnesses; a cap, missing witness or unrelated failure cannot pass.
 - Source receipts compare exact three raw document streams; metadata selection never asserts execution.
 - Keep all artifacts portable; use configured inputs and temporary paths rather than personal directories.
+- Each test establishes its repository-relative import root and passes standalone unittest discovery from `formal/etna` under isolated `-I -S -B`; no wrapper or prior-test path leak is assumed.
 
 ## Review Focus
 
@@ -34,10 +35,10 @@
 
 **Interfaces:** `Refused(ValueError)` denotes a modeled atomic refusal. `explore(initial, actions, step, check, *, max_states)` returns immutable visited states, accepted edges, refused edge observations and shortest paths; raises on a cap or failed check. Model modules expose immutable `State`, `initial()`, `actions(state)`, `step(state, action)`, `check(pre, action, post)` and named witness predicates. `source_identity(raw_by_path)` delegates exact classification and requires f556, returning SOURCE_REVIEWED / runtime NOT_EVALUATED. Later models consume only explorer and Refused; they do not import each other's transition logic.
 
-- [ ] RED tests use an explicit missing-module assertion, then literal expected schedule tuples; no import-error credit.
-- [ ] Implement START-10.1-5a/b/c, RECOV-8-31/32/47a and 8.3 guards for schedules, recovery and rollback. Bound g=0..2, c=0..2, nonce=0..3, rules=0..3; use maxAnchorAge=1296 and offer timestamps0,1,2,1296,1297,2592,2593 plus uint48 edge tests. The action generator omits valid transitions leaving these exploration bounds, tagged as model bounds rather than protocol refusals. Protocol uint48 arithmetic is checked separately. Use a finite named input bank rather than an uncontrolled Cartesian bank; retain distinct refused edges without copying whole paths.
-- [ ] Observe complete schedule/g/c/nonce and emitted update values: stale updates/cancellations do nothing; carry and next+1 structural recovery; exact minimum lead and strict cancellation equality; same-generation post-rollback schedule remains possible. Origins and landed-prefix details are out of this projection.
-- [ ] Exhaust the declared graph with all witnesses; remove expectedGeneration guard in a disposable model copy, detect a stale write, restore and recheck. Independently inspect rule correspondence and behavior before marking complete.
+- [x] RED tests use an explicit missing-module assertion, then literal expected schedule tuples; no import-error credit.
+- [x] Implement START-10.1-5a/b/c, RECOV-8-31/32/47a and 8.3 guards for schedules, recovery and rollback. Bound g=0..2, c=0..2, nonce=0..3, rules=0..3; use maxAnchorAge=1296 and offer timestamps0,1,2,1296,1297,2592,2593 plus uint48 edge tests. The action generator omits valid transitions leaving these exploration bounds, tagged as model bounds rather than protocol refusals. Protocol uint48 arithmetic is checked separately. Use a finite named input bank rather than an uncontrolled Cartesian bank; retain distinct refused edges without copying whole paths.
+- [x] Observe complete schedule/g/c/nonce and emitted update values: stale updates/cancellations do nothing; carry and next+1 structural recovery; exact minimum lead and strict cancellation equality; same-generation post-rollback schedule remains possible. Origins and landed-prefix details are out of this projection.
+- [x] Exhaust the declared graph with all witnesses; remove expectedGeneration guard in a disposable model copy, detect a stale write, restore and recheck. Independently inspect rule correspondence and behavior before marking complete.
 
 ### Task 2: Z02 permanent bond forfeiture
 
