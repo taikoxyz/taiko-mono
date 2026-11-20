@@ -76,7 +76,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Establishes the committed boundary before the server accepts any ABCI connection, so that
     /// stock CometBFT's handshake, which starts with `Info`, only meets an app whose EL serves
-    /// its committed head (CONS-3.1-9). Runs the reconciliation of [`App::reconcile_el_once`]
+    /// its committed head (CONS-3.1-9). Runs the reconciliation the handshake `Info` also runs,
     /// with signing closed (the trust session stays closed until the worker starts): from the
     /// last state the EL holds, the missing committed blocks are re-executed from the app's
     /// retained execution bodies and the EL's canonical hash at the committed head is compared

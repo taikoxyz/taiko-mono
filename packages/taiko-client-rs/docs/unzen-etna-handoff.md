@@ -167,4 +167,4 @@ After a first landing, ordinary authenticated checkpoint startup can use the sta
 Generation 0 starts at S + 1, so a crash between CometBFT saving that first block and saving its
 state stops the stock handshake (CONS-3.1-9). This command does not repair Comet stores or reset
 signer HRS; `etna-comet-import repair-first-block` installs the certified block offline (see
-[A crash inside the first block](governance-recovery.md#a-crash-inside-the-first-block)).
+[First-block repair](first-block-repair.md)).

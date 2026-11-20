@@ -887,7 +887,7 @@ committing those values to the Inbox.
   Stock CometBFT v0.40.0 then stops at its handshake whatever the app reports. The offline
   `etna-comet-import repair-first-block` installs the certified block on the stopped home,
   preserving the original stores and fencing the signer with a fresh store instance ID; see
-  [A crash inside the first block](docs/governance-recovery.md#a-crash-inside-the-first-block).
+  [First-block repair](docs/first-block-repair.md).
 - Before it opens its ABCI socket, the app establishes the boundary it reports (CONS-3.1-9),
   independently of `Info` and every other CometBFT callback and with signing closed: it
   re-executes the committed blocks alethia-reth lacks from the execution bodies it retains,

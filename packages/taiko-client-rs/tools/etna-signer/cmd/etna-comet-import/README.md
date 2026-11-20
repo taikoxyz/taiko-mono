@@ -153,7 +153,7 @@ its handshake after a crash between saving the generation's first block and
 saving that block's state: its state stays at height 0 and its handshake
 requires the block store to be at most one block above it (CONS-3.1-9). The
 operator procedure is in
-[A crash inside the first block](../../../../docs/governance-recovery.md#a-crash-inside-the-first-block).
+[First-block repair](../../../../docs/first-block-repair.md).
 
 ```sh
 etna-comet-import repair-first-block --home /stopped/comet/home \
