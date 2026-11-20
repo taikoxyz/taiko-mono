@@ -18,6 +18,7 @@ SUITE_IMAGES = {
     ("lander", "recovery"): CONTRACT_IMAGES,
     ("lander", "native_acceptance"): CONTRACT_IMAGES | {"comet-image"},
     ("lander", "staking"): CONTRACT_IMAGES | {"comet-image"},
+    ("lander", "switch"): CONTRACT_IMAGES,
     ("lander", "collector"): DEVNET_IMAGES,
 }
 ALL_IMAGES = DEVNET_IMAGES | CONTRACT_IMAGES

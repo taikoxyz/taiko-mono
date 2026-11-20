@@ -28,6 +28,7 @@ if [[ "${PNPM_OFFLINE:-0}" == 1 ]]; then INSTALL_FLAGS+=(--offline); fi
     contracts/layer1/etna/impl/EtnaStakingRegistry.sol \
     contracts/layer1/core/impl/InboxWithEtnaCutoffs.sol \
     contracts/shared/signal/SignalService.sol test/layer1/etna/EtnaInboxTestBase.sol \
+    test/layer1/etna/MockUnzenInbox.sol \
     --build-info)
 
 python3 - "$PROTOCOL_CHECKOUT" "$CLIENT_DIR" "$PINNED_REVISION" <<'PYTHON'
@@ -49,6 +50,7 @@ artifacts = {
     "InboxWithEtnaCutoffs": "InboxWithEtnaCutoffs.sol/InboxWithEtnaCutoffs.json",
     "ERC1967Proxy": "ERC1967Proxy.sol/ERC1967Proxy.json",
     "MockLandProofVerifier": "EtnaInboxTestBase.sol/MockLandProofVerifier.json",
+    "MockUnzenInbox": "MockUnzenInbox.sol/MockUnzenInbox.json",
     "TestERC20": "TestERC20.sol/TestERC20.json",
 }
 manifest = {

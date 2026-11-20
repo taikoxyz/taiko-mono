@@ -1455,6 +1455,68 @@
         }
       }
     },
+    "MockUnzenInbox": {
+      "compiler": {
+        "version": "0.8.30+commit.73712a01"
+      },
+      "settings": {
+        "compilationTarget": {
+          "test/layer1/etna/MockUnzenInbox.sol": "MockUnzenInbox"
+        },
+        "evmVersion": "osaka",
+        "libraries": {},
+        "metadata": {
+          "bytecodeHash": "ipfs"
+        },
+        "optimizer": {
+          "enabled": true,
+          "runs": 200
+        },
+        "remappings": [
+          ":@automata-network/automata-dcap-attestation/=node_modules/@automata-network/automata-dcap-attestation/",
+          ":@automata-network/on-chain-pccs/=node_modules/@automata-network/on-chain-pccs/src/",
+          ":@eth-fabric/urc/=node_modules/urc/src/",
+          ":@openzeppelin-upgrades/contracts/=node_modules/@openzeppelin/contracts-upgradeable/",
+          ":@openzeppelin/=node_modules/@openzeppelin/",
+          ":@optimism/=node_modules/optimism/",
+          ":@p256-verifier/contracts/=node_modules/p256-verifier/src/",
+          ":@risc0/contracts/=node_modules/risc0-ethereum/contracts/src/",
+          ":@solady/=node_modules/solady/",
+          ":@sp1-contracts/=node_modules/sp1-contracts/contracts/src/",
+          ":ds-test/=node_modules/ds-test/",
+          ":forge-std/=node_modules/forge-std/",
+          ":openzeppelin/=node_modules/@openzeppelin/",
+          ":optimism/=node_modules/optimism/",
+          ":p256-verifier/=node_modules/p256-verifier/",
+          ":risc0-ethereum/=node_modules/risc0-ethereum/",
+          ":risc0/=node_modules/risc0-ethereum/contracts/src/",
+          ":script/=script/",
+          ":solady/auth/=node_modules/solady/src/auth/",
+          ":solady/src/=node_modules/solady/src/",
+          ":solady/utils/=node_modules/solady/src/utils/",
+          ":sp1-contracts/=node_modules/sp1-contracts/",
+          ":src/=contracts/",
+          ":test/=test/",
+          ":urc/=node_modules/urc/"
+        ]
+      },
+      "sha256": "bf9d4db5c6c76cb2d52dbb38bce55eee749693acff7b96accd4e230c4f49767a",
+      "sourceArtifact": "packages/protocol/out/layer1/MockUnzenInbox.sol/MockUnzenInbox.json",
+      "sources": {
+        "contracts/layer1/core/iface/IInbox.sol": {
+          "keccak256": "0x97f0fc6b84ba6b9e5b0981d1bcd19a33511d0a76d1a00325f587458409061541",
+          "sha256": "b499ff07a5d518424c3eabda35f073794e8d493dba4f0fbe3a6fc3cec0f86b0c"
+        },
+        "contracts/layer1/core/libs/LibBlobs.sol": {
+          "keccak256": "0xf68eca4d37ac2cf52b1949578e3fbbb4d091c69154bc596b8f05a66d337689e8",
+          "sha256": "f824d7bb2e221920ae308757382f5451266ac48239fd20e3f7b92f5b289bcad9"
+        },
+        "test/layer1/etna/MockUnzenInbox.sol": {
+          "keccak256": "0x252641f6421acde56c9e23c02734d60bc5241d066b56a087ed1fd415f90f2007",
+          "sha256": "7a1b7eb8e64c9883e41129cf03daae267dc848c345794bb6ebc00ec8a0565ff5"
+        }
+      }
+    },
     "SignalService": {
       "compiler": {
         "version": "0.8.30+commit.73712a01"

@@ -37,6 +37,7 @@ sol!(
     "../../crates/lander/tests/fixtures/contracts/MockLandProofVerifier.json"
 );
 sol!(TestERC20, "../../crates/lander/tests/fixtures/contracts/TestERC20.json");
+sol!(MockUnzenInbox, "../../crates/lander/tests/fixtures/contracts/MockUnzenInbox.json");
 
 /// Each fixture bond's stake and the registry's `minStake`: 4,700,000 TAIKO, the devnet
 /// default (`DEFAULT_REGISTRY_MIN_STAKE`) and the built-in `min_stake`. The registry constructor
@@ -73,6 +74,19 @@ pub struct ContractFixture {
     pub entry: RegistryEntry,
     pub keys: Vec<ValidatorKey>,
     pub signer_storage: tempfile::TempDir,
+    /// On a switching deployment ([`ContractFixture::deploy_switching`]), the mock live Unzen
+    /// Inbox the EtnaInbox reads `proposeCutoff()` and `getCoreState()` from; `None` on a new
+    /// network.
+    pub unzen: Option<Address>,
+}
+
+/// A switching deployment's Unzen side: the mock Unzen Inbox address and `ETNA_FORK_TIME`.
+#[derive(Clone, Copy, Debug)]
+pub struct Switching {
+    /// The mock live Unzen Inbox, the only caller the checkpoint forwarder accepts.
+    pub unzen: Address,
+    /// `ETNA_FORK_TIME` in L1 Unix seconds.
+    pub fork_time: u64,
 }
 
 impl ContractFixture {
@@ -96,6 +110,30 @@ impl ContractFixture {
         unsettled_limit: u64,
         epoch_len: u64,
         n_max: usize,
+    ) -> Result<Self> {
+        Self::deploy_network(count, unsettled_limit, epoch_len, n_max, None).await
+    }
+
+    /// A switching network (START-10-5): the EtnaInbox names a mock live Unzen Inbox and an
+    /// `ETNA_FORK_TIME` `fork_after` seconds after the current L1 time, and its initialization
+    /// leaves the start unwritten until the permissionless `setOrigin(S)`. `genesis` describes
+    /// that unwritten start (height 0, zero hash and root); the chain parameters carry the
+    /// matching `[switch]` configuration.
+    pub async fn deploy_switching(fork_after: u64) -> Result<(Self, Switching)> {
+        Self::deploy_network(1, 120, EPOCH_LEN, 128, Some(fork_after)).await.map(|fixture| {
+            let switch = fixture.params.switch.as_ref().expect("switching parameters");
+            let switching =
+                Switching { unzen: switch.unzen_inbox, fork_time: switch.fork_timestamp };
+            (fixture, switching)
+        })
+    }
+
+    async fn deploy_network(
+        count: usize,
+        unsettled_limit: u64,
+        epoch_len: u64,
+        n_max: usize,
+        switching: Option<u64>,
     ) -> Result<Self> {
         let anvil = StandaloneAnvil::start().await?;
         let p = &anvil.provider;
@@ -216,6 +254,28 @@ impl ContractFixture {
         }
         mine_l1_blocks(p, 3).await?;
         let cutoff = test_harness::finalized_number(p).await?;
+        let unzen = match switching {
+            Some(_) => Some(
+                deploy(p, owner, include_str!("../fixtures/contracts/MockUnzenInbox.json"), vec![])
+                    .await?,
+            ),
+            None => None,
+        };
+        let now = p
+            .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
+            .await?
+            .context("L1 head")?
+            .header
+            .timestamp;
+        let switch = match (unzen, switching) {
+            (Some(unzen_inbox), Some(fork_after)) => Some(abci::SwitchConfig {
+                unzen_inbox,
+                fork_timestamp: now + fork_after,
+                // L1-side scenarios read no L2 SignalService implementation.
+                signal_service_implementation: Address::repeat_byte(0x5e),
+            }),
+            _ => None,
+        };
         let params = ChainParams {
             inbox,
             registry,
@@ -223,6 +283,7 @@ impl ContractFixture {
             unsettled_limit,
             n_max,
             fee_recipient: Address::repeat_byte(0x77),
+            switch: switch.clone(),
             ..ChainParams::builtin(L2_CHAIN_ID)?
         };
         let snapshot = Snapshot {
@@ -275,8 +336,11 @@ impl ContractFixture {
             include_str!("../fixtures/contracts/EtnaInbox.json"),
             EtnaInbox::constructorCall {
                 _config: IEtnaInbox::Config {
-                    unzenInbox: Address::ZERO,
-                    etnaForkTime: Default::default(),
+                    unzenInbox: unzen.unwrap_or_default(),
+                    etnaForkTime: switch
+                        .as_ref()
+                        .map_or(0, |switch| switch.fork_timestamp)
+                        .try_into()?,
                     proofVerifier: verifier,
                     signalService: signal,
                     stakingRegistry: registry,
@@ -291,9 +355,15 @@ impl ContractFixture {
             .abi_encode(),
         )
         .await?;
+        // A switching network leaves the start to `setOrigin` (START-10-5a).
+        let (start_hash, start_root) = if switch.is_some() {
+            (B256::ZERO, B256::ZERO)
+        } else {
+            (genesis_hash, parent_header.state_root)
+        };
         let input = IEtnaInbox::InitParams {
-            genesisBlockHash: genesis_hash,
-            genesisStateRoot: parent_header.state_root,
+            genesisBlockHash: start_hash,
+            genesisStateRoot: start_root,
             epochLenL2: U256::from(epoch_len),
             genesisCutoff: U256::from(cutoff),
             committeeRecordHash: record_hash(L2_CHAIN_ID, &committee.record),
@@ -321,14 +391,14 @@ impl ContractFixture {
             genesis_height: 0,
             l1_0: initialized.block_number.context("owner init block")?,
             epoch_len,
-            genesis_hash,
-            genesis_state_root: parent_header.state_root,
+            genesis_hash: start_hash,
+            genesis_state_root: start_root,
             genesis_cutoff: cutoff,
             forced_inclusion_delay: FORCED_INCLUSION_DELAY,
             max_anchor_age: MAX_ANCHOR_AGE,
         };
         mine_l1_blocks(p, 3).await?;
-        ensure!(Self::checkpoint_at(p, inbox).await? == (0, genesis_hash), "real proxy checkpoint");
+        ensure!(Self::checkpoint_at(p, inbox).await? == (0, start_hash), "real proxy checkpoint");
         Ok(Self {
             anvil,
             l2,
@@ -344,6 +414,7 @@ impl ContractFixture {
             entry: entries[0].clone(),
             keys,
             signer_storage,
+            unzen,
         })
     }
 

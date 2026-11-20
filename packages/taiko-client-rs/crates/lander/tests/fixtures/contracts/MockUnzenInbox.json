@@ -1,0 +1,123 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "name": "getCoreState",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint48",
+              "name": "nextProposalId",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "lastProposalBlockId",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "lastFinalizedProposalId",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "lastFinalizedTimestamp",
+              "type": "uint48"
+            },
+            {
+              "internalType": "uint48",
+              "name": "lastCheckpointTimestamp",
+              "type": "uint48"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "lastFinalizedBlockHash",
+              "type": "bytes32"
+            }
+          ],
+          "internalType": "struct IInbox.CoreState",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "proposeCutoff",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint48",
+          "name": "_nextProposalId",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint48",
+          "name": "_lastFinalizedProposalId",
+          "type": "uint48"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_lastFinalizedBlockHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "setCoreState",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint48",
+          "name": "_cutoff",
+          "type": "uint48"
+        }
+      ],
+      "name": "setProposeCutoff",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bool",
+          "name": "_reverts",
+          "type": "bool"
+        }
+      ],
+      "name": "setProposeCutoffReverts",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "ProposeCutoffUnavailable",
+      "type": "error"
+    }
+  ],
+  "bytecode": {
+    "object": "0x6080604052348015600e575f5ffd5b506103358061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610055575f3560e01c8063237fdf2a1461005957806330a90ccb146100895780636aa6a01a146100b857806374bf4e3e146101c7578063e0f4e13b146101e6575b5f5ffd5b610087610067366004610287565b6002805465ffffffffffff191665ffffffffffff92909216919091179055565b005b6100876100973660046102a7565b60028054911515600160301b0266ff00000000000019909216919091179055565b61014b6040805160c0810182525f80825260208201819052918101829052606081018290526080810182905260a0810191909152506040805160c0810182525f5465ffffffffffff8082168352600160301b820481166020840152600160601b8204811693830193909352600160901b810483166060830152600160c01b9004909116608082015260015460a082015290565b6040516101be91905f60c08201905065ffffffffffff835116825265ffffffffffff602084015116602083015265ffffffffffff604084015116604083015265ffffffffffff606084015116606083015265ffffffffffff608084015116608083015260a083015160a083015292915050565b60405180910390f35b6101cf610231565b60405165ffffffffffff90911681526020016101be565b6100876101f43660046102c6565b5f805465ffffffffffff938416600160601b0271ffffffffffff000000000000ffffffffffff199091169390941692909217929092179055600155565b6002545f90600160301b900460ff161561025e57604051635db3481f60e11b815260040160405180910390fd5b5060025465ffffffffffff1690565b803565ffffffffffff81168114610282575f5ffd5b919050565b5f60208284031215610297575f5ffd5b6102a08261026d565b9392505050565b5f602082840312156102b7575f5ffd5b813580151581146102a0575f5ffd5b5f5f5f606084860312156102d8575f5ffd5b6102e18461026d565b92506102ef6020850161026d565b915060408401359050925092509256fea2646970667358221220cdc47add28f55ba442ef51db3aba2fe6aaa105b55233bb1e59496e8c2703b63064736f6c634300081e0033"
+  },
+  "contractName": "MockUnzenInbox",
+  "deployedBytecode": {
+    "object": "0x608060405234801561000f575f5ffd5b5060043610610055575f3560e01c8063237fdf2a1461005957806330a90ccb146100895780636aa6a01a146100b857806374bf4e3e146101c7578063e0f4e13b146101e6575b5f5ffd5b610087610067366004610287565b6002805465ffffffffffff191665ffffffffffff92909216919091179055565b005b6100876100973660046102a7565b60028054911515600160301b0266ff00000000000019909216919091179055565b61014b6040805160c0810182525f80825260208201819052918101829052606081018290526080810182905260a0810191909152506040805160c0810182525f5465ffffffffffff8082168352600160301b820481166020840152600160601b8204811693830193909352600160901b810483166060830152600160c01b9004909116608082015260015460a082015290565b6040516101be91905f60c08201905065ffffffffffff835116825265ffffffffffff602084015116602083015265ffffffffffff604084015116604083015265ffffffffffff606084015116606083015265ffffffffffff608084015116608083015260a083015160a083015292915050565b60405180910390f35b6101cf610231565b60405165ffffffffffff90911681526020016101be565b6100876101f43660046102c6565b5f805465ffffffffffff938416600160601b0271ffffffffffff000000000000ffffffffffff199091169390941692909217929092179055600155565b6002545f90600160301b900460ff161561025e57604051635db3481f60e11b815260040160405180910390fd5b5060025465ffffffffffff1690565b803565ffffffffffff81168114610282575f5ffd5b919050565b5f60208284031215610297575f5ffd5b6102a08261026d565b9392505050565b5f602082840312156102b7575f5ffd5b813580151581146102a0575f5ffd5b5f5f5f606084860312156102d8575f5ffd5b6102e18461026d565b92506102ef6020850161026d565b915060408401359050925092509256fea2646970667358221220cdc47add28f55ba442ef51db3aba2fe6aaa105b55233bb1e59496e8c2703b63064736f6c634300081e0033"
+  }
+}
