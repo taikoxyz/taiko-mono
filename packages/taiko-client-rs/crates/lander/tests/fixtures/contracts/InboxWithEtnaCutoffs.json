@@ -1091,6 +1091,19 @@
       "type": "function"
     },
     {
+      "inputs": [],
+      "name": "proposeCutoff",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "bytes",

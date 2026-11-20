@@ -17,6 +17,12 @@
 // where each set is a list of {"key", "ck_prefix", "ck_x", "voting_power", "proposer_priority"} in
 // CometBFT's set order. Integers are decimal strings.
 //
+// The input may also hold "cases": [{"name", "members": [{"key", "power", "priority"}], "changes":
+// [{"key", "power"}]}], the arithmetic examples of ENC-A-29a 29a.n-p. Each case is a set with the
+// given proposer priorities, listed in CometBFT's set order, to which ValidatorSet.UpdateWithChangeSet
+// applies the changes (when there are any) and then IncrementProposerPriority(1). The output's
+// "cases" give each as {"name", "updated" (after the changes), "incremented", "proposer"}.
+//
 // Every state comes from CometBFT's own code; nothing that produces an output is reimplemented:
 //
 //   - The state at a chain's start height o is state.MakeGenesisState of a genesis doc with
@@ -94,9 +100,22 @@ type chainIn struct {
 	Updates     []update `json:"updates"`
 }
 
+type prioritized struct {
+	Key      string `json:"key"`
+	Power    string `json:"power"`
+	Priority string `json:"priority"`
+}
+
+type caseIn struct {
+	Name    string        `json:"name"`
+	Members []prioritized `json:"members"`
+	Changes []member      `json:"changes"`
+}
+
 type input struct {
 	Keys   []keyIn   `json:"keys"`
 	Chains []chainIn `json:"chains"`
+	Cases  []caseIn  `json:"cases"`
 }
 
 type keyOut struct {
@@ -128,9 +147,17 @@ type chainOut struct {
 	States []stateOut `json:"states"`
 }
 
+type caseOut struct {
+	Name        string     `json:"name"`
+	Updated     []entryOut `json:"updated"`
+	Incremented []entryOut `json:"incremented"`
+	Proposer    string     `json:"proposer"`
+}
+
 type output struct {
 	Keys   []keyOut   `json:"keys"`
 	Chains []chainOut `json:"chains"`
+	Cases  []caseOut  `json:"cases,omitempty"`
 }
 
 // keyring maps key names to secp256k1eth public keys and addresses back to names.
@@ -182,6 +209,13 @@ func run() error {
 			return fmt.Errorf("chain %s: %w", c.Name, err)
 		}
 		out.Chains = append(out.Chains, chainOut{Name: c.Name, States: states})
+	}
+	for _, c := range in.Cases {
+		result, err := runCase(ring, c)
+		if err != nil {
+			return fmt.Errorf("case %s: %w", c.Name, err)
+		}
+		out.Cases = append(out.Cases, result)
 	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", " ")
@@ -444,14 +478,23 @@ func (r keyring) set(vs *types.ValidatorSet) ([]entryOut, int, error) {
 	if proposer < 0 {
 		return nil, 0, fmt.Errorf("stored proposer is not a member")
 	}
-	if !sort.IsSorted(types.ValidatorsByVotingPower(vs.Validators)) {
-		return nil, 0, fmt.Errorf("set is not in ValidatorsByVotingPower order")
+	entries, err := r.rows(vs.Validators)
+	if err != nil {
+		return nil, 0, err
 	}
-	entries := make([]entryOut, 0, len(vs.Validators))
-	for _, v := range vs.Validators {
+	return entries, int(proposer), nil
+}
+
+// rows lists validators that must be in ValidatorsByVotingPower order.
+func (r keyring) rows(vals []*types.Validator) ([]entryOut, error) {
+	if !sort.IsSorted(types.ValidatorsByVotingPower(vals)) {
+		return nil, fmt.Errorf("set is not in ValidatorsByVotingPower order")
+	}
+	entries := make([]entryOut, 0, len(vals))
+	for _, v := range vals {
 		name, ok := r.byAddr[string(v.Address)]
 		if !ok {
-			return nil, 0, fmt.Errorf("unknown validator %X", v.Address)
+			return nil, fmt.Errorf("unknown validator %X", v.Address)
 		}
 		pub := v.PubKey.Bytes()
 		entries = append(entries, entryOut{
@@ -462,7 +505,64 @@ func (r keyring) set(vs *types.ValidatorSet) ([]entryOut, int, error) {
 			ProposerPriority: strconv.FormatInt(v.ProposerPriority, 10),
 		})
 	}
-	return entries, int(proposer), nil
+	return entries, nil
+}
+
+// runCase applies UpdateWithChangeSet (when the case has changes) and IncrementProposerPriority(1)
+// to a set whose members carry the case's priorities. NewValidatorSet would reset those
+// priorities, so the set is built from its exported fields, in the case's order, which must be
+// CometBFT's set order; the total power is computed on first use, as for any set.
+func runCase(ring keyring, c caseIn) (caseOut, error) {
+	vals := make([]*types.Validator, 0, len(c.Members))
+	for _, m := range c.Members {
+		pub, power, err := ring.member(member{Key: m.Key, Power: m.Power})
+		if err != nil {
+			return caseOut{}, err
+		}
+		priority, err := strconv.ParseInt(m.Priority, 10, 64)
+		if err != nil {
+			return caseOut{}, fmt.Errorf("priority %q of %s", m.Priority, m.Key)
+		}
+		v := types.NewValidator(pub, power)
+		v.ProposerPriority = priority
+		vals = append(vals, v)
+	}
+	for i, v := range vals {
+		if err := v.ValidateBasic(); err != nil {
+			return caseOut{}, fmt.Errorf("member %d: %w", i, err)
+		}
+	}
+	if !sort.IsSorted(types.ValidatorsByVotingPower(vals)) {
+		return caseOut{}, fmt.Errorf("members are not in ValidatorsByVotingPower order")
+	}
+	vs := &types.ValidatorSet{Validators: vals}
+	out := caseOut{Name: c.Name, Updated: []entryOut{}}
+	if len(c.Changes) > 0 {
+		changes := make([]*types.Validator, 0, len(c.Changes))
+		for _, m := range c.Changes {
+			pub, power, err := ring.member(m)
+			if err != nil {
+				return caseOut{}, err
+			}
+			changes = append(changes, types.NewValidator(pub, power))
+		}
+		if err := vs.UpdateWithChangeSet(changes); err != nil {
+			return caseOut{}, err
+		}
+		updated, err := ring.rows(vs.Validators)
+		if err != nil {
+			return caseOut{}, err
+		}
+		out.Updated = updated
+	}
+	vs.IncrementProposerPriority(1)
+	incremented, proposer, err := ring.set(vs)
+	if err != nil {
+		return caseOut{}, err
+	}
+	out.Incremented = incremented
+	out.Proposer = strconv.Itoa(proposer)
+	return out, nil
 }
 
 // encode is ENC-A-29a's preimage: abi.encode(bytes32("ETNA_VAL_STATE_V1"), uint256(x), current,

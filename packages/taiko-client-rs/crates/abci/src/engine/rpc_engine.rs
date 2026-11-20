@@ -17,7 +17,6 @@ use alloy_rpc_types_engine::{
 };
 use alloy_sol_types::SolCall;
 use async_trait::async_trait;
-use bindings::signal_service::SignalService::beaconRootsFromCall;
 use rpc::{
     RpcClientError,
     auth::{EngineClient, PoolSelection},
@@ -29,6 +28,13 @@ use url::Url;
 
 use super::{Engine, EngineError, PayloadVerdict, block_from_payload, payload_from_block};
 use crate::envelope::ExecutionBlock;
+
+alloy_sol_types::sol! {
+    /// The L2 SignalService fork-time getter of the contracts before #22286 at 2f496d31b, which
+    /// replaced it with `usesBeaconRoots()`: the SYNC-9-5a comparison that still reads it moves
+    /// to the L1 EtnaInbox's `etnaForkTime()`, so the generated binding no longer has it.
+    function beaconRootsFrom() external view returns (uint64);
+}
 
 /// Pinned Reth's explicit body-history pruning error; unrelated RPC failures are not pruning.
 const PRUNED_BODY_CODE: i64 = 4444;

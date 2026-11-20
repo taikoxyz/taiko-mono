@@ -640,18 +640,11 @@ async fn standby_recovery(clear_fi: bool) -> Result<()> {
         if clear_fi {
             f.save_forced_inclusion(&[0xc0]).await?;
         }
-        let key = f.keys[active].pubkey();
-        let mut encoded = [0u8; 64];
-        encoded[31] = key.as_bytes()[0];
-        encoded[32..].copy_from_slice(&key.as_bytes()[1..]);
         recover_with_lists(
             &f,
             0,
             6,
-            vec![contracts_support::contracts::IEtnaInbox::Exclusion {
-                bondId: alloy_primitives::U256::from(active),
-                entryKey: alloy_primitives::keccak256(encoded),
-            }],
+            vec![alloy_primitives::U256::from(active)],
             if clear_fi { vec![alloy_primitives::U256::ZERO] } else { vec![] },
         )
         .await?;

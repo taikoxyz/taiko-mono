@@ -43,6 +43,10 @@ sol!(TestERC20, "../../crates/lander/tests/fixtures/contracts/TestERC20.json");
 /// requires `4096 * minStake > 10^27` (more than 244,140.625 TAIKO). The default devnet power
 /// mapping gives each entry 4.7 * 10^15 voting power.
 pub const STAKE: u128 = 4_700_000 * 10u128.pow(18);
+/// The Inbox's recovery capacity F: the devnet deployment default (`DEFAULT_RECOVERY_CAPACITY`),
+/// the measured largest exclusion count whose worst-case `recover` fits the L1 per-transaction gas
+/// cap. `init` requires `K = floor(10^27 / minStake) <= F` (START-10-14), 212 at [`STAKE`].
+pub const RECOVERY_CAPACITY: u16 = 212;
 /// The devnet chain id accepted by builtin client configuration.
 pub const L2_CHAIN_ID: u64 = 167001;
 /// Accelerated canonical epoch: D(1)=12, S(1)=13, H(1)=15.
@@ -252,8 +256,8 @@ impl ContractFixture {
                 authorizedSyncer: inbox,
                 remoteSignalService: Address::repeat_byte(0xdd),
                 _pauser: owner,
-                // Zero on L1 (START-10-5).
-                _beaconRootsFrom: 0,
+                // False on L1 (START-10-5).
+                _usesBeaconRoots: false,
             }
             .abi_encode(),
         )
@@ -271,7 +275,6 @@ impl ContractFixture {
             include_str!("../fixtures/contracts/EtnaInbox.json"),
             EtnaInbox::constructorCall {
                 _config: IEtnaInbox::Config {
-                    originWriter: Address::ZERO,
                     unzenInbox: Address::ZERO,
                     etnaForkTime: Default::default(),
                     proofVerifier: verifier,
@@ -282,6 +285,7 @@ impl ContractFixture {
                     forcedInclusionFeeInGwei: 1,
                     forcedInclusionFeeDoubleThreshold: 50,
                     protocolFeeRecipient: admin,
+                    recoveryCapacity: RECOVERY_CAPACITY,
                 },
             }
             .abi_encode(),
@@ -295,7 +299,6 @@ impl ContractFixture {
             committeeRecordHash: record_hash(L2_CHAIN_ID, &committee.record),
             committeeConfig: IEtnaInbox::CommitteeConfig {
                 vpUnit: params.vp_unit,
-                sMin: params.min_stake,
                 nMax: U256::from(params.n_max),
                 unsettledLimit: U256::from(params.unsettled_limit),
             },

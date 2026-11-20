@@ -1113,7 +1113,7 @@ tests read) from that revision and records their hashes. Run it twice and requir
 generated output.
 The export includes the switching SignalService and an ABI-only Unzen cutoff artifact, whose
 external library references are recorded in the manifest rather than exposing unlinked deployment
-bytecode. Shared vectors follow the pinned contracts' schema 8. Test adapter updates and execution
+bytecode. Shared vectors follow the pinned contracts' schema 9. Test adapter updates and execution
 are separate from this artifact refresh.
 
 Regenerate the legacy Inbox, Anchor and PreconfWhitelist Rust bindings with

@@ -7,7 +7,7 @@ use abci::{
     l1::{fetch::build_committee_witness_at_cutoff, source::L1Source},
 };
 use alloy::sol_types::SolCall;
-use alloy_primitives::{B256, U256, keccak256};
+use alloy_primitives::{B256, U256};
 use alloy_provider::Provider;
 use anyhow::{Context, Result};
 use support::{
@@ -33,7 +33,11 @@ async fn authenticated_planned_stop_ends_real_consensus_after_the_first_late_blo
         p,
         owner,
         f.inbox,
-        EtnaInbox::scheduleStopCall { _time: stop_time.try_into()? }.abi_encode(),
+        EtnaInbox::scheduleStopCall {
+            _expectedGeneration: Default::default(),
+            _time: stop_time.try_into()?,
+        }
+        .abi_encode(),
     )
     .await?;
     anvil_request::<serde_json::Value>(
@@ -75,9 +79,8 @@ alloy::sol! {
     interface StakingChanges {
         function topUp(uint256 bondId, uint256 amount) external;
         function activateTopUp(uint256 bondId) external;
-        function forfeit(uint256 bondId, bytes32 entryKey, bytes32 incidentId, uint256 validUntil) external;
-        struct Exclusion { uint256 bondId; bytes32 entryKey; }
-        function recover(uint48 generation, uint256 c, uint256 nonce, uint256 validUntil, Exclusion[] exclusions, uint256[] fiToClear, uint48 rules) external;
+        function forfeit(uint256 bondId, bytes32 incidentId, uint256 validUntil) external;
+        function recover(uint48 generation, uint256 c, uint256 nonce, uint256 validUntil, uint256[] exclusions, uint256[] fiToClear, uint48 rules) external;
         function recoveryNonce() external view returns (uint256);
     }
 }
@@ -158,17 +161,12 @@ async fn delayed_top_up_and_forfeiture_change_only_later_authenticated_committee
     }
 
     let key = f.keys[0].pubkey();
-    let mut encoded = [0u8; 64];
-    encoded[31] = key.as_bytes()[0];
-    encoded[32..].copy_from_slice(&key.as_bytes()[1..]);
-    let entry_key = keccak256(encoded);
     let forfeited = transact(
         p,
         owner,
         f.registry,
         StakingChanges::forfeitCall {
             bondId: U256::ZERO,
-            entryKey: entry_key,
             incidentId: B256::repeat_byte(42),
             validUntil: U256::MAX,
         }

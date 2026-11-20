@@ -357,7 +357,7 @@
       }
     },
     "SignalService": {
-      "abiSha256": "cb95c8fc4c1e59397cfda3c828793313c8b7c9cadb31369fc91344ac31324e0e",
+      "abiSha256": "e0d8aeaabb8087da0a411e18b0c97a9f0112c65bd18b98222ffedf6f8217a857",
       "compiler": {
         "version": "0.8.30+commit.73712a01"
       },
@@ -383,8 +383,8 @@
           "sha256": "0a5ba86a09147a68f78ab82c21748259c829265b66ac92df4d2a64d96a3d180b"
         },
         "contracts/shared/signal/SignalService.sol": {
-          "keccak256": "0x1e7d5feb623f2990f1743d184f8d48187fe9f64dcd11b44bea4d9c2203c9b260",
-          "sha256": "3e935aec31f9a616aca57b8fac6b0c6fb0f9c2619e4650e92449c9893cc287e9"
+          "keccak256": "0x71e20af9ea1e99c1fd15bd3dd13fdcc731999f07df33b1e0c4398145bb65659b",
+          "sha256": "886c95ca85fc0c82d80bfc4a06ade839a100cf3a580998f9ea9f395781064ff6"
         },
         "contracts/shared/signal/SignalService_Layout.sol": {
           "keccak256": "0x8a5d0d5adbf8721026495f953484f3bee66d58fe47c49ec92381742dca7d9ac5",
@@ -471,9 +471,9 @@
     "src/inbox.rs": "2b0b4cea4eb30c5e716bb49b741b29335b0bbb747d4f356e79b006abe5029030",
     "src/lib.rs": "ee7f8156bb0194e91ab95c796d9d978c2bf6e36e521f31adfa3dc31798b97c08",
     "src/preconf_whitelist.rs": "ddc304900edfa442c9d27aa9350201f73b5b6546e09893742614c0f8f4da8a73",
-    "src/signal_service.rs": "c2cce7f58e893f0eb66ef0c13caac423359ba1790762a05383c44d26546ff10d"
+    "src/signal_service.rs": "eed843b73e6d06b9218a3939a152960372a02ac113dd44948a5589ca7ea765d8"
   },
   "foundryVersion": ["Commit SHA: 4072e48705af9d93e3c0f6e29e93b5e9a40caed8"],
   "generator": "script/gen_bindings.sh",
-  "protocolRevision": "7cd9606af6a8c9290874bd1525d58008e24ebadc"
+  "protocolRevision": "2f496d31ba7bfd2135e2a49bbba865235ca1d87f"
 }

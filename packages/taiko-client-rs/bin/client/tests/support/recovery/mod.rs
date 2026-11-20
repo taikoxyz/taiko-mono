@@ -6,7 +6,7 @@ pub mod process;
 use self::process::Process;
 use crate::contracts_support::{
     ContractFixture,
-    contracts::{EtnaInbox, IEtnaInbox, transact, view},
+    contracts::{EtnaInbox, transact, view},
 };
 use abci::ChainParams;
 use alloy::{primitives::aliases::U48, sol_types::SolCall};
@@ -479,7 +479,7 @@ pub async fn recover_with_lists(
     f: &ContractFixture,
     generation: u64,
     c: u64,
-    exclusions: Vec<IEtnaInbox::Exclusion>,
+    exclusions: Vec<U256>,
     fi_to_clear: Vec<U256>,
 ) -> Result<()> {
     let p = &f.anvil.provider;

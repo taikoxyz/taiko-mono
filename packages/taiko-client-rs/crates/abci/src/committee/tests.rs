@@ -45,9 +45,8 @@ fn v1_configuration_matches_seven_word_vector() {
     let mut p = devnet();
     p.registry = inputs["registry"].as_str().unwrap().parse().unwrap();
     p.vp_unit = number("vp_unit");
-    // The fifth word is the registry's minStake (ENC-A-36); the pinned vectors still call it
-    // s_min.
-    p.min_stake = number("s_min");
+    // The fifth word is the registry's minStake (ENC-A-36).
+    p.min_stake = number("min_stake");
     p.n_max = number("n_max").to();
     p.unsettled_limit = number("unsettled_limit").to();
     assert_eq!(
@@ -96,16 +95,35 @@ fn v1_registry_and_committee_roots_match_schema5() {
                 power: m["power"].as_str().unwrap().parse().unwrap(),
             })
             .collect();
-        // The pinned shared vectors still carry the set word of the encoding before ENC-A-39a;
-        // the record hash binds whatever set word it is given, so it is checked with theirs.
-        // `appendix_a_hash_vectors_use_bytes32_tags` checks setHash itself.
+        // ENC-A-39a: the set hash over the members in set-key order at version k.
+        let chain: u64 = case["l2_chain_id"].as_str().unwrap().parse().unwrap();
+        let k: u64 = case["set_version"].as_str().unwrap().parse().unwrap();
+        for (member, raw) in members.iter().zip(case["members"].as_array().unwrap()) {
+            assert_eq!(
+                set_key(chain, member.pubkey),
+                raw["set_key"].as_str().unwrap().parse::<B256>().unwrap()
+            );
+        }
+        let set = set_hash(chain, k, &members);
+        assert_eq!(set, case["set_hash"].as_str().unwrap().parse::<B256>().unwrap());
+        assert_eq!(
+            set,
+            keccak256(
+                case["set_hash_preimage"]
+                    .as_str()
+                    .unwrap()
+                    .parse::<alloy_primitives::Bytes>()
+                    .unwrap()
+            )
+        );
         let record = CommitteeRecord {
             target_epoch: case["target_epoch"].as_str().unwrap().parse().unwrap(),
             cutoff_l1_block: case["cutoff_l1_block"].as_str().unwrap().parse().unwrap(),
             checkpoint_index: case["checkpoint_index"].as_str().unwrap().parse().unwrap(),
-            set_hash: case["set_root"].as_str().unwrap().parse().unwrap(),
-            total_power: members.iter().map(|m| m.power).sum(),
+            set_hash: set,
+            total_power: case["total_power"].as_str().unwrap().parse().unwrap(),
         };
+        assert_eq!(record.total_power, members.iter().map(|m| m.power).sum::<u64>());
         assert_eq!(
             record_hash(CHAIN, &record),
             case["record_hash"].as_str().unwrap().parse::<B256>().unwrap()
@@ -426,6 +444,70 @@ fn empty_slot() -> RegistryEntry {
         eff_stake: U256::ZERO,
         active_from_l1: 0,
         exit_effective_l1: 0,
+    }
+}
+
+/// The shared registry checkpoint sequence (STAKE-4.1-36 36.f/36.g, ENC-A-38 38.h, COMM-4.3-2
+/// 2.d): count is 0 or one plus the highest occupied slot, so it shrinks once the last occupied
+/// slot is withdrawn, an interior empty slot is the all-zero leaf, and every checkpoint of the
+/// sequence verifies with the vector's packed word, leaves and entriesRoot.
+#[test]
+fn shared_registry_checkpoints_shrink_and_verify() {
+    let cases = vectors()["registry_entries"]["checkpoints"].as_array().unwrap().clone();
+    let number = |v: &serde_json::Value| v.as_str().unwrap().parse::<u64>().unwrap();
+    let mut storage = RegistryStorage { checkpoints: vec![] };
+    for case in &cases {
+        let entries: Vec<RegistryEntry> = case["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .enumerate()
+            .map(|(slot, raw)| {
+                assert_eq!(number(&raw["slot"]), slot as u64);
+                let entry = RegistryEntry {
+                    ck_prefix: number(&raw["ck_prefix"]) as u8,
+                    ck_x: raw["ck_x"].as_str().unwrap().parse().unwrap(),
+                    eff_stake: raw["eff_stake"].as_str().unwrap().parse().unwrap(),
+                    active_from_l1: number(&raw["active_from_l1"]),
+                    exit_effective_l1: number(&raw["exit_effective_l1"]),
+                };
+                assert_eq!(entry.is_empty_slot(), raw["occupied"] == false);
+                entry
+            })
+            .collect();
+        let count = number(&case["count"]);
+        assert_eq!(entries.len() as u64, count, "{}", case["name"]);
+        assert!(!entries.last().is_some_and(RegistryEntry::is_empty_slot), "{}", case["name"]);
+        let leaves: Vec<B256> =
+            entries.iter().enumerate().map(|(slot, e)| entry_leaf(slot, e)).collect();
+        let expected: Vec<B256> = case["leaves"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|leaf| leaf.as_str().unwrap().parse().unwrap())
+            .collect();
+        assert_eq!(leaves, expected, "{}", case["name"]);
+        assert_eq!(
+            entries_root(&entries),
+            case["entries_root"].as_str().unwrap().parse::<B256>().unwrap(),
+            "{}",
+            case["name"]
+        );
+        let l1_block = number(&case["l1_block"]);
+        assert_eq!(
+            U256::from(l1_block) | U256::from(count) << 48,
+            case["checkpoint_word1"].as_str().unwrap().parse::<U256>().unwrap(),
+            "{}",
+            case["name"]
+        );
+        storage.checkpoints.push((l1_block, entries));
+    }
+    assert!(storage.checkpoints.windows(2).any(|w| w[1].1.len() < w[0].1.len()), "count shrinks");
+    let state = registry_state(&storage);
+    for (index, (l1_block, entries)) in storage.checkpoints.iter().enumerate() {
+        let w = witness_at(&state, &storage, index as u64);
+        let snapshot = verify_snapshot(state.state_root(), REGISTRY, &w, *l1_block).unwrap();
+        assert_eq!(&snapshot.entries, entries);
     }
 }
 

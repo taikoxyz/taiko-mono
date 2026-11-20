@@ -40,9 +40,8 @@ fn v1_configuration_matches_seven_word_vector() {
     let mut p = devnet();
     p.registry = inputs["registry"].as_str().unwrap().parse().unwrap();
     p.vp_unit = number("vp_unit");
-    // The fifth word is the registry's minStake (ENC-A-36); the pinned vectors still call it
-    // s_min.
-    p.min_stake = number("s_min");
+    // The fifth word is the registry's minStake (ENC-A-36).
+    p.min_stake = number("min_stake");
     p.n_max = number("n_max").to();
     p.unsettled_limit = number("unsettled_limit").to();
     assert_eq!(
@@ -91,16 +90,35 @@ fn v1_registry_and_committee_roots_match_schema5() {
                 power: m["power"].as_str().unwrap().parse().unwrap(),
             })
             .collect();
-        // The pinned shared vectors still carry the set word of the encoding before ENC-A-39a;
-        // the record hash binds whatever set word it is given, so it is checked with theirs.
-        // `appendix_a_hash_vectors_use_bytes32_tags` checks setHash itself.
+        // ENC-A-39a: the set hash over the members in set-key order at version k.
+        let chain: u64 = case["l2_chain_id"].as_str().unwrap().parse().unwrap();
+        let k: u64 = case["set_version"].as_str().unwrap().parse().unwrap();
+        for (member, raw) in members.iter().zip(case["members"].as_array().unwrap()) {
+            assert_eq!(
+                set_key(chain, member.pubkey),
+                raw["set_key"].as_str().unwrap().parse::<B256>().unwrap()
+            );
+        }
+        let set = set_hash(chain, k, &members);
+        assert_eq!(set, case["set_hash"].as_str().unwrap().parse::<B256>().unwrap());
+        assert_eq!(
+            set,
+            keccak256(
+                case["set_hash_preimage"]
+                    .as_str()
+                    .unwrap()
+                    .parse::<alloy_primitives::Bytes>()
+                    .unwrap()
+            )
+        );
         let record = CommitteeRecord {
             target_epoch: case["target_epoch"].as_str().unwrap().parse().unwrap(),
             cutoff_l1_block: case["cutoff_l1_block"].as_str().unwrap().parse().unwrap(),
             checkpoint_index: case["checkpoint_index"].as_str().unwrap().parse().unwrap(),
-            set_hash: case["set_root"].as_str().unwrap().parse().unwrap(),
-            total_power: members.iter().map(|m| m.power).sum(),
+            set_hash: set,
+            total_power: case["total_power"].as_str().unwrap().parse().unwrap(),
         };
+        assert_eq!(record.total_power, members.iter().map(|m| m.power).sum::<u64>());
         assert_eq!(
             record_hash(CHAIN, &record),
             case["record_hash"].as_str().unwrap().parse::<B256>().unwrap()
