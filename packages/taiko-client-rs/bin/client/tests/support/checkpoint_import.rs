@@ -106,10 +106,10 @@ async fn checkpoint_import_latest_full_node_restarts_forced_skips_and_retries() 
     scenario(Scenario::Latest).await
 }
 
-/// An older checkpoint (s = 6, target 12) exported with the archived validator-state preimage
-/// for s - 1 (DATA-5.4-3, SYNC-9-5c). The import leaves the key, HRS, domains log and WAL unchanged
-/// (DATA-5.4-7); the supervisor on `ready` proposes in a later round, and the chain lands its
-/// block.
+/// An older checkpoint s, the height after the stock snapshot, below a later target s + 6,
+/// exported with the archived validator-state preimage for s - 1 (DATA-5.4-3, SYNC-9-5c). The
+/// import leaves the key, HRS, domains log and WAL unchanged (DATA-5.4-7); the supervisor on
+/// `ready` proposes in a later round, and the chain lands its block.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn registered_checkpoint_older_signs_proposes_and_lands() -> Result<()> {
@@ -135,7 +135,8 @@ async fn scenario(kind: Scenario) -> Result<()> {
     test_harness::init_tracing();
     let registered = kind == Scenario::RegisteredOlder;
     let count = if registered { 4 } else { 1 };
-    // U = 6 holds the latest source at 6 until it lands; both FI entries then come due after s.
+    // U = 6 holds the latest source at checkpoint + 6. `latest` releases it only up to s, so
+    // both FI entries come due after s.
     let unsettled = if kind == Scenario::Latest { 6 } else { 120 };
     let epoch_len = if registered { 6 } else { 8 };
     let f = ContractFixture::deploy_config(count, unsettled, epoch_len).await?;
@@ -158,10 +159,15 @@ async fn scenario(kind: Scenario) -> Result<()> {
 }
 
 async fn latest(f: &ContractFixture, c: &mut ContractConsensus, commands: &Commands) -> Result<()> {
-    let s = 6;
     let base = commands.dir.path().canonicalize()?;
-    let stock = base.join("stock-state-at-5");
-    capture_stock_state(c, s - 1, &stock).await?;
+    let stock = base.join("stock-state");
+    // Nothing has landed, so U holds the snapshot at or below U itself.
+    let s = capture_stock_state(c, 5, &stock).await? + 1;
+    let unsettled = f.params.unsettled_limit();
+    if s > unsettled {
+        // Release the hold up to s and no further.
+        land(f, c, commands, s - unsettled).await?;
+    }
     c.wait_for_height(s).await?;
     forced::enqueue(f).await?;
     land(f, c, commands, s).await?;
@@ -208,31 +214,33 @@ async fn registered_older(
     c: &mut ContractConsensus,
     commands: &Commands,
 ) -> Result<()> {
-    let (s, target) = (6, 12);
     let base = commands.dir.path().canonicalize()?;
-    let stock = base.join("stock-state-at-5");
-    capture_stock_state(c, s - 1, &stock).await?;
+    let stock = base.join("stock-state");
+    let s = capture_stock_state(c, 5, &stock).await? + 1;
+    let target = s + 6;
     c.wait_for_height(s).await?;
     // The app's sidecar is checksummed; its query answers the raw preimage for s - 1 that the
     // export takes.
+    let query = format!("/val_state/{}", s - 1);
     let preimage = tokio::time::timeout(Duration::from_secs(20), async {
         loop {
             // A transient RPC error keeps polling, as a refusal does.
-            if let Some(preimage) = c.cmt.abci_query("/val_state/5").await.ok().flatten() {
+            if let Some(preimage) = c.cmt.abci_query(&query).await.ok().flatten() {
                 return preimage
             }
             tokio::time::sleep(Duration::from_millis(50)).await
         }
     })
     .await
-    .context("source app must commit preimage 5")?;
+    .context("source app must commit the preimage for s - 1")?;
     let archived = base.join("archived-val-state.bin");
     fs::write(&archived, preimage).context("archive live validator-state preimage")?;
+    land(f, c, commands, s).await?;
     land(f, c, commands, target).await?;
-    // Node 0 refuses 5 once its floor (checkpoint - 1) passes it, so the export needs the
+    // Node 0 refuses s - 1 once its floor (checkpoint - 1) passes it, so the export needs the
     // archived preimage.
     tokio::time::timeout(Duration::from_secs(90), async {
-        while !matches!(c.cmt.abci_answer("/val_state/5").await, Ok(Err(_))) {
+        while !matches!(c.cmt.abci_answer(&query).await, Ok(Err(_))) {
             tokio::time::sleep(Duration::from_millis(100)).await
         }
     })
@@ -317,16 +325,15 @@ async fn fixed_origin(
     follow(f, c, commands, &x, &root, run).await
 }
 
-/// Land `height` with the original lander, then let own L1 finalize it.
+/// Land exactly `height` with the original lander (`--land-to`), then let own L1 finalize it.
 async fn land(
     f: &ContractFixture,
     c: &ContractConsensus,
     commands: &Commands,
     height: u64,
 ) -> Result<()> {
-    let mut lander = commands.old_lander(f, &c.cmt)?;
-    wait_checkpoint(f, &mut lander, height).await?;
-    lander.stop().await?;
+    commands.land_to(f, &c.cmt, height).await?;
+    ensure!(f.checkpoint().await?.0 == height, "the exact landing ends at {height}");
     mine_l1_blocks(&f.anvil.provider, 4).await
 }
 
@@ -352,13 +359,31 @@ struct Fixture {
     rpc: u16,
 }
 
-/// What `export` collects.
-/// Preserve the independently executed full stock state at s-1 for the producer gate.
-async fn capture_stock_state(c: &mut ContractConsensus, height: u64, out: &Path) -> Result<()> {
+/// Preserve node 0's independently committed stock state for the producer check, as
+/// docs/checkpoint-import.md describes: stop the node once it has committed `height`, copy its
+/// state DB to `out` and restart it. The node can commit further before it stops, so this returns
+/// the copy's own height x; the checkpoint it serves is s = x + 1 (DATA-5.4-8).
+async fn capture_stock_state(c: &mut ContractConsensus, height: u64, out: &Path) -> Result<u64> {
     c.wait_for_height(height).await?;
     c.stop_node(0).await?;
     copy_stock_state(&c.comet_home(0), out)?;
-    c.restart_node(0).await
+    c.restart_node(0).await?;
+    snapshot_height(out).await
+}
+
+/// The height x of the stopped stock state DB copied to `dir`
+/// (`etna-comet-import snapshot-height`).
+pub async fn snapshot_height(dir: &Path) -> Result<u64> {
+    let helper = binary("ETNA_COMET_IMPORT_BIN", "etna-comet-import")?;
+    let out = tokio::process::Command::new(helper)
+        .arg("snapshot-height")
+        .arg("--comet-state-dir")
+        .arg(dir)
+        .output()
+        .await?;
+    ensure!(out.status.success(), "snapshot-height: {}", String::from_utf8_lossy(&out.stderr));
+    let report: Value = serde_json::from_slice(&out.stdout)?;
+    report["last_block_height"].as_u64().context("stock snapshot height")
 }
 
 /// Copy only the stopped validator's state DB. The archive holds no key or HRS.
@@ -372,6 +397,7 @@ pub fn copy_stock_state(home: &Path, out: &Path) -> Result<()> {
     Ok(())
 }
 
+/// What `export` collects.
 struct Export<'a> {
     s: u64,
     comet_genesis: &'a Path,
@@ -913,8 +939,9 @@ pub fn enable_recovery_archive(commands: &mut Commands) -> Result<()> {
 }
 
 /// Import a delayed generation-one full node at the fixed recovery origin (s = 6: no app state,
-/// InitChain builds it, DATA-5.4-1 and RECOV-8.4) and at a later landing (s = 12: an ordinary
-/// import). The operator's independent donor replay is outside the importer.
+/// InitChain builds it, DATA-5.4-1 and RECOV-8.4) and at the later landing `landed`, the height
+/// after the `stock` snapshot (an ordinary import). The operator's independent donor replay is
+/// outside the importer.
 pub async fn recovered(
     f: &ContractFixture,
     c: &ContractConsensus,
@@ -922,6 +949,7 @@ pub async fn recovered(
     installed: &Installed,
     old: &[ExecutionBlock],
     stock: &Path,
+    landed: u64,
 ) -> Result<()> {
     let parent = commands.dir.path().canonicalize()?;
     let home = &installed.home;
@@ -940,12 +968,12 @@ pub async fn recovered(
         "fixed recovery R proves q={}, historical parent context previously proved q={}",
         fixed.anchor.inbox.last_checkpoint_height, old_anchor.inbox.last_checkpoint_height
     );
-    let target = 12;
-    ensure!(f.checkpoint().await?.0 >= target, "the recovered generation landed {target}");
+    let target = landed;
+    ensure!(f.checkpoint().await?.0 == target, "the recovered generation landed {target}");
     let archive = parent.join("val-state-archive");
     let domain = alloy_primitives::keccak256(doc.chain_id.as_bytes());
     ensure!(old.len() == 6, "the original blocks 1..=6");
-    for s in [6, 12] {
+    for s in [6, landed] {
         let base = parent.join(format!("g1-cp-{s}"));
         fs::create_dir(&base)?;
         // The recovered Comet starts at 7; the original blocks up to the origin come from `old`.

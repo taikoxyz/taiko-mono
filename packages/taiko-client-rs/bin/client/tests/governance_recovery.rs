@@ -35,8 +35,8 @@ async fn governance_recovery_l6_blanks_fi_and_lands_epoch_boundary() -> Result<(
 }
 
 /// Imports a delayed generation-one full node at the fixed recovery origin (s = 6: no app state,
-/// InitChain builds it) and at a later landing (s = 12: an ordinary import), and runs each as an
-/// ordinary node.
+/// InitChain builds it) and at a later landing s, the height after the stock snapshot (an
+/// ordinary import), and runs each as an ordinary node.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn checkpoint_import_recovered_fixed_and_landed_points_continue_stock() -> Result<()> {
@@ -57,6 +57,9 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
     let mut commands = Commands::new(&f, &c)?;
     if with_import {
         support::checkpoint_import::enable_recovery_archive(&mut commands)?;
+        // The import lands exactly the height after its stock snapshot (`--land-to`), so the
+        // recovered node runs no lander that could land past it first.
+        commands.lander = false;
     }
     let result: Result<()> =
         async {
@@ -198,14 +201,22 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                 f.l2.provider.get_block_by_number(7.into()).await?.unwrap().header.hash,
                 recovered_committed_hash
             );
-            let stock = commands.dir.path().join("stock-state-at-11");
-            if with_import {
+            let stock = commands.dir.path().join("stock-state");
+            let import_at = if with_import {
+                // The producer procedure: snapshot the stopped node, then land exactly the
+                // height s after the snapshot (docs/checkpoint-import.md).
                 wait_committed(&c.cmt, 11, &mut node).await?;
                 node.stop().await?;
                 support::checkpoint_import::copy_stock_state(&installed.home, &stock)?;
+                let s = support::checkpoint_import::snapshot_height(&stock).await? + 1;
                 node = commands.start_recovered(&installed, "after-stock-snapshot").await?;
-            }
-            wait_checkpoint(&f, &mut node, 12).await?;
+                wait_committed(&c.cmt, s, &mut node).await?;
+                commands.land_to(&f, &c.cmt, s).await?;
+                Some(s)
+            } else {
+                wait_checkpoint(&f, &mut node, 12).await?;
+                None
+            };
             mine_l1_blocks(&f.anvil.provider, 3).await?;
             let source = lander::l1::RpcLandingSource::new(
                 f.anvil.provider.clone(),
@@ -265,7 +276,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                     "blank entry stays pending until the unchanged FI delay elapses"
                 );
             }
-            if with_import {
+            if let Some(s) = import_at {
                 support::checkpoint_import::recovered(
                     &f,
                     &c,
@@ -273,6 +284,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                     &installed,
                     &old_blocks,
                     &stock,
+                    s,
                 )
                 .await?;
                 node.stop().await?;

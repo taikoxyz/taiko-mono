@@ -68,7 +68,7 @@ impl Engine for MissingParent {
 }
 
 /// Submit two canonically signed, fee-eligible transactions with unavailable future nonces.
-/// U=6 holds the source at 6 until landing. The subsequent proven anchor makes both entries due.
+/// U=6 holds the source at s until s lands. The subsequent proven anchor makes both entries due.
 pub(super) async fn enqueue(f: &ContractFixture) -> Result<()> {
     for nonce in [100_000, 100_001] {
         let tx = TxEip1559 {
@@ -89,13 +89,14 @@ pub(super) async fn enqueue(f: &ContractFixture) -> Result<()> {
     Ok(())
 }
 
-async fn decided(rpc: &CmtClient, h: u64) -> Result<pb::Request> {
+/// The source's decision at `h`, the skip of entry `h - s - 1` after the checkpoint `s`.
+async fn decided(rpc: &CmtClient, s: u64, h: u64) -> Result<pb::Request> {
     let r = rpc.call("block", &[("height", h.to_string())]).await?;
     let header: tendermint::block::Header = serde_json::from_value(r["block"]["header"].clone())?;
     let env = rpc.envelope(h).await?;
     let entry = env.forced.as_ref().context("source decided FI")?;
     ensure!(
-        entry.index == h - 7 &&
+        entry.index == h - s - 1 &&
             !env.block.transactions.contains(&entry.tx) &&
             abci::forced::decode_canonical(&entry.tx).is_some(),
         "source decision must be a canonical skip at {h}"
@@ -143,8 +144,8 @@ pub(super) async fn replay(
     s: u64,
 ) -> Result<()> {
     c.wait_for_height(s + 3).await?;
-    let first = decided(&c.cmt, s + 1).await?;
-    let later = decided(&c.cmt, s + 2).await?;
+    let first = decided(&c.cmt, s, s + 1).await?;
+    let later = decided(&c.cmt, s, s + 2).await?;
     let commit = pb::Request { value: Some(pb::request::Value::Commit(pb::RequestCommit {})) };
     let store = root.join("ready/app");
     let journal = || -> Result<abci::store::AppState> {

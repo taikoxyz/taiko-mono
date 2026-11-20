@@ -214,6 +214,29 @@ impl Commands {
         http: &url::Url,
         auth: &url::Url,
     ) -> Result<Process> {
+        let args = self.lander_args(f, c, http, auth);
+        Process::spawn(Path::new(CLIENT), &args, self.dir.path().join("original-lander.log"))
+    }
+    /// Lands exactly `height` with the original lander on `c`'s chain and the original EL
+    /// (`lander --land-to`): one batch from the latest checkpoint to `height`, run until the
+    /// process exits once that landing is confirmed. Its batch cap admits every height these
+    /// scenarios land in one batch.
+    pub async fn land_to(&self, f: &ContractFixture, c: &CmtClient, height: u64) -> Result<()> {
+        let mut args = self.lander_args(f, c, &f.l2.http, &f.l2.auth);
+        let cap = args.iter().position(|arg| arg == "--max-blocks").context("lander batch cap")?;
+        args[cap + 1] = "64".into();
+        args.extend(["--land-to".into(), height.to_string()]);
+        let log = self.dir.path().join(format!("land-to-{height}.log"));
+        Process::spawn(Path::new(CLIENT), &args, log)?.completed().await?;
+        Ok(())
+    }
+    fn lander_args(
+        &self,
+        f: &ContractFixture,
+        c: &CmtClient,
+        http: &url::Url,
+        auth: &url::Url,
+    ) -> Vec<String> {
         let mut args = Self::lander_prefix(&self.key);
         args.extend([
             "--l1.http".into(),
@@ -231,7 +254,7 @@ impl Commands {
             "--chain-config".into(),
             self.chain.display().to_string(),
         ]);
-        Process::spawn(Path::new(CLIENT), &args, self.dir.path().join("original-lander.log"))
+        args
     }
     /// This node's own endpoint flags, spelled as for `abci`.
     fn endpoints(&self) -> Vec<String> {
