@@ -1,5 +1,5 @@
-// etna-comet-import verifies independent stock state for export and installs authenticated
-// checkpoint windows into fresh offline stock stores.
+// etna-comet-import reads and verifies independent stock state for export and installs
+// authenticated checkpoint windows into fresh offline stock stores.
 package main
 
 import (
@@ -19,8 +19,11 @@ func run(args []string) error {
 	if len(args) != 0 && args[0] == "verify-export" {
 		return verifyExport(args[1:])
 	}
+	if len(args) != 0 && args[0] == "snapshot-height" {
+		return snapshotHeight(args[1:])
+	}
 	if len(args) == 0 || args[0] != "install" {
-		return errors.New("expected install or verify-export")
+		return errors.New("expected install, snapshot-height or verify-export")
 	}
 	flags := flag.NewFlagSet("install", flag.ContinueOnError)
 	home := flags.String("home", "", "absent stock home to create")
@@ -43,6 +46,24 @@ func run(args []string) error {
 		return fmt.Errorf("--app-hash: %w", err)
 	}
 	report, err := checkpoint.Install(*home, *stockDir, hash)
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(os.Stdout).Encode(report)
+}
+
+// snapshotHeight prints, as one JSON line, the height x of the committed state in a stopped
+// stock state snapshot; the export it can serve is the one at checkpoint x + 1.
+func snapshotHeight(args []string) error {
+	flags := flag.NewFlagSet("snapshot-height", flag.ContinueOnError)
+	dir := flags.String("comet-state-dir", "", "offline snapshot directory containing the stock state.db")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 || *dir == "" {
+		return errors.New("snapshot-height requires only --comet-state-dir")
+	}
+	report, err := checkpoint.SnapshotHeight(*dir)
 	if err != nil {
 		return err
 	}

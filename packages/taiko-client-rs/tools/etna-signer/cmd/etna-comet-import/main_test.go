@@ -32,3 +32,22 @@ func TestInstallRequiresHomeStockDirAndAppHash(t *testing.T) {
 		t.Fatalf("rejected input touched the home: %v", err)
 	}
 }
+
+func TestSnapshotHeightRequiresOnlyTheStateDir(t *testing.T) {
+	dir := t.TempDir()
+	for _, args := range [][]string{
+		{"snapshot-height"},
+		{"snapshot-height", "--comet-state-dir", dir, "extra"},
+	} {
+		if err := run(args); err == nil || !strings.Contains(err.Error(), "requires only --comet-state-dir") {
+			t.Fatalf("accepted %q: %v", args, err)
+		}
+	}
+	if err := run([]string{"snapshot-height", "--comet-state-dir", dir}); err == nil ||
+		!strings.Contains(err.Error(), "open stock state snapshot") {
+		t.Fatalf("read a height without a state store: %v", err)
+	}
+	if entries, err := os.ReadDir(dir); err != nil || len(entries) != 0 {
+		t.Fatalf("a read-only snapshot read wrote %v: %v", entries, err)
+	}
+}
