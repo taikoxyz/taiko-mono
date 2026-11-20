@@ -274,9 +274,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 tracing::warn!(%error, floor, "could not prune committed validator records");
             }
         }
+        let report = super::AppHashReport::of(pending, None);
         tracing::info!(
-            height = pending.last_height,
-            hash = %pending.parent.hash,
+            height = report.height,
+            hash = %report.el_hash,
+            app_hash = %report.app_hash,
+            val_state_hash = %report.val_state_hash,
             "block committed"
         );
         self.state = self.pending.take();
@@ -293,7 +296,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
         };
         self.clear_halt();
         self.publish_state_metrics();
-        self.trust.committed(self.state.as_ref().expect("committed state"));
+        let state = self.state.as_ref().expect("committed state");
+        self.trust.committed(state);
+        // The committed anchor's checkpoint is authenticated in the own finalized L1 view: one
+        // above the last matched checkpoint is pending until compared (SYNC-9-6a).
+        self.observe_anchor_checkpoint(&state.anchor);
         prefetched?;
         Ok(response::Commit { data: Default::default(), retain_height: Height::from(0u32) })
     }

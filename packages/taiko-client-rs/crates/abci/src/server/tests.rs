@@ -503,7 +503,7 @@ async fn safety_halt_answers_runs_the_halt_hook_and_stops_the_worker() {
         MockEngine::with_chain(other),
         fx.params.clone(),
         crate::store::Store::volatile(dir.path().to_path_buf()),
-        crate::app::AppOptions::default(),
+        crate::test_utils::test_options(),
     )
     .unwrap();
 
@@ -549,5 +549,44 @@ impl AbciHandler for Halting {
     async fn handle_request(&mut self, req: Request) -> Result<Response, AbciError> {
         let Request::Echo(echo) = req else { panic!("unexpected {req:?}") };
         Err(AbciError::SafetyHalt(echo.message))
+    }
+}
+
+/// SYNC-9-12: the signer begins a session as soon as it connects, before Comet's handshake
+/// `Info`. The worker checks a begun session before the next queued request, so a target the
+/// node already holds is verified by the time `Info` is answered, however long the check's own
+/// L1 reads take.
+#[tokio::test]
+async fn a_begun_session_is_checked_before_the_next_queued_request() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = fx.app(dir.path());
+    app.handle(Request::InitChain(fx.request.clone())).await.unwrap();
+    fx.plant_l1_block(app.l1(), 100, &fx.inbox, &fx.registry);
+    app.l1().set_finalized(100);
+    app.l1().state().delay = Some(Duration::from_millis(20));
+    let trust = app.trust_handle();
+    let (hook, _halts) = recording_hook();
+    let (mut service, _worker) = AppService::spawn(app, hook);
+    tokio::time::timeout(WAIT, async {
+        while !trust.snapshot().is_ready() {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("the first session becomes ready");
+    for _ in 0..3 {
+        let session = trust.begin_session();
+        assert!(!session.is_ready());
+        let info = Request::Info(request::Info {
+            version: "0.40.0".into(),
+            block_version: 11,
+            p2p_version: 9,
+            abci_version: "2.2.0".into(),
+        });
+        service.ready().await.unwrap().call(info).await.unwrap();
+        let snapshot = trust.snapshot();
+        assert_eq!(snapshot.session_id, session.session_id);
+        assert!(snapshot.is_ready(), "checked before Info: {:?}", snapshot.reason);
     }
 }

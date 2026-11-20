@@ -42,7 +42,8 @@ async fn recovery_init_preserves_guarded_signer_session_on_first_and_replayed_ha
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
     checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     let doc = document(&fx, &w);
     let first = app.trust.begin_session();
     assert!(!first.is_ready());
@@ -50,6 +51,11 @@ async fn recovery_init_preserves_guarded_signer_session_on_first_and_replayed_ha
     assert_eq!(app.trust.snapshot().session_id, first.session_id);
     app.refresh_trust().await.unwrap();
     assert!(app.trust.snapshot().is_ready());
+    // SYNC-9-5 5.e/5.i: while the latest checkpoint is the origin c, its EL hash alone is
+    // compared; this node joined through the genesis path and holds no Comet block at c.
+    assert_eq!(app.store.load_comet_hash(6).unwrap(), None);
+    // SYNC-9-10 10.g: before the generation's first commit only initial_height c + 1 is eligible.
+    assert_eq!(app.trust.snapshot().eligible_height, Some(7));
     // Stock Comet replays InitChain while app Info still reports zero at the origin.
     let rearmed = app.trust.begin_session();
     app.refresh_trust().await.unwrap();
@@ -65,7 +71,8 @@ async fn recovery_init_replay_closes_unavailable_history_without_replacing_signe
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
     checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     let req = request(&document(&fx, &w));
     init_chain(&mut app, req.clone()).await.unwrap();
     app.trust.begin_session();
@@ -101,7 +108,8 @@ async fn recovery_init_preserves_stock_zero_height_handshake() {
     let doc = document(&fx, &w);
     assert_eq!(doc.initial_height, "7");
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     let response = init_chain(&mut app, request(&doc)).await.unwrap();
     let info_before = info(&mut app).await.unwrap();
     assert_eq!(info_before.last_block_height.value(), 0);
@@ -122,7 +130,8 @@ async fn recovery_init_preserves_stock_zero_height_handshake() {
     assert_eq!(response.app_hash.as_bytes(), expected.as_slice());
     drop(app);
     let (_, l1, engine, _) = recovery_fixture(1, 6, 1);
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     assert_eq!(info(&mut app).await.unwrap().last_block_height.value(), 0);
     assert_eq!(init_chain(&mut app, request(&doc)).await.unwrap(), response);
     let mut inbox = fx.inbox_at_checkpoint(6, w.el_header.hash_slow());
@@ -152,7 +161,7 @@ async fn recovery_init_preserves_stock_zero_height_handshake() {
         MockEngine::with_chain(chain),
         fx.params.clone(),
         dir.path(),
-        AppOptions::default(),
+        crate::test_utils::test_options(),
     );
     assert_eq!(info(&mut app).await.unwrap(), info_after);
     assert!(matches!(
@@ -165,7 +174,8 @@ async fn recovery_init_preserves_stock_zero_height_handshake() {
 async fn recovery_init_accepts_zero_origin_without_changing_deployment_genesis() {
     let (fx, l1, engine, w) = recovery_fixture(1, 0, 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
     assert_eq!(app.state().unwrap().genesis, fx.genesis);
     assert_eq!(app.state().unwrap().anchor.number, 64);
@@ -232,7 +242,8 @@ async fn recovery_init_origin_trust_uses_retained_boundary_without_fabricating_c
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
     checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     // Before InitChain there is no authenticated reason to accept an older landing generation.
     app.refresh_trust().await.unwrap();
     assert!(!app.trust.snapshot().is_ready());
@@ -251,7 +262,8 @@ async fn recovery_init_future_target_requires_replay_and_both_committed_hashes()
     use super::proposal::{decide, judge, propose};
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
     checkpoint(&fx, app.l1(), &w, 6, retained(&w), 1);
     let mut requests = Vec::new();
@@ -270,8 +282,13 @@ async fn recovery_init_future_target_requires_replay_and_both_committed_hashes()
     let anchor_state = l1.state().states[&120].clone();
     let anchor_header = l1.state().headers[&120].clone();
     let replay_dir = tempfile::tempdir().unwrap();
-    let mut replay =
-        app_with(l1, engine, fx.params.clone(), replay_dir.path(), AppOptions::default());
+    let mut replay = app_with(
+        l1,
+        engine,
+        fx.params.clone(),
+        replay_dir.path(),
+        crate::test_utils::test_options(),
+    );
     init_chain(&mut replay, request(&document(&fx, &w))).await.unwrap();
     checkpoint(&fx, replay.l1(), &w, 12, [target_hash, target_comet], 1);
     // Move changed target to 121 and restore the immutable block-120 anchor.
@@ -330,7 +347,8 @@ async fn recovery_genesis_is_identical_when_latest_admission_target_advances() {
     let next = crate::build_recovery_genesis(&l1, &engine, &fx.params, 1).await.unwrap();
     assert_eq!(first.to_json_pretty(), next.to_json_pretty());
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     init_chain(&mut app, request(&next)).await.unwrap();
     app.refresh_trust().await.unwrap();
     assert_eq!(app.trust.snapshot().target.unwrap().height, 18);
@@ -354,7 +372,7 @@ async fn recovery_init_rejects_changed_domain_time_validators_and_config() {
             _ => unreachable!(),
         }
         let dir = tempfile::tempdir().unwrap();
-        let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
+        let mut app = app_with(l1, engine, params, dir.path(), crate::test_utils::test_options());
         assert!(init_chain(&mut app, req).await.is_err(), "case {case}");
         assert_not_initialized(&app, dir.path());
         assert!(!app.trust.snapshot().is_ready());
@@ -367,7 +385,8 @@ async fn recovery_init_restart_rejects_missing_mixed_or_tampered_bootstrap_sidec
     for case in 0..6 {
         let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
         let dir = tempfile::tempdir().unwrap();
-        let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+        let mut app =
+            app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
         init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
         drop(app);
         let path = dir.path().join("recovery-bootstrap.json");
@@ -400,8 +419,14 @@ async fn recovery_init_restart_rejects_missing_mixed_or_tampered_bootstrap_sidec
         }
         let (_, l1, engine, _) = recovery_fixture(1, 6, 1);
         assert!(
-            App::new(l1, engine, fx.params, Store::new(dir.path().into()), AppOptions::default())
-                .is_err(),
+            App::new(
+                l1,
+                engine,
+                fx.params,
+                Store::new(dir.path().into()),
+                crate::test_utils::test_options()
+            )
+            .is_err(),
             "case {case}"
         );
     }
@@ -411,7 +436,8 @@ async fn recovery_init_restart_rejects_missing_mixed_or_tampered_bootstrap_sidec
 async fn recovery_init_durable_sidecar_precedes_state_and_is_immutable_on_retry() {
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
     let path = dir.path().join("recovery-bootstrap.json");
     let original = std::fs::read(&path).unwrap();
@@ -426,7 +452,8 @@ async fn recovery_init_durable_sidecar_precedes_state_and_is_immutable_on_retry(
     // Model a crash between the sidecar publication and AppState publication.
     std::fs::remove_file(dir.path().join(crate::store::STATE_FILE)).unwrap();
     let (_, l1, engine, _) = recovery_fixture(1, 6, 1);
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
     assert_eq!(std::fs::read(&path).unwrap(), original);
 }
@@ -436,7 +463,8 @@ async fn recovery_init_waits_on_the_same_request_for_historical_evidence() {
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
     let historical = l1.state().states.remove(&64).unwrap();
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     let shared_l1 = app.l1.clone();
     let trust = app.trust_handle();
     let store = app.store.clone();
@@ -468,7 +496,8 @@ async fn recovery_init_halts_when_the_el_serves_another_block_for_the_origin() {
     engine.state().historical_state_fail =
         Some(EngineError::BlockHashMismatch { expected: origin, computed: B256::repeat_byte(9) });
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(3),
         init_chain(&mut app, request(&document(&fx, &w))),
@@ -490,7 +519,8 @@ async fn recovery_init_waits_with_trust_closed_until_the_el_serves_origin_state(
     let origin = w.el_header.hash_slow();
     assert!(engine.state().historical_state.remove(&origin));
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     let trust = app.trust_handle();
     let req = request(&document(&fx, &w));
     let waiting = tokio::time::timeout(
@@ -541,7 +571,10 @@ async fn recovery_init_takes_the_settled_block_at_c_in_place_of_its_own() {
             state.chain.insert(header.number, header);
         }
     }
-    let opts = AppOptions { elsync_timeout: Duration::from_millis(20), ..AppOptions::default() };
+    let opts = AppOptions {
+        elsync_timeout: Duration::from_millis(20),
+        ..crate::test_utils::test_options()
+    };
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), opts);
     let trust = app.trust_handle();
@@ -604,7 +637,8 @@ async fn recovery_init_halts_when_the_el_answers_c_with_another_block() {
             }
         }
         let dir = tempfile::tempdir().unwrap();
-        let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+        let mut app =
+            app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
         let result = tokio::time::timeout(
             std::time::Duration::from_secs(3),
             init_chain(&mut app, request(&document(&fx, &w))),
@@ -621,14 +655,15 @@ async fn recovery_init_halts_when_the_el_answers_c_with_another_block() {
 async fn recovery_init_restart_reuses_authenticated_historical_sidecar_when_state_is_pruned() {
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     let req = request(&document(&fx, &w));
     let first = init_chain(&mut app, req.clone()).await.unwrap();
     drop(app);
     let (_, l1, engine, _) = recovery_fixture(1, 6, 1);
     checkpoint(&fx, &l1, &w, 18, [B256::repeat_byte(0x18), B256::repeat_byte(0x19)], 1);
     l1.state().states.remove(&64);
-    let mut app = app_with(l1, engine, fx.params, dir.path(), AppOptions::default());
+    let mut app = app_with(l1, engine, fx.params, dir.path(), crate::test_utils::test_options());
     let repeated =
         tokio::time::timeout(std::time::Duration::from_millis(100), init_chain(&mut app, req))
             .await
@@ -645,7 +680,8 @@ async fn recovery_init_never_trusts_an_old_generation_header_above_the_origin() 
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
     checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
     let env = propose(&mut app).await;
     let (_, req) = judge(&mut app, &env).await;
@@ -666,7 +702,8 @@ async fn recovery_init_never_trusts_an_old_generation_header_above_the_origin() 
 async fn recovery_init_historical_sidecar_cannot_substitute_r_for_the_committed_c_anchor() {
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
     let mut sidecar = app.store.load_recovery_bootstrap().unwrap().unwrap();
     sidecar.anchor = Some(alloy_rlp::encode(fx.anchor_witness(app.l1(), 100)).into());
@@ -681,7 +718,8 @@ async fn recovery_init_engine_integrity_errors_halt_without_publishing_state() {
         .header_script
         .push_back(Err(crate::EngineError::BadReply("malformed origin header".into())));
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     assert!(matches!(
         init_chain(&mut app, request(&document(&fx, &w))).await,
         Err(AbciError::SafetyHalt(_))
@@ -696,7 +734,8 @@ async fn recovered_trust_summary_uses_verified_recovery_header() {
     checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
     let doc = document(&fx, &w);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     init_chain(&mut app, request(&doc)).await.unwrap();
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust_handle().snapshot();
@@ -727,14 +766,16 @@ async fn recovery_first_switch_waits_for_the_background_discovery_at_r() {
     let (fx, l1, engine, w) = recovery_fixture_with_spec(spec, 1, 6, 1);
     checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
     let floor = app.state().unwrap().anchor_floor();
     assert_eq!(app.state().unwrap().schedule().switch_target(7), Some(1));
     assert!(app.state().unwrap().anchor.number < floor, "c's retained anchor precedes R");
     let slow = Duration::from_millis(2_500);
     assert!(
-        slow > AppOptions::default().prepare_timeout && slow < AppOptions::default().l1_timeout
+        slow > crate::test_utils::test_options().prepare_timeout &&
+            slow < crate::test_utils::test_options().l1_timeout
     );
     app.l1().state().block_delay = Some((floor, slow));
     app.l1().state().calls.clear();
@@ -805,14 +846,16 @@ async fn recovery_first_switch_completes_when_each_r_read_outlasts_the_proposal_
     let (fx, l1, engine, w) = recovery_fixture_with_spec(spec, 1, 6, 1);
     checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
     let floor = app.state().unwrap().anchor_floor();
     assert_eq!(app.state().unwrap().schedule().switch_target(7), Some(1));
     assert!(app.state().unwrap().anchor.number < floor);
     let slow = Duration::from_millis(2_500);
     assert!(
-        slow > AppOptions::default().prepare_timeout && slow < AppOptions::default().l1_timeout
+        slow > crate::test_utils::test_options().prepare_timeout &&
+            slow < crate::test_utils::test_options().l1_timeout
     );
     app.l1().state().block_delay = Some((floor, slow));
     let mut inbox = fx.inbox_at_checkpoint(6, w.el_header.hash_slow());
@@ -851,7 +894,8 @@ async fn recovery_first_switch_reuses_snapshot_on_anchor_advance_and_rediscovers
     let (fx, l1, engine, w) = recovery_fixture_with_spec(spec.clone(), 1, 6, 1);
     checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     init_chain(&mut app, request(&document(&fx, &w))).await.unwrap();
     let first = propose(&mut app).await.committee.unwrap();
     let floor = app.state().unwrap().anchor_floor();
@@ -877,7 +921,8 @@ async fn recovery_first_switch_reuses_snapshot_on_anchor_advance_and_rediscovers
 
     let (_, l1, engine, _) = recovery_fixture_with_spec(spec, 1, 6, 1);
     checkpoint(&fx, &l1, &w, 6, retained(&w), 1);
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     fx.advance_l1(app.l1(), 121, &inbox, &fx.registry);
     app.l1().state().calls.clear();
     let restarted = propose(&mut app).await.committee.unwrap();

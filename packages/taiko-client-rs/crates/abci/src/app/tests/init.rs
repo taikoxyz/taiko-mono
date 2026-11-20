@@ -232,7 +232,8 @@ async fn re_sent_init_chain_after_a_crash_in_block_one_returns_the_same_app_hash
     let engine = app.engine().reopen();
     drop(app); // Crash before Commit: the store still holds the origin state.
 
-    let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     assert_eq!(app.state(), Some(&fx.expected_state()));
     let resp = info(&mut app).await.expect("Info succeeds");
     assert_eq!(resp.last_block_height.value(), 0, "block 1 was never committed");
@@ -276,7 +277,8 @@ async fn init_chain_records_the_genesis_validator_state() {
 
     let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     let req = super::recovery_init::request(&super::recovery_init::document(&fx, &w));
     init_chain(&mut app, req.clone()).await.expect("recovery InitChain");
     let origin = verify_recovery_witness(&w, &fx.params).unwrap();
@@ -300,7 +302,7 @@ async fn init_chain_with_another_genesis_is_rejected() {
         other.engine(),
         other.params.clone(),
         dir.path(),
-        AppOptions::default(),
+        crate::test_utils::test_options(),
     );
     let err = init_chain(&mut app, other.request.clone()).await.expect_err("another genesis");
     assert!(matches!(err, AbciError::AlreadyInitialized), "{err:?}");
@@ -362,7 +364,7 @@ async fn genesis_l1_block_above_finalized_waits_for_finality() {
     let (l1, engine, params, req) = fx.parts();
     l1.set_finalized(fx.genesis.l1_0 - 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
+    let mut app = app_with(l1, engine, params, dir.path(), crate::test_utils::test_options());
     let l1 = app.l1.clone();
     let finalize = async {
         tokio::time::sleep(Duration::from_secs(10)).await;
@@ -383,7 +385,7 @@ async fn init_chain_waits_for_genesis_finality_at_warn() {
     let (l1, engine, params, req) = fx.parts();
     l1.set_finalized(fx.genesis.l1_0 - 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
+    let mut app = app_with(l1, engine, params, dir.path(), crate::test_utils::test_options());
     let l1 = app.l1.clone();
     let finalize = async {
         tokio::time::sleep(FINALIZE_RETRY_ESCALATE * 2).await;
@@ -403,7 +405,7 @@ async fn non_canonical_genesis_l1_header_is_rejected() {
     // The own L1 node holds a different block at L1_0.
     l1.insert_header(RawL1Header::from(&l1_header(fx.genesis.l1_0, 1)));
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
+    let mut app = app_with(l1, engine, params, dir.path(), crate::test_utils::test_options());
     let err = init_chain(&mut app, req).await.expect_err("not canonical");
     assert!(matches!(err, AbciError::SafetyHalt(_)), "{err:?}");
     assert_not_initialized(&app, dir.path());
@@ -415,7 +417,7 @@ async fn slow_l1_keeps_init_chain_pending() {
     let (l1, engine, params, req) = fx.parts();
     l1.state().delay = Some(Duration::from_secs(60));
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
+    let mut app = app_with(l1, engine, params, dir.path(), crate::test_utils::test_options());
     assert!(
         tokio::time::timeout(Duration::from_secs(90), init_chain(&mut app, req)).await.is_err()
     );
@@ -429,7 +431,7 @@ async fn witness_of_another_inbox_is_rejected() {
     let (l1, engine, mut params, req) = fx.parts();
     params.inbox = Address::repeat_byte(0x11);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
+    let mut app = app_with(l1, engine, params, dir.path(), crate::test_utils::test_options());
     let err = init_chain(&mut app, req).await.expect_err("wrong inbox");
     assert!(
         matches!(&err, AbciError::Genesis(GenesisError::Witness(e)) if matches!(e.as_ref(), WitnessError::WrongContract { .. })),
@@ -450,7 +452,7 @@ async fn genesis_header_must_be_the_initialization_block() {
     l1.insert_header(witness.l1_header);
     l1.set_finalized(l1_0 + 1);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
+    let mut app = app_with(l1, engine, params, dir.path(), crate::test_utils::test_options());
     let err = init_chain(&mut app, req).await.expect_err("header is not L1_0");
     assert!(
         matches!(err, AbciError::Genesis(GenesisError::InitializationMismatch { l1_0: header, proven: a }) if header == l1_0 + 1 && a == l1_0),
@@ -723,7 +725,7 @@ async fn el_missing_the_etna_start_is_synced_first() {
         engine.insert_known(header.clone());
     }
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
+    let mut app = app_with(l1, engine, params, dir.path(), crate::test_utils::test_options());
     init_chain(&mut app, req).await.expect("InitChain succeeds after the EL sync");
     assert_eq!(app.state(), Some(&fx.expected_state()));
     let h = fx.genesis_hash();
@@ -742,7 +744,8 @@ async fn el_missing_the_etna_start_is_synced_first() {
 async fn el_that_has_not_reached_the_etna_start_keeps_init_chain_pending() {
     let fx = Fixture::genesis(2);
     let (l1, _, params, req) = fx.parts();
-    let opts = AppOptions { elsync_timeout: Duration::from_secs(30), ..AppOptions::default() };
+    let opts =
+        AppOptions { elsync_timeout: Duration::from_secs(30), ..crate::test_utils::test_options() };
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, MockEngine::new(), params, dir.path(), opts);
     assert!(
@@ -762,7 +765,7 @@ async fn el_holding_another_etna_start_is_a_safety_halt() {
     // The EL accepts the start hash as VALID but keeps serving its own block at the start height.
     engine.state().forkchoice_script.push_back(Ok(PayloadVerdict::Valid));
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
+    let mut app = app_with(l1, engine, params, dir.path(), crate::test_utils::test_options());
     let err = init_chain(&mut app, req).await.expect_err("EL disagrees");
     assert!(matches!(err, AbciError::SafetyHalt(_)), "{err:?}");
     assert_not_initialized(&app, dir.path());
@@ -775,7 +778,7 @@ async fn el_rejecting_the_etna_start_is_a_safety_halt() {
     let engine = MockEngine::new();
     engine.state().forkchoice_script.push_back(Ok(PayloadVerdict::Invalid("bad block".into())));
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
+    let mut app = app_with(l1, engine, params, dir.path(), crate::test_utils::test_options());
     let err = init_chain(&mut app, req).await.expect_err("EL rejects the start hash");
     assert!(matches!(err, AbciError::SafetyHalt(_)), "{err:?}");
     assert_not_initialized(&app, dir.path());
@@ -790,7 +793,7 @@ async fn el_serving_another_block_after_sync_is_a_safety_halt() {
     // ensure_block sees the Etna start block; the follow-up read of it returns another block.
     engine.state().header_script.extend([Ok(Some(fx.el_chain[0].clone())), Ok(Some(other))]);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, params, dir.path(), AppOptions::default());
+    let mut app = app_with(l1, engine, params, dir.path(), crate::test_utils::test_options());
     let err = init_chain(&mut app, req).await.expect_err("EL changed its mind");
     assert!(matches!(err, AbciError::SafetyHalt(_)), "{err:?}");
     assert_not_initialized(&app, dir.path());
@@ -858,7 +861,7 @@ async fn genesis_and_restart_authenticate_chain_specific_back_pressure_parameter
             wrong.engine(),
             wrong.params,
             Store::volatile(dir.path().into()),
-            AppOptions::default(),
+            crate::test_utils::test_options(),
         )
         .expect_err("wrong back-pressure configuration opened stored state");
         assert!(

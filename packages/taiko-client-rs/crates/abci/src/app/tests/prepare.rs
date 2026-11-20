@@ -197,40 +197,78 @@ async fn proposer_anchors_at_the_own_finalized_block() {
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 }
 
-/// A finalized anchor whose proven `lastCheckpoint` conflicts with the local chain (another hash
-/// at a committed height, or a height above the parent) is never proposed: the proposer keeps
-/// the parent's anchor without a witness, raises an alert, and validators accept that block. It
-/// moves the anchor again once L1 finalizes a block whose checkpoint is on the local chain.
+/// CONS-3.4-16: a finalized anchor whose proven `lastCheckpoint` does not name a block of the
+/// local chain is never proposed, and the proposer does not keep producing on its parent's
+/// anchor instead (16.d/16.g): it proposes nothing and raises an alert. A height above the
+/// parent is one its chain has not reached, so its trust waits for it (catching up, 16.b); a
+/// hash that differs at a height it holds contradicts finalized L1 and revokes its trust (16.c).
 #[tokio::test]
-async fn proposer_keeps_the_parent_anchor_when_the_finalized_checkpoint_conflicts() {
+async fn proposer_proposes_nothing_on_a_finalized_checkpoint_off_the_local_chain() {
+    use crate::app::trust::TrustPhase;
+    let fx = Fixture::genesis(1);
+    for (inbox, phase, label) in [
+        (fx.inbox_with(6), TrustPhase::CatchingUp, "checkpoint_above_parent"),
+        (
+            fx.inbox_at_checkpoint(3, B256::repeat_byte(0xc4)),
+            TrustPhase::Halted,
+            "checkpoint_conflict",
+        ),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = mid_epoch(&fx, dir.path(), 5).await;
+        assert_eq!(app.state().unwrap().last_height, 5);
+        fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+        let logs = crate::test_utils::LogCapture::start();
+        let req = prepare_req(next_height(&app), bft_time(&app));
+        let txs = prepare(&mut app, req).await;
+        assert!(txs.is_empty(), "{label}: a placeholder proposal");
+        assert_eq!(app.halt.as_deref(), Some(label));
+        assert!(
+            logs.at("ERROR").iter().any(|line| line.contains(label)),
+            "{label}: the refusal is an alert: {}",
+            logs.text()
+        );
+        let snapshot = app.trust.snapshot();
+        assert_eq!(snapshot.phase, phase, "{label}");
+        assert_eq!(snapshot.eligible_height, None);
+        assert_eq!(app.store.fatal_evidence().unwrap().is_some(), phase == TrustPhase::Halted);
+    }
+}
+
+/// CONS-3.3-4 4.a/4.g, RECOV-8-5: once its own L1 node first shows a newer block as finalized,
+/// the proposer may keep its parent's anchor for `anchor_hold`, so validators whose view is
+/// slightly behind do not reject the proposal; validators accept that block. Then it moves to
+/// the finalized block. It never holds an anchor that would leave the block stale (CONS-3.4-8).
+#[tokio::test(start_paused = true)]
+async fn proposer_holds_the_parent_anchor_briefly_after_finality_advances() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
-    let parent = app.state().unwrap().last_height;
+    app.opts.anchor_hold = Duration::from_secs(12);
     let parent_anchor = app.state().unwrap().anchor.number;
-    let conflicting =
-        [(66, fx.inbox_at_checkpoint(3, B256::repeat_byte(0xc4))), (67, fx.inbox_with(parent + 1))];
-    for (number, inbox) in conflicting {
-        fx.advance_l1(app.l1(), number, &inbox, &fx.registry);
-        let logs = crate::test_utils::LogCapture::start();
+    let header = fx.advance_l1(app.l1(), 70, &fx.inbox, &fx.registry);
+    for wait in [0, 6, 5] {
+        tokio::time::advance(Duration::from_secs(wait)).await;
         let env = propose(&mut app).await;
-        assert!(env.anchor.is_none(), "L1 block {number}: no witness of the conflicting anchor");
+        assert!(env.anchor.is_none(), "{wait}: the parent's anchor is kept");
         assert_eq!(decode_extra_data(&env.block.header.extra_data).unwrap().2, parent_anchor);
-        assert_eq!(app.halt, None, "a block is still proposed");
-        assert!(
-            logs.at("ERROR").iter().any(|line| line.contains("lastCheckpoint conflicts")),
-            "the conflict is an alert: {}",
-            logs.text()
-        );
         let other = tempfile::tempdir().unwrap();
         let mut validator = mid_epoch(&fx, other.path(), 5).await;
-        let (resp, _) = judge(&mut validator, &env).await;
-        assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", validator.halt);
+        validator.l1().set_finalized(parent_anchor);
+        assert_eq!(judge(&mut validator, &env).await.0, response::ProcessProposal::Accept);
     }
-
-    fx.advance_l1(app.l1(), 68, &fx.inbox_with(3), &fx.registry);
+    tokio::time::advance(Duration::from_secs(1)).await;
     let env = propose(&mut app).await;
-    assert_eq!(env.anchor.map(|w| w.l1_header.number()), Some(68));
+    assert_eq!(env.anchor.map(|w| w.l1_header), Some(header));
+
+    // A parent anchor too old for the next block is never held.
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    app.opts.anchor_hold = Duration::from_secs(12);
+    set_anchor_age(&mut app, fx.genesis.max_anchor_age + 1);
+    let header = fx.advance_l1(app.l1(), 66, &fx.inbox, &fx.registry);
+    let env = propose(&mut app).await;
+    assert_eq!(env.anchor.map(|w| w.l1_header), Some(header));
 }
 
 #[tokio::test]
@@ -1426,7 +1464,13 @@ async fn review_own_l1_invalid_mpt_proof_halts_durably() {
     assert!(!app.trust.snapshot().is_ready());
     assert!(app.store.fatal_evidence().unwrap().is_some());
     assert!(matches!(
-        App::new(fx.l1(), fx.engine(), fx.params.clone(), app.store.clone(), AppOptions::default()),
+        App::new(
+            fx.l1(),
+            fx.engine(),
+            fx.params.clone(),
+            app.store.clone(),
+            crate::test_utils::test_options()
+        ),
         Err(AbciError::SafetyHalt(_))
     ));
 }

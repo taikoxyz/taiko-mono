@@ -191,7 +191,8 @@ async fn val_state_survives_restart_and_sidecar_is_immutable() {
 
     let engine = app.engine().reopen();
     drop(app);
-    let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     assert_eq!(app.state(), Some(&committed));
     info(&mut app).await.unwrap();
     step(&mut app).await;
@@ -383,8 +384,13 @@ async fn replayed_commit_rewrites_identical_update_records() {
         std::fs::write(&state_file, saved).unwrap();
         let engine = app.engine().reopen();
         drop(app);
-        let mut app =
-            app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+        let mut app = app_with(
+            fx.l1(),
+            engine,
+            fx.params.clone(),
+            dir.path(),
+            crate::test_utils::test_options(),
+        );
         share_l1_chain(source.l1(), app.l1());
         assert_eq!(app.state(), Some(&committed));
         info(&mut app).await.unwrap();

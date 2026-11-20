@@ -202,7 +202,8 @@ async fn recovery_schedule_proposals_finalize_and_prune_only_after_real_switches
     let _witness = committee_at_r(&fx, &l1, 2, state.parent.hash);
     l1.set_finalized(101);
     let dir = tempfile::tempdir().unwrap();
-    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     app.state = Some(state);
     for height in 7..=23 {
         let env = propose(&mut app).await;
@@ -280,7 +281,8 @@ async fn recovery_schedule_boundary_switches_keep_global_h_plus_two() {
         let _witness = committee_at_r(&fx, &l1, target, state.parent.hash);
         l1.set_finalized(101);
         let dir = tempfile::tempdir().unwrap();
-        let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), AppOptions::default());
+        let mut app =
+            app_with(l1, engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
         app.state = Some(state);
         for height in 7..=activation {
             let env = propose(&mut app).await;

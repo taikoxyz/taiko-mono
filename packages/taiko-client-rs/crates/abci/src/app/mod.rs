@@ -128,17 +128,25 @@ pub struct AppOptions {
     /// top of their own deadlines); past it the node proposes nothing. Must stay below
     /// CometBFT's `timeout_propose`, or the round times out before the proposal is ready.
     pub prepare_timeout: Duration,
+    /// How long the proposer keeps its parent's anchor after its own L1 node first shows a
+    /// newer block as finalized, so that validators whose view is slightly behind do not
+    /// reject the proposal (CONS-3.3-4, RECOV-8-5). Proposer policy only: no validity rule
+    /// depends on it. Zero moves the anchor at once.
+    pub anchor_hold: Duration,
 }
 
 impl Default for AppOptions {
     /// `l1_timeout` 3 s, `engine_timeout` 5 s, `elsync_timeout` 600 s,
-    /// `prepare_timeout` 2 s (below CometBFT's default `timeout_propose` of 3 s).
+    /// `prepare_timeout` 2 s (below CometBFT's default `timeout_propose` of 3 s), `anchor_hold`
+    /// 12 s (one L1 slot, within which every honest L1 node normally learns a new finalized
+    /// checkpoint).
     fn default() -> Self {
         Self {
             l1_timeout: Duration::from_secs(3),
             engine_timeout: Duration::from_secs(5),
             elsync_timeout: Duration::from_secs(600),
             prepare_timeout: Duration::from_secs(2),
+            anchor_hold: Duration::from_secs(12),
         }
     }
 }
@@ -361,6 +369,11 @@ pub struct App<L: L1Source, E: Engine> {
     trust: trust::TrustHandle,
     /// Last Unzen block independently derived by the complete driver from own finalized L1.
     switch_origin: Option<crate::switch::SwitchOrigin>,
+    /// The pause of a ready session's latest-checkpoint reads after failed ones.
+    follow_backoff: trust::FollowBackoff,
+    /// The parent anchor the proposer last saw a newer own-finalized L1 block above, and when it
+    /// first did ([`AppOptions::anchor_hold`]).
+    anchor_seen: Mutex<Option<(u64, tokio::time::Instant)>>,
     /// Revokes shared authorization on worker destruction, including panic/cancellation.
     _trust_lifetime: trust::TrustLifetime,
 }
@@ -560,6 +573,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
             _trust_lifetime: trust::TrustLifetime(trust.clone()),
             trust,
             switch_origin: None,
+            follow_backoff: trust::FollowBackoff::default(),
+            anchor_seen: Mutex::default(),
         };
         app.publish_state_metrics();
         Ok(app)
@@ -974,8 +989,64 @@ fn cometbft_height(h: u64) -> Height {
 /// validator state after that head, which [`App::new`] and every transition keep at the same
 /// height.
 fn app_hash(state: &AppState) -> AppHash {
-    let hash = crate::valstate::app_hash(state.parent.hash, state.val_state.hash());
-    AppHash::try_from(hash.to_vec()).expect("any byte string is a valid AppHash")
+    let report = AppHashReport::of(state, None);
+    AppHash::try_from(report.app_hash.to_vec()).expect("any byte string is a valid AppHash")
+}
+
+/// What an operator compares when a header's AppHash differs from the one this app returned
+/// for its parent (SYNC-9-5c): stock CometBFT then stops consensus, or block sync stalls, while
+/// the process keeps running, so the app reports the height, the header's AppHash where it
+/// knows it, its own app hash and that hash's preimages, the local EL hash and the hash of the
+/// validator state after that height. `Commit` logs one for every committed height and the
+/// handshake `Info` for the committed head; `/val_state/<height>` serves the validator-state
+/// preimage to compare where the cause is not visible from the hashes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct AppHashReport {
+    /// The committed height whose state the app hash commits.
+    pub height: u64,
+    /// The AppHash a header carries for `height`, where known; `None` when only CometBFT saw it.
+    pub header_app_hash: Option<B256>,
+    /// The app's own app hash for `height`.
+    pub app_hash: B256,
+    /// The local EL block hash at `height`.
+    pub el_hash: B256,
+    /// The hash of the validator state after `height`.
+    pub val_state_hash: B256,
+}
+
+impl AppHashReport {
+    /// The report of `state`'s head, with the header's AppHash where known.
+    pub fn of(state: &AppState, header_app_hash: Option<B256>) -> Self {
+        let val_state_hash = state.val_state.hash();
+        Self {
+            height: state.last_height,
+            header_app_hash,
+            app_hash: crate::valstate::app_hash(state.parent.hash, val_state_hash),
+            el_hash: state.parent.hash,
+            val_state_hash,
+        }
+    }
+
+    /// Whether a known header AppHash differs from the app's own.
+    pub fn mismatched(&self) -> bool {
+        self.header_app_hash.is_some_and(|header| header != self.app_hash)
+    }
+}
+
+impl std::fmt::Display for AppHashReport {
+    /// One line naming every compared value.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "height {}: header AppHash ", self.height)?;
+        match self.header_app_hash {
+            Some(header) => write!(f, "{header}")?,
+            None => f.write_str("unknown")?,
+        }
+        write!(
+            f,
+            ", app hash {}, local EL hash {}, validator-state hash {}",
+            self.app_hash, self.el_hash, self.val_state_hash
+        )
+    }
 }
 
 #[cfg(test)]

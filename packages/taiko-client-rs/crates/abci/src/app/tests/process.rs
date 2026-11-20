@@ -804,8 +804,11 @@ async fn engine_timeout_waits_without_a_false_rejection() {
     assert!(tokio::time::timeout(Duration::from_secs(60), judge(&mut app, &env)).await.is_err());
 }
 
+/// CONS-3.3-5, RECOV-8-5 5.e/5.f: an own L1 node that times out or is unreachable has not
+/// finalized the anchor in this node's view either, so `ProcessProposal` rejects at once and
+/// never waits; the node judges a later round's proposal against its view then.
 #[tokio::test(start_paused = true)]
-async fn l1_timeout_and_outage_wait_until_available() {
+async fn l1_timeout_and_outage_reject_the_anchor_at_once() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
@@ -813,12 +816,33 @@ async fn l1_timeout_and_outage_wait_until_available() {
     let env = propose(&mut app).await;
     assert!(env.anchor.is_some());
     app.l1().state().delay = Some(app.opts.l1_timeout + Duration::from_secs(1));
-    assert!(tokio::time::timeout(Duration::from_secs(60), judge(&mut app, &env)).await.is_err());
+    let started = tokio::time::Instant::now();
+    assert_eq!(rejected(&mut app, &env).await, "anchor_not_final");
+    assert!(started.elapsed() < app.opts.l1_timeout + Duration::from_secs(1), "no wait");
 
     app.l1().state().delay = None;
     app.l1().state().fail = Some(L1Error::Rpc("down".into()));
-    assert!(tokio::time::timeout(Duration::from_secs(60), judge(&mut app, &env)).await.is_err());
+    assert_eq!(rejected(&mut app, &env).await, "anchor_not_final");
     app.l1().state().fail = None;
+    assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
+}
+
+/// RECOV-8-5 5.e: a proposal whose anchor the proposer's L1 node has finalized but this node's
+/// has not yet is rejected without waiting, and the same proposal is accepted once this node's
+/// view catches up, as in a later round.
+#[tokio::test(start_paused = true)]
+async fn an_anchor_the_own_l1_has_not_finalized_yet_is_rejected_without_waiting() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 5).await;
+    fx.advance_l1(app.l1(), 66, &fx.inbox, &fx.registry);
+    let env = propose(&mut app).await;
+    let finalized = app.l1().state().finalized;
+    app.l1().set_finalized(finalized - 1);
+    let started = tokio::time::Instant::now();
+    assert_eq!(rejected(&mut app, &env).await, "anchor_not_final");
+    assert_eq!(started.elapsed(), Duration::ZERO, "ProcessProposal never waits for finality");
+    app.l1().set_finalized(finalized);
     assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Accept);
 }
 
@@ -943,7 +967,7 @@ async fn historical_state_unavailable_halts_every_handler_and_survives_restart()
                 fx.engine(),
                 fx.params.clone(),
                 app.store.clone(),
-                AppOptions::default()
+                crate::test_utils::test_options()
             ),
             Err(AbciError::SafetyHalt(_))
         ));
@@ -1109,7 +1133,7 @@ async fn review_own_el_bad_reply_halts_durably_but_peer_proof_rejects() {
                     fx.engine(),
                     fx.params.clone(),
                     app.store.clone(),
-                    AppOptions::default()
+                    crate::test_utils::test_options()
                 ),
                 Err(AbciError::SafetyHalt(_))
             ));

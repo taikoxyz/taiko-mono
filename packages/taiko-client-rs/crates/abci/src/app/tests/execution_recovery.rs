@@ -38,7 +38,7 @@ async fn startup_restores_committed_execution_suffix_without_peers() {
     engine.state().require_payload_parent = true;
     drop(app);
     let mut reopened =
-        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     let response = tokio::time::timeout(Duration::from_secs(2), info(&mut reopened))
         .await
         .expect("local committed payloads restore the EL without peer sync")
@@ -171,8 +171,13 @@ async fn execution_recovery_stops_at_the_import_floor_and_requires_its_existing_
         let engine = Arc::clone(&app.engine);
         drop(app);
         let engine = Arc::try_unwrap(engine).expect("app released the execution engine");
-        let mut reopened =
-            app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+        let mut reopened = app_with(
+            fx.l1(),
+            engine,
+            fx.params.clone(),
+            dir.path(),
+            crate::test_utils::test_options(),
+        );
         let result = tokio::time::timeout(Duration::from_secs(1), info(&mut reopened)).await;
         if keep_floor {
             assert_eq!(result.unwrap().unwrap().last_block_height.value(), committed.last_height);
@@ -290,7 +295,7 @@ async fn restart_ignores_execution_sidecars_above_the_committed_app_state() {
     drop(app);
     let engine = Arc::try_unwrap(engine).expect("app released the execution engine");
     let mut reopened =
-        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     let response =
         tokio::time::timeout(Duration::from_secs(2), info(&mut reopened)).await.unwrap().unwrap();
     assert_eq!(response.last_block_height.value(), committed.last_height);

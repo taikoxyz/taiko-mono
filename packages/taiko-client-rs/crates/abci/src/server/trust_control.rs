@@ -221,6 +221,7 @@ mod tests {
             "target",
             "committed_head",
             "trusted_consensus_head",
+            "eligible_height",
             "reason",
         ]);
         for answer in [&old, &current, &checked, &stale] {
@@ -231,6 +232,7 @@ mod tests {
         assert_eq!(stale["session_id"], current["session_id"]);
         assert_eq!(stale["reason"], "stale trust session");
         assert!(stale["trusted_consensus_head"].is_null());
+        assert!(stale["eligible_height"].is_null());
         task.abort();
     }
 

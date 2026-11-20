@@ -87,16 +87,30 @@ pub struct AbciArgs {
                 seconds (1-3600); must stay below CometBFT's timeout_propose"
     )]
     pub prepare_timeout_secs: u64,
+    /// How long the proposer keeps its parent's anchor after its own L1 node first shows a
+    /// newer block as finalized, in seconds (CONS-3.3-4); 0 moves the anchor at once.
+    #[clap(
+        long = "anchor.hold",
+        env = "ABCI_ANCHOR_HOLD",
+        value_name = "SECONDS",
+        default_value_t = AppOptions::default().anchor_hold.as_secs(),
+        value_parser = clap::value_parser!(u64).range(0..=MAX_TIMEOUT_SECS),
+        help = "How long the proposer keeps its parent's anchor after its own L1 node first \
+                shows a newer block as finalized, so validators slightly behind accept the \
+                proposal, in seconds (0-3600; 0 moves the anchor at once)"
+    )]
+    pub anchor_hold_secs: u64,
 }
 
 impl AbciArgs {
-    /// The app's call deadlines.
+    /// The app's call deadlines and proposer anchor hold.
     pub fn app_options(&self) -> AppOptions {
         AppOptions {
             l1_timeout: Duration::from_secs(self.l1_timeout_secs),
             engine_timeout: Duration::from_secs(self.engine_timeout_secs),
             elsync_timeout: Duration::from_secs(self.elsync_timeout_secs),
             prepare_timeout: Duration::from_secs(self.prepare_timeout_secs),
+            anchor_hold: Duration::from_secs(self.anchor_hold_secs),
         }
     }
 }
@@ -128,6 +142,7 @@ mod tests {
             "ABCI_ENGINE_TIMEOUT",
             "ABCI_ELSYNC_TIMEOUT",
             "ABCI_PREPARE_TIMEOUT",
+            "ABCI_ANCHOR_HOLD",
             "L1_HTTP",
             "L2_HTTP",
             "L2_AUTH",
@@ -208,6 +223,8 @@ mod tests {
             "60",
             "--prepare.timeout",
             "1",
+            "--anchor.hold",
+            "3",
         ]))
         .expect("abci parses");
 
@@ -221,6 +238,7 @@ mod tests {
                 engine_timeout: Duration::from_secs(6),
                 elsync_timeout: Duration::from_secs(60),
                 prepare_timeout: Duration::from_secs(1),
+                anchor_hold: Duration::from_secs(3),
             }
         );
     }
@@ -238,6 +256,7 @@ mod tests {
             EnvGuard::set("ABCI_ENGINE_TIMEOUT", "8"),
             EnvGuard::set("ABCI_ELSYNC_TIMEOUT", "9"),
             EnvGuard::set("ABCI_PREPARE_TIMEOUT", "1"),
+            EnvGuard::set("ABCI_ANCHOR_HOLD", "0"),
             EnvGuard::set("L1_HTTP", "http://localhost:8545"),
             EnvGuard::set("L2_HTTP", "http://localhost:28545"),
             EnvGuard::set("L2_AUTH", "http://localhost:28551"),
@@ -256,6 +275,7 @@ mod tests {
                 engine_timeout: Duration::from_secs(8),
                 elsync_timeout: Duration::from_secs(9),
                 prepare_timeout: Duration::from_secs(1),
+                anchor_hold: Duration::ZERO,
             }
         );
         assert_eq!(cmd.common_flags.l1_http_endpoint.as_str(), "http://localhost:8545/");
@@ -294,6 +314,8 @@ mod tests {
             ["--engine.timeout", "3601"],
             ["--elsync.timeout", "3601"],
             ["--prepare.timeout", "18446744073709551615"],
+            ["--anchor.hold", "3601"],
+            ["--anchor.hold", "1.5"],
         ] {
             let mut args = vec!["--data-dir", "/data"];
             args.extend(extra);
@@ -304,7 +326,13 @@ mod tests {
         let max = "3600";
         assert_eq!(max.parse::<u64>().unwrap(), MAX_TIMEOUT_SECS);
         let mut args = vec!["--data-dir", "/data"];
-        for flag in ["--l1.timeout", "--engine.timeout", "--elsync.timeout", "--prepare.timeout"] {
+        for flag in [
+            "--l1.timeout",
+            "--engine.timeout",
+            "--elsync.timeout",
+            "--prepare.timeout",
+            "--anchor.hold",
+        ] {
             args.extend([flag, max]);
         }
         let flags = parse(argv(&args)).expect("the upper bound itself is accepted").abci_flags;
@@ -315,7 +343,8 @@ mod tests {
                 l1_timeout: hour,
                 engine_timeout: hour,
                 elsync_timeout: hour,
-                prepare_timeout: hour
+                prepare_timeout: hour,
+                anchor_hold: hour,
             }
         );
     }
