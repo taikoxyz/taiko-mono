@@ -6668,6 +6668,9 @@ Y07 and whole-seven final gates remain, with no automatic eighth.
 
 ## Y prefix final review repairs
 
+**Historical prefix checkpoint:** the pending-Y07 and current-source labels in
+this dated record are superseded by [Y07 closeout](#y07-native-evidence-lifecycle-and-import-markers). Its original counts, pins and raw results remain unchanged.
+
 Date: 2026-11-20. Repair code `491aa3e94375f5ce41597f8403beeffb9b80f5d6`.
 Independent review of the six delivered Y increments found three confirmed P2
 verification-artifact defects. They are fixed and independently source/behavior
@@ -6789,3 +6792,171 @@ finite/native/API observations. Existing runtime/authenticated-history/L1/EL/
 guest/proving/deployment, R01/P01/K01/Q01 and19 archived INCONCLUSIVE searches
 retain their limits. Y01–Y06 selected deliveries have these repairs; Y07 and the
 whole-seven final gates still require completion. No automatic eighth follows.
+
+
+## Y07 native evidence lifecycle and import markers
+
+Date: 2026-11-20. Code commit: `9d79f35fc975bda9c03c7202c5e670e88e5b760f`. The selected native component uses stock
+CometBFT `0880b4d378f347ab16e54ec677ff50d803f37d62`, the unchanged public h1000
+A/B precommits and the fixed product-review document bundle `2e6763e2`.
+Latest reviewed source `f556fa94` has a separate source-only ledger; no Y result
+is promoted to conformance with those changed rules.
+
+**Selected technical gates completed:** all seven independent native controls
+and the actual4-positive/46-negative unchanged-output metadata API gate passed.
+Independent source/behavior and final documentation checks passed. Code
+publication, remote body/head readback and new-head CI remain separate final gates. No automatic eighth starts.
+
+### Actual native paths and independent observations
+
+The source-built fixture executes four local stock API histories. Six fresh
+cold stores use heights1900/1901 and ages3599/3600/3601: expiry requires both
+strict bounds, so five admit and only1901/3601 expires. The distinct signed-vote
+time is refused against the actual historical header before validator lookup.
+Controlled Reactor peers positively demonstrate Send at1900 and old-info at1901;
+no timeout is treated as absence. Two independently constructed identical
+pending prefixes preserve cached admission until the continuing holder's own
+1902 update, while reopened NewPool prunes at1901. Actual Update1001 installs a
+committed marker carrying evidence height1000. Real PruneStates removes row1000
+and retains full1001; marked reopened checking performs no historical lookup,
+while the separately unmarked branch actually reaches missing header1000.
+
+Complete public votes/signing bytes/signatures, duplicate evidence, oneof/list
+protobufs, list Merkle hash, State and parameter protobufs, every state/evidence
+DB row, marker key/payload, typed full errors and per-API lookup heights/counts are observed.
+The historical evidence timestamp and synthetic header/window context remain
+explicit premises. The fixture's positive block-evidence budget and synthetic
+committed marker do not describe valid imported Etna history under latest f556.
+
+The genuine host smoke and full CLI use the same implementation paths and
+real `run_profile` entrypoint. Only native children receive one official offline
+namespace. The driver owns the single existing physical cache lease and passes
+that same open description through the canonical leased supervisor; the outer
+observer does not acquire a second flock. Native/isolation/supervisor budgets
+remain90/100/110seconds per phase. Observers use TERM without automatically
+killing the last quarantine holder. Unknown supervision retains the lease and
+private source until independent manual quiescence; no crash-atomic restoration
+or simultaneous-kill guarantee follows.
+
+| Actual completed gate | Observation |
+| --- | --- |
+| Compile and independent readback | Source-built ELF compilation passed; no test/init or reused-ELF execution credit from this gate. |
+| Canonical consumer checks |26 methods passed; the first wrapper's post-test KeyError remains a failed overall record. |
+| Genuine host smoke |CLI/run_profile/require_capture returned; one cold receipt, native0/supervisor200. |
+| Genuine full campaign |Normal0/200, actual `&&`→`||` mutant1/201, restored0/200; all four cases in each phase, no timeout. |
+| Independent v6 actual raw audit |All13 smoke/full receipts passed complete independent public-crypto/wire/State/DB/profile reconstruction. Per-case and per-receipt digests match the genuine canonical outcome records. |
+| Independent checker shadow regression |The same actual pending receipt reproduces v5's dict/method TypeError, then passes v6 after only a method/call rename. No expected receipt body changed. |
+| Independent attribution regressions |Two genuine-raw positives and five synthetic case/map/parent/package negatives passed the repaired private wrapper. These are observer controls, not new native behavior. |
+| Independent native controls |All7 passed their intended observations: peer-height comparator triplet0/1/0 and actual late-callback baseline/fixed/old-order/restored0/1/0/0; same physical source/fixture inodes/modes restored, lease unlocked/FD closed in every phase. |
+| Unchanged-output metadata controls |Actual host Python0 in2.323s:4 real normal/restored API positives and46 exact metadata refusals (23 per phase), with4278 genuine artifact files unchanged and pre/post guards PASS. |
+
+The independent comparator fault positively observes peer1900 taking the actual
+old-info branch and its exact wrong-branch diagnostic. Its other three histories
+retain their full source-derived receipts; missing Send by timeout earns no
+credit. The late callback waits for Quit outside the peer mutex, forcing a real
+same-iteration Send after old-info publication. The fixed observer refuses
+(native1) after independently recorded two Sends/two post-exit records. The
+stale old-order observer returns native0 and a normal receipt while that same
+raw proves a late Send and queued event. This is an observed false-positive
+observer, not healthy protocol evidence. All four late phases remain
+NOT_ATTRIBUTED_OBSERVER_DIAGNOSTIC, including baseline and restored.
+
+The metadata gate invokes the real unchanged normal/restored require_capture
+before and after its controls. Only Path.read_bytes for the original execution.json
+path returns substituted metadata bytes during each negative call; actual paths,
+raw, source, staged inputs, launch metadata files and all original artifacts are
+unchanged. Every refusal requires its exact predeclared ValueError and exactly
+one intercepted metadata read. Typed status/timeout, supervisor/command, source
+and tool hashes, staged identity/link/inode, outcomes, elapsed time and duplicate
+JSON controls all refuse at the intended guard. This gate runs no Go and takes
+no cache lease.
+
+The real full driver verifies each source tree during its own phase, retains
+the mutant source/manifest, then restores the same private source. Post-full
+`require_capture` actually returns normal/restored records. It is deliberately
+not called on the historical mutant after restoration: that API verifies the
+current live private tree. The mutant's original raw, actual phase metadata,
+retained variant manifest and restoration journal are checked instead. No
+temporary re-mutation, metadata rewrite or invented capture is used to make
+that post-restoration call pass. Y07's genuine integration does not close Y06's
+earlier INCONCLUSIVE full-producer launch.
+
+### Verification defects, failed attempts and self-review limits
+
+The initial self-checks did not exercise every real entrypoint. A private
+controller had missed canonical lease ownership; split native/consumer runs did
+not establish the full CLI. Cold-only independent auditing never invoked the
+pending method whose name collided with its DB dictionary. The corrected v6
+oracle retains that exact failed v5 run and same-receipt RED→GREEN regression.
+An earlier Go vet format error, rejected compile/observer preparations and the
+unit-wrapper KeyError remain failed records with zero passing-gate credit.
+
+Independent source review then found two further P2 attribution gaps in the
+private control wrapper. A valid cold receipt could appear under a gossip leaf
+because outer leaf identity and inner case dispatch were not joined. Expected
+native1 could also hide an unrelated parent cleanup error. The repaired wrapper
+requires the ordered four cases, complete unique receipt map and each strict
+receipt's case/key identity, and validates standard parent/package framing for
+both audit entrypoints. Genuine raw substitutions reproduce old acceptance and
+then fail at those exact new guards. Its fixed Go1.27 producer premise is not a
+general-purpose arbitrary-JSON validation claim.
+
+Latest-source maintenance also repaired rule-index mapping: expectedGeneration
+schedule writes, permanent issued-bond operations, landing/snapshot checks,
+canonical snapshot counts/minimum, durable aligned import, evidence/window and
+installed-runtime obligations now name their actual f556 rules. Eleven entries
+remain WAITING and every source-only selection remains NOT_EVALUATED. Earlier
+models, claim inventory and three old bundle encodings retain their pins.
+Historical sensitivity/run.py and old Registry source/input pins are unchanged.
+
+Separate authors, green counts and adversarial mutations did not make those
+missing premises independent. The gates became meaningful only after exercising
+the real API, all selected histories, receipt attribution and failure framing.
+These are confirmed verification-artifact defects; no natural protocol defect
+is confirmed by this batch. Successful bounded stock/component observations
+are not complete protocol verification.
+
+### Current code checks and retained identities
+
+Code candidate tree `2df83e3342de24eea3622e2832d6bfafe1803a8a` and the actual
+`f556fa94186b0ab604573e8d3a4c4d4fa835dc84` merge tree
+`85a3214ca4ee405f0455cc2098e6a80cd9373397` each pass646 ordinary checks
+(460 main/166 conformance/20 sensitivity), zero failures/errors/skips.
+All1,959 frozen source/harness identities remain stable and631 pre-Y
+model/config identities are preserved. The independent source-boundary API gate verifies4 genuine bundles,60 mixed
+triples refused,20 old-product selections denied,18 historical selections,7
+genuine historical runner receipts,7 rebound-evidence refusals and11 WAITING
+obligations, plus3 edited-document and3 rebound-document refusals. These checks cover the named code candidate before final
+documentation and publication; they do not assert new-head CI or push success.
+
+| Retained actual artifact | SHA-256 |
+| --- | --- |
+| Native evidence fixture | `7956ddba05937e5ddf4cc7fa455969a3b858baa6ce518004b7e1411b0ade2cbb` |
+| Canonical evidence consumer | `2fe3ea31c476211302ff9708767ed7c83307abc712d51ed630a519060cbf64b5` |
+| Compile independent readback | `11649eee8ee8791bdee93b6885ae56b9d465313969c6a43fec78776908951d6b` |
+| Genuine host smoke summary | `4119e0a8e34579600168431ffdb768aec711c5f532a51de85b6fdc61b84539d7` |
+| Genuine full summary | `ea63be9c858b208bd05bcc90255589b7c10365ffe9d5d6c7564f74e65bc6f8da` |
+| Actual normal raw | `b371815d9685960a4211ad09131055eefa98d0363f85dec8cac4ca3fd119a78d` |
+| Actual disjunction-mutant raw | `95cac330be3ddec805c4738bca3243111a13aabb8a9ee293c9deae2e83356291` |
+| Actual restored raw | `0ddbde8c15af7f8786950ee150a4b47bc5f7de4f5a91449ce2f810ffb44219ad` |
+| Independent v6 oracle | `5e00ec5d144cc7da2cf9646d8f3ae6b4bad993ccb7853fbc560eb99fd2d79677` |
+| Actual independent13-receipt result | `82f2af415396a518c4ddfadf2cc3c06e3cea054b967328c9c07fdcc7811a3056` |
+| Per-case canonical/independent readback | `06e150c7cf7c9a4eb9a72ab00f2f74abdb1c04a994b171b27b1b6ca355e1e9a0` |
+| Whole-seven original code source review | `9e5fd0129563f7588d44991fcda92ec2907e2cfa064b501123803174c9d7c214` |
+| Latest-source maintenance source review | `3a36fb09101fb84b145833fa56d5bc541b93ffac0d139c6d7a82981e605a07d4` |
+| Candidate/main-merge646 readback | `951b9246076b5a6b0a3b874ad932bc8ca1f09c7c4027caab3ee243845c89fdb7` |
+| Independent source-boundary stdout | `6c4e47006969804b91577f4f26415659f8f07f9c48d8e4bfac855c00f6412c4b` |
+| Latest-source WAITING ledger | `218e4167e438dcaafdd35a1a6aa2b7a0e05e01a7b25cc5c3d6971898cbaccb65` |
+| Actual native7 aggregate readback | `5c28fb64b35791e42c36bf023ed17cc896791b77fe12fa15a51249bfd6983fa1` |
+| Actual metadata4/46 result | `74146bef298815a3849458793b5a4556748f1c8f1d7b7a9e747a7d120d39ab85` |
+
+The [latest-source correspondence](conformance/SPEC_CORRESPONDENCE.md#latest-source-review-at-f556)
+keeps the eleven concrete f556 obligations WAITING. Actual current Etna app,
+authenticated history/window and committee/anchor reconstruction, network/P2P
+trust, L1/EL/guest/proving, deployment, crash-atomic multistore installation,
+R01/P01/K01/Q01 and19 archived INCONCLUSIVE searches retain their limits.
+
+The six closeout documents passed independent source review after two wording
+corrections. The focused source-correspondence and archived-disposition suite
+passed46 checks with zero failures/errors/skips and stable inputs/tools/modes.
+Remote publication is still recorded separately from these local checks.

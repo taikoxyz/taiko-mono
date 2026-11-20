@@ -14,7 +14,7 @@ Actual measured outcomes and incomplete products are recorded in
 
 The historical model authority is
 [`SPEC.md` at d1835721](https://github.com/taikoxyz/taiko-mono/blob/d18357214fab30ea512ae9858a11699806d72ba1/packages/protocol/docs/etna/SPEC.md).
-The current three-document design bundle is
+The fixed product-review three-document design bundle is
 [`2e6763e2`](https://github.com/taikoxyz/taiko-mono/tree/2e6763e21bc236cfcda6011d164b32040f9e0c8d/packages/protocol/docs/etna).
 It changes empty-slot admission, arbitrary-height landing and validator-state
 AppHash binding. Historical models and native receipts retain their original
@@ -25,6 +25,12 @@ producers. The original source guard remains unchanged. See the
 [source correspondence](conformance/SPEC_CORRESPONDENCE.md) and
 [W01 report](REPORT.md#w01-current-document-bundle-and-evidence-boundaries).
 These checks do not establish CometBFT, cryptographic or deployment correctness.
+
+Latest reviewed source is separately `f556fa94186b0ab604573e8d3a4c4d4fa835dc84`.
+Its [source-only ledger](conformance/SPEC_CORRESPONDENCE.md#latest-source-review-at-f556)
+keeps eleven concrete obligations WAITING with execution NOT_EVALUATED.
+The old W/Y product workspace stays fixed at2e; old results are not promoted to
+the latest rules, and unknown/mixed document bytes still refuse.
 
 The separately named [current Registry vacancy model](conformance/REGISTRY_VACANCY.md)
 checks held-zero occupancy, lowest-empty admission, lifetime-key refusal and
@@ -117,6 +123,17 @@ supervisor cleanup and records cancellation across mutation/restoration; actual
 canonical-path dummy-process controls passed. They do not close the full-Go
 integration gap. See [prefix repairs](REPORT.md#y-prefix-final-review-repairs).
 This is draft component evidence, not authenticated import.
+
+The [native evidence lifecycle component](conformance/COMET_EVIDENCE.md) now has
+actual compile,26 consumer checks, genuine host smoke/full0/1/0 and13 complete
+independent v6 raw/crypto/State/DB receipts. Fixed2e product inputs, synthetic
+stock history and the latest f556 zero-evidence/import obligations remain
+separate. [Y07 evidence](REPORT.md#y07-native-evidence-lifecycle-and-import-markers)
+retains the checker shadow and attribution repairs. All7 independent native
+controls and4-positive/46-negative unchanged-output metadata API controls passed,
+including same-inode source/fixture restoration. Task7 technical gates are
+complete at this selected scope; final documentation/publication and new-head
+CI remain separate. Y06 full-producer integration stays INCONCLUSIVE.
 
 ## Run
 

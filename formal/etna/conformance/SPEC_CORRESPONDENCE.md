@@ -49,7 +49,8 @@ and SWITCH together at `2e6763e21bc236cfcda6011d164b32040f9e0c8d`.
 The legacy three-argument verifier continues to refuse that SPEC. The separate
 [bundle and claim ledger](current_spec_boundaries.json) records the byte lengths,
 Git blobs and SHA-256 digests of all three documents at the canonical `d1835721`,
-historically reviewed `9c832234` and current reviewed `2e6763e2` revisions. A
+historically reviewed `9c832234`, fixed product-review `2e6763e2` and separately
+source-reviewed `f556fa94` revisions. A
 partial, mixed or modified bundle is refused. Independent pins for the document
 inventory and the claim inventory keep source classification and claim selection
 bound to their respective reviewed inputs.
@@ -74,6 +75,53 @@ against the phase record, current boundary, watched inputs and cache lock.
 These runners can report historical regressions beside any reviewed workspace
 bundle. The companion documents and ledger are watched through the run. The
 archived summary formats and their original inputs retain their identities.
+
+## Latest source review at f556
+
+The latest separately reviewed document revision is
+[`f556fa94186b0ab604573e8d3a4c4d4fa835dc84`](https://github.com/taikoxyz/taiko-mono/tree/f556fa94186b0ab604573e8d3a4c4d4fa835dc84/packages/protocol/docs/etna).
+The fixed product-review revision remains `2e6763e2`; the compatibility identifier
+`CURRENT_BUNDLE` means that fixed product revision. `LATEST_SOURCE_BUNDLE` names
+f556. Matching the fourth exact triple can establish SOURCE_REVIEWED, but it
+cannot transfer old product claims, test outcomes or implementation identity.
+An old nonhistorical claim, including an old waiting row, refuses f556 inputs.
+Historical-only receipts keep their original authority and implementation pins.
+
+| Latest exact document | Bytes | SHA-256 |
+| --- | --- | --- |
+| SPEC |261010| `6f7150d65ff7c4a8b46b719d2ed48e665a60e47a6d013a2994229e8119ff24a7` |
+| ACCEPTANCE |51711| `1ee58f0600daebc8277c6456145a9112388ae3f7c93efdba4d7618d04debdae4` |
+| SWITCH |27213| `c33db855c674b1907480403a8ad54497e05fb1ca32d9772a15d97e2ffc61e14e` |
+
+The separately pinned [source-review ledger](source_revision_obligations.json),
+SHA-256 `218e4167e438dcaafdd35a1a6aa2b7a0e05e01a7b25cc5c3d6971898cbaccb65`,
+contains eleven concrete WAITING obligations, no execution evidence and
+execution NOT_EVALUATED. `select_source_revision` returns this source-only scope;
+actual workspace classification still requires all three original byte streams.
+The earlier claim inventory remains pinned at `d127d53a73905b701d950d75c1021433f05de6c6dfc3e21a0b96394ab79ef958`.
+The three older bundle encodings remain unchanged. Exact mixed, missing, extra or
+modified document inputs refuse.
+
+| Obligation | Concrete latest-source evidence still WAITING |
+| --- | --- |
+| Y01 |Generation-bound rules/stop writes and cancellation, including delayed authorized calls after recovery (START-10.1-5a/5b/5c). The old finite transition system has separate evidence. |
+| Y02 |Permanent issued bondId exclusions in strictly increasing order, whole-landing authorization audit, voided records and fixed recovery genesis (STAKE-4.1-13a, RECOV-8-38, RECOV-8.1-1/7, RECOV-8.3-1, RECOV-8.4-3, START-10-21). Empty exclusion examples do not exercise the new nonempty ABI. |
+| Y03 |Unvoided retained origin and non-regressing active snapshot before verification, current signing-set/header/anchor checks and real per-rule guest proofs (LAND-6.1-6/10, RECOV-8-27, PROOF-6.2-17/43, START-10.1-5a). |
+| Y04 |Permanent bondId forfeit calldata, flags/events, issued-id and withdrawal races, ordered exclusions and self-report economics (STAKE-4.1-13a, FORF-4.4-1/20). Historical proxy balances do not establish the new ABI/key space. |
+| Y05 |Zero count when empty or highest occupied slot+1, occupied final entry, shrinking counts, unified immutable minStake and bondId resolution (STAKE-4.1-36, COMM-4.3-2/3/4/5, START-10-12). Old positive-width trailing/all-empty inputs remain historical. |
+| Y06 |Authenticated full window, both LoadBlockCommit and LoadSeenCommit, metadata/full validator sets with stored proposer, durable aligned app/EL/Comet installation and signer fencing (DATA-5.4-1/2/3/4/5/6/8, RECOV-8.2-2, SYNC-9-5c). Y06's full producer integration remains INCONCLUSIVE. |
+| Y07 |Zero block-evidence budget in both genesis types; proposer emits an empty list; consensus and block-sync validation reject nonempty lists; fresh imported evidence DB and authenticated history for continued gossip/light-client evidence (CONS-3.1-10, START-10-20/21/22/23, RECOV-8.4-7, DATA-5.4-2/3/4/5/6/8). The synthetic stock marker/budget fixture is not valid imported Etna history. |
+| STOCK_DEPLOYMENT |Exact installed platform binary/build/config, certified first-block recovery, complete historical proposer/validator state and isolated signer restart (CONS-3.1-1/8/9, RECOV-8.2-1, SYNC-9-5c). A version string or selected public API is insufficient. |
+| SWITCH |Permissionless proven Unzen-tip latch, finalized R0, forwarding cutoff, deadline-bound two-chain replacement/acknowledgment, split configuration failure and actual first landing (START-10-5b/5c/20, LAND-6.1-8a). |
+| PUBLIC_HISTORY |Independent public availability/import packages after blob expiry and authenticated header/commit ancestry with current evidence/committee/anchor windows (DATA-5.3-9a, DATA-5.4-8). |
+| RESOURCES |Worst legal single-block/full-batch real two-proof feasibility, 4096-slot Registry measurements and full operational/resource rehearsals (MODEL-1-2, LIMIT-12-17). |
+
+The original W/Y models, public fixtures, historical native pins, nineteen
+archived INCONCLUSIVE searches and broader R01/P01/K01/Q01 limits remain intact.
+This review records specific changed requirements; it establishes no latest
+runtime or deployment conformance. The sections below retain the earlier
+9c832234→2e6763e2 review at its original scope.
+
 
 ## Normative delta from `9c832234` to `2e6763e2`
 

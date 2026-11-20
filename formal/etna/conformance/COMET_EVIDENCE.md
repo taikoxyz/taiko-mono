@@ -7,10 +7,23 @@ window boundaries, app version17 and stock default consensus parameters are
 explicit inputs. They do not establish an authenticated Etna chain or START-10
 application configuration.
 
+The product workspace is fixed to the exact SPEC/ACCEPTANCE/SWITCH triple at
+`2e6763e21bc236cfcda6011d164b32040f9e0c8d`; it is not a generic latest-main
+workspace. Latest reviewed source f556 has [separate WAITING obligations](SPEC_CORRESPONDENCE.md#latest-source-review-at-f556).
+In particular, its valid blocks have an empty evidence list and both genesis
+types use max_bytes=0. This fixture uses a positive stock budget and a synthetic
+committed marker, so it does not establish that current import behavior.
+
 Source selection for `evidence-lifecycle` always remains separately
 `NOT_EVALUATED`. A successful audited native receipt concerns the named stock
 component; it does not turn source selection into execution or protocol proof.
 Actual run identities and validation status belong in [REPORT.md](../REPORT.md).
+The selected delivery has genuine host smoke/full0/1/0,13 independent complete
+receipt audits,7 independent native controls with same-inode/mode restoration,
+and4 real capture positives/46 exact unchanged-output metadata refusals. The
+late-callback quartet remains diagnostic-only; old-order native0 explicitly
+demonstrates its missed Send rather than healthy acceptance. These results do
+not close Y06's earlier INCONCLUSIVE full-producer profile.
 
 The fixture stages exactly `public_input.go`, `evidence_test.go`, `go.mod`,
 `go.sum` and `public-votes.json`. The shared reader hashes the actual input buffer
@@ -84,17 +97,30 @@ Use caller-provided offline SDK/module inputs and the pre-existing physical
 build-cache lock. For example, from `formal/etna/conformance`:
 
 ```sh
-python -I -S -B run_comet_evidence.py \
+"$PYTHON" -I -S -B run_comet_evidence.py \
   --source "$COMET_SOURCE" --go-root "$GO_ROOT" \
   --module-cache "$MODULE_CACHE" --build-cache "$BUILD_CACHE" \
-  --build-lock "$BUILD_LOCK" --workspace-root "$REVIEWED_WORKSPACE" \
+  --build-lock "$BUILD_LOCK" --workspace-root "$PINNED_PRODUCT_WORKSPACE_2E" \
   --output "$SMOKE_OUTPUT" --timeout 100 --smoke
 ```
 
 Use a distinct fresh output for the full normal/control/restored campaign,
 replacing `--smoke` with `--smoke-output "$SMOKE_OUTPUT"`. The workspace must
-contain the exact three reviewed current documents at their repository paths.
-A current source selection does not change the stock native authority pin.
+contain the exact fixed2e documents at their repository paths. The classifier
+can recognize latest f556 for source review, but this product claim refuses it.
+Source selection does not change the stock native authority pin.
+
+Smoke and full must use the same implementation paths, including the common
+driver and leased supervisor, as well as the same actual retained smoke output.
+Copying identical code to another location does not preserve the command
+identity checked by require_capture. Use a fresh full output, keep
+`--smoke-output` pointing to the genuine successful smoke, and retain all actual
+phase metadata. After source restoration, require_capture can recheck normal
+and restored phases. It does not re-attest the historical mutant against a
+restored live tree. The driver validates that mutant during its actual phase;
+its retained variant manifest, raw, before/after source records and restoration
+journal provide the post-run evidence. Do not re-mutate or rewrite metadata to
+force a later mutant API call to pass.
 
 The trusted Python producer invokes the common driver outside the native
 namespace; the driver gives each Go command one official offline namespace.

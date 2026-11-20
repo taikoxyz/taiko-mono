@@ -27,7 +27,7 @@ checks unverified under D01 WAITING. The prior991e06f6 provider design and older
 b796/53877 review are historical, not additional accepted runtime identities. Unknown future document bytes
 remain rejected; this metadata proves neither general equivalence nor ancestry.
 
-The current design bundle is now `2e6763e21bc236cfcda6011d164b32040f9e0c8d`
+The fixed product-review bundle is `2e6763e21bc236cfcda6011d164b32040f9e0c8d`
 (SPEC blob `98e209c3a7781c690338751b451fe10852f00b7c`, SHA-256
 `b331b3af7b42a4645ebe3e2b4f42e912e33508893a091c3c3c289c8fdbd53a70`).
 W01 adds a separate exact three-document classifier and closed consumer/claim
@@ -38,13 +38,18 @@ historical evidence at their stated versions. They do not close changed current
 rules. Default TLC outcomes likewise remain historical regression evidence.
 Actual current Registry, Etna app/import/guest and deployment interfaces are
 still missing. [W01 correspondence](conformance/SPEC_CORRESPONDENCE.md) records
-which current claims are modeled, selected stock operations or WAITING.
+which claims at that revision are modeled, selected stock operations or WAITING.
+Latest source `f556fa94186b0ab604573e8d3a4c4d4fa835dc84` is separately exact-classified;
+its [eleven concrete obligations](conformance/SPEC_CORRESPONDENCE.md#latest-source-review-at-f556)
+remain WAITING, without runtime evidence, and source selection remains NOT_EVALUATED.
+That source-only review does not authorize earlier product claims against f556.
 
 ## Current Y01–Y07 boundary-composition batch
 
 Exactly seven new increments are authorized after completed W01–W07. This group
-includes its accumulated final review; no eighth starts automatically. Current
-normative bundle `2e6763e2` is separate from historical native implementations.
+includes its accumulated final review; no eighth starts automatically. The
+fixed product-review bundle `2e6763e2` is separate from historical native implementations
+and latest f556 source-only obligations.
 The [design](../../docs/superpowers/specs/2026-11-19-etna-boundary-compositions-design.md)
 and [implementation plan](../../docs/superpowers/plans/2026-11-19-etna-boundary-compositions.md)
 retain the frozen bounds, independent gates and explicit runtime premises.
@@ -57,7 +62,7 @@ retain the frozen bounds, independent gates and explicit runtime premises.
 | Y04 | Actual funded pending forfeiture component | COMPLETE selected code `ee18ad8e1`; closed15, actual pending-debit/deadline faults/restoration and independent full raw audits passed. |
 | Y05 | Positional registry snapshots and final-R selection | COMPLETE selected code `6164ec9dc`, closure repair `491aa3e94`; corrected safety613 generated/281 distinct/queue0, both R7 orders and omitted-open-guard control/restoration passed; old289-state result retained as historical. |
 | Y06 | Actual terminal seen-commit reconstruction | COMPLETE selected component `41e3cfe5d`, shared ownership repair `491aa3e94`; actual canonical-path dummy cancellation/lease/capture gates passed; full real-Go producer integration INCONCLUSIVE. |
-| Y07 | Native evidence lifecycle and import markers | PENDING before canonical writes; repair gates closed, publication/resume and cold/pending ages, gossip and reopened committed markers remain. |
+| Y07 | Native evidence lifecycle and import markers | TECHNICAL GATES COMPLETE: compile,26 consumer checks, genuine host smoke/full0/1/0,13 independent v6 receipts,7 native controls and4-positive/46-negative unchanged-output metadata controls passed. Final documentation/publication remains pending; exact code identity is recorded in the Y07 report. |
 
 [Y01 evidence](REPORT.md#y01-same-domain-timestamp-safety-projection) records two
 repaired verification defects, actual source controls/restorations, genuine-run
@@ -120,9 +125,16 @@ Y01–Y06 selected deliveries are repaired at code `491aa3e94`. Actual canonical
 ownership gates use disposable dummy writers and do not close the real-Go
 integration gap. The repair candidate/main merge each pass611 ordinary checks
 (425/166/20), plus73 focused checks and independent F1/F2/F3 readbacks.
-Y07 remains pending before canonical writes; whole-seven final gates remain.
-See [prefix repairs](REPORT.md#y-prefix-final-review-repairs). No automatic eighth or
-broader R01/P01/runtime closure follows.
+The original pending-Y07 prefix checkpoint is historical. Y07 now has the actual
+core gates listed above; [its closeout](REPORT.md#y07-native-evidence-lifecycle-and-import-markers)
+records all7 native controls and4-positive/46-negative metadata controls as passed,
+with complete same-inode/mode restoration and unchanged genuine artifacts.
+Whole-seven independent source/behavior and final documentation checks passed;
+normal publication and remote head/body readbacks remain pending.
+Current code candidate/main-f556 merge each pass646 ordinary checks (460/166/20),
+with1,959 frozen identities stable and631 pre-Y model/config identities preserved.
+See [prefix repairs](REPORT.md#y-prefix-final-review-repairs). No automatic eighth,
+latest-source conformance or broader R01/P01/runtime closure follows.
 
 ## Completed W01–W07 batch
 

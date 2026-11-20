@@ -119,16 +119,16 @@ PASS is claimed. See [Y06 report](../../../formal/etna/REPORT.md#y06-terminal-se
 
 **Interfaces:** claim `evidence-lifecycle`; native receipts record actual pool calls, exact evidence/signatures/hash, historical lookups, persistence, peer height/Send and refusal reason. `audit_evidence(receipt:bytes) -> dict` derives dual-age/gossip/committed/pending results independently.
 
-- [ ] Freeze h1000 A/B evidence, historical header-time and exact transitions: +900/+901 block gossip and duration3599/3600/3601 seconds, cached/cold/startup-pruned cases. Use disposable cold pools. Persist latest state before reopen; continuing-holder versus NewPool-startup pruning need two separately built identical-prefix databases or a durable clone, never the same mutable DB. Assert continuing pending remains before its own pruning Update.
-- [ ] RED: conflated gossip/validity ages, vote-time substitution, cold-check state contamination, missed startup prune/committed marker and missing below-window lookup suppression.
-- [ ] Implement real Pool/Reactor APIs and controlled peer Send with branch synchronization, not timeout-as-absence. Install/reopen stock committed markers with w>1000. Marked h1000 must perform zero header/validator lookups at h<=w; the unmarked pair must attempt and fail its real missing-h1000 lookup. Record exact pending deletion in both independent pruning branches.
-- [ ] Root source/packet/smoke/full GO, actual age or marker original/fault/restored; independent different source edge/control and unchanged-output metadata negatives. All goroutines/processes terminate inside bounds.
-- [ ] Verify complete raw outcomes/restoration/input attribution and independent gates, commit/publication. Real P2P trust, authenticated window/chain and atomic multi-store import remain WAITING.
+- [x] Freeze h1000 A/B evidence, historical header-time and exact transitions: +900/+901 block gossip and duration3599/3600/3601 seconds, cached/cold/startup-pruned cases. Use disposable cold pools. Persist latest state before reopen; continuing-holder versus NewPool-startup pruning need two separately built identical-prefix databases or a durable clone, never the same mutable DB. Assert continuing pending remains before its own pruning Update.
+- [x] RED: conflated gossip/validity ages, vote-time substitution, cold-check state contamination, missed startup prune/committed marker and missing below-window lookup suppression.
+- [x] Implement real Pool/Reactor APIs and controlled peer Send with branch synchronization, not timeout-as-absence. Install/reopen stock committed markers with w>1000. Marked h1000 must perform zero header/validator lookups at h<=w; the unmarked pair must attempt and fail its real missing-h1000 lookup. Record exact pending deletion in both independent pruning branches.
+- [x] Root source/packet/smoke/full GO, actual age or marker original/fault/restored; independent different source edge/control and unchanged-output metadata negatives. All goroutines/processes terminate inside bounds.
+- [x] Verify complete raw outcomes/restoration/input attribution and independent technical gates. Commit/publication remains the separate final-gate item below. Real P2P trust, authenticated window/chain and atomic multi-store import remain WAITING.
 
 ## Accumulated final gate
 
-- [ ] Fresh most-capable whole-range source review and separate raw/behavior audit cover all seven, shared files and coordinator rulings. Repair one consolidated final wave if needed.
-- [ ] Relevant ordinary suites and actual current-main merge pass with exact counts/inputs; original historical sources/configs/pins and native restoration are checked. Re-fetch current PR feedback first.
+- [x] Fresh most-capable whole-range source review and separate raw/behavior audit cover all seven, shared files and coordinator rulings. Repair one consolidated final wave if needed.
+- [x] Relevant ordinary suites and actual current-main merge pass with exact counts/inputs; original historical sources/configs/pins and native restoration are checked. Re-fetch current PR feedback first.
 - [ ] Root prepares normal publication; no force push, merge or mark-ready. Record exact pushed head/full PR+issue body readbacks and CI outcome externally after actual execution. Then return to feedback-only; no eighth automatically.
 
 ### Y02 source preflight correction
@@ -177,8 +177,45 @@ consolidated repair work, not an additional increment or a completed final gate.
   73 focused checks and611 ordinary checks on each candidate/current-main merge
   pass. Preserve the failed v2 pin-compatibility and pre-Java TLCv3 alias records.
 
-Task7's original file ownership and public-reader allowlist remain. Its shared
+Historical prefix checkpoint, before Y07 execution: Task7's original file
+ownership and public-reader allowlist remain. Its shared
 common-driver dependency now includes the reviewed `leased_execution.py` repair;
 the historical runner and old Registry pins are unchanged. Y07's implementation,
 whole-seven source/behavior gates and publication remain pending. Source-only
 selection stays NOT_EVALUATED. See the [repair record](../../../formal/etna/REPORT.md#y-prefix-final-review-repairs).
+
+
+## Y07 closeout progress at the fixed product revision
+
+This is the original seventh increment; its frozen file ownership and bounds
+above remain. Latest reviewed source f556 has a separate source-only ledger with
+eleven WAITING obligations and execution NOT_EVALUATED. The product workspace
+and actual native/API evidence remain fixed2e. No automatic eighth is authorized.
+
+Actual compile,26 canonical consumer checks, genuine host smoke and the full
+normal/control/restored0/1/0 campaign passed. Independent v6 audit accepted13
+complete receipts, with each case/digest matched to actual canonical outcomes.
+The previous v5 shadow failure and exact same-receipt rename regression remain.
+The independent wrapper's case/leaf and extra parent/package failure gaps were
+repaired and tested by2 positive/5 negative raw controls. Source-rule mapping
+maintenance leaves all latest-source obligations WAITING. Candidate/main-f556
+merge each pass646 ordinary checks, preserving1,959 identities and631 old
+model/config identities. Historical Y06 full producer integration remains
+INCONCLUSIVE even though Y07's real entrypoint now works.
+
+- [x] Read back all7 independent native controls, including positive wrong-branch
+  evidence and actual late-Send/exit observations; preserve diagnostic-only scope.
+- [x] Read back4 real API positives and46 unchanged-raw metadata negatives;
+  all4278 genuine artifacts retain their pre/post identities and bytes.
+- [x] Finalize six closeout documents, insert the actual code commit in the
+  report, obtain final independent documentation/source readback and pass the
+  46 focused post-documentation checks. Remote publication remains separate.
+
+Task7 technical checkboxes are complete for the selected fixed2e delivery.
+The native triplet0/1/0 and late quartet0/1/0/0 restored the same physical source
+and fixture inodes/modes after quiescence, unlocking/closing each lease. The
+late quartet stays diagnostic-only, including its intentional old-order false
+positive. Metadata4/46 actually returned0 with all original artifacts unchanged.
+The remaining publication checkbox stays pending until the remote head and
+PR/issue body readbacks finish. No new-head CI/push completion is claimed by the
+earlier code-tree checks. See the [Y07 report](../../../formal/etna/REPORT.md#y07-native-evidence-lifecycle-and-import-markers).
