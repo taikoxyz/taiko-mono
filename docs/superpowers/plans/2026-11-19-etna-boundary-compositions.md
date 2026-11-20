@@ -152,3 +152,33 @@ current-only source selection and the trusted execution-collector premise.
 ## Execution ordering refinement after Y03 native parse failure
 
 For remaining coherent models/native fixtures, perform an isolated bounded native syntax/type/compile check before expanding their adapter tests. Inspect and pin that compile entrypoint and inputs first; this does not bypass source review, behavioral verification, cache ownership, or final gates. Preserve every earlier failed run as INCONCLUSIVE at its original source identity.
+
+
+## Six-delivery prefix review repairs
+
+The early accumulated source review found3 confirmed P2 verification-artifact
+defects. Repair code `491aa3e94375f5ce41597f8403beeffb9b80f5d6` closes their
+selected source and independent behavioral gates. Y07 stayed paused before
+canonical writes while these repairs were checked. This is the existing group's
+consolidated repair work, not an additional increment or a completed final gate.
+
+- [x] Y05 rejects accepted and refused Land after explicit Close8. Current model
+  safety613 generated/281 distinct/queue0; independent complete main/order/restored
+  witnesses32 transitions/8 closes/141 byte refinements. Retain old625/289 source,
+  raw and oracle; old accepted post-close native trace is now a negative.
+- [x] Shared driver inherits its cache lease through cleanup and records
+  cancellation across staging/audit/restoration. Independent actual canonical-path
+  dummy controls and schema2 status/metadata negatives pass; no full real-Go,
+  crash-atomic restoration or dual-forced-death guarantee follows.
+- [x] Y03 public rule API fixes generation0/origin25/time300 and derives first
+  from height1, including correlated flags and standalone ranges. Independent
+  actual5-positive/76-negative gate passes; TLA offer bank remains unchanged.
+- [x] Source round-two/module-move review, independent full raw/API readbacks,
+  73 focused checks and611 ordinary checks on each candidate/current-main merge
+  pass. Preserve the failed v2 pin-compatibility and pre-Java TLCv3 alias records.
+
+Task7's original file ownership and public-reader allowlist remain. Its shared
+common-driver dependency now includes the reviewed `leased_execution.py` repair;
+the historical runner and old Registry pins are unchanged. Y07's implementation,
+whole-seven source/behavior gates and publication remain pending. Source-only
+selection stays NOT_EVALUATED. See the [repair record](../../../formal/etna/REPORT.md#y-prefix-final-review-repairs).

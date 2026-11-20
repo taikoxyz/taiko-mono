@@ -6425,6 +6425,13 @@ and the accumulated final gates remain, with no automatic eighth.
 
 ## Y05 positional snapshots and final-R selection
 
+**Historical record, superseded in part:** the model and its independent World
+below both allowed Land after explicit Close8. Its625/289 graph and32-edge
+positive traces do not establish the corrected block-closure property. The old
+model, raw logs and observations remain retained under their original identities.
+Use the [prefix-repair results](#y-prefix-final-review-repairs) for the current model,
+rejected old trace and613/281 safety result.
+
 Date: 2026-11-20. Selected code `6164ec9dc11563f9f949c0e47e79978256fc4c1e`; normative bundle remains
 `2e6763e21bc236cfcda6011d164b32040f9e0c8d`, actual main
 `ce6d1887955343395305b5b1d89901816bd61a07`. Model SHA-256
@@ -6541,6 +6548,12 @@ remain, with no automatic eighth.
 
 ## Y06 terminal seen-commit reconstruction
 
+The native component observations below retain their recorded scope. The earlier
+private cancellation control did not establish the committed common driver's
+ownership path; its caller-only lease was defective. The
+[prefix-repair results](#y-prefix-final-review-repairs) supersede that resource-control
+claim, while full real-Go producer integration remains INCONCLUSIVE.
+
 Date: 2026-11-20. Selected component code `41e3cfe5d7dd0725b6bf573c1531119e09bc6513`, stock CometBFT
 `0880b4d378f347ab16e54ec677ff50d803f37d62`; current normative bundle remains
 `2e6763e21bc236cfcda6011d164b32040f9e0c8d`, actual main
@@ -6651,3 +6664,128 @@ crash-atomic multistore installation, current Etna app/L1/EL/guest/proving or
 deployment. R01/P01/K01/Q01 and all19 archived INCONCLUSIVE searches retain
 their limits. Selected Y01–Y06 deliveries are complete at their stated scope;
 Y07 and whole-seven final gates remain, with no automatic eighth.
+
+
+## Y prefix final review repairs
+
+Date: 2026-11-20. Repair code `491aa3e94375f5ce41597f8403beeffb9b80f5d6`.
+Independent review of the six delivered Y increments found three confirmed P2
+verification-artifact defects. They are fixed and independently source/behavior
+checked. None is a discovered natural protocol defect. Y07 remains pending
+before canonical writes; the accumulated whole-seven review is not complete.
+Current normative bundle remains `2e6763e21bc236cfcda6011d164b32040f9e0c8d`.
+
+**Y05 block closure.** The model offered Land after Close8; its independent World
+shared the omission. Separate authors and extensive green histories had not
+supplied an independent block-boundary premise. Land now requires an open block,
+TransactionsBeforeClose checks every business receipt, and the Python observer
+rejects both accepted and refused transactions after explicit close. The retained
+old native raw `2baa39d2f3b410973d6d694509551b35c02dc4a1114c7cc7d292b95d45bae460`
+was accepted by the old World but is now rejected precisely at frame32, Land7
+after Close8. It is a discriminating negative, not current-positive evidence.
+
+The new independent World checks every complete state, input, decision and mark,
+then refines actual closed snapshots to literal bytes. Ten bounded TLC phases
+were executed and independently read back against actual argv/raw/status,
+37 sealed inputs, the322-entry JRE inventory and physical model/lock identities:
+
+| Actual phase | Native result and independently checked observation |
+| --- | --- |
+| Smoke |12/NoSmoke,2 complete transitions |
+| Main safety and restored safety |0/Finished,613 generated/281 distinct/queue0 each |
+| Main progress, recover-first, activate-first, restored progress |12 named witness;32 complete transitions,8 closes,141 literal refinements each |
+| Closed-hole and alternate full progress |12 named witness;15/5/36 and30/8/131 transitions/closes/refinements |
+| Omitted Land open-block guard |12/TransactionsBeforeClose,31 transitions; actual Close8 then accepted Land7 |
+
+Both accepted Land7 and refused Land8 now occur while block8 is open, before the
+final Close8. Original/restored main progress State bytes match exactly. The
+control checks every prior full frame and independently derives the complete
+forbidden final post-state before requiring the new World's exact refusal.
+The control remains NOT_ATTRIBUTED. Same physical model/lock identity and original
+source bytes survive restoration after descendant quiescence. Named witnesses
+establish existence; only the offered main safety graph exhausted. Historical
+625/289 results are not relabeled as this corrected613/281 graph.
+
+**Y06/shared driver ownership.** The committed caller held a cache lock that its
+supervisor did not inherit. Killing the caller could therefore release the lock
+while descendants still wrote. A private-controller control had missed this real
+call path. The new `leased_execution.py` inherits the same open file description,
+records TERM/INT around the whole campaign, and retains ownership through actual
+legacy descendant cleanup. Staging, post-native audit and restoration share the
+same cancellation predicate. Historical `sensitivity/run.py` and its Registry
+pins are unchanged; the extension delegates to that existing cleanup, without
+duplicating it or changing old unleased callers.
+
+Ten independent actual canonical-path groups use `run_profile`, `run_trial`,
+the leased supervisor and original cleanup, with disposable dummy source/writer
+prerequisites explicitly substituted. Normal/mutant TERM and caller-SIGKILL
+windows prove writer death and reaping before a contender acquires the lock.
+Unknown supervisor exit leaves the live caller holding the lease and private
+mutant until externally established quiescence, then manual caller termination.
+The three non-native windows verify TERM during staging, audit and restoration;
+the restoration dummy exercises an error-path finally, not a successful Go fault
+run. Raw worker exit200 cannot forge success: it becomes native125/wrapper203.
+The strict `etna-comet-boundary-trial-2` capture separately checks native and
+supervisor status; actual healthy capture0/wrapper200 survives14 unchanged-raw
+metadata negatives and exact restoration.
+
+Abrupt caller death can leave disposable private source mutated and output
+unreusable, with no PASS summary. No crash-atomic private-source restoration or
+unconditional protection against killing both lease holders is claimed. If no
+holder survives, independent writer-quiescence confirmation is required before
+cache reuse. Signal recording is a main-thread CLI contract. Summary publication
+is the completion point: TERM after the final post-write check but before the
+outer cancellation check can leave valid completed evidence while the CLI reports
+cancellation. This nonblocking reporting window follows worker completion,
+restoration and all input checks. These dummy-process gates establish the actual
+ownership seam, not real shared-Go-cache concurrency. Complete real-Go
+`run_profile`/`require_capture` integration remains INCONCLUSIVE/OPEN.
+
+**Y03 public rule API.** The fixed TLA offer bank hid a standalone API defect:
+correlated height8 `first=True`, `carry=True`, `originTime=3600` could retain the
+expected rule vector. `resolve_blocks` now binds generation0/origin25/time300,
+derives first only from height1, and fixes its genesis predecessor. Independent
+actual public-API execution checks5 literal positive ranges/singletons and76
+negative origin/generation/first/carry/type combinations, including the original
+correlated attack, then rechecks the healthy range. It imports no author expected
+fixture. The Y03 model is unchanged; this interface is not generalized recovery.
+
+Initial focused RED observed70 methods/15 expected assertions/zero errors/skips.
+A source-review fix additionally closed TERM outside native execution; its actual
+five-method RED had3 expected assertion failures. Final v3 focused checks pass73
+with zero failures/errors/skips. A broader v2 attempt failed because modifying
+the historical runner broke old Registry pins; the extension was moved instead
+of changing those pins. That failed run retains zero passing-gate credit.
+Likewise TLCv3 refused the output alias before Java; only the alias was corrected
+for the actual v4 gate, with no algorithm, bounds or timeout increase. Draft and
+failed records remain retained at their original identities.
+
+Candidate tree `c500d1ae4dee80d33631ac4e6eac6787767ece57` and actual-main
+`ce6d1887955343395305b5b1d89901816bd61a07` merge tree
+`cc602ed048b9c4961ef441cccb8f43f06a010309` each pass611 ordinary checks
+(425 main/166 conformance/20 sensitivity), zero failures/errors/skips.
+All1,941 frozen source/harness hashes/modes stayed stable during verification;
+631 pre-Y model/config identities are preserved. Independent source round-two and module-move review passed; separate
+behavior readbacks close the three selected repairs. These explicit checks do
+not claim the unavailable local prettier hook passed.
+
+| Selected source or actual evidence | SHA-256 |
+| --- | --- |
+| Corrected model | `17f49c32f61e7f32a52d559322b6721b75e793de278a6bd90c3b1fde99dbdd5d` |
+| Safety config | `b4b5024079887084e6f472d820fbc2b84ddcd18b835176a1d508c5d90fda8d44` |
+| Registry observer | `77804beb45b044acf316a69279fa224c0d5407ab5c208335ede8d2c8e1482268` |
+| Rule API | `523395cc6cf1d710b37b340d77fcd16d9e9de778cb3b0549c9ea554aa1e66992` |
+| Common driver | `079772c7478eedded0139ba0a2941609c46d69fb5a8c95bf1485aff5c8e210f1` |
+| Leased extension | `83db4aa115340a992b9fc8aa95ad2ac738bbb35c38b4fb5194a62542b756031e` |
+| Unchanged historical runner | `b125a37c77415c994ff2bd63256217deacb16ea79e1e4b491da8207935535a68` |
+| Actual omitted-guard control raw | `3aa9816ac66128b7c9a429d927ce3a23d348ca547769a20d351daae1dad1cc77` |
+| Actual independent lease stdout | `fe1ccd37e43f3c135798a6c5ea728ab391f0d523abdb369c9dcb10e9ae419e0d` |
+| Actual independent rule-API stdout | `cb461327ed30a8801dc0d163a41e7b0998b6acd8a2202f467cfed0591e5af42a` |
+| Ordinary branch/main readback | `b6db1eea957b3096f8cac0918383bab987b984e28bf8d183307ecb95517f2ba9` |
+| Independent F1/F2/F3 final report | `4b52f169730371aea1295f51b8ca0d913b78b76ae43f2b7edebccc699de554e1` |
+
+Source selection alone remains NOT_EVALUATED and is distinct from the actual
+finite/native/API observations. Existing runtime/authenticated-history/L1/EL/
+guest/proving/deployment, R01/P01/K01/Q01 and19 archived INCONCLUSIVE searches
+retain their limits. Y01–Y06 selected deliveries have these repairs; Y07 and the
+whole-seven final gates still require completion. No automatic eighth follows.

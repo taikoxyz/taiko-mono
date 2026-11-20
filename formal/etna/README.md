@@ -80,7 +80,10 @@ activations, a lossless unsupported-rule pause, historical anchors and the full
 original range for each proof family. Its selected finite graph exhausted1,153
 states; actual endpoint-only family and latest-slot capture controls were detected
 and restored. Whole-range proof aggregation and authenticated execution remain
-premises. See [Y03 evidence](REPORT.md#y03-ordered-rule-ranges-and-lossless-pause).
+premises. Its public rule API now binds the fixed generation0/origin25/time300
+and derives the first-block flag, including standalone ranges and correlated
+input checks. See [Y03 evidence](REPORT.md#y03-ordered-rule-ranges-and-lossless-pause)
+and [prefix repairs](REPORT.md#y-prefix-final-review-repairs).
 
 The [funded forfeiture component](conformance/REGISTRY_FUNDING.md) runs the
 historical Registry with a closed15-unit local token allocation, execution-time
@@ -96,6 +99,10 @@ rather than transaction-time or later live entries. Actual wrong-occupant and
 missing-Close8 controls were detected/restored. Three retained genuine EVM roots
 anchor the unchanged encoding component. See
 [Y05 evidence](REPORT.md#y05-positional-snapshots-and-final-r-selection).
+The corrected model now forbids Land after explicit block close; its selected
+safety graph has613 generated/281 distinct states/queue0. The old model and
+independent World shared that omission; their old positive trace is now a
+negative. See [prefix repairs](REPORT.md#y-prefix-final-review-repairs).
 Actual current Registry/authentication and full governance remain unverified.
 
 The [terminal seen-commit component](conformance/COMET_TERMINAL.md) observes
@@ -105,7 +112,11 @@ refused by parent-A verification; two actual distinct controls and independent
 raw/signature checks passed. See [Y06 evidence](REPORT.md#y06-terminal-seen-commit-reconstruction).
 Complete `run_profile`/`require_capture` integration remains INCONCLUSIVE after
 nested namespace setup failed; the successful split component runs retain their
-actual commands. This is draft component evidence, not authenticated import.
+actual commands. Its corrected shared driver inherits the cache lease through
+supervisor cleanup and records cancellation across mutation/restoration; actual
+canonical-path dummy-process controls passed. They do not close the full-Go
+integration gap. See [prefix repairs](REPORT.md#y-prefix-final-review-repairs).
+This is draft component evidence, not authenticated import.
 
 ## Run
 

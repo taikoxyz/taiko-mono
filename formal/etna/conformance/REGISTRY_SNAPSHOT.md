@@ -42,6 +42,14 @@ A separate route withdraws and closes5 with slot0 empty and slot1 surviving,
 registers C in6, tops up in7, and activates in8. Its closed-hole witness and its
 full progress witness are distinct from the main R7-maturity witness. Both
 routes close block8 explicitly rather than stopping at an unclosed horizon.
+Every business transaction, including refused Land, must start before that
+block's explicit close. Land7 and refused Land8 occur before Close8. The current
+model and observer enforce this; the old model and independent World shared an
+omission that allowed Land after Close8. The corrected main safety observation
+is613 generated/281 distinct states/queue0; full main/order/restored witnesses
+have32 transitions/8 closes/141 literal byte refinements. Old625/289 results and
+raw logs remain historical; the retained old post-close trace now refuses.
+See [prefix-repair evidence](../REPORT.md#y-prefix-final-review-repairs).
 
 Recovery lists include issued withdrawn A, a valid B prefix followed by an
 unissued id, a wrong lifetime key, and descending ids. The complete business

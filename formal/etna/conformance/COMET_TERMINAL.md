@@ -90,3 +90,32 @@ entrypoints are source reviewed; the split component executions do not count as
 a successful run of either entrypoint. Capture metadata retains the commands and
 paths that actually ran. No namespace metadata is rewritten to invent such a
 launch, and the draft does not claim all producer/runtime gates passed.
+
+
+## Shared lease and cancellation contract
+
+The common driver uses `leased_execution.py` to inherit the same cache-lock
+open file description into its supervisor. That owner retains the lease through
+quiescence and delegates descendant cleanup to the unchanged historical
+`sensitivity/run.py`; old Registry pins and unleased callers remain unchanged.
+Main-thread CLI TERM/INT recording covers staging, native execution, audit and
+restoration. Trial schema `etna-comet-boundary-trial-2` independently binds native
+status, supervisor status and the actual leased command; worker exit200 cannot
+forge the supervisor's cleanup-confirmed success status.
+
+Unexpected supervisor death leaves a surviving caller retaining the lease until
+an operator independently confirms writer death/reaping before stopping that
+holder and reusing the cache. Abrupt caller death may leave private mutant output
+unrestored and unreusable, with no PASS summary. There is no crash-atomic
+restoration guarantee or protection against forced death of both holders;
+independent quiescence confirmation is required before cache reuse in that case.
+Summary publication is the completion point. TERM after the final post-write
+check but before the outer cancellation check can leave valid completed evidence
+while the CLI reports cancellation, after workers, restoration and checks finish.
+
+The [prefix-repair checks](../REPORT.md#y-prefix-final-review-repairs) exercised the
+actual canonical driver/supervisor/cleanup path with disposable dummy writers:
+normal/mutant TERM and caller death, lost supervisor, three non-native windows,
+reserved child exit and strict capture negatives. Those10 groups passed
+independently. They establish that ownership seam, not real shared-Go-cache
+concurrency or the full real-Go producer integration, which stays INCONCLUSIVE.

@@ -33,6 +33,15 @@ leave room for a valid registry prehistory and do not substitute a contradiction
 with an authentication assumption. Epoch length L=16 puts the first ordinary
 switch at S(1)=15 and activation H(1)=17, beyond all retained/produced heights1..10.
 Every checkpoint and job therefore reports committee0's actual snapshot24.
+The public `resolve_blocks` interface enforces that fixed generation0/origin25/
+time300 on every row, derives first only for height1, and binds the genesis
+predecessor to time0/anchor25/empty LastBlockID. It applies the same contract to
+standalone ranges. Caller-supplied first/carry/origin flags cannot jointly relax
+it. This is an ordinary fixed-origin interface, not a general recovery resolver.
+The [prefix-repair gate](../REPORT.md#y-prefix-final-review-repairs) independently
+executed5 literal positives and76 negatives, including the correlated height8
+forgery, per-row/singleton changes and exact bool/float aliases. The model's fixed
+offer bank had hidden that API omission; its source is unchanged by this repair.
 `ProtocolInitialCompatibility` and the observer independently require strict
 cutoff/origin separation, first BFT300 and parentAnchor25, zero-rule history at25,
 the no-rotation horizon and snapshot/dependency/statement-word20 consistency.

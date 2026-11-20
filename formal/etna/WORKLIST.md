@@ -53,11 +53,11 @@ retain the frozen bounds, independent gates and explicit runtime premises.
 | --- | --- | --- |
 | Y01 | Same-domain timestamp safety projection and fixed source scopes | COMPLETE selected code `717b6f426`; exact 5/4/4/1 quotient exhausted, source proof and independent controls passed; original unviewed timeout retained. |
 | Y02 | Repeated recovery at one nonzero checkpoint | COMPLETE selected code `e7d6128a1`; finite safety, full g2 progress, actual origin fault/restoration and independent dispatch omission passed. |
-| Y03 | Full ordered rule range and lossless software pause | COMPLETE selected code `9585e3fff`; finite safety, actual pause/full Land and both distinct rule-range faults/restorations passed. |
+| Y03 | Full ordered rule range and lossless software pause | COMPLETE selected code `9585e3fff`, public API repair `491aa3e94`; fixed origin/first context and independent5-positive/76-negative gate passed. |
 | Y04 | Actual funded pending forfeiture component | COMPLETE selected code `ee18ad8e1`; closed15, actual pending-debit/deadline faults/restoration and independent full raw audits passed. |
-| Y05 | Positional registry snapshots and final-R selection | COMPLETE selected code `6164ec9dc`; finite289-state safety, both R7 orderings, actual distinct faults/restoration, literal/EVM/full-raw gates passed. |
-| Y06 | Actual terminal seen-commit reconstruction | COMPLETE selected component code `41e3cfe5d`; real stores/constructor/verifier/successor, distinct controls/restoration and independent raw gates passed; full producer integration INCONCLUSIVE. |
-| Y07 | Native evidence lifecycle and import markers | PENDING; cold/pending ages, gossip and reopened committed markers. |
+| Y05 | Positional registry snapshots and final-R selection | COMPLETE selected code `6164ec9dc`, closure repair `491aa3e94`; corrected safety613 generated/281 distinct/queue0, both R7 orders and omitted-open-guard control/restoration passed; old289-state result retained as historical. |
+| Y06 | Actual terminal seen-commit reconstruction | COMPLETE selected component `41e3cfe5d`, shared ownership repair `491aa3e94`; actual canonical-path dummy cancellation/lease/capture gates passed; full real-Go producer integration INCONCLUSIVE. |
+| Y07 | Native evidence lifecycle and import markers | PENDING before canonical writes; repair gates closed, publication/resume and cold/pending ages, gossip and reopened committed markers remain. |
 
 [Y01 evidence](REPORT.md#y01-same-domain-timestamp-safety-projection) records two
 repaired verification defects, actual source controls/restorations, genuine-run
@@ -79,7 +79,9 @@ per-family coverage. The1,153-state graph exhausted; endpoint-only family and
 latest-slot capture source faults were independently observed and restored.
 Native diagnostic attribution, impossible initial committee labels and lexical
 syntax were corrected. Final candidate/main-merge checks each pass538; no actual
-proof/client/EL/deployment claim follows. Y01–Y03 evidence remains complete at its recorded scope.
+proof/client/EL/deployment claim follows. The later public-API repair binds fixed
+origin/first context; standalone and correlated input tests pass independently.
+See [prefix repairs](REPORT.md#y-prefix-final-review-repairs).
 
 [Y04 evidence](REPORT.md#y04-funded-forfeiture-and-payout-only-reuse) adds
 historical proxy calls with only15 allocated tokens, sink5, owner payout4 and
@@ -93,12 +95,18 @@ actual-main merge each pass548 ordinary checks. Selected Y01–Y04 evidence rema
 [Y05 evidence](REPORT.md#y05-positional-snapshots-and-final-r-selection) adds
 permanent old-bond exclusion after slot reuse, complete invalid-list refusal,
 final-R selection, both activation/recovery orders, later live state and actual
-terminal Land. The selected289-state graph exhausts; distinct wrong-occupant and
-missing-Close8 controls are observed/restored. Fixed bytes32 domain tags were
+terminal Land. The old289-state graph and its World allowed Land after Close8;
+that historical result does not establish the corrected block boundary. The
+repaired main safety graph has613 generated/281 distinct states/queue0. Main,
+both R7 orders and restored progress each have32 transitions/8 closes/141 literal
+refinements; an actual omitted-open-guard control and restoration were checked.
+Original wrong-occupant and missing-Close8 controls retain their recorded scope.
+Fixed bytes32 domain tags were
 corrected after a shared interpretation error; three genuine historical EVM roots
 separately confirm the unchanged encoding component. Current Registry admission,
 L1 authentication and full governance remain unverified. Candidate/main merge
-each pass582 ordinary checks. Selected Y01–Y05 evidence retains its recorded component boundaries.
+each passed582 ordinary checks at original delivery; the later repair is recorded
+separately in [prefix repairs](REPORT.md#y-prefix-final-review-repairs).
 
 [Y06 evidence](REPORT.md#y06-terminal-seen-commit-reconstruction) records six
 actual public-input cases, independent A/B reopened stores and fresh successor
@@ -107,9 +115,14 @@ complete protobuf/signature/metadata checks passed. Full `run_profile` and
 `require_capture` integration remains INCONCLUSIVE; its nested namespace failed
 before Go, and actual single-namespace component receipts are not relabeled as
 that launch. Synthetic app version17/stock parameters require separate Etna
-client validation. Candidate/main merge each pass601 ordinary checks. Selected
-Y01–Y06 are complete at their stated scope; Y07 and combined final gates remain.
-No automatic eighth or broader R01/P01/runtime closure follows.
+client validation. Candidate/main merge each passed601 ordinary checks at delivery.
+Y01–Y06 selected deliveries are repaired at code `491aa3e94`. Actual canonical
+ownership gates use disposable dummy writers and do not close the real-Go
+integration gap. The repair candidate/main merge each pass611 ordinary checks
+(425/166/20), plus73 focused checks and independent F1/F2/F3 readbacks.
+Y07 remains pending before canonical writes; whole-seven final gates remain.
+See [prefix repairs](REPORT.md#y-prefix-final-review-repairs). No automatic eighth or
+broader R01/P01/runtime closure follows.
 
 ## Completed W01–W07 batch
 
