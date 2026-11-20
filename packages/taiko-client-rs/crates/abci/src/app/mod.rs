@@ -376,8 +376,11 @@ impl From<GenesisError> for AbciError {
 impl From<crate::recovery::RecoveryError> for AbciError {
     /// Unavailability stays retryable; authenticated recovery contradictions halt durably.
     fn from(error: crate::recovery::RecoveryError) -> Self {
+        use crate::recovery::RecoveryError;
         match error {
-            crate::recovery::RecoveryError::Unavailable(_) => Self::Recovery(error),
+            RecoveryError::Unavailable(_) | RecoveryError::OriginNotHeld { .. } => {
+                Self::Recovery(error)
+            }
             _ => Self::SafetyHalt(error.to_string()),
         }
     }
@@ -401,13 +404,13 @@ pub(super) enum ErrorClass {
 }
 
 /// The SYNC-9-7 class of `error`. Only acquisition failures are [`ErrorClass::MissingData`]:
-/// a recovery input reported unavailable, an elapsed deadline, a missing EL block, a genesis
-/// header not yet final, an EL sync timeout, a retryable engine error
-/// ([`EngineError::is_retryable`]) and an L1 error that is no integrity failure
-/// ([`L1Error::is_integrity_failure`]). [`ErrorClass::Contradiction`] is a raised safety halt,
-/// an L1 integrity failure, a corrupt state file, a durable Comet hash, validator state or
-/// validator updates record that disagrees with the recomputed one (SYNC-9-5c), a conflicting
-/// recovery bootstrap, recovery evidence that is invalid, superseded or opens another
+/// a recovery input reported unavailable (an EL without the settled block at c included), an
+/// elapsed deadline, a missing EL block, a genesis header not yet final, an EL sync timeout, a
+/// retryable engine error ([`EngineError::is_retryable`]) and an L1 error that is no integrity
+/// failure ([`L1Error::is_integrity_failure`]). [`ErrorClass::Contradiction`] is a raised
+/// safety halt, an L1 integrity failure, a corrupt state file, a durable Comet hash, validator
+/// state or validator updates record that disagrees with the recomputed one (SYNC-9-5c), a
+/// conflicting recovery bootstrap, recovery evidence that is invalid, superseded or opens another
 /// configuration, and an engine reply that is malformed, names another block or is
 /// `-38100`/`-38002`. Startup and trust read only the own EL, so a block it serves for a hash
 /// that it does not hash to ([`EngineError::BlockHashMismatch`]) is an own-EL contradiction here,
@@ -416,7 +419,9 @@ pub(super) fn classify(error: &AbciError) -> ErrorClass {
     use crate::recovery::RecoveryError;
     match error {
         AbciError::SafetyHalt(_) => ErrorClass::Contradiction,
-        AbciError::Recovery(RecoveryError::Unavailable(_)) |
+        AbciError::Recovery(
+            RecoveryError::Unavailable(_) | RecoveryError::OriginNotHeld { .. },
+        ) |
         AbciError::Timeout { .. } |
         AbciError::ElBlockMissing(_) |
         AbciError::GenesisNotFinal { .. } |
@@ -1010,6 +1015,7 @@ mod classify_tests {
         vec![
             // Missing data: unavailable, not yet final, timed out or transient.
             (RecoveryError::Unavailable("history".into()).into(), MissingData),
+            (RecoveryError::OriginNotHeld { height: 6, el_hash: hash }.into(), MissingData),
             // `init.rs` converts bootstrap evidence errors with `?` through this `From`.
             (
                 GenesisError::Recovery(RecoveryError::Unavailable("history".into())).into(),

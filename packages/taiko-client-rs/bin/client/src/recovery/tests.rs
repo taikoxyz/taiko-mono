@@ -332,6 +332,33 @@ async fn prepare_requires_el_state_at_origin() {
 }
 
 #[tokio::test]
+async fn prepare_reports_an_el_without_the_settled_block_at_c_as_missing() {
+    // RECOV-8.1-7/8.1-8: another block at c (vector 7.l) or none (7.i) is not invalid evidence.
+    let source = Source::new();
+    let w = source.witness();
+    let settled = w.el_header.hash_slow();
+    let own = Header { timestamp: w.el_header.timestamp + 1, ..w.el_header.clone() };
+    for headers in [vec![w.parent_headers[0].clone(), own], vec![w.parent_headers[0].clone()]] {
+        let mut engine = ReadEngine::new(&source);
+        engine.headers = headers;
+        let error = prepare(&source.params(), 1, &source, &engine).await.unwrap_err();
+        let message = error.to_string();
+        assert!(
+            matches!(
+                error,
+                RecoveryCommandError::OriginNotHeld { height: 6, el_hash } if el_hash == settled
+            ),
+            "{error:?}"
+        );
+        assert!(
+            message.contains(&settled.to_string()) &&
+                message.contains("docs/governance-recovery.md"),
+            "{message}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn install_writes_genesis_config_and_p2p_key_into_fresh_stores() {
     let source = Source::new();
     let plan = fixture_plan(&source).await;

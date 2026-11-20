@@ -8,6 +8,7 @@ pub mod prepare;
 pub mod status;
 
 use abci::recovery::RecoveryError;
+use alloy_primitives::B256;
 
 /// Sanitized command failures: no paths, endpoint credentials, argv or provider source text.
 #[derive(Debug, thiserror::Error)]
@@ -24,6 +25,17 @@ pub enum RecoveryCommandError {
     /// Missing material prevents preparation or installation.
     #[error("recovery prerequisite missing: {0}")]
     Missing(&'static str),
+    /// The own EL holds another block at c, or none: it has not yet taken the settled block of
+    /// the retained landing (RECOV-8.1-7). Missing material, not invalid evidence.
+    #[error(
+        "recovery prerequisite missing: the EL does not serve the settled block {el_hash} at c = {height}; take the settled EL state at c as docs/governance-recovery.md describes, then run prepare again"
+    )]
+    OriginNotHeld {
+        /// The recovery origin c.
+        height: u64,
+        /// The retained landing's EL hash at c, authenticated on own finalized L1.
+        el_hash: B256,
+    },
     /// Authenticated evidence contradicts the requested recovery.
     #[error("recovery evidence is invalid")]
     Invalid,
@@ -45,6 +57,9 @@ impl From<RecoveryError> for RecoveryCommandError {
     fn from(error: RecoveryError) -> Self {
         match error {
             RecoveryError::Unavailable(_) => Self::Missing("authenticated L1/EL recovery history"),
+            RecoveryError::OriginNotHeld { height, el_hash } => {
+                Self::OriginNotHeld { height, el_hash }
+            }
             RecoveryError::Invalid(_) => Self::Invalid,
             RecoveryError::ConfigMismatch { .. } => Self::ConfigMismatch,
             RecoveryError::Superseded { requested, current } => {

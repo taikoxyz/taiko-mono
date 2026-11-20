@@ -64,6 +64,18 @@ pub enum RecoveryError {
     /// Missing history, nonfinal inputs or failed acquisition; grants no authority.
     #[error("recovery input unavailable: {0}")]
     Unavailable(String),
+    /// The own EL holds another block at c, or none: it has not taken the settled block of the
+    /// retained landing in place of its own (RECOV-8.1-7). Unavailable input, as
+    /// [`RecoveryError::Unavailable`], never a contradiction of the authenticated landing.
+    #[error(
+        "recovery input unavailable: the execution engine does not serve the settled block {el_hash} at recovery origin {height}"
+    )]
+    OriginNotHeld {
+        /// The recovery origin c.
+        height: u64,
+        /// The retained landing's EL hash at c, authenticated on own finalized L1.
+        el_hash: B256,
+    },
     /// Contradictory, malformed, unsupported or cryptographically invalid evidence.
     #[error("invalid recovery witness: {0}")]
     Invalid(String),

@@ -168,9 +168,9 @@ mod tests {
         let (fx, l1, _, w) = fixture(2, 6, 2);
         let fetched = authenticate_recovery_with_headers(&l1, &fx.params, 2, |height| {
             let result = if height == 6 {
-                Ok(w.el_header.clone())
+                Ok(Some(w.el_header.clone()))
             } else if height == 5 {
-                Ok(w.parent_headers[0].clone())
+                Ok(Some(w.parent_headers[0].clone()))
             } else {
                 Err(RecoveryError::Unavailable("missing header".into()))
             };
@@ -188,7 +188,7 @@ mod tests {
         l1.set_finalized(99);
         assert!(
             authenticate_recovery_with_headers(&l1, &fx.params, 2, |_| async {
-                Ok(w.el_header.clone())
+                Ok(Some(w.el_header.clone()))
             })
             .await
             .is_err()
@@ -323,7 +323,7 @@ mod tests {
     #[tokio::test]
     async fn recovery_distinguishes_unavailable_inputs_from_contradictory_evidence() {
         let (fx, l1, engine, w) = fixture(1, 6, 1);
-        engine.state().chain.remove(&6);
+        engine.state().chain.remove(&5);
         assert!(matches!(
             authenticate_recovery(&l1, &engine, &fx.params, 1).await,
             Err(RecoveryError::Unavailable(_))
@@ -337,6 +337,33 @@ mod tests {
         assert!(matches!(
             check_recovery_canonicality(&l1, &fx.params, &w).await,
             Err(RecoveryError::Unavailable(_))
+        ));
+    }
+
+    /// RECOV-8.1-7/8.1-8: an own EL that holds another block at c (vector 7.l) or none (7.i)
+    /// has not yet taken the settled block there. That is missing data, not a contradiction of
+    /// the authenticated landing; a witness whose header at c does not hash to it stays invalid.
+    #[tokio::test]
+    async fn recovery_fetch_reports_another_or_no_block_at_c_as_not_held() {
+        let (fx, l1, engine, w) = fixture(1, 6, 1);
+        let settled = w.el_header.hash_slow();
+        let own =
+            alloy_consensus::Header { timestamp: w.el_header.timestamp + 1, ..w.el_header.clone() };
+        for held in [Some(own.clone()), None] {
+            match held {
+                Some(header) => engine.state().chain.insert(6, header),
+                None => engine.state().chain.remove(&6),
+            };
+            assert!(matches!(
+                authenticate_recovery(&l1, &engine, &fx.params, 1).await,
+                Err(RecoveryError::OriginNotHeld { height: 6, el_hash }) if el_hash == settled
+            ));
+        }
+        let mut forged = w;
+        forged.el_header = own;
+        assert!(matches!(
+            verify_recovery_witness(&forged, &fx.params),
+            Err(RecoveryError::Invalid(_))
         ));
     }
 

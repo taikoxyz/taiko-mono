@@ -26,12 +26,12 @@ fn fetch_error(error: FetchError) -> RecoveryError {
 }
 
 /// Reads an EL header without building, executing payloads or changing forkchoice.
-async fn el_header<E: Engine + ?Sized>(engine: &E, height: u64) -> Result<Header, RecoveryError> {
-    let header = engine
-        .header_by_number(height)
-        .await?
-        .ok_or_else(|| RecoveryError::Unavailable(format!("EL header {height} missing")))?;
-    if header.number != height {
+async fn el_header<E: Engine + ?Sized>(
+    engine: &E,
+    height: u64,
+) -> Result<Option<Header>, RecoveryError> {
+    let header = engine.header_by_number(height).await?;
+    if header.as_ref().is_some_and(|header| header.number != height) {
         return Err(invalid("EL answered with another height"));
     }
     Ok(header)
@@ -53,8 +53,13 @@ pub async fn authenticate_recovery<L: L1Source + ?Sized, E: Engine + ?Sized>(
 }
 
 /// Authenticates recovery through read-only public execution headers instead of Engine access.
-/// The reader must return the requested header or a classified error; this function verifies
-/// the retained landing hash, ancestry and own-L1 finality exactly as the Engine entry point.
+/// The reader must return the requested canonical header, `None` if it has none, or a classified
+/// error; this function verifies the retained landing hash, ancestry and own-L1 finality exactly
+/// as the Engine entry point.
+///
+/// A reader that holds another block at c, or none, has not taken the settled block of the
+/// retained landing (RECOV-8.1-7): [`RecoveryError::OriginNotHeld`], with the authenticated EL
+/// hash it needs.
 pub async fn authenticate_recovery_with_headers<L, F, Fut>(
     l1: &L,
     params: &ChainParams,
@@ -64,7 +69,7 @@ pub async fn authenticate_recovery_with_headers<L, F, Fut>(
 where
     L: L1Source + ?Sized,
     F: Fn(u64) -> Fut,
-    Fut: std::future::Future<Output = Result<Header, RecoveryError>>,
+    Fut: std::future::Future<Output = Result<Option<Header>, RecoveryError>>,
 {
     check_generation(generation)?;
     let finalized = l1.finalized_number().await?;
@@ -143,9 +148,17 @@ where
     )
     .await
     .map_err(fetch_error)?;
-    w.el_header = header(c).await?;
+    // The landing's EL hash at c is authenticated above. Another block at c, or none, is the
+    // reader's own chain, not evidence against the landing.
+    w.el_header = header(c)
+        .await?
+        .filter(|header| header.hash_slow() == origin.el_hash)
+        .ok_or(RecoveryError::OriginNotHeld { height: c, el_hash: origin.el_hash })?;
     if c > 0 {
-        w.parent_headers.push(header(c - 1).await?);
+        let parent = header(c - 1)
+            .await?
+            .ok_or_else(|| RecoveryError::Unavailable(format!("EL header {} missing", c - 1)))?;
+        w.parent_headers.push(parent);
     }
     check_recovery_canonicality(l1, params, &w).await?;
     Ok(w)

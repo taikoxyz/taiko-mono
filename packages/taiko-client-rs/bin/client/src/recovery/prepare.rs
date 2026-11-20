@@ -28,6 +28,10 @@ const UNAVAILABLE: RecoveryCommandError =
 /// witness; require readable EL state at c (SYNC-9-16, RECOV-8.4-8); recheck own finality and
 /// the current generation (RECOV-8-14); validate the plan. It writes nothing, starts nothing and
 /// makes no Engine build, payload or forkchoice call. InitChain repeats every check.
+///
+/// An EL that holds another block at c, or none, has not yet taken the settled block there
+/// (RECOV-8.1-7): [`RecoveryCommandError::OriginNotHeld`], which names the authenticated EL
+/// hash at c and the runbook, never invalid evidence.
 pub async fn prepare<L: L1Source + ?Sized, E: Engine + ?Sized>(
     params: &ChainParams,
     generation: u64,

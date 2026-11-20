@@ -330,7 +330,7 @@ impl LandingSource for RpcLandingSource {
                     &self.params,
                     snapshot.generation,
                     |height| async move {
-                        self.el_header(height).await.map_err(|error| {
+                        self.el_header(height).await.map(Some).map_err(|error| {
                             if error.is_retryable() {
                                 abci::recovery::RecoveryError::Unavailable(error.to_string())
                             } else {
@@ -967,9 +967,11 @@ pub fn authenticate_snapshot(snapshot: &LandingSnapshot, params: &ChainParams) -
 }
 
 /// Preserves recovery acquisition failures as retryable without trusting unauthenticated hints.
+/// An EL that has not yet taken the settled block at c is such a failure too.
 fn recovery_error(error: abci::recovery::RecoveryError) -> LanderError {
     match error {
-        abci::recovery::RecoveryError::Unavailable(_) => {
+        abci::recovery::RecoveryError::Unavailable(_) |
+        abci::recovery::RecoveryError::OriginNotHeld { .. } => {
             LanderError::Temporary("recovery evidence unavailable from L1 or EL".into())
         }
         abci::recovery::RecoveryError::ConfigMismatch { .. } => {
