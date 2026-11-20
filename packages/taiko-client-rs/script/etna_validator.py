@@ -35,6 +35,13 @@ before the SIGKILL is sent.
 Before every Comet start the supervisor checks the executable's digest against the
 deployment manifest (CONS-3.1-1) and, with Comet stopped, deletes the node's
 pending-evidence store and nothing else (CONS-3.1-10).
+
+The supervisor also serves the signer's authenticated channel (RECOV-8.2-2): a Unix socket in
+its private run directory that only the signer it started may use (peer credentials). Over it
+the signer learns, on every Comet connection, which Comet process the supervisor started (PID
+and kernel start time) and the store instance ID of the home it runs on, read from
+<home>/data/etna-store-instance. A home whose ID file is missing, a first start included, gets a
+fresh ID before Comet starts: its stores are new, or rebuilt as far as the signer can tell.
 """
 import base64
 import fcntl
@@ -48,8 +55,10 @@ import shutil
 import signal
 import socket
 import stat
+import struct
 import subprocess
 import sys
+import threading
 import time
 import tomllib
 
@@ -93,6 +102,15 @@ MISSED_CONNECTION_RETRY = 1.0
 COMET_MANIFEST_SCHEMA = 1
 COMET_RELEASE = "v0.40.0"
 COMET_SOURCE_COMMIT = "0880b4d378f347ab16e54ec677ff50d803f37d62"
+# The supervisor channel's one wire version, its socket's name in the private run directory and
+# the bound on one request line.
+SUPERVISOR_SCHEMA = 1
+SUPERVISOR_SOCKET = "signer.sock"
+MAX_SUPERVISOR_FRAME = 16384
+# The store instance ID file in the Comet home: 32 lowercase hex characters (128 random bits) and
+# a newline. Every path that creates, imports, restores or rebuilds the stores writes a fresh one;
+# the signer binds its key to it (RECOV-8.2-2). It is never copied from another home.
+STORE_INSTANCE = "data/etna-store-instance"
 # Database backends whose stores live at <db_dir>/<name>.db in stock cometbft-db v0.14.1 and
 # that the official executable supports.
 COMET_DB_BACKENDS = ("goleveldb", "pebbledb")
@@ -162,6 +180,34 @@ def ed25519_peer_id(path, what):
         raise ValueError(f"{what} {path} is not a stock Ed25519 node key")
     public = b"\x08\x01\x12\x20" + raw[32:]
     return base58(b"\x00" + bytes([len(public)]) + public)
+
+
+def process_start(pid):
+    """A live process's start time in clock ticks since boot (/proc/<pid>/stat field 22), which
+    with its PID identifies it across PID reuse; None where the platform has no /proc."""
+    if not sys.platform.startswith("linux"):
+        return None
+    raw = Path(f"/proc/{pid}/stat").read_bytes()
+    fields = raw[raw.rindex(b")") + 1:].split()
+    return fields[19].decode()
+
+
+def peer_credentials(peer):
+    """The PID and UID of a connected Unix socket's peer (SO_PEERCRED; LOCAL_PEERPID and
+    LOCAL_PEERCRED on macOS)."""
+    if sys.platform.startswith("linux"):
+        pid, uid, _ = struct.unpack("3i", peer.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i")))
+        return pid, uid
+    if sys.platform == "darwin":
+        pid = peer.getsockopt(0, 2)  # SOL_LOCAL, LOCAL_PEERPID
+        _, uid = struct.unpack("Ii", peer.getsockopt(0, 1, 8))  # LOCAL_PEERCRED: version, uid
+        return pid, uid
+    raise OSError(f"no peer credentials on {sys.platform}")
+
+
+def valid_store_instance(raw):
+    """Exactly 32 lowercase hex characters and a newline."""
+    return len(raw) == 33 and raw.endswith(b"\n") and all(c in b"0123456789abcdef" for c in raw[:32])
 
 
 def comet_platform():
@@ -281,6 +327,22 @@ class Supervisor:
         for path in (self.key, self.state_dir, self.domains_log):
             if path.is_relative_to(self.home) or path.is_relative_to(self.store):
                 raise ValueError("registered key, signing state and domains log must be outside the Comet home and app store")
+        # The supervisor's private run directory holds the signer channel's socket.
+        # Its parent is resolved, never the directory itself: prepare_run_dir refuses a symlink.
+        run_dir = Path(os.environ.get("ETNA_SUPERVISOR_RUN_DIR", str(self.store / "supervisor")))
+        if not run_dir.is_absolute() or run_dir.name in ("", ".", ".."):
+            raise ValueError("ETNA_SUPERVISOR_RUN_DIR must be an absolute directory path")
+        self.run_dir = run_dir.parent.resolve() / run_dir.name
+        if (self.run_dir.is_relative_to(self.home) or self.run_dir.is_relative_to(self.state_dir)
+                or self.run_dir.is_relative_to(self.domains_log.parent) or self.run_dir == self.key):
+            raise ValueError("the supervisor run directory must be outside the Comet home and the signer's files")
+        self.channel_path = self.run_dir / SUPERVISOR_SOCKET
+        if len(os.fsencode(self.channel_path)) > MAX_UNIX_SOCKET_PATH:
+            raise ValueError("supervisor run directory too long for its Unix socket")
+        self.channel = None
+        # The Comet process the supervisor runs, as the signer channel reports it; None while no
+        # Comet runs.
+        self.comet_report = None
         self.denial_route = self.validate_denial_route()
         self.events = self.denial_route
         self.prior_observation = None
@@ -289,6 +351,7 @@ class Supervisor:
         # start() adds each pair's --comet-signer-addr (and, for Noise, --transport-key).
         self.signer_command = self.command_prefix("ETNA_SIGNER_COMMAND_JSON", [binary]) + [
             "--trust-socket", str(self.store / "checkpoint-trust.sock"),
+            "--supervisor-socket", str(self.channel_path),
             "--chain-id", self.chain, "--priv-key", str(self.key),
             "--priv-state", str(self.state), "--domains-log", str(self.domains_log)]
         # Comet's complete argv. start_comet() appends only the pair's --priv_validator_laddr.
@@ -544,6 +607,8 @@ class Supervisor:
         keeps retrying, so a SIGTERM to the supervisor waits too.
         """
         code = None
+        # No signer session is admitted for a Comet that is stopping.
+        self.comet_report = None
         if self.comet is not None:
             if self.comet.poll() is None:
                 self.comet.terminate()
@@ -626,8 +691,8 @@ class Supervisor:
         Runs only with both earlier children reaped, so their flocks are released, and never
         while a fence or the unsafe record exists. Every start gets a fresh transport
         (fresh_transport); the signer connects promptly and begins that transport's own
-        closed trust session. Comet's executable and pending-evidence store are checked and
-        cleared first, so a refused start leaves no child running.
+        closed trust session. Comet's executable, pending-evidence store and store instance are
+        checked, cleared and assigned first, so a refused start leaves no child running.
         """
         if self.refuse_unsafe_start():
             return
@@ -635,6 +700,7 @@ class Supervisor:
         self.address, self.comet_listener = self.fresh_transport()
         self.check_comet_executable()
         self.remove_pending_evidence()
+        instance = self.store_instance()
         # Never unlink an operator-selected file; ignore its old inode on restart.
         previous = self.read_observation(self.events)
         self.prior_observation = previous[0] if previous is not None else None
@@ -647,7 +713,7 @@ class Supervisor:
         self.connected = False
         self.observed_loss = False
         self.was_ready = False
-        self.start_comet()
+        self.start_comet(instance)
         print("etna_supervisor_started", flush=True)
 
     @staticmethod
@@ -663,8 +729,158 @@ class Supervisor:
             raise ValueError("ETNA_COMET_UID and ETNA_COMET_GID must be set together")
         return int(uid), int(gid)
 
-    def start_comet(self):
-        """Start Comet on this pair's listener; the flag beats config.toml and CMT_* overrides."""
+    def store_instance(self):
+        """The Comet home's store instance ID (RECOV-8.2-2), read before every Comet start. A home
+        without one, an empty home on its first start or stores that exist without an ID (treated
+        as rebuilt), gets a fresh ID first, written atomically: a temporary file, its fsync, a
+        rename and the directory's fsync. An absent data/ is created for the Comet UID where the
+        supervisor may chown it; the image's supervisor has no CAP_CHOWN, so its homes are prepared
+        with data/. Any other inode or content at the path is refused."""
+        path = self.home / STORE_INSTANCE
+        data = path.parent
+        if not data.exists():
+            data.mkdir(mode=0o700)
+            identity = self.comet_identity()
+            if identity is not None and identity != (os.geteuid(), os.getegid()):
+                try:
+                    os.chown(data, *identity)
+                except PermissionError as error:
+                    data.rmdir()
+                    raise ValueError(f"create {data} owned by the Comet UID before the first start; "
+                                     "the supervisor has no CAP_CHOWN") from error
+            self.sync_directory(self.home)
+        try:
+            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        except FileNotFoundError:
+            return self.assign_store_instance(path)
+        except OSError as error:
+            raise ValueError(f"{path} is not a regular file: {error}") from error
+        with os.fdopen(descriptor, "rb") as source:
+            if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                raise ValueError(f"{path} is not a regular file")
+            raw = source.read(64)
+        if not valid_store_instance(raw):
+            raise ValueError(f"{path} is not a store instance ID (32 lowercase hex characters and a newline)")
+        return raw[:32].decode()
+
+    def assign_store_instance(self, path):
+        """Write a fresh store instance ID at path."""
+        fresh = secrets.token_hex(16)
+        temporary = path.with_name(f".{path.name}.{secrets.token_hex(8)}")
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        try:
+            os.write(descriptor, (fresh + "\n").encode())
+            os.fsync(descriptor)
+        except BaseException:
+            os.close(descriptor)
+            os.unlink(temporary)
+            raise
+        os.close(descriptor)
+        os.rename(temporary, path)
+        self.sync_directory(path.parent)
+        print(f"etna_supervisor_store_instance_assigned: {fresh} (no ID in {path}: new or rebuilt stores)", flush=True)
+        return fresh
+
+    @staticmethod
+    def sync_directory(path):
+        directory = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+
+    def prepare_run_dir(self):
+        """The supervisor's private run directory: created mode 0700 when absent; refused when it
+        is a symlink, owned by another UID or open to its group or others."""
+        try:
+            self.run_dir.mkdir(mode=0o700)
+        except FileExistsError:
+            pass
+        metadata = os.lstat(self.run_dir)
+        if (not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != os.geteuid()
+                or metadata.st_mode & 0o077):
+            raise ValueError(f"{self.run_dir} must be a directory private to the supervisor (mode 0700)")
+
+    def open_channel(self):
+        """Listen on the signer channel (RECOV-8.2-2). The owner lock is held, so a socket left at
+        the path belongs to a dead supervisor and is replaced."""
+        self.prepare_run_dir()
+        try:
+            os.unlink(self.channel_path)
+        except FileNotFoundError:
+            pass
+        listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        listener.bind(str(self.channel_path))
+        listener.listen()
+        listener.settimeout(.1)
+        self.channel = listener
+        threading.Thread(target=self.serve_channel, args=(listener,), daemon=True).start()
+
+    def close_channel(self):
+        listener, self.channel = getattr(self, "channel", None), None
+        if listener is not None:
+            listener.close()
+            try:
+                os.unlink(self.channel_path)
+            except FileNotFoundError:
+                pass
+
+    def serve_channel(self, listener):
+        while True:
+            try:
+                peer, _ = listener.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                return
+            threading.Thread(target=self.serve_signer, args=(peer,), daemon=True).start()
+
+    def serve_signer(self, peer):
+        """Answer one signer connection. Only the signer this supervisor runs may use it: the
+        peer's PID must be the current signer child's and its UID root or the supervisor's. A
+        connection ends with the first malformed request, and once that signer is replaced."""
+        with peer:
+            signer = self.signer
+            try:
+                pid, uid = peer_credentials(peer)
+            except OSError:
+                return
+            if signer is None or pid != signer.pid or uid not in (0, os.geteuid()):
+                print(f"etna_supervisor_channel_refused: peer PID {pid} UID {uid} is not the signer", flush=True)
+                return
+            peer.settimeout(None)
+            source = peer.makefile("rb")
+            while True:
+                line = source.readline(MAX_SUPERVISOR_FRAME + 1)
+                if not line.endswith(b"\n") or self.signer is not signer:
+                    return
+                try:
+                    reply = self.channel_reply(json.loads(line))
+                except ValueError:
+                    return
+                if reply is None:
+                    return
+                try:
+                    peer.sendall((json.dumps(reply) + "\n").encode())
+                except OSError:
+                    return
+
+    def channel_reply(self, request):
+        """One signer request: {"schema": 1, "id": n, "op": ...}. The comet op reports the Comet
+        process this supervisor runs, {"pid", "start", "store_instance"}, or null."""
+        if (not isinstance(request, dict) or request.get("schema") != SUPERVISOR_SCHEMA
+                or type(request.get("id")) is not int or not isinstance(request.get("op"), str)):
+            return None
+        reply = dict(schema=SUPERVISOR_SCHEMA, id=request["id"])
+        if request["op"] == "comet":
+            reply["comet"] = self.comet_report
+        else:
+            reply["error"] = f"unknown op {request['op']!r}"
+        return reply
+
+    def start_comet(self, instance):
+        """Start Comet on this pair's listener; the flag beats config.toml and CMT_* overrides. The
+        signer channel then reports this process and instance, its home's store instance."""
         command = self.comet_command + ["--priv_validator_laddr", self.comet_listener]
         identity = {}
         configured = self.comet_identity()
@@ -676,6 +892,11 @@ class Supervisor:
             if os.geteuid() == 0 or uid != os.geteuid() or gid != os.getegid():
                 identity = dict(user=uid, group=gid, extra_groups=[])
         self.comet = subprocess.Popen(command, cwd=self.home, **identity, **self.child_options())
+        try:
+            start = process_start(self.comet.pid)
+        except (OSError, ValueError, IndexError):
+            start = None  # Already gone: the signer cannot connect to it.
+        self.comet_report = dict(pid=self.comet.pid, start=start, store_instance=instance)
 
     @property
     def unsafe_record(self):
@@ -948,6 +1169,7 @@ class Supervisor:
         signal.signal(signal.SIGTERM, shutdown)
         signal.signal(signal.SIGINT, shutdown)
         try:
+            self.open_channel()
             if not self.refuse_unsafe_start() and not self.present(self.latch):
                 self.start()
             while self.running:
@@ -958,6 +1180,7 @@ class Supervisor:
             self.halt_if_unsafe(self.stop())
             while not (self.retry_latch() and self.retry_unsafe_record()):
                 time.sleep(.1)
+            self.close_channel()
             for descriptor in self.owner_fds:
                 os.close(descriptor)
             self.owner_fds = []

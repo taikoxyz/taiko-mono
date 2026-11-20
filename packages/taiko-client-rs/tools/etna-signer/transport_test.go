@@ -105,7 +105,7 @@ func TestTransportOnlyDisconnectRearmsSameHelper(t *testing.T) {
 			}
 			defer listener.Close()
 			var logs bytes.Buffer
-			helper := exec.Command(binary, append([]string{"--comet-signer-addr", addr, "--trust-socket", path, "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", domainsLogOf(state)}, extra...)...)
+			helper := exec.Command(binary, append([]string{"--comet-signer-addr", addr, "--trust-socket", path, "--supervisor-socket", serveSupervisor(t, reportsComet(testInstance)), "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", domainsLogOf(state)}, extra...)...)
 			helper.Stdout = &logs
 			helper.Stderr = &logs
 			if err := helper.Start(); err != nil {

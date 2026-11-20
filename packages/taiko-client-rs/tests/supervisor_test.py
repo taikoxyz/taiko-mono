@@ -11,6 +11,7 @@ import re
 import shutil
 import socket
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -194,9 +195,18 @@ class SupervisorLifecycle(TrustPeer):
                        ' comet_seen=[seen,seen is not None and alive(seen)])\n'
                        'signers.open("a").write(json.dumps(record)+"\\n")\n'
                        'if code("signer_exit_on_start") is not None: sys.exit(code("signer_exit_on_start"))\n'
+                       'def query():\n'
+                       ' import socket\n'
+                       ' with socket.socket(socket.AF_UNIX) as c:\n'
+                       '  c.connect(sys.argv[sys.argv.index("--supervisor-socket")+1])\n'
+                       '  c.sendall(b\'{"schema":1,"id":1,"op":"comet"}\\n\')\n'
+                       '  return c.makefile("rb").readline()\n'
                        'while not Path(os.environ["COMET_PID"]).with_name("release_signer").exists():\n'
                        ' now=code("signer_exit_now")\n'
                        ' if now is not None: (root/"signer_exit_now").unlink(); sys.exit(now)\n'
+                       ' if (root/"signer_query").exists() and not (root/"signer_reply").exists():\n'
+                       '  reply=query()\n'
+                       '  if json.loads(reply)["comet"] is not None: (root/"signer_reply").write_bytes(reply)\n'
                        ' time.sleep(.05)'),
         }.items():
             path = self.bin / name
@@ -553,6 +563,7 @@ class SupervisorLifecycle(TrustPeer):
         root = self.root.resolve()
         self.assertEqual(self.signers()[0]["argv"], [
             "--trust-socket", str(self.store.resolve() / "checkpoint-trust.sock"),
+            "--supervisor-socket", str(self.store.resolve() / "supervisor/signer.sock"),
             "--chain-id", self.chain, "--priv-key", str(root / "key.json"),
             "--priv-state", str(root / "hrs" / (self.chain + ".json")),
             "--domains-log", str(root / "domains/domains.log"),
@@ -946,6 +957,63 @@ class SupervisorLifecycle(TrustPeer):
             return False
         return True
 
+    def store_instance(self):
+        return (self.home / "data/etna-store-instance").read_text()
+
+    def channel_reply(self):
+        """The signer's comet query over the supervisor channel, as the running fake signer
+        makes it once asked to."""
+        (self.root / "signer_reply").unlink(missing_ok=True)
+        (self.root / "signer_query").touch()
+        self.wait(lambda: (self.root / "signer_reply").exists())
+        (self.root / "signer_query").unlink()
+        return json.loads((self.root / "signer_reply").read_text())
+
+    def test_store_instance_is_assigned_once_and_reported_to_the_signer(self):
+        """A home without a store instance ID gets a fresh one before Comet starts, durably and
+        privately; the signer channel reports, to the signer, the Comet process the supervisor
+        runs (PID and kernel start time) and that ID; a restart keeps the ID (RECOV-8.2-2)."""
+        instance = self.store_instance()
+        self.assertRegex(instance, r"^[0-9a-f]{32}\n$")
+        self.assertEqual(stat.S_IMODE((self.home / "data/etna-store-instance").stat().st_mode), 0o600)
+        self.assertIn(f"etna_supervisor_store_instance_assigned: {instance.strip()}", Path(self.log.name).read_text())
+        comet = self.comets()[-1]["pid"]
+        start = Path(f"/proc/{comet}/stat").read_bytes().rsplit(b")", 1)[1].split()[19].decode()
+        self.assertEqual(self.channel_reply(), dict(schema=1, id=1, comet=dict(pid=comet, start=start, store_instance=instance.strip())))
+        self.restart_with()
+        self.assertEqual(self.store_instance(), instance)
+        self.assertEqual(self.channel_reply()["comet"]["pid"], self.comets()[-1]["pid"])
+        self.assertEqual(Path(self.log.name).read_text().count("etna_supervisor_store_instance_assigned"), 1)
+
+    def test_stores_without_an_instance_id_get_a_fresh_one(self):
+        """Stores whose ID file is gone are treated as rebuilt: the next start assigns a fresh ID,
+        so the signer's binding changes and it fences its last signed height (RECOV-8.2-2)."""
+        before = self.store_instance()
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=5), 0)
+        (self.home / "data/blockstore.db").mkdir()
+        (self.home / "data/etna-store-instance").unlink()
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                     env=self.env, stdout=self.log, stderr=self.log)
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+        self.assertNotEqual(self.store_instance(), before)
+        self.assertEqual(self.channel_reply()["comet"]["store_instance"], self.store_instance().strip())
+
+    def test_channel_refuses_every_peer_but_the_signer(self):
+        """Only the signer the supervisor started may use the channel: another process of the same
+        user is refused by its peer credentials and gets no answer."""
+        with socket.socket(socket.AF_UNIX) as peer:
+            peer.settimeout(3)
+            peer.connect(str(self.store / "supervisor/signer.sock"))
+            peer.sendall(b'{"schema":1,"id":1,"op":"comet"}\n')
+            try:
+                answer = peer.recv(1024)
+            except ConnectionResetError:
+                answer = b""
+            self.assertEqual(answer, b"")
+        self.wait(lambda: "etna_supervisor_channel_refused" in Path(self.log.name).read_text())
+        self.assertEqual(stat.S_IMODE((self.store / "supervisor").stat().st_mode), 0o700)
+
     def test_half_a_comet_identity_is_refused_before_children(self):
         """ETNA_COMET_UID and ETNA_COMET_GID are set together or not at all, as for the full node."""
         for variable, value in (("ETNA_COMET_UID", os.geteuid()), ("ETNA_COMET_GID", os.getegid())):
@@ -1103,6 +1171,33 @@ class UnixSupervisorTests(SupervisorLifecycle, unittest.TestCase):
         self.assert_refused()
         self.assertIn("signer-dddd.sock", Path(self.log.name).read_text(errors="replace"))
         self.assertTrue(blocker.is_dir())
+
+    def test_malformed_store_instance_is_refused_before_children(self):
+        """A store instance file that is not exactly one ID, or not a regular file, refuses the
+        start: it is never repaired or replaced."""
+        path = self.home / "data/etna-store-instance"
+        for content in ("short\n", "00112233445566778899AABBCCDDEEFF\n", "00112233445566778899aabbccddeeff",
+                        "00112233445566778899aabbccddeeff\nextra\n"):
+            with self.subTest(content=content):
+                path.write_text(content)
+                self.assert_refused_before_children("is not a store instance ID")
+                self.assertEqual(path.read_text(), content)
+        path.unlink()
+        path.symlink_to(self.root / "elsewhere")
+        self.assert_refused_before_children("not a regular file")
+
+    def test_unsafe_supervisor_run_directory_is_refused(self):
+        """The signer channel lives in a directory private to the supervisor: one open to others,
+        or a symlink, is refused before any child starts."""
+        run = self.store / "supervisor"
+        run.chmod(0o755)
+        self.assert_refused_before_children("must be a directory private to the supervisor")
+        run.chmod(0o700)
+        os.rmdir(run) if not any(run.iterdir()) else shutil.rmtree(run)
+        target = self.root / "run-elsewhere"
+        target.mkdir(mode=0o700)
+        run.symlink_to(target)
+        self.assert_refused_before_children("must be a directory private to the supervisor")
 
     def test_overlong_socket_path_is_refused_before_children(self):
         self.stop_supervisor()
@@ -1926,7 +2021,7 @@ class SupervisorUnitTests(unittest.TestCase):
                 (0, 0, 10001, 10001, dict(user=10001, group=10001, extra_groups=[])),
                 (501, 20, 10001, 10001, dict(user=10001, group=10001, extra_groups=[]))]:
             with self.subTest(current_uid=current_uid, uid=uid), patch.dict(os.environ, {"ETNA_COMET_UID":str(uid), "ETNA_COMET_GID":str(gid)}), patch.object(module.os, "geteuid", return_value=current_uid), patch.object(module.os, "getegid", return_value=current_gid), patch.object(module.subprocess, "Popen") as spawn:
-                runtime.start_comet()
+                runtime.start_comet("00112233445566778899aabbccddeeff")
                 self.assertEqual(spawn.call_args.kwargs, dict(cwd=runtime.home, **expected))
 
     def test_explicit_command_prefix_preserves_arguments_without_shell(self):

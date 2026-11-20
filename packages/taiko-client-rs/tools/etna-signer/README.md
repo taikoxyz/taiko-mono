@@ -46,15 +46,37 @@ create that `chain_id`'s HRS state with the signer stopped:
 an Etna chain ID is `etna-<base64url>`), that the state file is named `<chain_id>.json` and that
 the log is in another directory. It takes the key's owner lock and an exclusive lock on the log,
 refuses a chain ID already in the log and an existing state file, then exclusively creates the
-stock unsigned HRS and fsyncs it and its directory, and only then appends `<chain_id>` to the
+unsigned signer state and fsyncs it and its directory, and only then appends `<chain_id>` to the
 log in one write and fsyncs the log and its directory. It reports success only once the log
-line is durable. A full `chain_id` gets exactly one HRS state, which is never reset or rolled
-back (RECOV-8.2-1).
+line is durable. A full `chain_id` gets exactly one signer state, which is never reset or rolled
+back (RECOV-8.2-1). `init-state` creates no Comet store, so it writes no store instance ID.
+
+The signer state is schema 2: stock FilePV's HRS fields (`height`, `round`, `step` and, once
+signed, `signature` and `signbytes`, encoded as stock FilePV encodes them) and, in the same file,
+`schema`, `chain_id`, the bound `store_instance`, the height `floor` and the `replay` binding of
+the last signature (Store binding and the height floor). Every change rewrites the whole file
+atomically. The stock FilePV state of earlier signers has no `schema` and is refused without
+migration, like every other schema (exit 3); a state that never signed may be removed and created
+again with `init-state`, a signed one never.
 
 If `init-state` is interrupted after creating the state and before the log line, an unlogged
 state remains, and both `serve` and `init-state` refuse it. Check that the file is byte for byte
-the stock zero state (`{"height": "0", "round": 0, "step": 0}`, indented as FilePV writes it),
-remove it and rerun `init-state`. A state that is not the zero state may have signed:
+the unsigned schema-2 state, as `init-state` writes it with the two-space indent:
+
+```json
+{
+  "schema": 2,
+  "chain_id": "<chain_id>",
+  "height": "0",
+  "round": 0,
+  "step": 0,
+  "store_instance": "",
+  "floor": "0",
+  "replay": null
+}
+```
+
+Then remove it and rerun `init-state`. A state that is not the zero state may have signed:
 never remove it. Never edit the log by hand. The one documented exception is the repair of a
 torn tail (Repairing a torn domains log).
 
@@ -83,6 +105,7 @@ operator/deployment action.
 ./target/etna-signer/etna-signer \
   --comet-signer-addr unix:///absolute/comet-home/run/signer-0123456789abcdef.sock \
   --trust-socket /absolute/path/app-store/checkpoint-trust.sock \
+  --supervisor-socket /absolute/path/app-store/supervisor/signer.sock \
   --chain-id "$ETNA_CHAIN_ID" \
   --priv-key /private/key/priv_validator_key.json \
   --priv-state "/private/hrs/$ETNA_CHAIN_ID.json" \
@@ -91,8 +114,10 @@ operator/deployment action.
 
 Serve is the default command and has one mode: it signs only for `--chain-id`, into that chain
 ID's own HRS state. A recovered generation has a new full `chain_id`, so it is served with its
-own state from `init-state` and the same key and log (RECOV-8.2-5/8.2-6). The optional flags are
-`--transport-key` (Noise only), `--denial-file` and `--trust-timeout`.
+own state from `init-state` and the same key and log (RECOV-8.2-5/8.2-6). `--supervisor-socket` is
+the supervisor's private channel (Store binding and the height floor); only the supervisor that
+started the signer serves it. The optional flags are `--transport-key` (Noise only),
+`--denial-file` and `--trust-timeout`.
 
 ### Signer transport
 
@@ -134,9 +159,11 @@ before any signature depends on it) and must list the chain ID; the state, which
 for a logged chain, have exactly one link and resolve to `<chain_id>.json`, and its exclusive
 owner lock `<state>.lock`; the absence of the `<state>.uncertain` fence, of a `<state>.inflight`
 marker naming this boot and of the supervisor's `<chain_id>.signer-unsafe` marker beside the
-log; and the HRS, which must be the stock zero
-state or carry a signature by the registered key over that chain ID's canonical sign bytes.
-Only then does it load the stock FilePV. It never creates, initializes or resets HRS. The
+log; and the signer state, which must be schema 2 for that chain ID, with exactly its fields, and
+either the zero state or an HRS carrying a signature by the registered key over that chain ID's
+canonical sign bytes, bound to a store instance, with a floor of at most H + 1. It removes the
+temporary files of state writes a crash interrupted before their rename, and only then serves the
+state. It never creates, initializes or resets HRS. The
 locks are held while serving, so two signers sharing these files never both serve
 (RECOV-8.2-2); another host is outside their reach (see Failover). Preserve the key, every
 state, the log, the Comet WAL and app history on restart; never use `keygen` or `init-state`
@@ -166,6 +193,8 @@ reset:
 | Chain ID not in the log                   | `init-state` never ran for it, or was interrupted before its log line                              |
 | Chain ID logged, state missing            | the state file or the state volume is lost                                                         |
 | HRS ambiguous                             | a hard-linked state, a state that resolves to another chain's file, unknown or duplicate fields    |
+| Old or other schema                       | the stock FilePV state of earlier signers (no `schema`), or a schema other than 2                  |
+| Inconsistent continuity                   | another `chain_id`, an invalid store instance, a signed but unbound state, a floor above H + 1     |
 | HRS unauthentic                           | a signed state without a valid signature by the registered key over this chain ID                  |
 | Retained fence                            | `<state>.uncertain` exists                                                                         |
 | Died while synchronizing, same boot       | `<state>.inflight` holds this kernel boot's ID, or is not a regular file of at most 128 bytes      |
@@ -243,14 +272,15 @@ only when the reply is for the transport's current session, names the served cha
 phase `ready` and names the request's height as `eligible_height`. That height is the only one
 the app admits: the one after its durable committed boundary, the generation's `initial_height`
 before its first commit, or s + 1 right after a 5.4 import at s. Every other height, for
-proposals, votes and nil votes alike, is refused before stock FilePV runs, so the HRS stays
+proposals, votes and nil votes alike, is refused before the HRS is checked, so it stays
 unchanged. Keys match exactly, so a case variant such as `Phase` is just another field. Every
 other field, known or unknown, is ignored; the app reports `ready` only after its own checkpoint
 target and InitChain checks (SYNC-9-5, RECOV-8.2-4). A reply for another session begins a fresh
 session. A missing, null or empty session, a missing or null phase, a null, empty or other chain
 ID, a ready reply without a positive `eligible_height`, another schema, a malformed, oversize or
-duplicate-key reply, an absent app and a timeout all deny (SYNC-9-11). Denial never invokes FilePV
-signing. Only stock FilePV writes signing state after authorization.
+duplicate-key reply, an absent app and a timeout all deny (SYNC-9-11). Denial never reaches the
+HRS. After trust, each session must pass its continuity admission (Store binding and the height
+floor) before any signature.
 
 The trust decision for one signing request takes at most 3.5 s. While it is pending (no session
 yet, a session just begun, a closed phase or an unavailable app) the signer asks the app again
@@ -259,7 +289,7 @@ chain ID or another height are final at once. Each query is bounded by `--trust-
 2 s, 1 s by default) and by what remains of the 3.5 s. So the first request of a fresh session,
 such as the step a restarted Comet replays, is signed once the app has checked that session, and
 a refusal reaches Comet well before its fixed 5 s signer read timeout, leaving an authorized step
-1.5 s for FilePV's fsyncs.
+1.5 s for its fsyncs. The session's continuity admission runs within the same 3.5 s.
 
 Run `just signer-test` for Go race/process/native interop tests. No Cargo build is
 needed for this helper.
@@ -291,6 +321,53 @@ delay terminal or signal shutdown until the transport deadline.
 Observation publishing writes an exclusive random temporary file and renames it over the
 denial file; it never opens a fixed temporary name.
 
+### Store binding and the height floor
+
+RECOV-8.2-2 binds the key's last signing decision in each signing domain to the consensus store
+instance it was made on, and fences signing through that height whenever continuity with it is
+not established. Every Comet home carries a store instance ID in `data/etna-store-instance`: 32
+lowercase hex characters (128 random bits) and a newline, mode 0600. Every path that creates,
+imports, restores or rebuilds the stores writes a fresh one: the supervisor before the first
+start of a home without one (an empty home, or stores whose ID is gone, which count as rebuilt),
+`etna-comet-import install` and `abci-import` for an imported home, and `abci-recover install`
+for a recovered generation's. Never copy the ID from another home or restore it with an older
+database: an ID copied that way cannot establish continuity (below).
+
+The signer learns which Comet it serves over the supervisor's private channel: a Unix socket,
+`<run>/signer.sock`, in the supervisor's run directory (`ETNA_SUPERVISOR_RUN_DIR`, by default
+`<app-store>/supervisor`, mode 0700 and owned by the supervisor). Both ends check the other's
+kernel peer credentials: the supervisor answers only its current signer child, by PID, and the
+signer accepts only the PID that started it (its parent at startup) under root or its own UID.
+Each request is one JSON line, `{"schema": 1, "id": n, "op": "comet"}`, and its reply
+`{"schema": 1, "id": n, "comet": null}` while no Comet runs, else `"comet": {"pid": P, "start":
+"<ticks>", "store_instance": "<32 hex>"}`, the Comet process the supervisor started (its PID and
+kernel start time, `null` without `/proc`) and the ID it read before starting it.
+
+Every signing request of a transport connection is admitted only after the trust check of
+Supervision and trust and this continuity check, within the same 3.5 s (SYNC-9-4, SYNC-9-10).
+On a Unix transport the connection's peer (`SO_PEERCRED`, the process that listens) must be the
+reported PID with the reported start time; on Noise, Comet's node key, which only the
+supervisor's home holds, authenticates the process. An unavailable channel or no running Comet is
+pending; a mismatch is refused. The first signing request of each connection then binds or
+fences the state, durably, before anything is signed:
+
+- A key that has never signed in this domain binds to the reported store instance and keeps no
+  floor.
+- For a key whose last signature is at height H, a changed or absent binding, and a Comet process
+  other than the one this signer last admitted, raise the persisted `floor` to at least H + 1
+  and bind the reported instance. A restart of the pair is such a new process: no stock replay
+  that could establish same-height continuity is checked yet, so the restarted signer never signs
+  at the height it last signed.
+- A reconnect to the same live process on the same instance changes nothing (SYNC-9-4).
+
+The floor never decreases and covers every request below it, proposals, nil votes, later rounds
+and identical retries included; they are refused with an explicit error before the HRS is
+checked, and are not published as trust refusals, so they never trigger the supervisor's restart.
+Together with the eligible height, which the app names only once it has committed H, the floor
+means the signer signs above H only once its node has verified a committed chain covering H.
+Failing to make a floor or binding durable is uncertain state (Fence on fsync failure). Import,
+recovery install and restore therefore never reset or lower the signer's state (DATA-5.4-7).
+
 ### Supervisor restarts and latches
 
 A healthy signer exits only when the supervisor stops it. Every other exit is either a crash,
@@ -306,11 +383,12 @@ never restarted (SYNC-9-14):
 | 0, 1, 2 or SIGTERM while the supervisor stops it (shutdown, recovery restart) | absent  | Normal                                                                                                                                                                                                                                                                                     |
 
 A restart is safe because it changes nothing the signer relies on. The new signer serves the
-same `<chain_id>.json` and repeats every startup check; stock FilePV continues from the HRS on
-disk, returns the stored signature for the same step and refuses conflicting data or a lower
-step (RECOV-8.2-1, SYNC-9-13). No signature leaves the signer before both fsyncs, so a crash,
-a SIGKILL or a stock persistence panic (exit 2, whose temporary file is never renamed over the
-state) released nothing that the HRS on disk does not cover. The dead signer is reaped, which
+same `<chain_id>.json` and repeats every startup check, and continues from the HRS on disk with
+stock FilePV's rules (RECOV-8.2-1, SYNC-9-13). Its Comet is a new process, so its session takes
+the durable floor H + 1 of Store binding and the height floor: a height the old pair left
+undecided is not signed again. No signature leaves the signer before its state is durable, so a
+crash, a SIGKILL or a write panic (exit 2, whose temporary file is never renamed over the state)
+released nothing that the state on disk does not cover. The dead signer is reaped, which
 closes its descriptors and releases its key and state flocks, and Comet is reaped before the
 new signer starts: two signers never overlap (RECOV-8.2-2). Each pair begins a new closed trust
 session on its own transport; in Unix mode it never reuses the dead pair's socket.
@@ -363,19 +441,20 @@ A death between a failed fsync and a durable fence (a SIGKILL from the OOM kille
 `kill -9`, or a Go runtime fatal error) leaves no fence. On Linux the failed write-back's error
 is reported once, so on the same boot a restarted signer's fsync can succeed over state that
 never reached disk, and the HRS rolls back after a host crash or a page eviction (SYNC-9-13).
-So before stock FilePV writes, each signing step writes `<state>.inflight` with the kernel
+So before the state is written, each signing step writes `<state>.inflight` with the kernel
 boot ID (`/proc/sys/kernel/random/boot_id`) and fsyncs it and then its directory; it removes
 the marker, without an fsync, once the state is durable. A step costs four fsyncs. The marker's
 evidence does not depend on an unsynced page cache: its fsync either put it on disk or failed,
 and a failed one refuses the step with the HRS unchanged and latches like any failed fsync. A
-marker that cannot be created or written panics before any fsync, like a failed stock write
-(exit 2), and the supervisor restarts the signer from the unchanged HRS. A stock persistence
-panic comes at or before FilePV's atomic rename, with the HRS unchanged, so the step removes its
-marker before the panic goes on and that restart serves too. A failed removal after a durable
+marker that cannot be created or written panics before any fsync, like a failed state write
+(exit 2), and the supervisor restarts the signer from the unchanged HRS. A failed state write
+panics at or before its atomic rename, with the state unchanged, so the step removes its marker
+before the panic goes on and that restart serves too. A floor or binding change is one such step
+too. A failed removal after a durable
 step is logged to stderr. A restart on the same boot that finds this boot's ID in it exits 3,
 and the supervisor latches.
 Any other content is not evidence: an empty or partial marker is from a death or a refusal
-before stock FilePV wrote, and an earlier boot's ID is stale, since the reboot dropped the page
+before the state was written, and an earlier boot's ID is stale, since the reboot dropped the page
 cache and the disk holds the last durable HRS. Startup removes such a marker and serves. A
 signer killed during a signing step therefore needs an operator unless the host reboots; one
 killed between signatures restarts on its own. Remove a same-boot `<state>.inflight` only under the evidence
@@ -412,28 +491,33 @@ for a chain that has already signed. Move, never copy:
    volumes, before anything could start the old host again; if it does start, it then refuses
    (exit 3, logged chain without state). Then start the standby.
 
-The standby continues from the moved HRS: it returns the stored signature for the same step and
-refuses conflicting data and lower steps (`TestHRSSurvivesCrashRestartAndFailover`, ACCEPTANCE
-§2.4). A move of the state without its log, even with a newly initialized log, or of the log
-without the state, refuses with exit 3. An older state cannot be detected and double-signs
-(RECOV-8.2-1/2).
+The standby continues from the moved state. Its Comet home has its own store instance ID, so its
+first session fences the moved HRS's height H with the durable floor H + 1, and the moved floor
+never decreases: it signs above H once its app has committed H, and an old instance that came
+back would be fenced through the standby's last height in turn (`TestHRSSurvivesCrashRestartAndFailover`,
+`TestFloorNeverLowersAndFailoverFencesTheOldInstance`, ACCEPTANCE §2.4). Never move or copy the
+Comet home's `data/etna-store-instance`. A move of the state without its log, even with a newly
+initialized log, or of the log without the state, refuses with exit 3. An older state cannot be
+detected and double-signs (RECOV-8.2-1/2).
 
 ## Fence on fsync failure
 
-Stock FilePV owns HRS checks and signing, and writes each new HRS through an `O_SYNC`
-temporary file renamed over the state. Before the transport receives a signature, cached
-same-HRS retries included, the signer fsyncs the state file and then its directory (SYNC-9-13).
-Before FilePV writes, it makes `<state>.inflight` durable with two more fsyncs (see Supervisor
-restarts and latches), so a request that reaches FilePV costs four. A crash, SIGKILL or stock
-persistence panic (exit 2) writes no fence. Between signing steps it needs none: no signature is
-released before the state fsyncs succeed, and the disk holds either the old or the new HRS, so
-a restart continues from it and may sign an unreleased step again without equivocating. Stock
-FilePV persists the HRS, the canonical sign bytes and the signature before the reply. At equal
-HRS it returns the saved signature for identical sign bytes and, for a stock timestamp-only
-retry, restores the original timestamp with that signature; it refuses any other conflict and
-every HRS regression (SYNC-9-13, `TestPersistedSignatureAndRetrySemantics`). A death during a
-step leaves the inflight marker, which refuses a restart on the same boot; a stock persistence
-panic removes it first, as the HRS is unchanged.
+The signer applies stock FilePV's HRS rules exactly, through stock `CheckHRS`, stock canonical
+sign bytes and stock vote-extension signing (`TestGuardedSignerMatchesStockFilePV` runs the same
+request sequences through both). It persists the HRS, the canonical sign bytes and the signature
+with its continuity fields in one atomic write before the reply: an exclusive temporary file in
+the state directory, its fsync, a rename over the state and the directory's fsync. A cached
+same-HRS retry writes nothing but fsyncs the state file and then its directory before the
+transport receives the signature (SYNC-9-13). Before either, it makes `<state>.inflight` durable
+with two more fsyncs (see Supervisor restarts and latches), so a step costs four. A crash,
+SIGKILL or write panic (exit 2) writes no fence. Between signing steps it needs none: no
+signature is released before the state is durable, and the disk holds either the old or the new
+state, so a restart continues from it. At equal HRS it returns the saved signature for identical
+sign bytes and, for a stock timestamp-only retry, restores the original timestamp with that
+signature; it refuses any other conflict and every HRS regression (SYNC-9-13,
+`TestPersistedSignatureAndRetrySemantics`). A death during a step leaves the inflight marker,
+which refuses a restart on the same boot; a write panic removes it first, as the state is
+unchanged.
 
 A failed state or directory fsync makes the latest state uncertain (RECOV-8.2-3). The signer
 withholds the signature and latches in memory, refusing every later request, cached retries

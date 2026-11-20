@@ -25,17 +25,77 @@ import (
 const chain = "etna-test"
 
 type recordingPV struct {
-	*privval.FilePV
+	*guardedPV
 	calls atomic.Int64
 }
 
 func (p *recordingPV) SignVote(chain string, vote *tm.Vote) error {
 	p.calls.Add(1)
-	return p.FilePV.SignVote(chain, vote)
+	return p.guardedPV.SignVote(chain, vote)
 }
 func (p *recordingPV) SignProposal(chain string, proposal *tm.Proposal) error {
 	p.calls.Add(1)
-	return p.FilePV.SignProposal(chain, proposal)
+	return p.guardedPV.SignProposal(chain, proposal)
+}
+
+// testInstance is the store instance of the tests' Comet home.
+const testInstance = "00112233445566778899aabbccddeeff"
+
+// testComet is the Comet process the tests' supervisor reports: this test process, which also
+// serves the in-process Comet listeners, on testInstance.
+func testComet() cometProcess {
+	return cometAt(os.Getpid())
+}
+
+// cometAt is testComet of process pid, for re-executed helpers whose Comet listener the parent
+// test runs.
+func cometAt(pid int) cometProcess {
+	start, err := processStart(pid)
+	if err != nil {
+		panic(err)
+	}
+	return cometProcess{PID: pid, Start: start, StoreInstance: testInstance}
+}
+
+// staticReporter is a supervisor that always gives one answer.
+type staticReporter struct {
+	proc *cometProcess
+	err  error
+}
+
+func (r staticReporter) comet(time.Time) (*cometProcess, error) { return r.proc, r.err }
+
+// reporting is a supervisor that reports proc.
+func reporting(proc cometProcess) staticReporter { return staticReporter{proc: &proc} }
+
+// openPV reads key and chain's state as serve does, without the domains log and the locks.
+func openPV(t *testing.T, key, state string) *guardedPV {
+	t.Helper()
+	native, err := loadNativeKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := readSignerState(state, chain, native.PubKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return newGuardedPV(native, chain, state, loaded)
+}
+
+// continued marks a restarted signer's session admitted for testComet without a fence, as if
+// same-height continuity were established. Tests of HRS persistence use it; the continuity rules
+// themselves are tested without it.
+func continued(p *guardedPV) *guardedPV {
+	proc := testComet()
+	p.admitted = &proc
+	return p
+}
+
+// reopen continues the same signer process on the state as persisted: its session stays admitted
+// for testComet, so nothing is fenced.
+func reopen(t *testing.T, key, state string) *guardedPV {
+	t.Helper()
+	return continued(openPV(t, key, state))
 }
 
 func shortTemp(t *testing.T) string {
@@ -88,8 +148,9 @@ func snapshotAt(ready bool, eligible uint64) map[string]any {
 
 // filePV is one validator initialized as an operator does: a stock native key, then
 // init-domains-log and init-state for chain, with <d>/key.json, <d>/hrs/<chain>.json and
-// <d>/domains/domains.log (domainsLogOf).
-func filePV(t *testing.T) (*privval.FilePV, string, string) {
+// <d>/domains/domains.log (domainsLogOf), served by a signer whose first session, with
+// testComet, bound the state to testInstance.
+func filePV(t *testing.T) (*guardedPV, string, string) {
 	t.Helper()
 	d := t.TempDir()
 	key, state := filepath.Join(d, "key.json"), filepath.Join(d, "hrs", chain+".json")
@@ -105,7 +166,11 @@ func filePV(t *testing.T) (*privval.FilePV, string, string) {
 	if err := initState(chain, key, state, domainsLogOf(state)); err != nil {
 		t.Fatal(err)
 	}
-	return privval.LoadFilePV(key, state), key, state
+	signer := openPV(t, key, state)
+	if err := signer.admit(testComet()); err != nil {
+		t.Fatal(err)
+	}
+	return signer, key, state
 }
 
 // domainsLogOf is filePV's domains log for its state path.
@@ -126,11 +191,22 @@ func recoveredSnapshot(g uint64) map[string]any {
 	value["recovery_origin"] = map[string]any{"generation": g, "height": 6, "l1_number": 9, "l1_hash": "0x" + strings.Repeat("a", 64), "l1_timestamp": 100, "el_hash": hash, "comet_hash": comet, "forced_cursor": 0, "committee_hash": "0x" + strings.Repeat("d", 64)}
 	return value
 }
+
+// withComet gives g a supervisor that reports testComet and a transport connected to it; a
+// dialer replaces the transport with the one it dials.
+func withComet(g *gate) *gate {
+	g.supervisor = reporting(testComet())
+	g.conn.Store(&cometConn{})
+	return g
+}
+
+// armed is a gate whose transport, connected to testComet, already began session "test:7", with
+// a supervisor that reports testComet.
 func armed(path string) *gate {
 	g := newGate(path, time.Second)
 	session := "test:7"
 	g.session.Store(&session)
-	return g
+	return withComet(g)
 }
 func voteRequest(typ tm.SignedMsgType, round int32, nilBlock bool) pv.Message {
 	vote := &tm.Vote{Type: typ, Height: 1, Round: round, Timestamp: time.Unix(100, 0)}
@@ -146,7 +222,7 @@ func TestClosedGateAllSigningFamilies(t *testing.T) {
 	path := control(t, func(map[string]any) any { return snapshot(false) })
 	gate := armed(path)
 	backend, _, state := filePV(t)
-	signer := &recordingPV{FilePV: backend}
+	signer := &recordingPV{guardedPV: backend}
 	before, _ := os.ReadFile(state)
 	requests := []pv.Message{voteRequest(tm.PrevoteType, 0, true), voteRequest(tm.PrecommitType, 0, true), voteRequest(tm.PrevoteType, 1, false), voteRequest(tm.PrecommitType, 1, false), proposalRequest(), proposalRequest()}
 	for _, req := range requests {
@@ -187,7 +263,7 @@ func TestReadyIsFreshAndFilePVPersistsDoubleSignProtection(t *testing.T) {
 	if len(signed) != 65 {
 		t.Fatal("no official signature")
 	}
-	signer = privval.LoadFilePV(key, state)
+	signer = reopen(t, key, state)
 	retry, _ := g.handle(signer, voteRequest(tm.PrecommitType, 0, false), chain)
 	if !bytes.Equal(signed, retry.GetSignedVoteResponse().Vote.Signature) {
 		t.Fatal("same HRS retry changed signature")
@@ -271,7 +347,7 @@ func TestGateChecksOnlySessionChainAndPhase(t *testing.T) {
 			path := control(t, func(map[string]any) any { return json.RawMessage(test.reply(snapshot(true))) })
 			g := armed(path)
 			backend, key, state := filePV(t)
-			signer := &recordingPV{FilePV: backend}
+			signer := &recordingPV{guardedPV: backend}
 			before, _ := os.ReadFile(state)
 			res, err := g.handle(signer, voteRequest(tm.PrevoteType, 0, false), chain)
 			if test.signs {
@@ -309,7 +385,7 @@ func TestBeginArmsSessionBeforeInitChain(t *testing.T) {
 		t.Fatalf("pre-InitChain begin_session: %q %v", session, err)
 	}
 	backend, _, state := filePV(t)
-	signer := &recordingPV{FilePV: backend}
+	signer := &recordingPV{guardedPV: backend}
 	before, _ := os.ReadFile(state)
 	if res, err := g.handle(signer, voteRequest(tm.PrevoteType, 0, false), chain); err == nil || res.GetSignedVoteResponse().Error == nil {
 		t.Fatal("signed without a chain ID")
@@ -360,7 +436,7 @@ func TestControlFailuresDeny(t *testing.T) {
 			}
 			g := armed(path)
 			backend, _, state := filePV(t)
-			signer := &recordingPV{FilePV: backend}
+			signer := &recordingPV{guardedPV: backend}
 			before, _ := os.ReadFile(state)
 			res, err := g.handle(signer, proposalRequest(), chain)
 			if err == nil || res.GetSignedProposalResponse().Error == nil {
@@ -391,7 +467,7 @@ func TestReadinessIsPhaseOnly(t *testing.T) {
 		t.Run("sign/"+name, func(t *testing.T) {
 			path := control(t, func(map[string]any) any { return with(snapshot(true)) })
 			backend, _, state := filePV(t)
-			signer := &recordingPV{FilePV: backend}
+			signer := &recordingPV{guardedPV: backend}
 			before, _ := os.ReadFile(state)
 			res, err := armed(path).handle(signer, voteRequest(tm.PrecommitType, 0, false), chain)
 			if phase == "ready" {
@@ -467,7 +543,7 @@ func TestMalformedAndTimeoutBounded(t *testing.T) {
 			g := armed(path)
 			g.timeout = 30 * time.Millisecond
 			backend, _, state := filePV(t)
-			signer := &recordingPV{FilePV: backend}
+			signer := &recordingPV{guardedPV: backend}
 			before, _ := os.ReadFile(state)
 			start := time.Now()
 			res, err := g.handle(signer, voteRequest(tm.PrecommitType, 0, false), chain)
@@ -578,7 +654,7 @@ func observation(t *testing.T, path string) (uint64, string) {
 func TestHeldRequestSignsOnceTheFreshSessionIsTrusted(t *testing.T) {
 	app := &appSessions{}
 	path := control(t, app.reply)
-	g := newGate(path, time.Second)
+	g := withComet(newGate(path, time.Second))
 	g.hold = 3 * time.Second
 	g.denialPath = filepath.Join(t.TempDir(), "denial.json")
 	if _, err := g.begin(time.Now().Add(time.Second)); err != nil {
@@ -642,7 +718,7 @@ func TestHeldRequestRefusesInTimeAndFinalAnswersDoNotHold(t *testing.T) {
 				}()
 			}
 			backend, _, state := filePV(t)
-			signer := &recordingPV{FilePV: backend}
+			signer := &recordingPV{guardedPV: backend}
 			before, _ := os.ReadFile(state)
 			start := time.Now()
 			res, err := g.handle(signer, voteRequest(tm.PrevoteType, 0, false), chain)
@@ -676,7 +752,7 @@ func TestOnlyTheEligibleHeightSigns(t *testing.T) {
 	path := control(t, func(map[string]any) any { return snapshotAt(true, eligible.Load()) })
 	g := armed(path)
 	backend, key, state := filePV(t)
-	signer := &recordingPV{FilePV: backend}
+	signer := &recordingPV{guardedPV: backend}
 	at := func(request pv.Message, height int64) pv.Message {
 		if vote := request.GetSignVoteRequest(); vote != nil {
 			vote.Vote.Height = height
@@ -720,7 +796,7 @@ func TestOnlyTheEligibleHeightSigns(t *testing.T) {
 func TestDialerConnectsPromptlyWithoutTheApp(t *testing.T) {
 	app := &appSessions{}
 	path := filepath.Join(shortTemp(t), "trust.sock")
-	g := newGate(path, 200*time.Millisecond)
+	g := withComet(newGate(path, 200*time.Millisecond))
 	g.hold = 3 * time.Second
 	g.denialPath = filepath.Join(t.TempDir(), "denial.json")
 	signer, _, _ := filePV(t)
@@ -810,7 +886,7 @@ func TestOfficialSignerWire(t *testing.T) {
 				}
 				return snapshot(ready.Load())
 			})
-			g := newGate(path, time.Second)
+			g := withComet(newGate(path, time.Second))
 			signer, _, state := filePV(t)
 			before, _ := os.ReadFile(state)
 			var listener net.Listener
@@ -891,7 +967,7 @@ func TestMalformedReadyRequestsNeverReachFilePV(t *testing.T) {
 	path := control(t, func(map[string]any) any { return snapshot(true) })
 	g := armed(path)
 	backend, _, state := filePV(t)
-	signer := &recordingPV{FilePV: backend}
+	signer := &recordingPV{guardedPV: backend}
 	before, _ := os.ReadFile(state)
 	invalidVote := voteRequest(tm.PrevoteType, 0, true)
 	invalidVote.GetSignVoteRequest().Vote.Type = tm.UnknownType

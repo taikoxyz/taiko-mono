@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -14,10 +13,6 @@ import (
 	"syscall"
 
 	"github.com/cometbft/cometbft/crypto"
-	cmtjson "github.com/cometbft/cometbft/libs/json"
-	"github.com/cometbft/cometbft/libs/protoio"
-	"github.com/cometbft/cometbft/privval"
-	tm "github.com/cometbft/cometbft/proto/tendermint/types"
 )
 
 // The domains log records, one line per full chain_id, every stock HRS state ever initialized
@@ -62,15 +57,6 @@ func validChainID(c string) error {
 	return nil
 }
 
-// zeroHRS is the stock unsigned FilePV state, byte for byte as stock FilePV saves it.
-func zeroHRS() []byte {
-	raw, err := cmtjson.MarshalIndent(privval.FilePVLastSignState{}, "", "  ")
-	if err != nil {
-		panic(err)
-	}
-	return raw
-}
-
 // syncDirectory makes a created, renamed or removed directory entry durable.
 func syncDirectory(path string) error {
 	f, e := os.Open(path)
@@ -106,82 +92,24 @@ func ownerLock(path string) (*os.File, error) {
 	return f, nil
 }
 
-// validateHRS reads using stock codecs and authenticates persisted canonical bytes with the
-// registered public key. Unsigned means exactly the stock zero state, never an arbitrary HRS.
-func validateHRS(path, chain string, pub crypto.PubKey) (bool, error) {
+// readSignerState reads chain's schema-2 state from its canonical single-link path and
+// authenticates it with the registered public key (parseSignerState).
+func readSignerState(path, chain string, pub crypto.PubKey) (signerState, error) {
 	canonical, e := existingFile(path)
 	if e != nil {
-		return false, e
+		return signerState{}, e
 	}
 	if canonical != path {
-		return false, errors.New("domain HRS must be canonical")
+		return signerState{}, errors.New("signer state must be canonical")
 	}
 	if e = singleLinkState(path); e != nil {
-		return false, e
+		return signerState{}, e
 	}
 	raw, e := os.ReadFile(path)
 	if e != nil {
-		return false, e
+		return signerState{}, e
 	}
-	var fields map[string]json.RawMessage
-	if e = json.Unmarshal(raw, &fields); e != nil {
-		return false, e
-	}
-	if e = uniqueJSON(json.NewDecoder(bytes.NewReader(raw))); e != nil {
-		return false, e
-	}
-	for _, key := range []string{"height", "round", "step"} {
-		v, ok := fields[key]
-		if !ok || bytes.Equal(bytes.TrimSpace(v), []byte("null")) {
-			return false, errors.New("missing HRS field")
-		}
-	}
-	for key := range fields {
-		switch key {
-		case "height", "round", "step", "signature", "signbytes":
-		default:
-			return false, errors.New("unknown HRS field")
-		}
-	}
-	var s privval.FilePVLastSignState
-	if e = cmtjson.Unmarshal(raw, &s); e != nil {
-		return false, e
-	}
-	if s.Height == 0 && s.Round == 0 && s.Step == 0 && len(s.Signature) == 0 && len(s.SignBytes) == 0 {
-		return true, nil
-	}
-	if s.Height <= 0 || s.Round < 0 || len(s.Signature) == 0 || len(s.SignBytes) == 0 || !pub.VerifySignature(s.SignBytes, s.Signature) {
-		return false, errors.New("ambiguous or unauthentic HRS")
-	}
-	var domain string
-	var height int64
-	var round int64
-	switch s.Step {
-	case 1:
-		var p tm.CanonicalProposal
-		if e = protoio.UnmarshalDelimited(s.SignBytes, &p); e != nil {
-			return false, e
-		}
-		if p.Type != tm.ProposalType {
-			return false, errors.New("invalid proposal HRS")
-		}
-		domain, height, round = p.ChainID, p.Height, p.Round
-	case 2, 3:
-		var v tm.CanonicalVote
-		if e = protoio.UnmarshalDelimited(s.SignBytes, &v); e != nil {
-			return false, e
-		}
-		if (s.Step == 2 && v.Type != tm.PrevoteType) || (s.Step == 3 && v.Type != tm.PrecommitType) {
-			return false, errors.New("invalid vote HRS")
-		}
-		domain, height, round = v.ChainID, v.Height, v.Round
-	default:
-		return false, errors.New("invalid HRS step")
-	}
-	if domain != chain || height != s.Height || round != int64(s.Round) {
-		return false, errors.New("signed HRS domain/height/round mismatch")
-	}
-	return false, nil
+	return parseSignerState(raw, chain, pub)
 }
 
 // initDomainsLog creates the log with only its header, durably, and never replaces or follows
@@ -288,7 +216,7 @@ func statePlacement(chain, state, log string) error {
 // key's owner lock and the log's exclusive lock throughout, so it never runs beside a serving
 // signer for this key. It refuses a logged chain and an existing state file, so an HRS is never
 // reset (RECOV-8.2-1). An interruption after the state and before the log line leaves an unlogged
-// zero state that serve and init-state both refuse: after checking it equals zeroHRS(), the
+// zero state that serve and init-state both refuse: after checking it equals zeroStateBytes(), the
 // operator removes it and reruns this command. The log is never edited by hand, except for the
 // torn-tail repair the README documents.
 func initState(chain, key, state, log string) error {
@@ -325,7 +253,7 @@ func initState(chain, key, state, log string) error {
 	if logged[chain] {
 		return fmt.Errorf("chain %s is already initialized; its HRS is never reset", chain)
 	}
-	if err = createZeroState(state); err != nil {
+	if err = createZeroState(chain, state); err != nil {
 		return fmt.Errorf("new signing state: %w", err)
 	}
 	// One write: an append is the whole line or, after a crash, a torn line that makes the log
@@ -339,9 +267,10 @@ func initState(chain, key, state, log string) error {
 	return syncDirectory(filepath.Dir(log))
 }
 
-// createZeroState exclusively creates state as the stock zero HRS, durably. A failed write
-// removes only the file created here: it is unlogged, so nothing has signed with it.
-func createZeroState(state string) (err error) {
+// createZeroState exclusively creates state as chain's unsigned schema-2 state, durably: no
+// HRS, no store binding, no floor. A failed write removes only the file created here: it is
+// unlogged, so nothing has signed with it.
+func createZeroState(chain, state string) (err error) {
 	f, err := os.OpenFile(state, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return err
@@ -354,7 +283,7 @@ func createZeroState(state string) (err error) {
 			err = errors.Join(err, os.Remove(state))
 		}
 	}()
-	if _, err = f.Write(zeroHRS()); err != nil {
+	if _, err = f.Write(zeroStateBytes(chain)); err != nil {
 		return err
 	}
 	if err = f.Sync(); err != nil {
@@ -373,7 +302,7 @@ func createZeroState(state string) (err error) {
 // nothing is created or reset, and a lost state is never mistaken for a fresh start
 // (RECOV-8.2-1..3). release closes the locks, which the caller holds while serving
 // (RECOV-8.2-2).
-func openSigningState(chain, key, state, log string) (_ *durableFilePV, release func(), err error) {
+func openSigningState(chain, key, state, log string) (_ *guardedPV, release func(), err error) {
 	if err = statePlacement(chain, state, log); err != nil {
 		return nil, nil, err
 	}
@@ -456,10 +385,33 @@ func openSigningState(chain, key, state, log string) (_ *durableFilePV, release 
 	if err = refuseUnsafeMarker(unsafeMarkerPath(log, chain)); err != nil {
 		return nil, nil, err
 	}
-	if _, err = validateHRS(canonical, chain, native.PubKey()); err != nil {
-		return nil, nil, unsafeState("HRS %s: %v", canonical, err)
+	if err = removeStaleTemporaries(canonical); err != nil {
+		return nil, nil, err
 	}
-	return loadDurableFilePV(key, canonical), unlock, nil
+	loaded, err := readSignerState(canonical, chain, native.PubKey())
+	if err != nil {
+		return nil, nil, unsafeState("signer state %s: %v", canonical, err)
+	}
+	return newGuardedPV(native, chain, canonical, loaded), unlock, nil
+}
+
+// removeStaleTemporaries removes the temporary files of state writes that a crash interrupted
+// before their rename (guardedPV.writeState). They were never the state; the caller holds the
+// state's owner lock, so no write is in progress.
+func removeStaleTemporaries(state string) error {
+	matches, err := filepath.Glob(state + ".tmp-*")
+	if err != nil {
+		return err
+	}
+	for _, match := range matches {
+		if info, err := os.Lstat(match); err != nil || !info.Mode().IsRegular() {
+			return fmt.Errorf("unexpected inode at signer state temporary %s", match)
+		}
+		if err = os.Remove(match); err != nil {
+			return fmt.Errorf("stale signer state temporary %s: %w", match, err)
+		}
+	}
+	return nil
 }
 
 // initDomainsLogCommand is `etna-signer init-domains-log --domains-log L`, run once per key.

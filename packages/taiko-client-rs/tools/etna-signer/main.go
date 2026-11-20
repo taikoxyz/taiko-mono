@@ -80,6 +80,7 @@ func run() error {
 	addr := flag.String("comet-signer-addr", "", "Comet's signer listener: unix://<path> or noise://<comet-node-peer-id>@<ip>:<port>; bare tcp:// is refused")
 	transportKey := flag.String("transport-key", "", "the signer's persistent Ed25519 Noise transport key (transport-keygen), required for noise:// and refused for unix://")
 	control := flag.String("trust-socket", "", "private <app-store>/checkpoint-trust.sock")
+	supervisorSocket := flag.String("supervisor-socket", "", "the supervisor's private channel socket; only the process that started this signer may serve it")
 	chain := flag.String("chain-id", "", "verified full Comet chain ID; the signer serves only this signing domain")
 	key := flag.String("priv-key", "", "existing registered Comet FilePV private key")
 	state := flag.String("priv-state", "", "existing <state-dir>/<chain-id>.json HRS that init-state created (never reset)")
@@ -87,8 +88,8 @@ func run() error {
 	denial := flag.String("denial-file", "", "private atomic refusal event file for the local supervisor")
 	timeout := flag.Duration("trust-timeout", time.Second, "per-query private control deadline (0 < timeout <= 2s); a signing request's whole trust decision takes at most 3.5s")
 	flag.Parse()
-	if flag.NArg() != 0 || *addr == "" || *control == "" || *chain == "" || *key == "" || *state == "" || *domains == "" || !validTrustTimeout(*timeout) {
-		return errors.New("all addresses, chain ID, existing key/state paths and the domains log are required; timeout must be in (0,2s]")
+	if flag.NArg() != 0 || *addr == "" || *control == "" || *supervisorSocket == "" || *chain == "" || *key == "" || *state == "" || *domains == "" || !validTrustTimeout(*timeout) {
+		return errors.New("all addresses and sockets, chain ID, existing key/state paths and the domains log are required; timeout must be in (0,2s]")
 	}
 	signer, release, err := openSigningState(*chain, *key, *state, *domains)
 	if err != nil {
@@ -100,7 +101,11 @@ func run() error {
 		return err
 	}
 	logger := log.NewTMLogger(log.NewSyncWriter(os.Stderr))
+	signer.logger = logger
 	gate := newGate(*control, *timeout)
+	// The supervisor that started this signer is its parent; a later parent, after it died, is
+	// not trusted.
+	gate.supervisor = newSupervisorChannel(*supervisorSocket, os.Getppid())
 	gate.hold = signingHold
 	gate.denialPath = *denial
 	gate.authorized = func(r *trustResponse) {

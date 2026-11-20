@@ -1,0 +1,413 @@
+package main
+
+import (
+	"bytes"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+	"syscall"
+	"time"
+
+	"github.com/cometbft/cometbft/crypto"
+	"github.com/cometbft/cometbft/libs/log"
+	"github.com/cometbft/cometbft/libs/protoio"
+	"github.com/cometbft/cometbft/privval"
+	tm "github.com/cometbft/cometbft/proto/tendermint/types"
+	"github.com/cometbft/cometbft/types"
+	"github.com/cosmos/gogoproto/proto"
+)
+
+// cometProcess is the Comet process the supervisor reports for this signer, over the
+// authenticated supervisor channel: its PID, its kernel start time (clock ticks since boot, empty
+// where the platform has none) and the store instance ID of the home it started on.
+type cometProcess struct {
+	PID           int
+	Start         string
+	StoreInstance string
+}
+
+// guardedPV signs for one full chain_id from that chain's schema-2 signer state. It applies stock
+// FilePV's HRS rules exactly (CheckHRS, canonical sign bytes, vote-extension signatures, the
+// same-HRS retry that returns the saved signature for identical bytes and restores the saved
+// timestamp for a timestamp-only difference, and refusal of every other conflict or regression;
+// SYNC-9-13), and adds RECOV-8.2-2's continuity: a durable binding to the consensus store
+// instance and a durable minimum signable height. Every change is one atomic write of the whole
+// state, durable before anything that depends on it is released.
+//
+// A crash outside a step needs no fence: nothing is released before the state is durable, and
+// the disk holds either the old or the new state, so a restart that signs an unreleased step
+// again cannot equivocate. A failed fsync makes the latest state uncertain (RECOV-8.2-3): the
+// first one refuses every later request, cached retries included, and writes the fence that makes
+// a restart refuse. A failed write before the atomic rename panics with the state unchanged.
+//
+// A death after a failed fsync and before a durable fence would leave no fence, and on the same
+// boot the failed write-back's error is already cleared: a restart's fsync then succeeds over
+// pages that never reached disk. So each step first makes an inflight marker naming this boot
+// durable, with two more fsyncs before the state is written, and removes it once the state is
+// durable; a restart on the same boot refuses a marker it finds (refuseInflight). A step costs
+// four fsyncs.
+type guardedPV struct {
+	mu    sync.Mutex
+	key   crypto.PrivKey
+	pub   crypto.PubKey
+	chain string
+	path  string
+	state signerState
+	// syncFile flushes an opened state, temporary state or inflight marker; tests replace it to
+	// fail as a disk does.
+	syncFile func(*os.File) error
+	// syncDir flushes the state's directory; tests replace it to count or fail.
+	syncDir func(string) error
+	// uncertain is the first synchronization failure; nothing is signed after it.
+	uncertain error
+	// admitted is the Comet process this signer last admitted a session for; nil before the
+	// first admission of this signer process.
+	admitted *cometProcess
+	logger   log.Logger
+}
+
+// newGuardedPV serves state, already read and authenticated, for chain at path.
+func newGuardedPV(key crypto.PrivKey, chain, path string, state signerState) *guardedPV {
+	return &guardedPV{key: key, pub: key.PubKey(), chain: chain, path: path, state: state, syncFile: (*os.File).Sync, syncDir: syncDirectory, logger: log.NewNopLogger()}
+}
+
+// GetPubKey is the registered key; it never waits for trust or continuity (START-10-6).
+func (p *guardedPV) GetPubKey() (crypto.PubKey, error) {
+	return p.pub, nil
+}
+
+// errBelowFloor marks a request at a height the signer's durable floor fences (RECOV-8.2-2).
+var errBelowFloor = errors.New("height is fenced by the signer's durable floor (RECOV-8.2-2)")
+
+// admit binds or fences the signer state for a session with proc, durably, before the session
+// may sign (RECOV-8.2-2). A never-used key/domain binds to proc's store instance and keeps no
+// floor. For a key that has signed at H, a changed or absent binding (a rebuilt or imported store
+// gets a fresh instance ID) and a Comet process other than the one this signer last admitted
+// (whose continuity through H only an eligible stock replay could establish) both raise the floor
+// to at least H + 1 and bind proc's instance; the floor never decreases. A reconnect to the same
+// live process on the same instance changes nothing (SYNC-9-4).
+func (p *guardedPV) admit(proc cometProcess) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.uncertain != nil {
+		return fmt.Errorf("%w: %w", errSigningStateUnsafe, p.uncertain)
+	}
+	if !validStoreInstance(proc.StoreInstance) || proc.PID <= 0 {
+		return errors.New("invalid Comet process report")
+	}
+	next := p.state
+	reason := ""
+	switch {
+	case !next.signed():
+		next.StoreInstance = proc.StoreInstance
+	case next.StoreInstance != proc.StoreInstance:
+		reason = "store instance changed or rebuilt"
+	case p.admitted == nil || *p.admitted != proc:
+		reason = "new Comet process; same-height continuity not established"
+	}
+	if reason != "" {
+		next.StoreInstance = proc.StoreInstance
+		next.Floor = max(next.Floor, next.Height+1)
+	}
+	if next.StoreInstance != p.state.StoreInstance || next.Floor != p.state.Floor {
+		if err := p.durably(func() error { return p.writeState(next) }); err != nil {
+			return err
+		}
+		if reason != "" {
+			p.logger.Info("signer_height_floor", "floor", next.Floor, "last_signed_height", next.Height, "store_instance", next.StoreInstance, "reason", reason)
+		} else {
+			p.logger.Info("signer_bound_store_instance", "store_instance", next.StoreInstance)
+		}
+		p.state = next
+	}
+	admitted := proc
+	p.admitted = &admitted
+	return nil
+}
+
+// floor is the current durable minimum signable height.
+func (p *guardedPV) floor() int64 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.state.Floor
+}
+
+// admissible refuses, before any HRS check, a request this signer may not sign at all: another
+// chain, uncertain state, no admitted session, or a height below the durable floor, which fences
+// proposals and nil votes alike (RECOV-8.2-2). The caller holds mu.
+func (p *guardedPV) admissible(chain string, height int64) error {
+	switch {
+	case chain != p.chain:
+		return fmt.Errorf("signer serves chain %s, not %s", p.chain, chain)
+	case p.uncertain != nil:
+		return fmt.Errorf("%w: %w", errSigningStateUnsafe, p.uncertain)
+	case p.admitted == nil:
+		return errors.New("no Comet session has been bound to the signer state")
+	case height < p.state.Floor:
+		return fmt.Errorf("%w: height %d is below %d", errBelowFloor, height, p.state.Floor)
+	}
+	return nil
+}
+
+// lastSignState is the HRS in stock FilePV's type, so stock CheckHRS judges it.
+func (p *guardedPV) lastSignState() privval.FilePVLastSignState {
+	return privval.FilePVLastSignState{Height: p.state.Height, Round: p.state.Round, Step: p.state.Step, Signature: p.state.Signature, SignBytes: p.state.SignBytes}
+}
+
+// SignVote applies stock FilePV's signVote to the durable state.
+func (p *guardedPV) SignVote(chain string, vote *tm.Vote) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err := p.admissible(chain, vote.Height); err != nil {
+		return err
+	}
+	var step int8
+	switch vote.Type {
+	case tm.PrevoteType:
+		step = stepPrevote
+	case tm.PrecommitType:
+		step = stepPrecommit
+	default:
+		return fmt.Errorf("error signing vote: unknown vote type %v", vote.Type)
+	}
+	lss := p.lastSignState()
+	sameHRS, err := lss.CheckHRS(vote.Height, vote.Round, step)
+	if err != nil {
+		return fmt.Errorf("error signing vote: %w", err)
+	}
+	signBytes := types.VoteSignBytes(chain, vote)
+	// Stock always signs the extension of a non-nil precommit, even an empty one; prevotes and
+	// nil precommits carry none.
+	var extSig []byte
+	if vote.Type == tm.PrecommitType && !types.ProtoBlockIDIsNil(&vote.BlockID) {
+		if extSig, err = p.key.Sign(types.VoteExtensionSignBytes(chain, vote)); err != nil {
+			return fmt.Errorf("error signing vote: %w", err)
+		}
+	} else if len(vote.Extension) > 0 {
+		return errors.New("error signing vote: unexpected vote extension - extensions are only allowed in non-nil precommits")
+	}
+	if sameHRS {
+		timestamp, restored, err := p.repeat(signBytes, votesDifferOnlyByTimestamp)
+		if err != nil {
+			return fmt.Errorf("error signing vote: %w", err)
+		}
+		if restored {
+			vote.Timestamp = timestamp
+		}
+		vote.Signature = p.state.Signature
+		vote.ExtensionSignature = extSig
+		return nil
+	}
+	sig, err := p.key.Sign(signBytes)
+	if err != nil {
+		return fmt.Errorf("error signing vote: %w", err)
+	}
+	if err = p.record(vote.Height, vote.Round, step, signBytes, sig); err != nil {
+		return err
+	}
+	vote.Signature = sig
+	vote.ExtensionSignature = extSig
+	return nil
+}
+
+// SignProposal applies stock FilePV's signProposal to the durable state.
+func (p *guardedPV) SignProposal(chain string, proposal *tm.Proposal) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err := p.admissible(chain, proposal.Height); err != nil {
+		return err
+	}
+	lss := p.lastSignState()
+	sameHRS, err := lss.CheckHRS(proposal.Height, proposal.Round, stepPropose)
+	if err != nil {
+		return fmt.Errorf("error signing proposal: %w", err)
+	}
+	signBytes := types.ProposalSignBytes(chain, proposal)
+	if sameHRS {
+		timestamp, restored, err := p.repeat(signBytes, proposalsDifferOnlyByTimestamp)
+		if err != nil {
+			return fmt.Errorf("error signing proposal: %w", err)
+		}
+		if restored {
+			proposal.Timestamp = timestamp
+		}
+		proposal.Signature = p.state.Signature
+		return nil
+	}
+	sig, err := p.key.Sign(signBytes)
+	if err != nil {
+		return fmt.Errorf("error signing proposal: %w", err)
+	}
+	if err = p.record(proposal.Height, proposal.Round, stepPropose, signBytes, sig); err != nil {
+		return err
+	}
+	proposal.Signature = sig
+	return nil
+}
+
+// repeat answers a request at the saved HRS as stock does: identical sign bytes return the
+// saved signature, a timestamp-only difference returns it with the saved timestamp, and anything
+// else is conflicting data. The saved state is synchronized again before the signature is
+// released, since an earlier synchronization may have failed. It returns the saved timestamp and
+// whether the request's timestamp must be replaced by it.
+func (p *guardedPV) repeat(signBytes []byte, differOnlyByTimestamp func(last, next []byte) (time.Time, bool, error)) (time.Time, bool, error) {
+	identical := bytes.Equal(signBytes, p.state.SignBytes)
+	timestamp, same := time.Time{}, identical
+	if !identical {
+		var err error
+		if timestamp, same, err = differOnlyByTimestamp(p.state.SignBytes, signBytes); err != nil {
+			return time.Time{}, false, err
+		}
+	}
+	if !same {
+		return time.Time{}, false, errors.New("conflicting data")
+	}
+	if err := p.durably(p.syncState); err != nil {
+		return time.Time{}, false, err
+	}
+	return timestamp, !identical, nil
+}
+
+// record persists a new HRS, its sign bytes and its signature in one atomic write before the
+// signature is released. Live signatures record no replay binding: same-height replay is not
+// established for them, so a restart at an undecided height takes the floor.
+func (p *guardedPV) record(height int64, round int32, step int8, signBytes, sig []byte) error {
+	next := p.state
+	next.Height, next.Round, next.Step, next.SignBytes, next.Signature, next.Replay = height, round, step, signBytes, sig, nil
+	if err := p.durably(func() error { return p.writeState(next) }); err != nil {
+		return err
+	}
+	p.state = next
+	return nil
+}
+
+// durably runs one persistence step under a durable inflight marker (markInflight). A marker that
+// cannot be created or written panics like a failed write (exit 2, which the supervisor restarts).
+// A failed fsync, of the marker or within the step, latches errSigningStateUnsafe and writes the
+// fence: the state volume is failing. A failure to write the fence never clears the latch, and
+// the inflight marker stays as same-boot evidence. A panic within the step removes the step's
+// marker first, as the state is unchanged.
+func (p *guardedPV) durably(step func() error) error {
+	if p.uncertain != nil {
+		return fmt.Errorf("%w: %w", errSigningStateUnsafe, p.uncertain)
+	}
+	if markErr := markInflight(inflightPath(p.path), p.syncFile, p.syncDir); markErr != nil {
+		if errors.Is(markErr, errInflightWrite) {
+			panic(markErr)
+		}
+		p.uncertain = markErr
+		return fmt.Errorf("%w: %w", errSigningStateUnsafe, errors.Join(markErr, writeFence(fencePath(p.path), markErr)))
+	}
+	if err := p.underMarker(step); err != nil {
+		p.uncertain = err
+		return fmt.Errorf("%w: fsync of signing state: %w", errSigningStateUnsafe, errors.Join(err, writeFence(fencePath(p.path), err)))
+	}
+	// The state is durable whatever happens to the marker. One left behind makes the next
+	// step's exclusive create panic and the restart on this boot refuse: both fail closed.
+	if rmErr := os.Remove(inflightPath(p.path)); rmErr != nil {
+		fmt.Fprintf(os.Stderr, "inflight marker not removed after a durable signing step: %v\n", rmErr)
+	}
+	return nil
+}
+
+// underMarker runs step under its durable inflight marker. A panic within it (a failed write or
+// rename) comes at or before the atomic rename, so the state on disk and in the page cache is
+// unchanged and none of this step's state fsyncs ran: there is nothing uncertain for the marker
+// to record. It is removed before the panic goes on, so the process exits 2 and the supervisor
+// restarts it like any crash, without an operator.
+func (p *guardedPV) underMarker(step func() error) error {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			_ = os.Remove(inflightPath(p.path))
+			panic(recovered)
+		}
+	}()
+	return step()
+}
+
+// syncState flushes the state file and then its directory, for a cached retry that writes
+// nothing.
+func (p *guardedPV) syncState() error {
+	f, err := os.Open(p.path)
+	if err != nil {
+		return err
+	}
+	if err = p.syncFile(f); err != nil {
+		f.Close()
+		return err
+	}
+	if err = f.Close(); err != nil {
+		return err
+	}
+	return p.syncDir(filepath.Dir(p.path))
+}
+
+// writeState replaces the state with next atomically: an exclusive random temporary file in the
+// state's directory, its fsync, a rename over the state and the directory's fsync. A failed
+// create, write, close or rename panics with the state unchanged; a failed fsync is returned.
+func (p *guardedPV) writeState(next signerState) error {
+	suffix := make([]byte, 8)
+	if _, err := rand.Read(suffix); err != nil {
+		panic(fmt.Errorf("signer state temporary name: %w", err))
+	}
+	temporary := p.path + ".tmp-" + hex.EncodeToString(suffix)
+	f, err := os.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
+	if err != nil {
+		panic(fmt.Errorf("signer state temporary file: %w", err))
+	}
+	fail := func(cause error) {
+		f.Close()
+		os.Remove(temporary)
+		panic(fmt.Errorf("signer state write: %w", cause))
+	}
+	if _, err = f.Write(next.encode()); err != nil {
+		fail(err)
+	}
+	if err = p.syncFile(f); err != nil {
+		f.Close()
+		os.Remove(temporary)
+		return err
+	}
+	if err = f.Close(); err != nil {
+		os.Remove(temporary)
+		panic(fmt.Errorf("signer state write: %w", err))
+	}
+	if err = os.Rename(temporary, p.path); err != nil {
+		os.Remove(temporary)
+		panic(fmt.Errorf("signer state rename: %w", err))
+	}
+	return p.syncDir(filepath.Dir(p.path))
+}
+
+// votesDifferOnlyByTimestamp is stock FilePV's checkVotesOnlyDifferByTimestamp: it compares the
+// canonical votes with equal timestamps and returns the saved timestamp.
+func votesDifferOnlyByTimestamp(last, next []byte) (time.Time, bool, error) {
+	var lastVote, newVote tm.CanonicalVote
+	if err := protoio.UnmarshalDelimited(last, &lastVote); err != nil {
+		return time.Time{}, false, fmt.Errorf("saved sign bytes are not a vote: %w", err)
+	}
+	if err := protoio.UnmarshalDelimited(next, &newVote); err != nil {
+		return time.Time{}, false, fmt.Errorf("sign bytes are not a vote: %w", err)
+	}
+	saved := lastVote.Timestamp
+	lastVote.Timestamp, newVote.Timestamp = time.Time{}, time.Time{}
+	return saved, proto.Equal(&newVote, &lastVote), nil
+}
+
+// proposalsDifferOnlyByTimestamp is stock FilePV's checkProposalsOnlyDifferByTimestamp.
+func proposalsDifferOnlyByTimestamp(last, next []byte) (time.Time, bool, error) {
+	var lastProposal, newProposal tm.CanonicalProposal
+	if err := protoio.UnmarshalDelimited(last, &lastProposal); err != nil {
+		return time.Time{}, false, fmt.Errorf("saved sign bytes are not a proposal: %w", err)
+	}
+	if err := protoio.UnmarshalDelimited(next, &newProposal); err != nil {
+		return time.Time{}, false, fmt.Errorf("sign bytes are not a proposal: %w", err)
+	}
+	saved := lastProposal.Timestamp
+	lastProposal.Timestamp, newProposal.Timestamp = time.Time{}, time.Time{}
+	return saved, proto.Equal(&newProposal, &lastProposal), nil
+}

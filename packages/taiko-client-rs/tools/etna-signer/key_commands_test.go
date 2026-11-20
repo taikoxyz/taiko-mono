@@ -181,8 +181,7 @@ func TestPopRejectsInvalidInputsAndLegacyKeys(t *testing.T) {
 			t.Fatalf("invalid PoP input accepted: %v %s", args, out)
 		}
 	}
-	legacy := privval.NewFilePV(ed25519.GenPrivKey(), key, state)
-	legacy.Save()
+	privval.NewFilePV(ed25519.GenPrivKey(), key, state).Key.Save()
 	if out, err := exec.Command(binary, base...).Output(); err == nil || len(out) != 0 {
 		t.Fatalf("legacy key accepted: %s", out)
 	}
@@ -197,7 +196,7 @@ func TestRuntimeRefusesLegacyConsensusIdentity(t *testing.T) {
 	_, key, state := filePV(t)
 	privval.NewFilePV(ed25519.GenPrivKey(), key, state).Key.Save()
 	// Unsupported transport makes even a buggy legacy loader exit promptly.
-	out, err := exec.Command(binary, "--comet-signer-addr", "bad://transport", "--trust-socket", "/absent", "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", domainsLogOf(state)).CombinedOutput()
+	out, err := exec.Command(binary, "--comet-signer-addr", "bad://transport", "--trust-socket", "/absent", "--supervisor-socket", "/absent-supervisor", "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", domainsLogOf(state)).CombinedOutput()
 	if err == nil || !strings.Contains(string(out), "secp256k1eth") {
 		t.Fatalf("legacy consensus key reached runtime: %v %s", err, out)
 	}

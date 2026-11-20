@@ -85,8 +85,13 @@ func TestInitStateCreatesZeroHRSAndAppendsChain(t *testing.T) {
 	if err := initState(chain, l.key, l.state(chain), l.log); err != nil {
 		t.Fatal(err)
 	}
-	if got := readFile(t, l.state(chain)); !bytes.Equal(got, zeroHRS()) {
-		t.Fatalf("new state is not the stock zero HRS: %s", got)
+	if got := readFile(t, l.state(chain)); !bytes.Equal(got, zeroStateBytes(chain)) {
+		t.Fatalf("new state is not the schema-2 zero state: %s", got)
+	}
+	// Byte for byte, as the README shows it for the torn-log repair.
+	want := "{\n  \"schema\": 2,\n  \"chain_id\": \"" + chain + "\",\n  \"height\": \"0\",\n  \"round\": 0,\n  \"step\": 0,\n  \"store_instance\": \"\",\n  \"floor\": \"0\",\n  \"replay\": null\n}"
+	if got := string(readFile(t, l.state(chain))); got != want {
+		t.Fatalf("zero state %q, want %q", got, want)
 	}
 	if info, err := os.Stat(l.state(chain)); err != nil || info.Mode().Perm() != 0600 {
 		t.Fatalf("state mode: %v %v", info, err)
@@ -94,7 +99,7 @@ func TestInitStateCreatesZeroHRSAndAppendsChain(t *testing.T) {
 	if got := string(readFile(t, l.log)); got != domainsLogHeader+"\n"+chain+"\n" {
 		t.Fatalf("log after first chain: %q", got)
 	}
-	// The stock loader reads it as an unsigned FilePV state.
+	// The stock loader reads its HRS fields as an unsigned FilePV state.
 	if loaded := privval.LoadFilePV(l.key, l.state(chain)); loaded.LastSignState.Height != 0 || len(loaded.LastSignState.Signature) != 0 {
 		t.Fatal("initialized state is not unsigned")
 	}
@@ -117,10 +122,11 @@ func TestInitStateRefusesReinitAndExistingState(t *testing.T) {
 			t.Fatal(err)
 		}
 		// A signed HRS must never be replaced by a fresh one.
-		pv := privval.LoadFilePV(l.key, l.state(chain))
+		pv := privval.NewFilePV(mustNativeKey(t, l.key), l.key, filepath.Join(t.TempDir(), "s.json"))
 		if err := pv.SignVote(chain, &tm.Vote{Type: tm.PrevoteType, Height: 5, Timestamp: time.Unix(100, 0)}); err != nil {
 			t.Fatal(err)
 		}
+		writeSignedState(t, l.state(chain), pv.LastSignState)
 		state, log := readFile(t, l.state(chain)), readFile(t, l.log)
 		if err := initState(chain, l.key, l.state(chain), l.log); err == nil || !strings.Contains(err.Error(), "already initialized") {
 			t.Fatalf("reinitialization accepted: %v", err)
@@ -289,7 +295,7 @@ func TestInitCommandsCreateLogAndState(t *testing.T) {
 	if out, err := exec.Command(binary, args...).CombinedOutput(); err != nil {
 		t.Fatalf("init-state: %v %s", err, out)
 	}
-	if !bytes.Equal(readFile(t, l.state(chain)), zeroHRS()) || string(readFile(t, l.log)) != domainsLogHeader+"\n"+chain+"\n" {
+	if !bytes.Equal(readFile(t, l.state(chain)), zeroStateBytes(chain)) || string(readFile(t, l.log)) != domainsLogHeader+"\n"+chain+"\n" {
 		t.Fatal("CLI init-state wrote the wrong state or log")
 	}
 	if out, err := exec.Command(binary, args...).CombinedOutput(); err == nil || !strings.Contains(string(out), "already initialized") {
@@ -307,7 +313,7 @@ func TestInitCommandsCreateLogAndState(t *testing.T) {
 func TestServeSyncsDomainsLogBeforeServing(t *testing.T) {
 	l := newStateLayout(t)
 	// The interrupted init-state: a durable zero HRS, then an append that was never fsynced.
-	if err := createZeroState(l.state(chain)); err != nil {
+	if err := createZeroState(chain, l.state(chain)); err != nil {
 		t.Fatal(err)
 	}
 	journal, err := os.OpenFile(l.log, os.O_WRONLY|os.O_APPEND, 0)
@@ -345,4 +351,14 @@ func TestServeSyncsDomainsLogBeforeServing(t *testing.T) {
 	if signer == nil || len(synced) != 1 || synced[0] != domainsLogHeader+"\n"+chain+"\n" {
 		t.Fatalf("serving did not fsync the log it read exactly once: %q", synced)
 	}
+}
+
+// mustNativeKey is the registered key at path.
+func mustNativeKey(t *testing.T, path string) secp256k1eth.PrivKey {
+	t.Helper()
+	key, err := loadNativeKey(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return key
 }

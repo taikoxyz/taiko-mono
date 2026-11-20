@@ -75,7 +75,8 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     unlogged = hrs / "etna-unlogged.json"
     refused_domain = subprocess.run([
         "/app/etna-signer", "--comet-signer-addr", "unix:///nonexistent-comet.sock",
-        "--trust-socket", str(root / "not-started.sock"), "--chain-id", "etna-unlogged",
+        "--trust-socket", str(root / "not-started.sock"),
+        "--supervisor-socket", str(root / "not-started-supervisor.sock"), "--chain-id", "etna-unlogged",
         "--priv-key", str(key), "--priv-state", str(unlogged), "--domains-log", str(log)],
         capture_output=True, timeout=5)
     assert refused_domain.returncode == 3, refused_domain
@@ -232,6 +233,9 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     assert listeners[0] != listeners[1], "each signer+Comet pair must use a fresh socket name"
     assert not os.path.lexists(stale), "stale signer socket survived the restart"
     assert before == (key.read_bytes(), state.read_bytes(), log.read_bytes()), "runtime must not reset HRS"
+    # The supervisor gave the home a store instance ID before its first Comet start and kept it.
+    instance = (home / "data/etna-store-instance").read_bytes()
+    assert len(instance) == 33 and instance.endswith(b"\n") and all(c in b"0123456789abcdef" for c in instance[:32])
     # Stock DefaultNewNode creates a dummy FilePV before replacing it with SocketPV.
     # It must be an unregistered identity and must never sign or substitute for the helper.
     unused = json.loads((home / "config/priv_validator_key.json").read_bytes())

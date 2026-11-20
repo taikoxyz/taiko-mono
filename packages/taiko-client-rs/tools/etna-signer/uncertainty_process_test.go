@@ -41,7 +41,7 @@ func TestSupervisorSIGKILLBeforeHaltRetainsSignerFence(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	fixture := shutdownFixture{
+	fixture := shutdownFixture{CometPID: os.Getpid(),
 		Key: key, State: state, Log: domainsLogOf(state), Control: control(t, func(request map[string]any) any { return snapshot(request["op"] != "begin_session") }),
 		Comet: filepath.Join(root, "comet.sock"), Entered: filepath.Join(root, "entered"), Release: filepath.Join(root, "release"),
 	}
@@ -209,7 +209,7 @@ func TestSIGKILLMidSignRefusesTheSameBootAndResumesAfterReboot(t *testing.T) {
 	trust := control(t, func(request map[string]any) any {
 		return snapshotAt(request["op"] != "begin_session", eligible.Load())
 	})
-	fixture := shutdownFixture{
+	fixture := shutdownFixture{CometPID: os.Getpid(),
 		Key: key, State: state, Log: domainsLogOf(state), Control: trust,
 		Comet: filepath.Join(root, "comet.sock"), Entered: filepath.Join(root, "entered"), Release: filepath.Join(root, "release"),
 	}
@@ -263,7 +263,7 @@ func TestSIGKILLMidSignRefusesTheSameBootAndResumesAfterReboot(t *testing.T) {
 	}
 	stored := privval.LoadFilePV(key, state).LastSignState
 	listener.Close()
-	args := []string{"--comet-signer-addr", "unix://" + fixture.Comet, "--trust-socket", trust, "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", domainsLogOf(state)}
+	args := []string{"--comet-signer-addr", "unix://" + fixture.Comet, "--trust-socket", trust, "--supervisor-socket", serveSupervisor(t, reportsComet(testInstance)), "--chain-id", chain, "--priv-key", key, "--priv-state", state, "--domains-log", domainsLogOf(state)}
 	before := readFile(t, state)
 	if code, stderr := runSigner(t, args...); code != exitSigningStateUnsafe || !strings.Contains(stderr, "inflight marker") {
 		t.Fatalf("same-boot restart over the marker exited %d: %s", code, stderr)

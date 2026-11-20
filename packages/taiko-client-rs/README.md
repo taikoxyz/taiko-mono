@@ -628,10 +628,22 @@ committing those values to the Inbox.
      bash script/start_etna_validator.sh
    ```
 
-   The signer serves only `<ETNA_PRIV_STATE_DIR>/<ETNA_CHAIN_ID>.json`, one stock HRS per full
-   chain_id, and refuses with exit 3 a missing or malformed domains log, a chain_id the log does
-   not list, a logged chain_id whose state is missing and an unauthentic or ambiguous HRS
-   (RECOV-8.2-1..3); see [the signer README](tools/etna-signer/README.md#refusal-matrix-and-exit-codes).
+   The signer serves only `<ETNA_PRIV_STATE_DIR>/<ETNA_CHAIN_ID>.json`, one schema-2 signer state
+   per full chain_id (the stock HRS fields plus its store binding and height floor), and refuses
+   with exit 3 a missing or malformed domains log, a chain_id the log does not list, a logged
+   chain_id whose state is missing, the stock FilePV state of earlier signers and an unauthentic or
+   ambiguous HRS (RECOV-8.2-1..3); see [the signer README](tools/etna-signer/README.md#refusal-matrix-and-exit-codes).
+
+   The supervisor serves the signer's private channel at `<run>/signer.sock` in its run directory,
+   `ETNA_SUPERVISOR_RUN_DIR` (default `<app-store>/supervisor`, created mode 0700 and refused if
+   another UID owns it, it is open to others or it is a symlink), and tells the signer, on every
+   Comet connection, which Comet process it started and the store instance ID in
+   `<comet-home>/data/etna-store-instance`, which it writes fresh for a home without one. The
+   signer binds its key to that ID and, for a key that signed at H, fences H with a durable floor
+   of H + 1 whenever continuity with the last decision is not established: a rebuilt or imported
+   home, a changed ID, and a restarted Comet (RECOV-8.2-2; [Store binding and the height
+   floor](tools/etna-signer/README.md#store-binding-and-the-height-floor)). Never copy that file
+   between homes or restore it with an older database.
 
    The host supervisor requires Bash and Python 3.11+ (`tomllib`); the production image
    includes Python, the signer, this supervisor and stock Comet v0.40.0 (source
@@ -693,7 +705,7 @@ committing those values to the Inbox.
    the request's height as `eligible_height`, the one height the app admits (SYNC-9-10); the app
    reports `ready` only after its checkpoint and InitChain checks. Unavailable or malformed
    control, a closed or halted phase, a stale session and another height deny signing without
-   touching FilePV; a pending decision is held for at most 3.5 s. The helper locks the existing
+   touching the HRS; a pending decision is held for at most 3.5 s. The helper locks the existing
    state against a second helper process. No local signing fallback exists in the validator
    startup recipe.
 

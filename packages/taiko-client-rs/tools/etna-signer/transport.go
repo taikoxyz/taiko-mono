@@ -218,6 +218,7 @@ func (g *gate) closeTransports() {
 	g.transportMu.Lock()
 	g.stopping = true
 	g.session.Store(nil)
+	g.conn.Store(nil)
 	connections := make([]*trackedConn, 0, len(g.transports))
 	for conn := range g.transports {
 		connections = append(connections, conn)
