@@ -1,4 +1,5 @@
 ARG ALETHIA_RETH_IMAGE=execution-source
+ARG TARGETARCH
 
 FROM rust:1.99.0-bookworm AS execution-build
 RUN apt-get update && apt-get install -y git libclang-dev pkg-config build-essential && \
@@ -24,14 +25,22 @@ COPY --from=execution-build /alethia-reth ./alethia-reth
 
 FROM ${ALETHIA_RETH_IMAGE} AS execution-runtime
 
-# The official v0.40.0 arm64 image contains an amd64 Comet executable.
-# Build its exact unmodified stock source for the declared target instead.
-FROM golang:1.27.2@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8 AS comet
+# CONS-3.1-1: validators run the official upstream executable. On linux/amd64 it is
+# /usr/bin/cometbft of the official v0.40.0 image, pinned by its platform manifest digest and by
+# the executable digest comet-manifest.json records; the supervisor checks that digest again
+# before every Comet start.
+FROM --platform=linux/amd64 cometbft/cometbft:v0.40.0@sha256:534219749ef8386ec68b9cff047b596b9a6b756af2223b9783aabca1a9c0bca3 AS comet-amd64
+RUN echo "5fbb1bf58a65cc0e6e0eba8dfee912eea72ef76d906ea26ac9ce99fd36aee84f  /usr/bin/cometbft" | sha256sum -c -
+
+# Upstream published no arm64 executable for v0.40.0: the release has no assets, and the
+# official arm64 image holds the x86-64 one (comet-manifest.json). This unmodified stock source
+# build only keeps arm64 development images complete; it is not the official executable, so the
+# validator supervisor refuses to start it.
+FROM golang:1.27.2@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8 AS comet-arm64
 ARG TARGETPLATFORM
 ARG TARGETARCH
 WORKDIR /cometbft
-RUN test "$TARGETPLATFORM" = "linux/$TARGETARCH" && \
-    case "$TARGETARCH" in amd64|arm64) ;; *) exit 1 ;; esac && \
+RUN test "$TARGETPLATFORM" = "linux/$TARGETARCH" && test "$TARGETARCH" = arm64 && \
     git init . && \
     git remote add origin https://github.com/cometbft/cometbft.git && \
     git fetch --depth=1 origin 0880b4d378f347ab16e54ec677ff50d803f37d62 && \
@@ -39,7 +48,10 @@ RUN test "$TARGETPLATFORM" = "linux/$TARGETARCH" && \
     test "$(git rev-parse HEAD)" = 0880b4d378f347ab16e54ec677ff50d803f37d62 && \
     test -z "$(git status --porcelain)" && \
     TARGETPLATFORM="$TARGETPLATFORM" GOOS=linux GOARCH="$TARGETARCH" CGO_ENABLED=0 make build-linux && \
-    test -z "$(git status --porcelain)"
+    test -z "$(git status --porcelain)" && \
+    cp build/cometbft /usr/bin/cometbft
+
+FROM comet-${TARGETARCH} AS comet
 
 FROM golang:1.27.2@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8 AS signer-build
 WORKDIR /signer
@@ -90,7 +102,8 @@ COPY --from=signer-build /etna-comet-import ./etna-comet-import
 COPY --from=execution-runtime /app/alethia-reth ./alethia-reth
 COPY --from=build /tmp/etna-el-import ./etna-el-import
 
-COPY --from=comet /cometbft/build/cometbft /usr/bin/cometbft
+COPY --from=comet /usr/bin/cometbft /usr/bin/cometbft
+COPY packages/taiko-client-rs/comet-manifest.json /app/comet-manifest.json
 COPY packages/taiko-client-rs/script/etna_validator.py /app/script/etna_validator.py
 COPY packages/taiko-client-rs/script/start_etna_validator.sh /app/script/start_etna_validator.sh
 COPY packages/taiko-client-rs/script/start_etna_full_node.py /app/script/start_etna_full_node.py
