@@ -121,6 +121,31 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 | 10.e reject | anchor number precedes generation                                                   | violates ENC-A-10 (field order)  |
 | 10.f accept | generation 0 and anchor number 0                                                    | `0x64` followed by 12 zero bytes |
 
+## ENC-A-10a
+
+Chain id 167000 unless a row says otherwise. The parent's gasLimit is 30,000,000 in every row, so `target` is 15,000,000. Amounts are in wei.
+
+| Vector       | Setup                                                                                      | Expected                                                                                         |
+| ------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| 10a.a accept | parent base fee 100,000,000, gasUsed 15,000,000; parent minus grandparent timestamp is 2 s | `adjusted` = 15,000,000 = gasUsed; base fee 100,000,000                                          |
+| 10a.b accept | parent base fee 100,000,000, gasUsed 30,000,000; interval 2 s                              | `delta` = 12,500,000; base fee 112,500,000                                                       |
+| 10a.c accept | parent base fee 100,000,000, gasUsed 15,000,000; interval 4 s                              | `adjusted` = min(30,000,000, 28,500,000) = 28,500,000; `delta` = 11,250,000; base fee 88,750,000 |
+| 10a.d accept | parent base fee 10,000,000, gasUsed 0; interval 2 s                                        | `raw` = 8,750,000, raised to the minimum 10,000,000                                              |
+| 10a.e accept | the parent of 10a.d on a chain id other than 167000                                        | 8,750,000                                                                                        |
+| 10a.f accept | parent base fee 10,000,000, gasUsed 15,000,001; interval 2 s                               | `delta` floors to 0 and counts as 1; base fee 10,000,001                                         |
+| 10a.g accept | parent base fee 950,000,000, gasUsed 30,000,000; interval 2 s                              | `raw` = 1,068,750,000, lowered to 1,000,000,000                                                  |
+| 10a.h reject | the interval is the block's own timestamp minus its parent's                               | violates ENC-A-10a (`p.timestamp - g.timestamp`); block invalid (3.4 rule 7)                     |
+| 10a.i reject | a division rounds to nearest instead of flooring                                           | violates ENC-A-10a ("every division floors"); block invalid (3.4 rule 7)                         |
+| 10a.j reject | the parent's gasLimit is reduced by a reserve before `target` is computed                  | violates ENC-A-10a ("the values in p's header"); block invalid (3.4 rule 7)                      |
+
+## ENC-A-10b
+
+| Vector       | Setup                                                                  | Expected                                                                       |
+| ------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 10b.a accept | the parent's `difficulty` is 1,000,000 and the block's number is 12345 | `mixHash = 0x05a173eee05e0e03682acaef0ca4dea2f32b47cd3e10eed85233465b524d4507` |
+| 10b.b reject | the preimage is packed without padding instead of two 32-byte words    | violates ENC-A-10b (`abi.encode`, 64 bytes); block invalid (3.4 rule 7)        |
+| 10b.c reject | the first word is the parent's `mixHash` instead of its `difficulty`   | violates ENC-A-10b; block invalid (3.4 rule 7)                                 |
+
 ## ENC-A-11
 
 | Vector      | Setup                                                                | Expected                                                                               |
@@ -257,6 +282,40 @@ _`abi.encode(left, right)` of two `bytes32` words is byte-identical to `left` fo
 | 23.c reject | the bytes after `0x06` are raw RLP, not a zlib stream                                                                                         | violates ENC-A-23                         |
 | 23.d reject | the zlib stream decompresses to something that is not an RLP list                                                                             | violates ENC-A-23                         |
 | 23.e reject | a block item in the decompressed list is an RLP byte string that holds the encoding `rlp([elHeader, [tx, ...]])` rather than that list itself | violates ENC-A-23 ("a list encoded once") |
+
+## ENC-A-23a
+
+| Vector       | Setup                                                                                             | Expected                                   |
+| ------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 23a.a accept | a blob is read as 4096 field elements of 32 bytes, each one header byte followed by 31 body bytes | matches                                    |
+| 23a.b reject | the header byte is read from the end of each field element                                        | violates ENC-A-23a (`hdr[i] \|\| body[i]`) |
+
+## ENC-A-23b
+
+| Vector       | Setup                                                                                                      | Expected                                                                                                                                               |
+| ------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 23b.a accept | data is 28 bytes of `0xff`, so its last byte is round 0's `x`                                              | `hdr[0] = 0x3f` and `hdr[1] = 0x30`: blob bytes 0 to 4 are `3f 00 00 00 1c`, bytes 5 to 31 are `0xff`, byte 32 is `0x30`, and every other byte is zero |
+| 23b.b reject | `x` is stored whole in `hdr[4r]`                                                                           | violates ENC-A-23b (`x & 0x3f`)                                                                                                                        |
+| 23b.c reject | the three single bytes are taken from the end of the round instead of after each of its first three bodies | violates ENC-A-23b (stream order)                                                                                                                      |
+
+## ENC-A-23c
+
+| Vector       | Setup                               | Expected                                                                |
+| ------------ | ----------------------------------- | ----------------------------------------------------------------------- |
+| 23c.a accept | data is the single byte `0xff`      | blob bytes 0 to 5 are `00 00 00 00 01 ff`, and every other byte is zero |
+| 23c.b accept | data is 130,044 bytes               | the length bytes are `01 fb fc` and the stream has no fill              |
+| 23c.c reject | the length is written little-endian | violates ENC-A-23c (`uint24_be`)                                        |
+| 23c.d reject | data is 130,045 bytes in one blob   | violates ENC-A-23c (`n <= 130,044`)                                     |
+
+## ENC-A-23d
+
+| Vector       | Setup                                                                             | Expected                                                      |
+| ------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 23d.a reject | the version byte is `0x01`                                                        | violates ENC-A-23d; the blob does not decode                  |
+| 23d.b reject | the length bytes give n = 130,045                                                 | violates ENC-A-23d; the blob does not decode                  |
+| 23d.c reject | a header byte has one of its top two bits set, the first field element's included | violates ENC-A-23d ("every hdr[i]"); the blob does not decode |
+| 23d.d reject | a stream byte after data is nonzero                                               | violates ENC-A-23d; the blob does not decode                  |
+| 23d.e accept | two blobs carry D0 of 130,044 bytes and D1                                        | the blob payload is D0 followed by D1                         |
 
 ## ENC-A-24
 
