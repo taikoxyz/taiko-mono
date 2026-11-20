@@ -127,18 +127,19 @@ Chain id 167000 unless a row says otherwise. The parent's gasLimit is 30,000,000
 
 | Vector       | Setup                                                                                      | Expected                                                                                         |
 | ------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| 10a.a accept | parent base fee 100,000,000, gasUsed 15,000,000; parent minus grandparent timestamp is 2 s | `adjusted` = 15,000,000 = gasUsed; base fee 100,000,000                                          |
-| 10a.b accept | parent base fee 100,000,000, gasUsed 30,000,000; interval 2 s                              | `delta` = 12,500,000; base fee 112,500,000                                                       |
-| 10a.c accept | parent base fee 100,000,000, gasUsed 15,000,000; interval 4 s                              | `adjusted` = min(30,000,000, 28,500,000) = 28,500,000; `delta` = 11,250,000; base fee 88,750,000 |
-| 10a.d accept | parent base fee 10,000,000, gasUsed 0; interval 2 s                                        | `raw` = 8,750,000, raised to the minimum 10,000,000                                              |
+| 10a.a accept | parent base fee 100,000,000, gasUsed 15,000,000; parent minus grandparent timestamp is 4 s | `adjusted` = 15,000,000 = gasUsed; base fee 100,000,000                                          |
+| 10a.b accept | parent base fee 100,000,000, gasUsed 30,000,000; interval 4 s                              | `delta` = 12,500,000; base fee 112,500,000                                                       |
+| 10a.c accept | parent base fee 100,000,000, gasUsed 15,000,000; interval 8 s                              | `adjusted` = min(30,000,000, 28,500,000) = 28,500,000; `delta` = 11,250,000; base fee 88,750,000 |
+| 10a.d accept | parent base fee 10,000,000, gasUsed 0; interval 4 s                                        | `raw` = 8,750,000, raised to the minimum 10,000,000                                              |
 | 10a.e accept | the parent of 10a.d on a chain id other than 167000                                        | 8,750,000                                                                                        |
-| 10a.f accept | parent base fee 10,000,000, gasUsed 15,000,001; interval 2 s                               | `delta` floors to 0 and counts as 1; base fee 10,000,001                                         |
-| 10a.g accept | parent base fee 950,000,000, gasUsed 30,000,000; interval 2 s                              | `raw` = 1,068,750,000, lowered to 1,000,000,000                                                  |
+| 10a.f accept | parent base fee 10,000,000, gasUsed 15,000,001; interval 4 s                               | `delta` floors to 0 and counts as 1; base fee 10,000,001                                         |
+| 10a.g accept | parent base fee 950,000,000, gasUsed 30,000,000; interval 4 s                              | `raw` = 1,068,750,000, lowered to 1,000,000,000                                                  |
 | 10a.h reject | the interval is the block's own timestamp minus its parent's                               | violates ENC-A-10a (`p.timestamp - g.timestamp`); block invalid (3.4 rule 7)                     |
 | 10a.i reject | a division rounds to nearest instead of flooring                                           | violates ENC-A-10a ("every division floors"); block invalid (3.4 rule 7)                         |
 | 10a.j reject | the parent's gasLimit is reduced by a reserve before `target` is computed                  | violates ENC-A-10a ("the values in p's header"); block invalid (3.4 rule 7)                      |
-| 10a.k accept | parent base fee 100,000,000, gasUsed 28,500,000 (95% of the gas limit); interval 4 s       | `adjusted` = 28,500,000 = gasUsed; base fee 100,000,000                                          |
-| 10a.l accept | parent base fee 100,000,000, gasUsed 30,000,000 (a full block); interval 4 s               | `delta` = 1,250,000; base fee 101,250,000                                                        |
+| 10a.k accept | parent base fee 100,000,000, gasUsed 7,500,000; interval 2 s                               | `adjusted` = 7,500,000 = gasUsed; base fee 100,000,000                                           |
+| 10a.l accept | parent base fee 100,000,000, gasUsed 15,000,000; interval 2 s                              | `adjusted` = 7,500,000; `delta` = 6,250,000; base fee 106,250,000                                |
+| 10a.m reject | the interval is divided by 2 s, Unzen's target, for an Etna block                          | violates ENC-A-10a (`BLOCK_TIME_TARGET = 4 s`); block invalid (3.4 rule 7)                       |
 
 ## ENC-A-10b
 
