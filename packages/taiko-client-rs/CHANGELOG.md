@@ -28,6 +28,10 @@
 - `abci-recover prepare` reports an EL without the settled block at c as a missing prerequisite that names c and the landing's EL hash and points to the runbook, instead of invalid evidence. The lander waits on the same condition as a temporary failure. The [runbook](docs/governance-recovery.md#take-the-settled-el-state-at-c) describes how a node takes the settled EL state at c.
 - abci: `RecoveryError::OriginNotHeld` is new, and `authenticate_recovery_with_headers` readers return `Option<Header>`. Callers must adapt.
 
+### Switch fork-time check
+
+- A nonzero Etna start without a `[switch]` configuration keeps checkpoint trust closed at every checkpoint, not only while the latest checkpoint is S: without it the node cannot check its own fork time against the built-in L2 SignalService implementation's `beaconRootsFrom()` (SYNC-9-5a). Before, trust opened after the first landing without that check.
+
 ### Protocol artifact alignment
 
 - Align the ABI/artifact provenance with the published switch contracts in PR #22286, which closes the L2 checkpoint store with `beaconRootsFrom` and removes `SignalServiceL1`. The protocol pin, first at `4c6424bc`, now follows #22412 (above).

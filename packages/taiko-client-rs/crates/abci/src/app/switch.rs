@@ -5,6 +5,7 @@ use alloy_primitives::B256;
 
 use super::{AbciError, App, within};
 use crate::{
+    config::SwitchConfig,
     engine::Engine,
     l1::{L1Source, OwnFinality, RawL1Header, own_finality},
     switch::l2_signal_service_address,
@@ -12,6 +13,18 @@ use crate::{
 };
 
 impl<L: L1Source, E: Engine> App<L, E> {
+    /// The switch configuration the checks below use: none on a new network (S = 0), and on a
+    /// nonzero Etna start a refusal that keeps trust closed while it is absent, because no
+    /// landing settles the node's own fork time.
+    fn switch_config(&self, genesis: &GenesisRecord) -> Result<Option<&SwitchConfig>, AbciError> {
+        match &self.params.switch {
+            None if genesis.genesis_height != 0 => Err(AbciError::TrustControl(
+                "nonzero Etna start requires switch configuration".into(),
+            )),
+            config => Ok(config.as_ref()),
+        }
+    }
+
     /// Authenticates S only while it remains the latest L1 checkpoint; later landings settle
     /// these facts, so imported nodes then need neither S's state nor the Unzen chain.
     pub(super) async fn verify_switch_origin(
@@ -19,15 +32,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         genesis: &GenesisRecord,
         observation: &RawL1Header,
     ) -> Result<(), AbciError> {
-        let Some(config) = &self.params.switch else {
-            return if genesis.genesis_height == 0 {
-                Ok(())
-            } else {
-                Err(AbciError::TrustControl(
-                    "nonzero Etna start requires switch configuration".into(),
-                ))
-            };
-        };
+        let Some(config) = self.switch_config(genesis)? else { return Ok(()) };
         if observation.timestamp() < config.fork_timestamp {
             return Err(AbciError::TrustControl(
                 "own finalized L1 has not reached the Etna fork".into(),
@@ -120,8 +125,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// SignalService implementation's `beaconRootsFrom()` equals the node's own fork time, in
     /// the authenticated L2 state at canonical block `hash`: S, or the trust target once the
     /// node holds it (SYNC-9-5a). No landing settles the node's own fork time.
-    pub(super) async fn verify_fork_time(&self, hash: B256) -> Result<(), AbciError> {
-        let Some(config) = &self.params.switch else { return Ok(()) };
+    pub(super) async fn verify_fork_time(
+        &self,
+        genesis: &GenesisRecord,
+        hash: B256,
+    ) -> Result<(), AbciError> {
+        let Some(config) = self.switch_config(genesis)? else { return Ok(()) };
         let beacon_roots_from = within(
             "L2 SignalService fork time",
             self.opts.engine_timeout,
@@ -252,7 +261,7 @@ mod tests {
         let implementation = Address::with_last_byte(2);
         let fork_timestamp = fx.el_chain[0].timestamp + 1;
         let (app, genesis, _dir) = switching_app(&fx, implementation, fork_timestamp);
-        let verify = || app.verify_fork_time(genesis.genesis_hash);
+        let verify = || app.verify_fork_time(&genesis, genesis.genesis_hash);
 
         assert!(matches!(verify().await, Err(AbciError::TrustControl(_))), "no reading yet");
         // A reading through the proxy, or from another implementation, is no evidence.
@@ -270,5 +279,31 @@ mod tests {
         }
         app.engine().state().beacon_roots_from = Some((implementation, fork_timestamp));
         verify().await.unwrap();
+    }
+
+    /// Without a switch configuration a node cannot check its own fork time, which no landing
+    /// settles, so a nonzero Etna start keeps trust closed at S and at every later checkpoint;
+    /// a new network (S = 0) has no switch to check.
+    #[tokio::test]
+    async fn a_nonzero_start_without_switch_configuration_keeps_trust_closed() {
+        let fx = Fixture::genesis(1);
+        let implementation = Address::with_last_byte(2);
+        let fork_timestamp = fx.el_chain[0].timestamp + 1;
+        let (mut app, genesis, _dir) = switching_app(&fx, implementation, fork_timestamp);
+        app.engine().state().beacon_roots_from = Some((implementation, fork_timestamp));
+        app.verify_fork_time(&genesis, genesis.genesis_hash).await.unwrap();
+        app.params.switch = None;
+        for result in [
+            app.verify_switch_origin(&genesis, &fx.witness.l1_header).await,
+            app.verify_fork_time(&genesis, genesis.genesis_hash).await,
+        ] {
+            assert!(
+                matches!(result, Err(AbciError::TrustControl(ref reason))
+                if reason.contains("switch configuration")),
+                "{result:?}"
+            );
+        }
+        let fresh = GenesisRecord { genesis_height: 0, ..genesis };
+        app.verify_fork_time(&fresh, fresh.genesis_hash).await.unwrap();
     }
 }
