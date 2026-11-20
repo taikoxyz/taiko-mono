@@ -137,6 +137,8 @@ Chain id 167000 unless a row says otherwise. The parent's gasLimit is 30,000,000
 | 10a.h reject | the interval is the block's own timestamp minus its parent's                               | violates ENC-A-10a (`p.timestamp - g.timestamp`); block invalid (3.4 rule 7)                     |
 | 10a.i reject | a division rounds to nearest instead of flooring                                           | violates ENC-A-10a ("every division floors"); block invalid (3.4 rule 7)                         |
 | 10a.j reject | the parent's gasLimit is reduced by a reserve before `target` is computed                  | violates ENC-A-10a ("the values in p's header"); block invalid (3.4 rule 7)                      |
+| 10a.k accept | parent base fee 100,000,000, gasUsed 28,500,000 (95% of the gas limit); interval 4 s       | `adjusted` = 28,500,000 = gasUsed; base fee 100,000,000                                          |
+| 10a.l accept | parent base fee 100,000,000, gasUsed 30,000,000 (a full block); interval 4 s               | `delta` = 1,250,000; base fee 101,250,000                                                        |
 
 ## ENC-A-10b
 
@@ -309,13 +311,14 @@ Chain id 167000 unless a row says otherwise. The parent's gasLimit is 30,000,000
 
 ## ENC-A-23d
 
-| Vector       | Setup                                                                             | Expected                                                      |
-| ------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 23d.a reject | the version byte is `0x01`                                                        | violates ENC-A-23d; the blob does not decode                  |
-| 23d.b reject | the length bytes give n = 130,045                                                 | violates ENC-A-23d; the blob does not decode                  |
-| 23d.c reject | a header byte has one of its top two bits set, the first field element's included | violates ENC-A-23d ("every hdr[i]"); the blob does not decode |
-| 23d.d reject | a stream byte after data is nonzero                                               | violates ENC-A-23d; the blob does not decode                  |
-| 23d.e accept | two blobs carry D0 of 130,044 bytes and D1                                        | the blob payload is D0 followed by D1                         |
+| Vector       | Setup                                                                                                                                                                                       | Expected                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 23d.a reject | the version byte is `0x01`                                                                                                                                                                  | violates ENC-A-23d; the blob does not decode                  |
+| 23d.b reject | the length bytes give n = 130,045                                                                                                                                                           | violates ENC-A-23d; the blob does not decode                  |
+| 23d.c reject | a header byte has one of its top two bits set, the first field element's included                                                                                                           | violates ENC-A-23d ("every hdr[i]"); the blob does not decode |
+| 23d.d reject | a stream byte after data is nonzero                                                                                                                                                         | violates ENC-A-23d; the blob does not decode                  |
+| 23d.e accept | two blobs carry D0 of 130,044 bytes and D1                                                                                                                                                  | the blob payload is D0 followed by D1                         |
+| 23d.f reject | the blob of 23c.a with byte 0 changed from `0x00` to `0x40`: the first field element is still below the BLS12-381 modulus, and a decoder that masks the two bits would return the same data | violates ENC-A-23d ("every hdr[i]"); the blob does not decode |
 
 ## ENC-A-24
 
