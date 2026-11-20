@@ -10,10 +10,13 @@ pub use alethia_reth_chainspec::{
     TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
 };
 use alethia_reth_consensus::eip4396::{
-    BASE_FEE_MAX_CHANGE_DENOMINATOR, BLOCK_TIME_TARGET, ELASTICITY_MULTIPLIER,
-    MAINNET_MIN_BASE_FEE, MAX_BASE_FEE, MAX_GAS_TARGET_PERCENT, MIN_BASE_FEE,
-    SHASTA_INITIAL_BASE_FEE,
+    BASE_FEE_MAX_CHANGE_DENOMINATOR, ELASTICITY_MULTIPLIER, MAINNET_MIN_BASE_FEE, MAX_BASE_FEE,
+    MAX_GAS_TARGET_PERCENT, MIN_BASE_FEE, SHASTA_INITIAL_BASE_FEE, block_time_target,
 };
+/// Etna's EIP-4396 block-time target in seconds (ENC-A-10a), alethia-reth's: the base fee of
+/// every Etna block, S + 1 included, adjusts for a 4 s operating interval, while Shasta and
+/// Unzen blocks keep [`SHASTA_BLOCK_TIME_TARGET`] of 2 s.
+pub use alethia_reth_consensus::eip4396::{ETNA_BLOCK_TIME_TARGET, SHASTA_BLOCK_TIME_TARGET};
 use alloy_eips::eip4844::BYTES_PER_BLOB;
 use alloy_hardforks::ForkCondition;
 
@@ -100,18 +103,13 @@ pub const fn min_base_fee_for_chain(chain_id: u64) -> u64 {
     if chain_id == TAIKO_MAINNET_CHAIN_ID { MAINNET_MIN_BASE_FEE } else { MIN_BASE_FEE }
 }
 
-/// Etna's EIP-4396 block-time target in seconds (ENC-A-10a): the base fee of every Etna block,
-/// S + 1 included, adjusts for a 4 s operating interval. Unzen blocks keep alethia-reth's
-/// [`BLOCK_TIME_TARGET`] of 2 s.
-pub const ETNA_BLOCK_TIME_TARGET: u64 = 4;
-
 /// Calculate the next EIP-4396 base fee from a parent header and the grandparent timestamp.
 ///
 /// Owns the wrapper logic shared by every fetching call site: a genesis parent yields
 /// [`SHASTA_INITIAL_BASE_FEE`], the parent block time is `parent_timestamp -
 /// grandparent_timestamp`, and a non-genesis parent missing `base_fee_per_gas` yields `None`
 /// for the caller to map into its own error type. This is the Shasta and Unzen rule with
-/// alethia-reth's [`BLOCK_TIME_TARGET`]; Etna blocks use
+/// [`SHASTA_BLOCK_TIME_TARGET`]; Etna blocks use
 /// [`calculate_next_etna_block_eip4396_base_fee_for_parent`].
 pub fn calculate_next_block_eip4396_base_fee_for_parent(
     parent_number: u64,
@@ -130,7 +128,7 @@ pub fn calculate_next_block_eip4396_base_fee_for_parent(
         parent_base_fee_per_gas,
         grandparent_timestamp,
         min_base_fee_to_clamp,
-        BLOCK_TIME_TARGET,
+        block_time_target(false),
     )
 }
 
@@ -155,7 +153,7 @@ pub fn calculate_next_etna_block_eip4396_base_fee_for_parent(
         parent_base_fee_per_gas,
         grandparent_timestamp,
         min_base_fee_to_clamp,
-        ETNA_BLOCK_TIME_TARGET,
+        block_time_target(true),
     )
 }
 
@@ -190,7 +188,7 @@ fn eip4396_base_fee_for_parent(
 ///
 /// This mirrors alethia-reth's calculation while accepting raw values, so callers using the
 /// workspace's Alloy 1 header type do not need to depend on alethia-reth's Alloy 2 header trait.
-/// It uses alethia-reth's [`BLOCK_TIME_TARGET`], the Shasta and Unzen rule.
+/// It uses [`SHASTA_BLOCK_TIME_TARGET`], the Shasta and Unzen rule.
 pub fn calculate_next_block_eip4396_base_fee_from_parent_values(
     parent_number: u64,
     parent_gas_limit: u64,
@@ -206,7 +204,7 @@ pub fn calculate_next_block_eip4396_base_fee_from_parent_values(
         parent_block_time,
         parent_base_fee_per_gas,
         min_base_fee_to_clamp,
-        BLOCK_TIME_TARGET,
+        block_time_target(false),
     )
 }
 
@@ -374,13 +372,15 @@ mod tests {
     #[test]
     fn etna_base_fee_targets_four_seconds_and_unzen_keeps_two() {
         use super::{
-            BLOCK_TIME_TARGET, ETNA_BLOCK_TIME_TARGET, MAINNET_MIN_BASE_FEE,
-            SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee_for_parent,
+            ETNA_BLOCK_TIME_TARGET, MAINNET_MIN_BASE_FEE, SHASTA_BLOCK_TIME_TARGET,
+            SHASTA_INITIAL_BASE_FEE, block_time_target,
+            calculate_next_block_eip4396_base_fee_for_parent,
             calculate_next_etna_block_eip4396_base_fee_for_parent,
         };
         /// A parent-header base-fee rule.
         type Rule = fn(u64, u64, u64, u64, Option<u64>, u64, u64) -> Option<u64>;
-        assert_eq!((ETNA_BLOCK_TIME_TARGET, BLOCK_TIME_TARGET), (4, 2));
+        assert_eq!((ETNA_BLOCK_TIME_TARGET, SHASTA_BLOCK_TIME_TARGET), (4, 2));
+        assert_eq!((block_time_target(true), block_time_target(false)), (4, 2));
         let fee = |f: Rule, parent| {
             f(parent, 30_000_000, 15_000_000, 104, Some(100_000_000), 100, MAINNET_MIN_BASE_FEE)
         };
