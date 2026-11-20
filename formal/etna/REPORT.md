@@ -6537,3 +6537,117 @@ full recovery authorization or proving/deployment claim. R01/P01/K01/Q01 and all
 archived INCONCLUSIVE searches retain their limits. No natural protocol defect
 was confirmed. Selected Y01–Y05 are complete; Y06–Y07 and combined final gates
 remain, with no automatic eighth.
+
+
+## Y06 terminal seen-commit reconstruction
+
+Date: 2026-11-20. Selected component code `41e3cfe5d7dd0725b6bf573c1531119e09bc6513`, stock CometBFT
+`0880b4d378f347ab16e54ec677ff50d803f37d62`; current normative bundle remains
+`2e6763e21bc236cfcda6011d164b32040f9e0c8d`, actual main
+`ce6d1887955343395305b5b1d89901816bd61a07`.
+See the [exact component and input boundaries](conformance/COMET_TERMINAL.md).
+No natural protocol defect was confirmed.
+
+The unchanged public corpus SHA-256 is
+`34932f8ddf991ae41eb1be94c873e99524f51cf96d427faed4a1bfc443dc960e`.
+The shared reader hashes the actual buffer before strict decode; native staging
+contains only that reader, selected fixture, module/sum and public JSON. The
+fixture uses synthetic app version17 and stock default parameters, not an Etna
+START-10 configuration claim. It starts no consensus signer or network service,
+loads no private keys and creates no new signatures.
+
+A and B use independently created LevelDB pairs, actual Store.Bootstrap and
+SaveSeenCommit, writer close and reader reopen, followed by fresh BlockExecutors.
+Both signed height1000 commits have genuine3/4 quorum. NewState reconstructs
+both without binding state.LastBlockID=A. Explicit VerifyCommit(parentA) accepts
+A and refuses B's complete BlockID mismatch. Normal State.MakeBlock/ValidateBlock
+successors both retain parentA and each uses its own reconstructed LastCommit;
+A passes and B refuses at the same intended binding guard. Complete state,
+validator priorities, votes, commits, header/block protobuf, raw database rows,
+child hash and signed weighted-median time are independently checked. Other
+header/time predicates are valid, preventing unrelated refusal from earning credit.
+
+The other four actual cases cover missing seen AND fallback block commits,
+exact2/3 quorum, genuine G0 signatures in G1 state and a genuine CommitSig moved
+to the wrong ordinal. Only the invoked constructor has local panic recovery;
+each case pins exact type, full reason and wrapped class. Unexpected panic,
+setup failure, skip, missing target or timeout remains INCONCLUSIVE. Independent
+signature recovery, raw-wire/merkle/time derivation and complete positional
+power checks supplement the source review.
+
+| Actual component gate | Observation |
+| --- | --- |
+| Single-isolation A smoke and six-case original | Native0; actual stock constructor/verifier/child and all raw records observed |
+| Primary original / binding-guard omission / restored | Native0/1/0; only B's explicit verifier, child verifier and evidence-check count change |
+| Independent primary raw/crypto gate | All18 complete receipts and9 rejection controls; exact restoration bytes |
+| Different wrong-domain fixture context original / G1-to-G0 / restored | Native0/1/0; actual constructor refusal becomes genuine acceptance, with exact after-receipt diagnostic |
+| Independent different-context raw/crypto gate | All3 targeted complete receipts and10 rejection controls; ordinary auditor refuses changed context |
+| Closed actual capture metadata gate | All6 baseline cases and16 unchanged-raw metadata negatives |
+
+The primary control removes only stock types/validation.go's expected-BlockID
+guard in a private source clone. It records the exact B verifier and child
+diagnostics before its actual receipt; all five other cases stay byte-identical.
+Restoration preserves original file bytes, inode and mode. The different control
+changes only the private fixture's wrong-domain state G1 to G0 while preserving
+the same genuine public signature, source manifest and all other inputs. Exact
+source/input journals and live1659-file/all5-input restoration were audited.
+Both controls are deliberately introduced diagnostics, not discovered protocol
+defects. Independent checking derives signed contexts and raw protobuf/crypto
+terms without importing the canonical semantic expected-value functions.
+
+Initial14 missing-implementation assertions were observed RED. Subsequent
+review found real verification defects: elapsed float metadata was incorrectly
+read with an integer-only protocol decoder; Go1.27 OutputType/chunk handling and
+the actual diagnostic-before-receipt order were unsupported. Focused REDs
+preceded repairs; final19 focused tests pass. Root and independent drafts also
+shared a wrong array expectation for []BlockIDFlag: its byte-slice JSON encoding
+is base64, confirmed by actual raw and Go encoding source before correction.
+An insufficient-power full reason was likewise corrected against real source.
+Earlier broad review assertions are superseded, not silently counted as evidence.
+
+Private execution-packet review additionally fixed cancellation across escaped
+namespace descendants, full mutant manifest identity and failed-phase journals
+before native use. Actual graceful and abrupt dummy OS controls observed
+descendant death, inherited temporary-lock lifetime and restoration ordering.
+Real native phases held the pre-existing physical cache lock until quiescence;
+all selected stock source/input/tool identities restored. This is a bounded
+execution check, not an unconditional kernel-termination guarantee.
+
+**Complete producer integration remains INCONCLUSIVE / OPEN.** The attempted
+full run_profile launch failed at nested unshare before Go. The successful
+native runs instead used one reviewed isolation namespace, followed by separate
+actual canonical collector/auditor and independent raw/crypto runs. Truthful
+actual argv, paths and namespace metadata are preserved; require_capture was
+not claimed to run successfully. These split gates provide real component
+evidence but do not establish all producer/runtime gates. Source-reviewed full
+entrypoints still need a successful integrated execution. The cost of accepting
+this qualified delivery is that the advertised full CLI may still fail; the PR
+remains draft and that obligation is not closed.
+
+The first compile packet stopped before Go on context identity; the second
+actually compiled successfully but its outer artifact-mode policy failed.
+Those failed records remain preserved. The produced ELF was independently inspected as compilation evidence. Later
+component runs invoked source-built go test, without a claim of identical ELF
+reuse; the failed compile wrapper itself is not relabeled PASS.
+
+Candidate `4594adcff51f5743facb0fc4a551e3e56ae2e64a` and actual-main merge
+`db5256b7c040c9afcdfe313812a617ea55f4c141` each pass601 ordinary checks
+(415/166/20), zero failures/errors/skips. All1,937 source/harness identities,
+modes and631 pre-Y model/config identities remain stable. Ordinary readback
+SHA-256 `88fc55695b631e8422bf5318e8408db814e300d72e52ed5e7bd6b319ce08daba`.
+Independent final component report SHA-256
+`9303f5bf195931b576d606e58edf89c930abf9be6792caa9b7da03c8347a051a`;
+primary independent stdout
+`5134e8becae73757efb903b6605d217f63094da5c02ffb90711f26e1424d9a1d`;
+different-context independent stdout
+`dd058e79ffb58321365f52ff8446461a4defcc6bfd55f8865d123e52fd95f5d0`.
+The unavailable local prettier hook is not claimed; LEFTHOOK=0 commits use the
+explicit source, independent component and ordinary checks above.
+
+Parent IDs are opaque; the corpus contains no matching original block/partset.
+The unsigned child and authenticated historical context are synthetic premises.
+This does not establish full DATA-5.4 import, a signed multiheight chain,
+crash-atomic multistore installation, current Etna app/L1/EL/guest/proving or
+deployment. R01/P01/K01/Q01 and all19 archived INCONCLUSIVE searches retain
+their limits. Selected Y01–Y06 deliveries are complete at their stated scope;
+Y07 and whole-seven final gates remain, with no automatic eighth.

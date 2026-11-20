@@ -100,11 +100,18 @@
 
 **Interfaces:** frozen `BoundaryProfile` names its files/pins/tests/expected public digest. `run_profile(profile:BoundaryProfile, args) -> dict` reuses existing source/tool/cache/isolation helpers with fixed argv and source/input/output journals. Shared public Go reader hashes the actual buffer before decode. `audit_terminal(receipt:bytes) -> dict` independently validates signed context, exact state/commit/majority/reopened rows and successor outcome. Claim is `terminal-seen-commit`.
 
-- [ ] Inspect constructor, Store/BlockStore, normal ValidateBlock and fixture allowlist. No signer/service startup, private loader, upstream test global or fresh signing.
-- [ ] RED: wrong same-height opaque BlockID, wrong domain/index/weight, missing seen AND fallback block commits, constructor-only authentication and metadata aliases with unchanged native bytes. Pin exact expected constructor panic type/reason per subcase; capture only at that API and classify all unexpected panic as INCONCLUSIVE.
-- [ ] Native positive: actual public A commit VerifyCommit, Bootstrap/SaveSeenCommit/reopen, consensus.NewState/GetRoundState and normal synthetic successor ValidateBlock. Use independently reopened blockstores and fresh BlockExecutor/uncached successor per A/B branch. Both headers bind parentA; derive each LastCommit from the actually reconstructed A/B votes and record exact child hash/time. Genuine B mismatch records constructor acceptance separately from explicit verifier/successor refusal at the intended guard, with unrelated header/time predicates satisfied.
-- [ ] Root reviewed source/packet/smoke/full; exact verification/binding source control and same-copy restoration. Independent different wrong-domain/weight control and full raw/crypto/input readback.
-- [ ] Focused checks and independent gates, commit/publication. Opaque parent IDs/synthetic successor are not a complete authenticated import or signed multi-height chain.
+- [x] Inspect constructor, Store/BlockStore, normal ValidateBlock and fixture allowlist. No signer/service startup, private loader, upstream test global or fresh signing.
+- [x] RED: wrong same-height opaque BlockID, wrong domain/index/weight, missing seen AND fallback block commits, constructor-only authentication and metadata aliases with unchanged native bytes. Pin exact expected constructor panic type/reason per subcase; capture only at that API and classify all unexpected panic as INCONCLUSIVE.
+- [x] Native positive: actual public A commit VerifyCommit, Bootstrap/SaveSeenCommit/reopen, consensus.NewState/GetRoundState and normal synthetic successor ValidateBlock. Use independently reopened blockstores and fresh BlockExecutor/uncached successor per A/B branch. Both headers bind parentA; derive each LastCommit from the actually reconstructed A/B votes and record exact child hash/time. Genuine B mismatch records constructor acceptance separately from explicit verifier/successor refusal at the intended guard, with unrelated header/time predicates satisfied.
+- [x] Root reviewed source/packet/smoke/full; exact verification/binding source control and same-copy restoration. Independent different wrong-domain/weight control and full raw/crypto/input readback.
+- [x] Focused checks and independent gates, commit/publication. Opaque parent IDs/synthetic successor are not a complete authenticated import or signed multi-height chain.
+
+**Recorded qualification:** selected native/component delivery is complete.
+The complete `run_profile`/`require_capture` integration is **INCONCLUSIVE**:
+nested `unshare` failed before Go. Actual native runs used one reviewed namespace,
+then separate actual canonical collector/metadata and independent raw/crypto
+checks. The full producer integration requirement remains OPEN; no all-runtime
+PASS is claimed. See [Y06 report](../../../formal/etna/REPORT.md#y06-terminal-seen-commit-reconstruction).
 
 ### Task 7: Y07 native evidence lifecycle and import markers
 

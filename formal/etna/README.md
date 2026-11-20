@@ -98,6 +98,15 @@ anchor the unchanged encoding component. See
 [Y05 evidence](REPORT.md#y05-positional-snapshots-and-final-r-selection).
 Actual current Registry/authentication and full governance remain unverified.
 
+The [terminal seen-commit component](conformance/COMET_TERMINAL.md) observes
+actual reopened stores, constructor reconstruction, explicit parent verification
+and a normal synthetic successor. The same-height B commit is reconstructed but
+refused by parent-A verification; two actual distinct controls and independent
+raw/signature checks passed. See [Y06 evidence](REPORT.md#y06-terminal-seen-commit-reconstruction).
+Complete `run_profile`/`require_capture` integration remains INCONCLUSIVE after
+nested namespace setup failed; the successful split component runs retain their
+actual commands. This is draft component evidence, not authenticated import.
+
 ## Run
 
 The draft-enabled [TLC/Python workflow](../../.github/workflows/protocol--etna-tlc.yml)

@@ -56,7 +56,7 @@ retain the frozen bounds, independent gates and explicit runtime premises.
 | Y03 | Full ordered rule range and lossless software pause | COMPLETE selected code `9585e3fff`; finite safety, actual pause/full Land and both distinct rule-range faults/restorations passed. |
 | Y04 | Actual funded pending forfeiture component | COMPLETE selected code `ee18ad8e1`; closed15, actual pending-debit/deadline faults/restoration and independent full raw audits passed. |
 | Y05 | Positional registry snapshots and final-R selection | COMPLETE selected code `6164ec9dc`; finite289-state safety, both R7 orderings, actual distinct faults/restoration, literal/EVM/full-raw gates passed. |
-| Y06 | Actual terminal seen-commit reconstruction | PENDING; public signed votes, stock constructor/verifier/successor distinction. |
+| Y06 | Actual terminal seen-commit reconstruction | COMPLETE selected component code `41e3cfe5d`; real stores/constructor/verifier/successor, distinct controls/restoration and independent raw gates passed; full producer integration INCONCLUSIVE. |
 | Y07 | Native evidence lifecycle and import markers | PENDING; cold/pending ages, gossip and reopened committed markers. |
 
 [Y01 evidence](REPORT.md#y01-same-domain-timestamp-safety-projection) records two
@@ -98,8 +98,18 @@ missing-Close8 controls are observed/restored. Fixed bytes32 domain tags were
 corrected after a shared interpretation error; three genuine historical EVM roots
 separately confirm the unchanged encoding component. Current Registry admission,
 L1 authentication and full governance remain unverified. Candidate/main merge
-each pass582 ordinary checks. Selected Y01–Y05 are complete; Y06–Y07 and combined
-final gates remain, with no automatic eighth or broader R01/P01 closure.
+each pass582 ordinary checks. Selected Y01–Y05 evidence retains its recorded component boundaries.
+
+[Y06 evidence](REPORT.md#y06-terminal-seen-commit-reconstruction) records six
+actual public-input cases, independent A/B reopened stores and fresh successor
+validation, both actual source/input controls and exact restoration. Independent
+complete protobuf/signature/metadata checks passed. Full `run_profile` and
+`require_capture` integration remains INCONCLUSIVE; its nested namespace failed
+before Go, and actual single-namespace component receipts are not relabeled as
+that launch. Synthetic app version17/stock parameters require separate Etna
+client validation. Candidate/main merge each pass601 ordinary checks. Selected
+Y01–Y06 are complete at their stated scope; Y07 and combined final gates remain.
+No automatic eighth or broader R01/P01/runtime closure follows.
 
 ## Completed W01–W07 batch
 
