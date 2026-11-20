@@ -578,6 +578,80 @@ func windowFixture(t *testing.T) (*stockPackage, terminal, []*types.ValidatorSet
 	p.ValidatorState = makePreimage(99999+int64(len(sets))-1, old, old, 0, 0)
 	return p, term, sets
 }
+
+// ACCEPTANCE 7.5: light-client evidence that reads distinct common and conflicting signed
+// headers. A lunatic block at s, signed by the common set of window height 100001, makes the
+// stock pool read the signed header and set at 100001 and the trusted signed header at s,
+// whose commit is C:s.
+func TestLunaticLightClientAttackReadsCommonAndTerminalSignedHeaders(t *testing.T) {
+	p, term, sets := windowFixture(t)
+	home, _ := install(t, p, term)
+	data := filepath.Join(home, "data")
+	verdict := func() error {
+		bd, e := dbm.NewGoLevelDB("blockstore", data)
+		if e != nil {
+			t.Fatal(e)
+		}
+		defer bd.Close()
+		sd, e := dbm.NewGoLevelDB("state", data)
+		if e != nil {
+			t.Fatal(e)
+		}
+		defer sd.Close()
+		ed, e := dbm.NewGoLevelDB("evidence", data)
+		if e != nil {
+			t.Fatal(e)
+		}
+		defer ed.Close()
+		blocks := bs.NewBlockStore(bd)
+		pool, e := evidence.NewPool(ed, sm.NewStore(sd, sm.StoreOptions{}), blocks)
+		if e != nil {
+			t.Fatal(e)
+		}
+		common, trusted := blocks.LoadBlockMeta(100001), blocks.LoadBlockMeta(100003)
+		if common == nil || trusted == nil {
+			t.Fatal("window block meta missing")
+		}
+		conflicting := trusted.Header
+		conflicting.AppHash = bytes.Repeat([]byte{0xcd}, 32)
+		vals := sets[2]
+		id := types.BlockID{Hash: conflicting.Hash(), PartSetHeader: types.PartSetHeader{Total: 1, Hash: bytes.Repeat([]byte{4}, 32)}}
+		key := secp256k1eth.PrivKey(bytes.Repeat([]byte{7}, 32))
+		vote := &types.Vote{Type: pb.PrecommitType, Height: conflicting.Height, Round: 0, BlockID: id, Timestamp: conflicting.Time, ValidatorAddress: key.PubKey().Address(), ValidatorIndex: 0}
+		if vote.Signature, e = key.Sign(types.VoteSignBytes(conflicting.ChainID, vote.ToProto())); e != nil {
+			t.Fatal(e)
+		}
+		ev := &types.LightClientAttackEvidence{
+			ConflictingBlock:    &types.LightBlock{SignedHeader: &types.SignedHeader{Header: &conflicting, Commit: &types.Commit{Height: conflicting.Height, Round: 0, BlockID: id, Signatures: []types.CommitSig{vote.CommitSig()}}}, ValidatorSet: vals},
+			CommonHeight:        100001,
+			ByzantineValidators: vals.Validators,
+			TotalVotingPower:    vals.TotalVotingPower(),
+			Timestamp:           common.Header.Time,
+		}
+		if e = ev.ValidateBasic(); e != nil {
+			t.Fatal(e)
+		}
+		return pool.CheckEvidence(types.EvidenceList{ev})
+	}
+	if e := verdict(); e != nil {
+		t.Fatalf("stock rejected lunatic evidence across window heights: %v", e)
+	}
+	// Control: the trusted signed header at s needs C:s.
+	db, e := dbm.NewGoLevelDB("blockstore", data)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = db.DeleteSync([]byte("C:100003")); e != nil {
+		t.Fatal(e)
+	}
+	if e = db.Close(); e != nil {
+		t.Fatal(e)
+	}
+	if e := verdict(); e == nil || !strings.Contains(e.Error(), "don't have commit at height #100003") {
+		t.Fatalf("control lunatic evidence without C:s: %v", e)
+	}
+}
+
 func TestHistoricalValidatorLookupsAtChangesAndPeriodicCheckpoints(t *testing.T) {
 	p, term, sets := windowFixture(t)
 	home, _ := install(t, p, term)
