@@ -3276,6 +3276,41 @@ mod tests {
             );
         }
 
+        /// The leaf of every interior height x carries the cursor after x (ENC-A-29): the leaf
+        /// at `x - p - 1` of a block that consumes an entry mid-batch already counts it, so an
+        /// overlapping landing whose checkpoint is x finds its record's head there.
+        #[tokio::test]
+        async fn interior_leaves_carry_the_cursor_after_a_consumed_entry() {
+            let cases = [
+                // From the origin: block 2 consumes entry 0.
+                (0, 6, vec![(10, 5)], vec![2], 6, 2),
+                // From checkpoint 18 at head 1: block 24 consumes entry 1.
+                (18, 30, vec![(10, 1), (11, 2)], vec![5, 24], 12, 24),
+            ];
+            for (p, tip, entries, consume_at, blocks, consumed) in cases {
+                let plan = ForcedPlan { entries, consume_at, ..Default::default() };
+                let fixture = Arc::new(Fixture::with_forced(p, tip, plan));
+                let head = fixture.snapshot.forced_inclusion_head;
+                let request = prepare(&fixture, blocks).await;
+                let leaves = &request.batch.leaves;
+                assert_eq!(leaves.len(), blocks - 1);
+                for (index, leaf) in leaves.iter().enumerate() {
+                    let x = p + 1 + index as u64;
+                    let cursor = head + u64::from(x >= consumed);
+                    let expected = statement::cut_leaf(
+                        x,
+                        envelope(&request, index).block.header.hash_slow(),
+                        B256::from_slice(
+                            request.batch.blocks[index].block.header.hash().as_bytes(),
+                        ),
+                        cursor,
+                    );
+                    assert_eq!(*leaf, expected, "leaf of height {x} with cursor {cursor}");
+                }
+                assert_eq!(heads(&request), (head, head + 1));
+            }
+        }
+
         /// Review Focus 4: the cut starts while an entry is pending, so its first block peeks.
         #[tokio::test]
         async fn batch_starting_mid_pending_queue() {

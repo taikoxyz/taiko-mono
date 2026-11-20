@@ -325,52 +325,84 @@ async fn lander_rejecting_verifier_rolls_back_checkpoint_signal_and_committees()
 #[tokio::test]
 #[ignore = "requires Docker: actual Etna contracts on Osaka anvil"]
 async fn lander_competing_sender_partial_progress_keeps_original_signed_batch() -> Result<()> {
+    competing_partial_progress(6, false).await
+}
+
+/// A competitor lands an off-grid prefix to c = 5 that consumed a forced inclusion entry at
+/// height 3: the original's leaf at c carries the cursor after that entry.
+#[tokio::test]
+#[ignore = "requires Docker: actual Etna contracts on Osaka anvil"]
+async fn lander_competing_off_grid_progress_past_a_forced_entry_keeps_original_batch() -> Result<()>
+{
+    competing_partial_progress(5, true).await
+}
+
+/// The original batch (0, 12] is signed, then another sender lands the prefix (0, c]. The
+/// original's bytes stay valid unchanged and land (c, 12] (BATCH-6.3-10). With `forced`, block 3
+/// consumes entry 0 inside (0, c].
+async fn competing_partial_progress(c: u64, forced: bool) -> Result<()> {
     let fixture = ContractFixture::deploy().await?;
+    let p = &fixture.anvil.provider;
     let mut chain = FixtureChain::new(&fixture).await?;
+    let head = u64::from(forced);
+    if forced {
+        // As in the forced inclusion landing test: block 3's anchor holds the entry.
+        chain.extend(&fixture, 2).await?;
+        let payload = test_harness::sign_transfer(
+            &fixture.l2.provider,
+            &dev_signer(),
+            alloy_primitives::Address::repeat_byte(0x45),
+            U256::from(9),
+            0,
+        )
+        .await?
+        .encoded_2718();
+        let (_, blob, _) = fixture.save_forced_inclusion(&payload).await?;
+        mine_l1_blocks(p, 3).await?;
+        chain.forced_transactions.insert(0, blob);
+    }
     chain.extend(&fixture, 12).await?;
+    assert_eq!(chain.forced_cursor(), head);
     let original = chain.prepare(&fixture, 12, SidecarMode::Eip7594).await?;
+    assert_eq!(original.batch.input.forcedInclusionHead, U256::from(head));
     let signed = sign(&fixture, &original).await?;
     let bytes = signed.network_bytes.clone();
-    let prefix = chain.prepare(&fixture, 6, SidecarMode::Eip7594).await?;
+    let prefix = chain.prepare(&fixture, c, SidecarMode::Eip7594).await?;
     let other = RpcTransactionTransport::new(
-        fixture.anvil.provider.clone(),
+        p.clone(),
         "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d".parse()?,
         FEES,
     )?;
     fixture.expect_statement(prefix.batch.statement_hash).await?;
     let tx = other.sign(&prefix, &Bytes::from_static(&[0])).await?;
     other.broadcast(&tx).await?;
-    assert!(receipt(&fixture.anvil.provider, tx.hash).await?.status());
-    assert_eq!(fixture.checkpoint().await?.0, 6);
-    // One leaf per interior height: the original's leaf at c=6 sits at index c-p-1=5 and
-    // recomputes from c's three-word record.
-    let at_c = view(
-        &fixture.anvil.provider,
-        fixture.inbox,
-        EtnaInbox::landingsCall { _height: U256::from(6) },
-        None,
-    )
-    .await?;
+    assert!(receipt(p, tx.hash).await?.status());
+    assert_eq!(fixture.checkpoint().await?.0, c);
+    // One leaf per interior height: the original's leaf at c sits at index c-p-1 and recomputes
+    // from c's record, whose head is the cursor after c (ENC-A-29).
+    let at_c =
+        view(p, fixture.inbox, EtnaInbox::landingsCall { _height: U256::from(c) }, None).await?;
     assert_eq!(original.batch.leaves.len(), 11);
     assert_eq!(
-        (at_c.elHash, at_c.cometHash),
-        (prefix.batch.input.lastBlockHash, prefix.batch.input.lastCometHash)
+        (at_c.elHash, at_c.cometHash, at_c.head.to::<u64>()),
+        (prefix.batch.input.lastBlockHash, prefix.batch.input.lastCometHash, head)
     );
     assert_eq!(
-        original.batch.leaves[5],
-        lander::statement::cut_leaf(6, at_c.elHash, at_c.cometHash, at_c.head.to::<u64>())
+        original.batch.leaves[usize::try_from(c - 1)?],
+        lander::statement::cut_leaf(c, at_c.elHash, at_c.cometHash, at_c.head.to::<u64>())
     );
     fixture.expect_statement(original.batch.statement_hash).await?;
     transport(&fixture)?.broadcast(&signed).await?;
-    let landed = receipt(&fixture.anvil.provider, signed.hash).await?;
+    let landed = receipt(p, signed.hash).await?;
     assert!(landed.status());
     let event = landed.decoded_log::<EtnaInbox::Landed>().context("overlap landed")?;
     assert_eq!(
         (event.data.parentHeight, event.data.checkpointHeight, event.data.lastHeight),
-        (U256::ZERO, U256::from(6), U256::from(12))
+        (U256::ZERO, U256::from(c), U256::from(12))
     );
     assert_eq!(signed.network_bytes, bytes);
     assert_eq!(fixture.checkpoint().await?.0, 12);
+    assert_eq!(fixture.forced_inclusion_state().await?, (head, head));
     fixture.anvil.stop().await
 }
 

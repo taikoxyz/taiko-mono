@@ -9,7 +9,7 @@ sol!(
     "tests/fixtures/contracts/EtnaInbox.json"
 );
 
-/// Journal representation of the generated nine-field `LandInput` as canonical ABI bytes.
+/// Journal representation of the generated eight-field `LandInput` as canonical ABI bytes.
 pub(crate) mod abi_serde {
     use alloy::sol_types::{SolType, SolValue};
     use alloy_primitives::Bytes;
