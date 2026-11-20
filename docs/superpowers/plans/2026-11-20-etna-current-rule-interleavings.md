@@ -57,10 +57,10 @@
 
 **Interfaces:** Independent immutable registry/exclusion/FI projection, shared explorer only. `recover` inputs include caller, expected generation/c/nonce, deadline, ordered bond/FI lists and structural rules.
 
-- [ ] RED on withdrawn-issued acceptance, unissued-tail refusal, unsorted/duplicate bond and FI lists, stale generation/c/nonce, deadline equality and nonce overflow.
-- [ ] Model RECOV-8-38..50, 8.3-1..19 and 8.4-3..5. Bound three permanent issued IDs/two slots plus an unissued ID, two FI entries, two generations and nonce0..3 as an exploration limit, not a uint256 refusal guard. Separate literal tests exercise uint256 maximum and no wrap. FI head/tail, original timestamps/enqueue block/fees and fixed prior origins are explicit. No signature/whole-landing-audit implementation is invented.
-- [ ] Complete-call validation precedes effects: an invalid later FI/id leaves every field/event unchanged, an already-withdrawn exclusion preserves earlier exit and replacement, FI blank keeps metadata/fees/head, only recovery increments generation and writes own immutable origin. A separate successful forfeit remains when a later independent recovery fails; no cross-transaction rollback.
-- [ ] Explore and retain shortest positive/reject histories, omit issued-id or nonce guard in a disposable copy, detect and restore. Independent source/behavior gate. Atomicity remains a modeled transaction premise.
+- [x] RED on withdrawn-issued acceptance, unissued-tail refusal, unsorted/duplicate bond and FI lists, stale generation/c/nonce, deadline equality and nonce overflow.
+- [x] Model RECOV-8-38..50, 8.3-1..19 and 8.4-3..5. Bound three permanent issued IDs/two slots plus an unissued ID, two FI entries, two generations and nonce0..3 as an exploration limit, not a uint256 refusal guard. Separate literal tests exercise uint256 maximum and no wrap. FI head/tail, original timestamps/enqueue block/fees and fixed prior origins are explicit. No signature/whole-landing-audit implementation is invented.
+- [x] Complete-call validation precedes effects: an invalid later FI/id leaves every field/event unchanged, an already-withdrawn exclusion preserves earlier exit and replacement, FI blank keeps metadata/fees/head, only recovery increments generation and writes own immutable origin. A separate successful forfeit remains when a later independent recovery fails; no cross-transaction rollback.
+- [x] Explore and retain shortest positive/reject histories, omit issued-id or nonce guard in a disposable copy, detect and restore. Independent source/behavior gate. Atomicity remains a modeled transaction premise.
 
 ### Task 4: Z04 minimal positional snapshots
 
@@ -68,10 +68,10 @@
 
 **Interfaces:** `canonical_entries(slots)` returns the shortest positional tuple through the highest occupied slot. `validate_snapshot(entries,count,root)` validates canonical shape then unchanged Registry encoding. `select(entries,snapshot,config,expected_config_hash)` authenticates the complete configuration before reading its one immutable minStake value. Standalone arithmetic may remain parameterized, but the selected admission path must reject a one-word minStake disagreement that changes eligibility. Reuse only unchanged `registry_snapshot.entries_root`/pure keccak helpers; preserve their sources.
 
-- [ ] RED vectors: no slots→count0/root0; three slots with hole; occupied zero-stake last entry; highest withdrawal→shrinking count; slot reuse; count>4096; exact threshold and floor power.
-- [ ] Apply STAKE-4.1-36, COMM-4.3-2..5, START-10-12/14 and ENC-A-36..38. Preserve indexed hashed interior vacancies and raw-zero tree padding. Reject trailing/all-empty positive counts even when their matching root is supplied. Bind minStake to fifth config ABI word; minStake≥vp_unit, no independent s_min override.
-- [ ] Enumerate all occupancy patterns for three slots plus independently encoded literal public-key/Q=10^23/minStake=4Q vectors; historical snapshots immutable. Real deployment/economic constraints remain separate.
-- [ ] Remove trailing-occupied guard in a disposable copy, prove that matching-root malformed witness passes the mutant and fails baseline, restore. Independently derive roots/config bytes and gate source/behavior.
+- [x] RED vectors: no slots→count0/root0; three slots with hole; occupied zero-stake last entry; highest withdrawal→shrinking count; slot reuse; count>4096; exact threshold and floor power.
+- [x] Apply STAKE-4.1-36, COMM-4.3-2..5, START-10-12/14 and ENC-A-36..38. Preserve indexed hashed interior vacancies and raw-zero tree padding. Reject trailing/all-empty positive counts even when their matching root is supplied. Bind minStake to fifth config ABI word; minStake≥vp_unit, no independent s_min override.
+- [x] Enumerate all occupancy patterns for three slots plus independently encoded literal public-key/Q=10^23/minStake=4Q vectors; historical snapshots immutable. Real deployment/economic constraints remain separate.
+- [x] Remove trailing-occupied guard in a disposable copy, prove that matching-root malformed witness passes the mutant and fails baseline, restore. Independently derive roots/config bytes and gate source/behavior.
 
 ### Task 5: Z05 final-R selection
 
@@ -79,10 +79,10 @@
 
 **Interfaces:** Independent symbolic finite state model; Z04 actual byte admission is separate. Explicit tx-local registry state, block-close snapshot, fixed R, authenticated finalized view, derived committee and last-landed snapshot. No hash/signature claims from symbolic keys.
 
-- [ ] RED with recovery and matured top-up/independent standby forfeiture/withdrawal-reuse ordered within the same R, as permitted by the guards. Excluded bond cannot activate top-up. Selection before block close refuses.
-- [ ] Implement STAKE-4.1-36, COMM-4.3-2..8, RECOV-8-17..19/49/51..55 and 8.4-9. Bound three IDs/two slots and R=7/R+1=8; threshold4, unit2, topup1 are arithmetic model units, not deployed economic parameters. Track complete block-final snapshots and immutable older snapshots.
-- [ ] Demonstrate different tx-local prefixes with the same final R entries select identically; R+1 mutation cannot change R; recover leaves slot284 unchanged until a modeled valid landing; accepted recovery with nonzero count but empty eligible set remains non-signing. Valid proof/signature/finality are premises.
-- [ ] Explore all finite orders; private fault substitutes recover-time snapshot or permits selection before close, require discrimination/restoration. Independent source/behavior gate.
+- [x] RED with recovery and matured top-up/independent standby forfeiture/withdrawal-reuse ordered within the same R, as permitted by the guards. Excluded bond cannot activate top-up. Selection before block close refuses.
+- [x] Implement STAKE-4.1-36, COMM-4.3-2..8, RECOV-8-17..19/49/51..55 and 8.4-9. Bound three IDs/two slots, R=7/R+1=8 for registry ordering, and a later modeled proof-inclusion block110 for positive finality/landing histories; threshold4, unit2, topup1 are arithmetic model units, not deployed economic parameters. Block110 allows a later authenticated view without asserting that R finalizes in its successor; timing and valid proof availability remain premises. Track complete block-final snapshots and immutable older snapshots.
+- [x] Demonstrate different tx-local prefixes with the same final R entries select identically; R+1 mutation cannot change R; recover leaves slot284 unchanged until a modeled valid landing; accepted recovery with nonzero count but empty eligible set remains non-signing. Valid proof/signature/finality are premises.
+- [x] Explore all finite orders; private fault substitutes recover-time snapshot or permits selection before close, require discrimination/restoration. Independent source/behavior gate.
 
 ### Task 6: Z06 permissionless proven-origin latch
 
@@ -90,10 +90,10 @@
 
 **Interfaces:** Independent branch-local immutable model of Unzen core, forwarded checkpoints, one-time start, FI readiness and finalized trust. Latch, node and guest predicates remain separate public methods.
 
-- [ ] RED: public callers, uninitialized/open-cutoff/not-all-proven/missing/wrong checkpoints, duplicate latch, before/after proof same block, forwarding before and after start, reorg then canonical latch.
-- [ ] Model START-10-5/5a..5d/6, LAND-6.1-8a, PROOF-6.2-46a, SYNC-9-5a and RECOV-8-27/28. Bound S=1/2, one pending/finalized proposal and two canonical branch candidates; fork100/cutoff88 and times87/88/99/100. Caller supplies only S; use nonzero symbolic hashes/roots as authenticated premises.
-- [ ] Start writes all coupled fields/FI0 once, preserves Unzen checkpoint; forwarder closes for every height once latched. Reorg discards whole orphan branch; signer requires own finalized start and local fork compatibility. A legal latch can fail node/guest checks; local override mismatch alone is not a guest rejection. First-landing rollback preserves original start and Unzen checkpoint.
-- [ ] Exhaust declared branches; omit all-proposals-finalized or finalized-start trust guard in private copy, detect/restoration. Independent source/behavior gate.
+- [x] RED: public callers, uninitialized/open-cutoff/not-all-proven/missing/wrong checkpoints, duplicate latch, before/after proof same block, forwarding before and after start, reorg then canonical latch.
+- [x] Model START-10-5/5a..5d/6, LAND-6.1-8a, PROOF-6.2-46a, SYNC-9-5a and RECOV-8-27/28. Bound S=1/2, one pending/finalized proposal and two canonical branch candidates; fork100/proposal-cutoff88 and latch boundary times87/88/99/100. Use a strictly earlier FI cutoff with explicit positive delay/gap assumptions under PARAM-11-12b; it is not a measured deployment budget. Add later finite landing/finalized-observation phases so a positive external first proof need not authenticate a finalized anchor from its own still-open inclusion block. Caller supplies only S; use nonzero symbolic hashes/roots as authenticated premises.
+- [x] Start writes all coupled fields/FI0 once, preserves Unzen checkpoint; forwarder closes for every height once latched. Reorg discards whole orphan branch; signer requires own finalized start and local fork compatibility. A legal latch can fail node/guest checks; local override mismatch alone is not a guest rejection. First-landing rollback preserves original start and Unzen checkpoint.
+- [x] Exhaust declared branches; omit all-proposals-finalized or finalized-start trust guard in private copy, detect/restoration. Independent source/behavior gate.
 
 ### Task 7: Z07 replacement deadlines and acknowledgment
 
@@ -101,13 +101,19 @@
 
 **Interfaces:** Independent bounded two-chain/bridge model with explicit phaseA sent-message identity, L2 implementation, acknowledgment, L1 installed schedule, canonical finalized proof and signing readiness.
 
-- [ ] RED: exact operation/schedules/chain IDs/source/target ack; NEW/RETRIABLE; wrong predecessor; old matching observation before deadline; multiple sent deadlines; unsent phase A still authorized.
-- [ ] Model SWITCH section7 Moving the fork time and START-10-5d. Use A=10,E=20,B=30,C=40 and second E=25; require A<E<B≤C, strict A/E/B execution bounds, timestamps immediately before/at each boundary. Fixed old/new fork100/200, FI margin60, proposal margin12, modeled old-schedule release budget70 (so B=min(40,100−70)=30), and new lead80>60; authentication/available proof and rollout estimates remain premises, not measured facts.
-- [ ] Preserve reachable temporary L2-new/L1-old split; phaseB accepts only exact finalized acknowledgment before B plus new lead/unwritten start/old config. Missed B remains split with signing closed. Old-date release requires same proven old-implementation/old-getter block covering every sent E and every unsent phase A cancelled/expired. Multiple old messages cannot overwrite newer implementation through predecessor bypass. Successful upgrades serialize through phaseB; multi-sent deadline cases belong to abandoned/unexecuted branches, not concurrent successful upgrades.
-- [ ] Exhaust finite NEW/retry/deadline/abandon permutations; remove exact-op or all-deadlines guard privately, detect/restoration. Independent source/behavior gate and complete current-rule README with precise limits.
+- [x] RED: exact operation/schedules/chain IDs/source/target ack; NEW/RETRIABLE; wrong predecessor; old matching observation before deadline; multiple sent deadlines; unsent phase A still authorized.
+- [x] Model SWITCH section7 Moving the fork time and START-10-5d. Use A=10,E=20,B=30,C=40 and second E=25; require A<E<B≤C, strict A/E/B execution bounds, timestamps immediately before/at each boundary. Fixed old/new fork100/200, FI margin60, proposal margin12, modeled old-schedule release budget70 (so B=min(40,100−70)=30), and new lead80>60; authentication/available proof and rollout estimates remain premises, not measured facts.
+- [x] Preserve reachable temporary L2-new/L1-old split; phaseB accepts only exact finalized acknowledgment before B plus new lead/unwritten start/old config. Missed B remains split with signing closed. Old-date release requires same proven old-implementation/old-getter block covering every sent E and every unsent phase A cancelled/expired. Multiple old messages cannot overwrite newer implementation through predecessor bypass. Successful upgrades serialize through phaseB; multi-sent deadline cases belong to abandoned/unexecuted branches, not concurrent successful upgrades.
+- [x] Exhaust finite NEW/retry/deadline/abandon permutations; remove exact-op or all-deadlines guard privately, detect/restoration. Independent source/behavior gate and complete current-rule README with precise limits.
 
 ## Accumulated final gate
 
-- [ ] Fresh whole-range adversarial review by an independent reviewer plus independent behavior/source-identity/guard-control audit; investigate all material findings and recheck fixes.
-- [ ] Run focused and ordinary suites in a reviewed disposable offline snapshot; record actual counts, no fabricated native/TLC/production claims. Re-fetch current main and compare effective merge when source bytes move; older source obligations never silently gain credit.
+Closing-review source movement: main advanced from f556 to
+`3602629758beb653423a23608fd1960810efcfac` (PR #22422). Preserve the frozen
+f556 model scope and source classifier; do not silently port models or count
+this as an eighth task. Final regression must use the actual new-main merge
+and test refusal of its unreviewed bytes separately from f556 acceptance.
+
+- [x] Fresh whole-range adversarial review by an independent reviewer plus independent behavior/source-identity/guard-control audit; investigate all material findings and recheck fixes.
+- [x] Run focused and ordinary suites in a reviewed disposable offline snapshot; record actual counts, no fabricated native/TLC/production claims. Re-fetch current main and compare effective merge when source bytes move; older source obligations never silently gain credit.
 - [ ] Update only verification WORKLIST/REPORT/README and existing PR/issue body scoped prefix after code gates. Review full diff/path hygiene, normal commit/push on existing draft, read back exact head and complete changed bodies/CI. Return to feedback-only at seven; no eighth.

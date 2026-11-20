@@ -39,10 +39,17 @@ rules. Default TLC outcomes likewise remain historical regression evidence.
 Actual current Registry, Etna app/import/guest and deployment interfaces are
 still missing. [W01 correspondence](conformance/SPEC_CORRESPONDENCE.md) records
 which claims at that revision are modeled, selected stock operations or WAITING.
-Latest source `f556fa94186b0ab604573e8d3a4c4d4fa835dc84` is separately exact-classified;
+Pinned source `f556fa94186b0ab604573e8d3a4c4d4fa835dc84` is separately exact-classified;
 its [eleven concrete obligations](conformance/SPEC_CORRESPONDENCE.md#latest-source-review-at-f556)
 remain WAITING, without runtime evidence, and source selection remains NOT_EVALUATED.
 That source-only review does not authorize earlier product claims against f556.
+
+At the Z batch closing review, actual main advanced to
+`3602629758beb653423a23608fd1960810efcfac` ([PR #22422](https://github.com/taikoxyz/taiko-mono/pull/22422)).
+Its changed checkpoint trust, encodings and L1-only fork scheduling require
+a new correspondence assessment. Z01–Z07 retain f556, and the unchanged
+classifier refuses the new document bytes. The eleven WAITING entries above
+are f556 obligations, not a reviewed inventory for this newer source.
 
 ## Current Z01–Z07 current-rule batch
 
@@ -57,11 +64,11 @@ checks do not implement the missing contracts, app, guest or deployment.
 | --- | --- | --- |
 | Z01 | Generation-bound rules/stop updates, recovery carry and same-generation rollback | COMPLETE selected model at `2d9ef5607`; independent source/behavior gates and both document-context regressions passed. |
 | Z02 | Permanent bondId forfeiture, funded top-up, self-report order and slot reuse | COMPLETE selected model at `62b1313a4`; typed slot boundary repaired, independent source/behavior and actual-main merge regressions passed. |
-| Z03 | Issued/withdrawn exclusions, FI blanking and recovery replay/atomic projection | IN PROGRESS; independent source oracle frozen, implementation underway. |
-| Z04 | Minimal positional snapshot count/root and authenticated minStake | PENDING. |
-| Z05 | Final-R snapshot versus transaction order and safe empty committee | PENDING. |
-| Z06 | Permissionless proven Unzen origin versus node and guest trust | PENDING. |
-| Z07 | Two-chain replacement deadlines and exact acknowledgment | PENDING. |
+| Z03 | Issued/withdrawn exclusions, FI blanking and recovery replay/atomic projection | COMPLETE selected model at `bd41947be`; nonce receipt and incompatible seed repaired, independent source/behavior and actual-main merge checks passed. |
+| Z04 | Minimal positional snapshot count/root and authenticated minStake | COMPLETE selected code `e0cf1d2fc`; independent source/behavior gates and actual-main merge checks passed. |
+| Z05 | Final-R snapshot versus transaction order and safe empty committee | COMPLETE selected code `998864cfc`; independent source/behavior gates and actual-main merge checks passed. |
+| Z06 | Permissionless proven Unzen origin versus node and guest trust | COMPLETE selected code `d93e37441`; independent source/behavior gates and actual-main merge checks passed. |
+| Z07 | Two-chain replacement deadlines and exact acknowledgment | COMPLETE selected code `de887e692`; independent source/behavior gates and frozen-f556 checks passed. |
 
 [Z01 evidence](REPORT.md#z01-current-generation-bound-schedules) records the
 finite action bank, actual guard control/restoration and three repaired
@@ -73,8 +80,21 @@ model execution remains separate from source classification and from runtime.
 [Z02 evidence](REPORT.md#z02-permanent-bond-forfeiture-and-reuse) separates its
 conditional14-unit graphs from a legal-denomination14Q directed edge; it grants
 no deployed-state quotient, actual ABI, cryptography or EVM rollback credit.
-Z03–Z07 and the accumulated whole-seven/publication gate remain unfinished.
+All seven selected items and fresh whole-range checks are locally complete.
+The final independent document gate is complete; draft publication readback
+remains pending.
+The [group gate](REPORT.md#z01z07-final-gate-and-source-version-boundary)
+records756 ordinary checks in each supported context and110 standalone checks;
+actual360 retains45 baseline source-compatibility failures, with none added by
+the final batch. It is not a green current-main merge.
 No eighth starts automatically. Hourly feedback-first checks continue.
+
+The per-item actual-main checks for Z01–Z06 used f556 while it was main.
+The final actual360 merge has a separate source-compatibility limit; it does
+not inherit their green status. Next correspondence work is OPEN and unstarted:
+review all changed360 clauses, including checkpoint trust, encodings and the
+L1-only switch schedule, before selecting revised models or runtime obligations.
+The f556 L2-getter/replacement results must not be relabeled as current360 coverage.
 
 ## Completed Y01–Y07 boundary-composition batch
 

@@ -7072,8 +7072,12 @@ Selected implementation `62b1313a49c8ccf83843dec31881963df9aaf7b1` completes the
 second of seven current-rule items against exact f556. It adds an immutable
 projection of registry funds, permanently issued bond/key identity, optional
 slot occupancy and lifetime forfeiture flags, plus admitted Inbox operations.
-Source admission, cryptographic evidence, token-transfer success and atomic
-transactions are premises. This is not a current Registry implementation.
+Caller admission, cryptographic evidence, token-transfer success and atomic
+transactions are premises. DAO attribution and finalized issuance/key
+verification are not implemented. In particular, the bank's forfeiture of a
+new replacement records contract execution semantics; it does not establish
+that a DAO could complete its finalized-state authorization preflight within
+that short horizon. This is not a current Registry implementation.
 
 Three initial fixtures partition14 tracked units as(eff,pending,reserve)
 (9,4,1),(4,9,1),(4,0,10). At3333bps the13-unit balance pays5, debiting effective
@@ -7154,3 +7158,347 @@ worktree and branch were not merged. Complete diff, whitespace and path checks
 ran; the repository-wide formatter hook did not. No new native/contract/proof
 claim follows, and all current runtime obligations remain WAITING. Z03–Z07 and
 the whole-seven final gate are still unfinished.
+
+
+## Z03 recovery lists and replay
+
+Code `bd41947be` checks selected f556 recovery effects on permanent issued
+IDs, live slot holders, absolute FI indices, generation, nonce and fixed
+origins. Excluding a withdrawn ID cannot affect its replacement. Invalid
+later list items refuse before any modeled effect. Blanking an FI hash
+preserves its original time, enqueue block, historical charge, cursor and
+Inbox balance. A committed forfeiture survives a later independent refused
+recovery. Rollback restores the selected checkpoint and increments nonce
+while retaining generation, origins and lifetime forfeiture flags.
+
+Independent review found two verification defects: successful nonce
+invalidation omitted `RecoveryNonceInvalidated(oldNonce,newNonce)`, and
+the original seed's active rule and committee history contradicted the
+specification. Both were repaired and rechecked by the original source
+reviewer and independent tester. The revised pending schedule is
+`(0,1,2600,2700)`, c=30 with epoch length5 permits the earlier confirmation
+snapshot70, the current snapshot80 and the selected next rotation at31.
+Request/withdrawal markers distinguish changes of the original live entry
+from its replacement. Historical authentication and full reachability of
+the prior chain remain assumptions, not proved facts.
+
+The finite bank covers execution blocks100/101, timestamps1000/1012,
+generation0/1, frontier30/31, nonce0..3, three issued IDs, two slots and
+FI indices7/8. It exhausted254 states,553 accepted edges and749 refused
+edges. Calls outside this bank can be legal: direct vectors reach
+generation2, nonce4 and the final valid uint256 increment. None of these
+finite bounds is a protocol refusal. Independent verification checked
+24 full-state/event accepts and25 refusals, including literal nonce
+receipts0→1,3→4 and max−1→max, and independently exhausted the graph.
+The author suite passed17 tests; the allowlisted Z01–Z03 suite passed42.
+
+The actual issued-ID guard was omitted only in a disposable model copy.
+The mutant accepted an unissued tail ID, changed the earlier live exit,
+blanked FI7 and emitted recovery observations; two intended assertions
+failed with zero errors. Byte restoration passed17 tests and recovered
+the identical graph/source receipt. The unchanged explorer still refuses
+optimized Python before traversal.
+
+Root validation used an isolated-index three-way merge of the candidate
+with actual main `f556fa94`, tree
+`963b09c0506cbbf5cf8b981f4467888423669213`, in a read-only offline
+namespace. Ordinary cohorts passed502/166/20, total688, without failures,
+errors or skips. An initial staging attempt correctly refused the stale
+local main branch; the successful run used the verified remote main ref.
+No historical source, model, configuration, receipt producer or pin changed.
+
+Model SHA-256: `c41ec0619e038e115561a83f3adf144fb933d3435bbe37ce75f882f15536d4c6`.
+Test SHA-256: `981f97fc7fb5ead41b45d1f7e74851ddde0e1a434058a9114b9cb6b8e0a3721f`.
+
+Atomicity is an immutable transaction premise, not an EVM rollback test.
+Land carries an externally admitted checkpoint; its empty projected event
+tuple excludes the real Landed receipt, whose proof origin and cut hash
+are absent. Scalar stake units, historical finality, committee proofs,
+actual authorization, contract/guest execution and all11 runtime
+obligations remain unverified or WAITING. No natural protocol defect is
+asserted.
+
+## Z04 canonical positional snapshots and minimum stake
+
+Code `e0cf1d2fc` adds canonical row admission and configuration-bound
+selection at exact f556. Count includes every position through the highest
+occupied slot, including a zero-stake holder; a positive supplied list must
+end in an occupied entry. Indexed empty interior leaves are hashed, while
+power-of-two tree padding is raw zero. Old immutable witnesses retain their
+own count/root after later supplied withdrawal and reuse observations.
+
+The checkpoint validator and selector are explicit separate component gates.
+The caller authenticates count/root, snapshot block and expected config hash.
+The selector authenticates all seven static ABI words before using minStake
+in word five, and checks the numerical deployment bounds. No separate
+selection minimum exists. These checks do not authenticate their own L1
+provenance or verify a registry account/storage proof.
+
+All eight three-slot occupancy patterns passed. The author suite passed18
+standalone tests and60 accumulated Z01–Z04 tests. Independent verification
+used a separate Keccak/ABI implementation and passed45 literal positive
+comparisons and42 expected refusals, including its independent4096-position
+root, full224-byte config, one-word config changes, threshold/floor/ranking
+and numerical power backstops. A matching root did not admit a trailing or
+all-empty positive list. Small occupancy key fields are structural fixtures;
+Q-denominated public-key vectors use numerically legal parameters. Huge
+power-bound cases intentionally exceed funded supply and test arithmetic
+backstops only.
+
+An actual trailing-occupied guard omission in a disposable model admitted
+three malformed matching-root witnesses. Four intended assertions failed
+with zero errors; byte restoration recovered18 passing tests and identical
+probe output. Independent source review found no material code issue and
+corrected a report-only overstatement: count1/count3 commitments are
+revalidated after reuse; the empty projection occurs in that history, while
+zero-root validation is a separate test/probe.
+
+Root ordinary cohorts passed 520/166/20, total 706, in the
+offline read-only actual-main-f556 merge tree `6647e561e5ae0cfaebf003ddb46b387d76ee85f9`, without
+failures, errors or skips. Historical hashing sources and all existing
+source/claim inventories remain unchanged. Full Registry operation,
+registration/key validation, funded deployment, proof authentication,
+actual app/guest behavior and all eleven runtime obligations remain WAITING
+or outside this selected evidence.
+
+Model SHA-256: `4bd15485e404614693cb896d62807100765361413e801ee99d4cf6c201674614`.
+Test SHA-256: `d63406b5f22ebdf74ad4f53c634560c86b951b0d5da02f16e0bbe76cf4968236`.
+
+## Z05 final-R selection and external landing
+
+Code `998864cfc` separates transaction-local entries, each block's final
+checkpoint, the recovery origin R, a finalized observer view, a derived set
+and the last-landed committee snapshot. Recover and local derivation preserve
+slot284. A valid externally signed/proven landing can advance it even when
+this observer has no authenticated view or its signer remains closed.
+These are projected observations; the model implements no real proof or ABI.
+
+The conditional fixtures use R7/R+1=8, minimum4, unit2, increment1, two slots,
+three offered permanent IDs and short positive delays. A later phase110
+supplies positive authentication and landing in the bank. It avoids claiming
+that Ethereum finality/proving completes in R's successor. Direct successful
+observations likewise occur at110, or111 for an origin at8. Actual finality,
+initial authenticated history, keys, authorization, transfer and proof
+availability remain assumptions. This is no deployed-state quotient.
+
+Independent scrutiny corrected several checking defects. Public Land had
+incorrectly depended on local signer readiness. Advance had invented a
+uint48 timestamp restriction; storage-width tests now distinguish uint48
+block numbers from the uint256 timestamp word, without asserting Ethereum
+header or Comet genesis attainability. Source review then removed an
+inconsistent positive bank path: a bond first registered in R cannot already
+have finalized issuance/key verification before DAO authorization in R.
+The generic contract transition still accepts an issued ID; its execution-only
+test is separate from compliant governance histories. Direct authentication
+histories were moved past R/R+1, and independent maximum-block expected
+frames were fixed to preserve the all-ones unset-exit sentinel.
+
+The revised banks exhaust withdrawal1292 states/3932 accepted/10496 refused
+and standby836/2757/6877, with35 shortest witnesses in total. They retain
+activation/recovery commutation on different targets, exclusion preventing
+matured activation, withdrawal/reuse preserving permanent identity, an
+occupied final R with no eligible committee after accepted recovery, and
+R+1 mutation leaving R unchanged. The author suite passed16 tests. An
+independent tester reran complete states, refusals, projected events and
+both banks, audited the maximum-block contrast, and traced successful
+authentication in all16 authored tests to the intended later phases.
+
+A disposable omission of the close guard admitted open-R authentication and
+selected B at power2 from a stale checkpoint before its legal final-R power3.
+The targeted assertion failed as intended; the complete graph also refused
+to complete with that wrongly accepted edge. Byte restoration recovered16
+passing tests and identical complete graph/witness output. The original
+source reviewer rechecked the focused repair before acceptance.
+
+Root ordinary cohorts passed 536/166/20, total 722,
+without failures/errors/skips in actual-main-f556 merge tree
+`dac8e8d2ae4a78d3f15a1d10e344601f532ed5c4`. Superseded dc4 and a127 runs remain historical;
+their larger graphs do not describe the revised bank. Model hash
+`e33d1a99bdbac9460c4723ced768bcb7217c95da54428abffd6111e80b0bc76b`, test hash
+`721e37ec34e615259848ccef38f96da10d18761c897ab182c2f8bf7532a48f9b`.
+Atomicity, live contract/app/guest behavior, physical clocks and all eleven
+current runtime obligations remain outside the result or WAITING.
+
+## Z06 permissionless start and separate trust predicates
+
+Code `d93e37441` models the switching Inbox's one-time public setOrigin(S),
+Unzen core/checkpoint coupling, forwarding closure and selected node/guest
+predicates at exact f556. It checks the nonzero closed live cutoff separately
+from fork arrival, all proposals proven, the finalized hash at exactly S,
+a nonzero root and the uint48 write domain. Start writes the coupled origin,
+checkpoint and slot285 frame once, preserves the epoch and initial snapshot,
+and opens Etna FI at0 independently of the old Unzen head. Caller-only
+forwarding preserves input checkpoints before start and closes at every
+height afterward. Direct forwarding vectors are contract-entry checks,
+not reconstructed Unzen proof histories.
+
+A node uses its own authenticated finalized target and checks the built-in
+implementation's getter at that implementation's address, including local
+fork overrides. A guest at S checks S's time and implementation under its
+header root; it has no local getter/override gate. Symbolic hash/root equality
+represents real header binding, without adding an actual guest read of274.
+A later pruned node can trust a proven target without S's original material.
+External landing remains independent of this observer's readiness.
+Rollback keeps the original start and Unzen checkpoints while voiding
+selected Etna records; a retained higher generation origin can require
+another recovery before landing resumes.
+
+The bank uses S1/2, two branches and one additional proposal. Proposal cutoff88
+and FI cutoff74 have an explicit conditional margin profile;73/74 and live
+cutoff0/101 tests isolate boundary conditions. Start guard clocks87/88/99/100
+and later phases40/460 and80/940 express ordering, without establishing
+Ethereum header schedules, real finality/proving latency or governance
+reaction time. Bank header times75/87 are separate from scalar99/100 tests.
+A direct later generation-2 origin at160 is followed by a distinct landing
+at240 using selection snapshot160.
+
+Before acceptance, author, root and independent scrutiny corrected missing
+L1_0 range enforcement, tied FI/proposal cutoffs, contradictory symbolic
+header roots, first-proof inclusion in the start's own block, authorizing recovery against
+a newly landed unfinalized c, and a first
+committee snapshot that implied an impossible early rotation. Gen0's first
+S+1 landing now uses committee0's snapshot6. A further check removed a
+positive consumption of FI enqueued only in the landing's own L1 block.
+The bank now enqueues at the earlier start anchor; before-due inclusion
+remains allowed. A later raw enqueue is still accepted as a separate call.
+
+The final bank exhausts146 states,1340 accepted edges,1616 refusals and26
+shortest witnesses. The latest standalone suite passes15 tests, including a paired external-Land
+case before and after observing S while a bad local override rejects trust.
+The original source reviewer rechecked that test-only addition. Independent verification
+checks34 complete poststates,40 refusals and22 predicates, plus all final
+bank edges and its six consuming paths from an earlier enqueue. All prior
+bafb/80cd/f991 results are superseded for current completion. An actual
+all-proposals-finalized guard omission incorrectly latched the old activation
+checkpoint with a proposal still pending; the focused assertion and complete
+graph rejected it. Byte restoration recovered the14-test suite and identical
+full graph/witness output.
+
+Root ordinary cohorts passed 551/166/20, total 737, with
+zero failures/errors/skips in actual-main-f556 merge tree `eb7c92601f6f2ae76f4e137b0da5b39b76b80725`.
+Model hash `62f5ecbea4e5c8df0a855eff5d4bec183907543409853b68e67a13fc23e1fe15`,
+test hash `a8eea6c57d5ce10e59d3f19d6be24b7a8e58147aaecbbb3cdbd84cfe9cf54c02`.
+Prior authenticated history, ordinary Unzen payloads, whole-landing audits,
+DAO authorization, actual proofs, token/queue execution, physical finality
+and production node/guest behavior remain premises or outside the projection.
+No quotient, native conformance or progress claim follows; all eleven current
+runtime obligations stay WAITING.
+
+## Z07 two-chain replacement and persistent acknowledgment
+
+Code `de887e692` adds selected exact-f556 replacement histories with independent
+L1 and L2 clocks, bridge NEW/RETRIABLE states, phase-A receipts, exact
+controller signals, canonical proven endpoints, installed L1 schedules and
+separate release readiness. It preserves the temporary L2-new/L1-old state
+and the permanent non-signing split after B is missed. Old-release readiness
+requires a matching proven installation covering every sent E and finalized
+cancellation or expiry evidence for every unsent phase A.
+
+Independent review exposed two shared model/test assumptions: acknowledgment
+events were treated as the whole persistent SignalService state, and two
+unsupported comparisons tied L1 times to L2 execution/header times. The fix
+separates logs from stored signals and retains every visited canonical block,
+so a signal written at19 can be authenticated at descendant20 even when the
+tip is24. Unknown or regressing proof endpoints still refuse. A subsequent
+source recheck removed an invented raw Phase B getter check: L1 authenticates
+the exact persistent signal; the operator separately checks the proved L2
+installation before release. A paired direct test admits an explicitly
+noncompliant later installation, accepts raw Phase B and keeps readiness
+closed. The ordinary serialized graph cannot create that diagnostic state.
+Both original findings and the follow-up were rechecked by the same finder.
+
+The conditional fixture uses A10/E20/B30/C40, a second sent E25, old/new
+fork100/200, and separately admitted proof/finality observations. These are
+logical order and arithmetic cases, not a measured rehearsal or deployment
+budget. All three finite banks exhaust 51,246 states,157,834 accepted edges
+and71,770 refusals, retaining25 required shortest witnesses. The insufficient
+25,000-state cap returns INCONCLUSIVE; the complete banks use100,000.
+The final standalone author suite passes19 tests. Independent behavior
+verification checks full states, projected events, refusals, readiness and
+all offered graph edges; its exact final scope is recorded in the group gate.
+
+Actual exact-operation and all-deadline guards were removed in separate
+disposable copies. They respectively accepted a second operation's signal
+for the first operation and opened old readiness while E2 was still live.
+The focused tests failed with the intended assertions and zero errors; each
+complete graph returned INCONCLUSIVE. Both byte restorations passed19 tests
+and reproduced the baseline graph/witness output SHA-256
+`88b301bf2ae2e9246502134426b8d89c025dfbbba953ad9cae892b375bb90525`.
+
+Root ordinary cohorts passed 570/166/20, total 756, with
+zero failures/errors/skips against the explicitly frozen f556 merge tree
+`7c561840ff14c03ba165cab2c173511258210757`. This is separate from the newer actual-main360 check
+reported below. No runtime source classification or old evidence was updated.
+Model hash `d5812e015b7b6d04c6f5f05f29f49c948e27016732eda7ef65441ef2499af151`,
+test hash `85622132f94c330a400aa42e9a87613fbbe0d2fa9116e5dafeaa15d395485e41`.
+Bridge/EVM behavior, genuine cryptography, proof availability, real finality,
+rollout headroom, deployment and signer integration remain premises or
+outside scope. All eleven f556 runtime obligations remain WAITING.
+
+## Z01–Z07 final gate and source-version boundary
+
+All seven selected f556 items and their independent per-item gates are complete.
+The final integration repair is `955109a9a`; Z07 code is `de887e692`. The
+whole-range source reviewer accepted the code and the source-drift test repair.
+Final complete-document review and publication are recorded separately.
+
+The final gate uses a fresh reviewer and a fresh verifier, separate from the
+implementation and per-item behavioral work. The verifier independently checked
+46 literal accepts/refusals and source/optimization/cap contrasts, then executed
+seven fresh private guard faults and byte restorations. It compared full states
+and projected events, including safe empty committees, observer-independent
+landing, non-tip stored acknowledgments and raw Phase B versus release readiness.
+Seven separate standalone discovery processes from `formal/etna` also passed
+13/12/17/18/16/15/19 tests, total110, with no prior-suite import setup.
+All17 model/utility/test Python identities matched the final staged candidates.
+Only REPORT/WORKLIST changed among975 original tracked identities; the remaining
+973, including the recorded symlink, are preserved.
+
+Broad validation is version-specific:
+
+| Document context | Actual ordinary result | Meaning |
+| --- | --- | --- |
+| Frozen f556 effective tree `29d79823ea39824625be206578c03d231a9b43c3` | 570/166/20, total756; zero failures, errors or skips | Selected f556 evidence plus historical regression coverage |
+| Branch historical d183 tree `e5528f4d8065145b94589b8616c59288c4381454` | 570/166/20, total756; zero failures, errors or skips | Historical input remains distinct from f556 |
+| Actual-main360 effective tree `e99a9fdd1870a7923db826145e209ee590718a63` | Main570:2 failures/42 errors; conformance166:1 error; sensitivity20 passes; zero skips | Unreviewed-source compatibility failures remain; this merge is not green |
+| No-Z baseline11d0 merged with the same360, tree `892710088141682f9bd355fa4e95fa2b7a026e35` | Main460:2 failures/42 errors; conformance166:1 error; sensitivity20 passes | Same45 failed observations before the batch |
+
+The actual360 comparison matched every failed test name, status and traceback
+after normalizing only random temporary-directory names. The initial Z candidate
+had one additional error: Z01's source test called the classifier before testing
+unknown-source refusal. The original author corrected that test, the same finder
+rechecked it, and the final comparison has zero additional failures. The test
+now chooses its expected branch independently from all three pinned SHA-256s.
+It requires full f556 receipt equality, known-historical refusal, exact unknown
+refusal for actual360 and each one-file mutation, and distinct malformed-stream
+rejection. Its final hash is
+`6bec2454ab73bafea59d72fe3d97db42cae4937f0b63cf06776d769e42c74a60`.
+The source classifier and every old inventory/claim/pin remain unchanged.
+
+Main advanced during closeout in PR #22422 to
+`3602629758beb653423a23608fd1960810efcfac`. Its source bytes are different in
+all three normative documents. Checkpoint trust, encodings and the switch process
+changed; in particular the L2 fork-time getter and replacement flow modeled at
+f556 are no longer the current switch design. This batch grants no correspondence
+to360. Its three raw SHA-256s are SPEC
+`383760a1e7df211a9c74835a4e2446db57a05bd21eb52f030980afd205748d3c`, ACCEPTANCE
+`7283c47bec643d3054a41ec3266ead387431b82ae3caa4102c4866dfc8b39a7b`, SWITCH
+`a1652de6d0f57eae119bb26f6a5c63bab83f8dead41e6ad81021709a133d30d4`.
+New-source correspondence is OPEN and unstarted. The eleven WAITING runtime
+obligations are the frozen f556 inventory, not a completed360 assessment.
+
+This group did uncover checking defects. Green model tests had shared assumptions
+about event versus storage lifetime, cross-chain clocks, local readiness versus
+public transitions and authenticated-history timing. Independent source review
+and valid positive histories exposed those errors; refusal-heavy tests alone
+had missed them. The original authors repaired them and the original finders
+rechecked the fixes. The Z02 contract-execution bank remains explicitly separate
+from compliant finalized DAO preauthorization history. No natural protocol defect
+is confirmed, and selected finite completeness is not protocol completeness.
+
+The existing draft remains unsuitable for merge on current360 until its source
+correspondence is reviewed. Native clients, EVM, genuine proving, physical finality,
+resource budgets and deployment readiness are still outside this group's evidence.
+No production/SPEC/Notion or old-source evidence was changed. Exactly seven selected
+tasks were completed; no eighth starts automatically. Authorized hourly feedback
+checks continue after publication.
