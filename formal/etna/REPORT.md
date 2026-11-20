@@ -6960,3 +6960,26 @@ The six closeout documents passed independent source review after two wording
 corrections. The focused source-correspondence and archived-disposition suite
 passed46 checks with zero failures/errors/skips and stable inputs/tools/modes.
 Remote publication is still recorded separately from these local checks.
+
+### Y batch publication receipt
+
+All seven selected Y increments and their independent final gates are complete.
+Code `9d79f35fc975bda9c03c7202c5e670e88e5b760f` and closing documents were
+normally pushed in head `6642a5626acb7964b942be32d09f89d99c799e3f`. The remote branch,
+OPEN/DRAFT PR head and both complete PR/issue bodies were read back on
+2026-11-20. No force push, merge, ready transition or extra batch followed.
+
+| First completed publication readback | SHA-256 |
+| --- | --- |
+| PR22387 complete body | `eaedd6cc4230f9b4328ba1aa317c311a380f66eb4fb716d09c1a2a776c11d641` |
+| Issue22355 complete body | `23c2aba7314ce4e4483b262a33d9c8c17a8d39ed8ff88d8ff29e9d8252e2ff55` |
+| PR preserved historical suffix | `1c09126f2add6373b6ec96e528816c1734a8e3db60e5bd2a1659ad9351cbf37a` |
+| Issue preserved historical suffix | `735d77605a1cfe3f925362d22f405c58940cdbe50ef8b3b0020d8be1cf97e836` |
+
+This receipt records that completed publication, before its own later commit.
+The exact next head/body/CI readbacks are retained by the feedback monitor.
+At this first publication readback, Etna CI44670991008 was IN_PROGRESS; local
+checks do not assert a new-head CI result. Fixed2e products, latest f556's eleven
+WAITING obligations, Y06 full-producer INCONCLUSIVE, broad runtime work and all
+nineteen archived INCONCLUSIVE searches keep their stated limits. The batch
+returns to feedback-only; another group requires direct user authorization.

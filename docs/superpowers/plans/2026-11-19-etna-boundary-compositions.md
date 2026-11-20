@@ -129,7 +129,7 @@ PASS is claimed. See [Y06 report](../../../formal/etna/REPORT.md#y06-terminal-se
 
 - [x] Fresh most-capable whole-range source review and separate raw/behavior audit cover all seven, shared files and coordinator rulings. Repair one consolidated final wave if needed.
 - [x] Relevant ordinary suites and actual current-main merge pass with exact counts/inputs; original historical sources/configs/pins and native restoration are checked. Re-fetch current PR feedback first.
-- [ ] Root prepares normal publication; no force push, merge or mark-ready. Record exact pushed head/full PR+issue body readbacks and CI outcome externally after actual execution. Then return to feedback-only; no eighth automatically.
+- [x] Root prepares normal publication; no force push, merge or mark-ready. Record exact pushed head/full PR+issue body readbacks and CI outcome externally after actual execution. Then return to feedback-only; no eighth automatically.
 
 ### Y02 source preflight correction
 
@@ -216,6 +216,11 @@ The native triplet0/1/0 and late quartet0/1/0/0 restored the same physical sourc
 and fixture inodes/modes after quiescence, unlocking/closing each lease. The
 late quartet stays diagnostic-only, including its intentional old-order false
 positive. Metadata4/46 actually returned0 with all original artifacts unchanged.
-The remaining publication checkbox stays pending until the remote head and
-PR/issue body readbacks finish. No new-head CI/push completion is claimed by the
-earlier code-tree checks. See the [Y07 report](../../../formal/etna/REPORT.md#y07-native-evidence-lifecycle-and-import-markers).
+The normal publication and complete PR/issue body readbacks are verified at
+`6642a5626acb7964b942be32d09f89d99c799e3f`. Current-head CI observations remain
+external to the earlier local code-tree checks. See the [Y07 report](../../../formal/etna/REPORT.md#y07-native-evidence-lifecycle-and-import-markers).
+
+Publication receipt: code `9d79f35fc975bda9c03c7202c5e670e88e5b760f`,
+normal published head `6642a5626acb7964b942be32d09f89d99c799e3f`,
+OPEN/DRAFT and both complete bodies read back on 2026-11-20. All seven selected
+increments and final gates are complete. Return to feedback-only; no eighth.

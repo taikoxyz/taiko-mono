@@ -71,7 +71,7 @@ only historical observations from TLC fingerprints. The quotient exhausted
 77,334 distinct states; source lifting, two actual faults/restorations and
 independent genuine-run attribution checks passed. The original unviewed timeout
 remains inconclusive. See [Y01 results](REPORT.md#y01-same-domain-timestamp-safety-projection)
-and the [remaining boundary increments](WORKLIST.md#current-y01y07-boundary-composition-batch).
+and the [completed boundary increments](WORKLIST.md#completed-y01y07-boundary-composition-batch).
 
 The [repeated-recovery product](conformance/REPEATED_RECOVERY.md) preserves
 old origins and external authorizations through two recoveries at c6, then
@@ -132,8 +132,9 @@ separate. [Y07 evidence](REPORT.md#y07-native-evidence-lifecycle-and-import-mark
 retains the checker shadow and attribution repairs. All7 independent native
 controls and4-positive/46-negative unchanged-output metadata API controls passed,
 including same-inode source/fixture restoration. Task7 technical gates are
-complete at this selected scope; final documentation/publication and new-head
-CI remain separate. Y06 full-producer integration stays INCONCLUSIVE.
+complete at this selected scope, including final documentation and normal
+publication/head/body readbacks. Current-head CI is recorded externally. Y06
+full-producer integration stays INCONCLUSIVE.
 
 ## Run
 

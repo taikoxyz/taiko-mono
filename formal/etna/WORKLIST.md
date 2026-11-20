@@ -44,10 +44,10 @@ its [eleven concrete obligations](conformance/SPEC_CORRESPONDENCE.md#latest-sour
 remain WAITING, without runtime evidence, and source selection remains NOT_EVALUATED.
 That source-only review does not authorize earlier product claims against f556.
 
-## Current Y01–Y07 boundary-composition batch
+## Completed Y01–Y07 boundary-composition batch
 
-Exactly seven new increments are authorized after completed W01–W07. This group
-includes its accumulated final review; no eighth starts automatically. The
+All seven selected increments and their accumulated final review are complete
+after completed W01–W07. No eighth starts automatically. The
 fixed product-review bundle `2e6763e2` is separate from historical native implementations
 and latest f556 source-only obligations.
 The [design](../../docs/superpowers/specs/2026-11-19-etna-boundary-compositions-design.md)
@@ -62,7 +62,7 @@ retain the frozen bounds, independent gates and explicit runtime premises.
 | Y04 | Actual funded pending forfeiture component | COMPLETE selected code `ee18ad8e1`; closed15, actual pending-debit/deadline faults/restoration and independent full raw audits passed. |
 | Y05 | Positional registry snapshots and final-R selection | COMPLETE selected code `6164ec9dc`, closure repair `491aa3e94`; corrected safety613 generated/281 distinct/queue0, both R7 orders and omitted-open-guard control/restoration passed; old289-state result retained as historical. |
 | Y06 | Actual terminal seen-commit reconstruction | COMPLETE selected component `41e3cfe5d`, shared ownership repair `491aa3e94`; actual canonical-path dummy cancellation/lease/capture gates passed; full real-Go producer integration INCONCLUSIVE. |
-| Y07 | Native evidence lifecycle and import markers | TECHNICAL GATES COMPLETE: compile,26 consumer checks, genuine host smoke/full0/1/0,13 independent v6 receipts,7 native controls and4-positive/46-negative unchanged-output metadata controls passed. Final documentation/publication remains pending; exact code identity is recorded in the Y07 report. |
+| Y07 | Native evidence lifecycle and import markers | COMPLETE selected code `9d79f35fc`: compile,26 consumer checks, genuine host smoke/full0/1/0,13 independent v6 receipts,7 native controls and4-positive/46-negative unchanged-output metadata controls passed. Independent final documentation and normal-publication head/body readbacks passed; see the Y07 publication receipt. |
 
 [Y01 evidence](REPORT.md#y01-same-domain-timestamp-safety-projection) records two
 repaired verification defects, actual source controls/restorations, genuine-run
@@ -129,8 +129,9 @@ The original pending-Y07 prefix checkpoint is historical. Y07 now has the actual
 core gates listed above; [its closeout](REPORT.md#y07-native-evidence-lifecycle-and-import-markers)
 records all7 native controls and4-positive/46-negative metadata controls as passed,
 with complete same-inode/mode restoration and unchanged genuine artifacts.
-Whole-seven independent source/behavior and final documentation checks passed;
-normal publication and remote head/body readbacks remain pending.
+Whole-seven independent source/behavior and final documentation checks passed.
+Normal publication at `6642a5626acb7964b942be32d09f89d99c799e3f` and complete
+PR/issue body readbacks are verified; this group is complete and feedback-only.
 Current code candidate/main-f556 merge each pass646 ordinary checks (460/166/20),
 with1,959 frozen identities stable and631 pre-Y model/config identities preserved.
 See [prefix repairs](REPORT.md#y-prefix-final-review-repairs). No automatic eighth,
