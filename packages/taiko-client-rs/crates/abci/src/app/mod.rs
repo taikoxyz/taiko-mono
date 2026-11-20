@@ -254,6 +254,21 @@ pub enum AbciError {
     /// The EL has no canonical block at a height it must serve.
     #[error("execution engine has no canonical block at height {0}")]
     ElBlockMissing(u64),
+    /// The EL lacks the committed head and the app cannot re-execute the missing committed
+    /// blocks from its retained inputs: the input at `missing` is unavailable (CONS-3.1-9).
+    #[error(
+        "execution engine lacks committed block {head}; the input to re-execute height {missing} \
+         is unavailable: {detail}"
+    )]
+    ExecutionInputMissing {
+        /// The committed head the EL must serve.
+        head: u64,
+        /// The lowest height whose retained execution body, or whose EL block and state at the
+        /// generation origin or import floor, is unavailable.
+        missing: u64,
+        /// What the node is waiting for.
+        detail: String,
+    },
     /// An external call exceeded its deadline.
     #[error("{what} timed out after {after:?}")]
     Timeout {
@@ -355,12 +370,13 @@ pub struct App<L: L1Source, E: Engine> {
     superseded: bool,
     /// The [`App::connections`] count at which the app last made sure the EL serves the
     /// committed head and any execution floor ([`App::reconcile_el_once`]); `None` before the
-    /// first time. Set by a successful reconcile (the handshake `Info`, or for an imported store
-    /// whichever of `Info` and `FinalizeBlock` comes first) or a successful `InitChain`, it holds
-    /// the count read when that request started. While it equals the current count
-    /// ([`App::el_reconciled`]), ordinary Info calls answer without EL I/O; trust of an imported
-    /// store waits for it. Independent signer sessions separately recheck the durable head and
-    /// ancestry through the checkpoint trust worker.
+    /// first time. Set by a successful reconcile (the startup alignment before the server opens
+    /// its ABCI socket, [`App::align_startup`]; then the handshake `Info` of each later
+    /// connection set, or for an imported store whichever of `Info` and `FinalizeBlock` comes
+    /// first) or a successful `InitChain`, it holds the count read when that reconcile started.
+    /// While it equals the current count ([`App::el_reconciled`]), ordinary Info calls answer
+    /// without EL I/O; trust of an imported store waits for it. Independent signer sessions
+    /// separately recheck the durable head and ancestry through the checkpoint trust worker.
     el_reconciled_epoch: Option<u64>,
     /// The ABCI connections the server accepted, which it bumps for every new connection
     /// ([`ConnectionEpoch`]).
@@ -421,12 +437,12 @@ pub(super) enum ErrorClass {
 
 /// The SYNC-9-7 class of `error`. Only acquisition failures are [`ErrorClass::MissingData`]:
 /// a recovery input reported unavailable (an EL without the settled block at c included), an
-/// elapsed deadline, a missing EL block, a genesis header not yet final, an EL sync timeout, a
-/// retryable engine error ([`EngineError::is_retryable`]) and an L1 error that is no integrity
-/// failure ([`L1Error::is_integrity_failure`]). [`ErrorClass::Contradiction`] is a raised
-/// safety halt, an L1 integrity failure, a corrupt state file, a durable Comet hash, validator
-/// state or validator updates record that disagrees with the recomputed one (SYNC-9-5c), a
-/// conflicting recovery bootstrap, recovery evidence that is invalid, superseded or opens another
+/// elapsed deadline, a missing EL block or re-execution input, a genesis header not yet final, an
+/// EL sync timeout, a retryable engine error ([`EngineError::is_retryable`]) and an L1 error that
+/// is no integrity failure ([`L1Error::is_integrity_failure`]). [`ErrorClass::Contradiction`] is a
+/// raised safety halt, an L1 integrity failure, a corrupt state file, a durable Comet hash,
+/// validator state or validator updates record that disagrees with the recomputed one (SYNC-9-5c),
+/// a conflicting recovery bootstrap, recovery evidence that is invalid, superseded or opens another
 /// configuration, and an engine reply that is malformed, names another block or is
 /// `-38100`/`-38002`. Startup and trust read only the own EL, so a block it serves for a hash
 /// that it does not hash to ([`EngineError::BlockHashMismatch`]) is an own-EL contradiction here,
@@ -440,6 +456,7 @@ pub(super) fn classify(error: &AbciError) -> ErrorClass {
         ) |
         AbciError::Timeout { .. } |
         AbciError::ElBlockMissing(_) |
+        AbciError::ExecutionInputMissing { .. } |
         AbciError::GenesisNotFinal { .. } |
         AbciError::ElSync(ElSyncError::Timeout { .. }) => ErrorClass::MissingData,
         AbciError::Recovery(
@@ -654,23 +671,32 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// be persisted; that failure is logged at ERROR instead.
     pub async fn handle(&mut self, req: Request) -> Result<Response, AbciError> {
         let result = self.dispatch(req).await;
-        if let Err(error) = &result {
-            if matches!(error, AbciError::SafetyHalt(_) | AbciError::Store(_)) {
-                self.trust.revoke(error.to_string());
-                if let Err(persist) = self.store.record_fatal(&error.to_string()) {
-                    tracing::error!(
-                        %error,
-                        persist_error = %persist,
-                        "could not persist the fatal evidence; the halt stands"
-                    );
-                }
-            } else {
-                // Network/initialization failures close authorization but must allow a later
-                // successful handshake to recover without requiring a signed block.
-                self.trust.begin_session();
-            }
+        if let Err(error) = &result &&
+            !self.record_fatal_failure(error)
+        {
+            // Network/initialization failures close authorization but must allow a later
+            // successful handshake to recover without requiring a signed block.
+            self.trust.begin_session();
         }
         result
+    }
+
+    /// Revokes trust and records fatal evidence when `error` is a safety halt or store failure,
+    /// and says whether it was. The error stops the node even when its evidence cannot be
+    /// persisted; that failure is logged at ERROR instead.
+    fn record_fatal_failure(&self, error: &AbciError) -> bool {
+        if !matches!(error, AbciError::SafetyHalt(_) | AbciError::Store(_)) {
+            return false;
+        }
+        self.trust.revoke(error.to_string());
+        if let Err(persist) = self.store.record_fatal(&error.to_string()) {
+            tracing::error!(
+                %error,
+                persist_error = %persist,
+                "could not persist the fatal evidence; the halt stands"
+            );
+        }
+        true
     }
 
     /// Dispatches sequential consensus requests; the outer handler revokes trust on failure.
@@ -1097,6 +1123,10 @@ mod classify_tests {
             ),
             (AbciError::Timeout { what: "w", after: Duration::from_secs(1) }, MissingData),
             (AbciError::ElBlockMissing(7), MissingData),
+            (
+                AbciError::ExecutionInputMissing { head: 7, missing: 6, detail: "sync".into() },
+                MissingData,
+            ),
             (AbciError::GenesisNotFinal { number: 1, hash }, MissingData),
             (
                 AbciError::ElSync(ElSyncError::Timeout {

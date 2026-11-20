@@ -489,18 +489,21 @@ async fn other_errors_are_answered_and_the_worker_keeps_serving() {
 
 #[tokio::test]
 async fn safety_halt_answers_runs_the_halt_hook_and_stops_the_worker() {
-    // An initialized app whose EL serves another block at the committed height: `Info`
-    // reconciles the EL and halts.
+    // An initialized app whose EL serves the committed block when the server aligns before
+    // opening its socket, and another block at the committed height by the time CometBFT's
+    // handshake arrives: the handshake `Info`'s defensive reconcile halts.
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
     app.handle(Request::InitChain(fx.request.clone())).await.expect("InitChain succeeds");
     drop(app);
-    let mut other = fx.el_chain.clone();
-    other[0].gas_used += 1;
+    let mut other = fx.el_chain[0].clone();
+    other.gas_used += 1;
+    let engine = MockEngine::with_chain(fx.el_chain.clone());
+    engine.state().header_script.extend([Ok(Some(fx.el_chain[0].clone())), Ok(Some(other))]);
     let app = App::new(
         fx.l1(),
-        MockEngine::with_chain(other),
+        engine,
         fx.params.clone(),
         crate::store::Store::volatile(dir.path().to_path_buf()),
         crate::test_utils::test_options(),

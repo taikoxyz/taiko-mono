@@ -8,6 +8,7 @@ use super::{
     proposal::{bft_time, next_height, process, process_req, propose, step},
     *,
 };
+use crate::app::execution_recovery::SuffixRestore;
 
 /// Lose all execution blocks above the generation origin, retaining only that ancestor's state.
 fn lose_suffix(app: &App<MockL1, MockEngine>) {
@@ -266,7 +267,11 @@ async fn missing_origin_state_never_replays_the_available_generation_archive() {
         engine.historical_state.clear();
         engine.calls.clear();
     }
-    assert!(!app.restore_committed_execution(&committed).await.unwrap());
+    // The EL lacks the origin's block and state, which no retained body recreates.
+    assert_eq!(
+        app.restore_committed_execution(&committed).await.unwrap(),
+        SuffixRestore::Missing(committed.origin_height())
+    );
     assert!(
         !app.engine()
             .calls()

@@ -870,7 +870,8 @@ committing those values to the Inbox.
 ### Restarts
 
 - Stop CometBFT first while `taiko-client abci` can still answer in-flight requests, then stop
-  the app. Start in the opposite order: the app must listen before CometBFT connects.
+  the app. Start in the opposite order. CometBFT retries its ABCI dial every 3 s, and the app
+  opens its ABCI socket only once alethia-reth serves its committed head (below).
 - Bound CometBFT's termination with the process supervisor. The pinned v0.40.0 socket client can
   accept a new ABCI request after EOF has drained its queues, leaving consensus blocked in
   `Flush` and shutdown blocked in `ConsensusState.Wait` (see the
@@ -886,11 +887,21 @@ committing those values to the Inbox.
   app reports, and the spec leaves the repair open (review question Q3.1-8). Generation 0 here
   always has `initial_height` 1; a recovery generation starts at c + 1, so one whose origin c is
   above 0 is exposed.
-- The app checks alethia-reth against its committed head at every CometBFT handshake `Info`
-  and syncs alethia-reth to that head if it lacks it; until then that `Info` stays pending, so
-  CometBFT never sees a height alethia-reth does not hold. The check runs once per set of ABCI
-  connections: a CometBFT restart under a running app opens new connections and is checked
-  again, while RPC `/abci_info` calls on the open connections answer from the committed state.
+- Before it opens its ABCI socket, the app establishes the boundary it reports (CONS-3.1-9),
+  independently of `Info` and every other CometBFT callback and with signing closed: it
+  re-executes the committed blocks alethia-reth lacks from the execution bodies it retains,
+  starting at the last state alethia-reth holds, and compares alethia-reth's canonical hash at
+  the committed head with its own (and, for an imported store, the block and state at
+  `execution_floor`). When a retained body, or alethia-reth's own state at the generation origin
+  or import floor, is unavailable, the app points alethia-reth at the head so that it can sync
+  the blocks from its peers, names the height that lacks material in its log and as the trust
+  reason on the private control socket, and retries without opening the socket. A
+  contradiction (alethia-reth serving or accepting another block at a committed height) is a
+  safety halt: the app records fatal evidence and exits 2 before CometBFT can connect. So the
+  handshake of a CometBFT started with the app never meets a misaligned app. The handshake
+  `Info` of each later set of ABCI connections, as after a CometBFT restart under a running
+  app, checks again as a defense, from the same retained inputs and never waiting for
+  CometBFT; RPC `/abci_info` calls on the open connections answer from the committed state.
   The app answers requests one at a time and finishes each one even after CometBFT has
   disconnected, so a CometBFT-only restart is re-checked only when the app is not stuck in a
   request: the new handshake's `Info` waits until the request in progress has been answered.

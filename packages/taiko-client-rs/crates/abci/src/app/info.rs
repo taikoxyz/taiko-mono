@@ -7,7 +7,8 @@ use tendermint::{
 };
 
 use super::{
-    APP_NAME, APP_VERSION, AbciError, App, app_hash, at_generation_origin, cometbft_height, within,
+    APP_NAME, APP_VERSION, AbciError, App, ErrorClass, app_hash, at_generation_origin, classify,
+    cometbft_height, execution_recovery::SuffixRestore, within,
 };
 use crate::{
     engine::Engine,
@@ -31,17 +32,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// generation origin, the Etna start S or c (no new-generation block committed): CometBFT's
     /// store is empty and only accepts an app at height 0, to which it re-sends `InitChain`.
     ///
-    /// With a state, the first `Info` on a new set of ABCI connections (CometBFT's handshake)
-    /// first reconciles the EL with it ([`App::reconcile_el_once`]), so the handshake replays on
-    /// top of an EL that holds the committed head and `Info` never reports a height the EL does
-    /// not hold (CONS-3.1-9); temporary failures leave the same request pending until
-    /// reconciliation succeeds. The EL is checked again once per connection set because
-    /// CometBFT handshakes after every start, including a restart under this running app: the
-    /// server bumps [`App::connections`] for every connection it accepts. Within one connection
-    /// set, once a reconcile (or `InitChain`) succeeded, `Info` answers from the committed state
-    /// alone: CometBFT also sends `Info` for every RPC `/abci_info` call, over its existing
-    /// connection and on the same sequential worker as consensus, and an EL hiccup there must
-    /// neither delay consensus nor fail the connection.
+    /// The boundary this reports is established before the server opens its ABCI socket
+    /// ([`App::align_startup`]), independently of `Info` and every later CometBFT callback, so
+    /// the handshake of a CometBFT started with the app never sees a misaligned app (CONS-3.1-9).
+    /// The check here is a defense for each later set of ABCI connections: the first `Info` on a
+    /// new set (the handshake of a CometBFT restarted under this running app) reconciles the EL
+    /// again ([`App::reconcile_el_once`]) from the app's own retained inputs, never from
+    /// CometBFT, so `Info` never reports a height the EL does not hold; temporary failures leave
+    /// the same request pending until reconciliation succeeds. The server bumps
+    /// [`App::connections`] for every connection it accepts. Within one connection set, once a
+    /// reconcile (or `InitChain`) succeeded, `Info` answers from the committed state alone:
+    /// CometBFT also sends `Info` for every RPC `/abci_info` call, over its existing connection
+    /// and on the same sequential worker as consensus, and an EL hiccup there must neither delay
+    /// consensus nor fail the connection.
     ///
     /// Independent Comet restarts also rearm the private signer session. Its bounded background
     /// trust check rechecks the durable EL head and checkpoint ancestry; `Info` never waits for
@@ -71,12 +74,42 @@ impl<L: L1Source, E: Engine> App<L, E> {
         })
     }
 
+    /// Establishes the committed boundary before the server accepts any ABCI connection, so that
+    /// stock CometBFT's handshake, which starts with `Info`, only meets an app whose EL serves
+    /// its committed head (CONS-3.1-9). Runs the reconciliation of [`App::reconcile_el_once`]
+    /// with signing closed (the trust session stays closed until the worker starts): from the
+    /// last state the EL holds, the missing committed blocks are re-executed from the app's
+    /// retained execution bodies and the EL's canonical hash at the committed head is compared
+    /// with the app's. Missing material is reported, as the trust reason and in the log, with
+    /// the height that lacks it, and retried here, outside any handshake; a contradiction is a
+    /// safety halt, recorded as fatal evidence like a request's, which stops startup for
+    /// investigation. A no-op before `InitChain` (whose own verification makes the EL serve the
+    /// origin block).
+    pub async fn align_startup(&mut self) -> Result<(), AbciError> {
+        let result = self.reconcile_el_once("startup alignment").await;
+        match &result {
+            Ok(()) => {
+                if let Some(state) = &self.state {
+                    tracing::info!(
+                        height = state.last_height,
+                        el_hash = %state.parent.hash,
+                        "the EL serves the committed boundary; opening the ABCI socket"
+                    );
+                }
+            }
+            Err(error) => {
+                self.record_fatal_failure(error);
+            }
+        }
+        result
+    }
+
     /// Reconciles the EL with the committed state ([`App::reconcile_el`]) once per set of ABCI
     /// connections: a no-op without a state or once a reconcile (or `InitChain`) succeeded since
     /// the server accepted its latest connection ([`App::el_reconciled`]). Each failed attempt is
     /// handled by its class ([`App::await_startup_input`], SYNC-9-7): missing data keeps trust
-    /// closed and retries on the same request after a [`Backoff`] pause labelled `what`, a
-    /// contradiction halts, any other error fails the request.
+    /// closed and retries (the same request, or the startup alignment) after a [`Backoff`] pause
+    /// labelled `what`, a contradiction halts, any other error fails the request.
     ///
     /// Success records the connection count read before the reconcile started, so a connection
     /// accepted meanwhile makes the next `Info` reconcile again.
@@ -100,11 +133,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// ([`App::check_execution_floor`]), then the committed head `state.parent` at
     /// `state.last_height`.
     ///
-    /// An EL without a block at the head is pointed at it and awaited ([`App::sync_el_to`]); an
-    /// EL serving another block there, rejecting the head, or serving another block after
-    /// accepting it contradicts the committed chain: [`AbciError::SafetyHalt`]. An EL ahead of
-    /// the state is fine: CometBFT replays the missing heights and `FinalizeBlock` re-executes
-    /// them idempotently.
+    /// An EL without a block at the head first gets the committed blocks it lacks re-executed
+    /// from the app's retained execution bodies ([`App::restore_committed_execution`]). When a
+    /// body, or the EL's state at the origin or import floor below them, is unavailable, the
+    /// height lacking it is reported (log and trust reason) and the EL is pointed at the head and
+    /// awaited ([`App::sync_el_to`]), so that it can acquire the blocks from its peers; if it
+    /// does not, the error is [`AbciError::ExecutionInputMissing`] naming that height. An EL
+    /// serving another block there, rejecting the head, or serving another block after accepting
+    /// it contradicts the committed chain: [`AbciError::SafetyHalt`]. An EL ahead of the state is
+    /// fine: CometBFT replays the missing heights and `FinalizeBlock` re-executes them
+    /// idempotently.
     async fn reconcile_el(&self, state: &AppState) -> Result<(), AbciError> {
         if let Some(floor) = state.execution_floor {
             self.check_execution_floor(floor).await?;
@@ -120,9 +158,38 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 header.hash_slow()
             ))),
             None => {
-                tracing::info!(number, %hash, "execution engine lacks the committed head; syncing");
-                self.restore_committed_execution(state).await?;
-                self.sync_el_to("EL sync to the committed head", number, hash).await
+                tracing::info!(
+                    number,
+                    %hash,
+                    "execution engine lacks the committed head; re-executing the retained committed \
+                     blocks"
+                );
+                let (missing, detail) = match self.restore_committed_execution(state).await? {
+                    SuffixRestore::Restored => {
+                        return self.sync_el_to("EL sync to the committed head", number, hash).await
+                    }
+                    SuffixRestore::Missing(missing) => {
+                        (missing, "waiting for the EL to acquire it")
+                    }
+                    SuffixRestore::Syncing(missing) => (missing, "the EL is syncing below it"),
+                };
+                let pending = AbciError::ExecutionInputMissing {
+                    head: number,
+                    missing,
+                    detail: detail.into(),
+                };
+                tracing::warn!(number, missing, %hash, "{pending}");
+                self.trust.await_authentication(pending.to_string());
+                self.sync_el_to("EL sync to the committed head", number, hash).await.map_err(
+                    |error| match classify(&error) {
+                        ErrorClass::MissingData => AbciError::ExecutionInputMissing {
+                            head: number,
+                            missing,
+                            detail: error.to_string(),
+                        },
+                        _ => error,
+                    },
+                )
             }
         }
     }

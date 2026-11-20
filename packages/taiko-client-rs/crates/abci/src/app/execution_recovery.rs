@@ -43,6 +43,27 @@ impl ExecutionRepairKey {
     }
 }
 
+/// What one attempt to restore the committed execution suffix achieved
+/// ([`App::restore_committed_execution`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum SuffixRestore {
+    /// The EL serves the committed head again, or already did.
+    Restored,
+    /// Re-executing needs material at this height that is unavailable: the retained execution
+    /// body of a committed block above the generation origin or import floor, or the EL's own
+    /// block and state at that origin or floor, which no retained body recreates.
+    Missing(u64),
+    /// The EL answered `SYNCING` to the committed payload at this height.
+    Syncing(u64),
+}
+
+impl SuffixRestore {
+    /// Whether the EL serves the committed head again.
+    pub(super) fn restored(self) -> bool {
+        self == Self::Restored
+    }
+}
+
 /// A Prepare-only payload replay; its task never sends forkchoice updates.
 #[derive(Debug)]
 pub(super) struct OwnedExecutionRepair {
@@ -150,8 +171,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
             let timeout = self.opts.engine_timeout;
             let (sender, result) = oneshot::channel();
             let task = tokio::spawn(async move {
-                let result =
-                    restore_execution_suffix(engine.as_ref(), &store, &parent, timeout).await;
+                let result = restore_execution_suffix(engine.as_ref(), &store, &parent, timeout)
+                    .await
+                    .map(SuffixRestore::restored);
                 let _ = sender.send(result);
             });
             *self.execution_repair() = Some(OwnedExecutionRepair {
@@ -230,7 +252,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     pub(super) async fn restore_committed_execution(
         &self,
         state: &AppState,
-    ) -> Result<bool, AbciError> {
+    ) -> Result<SuffixRestore, AbciError> {
         self.clear_execution_repair()?;
         restore_execution_suffix(self.engine(), &self.store, state, self.opts.engine_timeout).await
     }
@@ -269,13 +291,14 @@ async fn committed_parent_present<E: Engine>(
 
 /// Authenticates backward from the committed head to an existing stateful origin/import
 /// ancestor, then re-reads one body at a time forward. No payload at/below the floor is replayed;
-/// absent/corrupt auxiliary data is unavailable. This function never changes forkchoice.
+/// absent/corrupt auxiliary data is unavailable, reported with the first height that lacks it.
+/// This function never changes forkchoice.
 async fn restore_execution_suffix<E: Engine>(
     engine: &E,
     store: &Store,
     state: &AppState,
     timeout: Duration,
-) -> Result<bool, AbciError> {
+) -> Result<SuffixRestore, AbciError> {
     let floor = state.execution_floor.map_or(state.origin_height(), |floor| floor.number);
     let mut number = state.last_height;
     let mut expected = state.parent.hash;
@@ -299,10 +322,10 @@ async fn restore_execution_suffix<E: Engine>(
             }
         }
         if number <= floor {
-            return Ok(false);
+            return Ok(SuffixRestore::Missing(number));
         }
         let Some(block) = execution_recovery_body(store, number)? else {
-            return Ok(false);
+            return Ok(SuffixRestore::Missing(number));
         };
         if block.header.hash_slow() != expected {
             return Err(AbciError::SafetyHalt(format!(
@@ -313,7 +336,7 @@ async fn restore_execution_suffix<E: Engine>(
         number -= 1;
     }
     if number == state.last_height {
-        return Ok(true);
+        return Ok(SuffixRestore::Restored);
     }
     tracing::info!(
         from = number + 1,
@@ -325,7 +348,7 @@ async fn restore_execution_suffix<E: Engine>(
     let mut parent = expected;
     for height in number + 1..=state.last_height {
         let Some(block) = execution_recovery_body(store, height)? else {
-            return Ok(false);
+            return Ok(SuffixRestore::Missing(height));
         };
         if block.header.parent_hash != parent {
             return Err(AbciError::SafetyHalt(format!(
@@ -335,7 +358,7 @@ async fn restore_execution_suffix<E: Engine>(
         parent = block.header.hash_slow();
         match within("EL recovery newPayload", timeout, engine.new_payload(&block)).await? {
             PayloadVerdict::Valid => {}
-            PayloadVerdict::Syncing => return Ok(false),
+            PayloadVerdict::Syncing => return Ok(SuffixRestore::Syncing(height)),
             PayloadVerdict::Invalid(reason) => {
                 return Err(AbciError::SafetyHalt(format!(
                     "execution engine rejected committed recovery payload {}: {reason}",
@@ -349,7 +372,7 @@ async fn restore_execution_suffix<E: Engine>(
             "durable execution suffix changed its committed head during recovery".into(),
         ));
     }
-    Ok(true)
+    Ok(SuffixRestore::Restored)
 }
 
 /// Checks one checksum-framed execution body in either traversal before any EL use.

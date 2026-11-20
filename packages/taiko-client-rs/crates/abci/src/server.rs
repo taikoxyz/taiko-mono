@@ -8,6 +8,16 @@
 //! Every accepted connection bumps the app's [`ConnectionEpoch`], so that the handshake of a
 //! CometBFT that reconnects under the running app reconciles the EL again.
 //!
+//! The ABCI listener opens only after the handler established the committed boundary it will
+//! report ([`AbciHandler::align_before_serving`]; for the app, [`App::align_startup`]): the EL
+//! serves the app's committed head, missing blocks re-executed from retained inputs. Until then
+//! stock CometBFT, which retries its ABCI dial every 3 s, has not connected, has opened no
+//! signer listener and has not begun its handshake, so it never sees a misaligned app
+//! (CONS-3.1-9). The private trust socket is bound first and reports the closed session and,
+//! while material is missing, the height that lacks it. A safety halt there runs the
+//! [`HaltHook`] like a request's; any other alignment failure is
+//! [`ServerError::Alignment`].
+//!
 //! An [`AbciError::SafetyHalt`] is logged at ERROR and answered as an error; then the
 //! [`HaltHook`] runs (in production [`ExitProcess`], which exits the process with
 //! [`SAFETY_HALT_EXIT_CODE`]: no automatic restart into signing) and the worker stops. Any other
@@ -84,6 +94,11 @@ pub enum ServerError {
     /// The app worker stopped (a safety halt whose hook returned, or a panic); the value says why.
     #[error("ABCI app worker stopped: {0}")]
     WorkerStopped(String),
+    /// The committed boundary could not be established before the listener opened
+    /// ([`AbciHandler::align_before_serving`]): a safety halt whose hook returned, or another
+    /// failure; the value says why. The ABCI listener never opened.
+    #[error("ABCI startup alignment failed: {0}")]
+    Alignment(String),
 }
 
 /// A parsed ABCI listen address.
@@ -182,6 +197,13 @@ pub trait AbciHandler: Send + 'static {
         async { Ok(()) }
     }
 
+    /// Establishes the boundary the handler reports before the server opens the ABCI listener;
+    /// returns only once it holds, or with a safety halt or another failure. Test handlers need
+    /// none.
+    fn align_before_serving(&mut self) -> impl Future<Output = Result<(), AbciError>> + Send {
+        async { Ok(()) }
+    }
+
     /// Answers `req`.
     fn handle_request(
         &mut self,
@@ -203,6 +225,11 @@ impl<L: L1Source, E: Engine> AbciHandler for App<L, E> {
     /// Retries authentication even when a closed signer cannot produce any new blocks.
     fn retry_checkpoint(&mut self) -> impl Future<Output = Result<(), AbciError>> + Send {
         self.refresh_trust()
+    }
+
+    /// Forwards to [`App::align_startup`].
+    fn align_before_serving(&mut self) -> impl Future<Output = Result<(), AbciError>> + Send {
+        self.align_startup()
     }
 
     /// Forwards to [`App::handle`].
@@ -275,8 +302,10 @@ pub async fn serve<L: L1Source, E: Engine>(app: App<L, E>, addr: &str) -> Result
 /// fails or the worker stops.
 ///
 /// A `unix://` address first clears a stale socket file at its path ([`remove_stale_socket`]).
+/// The private trust socket is bound next; the ABCI listener is bound only after
+/// [`AbciHandler::align_before_serving`] succeeded (see the module docs).
 pub async fn serve_with<H: AbciHandler, K: HaltHook>(
-    handler: H,
+    mut handler: H,
     addr: &str,
     halt: K,
 ) -> Result<(), ServerError> {
@@ -297,12 +326,25 @@ pub async fn serve_with<H: AbciHandler, K: HaltHook>(
     } else {
         None
     };
-    let (service, worker) = AppService::spawn(handler, halt);
-    let mut tasks = vec![worker.abort_handle()];
+    let mut lifecycle =
+        ServerTasks { tasks: vec![], trust: control.as_ref().map(|(trust, _)| trust.clone()) };
     if let Some(task) = &control_task {
-        tasks.push(task.abort_handle());
+        lifecycle.tasks.push(task.abort_handle());
     }
-    let _lifecycle = ServerTasks { tasks, trust: control.map(|(trust, _)| trust) };
+    if let Err(error) = handler.align_before_serving().await {
+        let message = format!("before opening the ABCI socket: {error}");
+        if matches!(error, AbciError::SafetyHalt(_)) {
+            tracing::error!(
+                %message,
+                "safety halt: stopping the node before serving; an operator must investigate"
+            );
+            AbciMetrics::halted().set(1);
+            halt.halt(&message);
+        }
+        return Err(ServerError::Alignment(message));
+    }
+    let (service, worker) = AppService::spawn(handler, halt);
+    lifecycle.tasks.push(worker.abort_handle());
     let listen = listen_native(listen_addr, service, epoch);
     let control_watch = async move {
         match control_task {
