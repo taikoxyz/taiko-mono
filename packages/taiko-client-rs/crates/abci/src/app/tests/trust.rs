@@ -653,9 +653,10 @@ async fn ready_session_keeps_fixed_target_and_labels_valid_candidates_safe() {
     assert_eq!(snapshot.trusted_consensus_head.unwrap().hash, hash);
 }
 
-/// On a switching network every trust grant checks the built-in L2 SignalService
-/// implementation's fork time in the state at its checkpoint, not only while that is S
-/// (SYNC-9-5a): missing evidence keeps trust closed, a different value halts.
+/// SYNC-9-5a 5a.d/5a.k: on a switching network every trust grant checks the node's own fork
+/// time against the switching EtnaInbox's immutable `etnaForkTime()`, read at the target's own
+/// finalized L1 block, not only while the checkpoint is S: an unavailable read keeps trust
+/// closed, another value halts.
 #[tokio::test]
 async fn switching_trust_checks_the_fork_time_at_a_later_checkpoint() {
     let mut fx = Fixture::genesis(1);
@@ -674,18 +675,21 @@ async fn switching_trust_checks_the_fork_time_at_a_later_checkpoint() {
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();
     assert!(!snapshot.is_ready());
-    assert!(snapshot.reason.unwrap().contains("fork time is unavailable"));
-    app.engine().state().beacon_roots_from = Some((implementation, fork_timestamp));
+    assert!(snapshot.reason.unwrap().contains("EtnaInbox fork time"));
+    app.l1().state().etna_fork_time = Some((fx.params.inbox, fork_timestamp));
     app.refresh_trust().await.unwrap();
     assert!(app.trust.snapshot().is_ready(), "{:?}", app.trust.snapshot().reason);
+    let l1_hash = app.trust.snapshot().target.unwrap().l1_hash;
+    assert!(app.l1().calls().iter().any(|call| matches!(call,
+        L1Call::CallAt { address, hash, .. } if *address == fx.params.inbox && *hash == l1_hash)));
 
     let mut restarted =
         app_with(fx.l1(), app.engine().reopen(), fx.params.clone(), dir.path(), Default::default());
-    restarted.engine().state().beacon_roots_from = Some((implementation, fork_timestamp + 1));
+    restarted.l1().state().etna_fork_time = Some((fx.params.inbox, fork_timestamp + 1));
     target(&restarted, &fx, LANDED, hash);
     let result = restarted.refresh_trust().await;
     assert!(
-        matches!(result, Err(AbciError::SafetyHalt(ref reason)) if reason.contains("fork time")),
+        matches!(result, Err(AbciError::SafetyHalt(ref reason)) if reason.contains("etnaForkTime")),
         "{result:?}"
     );
     assert!(!restarted.trust.snapshot().is_ready());

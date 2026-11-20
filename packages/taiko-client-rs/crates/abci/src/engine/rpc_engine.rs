@@ -15,9 +15,7 @@ use alloy_rlp::Decodable;
 use alloy_rpc_types_engine::{
     ForkchoiceState, ForkchoiceUpdated, PayloadStatus, PayloadStatusEnum,
 };
-use alloy_sol_types::SolCall;
 use async_trait::async_trait;
-use bindings::signal_service::SignalService::beaconRootsFromCall;
 use rpc::{
     RpcClientError,
     auth::{EngineClient, PoolSelection},
@@ -482,29 +480,6 @@ impl Engine for RpcEngine {
             ));
         }
         Ok(Some(Address::from_word(B256::from(value))))
-    }
-
-    /// Calls the implementation's getter, not the proxy's, at the canonical block `hash`.
-    async fn beacon_roots_from(
-        &self,
-        implementation: Address,
-        hash: B256,
-    ) -> Result<Option<u64>, EngineError> {
-        let call = serde_json::json!({
-            "to": implementation,
-            "data": Bytes::from_static(&beaconRootsFromCall::SELECTOR),
-        });
-        let response: Bytes = self
-            .l2
-            .raw_request("eth_call".into(), (call, BlockId::hash_canonical(hash)))
-            .await
-            .map_err(recovery_read_error)?;
-        if response.len() != 32 {
-            return Err(EngineError::BadReply("invalid beaconRootsFrom ABI length".into()));
-        }
-        beaconRootsFromCall::abi_decode_returns_validate(&response)
-            .map(Some)
-            .map_err(|_| EngineError::BadReply("invalid beaconRootsFrom ABI value".into()))
     }
 
     /// `eth_getBlockByNumber(number)` on the public endpoint; the header must hash to the reported
@@ -1297,57 +1272,6 @@ mod tests {
         assert!(matches!(
             m.engine.finalized_header().await,
             Err(EngineError::HeaderHashMismatch { .. })
-        ));
-    }
-
-    #[tokio::test]
-    async fn switch_fork_time_calls_the_implementation_at_the_canonical_hash() {
-        let (implementation, hash) = (Address::with_last_byte(2), B256::with_last_byte(3));
-        let mut word = [0u8; 32];
-        word[24..].copy_from_slice(&1_760_000_001u64.to_be_bytes());
-        let (url, request) = record_rpc(json!(Bytes::copy_from_slice(&word))).await;
-        assert_eq!(
-            over_http(&url).beacon_roots_from(implementation, hash).await.unwrap(),
-            Some(1_760_000_001)
-        );
-        let request = request.await.unwrap();
-        assert_eq!(request["method"], "eth_call");
-        // `beaconRootsFrom()`'s selector, computed with `cast sig`.
-        assert_eq!(
-            request["params"],
-            json!([
-                {"to": implementation, "data": "0x9bce53b5"},
-                {"blockHash": hash, "requireCanonical": true}
-            ])
-        );
-    }
-
-    #[tokio::test]
-    async fn switch_fork_time_requires_one_canonical_abi_word() {
-        let m = mocked();
-        let (implementation, hash) = (Address::with_last_byte(2), B256::with_last_byte(3));
-        let mut word = [0u8; 32];
-        word[24..].copy_from_slice(&1_760_000_001u64.to_be_bytes());
-        m.l2.push_success(&Bytes::copy_from_slice(&word));
-        assert_eq!(
-            m.engine.beacon_roots_from(implementation, hash).await.unwrap(),
-            Some(1_760_000_001)
-        );
-
-        m.l2.push_success(&Bytes::new());
-        m.l2.push_success(&Bytes::copy_from_slice(&[0; 64]));
-        word[23] = 1;
-        m.l2.push_success(&Bytes::copy_from_slice(&word));
-        for _ in 0..3 {
-            assert!(matches!(
-                m.engine.beacon_roots_from(implementation, hash).await,
-                Err(EngineError::BadReply(_))
-            ));
-        }
-        m.l2.push_failure_msg("historical state unavailable");
-        assert!(matches!(
-            m.engine.beacon_roots_from(implementation, hash).await,
-            Err(EngineError::Transport(_))
         ));
     }
 

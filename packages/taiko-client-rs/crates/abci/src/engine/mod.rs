@@ -106,18 +106,6 @@ pub trait Engine: Send + Sync + 'static {
         Ok(None)
     }
 
-    /// Calls `beaconRootsFrom()` on the L2 SignalService `implementation` itself, not through
-    /// the proxy, in the own EL's state at canonical block `hash`. The getter returns an
-    /// immutable, so any state holding that code gives the same value. The default reports no
-    /// evidence so switching-network trust remains closed.
-    async fn beacon_roots_from(
-        &self,
-        _implementation: Address,
-        _hash: B256,
-    ) -> Result<Option<u64>, EngineError> {
-        Ok(None)
-    }
-
     /// Performs a bounded hash-pinned historical state read. A successful read is preliminary
     /// evidence only, not proof that a stateful build will succeed. RPC failure remains an error.
     async fn historical_state_available(&self, hash: B256) -> Result<bool, EngineError>;

@@ -2,6 +2,7 @@
 
 use alloy_consensus::Header;
 use alloy_primitives::B256;
+use alloy_sol_types::SolCall;
 
 use super::{AbciError, App, within};
 use crate::{
@@ -11,6 +12,11 @@ use crate::{
     switch::l2_signal_service_address,
     types::GenesisRecord,
 };
+
+alloy_sol_types::sol! {
+    /// The switching EtnaInbox's immutable Etna fork time (PARAM-11-12a).
+    function etnaForkTime() external view returns (uint48);
+}
 
 impl<L: L1Source, E: Engine> App<L, E> {
     /// The switch configuration the checks below use: none on a new network (S = 0), and on a
@@ -121,29 +127,42 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok(())
     }
 
-    /// On a switching network, checks before every trust grant that the built-in L2
-    /// SignalService implementation's `beaconRootsFrom()` equals the node's own fork time, in
-    /// the authenticated L2 state at canonical block `hash`: S, or the trust target once the
-    /// node holds it (SYNC-9-5a). No landing settles the node's own fork time.
+    /// On a switching network, checks before every trust grant that the Etna fork time this node
+    /// runs with, including any local override, equals the switching EtnaInbox's immutable
+    /// `etnaForkTime()`, read by `eth_call` at the own finalized L1 block `l1_hash` (SYNC-9-5a,
+    /// PARAM-11-12a). No landing settles the node's own fork time, so this holds at S and at
+    /// every later checkpoint. An unavailable read keeps trust closed; a malformed answer or
+    /// another value is an authenticated contradiction (SYNC-9-7).
     pub(super) async fn verify_fork_time(
         &self,
         genesis: &GenesisRecord,
-        hash: B256,
+        l1_hash: B256,
     ) -> Result<(), AbciError> {
         let Some(config) = self.switch_config(genesis)? else { return Ok(()) };
-        let beacon_roots_from = within(
-            "L2 SignalService fork time",
-            self.opts.engine_timeout,
-            self.engine.beacon_roots_from(config.signal_service_implementation, hash),
+        let answer = match within(
+            "EtnaInbox fork time",
+            self.opts.l1_timeout,
+            self.l1.call_at(self.params.inbox, etnaForkTimeCall {}.abi_encode().into(), l1_hash),
         )
-        .await?
-        .ok_or_else(|| {
-            AbciError::TrustControl("L2 SignalService fork time is unavailable".into())
-        })?;
-        if beacon_roots_from != config.fork_timestamp {
+        .await
+        {
+            Ok(answer) => answer,
+            Err(AbciError::L1(error)) if !error.is_integrity_failure() => {
+                return Err(AbciError::TrustControl(format!(
+                    "EtnaInbox fork time is unavailable: {error}"
+                )));
+            }
+            Err(error) => return Err(error),
+        };
+        if answer.len() != 32 {
+            return Err(AbciError::SafetyHalt("invalid etnaForkTime ABI length".into()));
+        }
+        let fork_time = etnaForkTimeCall::abi_decode_returns_validate(&answer)
+            .map_err(|_| AbciError::SafetyHalt("invalid etnaForkTime ABI value".into()))?
+            .to::<u64>();
+        if fork_time != config.fork_timestamp {
             return Err(AbciError::SafetyHalt(format!(
-                "L2 SignalService beaconRootsFrom {beacon_roots_from} differs from the node's \
-                 fork time {}",
+                "EtnaInbox etnaForkTime {fork_time} differs from the node's fork time {}",
                 config.fork_timestamp
             )));
         }
@@ -255,30 +274,50 @@ mod tests {
         verify().await.unwrap();
     }
 
+    /// SYNC-9-5a 5a.j/5a.k/5a.m: the node's fork time must equal the switching EtnaInbox's
+    /// immutable `etnaForkTime()`, read on L1 at the own finalized block's hash. No answer keeps
+    /// trust closed; another value or a malformed answer halts.
     #[tokio::test]
-    async fn fork_time_is_read_on_the_built_in_implementation() {
+    async fn fork_time_is_the_switching_inbox_immutable_at_the_finalized_hash() {
         let fx = Fixture::genesis(1);
         let implementation = Address::with_last_byte(2);
         let fork_timestamp = fx.el_chain[0].timestamp + 1;
         let (app, genesis, _dir) = switching_app(&fx, implementation, fork_timestamp);
-        let verify = || app.verify_fork_time(&genesis, genesis.genesis_hash);
+        let finalized = B256::repeat_byte(0x77);
+        let verify = || app.verify_fork_time(&genesis, finalized);
 
-        assert!(matches!(verify().await, Err(AbciError::TrustControl(_))), "no reading yet");
-        // A reading through the proxy, or from another implementation, is no evidence.
-        app.engine().state().beacon_roots_from =
-            Some((l2_signal_service_address(fx.params.l2_chain_id), fork_timestamp));
-        assert!(matches!(verify().await, Err(AbciError::TrustControl(_))));
+        let unavailable = |result: Result<(), AbciError>| {
+            matches!(result, Err(AbciError::TrustControl(ref reason))
+                if reason.contains("EtnaInbox fork time is unavailable"))
+        };
+        assert!(unavailable(verify().await), "no answer yet");
+        // Another contract's answer is no evidence.
+        app.l1().state().etna_fork_time = Some((Address::with_last_byte(9), fork_timestamp));
+        assert!(unavailable(verify().await));
+        // A malformed answer from the own L1 node is unverifiable data (SYNC-9-7).
+        app.l1().state().fail = Some(crate::l1::L1Error::MalformedResponse("shape".into()));
+        assert!(matches!(verify().await, Err(AbciError::L1(_))));
+        app.l1().state().fail = None;
         for value in [fork_timestamp - 1, fork_timestamp + 1] {
-            app.engine().state().beacon_roots_from = Some((implementation, value));
+            app.l1().state().etna_fork_time = Some((fx.params.inbox, value));
             let result = verify().await;
             assert!(
                 matches!(result, Err(AbciError::SafetyHalt(ref reason))
-                if reason.contains("beaconRootsFrom")),
+                if reason.contains("etnaForkTime")),
                 "{result:?}"
             );
         }
-        app.engine().state().beacon_roots_from = Some((implementation, fork_timestamp));
+        app.l1().state().etna_fork_time = Some((fx.params.inbox, fork_timestamp));
         verify().await.unwrap();
+        let input: alloy_primitives::Bytes = etnaForkTimeCall {}.abi_encode().into();
+        assert_eq!(
+            app.l1().calls().last(),
+            Some(&crate::test_utils::L1Call::CallAt {
+                address: fx.params.inbox,
+                input,
+                hash: finalized
+            })
+        );
     }
 
     /// Without a switch configuration a node cannot check its own fork time, which no landing
@@ -290,7 +329,7 @@ mod tests {
         let implementation = Address::with_last_byte(2);
         let fork_timestamp = fx.el_chain[0].timestamp + 1;
         let (mut app, genesis, _dir) = switching_app(&fx, implementation, fork_timestamp);
-        app.engine().state().beacon_roots_from = Some((implementation, fork_timestamp));
+        app.l1().state().etna_fork_time = Some((fx.params.inbox, fork_timestamp));
         app.verify_fork_time(&genesis, genesis.genesis_hash).await.unwrap();
         app.params.switch = None;
         for result in [

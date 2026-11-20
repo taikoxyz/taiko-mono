@@ -66,6 +66,9 @@ mod tests;
 
 use committee_cache::{CachedCommittee, CommitteePrefetch};
 
+#[cfg(test)]
+pub(crate) use switch::etnaForkTimeCall;
+
 pub use info::{CHECK_TX_LOG, CODE_REJECTED};
 pub use validate::{
     ChainContext, CommitteeLookup, Rejection, Validated, WitnessKind, check_execution_size,

@@ -14,11 +14,12 @@ pub const MAX_N_MAX: usize = 4096;
 pub struct SwitchConfig {
     /// Live L1 Unzen Inbox proxy whose closed proposal history defines the final Unzen block.
     pub unzen_inbox: Address,
-    /// Shared Unzen cutoff and Etna activation timestamp, in Unix seconds.
+    /// The node's Etna fork time (`ETNA_FORK_TIME`), in Unix seconds: the shared Unzen cutoff
+    /// and Etna activation timestamp. Trust requires it to equal the switching EtnaInbox's
+    /// immutable `etnaForkTime()` in the own finalized L1 view (SYNC-9-5a).
     pub fork_timestamp: u64,
-    /// Etna L2 SignalService implementation built into the client: the L2 SignalService proxy's
-    /// EIP-1967 slot holds it at S, and its `beaconRootsFrom()` equals `fork_timestamp`
-    /// (SYNC-9-5a, PARAM-11-12a).
+    /// Etna L2 SignalService implementation built into the client for the L2 chain id: the L2
+    /// SignalService proxy's EIP-1967 slot holds it at S (SYNC-9-5a, PARAM-11-12a).
     pub signal_service_implementation: Address,
 }
 

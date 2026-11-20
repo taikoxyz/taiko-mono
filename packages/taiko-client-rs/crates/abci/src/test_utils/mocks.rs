@@ -39,6 +39,7 @@ pub(crate) enum L1Call {
     Header(u64),
     AccountWitness { address: Address, slots: Vec<B256>, block: u64 },
     StorageAt { address: Address, slot: B256, block: u64 },
+    CallAt { address: Address, input: Bytes, hash: B256 },
 }
 
 /// The scriptable state of a [`MockL1`].
@@ -83,6 +84,12 @@ pub(crate) struct MockL1State {
     pub(crate) proof_tamper: bool,
     /// Like `proof_tamper`, for proof reads of this one account at this one L1 block only.
     pub(crate) proof_tamper_at: Option<(Address, u64)>,
+    /// `(inbox, value)`: what the EtnaInbox `inbox` answers to `etnaForkTime()` at any
+    /// canonical hash (`call_at`); any other call is unavailable.
+    pub(crate) etna_fork_time: Option<(Address, u64)>,
+    /// When set, every proof read whose slots include this slot fails with this error, as an
+    /// L1 node that serves the anchor slots but not yet the slot 285 landing record.
+    pub(crate) proof_fail_slot: Option<(B256, L1Error)>,
     /// Every call, in order.
     pub(crate) calls: Vec<L1Call>,
     /// Calls currently in progress (started, not yet answered or dropped).
@@ -255,6 +262,11 @@ impl L1Source for MockL1 {
         if let Some(err) = &state.proof_fail {
             return Err(err.clone());
         }
+        if let Some((slot, err)) = &state.proof_fail_slot &&
+            slots.contains(slot)
+        {
+            return Err(err.clone());
+        }
         if let Some(proof) = &state.proof_override {
             return Ok(proof.clone());
         }
@@ -286,6 +298,21 @@ impl L1Source for MockL1 {
                 "mock L1: missing forced event {index} at block {l1_block}"
             ))
         })
+    }
+
+    async fn call_at(&self, address: Address, input: Bytes, hash: B256) -> Result<Bytes, L1Error> {
+        use alloy_sol_types::SolCall;
+        let _call = InFlight::new(self);
+        self.pause().await;
+        let state = self.record(L1Call::CallAt { address, input: input.clone(), hash })?;
+        match state.etna_fork_time {
+            Some((inbox, value))
+                if inbox == address && input[..] == crate::app::etnaForkTimeCall::SELECTOR[..] =>
+            {
+                Ok(U256::from(value).to_be_bytes::<32>().to_vec().into())
+            }
+            _ => Err(L1Error::Rpc(format!("mock L1: no call answer from {address}"))),
+        }
     }
 
     async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error> {
@@ -343,8 +370,6 @@ pub(crate) struct MockEngineState {
     pub(crate) backfill: BTreeMap<u64, Header>,
     /// `(proxy, implementation)`: the proven implementation, answered only for that proxy.
     pub(crate) proxy_implementation: Option<(Address, Address)>,
-    /// `(implementation, value)`: `beaconRootsFrom()`, answered only on that implementation.
-    pub(crate) beacon_roots_from: Option<(Address, u64)>,
     /// Scripted `header_by_number` answers (before falling back to `chain`).
     pub(crate) header_script: VecDeque<Result<Option<Header>, EngineError>>,
     /// Scripted `build_block` answers (an empty queue builds [`simple_block`]).
@@ -502,18 +527,6 @@ impl Engine for MockEngine {
         _state_root: B256,
     ) -> Result<Option<Address>, EngineError> {
         Ok(self.state().proxy_implementation.filter(|(at, _)| *at == proxy).map(|(_, to)| to))
-    }
-
-    async fn beacon_roots_from(
-        &self,
-        implementation: Address,
-        _hash: B256,
-    ) -> Result<Option<u64>, EngineError> {
-        Ok(self
-            .state()
-            .beacon_roots_from
-            .filter(|(at, _)| *at == implementation)
-            .map(|(_, value)| value))
     }
 
     async fn check_capabilities(&self) -> Result<(), EngineError> {
