@@ -7502,3 +7502,21 @@ resource budgets and deployment readiness are still outside this group's evidenc
 No production/SPEC/Notion or old-source evidence was changed. Exactly seven selected
 tasks were completed; no eighth starts automatically. Authorized hourly feedback
 checks continue after publication.
+
+## Z01–Z07 publication receipt
+
+The first full-group publication is `d3b052e5e06e54039f22fa1955b4042f19b0accb`,
+read back on2026-11-20 at12:27UTC as OPEN/DRAFT in PR #22387. The scoped Z prefix
+was updated in that PR and worklist issue #22355, with complete body readbacks.
+Their prior bodies outside the owned Z prefix remain byte-for-byte preserved:
+PR suffix SHA-256 `f159149da0202efc39f5d6b6e9322c90a70693987559a55d0a6b632ab1187ba2`,
+issue suffix `351d2cf68635e2f3e4b3d496d1c326590c92fcf4ec661e1acd855d67aaba0a2b`.
+No comment, review, merge, ready action or deployment was performed.
+
+At that exact first-head observation, Etna CI run44735850214 was IN_PROGRESS,
+not passed. Later head/CI observations belong to their own monitor receipts.
+The closing documentation update preserves all17 tested behavioral identities;
+no additional runtime or current360 correspondence credit follows. All three
+plan gates are now completed against actual local and remote evidence. The
+authorized seven-item group is complete; return to feedback-only hourly checks
+after closing publication, without starting an eighth or reopening old batches.

@@ -116,4 +116,4 @@ and test refusal of its unreviewed bytes separately from f556 acceptance.
 
 - [x] Fresh whole-range adversarial review by an independent reviewer plus independent behavior/source-identity/guard-control audit; investigate all material findings and recheck fixes.
 - [x] Run focused and ordinary suites in a reviewed disposable offline snapshot; record actual counts, no fabricated native/TLC/production claims. Re-fetch current main and compare effective merge when source bytes move; older source obligations never silently gain credit.
-- [ ] Update only verification WORKLIST/REPORT/README and existing PR/issue body scoped prefix after code gates. Review full diff/path hygiene, normal commit/push on existing draft, read back exact head and complete changed bodies/CI. Return to feedback-only at seven; no eighth.
+- [x] Update only verification WORKLIST/REPORT/README and existing PR/issue body scoped prefix after code gates. Review full diff/path hygiene, normal commit/push on existing draft, read back exact head and complete changed bodies/CI. Return to feedback-only at seven; no eighth.

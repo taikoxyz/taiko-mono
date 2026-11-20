@@ -80,9 +80,9 @@ model execution remains separate from source classification and from runtime.
 [Z02 evidence](REPORT.md#z02-permanent-bond-forfeiture-and-reuse) separates its
 conditional14-unit graphs from a legal-denomination14Q directed edge; it grants
 no deployed-state quotient, actual ABI, cryptography or EVM rollback credit.
-All seven selected items and fresh whole-range checks are locally complete.
-The final independent document gate is complete; draft publication readback
-remains pending.
+All seven selected items and final independent source/behavior/document gates
+are COMPLETE. First draft publication `d3b052e5e` and full PR/issue readbacks
+are complete; the closing receipt preserves the same tested behavioral bytes.
 The [group gate](REPORT.md#z01z07-final-gate-and-source-version-boundary)
 records756 ordinary checks in each supported context and110 standalone checks;
 actual360 retains45 baseline source-compatibility failures, with none added by
