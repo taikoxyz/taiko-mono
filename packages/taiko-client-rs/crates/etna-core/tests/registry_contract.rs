@@ -110,7 +110,7 @@ fn malformed_supplied_proof_counts_are_rejected_even_with_valid_checkpoint_words
 }
 
 #[test]
-fn oversized_uint48_entry_counts_are_rejected_without_pointer_width_truncation() {
+fn oversized_uint48_entry_counts_are_rejected_before_pointer_width_conversion() {
     use etna_core::{committee::entries_root, types::RegistryEntry};
     let entry = RegistryEntry {
         ck_prefix: 2,
@@ -135,10 +135,64 @@ fn oversized_uint48_entry_counts_are_rejected_without_pointer_width_truncation()
             };
             assert_eq!(
                 verify_snapshot(proof.root, Address::ZERO, 0, &entries, &proof, 10),
-                Err(CommitteeError::EntryCountMismatch { expected: count, got: entries.len() }),
+                Err(CommitteeError::TooManyEntries { count }),
                 "count={count}, actual entries={}",
                 entries.len(),
             );
         }
     }
+}
+
+/// COMM-4.3-2 (vectors 2.d, 2.f): the 4096-slot bound and an occupied last slot are checked
+/// after authentication: count 4096 still compares the entries, count 4097 is refused before,
+/// and a positive count ending in the all-zero entry is refused even with a matching root, while
+/// an interior empty slot is accepted.
+#[test]
+fn entry_count_is_at_most_4096_and_ends_in_an_occupied_slot() {
+    use etna_core::{
+        committee::{MAX_REGISTRY_SLOTS, entries_root},
+        types::RegistryEntry,
+    };
+    let occupied = RegistryEntry {
+        ck_prefix: 2,
+        ck_x: alloy_primitives::b256!(
+            "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+        ),
+        eff_stake: U256::from(250_000u64) * U256::from(10u64).pow(U256::from(18)),
+        active_from_l1: 0,
+        exit_effective_l1: (1 << 48) - 1,
+    };
+    let empty = RegistryEntry {
+        ck_prefix: 0,
+        ck_x: B256::ZERO,
+        eff_stake: U256::ZERO,
+        active_from_l1: 0,
+        exit_effective_l1: 0,
+    };
+    let proof = |count: u64, entries: &[RegistryEntry]| AuthenticatedWords {
+        words: vec![
+            U256::from(1),
+            (U256::from(count) << 48) | U256::from(10),
+            U256::from_be_bytes(entries_root(entries).0),
+        ],
+        root: B256::repeat_byte(9),
+        index: 0,
+        supplied_count: 3,
+    };
+    let check = |count: u64, entries: &[RegistryEntry]| {
+        let proof = proof(count, entries);
+        verify_snapshot(proof.root, Address::ZERO, 0, entries, &proof, 10).map(|s| s.entries)
+    };
+    assert_eq!(
+        check(MAX_REGISTRY_SLOTS, &[occupied.clone()]),
+        Err(CommitteeError::EntryCountMismatch { expected: MAX_REGISTRY_SLOTS, got: 1 })
+    );
+    assert_eq!(
+        check(MAX_REGISTRY_SLOTS + 1, &[occupied.clone()]),
+        Err(CommitteeError::TooManyEntries { count: MAX_REGISTRY_SLOTS + 1 })
+    );
+    let interior = [occupied.clone(), empty.clone(), occupied.clone()];
+    assert_eq!(check(3, &interior), Ok(interior.to_vec()));
+    let trailing = [occupied.clone(), occupied, empty];
+    assert_eq!(check(3, &trailing), Err(CommitteeError::TrailingEmptySlot { count: 3 }));
 }

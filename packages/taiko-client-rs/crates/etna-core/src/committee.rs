@@ -20,6 +20,9 @@ use core::convert::Infallible;
 /// `(2^63 − 1) / 8`.
 pub const MAX_TOTAL_POWER: u64 = (i64::MAX as u64) / 8;
 
+/// The registry's slot count: a checkpoint's `count` is at most this (COMM-4.3-2).
+pub const MAX_REGISTRY_SLOTS: u64 = 4096;
+
 /// `bytes32("ETNA_REG_ENTRY_V1")`: domain tag of registry entry leaves.
 const REG_ENTRY_TAG: B256 = tag(b"ETNA_REG_ENTRY_V1");
 /// `bytes32("ETNA_SET_KEY_V1")`: domain tag of the member sort key ([`set_key`]).
@@ -110,6 +113,20 @@ pub enum CommitteeError<E = Infallible> {
         l1_block: u64,
         /// The cutoff `C`, an L1 block number.
         cutoff: u64,
+    },
+    /// The checkpoint's `count` exceeds the registry's [`MAX_REGISTRY_SLOTS`] slots
+    /// (COMM-4.3-2).
+    #[error("checkpoint holds {count} entries, more than the {MAX_REGISTRY_SLOTS} registry slots")]
+    TooManyEntries {
+        /// The proven `count`.
+        count: u64,
+    },
+    /// A nonempty entry list ends in an empty slot, although `count` is one plus the highest
+    /// occupied slot (COMM-4.3-2, STAKE-4.1-36).
+    #[error("the last of {count} checkpoint entries is an empty slot")]
+    TrailingEmptySlot {
+        /// The proven `count`.
+        count: u64,
     },
     /// The witness carries a different number of entries than the checkpoint's `count`.
     #[error("checkpoint holds {expected} entries, witness carries {got}")]
@@ -212,6 +229,10 @@ impl CommitteeError {
             CommitteeError::NextCheckpointNotAfterCutoff { l1_block, cutoff } => {
                 CommitteeError::NextCheckpointNotAfterCutoff { l1_block, cutoff }
             }
+            CommitteeError::TooManyEntries { count } => CommitteeError::TooManyEntries { count },
+            CommitteeError::TrailingEmptySlot { count } => {
+                CommitteeError::TrailingEmptySlot { count }
+            }
             CommitteeError::EntryCountMismatch { expected, got } => {
                 CommitteeError::EntryCountMismatch { expected, got }
             }
@@ -273,9 +294,10 @@ pub struct Snapshot {
     pub entries: Vec<RegistryEntry>,
 }
 
-/// V1 registry Merkle root: ABI leaves bind index, compressed-key prefix/x, stake and
-/// activation/exit uint48 fields. Pad to a power of two with zero leaves; an empty list hashes to
-/// zero.
+/// V1 registry Merkle root (ENC-A-38): 0 for no entries; otherwise leaf j is
+/// `regLeaf(j)` for each slot j in 0..count, an interior empty slot included with its all-zero
+/// fields, padded on the right with `bytes32(0)` to the smallest power of two, with inner nodes
+/// `keccak256(left || right)`. One leaf is its own root.
 pub fn entries_root(entries: &[RegistryEntry]) -> B256 {
     if entries.is_empty() {
         return B256::ZERO;
@@ -370,7 +392,8 @@ pub fn snapshot_slots(i: u64, has_next: bool) -> Vec<B256> {
 
 /// Authenticates the latest registry checkpoint at `cutoff` and every captured entry.
 /// The verifier checks the contract address, supplied proof count, exact slot authentication,
-/// returned word count, checkpoint bounds, successor/cutoff inequalities, entry count and
+/// returned word count, checkpoint bounds, successor/cutoff inequalities, the 4096-slot bound,
+/// entry count, an occupied last slot (COMM-4.3-2) and
 /// complete entry root, in that order.
 pub fn verify_snapshot<P: RegistryProof>(
     state_root: B256,
@@ -418,9 +441,15 @@ pub fn verify_snapshot<P: RegistryProof>(
         }
     }
 
+    if count > MAX_REGISTRY_SLOTS {
+        return Err(CommitteeError::TooManyEntries { count });
+    }
     // A uint48 count can exceed RV32 usize; never truncate authenticated metadata.
     if usize::try_from(count) != Ok(entries.len()) {
         return Err(CommitteeError::EntryCountMismatch { expected: count, got: entries.len() });
+    }
+    if entries.last().is_some_and(RegistryEntry::is_empty_slot) {
+        return Err(CommitteeError::TrailingEmptySlot { count });
     }
     let expected = B256::from(storage[2]);
     let got = entries_root(entries);

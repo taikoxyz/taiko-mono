@@ -74,6 +74,16 @@ impl RegistryEntry {
         bytes[1..].copy_from_slice(self.ck_x.as_slice());
         crate::key::ConsensusKey::from_slice(&bytes)
     }
+
+    /// Whether this is an empty slot: every field zero (COMM-4.3-2, ENC-A-20). An occupied slot
+    /// holds a key with prefix 2 or 3, so it is never all zero.
+    pub fn is_empty_slot(&self) -> bool {
+        self.ck_prefix == 0 &&
+            self.ck_x.is_zero() &&
+            self.eff_stake.is_zero() &&
+            self.active_from_l1 == 0 &&
+            self.exit_effective_l1 == 0
+    }
 }
 
 /// The committee record for one target epoch, as deterministically derived from a fixed L1 snapshot

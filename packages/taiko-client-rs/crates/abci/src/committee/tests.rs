@@ -418,6 +418,127 @@ fn verify_snapshot_rejects_an_entry_count_mismatch() {
     );
 }
 
+/// The all-zero entry of an empty slot.
+fn empty_slot() -> RegistryEntry {
+    RegistryEntry {
+        ck_prefix: 0,
+        ck_x: B256::ZERO,
+        eff_stake: U256::ZERO,
+        active_from_l1: 0,
+        exit_effective_l1: 0,
+    }
+}
+
+/// COMM-4.3-2 (vectors 2.d, 2.e): count 3 with slots 0 and 2 occupied proves an all-zero entry
+/// for slot 1 and derives the two members. Omitting slot 1, or appending an empty entry beyond
+/// the authenticated count, fails.
+#[test]
+fn verify_snapshot_accepts_an_interior_empty_slot_and_requires_exactly_count_entries() {
+    let mut entries = sample_entries(3);
+    entries[1] = empty_slot();
+    let storage = RegistryStorage { checkpoints: vec![(10, entries.clone())] };
+    let state = registry_state(&storage);
+    let w = witness_at(&state, &storage, 0);
+    let snapshot = verify_snapshot(state.state_root(), REGISTRY, &w, 10).unwrap();
+    assert_eq!(snapshot.entries, entries);
+    assert_eq!(derive(&snapshot, 10, 0, &devnet()).unwrap().1.len(), 2);
+    let mut omitted = w.clone();
+    omitted.entries.remove(1);
+    assert_eq!(
+        verify_snapshot(state.state_root(), REGISTRY, &omitted, 10),
+        Err(CommitteeError::EntryCountMismatch { expected: 3, got: 2 })
+    );
+    let mut appended = w;
+    appended.entries.push(empty_slot());
+    assert_eq!(
+        verify_snapshot(state.state_root(), REGISTRY, &appended, 10),
+        Err(CommitteeError::EntryCountMismatch { expected: 3, got: 4 })
+    );
+}
+
+/// COMM-4.3-2, STAKE-4.1-36 (vector 2.f): a positive count ends in an occupied slot, even when
+/// the root matches, and a count above the 4096 registry slots fails before any entry is
+/// compared.
+#[test]
+fn verify_snapshot_rejects_a_trailing_empty_slot_and_a_count_above_4096() {
+    let mut entries = sample_entries(3);
+    entries[2] = empty_slot();
+    let storage = RegistryStorage { checkpoints: vec![(10, entries)] };
+    let state = registry_state(&storage);
+    assert_eq!(
+        verify_snapshot(state.state_root(), REGISTRY, &witness_at(&state, &storage, 0), 10),
+        Err(CommitteeError::TrailingEmptySlot { count: 3 })
+    );
+    for count in [MAX_REGISTRY_SLOTS + 1, (1 << 48) - 1] {
+        let words = vec![
+            (registry::length_slot(), U256::from(1)),
+            (registry::checkpoint_slots(0)[0], U256::from(10) | (U256::from(count) << 48)),
+            (registry::checkpoint_slots(0)[1], U256::from(1)),
+        ];
+        let mut accounts = filler_accounts();
+        accounts.push((REGISTRY, 1, U256::ZERO, B256::repeat_byte(0xe7), words));
+        let state = TestState::new(accounts);
+        let w = CommitteeWitness {
+            record: CommitteeRecord { checkpoint_index: 0, ..vector_record() },
+            registry: state.witness(REGISTRY, &snapshot_slots(0, false)),
+            entries: sample_entries(1),
+        };
+        assert_eq!(
+            verify_snapshot(state.state_root(), REGISTRY, &w, 10),
+            Err(CommitteeError::TooManyEntries { count })
+        );
+    }
+}
+
+/// STAKE-4.1-36 (vectors 36.f, 36.g): slots 0 and 2 occupied give count 3; withdrawing slot 2
+/// and later slot 0 shrinks the count to 1 and 0, and the earlier checkpoints keep their own
+/// count and root.
+#[test]
+fn shrinking_counts_keep_earlier_checkpoints_verifiable() {
+    let full = sample_entries(3);
+    let gapped = vec![full[0].clone(), empty_slot(), full[2].clone()];
+    let storage = RegistryStorage {
+        checkpoints: vec![(10, gapped.clone()), (20, vec![full[0].clone()]), (30, vec![])],
+    };
+    let state = registry_state(&storage);
+    for (index, cutoff, entries) in
+        [(0, 15, gapped), (1, 25, vec![full[0].clone()]), (2, 35, vec![])]
+    {
+        let snapshot = verify_snapshot(
+            state.state_root(),
+            REGISTRY,
+            &witness_at(&state, &storage, index),
+            cutoff,
+        )
+        .unwrap();
+        assert_eq!(snapshot.entries, entries, "checkpoint {index}");
+    }
+}
+
+/// ENC-A-38 (vectors 38.d..i): no entries give root 0, not `keccak256("")`; one entry is its own
+/// leaf; count 3 with slots 0 and 2 occupied hashes K(K(L0, Z1), K(L2, P)) with Z1 the indexed
+/// all-zero leaf of slot 1 and P = bytes32(0), never a zero word for Z1, a zero entry for P or
+/// slot 2 compacted to slot 1.
+#[test]
+fn entries_root_matches_the_enc_a_38_vectors() {
+    let k = |a: B256, b: B256| keccak256([a, b].concat());
+    assert_eq!(entries_root(&[]), B256::ZERO);
+    assert_ne!(entries_root(&[]), keccak256([]));
+    let one = sample_entries(1);
+    assert_eq!(entries_root(&one), entry_leaf(0, &one[0]));
+    let mut entries = sample_entries(3);
+    entries[1] = empty_slot();
+    let (l0, z1, l2) =
+        (entry_leaf(0, &entries[0]), entry_leaf(1, &empty_slot()), entry_leaf(2, &entries[2]));
+    let root = entries_root(&entries);
+    assert_eq!(root, k(k(l0, z1), k(l2, B256::ZERO)));
+    assert_ne!(root, k(k(l0, B256::ZERO), k(l2, B256::ZERO)));
+    assert_ne!(root, k(k(l0, z1), k(l2, entry_leaf(3, &empty_slot()))));
+    assert_ne!(root, entries_root(&[entries[0].clone(), entries[2].clone()]));
+    // 38.b, 38.g: four leaves are not padded further, and padding is zero, not a filler word.
+    assert_ne!(root, k(k(k(l0, z1), k(l2, B256::ZERO)), k(B256::ZERO, B256::ZERO)));
+}
+
 #[test]
 fn verify_snapshot_rejects_entries_that_do_not_hash_to_the_root() {
     let storage = registry_storage();

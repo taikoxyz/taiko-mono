@@ -36,10 +36,10 @@ const ENTRY_READS_IN_FLIGHT: usize = 4;
 /// `count` is an unproven read from the node's own L1, and `abci-genesis` runs without an overall
 /// deadline, so a buggy L1 node claiming up to `u32::MAX` entries could otherwise drive millions
 /// of reads. The cap bounds discovery at `MAX_REGISTRY_ENTRIES / ENTRY_BATCH` = 32 entry reads.
-/// The registry reuses a withdrawn bond's slot, so `count` is the most bonds ever unwithdrawn at
-/// once (exited ones included), far above the committee cap `n_max` (128 on the devnet); a
-/// registry growing past it needs a client release raising it.
-pub const MAX_REGISTRY_ENTRIES: u32 = 4096;
+/// It is the registry's slot count, which bounds `count` (COMM-4.3-2): `count` is 0 or one plus
+/// the highest occupied slot, and shrinks again when the last occupied slots are withdrawn
+/// (STAKE-4.1-36).
+pub const MAX_REGISTRY_ENTRIES: u32 = crate::committee::MAX_REGISTRY_SLOTS as u32;
 
 /// Why a committee witness could not be built.
 #[derive(Clone, Debug, thiserror::Error, PartialEq, Eq)]
