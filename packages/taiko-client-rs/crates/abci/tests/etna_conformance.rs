@@ -88,7 +88,7 @@ use k256::elliptic_curve::sec1::ToEncodedPoint;
 use protocol::shasta::{
     calculate_shasta_mix_hash,
     constants::{
-        TAIKO_DEVNET_CHAIN_ID, calculate_next_block_eip4396_base_fee_for_parent,
+        TAIKO_DEVNET_CHAIN_ID, calculate_next_etna_block_eip4396_base_fee_for_parent,
         min_base_fee_for_chain,
     },
 };
@@ -571,7 +571,7 @@ impl BlockCase {
     fn header(&self) -> Header {
         let parent = self.parent();
         let p = self.params();
-        let base_fee = calculate_next_block_eip4396_base_fee_for_parent(
+        let base_fee = calculate_next_etna_block_eip4396_base_fee_for_parent(
             parent.number,
             parent.gas_limit,
             parent.gas_used,

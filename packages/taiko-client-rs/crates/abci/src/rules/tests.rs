@@ -210,8 +210,9 @@ fn expected_header_for_a_non_genesis_parent() {
     assert_eq!(decode_extra_data(&e.extra_data), Ok((100, GENERATION, 500)));
     assert_eq!(e.parent_beacon_block_root, a.state_root);
     assert_eq!(e.gas_limit, params.block_gas_limit);
-    // 30M used against a 22.5M target over a 2 s block: 10_000_000 + 10_000_000·7.5M/22.5M/8.
-    assert_eq!(e.base_fee, 10_416_666);
+    // 30M used against a 22.5M target adjusted to 11.25M for a 2 s block under Etna's 4 s
+    // target (ENC-A-10a): 10_000_000 + floor(10_000_000·18.75M/22.5M/8).
+    assert_eq!(e.base_fee, 11_041_666);
     // cast keccak $(cast abi-encode "f(bytes32,uint256)" 0x…12345678 11)
     assert_eq!(
         e.mix_hash,
@@ -238,6 +239,89 @@ fn expected_header_clamps_the_base_fee_to_the_minimum() {
     let idle = ParentInfo { gas_used: 0, base_fee: 1, ..parent(10) };
     let e = expected_header(&inputs(11, &idle, &a, &params)).unwrap();
     assert_eq!(e.base_fee, min_base_fee_for_chain(params.l2_chain_id));
+}
+
+/// The base fee `expected_header` derives at height 1,001 for a parent at 1,000 with a 30M gas
+/// limit, `gas_used`, `base_fee` and the parent's own interval `interval` s, on `chain_id`.
+fn etna_base_fee(chain_id: u64, base_fee: u64, gas_used: u64, interval: u64) -> u64 {
+    let (a, params) = (anchor(500, 0), devnet());
+    let p = ParentInfo {
+        gas_limit: 30_000_000,
+        gas_used,
+        base_fee,
+        timestamp: 1_760_000_100,
+        grandparent_timestamp: 1_760_000_100 - interval,
+        ..parent(1_000)
+    };
+    let i = HeaderInputs {
+        min_base_fee: min_base_fee_for_chain(chain_id),
+        ..inputs(1_001, &p, &a, &params)
+    };
+    expected_header(&i).unwrap().base_fee
+}
+
+/// ENC-A-10a (vectors 10a.a..m): Etna blocks, S + 1 included, adjust the base fee for a 4 s
+/// target from the parent's own interval and header gas values, with every division floored and
+/// the result clamped to [minBaseFee, 1 gwei].
+#[test]
+fn expected_header_base_fee_matches_the_enc_a_10a_vectors() {
+    const MAINNET: u64 = 167_000;
+    // 10a.a..g at a 4 s or 8 s parent interval.
+    assert_eq!(etna_base_fee(MAINNET, 100_000_000, 15_000_000, 4), 100_000_000, "10a.a");
+    assert_eq!(etna_base_fee(MAINNET, 100_000_000, 30_000_000, 4), 112_500_000, "10a.b");
+    assert_eq!(etna_base_fee(MAINNET, 100_000_000, 15_000_000, 8), 88_750_000, "10a.c");
+    assert_eq!(etna_base_fee(MAINNET, 10_000_000, 0, 4), 10_000_000, "10a.d");
+    assert_eq!(etna_base_fee(TAIKO_DEVNET_CHAIN_ID, 10_000_000, 0, 4), 8_750_000, "10a.e");
+    assert_eq!(etna_base_fee(MAINNET, 10_000_000, 15_000_001, 4), 10_000_001, "10a.f");
+    assert_eq!(etna_base_fee(MAINNET, 950_000_000, 30_000_000, 4), 1_000_000_000, "10a.g");
+    // 10a.k, 10a.l at a 2 s parent interval.
+    assert_eq!(etna_base_fee(MAINNET, 100_000_000, 7_500_000, 2), 100_000_000, "10a.k");
+    assert_eq!(etna_base_fee(MAINNET, 100_000_000, 15_000_000, 2), 106_250_000, "10a.l");
+    // 10a.i: delta = 100,000,007 × 15M / 15M / 8 = 12,500,000.875 floors to 12,500,000.
+    assert_eq!(etna_base_fee(MAINNET, 100_000_007, 30_000_000, 4), 112_500_007, "10a.i");
+    // 10a.m: Unzen's 2 s target would turn 10a.a into 88,750,000.
+    assert_eq!(
+        protocol::shasta::constants::calculate_next_block_eip4396_base_fee_from_parent_values(
+            1_000,
+            30_000_000,
+            15_000_000,
+            4,
+            100_000_000,
+            min_base_fee_for_chain(MAINNET),
+        ),
+        88_750_000,
+        "10a.m"
+    );
+}
+
+/// ENC-A-10a (10a.h, 10a.j): the interval is the parent's timestamp minus the grandparent's, not
+/// the block's own, and `target` uses the parent header's full gas limit.
+#[test]
+fn expected_header_base_fee_uses_the_parent_interval_and_gas_limit() {
+    let (a, params) = (anchor(500, 0), devnet());
+    let p = ParentInfo {
+        gas_limit: 30_000_000,
+        gas_used: 15_000_000,
+        base_fee: 100_000_000,
+        timestamp: BFT_SECS - 8,
+        grandparent_timestamp: BFT_SECS - 12,
+        ..parent(1_000)
+    };
+    let i = HeaderInputs {
+        min_base_fee: min_base_fee_for_chain(167_000),
+        ..inputs(1_001, &p, &a, &params)
+    };
+    let e = expected_header(&i).unwrap();
+    // The block lands 8 s after its parent; the parent's own 4 s interval sets 10a.a's value.
+    assert_eq!(e.timestamp - p.timestamp, 8);
+    assert_eq!(e.base_fee, 100_000_000);
+    // A 45M parent gas limit moves the target: the derived fee follows the header value.
+    let wide = ParentInfo { gas_limit: 45_000_000, ..p };
+    let i = HeaderInputs {
+        min_base_fee: min_base_fee_for_chain(167_000),
+        ..inputs(1_001, &wide, &a, &params)
+    };
+    assert_ne!(expected_header(&i).unwrap().base_fee, 100_000_000);
 }
 
 /// ENC-A-10b (vector 10b.a): `mixHash = keccak256(abi.encode(bytes32(p.difficulty),

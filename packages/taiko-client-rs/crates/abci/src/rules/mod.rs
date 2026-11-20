@@ -21,7 +21,7 @@ use alloy_eips::eip7685::EMPTY_REQUESTS_HASH;
 use alloy_primitives::{Address, B64, B256, Bytes, U256};
 use protocol::shasta::{
     PayloadAttributesInput, ProtocolError, build_payload_attributes, calculate_shasta_mix_hash,
-    constants::calculate_next_block_eip4396_base_fee_for_parent, encode_etna_extra_data,
+    constants::calculate_next_etna_block_eip4396_base_fee_for_parent, encode_etna_extra_data,
 };
 
 use crate::{
@@ -358,7 +358,8 @@ pub fn expected_header(i: &HeaderInputs<'_>) -> Result<ExpectedHeader, RuleViola
         return Err(RuleViolation::HeightMismatch { height: i.height, parent: parent.number });
     }
 
-    let base_fee = calculate_next_block_eip4396_base_fee_for_parent(
+    // ENC-A-10a: every Etna block, S + 1 included, targets 4 s blocks.
+    let base_fee = calculate_next_etna_block_eip4396_base_fee_for_parent(
         parent.number,
         parent.gas_limit,
         parent.gas_used,
