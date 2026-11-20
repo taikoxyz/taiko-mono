@@ -86,6 +86,16 @@ def started : Protocol.World := Protocol.transact env block1 (.initializeInbox 7
 def closed2 : Protocol.World := Protocol.transact env started (.advance 2)
 def observed : Protocol.World := Protocol.transact env closed2 (.observe 1)
 
+-- With F = 3 the registry's immutable minimum distinguishes K = F and K = F + 1.
+def atCapacity (minStake : Nat) : Protocol.World :=
+  let registry := { registry with ledger := { registry.ledger with minStake := minStake } }
+  let deployment := { env with recoveryCapacity := 3 }
+  let before := Protocol.transact deployment (Protocol.empty deployment registry) (.advance 1)
+  Protocol.transact deployment before (.initializeInbox 7)
+
+example : (atCapacity (10^27 / 4 + 1)).initialized = true ∧
+    (atCapacity (10^27 / 4)).initialized = false := by decide
+
 theorem authenticated_start_trust (localCometHash : Hash) :
     Protocol.nodeTrust env observed [] [] := by
   let localOrigin := {env.genesisHeader with cometHash := localCometHash}
@@ -103,13 +113,31 @@ theorem authenticated_start_trust (localCometHash : Hash) :
 -- Ordinary startup may trust the authenticated genesis after observing its completed block.
 example : observed.initialized = true := by decide
 example : observed.node.trusted = false := by decide
-example : Protocol.NodeEvent env observed {observed.node with trusted := true} :=
-  .trust [] [] (authenticated_start_trust 99)
+example : Protocol.NodeEvent env observed
+    {observed.node with trusted := true, committedBoundary := some (0,0)} :=
+  .trust [] [] (authenticated_start_trust 99) (Or.inl rfl)
 
 def trustedNode : Protocol.World :=
-  {observed with node := {observed.node with trusted := true}}
+  {observed with node := {observed.node with trusted := true, committedBoundary := some (0,0)}}
 
 example : (Protocol.transact env trustedNode (.observe 1)).node.trusted = true := by decide
+
+def signerOpen := Protocol.transact env trustedNode (.openSigner true)
+def firstVote : SigningBridge.SignMessage := ⟨domain,0,1,0,.prevoteMsg,0⟩
+def secondVote : SigningBridge.SignMessage := {firstVote with height := 2}
+
+example : (Protocol.execute env signerOpen (.sign firstVote 7 true)).isSome = true := by decide
+example : (Protocol.execute env signerOpen (.sign secondVote 7 true)).isNone = true ∧
+    (Protocol.transact env signerOpen (.sign secondVote 7 true)).node.signer =
+      signerOpen.node.signer := by decide
+
+def afterCommit : Protocol.Node := {signerOpen.node with committedBoundary := some (0,1)}
+example : Protocol.NodeEvent {env with appCommitted := fun g h => g == 0 && h == 1}
+    signerOpen afterCommit := .commit 0 0 (by decide) (by decide)
+example :
+    let committed := {signerOpen with node := afterCommit}
+    (Protocol.execute env committed (.sign firstVote 7 true)).isNone = true ∧
+      (Protocol.execute env committed (.sign secondVote 7 true)).isSome = true := by decide
 
 -- A recovery stays observable when the finalized checkpoint's height has not moved.
 def recoveredView : Protocol.World :=

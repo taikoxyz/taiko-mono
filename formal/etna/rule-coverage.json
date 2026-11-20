@@ -3,14 +3,14 @@
   "spec": {
     "path": "packages/protocol/docs/etna/SPEC.md",
     "revision": "2026-11-20",
-    "commit": "6a9f66833afd34bbf218e11ce7b103a522102d6d",
-    "sha256": "0068d2f88da75fdd81dada64baf99e21ff059865e66f67563484609be9b04fc4"
+    "commit": "994960561490b882558da7847a21a41a271350c5",
+    "sha256": "383760a1e7df211a9c74835a4e2446db57a05bd21eb52f030980afd205748d3c"
   },
   "index": {
     "path": "packages/protocol/docs/etna/rules/INDEX.md",
     "revision": "2026-11-20",
-    "commit": "6a9f66833afd34bbf218e11ce7b103a522102d6d",
-    "sha256": "3b82b5390c233e7e175dc218be7d70f40b631fa36a11fd70f3182fe7b1455183"
+    "commit": "994960561490b882558da7847a21a41a271350c5",
+    "sha256": "e73d63b5990598dc8d158dea81fb4c1cbf4fd2b09014b1c25ebecb18d4e0b2e4"
   },
   "evidence": {
     "CONS-3.2-2": {
@@ -288,7 +288,7 @@
       "reason": "Actual consuming-pair head indices equal the exact contiguous FIFO interval from parent head through terminal head, and the service results attach each consumed edge to its witness/actual queue and legal byte action under the fixed interpreter. Pure endpoint bounds and pointwise cardinality alone are not evidence for exact FIFO coverage. Raw parser/EL/queue-proof implementation refinement remains external."
     },
     "PROOF-6.2-30": {
-      "clause": "LIVE_EN-5d5828fcdce5ab2a",
+      "clause": "LIVE_EN-e4f59cb15830dabd",
       "theorems": [
         "Etna.Design.Current.CheckpointRisk.candidate_of_accepted_landing"
       ],
@@ -649,19 +649,19 @@
       "reason": "An accepted landing has an actually submitted proof whose declared image certifies the complete decoded batch under each selected ruleset and stop. This uses the primitive backend/image soundness contract; it establishes neither image-combination availability nor guest implementation refinement."
     },
     "COMM-4.3-13": {
-      "clause": "LIVE_EN-37c995e8e4184a20",
+      "clause": "LIVE_EN-9fc0df3dcd1943ea",
       "theorems": ["Etna.Design.Current.ValidatorState.hplus2"],
       "reason": "Concrete two-set commit pipeline: H changes leave H+1 unchanged and become H+2 current state. This does not prove stock CometBFT implements the decoded machine."
     },
     "SYNC-9-5": {
-      "clause": "LIVE_EN-093bd5c714ba1b65",
+      "clause": "LIVE_EN-c2a4e4a3d3aa0823",
       "theorems": [
         "Etna.Design.Current.QueueIntegrity.node_trust_matches_checkpoint"
       ],
       "reason": "The decoded node trust check requires matching the latest checkpoint's EL hash and FI cursor. Above the generation's origin it also requires matching the Comet hash. The node's own L1 authentication, complete SYNC-9-5a switching checks and stock store behavior remain separate."
     },
     "SYNC-9-5c": {
-      "clause": "LIVE_EN-093bd5c714ba1b65",
+      "clause": "LIVE_EN-c2a4e4a3d3aa0823",
       "theorems": [
         "Etna.Design.Current.ValidatorState.commit_pipeline",
         "Etna.Design.Current.ValidatorState.replay_append",

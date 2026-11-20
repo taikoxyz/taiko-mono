@@ -62,4 +62,18 @@ example : scheduled context addressOf recovered = [⟨30,3,2⟩,⟨10,2,0⟩] �
 example : (commit recovered (scheduled context addressOf recovered)).map (fun s => (s.current,s.next)) =
     some (recovered.next,⟨[⟨30,3,2,0⟩],some 3⟩) := by decide +kernel
 
+-- Priorities are app state, so changing them does not produce validator updates.
+example : changesFor [a,b] [{a with priority := 7},{b with priority := -7}] = [] := by decide
+example : changesFor [a,b] [{a with power := 4},⟨30,3,2,0⟩] =
+    [⟨10,2,4⟩,⟨30,3,2⟩,⟨20,1,0⟩] := by decide
+
+-- The first new-generation rotation can select the same keys and powers at a later snapshot.
+def unchangedContext : Consensus.Context :=
+  { context with registry := fun _ => [⟨10,3,0,100⟩] }
+def unchangedRecovery : CommitState := (genesisFor unchangedContext addressOf).getD default
+
+example : scheduled unchangedContext addressOf unchangedRecovery = [] ∧
+    (Consensus.activeAt unchangedContext 10).cutoff = 5 ∧
+    (Consensus.activeAt unchangedContext 11).cutoff = 6 := by decide +kernel
+
 end Etna.ValidatorStateRegression

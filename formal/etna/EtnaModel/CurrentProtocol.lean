@@ -54,6 +54,8 @@ structure Node where
   trusted : Bool
   restartNeeded : Bool
   halted : Bool
+  /-- Generation and height of the durable application boundary, including genesis or import. -/
+  committedBoundary : Option (Nat × Nat) := none
 
 structure Snapshot where
   number : Nat
@@ -103,6 +105,10 @@ structure Environment where
   headerParent : Hash → Hash := fun _ => 0
   /-- Decode the Unzen proof boundary parent at the finalized proposal offset. -/
   unzenParent : Nat → Nat → Blocks.Header → Hash → Hash := fun _ _ _ _ => 0
+  /-- Capacity fixed by the Inbox implementation. The bytecode gas bound is external. -/
+  recoveryCapacity : Nat := 4096
+  /-- Authenticated completion of the app's durable Commit at (generation, height). -/
+  appCommitted : Nat → Nat → Bool := fun _ _ => false
 
 structure Proof where
   backend : Backend
@@ -173,7 +179,7 @@ def bareInbox (core : Core) : Etna.Design.State where
 def empty (env : Environment) (registry : RegistryMachine.State) : World :=
   ⟨install (bareInbox env.core) env.parameters env.configHash,false,none,⟨0,0,0,0⟩,
     ⟨registry,env.initialToken⟩,[],[],[],⟨env.unzenNextProposal,0,0,false,0,0,0⟩,none,[],0,
-    ⟨{ env.initialSigner with ready := false },env.initialSigner.activeGeneration,none,[],false,false,false⟩,
+    ⟨{ env.initialSigner with ready := false },env.initialSigner.activeGeneration,none,[],false,false,false,none⟩,
     0,[],[],false,[],[],[]⟩
 
 /-- An L1 reference commits only completed blocks at or before it, never later calls. -/
@@ -214,13 +220,20 @@ def writeStart (w : World) (height hash root block timestamp generation : Nat) :
   let cp : Checkpoint := ⟨height,hash,0,0,generation,height⟩
   { w with start := some ⟨height,hash,root⟩,     inbox := { w.inbox with generation := generation,origin := origin,       origins := w.inbox.origins ++ [(generation,origin)],checkpoint := cp,       records := writeRecord w.inbox.records cp },activeRecords := [cp],activeSnapshots := [(cp,w.inbox.snapshot)],activeLandings := [] }
 
+def recoveryCapacityOK (minStake capacity : Nat) : Prop :=
+  0 < minStake ∧ 0 < capacity ∧ capacity ≤ 4096 ∧ min 4096 (10^27 / minStake) ≤ capacity
+
+instance (minStake capacity : Nat) : Decidable (recoveryCapacityOK minStake capacity) :=
+  inferInstanceAs (Decidable (_ ∧ _))
+
 def initializeInbox (env : Environment) (w : World) (caller : Nat) : Option World :=
   if caller = env.core.owner ∧ w.initialized = false ∧ w.inbox.generation = 0 ∧ env.parameters.valid = true ∧
       w.registry.registry.config.inbox = env.core.domain.inbox ∧
       env.parameters.genesisCutoff < w.number ∧
       w.registry.registry.config.valid w.registry.registry.ledger = true ∧
       env.token.registryAddress = env.core.domain.registry ∧ env.token.slashSink = env.core.slashSink ∧
-      env.token.slashSink ≠ 0 then
+      env.token.slashSink ≠ 0 ∧
+      recoveryCapacityOK w.registry.registry.ledger.minStake env.recoveryCapacity then
     let initial := { w with initialized := true,       inbox := { w.inbox with snapshot := env.parameters.genesisCutoff },       configurations := [(0,env.parameters)] }
     if env.core.unzenInbox = 0 then
       if env.genesisHeader.height = 0 ∧ env.genesisHeader.cursor = 0 ∧ env.genesisHeader.cometHash = 0 then
@@ -533,7 +546,11 @@ def nodeImport (env : Environment) (w : World) (candidate : Import.Candidate) (d
         candidate.checkpointEL = checkpoint.elHash ∧ generation = w.inbox.generation ∧
         candidate.origin = w.inbox.origin.height then
       (Import.publish candidate generation w.inbox.configuration.unsettled w.node.signer durable).map fun installed =>
-        { w with node := { w.node with importedHeaders := installed.headerNumbers,           signer := { installed.signer with ready := false },trusted := false } }
+        { w with node := { w.node with
+          importedHeaders := installed.headerNumbers
+          committedBoundary := some (installed.generation,installed.height)
+          signer := { installed.signer with ready := false }
+          trusted := false } }
     else none
 
 def nodeRestart (w : World) : World :=
@@ -567,8 +584,19 @@ def nodeTrust (env : Environment) (w : World) (archive : List Header) (blocks : 
 /-- This is an explicit app validation event, not a caller-supplied trusted Boolean. -/
 inductive NodeEvent (env : Environment) (w : World) : Node → Prop
   | trust (archive : List Header) (blocks : List Block)
-      (verified : nodeTrust env w archive blocks) : NodeEvent env w
-      { w.node with trusted := true }
+      (verified : nodeTrust env w archive blocks)
+      (durable : w.inbox.checkpoint.height = w.inbox.origin.height ∨
+        w.node.committedBoundary.any (fun (generation,height) =>
+          generation == w.inbox.generation && decide (w.inbox.checkpoint.height ≤ height)) = true ∨
+        env.appCommitted w.inbox.generation w.inbox.checkpoint.height = true) : NodeEvent env w
+      { w.node with
+        trusted := true
+        committedBoundary := some (w.inbox.generation, max w.inbox.checkpoint.height
+          (((w.node.committedBoundary.filter (·.1 == w.inbox.generation)).map Prod.snd).getD 0)) }
+  | commit (generation height : Nat)
+      (prior : w.node.committedBoundary = some (generation,height))
+      (durable : env.appCommitted generation (height+1) = true) : NodeEvent env w
+      { w.node with committedBoundary := some (generation,height+1) }
   | missing : NodeEvent env w { w.node with trusted := false,signer := { w.node.signer with ready := false } }
   | timeout : NodeEvent env w { w.node with trusted := false,restartNeeded := true,       signer := { w.node.signer with ready := false } }
   | contradiction : NodeEvent env w { w.node with trusted := false,halted := true,       signer := { w.node.signer with ready := false } }
@@ -626,7 +654,9 @@ def execute (env : Environment) (w : World) : Call → Option World
   | .sign message signature persisted =>
       let request := SigningBridge.messageRequest env.signBytes message
         (w.node.trusted && !w.node.restartNeeded && !w.node.halted &&
-          decide (w.node.generationWatermark ≤ w.node.signer.activeGeneration))
+          decide (w.node.generationWatermark ≤ w.node.signer.activeGeneration) &&
+          w.node.committedBoundary.any (fun (generation,height) =>
+            generation == message.generation && height+1 == message.height))
       (Signer.sign w.node.signer request signature persisted).map fun result =>
         { w with node := { w.node with signer := result.1 } }
 

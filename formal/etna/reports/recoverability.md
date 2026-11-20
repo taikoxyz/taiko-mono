@@ -1,6 +1,6 @@
 # Etna recoverability (H4)
 
-Authorities: PR #22422 at `6a9f66833afd34bbf218e11ce7b103a522102d6d` (2026-11-20) for SPEC,
+Authorities: PR #22422 at `994960561490b882558da7847a21a41a271350c5` (2026-11-20) for SPEC,
 ACCEPTANCE, ANCHORLESS and SWITCH.
 
 H1–H3 are safety claims: they say that nothing bad happens. Most Etna design bugs found so far

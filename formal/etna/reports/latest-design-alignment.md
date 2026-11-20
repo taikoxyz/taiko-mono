@@ -1,8 +1,8 @@
 # Latest Etna design alignment
 
-Authorities: PR #22422 at `6a9f66833afd34bbf218e11ce7b103a522102d6d` (2026-11-20) for SPEC,
+Authorities: PR #22422 at `994960561490b882558da7847a21a41a271350c5` (2026-11-20) for SPEC,
 ACCEPTANCE, ANCHORLESS and SWITCH. The [#22422 alignment](alignment-22422.md) covers
-root resolution and node trust. The [#22419 alignment](alignment-22419.md) covers
+root resolution, signing, recovery capacity and validator updates. The [#22419 alignment](alignment-22419.md) covers
 the permissionless start, registry and landing changes. An earlier revision re-pinned to
 #22412 and removed the landing grid, the validator state in settlement and registry
 displacement. H4 still lands one block after a plain recovery.

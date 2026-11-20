@@ -74,7 +74,8 @@ class CurrentProtocolFinalityTests(unittest.TestCase):
         self.reject('w.initialized = false ∧ w.inbox.generation = 0 ∧', 'w.initialized = false ∧')
 
     def test_start_cannot_reset_a_later_generation(self):
-        self.reject('w.start = none ∧ w.inbox.generation = 0 ∧ caller', 'w.start = none ∧ caller')
+        self.reject('w.start = none ∧ w.inbox.generation = 0 ∧ env.core.forkTime',
+                    'w.start = none ∧ env.core.forkTime')
 
     def test_actual_advance_rejects_backwards_clock(self):
         self.reject('number < limit48 ∧ env.time w.number ≤ env.time number then', 'number < limit48 then')

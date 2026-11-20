@@ -155,7 +155,9 @@ def genesisFor (c : Consensus.Context) (addressOf : Hash → Nat) : Option Commi
   genesis c.originHeight (selected c addressOf (Consensus.initial c))
 
 def changesFor (old target : List Validator) : List Change :=
-  target.map (fun v => ⟨v.key,v.address,v.power⟩) ++
+  (target.filter fun v => !old.any (fun previous =>
+    previous.address == v.address && previous.key == v.key && previous.power == v.power)).map
+      (fun v => ⟨v.key,v.address,v.power⟩) ++
     (old.filter fun v => !target.any (·.address == v.address)).map fun v => ⟨v.key,v.address,0⟩
 
 /-- FinalizeBlock at S(t)=H(t)-2 emits the selected committee's changes. -/

@@ -1,7 +1,7 @@
 # Etna design verification
 
 The authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md` under
-`packages/protocol/docs/etna`, pinned to `6a9f66833afd34bbf218e11ce7b103a522102d6d`
+`packages/protocol/docs/etna`, pinned to `994960561490b882558da7847a21a41a271350c5`
 (2026-11-20, PR #22422). This package contains only the current design; the archived 2026-10-30 model,
 its vectors and reports were removed and remain readable at formal revision
 [`583bc2620`](https://github.com/taikoxyz/taiko-mono/tree/583bc2620258838e75ce353c11f9344616ac1020/formal/etna).
@@ -364,6 +364,11 @@ checks do not apply. Actual EL header
 contents/indexes, earlier ancestor context, the window's Comet history and stock stores
 required by SPEC 5.4 remain an explicit abstraction gap.
 
+Signing checks the requested generation and next height against the app's durable
+boundary (SYNC-9-10). The boundary comes from verified checkpoint replay, durable
+import or an authenticated application commit. Transport and WAL continuity are
+adapter obligations.
+
 Validator state is outside settlement (SYNC-9-5c, CONS-3.1-8): no checkpoint record, cut,
 `LandInput`, statement or H1–H4 premise carries a validator-state hash, and the guest does
 not check app_hash (PROOF-6.2-42). `EtnaModel/CurrentValidatorState.lean` is a separate
@@ -373,6 +378,8 @@ one priority increment per committed height. Its two-set pipeline implements H+2
 `genesisFor` derives the recovery initial committee from that generation's R snapshot;
 old pending updates and old-generation priorities are not inputs. The proofs in
 `EtnaProofs/CurrentValidatorState.lean` establish H+2 and per-height replay decomposition.
+The update list omits members with unchanged keys and powers. The selected snapshot
+activates even when the list is empty.
 A source mapping, stock-Go reference vectors and scope details are in
 [the validator-state report](reports/validator-state.md).
 
@@ -381,8 +388,8 @@ SYNC-9-5c record, the appHash encoding (ENC-A-29b), raw key/address binding, the
 ENC-A-29a ABI/Keccak encoder, the checkpoint import's derivation of the state after s, and
 stock CometBFT store/Go implementation refinement remain separate obligations.
 
-The [PR #22422 alignment](reports/alignment-22422.md) records the current re-pin, including
-the generation-origin trust check. The [PR #22419 alignment](reports/alignment-22419.md)
+The [PR #22422 alignment](reports/alignment-22422.md) records the current re-pin and
+the recovery-capacity, signer-height and rotation changes. The [PR #22419 alignment](reports/alignment-22419.md)
 records the launch-hardening changes already included in #22422. The
 [PR #22412 alignment](reports/alignment-22412.md) records the previous one, the
 [PR #22410 alignment](reports/alignment-22410.md) the one before it, and the
@@ -423,6 +430,11 @@ Tests close a later changed block and exercise actual `take` truncation, as well
 rollback followed by another accepted landing.
 
 ## DAO upgrade and deployment scope
+
+Inbox initialization checks the immutable registry minimum stake against the decoded
+recovery capacity (START-10-14 and START-10-18). The environment supplies the capacity.
+Measuring the deployed DAO, Inbox and registry path before refunds remains a launch gate.
+The two-proposal Unzen switch and schedule-specific verifier rollout are governance procedures.
 
 `Trace` specifies admissible decoded operations. `Governance.DeployedTrace` exposes raw DAO
 verifier-failure rollback. The **per-history** `AuthorizedUpgrades` condition uses the retained

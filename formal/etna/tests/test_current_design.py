@@ -19,7 +19,7 @@ class CurrentAuthorityTests(unittest.TestCase):
         self.assertTrue(all('historical' not in r for r in current))
         self.assertEqual({r['language'] for r in current},
                          {'live_en', 'live_acceptance', 'live_anchorless', 'live_switch'})
-        self.assertTrue(all(r['source_commit'] == '6a9f66833afd34bbf218e11ce7b103a522102d6d' for r in current))
+        self.assertTrue(all(r['source_commit'] == '994960561490b882558da7847a21a41a271350c5' for r in current))
         self.assertFalse(any(r['status'] == 'design-pending' for r in current))
         self.assertTrue(all(n.startswith('Etna.Design.Current.') for r in current for n in r['theorems']))
         self.assertTrue(any(r['status'] == 'partial' for r in current))

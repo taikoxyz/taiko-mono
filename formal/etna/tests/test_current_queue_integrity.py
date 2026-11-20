@@ -62,7 +62,8 @@ example : Etna.QueueMutation.step 0 1 10 1 (some early) .completedEmpty = .accep
     def admission_evidence(self, paid, refund):
         return '''
 open Etna.Design Etna.Design.Current
-def inbox : State := { Protocol.bareInbox ⟨⟨1,2,3,4⟩,7,8,0,0,9⟩ with
+def inbox : State := { Protocol.bareInbox {
+  domain := ⟨1,2,3,4⟩, owner := 7, unzenInbox := 8, forkTime := 0, slashSink := 9 } with
   forcedFee := 1,forcedThreshold := 1 }
 example : Etna.QueueMutation.enqueue inbox 1 ''' + str(paid) + ' ' + str(refund).lower() + ''' = none := by decide
 '''

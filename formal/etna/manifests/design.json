@@ -472,7 +472,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-c6a77e73b2279c1b"],
+      "sources": ["LIVE_EN-9aeba48ae918b6e1"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Finalized authenticated imported envelope disagreement halts; decoded candidate inspection only, no alert or store implementation proof."
     },
     {
@@ -484,7 +484,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-c6a77e73b2279c1b"],
+      "sources": ["LIVE_EN-9aeba48ae918b6e1"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. A checkpoint record landed only in an unfinalized L1 block leaves decoded import retrying until it finalizes (DATA-5.3-4 as DATA-5.4-5 applies it); no L1 finality adapter proof."
     },
     {
@@ -496,7 +496,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-c6a77e73b2279c1b"],
+      "sources": ["LIVE_EN-9aeba48ae918b6e1"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. An unauthenticated DataHash rejects the candidate; decoded inspection only, no store implementation proof."
     },
     {
@@ -508,7 +508,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-c6a77e73b2279c1b"],
+      "sources": ["LIVE_EN-9aeba48ae918b6e1"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. For s > o, a validator-state preimage that, with the EL hash of s − 1, does not give header(s)'s app_hash rejects the candidate in the absence of a finalized envelope conflict; decoded inspection only, no appHash encoding or store implementation proof."
     },
     {
@@ -532,7 +532,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-c6a77e73b2279c1b"],
+      "sources": ["LIVE_EN-9aeba48ae918b6e1"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. For s > o, a finalized record whose validator-state preimage gives header(s)'s app_hash with the EL hash of s − 1 but whose sets differ from header(s)'s validators_hash or next_validators_hash halts; decoded inspection only, no alert or CometBFT state proof."
     },
     {
@@ -544,7 +544,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-c6a77e73b2279c1b"],
+      "sources": ["LIVE_EN-9aeba48ae918b6e1"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. For s > o, with the window available and authenticated, a derived committee that disagrees with the set derived from the preimage under DATA-5.4-3 halts; decoded inspection only, no 4.3 derivation or alert proof."
     },
     {
@@ -556,7 +556,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-c6a77e73b2279c1b", "LIVE_EN-5d60b65a2114db37"],
+      "sources": ["LIVE_EN-9aeba48ae918b6e1", "LIVE_EN-5d60b65a2114db37"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Successful decoded publication requires the durable flag, preserves the signer and grants no trust; actual store staging remains external."
     },
     {
@@ -2635,7 +2635,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-c004ba62c562b36c", "LIVE_EN-0300073c68619a9e"],
+      "sources": ["LIVE_EN-c004ba62c562b36c", "LIVE_EN-6ddf0f5d853aeb8a"],
       "scope": "LAND-6.1-5, ENC-A-31/32: a landing of the single block p+1 carries no leaves, every cut table gives the same empty inner list (keccak256(\"\") on L1), and land accepts it whenever the checks that do not read the leaves pass. Decoded land only; no Solidity, calldata or Keccak implementation proof."
     },
     {
@@ -2710,7 +2710,7 @@
       "sources": [
         "LIVE_EN-806e818366c6b783",
         "LIVE_EN-c36e4d0d76a728b6",
-        "LIVE_EN-70ca624a640c9305"
+        "LIVE_EN-5c980fb5b11f4b1c"
       ],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
@@ -2763,7 +2763,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-70ca624a640c9305"],
+      "sources": ["LIVE_EN-5c980fb5b11f4b1c"],
       "scope": "Derived conditional decoded property. Rollback truncates retained signal/custody associations at the trusted checkpoint, so no voided checkpoint is readable. Every other checkpoint, including the Unzen ones at or below S and block 0, stays usable, and a re-landing at a voided height is usable: the model keeps the checkpoints at or below the trusted one and appends fresh ones. No governance mechanism proof. Signals are SignalService checkpoints only; RECOV-8-27a derived authorizations are not modelled."
     },
     {
@@ -2931,7 +2931,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-70ca624a640c9305"],
+      "sources": ["LIVE_EN-5c980fb5b11f4b1c"],
       "scope": "Derived conditional decoded property. Rollback truncates retained signal/custody associations at the trusted checkpoint, so no voided checkpoint is readable. Every other checkpoint, including the Unzen ones at or below S and block 0, stays usable, and a re-landing at a voided height is usable: the model keeps the checkpoints at or below the trusted one and appends fresh ones. No governance mechanism proof. Signals are SignalService checkpoints only; RECOV-8-27a derived authorizations are not modelled."
     },
     {
@@ -2955,7 +2955,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-70ca624a640c9305"],
+      "sources": ["LIVE_EN-5c980fb5b11f4b1c"],
       "scope": "Derived conditional decoded property. Rollback restores the exact snapshot associated with its retained trusted checkpoint and recheck source."
     },
     {
@@ -3861,7 +3861,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-093bd5c714ba1b65"],
+      "sources": ["LIVE_EN-c2a4e4a3d3aa0823"],
       "scope": "Projection of the decoded trust predicate: the local chain must reach the latest checkpoint and match its EL hash and FI cursor. It must match the Comet hash above the generation origin. Own-L1 authentication, the complete SYNC-9-5a switching checks and stock store behavior remain outside this projection."
     },
     {
@@ -5469,7 +5469,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-37c995e8e4184a20", "LIVE_EN-cc34fca3e258c580"],
+      "sources": ["LIVE_EN-9fc0df3dcd1943ea", "LIVE_EN-cc34fca3e258c580"],
       "scope": "Equal-length physical ancestry chains reaching the same EL hash have the same derived committee cutoff, under fixed parent decoding and hash-to-anchor-number separation. No complete-header or Comet/FI-metadata injectivity is assumed."
     },
     {
@@ -6018,7 +6018,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-70ca624a640c9305"],
+      "sources": ["LIVE_EN-5c980fb5b11f4b1c"],
       "scope": "Supporting RECOV-8-28 target rule as stated by the rollback duty Governance.RollbackAuthorized: two targets that both meet the duty in the same world are at the same height, so the duty leaves no choice of target. The duty itself (not this theorem) says the target is the last retained record below the first bad actual landing. TrustedRecord requires a certified header or pending start, actual non-start landing provenance and certification of every matching retained event's complete statement, including snapshot and signal root. Existence of a target after a verifier failure, the start-rewrite clause and generation counting are not shown."
     },
     {
@@ -6030,7 +6030,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-70ca624a640c9305"],
+      "sources": ["LIVE_EN-5c980fb5b11f4b1c"],
       "scope": "Supporting RECOV-8-27 effect of a raw verifier-failure rollback that meets its external duty Governance.RollbackAuthorized: the checkpoint, FI head and snapshot become the target's and the ones saved with it, the retained records are exactly those at or below the target, and each is certified from the history's initial world or the pending start. The duty is an assumption here, so this is no evidence that the target is the last trusted landing (RECOV-8-28). It is an authorization obligation on the DAO, not a contract check; the SignalService cache, Bridge RETRIABLE messages (RECOV-8-27a), the registry recheck and the generation rule are not shown."
     },
     {
@@ -6382,7 +6382,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-c004ba62c562b36c", "LIVE_EN-5d5828fcdce5ab2a"],
+      "sources": ["LIVE_EN-c004ba62c562b36c", "LIVE_EN-e4f59cb15830dabd"],
       "scope": "Every actual accepted landing yields a physical candidate through the current checkpoint and its actual active cutoff equals the submitted activeCommitteeSnapshot. The raw frontier record and accepted guest certificate supply the split, with no snapshot-order hypothesis."
     },
     {
@@ -7958,7 +7958,7 @@
         "LIVE_EN-ced8c7aa78799681",
         "LIVE_EN-7bc8d5003506136e",
         "LIVE_EN-287b470870b50710",
-        "LIVE_EN-37c995e8e4184a20",
+        "LIVE_EN-9fc0df3dcd1943ea",
         "LIVE_EN-29468a34f68ca4c6",
         "LIVE_EN-286a28f5fc30249c",
         "LIVE_EN-4ad2efd265e7f07c",
@@ -8039,7 +8039,7 @@
       "bridge_level": "spec-proved",
       "role": "property",
       "sources": [
-        "LIVE_EN-70ca624a640c9305",
+        "LIVE_EN-5c980fb5b11f4b1c",
         "LIVE_ANCHORLESS-9c1f0ee3ca43e8f5"
       ],
       "scope": "Derived conditional decoded property. RECOV-8-27 and RECOV-8-27a on the L1 read path: along every run of the protocol machine with the L1 SignalService and Bridge alongside (Bridge.Run), under any Merkle adapter, every signal cached as received and every message left RETRIABLE was proven against the state root of a checkpoint the L1 SignalService still holds (an Unzen one or an Etna landing's). An accepted rollback revokes every derived authorization in the same step (vector 27a.k); every other call keeps each checkpoint (CheckpointRisk.execute_retains). The revocation is part of the modelled rollback step, so this shows the design's revocation suffices, not that a DAO upgrade performs it. Message values, fees, quotas, pausing (RECOV-8-25) and Bridge message status beyond RETRIABLE/done are not modelled; the Merkle check is a fixed adapter."
@@ -8053,7 +8053,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-70ca624a640c9305"],
+      "sources": ["LIVE_EN-5c980fb5b11f4b1c"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. RECOV-8-27a vectors 27a.a and 27a.c: after the revocation an empty proof for a cached signal and a retry of a RETRIABLE message are refused until the signal is proven again."
     },
     {
@@ -8139,7 +8139,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-37c995e8e4184a20", "LIVE_EN-093bd5c714ba1b65"],
+      "sources": ["LIVE_EN-9fc0df3dcd1943ea", "LIVE_EN-c2a4e4a3d3aa0823"],
       "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: commit_pipeline. No Go implementation refinement, raw ABI/Keccak or appHash proof, or durable store proof; validator state is outside settlement and outside H1–H4."
     },
     {
@@ -8152,7 +8152,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-37c995e8e4184a20", "LIVE_EN-093bd5c714ba1b65"],
+      "sources": ["LIVE_EN-9fc0df3dcd1943ea", "LIVE_EN-c2a4e4a3d3aa0823"],
       "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: hplus2. No Go implementation refinement, raw ABI/Keccak or appHash proof, or durable store proof; validator state is outside settlement and outside H1–H4."
     },
     {
@@ -8165,7 +8165,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["LIVE_EN-093bd5c714ba1b65"],
+      "sources": ["LIVE_EN-c2a4e4a3d3aa0823"],
       "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: replay_append. No Go implementation refinement, raw ABI/Keccak or appHash proof, or durable store proof; validator state is outside settlement and outside H1–H4."
     },
     {
@@ -8178,7 +8178,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["LIVE_EN-093bd5c714ba1b65"],
+      "sources": ["LIVE_EN-c2a4e4a3d3aa0823"],
       "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: replay_height. No Go implementation refinement, raw ABI/Keccak or appHash proof, or durable store proof; validator state is outside settlement and outside H1–H4."
     }
   ]

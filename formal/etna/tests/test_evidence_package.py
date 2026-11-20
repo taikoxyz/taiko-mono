@@ -1,4 +1,5 @@
 """Review regressions for evidence linkage and stable clause IDs."""
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -15,9 +16,9 @@ spec.loader.exec_module(coverage)
 class EvidencePackageTests(unittest.TestCase):
     def test_claim_pairs_have_reviewed_edges(self):
         rows = coverage.inventory()
-        self.assertEqual(len([r for r in rows if r['language'] in ('live_en', 'live_acceptance')]),393)
+        self.assertEqual(len([r for r in rows if r['language'] in ('live_en', 'live_acceptance')]),395)
         self.assertEqual(len([r for r in rows if r['language'] == 'live_anchorless']),102)
-        self.assertEqual(len([r for r in rows if r['language'] == 'live_switch']),84)
+        self.assertEqual(len([r for r in rows if r['language'] == 'live_switch']),82)
         self.assertEqual(len(rows),579)
         # inventory() checks each explicit claim edge and its general-property role.
 
@@ -62,14 +63,11 @@ class EvidencePackageTests(unittest.TestCase):
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             hashes = json.loads((Path(tmp)/'coverage.json').read_text())['source_sha256']
-            self.assertEqual(hashes['packages/protocol/docs/etna/SPEC.md'],
-                             '0068d2f88da75fdd81dada64baf99e21ff059865e66f67563484609be9b04fc4')
-            self.assertEqual(hashes['packages/protocol/docs/etna/ACCEPTANCE.md'],
-                             '285a6bba4f4244a83234d804593b7f2f8a6c897b610dd338d4736c8d24072812')
-            self.assertEqual(hashes['packages/protocol/docs/etna/ANCHORLESS.md'],
-                             '0dd8cfb602df22f03849749a6fb045f44e2bc4c3bf19e4c8ee051b0b810a7d98')
-            self.assertEqual(hashes['packages/protocol/docs/etna/SWITCH.md'],
-                             '265aba1cb6fb45b89999298df0a2655029f3aba8d7a4b382995362a2098fd22c')
+            for filename in ('SPEC.md', 'ACCEPTANCE.md', 'ANCHORLESS.md', 'SWITCH.md'):
+                path = 'packages/protocol/docs/etna/' + filename
+                with self.subTest(path=path):
+                    expected = hashlib.sha256((coverage.REPO/path).read_bytes()).hexdigest()
+                    self.assertEqual(hashes[path], expected)
             self.assertNotIn('packages/protocol/docs/etna/sources/manifest.json', hashes)
 
     def test_generator_detects_stale_outputs(self):

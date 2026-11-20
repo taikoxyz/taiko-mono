@@ -2,8 +2,8 @@
 
 The model is based on CometBFT **v0.40.0**, commit
 `0880b4d378f347ab16e54ec677ff50d803f37d62`. Its Etna authority is
-`6a9f66833afd34bbf218e11ce7b103a522102d6d` (PR #22422). The evidence-pool launch
-gate is separate from the proposer and validator-update arithmetic modelled here.
+`994960561490b882558da7847a21a41a271350c5` (PR #22422). The accepted stock evidence-pool
+limitation is outside this arithmetic model.
 
 Since #22412 the validator state is outside settlement (SYNC-9-5c). The app commits it in
 `app_hash` (CONS-3.1-8, ENC-A-29b), and no landing record, cut, `LandInput`, statement or
@@ -21,7 +21,7 @@ CometBFT applies and the app must reproduce exactly. No H1–H4 statement or pre
 | `increment` / `roundStep` | `IncrementProposerPriority`, `incrementProposerPriority`, `Validator.CompareProposerPriority`; power addition, address tie-break, total-power subtraction and the stored proposer                     |
 | `genesis`                 | `state/state.go` `MakeGenesisState`: NewValidatorSet includes one increment; NextValidators increments once more; logical origin may exceed zero                                                      |
 | `commit`                  | `state/execution.go` `updateState`: update a copy of NextValidators, increment it once, shift old NextValidators to Validators and old Validators to LastValidators                                   |
-| `scheduled`               | Etna COMM-4.3-13: FinalizeBlock at S(t) returns the new selection; updates apply at H(t)=S(t)+2                                                                                                       |
+| `scheduled`               | Etna COMM-4.3-13: FinalizeBlock at S(t) returns the difference from the set signing S(t)+1, with updates effective at H(t)=S(t)+2                                                                     |
 
 References: [validator sets](https://github.com/cometbft/cometbft/blob/0880b4d378f347ab16e54ec677ff50d803f37d62/types/validator_set.go),
 [genesis](https://github.com/cometbft/cometbft/blob/0880b4d378f347ab16e54ec677ff50d803f37d62/state/state.go),
@@ -73,6 +73,8 @@ The H+2 regression starts a recovery generation at height 8 with epoch length 10
 FinalizeBlock at S(1)=9 returns the epoch-1 selection and at heights 8 and 10 returns
 nothing; committing it keeps the old signing set at height 10 and makes the new set sign
 H(1)=11.
+With identical keys and powers at the later snapshot, FinalizeBlock returns an empty
+list and the selection snapshot still advances at H(1).
 
 `testdata/etna_current_conformance/validator_state.json` holds ten genesis/commit replay
 vectors from this model, tagged COMM-4.3-13, CONS-3.1-8 and SYNC-9-5c.
