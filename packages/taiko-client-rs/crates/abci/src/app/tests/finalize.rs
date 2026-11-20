@@ -358,8 +358,9 @@ async fn finalize_updates_parent_anchor_and_committees() {
 }
 
 /// The switch height to epoch 2 (`h_first(2) − 2`, as CometBFT applies updates two heights
-/// later) emits the exact updates (a removal, a power change, an unchanged member restated, an
-/// addition), sorted by key, and committees below 1 pruned.
+/// later) emits the exact updates, sorted by key: a removal, a power change and an addition, but
+/// not the member whose key and power stay the same (COMM-4.3-13, vector 13.f); committees below 1
+/// are pruned.
 #[tokio::test]
 async fn switch_height_emits_the_exact_updates_and_prunes() {
     let fx = Fixture::genesis(3);
@@ -401,7 +402,6 @@ async fn switch_height_emits_the_exact_updates_and_prunes() {
     let expected: BTreeMap<crate::key::ConsensusKey, u64> = BTreeMap::from([
         (all[0].consensus_key().unwrap(), 0),
         (all[1].consensus_key().unwrap(), 10 * unit),
-        (all[2].consensus_key().unwrap(), 3 * unit),
         (all[3].consensus_key().unwrap(), 4 * unit),
     ]);
     assert_eq!(updates_of(&out), expected.into_iter().collect::<Vec<_>>());

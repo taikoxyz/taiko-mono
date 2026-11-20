@@ -72,9 +72,8 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
         l2.get_block_by_number(BlockNumberOrTag::Number(0)).await?.context("no L2 block 0")?;
     let mut prev_timestamp = genesis.header.timestamp;
     let mut prev_anchor = devnet.genesis().l1_0;
-    // The one validator keeps its power, and a same-power update leaves a one-member set as a
-    // height without updates does, so the validator state after h is the genesis one advanced h
-    // times.
+    // The one validator keeps its key and power, so no rotation returns an update (COMM-4.3-13)
+    // and the validator state after h is the genesis one advanced h times.
     let mut val_state = abci::valstate::ValState::genesis(0, &[(key, 10_000_000_000)])?;
     for h in 1..=head {
         let block =

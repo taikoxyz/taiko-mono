@@ -98,8 +98,8 @@ fn members(set: &ValSet) -> Vec<Member> {
         .collect()
 }
 
-// Apply the actual committee update builder and native ABCI key/power codec. The stock inputs
-// contain sparse changes; ABCI returns the full changed committee, including unchanged members.
+// Apply the actual committee update builder and native ABCI key/power codec. Both the stock
+// inputs and the ABCI list are the difference from the set in force (COMM-4.3-13).
 fn abci_updates(previous: &ValSet, recorded: &ValSet) -> Vec<(ConsensusKey, u64)> {
     committee::validator_updates(&members(previous), &members(recorded))
         .into_iter()

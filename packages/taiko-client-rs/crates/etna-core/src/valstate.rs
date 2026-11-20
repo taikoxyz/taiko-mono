@@ -169,7 +169,8 @@ impl ValState {
     }
 
     /// The state after `height + 1`, whose FinalizeBlock returned `updates`
-    /// (`committee::validator_updates`; same-power entries and zero-power removals included).
+    /// (`committee::validator_updates`: zero-power removals, new members and changed powers; a
+    /// member whose key and power stay the same is not listed).
     pub fn advance(&self, updates: &[(ConsensusKey, u64)]) -> Result<Self, ValStateError> {
         let mut next = ValidatorSet::from_val_set(&self.next);
         if !updates.is_empty() {

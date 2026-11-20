@@ -27,9 +27,11 @@ where `key` is an index into `keys`; these strings keep the file small and are n
 by the repository's JSON formatter. An empty `updates` string means no updates.
 
 The first step is the genesis: its `updates` are the genesis members. Every later step is one
-height, and its `updates` are the validator updates that height's FinalizeBlock returns, in
-`committee::validator_updates` shape (every old member at power 0, overwritten by the new
-committee's members, so unchanged members repeat their power).
+height, and its `updates` are the validator updates applied there: every old member at power 0,
+overwritten by the new committee's members, so unchanged members repeat their power. Stock
+CometBFT reaches the same state from that list as from the difference alone, which is what
+`committee::validator_updates` returns (COMM-4.3-13: a leaver at power 0, a newcomer or changed
+power at its new power, no unchanged member); the Rust replay of the `chains` checks both.
 A step holds the state after that height: `current` is `State.Validators` and `next` is
 `State.NextValidators`, each in CometBFT set order (power descending, then address ascending)
 with proposer priorities, and `current_proposer` / `next_proposer` are the indexes of each

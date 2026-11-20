@@ -491,17 +491,18 @@ pub fn verify_committee_at_cutoff<P: RegistryProof>(
     Ok((record, members))
 }
 
-/// Produces native key/power updates, including zero-power removals, sorted by key.
+/// The native key/power updates that turn `old`, the set in force, into `new`, sorted by key
+/// (COMM-4.3-13): a member that leaves is returned with power 0, a new member or one whose power
+/// changes with its new power, and a member whose key and power stay the same is not returned.
 /// Identical native sets emit no updates; authenticated stake changes alone need no Comet update.
 pub fn validator_updates(old: &[Member], new: &[Member]) -> Vec<(ConsensusKey, u64)> {
     let native = |members: &[Member]| {
         members.iter().map(|m| (m.pubkey, m.power)).collect::<BTreeMap<_, _>>()
     };
-    if native(old) == native(new) {
-        return Vec::new();
-    }
-    let mut updates: BTreeMap<ConsensusKey, u64> = old.iter().map(|m| (m.pubkey, 0)).collect();
-    updates.extend(new.iter().map(|m| (m.pubkey, m.power)));
+    let (old, new) = (native(old), native(new));
+    let mut updates: BTreeMap<ConsensusKey, u64> =
+        old.keys().filter(|key| !new.contains_key(*key)).map(|key| (*key, 0)).collect();
+    updates.extend(new.into_iter().filter(|(key, power)| old.get(key) != Some(power)));
     updates.into_iter().collect()
 }
 

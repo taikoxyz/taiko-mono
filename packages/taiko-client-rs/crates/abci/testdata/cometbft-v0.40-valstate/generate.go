@@ -125,9 +125,10 @@ func validators(updates []update) []*types.Validator {
 	return out
 }
 
-// validatorUpdates has committee::validator_updates' shape: every old member at power 0,
-// overwritten by the new committee's members, sorted by compressed key; nothing when the two
-// committees are identical.
+// validatorUpdates restates a committee change in full: every old member at power 0, overwritten
+// by the new committee's members, sorted by compressed key; nothing when the two committees are
+// identical. Unchanged members repeat their power, which stock CometBFT treats as the difference
+// alone that committee::validator_updates returns.
 func validatorUpdates(old, new []member) []update {
 	same := len(old) == len(new)
 	byKey := map[string]int64{}
@@ -356,8 +357,8 @@ func namedCases() []vcase {
 	c.idle(4)
 	cases = append(cases, c.done("power_only_change"))
 
-	// A lone same-power entry, then the validator_updates shape where unchanged members repeat
-	// their power next to a real change.
+	// A lone same-power entry, then a full restatement where unchanged members repeat their
+	// power next to a real change.
 	old = []member{{1, 10}, {2, 20}, {3, 30}}
 	c = start(0, old...)
 	c.idle(2)

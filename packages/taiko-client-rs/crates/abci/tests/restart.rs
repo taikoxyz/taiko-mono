@@ -105,9 +105,9 @@ async fn first_switch_restart_and_state_loss_recover_on_one_devnet() -> anyhow::
         old_hashes,
         "L2 chain changed below the old head"
     );
-    // Header h + 1 commits appHash(h) (CONS-3.1-8). The one validator keeps its power, and a
-    // same-power update leaves a one-member set as a height without updates does, so the
-    // validator state after h is the genesis one advanced h times.
+    // Header h + 1 commits appHash(h) (CONS-3.1-8). The one validator keeps its key and power,
+    // so no rotation returns an update (COMM-4.3-13) and the validator state after h is the
+    // genesis one advanced h times.
     let genesis_set: Vec<_> = validator_set(&devnet, 1).await?.into_iter().collect();
     assert_eq!(genesis_set.len(), 1);
     let mut val_state = abci::valstate::ValState::genesis(0, &genesis_set)?;

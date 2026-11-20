@@ -178,7 +178,32 @@ fn native_updates_remove_add_and_leave_identical_sets_unchanged() {
     let updates = validator_updates(&old, &new);
     assert!(updates.contains(&(old[0].pubkey, 0)));
     assert!(updates.contains(&(new[0].pubkey, 4)));
+    assert!(updates.contains(&(new[1].pubkey, 5)));
     assert_eq!(updates.len(), 3);
+}
+
+/// COMM-4.3-13 (vectors 13.d, 13.f, 13.g): the updates are the difference from the set in force.
+/// A leaver is returned at power 0, a newcomer or changed power at its new power, and a member
+/// whose key and power stay the same is not returned, even when its stake changed.
+#[test]
+fn native_updates_omit_members_whose_key_and_power_are_unchanged() {
+    let member = |seed, stake, power| Member {
+        pubkey: key_from_seed(B256::repeat_byte(seed)),
+        eff_stake: ether(stake),
+        power,
+    };
+    let old = vec![member(1, 1, 2), member(2, 1, 3), member(3, 1, 4)];
+    // 1 keeps key and power with more stake, 2 changes power, 3 leaves, 4 joins.
+    let new = vec![member(1, 9, 2), member(2, 1, 5), member(4, 1, 6)];
+    let mut expected = vec![(new[1].pubkey, 5), (old[2].pubkey, 0), (new[2].pubkey, 6)];
+    expected.sort();
+    assert_eq!(validator_updates(&old, &new), expected);
+    // 13.g: all keys and powers retained, stake changed: no update at all.
+    let restaked = vec![member(1, 2, 2), member(2, 2, 3), member(3, 2, 4)];
+    assert!(validator_updates(&old, &restaked).is_empty());
+    // A lone power change returns that member only.
+    let changed = vec![member(1, 1, 2), member(2, 1, 7), member(3, 1, 4)];
+    assert_eq!(validator_updates(&old, &changed), vec![(old[1].pubkey, 7)]);
 }
 #[test]
 fn snapshot_slots_list_length_checkpoint_and_optional_next() {
