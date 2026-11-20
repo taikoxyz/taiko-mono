@@ -75,6 +75,12 @@ func run() error {
 			return initStateCommand(os.Args[2:])
 		case "transport-keygen":
 			return transportKeygen(os.Args[2:], os.Stdout)
+		case "wal-binding":
+			return walBindingCommand(os.Args[2:], os.Stdout)
+		case "wal-preflight":
+			return walPreflightCommand(os.Args[2:], os.Stdout)
+		case "comet-head":
+			return cometHeadCommand(os.Args[2:], os.Stdout)
 		}
 	}
 	addr := flag.String("comet-signer-addr", "", "Comet's signer listener: unix://<path> or noise://<comet-node-peer-id>@<ip>:<port>; bare tcp:// is refused")

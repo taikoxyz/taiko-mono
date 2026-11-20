@@ -322,7 +322,7 @@ func TestFloorNeverLowersAndFailoverFencesTheOldInstance(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := restarted(t, key, state)
-	if err := p.admit(otherProcess(otherInstance)); err != nil {
+	if err := p.admit(cometReport{Process: otherProcess(otherInstance)}); err != nil {
 		t.Fatal(err)
 	}
 	if got := persisted(t, key, state); got.Floor != 3 {
@@ -342,7 +342,7 @@ func TestSessionAdmissionVerifiesTheSupervisorReport(t *testing.T) {
 	for _, c := range []struct {
 		name     string
 		conn     *cometConn
-		reporter cometReporter
+		reporter supervisorClient
 		reason   string
 	}{
 		{"unix-other-pid", &cometConn{unix: true, pid: own.PID}, reporting(otherProcess(testInstance)), "not the supervisor's Comet"},
@@ -409,8 +409,8 @@ func TestFloorPersistenceFailureIsUncertain(t *testing.T) {
 func TestSupervisorChannelAuthenticatesItsPeer(t *testing.T) {
 	path := serveSupervisor(t, reportsComet(testInstance))
 	deadline := time.Now().Add(time.Second)
-	if proc, err := newSupervisorChannel(path, os.Getpid()).comet(deadline); err != nil || proc == nil || *proc != testComet() {
-		t.Fatalf("own peer: %v %v", proc, err)
+	if report, err := newSupervisorChannel(path, os.Getpid()).comet(deadline); err != nil || report == nil || report.Process != testComet() || report.Replay != nil {
+		t.Fatalf("own peer: %v %v", report, err)
 	}
 	if _, err := newSupervisorChannel(path, os.Getpid()+1).comet(deadline); !errors.Is(err, errSupervisorUnavailable) || !strings.Contains(err.Error(), "peer PID") {
 		t.Fatalf("another peer PID was accepted: %v", err)
@@ -499,7 +499,7 @@ func TestGuardedSignerMatchesStockFilePV(t *testing.T) {
 			t.Fatal(err)
 		}
 		guarded := newGuardedPV(key, chain, state, zeroState(chain))
-		if err := guarded.admit(testComet()); err != nil {
+		if err := guarded.admit(cometReport{Process: testComet()}); err != nil {
 			t.Fatal(err)
 		}
 		for step := range 30 {
@@ -544,4 +544,274 @@ func TestGuardedSignerMatchesStockFilePV(t *testing.T) {
 	if signed == 0 || refused == 0 || retried == 0 {
 		t.Fatalf("the sequences did not cover signing (%d), refusal (%d) and timestamp retries (%d)", signed, refused, retried)
 	}
+}
+
+// testBinding is a live replay binding for a signature at height 1: the generation's initial
+// height, so the marker is #ENDHEIGHT 0 and the predecessor is genesis.
+func testBinding(length int64) replayBinding {
+	return replayBinding{Marker: 0, Length: length, Digest: bytes.Repeat([]byte{byte(length)}, 32)}
+}
+
+// replayRig is a signer restarted on a new Comet process of the bound home after it signed
+// saved, whose live binding the supervisor reported, with a supervisor whose startup check
+// verified that binding and pinned a longer startup prefix, and whose observer reports an open
+// replay attempt of height 1.
+type replayRig struct {
+	t                *testing.T
+	key, state       string
+	saved            []byte
+	signer           *guardedPV
+	s                *session
+	reporter         *staticReporter
+	bound, startup   replayBinding
+	eligible         atomic.Uint64
+	savedTimestamped time.Time
+}
+
+func newReplayRig(t *testing.T, saved pv.Message) *replayRig {
+	t.Helper()
+	signer, key, state := filePV(t)
+	r := &replayRig{t: t, key: key, state: state, bound: testBinding(40), startup: testBinding(90)}
+	r.eligible.Store(1)
+	first := sessionFor(t, signer, testComet(), &r.eligible)
+	live := reporting(testComet())
+	live.binding = &r.bound
+	first.g.supervisor = live
+	r.saved = first.signs(saved)
+	if got := persisted(t, key, state); got.Replay == nil || !got.Replay.equal(r.bound) {
+		t.Fatalf("the live signature did not record its binding: %+v", got.Replay)
+	}
+	r.signer = restarted(t, key, state)
+	r.reporter = &staticReporter{report: &cometReport{Process: otherProcess(testInstance), Replay: &replayReport{Height: 1, Binding: r.bound, Startup: r.startup}},
+		observation: &replayObservation{Attempt: 1, Open: true, Height: 1}, binding: &replayBinding{Marker: 0, Length: 500, Digest: bytes.Repeat([]byte{5}, 32)}}
+	r.s = sessionFor(t, r.signer, otherProcess(testInstance), &r.eligible)
+	r.s.g.supervisor = r.reporter
+	return r
+}
+
+// observe changes what the observer reports from now on.
+func (r *replayRig) observe(o replayObservation) {
+	r.reporter.observation = &o
+	r.s.g.supervisor = *r.reporter
+}
+
+func (r *replayRig) floor() int64 { return persisted(r.t, r.key, r.state).Floor }
+
+// vote is a vote at height 1 in round, for block (0 nil) at second stamp.
+func vote(typ tm.SignedMsgType, round int32, block byte, stamp int64) pv.Message {
+	request := voteRequest(typ, round, block == 0)
+	if block != 0 {
+		request.GetSignVoteRequest().Vote.BlockID.Hash = bytes.Repeat([]byte{block}, 32)
+	}
+	request.GetSignVoteRequest().Vote.Timestamp = time.Unix(stamp, 0)
+	return request
+}
+
+// RECOV-8.2-2 vectors 2.e/2.k and SYNC-9-12 12.a, SYNC-9-13 13.e (signer response loss): the
+// saved prevote's reply was lost; the restarted pair replays from the verified predecessor, the
+// request repeating the saved HRS with only another timestamp gets the saved signature and
+// timestamp and confirms the decision, and the first precommit is signed during that replay and
+// persisted with the pinned startup prefix. After the replay ends the session continues live.
+func TestReplayConfirmsTheSavedVoteAndSignsHigherHRS(t *testing.T) {
+	r := newReplayRig(t, vote(tm.PrevoteType, 0, 1, 100))
+	if r.floor() != 0 {
+		t.Fatal("an eligible replay was fenced")
+	}
+	retry := vote(tm.PrevoteType, 0, 1, 200)
+	signature, remote := r.s.request(retry)
+	if remote != nil || !bytes.Equal(signature, r.saved) {
+		t.Fatalf("the saved prevote was not returned: %v", remote)
+	}
+	response, _ := r.s.g.handle(r.signer, vote(tm.PrevoteType, 0, 1, 300), chain)
+	if got := response.GetSignedVoteResponse().Vote.Timestamp; !got.Equal(time.Unix(100, 0)) {
+		t.Fatalf("the timestamp-only retry got %v, not the saved timestamp", got)
+	}
+	r.s.signs(vote(tm.PrecommitType, 0, 1, 300))
+	if got := persisted(t, r.key, r.state); got.Step != stepPrecommit || got.Replay == nil || !got.Replay.equal(r.startup) || got.Floor != 0 {
+		t.Fatalf("the replayed precommit was not bound to the startup prefix: %+v floor %d", got.Replay, got.Floor)
+	}
+	// Replay: Done; the confirmed session goes on live, with live bindings.
+	r.observe(replayObservation{Attempt: 1, Height: 1})
+	r.s.signs(vote(tm.PrevoteType, 1, 1, 400))
+	if got := persisted(t, r.key, r.state); got.Round != 1 || got.Replay == nil || got.Replay.Length != 500 {
+		t.Fatalf("the live vote after replay: %+v", got.Replay)
+	}
+}
+
+// Fresh signing at the replayed height stays closed until the saved decision is confirmed, and
+// an unconfirmed request outside an authenticated attempt (stock fell through on a replay error,
+// vector 2.j; a skipped replay) raises the durable floor, after which nothing at H signs.
+func TestUnconfirmedReplayFencesOutsideTheAttempt(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		obs  replayObservation
+	}{
+		{"replay-error", replayObservation{Attempt: 1, Height: 1, Tainted: true}},
+		{"replay-ended-unconfirmed", replayObservation{Attempt: 1, Height: 1}},
+		{"no-replay-attempt", replayObservation{}},
+		{"attempt-for-another-height", replayObservation{Attempt: 1, Open: true, Height: 2}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			r := newReplayRig(t, vote(tm.PrevoteType, 0, 1, 100))
+			r.s.refuses(vote(tm.PrecommitType, 0, 1, 100), "stays closed until replay confirms")
+			if r.floor() != 0 {
+				t.Fatal("a closed request inside the attempt fenced the height")
+			}
+			r.observe(c.obs)
+			r.s.refuses(vote(tm.PrevoteType, 0, 1, 100), "durable floor")
+			if r.floor() != 2 {
+				t.Fatalf("floor %d after an unconfirmed replay", r.floor())
+			}
+			r.observe(replayObservation{Attempt: 1, Open: true, Height: 1})
+			r.s.refuses(vote(tm.PrevoteType, 0, 1, 100), "durable floor")
+			r.s.refuses(vote(tm.PrecommitType, 0, 1, 100), "durable floor")
+		})
+	}
+}
+
+// Vector 2.m/2.n: after a proposal, a request at that proposal HRS marks progress to the propose
+// step only. The identical proposal gets the saved signature, a rebuilt one with another BlockID
+// or POLRound is refused, and no fresh vote at H is signed without independent confirmation,
+// which this signer does not implement: when the attempt ends, H is fenced.
+func TestProposalReplayMarksProgressOnly(t *testing.T) {
+	proposal := func(block byte, pol int32) pv.Message {
+		request := at(proposalRequest(), 1, 1)
+		p := request.GetSignProposalRequest().Proposal
+		p.PolRound = pol
+		p.BlockID = tm.BlockID{Hash: bytes.Repeat([]byte{block}, 32), PartSetHeader: tm.PartSetHeader{Total: 1, Hash: bytes.Repeat([]byte{block}, 32)}}
+		return request
+	}
+	r := newReplayRig(t, proposal(1, -1))
+	if again := r.s.signs(proposal(1, -1)); !bytes.Equal(again, r.saved) {
+		t.Fatal("the identical proposal did not return the saved signature")
+	}
+	r.s.refuses(proposal(2, -1), "conflicting data")
+	r.s.refuses(proposal(1, 0), "conflicting data")
+	prevote := vote(tm.PrevoteType, 1, 1, 100)
+	r.s.refuses(prevote, "stays closed until replay confirms")
+	r.observe(replayObservation{Attempt: 1, Height: 1})
+	r.s.refuses(prevote, "durable floor")
+	if r.floor() != 2 {
+		t.Fatalf("floor %d", r.floor())
+	}
+}
+
+// Vectors 2.q/2.r: an upgraded app accepts a proposal it rejected, so replay asks for a block
+// prevote although the saved last signature is the nil precommit (2.q): the earlier HRS is
+// refused, the saved precommit's timestamp-only retry confirms, and higher HRS are admitted
+// after it. With only the nil prevote saved (2.r), the conflicting block prevote is refused and
+// fresh signing at H stays closed.
+func TestUpgradedAppReplayAtTheSavedPrecommit(t *testing.T) {
+	t.Run("2.q", func(t *testing.T) {
+		r := newReplayRig(t, vote(tm.PrecommitType, 0, 0, 100))
+		r.s.refuses(vote(tm.PrevoteType, 0, 1, 200), "step regression")
+		r.s.refuses(vote(tm.PrecommitType, 1, 0, 200), "stays closed until replay confirms")
+		if again := r.s.signs(vote(tm.PrecommitType, 0, 0, 200)); !bytes.Equal(again, r.saved) {
+			t.Fatal("the saved precommit was not returned")
+		}
+		r.s.signs(vote(tm.PrevoteType, 1, 1, 200))
+	})
+	t.Run("2.r", func(t *testing.T) {
+		r := newReplayRig(t, vote(tm.PrevoteType, 0, 0, 100))
+		r.s.refuses(vote(tm.PrevoteType, 0, 1, 200), "conflicting data")
+		r.s.refuses(vote(tm.PrecommitType, 0, 1, 200), "stays closed until replay confirms")
+		r.observe(replayObservation{Attempt: 1, Height: 1})
+		r.s.refuses(vote(tm.PrecommitType, 0, 1, 200), "durable floor")
+	})
+}
+
+// Replay admission is cleared by a repair, a replay error, another attempt and a disconnect
+// (RECOV-8.2-2): a new attempt must confirm again against the latest durable HRS.
+func TestReplayAdmissionIsClearedAndMustConfirmAgain(t *testing.T) {
+	t.Run("disconnect", func(t *testing.T) {
+		r := newReplayRig(t, vote(tm.PrevoteType, 0, 1, 100))
+		r.s.signs(vote(tm.PrevoteType, 0, 1, 100))
+		// A reconnect to the same process clears the confirmation.
+		again := sessionFor(t, r.signer, otherProcess(testInstance), &r.eligible)
+		again.g.supervisor = *r.reporter
+		again.refuses(vote(tm.PrecommitType, 0, 1, 100), "stays closed until replay confirms")
+		again.signs(vote(tm.PrevoteType, 0, 1, 100))
+		again.signs(vote(tm.PrecommitType, 0, 1, 100))
+	})
+	t.Run("another-attempt", func(t *testing.T) {
+		r := newReplayRig(t, vote(tm.PrevoteType, 0, 1, 100))
+		r.s.signs(vote(tm.PrevoteType, 0, 1, 100))
+		r.observe(replayObservation{Attempt: 2, Open: true, Height: 1})
+		r.s.refuses(vote(tm.PrecommitType, 0, 1, 100), "stays closed until replay confirms")
+	})
+	t.Run("repair", func(t *testing.T) {
+		r := newReplayRig(t, vote(tm.PrevoteType, 0, 1, 100))
+		r.s.signs(vote(tm.PrevoteType, 0, 1, 100))
+		r.observe(replayObservation{Attempt: 1, Height: 1, Tainted: true, Repaired: true})
+		r.s.refuses(vote(tm.PrecommitType, 0, 1, 100), "until the supervisor restarts the pair")
+		if r.floor() != 0 {
+			t.Fatal("a stock tail repair fenced the height")
+		}
+	})
+}
+
+// Vector 2.l: a torn tail after all bound input keeps this start closed at H without a floor,
+// while stock repairs it; a transient refusal of a request at H (trust, a timeout) does the same,
+// as the supervisor's guarded restart retries it (SYNC-9-12).
+func TestRecoverableInterruptionsKeepHClosedWithoutAFloor(t *testing.T) {
+	t.Run("torn-tail", func(t *testing.T) {
+		r := newReplayRig(t, vote(tm.PrevoteType, 0, 1, 100))
+		r.reporter.report.Replay.Repair = true
+		again := restarted(t, r.key, r.state)
+		r.s = sessionFor(t, again, otherProcess(testInstance), &r.eligible)
+		r.s.g.supervisor = *r.reporter
+		r.signer = again
+		r.s.refuses(vote(tm.PrevoteType, 0, 1, 100), "until the supervisor restarts the pair")
+		r.observe(replayObservation{Attempt: 1, Height: 1, Tainted: true, Repaired: true})
+		r.s.refuses(vote(tm.PrecommitType, 0, 1, 100), "until the supervisor restarts the pair")
+		if r.floor() != 0 {
+			t.Fatal("a torn tail fenced the height")
+		}
+	})
+	t.Run("trust-refusal", func(t *testing.T) {
+		r := newReplayRig(t, vote(tm.PrevoteType, 0, 1, 100))
+		closed := control(t, func(map[string]any) any { return snapshot(false) })
+		open := r.s.g.path
+		r.s.g.path = closed
+		r.s.refuses(vote(tm.PrevoteType, 0, 1, 100), "checkpoint trust")
+		r.s.g.path = open
+		r.observe(replayObservation{Attempt: 1, Height: 1})
+		r.s.refuses(vote(tm.PrecommitType, 0, 1, 100), "until the supervisor restarts the pair")
+		if r.floor() != 0 {
+			t.Fatal("a trust refusal during replay fenced the height")
+		}
+	})
+}
+
+// The startup check must verify exactly the saved binding: another binding, height or a startup
+// prefix that does not extend it opens no replay session, and the restart is fenced as without
+// one; an unavailable observer refuses the request at H without touching the state.
+func TestReplaySessionNeedsTheSavedBinding(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		change func(*replayReport)
+	}{
+		{"other-length", func(r *replayReport) { r.Binding.Length++ }},
+		{"other-digest", func(r *replayReport) { r.Binding.Digest = bytes.Repeat([]byte{9}, 32) }},
+		{"other-height", func(r *replayReport) { r.Height = 2 }},
+		{"short-startup", func(r *replayReport) { r.Startup.Length = r.Binding.Length - 1 }},
+		{"other-startup-marker", func(r *replayReport) { r.Startup.Marker = 3 }},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			r := newReplayRig(t, vote(tm.PrevoteType, 0, 1, 100))
+			c.change(r.reporter.report.Replay)
+			r.s.g.supervisor = *r.reporter
+			r.s.refuses(vote(tm.PrevoteType, 0, 1, 100), "durable floor")
+		})
+	}
+	t.Run("observer-unavailable", func(t *testing.T) {
+		r := newReplayRig(t, vote(tm.PrevoteType, 0, 1, 100))
+		r.reporter.observation = nil
+		r.s.g.supervisor = *r.reporter
+		before := readFile(t, r.state)
+		r.s.refuses(vote(tm.PrevoteType, 0, 1, 100), "supervisor channel unavailable")
+		if !bytes.Equal(before, readFile(t, r.state)) {
+			t.Fatal("an unavailable observer changed the state")
+		}
+	})
 }

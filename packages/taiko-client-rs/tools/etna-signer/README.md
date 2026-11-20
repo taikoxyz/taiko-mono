@@ -338,10 +338,19 @@ The signer learns which Comet it serves over the supervisor's private channel: a
 `<app-store>/supervisor`, mode 0700 and owned by the supervisor). Both ends check the other's
 kernel peer credentials: the supervisor answers only its current signer child, by PID, and the
 signer accepts only the PID that started it (its parent at startup) under root or its own UID.
-Each request is one JSON line, `{"schema": 1, "id": n, "op": "comet"}`, and its reply
-`{"schema": 1, "id": n, "comet": null}` while no Comet runs, else `"comet": {"pid": P, "start":
-"<ticks>", "store_instance": "<32 hex>"}`, the Comet process the supervisor started (its PID and
-kernel start time, `null` without `/proc`) and the ID it read before starting it.
+Each request is one JSON line, `{"schema": 1, "id": n, "op": ...}`, and each reply carries the
+same `schema` and `id` (or an `error`):
+
+| Op        | Request fields | Reply                                                                                                                                                                                                                    |
+| --------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `comet`   | none           | `"comet": null` while no Comet runs, else `{"pid": P, "start": "<ticks>" or null, "store_instance": "<32 hex>", "replay": null or {"height": H, "binding": B, "startup": B, "repair": bool}}`                            |
+| `observe` | none           | `"replay": {"attempt": n, "open": bool, "height": h, "tainted": bool, "repaired": bool}`, the log observer's view of the bound Comet after it consumed every record already written                                     |
+| `wal`     | `"height": H`  | `"binding": null` or B, the live binding of a signing request at H                                                                                                                                                      |
+
+`pid` and `start` are the Comet process the supervisor started (its kernel start time, `null`
+without `/proc`), `store_instance` the ID it read before starting it, and `replay` its startup
+check (Same-height replay). A binding B is `{"marker": M, "predecessor": "<hex>", "wal_length":
+n, "wal_sha256": "<hex>"}`.
 
 Every signing request of a transport connection is admitted only after the trust check of
 Supervision and trust and this continuity check, within the same 3.5 s (SYNC-9-4, SYNC-9-10).
@@ -353,12 +362,14 @@ fences the state, durably, before anything is signed:
 
 - A key that has never signed in this domain binds to the reported store instance and keeps no
   floor.
-- For a key whose last signature is at height H, a changed or absent binding, and a Comet process
-  other than the one this signer last admitted, raise the persisted `floor` to at least H + 1
-  and bind the reported instance. A restart of the pair is such a new process: no stock replay
-  that could establish same-height continuity is checked yet, so the restarted signer never signs
-  at the height it last signed.
-- A reconnect to the same live process on the same instance changes nothing (SYNC-9-4).
+- For a key whose last signature is at height H, a changed or absent binding raises the
+  persisted `floor` to at least H + 1 and binds the reported instance.
+- A Comet process other than the one this signer last admitted, on the bound instance, as after
+  every restart of the pair, enters a same-height replay session when the supervisor's startup
+  check verified the saved replay binding (Same-height replay); otherwise it raises the floor the
+  same way.
+- A reconnect to the same live process on the same instance keeps the state (SYNC-9-4); it
+  clears a replay confirmation, which the next request must earn again.
 
 The floor never decreases and covers every request below it, proposals, nil votes, later rounds
 and identical retries included; they are refused with an explicit error before the HRS is
@@ -367,6 +378,78 @@ Together with the eligible height, which the app names only once it has committe
 means the signer signs above H only once its node has verified a committed chain covering H.
 Failing to make a floor or binding durable is uncertain state (Fence on fsync failure). Import,
 recovery install and restore therefore never reset or lower the signer's state (DATA-5.4-7).
+
+### Same-height replay
+
+A restarted Comet replays its WAL for the height H it had not decided, and stock v0.40.0 asks
+again for the steps it signed there. RECOV-8.2-2 lets the signer take part only in a replay it
+can bind to its last decision; this signer implements the confirmation by the saved vote.
+
+Every fresh signature records, in the same atomic write, its replay binding: the predecessor's
+end-height marker M (`#ENDHEIGHT H−1`, or `#ENDHEIGHT 0` at the generation's initial height), the
+predecessor block's hash (none at the initial height) and the length and SHA-256 of the WAL bytes
+after the marker. Comet flushes and syncs its WAL before it asks for a vote or a proposal and
+writes nothing more while it waits, so those bytes run through the input record that triggered
+the request and the round-state records written while handling it. The supervisor computes them
+on the `wal` op, and the predecessor's hash from the stopped stores at startup or from Comet's
+`finalizing commit of block` record. When the marker or the hash is unknown, the binding is
+`null`: same-height replay of that signature is unavailable, and a restart fences H.
+
+**Which process reads the WAL.** The supervisor, never the signer: it runs `etna-signer
+wal-binding`, `wal-preflight` and `comet-head` as separate helper processes with the Comet UID
+(`ETNA_COMET_UID/GID`), so they read Comet's home and create nothing another UID would own. They
+open the stock WAL group without starting it and use stock `SearchForEndHeight` and the stock WAL
+decoder; `wal-preflight` and `comet-head` open the stopped node's goleveldb state and block stores
+read-only (pebbledb stores are not read: such a node always fences H).
+
+**Startup check.** Before each pair start, with Comet and the signer stopped, the supervisor reads
+the signer state's last signed height H and binding and checks that the stores' committed state
+is exactly the bound predecessor (height H − 1 with the bound block hash, or genesis before the
+initial height), that stock's search finds the marker and no `#ENDHEIGHT H`, and that the bytes
+after the marker begin with the bound prefix and decode completely. It then pins the startup
+prefix: the contiguous, decodable bytes after the marker through the last complete record, which
+cover every input a first signature during replay can depend on. The channel reports the result
+as `replay`; the signer accepts it only if it names exactly its saved height and binding and a
+startup prefix extending it. A torn tail after the bound prefix is reported with `repair`: the
+signer keeps H closed without a floor while stock repairs the tail, and once Comet's records show
+`successful WAL repair` and trust is Ready, the supervisor restarts the pair (at most three times)
+so a clean replay from the verified predecessor can confirm again. A missing marker (the stock
+1 GiB WAL limit, a block-synced predecessor, a fresh WAL after an import), a damaged bound
+prefix, other stores and a decided height report no replay, and the signer fences H.
+
+**Log observer.** The private-validator wire carries no replay flag, so the supervisor follows
+Comet's own records. With `log_format = "json"` (the parser it pins) and a `log_level` that lets
+the consensus module emit Info and Error (stock default `info`; `consensus:info,*:error` works),
+and neither overridden by an argv flag, it gives each Comet process a fresh pipe as stdout, which
+it owns and reads continuously, forwarding every line to its own stdout. Stock writes each record
+with one synchronous write, and Comet blocks while the pipe is full, so no record is lost. For
+every request at H the signer asks `observe`, which consumes every record already written first.
+`Catchup by replaying consensus messages` with its height opens an attempt (only the first in a
+process); `Replay: Done` ends it; the WAL corruption and repair records, `error on catchup replay;
+proceeding to start state anyway` and `CONSENSUS FAILURE!!!` cancel it and taint the process. The
+records exist only when stock replays its WAL, which it skips after block or state sync, so an
+open attempt also shows that this start synced nothing. Any other configuration is reported once
+at startup (`etna_supervisor_log_observer_disabled: ...`) and keeps the observer off: every
+restart then fences H (START-10-6).
+
+**Admission.** In a replay session at H, inside the open attempt for H:
+
+- The request that repeats the saved HRS with identical canonical sign bytes, or with only
+  another timestamp (stock's retry, SYNC-9-13), gets the saved signature and timestamp. For a
+  vote it confirms the last decision for that attempt; a proposal only marks progress to the
+  propose step. Conflicting sign bytes, a changed BlockID or POLRound included, are refused.
+- After confirmation, higher HRS at H are signed, each persisted with the pinned startup prefix
+  before the reply; after `Replay: Done` the confirmed session continues live, with live bindings.
+- Before confirmation, fresh signing at H stays closed. This signer does not implement the
+  independent confirmation of a restored round and lock that RECOV-8.2-2 permits, so after a
+  proposal, or a replay that never repeats the saved vote, fresh signing at H stays closed.
+
+Outside an open attempt for H (no attempt, a different height, a tainted process, or after it
+ended), an unconfirmed request at H raises the durable floor to H + 1 and is refused: a skipped,
+failed or unverifiable replay. Two cases keep H closed without the floor, because the
+supervisor's guarded restart retries them: a torn-tail repair, and a request at H that this
+process refused before it reached the signer state (trust, a timeout, the supervisor channel;
+SYNC-9-12). A repair, a replay error, another attempt and a disconnect clear the confirmation.
 
 ### Supervisor restarts and latches
 
@@ -384,9 +467,9 @@ never restarted (SYNC-9-14):
 
 A restart is safe because it changes nothing the signer relies on. The new signer serves the
 same `<chain_id>.json` and repeats every startup check, and continues from the HRS on disk with
-stock FilePV's rules (RECOV-8.2-1, SYNC-9-13). Its Comet is a new process, so its session takes
-the durable floor H + 1 of Store binding and the height floor: a height the old pair left
-undecided is not signed again. No signature leaves the signer before its state is durable, so a
+stock FilePV's rules (RECOV-8.2-1, SYNC-9-13). Its Comet is a new process, so a height H the old
+pair left undecided is signed again only through a confirmed Same-height replay; without one the
+session takes the durable floor H + 1. No signature leaves the signer before its state is durable, so a
 crash, a SIGKILL or a write panic (exit 2, whose temporary file is never renamed over the state)
 released nothing that the state on disk does not cover. The dead signer is reaped, which
 closes its descriptors and releases its key and state flocks, and Comet is reaped before the

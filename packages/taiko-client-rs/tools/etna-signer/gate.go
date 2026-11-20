@@ -75,7 +75,7 @@ type gate struct {
 	conn atomic.Pointer[cometConn]
 	// supervisor reports which Comet process the supervisor started, and on which store
 	// instance, over the authenticated supervisor channel (RECOV-8.2-2).
-	supervisor  cometReporter
+	supervisor  supervisorClient
 	authorized  func(*trustResponse)
 	unavailable func(error)
 	denialPath  string
@@ -235,8 +235,9 @@ func verdict(r *trustResponse, chain string, height int64) error {
 // authorize decides one signing request at height within the gate's hold: it repeats rounds
 // while the decision is pending and time remains, and returns the first final answer. A round is
 // the session's trust check and then its continuity admission (admitSession). Without a hold it
-// makes one round.
-func (g *gate) authorize(signer types.PrivValidator, chain string, height int64) error {
+// makes one round. It returns the decision's deadline, which also bounds what the request still
+// asks the supervisor.
+func (g *gate) authorize(signer types.PrivValidator, chain string, height int64) (time.Time, error) {
 	budget := g.hold
 	if budget <= 0 {
 		budget = 2 * g.timeout
@@ -248,7 +249,7 @@ func (g *gate) authorize(signer types.PrivValidator, chain string, height int64)
 			err = g.admitSession(signer, deadline)
 		}
 		if err == nil || g.hold <= 0 || !errors.Is(err, errTrustPending) || time.Until(deadline) <= trustPoll || g.isStopping() {
-			return err
+			return deadline, err
 		}
 		time.Sleep(trustPoll)
 	}
@@ -437,9 +438,23 @@ func (g *gate) handle(signer types.PrivValidator, req pv.Message, chain string) 
 			// check of the session and eligible height bind every signature to that state
 			// (RECOV-8.2-4, SYNC-9-10); the session's continuity admission binds it to the
 			// supervisor's Comet process and store instance (RECOV-8.2-2).
-			err = g.authorize(signer, chain, height)
+			var deadline time.Time
+			if deadline, err = g.authorize(signer, chain, height); err == nil {
+				if pv, ok := signer.(continuitySigner); ok {
+					var request requestContext
+					if request, err = g.requestFor(pv, height, deadline); err == nil {
+						pv.setRequest(request)
+						defer pv.setRequest(requestContext{})
+					}
+				}
+			}
 		}
 		if err != nil {
+			// A refusal before the signer state is consulted: a session in same-height replay
+			// keeps the height closed without fencing it, as a guarded restart retries it.
+			if pv, ok := signer.(continuitySigner); ok && !invalid {
+				pv.refusedAt(height)
+			}
 			if !g.stopIfUncertain(err) {
 				g.publishObservation(true)
 			}

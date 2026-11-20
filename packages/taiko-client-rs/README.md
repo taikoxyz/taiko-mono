@@ -641,9 +641,20 @@ committing those values to the Inbox.
    `<comet-home>/data/etna-store-instance`, which it writes fresh for a home without one. The
    signer binds its key to that ID and, for a key that signed at H, fences H with a durable floor
    of H + 1 whenever continuity with the last decision is not established: a rebuilt or imported
-   home, a changed ID, and a restarted Comet (RECOV-8.2-2; [Store binding and the height
-   floor](tools/etna-signer/README.md#store-binding-and-the-height-floor)). Never copy that file
-   between homes or restore it with an older database.
+   home, a changed ID, and a restarted Comet whose replay of H cannot be confirmed (RECOV-8.2-2;
+   [Store binding and the height floor](tools/etna-signer/README.md#store-binding-and-the-height-floor)).
+   Never copy that file between homes or restore it with an older database.
+
+   A restarted pair can resume at an undecided height only through a confirmed [same-height
+   replay](tools/etna-signer/README.md#same-height-replay), and only when the supervisor can follow
+   Comet's replay: set `log_format = "json"` in config.toml, keep the consensus module at Info
+   (`log_level = "info"`, the stock default, or for example `consensus:info,*:error`) and use
+   goleveldb stores. The supervisor then gives Comet's stdout a pipe it owns and forwards every
+   line to its own stdout, and before every start runs `etna-signer wal-preflight` and
+   `comet-head` as the Comet UID against the stopped stores and WAL. With another log
+   configuration it reports `etna_supervisor_log_observer_disabled` at startup and every restart
+   fences the last signed height: a restart of every validator at the same undecided height then
+   stalls that height until governance recovery.
 
    The host supervisor requires Bash and Python 3.11+ (`tomllib`); the production image
    includes Python, the signer, this supervisor and stock Comet v0.40.0 (source

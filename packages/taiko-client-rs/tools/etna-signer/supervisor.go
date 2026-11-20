@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,10 +28,45 @@ const maxSupervisorFrame = 16 * 1024
 // its deadline.
 var errSupervisorUnavailable = errors.New("supervisor channel unavailable")
 
-// cometReporter tells the signer which Comet process its supervisor started, and on which
-// store instance (RECOV-8.2-2).
-type cometReporter interface {
-	comet(deadline time.Time) (*cometProcess, error)
+// supervisorClient is the signer's view of its supervisor (RECOV-8.2-2): which Comet process it
+// started, on which store instance and with which startup replay check; what its log observer has
+// seen of that process's replay; and the live WAL binding of a signing request.
+type supervisorClient interface {
+	comet(deadline time.Time) (*cometReport, error)
+	observe(deadline time.Time) (*replayObservation, error)
+	wal(height int64, deadline time.Time) (*replayBinding, error)
+}
+
+// cometReport is the supervisor's answer to the comet op: the Comet process and, when this
+// start can replay the last signed height, the startup check of the saved replay binding.
+type cometReport struct {
+	Process cometProcess
+	Replay  *replayReport
+}
+
+// replayReport is the supervisor's startup preflight of the signer's saved replay binding, made
+// with Comet stopped: the stores hold exactly the bound predecessor of Height, the WAL holds its
+// end-height marker and no marker for Height, and the bytes after the marker begin with the bound
+// prefix. Startup is the pinned startup prefix, every complete record after the marker. Repair is
+// a torn tail after all bound input: stock repairs it in this start, which therefore cannot
+// replay, and the supervisor starts the pair again.
+type replayReport struct {
+	Height  int64
+	Binding replayBinding
+	Startup replayBinding
+	Repair  bool
+}
+
+// replayObservation is the supervisor's log observer's view of the bound Comet process, after it
+// consumed every record the process had written: the current replay attempt (numbered from 1 in
+// that process), whether it is open and for which height, and whether a corruption, repair or
+// replay error has tainted the process (Repaired: by a stock WAL repair).
+type replayObservation struct {
+	Attempt  uint64
+	Open     bool
+	Height   int64
+	Tainted  bool
+	Repaired bool
 }
 
 // supervisorChannel is the signer's side of the authenticated supervisor channel: a Unix socket
@@ -142,10 +178,34 @@ func (s *supervisorChannel) exchange(op string, fields map[string]any, deadline 
 	return reply, nil
 }
 
+// wireBinding is a replay binding on the supervisor channel.
+type wireBinding struct {
+	Marker      *int64  `json:"marker"`
+	Predecessor *string `json:"predecessor"`
+	Length      *int64  `json:"wal_length"`
+	Digest      *string `json:"wal_sha256"`
+}
+
+func (w wireBinding) binding() (replayBinding, error) {
+	if w.Marker == nil || *w.Marker < 0 || w.Length == nil || *w.Length < 0 || w.Digest == nil || w.Predecessor == nil {
+		return replayBinding{}, errors.New("incomplete replay binding")
+	}
+	digest, err := hex.DecodeString(*w.Digest)
+	if err != nil || len(digest) != 32 {
+		return replayBinding{}, errors.New("invalid replay binding digest")
+	}
+	predecessor, err := hex.DecodeString(*w.Predecessor)
+	if err != nil || (len(predecessor) != 0 && len(predecessor) != 32) || (*w.Marker == 0) != (len(predecessor) == 0) {
+		return replayBinding{}, errors.New("invalid replay binding predecessor")
+	}
+	return replayBinding{Marker: *w.Marker, Predecessor: predecessor, Length: *w.Length, Digest: digest}, nil
+}
+
 // comet asks which Comet process the supervisor runs for this signer: {"comet": null} before
 // it started one or once it was stopped, else {"comet": {"pid": n, "start": "<ticks>" or null,
-// "store_instance": "<32 hex>"}}.
-func (s *supervisorChannel) comet(deadline time.Time) (*cometProcess, error) {
+// "store_instance": "<32 hex>", "replay": null or {"height": H, "binding": {...}, "startup":
+// {...}, "repair": bool}}}.
+func (s *supervisorChannel) comet(deadline time.Time) (*cometReport, error) {
 	reply, err := s.query("comet", nil, deadline)
 	if err != nil {
 		return nil, err
@@ -161,6 +221,12 @@ func (s *supervisorChannel) comet(deadline time.Time) (*cometProcess, error) {
 		PID           *int    `json:"pid"`
 		Start         *string `json:"start"`
 		StoreInstance *string `json:"store_instance"`
+		Replay        *struct {
+			Height  *int64      `json:"height"`
+			Binding wireBinding `json:"binding"`
+			Startup wireBinding `json:"startup"`
+			Repair  *bool       `json:"repair"`
+		} `json:"replay"`
 	}
 	if err = json.Unmarshal(raw, &report); err != nil {
 		return nil, err
@@ -168,14 +234,74 @@ func (s *supervisorChannel) comet(deadline time.Time) (*cometProcess, error) {
 	if report.PID == nil || *report.PID <= 0 || report.StoreInstance == nil || !validStoreInstance(*report.StoreInstance) {
 		return nil, errors.New("invalid Comet report")
 	}
-	proc := &cometProcess{PID: *report.PID, StoreInstance: *report.StoreInstance}
+	result := &cometReport{Process: cometProcess{PID: *report.PID, StoreInstance: *report.StoreInstance}}
 	if report.Start != nil {
 		if _, err = strconv.ParseUint(*report.Start, 10, 64); err != nil {
 			return nil, errors.New("invalid Comet start time")
 		}
-		proc.Start = *report.Start
+		result.Process.Start = *report.Start
 	}
-	return proc, nil
+	if r := report.Replay; r != nil {
+		if r.Height == nil || *r.Height <= 0 || r.Repair == nil {
+			return nil, errors.New("invalid replay report")
+		}
+		replay := &replayReport{Height: *r.Height, Repair: *r.Repair}
+		if replay.Binding, err = r.Binding.binding(); err != nil {
+			return nil, err
+		}
+		if replay.Startup, err = r.Startup.binding(); err != nil {
+			return nil, err
+		}
+		result.Replay = replay
+	}
+	return result, nil
+}
+
+// observe asks the supervisor's log observer, after it consumed every record Comet had written,
+// about the current replay attempt: {"attempt": n, "open": bool, "height": h, "tainted": bool,
+// "repaired": bool}.
+func (s *supervisorChannel) observe(deadline time.Time) (*replayObservation, error) {
+	reply, err := s.query("observe", nil, deadline)
+	if err != nil {
+		return nil, err
+	}
+	var o struct {
+		Attempt  *uint64 `json:"attempt"`
+		Open     *bool   `json:"open"`
+		Height   *int64  `json:"height"`
+		Tainted  *bool   `json:"tainted"`
+		Repaired *bool   `json:"repaired"`
+	}
+	raw, ok := reply["replay"]
+	if !ok || json.Unmarshal(raw, &o) != nil || o.Attempt == nil || o.Open == nil || o.Height == nil || o.Tainted == nil || o.Repaired == nil {
+		return nil, fmt.Errorf("%w: invalid replay observation", errSupervisorUnavailable)
+	}
+	return &replayObservation{Attempt: *o.Attempt, Open: *o.Open, Height: *o.Height, Tainted: *o.Tainted, Repaired: *o.Repaired}, nil
+}
+
+// wal asks for the live binding of a signing request at height: {"binding": null} when the
+// predecessor marker or the predecessor block is unknown, so same-height replay is unavailable.
+func (s *supervisorChannel) wal(height int64, deadline time.Time) (*replayBinding, error) {
+	reply, err := s.query("wal", map[string]any{"height": height}, deadline)
+	if err != nil {
+		return nil, err
+	}
+	raw, ok := reply["binding"]
+	if !ok {
+		return nil, errors.New("supervisor reply has no binding field")
+	}
+	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return nil, nil
+	}
+	var w wireBinding
+	if err = json.Unmarshal(raw, &w); err != nil {
+		return nil, err
+	}
+	binding, err := w.binding()
+	if err != nil {
+		return nil, err
+	}
+	return &binding, nil
 }
 
 // cometConn is one signer-to-Comet transport connection and the Comet process its session was
@@ -223,10 +349,14 @@ func (c *cometConn) verify(proc cometProcess) error {
 }
 
 // continuitySigner is a PrivValidator that enforces RECOV-8.2-2 itself: the gate admits each
-// session through it before any signature.
+// session through it before any signature, tells it what the supervisor observed for the request
+// it passes on, and reports its own refusals.
 type continuitySigner interface {
 	types.PrivValidator
-	admit(cometProcess) error
+	admit(cometReport) error
+	replayHeight() (int64, bool)
+	setRequest(requestContext)
+	refusedAt(height int64)
 }
 
 // admitSession verifies, for one signing request, that this transport's Comet is the process the
@@ -245,28 +375,54 @@ func (g *gate) admitSession(signer types.PrivValidator, deadline time.Time) erro
 	if g.supervisor == nil {
 		return errors.New("no supervisor channel")
 	}
-	proc, err := g.supervisor.comet(deadline)
+	report, err := g.supervisor.comet(deadline)
 	if errors.Is(err, errSupervisorUnavailable) {
 		return fmt.Errorf("%w: %w", errTrustPending, err)
 	}
 	if err != nil {
 		return err
 	}
-	if proc == nil {
+	if report == nil {
 		return fmt.Errorf("%w: the supervisor runs no Comet for this signer", errTrustPending)
 	}
-	if err = conn.verify(*proc); err != nil {
+	proc := report.Process
+	if err = conn.verify(proc); err != nil {
 		return err
 	}
 	if admitted := conn.admitted.Load(); admitted != nil {
-		if *admitted != *proc {
+		if *admitted != proc {
 			return errors.New("the supervisor's Comet report changed during this transport connection")
 		}
 		return nil
 	}
-	if err = pv.admit(*proc); err != nil {
+	if err = pv.admit(*report); err != nil {
 		return err
 	}
-	conn.admitted.Store(proc)
+	conn.admitted.Store(&proc)
 	return nil
+}
+
+// requestFor prepares, for a signing request at height that passed trust and admission, what the
+// signer needs from the supervisor: in replay mode at the saved height, the observer's view of the
+// replay, which must be available; for a fresh live signature, the live WAL binding, fetched only
+// then. Both are bounded by deadline.
+func (g *gate) requestFor(pv continuitySigner, height int64, deadline time.Time) (requestContext, error) {
+	request := requestContext{live: func(h int64) *replayBinding {
+		binding, err := g.supervisor.wal(h, deadline)
+		if err != nil {
+			if g.unavailable != nil {
+				g.unavailable(fmt.Errorf("live replay binding unavailable: %w", err))
+			}
+			return nil
+		}
+		return binding
+	}}
+	if saved, ok := pv.replayHeight(); ok && saved == height {
+		observation, err := g.supervisor.observe(deadline)
+		if err != nil {
+			return requestContext{}, err
+		}
+		request.observation = observation
+	}
+	return request, nil
 }

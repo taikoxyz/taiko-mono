@@ -118,7 +118,7 @@ func TestGuardedFilePVMatchesCanonicalVoteVectors(t *testing.T) {
 				t.Fatal(err)
 			}
 			signer := newGuardedPV(private, c.Chain, state, zeroState(c.Chain))
-			if err := signer.admit(testComet()); err != nil {
+			if err := signer.admit(cometReport{Process: testComet()}); err != nil {
 				t.Fatal(err)
 			}
 			path := control(t, func(map[string]any) any {

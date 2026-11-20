@@ -57,16 +57,28 @@ func cometAt(pid int) cometProcess {
 	return cometProcess{PID: pid, Start: start, StoreInstance: testInstance}
 }
 
-// staticReporter is a supervisor that always gives one answer.
+// staticReporter is a supervisor that always gives the same answers: report (nil while no Comet
+// runs) or err, the observation and the live binding.
 type staticReporter struct {
-	proc *cometProcess
-	err  error
+	report      *cometReport
+	err         error
+	observation *replayObservation
+	binding     *replayBinding
 }
 
-func (r staticReporter) comet(time.Time) (*cometProcess, error) { return r.proc, r.err }
+func (r staticReporter) comet(time.Time) (*cometReport, error) { return r.report, r.err }
+func (r staticReporter) observe(time.Time) (*replayObservation, error) {
+	if r.observation == nil {
+		return nil, errSupervisorUnavailable
+	}
+	return r.observation, nil
+}
+func (r staticReporter) wal(int64, time.Time) (*replayBinding, error) { return r.binding, nil }
 
-// reporting is a supervisor that reports proc.
-func reporting(proc cometProcess) staticReporter { return staticReporter{proc: &proc} }
+// reporting is a supervisor that reports proc, with no replay.
+func reporting(proc cometProcess) staticReporter {
+	return staticReporter{report: &cometReport{Process: proc}}
+}
 
 // openPV reads key and chain's state as serve does, without the domains log and the locks.
 func openPV(t *testing.T, key, state string) *guardedPV {
@@ -167,7 +179,7 @@ func filePV(t *testing.T) (*guardedPV, string, string) {
 		t.Fatal(err)
 	}
 	signer := openPV(t, key, state)
-	if err := signer.admit(testComet()); err != nil {
+	if err := signer.admit(cometReport{Process: testComet()}); err != nil {
 		t.Fatal(err)
 	}
 	return signer, key, state

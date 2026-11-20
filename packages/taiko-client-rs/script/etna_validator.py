@@ -51,6 +51,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import select
 import shutil
 import signal
 import socket
@@ -151,7 +152,24 @@ PINNED_SETTINGS = {
                                    and sorted(peer_list(value)) == inbound),
 }
 # Settings the supervisor reads but does not pin, by Viper path, with their stock defaults.
-READ_SETTINGS = {"db_dir": "data", "db_backend": "goleveldb", "node_key_file": "config/node_key.json"}
+READ_SETTINGS = {"db_dir": "data", "db_backend": "goleveldb", "node_key_file": "config/node_key.json",
+                 "consensus.wal_file": "data/cs.wal/wal"}
+# The log observer of RECOV-8.2-2 ("Observing stock v0.40.0 replay") parses Comet's records in the
+# stock JSON log format, from a pipe it owns, and needs the consensus module's Info and Error
+# records. Stock defaults are log_format "plain" and log_level "info".
+OBSERVER_SETTINGS = {"log_format": "plain", "log_level": "info"}
+OBSERVER_FORMAT = "json"
+# Consensus records (module "consensus") that open, end or cancel a replay attempt.
+REPLAY_OPEN = "Catchup by replaying consensus messages"
+REPLAY_DONE = "Replay: Done"
+REPLAY_CANCEL = ("data has been corrupted in last height of consensus WAL",
+                 "the WAL file is corrupted; attempting repair", "the WAL repair failed",
+                 "successful WAL repair", "error on catchup replay; proceeding to start state anyway",
+                 "Replay: wal.group.Search returned EOF", "CONSENSUS FAILURE!!!")
+REPLAY_REPAIRED = "successful WAL repair"
+REPLAY_COMMIT = "finalizing commit of block"
+# Restarts of the pair after a stock repair of a torn WAL tail that the startup check found.
+MAX_REPAIR_RESTARTS = 3
 # Go strconv.ParseBool, which Viper's weak decoding applies to a CMT_* string.
 ENV_BOOLS = {"1": True, "t": True, "T": True, "TRUE": True, "true": True, "True": True,
              "0": False, "f": False, "F": False, "FALSE": False, "false": False, "False": False}
@@ -203,6 +221,119 @@ def peer_credentials(peer):
         _, uid = struct.unpack("Ii", peer.getsockopt(0, 1, 8))  # LOCAL_PEERCRED: version, uid
         return pid, uid
     raise OSError(f"no peer credentials on {sys.platform}")
+
+
+def consensus_log_level(value):
+    """The level stock ParseLogLevel gives module "consensus" for log_level value, or None when
+    stock would refuse it."""
+    items = value.split(",") if ":" in value else ["*:" + value]
+    default, own = "info", None
+    for item in items:
+        parts = item.split(":")
+        if len(parts) != 2 or parts[1] not in ("debug", "info", "warn", "error", "none"):
+            return None
+        if parts[0] == "*":
+            default = parts[1]
+        elif parts[0] == "consensus":
+            own = parts[1]
+    return own or default
+
+
+class LogObserver:
+    """The supervisor-owned, process-specific pipe that one Comet process writes its log records
+    to, synchronously and unbuffered (stock writes each record with one write to stdout). A
+    thread forwards every line to the supervisor's stdout and follows the replay attempts; a
+    signer request first consumes every record already written (snapshot). Comet blocks while
+    the pipe is full, so no record is lost."""
+
+    def __init__(self, descriptor):
+        os.set_blocking(descriptor, False)
+        self.descriptor = descriptor
+        self.lock = threading.Lock()
+        self.buffer = b""
+        self.closed = False
+        self.attempt = 0
+        self.open = False
+        self.height = 0
+        self.tainted = False
+        self.repaired = False
+        self.committed = {}
+        threading.Thread(target=self.follow, daemon=True).start()
+
+    def follow(self):
+        while True:
+            try:
+                select.select([self.descriptor], [], [], .2)
+            except (OSError, ValueError):
+                return
+            with self.lock:
+                if not self.pump():
+                    return
+
+    def pump(self):
+        """Read and handle every complete record available now; False once Comet closed the pipe.
+        The caller holds the lock."""
+        if self.closed:
+            return False
+        while True:
+            try:
+                chunk = os.read(self.descriptor, 65536)
+            except BlockingIOError:
+                return True
+            except OSError:
+                chunk = b""
+            if not chunk:
+                self.closed, self.open, self.tainted = True, False, True
+                os.close(self.descriptor)
+                if self.buffer:
+                    self.forward(self.buffer + b"\n")
+                return False
+            self.buffer += chunk
+            *lines, self.buffer = self.buffer.split(b"\n")
+            for line in lines:
+                self.forward(line + b"\n")
+                self.handle(line)
+
+    @staticmethod
+    def forward(line):
+        try:
+            os.write(sys.stdout.fileno(), line)
+        except OSError:
+            pass
+
+    def handle(self, line):
+        try:
+            record = json.loads(line)
+        except ValueError:
+            return
+        if not isinstance(record, dict) or record.get("module") != "consensus":
+            return
+        message, height = record.get("_msg"), record.get("height")
+        if message == REPLAY_OPEN:
+            if self.open or self.tainted or type(height) is not int:
+                self.open, self.tainted = False, True
+            else:
+                self.attempt, self.open, self.height = self.attempt + 1, True, height
+        elif message == REPLAY_DONE:
+            self.open = False
+        elif message in REPLAY_CANCEL:
+            self.open, self.tainted = False, True
+            self.repaired = self.repaired or message == REPLAY_REPAIRED
+        elif message == REPLAY_COMMIT and type(height) is int and isinstance(record.get("hash"), str):
+            self.committed[height] = record["hash"].lower()
+            for old in [h for h in self.committed if h < height - 8]:
+                del self.committed[old]
+
+    def snapshot(self):
+        """The replay state after every record already written was consumed."""
+        with self.lock:
+            self.pump()
+            return dict(attempt=self.attempt, open=self.open, height=self.height,
+                        tainted=self.tainted, repaired=self.repaired)
+
+    def committed_hash(self, height):
+        with self.lock:
+            return self.committed.get(height)
 
 
 def valid_store_instance(raw):
@@ -305,6 +436,116 @@ class Supervisor:
             raise ValueError(f"CometBFT {path} is ambiguous or invalid across config.toml and CMT_* overrides: {sorted(map(repr, values))}")
         return values.pop()
 
+    def observer_refusal(self):
+        """Why the log observer cannot follow this Comet's replay (START-10-6), or None: the
+        effective log_format must be the pinned parser's, the consensus module must emit Info and
+        Error, and no argv flag may override either."""
+        flagged = {argument.lstrip("-").split("=", 1)[0].lower()
+                   for argument in self.comet_command[1:] if argument.startswith("-")}
+        for path in OBSERVER_SETTINGS:
+            if path in flagged:
+                return f"the Comet argv sets --{path}"
+        try:
+            formats = {value for _, value in self.effective_values("log_format", OBSERVER_SETTINGS["log_format"], "str")}
+            levels = {value for _, value in self.effective_values("log_level", OBSERVER_SETTINGS["log_level"], "str")}
+        except ValueError as error:
+            return str(error)
+        if formats != {OBSERVER_FORMAT}:
+            return f"log_format is {sorted(map(str, formats))}, not the observer's {OBSERVER_FORMAT!r}"
+        if len(levels) != 1 or consensus_log_level(str(next(iter(levels)))) not in ("debug", "info"):
+            return f"log_level {sorted(map(str, levels))} does not emit the consensus module's Info and Error records"
+        return None
+
+    def helper_run(self, *arguments):
+        """Run a WAL or store helper as the Comet UID, which reads Comet's files and creates
+        nothing another UID would own; its one JSON line, or None on any failure."""
+        try:
+            done = subprocess.run(self.helper + list(arguments), capture_output=True, timeout=30,
+                                  **self.comet_identity_options())
+        except (OSError, subprocess.SubprocessError) as error:
+            print(f"etna_supervisor_replay_helper_failed: {arguments[0]}: {error}", flush=True)
+            return None
+        if done.returncode != 0:
+            print(f"etna_supervisor_replay_helper_failed: {arguments[0]}: {done.stderr.decode(errors='replace').strip()}", flush=True)
+            return None
+        try:
+            return json.loads(done.stdout)
+        except ValueError:
+            return None
+
+    def signed_binding(self):
+        """The signer state's last signed height and saved replay binding, read with the signer
+        stopped; None when it has none."""
+        try:
+            state = json.loads(self.state.read_bytes())
+            height, binding = int(state["height"]), state["replay"]
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+        if height <= 0 or not isinstance(binding, dict):
+            return None
+        try:
+            return height, dict(marker=int(binding["marker"]), predecessor=str(binding["predecessor"]).lower(),
+                                wal_length=int(binding["wal_length"]), wal_sha256=str(binding["wal_sha256"]).lower())
+        except (KeyError, ValueError, TypeError):
+            return None
+
+    def replay_preflight(self):
+        """The startup check of RECOV-8.2-2, with Comet and the signer stopped: whether stock can
+        replay the last signed height from the verified predecessor through the bound WAL prefix,
+        and the pinned startup prefix. Returns the report for the signer channel, or None, in which
+        case the signer fences that height. Only goleveldb stores are read."""
+        self.head = None
+        if self.read_setting("db_backend") == "goleveldb" and (self.db_dir / "state.db").is_dir():
+            head = self.helper_run("comet-head", "--db-dir", str(self.db_dir))
+            if isinstance(head, dict) and type(head.get("height")) is int and isinstance(head.get("hash"), str):
+                self.head = (head["height"], head["hash"].lower())
+        if self.observer_reason is not None:
+            return None
+        saved = self.signed_binding()
+        if saved is None or self.head is None:
+            return None
+        height, binding = saved
+        result = self.helper_run("wal-preflight", "--wal", str(self.wal_file), "--db-dir", str(self.db_dir),
+                                 "--height", str(height), "--marker", str(binding["marker"]),
+                                 "--length", str(binding["wal_length"]), "--digest", binding["wal_sha256"],
+                                 "--predecessor", binding["predecessor"])
+        if not isinstance(result, dict) or not (result.get("eligible") or result.get("repair")):
+            reason = result.get("reason") if isinstance(result, dict) else "helper failed"
+            print(f"etna_supervisor_replay_ineligible: height {height}: {reason}; the signer fences it", flush=True)
+            return None
+        startup = result.get("startup") or {}
+        try:
+            pinned = dict(marker=int(startup["marker"]), predecessor=binding["predecessor"],
+                          wal_length=int(startup["wal_length"]), wal_sha256=str(startup["wal_sha256"]))
+        except (KeyError, ValueError, TypeError):
+            return None
+        repair = bool(result.get("repair"))
+        print(f"etna_supervisor_replay_preflight: height {height} {'needs a stock WAL repair first' if repair else 'eligible'}; "
+              f"startup prefix {pinned['wal_length']} bytes", flush=True)
+        return dict(height=height, binding=binding, startup=pinned, repair=repair)
+
+    def live_binding(self, height):
+        """The live replay binding of a signing request at height: the flushed WAL bytes after the
+        predecessor's end-height marker and the predecessor block's hash; None when either is
+        unknown."""
+        if type(height) is not int or height < self.initial_height or self.observer_reason is not None:
+            return None
+        marker = 0 if height == self.initial_height else height - 1
+        predecessor = ""
+        if marker:
+            observer = self.observer
+            predecessor = observer.committed_hash(marker) if observer is not None else None
+            if predecessor is None and self.head is not None and self.head[0] == marker:
+                predecessor = self.head[1]
+            if not predecessor:
+                return None
+        result = self.helper_run("wal-binding", "--wal", str(self.wal_file), "--marker", str(marker))
+        binding = result.get("binding") if isinstance(result, dict) else None
+        if not isinstance(binding, dict):
+            return None
+        return dict(marker=marker, predecessor=predecessor, wal_length=binding.get("wal_length"),
+                    wal_sha256=binding.get("wal_sha256"))
+
     def rooted(self, path):
         """Stock rootify: an absolute path as is, a relative one under the Comet home."""
         return Path(path) if os.path.isabs(path) else self.home / path
@@ -348,6 +589,8 @@ class Supervisor:
         self.prior_observation = None
         self.latch = self.store / "validator-supervisor.halted"
         binary = os.environ.get("ETNA_SIGNER_BIN", str(Path(__file__).resolve().parents[1] / "etna-signer"))
+        # The WAL and store helpers of the replay checks, run as the Comet UID.
+        self.helper = self.command_prefix("ETNA_SIGNER_HELPER_JSON", [binary])
         # start() adds each pair's --comet-signer-addr (and, for Noise, --transport-key).
         self.signer_command = self.command_prefix("ETNA_SIGNER_COMMAND_JSON", [binary]) + [
             "--trust-socket", str(self.store / "checkpoint-trust.sock"),
@@ -368,11 +611,23 @@ class Supervisor:
         if self.read_setting("db_backend") not in COMET_DB_BACKENDS:
             raise ValueError(f"validator startup requires CometBFT db_backend in {COMET_DB_BACKENDS}")
         # Stock cometbft-db keeps the evidence pool's store at <db_dir>/evidence.db.
-        self.evidence_store = self.rooted(self.read_setting("db_dir")) / "evidence.db"
+        self.db_dir = self.rooted(self.read_setting("db_dir"))
+        self.evidence_store = self.db_dir / "evidence.db"
+        self.wal_file = self.rooted(self.read_setting("consensus.wal_file"))
+        self.observer_reason = self.observer_refusal()
+        if self.observer_reason is not None:
+            print(f"etna_supervisor_log_observer_disabled: {self.observer_reason}; same-height replay "
+                  "stays closed and restarts fence the last signed height (START-10-6, RECOV-8.2-2)", flush=True)
+        self.observer = None
+        self.preflight = None
+        self.head = None
+        self.repair_restarts = 0
         self.manifest = self.load_manifest()
         self.check_comet_executable()
-        if json.loads((self.home / "config/genesis.json").read_text())["chain_id"] != self.chain:
+        genesis = json.loads((self.home / "config/genesis.json").read_text())
+        if genesis["chain_id"] != self.chain:
             raise ValueError("signer chain ID differs from Comet genesis")
+        self.initial_height = int(genesis.get("initial_height") or 1)
         # Refuse half a Comet identity before any child starts.
         identity = self.comet_identity()
         address = config.get("priv_validator_laddr", "")
@@ -609,6 +864,7 @@ class Supervisor:
         code = None
         # No signer session is admitted for a Comet that is stopping.
         self.comet_report = None
+        self.observer = None
         if self.comet is not None:
             if self.comet.poll() is None:
                 self.comet.terminate()
@@ -701,6 +957,7 @@ class Supervisor:
         self.check_comet_executable()
         self.remove_pending_evidence()
         instance = self.store_instance()
+        self.preflight = self.replay_preflight()
         # Never unlink an operator-selected file; ignore its old inode on restart.
         previous = self.read_observation(self.events)
         self.prior_observation = previous[0] if previous is not None else None
@@ -867,22 +1124,26 @@ class Supervisor:
 
     def channel_reply(self, request):
         """One signer request: {"schema": 1, "id": n, "op": ...}. The comet op reports the Comet
-        process this supervisor runs, {"pid", "start", "store_instance"}, or null."""
+        process this supervisor runs, {"pid", "start", "store_instance", "replay"}, or null; observe
+        consumes every record that process wrote and reports its replay attempt; wal computes the
+        live binding of a signing request at a height."""
         if (not isinstance(request, dict) or request.get("schema") != SUPERVISOR_SCHEMA
                 or type(request.get("id")) is not int or not isinstance(request.get("op"), str)):
             return None
         reply = dict(schema=SUPERVISOR_SCHEMA, id=request["id"])
+        observer = self.observer
         if request["op"] == "comet":
             reply["comet"] = self.comet_report
+        elif request["op"] == "observe" and observer is not None:
+            reply["replay"] = observer.snapshot()
+        elif request["op"] == "wal":
+            reply["binding"] = self.live_binding(request.get("height"))
         else:
-            reply["error"] = f"unknown op {request['op']!r}"
+            reply["error"] = f"op {request['op']!r} is unavailable"
         return reply
 
-    def start_comet(self, instance):
-        """Start Comet on this pair's listener; the flag beats config.toml and CMT_* overrides. The
-        signer channel then reports this process and instance, its home's store instance."""
-        command = self.comet_command + ["--priv_validator_laddr", self.comet_listener]
-        identity = {}
+    def comet_identity_options(self):
+        """Popen options that run a child as the Comet UID/GID without supplementary groups."""
         configured = self.comet_identity()
         if configured is not None:
             # The supported image keeps registered FilePV secrets inaccessible to Comet.
@@ -890,13 +1151,32 @@ class Supervisor:
             # A same-identity unprivileged local runner cannot call setgroups. Preserve its
             # existing identity; privileged/different-identity launches still drop all groups.
             if os.geteuid() == 0 or uid != os.geteuid() or gid != os.getegid():
-                identity = dict(user=uid, group=gid, extra_groups=[])
-        self.comet = subprocess.Popen(command, cwd=self.home, **identity, **self.child_options())
+                return dict(user=uid, group=gid, extra_groups=[])
+        return {}
+
+    def start_comet(self, instance):
+        """Start Comet on this pair's listener; the flag beats config.toml and CMT_* overrides. The
+        signer channel then reports this process, instance (its home's store instance) and the
+        startup replay check. With the log observer, Comet's stdout is a fresh pipe the supervisor
+        owns for this process alone."""
+        command = self.comet_command + ["--priv_validator_laddr", self.comet_listener]
+        streams, write_end = {}, None
+        if self.observer_reason is None:
+            read_end, write_end = os.pipe()
+            streams = dict(stdout=write_end)
+        try:
+            self.comet = subprocess.Popen(command, cwd=self.home, **streams, **self.comet_identity_options(),
+                                          **self.child_options())
+        finally:
+            if write_end is not None:
+                os.close(write_end)
+        self.observer = LogObserver(read_end) if write_end is not None else None
         try:
             start = process_start(self.comet.pid)
         except (OSError, ValueError, IndexError):
             start = None  # Already gone: the signer cannot connect to it.
-        self.comet_report = dict(pid=self.comet.pid, start=start, store_instance=instance)
+        self.comet_report = dict(pid=self.comet.pid, start=start, store_instance=instance,
+                                 replay=self.preflight if self.observer is not None else None)
 
     @property
     def unsafe_record(self):
@@ -1149,6 +1429,17 @@ class Supervisor:
             self.was_ready = True
             if not self.pending:
                 self.observed_loss = False
+        observer, preflight = getattr(self, "observer", None), getattr(self, "preflight", None)
+        if (ready and observer is not None and preflight is not None and preflight["repair"]
+                and observer.snapshot()["repaired"] and self.repair_restarts < MAX_REPAIR_RESTARTS):
+            # Stock repaired the torn tail the startup check found, with signing at that height
+            # closed; restart from the verified predecessor so a clean replay can confirm it.
+            self.repair_restarts += 1
+            if self.halt_if_unsafe(self.stop()):
+                return
+            self.start()
+            print("etna_supervisor_restarted_after_wal_repair: the pair replays from the verified predecessor", flush=True)
+            return
         if self.pending and ready:
             # The refused step comes back only through a restarted Comet's WAL replay. The new
             # pair's session is checked while Comet's handshake runs, and the signer holds the
