@@ -1,6 +1,7 @@
-// etna-signer delegates signing and anti-double-sign persistence to CometBFT's
-// pinned FilePV, authorizing each signature against the local app trust session. It serves
-// one full chain_id from that chain's own HRS state, which init-state created and logged.
+// etna-signer signs with stock FilePV's HRS rules over its own schema-2 signer state, authorizing
+// each signature against the local app trust session and the supervisor's continuity checks
+// (RECOV-8.2-2). It serves one full chain_id from that chain's own state, which init-state created
+// and logged.
 package main
 
 import (
@@ -20,8 +21,8 @@ import (
 	"github.com/cometbft/cometbft/types"
 )
 
-// Resolve directory and file symlinks before both owner locking and FilePV loading.
-// FilePV atomically replaces the state path, so loading via an alias would fork HRS.
+// Resolve directory and file symlinks before both owner locking and state loading.
+// Every write atomically replaces the state path, so loading via an alias would fork HRS.
 func existingFile(path string) (string, error) {
 	absolute, err := filepath.Abs(path)
 	if err != nil {
@@ -41,7 +42,7 @@ func existingFile(path string) (string, error) {
 	return canonical, nil
 }
 
-// Hard links cannot be canonicalized to a unique pathname and FilePV's atomic
+// Hard links cannot be canonicalized to a unique pathname and the state's atomic
 // replacement would split them. Refuse this configuration without changing it.
 func singleLinkState(path string) error {
 	info, err := os.Stat(path)

@@ -25,7 +25,7 @@ const inflightSuffix = ".inflight"
 func inflightPath(state string) string { return state + inflightSuffix }
 
 // markInflight durably records, before a signing step can change its state, the boot it runs
-// in: the marker and then its directory are fsynced before stock FilePV writes. That evidence
+// in: the marker and then its directory are fsynced before the state is written. That evidence
 // cannot be lost to a failed write-back of its own: an fsync that succeeds has put it on disk,
 // and one that fails refuses the step while the state is still unchanged. It guards a restart
 // on this boot, where the page cache can show a state whose failed fsync was already reported
@@ -67,7 +67,7 @@ var errInflightWrite = errors.New("inflight marker not written")
 // died after the marker was durable and before the step finished or wrote the fence, so the
 // latest HRS is uncertain. Only this boot's ID refuses. Any other content means the step never
 // got that far: an empty or partial marker, or one whose own fsync failed and whose page the
-// kernel then dropped, is from a death or a refusal before stock FilePV wrote, with the state
+// kernel then dropped, is from a death or a refusal before the state was written, with the state
 // unchanged; another boot's ID is stale, as a reboot dropped the page cache. Such a marker is
 // removed, and serving goes on. Any other inode, or more than 128 bytes, refuses. An unreadable
 // boot ID fails startup: the marker could not be checked or written.

@@ -87,10 +87,10 @@ func readFence(t *testing.T, state string) fenceRecord {
 }
 
 // A signing step first makes an inflight marker naming this boot durable, its file and then
-// the directory, before stock FilePV writes; then it fsyncs the state file and its directory
-// after FilePV's synchronous write and rename, and removes the marker. That is four fsyncs, in
-// that order, and no fence (SYNC-9-13). A cached same-HRS retry is synchronized the same way,
-// since an earlier synchronization may have failed after FilePV updated its in-memory state.
+// the directory, before the state is written; then it fsyncs the written temporary state and,
+// after its rename, the directory, and removes the marker. That is four fsyncs, in that order,
+// and no fence (SYNC-9-13). A cached same-HRS retry fsyncs the state file and its directory the
+// same way, since an earlier synchronization may have failed.
 func TestSigningMakesTheMarkerDurableThenSyncsTheStateWithoutFence(t *testing.T) {
 	if bootID() == "" {
 		t.Fatal("no boot identity on this platform")
@@ -122,7 +122,7 @@ func TestSigningMakesTheMarkerDurableThenSyncsTheStateWithoutFence(t *testing.T)
 			signer.syncDir = func(directory string) error {
 				marked("directory fsync")
 				if len(order) == 1 && !bytes.Equal(before, readFile(t, state)) {
-					t.Error("stock FilePV wrote between the marker's file and directory fsyncs")
+					t.Error("the state was written between the marker's file and directory fsyncs")
 				}
 				order = append(order, "directory")
 				if directory != filepath.Dir(state) {
@@ -164,7 +164,7 @@ func TestSigningMakesTheMarkerDurableThenSyncsTheStateWithoutFence(t *testing.T)
 	}
 }
 
-// A marker whose own fsync fails refuses the step before stock FilePV writes: the HRS is
+// A marker whose own fsync fails refuses the step before the state is written: the HRS is
 // unchanged and nothing is signed. The HRS volume is failing, so the signer latches and writes
 // the fence like any failed fsync (RECOV-8.2-3).
 func TestMarkerSyncFailureRefusesBeforeTheStateChanges(t *testing.T) {
@@ -183,7 +183,7 @@ func TestMarkerSyncFailureRefusesBeforeTheStateChanges(t *testing.T) {
 				t.Fatalf("failed marker fsync signed: %v", err)
 			}
 			if !bytes.Equal(before, readFile(t, state)) {
-				t.Fatal("stock FilePV wrote before the marker was durable")
+				t.Fatal("the state was written before the marker was durable")
 			}
 			if record := readFence(t, state); !strings.Contains(record.Error, "inflight marker") {
 				t.Fatalf("fence %+v", record)
@@ -368,7 +368,7 @@ func TestInflightMarkerRefusesOnlyTheSameBoot(t *testing.T) {
 			t.Fatalf("panic %v", recovered)
 		}
 		if !bytes.Equal(before, readFile(t, state)) {
-			t.Fatal("stock FilePV wrote without a marker")
+			t.Fatal("the state was written without a marker")
 		}
 		if _, err := os.Lstat(fencePath(state)); !os.IsNotExist(err) {
 			t.Fatalf("an unwritten marker wrote a fence: %v", err)
@@ -467,8 +467,8 @@ func serveDirectly(t *testing.T, listener net.Listener, logs *os.File, args []st
 	return child, conn
 }
 
-// The state directory stays writable and searchable, so stock FilePV replaces its HRS file,
-// but opening the directory for fsync fails. The serving process withholds the signature,
+// The state directory stays writable and searchable, so the state file could be replaced, but
+// opening the directory for fsync fails. The serving process withholds the signature,
 // writes the fence and exits 3; a restart exits 3 on the fence and leaves the HRS unchanged
 // (RECOV-8.2-3, SYNC-9-13).
 func TestFsyncFailureExitsThreeAndFenceRefusesRestart(t *testing.T) {
@@ -538,7 +538,7 @@ func TestFsyncFailureExitsThreeAndFenceRefusesRestart(t *testing.T) {
 	}
 }
 
-// SYNC-9-13 through the gate and the durable stock FilePV, for votes and proposals: the HRS,
+// SYNC-9-13 through the gate and the guarded signer's stock HRS rules, for votes and proposals: the HRS,
 // canonical sign bytes and signature are on disk when the reply is released; at equal HRS an
 // identical request returns the saved signature, and a stock timestamp-only retry gets the
 // original timestamp restored with that signature; any other conflict at that HRS and every

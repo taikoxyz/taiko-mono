@@ -58,7 +58,7 @@ var errTrustPending = errors.New("checkpoint trust pending")
 // Comet replays after a refusal, waits for that session's check instead of being refused at
 // once (SYNC-9-12). A refusal reaches Comet well before its fixed 5 s signer read timeout,
 // after which Comet would retry the request instead of giving up on it (SYNC-9-11), and an
-// authorized step keeps 1.5 s for FilePV's four fsyncs.
+// authorized step keeps 1.5 s for its four fsyncs.
 const signingHold = 3500 * time.Millisecond
 
 // trustPoll is the pause between two trust rounds of one held signing request.
@@ -210,7 +210,7 @@ func uniqueJSON(d *json.Decoder) error {
 // app's only readiness field: every value other than the exact string "ready" refuses
 // (SYNC-9-10/9-11). A halted app and another chain_id are final; another closed phase, and a
 // null chain_id before InitChain, are pending. A ready reply admits only its eligible height,
-// and any other height is refused before FilePV changes the HRS (SYNC-9-10). The session is
+// and any other height is refused before the HRS can change (SYNC-9-10). The session is
 // matched by the caller.
 func verdict(r *trustResponse, chain string, height int64) error {
 	reason := ""
