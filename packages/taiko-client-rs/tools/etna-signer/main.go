@@ -14,9 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cometbft/cometbft/crypto/ed25519"
 	"github.com/cometbft/cometbft/libs/log"
-	cmtnet "github.com/cometbft/cometbft/libs/net"
 	"github.com/cometbft/cometbft/privval"
 	pv "github.com/cometbft/cometbft/proto/tendermint/privval"
 	"github.com/cometbft/cometbft/types"
@@ -57,11 +55,9 @@ func singleLinkState(path string) error {
 	return nil
 }
 
-// validTrustTimeout bounds each private trust-control query. A refusal makes at most two
-// queries (check_session, then begin_session after a session change), so with at most 2 s
-// each it is answered within 4 s, before CometBFT's fixed 5 s signer read timeout. Comet gives
-// up at once only on a request answered with an error and retries an unanswered one
-// (SYNC-9-11).
+// validTrustTimeout bounds each private trust-control query. A signing request's whole trust
+// decision is bounded by signingHold, which caps every query in it; a query never outlives the
+// timeout, so a hung app cannot hold one round longer than this (SYNC-9-11).
 func validTrustTimeout(d time.Duration) bool {
 	return d > 0 && d <= 2*time.Second
 }
@@ -77,17 +73,19 @@ func run() error {
 			return initDomainsLogCommand(os.Args[2:])
 		case "init-state":
 			return initStateCommand(os.Args[2:])
+		case "transport-keygen":
+			return transportKeygen(os.Args[2:], os.Stdout)
 		}
 	}
-	addr := flag.String("comet-signer-addr", "", "Comet-owned signer listener (unix:// or tcp:// SecretConnection)")
+	addr := flag.String("comet-signer-addr", "", "Comet's signer listener: unix://<path> or noise://<comet-node-peer-id>@<ip>:<port>; bare tcp:// is refused")
+	transportKey := flag.String("transport-key", "", "the signer's persistent Ed25519 Noise transport key (transport-keygen), required for noise:// and refused for unix://")
 	control := flag.String("trust-socket", "", "private <app-store>/checkpoint-trust.sock")
 	chain := flag.String("chain-id", "", "verified full Comet chain ID; the signer serves only this signing domain")
 	key := flag.String("priv-key", "", "existing registered Comet FilePV private key")
 	state := flag.String("priv-state", "", "existing <state-dir>/<chain-id>.json HRS that init-state created (never reset)")
 	domains := flag.String("domains-log", "", "existing domains log listing every initialized chain ID, outside the state directory")
 	denial := flag.String("denial-file", "", "private atomic refusal event file for the local supervisor")
-	timeout := flag.Duration("trust-timeout", time.Second, "per-request private control deadline (0 < timeout <= 2s; a refusal makes at most two queries and must be answered before CometBFT's fixed 5 s signer read timeout)")
-	await := flag.Bool("await-trust", false, "recovery restart after a refused signing request, once trust has returned: connect to Comet only after the first transport's fresh trust session is Ready, so WAL replay's re-request of the refused step is authorized; later reconnects dial at once; never for a first start, where trust may return only after Comet syncs")
+	timeout := flag.Duration("trust-timeout", time.Second, "per-query private control deadline (0 < timeout <= 2s); a signing request's whole trust decision takes at most 3.5s")
 	flag.Parse()
 	if flag.NArg() != 0 || *addr == "" || *control == "" || *chain == "" || *key == "" || *state == "" || *domains == "" || !validTrustTimeout(*timeout) {
 		return errors.New("all addresses, chain ID, existing key/state paths and the domains log are required; timeout must be in (0,2s]")
@@ -97,30 +95,21 @@ func run() error {
 		return err
 	}
 	defer release()
-	var dial privval.SocketDialer
-	protocol, address := cmtnet.ProtocolAndAddress(*addr)
-	switch protocol {
-	case "unix":
-		dial = privval.DialUnixFn(address)
-	case "tcp":
-		dial = privval.DialTCPFn(address, 3*time.Second, ed25519.GenPrivKey())
-	default:
-		return errors.New("unsupported Comet signer transport")
+	dial, err := cometDialer(*addr, *transportKey)
+	if err != nil {
+		return err
 	}
 	logger := log.NewTMLogger(log.NewSyncWriter(os.Stderr))
 	gate := newGate(*control, *timeout)
+	gate.hold = signingHold
 	gate.denialPath = *denial
 	gate.authorized = func(r *trustResponse) {
 		logger.Info("checkpoint_trust_authorized", "session", r.SessionID)
 	}
-	gate.connecting = func(r *trustResponse) {
-		logger.Info("checkpoint_trust_ready_connected_to_comet", "session", r.SessionID)
+	gate.unavailable = func(err error) {
+		logger.Info("checkpoint_trust_session_deferred", "err", err)
 	}
-	dialer := gate.dialer(dial)
-	if *await {
-		dialer = gate.trustedDialer(dial, *chain)
-	}
-	endpoint := privval.NewSignerDialerEndpoint(logger, dialer, privval.SignerDialerEndpointConnRetries(math.MaxInt), privval.SignerDialerEndpointRetryWaitInterval(250*time.Millisecond))
+	endpoint := privval.NewSignerDialerEndpoint(logger, gate.dialer(dial), privval.SignerDialerEndpointConnRetries(math.MaxInt), privval.SignerDialerEndpointRetryWaitInterval(250*time.Millisecond))
 	server := privval.NewSignerServer(endpoint, *chain, signer)
 	server.SetRequestHandler(gate.handle)
 	if err := server.Start(); err != nil {

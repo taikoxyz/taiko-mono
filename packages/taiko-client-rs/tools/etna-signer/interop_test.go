@@ -116,7 +116,11 @@ func TestGuardedFilePVMatchesCanonicalVoteVectors(t *testing.T) {
 			key, state := filepath.Join(dir, "key"), filepath.Join(dir, "state")
 			signer := privval.NewFilePV(secp256k1eth.PrivKey(fromHex(t, fixture.Votes.Key.Private)), key, state)
 			signer.Save()
-			path := control(t, func(map[string]any) any { r := snapshot(true); r["chain_id"] = c.Chain; return r })
+			path := control(t, func(map[string]any) any {
+				r := snapshotAt(true, uint64(vote.Height))
+				r["chain_id"] = c.Chain
+				return r
+			})
 			req := pv.Message{Sum: &pv.Message_SignVoteRequest{SignVoteRequest: &pv.SignVoteRequest{ChainId: c.Chain, Vote: vote}}}
 			response, err := armed(path).handle(signer, req, c.Chain)
 			if err != nil {

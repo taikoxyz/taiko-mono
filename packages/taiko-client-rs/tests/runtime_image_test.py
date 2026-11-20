@@ -36,6 +36,18 @@ for executable in ["/app/etna-signer", "/usr/bin/cometbft", "/app/taiko-client"]
 version = subprocess.check_output(["cometbft", "version"], text=True).strip()
 # Exact stock source 0880b4d retains this upstream stale version constant.
 assert version == "0.39.0+0880b4d", version
+# CONS-3.1-1: the deployment manifest pins the official executable per platform by digest; a
+# version string alone does not identify the build. Upstream published none for linux/arm64,
+# whose image keeps an unmodified source build that the validator supervisor refuses.
+manifest = json.loads(Path("/app/comet-manifest.json").read_text())
+assert (manifest["release"], manifest["source_commit"]) == ("v0.40.0", "0880b4d378f347ab16e54ec677ff50d803f37d62"), manifest
+comet_sha256 = hashlib.sha256(Path("/usr/bin/cometbft").read_bytes()).hexdigest()
+official = manifest["platforms"].get(expected_platform)
+if official is not None:
+    assert comet_sha256 == official["sha256"], (comet_sha256, official)
+else:
+    assert expected_platform in manifest["unsupported_platforms"], manifest
+    assert comet_sha256 != manifest["platforms"]["linux/amd64"]["sha256"]
 with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     root = Path(directory)
     root.chmod(0o755)
@@ -62,7 +74,7 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     # The packaged signer refuses a chain_id the log does not list with exit 3, creating nothing.
     unlogged = hrs / "etna-unlogged.json"
     refused_domain = subprocess.run([
-        "/app/etna-signer", "--comet-signer-addr", "tcp://127.0.0.1:26659",
+        "/app/etna-signer", "--comet-signer-addr", "unix:///nonexistent-comet.sock",
         "--trust-socket", str(root / "not-started.sock"), "--chain-id", "etna-unlogged",
         "--priv-key", str(key), "--priv-state", str(unlogged), "--domains-log", str(log)],
         capture_output=True, timeout=5)
@@ -74,8 +86,10 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     (home / "config").mkdir(parents=True)
     (home / "data").mkdir()
     (home / "run").mkdir(mode=0o700)
-    # The configured path only selects Unix mode; the supervisor names each pair's socket.
-    config = 'proxy_app = "kvstore"\npriv_validator_laddr = "unix://run/signer.sock"\n'
+    # The configured path only selects Unix mode; the supervisor names each pair's socket. The
+    # validator exchanges P2P messages only with listed peers (START-10-6).
+    config = ('proxy_app = "kvstore"\npriv_validator_laddr = "unix://run/signer.sock"\n'
+              '[p2p]\npex = false\nmax_num_inbound_peers = 0\n')
     (home / "config/config.toml").write_text(config)
     assert tomllib.loads(config)["priv_validator_laddr"].startswith("unix://")
     # Only public registered metadata is installed in the Comet home.
@@ -94,6 +108,26 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
     environment = dict(os.environ, ETNA_COMET_HOME=str(home), ETNA_APP_STORE=str(app),
                        ETNA_PRIV_KEY=str(key), ETNA_PRIV_STATE_DIR=str(hrs),
                        ETNA_DOMAINS_LOG=str(log), ETNA_CHAIN_ID=chain)
+    if official is None:
+        # No official executable for this platform: the supervisor refuses before any child.
+        refused = subprocess.run(["python3", "/app/script/etna_validator.py"], env=environment,
+                                 capture_output=True, timeout=30)
+        assert refused.returncode == 1, refused
+        assert f"no official CometBFT v0.40.0 executable for {expected_platform}".encode() in refused.stderr, refused
+        assert not (app / "validator-supervisor.halted").exists()
+        assert before == (key.read_bytes(), state.read_bytes(), log.read_bytes())
+        print(json.dumps(dict(architecture=os.uname().machine, expected_platform=expected_platform,
+                              binary_elf_machines=binary_machines, comet_version_label=version,
+                              comet_sha256=comet_sha256, official_executable=False,
+                              supervisor_refuses_unofficial_comet=True)))
+        raise SystemExit(0)
+    # The supervisor deletes the pending-evidence store, and only that, before every Comet start
+    # (CONS-3.1-10); stock Comet then creates an empty one.
+    (home / "data/evidence.db").mkdir()
+    (home / "data/evidence.db/etna-pending-marker").write_text("pending")
+    (home / "data/keep.marker").write_text("kept")
+    for path in [home / "data", *(home / "data").rglob("*")]:
+        os.chown(path, 10001, 10001)
     # The stock node uses its built-in kvstore only to complete startup. This
     # private peer always closes/denies signing trust; no synthetic authorization.
     control = socket.socket(socket.AF_UNIX)
@@ -174,6 +208,8 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                 assert listening != stale and listening not in listeners, (listening, listeners)
                 if incarnation == 1:
                     assert not os.path.lexists(stale), "stale signer socket survived the restart"
+                assert not (home / "data/evidence.db/etna-pending-marker").exists(), "pending evidence survived a Comet start"
+                assert (home / "data/keep.marker").read_text() == "kept"
                 listeners.append(listening)
                 time.sleep(.3)
                 assert not (app / "validator-supervisor.halted").exists(), "runtime child failed during smoke"
@@ -232,7 +268,8 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
         marker.unlink(missing_ok=True)
         saved.rename(missing)
     print(json.dumps(dict(architecture=os.uname().machine, expected_platform=expected_platform, binary_elf_machines=binary_machines, comet_source_tag="v0.40.0", comet_version_label=version, python=os.sys.version.split()[0],
-                          comet_sha256=hashlib.sha256(Path("/usr/bin/cometbft").read_bytes()).hexdigest(),
+                          comet_sha256=comet_sha256, official_executable=True,
+                          pending_evidence_deleted_before_every_start=True,
                           publicKey=public["publicKey"], child_uids=observed,
                           comet_cannot_read_registered_key=True, HRS_unchanged=True,
                           unused_local_identity_never_signed=True, stock_unix_restart_with_retained_authority=True,

@@ -67,6 +67,7 @@ if [[ -n "$base_image" ]]; then
     stage "target/etna-signer/$helper" "app/$helper"
   done
   stage target/etna-signer/cometbft usr/bin/cometbft
+  stage comet-manifest.json app/comet-manifest.json
   for script in etna_validator.py start_etna_validator.sh start_etna_full_node.py; do
     stage "script/$script" "app/script/$script"
   done

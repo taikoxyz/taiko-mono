@@ -76,14 +76,14 @@
   EL/Comet progress. Public RPC output needs its own readiness gate; do not claim an atomic
   cross-process revocation for a signing request authorized just before an app crash.
 
-- Supported validator images include Python 3.11+, the pinned unmodified Comet binary and the
-  guarded signer. Run `python3 /app/script/etna_validator.py` separately from the app using
-  shared private/persistent mounts. Private `observe` is nonmutating, never authorization;
-  signer event sequence zero establishes session identity and positive sequences record
-  denial/timeout. Stock Comet never retries a refused request, so recovery waits for private
-  trust, restarts only the signer with `--await-trust` (it connects to Comet once its fresh
-  session is Ready), then starts Comet, whose WAL replay re-requests the refused step. First
-  starts run the signer without that flag together with Comet.
+- Supported validator images include Python 3.11+, the official Comet executable that
+  `comet-manifest.json` pins by digest (linux/amd64 only) and the guarded signer. Run
+  `python3 /app/script/etna_validator.py` separately from the app using shared
+  private/persistent mounts. Private `observe` is nonmutating, never authorization; signer event
+  sequence zero establishes a connection's session and positive sequences record denial/timeout.
+  Stock Comet never retries a refused request, so recovery waits for private trust, then restarts
+  the signer and Comet together; the signer connects promptly and holds Comet's replayed step
+  until its fresh session is trusted. Signer transports are `unix://` or pinned `noise://` only.
   Terminal trust/domain failures durably latch and quiesce across restartAlways restarts.
   Include `just supervisor-test` in the full verification gate.
 

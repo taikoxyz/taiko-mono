@@ -5,6 +5,7 @@ go 1.27.2
 require (
 	github.com/cometbft/cometbft v0.40.0
 	github.com/cometbft/cometbft-db v0.14.1
+	github.com/libp2p/go-libp2p v0.47.0
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 )
 
@@ -56,7 +57,6 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
 	github.com/libp2p/go-flow-metrics v0.2.0 // indirect
-	github.com/libp2p/go-libp2p v0.47.0 // indirect
 	github.com/libp2p/go-libp2p-asn-util v0.4.1 // indirect
 	github.com/libp2p/go-msgio v0.3.0 // indirect
 	github.com/libp2p/go-netroute v0.3.0 // indirect

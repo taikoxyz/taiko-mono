@@ -19,6 +19,7 @@ import (
 	"github.com/cometbft/cometbft/privval"
 	pv "github.com/cometbft/cometbft/proto/tendermint/privval"
 	tm "github.com/cometbft/cometbft/proto/tendermint/types"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 const chain = "etna-test"
@@ -73,11 +74,16 @@ func control(t *testing.T, reply func(map[string]any) any) string {
 	return path
 }
 
-// snapshot is a trust reply for chain's session "test:7": the gate's four fields, plus the
-// nullable reason and recovery_origin keys every app snapshot carries (the supervisor's observe
-// requires recovery_origin).
+// snapshot is a trust reply for chain's session "test:7" at eligible height 1: the gate's five
+// fields, plus the nullable reason and recovery_origin keys every app snapshot carries (the
+// supervisor's observe requires recovery_origin).
 func snapshot(ready bool) map[string]any {
-	return map[string]any{"schema_version": 1, "session_id": "test:7", "chain_id": chain, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "reason": nil, "recovery_origin": nil}
+	return snapshotAt(ready, 1)
+}
+
+// snapshotAt is snapshot with the eligible height the app reports.
+func snapshotAt(ready bool, eligible uint64) map[string]any {
+	return map[string]any{"schema_version": 1, "session_id": "test:7", "chain_id": chain, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "eligible_height": eligible, "reason": nil, "recovery_origin": nil}
 }
 
 // filePV is one validator initialized as an operator does: a stock native key, then
@@ -107,11 +113,12 @@ func domainsLogOf(state string) string {
 	return filepath.Join(filepath.Dir(filepath.Dir(state)), "domains", "domains.log")
 }
 
-// recoveredSnapshot is the app's full Ready snapshot for chain at recovered generation g > 0.
-// The gate reads only its schema_version, session_id, chain_id and phase.
+// recoveredSnapshot is the app's full Ready snapshot for chain at recovered generation g > 0,
+// recovered at c = 6, so its first eligible height is 7. The gate reads only its
+// schema_version, session_id, chain_id, phase and eligible_height.
 func recoveredSnapshot(g uint64) map[string]any {
 	hash, comet := "0x"+strings.Repeat("b", 64), "0x"+strings.Repeat("c", 64)
-	value := snapshot(true)
+	value := snapshotAt(true, 7)
 	value["generation"] = g
 	value["target"] = map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 6, "hash": hash, "comet_hash": comet, "generation": g, "inbox": "0x" + strings.Repeat("1", 40)}
 	value["committed_head"] = map[string]any{"height": 6, "hash": hash}
@@ -205,10 +212,11 @@ func TestReadyIsFreshAndFilePVPersistsDoubleSignProtection(t *testing.T) {
 	}
 }
 
-// The gate reads only schema_version, session_id, chain_id and phase (SYNC-9-10/9-11,
-// RECOV-8.2-4). Every other field, known or unknown, is ignored: the target comparison is
-// app-side (SYNC-9-5). Anything but phase "ready" for this chain_id in the armed
-// session denies before FilePV, and a reply for another session also drops the armed session.
+// The gate reads only schema_version, session_id, chain_id, phase and eligible_height
+// (SYNC-9-10/9-11, RECOV-8.2-4). Every other field, known or unknown, is ignored: the target
+// comparison is app-side (SYNC-9-5). Anything but phase "ready" for this chain_id in the armed
+// session at the request's eligible height denies before FilePV, and a reply for another
+// session also drops the armed session.
 func TestGateChecksOnlySessionChainAndPhase(t *testing.T) {
 	line := func(r map[string]any) string { raw, _ := json.Marshal(r); return string(raw) }
 	set := func(field string, value any) func(map[string]any) string {
@@ -224,8 +232,18 @@ func TestGateChecksOnlySessionChainAndPhase(t *testing.T) {
 		{"unknown-field", set("future", map[string]any{"x": 1}), true},
 		{"null-target", set("target", nil), true},
 		{"gate-fields-only", func(r map[string]any) string {
-			return line(map[string]any{"schema_version": r["schema_version"], "session_id": r["session_id"], "chain_id": r["chain_id"], "phase": r["phase"]})
+			return line(map[string]any{"schema_version": r["schema_version"], "session_id": r["session_id"], "chain_id": r["chain_id"], "phase": r["phase"], "eligible_height": r["eligible_height"]})
 		}, true},
+		{"missing-eligible-height", func(r map[string]any) string { delete(r, "eligible_height"); return line(r) }, false},
+		{"null-eligible-height", set("eligible_height", nil), false},
+		{"zero-eligible-height", set("eligible_height", 0), false},
+		{"negative-eligible-height", set("eligible_height", -1), false},
+		{"string-eligible-height", set("eligible_height", "1"), false},
+		{"fractional-eligible-height", set("eligible_height", 1.5), false},
+		{"other-eligible-height", set("eligible_height", 2), false},
+		{"case-folded-eligible-height", func(r map[string]any) string {
+			return strings.Replace(line(r), `"eligible_height":1`, `"eligible_height":2,"Eligible_Height":1`, 1)
+		}, false},
 		{"catching-up", set("phase", "catching_up"), false},
 		{"other-chain", set("chain_id", "etna-other"), false},
 		{"null-chain", set("chain_id", nil), false},
@@ -287,7 +305,7 @@ func TestBeginArmsSessionBeforeInitChain(t *testing.T) {
 		return r
 	})
 	g := newGate(path, time.Second)
-	if session, err := g.begin(); err != nil || session != "test:7" || g.session.Load() == nil {
+	if session, err := g.begin(time.Now().Add(time.Second)); err != nil || session != "test:7" || g.session.Load() == nil {
 		t.Fatalf("pre-InitChain begin_session: %q %v", session, err)
 	}
 	backend, _, state := filePV(t)
@@ -393,7 +411,7 @@ func TestReadinessIsPhaseOnly(t *testing.T) {
 		t.Run("begin/"+name, func(t *testing.T) {
 			path := control(t, func(map[string]any) any { return with(snapshot(false)) })
 			g := newGate(path, time.Second)
-			session, err := g.begin()
+			session, err := g.begin(time.Now().Add(time.Second))
 			closed := phase != "ready" && phase != nil && phase != absent
 			if closed != (err == nil) {
 				t.Fatalf("begin_session phase %q: session %q err %v", phase, session, err)
@@ -495,7 +513,7 @@ func TestDialBeginsEachTransportAndRearmsAppRestart(t *testing.T) {
 	}
 	old := "previous-process:7"
 	g.session.Store(&old)
-	if _, err := g.check(chain); err == nil {
+	if err := g.check(chain, 1, time.Now().Add(2*time.Second)); err == nil {
 		t.Fatal("old session accepted")
 	}
 	if begins.Load() != 3 || g.session.Load() == nil || *g.session.Load() != "test:7" {
@@ -554,81 +572,157 @@ func observation(t *testing.T, path string) (uint64, string) {
 	return event.Sequence, event.Session
 }
 
-// The app authenticates a fresh session asynchronously. In await mode Comet must not see the
-// first transport, and so cannot replay a refused step, until that very session is trusted.
-func TestAwaitTrustDialsCometOnlyAfterFreshSessionIsTrusted(t *testing.T) {
+// A held signing request on a fresh session, such as the step a restarted Comet replays after a
+// refusal, waits for the app's asynchronous check of that very session and is signed once it
+// passes, within the hold (SYNC-9-12). The session was begun when the transport connected.
+func TestHeldRequestSignsOnceTheFreshSessionIsTrusted(t *testing.T) {
 	app := &appSessions{}
 	path := control(t, app.reply)
 	g := newGate(path, time.Second)
+	g.hold = 3 * time.Second
 	g.denialPath = filepath.Join(t.TempDir(), "denial.json")
-	var dials atomic.Int64
-	var peers []net.Conn
-	defer func() {
-		for _, p := range peers {
-			p.Close()
-		}
+	if _, err := g.begin(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		time.Sleep(400 * time.Millisecond)
+		app.set(func(a *appSessions) { a.ready = true })
 	}()
-	dial := g.trustedDialer(func() (net.Conn, error) { dials.Add(1); a, b := net.Pipe(); peers = append(peers, b); return a, nil }, chain)
-	expect := func(begins int, session string) {
-		t.Helper()
-		if _, err := dial(); err == nil {
-			t.Fatal("connected to Comet before the fresh session was trusted")
-		}
-		sequence, published := observation(t, g.denialPath)
-		if dials.Load() != 0 || app.beginCount() != begins || sequence != 0 || published != session {
-			t.Fatalf("dials %d begins %d observation %d %q", dials.Load(), app.beginCount(), sequence, published)
-		}
-	}
-	// Delayed authentication: retries poll one pending session instead of restarting the check.
-	for range 5 {
-		expect(1, "test:1")
-	}
-	// Briefly unavailable control keeps the pending session.
-	app.set(func(a *appSessions) { a.unavailable = true })
-	if _, err := dial(); err == nil {
-		t.Fatal("connected without a trust answer")
-	}
-	app.set(func(a *appSessions) { a.unavailable = false })
-	expect(1, "test:1")
-	// An app restart while waiting replaces the session, which then can never become Ready.
-	app.set(func(a *appSessions) { a.current = "restarted:0"; a.ready = true })
-	expect(2, "test:2")
-	expect(2, "test:2")
-	app.set(func(a *appSessions) { a.ready = true })
-	conn, err := dial()
-	if err != nil || dials.Load() != 1 || app.beginCount() != 2 {
-		t.Fatalf("trusted session did not connect once: %v dials %d begins %d", err, dials.Load(), app.beginCount())
-	}
 	signer, _, _ := filePV(t)
+	start := time.Now()
 	res, err := g.handle(signer, voteRequest(tm.PrecommitType, 0, false), chain)
-	if err != nil || res.GetSignedVoteResponse().Error != nil {
-		t.Fatalf("first signing request after connecting was refused: %v %v", res, err)
+	if err != nil || res.GetSignedVoteResponse().Error != nil || len(res.GetSignedVoteResponse().Vote.Signature) != 65 {
+		t.Fatalf("held request was refused: %v %v", res, err)
 	}
-	if sequence, session := observation(t, g.denialPath); sequence != 0 || session != "test:2" {
-		t.Fatalf("observation after authorized signature: %d %q", sequence, session)
+	if elapsed := time.Since(start); elapsed < 300*time.Millisecond || elapsed > 2*time.Second {
+		t.Fatalf("held request answered after %v", elapsed)
 	}
-	conn.Close()
-	// A reconnect while Comet runs dials at once with its own fresh closed session, so a
-	// refusal reaches the supervisor instead of an unreported connection failure in Comet.
-	conn, err = dial()
-	if err != nil || dials.Load() != 2 || app.beginCount() != 3 {
-		t.Fatalf("reconnect: %v dials %d begins %d", err, dials.Load(), app.beginCount())
-	}
-	defer conn.Close()
-	if _, err = g.handle(signer, voteRequest(tm.PrecommitType, 1, false), chain); err == nil {
-		t.Fatal("reconnected transport signed before its fresh session was trusted")
-	}
-	if sequence, session := observation(t, g.denialPath); sequence != 1 || session != "test:3" {
-		t.Fatalf("reconnect refusal was not published: %d %q", sequence, session)
+	if sequence, session := observation(t, g.denialPath); app.beginCount() != 1 || sequence != 0 || session != "test:1" {
+		t.Fatalf("begins %d observation %d %q", app.beginCount(), sequence, session)
 	}
 }
 
-// Over the official wire, the listener that stands in for Comet gets no connection while the
-// session is unauthenticated, and its first signing request after connecting is signed.
-func TestAwaitTrustOfficialWireFirstSignatureAuthorized(t *testing.T) {
+// Trust that stays closed is refused explicitly once the hold runs out, well before Comet's
+// fixed 5 s read timeout, and published; an app that restarts meanwhile gets a fresh session.
+// A halted app and another chain_id are final and refused at once, without holding.
+func TestHeldRequestRefusesInTimeAndFinalAnswersDoNotHold(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		reply func(*appSessions, map[string]any) map[string]any
+		hold  bool
+	}{
+		{"closed", func(_ *appSessions, r map[string]any) map[string]any { return r }, true},
+		{"halted", func(_ *appSessions, r map[string]any) map[string]any { r["phase"] = "halted"; return r }, false},
+		{"other-chain", func(_ *appSessions, r map[string]any) map[string]any { r["chain_id"] = "etna-other"; return r }, false},
+		{"other-height", func(_ *appSessions, r map[string]any) map[string]any {
+			r["phase"], r["eligible_height"] = "ready", 2
+			return r
+		}, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			app := &appSessions{}
+			path := control(t, func(req map[string]any) any {
+				r := app.reply(req).(map[string]any)
+				if req["op"] == "check_session" {
+					r = test.reply(app, r)
+				}
+				return r
+			})
+			g := newGate(path, time.Second)
+			g.hold = 600 * time.Millisecond
+			g.denialPath = filepath.Join(t.TempDir(), "denial.json")
+			if _, err := g.begin(time.Now().Add(time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			if test.name == "closed" {
+				// An app restart mid-hold: the next round begins a fresh session and keeps holding.
+				go func() {
+					time.Sleep(200 * time.Millisecond)
+					app.set(func(a *appSessions) { a.current = "restarted:0" })
+				}()
+			}
+			backend, _, state := filePV(t)
+			signer := &recordingPV{FilePV: backend}
+			before, _ := os.ReadFile(state)
+			start := time.Now()
+			res, err := g.handle(signer, voteRequest(tm.PrevoteType, 0, false), chain)
+			elapsed := time.Since(start)
+			if err == nil || res.GetSignedVoteResponse().Error == nil {
+				t.Fatal("refused trust signed")
+			}
+			if test.hold && (elapsed < 500*time.Millisecond || elapsed > 1500*time.Millisecond) {
+				t.Fatalf("closed trust was not held for the hold: %v", elapsed)
+			}
+			if !test.hold && elapsed > 300*time.Millisecond {
+				t.Fatalf("a final refusal was held: %v", elapsed)
+			}
+			if after, _ := os.ReadFile(state); signer.calls.Load() != 0 || !bytes.Equal(before, after) {
+				t.Fatal("refusal reached FilePV")
+			}
+			sequence, session := observation(t, g.denialPath)
+			if sequence != 1 || (test.hold && (app.beginCount() != 2 || session != "test:2")) {
+				t.Fatalf("begins %d observation %d %q", app.beginCount(), sequence, session)
+			}
+		})
+	}
+}
+
+// The only signable height is the app's eligible height (SYNC-9-10): every other height, for
+// votes, nil votes and proposals alike, is refused before FilePV, with the HRS unchanged; the
+// eligible height signs. The app's answer moves with its committed boundary.
+func TestOnlyTheEligibleHeightSigns(t *testing.T) {
+	var eligible atomic.Uint64
+	eligible.Store(5)
+	path := control(t, func(map[string]any) any { return snapshotAt(true, eligible.Load()) })
+	g := armed(path)
+	backend, key, state := filePV(t)
+	signer := &recordingPV{FilePV: backend}
+	at := func(request pv.Message, height int64) pv.Message {
+		if vote := request.GetSignVoteRequest(); vote != nil {
+			vote.Vote.Height = height
+		} else {
+			request.GetSignProposalRequest().Proposal.Height = height
+		}
+		return request
+	}
+	before, _ := os.ReadFile(state)
+	for _, height := range []int64{1, 4, 6, 1 << 40} {
+		for _, request := range []pv.Message{voteRequest(tm.PrevoteType, 0, false), voteRequest(tm.PrecommitType, 0, true), proposalRequest()} {
+			res, err := g.handle(signer, at(request, height), chain)
+			if err == nil || !strings.Contains(err.Error(), "eligible height 5") {
+				t.Fatalf("height %d: %v %v", height, res, err)
+			}
+		}
+	}
+	if after, _ := os.ReadFile(state); signer.calls.Load() != 0 || !bytes.Equal(before, after) {
+		t.Fatal("a height other than the eligible one reached FilePV")
+	}
+	res, err := g.handle(signer, at(proposalRequest(), 5), chain)
+	if err != nil || res.GetSignedProposalResponse().Error != nil || len(res.GetSignedProposalResponse().Proposal.Signature) != 65 {
+		t.Fatalf("eligible height refused: %v %v", res, err)
+	}
+	eligible.Store(6)
+	if _, err = g.handle(signer, at(voteRequest(tm.PrevoteType, 0, false), 5), chain); err == nil {
+		t.Fatal("a committed height signed again")
+	}
+	if res, err = g.handle(signer, at(voteRequest(tm.PrevoteType, 0, false), 6), chain); err != nil || res.GetSignedVoteResponse().Error != nil {
+		t.Fatalf("next eligible height refused: %v %v", res, err)
+	}
+	if persisted := privval.LoadFilePV(key, state).LastSignState; persisted.Height != 6 {
+		t.Fatalf("persisted HRS height %d", persisted.Height)
+	}
+}
+
+// The signer connects to Comet promptly whatever the app's state: a transport is exposed, and
+// answers PubKey and Ping, even when the app cannot begin its session (START-10-6). The empty
+// session it publishes tells the supervisor the transport connected, and the first signing
+// request begins the session, held until it is trusted.
+func TestDialerConnectsPromptlyWithoutTheApp(t *testing.T) {
 	app := &appSessions{}
-	path := control(t, app.reply)
-	g := newGate(path, time.Second)
+	path := filepath.Join(shortTemp(t), "trust.sock")
+	g := newGate(path, 200*time.Millisecond)
+	g.hold = 3 * time.Second
+	g.denialPath = filepath.Join(t.TempDir(), "denial.json")
 	signer, _, _ := filePV(t)
 	addr := filepath.Join(shortTemp(t), "comet.sock")
 	raw, err := net.Listen("unix", addr)
@@ -640,36 +734,56 @@ func TestAwaitTrustOfficialWireFirstSignatureAuthorized(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dialer := privval.NewSignerDialerEndpoint(log.NewNopLogger(), g.trustedDialer(privval.DialUnixFn(addr), chain), privval.SignerDialerEndpointConnRetries(250), privval.SignerDialerEndpointRetryWaitInterval(20*time.Millisecond))
-	server := privval.NewSignerServer(dialer, chain, signer)
+	server := privval.NewSignerServer(privval.NewSignerDialerEndpoint(log.NewNopLogger(), g.dialer(privval.DialUnixFn(addr))), chain, signer)
 	server.SetRequestHandler(g.handle)
 	if err = server.Start(); err != nil {
 		t.Fatal(err)
 	}
 	defer func() { server.Stop(); endpoint.Stop() }()
-	if err = client.WaitForConnection(500 * time.Millisecond); err == nil {
-		t.Fatal("Comet saw the transport before its session was trusted")
-	}
-	if app.beginCount() != 1 {
-		t.Fatalf("dial retries began %d sessions", app.beginCount())
-	}
-	app.set(func(a *appSessions) { a.ready = true })
 	if err = client.WaitForConnection(3 * time.Second); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = client.GetPubKey(); err != nil {
 		t.Fatal(err)
 	}
+	if err = client.Ping(); err != nil {
+		t.Fatal(err)
+	}
+	if sequence, session := observation(t, g.denialPath); sequence != 0 || session != "" || g.session.Load() != nil {
+		t.Fatalf("connection without the app: %d %q", sequence, session)
+	}
+	// The app comes up and authenticates the session the first signing request begins.
+	l, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { l.Close() })
+	go func() {
+		for {
+			c, e := l.Accept()
+			if e != nil {
+				return
+			}
+			go func() {
+				defer c.Close()
+				var req map[string]any
+				if json.NewDecoder(c).Decode(&req) == nil {
+					reply := app.reply(req)
+					if req["op"] == "begin_session" {
+						go func() { time.Sleep(300 * time.Millisecond); app.set(func(a *appSessions) { a.ready = true }) }()
+					}
+					json.NewEncoder(c).Encode(reply)
+				}
+			}()
+		}
+	}()
 	request := voteRequest(tm.PrecommitType, 0, false)
 	vote := request.GetSignVoteRequest().Vote
 	if err = client.SignVote(chain, vote); err != nil || len(vote.Signature) != 65 {
-		t.Fatalf("first signing request after connecting: %v", err)
+		t.Fatalf("first signing request on the lazily begun session: %v", err)
 	}
-	g.observation.Lock()
-	denials := g.denials
-	g.observation.Unlock()
-	if session := g.session.Load(); denials != 0 || app.beginCount() != 1 || session == nil || *session != "test:1" {
-		t.Fatalf("denials %d begins %d session %v", denials, app.beginCount(), session)
+	if sequence, session := observation(t, g.denialPath); app.beginCount() != 1 || sequence != 0 || session != "test:1" {
+		t.Fatalf("begins %d observation %d %q", app.beginCount(), sequence, session)
 	}
 }
 
@@ -683,10 +797,11 @@ func TestNilAndWrongChainRequests(t *testing.T) {
 	}
 }
 
-// Use the same official protobuf endpoint and SecretConnection as a real Comet
-// process. Closed nil/locked/retained messages must receive protocol denials.
+// Use the same official protobuf endpoint and transports as a real Comet process: a Unix
+// socket, and stock Noise with both peer IDs pinned. Closed nil/locked/retained messages must
+// receive protocol denials.
 func TestOfficialSignerWire(t *testing.T) {
-	for _, transport := range []string{"unix", "tcp"} {
+	for _, transport := range []string{"unix", "noise"} {
 		t.Run(transport, func(t *testing.T) {
 			var ready atomic.Bool
 			path := control(t, func(req map[string]any) any {
@@ -710,12 +825,7 @@ func TestOfficialSignerWire(t *testing.T) {
 				listener = privval.NewUnixListener(raw)
 				dial = privval.DialUnixFn(addr)
 			} else {
-				raw, e := net.Listen("tcp", "127.0.0.1:0")
-				if e != nil {
-					t.Fatal(e)
-				}
-				listener = privval.NewTCPListener(raw, ed25519.GenPrivKey())
-				dial = privval.DialTCPFn(raw.Addr().String(), time.Second, ed25519.GenPrivKey())
+				listener, dial = noisePair(t, ed25519.GenPrivKey(), ed25519.GenPrivKey())
 			}
 			endpoint := privval.NewSignerListenerEndpoint(log.NewNopLogger(), listener)
 			client, err := privval.NewSignerClient(endpoint, chain)
@@ -855,4 +965,32 @@ func TestGateSignsRecoveredGenerationIntoItsOwnState(t *testing.T) {
 	if persisted := privval.LoadFilePV(key, state); persisted.LastSignState.Height != 7 {
 		t.Fatal("signature not persisted in the chain's own HRS")
 	}
+}
+
+// noisePair is stock Comet's Noise signer listener, keyed by cometKey and pinning signerKey's
+// peer ID as Comet's noise://<signer-peer-id>@<ip>:<port> does, and the signer's dialer for it,
+// keyed by signerKey and pinning cometKey's peer ID.
+func noisePair(t *testing.T, cometKey, signerKey ed25519.PrivKey) (net.Listener, privval.SocketDialer) {
+	t.Helper()
+	signerPeer, err := transportPeerID(signerKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cometPeer, err := transportPeerID(cometKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	listener, err := privval.NewNoiseListener(raw, cometKey, []peer.ID{signerPeer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dial, err := noiseDialer("noise://"+cometPeer.String()+"@"+raw.Addr().String(), signerKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return listener, dial
 }

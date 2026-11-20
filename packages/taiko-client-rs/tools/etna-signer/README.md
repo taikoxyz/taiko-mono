@@ -92,7 +92,38 @@ operator/deployment action.
 Serve is the default command and has one mode: it signs only for `--chain-id`, into that chain
 ID's own HRS state. A recovered generation has a new full `chain_id`, so it is served with its
 own state from `init-state` and the same key and log (RECOV-8.2-5/8.2-6). The optional flags are
-`--denial-file`, `--trust-timeout` and `--await-trust`.
+`--transport-key` (Noise only), `--denial-file` and `--trust-timeout`.
+
+### Signer transport
+
+The signer accepts exactly the two transports of START-10-6 and refuses every other one with
+exit 1, bare `tcp://` included: its stock listener generates a fresh identity at every start, so
+neither side could authenticate the other.
+
+- `unix://<path>`: a socket in a supervisor-controlled directory. The supervisor names a fresh
+  `<comet-home>/run/signer-<16 hex>.sock` for every signer+Comet start; `run/` must be owned by
+  the Comet UID, mode 0700 and not sticky, so only the bound Comet process and the root signer
+  reach it, across restarts too.
+- `noise://<comet-peer-id>@<ip>:<port>` with `--transport-key <file>`: stock v0.40.0 Noise with
+  both transport peer IDs pinned. Comet listens on `noise://<signer-peer-id>@<ip>:<port>` (an IP
+  literal and a port; stock `ParseNoiseAddr`) and accepts only the signer whose transport key has
+  that peer ID; the signer accepts only the listener that proves `<comet-peer-id>`, the libp2p ID
+  of Comet's persistent node key (`config/node_key.json`). The supervisor reads both keys and
+  builds the signer's address; it refuses a missing node key, which stock Comet would replace with
+  a fresh identity. Create the signer's transport key once, outside the Comet home and app store:
+
+  ```sh
+  ./target/etna-signer/etna-signer transport-keygen --transport-key /private/transport/signer-transport.json
+  ```
+
+  It writes an exclusive mode-0600 Ed25519 key in the stock node-key layout and prints
+  `{"peerId": "<signer-peer-id>"}` for Comet's `priv_validator_laddr`. It is a transport identity
+  only, never the consensus key.
+
+Comet's first GetPubKey runs before its retry client is installed, with a 3 s accept timeout and
+a 5 s read/write timeout, so the signer connects promptly, with retries every 250 ms, and begins
+the connection's trust session before it answers. If Comet exits before the signer connected,
+the supervisor starts the pair again with the same signer state and no latch.
 
 Before serving, the signer checks, in this order: the chain ID, the state's `<chain_id>.json`
 name and the log's directory; the key (an existing single-link native `secp256k1eth` FilePV
@@ -182,62 +213,75 @@ Never remove or change a complete line, and never truncate a log that ends in a 
 Use `script/start_etna_validator.sh` to supervise the signer and a configured Comet home after
 starting the ABCI app. Set `ETNA_COMET_HOME`, `ETNA_APP_STORE`, `ETNA_PRIV_KEY`,
 `ETNA_PRIV_STATE_DIR` (the state directory), `ETNA_DOMAINS_LOG` and `ETNA_CHAIN_ID`, which must
-equal the installed Comet genesis. The supervisor passes `--priv-state
+equal the installed Comet genesis; for Noise also `ETNA_SIGNER_TRANSPORT_KEY`, and for listed
+inbound peers `ETNA_P2P_INBOUND_PEER_IDS`. The supervisor passes `--priv-state
 <ETNA_PRIV_STATE_DIR>/<ETNA_CHAIN_ID>.json --domains-log <ETNA_DOMAINS_LOG>` and refuses a key,
-state directory or log inside the Comet home or the app store. It does not check that the
-state exists: the signer does, and exits 3. It writes its signer-unsafe marker into the log's
-directory, which must therefore be writable by the supervisor. The script runs `cometbft start`
-directly. Container callers must likewise invoke the stock binary directly with
-`--entrypoint /usr/bin/cometbft`; the image's default entrypoint can initialize
-files and must not be used for validator runtime. Its `priv_validator_laddr` is
-mandatory. A `unix://` value only selects Unix mode: for every signer+Comet start the
-supervisor names a fresh `<comet-home>/run/signer-<16 hex>.sock`, passes it to Comet as
-`--priv_validator_laddr` and to the signer as `--comet-signer-addr`. With a `tcp://`
-value Comet listens on that address and the signer dials it. Keep the registered private
-key inaccessible to Comet. Node P2P and SecretConnection transport identities remain
-separate Ed25519 keys.
+state directory, log or transport key inside the Comet home or the app store. It does not check
+that the state exists: the signer does, and exits 3. It writes its signer-unsafe marker into the
+log's directory, which must therefore be writable by the supervisor. The script runs `cometbft
+start` directly. Container callers must likewise invoke the stock binary directly with
+`--entrypoint /usr/bin/cometbft`; the image's default entrypoint can initialize files and must
+not be used for validator runtime. Its `priv_validator_laddr` is mandatory and selects the
+transport (Signer transport); the supervisor passes each pair's listener to Comet as
+`--priv_validator_laddr`, which beats config.toml and `CMT_*` overrides. Keep the registered
+private key inaccessible to Comet. Node P2P and signer transport identities remain separate
+Ed25519 keys.
 
-Every transport connection opens a fresh closed trust session. Every signature,
-including a cached same-HRS retry, checks that private session again over its own bounded
-connection (SYNC-9-10). PubKey and Ping remain available while closed. Private trust control
-has one schema, 1, and the signer reads only `schema_version`, `session_id`, `chain_id` and
-`phase` from it: it signs only when the reply is for the transport's current session, names
-the served chain ID and reports phase `ready`. Keys match exactly, so a case variant such as
-`Phase` is just another field. Every other field, known or unknown, is ignored; the app
-reports `ready` only after its own checkpoint target and InitChain checks (SYNC-9-5,
-RECOV-8.2-4). A reply for another session also drops the armed session. A
-missing, null or empty session, a missing or null phase, a null, empty or other chain ID,
-another schema, a malformed, oversize or duplicate-key reply, an absent app and a timeout all
-deny (SYNC-9-11). Denial never invokes FilePV signing. Only stock FilePV writes signing state
-after authorization.
+Before every Comet start the supervisor checks the Comet executable's digest against the
+deployment manifest (`comet-manifest.json`, or `ETNA_COMET_MANIFEST`) for this platform and
+refuses any other build (CONS-3.1-1), and it deletes Comet's pending-evidence store,
+`<db_dir>/evidence.db`, and nothing else, with Comet stopped (CONS-3.1-10). At startup it also
+refuses a validator whose effective CometBFT configuration, config.toml with every `CMT_*`
+override and Comet argv flag, moves a pinned setting; see the package README's Run a validator.
+
+Every transport connection opens a fresh closed trust session (SYNC-9-4), which lasts for that
+connection only. Every signature, including a cached same-HRS retry, checks that private session
+again over its own bounded connection (SYNC-9-10). PubKey (for the served chain ID) and Ping
+remain available while closed. Private trust control has one schema, 1, and the signer reads
+only `schema_version`, `session_id`, `chain_id`, `phase` and `eligible_height` from it: it signs
+only when the reply is for the transport's current session, names the served chain ID, reports
+phase `ready` and names the request's height as `eligible_height`. That height is the only one
+the app admits: the one after its durable committed boundary, the generation's `initial_height`
+before its first commit, or s + 1 right after a 5.4 import at s. Every other height, for
+proposals, votes and nil votes alike, is refused before stock FilePV runs, so the HRS stays
+unchanged. Keys match exactly, so a case variant such as `Phase` is just another field. Every
+other field, known or unknown, is ignored; the app reports `ready` only after its own checkpoint
+target and InitChain checks (SYNC-9-5, RECOV-8.2-4). A reply for another session begins a fresh
+session. A missing, null or empty session, a missing or null phase, a null, empty or other chain
+ID, a ready reply without a positive `eligible_height`, another schema, a malformed, oversize or
+duplicate-key reply, an absent app and a timeout all deny (SYNC-9-11). Denial never invokes FilePV
+signing. Only stock FilePV writes signing state after authorization.
+
+The trust decision for one signing request takes at most 3.5 s. While it is pending (no session
+yet, a session just begun, a closed phase or an unavailable app) the signer asks the app again
+every 100 ms, as SYNC-9-6a holds a request during the remaining comparison; a halted app, another
+chain ID or another height are final at once. Each query is bounded by `--trust-timeout` (at most
+2 s, 1 s by default) and by what remains of the 3.5 s. So the first request of a fresh session,
+such as the step a restarted Comet replays, is signed once the app has checked that session, and
+a refusal reaches Comet well before its fixed 5 s signer read timeout, leaving an authorized step
+1.5 s for FilePV's fsyncs.
 
 Run `just signer-test` for Go race/process/native interop tests. No Cargo build is
 needed for this helper.
 
 The supported supervisor adds `--denial-file <app-store>/signer-denial.json`.
 It is a private atomic observation, not signing state or authorization: sequence zero
-publishes a fresh session ID, and positive sequence increments capture every signing
-refusal, including a local-control timeout while the app remains Ready. The supervisor
-uses nonmutating `observe`, waits for exact private Ready, then reaps Comet and
-the signer with unchanged HRS/WAL/history. Stock Comet never retries a refused request: it
-gives up at once on a request the signer answered with an error. It retries any other
-failure: no answer within its fixed 5 s signer read timeout, a dropped connection or a
-malformed answer. So the signer always refuses explicitly and in time: `--trust-timeout` is
-at most 2 s, and a refusal, which makes at most two trust queries, is answered within 4 s.
-Only a restarted Comet's WAL replay asks for the refused step again, so the supervisor first
-restarts the signer alone with `--await-trust`: it begins the fresh closed session for its
-first transport and dials Comet only after that session passes the same check as every
-signature. Until then each dial attempt fails and is retried on the same session; it begins
-another only when the app reports a different current session, for example after an app
-restart. Once `observe` reports the published session Ready, the supervisor starts Comet,
-whose WAL replay then gets the refused step signed. Later reconnects of that process dial
-at once, as without the flag: a request made while no signer is connected would fail
-inside Comet unreported, whereas a refusal reaches the supervisor. Never pass
-`--await-trust` on a first start: Comet's startup needs the signer connected, and a node
-that is behind regains trust only after Comet syncs. Every new transport still begins a
-closed session. Terminal trust/domain failures persist a latch and leave the supervisor
-alive and quiescent, including after container restart. See the package README for the
-supported combined image and separate app/supervisor container commands.
+publishes the session a new connection began, or an empty session while the app could not begin
+one, which tells the supervisor that the transport connected; positive sequence increments
+capture every signing refusal, including a local-control timeout while the app remains Ready.
+Stock Comet never retries a refused request: it gives up at once on a request the signer answered
+with an error. It retries any other failure: no answer within its fixed 5 s signer read timeout,
+a dropped connection or a malformed answer. So the signer always refuses explicitly and in time.
+Only a restarted Comet's WAL replay asks for the refused step again (SYNC-9-12). The supervisor
+uses nonmutating `observe`, waits for exact private Ready, then reaps Comet and the signer with
+unchanged HRS/WAL/history and starts the pair again together: the new signer connects promptly,
+begins a fresh closed session that the app checks while Comet's handshake runs, and holds the
+replayed step until that session passes. If the replayed step is refused again, the supervisor
+repeats the restart once trust is Ready. A session the app replaced, as after an app restart, is
+no reason to restart Comet: the signer's next signing request begins a new session and holds it.
+Terminal trust/domain failures persist a latch and leave the supervisor alive and quiescent,
+including after container restart. See the package README for the supported combined image and
+separate app/supervisor container commands.
 If the halt cannot be written or synchronized, the supervisor still stops/reaps its
 children, retains the halt in memory, and stays alive retrying persistence; a signer it must
 kill is the exception (Supervisor restarts and latches). The signer
@@ -258,7 +302,7 @@ never restarted (SYNC-9-14):
 | 3                                                                             | any     | Latch "signer refused unsafe signing state; inspect its stderr, `<state>.uncertain`, `<state>.inflight` and the domains log", and create the signer-unsafe record and marker                                                                                                               |
 | any                                                                           | present | The same latch, record and marker                                                                                                                                                                                                                                                          |
 | still running 5 s after the supervisor's SIGTERM, so SIGKILLed                | any     | Before the SIGKILL, log `etna_supervisor_signer_killed` and create the signer-unsafe record and marker; then latch "signer did not stop within 5s of SIGTERM and was killed; …". It may be blocked on a failing state volume after a failed fsync and before its fence                     |
-| 0, 1, 2 or a signal, while the supervisor is not stopping it                  | absent  | Record the exit; the fifth within 600 s latches "signer exited 5 times within 600s; inspect diagnostics". Otherwise reap Comet, start a fresh signer with `--await-trust` on the same state path and a fresh transport, and start Comet once the signer's new session is Ready (SYNC-9-12) |
+| 0, 1, 2 or a signal, while the supervisor is not stopping it                  | absent  | Record the exit; the fifth within 600 s latches "signer exited 5 times within 600s; inspect diagnostics". Otherwise reap Comet, then start a fresh signer on the same state path and Comet together on a fresh transport; the signer's new closed session gates every signature (SYNC-9-12)                    |
 | 0, 1, 2 or SIGTERM while the supervisor stops it (shutdown, recovery restart) | absent  | Normal                                                                                                                                                                                                                                                                                     |
 
 A restart is safe because it changes nothing the signer relies on. The new signer serves the
@@ -384,9 +428,12 @@ restarts and latches), so a request that reaches FilePV costs four. A crash, SIG
 persistence panic (exit 2) writes no fence. Between signing steps it needs none: no signature is
 released before the state fsyncs succeed, and the disk holds either the old or the new HRS, so
 a restart continues from it and may sign an unreleased step again without equivocating. Stock
-FilePV then returns the stored signature for the same step and refuses conflicting data or a
-lower step. A death during a step leaves the inflight marker, which refuses a restart on the
-same boot; a stock persistence panic removes it first, as the HRS is unchanged.
+FilePV persists the HRS, the canonical sign bytes and the signature before the reply. At equal
+HRS it returns the saved signature for identical sign bytes and, for a stock timestamp-only
+retry, restores the original timestamp with that signature; it refuses any other conflict and
+every HRS regression (SYNC-9-13, `TestPersistedSignatureAndRetrySemantics`). A death during a
+step leaves the inflight marker, which refuses a restart on the same boot; a stock persistence
+panic removes it first, as the HRS is unchanged.
 
 A failed state or directory fsync makes the latest state uncertain (RECOV-8.2-3). The signer
 withholds the signature and latches in memory, refusing every later request, cached retries

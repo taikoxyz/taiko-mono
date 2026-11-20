@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "engine": "cometbft",
+  "release": "v0.40.0",
+  "source_commit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+  "platforms": {
+    "linux/amd64": {
+      "artifact": {
+        "image": "docker.io/cometbft/cometbft:v0.40.0@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798",
+        "platform_manifest": "sha256:534219749ef8386ec68b9cff047b596b9a6b756af2223b9783aabca1a9c0bca3",
+        "layer": "sha256:92169c6ce92a33dd8a79e5b079e28bceca3fa153b92c71197f84675f1a11b6b8",
+        "path": "/usr/bin/cometbft",
+        "provenance": "https://github.com/cometbft/cometbft/actions/runs/30305733090"
+      },
+      "sha256": "5fbb1bf58a65cc0e6e0eba8dfee912eea72ef76d906ea26ac9ce99fd36aee84f",
+      "size": 40739000,
+      "build": {
+        "recipe": "DOCKER/Dockerfile at the source commit: TARGETPLATFORM=$TARGETPLATFORM make build-linux",
+        "builder_image": "golang:1.25-alpine3.22@sha256:65b4400aee0927412e9ed791a11893273a49d55df24841f7599660fb80dae464",
+        "go": "go1.25.11",
+        "flags": "-mod=readonly -tags=cometbft -trimpath -ldflags '-X github.com/cometbft/cometbft/version.TMGitCommitHash=0880b4d -s -w'",
+        "build_info": {
+          "-buildmode": "exe",
+          "-compiler": "gc",
+          "-tags": "cometbft",
+          "-trimpath": "true",
+          "CGO_ENABLED": "0",
+          "GOARCH": "amd64",
+          "GOOS": "linux",
+          "GOAMD64": "v1",
+          "vcs": "git",
+          "vcs.revision": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+          "vcs.time": "2026-07-27T20:53:48Z",
+          "vcs.modified": "true"
+        },
+        "version": "0.39.0+0880b4d"
+      }
+    }
+  },
+  "unsupported_platforms": {
+    "linux/arm64": "upstream published no arm64 executable for v0.40.0: the GitHub release has no assets (its release job failed the version check, since the source reports 0.39.0), and the linux/arm64 image sha256:f93a87d4ec8849db81233c2c2cf851caa661fd1f5ce139f35851963b38133fc5 holds the same x86-64 executable as linux/amd64, sha256 5fbb1bf58a65cc0e6e0eba8dfee912eea72ef76d906ea26ac9ce99fd36aee84f, because DOCKER/Dockerfile passes an undeclared TARGETPLATFORM to make build-linux"
+  },
+  "configuration": {
+    "priv_validator_laddr": "unix://<comet-home>/run/signer-<16 hex>.sock or noise://<signer-peer-id>@<ip>:<port>",
+    "blocksync.adaptive_sync": false,
+    "consensus.double_sign_check_height": 0,
+    "consensus.block_time_tolerance": "1m0s",
+    "p2p.pex": false,
+    "p2p.seeds": "",
+    "p2p.seed_mode": false,
+    "p2p.libp2p.enabled": false,
+    "rpc.unsafe": false,
+    "p2p.max_num_inbound_peers": 0,
+    "p2p.unconditional_peer_ids": "exactly the listed inbound peer IDs (ETNA_P2P_INBOUND_PEER_IDS)",
+    "db_backend": ["goleveldb", "pebbledb"],
+    "pending_evidence_store": "<db_dir>/evidence.db, deleted with Comet stopped before every start"
+  }
+}
