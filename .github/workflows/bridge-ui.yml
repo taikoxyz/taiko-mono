@@ -14,7 +14,7 @@ on:
       - release-please--branches--**
 
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
     paths:
       - "package.json"
       - "pnpm-lock.yaml"
@@ -32,5 +32,9 @@ permissions:
 
 jobs:
   build-and-test:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
+    if: >-
+      ${{ github.event.pull_request.draft == false
+      && !startsWith(github.head_ref, 'release-please')
+      && (github.event.action != 'labeled' || github.event.label.name == 'option.workflow_on')
+      && (!startsWith(github.head_ref, 'dependabot/') || contains(github.event.pull_request.labels.*.name, 'option.workflow_on')) }}
     uses: ./.github/workflows/bridge-ui--ci.yml
