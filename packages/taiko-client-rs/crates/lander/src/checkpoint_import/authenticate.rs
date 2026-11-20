@@ -190,8 +190,10 @@ where
         .ok_or_else(|| unavailable("missing consensus window"))?
         .as_ref()
         .map_err(Clone::clone)?;
+    // START-10-21: no block of this deployment exceeds its fixed `block.max_bytes`.
+    let max_block_bytes = abci::genesis::block_max_bytes(params.n_max) as usize;
     let (first_height, _) =
-        check_header_projection(&first.block, &landing, &package.validator_state)?;
+        check_header_projection(&first.block, &landing, &package.validator_state, max_block_bytes)?;
     let w = first_height
         .checked_sub(1)
         .filter(|w| *w >= origin && *w < landing.height)
@@ -211,15 +213,19 @@ where
     let mut terminal = None;
     // The validator state after s - 1 that header(s)'s app_hash commits (DATA-5.4-3).
     let mut val_state_before = None;
-    let fixed_params_hash = abci::genesis::GenesisConsensusParams::etna_hash();
+    let fixed_params_hash = abci::genesis::GenesisConsensusParams::etna_hash(params.n_max);
     let mut rejected = None;
     for frame in blocks.by_ref() {
         // Cached local frames and already-ready L1 futures need not yield themselves. Give the
         // one-shot controller's cancellation/signal branch a turn between bounded native frames.
         tokio::task::yield_now().await;
         let frame = frame?;
-        let (_, before) =
-            check_header_projection(&frame.block, &landing, &package.validator_state)?;
+        let (_, before) = check_header_projection(
+            &frame.block,
+            &landing,
+            &package.validator_state,
+            max_block_bytes,
+        )?;
         val_state_before = before.or(val_state_before);
         if frame.commit.len() > 2_000_000 || frame.validators.len() > params.n_max {
             return Err(candidate("native frame exceeds consensus resource bounds"));
@@ -385,6 +391,7 @@ where
             &mut blocks,
             &landing,
             &package.validator_state,
+            max_block_bytes,
         )
         .await);
     }
@@ -993,6 +1000,7 @@ async fn confirm_landed(
     blocks: &mut impl Iterator<Item = Result<WindowBlock, ImportError>>,
     landing: &Landing,
     preimage: &[u8],
+    max_block_bytes: usize,
 ) -> ImportError {
     while height < landing.height {
         tokio::task::yield_now().await;
@@ -1000,7 +1008,9 @@ async fn confirm_landed(
             None => return unavailable("window ended before selected checkpoint"),
             Some(Err(error)) => return error,
             Some(Ok(frame)) => {
-                if let Err(error) = check_header_projection(&frame.block, landing, preimage) {
+                if let Err(error) =
+                    check_header_projection(&frame.block, landing, preimage, max_block_bytes)
+                {
                     return error;
                 }
                 match native_header(&frame.block) {
@@ -1057,13 +1067,15 @@ struct DataProjection {
 /// Compare terminal facts as soon as the bounded original block can authenticate them, before
 /// decoding an unrelated item commit, applying an ancillary set-size limit or reading ahead.
 /// At s it also authenticates the publisher's `preimage` for s − 1 against header(s)
-/// ([`authenticate_preimage`]) and returns it.
+/// ([`authenticate_preimage`]) and returns it. A block above the deployment's
+/// `max_block_bytes` (START-10-21) is refused before decoding.
 fn check_header_projection(
     block: &Bytes,
     landing: &Landing,
     preimage: &[u8],
+    max_block_bytes: usize,
 ) -> Result<(u64, Option<ValState>), ImportError> {
-    if block.len() > 22_020_096 {
+    if block.len() > max_block_bytes {
         return Err(candidate("native block exceeds consensus byte bound"));
     }
     let raw = HeaderProjection::decode(block.as_ref())
@@ -1215,14 +1227,31 @@ mod tests {
         );
     }
 
+    /// `go run` of stock v0.40.0 `ConsensusParams.Hash` with START-10-21's
+    /// `max_bytes = 1,572,864 + 4,096 × n_max` and `max_gas = -1`, for n_max 1, 128 and 4096.
     #[test]
     fn fixed_consensus_hash_matches_stock_v040_oracle() {
-        // go run of stock ConsensusParams.Hash with Etna max_bytes=22020096/max_gas=-1.
-        assert_eq!(
-            abci::genesis::GenesisConsensusParams::etna_hash(),
-            alloy_primitives::b256!(
-                "048091bc7ddc283f77bfbf91d73c44da58c3df8a9cbc867405d8b7f3daada22f"
-            )
-        );
+        for (n_max, hash) in [
+            (
+                1,
+                alloy_primitives::b256!(
+                    "db0965d0b4a8f527df74e19dbd4ca7228ce5a19f21f73946eb44ba40de395c85"
+                ),
+            ),
+            (
+                128,
+                alloy_primitives::b256!(
+                    "5a5e769362014cf54a23352cd4537ed64b191852bf6fbb2f9a374a6891455fc7"
+                ),
+            ),
+            (
+                4096,
+                alloy_primitives::b256!(
+                    "8c4f1f175c0e7c3c45f5318e708387d0af2576f3d01b482f7e00eddbe1e1a33b"
+                ),
+            ),
+        ] {
+            assert_eq!(abci::genesis::GenesisConsensusParams::etna_hash(n_max), hash, "{n_max}");
+        }
     }
 }

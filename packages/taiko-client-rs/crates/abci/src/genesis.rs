@@ -48,7 +48,8 @@ pub use build::build_genesis;
 pub use doc::{
     AbciParams, AuthorityParams, BlockParams, EVIDENCE_MAX_AGE_DURATION,
     EVIDENCE_MAX_AGE_NUM_BLOCKS, EvidenceParams, GenesisConsensusParams, GenesisDoc,
-    GenesisValidator, ValidatorParams, VersionParams, genesis_app_hash, validator_address,
+    GenesisValidator, MAX_BLOCK_MAX_BYTES, ValidatorParams, VersionParams, block_max_bytes,
+    genesis_app_hash, validator_address,
 };
 pub use record::{CommitteeRecordError, GenesisCommitteeRecord, build_committee_record};
 

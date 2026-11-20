@@ -76,10 +76,19 @@ func decodeHex(s string, max int) ([]byte, error) {
 	return hex.DecodeString(s[2:])
 }
 
-// fixedParams accepts only START-10-21's consensus params. The evidence limits (900 blocks, 1 h,
-// 1 MiB) are the ones the Rust import window uses (abci::genesis::EVIDENCE_MAX_AGE_*).
-func fixedParams(p types.ConsensusParams) bool {
-	return p.Block.MaxBytes == 22020096 && p.Block.MaxGas == -1 && p.Evidence.MaxAgeNumBlocks == 900 && p.Evidence.MaxAgeDuration == time.Hour && p.Evidence.MaxBytes == 1048576 && len(p.Validator.PubKeyTypes) == 1 && p.Validator.PubKeyTypes[0] == "secp256k1eth" && p.Version.App == 1 && p.ABCI.VoteExtensionsEnableHeight == 0
+// MaxNMax is the largest committee cap n_max a deployment can have (START-10-11).
+const MaxNMax = 4096
+
+// BlockMaxBytes is START-10-21's block.max_bytes for committee cap nMax: 1,572,864 + 4,096 × nMax.
+func BlockMaxBytes(nMax int64) int64 { return 1572864 + 4096*nMax }
+
+// fixedParams accepts only START-10-21's consensus params for the authenticated committee cap
+// nMax (1..MaxNMax): block.max_bytes BlockMaxBytes(nMax) without a gas limit, evidence age
+// limits of 16 blocks and 3 min, zero evidence bytes (CONS-3.1-10), secp256k1eth keys, app
+// version 1 and no vote extensions. The age limits are the ones the Rust import window uses
+// (abci::genesis::EVIDENCE_MAX_AGE_*).
+func fixedParams(p types.ConsensusParams, nMax int64) bool {
+	return nMax >= 1 && nMax <= MaxNMax && p.Block.MaxBytes == BlockMaxBytes(nMax) && p.Block.MaxGas == -1 && p.Evidence.MaxAgeNumBlocks == 16 && p.Evidence.MaxAgeDuration == 3*time.Minute && p.Evidence.MaxBytes == 0 && len(p.Validator.PubKeyTypes) == 1 && p.Validator.PubKeyTypes[0] == "secp256k1eth" && p.Version.App == 1 && p.ABCI.VoteExtensionsEnableHeight == 0
 }
 func validatorSet(input []Validator) (*types.ValidatorSet, error) {
 	if len(input) == 0 || len(input) > maxValidators {
@@ -202,9 +211,10 @@ func DecodeValState(raw []byte) (int64, *types.ValidatorSet, *types.ValidatorSet
 	return int64(h), sets[0], sets[1], nil
 }
 
-// decodeGenesis reads the original GenesisDoc. Stock parsing turns InitialHeight 0 into 1,
-// so the original value is read first and must already be positive.
-func decodeGenesis(raw []byte) (*types.GenesisDoc, error) {
+// decodeGenesis reads the original GenesisDoc of a deployment with committee cap nMax. Stock
+// parsing turns InitialHeight 0 into 1, so the original value is read first and must already be
+// positive.
+func decodeGenesis(raw []byte, nMax int64) (*types.GenesisDoc, error) {
 	var identity struct {
 		InitialHeight string `json:"initial_height"`
 	}
@@ -219,7 +229,7 @@ func decodeGenesis(raw []byte) (*types.GenesisDoc, error) {
 	if e != nil {
 		return nil, e
 	}
-	if g.InitialHeight != originalHeight || g.InitialHeight > math.MaxInt64-2 || g.ConsensusParams == nil || !fixedParams(*g.ConsensusParams) {
+	if g.InitialHeight != originalHeight || g.InitialHeight > math.MaxInt64-2 || g.ConsensusParams == nil || !fixedParams(*g.ConsensusParams, nMax) {
 		return nil, errors.New("unsupported genesis parameters")
 	}
 	return g, nil

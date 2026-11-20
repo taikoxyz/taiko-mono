@@ -22,7 +22,7 @@ pub(super) fn document(fx: &Fixture, w: &RecoveryWitness) -> GenesisDoc {
         genesis_time: crate::genesis::genesis_time(origin.l1_timestamp).unwrap().to_rfc3339(),
         chain_id: chain_id_for(&fx.params, origin.generation).unwrap(),
         initial_height: (origin.height + 1).to_string(),
-        consensus_params: GenesisConsensusParams::etna(),
+        consensus_params: GenesisConsensusParams::etna(fx.params.n_max),
         validators: origin.committee.members.iter().map(GenesisValidator::from_member).collect(),
         app_hash: crate::genesis::genesis_app_hash(
             origin.height,

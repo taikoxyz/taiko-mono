@@ -11,6 +11,7 @@ use super::{
     finalize::Backoff, within,
 };
 use crate::{
+    ChainParams,
     engine::Engine,
     genesis::{
         BootstrapWitness, GenesisConsensusParams, GenesisExpectation, decode_bootstrap_state,
@@ -116,7 +117,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
     async fn verify_genesis(&self, req: &request::InitChain) -> Result<AppState, AbciError> {
         let witness = decode_bootstrap_state(&req.app_state_bytes)?;
         let (verified, expected) = verify_bootstrap(&witness, &self.params)?;
-        check_request(req, &expected, self.params.l2_chain_id)?;
+        check_request(req, &expected, &self.params)?;
         let chain_id = req.chain_id.clone();
         let BootstrapWitness::Recovery(w) = &witness else {
             for header in &verified.l1_headers {
@@ -339,15 +340,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
 fn check_request(
     req: &request::InitChain,
     expected: &GenesisExpectation,
-    l2_chain_id: u64,
+    params: &ChainParams,
 ) -> Result<(), AbciError> {
+    let l2_chain_id = params.l2_chain_id;
     if req.time != expected.genesis_time {
         return Err(AbciError::GenesisTimeMismatch {
             got: req.time,
             expected: expected.genesis_time,
         });
     }
-    if req.consensus_params != GenesisConsensusParams::abci() {
+    if req.consensus_params != GenesisConsensusParams::abci(params.n_max) {
         return Err(AbciError::GenesisConsensusParamsMismatch);
     }
     if req.chain_id != expected.chain_id {

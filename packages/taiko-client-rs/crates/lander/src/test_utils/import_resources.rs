@@ -22,8 +22,8 @@ const U: u64 = 65_532;
 
 /// The frame count s − w of the shortest window DATA-5.4-2 allows here, with block `h` at
 /// `100 + period · h` s. Block s − U + 1 carries the latest anchor witness, so the window
-/// reaches it and w = s − U. START-10-21's evidence limits reach back less far: the newest
-/// expired height is s − 901 at 4 s per block and s − 3,601 at 1 s.
+/// reaches it and w = s − U. START-10-21's evidence limits (16 blocks, 3 min) reach back less
+/// far: the newest expired height is s − 46 at 4 s per block and s − 181 at 1 s.
 fn window(s: u64, period: u64) -> u64 {
     let time =
         |h: u64| tendermint::Time::from_unix_timestamp((100 + period * h) as i64, 0).unwrap();
@@ -396,6 +396,7 @@ async fn verify(dir: &Path, s: u64, period: u64) {
             "frames": count,
             "el_prefix_headers": 1,
             "terminal_q": s-U,
+            "n_max": params.n_max,
         }),
     );
 }

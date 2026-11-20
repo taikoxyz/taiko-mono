@@ -29,14 +29,18 @@ func run(args []string) error {
 	home := flags.String("home", "", "absent stock home to create")
 	stockDir := flags.String("stock-dir", "", "directory holding genesis.json, validator-state.bin and blocks.jsonl")
 	appHash := flags.String("app-hash", "", "post-s AppHash appHash(ELHash(s), valStateHash(s)) as 0x and 32 bytes")
+	nMax := flags.Int64("n-max", 0, "authenticated committee cap n_max (1..4096), which fixes block.max_bytes")
 	if err := flags.Parse(args[1:]); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
 		return errors.New("unexpected positional arguments")
 	}
-	if *home == "" || *stockDir == "" || *appHash == "" {
-		return errors.New("install requires --home, --stock-dir and --app-hash")
+	if *home == "" || *stockDir == "" || *appHash == "" || *nMax == 0 {
+		return errors.New("install requires --home, --stock-dir, --app-hash and --n-max")
+	}
+	if *nMax < 1 || *nMax > checkpoint.MaxNMax {
+		return fmt.Errorf("--n-max must be in 1..%d", checkpoint.MaxNMax)
 	}
 	if len(*appHash) != 66 || !strings.HasPrefix(*appHash, "0x") {
 		return errors.New("--app-hash must be 0x and 32 bytes")
@@ -45,7 +49,7 @@ func run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("--app-hash: %w", err)
 	}
-	report, err := checkpoint.Install(*home, *stockDir, hash)
+	report, err := checkpoint.Install(*home, *stockDir, hash, *nMax)
 	if err != nil {
 		return err
 	}

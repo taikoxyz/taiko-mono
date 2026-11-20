@@ -129,7 +129,7 @@ async fn send(proxy: u16, request: &pb::Request) -> Result<pb::response::Value> 
         ensure!(prefix.len() < 10);
     }
     let n = prost::encoding::decode_varint(&mut prefix.as_slice())?;
-    ensure!(n <= 22_020_096);
+    ensure!(n <= abci::genesis::MAX_BLOCK_MAX_BYTES as u64);
     let mut data = vec![0; n as usize];
     io.read_exact(&mut data).await?;
     pb::Response::decode(data.as_slice())?.value.context("ABCI response")

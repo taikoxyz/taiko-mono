@@ -60,6 +60,7 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
         &GenesisWitness { l1_header, inbox: inbox_witness, committee },
         chain_id,
         &verified.members,
+        params.n_max,
     )
 }
 
@@ -87,7 +88,7 @@ mod tests {
         InitChain {
             time: genesis.genesis_time.parse().unwrap(),
             chain_id: genesis.chain_id,
-            consensus_params: crate::genesis::GenesisConsensusParams::abci(),
+            consensus_params: crate::test_utils::abci_consensus_params(&genesis.consensus_params),
             validators: genesis
                 .validators
                 .iter()
@@ -111,7 +112,7 @@ mod tests {
         let req = init_chain_from(&doc);
         assert_eq!(req, fx.request);
         let params = &req.consensus_params;
-        assert_eq!(params.block.as_ref().unwrap().max_bytes, 22_020_096);
+        assert_eq!(params.block.as_ref().unwrap().max_bytes, 2_097_152);
         assert_eq!(params.block.as_ref().unwrap().max_gas, -1);
         assert_eq!(params.evidence, fx.request.consensus_params.evidence);
         assert_eq!(params.validator, fx.request.consensus_params.validator);

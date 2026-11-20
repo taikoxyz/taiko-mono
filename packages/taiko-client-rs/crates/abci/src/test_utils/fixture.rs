@@ -188,7 +188,7 @@ impl Fixture {
             )
             .expect("valid genesis time"),
             chain_id: chain_id_for(&params, spec.recovery_generation).unwrap(),
-            consensus_params: consensus_params(),
+            consensus_params: consensus_params(params.n_max),
             validators: validator_updates(&members),
             app_state_bytes: encode_app_state(&witness).into(),
             initial_height: Height::from(1u32),
@@ -509,7 +509,7 @@ pub(crate) fn init_chain_request(doc: &crate::GenesisDoc) -> InitChain {
     InitChain {
         time: doc.genesis_time.parse().unwrap(),
         chain_id: doc.chain_id.clone(),
-        consensus_params: crate::genesis::GenesisConsensusParams::abci(),
+        consensus_params: abci_consensus_params(&doc.consensus_params),
         validators: doc
             .validators
             .iter()
@@ -523,9 +523,39 @@ pub(crate) fn init_chain_request(doc: &crate::GenesisDoc) -> InitChain {
     }
 }
 
-/// CometBFT consensus parameters as the genesis builder writes them.
-pub(crate) fn consensus_params() -> tendermint_proto::v0_38::types::ConsensusParams {
-    crate::genesis::GenesisConsensusParams::abci()
+/// CometBFT consensus parameters as the genesis builder writes them for committee cap `n_max`.
+pub(crate) fn consensus_params(n_max: usize) -> tendermint_proto::v0_38::types::ConsensusParams {
+    crate::genesis::GenesisConsensusParams::abci(n_max)
+}
+
+/// The ABCI consensus parameters CometBFT passes to InitChain for a genesis file's
+/// `consensus_params`: each decimal string parsed, the duration split from nanoseconds.
+pub(crate) fn abci_consensus_params(
+    p: &crate::genesis::GenesisConsensusParams,
+) -> tendermint_proto::v0_38::types::ConsensusParams {
+    use tendermint_proto::{google::protobuf::Duration, v0_38::types};
+    let nanos: u64 = p.evidence.max_age_duration.parse().unwrap();
+    types::ConsensusParams {
+        block: Some(types::BlockParams {
+            max_bytes: p.block.max_bytes.parse().unwrap(),
+            max_gas: p.block.max_gas.parse().unwrap(),
+        }),
+        evidence: Some(types::EvidenceParams {
+            max_age_num_blocks: p.evidence.max_age_num_blocks.parse().unwrap(),
+            max_age_duration: Some(Duration {
+                seconds: (nanos / 1_000_000_000) as i64,
+                nanos: (nanos % 1_000_000_000) as i32,
+            }),
+            max_bytes: p.evidence.max_bytes.parse().unwrap(),
+        }),
+        validator: Some(types::ValidatorParams {
+            pub_key_types: p.validator.pub_key_types.clone(),
+        }),
+        version: Some(types::VersionParams { app: p.version.app.parse().unwrap() }),
+        abci: Some(types::AbciParams {
+            vote_extensions_enable_height: p.abci.vote_extensions_enable_height.parse().unwrap(),
+        }),
+    }
 }
 
 /// A proof-backed recovery with retained old-generation landing and a later checkpoint.

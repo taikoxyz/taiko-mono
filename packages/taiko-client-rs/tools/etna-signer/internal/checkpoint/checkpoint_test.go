@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -39,32 +40,51 @@ type terminal struct {
 	appHash []byte
 }
 
-// etnaParams returns START-10-21's fixed consensus params.
+// testNMax is the fixtures' committee cap; their genesis carries the params it fixes.
+const testNMax = 128
+
+// etnaParams returns START-10-21's fixed consensus params for committee cap testNMax.
 func etnaParams() *types.ConsensusParams {
 	params := types.DefaultConsensusParams()
-	params.Block.MaxBytes = 22020096
-	params.Evidence.MaxAgeNumBlocks = 900
-	params.Evidence.MaxAgeDuration = time.Hour
+	params.Block.MaxBytes = BlockMaxBytes(testNMax)
+	params.Evidence.MaxAgeNumBlocks = 16
+	params.Evidence.MaxAgeDuration = 3 * time.Minute
+	params.Evidence.MaxBytes = 0
 	params.Validator.PubKeyTypes = []string{"secp256k1eth"}
 	params.Version.App = 1
 	return params
 }
 
-// TestFixedParamsRequireSpecEvidenceLimits accepts START-10-21's evidence limits (900 blocks,
-// 1 h, 1 MiB) and refuses CometBFT's defaults (100,000 blocks, 48 h).
-func TestFixedParamsRequireSpecEvidenceLimits(t *testing.T) {
-	if !fixedParams(*etnaParams()) {
+// TestFixedParamsRequireStart1021 accepts START-10-21's params (block.max_bytes 1,572,864 +
+// 4,096 × n_max, 16 blocks, 3 min, zero evidence bytes) only for the n_max given, and refuses
+// CometBFT's defaults, the earlier limits and an n_max out of range.
+func TestFixedParamsRequireStart1021(t *testing.T) {
+	if BlockMaxBytes(128) != 2097152 || BlockMaxBytes(1) != 1576960 || BlockMaxBytes(MaxNMax) != 18350080 {
+		t.Fatal("block.max_bytes formula")
+	}
+	if !fixedParams(*etnaParams(), testNMax) {
 		t.Fatal("refused the spec consensus params")
 	}
+	for _, nMax := range []int64{0, testNMax - 1, testNMax + 1, MaxNMax + 1} {
+		if fixedParams(*etnaParams(), nMax) {
+			t.Fatalf("accepted the params of n_max %d for n_max %d", testNMax, nMax)
+		}
+	}
 	for name, edit := range map[string]func(*types.ConsensusParams){
-		"100,000 blocks": func(p *types.ConsensusParams) { p.Evidence.MaxAgeNumBlocks = 100000 },
-		"48 h":           func(p *types.ConsensusParams) { p.Evidence.MaxAgeDuration = 48 * time.Hour },
-		"byte limit":     func(p *types.ConsensusParams) { p.Evidence.MaxBytes-- },
+		"100,000 blocks":       func(p *types.ConsensusParams) { p.Evidence.MaxAgeNumBlocks = 100000 },
+		"48 h":                 func(p *types.ConsensusParams) { p.Evidence.MaxAgeDuration = 48 * time.Hour },
+		"900 blocks":           func(p *types.ConsensusParams) { p.Evidence.MaxAgeNumBlocks = 900 },
+		"1 h":                  func(p *types.ConsensusParams) { p.Evidence.MaxAgeDuration = time.Hour },
+		"1 MiB evidence":       func(p *types.ConsensusParams) { p.Evidence.MaxBytes = 1048576 },
+		"one evidence byte":    func(p *types.ConsensusParams) { p.Evidence.MaxBytes = 1 },
+		"22,020,096 bytes":     func(p *types.ConsensusParams) { p.Block.MaxBytes = 22020096 },
+		"block bytes plus one": func(p *types.ConsensusParams) { p.Block.MaxBytes++ },
+		"a gas limit":          func(p *types.ConsensusParams) { p.Block.MaxGas = 45000000 },
 	} {
 		p := etnaParams()
 		edit(p)
-		if fixedParams(*p) {
-			t.Fatalf("accepted evidence params with %s", name)
+		if fixedParams(*p, testNMax) {
+			t.Fatalf("accepted params with %s", name)
 		}
 	}
 }
@@ -158,7 +178,7 @@ func install(t *testing.T, p *stockPackage, term terminal) (home, dir string) {
 	t.Helper()
 	dir = writeStockDir(t, p)
 	home = filepath.Join(t.TempDir(), "comet")
-	if _, err := Install(home, dir, term.appHash); err != nil {
+	if _, err := Install(home, dir, term.appHash, testNMax); err != nil {
 		t.Fatal(err)
 	}
 	return home, dir
@@ -167,7 +187,7 @@ func install(t *testing.T, p *stockPackage, term terminal) (home, dir string) {
 // reopen runs the installer's own read-only reopen check against an installed home.
 func reopen(t *testing.T, home, dir string, term terminal) error {
 	t.Helper()
-	in, err := readStock(dir, term.appHash)
+	in, err := readStock(dir, term.appHash, testNMax)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +220,7 @@ func TestInstallCLIReportsStockTerminalIdentity(t *testing.T) {
 	p, term, sets := windowFixture(t)
 	dir := writeStockDir(t, p)
 	home := filepath.Join(work, "comet")
-	args := []string{"install", "--home", home, "--stock-dir", dir, "--app-hash", hexBytes(term.appHash)}
+	args := []string{"install", "--home", home, "--stock-dir", dir, "--app-hash", hexBytes(term.appHash), "--n-max", strconv.Itoa(testNMax)}
 	output, e := exec.Command(binaryPath, args...).Output()
 	if e != nil {
 		t.Fatalf("install: %v %s", e, output)
@@ -588,8 +608,24 @@ func TestRejectsGenesisHeightNormalization(t *testing.T) {
 	p, term, _ := fixture(t)
 	p.Genesis = bytes.Replace(p.Genesis, []byte(`"initial_height":"71"`), []byte(`"initial_height":"0"`), 1)
 	home := filepath.Join(t.TempDir(), "comet")
-	if _, e := Install(home, writeStockDir(t, p), term.appHash); e == nil {
+	if _, e := Install(home, writeStockDir(t, p), term.appHash, testNMax); e == nil {
 		t.Fatal("normalized original InitialHeight=0 into another identity")
+	}
+}
+
+// TestInstallRefusesTheParamsOfAnotherNMax: the genesis block.max_bytes must be the one the
+// authenticated n_max fixes; an install for a different n_max leaves the home absent.
+func TestInstallRefusesTheParamsOfAnotherNMax(t *testing.T) {
+	p, term, _ := fixture(t)
+	dir := writeStockDir(t, p)
+	for _, nMax := range []int64{testNMax - 1, testNMax + 1} {
+		home := filepath.Join(t.TempDir(), "comet")
+		if _, e := Install(home, dir, term.appHash, nMax); e == nil {
+			t.Fatalf("installed the n_max %d genesis as n_max %d", testNMax, nMax)
+		}
+		if _, e := os.Lstat(home); !os.IsNotExist(e) {
+			t.Fatalf("refused install touched the home: %v", e)
+		}
 	}
 }
 
@@ -740,7 +776,7 @@ func TestFreshInstallRequiresFinalStockFileSync(t *testing.T) {
 	dir := writeStockDir(t, p)
 	home := filepath.Join(t.TempDir(), "comet")
 	calls := 0
-	_, err := installFresh(home, dir, term.appHash, func(path string) error {
+	_, err := installFresh(home, dir, term.appHash, testNMax, func(path string) error {
 		calls++
 		if calls == 2 {
 			if err := os.Symlink(filepath.Join(path, "config", "genesis.json"), filepath.Join(path, "data", "evidence.db", "unexpected")); err != nil {
@@ -756,7 +792,7 @@ func TestFreshInstallRequiresFinalStockFileSync(t *testing.T) {
 	// storage device at the final barrier.
 	full := errors.New("injected final filesystem sync failure")
 	calls = 0
-	_, err = installFresh(filepath.Join(t.TempDir(), "comet"), dir, term.appHash, func(path string) error {
+	_, err = installFresh(filepath.Join(t.TempDir(), "comet"), dir, term.appHash, testNMax, func(path string) error {
 		calls++
 		if calls == 2 {
 			return full

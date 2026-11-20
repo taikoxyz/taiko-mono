@@ -1654,7 +1654,7 @@ pub(crate) async fn import_package(
         .to_rfc3339(),
         chain_id: abci::rules::chain_id_for(&fx.params, 0).unwrap(),
         initial_height: "1".into(),
-        consensus_params: abci::genesis::GenesisConsensusParams::etna(),
+        consensus_params: abci::genesis::GenesisConsensusParams::etna(fx.params.n_max),
         validators: fx.committees[&0]
             .state
             .members

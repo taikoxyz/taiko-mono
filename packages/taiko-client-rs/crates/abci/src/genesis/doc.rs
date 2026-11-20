@@ -114,17 +114,29 @@ pub struct AuthorityParams {
 
 /// START-10-21's evidence age limit in blocks. Stock CometBFT v0.40.0 accepts evidence until it
 /// is older than both this and [`EVIDENCE_MAX_AGE_DURATION`].
-pub const EVIDENCE_MAX_AGE_NUM_BLOCKS: u64 = 900;
-/// START-10-21's evidence age limit in time: 1 h.
-pub const EVIDENCE_MAX_AGE_DURATION: std::time::Duration = std::time::Duration::from_secs(3_600);
+pub const EVIDENCE_MAX_AGE_NUM_BLOCKS: u64 = 16;
+/// START-10-21's evidence age limit in time: 3 min.
+pub const EVIDENCE_MAX_AGE_DURATION: std::time::Duration = std::time::Duration::from_secs(180);
+
+/// START-10-21's `block.max_bytes` for a committee of at most `n_max` members:
+/// 1,572,864 + 4,096 × n_max (2,097,152 at n_max = 128). CometBFT v0.40.0 reserves part of it for
+/// the header and a LastCommit of the current set and offers PrepareProposal the rest.
+pub const fn block_max_bytes(n_max: usize) -> i64 {
+    1_572_864 + 4_096 * n_max as i64
+}
+
+/// The largest [`block_max_bytes`] of any valid deployment, at
+/// n_max = [`MAX_N_MAX`](crate::config::MAX_N_MAX): 18,350,080. No Etna block is larger.
+pub const MAX_BLOCK_MAX_BYTES: i64 = block_max_bytes(crate::config::MAX_N_MAX);
 
 impl GenesisConsensusParams {
-    /// Stock v0.40 ConsensusParams.Hash for the immutable Etna parameters. Comet hashes only
-    /// HashedParams' block-byte and gas limits, using canonical protobuf and SHA-256.
-    pub fn etna_hash() -> alloy_primitives::B256 {
+    /// Stock v0.40 ConsensusParams.Hash for the immutable Etna parameters of a deployment with
+    /// committee cap `n_max`. Comet hashes only HashedParams' block-byte and gas limits, using
+    /// canonical protobuf and SHA-256, so every header depends on n_max.
+    pub fn etna_hash(n_max: usize) -> alloy_primitives::B256 {
         use prost::Message;
         use sha2::{Digest, Sha256};
-        let block = Self::abci().block.expect("fixed block parameters");
+        let block = Self::abci(n_max).block.expect("fixed block parameters");
         let bytes = tendermint_proto::v0_38::types::HashedParams {
             block_max_bytes: block.max_bytes,
             block_max_gas: block.max_gas,
@@ -133,20 +145,21 @@ impl GenesisConsensusParams {
         alloy_primitives::B256::from_slice(&Sha256::digest(bytes))
     }
 
-    /// Canonical parameters representable by the ABCI request type. CometBFT v0.40.0 also passes
-    /// the parameter-update authority to InitChain, which tendermint-rs does not decode; it need
-    /// not be compared, as the app never changes consensus params (START-10-23).
-    pub(crate) fn abci() -> tendermint_proto::v0_38::types::ConsensusParams {
+    /// Canonical parameters representable by the ABCI request type, for committee cap `n_max`.
+    /// CometBFT v0.40.0 also passes the parameter-update authority to InitChain, which
+    /// tendermint-rs does not decode; it need not be compared, as the app never changes
+    /// consensus params (START-10-23).
+    pub(crate) fn abci(n_max: usize) -> tendermint_proto::v0_38::types::ConsensusParams {
         use tendermint_proto::{google::protobuf::Duration, v0_38::types};
         types::ConsensusParams {
-            block: Some(types::BlockParams { max_bytes: 22_020_096, max_gas: -1 }),
+            block: Some(types::BlockParams { max_bytes: block_max_bytes(n_max), max_gas: -1 }),
             evidence: Some(types::EvidenceParams {
                 max_age_num_blocks: EVIDENCE_MAX_AGE_NUM_BLOCKS as i64,
                 max_age_duration: Some(Duration {
                     seconds: EVIDENCE_MAX_AGE_DURATION.as_secs() as i64,
                     nanos: 0,
                 }),
-                max_bytes: 1_048_576,
+                max_bytes: 0,
             }),
             validator: Some(types::ValidatorParams { pub_key_types: vec!["secp256k1eth".into()] }),
             version: Some(types::VersionParams { app: crate::app::APP_VERSION }),
@@ -154,12 +167,12 @@ impl GenesisConsensusParams {
         }
     }
 
-    /// The parameters of every Etna genesis: CometBFT's default `block.max_bytes` (22,020,096,
-    /// above any envelope) without a gas limit, START-10-21's evidence limits (900 blocks, 1 h,
-    /// 1 MiB), secp256k1eth keys only, the current app version, vote extensions disabled, and no
-    /// update authority.
-    pub fn etna() -> Self {
-        let params = Self::abci();
+    /// The parameters of every Etna genesis with committee cap `n_max` (START-10-21):
+    /// `block.max_bytes` = [`block_max_bytes`]`(n_max)` without a gas limit, evidence age limits
+    /// of 16 blocks and 3 min and zero evidence bytes in every block (CONS-3.1-10), secp256k1eth
+    /// keys only, the current app version, vote extensions disabled, and no update authority.
+    pub fn etna(n_max: usize) -> Self {
+        let params = Self::abci(n_max);
         Self {
             block: BlockParams {
                 max_bytes: params.block.as_ref().expect("block params").max_bytes.to_string(),
@@ -238,8 +251,8 @@ pub fn genesis_app_hash(
 impl GenesisDoc {
     /// The genesis document of a verified genesis: `w` as `app_state` (its `L1_0` timestamp as
     /// `genesis_time`), `chain_id`, `initial_height` and the committee `members` (set-key order)
-    /// as validators, with [`GenesisConsensusParams::etna`] and appHash(S) of the start hash and
-    /// their genesis validator state ([`genesis_app_hash`]).
+    /// as validators, with [`GenesisConsensusParams::etna`] for committee cap `n_max` and
+    /// appHash(S) of the start hash and their genesis validator state ([`genesis_app_hash`]).
     ///
     /// Fails with [`GenesisError::GenesisTime`] when the `L1_0` timestamp is not a valid
     /// CometBFT time, and with [`GenesisError::ValidatorSet`] when CometBFT refuses `members`.
@@ -247,6 +260,7 @@ impl GenesisDoc {
         w: &GenesisWitness,
         chain_id: String,
         members: &[Member],
+        n_max: usize,
     ) -> Result<Self, GenesisError> {
         let genesis_time = genesis_time(w.l1_header.timestamp())?;
         let word = |slot: u64| {
@@ -264,7 +278,7 @@ impl GenesisDoc {
             genesis_time: genesis_time.to_rfc3339(),
             chain_id,
             initial_height: (start_height + 1).to_string(),
-            consensus_params: GenesisConsensusParams::etna(),
+            consensus_params: GenesisConsensusParams::etna(n_max),
             validators: members.iter().map(GenesisValidator::from_member).collect(),
             app_hash: genesis_app_hash(start_height, start_hash, members)?,
             app_state: AppStateJson::from(w),
@@ -292,15 +306,15 @@ mod tests {
     #[test]
     fn json_preserves_stock_parameters_and_genesis_app_hash() {
         let fx = Fixture::genesis(2);
-        let doc =
-            GenesisDoc::assemble(&fx.witness, fx.request.chain_id.clone(), &fx.members).unwrap();
+        let doc = GenesisDoc::assemble(&fx.witness, fx.request.chain_id.clone(), &fx.members, 128)
+            .unwrap();
         let value = serde_json::to_value(&doc).unwrap();
         assert_eq!(
             value["consensus_params"]["validator"]["pub_key_types"],
             serde_json::json!(["secp256k1eth"])
         );
         assert_eq!(value["consensus_params"]["version"]["app"], "1");
-        assert_eq!(value["consensus_params"]["block"]["max_bytes"], "22020096");
+        assert_eq!(value["consensus_params"]["block"]["max_bytes"], "2097152");
         let genesis = ValState::genesis(fx.genesis.genesis_height, &powers(&fx.members)).unwrap();
         assert_eq!(
             doc.app_hash,
@@ -309,26 +323,38 @@ mod tests {
         assert_eq!(doc.initial_height, "1");
         assert_eq!(serde_json::from_value::<GenesisDoc>(value).unwrap(), doc);
     }
-    /// START-10-21's evidence limits (900 blocks, 1 h, 1 MiB), in the genesis JSON (stock
-    /// CometBFT writes the duration as nanoseconds in a string) and in InitChain's parameters.
+    /// START-10-21 (vector 21 of 10.md): `block.max_bytes` = 1,572,864 + 4,096 × n_max, no gas
+    /// limit, evidence age limits of 16 blocks and 3 min and zero evidence bytes, in the genesis
+    /// JSON (stock CometBFT writes the duration as nanoseconds in a string) and in InitChain's
+    /// parameters.
     #[test]
-    fn genesis_consensus_params_use_the_spec_evidence_limits() {
-        let json = serde_json::to_value(GenesisConsensusParams::etna()).unwrap();
-        assert_eq!(
-            json["evidence"],
-            serde_json::json!({
-                "max_age_num_blocks": "900",
-                "max_age_duration": "3600000000000",
-                "max_bytes": "1048576",
-            })
-        );
-        let evidence = GenesisConsensusParams::abci().evidence.unwrap();
-        assert_eq!(evidence.max_age_num_blocks, 900);
-        assert_eq!(
-            evidence.max_age_duration,
-            Some(tendermint_proto::google::protobuf::Duration { seconds: 3_600, nanos: 0 })
-        );
-        assert_eq!(evidence.max_bytes, 1_048_576);
+    fn genesis_consensus_params_follow_start_10_21() {
+        for (n_max, max_bytes) in [(1, 1_576_960), (128, 2_097_152), (4096, 18_350_080)] {
+            assert_eq!(block_max_bytes(n_max), max_bytes);
+            let json = serde_json::to_value(GenesisConsensusParams::etna(n_max)).unwrap();
+            assert_eq!(
+                json["block"],
+                serde_json::json!({"max_bytes": max_bytes.to_string(), "max_gas": "-1"})
+            );
+            assert_eq!(
+                json["evidence"],
+                serde_json::json!({
+                    "max_age_num_blocks": "16",
+                    "max_age_duration": "180000000000",
+                    "max_bytes": "0",
+                })
+            );
+            let abci = GenesisConsensusParams::abci(n_max);
+            assert_eq!(abci.block.unwrap().max_bytes, max_bytes);
+            let evidence = abci.evidence.unwrap();
+            assert_eq!(evidence.max_age_num_blocks, 16);
+            assert_eq!(
+                evidence.max_age_duration,
+                Some(tendermint_proto::google::protobuf::Duration { seconds: 180, nanos: 0 })
+            );
+            assert_eq!(evidence.max_bytes, 0);
+        }
+        assert_eq!(MAX_BLOCK_MAX_BYTES, 18_350_080);
     }
     #[test]
     fn validator_power_and_order_are_preserved() {
@@ -345,7 +371,7 @@ mod tests {
         let mut fx = Fixture::genesis(1);
         fx.witness.l1_header = edit_l1_header(&fx.witness.l1_header, |h| h.timestamp = u64::MAX);
         assert!(matches!(
-            GenesisDoc::assemble(&fx.witness, "c".into(), &fx.members),
+            GenesisDoc::assemble(&fx.witness, "c".into(), &fx.members, fx.params.n_max),
             Err(GenesisError::GenesisTime(u64::MAX))
         ));
     }

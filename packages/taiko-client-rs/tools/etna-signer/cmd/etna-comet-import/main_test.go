@@ -7,20 +7,25 @@ import (
 	"testing"
 )
 
-func TestInstallRequiresHomeStockDirAndAppHash(t *testing.T) {
+func TestInstallRequiresHomeStockDirAppHashAndNMax(t *testing.T) {
 	work := t.TempDir()
 	home := filepath.Join(work, "comet")
-	full := []string{"--home", home, "--stock-dir", work, "--app-hash", "0x" + strings.Repeat("09", 32)}
+	full := []string{"--home", home, "--stock-dir", work, "--app-hash", "0x" + strings.Repeat("09", 32), "--n-max", "128"}
 	for drop := 0; drop < len(full); drop += 2 {
 		args := append([]string{"install"}, full[:drop]...)
 		args = append(args, full[drop+2:]...)
-		if err := run(args); err == nil || !strings.Contains(err.Error(), "install requires --home, --stock-dir and --app-hash") {
+		if err := run(args); err == nil || !strings.Contains(err.Error(), "install requires --home, --stock-dir, --app-hash and --n-max") {
 			t.Fatalf("accepted install without %s: %v", full[drop], err)
 		}
 	}
 	for _, hash := range []string{"09", "0x09", "0x" + strings.Repeat("09", 33), "0x" + strings.Repeat("zz", 32)} {
-		if err := run([]string{"install", "--home", home, "--stock-dir", work, "--app-hash", hash}); err == nil || !strings.Contains(err.Error(), "--app-hash") {
+		if err := run([]string{"install", "--home", home, "--stock-dir", work, "--app-hash", hash, "--n-max", "128"}); err == nil || !strings.Contains(err.Error(), "--app-hash") {
 			t.Fatalf("accepted app hash %q: %v", hash, err)
+		}
+	}
+	for _, nMax := range []string{"-1", "4097", "x"} {
+		if err := run([]string{"install", "--home", home, "--stock-dir", work, "--app-hash", "0x" + strings.Repeat("09", 32), "--n-max", nMax}); err == nil || !strings.Contains(err.Error(), "n-max") {
+			t.Fatalf("accepted n_max %q: %v", nMax, err)
 		}
 	}
 	for _, args := range [][]string{nil, {"verify"}, append([]string{"export"}, full...)} {

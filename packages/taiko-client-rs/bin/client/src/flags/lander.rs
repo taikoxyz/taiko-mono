@@ -307,14 +307,14 @@ mod tests {
         let _clear = clear_env();
         let c = parse(argv()).unwrap().lander_flags.config().unwrap();
         assert_eq!(c.limits.max_payload_bytes, 6 * 130_044);
-        assert_eq!(c.limits.max_message_bytes, 22_020_096);
+        assert_eq!(c.limits.max_message_bytes, 18_350_080);
         assert_eq!(c.limits.max_decompressed_bytes, lander::codec::MAX_DECOMPRESSED_BYTES);
         let mut args = argv();
         let i = args.iter().position(|v| *v == "--max-blocks").unwrap();
         args[i + 1] = "1";
         let one = parse(args).unwrap().lander_flags.config().expect("a one-block batch is valid");
         assert_eq!(one.limits.max_blocks, 1);
-        assert_eq!(one.limits.max_decompressed_bytes, 22_020_096);
+        assert_eq!(one.limits.max_decompressed_bytes, 18_350_080);
     }
 
     #[test]

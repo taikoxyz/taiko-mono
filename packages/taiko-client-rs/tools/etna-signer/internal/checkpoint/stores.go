@@ -47,10 +47,13 @@ type stockInput struct {
 	appHash []byte
 	// blocks is the path of blocksFile.
 	blocks string
+	// nMax is the authenticated committee cap that fixes block.max_bytes (START-10-21).
+	nMax int64
 }
 
-// readStock decodes the stock dir's genesis and preimage; blocks are read by walk.
-func readStock(dir string, appHash []byte) (*stockInput, error) {
+// readStock decodes the stock dir's genesis, whose consensus params must be the fixed ones for
+// committee cap nMax, and its preimage; blocks are read by walk.
+func readStock(dir string, appHash []byte, nMax int64) (*stockInput, error) {
 	if len(appHash) != 32 {
 		return nil, errors.New("app hash must have 32 bytes")
 	}
@@ -58,7 +61,7 @@ func readStock(dir string, appHash []byte) (*stockInput, error) {
 	if err != nil {
 		return nil, err
 	}
-	g, err := decodeGenesis(raw)
+	g, err := decodeGenesis(raw, nMax)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +73,7 @@ func readStock(dir string, appHash []byte) (*stockInput, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &stockInput{genesisRaw: raw, genesis: g, height: height, current: current, next: next, appHash: bytes.Clone(appHash), blocks: filepath.Join(dir, blocksFile)}, nil
+	return &stockInput{genesisRaw: raw, genesis: g, height: height, current: current, next: next, appHash: bytes.Clone(appHash), blocks: filepath.Join(dir, blocksFile), nMax: nMax}, nil
 }
 
 // walk decodes blocksFile one line at a time and visits each height in file order.
@@ -181,13 +184,15 @@ func syncStockTree(path string) (err error) {
 }
 
 // Install decodes the stock dir, creates the absent home with config/genesis.json and the stock
-// state, blockstore and evidence databases, then reopens them read-only and checks them. Signer
-// keys and WAL are never read. The caller stages the other stores and publishes them together.
-func Install(home, stockDir string, appHash []byte) (Report, error) {
-	return installFresh(home, stockDir, appHash, syncStockTree)
+// state, blockstore and evidence databases, then reopens them read-only and checks them. nMax is
+// the committee cap the caller authenticated (committeeConfigHash covers it); the genesis must
+// carry the consensus params it fixes. Signer keys and WAL are never read. The caller stages the
+// other stores and publishes them together.
+func Install(home, stockDir string, appHash []byte, nMax int64) (Report, error) {
+	return installFresh(home, stockDir, appHash, nMax, syncStockTree)
 }
 
-func installFresh(home, stockDir string, appHash []byte, flushTree func(string) error) (report Report, err error) {
+func installFresh(home, stockDir string, appHash []byte, nMax int64, flushTree func(string) error) (report Report, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("stock store installation failed: %v", r)
@@ -196,7 +201,7 @@ func installFresh(home, stockDir string, appHash []byte, flushTree func(string) 
 			report = Report{}
 		}
 	}()
-	in, err := readStock(stockDir, appHash)
+	in, err := readStock(stockDir, appHash, nMax)
 	if err != nil {
 		return Report{}, err
 	}
@@ -467,7 +472,7 @@ func verifyReopened(home string, in *stockInput) (err error) {
 			}
 		}
 		params, e := store.LoadConsensusParams(b.Height)
-		if e != nil || !fixedParams(params) {
+		if e != nil || !fixedParams(params, in.nMax) {
 			return errors.New("reopened historical params mismatch")
 		}
 		return nil

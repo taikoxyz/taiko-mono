@@ -550,7 +550,7 @@ async fn genesis_rejects_noncanonical_consensus_parameters() {
     changed.evidence.as_mut().unwrap().max_age_duration.as_mut().unwrap().seconds -= 1;
     changes.push(("evidence duration", changed));
     let mut changed = canonical.clone();
-    changed.evidence.as_mut().unwrap().max_bytes -= 1;
+    changed.evidence.as_mut().unwrap().max_bytes = 1;
     changes.push(("evidence byte limit", changed));
     let mut changed = canonical.clone();
     changed.validator.as_mut().unwrap().pub_key_types.push("secp256k1".into());
@@ -577,16 +577,46 @@ async fn genesis_rejects_noncanonical_consensus_parameters() {
     }
 }
 
-/// CometBFT's default evidence limits (100,000 blocks, 48 h) are not START-10-21's.
+/// CometBFT's default evidence limits (100,000 blocks, 48 h), the earlier Etna parameters
+/// (22,020,096 block bytes, 900 blocks, 1 h, 1 MiB of evidence) and another committee cap's
+/// `block.max_bytes` are not START-10-21's for this deployment: old geneses are refused.
 #[tokio::test]
-async fn genesis_rejects_stock_default_evidence_limits() {
+async fn genesis_rejects_stock_default_and_earlier_consensus_limits() {
+    use tendermint_proto::google::protobuf::Duration;
     let fx = Fixture::genesis(2);
-    let mut blocks = fx.request.consensus_params.clone();
-    blocks.evidence.as_mut().unwrap().max_age_num_blocks = 100_000;
-    let mut duration = fx.request.consensus_params.clone();
-    duration.evidence.as_mut().unwrap().max_age_duration =
-        Some(tendermint_proto::google::protobuf::Duration { seconds: 172_800, nanos: 0 });
-    for (limit, params) in [("100,000 blocks", blocks), ("48 h", duration)] {
+    let edit = |f: &dyn Fn(&mut tendermint_proto::v0_38::types::ConsensusParams)| {
+        let mut params = fx.request.consensus_params.clone();
+        f(&mut params);
+        params
+    };
+    let cases = [
+        ("100,000 blocks", edit(&|p| p.evidence.as_mut().unwrap().max_age_num_blocks = 100_000)),
+        (
+            "48 h",
+            edit(&|p| {
+                p.evidence.as_mut().unwrap().max_age_duration =
+                    Some(Duration { seconds: 172_800, nanos: 0 })
+            }),
+        ),
+        (
+            "earlier Etna limits",
+            edit(&|p| {
+                p.block.as_mut().unwrap().max_bytes = 22_020_096;
+                let evidence = p.evidence.as_mut().unwrap();
+                evidence.max_age_num_blocks = 900;
+                evidence.max_age_duration = Some(Duration { seconds: 3_600, nanos: 0 });
+                evidence.max_bytes = 1_048_576;
+            }),
+        ),
+        (
+            "another n_max",
+            edit(&|p| {
+                p.block.as_mut().unwrap().max_bytes =
+                    crate::genesis::block_max_bytes(fx.params.n_max + 1)
+            }),
+        ),
+    ];
+    for (limit, params) in cases {
         let dir = tempfile::tempdir().unwrap();
         let mut app = fx.app(dir.path());
         let mut req = fx.request.clone();

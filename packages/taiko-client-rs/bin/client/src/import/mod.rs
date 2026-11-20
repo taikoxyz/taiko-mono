@@ -307,7 +307,7 @@ pub async fn import(own: &Own, inputs: &Inputs, root: &Path) -> R<Value> {
     let comet = ready.join("comet");
     if v.first_height().is_some() {
         package::write_stock_dir(&stock, &v)?;
-        helpers::comet_install(&lock, &inputs.comet_helper, &comet, &stock, &v).await?;
+        helpers::comet_install(&lock, &inputs.comet_helper, &comet, &stock, &v, &params).await?;
     } else {
         // DATA-5.4-1: s = o starts from the original genesis through stock InitChain.
         mkdir(&comet)?;

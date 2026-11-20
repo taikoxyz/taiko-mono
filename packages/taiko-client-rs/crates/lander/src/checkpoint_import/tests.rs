@@ -3,11 +3,11 @@ use super::*;
 #[test]
 fn evidence_uses_post_s_state_and_strict_and_expiry() {
     let time = |seconds| tendermint::Time::from_unix_timestamp(seconds, 0).unwrap();
-    // START-10-21: 900 blocks and 1 h; both must be exceeded.
-    assert!(!evidence_expired(200_000, time(800_000), 199_100, time(1)));
-    assert!(!evidence_expired(200_000, time(800_000), 199_099, time(796_400)));
-    assert!(evidence_expired(200_000, time(800_000), 199_099, time(796_399)));
-    assert!(!evidence_expired(200_000, time(800_000), 1, time(797_000)));
+    // START-10-21: 16 blocks and 3 min; both must be exceeded.
+    assert!(!evidence_expired(200_000, time(800_000), 199_984, time(1)));
+    assert!(!evidence_expired(200_000, time(800_000), 199_983, time(799_820)));
+    assert!(evidence_expired(200_000, time(800_000), 199_983, time(799_819)));
+    assert!(!evidence_expired(200_000, time(800_000), 1, time(799_820)));
     assert!(!evidence_expired(200_000, time(800_000), 1, time(800_001)));
 }
 
@@ -497,9 +497,9 @@ fn fast_blocks_require_more_than_height_limit_and_boundary_equality_is_not_expir
     let fx = Fixture::new(0, 1);
     let mut boundary = fx.blocks[&1].block.header.clone();
     let schedule = Schedule { l1_0: 10, genesis_cutoff: 1, epoch_len: 1_000_000 };
-    // At 8 s per block the 900-block limit binds (w = s - 901); at 1 s the 1 h limit does
-    // (w = s - 3,601).
-    for (seconds_per_block, w) in [(8, 199_099), (1, 196_399)] {
+    // At 12 s per block the 16-block limit binds (w = s - 17); at 1 s the 3 min limit does
+    // (w = s - 181).
+    for (seconds_per_block, w) in [(12, 199_983), (1, 199_819)] {
         let heights = ((w + 1)..=200_000)
             .map(|h| {
                 (
@@ -560,7 +560,7 @@ fn fast_blocks_require_more_than_height_limit_and_boundary_equality_is_not_expir
             Err(ImportError::Unavailable(_))
         ));
         boundary.time =
-            tendermint::Time::from_unix_timestamp(200_000 * seconds_per_block as i64 - 3_600, 0)
+            tendermint::Time::from_unix_timestamp(200_000 * seconds_per_block as i64 - 180, 0)
                 .unwrap();
         assert!(matches!(
             window::verify_complete_window(
@@ -602,7 +602,7 @@ async fn recovery_package(fx: &Fixture, height: u64) -> ImportPackage {
             .to_rfc3339(),
         chain_id: abci::rules::chain_id_for(&fx.params, origin.generation).unwrap(),
         initial_height: (origin.height + 1).to_string(),
-        consensus_params: abci::genesis::GenesisConsensusParams::etna(),
+        consensus_params: abci::genesis::GenesisConsensusParams::etna(fx.params.n_max),
         validators: origin
             .committee
             .members

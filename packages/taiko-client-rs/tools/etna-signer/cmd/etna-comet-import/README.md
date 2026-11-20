@@ -14,8 +14,13 @@ or the consensus WAL.
 
 ```sh
 etna-comet-import install --home /absent/stock/home \
-  --stock-dir /stage/stock --app-hash 0x<ELHash(s), 32 bytes>
+  --stock-dir /stage/stock --app-hash 0x<ELHash(s), 32 bytes> --n-max <n_max>
 ```
+
+`--n-max` is the deployment's committee cap, which the caller authenticated
+(the committee configuration hash covers it). It fixes the genesis
+`block.max_bytes` (START-10-21), so the helper refuses a genesis whose
+consensus parameters are not exactly the fixed ones for it.
 
 The helper only installs. The Rust caller's `authenticate_import` is the one
 window authentication (DATA-5.4-2). It authenticates the original genesis and

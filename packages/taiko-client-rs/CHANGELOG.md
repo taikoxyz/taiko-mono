@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Etna specification alignment (#22422)
+
+- **BREAKING:** the consensus parameters follow START-10-21: `block.max_bytes` = 1,572,864 + 4,096 × n_max (2,097,152 at n_max = 128), no gas limit, evidence age limits of 16 blocks and 3 min, and zero evidence bytes in every block (CONS-3.1-10). The initial and recovery genesis, InitChain, the recovery plan check and checkpoint import (the header consensus hash and the per-block byte bound) take them from the deployment's n_max, and import windows follow the shorter age limits. Older geneses are refused. `etna-comet-import install` takes the authenticated `--n-max` and refuses a genesis with other parameters.
+
 ### Etna specification simplification (#22412)
 
 - `app_hash` is appHash(blockHash, valStateHash): the block's EL hash and the CometBFT validator state after it (CONS-3.1-8, ENC-A-29b). InitChain, FinalizeBlock, Info, every genesis document and an imported node's stock stores use it; proof-side block checks no longer compare it with the parent EL hash (PROOF-6.2-42).
@@ -11,7 +15,6 @@
 - `scheduleStop` takes one `uint48` time, and a planned stop refuses every block whose parent's timestamp is at or after it, at any height.
 - The app records the validator state at every committed height and keeps the records from one height below the trust checkpoint; `/val_state/<h>` answers any retained height. The lander no longer queries it and drops `lander_validator_state_mismatches_total`.
 - Checkpoint import takes the validator-state preimage after s − 1, checks it against header(s)'s app_hash and validator hashes, and applies block s's updates once (DATA-5.4-3). Packages use schema 2; export reads `/val_state/<s−1>` or the archive, which now keeps every height.
-- CometBFT evidence limits are 900 blocks, 1 h and 1 MiB (START-10-21). InitChain and `etna-comet-import` refuse a genesis with other values, and import windows follow the new limits.
 - Registry reads follow lowest-empty-slot admission (STAKE-4.1-14a).
 - Pin the protocol to `7cd9606af6` and regenerate the lander artifacts and the schema-8 shared vectors. The conformance record maps the specification at `2e6763e21b`.
 - Bump the app state from schema 19 to 20 and lander journals from 18 to 19.

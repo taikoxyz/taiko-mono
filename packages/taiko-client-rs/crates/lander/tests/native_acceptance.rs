@@ -92,7 +92,7 @@ async fn recover_landed_execution(
         max_blocks: 100,
         max_blobs: 6,
         max_payload_bytes: 6 * lander::blob::PAYLOAD_BYTES_PER_BLOB,
-        max_message_bytes: 22_020_096,
+        max_message_bytes: lander::config::COMET_BLOCK_MAX_BYTES,
         max_decompressed_bytes: 64 << 20,
     };
     let payload = lander::blob::decode(archived, &limits)?;

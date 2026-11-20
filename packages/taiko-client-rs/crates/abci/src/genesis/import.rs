@@ -181,7 +181,7 @@ pub fn verify_original_genesis(
         genesis_time: expected.genesis_time.to_rfc3339(),
         chain_id: expected.chain_id,
         initial_height: expected.initial_height.to_string(),
-        consensus_params: GenesisConsensusParams::etna(),
+        consensus_params: GenesisConsensusParams::etna(params.n_max),
         validators: expected.validators.iter().map(GenesisValidator::from_member).collect(),
         app_hash: super::genesis_app_hash(
             verified.origin_height(),
@@ -211,6 +211,7 @@ mod tests {
             &fx.witness,
             fx.request.chain_id.clone(),
             &fx.members,
+            fx.params.n_max,
         )
         .unwrap();
         doc.initial_height = "7".into();
@@ -232,8 +233,13 @@ mod tests {
             wire::Request,
         };
         let fx = crate::test_utils::Fixture::genesis(3);
-        let doc =
-            GenesisDoc::assemble(&fx.witness, fx.request.chain_id.clone(), &fx.members).unwrap();
+        let doc = GenesisDoc::assemble(
+            &fx.witness,
+            fx.request.chain_id.clone(),
+            &fx.members,
+            fx.params.n_max,
+        )
+        .unwrap();
         assert_eq!(init_chain_request(&doc), fx.request);
         let dir = tempfile::tempdir().unwrap();
         let mut app = fx.app(dir.path());

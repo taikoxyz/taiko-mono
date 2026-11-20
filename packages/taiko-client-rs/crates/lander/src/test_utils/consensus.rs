@@ -249,7 +249,9 @@ pub fn timed_pair(
         )),
         validators_hash: committee.validators.hash(),
         next_validators_hash: committee.validators.hash(),
-        consensus_hash: Hash::Sha256(abci::genesis::GenesisConsensusParams::etna_hash().0),
+        consensus_hash: Hash::Sha256(
+            abci::genesis::GenesisConsensusParams::etna_hash(parameters().n_max).0,
+        ),
         // appHash of the parent's EL hash (CONS-3.1-8), never the bare hash. These blocks carry
         // no validator-state replica, so its hash is a zero placeholder; fixtures that need the
         // real one replace it.

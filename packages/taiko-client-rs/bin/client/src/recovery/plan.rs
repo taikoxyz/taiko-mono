@@ -134,7 +134,7 @@ impl RecoveryPlan {
                     &self.origin.committee.members,
                 )
                 .map_err(|_| RecoveryCommandError::PlanMismatch)? ||
-            doc.consensus_params != abci::genesis::GenesisConsensusParams::etna() ||
+            doc.consensus_params != abci::genesis::GenesisConsensusParams::etna(params.n_max) ||
             doc.validators !=
                 self.origin
                     .committee
