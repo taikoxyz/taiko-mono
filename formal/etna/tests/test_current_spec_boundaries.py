@@ -16,7 +16,9 @@ DOCS = tuple(DOC_ROOT + file for file in ("SPEC.md", "ACCEPTANCE.md", "SWITCH.md
 CANONICAL = "d18357214fab30ea512ae9858a11699806d72ba1"
 REVIEWED = "9c832234b4681fbc5eccdbaf9c9303b7869f91f4"
 CURRENT = "2e6763e21bc236cfcda6011d164b32040f9e0c8d"
+LATEST = "f556fa94186b0ab604573e8d3a4c4d4fa835dc84"
 WORKSPACE_SPEC = {
+    "6f7150d65ff7c4a8b46b719d2ed48e665a60e47a6d013a2994229e8119ff24a7": LATEST,
     "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b": CANONICAL,
     "7875c10373114ca5eaa7b164d2bfa844b4f5bbbede2ebfa252bb59246efd96de": REVIEWED,
     "b331b3af7b42a4645ebe3e2b4f42e912e33508893a091c3c3c289c8fdbd53a70": CURRENT,
@@ -277,7 +279,8 @@ class CurrentSpecBoundaries(unittest.TestCase):
         })
         for inventory, expected in (
             (old_claims, "5f9bd8672e8a183c071609a903ff532adc7da31ed51f8e9cda8efcadca8e8603"),
-            (manifest["bundles"], "69ca7e52249cab3d6490b74e3abf5dc6df97277e44ef37fe41bdaac256d6042e"),
+            ({key: value for key, value in manifest["bundles"].items() if key != LATEST},
+             "69ca7e52249cab3d6490b74e3abf5dc6df97277e44ef37fe41bdaac256d6042e"),
         ):
             self.assertEqual(hashlib.sha256(json.dumps(inventory, sort_keys=True,
                                                        separators=(",", ":")).encode()).hexdigest(), expected)

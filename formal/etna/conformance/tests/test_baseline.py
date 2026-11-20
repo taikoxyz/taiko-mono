@@ -50,7 +50,10 @@ class BaselineTests(unittest.TestCase):
         ledger = AUTHORITY.load_spec_correspondence(root / 'spec_correspondence.json')
         current = (root.parents[2] / ledger['path']).read_bytes()
         sha256 = hashlib.sha256(current).hexdigest()
-        if sha256 == 'b331b3af7b42a4645ebe3e2b4f42e912e33508893a091c3c3c289c8fdbd53a70':
+        if sha256 in {
+            'b331b3af7b42a4645ebe3e2b4f42e912e33508893a091c3c3c289c8fdbd53a70',
+            '6f7150d65ff7c4a8b46b719d2ed48e665a60e47a6d013a2994229e8119ff24a7',
+        }:
             with self.assertRaisesRegex(ValueError, 'workspace SPEC bytes have no reviewed correspondence'):
                 AUTHORITY.verify_workspace_spec(current, pins['spec'], ledger)
         else:
