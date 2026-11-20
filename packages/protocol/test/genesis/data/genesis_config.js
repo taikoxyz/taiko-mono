@@ -13,11 +13,11 @@ module.exports = {
   ],
   // Owner Chain ID, Security Council, and Timelock Controller
   l1ChainId: 31337,
-  // The L2 SignalService's `beaconRootsFrom`, a uint64 as a hex string: "0x0" keeps checkpoints as
-  // its only root source (pre-Etna). A new Etna network must use max(1, genesis timestamp), the
-  // first timestamp from which proofs resolve roots through EIP-4788;
-  // script/layer2/build_etna_genesis.py refuses anything else.
-  beaconRootsFrom: "0x0",
+  // The L2 SignalService's `usesBeaconRoots`, a boolean: false keeps checkpoints as its only root
+  // source and never closes them, as on L1. A new Etna network must use true, so the SignalService
+  // accepts no checkpoint after genesis and resolves proofs through EIP-4788 (Etna SPEC
+  // START-10-5); script/layer2/build_etna_genesis.py refuses anything else.
+  usesBeaconRoots: false,
   ownerSecurityCouncil: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   ownerTimelockController: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   get contractAddresses() {

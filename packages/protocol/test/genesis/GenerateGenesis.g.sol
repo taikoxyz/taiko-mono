@@ -26,7 +26,7 @@ contract TestGenerateGenesis is Test {
         vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_alloc.json"));
     address private contractOwner = configJSON.readAddress(".contractOwner");
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
-    uint256 private beaconRootsFrom = configJSON.readUint(".beaconRootsFrom");
+    bool private usesBeaconRoots = configJSON.readBool(".usesBeaconRoots");
 
     function testSharedContractsDeployment() public {
         assertEq(block.chainid, 167);
@@ -311,8 +311,8 @@ contract TestGenerateGenesis is Test {
         assertEq(contractOwner, signalServiceProxy.owner());
 
         assertEq(signalServiceProxy.VERSION(), 1);
-        // An unpatched immutable would read 0 and keep checkpoints open on an Etna network.
-        assertEq(beaconRootsFrom, signalServiceProxy.beaconRootsFrom());
+        // An unpatched immutable would read false and keep checkpoints open on an Etna network.
+        assertEq(usesBeaconRoots, signalServiceProxy.usesBeaconRoots());
 
         signalServiceProxy.sendSignal(keccak256(abi.encodePacked(block.prevrandao)));
 

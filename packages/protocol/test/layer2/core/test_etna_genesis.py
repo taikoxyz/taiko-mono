@@ -97,36 +97,31 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         alloc = self._build()["alloc"]
         self.assertEqual(alloc[anchor], self.predeploys[anchor])
 
-    def test_rejects_a_signal_service_without_the_etna_cutoff(self):
-        # Vector 5.ab: with genesis timestamp 0, zero would keep the checkpoint path open.
-        for value in ("0x0", "0x2", "0xffffffffffffffff"):
-            self.config["beaconRootsFrom"] = value
-            with self.assertRaisesRegex(ValueError,
-                                        "beaconRootsFrom must be 0x1, .*genesis_config.js"):
+    def test_rejects_a_signal_service_without_beacon_roots(self):
+        # Vector 5.v: without `usesBeaconRoots` the checkpoint store never closes, though every
+        # block after genesis is an Etna block (5.aa).
+        self.config["usesBeaconRoots"] = False
+        with self.assertRaisesRegex(ValueError, "usesBeaconRoots must be true on a new Etna "
+                                    "network, .*genesis_config.js"):
+            self._build()
+        # Only a JSON boolean: not a number, a string or the former fork-time field.
+        for value in (1, 0, "true", "0x1", "", None):
+            self.config["usesBeaconRoots"] = value
+            with self.assertRaisesRegex(ValueError, "usesBeaconRoots must be a JSON boolean"):
                 self._build()
-        for value in (1, "1", "", None):
-            self.config["beaconRootsFrom"] = value
-            with self.assertRaisesRegex(ValueError, "beaconRootsFrom must be a 0x-prefixed hex"):
-                self._build()
+        del self.config["usesBeaconRoots"]
+        self.config["beaconRootsFrom"] = "0x1"
+        with self.assertRaisesRegex(ValueError, "usesBeaconRoots must be a JSON boolean"):
+            self._build()
 
-    def test_beacon_roots_from_follows_the_base_genesis_timestamp(self):
-        # Vector 5.aa uses max(1, 0) = 1; a later genesis timestamp is used as it is.
-        self.base["timestamp"] = "0x64"
-        with self.assertRaisesRegex(ValueError, "beaconRootsFrom must be 0x64"):
-            self._build()
-        self.config["beaconRootsFrom"] = "0x64"
-        self.predeploys = self.fixture.predeploys(beaconRootsFrom=self.fixture.word(100))
-        self._build()
-        # Execution clients read a missing timestamp as 0, and an integer one as it is.
-        self.base["timestamp"] = 100
-        self._build()
-        del self.base["timestamp"]
-        with self.assertRaisesRegex(ValueError, "beaconRootsFrom must be 0x1,"):
-            self._build()
-        for value in ("0x", "100", True, -1, 2**64, "0x" + "f" * 17):
+    def test_accepts_any_base_genesis_timestamp(self):
+        # Vector 5.ab: no L2 contract holds the fork time, so the genesis timestamp plays no part
+        # and passes through unchanged.
+        for value in ("0x0", "0x64", 100):
             self.base["timestamp"] = value
-            with self.assertRaisesRegex(ValueError, "base genesis: timestamp must be a uint64"):
-                self._build()
+            self.assertEqual(self._build()["timestamp"], value)
+        del self.base["timestamp"]
+        self.assertNotIn("timestamp", self._build())
 
     def test_rejects_a_missing_or_other_l1_signal_service(self):
         self.config["remoteSignalService"] = "0x" + "00" * 20
@@ -208,11 +203,16 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate predeploy address"):
             self._build()
 
-    def test_rejects_an_open_checkpoint_store_in_the_bytecode_when_the_config_says_1(self):
-        # A config file edited to 0x1 next to an alloc generated with the checkpoint-only default.
+    def test_rejects_an_open_checkpoint_store_in_the_bytecode_when_the_config_says_true(self):
+        # A config file edited to true next to an alloc generated with the default `false`.
         zero = self.fixture.word(0)
-        self.predeploys = self.fixture.predeploys(beaconRootsFrom=zero)
-        with self.assertRaisesRegex(ValueError, "SignalServiceImpl beaconRootsFrom is " + zero):
+        self.predeploys = self.fixture.predeploys(usesBeaconRoots=zero)
+        with self.assertRaisesRegex(ValueError, "SignalServiceImpl usesBeaconRoots is " + zero):
+            self._build()
+        # A `bool` immutable holds exactly 0 or 1.
+        two = self.fixture.word(2)
+        self.predeploys = self.fixture.predeploys(usesBeaconRoots=two)
+        with self.assertRaisesRegex(ValueError, "SignalServiceImpl usesBeaconRoots is " + two):
             self._build()
 
     def test_rejects_wrong_root_path_immutables(self):
@@ -226,7 +226,7 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
                                 ("_authorizedSyncer", "SignalServiceImpl"),
                                 ("_remoteSignalService", "SignalServiceImpl"),
                                 ("pauser", "SignalServiceImpl"),
-                                ("beaconRootsFrom", "SignalServiceImpl")):
+                                ("usesBeaconRoots", "SignalServiceImpl")):
             self.predeploys = self.fixture.predeploys(**{immutable: other})
             with self.assertRaisesRegex(ValueError, name + " " + immutable + " is " + other
                                         + ".*rerun `pnpm genesis:gen`"):
@@ -313,16 +313,16 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             self._build(config=config)
 
     def test_rejects_an_immutable_with_two_values(self):
-        # The stand-in SignalService reads beaconRootsFrom at bytes 34 and 133; change only the
+        # The stand-in SignalService reads usesBeaconRoots at bytes 34 and 133; change only the
         # second.
         self._set_code_byte("SignalServiceImpl", 140, 1)
-        with self.assertRaisesRegex(ValueError, "beaconRootsFrom differs between its offsets"):
+        with self.assertRaisesRegex(ValueError, "usesBeaconRoots differs between its offsets"):
             self._build()
 
     def test_rejects_proxy_code_that_is_not_the_compiled_proxy(self):
         # Calls land at the proxy: a SignalService runtime there with an open checkpoint store,
         # still pointing at a checked implementation, would accept forged checkpoints.
-        open_store = self.fixture.predeploys(beaconRootsFrom=self.fixture.word(0))
+        open_store = self.fixture.predeploys(usesBeaconRoots=self.fixture.word(0))
         self.predeploys[self.addresses["SignalService"]]["code"] = (
             open_store[self.addresses["SignalServiceImpl"]]["code"])
         with self.assertRaisesRegex(ValueError, "SignalService is not the compiled ERC1967Proxy"):
@@ -352,11 +352,11 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
 
     def test_rejects_an_immutable_that_is_not_32_bytes(self):
         signal = self.fixture.artifacts()["SignalService"]
-        # A uint64 read as its low 8 bytes only, so the code still matches the artifact.
-        signal["deployedBytecode"]["immutableReferences"]["24"][0]["start"] += 24
-        signal["deployedBytecode"]["immutableReferences"]["24"][0]["length"] = 8
+        # A bool read as its low byte only, so the code still matches the artifact.
+        signal["deployedBytecode"]["immutableReferences"]["24"][0]["start"] += 31
+        signal["deployedBytecode"]["immutableReferences"]["24"][0]["length"] = 1
         self.fixture.write_artifacts(self.artifacts, {"SignalService": signal})
-        with self.assertRaisesRegex(ValueError, "beaconRootsFrom is not a 32-byte immutable"):
+        with self.assertRaisesRegex(ValueError, "usesBeaconRoots is not a 32-byte immutable"):
             self._build()
 
     def test_rejects_code_that_is_not_the_compiled_runtime(self):
@@ -440,15 +440,15 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             self.assertEqual(output.read_bytes(), expected)
 
     def test_cli_rejects_an_open_checkpoint_store_without_output(self):
-        self.config["beaconRootsFrom"] = "0x0"
-        self._assert_cli_rejected(json.dumps(self.base), "beaconRootsFrom must be 0x1")
-        self.config["beaconRootsFrom"] = "0x1"
-        self.predeploys = self.fixture.predeploys(beaconRootsFrom=self.fixture.word(0))
-        self._assert_cli_rejected(json.dumps(self.base), "SignalServiceImpl beaconRootsFrom is")
+        self.config["usesBeaconRoots"] = False
+        self._assert_cli_rejected(json.dumps(self.base), "usesBeaconRoots must be true")
+        self.config["usesBeaconRoots"] = True
+        self.predeploys = self.fixture.predeploys(usesBeaconRoots=self.fixture.word(0))
+        self._assert_cli_rejected(json.dumps(self.base), "SignalServiceImpl usesBeaconRoots is")
 
     def test_cli_failure_prints_one_line_and_removes_old_output(self):
         # A failed run leaves no genesis behind, not even the one an earlier run wrote.
-        self.config["beaconRootsFrom"] = "0x2"
+        self.config["usesBeaconRoots"] = False
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "genesis.json"
             output.write_text("{}")
@@ -457,7 +457,7 @@ class EtnaGenesisBuilderTest(unittest.TestCase):
             self.assertFalse(output.exists(), "the earlier output must be gone")
             self.assertNotIn("Traceback", result.stderr)
             self.assertRegex(result.stderr.strip(), r"^build_etna_genesis.py: error: predeploy "
-                             r"config: beaconRootsFrom must be 0x1,[^\n]*$")
+                             r"config: usesBeaconRoots must be true[^\n]*$")
             self.assertEqual(sorted(p.name for p in Path(directory).iterdir()),
                              ["base.json", "genesis_alloc.json", "genesis_config.json"],
                              "no temporary file left")

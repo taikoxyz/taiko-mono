@@ -148,10 +148,9 @@ FOUNDRY_PROFILE=genesis forge test \
   --block-gas-limit 1000000000
 
 # The Etna genesis builder on real generator output (Etna SPEC 10 step 3). The default
-# configuration leaves the SignalService's checkpoint store open (beaconRootsFrom 0), so the builder
-# must refuse its alloc, both as configured and with only the configuration JSON edited to an Etna
-# one; an alloc generated from the Etna configuration must pass. The base genesis has no timestamp,
-# which clients read as 0, so an Etna network uses beaconRootsFrom max(1, 0) = 1.
+# configuration leaves the SignalService's checkpoint store open (usesBeaconRoots false), so the
+# builder must refuse its alloc, both as configured and with only the configuration JSON edited to an
+# Etna one; an alloc generated from the Etna configuration (usesBeaconRoots true) must pass.
 echo ""
 echo "Testing the Etna genesis builder on generated predeploys..."
 
@@ -190,22 +189,22 @@ function expectBuilderRejects {
   fi
 }
 
-expectBuilderRejects "beaconRootsFrom must be 0x1," "$DIR/data/genesis_config.json"
+expectBuilderRejects "usesBeaconRoots must be true" "$DIR/data/genesis_config.json"
 
 python3 -I - "$DIR/data/genesis_config.json" "$WORK/edited_config.json" "$L1_SIGNAL_SERVICE" <<'EOF'
 import json, sys
 config = json.load(open(sys.argv[1]))
-config.update(beaconRootsFrom="0x1", remoteSignalService=sys.argv[3])
+config.update(usesBeaconRoots=True, remoteSignalService=sys.argv[3])
 json.dump(config, open(sys.argv[2], "w"))
 EOF
-expectBuilderRejects "SignalServiceImpl beaconRootsFrom is 0x" "$WORK/edited_config.json"
+expectBuilderRejects "SignalServiceImpl usesBeaconRoots is 0x" "$WORK/edited_config.json"
 
 cat > "$WORK/etna_config.js" <<EOF
 "use strict";
 const base = require("$DIR/data/genesis_config.js");
 module.exports = {
   ...base,
-  beaconRootsFrom: "0x1",
+  usesBeaconRoots: true,
   remoteSignalService: "$L1_SIGNAL_SERVICE",
 };
 EOF

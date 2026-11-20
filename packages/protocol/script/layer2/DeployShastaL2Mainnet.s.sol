@@ -2,7 +2,6 @@
 pragma solidity ^0.8.26;
 
 import { DeployShastaL2Contracts } from "./DeployShastaL2Contracts.s.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
@@ -12,7 +11,6 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 ///
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
-/// - ETNA_FORK_TIME: First L2 block timestamp at which the Etna fork is active
 contract DeployShastaL2Mainnet is DeployShastaL2Contracts {
     function _loadConfig() internal view override returns (DeploymentConfig memory config) {
         config.l1ChainId = uint64(LibNetwork.ETHEREUM_MAINNET);
@@ -20,7 +18,6 @@ contract DeployShastaL2Mainnet is DeployShastaL2Contracts {
         config.l1SignalService = LibL1Addrs.SIGNAL_SERVICE;
         config.l2SignalService = LibL2Addrs.SIGNAL_SERVICE;
         config.anchorProxy = LibL2Addrs.ANCHOR;
-        config.etnaForkTime = SafeCast.toUint64(vm.envUint("ETNA_FORK_TIME"));
         config.signalServicePauser = _readSignalServicePauser(config.l2SignalService);
     }
 }

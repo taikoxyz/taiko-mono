@@ -14,7 +14,7 @@ contract SignalService_WithoutProofVerification is SignalService {
         address remoteSignalService,
         address pauser
     )
-        SignalService(authorizedSyncer, remoteSignalService, pauser, 0)
+        SignalService(authorizedSyncer, remoteSignalService, pauser, false)
     { }
 
     function proveSignalReceived(

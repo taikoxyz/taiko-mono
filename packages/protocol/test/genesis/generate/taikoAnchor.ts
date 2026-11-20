@@ -15,23 +15,14 @@ export async function deployTaikoAnchor(
     config: Config,
     result: Result,
 ): Promise<Result> {
-    const { contractOwner, l1ChainId, beaconRootsFrom, chainId, seedAccounts } =
+    const { contractOwner, l1ChainId, usesBeaconRoots, chainId, seedAccounts } =
         config;
 
-    // The SignalService's `beaconRootsFrom` immutable: 0 keeps checkpoints as its only root
-    // source, and a new Etna network needs max(1, genesis timestamp) (Etna SPEC START-10-5).
-    if (beaconRootsFrom === undefined) {
-        throw new Error("genesis config: beaconRootsFrom is not set");
-    }
-    // The immutable is a uint64; a wider value would leave dirty high bits in the patched word.
-    if (
-        typeof beaconRootsFrom !== "string" ||
-        !/^0x[0-9a-fA-F]+$/.test(beaconRootsFrom) ||
-        ethers.BigNumber.from(beaconRootsFrom).gt("0xffffffffffffffff")
-    ) {
-        throw new Error(
-            "genesis config: beaconRootsFrom must be a 0x-prefixed hex string of at most 2^64 - 1",
-        );
+    // The SignalService's `usesBeaconRoots` immutable: false keeps checkpoints as its only root
+    // source, and a new Etna network needs true (Etna SPEC START-10-5). The immutable is a bool,
+    // patched as a 32-byte word 0 or 1, so anything but a boolean is refused.
+    if (typeof usesBeaconRoots !== "boolean") {
+        throw new Error("genesis config: usesBeaconRoots must be a boolean");
     }
 
     const alloc: any = {};
@@ -59,7 +50,7 @@ export async function deployTaikoAnchor(
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
         l1ChainId,
-        beaconRootsFrom,
+        usesBeaconRoots,
         chainId,
         config.contractAddresses,
         config.param1559,
@@ -135,7 +126,7 @@ export async function deployTaikoAnchor(
 async function generateContractConfigs(
     contractOwner: string,
     l1ChainId: number,
-    beaconRootsFrom: string,
+    usesBeaconRoots: boolean,
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
@@ -240,7 +231,7 @@ async function generateContractConfigs(
     );
     const signalServiceReferencesMap: any = getImmutableReference(
         "SignalService",
-        ["_authorizedSyncer", "_remoteSignalService", "beaconRootsFrom"],
+        ["_authorizedSyncer", "_remoteSignalService", "usesBeaconRoots"],
     );
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
@@ -607,11 +598,9 @@ async function generateContractConfigs(
                         value: ethers.utils.hexZeroPad(remoteSignalService, 32),
                     },
                     {
-                        id: signalServiceReferencesMap.beaconRootsFrom.id,
+                        id: signalServiceReferencesMap.usesBeaconRoots.id,
                         value: ethers.utils.hexZeroPad(
-                            ethers.BigNumber.from(
-                                beaconRootsFrom,
-                            ).toHexString(),
+                            usesBeaconRoots ? "0x01" : "0x00",
                             32,
                         ),
                     },

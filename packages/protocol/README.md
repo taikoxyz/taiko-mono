@@ -65,7 +65,7 @@ module.exports = {
     { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1024 },
   ],
   l1ChainId: 31337,
-  beaconRootsFrom: "0x0", // checkpoints only; a new Etna network uses max(1, genesis timestamp)
+  usesBeaconRoots: false, // checkpoints only; a new Etna network uses true
   ownerSecurityCouncil: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   ownerTimelockController: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   param1559: {

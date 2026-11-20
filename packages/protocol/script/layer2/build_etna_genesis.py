@@ -6,11 +6,12 @@ fields remain identical to the base genesis JSON. The alloc gains the Taiko L2 p
 `pnpm genesis:gen` generated for the Etna network, replacing any account at the same address, and
 the canonical EIP-4788 and EIP-2935 system contracts.
 
-The predeploy configuration must give the L2 SignalService `beaconRootsFrom` = max(1, t), where t
-is the base genesis timestamp (Etna SPEC START-10-5): on a new network every block after genesis is
-an Etna block, and a SignalService whose checkpoint store is still open there lets anyone save a
-forged L1 checkpoint through `anchorV4` with the public golden touch key. Zero would keep the
-checkpoint path, hence at least 1. Its `remoteSignalService` must be the deployed L1 SignalService
+The predeploy configuration must give the L2 SignalService `usesBeaconRoots` = true (Etna SPEC
+START-10-5): it then accepts a checkpoint only in a block whose own EIP-4788 root is zero, and on a
+new network every block after genesis is an Etna block, with a nonzero root. A SignalService
+without it keeps its checkpoint store open there, so anyone could save a forged L1 checkpoint
+through `anchorV4` with the public golden touch key, and it never resolves proofs through EIP-4788.
+No L2 contract holds the fork time. Its `remoteSignalService` must be the deployed L1 SignalService
 passed as `--l1-signal-service`, which the L2 SignalService proves against. Predeploy accounts are
 reduced to the fields execution clients accept (balance, nonce, code, storage), dropping the
 generator's `contractName`, with storage keys and values written as 32-byte words.
@@ -20,17 +21,18 @@ the generator, so the same values are also checked in the emitted bytecode, agai
 `--artifacts` (`out/layer2`, written with their AST by `pnpm genesis:gen`). The Anchor and
 SignalService proxy accounts must hold exactly the compiled `ERC1967Proxy` runtime and point at
 their implementations. Each implementation's code must be the runtime of the compiled `Anchor` or
-`SignalService`, differing only in immutables; these contracts link no library, so an artifact
-with a library link is refused. Then the immutables are read at the compiler's offsets: the
-SignalService's `beaconRootsFrom` must be max(1, t), its `_authorizedSyncer` the Anchor proxy and
-its `_remoteSignalService` the L1 SignalService, and the Anchor's `checkpointStore` must be the
-SignalService proxy. Every other immutable of both implementations is pinned to the value the
-generator writes (UUPS `__self` the implementation's own address, the Anchor's `l1ChainId` the
-configured one, its resolver zero, the SignalService's resolver the SharedResolver proxy and its
-`pauser` zero), and an immutable the builder does not know is refused. The proxies' storage may
-hold only what the generator initializes: initialized, not paused, the configured owner and the
-implementation slot. No root-path address, nor the L1 SignalService, may be a precompile or system
-contract address, and the L1 SignalService may not be an L2 predeploy.
+`SignalService`, differing only in immutables; these contracts link no library, so an artifact with
+a library link is refused. Then the immutables are read at the compiler's offsets: the
+SignalService's `usesBeaconRoots` must be true (a `bool` immutable is a 32-byte word, here 1), its
+`_authorizedSyncer` the Anchor proxy and its `_remoteSignalService` the L1 SignalService, and the
+Anchor's `checkpointStore` must be the SignalService proxy. Every other immutable of both
+implementations is pinned to the value the generator writes (UUPS `__self` the implementation's own
+address, the Anchor's `l1ChainId` the configured one, its resolver zero, the SignalService's
+resolver the SharedResolver proxy and its `pauser` zero), and an immutable the builder does not know
+is refused. The proxies' storage may hold only what the generator initializes: initialized, not
+paused, the configured owner and the implementation slot. No root-path address, nor the L1
+SignalService, may be a precompile or system contract address, and the L1 SignalService may not be
+an L2 predeploy.
 
 Needs Python 3.9 or later. Errors print one line to stderr and exit 1; `--output` is written only
 by a successful run, and an existing file there is removed first so a failed run leaves none.
@@ -57,6 +59,7 @@ ROOTS_RUNTIME = "0x3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146
 HISTORY_RUNTIME = "0x3373fffffffffffffffffffffffffffffffffffffffe14604657602036036042575f35600143038111604257611fff81430311604257611fff9006545f5260205ff35b5f5ffd5b5f35611fff60014303065500"
 # Predeploys the Etna root path depends on: the Anchor saves checkpoints before the fork, and the
 # SignalService closes its checkpoint store and proves L1 signals against EIP-4788 roots from it.
+# On a new network every block after genesis is an Etna block.
 REQUIRED_PREDEPLOYS = ("TaikoAnchor", "TaikoAnchorImpl", "SignalService", "SignalServiceImpl")
 # Genesis account fields execution clients accept; alethia-reth rejects any other key.
 ACCOUNT_FIELDS = ("balance", "nonce", "code", "storage")
@@ -146,31 +149,16 @@ def normalized_alloc(alloc, label):
     return result
 
 
-def genesis_timestamp(base):
-    """Return the base genesis timestamp; execution clients read a missing one as 0."""
-    value = base.get("timestamp", "0x0")
-    if isinstance(value, str) and re.fullmatch(r"0x[0-9a-fA-F]{1,16}", value):
-        return int(value, 16)
-    if isinstance(value, int) and not isinstance(value, bool) and 0 <= value < 2**64:
-        return value
-    raise ValueError("base genesis: timestamp must be a uint64, as a 0x-prefixed hex string or "
-                     "an integer")
-
-
 def check_predeploy_config(config, base, predeploys, l1_signal_service):
-    """Check that the generator configuration describes an Etna network matching the base, and
-    return the `beaconRootsFrom` it must give the SignalService."""
-    expected = max(1, genesis_timestamp(base))
-    beacon_roots_from = config.get("beaconRootsFrom")
-    if not isinstance(beacon_roots_from, str) or not re.fullmatch(r"0x[0-9a-fA-F]+",
-                                                                   beacon_roots_from):
-        raise ValueError("predeploy config: beaconRootsFrom must be a 0x-prefixed hex string")
-    if int(beacon_roots_from, 16) != expected:
+    """Check that the generator configuration describes an Etna network matching the base."""
+    uses_beacon_roots = config.get("usesBeaconRoots")
+    if not isinstance(uses_beacon_roots, bool):
+        raise ValueError("predeploy config: usesBeaconRoots must be a JSON boolean")
+    if not uses_beacon_roots:
         raise ValueError(
-            "predeploy config: beaconRootsFrom must be " + hex(expected) + ", max(1, base "
-            "genesis timestamp), on a new Etna network, or the checkpoint store stays open to the "
-            "public golden touch key; set it in test/genesis/data/genesis_config.js and rerun "
-            "`pnpm genesis:gen`"
+            "predeploy config: usesBeaconRoots must be true on a new Etna network, or the "
+            "checkpoint store stays open to the public golden touch key; set it in "
+            "test/genesis/data/genesis_config.js and rerun `pnpm genesis:gen`"
         )
     l1 = check_not_reserved(l1_signal_service, "--l1-signal-service")
     if l1 in predeploys:
@@ -198,7 +186,6 @@ def check_predeploy_config(config, base, predeploys, l1_signal_service):
         account = predeploys.get(address(addresses[name]))
         if not account or not account.get("code", "0x").removeprefix("0x"):
             raise ValueError("predeploys: no code at the configured " + name + " address")
-    return expected
 
 
 def address_word(value):
@@ -301,7 +288,7 @@ def check_proxy_storage(name, account, implementation, owner):
                              + actual + ", not " + wanted + " as `pnpm genesis:gen` writes it")
 
 
-def check_predeploy_code(config, predeploys, artifacts, l1_signal_service, beacon_roots_from):
+def check_predeploy_code(config, predeploys, artifacts, l1_signal_service):
     """Check the Etna root path in the emitted bytecode rather than in the configuration."""
     addresses = {name: address(config["contractAddresses"][name])
                  for name in REQUIRED_PREDEPLOYS + ("SharedResolver",)}
@@ -317,10 +304,11 @@ def check_predeploy_code(config, predeploys, artifacts, l1_signal_service, beaco
             ("Anchor", "checkpointStore", address_word(addresses["SignalService"])),
             ("Anchor", "l1ChainId", "0x" + format(config["l1ChainId"], "064x")),
         )),
-        # `beaconRootsFrom` first: an alloc generated with the checkpoint-only default is named
-        # by the immutable that keeps the checkpoint store open, whatever else differs.
+        # `usesBeaconRoots` first: an alloc generated with the default `false` is named by the
+        # immutable that keeps the checkpoint store open, whatever else differs. A `bool`
+        # immutable is a 32-byte word, 1 for true.
         ("SignalServiceImpl", "SignalService", (
-            ("SignalService", "beaconRootsFrom", "0x" + format(beacon_roots_from, "064x")),
+            ("SignalService", "usesBeaconRoots", "0x" + format(1, "064x")),
             ("UUPSUpgradeable", "__self", address_word(addresses["SignalServiceImpl"])),
             ("EssentialContract", "__resolver", address_word(addresses["SharedResolver"])),
             ("SignalService", "_authorizedSyncer", address_word(addresses["TaikoAnchor"])),
@@ -358,10 +346,8 @@ def build(base, predeploys, predeploy_config, l1_signal_service, artifacts=DEFAU
         key: genesis_account(account, "predeploy " + key)
         for key, account in normalized_alloc(copy.deepcopy(predeploys), "predeploy").items()
     }
-    beacon_roots_from = check_predeploy_config(predeploy_config, genesis, overlay,
-                                               l1_signal_service)
-    check_predeploy_code(predeploy_config, overlay, Artifacts(artifacts), l1_signal_service,
-                         beacon_roots_from)
+    check_predeploy_config(predeploy_config, genesis, overlay, l1_signal_service)
+    check_predeploy_code(predeploy_config, overlay, Artifacts(artifacts), l1_signal_service)
     alloc.update(overlay)
     for target, deployed in ((ROOTS, ROOTS_RUNTIME), (HISTORY, HISTORY_RUNTIME)):
         alloc[target] = {"balance": "0x0", "nonce": "0x1", "code": deployed}

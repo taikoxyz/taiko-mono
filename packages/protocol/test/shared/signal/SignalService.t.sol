@@ -35,6 +35,12 @@ contract TestSignalService is CommonTest, SignalServiceProofFixture {
         signalService.sendSignal(bytes32(0));
     }
 
+    /// @dev The L1 configuration (Etna SPEC START-10-5): the checkpoint store is its only root
+    /// source and never closes.
+    function test_usesBeaconRoots_FalseInTheL1Configuration() public view {
+        assertFalse(signalService.usesBeaconRoots());
+    }
+
     function test_saveCheckpoint_PersistsWhenAuthorized() public {
         ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
@@ -196,6 +202,8 @@ contract TestSignalService is CommonTest, SignalServiceProofFixture {
         vm.chainId(originalChainId);
     }
 
+    /// @dev An id above `uint48` names no checkpoint, not the one at its truncation; without
+    /// beacon roots nothing else can answer for it.
     function test_proveSignalReceived_RevertWhen_BlockIdTruncates() public {
         _saveCheckpoint(VALID_PROOF_BLOCK_ID, VALID_PROOF_STATE_ROOT);
 
@@ -210,7 +218,7 @@ contract TestSignalService is CommonTest, SignalServiceProofFixture {
         uint64 originalChainId = uint64(block.chainid);
         vm.chainId(167_001);
 
-        vm.expectRevert(SignalService.SS_INVALID_BLOCK_ID.selector);
+        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
         signalService.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, proof);
 
         vm.chainId(originalChainId);
@@ -280,7 +288,8 @@ contract TestSignalService is CommonTest, SignalServiceProofFixture {
     }
 
     function _deployWithPauser(address pauser) private returns (SignalService) {
-        SignalService impl = new SignalService(AUTHORIZED_SYNCER, REMOTE_SIGNAL_SERVICE, pauser, 0);
+        SignalService impl =
+            new SignalService(AUTHORIZED_SYNCER, REMOTE_SIGNAL_SERVICE, pauser, false);
         return SignalService(
             address(new ERC1967Proxy(address(impl), abi.encodeCall(SignalService.init, (deployer))))
         );

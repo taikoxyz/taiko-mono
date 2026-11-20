@@ -31,10 +31,8 @@ ADDRESSES = {
 # and SignalService's own.
 IDS = {
     "checkpointStore": 11, "__self": 13, "__resolver": 14, "l1ChainId": 15,
-    "_authorizedSyncer": 21, "_remoteSignalService": 22, "pauser": 23, "beaconRootsFrom": 24,
+    "_authorizedSyncer": 21, "_remoteSignalService": 22, "pauser": 23, "usesBeaconRoots": 24,
 }
-# max(1, base genesis timestamp) for the base genesis `main` writes, whose timestamp is 0.
-BEACON_ROOTS_FROM = 1
 
 
 def word(value):
@@ -79,7 +77,7 @@ def _artifact(name, declared, layout, bases=(), body="00"):
 def artifacts():
     """The stand-in ERC1967Proxy, UUPSUpgradeable, EssentialContract, Anchor and SignalService
     artifacts. The proxy has no immutables, both implementations also carry the inherited `__self`
-    and `__resolver`, and the SignalService reads `beaconRootsFrom` twice."""
+    and `__resolver`, and the SignalService reads `usesBeaconRoots` twice."""
     return {
         "ERC1967Proxy": _artifact("ERC1967Proxy", (), (), body="363d3d373d3d3d363d00"),
         "UUPSUpgradeable": _artifact("UUPSUpgradeable", ("__self",), ("__self",)),
@@ -92,9 +90,9 @@ def artifacts():
         ),
         "SignalService": _artifact(
             "SignalService",
-            ("_authorizedSyncer", "_remoteSignalService", "pauser", "beaconRootsFrom"),
-            ("_authorizedSyncer", "beaconRootsFrom", "_remoteSignalService", "pauser",
-             "beaconRootsFrom", "__self", "__resolver"),
+            ("_authorizedSyncer", "_remoteSignalService", "pauser", "usesBeaconRoots"),
+            ("_authorizedSyncer", "usesBeaconRoots", "_remoteSignalService", "pauser",
+             "usesBeaconRoots", "__self", "__resolver"),
             bases=("EssentialContract",),
         ),
     }
@@ -135,7 +133,8 @@ def predeploys(**overrides):
         "_authorizedSyncer": address_word(ADDRESSES["TaikoAnchor"]),
         "_remoteSignalService": address_word(L1_SIGNAL_SERVICE),
         "pauser": word(0),
-        "beaconRootsFrom": word(BEACON_ROOTS_FROM),
+        # A `bool` immutable is a 32-byte word: 1 for true.
+        "usesBeaconRoots": word(1),
     }
     anchor = dict(shared, __self=address_word(ADDRESSES["TaikoAnchorImpl"]), __resolver=word(0))
     signal = dict(shared, __self=address_word(ADDRESSES["SignalServiceImpl"]),
@@ -161,7 +160,7 @@ def config():
         "contractOwner": OWNER,
         "chainId": CHAIN_ID,
         "l1ChainId": L1_CHAIN_ID,
-        "beaconRootsFrom": hex(BEACON_ROOTS_FROM),
+        "usesBeaconRoots": True,
         "remoteSignalService": L1_SIGNAL_SERVICE,
         "contractAddresses": dict(ADDRESSES),
     }

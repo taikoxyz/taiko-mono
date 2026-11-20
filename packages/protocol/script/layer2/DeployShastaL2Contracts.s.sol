@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { EtnaSignalServiceUpgradeGuard } from "src/layer2/etna/EtnaSignalServiceUpgradeGuard.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import "test/shared/DeployCapability.sol";
 
 /// @title DeployShastaL2Contracts
 /// @notice Deploys the Etna L2 SignalService implementation without upgrading the proxy: the shared
-/// SignalService with the `Anchor` proxy as its syncer and `beaconRootsFrom` set to the Etna fork
-/// time (Etna SPEC START-10-5). The `Anchor` needs no Etna change, so the DAO proposal's L2 message
-/// upgrades only the SignalService proxy (Etna SWITCH.md section 3).
+/// SignalService with the `Anchor` proxy as its syncer and `usesBeaconRoots` true (Etna SPEC
+/// START-10-5). No L2 contract holds the Etna fork time. Also deploys the
+/// `EtnaSignalServiceUpgradeGuard` whose checks bracket the upgrade. The `Anchor` needs no Etna
+/// change, so the readiness proposal's L2 message upgrades only the SignalService proxy (Etna
+/// SWITCH.md section 3); `script/layer2/etna/BuildEtnaReadinessL2Message.s.sol` builds it.
 abstract contract DeployShastaL2Contracts is DeployCapability {
     struct DeploymentConfig {
         uint64 l1ChainId;
@@ -16,7 +19,6 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         address l2SignalService;
         address anchorProxy;
         address signalServicePauser;
-        uint64 etnaForkTime;
         uint64 l2ChainId;
     }
 
@@ -58,13 +60,6 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
             _readWord(config.anchorProxy, "l1ChainId()") == config.l1ChainId,
             "ANCHOR_PROXY L1 chain id mismatch"
         );
-        // On a running network the fork time must lie in the future, or the upgrade would close
-        // the checkpoint store at once and every anchorV4 would revert. This checks only deploy
-        // time. The DAO proposal's L2 message must execute well before the Unzen propose cutoff,
-        // so the first Etna block already sees the cutoff (Etna SWITCH.md section 3).
-        require(config.etnaForkTime > block.timestamp, "ETNA_FORK_TIME not in the future");
-        // ETNA_FORK_TIME is a uint48 in the EtnaInbox; a larger value could never match it.
-        require(config.etnaForkTime <= type(uint48).max, "ETNA_FORK_TIME above 2^48 - 1");
     }
 
     /// @dev Reads one 32-byte word from a getter of a live contract.
@@ -107,21 +102,26 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         return abi.decode(ret, (address));
     }
 
-    /// @dev Deploys the SignalService implementation without upgrading the proxy: it accepts
-    /// checkpoints only from the Anchor proxy until the fork time, proves against the L1
-    /// SignalService and resolves roots through EIP-4788 from the fork time on.
+    /// @dev Deploys the SignalService implementation without upgrading the proxy, and the upgrade
+    /// guard. The implementation accepts checkpoints only from the Anchor proxy and only in a block
+    /// whose own EIP-4788 root is zero, which is every block before Etna and none from Etna on;
+    /// it proves against the L1 SignalService, resolving roots from its checkpoints and then from
+    /// EIP-4788.
     /// @param config The validated deployment configuration.
     /// @return signalServiceImpl_ The new SignalService implementation.
-    function _deploy(DeploymentConfig memory config) internal returns (address signalServiceImpl_) {
+    /// @return upgradeGuard_ The new EtnaSignalServiceUpgradeGuard.
+    function _deploy(DeploymentConfig memory config)
+        internal
+        returns (address signalServiceImpl_, address upgradeGuard_)
+    {
         signalServiceImpl_ = address(
             new SignalService(
-                config.anchorProxy,
-                config.l1SignalService,
-                config.signalServicePauser,
-                config.etnaForkTime
+                config.anchorProxy, config.l1SignalService, config.signalServicePauser, true
             )
         );
+        upgradeGuard_ = address(new EtnaSignalServiceUpgradeGuard());
         console2.log("New signalServiceImpl deployed:", signalServiceImpl_);
-        console2.log("beaconRootsFrom:", config.etnaForkTime);
+        console2.log("usesBeaconRoots:", SignalService(signalServiceImpl_).usesBeaconRoots());
+        console2.log("New EtnaSignalServiceUpgradeGuard deployed:", upgradeGuard_);
     }
 }

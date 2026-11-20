@@ -5,6 +5,7 @@ import { DeployShastaL2Contracts } from "script/layer2/DeployShastaL2Contracts.s
 import { DeployShastaL2Hoodi } from "script/layer2/DeployShastaL2Hoodi.s.sol";
 import { DeployShastaL2Mainnet } from "script/layer2/DeployShastaL2Mainnet.s.sol";
 import { Anchor } from "src/layer2/core/Anchor.sol";
+import { EtnaSignalServiceUpgradeGuard } from "src/layer2/etna/EtnaSignalServiceUpgradeGuard.sol";
 import { LibL2HoodiAddrs } from "src/layer2/hoodi/LibL2HoodiAddrs.sol";
 import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
@@ -26,7 +27,7 @@ contract MainnetConfigLoader is DeployShastaL2Mainnet {
         _validateConfig(_config);
     }
 
-    function deploy(DeploymentConfig memory _config) external returns (address) {
+    function deploy(DeploymentConfig memory _config) external returns (address, address) {
         return _deploy(_config);
     }
 }
@@ -38,11 +39,15 @@ contract HoodiConfigLoader is DeployShastaL2Hoodi {
 }
 
 contract TestDeployShastaL2Config is CommonTest {
-    uint64 private constant _ETNA_FORK_TIME = 1_800_000_000;
+    address private constant _BEACON_ROOTS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
+    address private constant _SYSTEM_ADDRESS = 0xffffFFFfFFffffffffffffffFfFFFfffFFFfFFfE;
+    /// @dev Runtime code of the canonical EIP-4788 contract, as deployed on Ethereum mainnet.
+    bytes private constant _BEACON_ROOTS_CODE =
+        hex"3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500";
 
-    // Run all environment changes in one test so parallel tests never race vm.setEnv.
+    /// @dev The configuration takes no fork time: no L2 contract holds it (vector 5.ab), so the
+    /// loader needs no `ETNA_FORK_TIME`.
     function test_loadConfig_PreservesPauserAndRejectsMissingVersionedPauser() external {
-        vm.setEnv("ETNA_FORK_TIME", vm.toString(uint256(_ETNA_FORK_TIME)));
         IDeploymentConfigLoader mainnet =
             IDeploymentConfigLoader(address(new MainnetConfigLoader()));
         IDeploymentConfigLoader hoodi = IDeploymentConfigLoader(address(new HoodiConfigLoader()));
@@ -51,21 +56,6 @@ contract TestDeployShastaL2Config is CommonTest {
         _checkLoader(hoodi, LibL2HoodiAddrs.HOODI_SIGNAL_SERVICE);
         assertEq(mainnet.loadConfig().l2ChainId, LibNetwork.TAIKO_MAINNET, "mainnet L2");
         assertEq(hoodi.loadConfig().l2ChainId, LibNetwork.TAIKO_HOODI, "Hoodi L2");
-    }
-
-    function test_validateConfig_RequiresAFutureUint48EtnaForkTime() external {
-        MainnetConfigLoader loader = new MainnetConfigLoader();
-        DeployShastaL2Contracts.DeploymentConfig memory config = _liveConfig();
-        config.etnaForkTime = type(uint48).max;
-        loader.validateConfig(config);
-
-        config.etnaForkTime = uint64(type(uint48).max) + 1;
-        vm.expectRevert(bytes("ETNA_FORK_TIME above 2^48 - 1"));
-        loader.validateConfig(config);
-
-        config.etnaForkTime = uint64(block.timestamp);
-        vm.expectRevert(bytes("ETNA_FORK_TIME not in the future"));
-        loader.validateConfig(config);
     }
 
     /// @dev The script runs only on its own L2, against proxies with code, and only when the live
@@ -109,11 +99,12 @@ contract TestDeployShastaL2Config is CommonTest {
         loader.validateConfig(config);
     }
 
-    /// @dev The SignalService implementation accepts checkpoints only from the Anchor proxy until
-    /// the fork time (vector 5.v), proves against the L1 SignalService and closes the checkpoint
-    /// store at the fork time. A wrong syncer would make every Unzen `anchorV4` revert once the
-    /// DAO message installs it; a wrong remote would make every L1 to L2 proof fail.
-    function test_deploy_WiresSignalServiceToAnchorAndForkTime() external {
+    /// @dev The SignalService implementation accepts checkpoints only from the Anchor proxy and
+    /// has `usesBeaconRoots` true (vector 5.v), proves against the L1 SignalService and accepts no
+    /// checkpoint in an Etna block. A wrong syncer would make every Unzen `anchorV4` revert once
+    /// the DAO message installs it; a wrong remote would make every L1 to L2 proof fail. The
+    /// script also deploys the upgrade guard the L2 message calls.
+    function test_deploy_WiresSignalServiceToAnchorAndBeaconRoots() external {
         MainnetConfigLoader loader = new MainnetConfigLoader();
         DeployShastaL2Contracts.DeploymentConfig memory config =
             DeployShastaL2Contracts.DeploymentConfig({
@@ -122,11 +113,16 @@ contract TestDeployShastaL2Config is CommonTest {
                 l2SignalService: makeAddr("l2SignalService"),
                 anchorProxy: makeAddr("anchorProxy"),
                 signalServicePauser: Alice,
-                etnaForkTime: _ETNA_FORK_TIME,
                 l2ChainId: uint64(block.chainid)
             });
-        SignalService signalService = SignalService(loader.deploy(config));
-        assertEq(signalService.beaconRootsFrom(), _ETNA_FORK_TIME, "beaconRootsFrom");
+        (address impl, address guard) = loader.deploy(config);
+        assertEq(
+            guard.codehash,
+            keccak256(type(EtnaSignalServiceUpgradeGuard).runtimeCode),
+            "upgrade guard"
+        );
+        SignalService signalService = SignalService(impl);
+        assertTrue(signalService.usesBeaconRoots(), "usesBeaconRoots");
         assertEq(signalService.VERSION(), 1, "VERSION");
         assertEq(signalService.pauser(), Alice, "pauser");
         address signalServiceImpl = address(signalService);
@@ -139,11 +135,14 @@ contract TestDeployShastaL2Config is CommonTest {
         vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
         vm.prank(config.l2SignalService);
         signalService.saveCheckpoint(checkpoint);
-        vm.warp(_ETNA_FORK_TIME - 1);
+        // A block before Etna: its own EIP-4788 root is zero.
+        vm.etch(_BEACON_ROOTS, _BEACON_ROOTS_CODE);
+        _recordBeaconRoot(1_800_000_000, bytes32(0));
         vm.prank(config.anchorProxy);
         signalService.saveCheckpoint(checkpoint);
         assertEq(signalService.getCheckpoint(1).stateRoot, checkpoint.stateRoot, "saved");
-        vm.warp(_ETNA_FORK_TIME);
+        // An Etna block: its own EIP-4788 root is the anchor block's state root.
+        _recordBeaconRoot(1_800_000_012, bytes32(uint256(2)));
         vm.prank(config.anchorProxy);
         vm.expectRevert(SignalService.SS_CHECKPOINTS_CLOSED.selector);
         signalService.saveCheckpoint(checkpoint);
@@ -164,9 +163,16 @@ contract TestDeployShastaL2Config is CommonTest {
             l2SignalService: l2SignalService,
             anchorProxy: address(liveAnchor),
             signalServicePauser: address(0),
-            etnaForkTime: _ETNA_FORK_TIME,
             l2ChainId: uint64(block.chainid)
         });
+    }
+
+    /// @dev Records `_root` for `_timestamp` the way the EIP-4788 system call does.
+    function _recordBeaconRoot(uint64 _timestamp, bytes32 _root) private {
+        vm.warp(_timestamp);
+        vm.prank(_SYSTEM_ADDRESS);
+        (bool ok,) = _BEACON_ROOTS.call(abi.encode(_root));
+        assertTrue(ok, "beacon root not recorded");
     }
 
     /// @dev Whether `_code` contains `_value` as a left-padded 32-byte word, the form an immutable
@@ -188,12 +194,12 @@ contract TestDeployShastaL2Config is CommonTest {
         vm.etch(_signalService, "");
         _expectLoaderRevert(_loader);
 
-        SignalService implementation = new SignalService(address(this), address(1), Alice, 0);
+        SignalService implementation = new SignalService(address(this), address(1), Alice, true);
         vm.etch(_signalService, address(implementation).code);
         _expectPauser(_loader, _signalService, Alice);
 
         // A versioned implementation must expose its immutable pauser, even when it is zero.
-        implementation = new SignalService(address(this), address(1), address(0), 0);
+        implementation = new SignalService(address(this), address(1), address(0), true);
         vm.etch(_signalService, address(implementation).code);
         _expectPauser(_loader, _signalService, address(0));
         vm.mockCall(_signalService, abi.encodeWithSignature("pauser()"), "");
@@ -255,7 +261,6 @@ contract TestDeployShastaL2Config is CommonTest {
         DeployShastaL2Contracts.DeploymentConfig memory config = _loader.loadConfig();
         assertEq(config.signalServicePauser, _pauser, "existing pauser was not preserved");
         assertEq(config.l2SignalService, _signalService);
-        assertEq(config.etnaForkTime, _ETNA_FORK_TIME);
     }
 
     function _expectLoaderRevert(IDeploymentConfigLoader _loader) private {
