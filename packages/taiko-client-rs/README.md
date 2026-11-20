@@ -233,6 +233,16 @@ root. Recovered `InitChain` independently
 verifies its authenticated c/R origin and generation genesis; see the
 [recovery runbook](docs/governance-recovery.md).
 
+On a network that switched from Unzen (a nonzero Etna start S and a `[switch]` table, see the
+[handoff runbook](docs/unzen-etna-handoff.md)), run alethia-reth with exactly the
+`fork_timestamp` the app uses: the app cannot read the EL's Etna time, so a different value
+shows up as EL errors around the fork, not as a trust check failure. While the Inbox's latest
+checkpoint is S, trust also needs an `eth_getProof` at S's hash from `--l2.http` (SYNC-9-5a,
+SYNC-9-16). reth's `--rpc.eth-proof-window` is 0 by default, so that proof fails once the head
+passes S and trust stays closed. Until the first landing is final in own L1, keep S's state and
+set a proof window of at least `unsettled_limit` blocks plus a margin, or point `--l2.http` at an
+archive endpoint.
+
 A safety halt (a committed block or the execution engine contradicting the app state) exits the
 process with status 2; investigate before restarting. Liveness pauses (anchor not final, anchor
 older than `maxAnchorAge`, back-pressure, committee discovery unavailable, a due forced
@@ -287,6 +297,12 @@ exceeds the batch cap, when the blocks do not fit one batch, when another landin
 passes HEIGHT first, or on a signal. It has no environment variable. A checkpoint import
 producer uses it to land the height after its stock snapshot
 ([procedure](docs/checkpoint-import.md#stock-snapshot-for-the-producer-check)).
+
+On a switching network, the first landing from S also carries an `eth_getProof` of the L2
+SignalService proxy's implementation slot at S, read from `--l2.http` (PROOF-6.2-46a,
+SYNC-9-16). Until the first landing is final in own L1, that endpoint needs S's state within its
+proof window, at least `unsettled_limit` blocks plus a margin as for `abci` above, or an archive
+endpoint; otherwise the lander waits and retries.
 
 `--chain-config` uses the same authenticated parameters as ABCI. L1 identity is read as full
 uint256 from the actual endpoint; an explicit `l1_chain_id` must match. L2 IDs above uint64 are

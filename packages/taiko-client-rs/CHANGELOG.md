@@ -28,9 +28,10 @@
 - `abci-recover prepare` reports an EL without the settled block at c as a missing prerequisite that names c and the landing's EL hash and points to the runbook, instead of invalid evidence. The lander waits on the same condition as a temporary failure. The [runbook](docs/governance-recovery.md#take-the-settled-el-state-at-c) describes how a node takes the settled EL state at c.
 - abci: `RecoveryError::OriginNotHeld` is new, and `authenticate_recovery_with_headers` readers return `Option<Header>`. Callers must adapt.
 
-### Switch fork-time check
+### Switch checks and node requirements
 
 - A nonzero Etna start without a `[switch]` configuration keeps checkpoint trust closed at every checkpoint, not only while the latest checkpoint is S: without it the node cannot check its own fork time against the built-in L2 SignalService implementation's `beaconRootsFrom()` (SYNC-9-5a). Before, trust opened after the first landing without that check.
+- The [handoff runbook](docs/unzen-etna-handoff.md) and README now state two node requirements on a switching network: alethia-reth must run with exactly the client's Etna time, which no RPC reports, and until the first landing is final every `--l2.http` endpoint of the app and the lander must serve `eth_getProof` at S (reth's `--rpc.eth-proof-window` is 0 by default; use at least `unsettled_limit` blocks plus a margin, or an archive endpoint) (SYNC-9-16).
 
 ### Protocol artifact alignment
 

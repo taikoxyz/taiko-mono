@@ -92,8 +92,10 @@ pub trait Engine: Send + Sync + 'static {
     async fn finalized_header(&self) -> Result<Option<Header>, EngineError>;
 
     /// Proves `proxy`'s EIP-1967 implementation slot under `state_root` at canonical EL block
-    /// `hash`. Missing historical state returns `None`; malformed proofs are integrity failures.
-    /// The default supplies no evidence, keeping switching-network trust closed.
+    /// `hash`. The RPC engine reports a proof it cannot serve, such as one past the EL's
+    /// `eth_getProof` window, as a retryable [`EngineError::Transport`]; malformed proofs are
+    /// integrity failures. `None` is no evidence: the default supplies none, keeping
+    /// switching-network trust closed.
     async fn proxy_implementation(
         &self,
         proxy: Address,

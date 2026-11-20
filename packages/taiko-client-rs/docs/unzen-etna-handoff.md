@@ -8,11 +8,11 @@ and switch deployment remain separate work.
 ## Required deployment inputs
 
 Use alethia-reth revision `53f33b708d869cfb3f8cccd597381fa2e92a5be5` or a compatible release.
-Its Unzen and Etna Engine methods are forkchoiceUpdatedV3/getPayloadV5/newPayloadV4. Configure
-the same Etna timestamp on the EL and in the client deployment configuration. Existing L2
-history and state stay in place. The Etna L2 SignalService implementation and the EIP-4788/2935
-code must already be present. Retain S's state until the first landing, or provide its
-verifiable historical state proofs through the own EL.
+Its Unzen and Etna Engine methods are forkchoiceUpdatedV3/getPayloadV5/newPayloadV4. Run it with
+exactly the client's Etna time ([below](#the-els-etna-time)). Existing L2 history and state stay
+in place. The Etna L2 SignalService implementation and the EIP-4788/2935 code must already be
+present. Until the first landing, every EL behind `--l2.http` must serve proofs of S's state
+([below](#ss-state-until-the-first-landing)).
 
 The current built-in Etna parameters are devnet-only. Supply the usual devnet `--chain-config`
 with the correct Inbox, registry and consensus parameters and an additional table:
@@ -30,9 +30,36 @@ configuration file does not authenticate S. While S is the latest landing checkp
 verifies the L2 SignalService proxy's implementation proof at S (SYNC-9-5a). Before every trust
 grant, whatever the latest checkpoint, it also calls `beaconRootsFrom()` on that implementation
 address, not through the proxy, in its own EL's state at the checkpoint block. Signing stays
-closed if that value is unavailable, and a mismatch with `fork_timestamp` halts the app. Set the
-EL's fork schedule to the same timestamp as part of the deployment. Formal network parameters
-must be compiled into their chain configuration.
+closed if that value is unavailable, and a mismatch with `fork_timestamp` halts the app. A
+nonzero S without a `[switch]` table also keeps signing closed, at every checkpoint. Formal
+network parameters must be compiled into their chain configuration.
+
+### The EL's Etna time
+
+The fork time the client runs with is `fork_timestamp`, or the built-in value on a formal
+network. alethia-reth takes its own Etna time from its built-in chainspec or, on a devnet, from
+`--devnet-etna-timestamp` (`ALETHIA_RETH_DEVNET_ETNA_TIMESTAMP`), and no RPC reports it, so the
+client cannot check it. Run the EL with exactly the client's value. The app's fork-time check
+(SYNC-9-5a) sees only the client's value, so a different EL value is not caught there; the EL
+fails instead. An earlier EL value applies Etna rules to any Unzen block at or after it, so the driver
+cannot derive that block and the handoff never completes. A later one applies Unzen rules to the
+Etna blocks from S+1 until its own time, so the EL rejects or misbuilds them: the node can
+neither propose nor accept them, and a decided block its EL rejects stops the app as any
+execution engine contradiction does.
+
+### S's state until the first landing
+
+While the Inbox's latest checkpoint is S, the app proves the L2 SignalService proxy's
+implementation slot at S before it trusts the chain (SYNC-9-5a), and the lander proves it for
+the first proof (PROOF-6.2-46a). Both read it with `eth_getProof` pinned to S's hash from their
+`--l2.http` endpoint (SYNC-9-16). reth answers historical proofs only within
+`--rpc.eth-proof-window` blocks of its head, 0 by default, so once the L2 head passes S the read
+fails: the app keeps signing closed and the lander waits, both retrying. Until the first landing
+is final in own L1, give each such EL a proof window of at least `unsettled_limit` (U) blocks
+plus a margin and keep S's state, or point `--l2.http` at an archive endpoint. Back-pressure
+keeps the head within U blocks of the checkpoint its anchors show, but the head can pass S + U
+once the first landing executes, before it is final. After the first landing no node needs S's
+state.
 
 ## Starting the staged runtime
 
@@ -85,10 +112,10 @@ after fork-cutoff and start-block finality. Pending nonce and receipt reconcilia
 independently of this gate.
 
 The first proof request retains and host-verifies an EIP-1186 proof of the L2 SignalService
-proxy's EIP-1967 implementation slot under S's state root (PROOF-6.2-46a). Keep S's state
-available until the first landing. The included DummyProofProvider remains suitable only for
-development deployments; a real backend must verify this witness as well as the remaining
-private inputs.
+proxy's EIP-1967 implementation slot under S's state root (PROOF-6.2-46a), read as
+[above](#ss-state-until-the-first-landing). The included DummyProofProvider remains suitable
+only for development deployments; a real backend must verify this witness as well as the
+remaining private inputs.
 
 Lander journal schema 19 includes this witness. Older journals are refused, never rewritten.
 Resolve outstanding signed jobs with their compatible lander before upgrading. Nonzero-S
