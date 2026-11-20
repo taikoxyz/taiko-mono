@@ -32,9 +32,9 @@ pub fn parameters() -> ChainParams {
     let mut params = ChainParams::builtin(167001).unwrap();
     params.inbox = alloy_primitives::Address::repeat_byte(0x11);
     params.registry = alloy_primitives::Address::repeat_byte(0x22);
-    // One voting power per 250,000 TAIKO, the devnet registry's minStake (START-10-12), so a
+    // One voting power per 4,700,000 TAIKO, the devnet registry's minStake (START-10-12), so a
     // fixture member's stake is its power in minStake units.
-    params.vp_unit = U256::from(250_000u64) * U256::from(10u64).pow(U256::from(18));
+    params.vp_unit = U256::from(4_700_000u64) * U256::from(10u64).pow(U256::from(18));
     params.min_stake = params.vp_unit;
     params.unsettled_limit = 65532;
     params

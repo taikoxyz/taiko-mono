@@ -19,9 +19,9 @@ const CHAIN: u64 = 167001;
 fn devnet() -> ChainParams {
     crate::test_utils::params()
 }
-/// `n` fixture stake units of 250,000 TAIKO, the devnet minStake; one unit is 10^9 power.
+/// `n` fixture stake units of 4,700,000 TAIKO, the devnet minStake; one unit is 10^9 power.
 fn ether(n: u64) -> U256 {
-    U256::from(n) * U256::from(250_000u64) * U256::from(10u64).pow(U256::from(18))
+    U256::from(n) * U256::from(4_700_000u64) * U256::from(10u64).pow(U256::from(18))
 }
 fn vectors() -> serde_json::Value {
     serde_json::from_str(include_str!("../../../../../testdata/etna_vectors/vectors.json")).unwrap()

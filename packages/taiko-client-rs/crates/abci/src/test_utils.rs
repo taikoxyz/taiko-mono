@@ -581,10 +581,10 @@ pub(crate) fn committee_witness(
     }
 }
 
-/// The fixtures' stake unit: the devnet registry's `minStake`, 250,000 TAIKO, above the
+/// The fixtures' stake unit: the devnet registry's `minStake`, 4,700,000 TAIKO, above the
 /// `10^27 / 4096` floor of START-10-12.
 pub(crate) fn stake_unit() -> U256 {
-    U256::from(250_000u64) * U256::from(10u64).pow(U256::from(18u64))
+    U256::from(4_700_000u64) * U256::from(10u64).pow(U256::from(18u64))
 }
 
 /// The fixtures' `vp_unit`: one [`stake_unit`] gives 10^9 voting power, so a fixture member's

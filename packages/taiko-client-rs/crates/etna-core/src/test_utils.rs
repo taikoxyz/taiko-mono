@@ -37,9 +37,9 @@ pub(crate) fn params() -> crate::params::ChainParams {
         l1_chain_id: U256::from(1),
         unsettled_limit: 3600,
         fee_recipient: Address::ZERO,
-        // One stake unit of 250,000 TAIKO, the devnet registry's minStake, gives 10^9 power.
-        vp_unit: U256::from(250_000_000_000_000u64),
-        min_stake: U256::from(250_000u64) * U256::from(10u64).pow(U256::from(18)),
+        // One stake unit of 4,700,000 TAIKO, the devnet registry's minStake, gives 10^9 power.
+        vp_unit: U256::from(4_700_000_000_000_000u64),
+        min_stake: U256::from(4_700_000u64) * U256::from(10u64).pow(U256::from(18)),
         n_max: 128,
         block_gas_limit: 45_000_000,
         switch: None,

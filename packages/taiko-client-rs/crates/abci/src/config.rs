@@ -142,9 +142,11 @@ impl ChainParams {
                 unsettled_limit: 3600,
                 fee_recipient: Address::ZERO,
                 vp_unit: U256::from(1_000_000_000u64),
-                // The registry default of the devnet deployment: 250,000 TAIKO, above the
-                // 10^27 / 4096 = 244,140.625 TAIKO floor of START-10-12.
-                min_stake: U256::from(250_000u64) * U256::from(10u64).pow(U256::from(18)),
+                // The registry default of the devnet deployment (`DEFAULT_REGISTRY_MIN_STAKE`):
+                // 4,700,000 TAIKO, above the 10^27 / 4096 = 244,140.625 TAIKO floor of
+                // START-10-12, so that K = floor(10^27 / minStake) = 212 fits the devnet
+                // recovery capacity F = 212 (START-10-14).
+                min_stake: U256::from(4_700_000u64) * U256::from(10u64).pow(U256::from(18)),
                 n_max: 128,
                 block_gas_limit: 45_000_000,
                 switch: None,
@@ -328,7 +330,7 @@ mod tests {
         let floor = U256::from(10).pow(U256::from(27)) / U256::from(4096); // 244,140.625 TAIKO
         assert_eq!(
             devnet().min_stake,
-            U256::from(250_000u64) * U256::from(10u64).pow(U256::from(18))
+            U256::from(4_700_000u64) * U256::from(10u64).pow(U256::from(18))
         );
         assert!(matches!(
             ChainParams { min_stake: floor, ..devnet() }.validate(),
