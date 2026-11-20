@@ -90,7 +90,7 @@ coordinate, and external EL controllers must be stopped separately.
 
 The command derives all accepted proposals, checks the final proposal's table-backed confirmed
 boundary against own finalized L1 and the own canonical EL, and waits for the finalized
-`setOrigin` transaction. It writes initial_height=S+1 and the original R0-based genesis once;
+`setOrigin` transaction ([below](#writing-the-etna-start)). It writes initial_height=S+1 and the original R0-based genesis once;
 an identical installed file is accepted, a different file is refused. Initialize Comet home
 beforehand, but do not leave an unrelated generated genesis at `--genesis-out`.
 
@@ -99,17 +99,45 @@ The ABCI server is exposed only after the driver has drained. The command holds 
 lease throughout both stages. Unzen tail proving may continue independently using retained
 history and blobs. No signing state is reset by this command.
 
+## Writing the Etna start
+
+S is the last Unzen block. On a switching network the EtnaInbox records it once, in the start
+write `setOrigin(uint48 S)`, which anyone may call (START-10-5a, LAND-6.1-8a). The caller
+supplies only S; the contract checks everything else and reverts otherwise:
+
+- the Inbox is initialized and the start is unwritten, and L1 time has reached its
+  `etnaForkTime()`;
+- the live Unzen Inbox's `proposeCutoff()` is set and reached, so no proposal can follow;
+- its `getCoreState()` shows every accepted proposal finalized
+  (`nextProposalId == lastFinalizedProposalId + 1`);
+- the L1 SignalService checkpoint at S, which the final Unzen proof saved, holds that
+  `lastFinalizedBlockHash` and a nonzero state root.
+
+The start takes its hash and state root from that checkpoint. S is therefore the number of the
+L2 block whose hash is the Unzen Inbox's `lastFinalizedBlockHash` once the final proposal is
+proven. Once the final Unzen proof is in L1, send the call from any funded account; it needs no
+role:
+
+```sh
+cast send --rpc-url "$L1_RPC" --private-key "$ANY_FUNDED_KEY" \
+  "$ETNA_INBOX" 'setOrigin(uint48)' "$S"
+cast call --rpc-url "$L1_RPC" "$ETNA_INBOX" 'etnaStart()(uint48,bytes32)'
+```
+
+A call before the cutoff or before every proposal is proven reverts and can be repeated later; a
+second successful write is impossible (`StartAlreadyWritten`), and from the start write on the
+Unzen checkpoint forwarder reverts at every height (`ForwardingClosed`). Neither a landing nor
+governance recovery changes the start (START-10-5c). Nodes do not trust the transaction or its
+sender: each authenticates S from its own finalized L1 view before it signs (SYNC-9-5a).
+
 ## First landing
 
 Run the lander with the same switching chain configuration and public L1/L2 endpoints. A
 landing may end at any height above S; global epoch boundaries remain unchanged.
 The initial validators are committee 0 until an actual post-S switch takes effect.
 
-While the Inbox checkpoint is S, the lander waits for every accepted Unzen proposal to finalize,
-checks that Unzen's terminal hash equals ELHash(S), and checks the SignalService checkpoint at S
-against that hash and the recorded state root. It reads these facts at one canonical L1 snapshot
-after fork-cutoff and start-block finality. Pending nonce and receipt reconciliation continues
-independently of this gate.
+The lander reads no Unzen state: the start write already required closed, fully proven Unzen
+proposals, so the first landing is built from S like any other once blocks above it are decided.
 
 The first proof request retains and host-verifies an EIP-1186 proof of the L2 SignalService
 proxy's EIP-1967 implementation slot under S's state root (PROOF-6.2-46a), read as

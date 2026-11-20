@@ -1000,31 +1000,22 @@ async fn recovery_finality_waits_for_proven_generation_and_rejects_tampering() {
     }
 }
 
-/// The Etna start of the switch preflight scenarios.
+/// The Etna start of the start-checkpoint scenarios.
 const SWITCH_S: u64 = 7;
-/// Their `ETNA_FORK_TIME`: L1 block 17 (timestamp 204) is the first at or after it.
-const SWITCH_FORK: u64 = 200;
-/// Their Unzen Inbox.
-const UNZEN_INBOX: alloy_primitives::Address = alloy_primitives::Address::repeat_byte(0x41);
 /// Their L1 SignalService.
 const L1_SIGNAL_SERVICE: alloy_primitives::Address = alloy_primitives::Address::repeat_byte(0x43);
 
-/// What the switch preflight's own L1 serves: the finalized block, the EtnaInbox's switch
-/// getters, the Unzen Inbox's `getCoreState()` and SignalService's checkpoint at S.
+/// What the start-checkpoint check's own L1 serves: the EtnaInbox's `signalService()` and
+/// SignalService's checkpoint at S.
 #[derive(Clone)]
 struct SwitchL1 {
-    finalized: u64,
-    unzen_inbox: alloy_primitives::Address,
-    fork_time: u64,
     signal_service: alloy_primitives::Address,
-    /// `nextProposalId`, `lastFinalizedProposalId` and `lastFinalizedBlockHash`.
-    core_state: (u64, u64, B256),
     /// SignalService's checkpoint at S; `None` reverts as SignalService does for a missing one.
     checkpoint: Option<(u64, B256, B256)>,
 }
 
-/// A snapshot at L1 block 20 whose latest checkpoint is S, chain parameters whose switch
-/// configuration the returned L1 matches, and that L1 once every Unzen proposal is final.
+/// A snapshot at L1 block 20 whose latest checkpoint is S, switching chain parameters, and an L1
+/// whose SignalService holds S's start tuple.
 fn switch_case() -> (BTreeMap<u64, RawL1Header>, LandingSnapshot, ChainParams, SwitchL1) {
     let headers = header_chain();
     let mut snapshot = snapshot(&headers);
@@ -1032,24 +1023,21 @@ fn switch_case() -> (BTreeMap<u64, RawL1Header>, LandingSnapshot, ChainParams, S
     snapshot.checkpoint_height = SWITCH_S;
     let mut params = ChainParams::builtin(167001).unwrap();
     params.switch = Some(abci::SwitchConfig {
-        unzen_inbox: UNZEN_INBOX,
-        fork_timestamp: SWITCH_FORK,
+        unzen_inbox: alloy_primitives::Address::repeat_byte(0x41),
+        fork_timestamp: 200,
         signal_service_implementation: alloy_primitives::Address::repeat_byte(0x42),
     });
     let genesis = &snapshot.genesis;
     let l1 = SwitchL1 {
-        finalized: 18,
-        unzen_inbox: UNZEN_INBOX,
-        fork_time: SWITCH_FORK,
         signal_service: L1_SIGNAL_SERVICE,
-        core_state: (5, 4, genesis.genesis_hash),
         checkpoint: Some((SWITCH_S, genesis.genesis_hash, genesis.genesis_state_root)),
     };
     (headers, snapshot, params, l1)
 }
 
 /// Serves `headers` and the switch facts `l1` holds when each request arrives, asserting that
-/// every contract read is pinned to the canonical hash `pin`.
+/// every contract read is pinned to the canonical hash `pin`. Any other contract read, such as
+/// one of the Unzen Inbox, fails the test.
 async fn switch_rpc(
     headers: BTreeMap<u64, RawL1Header>,
     inbox: alloy_primitives::Address,
@@ -1066,30 +1054,13 @@ async fn switch_rpc(
         let params = &request["params"];
         let l1 = l1.lock().unwrap().clone();
         match request["method"].as_str().unwrap() {
-            "eth_getBlockByNumber" if params[0] == "finalized" => {
-                json_header(&headers[&l1.finalized])
-            }
             "eth_getBlockByNumber" => json_header(&headers[&number(&params[0])]),
-            "debug_getRawHeader" => json!(headers[&number(&params[0])].raw()),
             "eth_call" => {
                 assert_eq!(params[1], json!({"blockHash": pin, "requireCanonical": true}));
                 let to: Address = serde_json::from_value(params[0]["to"].clone()).unwrap();
                 let data: Bytes = serde_json::from_value(params[0]["data"].clone()).unwrap();
-                let answer = if to == inbox && data[..] == IEtnaInbox::unzenInboxCall::SELECTOR {
-                    l1.unzen_inbox.abi_encode()
-                } else if to == inbox && data[..] == IEtnaInbox::etnaForkTimeCall::SELECTOR {
-                    U256::from(l1.fork_time).abi_encode()
-                } else if to == inbox && data[..] == IEtnaInbox::signalServiceCall::SELECTOR {
+                let answer = if to == inbox && data[..] == IEtnaInbox::signalServiceCall::SELECTOR {
                     l1.signal_service.abi_encode()
-                } else if to == l1.unzen_inbox && data[..] == [0x6a, 0xa6, 0xa0, 0x1a] {
-                    // getCoreState(): six words, of which the preflight reads three.
-                    let (next, finalized, hash) = l1.core_state;
-                    [next, 0, finalized, 0, 0]
-                        .map(U256::from)
-                        .into_iter()
-                        .chain([U256::from_be_bytes(hash.0)])
-                        .flat_map(|word| word.to_be_bytes::<32>())
-                        .collect()
                 } else if to == l1.signal_service {
                     let call = ISwitchCheckpointStore::getCheckpointCall {
                         blockNumber: U48::from(SWITCH_S),
@@ -1106,17 +1077,17 @@ async fn switch_rpc(
                         },
                     )
                 } else {
-                    panic!("unexpected switch preflight call to {to}: {data}")
+                    panic!("unexpected start-checkpoint call to {to}: {data}")
                 };
                 json!(Bytes::from(answer))
             }
-            other => panic!("unexpected switch preflight method {other}"),
+            other => panic!("unexpected start-checkpoint method {other}"),
         }
     })
     .await
 }
 
-/// The contract reads a switch preflight made, by target.
+/// The contract reads a start-checkpoint check made, by target.
 fn switch_calls(l1: &RpcFixture, to: alloy_primitives::Address) -> usize {
     l1.requests
         .lock()
@@ -1128,94 +1099,46 @@ fn switch_calls(l1: &RpcFixture, to: alloy_primitives::Address) -> usize {
         .count()
 }
 
-/// LAND-6.1-8a: the S checkpoint is ready once the Unzen Inbox has finalized every proposal at
-/// S's hash and SignalService holds S's hash and start state root, all read at the snapshot.
+/// DATA-5.3-4: at s = S, SignalService's checkpoint at S holds S's hash and start state root,
+/// read at the snapshot. The check reads nothing of the Unzen Inbox: the start write already
+/// required closed, finalized Unzen proposals (START-10-5a, LAND-6.1-8a).
 #[tokio::test]
-async fn switch_preflight_accepts_the_finalized_unzen_terminal_and_the_s_checkpoint() {
+async fn start_checkpoint_matches_the_s_tuple_without_unzen_reads() {
     let (headers, snapshot, params, facts) = switch_case();
     let facts = Arc::new(Mutex::new(facts));
-    let l1 = switch_rpc(headers, params.inbox, snapshot.l1_block_hash, facts.clone()).await;
+    let l1 = switch_rpc(headers, params.inbox, snapshot.l1_block_hash, facts).await;
     let source = abci::l1::source::RpcL1Source::new(l1.provider.clone());
-    let ready = || super::switch_checkpoint_ready(&source, &params, &snapshot);
-    assert!(ready().await.unwrap());
-    assert_eq!(switch_calls(&l1, params.inbox), 3);
-    assert_eq!(switch_calls(&l1, UNZEN_INBOX), 1);
+    super::verify_start_checkpoint(&source, &params, &snapshot).await.unwrap();
+    assert_eq!(switch_calls(&l1, params.inbox), 1);
     assert_eq!(switch_calls(&l1, L1_SIGNAL_SERVICE), 1);
-    // The Unzen Inbox numbers proposals from 1 after its activation proposal 0, which counts
-    // as finalized.
-    facts.lock().unwrap().core_state.0 = 1;
-    facts.lock().unwrap().core_state.1 = 0;
-    assert!(ready().await.unwrap());
+    assert_eq!(l1.requests.lock().unwrap().len(), 2, "only the two checkpoint reads");
     // A network without a switch has nothing to check.
     let fresh = ChainParams { switch: None, ..params.clone() };
-    let reads = l1.requests.lock().unwrap().len();
-    assert!(super::switch_checkpoint_ready(&source, &fresh, &snapshot).await.unwrap());
-    assert_eq!(l1.requests.lock().unwrap().len(), reads);
+    super::verify_start_checkpoint(&source, &fresh, &snapshot).await.unwrap();
+    assert_eq!(l1.requests.lock().unwrap().len(), 2);
 }
 
-/// Before the fork, below L1_0, while Unzen proposals are unproven and while the checkpoint at
-/// S is missing, the first landing waits rather than failing.
+/// A missing checkpoint at S (SignalService reverts) is retryable; an Inbox naming no
+/// SignalService is a configuration error.
 #[tokio::test]
-async fn switch_preflight_waits_for_the_fork_unzen_proofs_and_the_s_checkpoint() {
-    let (headers, snapshot, params, facts) = switch_case();
-    let facts = Arc::new(Mutex::new(facts));
-    let l1 = switch_rpc(headers, params.inbox, snapshot.l1_block_hash, facts.clone()).await;
-    let source = abci::l1::source::RpcL1Source::new(l1.provider.clone());
-    let mut early = params.clone();
-    early.switch.as_mut().unwrap().fork_timestamp = snapshot.l1_header.timestamp() + 1;
-    let before_l1_0 = LandingSnapshot {
-        genesis: GenesisRecord { l1_0: snapshot.l1_block_number + 1, ..snapshot.genesis.clone() },
-        ..snapshot.clone()
-    };
-    assert!(!super::switch_checkpoint_ready(&source, &early, &snapshot).await.unwrap());
-    assert!(!super::switch_checkpoint_ready(&source, &params, &before_l1_0).await.unwrap());
-    assert!(l1.requests.lock().unwrap().is_empty(), "nothing is read before the fork and L1_0");
-
-    for unproven in [(5, 3), (0, 0)] {
-        let hash = snapshot.genesis.genesis_hash;
-        facts.lock().unwrap().core_state = (unproven.0, unproven.1, hash);
-        let ready = super::switch_checkpoint_ready(&source, &params, &snapshot).await;
-        assert!(!ready.unwrap(), "{unproven:?}");
-    }
-    assert_eq!(switch_calls(&l1, L1_SIGNAL_SERVICE), 0);
-    facts.lock().unwrap().core_state = (5, 4, snapshot.genesis.genesis_hash);
-    facts.lock().unwrap().checkpoint = None;
-    let error = super::switch_checkpoint_ready(&source, &params, &snapshot).await.unwrap_err();
-    assert!(matches!(error, LanderError::Temporary(_)), "{error}");
-}
-
-/// The EtnaInbox's `unzenInbox()` and `etnaForkTime()` must be the configured switch, and its
-/// SignalService nonzero, before any Unzen state is read; a mismatch is a configuration error.
-#[tokio::test]
-async fn switch_preflight_refuses_a_deployment_other_than_the_configured_switch() {
+async fn start_checkpoint_missing_is_retryable_and_a_zero_signal_service_is_refused() {
     let (headers, snapshot, params, facts) = switch_case();
     let honest = facts.clone();
     let facts = Arc::new(Mutex::new(facts));
     let l1 = switch_rpc(headers, params.inbox, snapshot.l1_block_hash, facts.clone()).await;
     let source = abci::l1::source::RpcL1Source::new(l1.provider.clone());
-    let deployments = [
-        // A new network's EtnaInbox names no Unzen Inbox.
-        SwitchL1 { unzen_inbox: alloy_primitives::Address::ZERO, ..honest.clone() },
-        SwitchL1 { unzen_inbox: alloy_primitives::Address::repeat_byte(0x51), ..honest.clone() },
-        SwitchL1 { fork_time: SWITCH_FORK - 1, ..honest.clone() },
-        SwitchL1 { fork_time: SWITCH_FORK + 1, ..honest.clone() },
-    ];
-    for deployment in deployments {
-        *facts.lock().unwrap() = deployment;
-        let error = super::switch_checkpoint_ready(&source, &params, &snapshot).await.unwrap_err();
-        assert!(matches!(error, LanderError::Configuration(_)), "{error}");
-        assert!(error.to_string().contains("differs from configuration"), "{error}");
-    }
-    assert_eq!(switch_calls(&l1, UNZEN_INBOX), 0, "no Unzen state read for another deployment");
+    facts.lock().unwrap().checkpoint = None;
+    let error = super::verify_start_checkpoint(&source, &params, &snapshot).await.unwrap_err();
+    assert!(matches!(error, LanderError::Temporary(_)), "{error}");
     *facts.lock().unwrap() = SwitchL1 { signal_service: alloy_primitives::Address::ZERO, ..honest };
-    let error = super::switch_checkpoint_ready(&source, &params, &snapshot).await.unwrap_err();
+    let error = super::verify_start_checkpoint(&source, &params, &snapshot).await.unwrap_err();
     assert!(matches!(error, LanderError::Configuration(_)), "{error}");
 }
 
-/// A finalized Unzen terminal or a SignalService checkpoint at S that differs from the start
-/// record is an authenticated contradiction.
+/// A SignalService checkpoint at S that differs from the start record is an authenticated
+/// contradiction.
 #[tokio::test]
-async fn switch_preflight_halts_on_a_contradicting_unzen_terminal_or_checkpoint() {
+async fn start_checkpoint_halts_on_a_contradicting_checkpoint() {
     let (headers, snapshot, params, facts) = switch_case();
     let honest = facts.clone();
     let facts = Arc::new(Mutex::new(facts));
@@ -1224,49 +1147,13 @@ async fn switch_preflight_halts_on_a_contradicting_unzen_terminal_or_checkpoint(
     let (s, hash, root) = honest.checkpoint.unwrap();
     let other = B256::repeat_byte(0x99);
     let contradictions = [
-        SwitchL1 { core_state: (5, 4, other), ..honest.clone() },
         SwitchL1 { checkpoint: Some((s, other, root)), ..honest.clone() },
         SwitchL1 { checkpoint: Some((s, hash, other)), ..honest.clone() },
         SwitchL1 { checkpoint: Some((s + 1, hash, root)), ..honest },
     ];
     for contradiction in contradictions {
         *facts.lock().unwrap() = contradiction;
-        let error = super::switch_checkpoint_ready(&source, &params, &snapshot).await.unwrap_err();
+        let error = super::verify_start_checkpoint(&source, &params, &snapshot).await.unwrap_err();
         assert!(matches!(error, LanderError::Safety(_)), "{error}");
-    }
-}
-
-/// The first landing waits for an own-finalized L1 block at or after the fork and at or after
-/// L1_0, then checks the S checkpoint, and refreshes when the snapshot block is no longer
-/// canonical. A checkpoint above S has nothing left to check.
-#[tokio::test]
-async fn first_landing_waits_for_fork_finality_and_a_canonical_snapshot() {
-    let (headers, snapshot, params, facts) = switch_case();
-    let stale = LandingSnapshot { l1_block_hash: B256::repeat_byte(0x77), ..snapshot.clone() };
-    for (pin, scenario) in [(snapshot.l1_block_hash, &snapshot), (stale.l1_block_hash, &stale)] {
-        let facts = Arc::new(Mutex::new(facts.clone()));
-        let l1 = switch_rpc(headers.clone(), params.inbox, pin, facts.clone()).await;
-        let source =
-            RpcLandingSource::new(l1.provider.clone(), l1.provider.clone(), params.clone());
-        let above_s = LandingSnapshot { checkpoint_height: SWITCH_S + 1, ..scenario.clone() };
-        assert!(source.first_landing_ready(&above_s).await.unwrap());
-        assert!(l1.requests.lock().unwrap().is_empty());
-        // L1 block 16 (timestamp 192) precedes the fork.
-        facts.lock().unwrap().finalized = 16;
-        assert!(!source.first_landing_ready(scenario).await.unwrap());
-        assert_eq!(switch_calls(&l1, params.inbox), 0, "no switch read before fork finality");
-        let late_l1_0 = LandingSnapshot {
-            genesis: GenesisRecord { l1_0: 18, ..scenario.genesis.clone() },
-            ..scenario.clone()
-        };
-        facts.lock().unwrap().finalized = 17;
-        assert!(!source.first_landing_ready(&late_l1_0).await.unwrap());
-        assert_eq!(switch_calls(&l1, params.inbox), 0, "no switch read before L1_0 is final");
-        let result = source.first_landing_ready(scenario).await;
-        if scenario.l1_block_hash == snapshot.l1_block_hash {
-            assert!(result.unwrap());
-        } else {
-            assert!(matches!(result, Err(LanderError::Temporary(_))), "{result:?}");
-        }
     }
 }

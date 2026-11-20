@@ -541,15 +541,9 @@ async fn own_landing<L: L1Source + ?Sized>(
         return Err(safety("selected initial landing contradicts fixed genesis"));
     }
     if selected == fixed.genesis.genesis_height && params.switch.is_some() {
-        let ready =
-            crate::l1::switch_checkpoint_ready(l1, params, &snapshot).await.map_err(|error| {
-                if error.is_retryable() { unavailable(error) } else { safety(error) }
-            })?;
-        if !ready {
-            return Err(unavailable(
-                "waiting for Unzen's terminal proof and SignalService checkpoint at S",
-            ));
-        }
+        crate::l1::verify_start_checkpoint(l1, params, &snapshot).await.map_err(|error| {
+            if error.is_retryable() { unavailable(error) } else { safety(error) }
+        })?;
     }
     if selected > origin && selected < snapshot.checkpoint_height {
         verify_settled_suffix(l1, &snapshot, &landing, origin).await?;

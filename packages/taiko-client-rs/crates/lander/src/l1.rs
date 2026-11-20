@@ -29,7 +29,7 @@ use crate::{
 };
 
 alloy::sol! {
-    /// SignalService's existing checkpoint read interface used by the switch preflight.
+    /// SignalService's checkpoint read, which authenticates the Unzen checkpoint at S.
     interface ISwitchCheckpointStore {
         /// Unzen's settled execution checkpoint.
         struct Checkpoint {
@@ -85,12 +85,6 @@ pub trait LandingSource: Send + Sync {
     async fn snapshot(&self) -> Result<LandingSnapshot>;
     /// Authenticate the checkpoint's EL parent and its preceding timestamp.
     async fn parent_header(&self, snapshot: &LandingSnapshot) -> Result<ParentContext>;
-    /// Wait for terminal Unzen proofs and the matching SignalService checkpoint before new jobs.
-    /// A source without switch support fails closed for a nonzero initial checkpoint.
-    async fn first_landing_ready(&self, snapshot: &LandingSnapshot) -> Result<bool> {
-        Ok(snapshot.genesis.genesis_height == 0 ||
-            snapshot.checkpoint_height != snapshot.genesis.genesis_height)
-    }
     /// Retain raw L2 SignalService proxy state at S for the first switching proof; the builder
     /// verifies it.
     async fn start_signal_service_witness(
@@ -377,35 +371,6 @@ impl LandingSource for RpcLandingSource {
         Ok(ParentContext { header, grandparent_timestamp })
     }
 
-    /// Check the contract's three switch guards at one canonical Inbox snapshot, after cutoff
-    /// finality. Pending transactions are reconciled independently of this new-job gate.
-    async fn first_landing_ready(&self, snapshot: &LandingSnapshot) -> Result<bool> {
-        let Some(config) = self
-            .params
-            .switch
-            .as_ref()
-            .filter(|_| snapshot.checkpoint_height == snapshot.genesis.genesis_height)
-        else {
-            return Ok(true);
-        };
-        let finalized = self.anchors.finalized_number().await.map_err(anchor_error)?;
-        let finalized_header = self.anchors.header(finalized).await.map_err(anchor_error)?;
-        if finalized_header.timestamp() < config.fork_timestamp || finalized < snapshot.genesis.l1_0
-        {
-            return Ok(false);
-        }
-        if !switch_checkpoint_ready(&self.anchors, &self.params, snapshot).await? {
-            return Ok(false);
-        }
-        if self.anchors.canonical_hash(finalized).await.map_err(anchor_error)? !=
-            finalized_header.hash() ||
-            self.canonical_hash(snapshot.l1_block_number).await? != snapshot.l1_block_hash
-        {
-            return Err(LanderError::Temporary("switch preflight L1 observation changed".into()));
-        }
-        Ok(true)
-    }
-
     /// Hash-pin the EIP-1186 read to S and retain every MPT node for the external proof backend.
     async fn start_signal_service_witness(
         &self,
@@ -635,54 +600,31 @@ impl LandingSource for RpcLandingSource {
     }
 }
 
-/// Authenticate Unzen's terminal proof and SignalService's S checkpoint under one own-L1 pin.
-/// Callers establish this observation's finality (or cutoff finality for a live landing) and
-/// recheck canonicality after the reads. An absent checkpoint remains retryable.
-pub(crate) async fn switch_checkpoint_ready<L: AnchorSource + ?Sized>(
+/// On a switching network, checks that the L1 SignalService checkpoint at S, which the Unzen
+/// Inbox saved and the start write read, holds S's hash and state root from the Inbox's start
+/// record (DATA-5.3-4), read at the snapshot's canonical L1 block. Checkpoint import at s = S
+/// needs it; a landing needs no Unzen read, because the permissionless start write `setOrigin`
+/// itself requires Unzen proposals closed and finalized at that hash (START-10-5a, LAND-6.1-8a).
+/// A failed or reverted read is retryable, a differing checkpoint a safety contradiction.
+pub(crate) async fn verify_start_checkpoint<L: AnchorSource + ?Sized>(
     l1: &L,
     params: &ChainParams,
     snapshot: &LandingSnapshot,
-) -> Result<bool> {
-    let Some(config) = params.switch.as_ref() else {
-        return Ok(true);
-    };
-    if snapshot.l1_header.timestamp() < config.fork_timestamp ||
-        snapshot.l1_block_number < snapshot.genesis.l1_0
-    {
-        return Ok(false);
+) -> Result<()> {
+    if params.switch.is_none() {
+        return Ok(());
     }
-    /// Decode an immutable getter under the same canonical state as the Inbox snapshot.
-    macro_rules! read {
-        ($call:ident) => {{
-            let bytes = l1
-                .call_at(
-                    snapshot.inbox,
-                    IEtnaInbox::$call {}.abi_encode().into(),
-                    snapshot.l1_block_hash,
-                )
-                .await
-                .map_err(anchor_error)?;
-            IEtnaInbox::$call::abi_decode_returns(&bytes).map_err(|_| {
-                LanderError::Configuration("invalid Inbox switch getter ABI response".into())
-            })?
-        }};
-    }
-    let unzen = read!(unzenInboxCall);
-    let fork = read!(etnaForkTimeCall);
-    if unzen != config.unzen_inbox || fork.to::<u64>() != config.fork_timestamp {
-        return Err(LanderError::Configuration(
-            "Inbox switch deployment differs from configuration".into(),
-        ));
-    }
-    let Some(hash) =
-        l1.finalized_unzen_hash(unzen, snapshot.l1_block_hash).await.map_err(anchor_error)?
-    else {
-        return Ok(false);
-    };
-    if hash != snapshot.genesis.genesis_hash {
-        return Err(LanderError::Safety("finalized Unzen terminal hash differs from S".into()));
-    }
-    let signal = read!(signalServiceCall);
+    let bytes = l1
+        .call_at(
+            snapshot.inbox,
+            IEtnaInbox::signalServiceCall {}.abi_encode().into(),
+            snapshot.l1_block_hash,
+        )
+        .await
+        .map_err(anchor_error)?;
+    let signal = IEtnaInbox::signalServiceCall::abi_decode_returns(&bytes).map_err(|_| {
+        LanderError::Configuration("invalid Inbox signalService ABI response".into())
+    })?;
     if signal.is_zero() {
         return Err(LanderError::Configuration("Inbox SignalService is zero".into()));
     }
@@ -701,7 +643,7 @@ pub(crate) async fn switch_checkpoint_ready<L: AnchorSource + ?Sized>(
     {
         return Err(LanderError::Safety("SignalService checkpoint contradicts the S tuple".into()));
     }
-    Ok(true)
+    Ok(())
 }
 
 /// Complete fixed Inbox slots authenticating schedule, configuration, bootstrap, checkpoint and

@@ -1199,9 +1199,6 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     ) -> Result<Option<ProofRequest>> {
         let schedule = self.schedule(&snapshot)?;
         let end = self.exact_end(snapshot.checkpoint_height)?;
-        if !self.l1.first_landing_ready(&snapshot).await? {
-            return Ok(None);
-        }
         let status = self.status(&snapshot).await?;
         if status.height == snapshot.checkpoint_height || end.is_some_and(|end| status.height < end)
         {
@@ -1360,9 +1357,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         let schedule = self.schedule(snapshot)?;
         let end = self.exact_end(snapshot.checkpoint_height)?;
         let status = self.status(snapshot).await?;
-        if status.height == snapshot.checkpoint_height ||
-            end.is_some_and(|end| status.height < end) ||
-            !self.l1.first_landing_ready(snapshot).await?
+        if status.height == snapshot.checkpoint_height || end.is_some_and(|end| status.height < end)
         {
             return Ok(BatchPreview::from_observation(BatchObservation {
                 decided_height: status.height,

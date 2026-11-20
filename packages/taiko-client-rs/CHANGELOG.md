@@ -25,6 +25,7 @@
 
 - **BREAKING:** pin the protocol to #22286 at `2f496d31b` and regenerate the lander artifacts, the SignalService binding (`usesBeaconRoots` replaces `beaconRootsFrom`) and the shared vectors, now schema 9; the vector tests refuse schema 8. The real-contract fixtures follow the new ABI: the EtnaInbox `Config` drops `originWriter` and adds `recoveryCapacity` (the devnet default F = 212), `CommitteeConfig` drops `sMin`, `recover` takes strictly increasing bond ids as exclusions, `scheduleRules` and `scheduleStop` take the expected generation first, `forfeit` takes a bond id and the SignalService constructor takes `bool usesBeaconRoots`. The vector tests check ENC-A-39a set hashes and the registry checkpoint sequence whose count shrinks after withdrawal.
 - The Etna start is written once (START-10-5c): corrected switching starts are gone. Generation zero's origin must name S, every recovery witness must show the deployment's start, hash and state root unchanged, and a recovery at c = S starts from the start write's own anchor. A recovery in the start write's L1 block, whose deployment proof at `L1_0` already shows the next generation, is accepted.
+- The lander builds the first landing from S without reading the Unzen Inbox: the permissionless start write `setOrigin(S)` already requires closed, fully proven Unzen proposals (START-10-5a, LAND-6.1-8a), and `land` no longer checks Unzen state. Checkpoint import at s = S still compares the SignalService checkpoint at S with the start record (DATA-5.3-4). The [handoff runbook](docs/unzen-etna-handoff.md#writing-the-etna-start) shows the start write as `cast send … 'setOrigin(uint48)' S` from any account.
 
 ### Etna specification simplification (#22412)
 
@@ -71,7 +72,7 @@
 - Add the shared `--engine-control-dir` Engine writer lease. Mount the same directory for every local controller of one EL.
 - Pin alethia-reth to PR #248 head `53f33b70` with OP Reth `op-v2.7.0-1`.
 - Support nonzero-S landing, cut leaves and overlaps above S, committee 0 bootstrap and authenticated Unzen ancestry.
-- Wait for terminal Unzen finalization and the matching SignalService checkpoint before preparing the first landing; retain its raw L2 SignalService implementation witness for the proof backend.
+- Retain the first landing's raw L2 SignalService implementation witness for the proof backend.
 - Support nonzero-S checkpoint import/export, deriving the original EL block-zero identity from the operator-selected runtime chainspec.
 - Bump lander journals from schema 16 to 18 for the additional private proof witness, the L2 SignalService implementation proof at S. Older journals, including schema 17's Anchor witness, are refused without migration; resolve outstanding signed transactions with the compatible lander before upgrading.
 
