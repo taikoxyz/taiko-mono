@@ -40,23 +40,31 @@ taiko-client abci-import export … --height 600 --out /srv/etna/archive/cp-600 
 
 Stock CometBFT cannot be told to stop at a height, and a landing can end at any height. So take the snapshot first and choose s from it:
 
-1. Stop the independent stock node: a node of this generation whose own CometBFT committed these heights, not one installed from a package.
-2. Copy its `data/state.db` directory into a new directory, for example `/srv/etna/stock-state/state.db`, then restart the node.
-3. Read the snapshot's height x from the copy:
+1. Stop your regular lander before anything else. By default it lands any decided block within 30 seconds (`--min-blocks 1`, `--max-batch-wait 30`), so while it runs it would land past the snapshot before you land s. Keep its key and journal (`--data-dir`) for step 5.
+2. Stop the independent stock node: a node of this generation whose own CometBFT committed these heights, not one installed from a package.
+3. Copy its `data/state.db` directory into a new directory, for example `/srv/etna/stock-state/state.db`, then restart the node.
+4. Read the snapshot's height x from the copy:
 
    ```sh
    etna-comet-import snapshot-height --comet-state-dir /srv/etna/stock-state
    # {"chain_id":"…","last_block_height":599}
    ```
 
-4. Land exactly s = x + 1 with a one-shot lander run on your lander's key and journal. Stop your regular lander first, so that it cannot land past s:
+5. Land exactly s = x + 1 with a one-shot lander run on the regular lander's key and journal:
 
    ```sh
    taiko-client lander … --land-to 600
    ```
 
-   It submits one batch from the latest checkpoint to s, waits until s is decided, and exits 0 once the landing is confirmed like any other landing. It exits nonzero without landing when the latest checkpoint is already at or above s, or when s lies more than the batch cap above it (the lower of `--max-blocks` and the Inbox's `maxBatchBlocks`). It also exits nonzero when another landing reaches or passes s first. In both cases, take a new snapshot and start again.
-5. Once your own L1 has finalized the landing, export s = 600 with `--comet-state-dir /srv/etna/stock-state`.
+   If the journal still holds a landing the regular lander already sent, the run settles that landing first; one that ends exactly at s counts as this landing. Otherwise the run submits one batch from the latest checkpoint to s, waits until s is decided, and exits 0 once the landing is confirmed like any other landing. It exits nonzero without landing in these cases:
+
+   - the latest checkpoint is already at or above s, for example because that earlier landing ended past s;
+   - s lies more than the batch cap above the latest checkpoint (the lower of `--max-blocks` and the Inbox's `maxBatchBlocks`);
+   - another lander reaches or passes s first.
+
+   In any of these cases, take a new snapshot from step 2, with the regular lander still stopped.
+6. Restart your regular lander.
+7. Once your own L1 has finalized the landing, export s = 600 with `--comet-state-dir /srv/etna/stock-state`.
 
 Keep the snapshot, and the application's archived preimages, for every checkpoint you plan to publish.
 
