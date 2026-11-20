@@ -1623,7 +1623,9 @@ class LauncherPathTests(unittest.TestCase):
             argv, stub = base / "argv", base / "cometbft"
             stub.write_text(f'#!/bin/sh\nprintf "%s\\n" "$0" "$@" > "{argv}"\n')
             stub.chmod(0o700)
-            env = dict(ETNA_COMET_HOME=str(home), ETNA_COMET_BIN=str(stub), PATH=os.defpath)
+            write_manifest(base / "comet-manifest.json", stub)
+            env = dict(ETNA_COMET_HOME=str(home), ETNA_COMET_BIN=str(stub), PATH=os.defpath,
+                       ETNA_COMET_MANIFEST=str(base / "comet-manifest.json"))
             launcher = [sys.executable, str(ROOT / "script/start_etna_full_node.py")]
             (home / "config/config.toml").write_text('priv_validator_laddr = ""\n')
             proc = subprocess.run(launcher, env=env, capture_output=True, timeout=30)
@@ -1696,8 +1698,9 @@ class LauncherPathTests(unittest.TestCase):
             stub = base / "cometbft"
             stub.write_text('#!/bin/sh\nid -u > launched\n')
             stub.chmod(0o755)
+            write_manifest(base / "comet-manifest.json", stub)
             env = dict(ETNA_COMET_HOME=str(home), ETNA_COMET_BIN=str(stub), ETNA_COMET_UID=str(uid),
-                       ETNA_COMET_GID=str(gid), PATH=os.defpath)
+                       ETNA_COMET_GID=str(gid), PATH=os.defpath, ETNA_COMET_MANIFEST=str(base / "comet-manifest.json"))
             launcher = [sys.executable, str(ROOT / "script/start_etna_full_node.py")]
             # A private import root keeps the Comet UID out; the published traverse-only one lets it in.
             for mode, reached in ((0o700, False), (0o711, True)):

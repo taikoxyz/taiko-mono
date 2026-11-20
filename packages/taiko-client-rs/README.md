@@ -676,11 +676,16 @@ committing those values to the Inbox.
    `priv_validator_laddr`, signing paths outside the Comet home and app store, and a matching
    genesis chain ID. A `unix://` value only selects Unix mode and is preferred; `noise://`
    uses stock Noise with both transport peer IDs pinned, and bare `tcp://` is refused. A
-   nonvalidator full node may run stock Comet without the helper, using an unregistered local
-   identity.
+   nonvalidator full node, a sentry included, runs stock Comet without the signer, using an
+   unregistered local identity, through `python3 /app/script/start_etna_full_node.py` with
+   `ETNA_COMET_HOME` set. That launcher refuses a `priv_validator_laddr`, holds a writer lease
+   beside the home and makes the supervisor's two pre-start checks (`script/etna_comet_guard.py`)
+   before it execs Comet: the executable's sha256 must be the one the deployment manifest pins
+   (CONS-3.1-1), and the pending-evidence store below is deleted (CONS-3.1-10). It execs the
+   exact file it hashed.
 
-   Every time it starts Comet, with Comet stopped, the supervisor deletes the node's
-   pending-evidence store, `<db_dir>/evidence.db` (stock goleveldb or pebbledb; `data/evidence.db`
+   Every time it starts Comet, with Comet stopped, the supervisor (and the full-node launcher,
+   under its writer lease) deletes the node's pending-evidence store, `<db_dir>/evidence.db` (stock goleveldb or pebbledb; `data/evidence.db`
    by default), and nothing else: the WAL, block and state stores, the app and EL stores and the
    signer's files stay (CONS-3.1-10). No block commits evidence (`evidence.max_bytes = 0`), so only
    expiry bounds the stock pool, and restarting a node under pressure empties it (LIMIT-12-22).

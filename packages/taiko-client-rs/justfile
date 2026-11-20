@@ -109,6 +109,7 @@ signer-test:
 supervisor-test:
   PYTHONDONTWRITEBYTECODE=1 python3 tests/bindings_generation_test.py
   python3 tests/supervisor_test.py
+  PYTHONDONTWRITEBYTECODE=1 python3 tests/full_node_launcher_test.py
   PYTHONDONTWRITEBYTECODE=1 python3 tests/entrypoint_test.py
   PYTHONDONTWRITEBYTECODE=1 python3 tests/test_dev_test.py
   PYTHONDONTWRITEBYTECODE=1 python3 tests/checkpoint_import_resource_test.py

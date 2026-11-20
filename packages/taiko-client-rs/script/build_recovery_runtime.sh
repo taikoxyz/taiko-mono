@@ -68,7 +68,7 @@ if [[ -n "$base_image" ]]; then
   done
   stage target/etna-signer/cometbft usr/bin/cometbft
   stage comet-manifest.json app/comet-manifest.json
-  for script in etna_validator.py start_etna_validator.sh start_etna_full_node.py; do
+  for script in etna_validator.py start_etna_validator.sh start_etna_full_node.py etna_comet_guard.py; do
     stage "script/$script" "app/script/$script"
   done
   # The Comet UID must read and run what it executes whatever the host umask. The staged files are

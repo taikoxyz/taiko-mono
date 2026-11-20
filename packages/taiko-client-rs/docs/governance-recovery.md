@@ -255,8 +255,10 @@ Take the settled state at c in one of these ways:
 ## Full nodes
 
 A full node follows the same steps without step 4. Its template has an empty
-`priv_validator_laddr`, and it starts stock Comet (`cometbft start --home <new home>`) instead
-of the supervisor. It has no registered signing authority; stock Comet creates an unregistered
+`priv_validator_laddr`, and it starts stock Comet through `script/start_etna_full_node.py`
+(`ETNA_COMET_HOME=<new home>`) instead of the supervisor. Like the supervisor, the launcher checks
+the executable's digest against the deployment manifest and deletes the pending-evidence store
+before every start (CONS-3.1-1, CONS-3.1-10). It has no registered signing authority; stock Comet creates an unregistered
 local FilePV in the new home, which never signs.
 
 ## Failures

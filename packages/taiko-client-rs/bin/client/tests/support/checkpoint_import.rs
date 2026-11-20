@@ -662,14 +662,23 @@ impl Node {
     }
 }
 
-/// Stock Comet on `ready/comet` through the full-node launcher, as on any other store.
+/// Stock Comet on `ready/comet` through the full-node launcher, as on any other store. The
+/// launcher checks the executable against the deployment manifest (CONS-3.1-1): without an
+/// explicit `ETNA_COMET_MANIFEST`, a host without the official executable uses the test manifest
+/// `script/build_stock_comet.sh` wrote for its source build, as for the validator supervisor.
 fn full_node(x: &Fixture, root: &Path, label: &str) -> Result<Process> {
-    let vars = [
+    let mut vars = vec![
         format!("ETNA_COMET_BIN={}", binary("ETNA_COMET_BIN", "cometbft")?.display()),
         format!("ETNA_COMET_HOME={}", root.join("ready/comet").display()),
+    ];
+    let test_manifest = package().join("target/etna-signer/comet-manifest.test.json");
+    if std::env::var_os("ETNA_COMET_MANIFEST").is_none() && test_manifest.is_file() {
+        vars.push(format!("ETNA_COMET_MANIFEST={}", test_manifest.display()));
+    }
+    vars.extend([
         "python3".into(),
         package().join("script/start_etna_full_node.py").display().to_string(),
-    ];
+    ]);
     Process::spawn(Path::new("/usr/bin/env"), &vars, x.base.join(format!("{label}.log")))
 }
 
