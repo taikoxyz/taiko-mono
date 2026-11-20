@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>11 &mdash; Forced inclusion · Etna PoS + ZK engineer&rsquo;s course</title>
+<link rel="stylesheet" href="course.css"></head><body>
+<div class="layout">
+<aside class="side">
+<span class="brand">Etna PoS + ZK</span>
+<span class="sub">engineer&rsquo;s course</span>
+<div class="grp">Lessons</div>
+<ol>
+<li><a href="index.html">Contents</a></li>
+<li><a href="01-what-is-etna.html">1. What Etna PoS + ZK is</a></li>
+<li><a href="02-life-of-a-transaction.html">2. Life of a transaction</a></li>
+<li><a href="03-consensus.html">3. How the chain agrees</a></li>
+<li><a href="04-staking-and-epochs.html">4. Stake, validators, epochs</a></li>
+<li><a href="05-the-proof.html">5. What the proof proves</a></li>
+<li><a href="06-data-and-proof-together.html">6. Data first, proof binds</a></li>
+<li><a href="07-timing.html">7. Two seconds, thirty minutes</a></li>
+<li><a href="08-when-things-go-wrong.html">8. When things go wrong</a></li>
+<li><a href="09-censorship-and-the-bridge.html">9. Censorship and the bridge</a></li>
+<li><a href="10-economics.html">10. Who pays, who earns</a></li>
+<li><a href="11-forced-inclusion.html" class="active">11. Forced inclusion</a></li>
+</ol>
+<div class="grp">Reference</div>
+<ol>
+<li><a href="glossary.html">Glossary</a></li>
+<li><a href="limitations.html">Limitations</a></li>
+</ol>
+<div class="grp">Authoritative</div>
+<ol>
+<li><a class="ext" href="../spec/index.html">Specification &rarr;</a></li>
+</ol>
+</aside>
+<div class="content">
+<main>
+<h1>Forced inclusion</h1>
+<p class="muted">This lesson teaches the one inclusion obligation the design has: once a published batch&rsquo;s
+data has waited its inclusion delay, every batch that lands must move a settlement frontier past the oldest
+pending records, and the duty is checked inside the proof. It also teaches the honest half &mdash; this is
+<strong>not a latency guarantee</strong>. What the mechanism bounds is exclusion per unit of a censor&rsquo;s L1
+spending, under conditions this page states. This is a design: nothing here is implemented, measured, audited
+or deployed. The exact rules behind this page are the inclusion rules of the
+<a href="../spec/index.html">specification</a>.</p>
+
+<h2>The idea</h2>
+<p>Any account may publish a batch&rsquo;s data to L1 before its proof. Publication writes one
+<strong>publication record</strong> &mdash; the ordered blob versioned hashes, the claimed range, the data mode
+and commitment, the L1 block number and a sequence number &mdash; and accepts nothing. That same record <em>is</em> the
+<strong>forced-data record</strong>: one register, no separate &ldquo;forced&rdquo; flag, no queue of
+arbitrary transactions, no escrow, no bond and no fee.</p>
+<p>From a record&rsquo;s <strong>due point</strong> &mdash; its own stored L1 block number plus the
+registered <code>FI_INCLUSION_DELAY</code> &mdash; the record is part of the <strong>due set</strong>, and
+every batch that lands must advance a <strong>settlement frontier</strong> past the oldest outstanding
+records before it can move on. The obligation is on the <strong>producer</strong>, and it is enforced
+<strong>inside the proof</strong>: the guest recomputes the frontier and the resolution of every position it
+passes. It is never a gate on
+<code>land(data, proof)</code>: any account may still submit, the register is not an admission condition, and a
+proof that does not satisfy the obligation simply does not verify.</p>
+<p><strong>A published record cannot be quietly passed over.</strong> While it is live, no batch that lands
+may advance the settlement frontier beyond it: the proof must resolve the record &mdash; transaction by
+transaction, in the record&rsquo;s own order, each one either run or set aside at its turn &mdash; or the
+batch does not settle. That is the whole force of the obligation &mdash; and it is why the honest statement
+is about the censor&rsquo;s cost, not the user&rsquo;s wait: the record can still end as dead, discharged by
+its own deadline rather than included.</p>
+<h2>How a record resolves</h2>
+<p>A record is resolved in exactly one of three ways, and no party chooses which. The three modes partition the cases, and the
+order of testing is fixed: <strong>dead is tested first and unconditionally</strong>; otherwise the record is
+live at the anchored view, and the void grounds are tested <strong>before</strong> the walk; only then does
+the walk decide executed. Resolution walks the record&rsquo;s transactions in the record&rsquo;s own order,
+and each transaction either runs or is set aside at its turn &mdash; here, &ldquo;set aside&rdquo; is the
+plain word for what the rule calls <em>discharged</em>: a transaction that cannot run at its turn.</p>
+<ul>
+<li><strong>Executed</strong> &mdash; the record is live, not over a registered bound and holding no
+transaction that can never run from its own bytes, and walking its transactions in the record&rsquo;s own
+order, each one runs or is set aside at its turn, with at least one running. Every transaction that runs
+appears in the batch&rsquo;s executed payload exactly once, in that order; each one set aside is
+discharged and may be re-published. A record with a mix of running and set-aside transactions is resolved
+here, with each transaction recorded for what it did.</li>
+<li><strong>Void</strong> &mdash; the record is <strong>live</strong>, and one of three things holds: it is
+over a registered bound (its published byte string, its transaction count or its transactions&rsquo;
+declared gas limits beyond the registered ones); or it contains a transaction that can never run at any
+pre-state from the record&rsquo;s own bytes &mdash; a chain id that does not match, for example; or every one
+of its transactions is set aside at its turn, so none of them runs, and a record with no transactions at all
+is void here too, because there is nothing to run. The three are limbs of one mode, never separate modes: a
+live, over-bound, fully set-aside record is still simply void, and these grounds read the record&rsquo;s own
+published bytes, fixed at publication. Because they are tested before the walk, a live over-bound record
+stays void even when one of its transactions appears in the executed payload.</li>
+<li><strong>Dead</strong> &mdash; the record&rsquo;s own deadline has passed at the batch&rsquo;s anchored L1
+view: its stored block number plus the registered <code>T_PROVE_DEADLINE</code> is at or below that view.
+This test runs first and unconditionally, so a record that is dead at the anchored view is dead whatever its
+size, its contents or how many of its transactions are set aside &mdash; the other two modes never apply to
+it. Dead takes one stored number and nothing else: no bytes, no blobs, no execution and no L1 call.</li>
+</ul>
+<p><strong>Every position settles, whatever mix the record holds.</strong> A proof is accepted only when
+every position in its required window is resolved, so a rule that could not settle <em>some</em> record would
+let one publication stall the chain: the frontier could not pass that position, and no later batch could
+settle either. The walk closes that hole. Because each transaction is dealt with at its turn, a record with
+one transaction that can run and one that cannot still resolves &mdash; the runnable one runs, the other is
+set aside &mdash; and a record whose remaining transactions cannot run is fully set aside by that outcome
+rather than left standing. A live record that is over a registered bound, or that holds a transaction which
+can never run from its own bytes, is void from its own immutable bytes before the walk reaches it, so no
+producer&rsquo;s inclusion choice can turn it into an executed record. Every live position therefore resolves
+in a bounded number of batches, and no published record can pin the frontier.</p>
+<h2>What sets a transaction aside at its turn</h2>
+<p><strong>Setting a transaction aside is a property of the turn it reaches, not of the block it met.</strong>
+A transaction runs at its turn only if the record&rsquo;s published byte string is within its registered
+bounds, the chain id matches, its declared nonce is the sender&rsquo;s nonce at that point, the
+sender&rsquo;s balance there covers the transaction&rsquo;s <em>own declared maximum charge</em> &mdash;
+gas limit &times; max fee per gas + value &mdash; the sender has no code there, and the block in which the
+turn lies has room to carry it. It is set aside at its turn on any of four grounds: the nonce is not
+the sender&rsquo;s there; the balance is below that charge; the sender has code there, so no valid block may
+execute a transaction from it; or the block in which the turn lies had no room &mdash; the remaining
+gas, at that turn, of that block is below the gas limit the transaction declares, the same remaining gas
+the per-block duty reads, so a block that had room and omitted it leaves the position unresolved. A later
+block&rsquo;s room neither rescues nor condemns a transaction whose turn has passed: the duty is scoped to
+the turn, and the walk reads the same turn. The base fee and gas limit of the block at the turn are not
+inputs; the room ground reads only that block&rsquo;s remaining gas at the turn. Execution follows the record&rsquo;s own order: a producer cannot insert a transaction
+into the record, reorder its transactions or drop one from the walk, and it cannot alter the
+record&rsquo;s own bytes. What a producer does set is the batch&rsquo;s own executed state, and so the
+pre-state each turn is judged against: a third-party credit placed <em>before</em> a turn can make a
+transaction that is unaffordable there without it runnable there, and the transaction must then run; one
+placed <em>after</em> the turn cannot rescue it, and it is set aside as unaffordable at its turn. A credit
+can only ever make a transaction runnable, never set one aside, and only the nonce is out of a
+producer&rsquo;s reach: only the account&rsquo;s own signed transactions move it, while the balance can be
+moved by anyone and no producer can put code at another account&rsquo;s address by block contents. So a
+producer cannot manufacture a set-aside ground for someone else&rsquo;s transaction that a block with room
+could carry: one that can run at its turn must run, and one that cannot run there is set aside there. The
+one ground its own block contents do reach is the room ground: filling the blocks at the turn leaves a
+forced transaction with no room, and that sets it aside at a cost in L1 gas. Where a credit lands relative
+to the turn is the one producer-set ordering that can decide a discharge &mdash; the
+credit-ordering edge, the residual the design discloses.</p>
+<h2>Enforcement and the exit</h2>
+<p><strong>No new slashable offence.</strong> A validator that signs a block violating the per-block duty
+gains no new offence and is not slashed for it: the proof is rejected, and that rejection is the whole
+enforcement. There is no fee, escrow, bond or refund either; a forced transaction pays its own L2 gas if it
+runs, a transaction set aside at its turn may become runnable later through the sender&rsquo;s own further
+signed transactions or through a credit from any account, and in either case the remedy is permissionless
+re-publication, which creates a new record with a fresh clock.</p>
+<p><strong>The exit never reads it.</strong> No forced-inclusion condition attaches to a withdrawal root, to
+its attestations, to the withdrawal veto or to a user&rsquo;s eligibility to withdraw; nothing on that path
+reads the register, the settlement frontier or the boundary commitment. The register is a settlement-side
+queue, so the obligation can delay settlement but never a release.</p>
+
+<h2>What a landing batch must show</h2>
+<figure>
+<svg viewBox="0 0 960 250" role="img" aria-label="A register of positions in order; the settlement frontier and the due frontier mark the outstanding range, whose positions the proof must resolve as executed, void or dead">
+  <defs>
+    <marker id="arF" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#0969da"/></marker>
+  </defs>
+  <text x="20" y="28" fill="#59636e" font-size="12">THE REGISTER &mdash; ONE POSITION PER PUBLICATION RECORD, IN SEQUENCE ORDER</text>
+  <g fill="#ffffff" stroke="#d8dee4">
+    <rect x="20" y="44" width="86" height="52" rx="7"/>
+    <rect x="114" y="44" width="86" height="52" rx="7"/>
+    <rect x="208" y="44" width="86" height="52" rx="7"/>
+    <rect x="302" y="44" width="86" height="52" rx="7" stroke="#1a7f37"/>
+    <rect x="396" y="44" width="86" height="52" rx="7" stroke="#1a7f37"/>
+    <rect x="490" y="44" width="86" height="52" rx="7" stroke="#9a6700"/>
+    <rect x="584" y="44" width="86" height="52" rx="7" stroke="#9a6700"/>
+    <rect x="678" y="44" width="86" height="52" rx="7" stroke="#9a6700"/>
+    <rect x="772" y="44" width="86" height="52" rx="7" stroke="#d8dee4" stroke-dasharray="5 3"/>
+  </g>
+  <text x="63" y="74" fill="#59636e" font-size="11" text-anchor="middle">0&hellip;</text>
+  <text x="157" y="74" fill="#59636e" font-size="11" text-anchor="middle">&hellip;</text>
+  <text x="251" y="74" fill="#59636e" font-size="11" text-anchor="middle">&hellip;</text>
+  <text x="345" y="74" fill="#1a7f37" font-size="11" text-anchor="middle">settled</text>
+  <text x="439" y="74" fill="#1a7f37" font-size="11" text-anchor="middle">settled</text>
+  <text x="533" y="74" fill="#9a6700" font-size="11" text-anchor="middle">outstanding</text>
+  <text x="627" y="74" fill="#9a6700" font-size="11" text-anchor="middle">outstanding</text>
+  <text x="721" y="74" fill="#9a6700" font-size="11" text-anchor="middle">outstanding</text>
+  <text x="815" y="74" fill="#59636e" font-size="11" text-anchor="middle">not yet due</text>
+  <line x1="302" y1="104" x2="302" y2="126" stroke="#1a7f37" stroke-width="1.4"/>
+  <text x="306" y="140" fill="#1a7f37" font-size="11">settlement frontier c &mdash; the predecessor checkpoint&rsquo;s recorded settled count</text>
+  <line x1="678" y1="104" x2="678" y2="126" stroke="#9a6700" stroke-width="1.4"/>
+  <text x="682" y="140" fill="#9a6700" font-size="11">due frontier d(A) &mdash; records whose due point has passed</text>
+  <path d="M306 160 H672" stroke="#9a6700" stroke-width="1.4" marker-end="url(#arF)"/>
+  <text x="489" y="178" fill="#24292f" font-size="11" text-anchor="middle">outstanding obligation: every position in [c, d(A)) the frontier has not passed</text>
+  <text x="20" y="206" fill="#24292f" font-size="11">A landing batch must end with c&prime; at or above min(d(A), c + FI_MAX_PER_BATCH), and every position in [c, c&prime;) resolved as</text>
+  <text x="20" y="224" fill="#24292f" font-size="11">executed, void or dead. A position that is none of those cannot be passed: the proof does not verify.</text>
+  <text x="20" y="242" fill="#59636e" font-size="10">Dead records are still positions the frontier must pass; they are discharged by one comparison, not removed. Pruning deletes only behind the frontier.</text>
+</svg>
+<figcaption>The settlement frontier is where the last accepted batch stopped; the due frontier counts the
+records whose delay has passed. The proof walks the range between them and resolves every position in a
+fixed order: dead first and unconditionally, then the live-only void grounds, then the walk.</figcaption>
+</figure>
+<table>
+<thead><tr><th>What</th><th>The rule</th><th>Why it is there</th></tr></thead>
+<tbody>
+<tr><td>Anchored L1 view <code>A</code></td><td>The greatest anchored view over the batch&rsquo;s blocks, re-executed by the guest; it must have reached Ethereum finality and be no older than <code>FI_ANCHOR_MAX_AGE</code>.</td><td>A submitter cannot shrink the window by choosing a batch range or a stale anchor.</td></tr>
+<tr><td>Settlement frontier <code>c</code></td><td>The predecessor checkpoint&rsquo;s own recorded settled count.</td><td>The proof starts exactly where the last accepted batch stopped, not where a submitter says it did.</td></tr>
+<tr><td>Due frontier <code>d(A)</code></td><td>The number of records whose due point has passed at <code>A</code>, recomputed over the anchored register state by a bounded binary search.</td><td>The required work is counted in one unit: register positions per batch.</td></tr>
+<tr><td>The advance</td><td><code>c&prime; &ge; min(d(A), c + FI_MAX_PER_BATCH)</code>, <code>c&prime; &le; nextSeq(A)</code> and <code>c&prime; &ge; c</code>.</td><td>The lower bound is unconditional &mdash; no exception waives it &mdash; and the frontier never decreases and never passes the register.</td></tr>
+<tr><td>The walk</td><td>Every position in <code>[c, c&prime;)</code> is resolved &mdash; executed, void or dead &mdash; in the fixed order: dead first and unconditionally, then, for a live record, the void grounds (over a registered bound, a transaction that can never run from the record&rsquo;s own bytes, or every transaction set aside at its turn), and only then the walk of the record&rsquo;s transactions in the record&rsquo;s own order, each one run or set aside at its turn; every position in that range holds a record at <code>A</code>.</td><td>A live record with a transaction that can run at its turn cannot be skipped, and a hole in the register makes the proof invalid.</td></tr>
+<tr><td>Capacity</td><td>With an outstanding obligation the batch&rsquo;s own header gas must cover the work, and the required window cannot collapse to zero: the registered floor <code>FI_MIN_DRAIN</code> (<code>1 &le; FI_MIN_DRAIN &le; FI_MAX_PER_BATCH</code>) makes <code>R = 0</code> impossible.</td><td>The cap is part of proof validity, not an admission rule, and it cannot be chosen down to zero by taking a one-block batch.</td></tr>
+<tr><td>The per-block duty</td><td>Order and non-omission only: a block never executes a later record&rsquo;s forced transaction ahead of an earlier one, and must carry a forceable forced transaction when its own remaining gas covers the gas that transaction declares. A block that contains a transaction of a forced record once a higher-index transaction of that same record has already appeared in the executed payload of the range is invalid, on the same footing as a block that had room to carry a demanded transaction and omitted it. <em>The order rule is a block-validity condition: an out-of-order block is invalid, not merely unsettled.</em></td><td>There is no per-block count and no per-block gas quota, so no registered value is used in two units and no block is asked for more than it can hold.</td></tr>
+<tr><td>The commitment</td><td>One <code>forcedBoundary</code> value in the proof&rsquo;s journal, recomputed by the guest and required to match.</td><td>The L1-derived view reaches the proof as a single commitment, never as a submitter-supplied frontier or due list.</td></tr>
+</tbody>
+</table>
+<p>Two registered relations keep the obligation non-vacuous and bounded. <code>FI_INCLUSION_DELAY +
+L1_FINALITY_DEPTH &lt; T_PROVE_DEADLINE</code> guarantees that a window always exists in which the obligation
+can fire while the record is still live; if it were inverted, every record would age out before it could ever
+be due. And <code>FI_MAX_PER_BATCH &times; FI_MAX_TX_PER_RECORD &times; FI_RECORD_GAS_MAX &le;
+MAX_BATCH_BLOCKS &times; L2_BLOCK_GAS_LIMIT</code> is what makes a compliant batch exist. The second relation
+has an admitted premise: it constrains a registered value, and no registered rule maintains the L2
+gas-limit schedule itself (the capacity premise, below). All of these quantities are
+<span class="tag">unmeasured</span>.</p>
+<p>The register appends, and pruning is deletion only &mdash; behind the settlement frontier, through a stored
+prune cursor, returning no frontier and writing no settlement record. A pruned position is always already
+settled, so the proof never needs it; a dead record is still a position the frontier passes, and it is
+discharged by reading its stored block number, not by removing it.</p>
+
+<h2>Not a latency guarantee</h2>
+<p>This is the headline. The mechanism bounds
+<strong>exclusion per unit of the censor&rsquo;s L1 spending</strong>, conditional on at least one honest or
+rational batch producer and on an L1 that includes the user&rsquo;s publication. It is not a promise about
+time.</p>
+<table>
+<thead><tr><th>If you expect&hellip;</th><th>What actually happens</th></tr></thead>
+<tbody>
+<tr><td>A published record is included by some deadline.</td><td>No. A record can be discharged without being executed, and the order is fixed. Dead is tested first and unconditionally: once its own deadline passes, the record is dead whatever its size, its contents or how much of it is set aside. A record that is still live at the anchored view is void when it is over a registered bound, when it contains a transaction that can never run from its own bytes, or when every one of its transactions is set aside at its turn. Expiry is a discharge, not an inclusion, and a transaction set aside is not cancelled: it may become runnable later through the sender&rsquo;s own further transactions or through a credit from any account, and re-publication is the remedy.</td></tr>
+<tr><td>A censor that refuses the front record keeps censoring.</td><td>It halts its own settlement. The frontier cannot skip an outstanding live record, so no later range settles while that record stands. That is a real cost to the censor, but it is a halt of the honest pipeline, not a fee paid to the censored user.</td></tr>
+<tr><td>Re-publication defeats a publishing censor.</td><td>It costs the censor roughly one L1 publication per deadline window to keep a target behind its own records. That is the bound: exclusion per unit of L1 spending, not per unit of time.</td></tr>
+<tr><td>Data that never reaches L1 can be forced.</td><td>No. The obligation begins at publication. An adversary that censors the publication transaction, or isolates the user from every honest producer, can keep the record from existing at all &mdash; and the same adversary can prevent the user from starting a withdrawal, which is an L2 transaction.</td></tr>
+<tr><td>Publication alone guarantees eventual inclusion.</td><td>Only while arrivals stay within the drain the obligation can force. If livable records permanently arrive faster than <code>FI_MAX_PER_BATCH</code> per accepted batch, the queue grows without bound and a given record&rsquo;s wait grows with it; the deadline then discharges records rather than including them (arrivals outpacing the drain; expiry).</td></tr>
+</tbody>
+</table>
+<p>Each limit the design states, and how it is classified:</p>
+<ul>
+<li><strong>The capacity premise.</strong> A registration or fork that breaks the capacity
+relation, or an L2 gas-limit schedule under which a maximum-length batch at the registered per-block bound
+cannot be produced, makes the &ldquo;a compliant batch exists&rdquo; premise false and can re-open a halt.
+No registered rule maintains that schedule premise: it is a premise nothing in the protocol maintains, not
+a property the design guarantees. <em>Open: no rule closes it.</em></li>
+<li><strong>Arrivals outpacing the drain.</strong> <em>Open: no rule closes it.</em> This is the
+bound on time, not on work: if the arrival rate of livable records permanently exceeds the drain the
+obligation forces, waits grow without bound. The mechanism still does not halt, but the deadline is then an
+exit, not a latency guarantee. No bound on who may publish is imposed: that would be a publish-time admission
+condition, and any account must be able to publish.</li>
+<li><strong>The credit-ordering edge.</strong> A
+transaction set aside at its turn may become runnable later through the sender&rsquo;s own further signed
+transactions or through a credit from any account. Only the nonce and the account&rsquo;s own code are out of
+a producer&rsquo;s reach, while the balance can be moved by anyone, and a credit can only ever make a
+transaction runnable, never set one aside: where a credit lands relative to the turn decides whether an
+unaffordable transaction runs there (credit before the turn) or is set aside (credit after it), the one
+producer-set ordering that can decide a discharge. The outcome is objective and final for the batch that resolves the position, and the remedy for a
+record whose transactions were set aside is re-publication; a predicate that could reopen the position would
+need a mutable status field. That path is the design&rsquo;s own disclosed price, not a question the design
+leaves unclosed.</li>
+<li><strong>Expiry.</strong> A settlement stall longer than the
+record&rsquo;s deadline, or a queue that drains more slowly than records age, discharges a record by expiry
+rather than including it. Expiry is a discharge, not a guarantee: it is the design&rsquo;s own way of ending
+a record&rsquo;s wait, not a defect in the design. <em>Disclosed: an inherent limit.</em></li>
+<li><strong>The producer condition.</strong> The guarantee is conditional on at least one
+honest or rational producer and on an L1 that includes the publication; an L1-level adversary is outside it.
+Those conditions are the boundary the guarantee itself states, not a gap left in it. <em>Disclosed: the
+condition the guarantee states for itself.</em></li>
+<li><strong>The anchor-age residual.</strong> A certified range whose landing is deliberately
+delayed past the registered anchor age, and past blob retrievability, is permanently unacceptable. The
+registered relations are chosen to make this impossible inside the normal envelope; the deliberate-delay
+residual stays disclosed. <em>Disclosed: an inherent limit.</em></li>
+<li><strong>The fee-schedule premise.</strong> A forced transaction must declare a
+maximum fee per gas at or above one registered floor, so a transaction below it is ruled out by the
+record&rsquo;s own bytes. The premise is that the floor sits at or above the highest execution base fee the L2
+fee schedule can produce, and no registered rule maintains that schedule. If the schedule can rise above the
+floor, a transaction the rule calls forceable &mdash; and the per-block duty demands &mdash; is one no valid
+block can carry: the proof cannot show it run, the position cannot resolve, and settlement waits until the
+record expires. The floor itself is <span class="tag">unmeasured</span>. The fee-schedule premise is one
+nothing in the protocol maintains: no rule keeps the L2 fee schedule at or below the floor. <em>Open: no rule
+closes it.</em></li>
+<li><strong>The residual outside the enumeration.</strong> The forceability test reads the
+record&rsquo;s own published bytes and the state at the transaction&rsquo;s turn, and it rules out the reasons
+those two inputs and the enumerated validity classes decide. It cannot rule out a reason that depends on
+neither &mdash; some further execution-validity rule a valid block enforces that is not one of the enumerated
+classes. That gap is carried open rather than denied. What would show it: a transaction the test calls
+forceable and the walk does not set aside at its turn, yet no valid block of the range can carry it. The walk
+would then demand an execution no valid block can perform; the position cannot resolve, settlement halts
+until the record is dead, and that is the same halt the enumerated reasons would otherwise cause. <em>Open: no rule closes it &mdash; the rule
+is exact over the reasons its own inputs and the enumerated classes decide, and a reason outside them stays open.</em></li>
+</ul>
+
+<h2>Worked example &mdash; walking the frontier</h2>
+<p>The counts below are symbols, not values: every <code>FI_*</code> quantity is
+<span class="tag">unmeasured</span>. The modes are tested in one order &mdash; dead first and unconditionally,
+then the live-only void grounds, then the walk &mdash; and the walk is per transaction: the record&rsquo;s
+transactions are read in the record&rsquo;s own order, and each one either runs or is set aside at its turn.</p>
+<table>
+<thead><tr><th>The proof reaches position&hellip;</th><th>What it finds there</th><th>What it may do</th></tr></thead>
+<tbody>
+<tr><td>a position below <code>c</code></td><td>Already settled: executed or void in the batch that carried the frontier past it, or dead at the view that discharged it.</td><td>Nothing; the walk starts at <code>c</code>, and pruning may have deleted the slot entirely.</td></tr>
+<tr><td>an outstanding position whose record is dead at the anchored view</td><td>Its stored block number plus the registered deadline is at or below that view.</td><td>Record it dead and move on. The test is first and unconditional, so it costs one comparison, no bytes and no L1 call, and a dead record is dead whatever its size, its contents or how much of it is set aside.</td></tr>
+<tr><td>an outstanding position whose record is live but outside its own bytes</td><td>Over a registered bound, or holding a transaction that can never run at any pre-state from the record&rsquo;s own bytes &mdash; a chain id that does not match, for example.</td><td>Record it void and move on. The ground is fixed by the record&rsquo;s own published bytes, so it holds at every view at which the record is live, even if one of its transactions appears in the executed payload. No re-supply of its bytes is required, and the published bytes stay on L1.</td></tr>
+<tr><td>an outstanding position whose record is live and every one of whose transactions is set aside at its turn</td><td>The walk reaches each transaction and none can run: for each, its declared nonce is not the account&rsquo;s nonce at that point; or the account&rsquo;s balance there is below gas limit &times; max fee per gas + value; or the account has code at that point, so no valid block may execute a transaction from it; or the block in which that turn lies had no room to carry it, judged on the same remaining gas the per-block duty reads. A record with no transactions at all is void here too.</td><td>Record it void and move on; the record is fully set aside by that outcome rather than left standing.</td></tr>
+<tr><td>an outstanding position whose record is live and at least one of whose transactions can run at its turn</td><td>The walk reads its transactions in the record&rsquo;s own order: each one can run at its turn, or cannot and is set aside there.</td><td>Run each transaction that can run, in the record&rsquo;s own order, and set aside each that cannot; at least one runs, so the position resolves as executed, with each set-aside transaction discharged. Nothing else resolves this position.</td></tr>
+<tr><td>a position that is none of those</td><td>A live record with a transaction that can run at its turn and was not run.</td><td>Nothing: the position cannot be passed, so the proof does not verify and no settlement record is written.</td></tr>
+</tbody>
+</table>
+<p><strong>Two producers, one position.</strong> Suppose the record at the settlement frontier is live and
+at least one of its transactions can run at its turn. A producer that would rather exclude it has only the
+modes the rule provides: run every transaction that can run, in the record&rsquo;s own order, setting aside
+only those that cannot run at their turn; show a void ground, which requires that the record is live and over
+a registered bound, or live and holding a transaction that can never run from the record&rsquo;s own bytes, or
+live with every one of its transactions set aside at its turn; or stop settling, so the frontier never moves
+and no later range lands either &mdash; and then, once the record&rsquo;s deadline has passed, the dead test
+runs first at the new anchored view and the frontier can pass the position by that one comparison. There is
+no fourth option in which the record is skipped and settlement continues, and a producer cannot manufacture
+a set-aside ground for a transaction a block with room could carry: it cannot change the record&rsquo;s own
+bytes or the order in which its transactions are walked, and only the sender&rsquo;s own signed transactions
+move its nonce, while its balance can be moved by anyone. The one ground its own block contents do reach is
+the room ground: filling the blocks at its turn leaves a forced transaction with no room and sets it aside,
+at a cost in L1 gas. What remains producer-set is where a third-party credit lands relative to a turn: before the turn it
+makes an unaffordable transaction runnable there, and the transaction must run; after the turn it cannot
+rescue it, and the transaction is set aside. A credit can only ever enable a transaction, never set one
+aside; that credit-ordering edge is a disclosed residual, and the remedy for a transaction
+that was set aside is re-publication. That is the whole mechanism, and it is why the honest statement is
+about the censor&rsquo;s cost rather than about a user&rsquo;s wait.</p>
+
+<h2>What this gives you</h2>
+<ul>
+<li>One unit of account for the obligation: register positions per batch. The cap, the frontier bound, the
+drain floor and the capacity relation are all stated in that unit, and the per-block rule is order and
+non-omission only.</li>
+<li>A published record that cannot be silently skipped while it is live: settlement cannot continue past it,
+and the proof resolves it transaction by transaction, in the record&rsquo;s own order, so the only ways forward
+are that resolution, a void ground the record&rsquo;s own live bytes fix, or expiry &mdash; and expiry is
+tested first, so a record that is dead at the anchored view is dead whatever its size, contents or set-aside
+state.</li>
+<li>A walk that is total once the dead and void grounds are out of the way: a live record that is over a
+registered bound or holds a transaction that can never run from its own bytes is void before the walk, and
+otherwise each transaction either runs or is set aside at its turn, so every live position settles in a
+bounded number of batches and no single publication can pin the frontier.</li>
+<li>A set-aside ground no producer&rsquo;s block contents can manufacture for a transaction a block with
+room could carry &mdash; it cannot change the record&rsquo;s own bytes or the order in which its transactions
+are walked &mdash; and the room ground&rsquo;s honest limit: filling the blocks at a turn leaves a forced
+transaction with no room and sets it aside, and the L1 gas that costs is why the guarantee is exclusion per
+unit of the censor&rsquo;s L1 spending rather than a promise about latency. A void ground fixed by the
+record&rsquo;s own published bytes, and an expiry ground that needs only the record&rsquo;s own stored
+block number and one registered constant. The pre-state a turn is judged against is the batch&rsquo;s own
+executed state, which the producer does set, so where a third-party credit lands relative to the turn decides
+whether an unaffordable transaction runs or is set aside (the credit-ordering edge).</li>
+<li>Enforcement in the proof only: the admission rule of <code>land</code> is unchanged, there is no escrow
+or fee, there is no new slashable offence, and no forced-inclusion state is read by the exit.</li>
+<li>An honest bound: exclusion per unit of the censor&rsquo;s L1 spending, conditional on a producer that
+lands batches and on an L1 that includes the publication.</li>
+</ul>
+
+<h2>What it does not give you</h2>
+<ul>
+<li><strong>No latency guarantee.</strong> A record can be void, or dead before the frontier reaches it, and
+arrivals beyond the drain make waits unbounded (arrivals outpacing the drain; expiry). The guarantee holds only while arrivals stay
+within the drain the obligation can force.</li>
+<li><strong>No general inclusion list.</strong> There is no queue of arbitrary transactions, no escrow, no fee
+and no L1 entry point that can force an <em>unpublished</em> transaction into L2 or start a withdrawal.</li>
+<li><strong>No remedy against an L1-level adversary.</strong> If the publication transaction is censored, or
+the user is isolated from every honest producer, the obligation never starts.</li>
+<li><strong>No inclusion without execution success.</strong> The obligation delivers a forceable transaction
+to L2 execution; whether it succeeds is the execution rules&rsquo; business, and a producer can order a block
+so a forced transaction reverts.</li>
+<li><strong>No measured parameters.</strong> Every <code>FI_*</code> term, the capacity relation and the
+schedule premise are placeholders with no measurement behind them, and nothing on this page is a value.</li>
+</ul>
+
+<h2>Check yourself</h2>
+<details><summary>A record is published and a producer lands a batch whose anchored view has passed the record&rsquo;s due point. What must the proof show about that record?</summary>
+<p>That the position is resolved. The dead test comes first and needs one stored number: if the
+record&rsquo;s block number plus the registered deadline is at or below the anchored view, the record is dead,
+whatever its size, its contents or how many of its transactions are set aside. Otherwise it is live, and the
+void grounds are tested before the walk: a live record is void if it is over a registered bound, if it holds a
+transaction that can never run from the record&rsquo;s own bytes, or if every one of its transactions is set
+aside at its turn. Only then does the walk run, reading the record&rsquo;s transactions in the record&rsquo;s
+own order: each one either runs or is set aside at its turn &mdash; its declared nonce is not the
+account&rsquo;s nonce at that point, or the account cannot pay the transaction&rsquo;s own declared maximum
+charge, or the account has code there, or the block in which that turn lies had no room to carry it
+(a later block&rsquo;s room neither rescues nor condemns a transaction whose turn has passed)
+&mdash; and at least one runs, so the record resolves as executed with each set-aside transaction
+discharged. There is no other answer, and the frontier cannot pass a position that is none of the three.</p></details>
+<details><summary>Can a producer make a due record void by filling blocks and pushing the base fee above the record&rsquo;s max fee per gas?</summary>
+<p>No. The walk reads the record&rsquo;s own immutable bytes, the registered constants, and the sender&rsquo;s
+nonce, balance and code at the transaction&rsquo;s turn, against the transaction&rsquo;s own declared
+maximum charge. The base fee and the including block&rsquo;s gas limit are not inputs, and the block&rsquo;s
+own remaining gas at the turn is read only by the room ground, so a block producer cannot manufacture a
+set-aside ground out of the environment for a transaction a block with room could carry: it cannot change
+the record&rsquo;s own bytes or the order in which its transactions are walked, and only the sender&rsquo;s own
+signed transactions move its nonce, while its balance can be moved by anyone, and no producer can put code
+at another account&rsquo;s address by block contents. The room ground is the one its own blocks do reach:
+filling the blocks at the turn leaves a forced transaction with no room and sets it aside, and the L1 gas
+that costs is why the guarantee is about the censor&rsquo;s L1 spending and not about latency. The other thing
+the producer does set is the batch&rsquo;s own executed state, and so where a third-party credit lands relative
+to the turn: a
+credit placed before the turn can make a transaction that is unaffordable there without it runnable, so the
+transaction must run, while the same credit placed after the turn leaves it set aside. A credit can only
+ever enable a transaction, never set one aside, and re-publication is the remedy for a transaction that was
+set aside.</p></details>
+<details><summary>A record holds two transactions: one that can run at its turn and one whose declared nonce is unreachable. Does the position resolve?</summary>
+<p>Yes. The walk runs the first in the record&rsquo;s own order and sets the second aside, because at its turn
+its nonce is not the account&rsquo;s nonce there. The same turn reads the other three set-aside grounds &mdash;
+a balance below the charge the transaction declares, a sender that has code, and no room in the block in
+which the turn lies &mdash; and any one of them would set a transaction aside in the same way. At least
+one transaction runs, so the record resolves as executed, and the transaction set aside is discharged. The
+position is not left unresolved waiting for a mode that fits the whole record.</p></details>
+<details><summary>A censor refuses to include the record at the front of the queue. What happens?</summary>
+<p>Settlement halts with it. The frontier cannot skip an outstanding live record, so no later range can land
+while the record stands, and the censor cannot manufacture a set-aside ground for a transaction a block
+with room could carry: only a transaction that cannot run at its turn is set aside, so every transaction
+that can run must run, in the record&rsquo;s own order. The ground its own blocks do reach is the room ground:
+filling the blocks at a turn leaves a forced transaction with no room and sets it aside, at a cost in L1 gas
+&mdash; the same spending the bound below measures. The other thing the censor&rsquo;s own ordering decides is
+where a third-party credit lands relative to a turn &mdash; before it, an unaffordable transaction runs;
+after it, the transaction is set aside (the credit-ordering edge). Its other options are the live-only void grounds &mdash; the record is over a registered bound, holds
+a transaction that can never run from its own bytes, or has every transaction set aside at its turn &mdash; or
+to let it age out to dead, the test that runs first at any view past its deadline, which means not settling
+past it for its whole deadline window. Re-publication creates a new record with a fresh clock, so keeping a target out
+indefinitely costs the censor roughly one L1 publication per deadline window. That is the bound &mdash;
+exclusion per unit of the censor&rsquo;s L1 spending, not per unit of time.</p></details>
+<details><summary>Does the obligation delay a withdrawal?</summary>
+<p>No. Nothing on the withdrawal path &mdash; forming a root, attesting it, verifying it, the veto or exit
+eligibility &mdash; reads the register, the settlement frontier or the boundary commitment. A due record
+freezes only settlement, and it always resolves: dead is tested first, a live record is void on a ground its
+own bytes and the sender&rsquo;s own state fix, or its transactions run or are set aside at their turn, so the
+freeze is bounded by the record&rsquo;s own deadline at the outside.</p></details>
+
+<div class="card">
+<h3>Assumptions</h3>
+<ul>
+<li>At least one honest or rational producer lands batches; the obligation binds a producer that settles, not
+a chain that never settles.</li>
+<li>Ethereum includes the user&rsquo;s publication transaction and keeps producing and finalizing blocks; the
+obligation begins at publication.</li>
+<li>Arrivals of livable records stay within the drain the obligation can force; if they do not, waits grow
+without bound and the deadline is an exit rather than a latency bound (arrivals outpacing the drain).</li>
+<li>The registered capacity relation holds and the L2 gas-limit schedule permits a maximum-length batch at
+the registered per-block bound (the capacity premise); no registered rule maintains the schedule premise.</li>
+<li>Batch data and blobs stay retrievable for the window the proof needs, and the registered constants keep
+the normal pipeline inside the anchor-age envelope (the anchor-age residual).</li>
+<li>Every <code>FI_*</code> value is unmeasured; nothing on this page is a measurement.</li>
+</ul>
+</div>
+
+<p class="small"><a href="10-economics.html">&larr; Previous: Who pays, who earns</a> &middot;
+<a href="glossary.html">Next: Glossary &rarr;</a></p>
+
+</main>
+<footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course · the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>
+</div><!-- /content -->
+</div><!-- /layout -->
+</body></html>

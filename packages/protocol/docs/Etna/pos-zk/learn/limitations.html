@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>What this design does not promise &middot; Etna PoS + ZK engineer&rsquo;s course</title>
+<link rel="stylesheet" href="course.css">
+</head><body>
+<div class="layout">
+<aside class="side">
+<span class="brand">Etna PoS + ZK</span>
+<span class="sub">engineer&rsquo;s course</span>
+<div class="grp">Lessons</div>
+<ol>
+<li><a href="index.html">Contents</a></li>
+<li><a href="01-what-is-etna.html">1. What Etna PoS + ZK is</a></li>
+<li><a href="02-life-of-a-transaction.html">2. Life of a transaction</a></li>
+<li><a href="03-consensus.html">3. How the chain agrees</a></li>
+<li><a href="04-staking-and-epochs.html">4. Stake, validators, epochs</a></li>
+<li><a href="05-the-proof.html">5. What the proof proves</a></li>
+<li><a href="06-data-and-proof-together.html">6. Data first, proof binds</a></li>
+<li><a href="07-timing.html">7. Two seconds, thirty minutes</a></li>
+<li><a href="08-when-things-go-wrong.html">8. When things go wrong</a></li>
+<li><a href="09-censorship-and-the-bridge.html">9. Censorship and the bridge</a></li>
+<li><a href="10-economics.html">10. Who pays, who earns</a></li>
+<li><a href="11-forced-inclusion.html">11. Forced inclusion</a></li>
+</ol>
+<div class="grp">Reference</div>
+<ol>
+<li><a href="glossary.html">Glossary</a></li>
+<li><a href="limitations.html" class="active">Limitations</a></li>
+</ol>
+<div class="grp">Authoritative</div>
+<ol>
+<li><a class="ext" href="../spec/index.html">Specification &rarr;</a></li>
+</ol>
+</aside>
+<div class="content">
+<main>
+
+<h1>What this design does not promise</h1>
+<p>The honest edge of everything in this course: what the design is, what it deliberately leaves unsolved, and which numbers do not exist yet.</p>
+
+<div class="note assume">
+<p><strong>This is a design, not a system.</strong> Nothing described in this course is implemented, deployed, audited or measured.
+There is no running network, no benchmark, no audit and no model. Every property called <em>proven</em> in the specification is an
+argument from named premises, not a machine-checked or tested result, and every number is either arithmetic on stated inputs or an
+unmeasured placeholder. Where this page and the <a href="../spec/index.html">specification</a> disagree, the specification wins.</p>
+</div>
+
+<h2 id="idea">The idea</h2>
+<p>A design earns trust by stating its own boundary. This page is that boundary: the guarantees the design does not make, the duties it
+does not enforce, and the dependencies it cannot remove. None of these is a temporary gap to be read past &mdash; each is part of the
+design as it stands.</p>
+<p>Two of them matter more than the rest for anyone sizing exposure. Forced inclusion over published data
+is part of this design, but it is <strong>not a latency guarantee</strong>: a record is resolved transaction by transaction
+in its own order, each transaction run or set aside at its turn. A transaction can be set aside, and a record can be discharged as dead by its own deadline,
+decided from its own stored block number, or as void while it is live, instead of included. A
+settlement stall can let it age out, and arrivals beyond the
+drain leave waits unbounded. The guarantee is exclusion per unit of the censor&rsquo;s L1 spending,
+conditional on at least one honest or rational producer and on an L1 that includes the publication. What remains absent is the <strong>general inclusion list</strong>:
+no queue, no escrow, no fee, and no L1 entry point for an <em>unpublished</em> transaction. A network-level
+adversary that can isolate a user &mdash; or that can censor L1 inclusion of the publication itself &mdash;
+can keep the data off L1 and exclude that user indefinitely, including preventing the user from starting a
+withdrawal, and the protocol offers no remedy. And a confirmation above the last batch accepted on Ethereum
+is <strong>provisional</strong>: nothing at or below the checkpoint is ever rewritten, and the one path that acts on the history above it is the stall resolution &mdash; a DAO-queued entry, a stored deadline, one execution by any account &mdash; which resumes settlement without erasing that range, invalidates a superseded certificate only as a batch&rsquo;s head evidence, and leaves the range as valid history that a later batch can extend, while its signals are not carried into the resumed settlement and must be resubmitted. A settlement stall halts the chain safely until that happens, and nothing obliges governance to act.</p>
+
+<h2 id="diagram">What each guarantee rests on</h2>
+<figure>
+<svg viewBox="0 0 960 330" role="img" aria-label="Five assumptions on the left, the guarantee each supports, and the consequence of failure on the right: provisional history, no remedy, or an unpriced risk.">
+  <defs>
+    <marker id="arL" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#0969da"/></marker>
+</defs>
+  <g fill="#ffffff" stroke="#d8dee4">
+    <rect x="16" y="16" width="440" height="46" rx="8"/>
+    <rect x="16" y="76" width="440" height="46" rx="8"/>
+    <rect x="16" y="136" width="440" height="46" rx="8"/>
+    <rect x="16" y="196" width="440" height="46" rx="8"/>
+    <rect x="16" y="262" width="440" height="52" rx="8" stroke="#9a6700"/>
+</g>
+  <text x="30" y="37" fill="#24292f" font-size="11">Fewer than one third of stake is malicious, and enough validators are online</text>
+  <text x="30" y="54" fill="#59636e" font-size="9">supports: PoS safety and continued certification (provisional above the checkpoint)</text>
+  <text x="30" y="97" fill="#24292f" font-size="11">Somebody retains the batch data until the proof lands</text>
+  <text x="30" y="114" fill="#59636e" font-size="9">supports: settlement ever happening</text>
+  <text x="30" y="157" fill="#24292f" font-size="11">Ethereum keeps producing and finalizing blocks</text>
+  <text x="30" y="174" fill="#59636e" font-size="9">supports: every L1-anchored status</text>
+  <text x="30" y="217" fill="#24292f" font-size="11">The ETH reward pool is actually funded</text>
+  <text x="30" y="234" fill="#59636e" font-size="9">supports: validator rewards of any size</text>
+<text x="30" y="283" fill="#9a6700" font-size="11">A fresh, Ethereum-finalized L1 checkpoint exists</text>
+<text x="30" y="300" fill="#59636e" font-size="9">supports: safe sync by a new node and every L1-anchored status</text>
+  <rect x="580" y="30" width="364" height="120" rx="8" fill="#ffebe9" stroke="#5c2630"/>
+  <text x="596" y="54" fill="#cf222e" font-size="12">If a liveness assumption fails</text>
+<text x="596" y="76" fill="#24292f" font-size="10">settlement can stall; confirmations above the last</text>
+<text x="596" y="93" fill="#24292f" font-size="10">accepted checkpoint are provisional, and the chain stays</text>
+<text x="596" y="110" fill="#24292f" font-size="10">halted unless the stall resolution runs. A stall over data</text>
+<text x="596" y="127" fill="#24292f" font-size="10">below the checkpoint still halts, possibly for good.</text>
+  <rect x="580" y="170" width="364" height="120" rx="8" fill="#fff8e5" stroke="#5c4a1c"/>
+  <text x="596" y="194" fill="#9a6700" font-size="12">If a safety or funding assumption fails</text>
+  <text x="596" y="216" fill="#24292f" font-size="10">the guarantees do not apply and no rule repairs</text>
+  <text x="596" y="233" fill="#24292f" font-size="10">them: two valid histories can exist above one third</text>
+  <text x="596" y="250" fill="#24292f" font-size="10">of Byzantine stake, and an unfunded pool pays</text>
+  <text x="596" y="267" fill="#24292f" font-size="10">nothing. There is no compensation channel.</text>
+  <line x1="460" y1="39" x2="576" y2="70" stroke="#0969da" marker-end="url(#arL)"/>
+  <line x1="460" y1="99" x2="576" y2="90" stroke="#0969da" marker-end="url(#arL)"/>
+  <line x1="460" y1="159" x2="576" y2="110" stroke="#0969da" marker-end="url(#arL)"/>
+  <line x1="460" y1="219" x2="576" y2="220" stroke="#0969da" marker-end="url(#arL)"/>
+  <line x1="460" y1="288" x2="576" y2="250" stroke="#0969da" marker-end="url(#arL)"/>
+</svg>
+<figcaption>Left: what has to hold. Right: what failure looks like. None of it is repaired by a validity proof &mdash; a proof shows a
+transition is correct, not that the premises were met, and no resolution repairs a broken premise.
+</figcaption>
+</figure>
+
+<h2 id="list">The honest list</h2>
+<p>Each entry below states one limit: what it is, why no rule closes it, and what follows for anyone relying on
+the design. The order follows the design&rsquo;s own layers, from scope to economics.</p>
+
+<h3>Scope: a design, not an implementation</h3>
+<p>There is no implementation, no deployment, no benchmark, no audit and no formal model. Statements that a rule is
+<em>proven</em> mean it has an argument with named premises; they do not mean it has been tested. Every performance, cost, revenue and
+market quantity of this design is <strong>unmeasured</strong>. The only measured-looking numbers in the course are Ethereum constants
+copied from published standards, and even those are properties of Ethereum rather than of this design.</p>
+
+<h3>Confirmations are provisional above the last accepted checkpoint</h3>
+<p>A PoS confirmation is not settlement. A height above the last batch accepted on Ethereum is provisional:
+the certificate stays valid as evidence and the blocks stay valid history, but the confirmation is not settled, and the only rule that acts on it is the stall resolution &mdash; a DAO-queued entry, a stored deadline, one execution by any account &mdash; which resumes settlement without erasing the provisional range. A certificate from a superseded generation is void at acceptance and can no longer serve as a batch's head evidence, while the range stays valid history that a later batch can extend. A batch that extends the checkpoint must carry the current generation in its head certificate, its contributing votes and its head header; a certificate at or below the checkpoint is judged under that block's own header generation and is never compared with the current one. A settlement stall halts the chain safely: nothing at or below the last accepted checkpoint is ever rewritten, and the recovery generation &mdash; the signed field that scopes certificates and locks &mdash; advances only through an executed stall resolution, so no height is retired. Ethereum-finalized checkpoints and accepted batches are the settled
+part of the chain; value above the checkpoint, or value never messaged, has no L1-provable claim while
+production is halted, and no protocol penalty compensates an off-chain loss. Correct participants halt
+rather than choose a branch, and a halt can be permanent when the missing ingredient is data for a block at
+or below the accepted checkpoint, the validator set, or the stake assumption. Production also backpressures
+before that point: validators refuse to vote past the unsettled-depth cap, and a violation of that cap is
+not objectively punishable at L1 &mdash; its only enforcement is honest compliance.</p>
+
+<h3>Off-chain loss exposure has no universal bound</h3>
+<p>History above the last accepted checkpoint is unsettled: its inclusions, ordering, balances and bridge
+messages are provisional, and any economic position built on them is exposed. The design states no universal
+bound on that loss and offers no compensation: penalties debit an offender&rsquo;s stake and are not a
+claims channel. The unsettled depth is bounded by the cap while the cap is enforced, but the cap is not a
+bound on loss.</p>
+
+<h3>A stalled chain has one way forward, and it depends on governance</h3>
+<p>The design has no automatic and no permissionless recovery. The one route out is the stall resolution: during the stall the DAO may queue a single entry, the entry stores its own deadline, and after that deadline anyone may execute it once to resume settlement from the checkpoint without erasing the provisional range above it. Nothing obliges governance to queue or execute an entry, so the design gives no protocol-level guarantee of liveness after a stall, and the chain stays halted until one runs. A user&rsquo;s only exit in the meantime is the withdrawal path that works from the last settled state on Ethereum alone &mdash; through a withdrawal root of <code>k</code> distinct-family attestations, which needs a funded proving market and data that is still retrievable. This is a <strong>social-layer assumption</strong>, stated as one: nothing prices the halt with a bond, enforces a bound on it, or lets any party choose a state, a checkpoint or a height above the last accepted checkpoint &mdash; the resolution names nothing and treats the whole range above the checkpoint alike.</p>
+
+<h3>Membership has a liveness gate, and it does not compel participation</h3>
+<p>Membership in a <em>future</em> set version is renewed on L1: an entry&rsquo;s last heartbeat must fall in the
+version&rsquo;s evaluation window &mdash; the heartbeat window containing the L1 block at which the
+version&rsquo;s epoch first became coverable &mdash; or in the window immediately before it, or the entry is
+simply not selected into that version. The
+design states what that does and does not buy. It does not repair a version already committed: a chain
+stalled inside an epoch whose roster cannot form quorum is not released by the heartbeat, and no v1 rule
+draws a replacement set for that epoch. It does not compel participation: a cohort that keeps attesting
+while withholding its votes keeps its weight and can stall again. It does not punish a lapse: a missed
+heartbeat costs slots in future versions and never stake, and re-attesting restores the entry at a later
+version. And it adds its own dependency: the mechanism works only if honest heartbeat transactions
+are included on L1, so an adversary able to censor them, delay them past their window, or price them out
+can exclude honest validators from future versions and thereby raise its own share of those versions
+&mdash; a stated limit, not a repaired one. A signature may be produced up to a bounded term before the window
+it names, so an absent key can keep coverage across one window boundary; that residual is stated, not closed. A change to the window length that takes effect while an epoch is in flight can also
+leave an entry outside the version being evaluated even though it attested on the grid in force when it
+signed; the design delays no such change to an epoch boundary and freezes no window per epoch, so this case
+is another stated limit rather than a repaired one. All of these are open limits: no rule closes them.</p>
+
+<h3>A funded reward pool is what keeps settlement moving</h3>
+<p>Settlement assumes the landing market is funded: that the fee sweep actually credits the reward pool and that the
+reward available to a lander is not below the cost of landing. If the pool is empty or the reward is below cost, no rational prover
+lands, the settlement stall arrives with <strong>no adversary at all</strong>, and it is reached by economics rather than by
+attack. No rule repairs that: the stall resolution could clear the halt but would change no reward, no fee and no subsidy.
+Clearing a stall is never a remedy for an unfunded reward pool.</p>
+
+<h3>Profit made off-chain from unsettled state is outside any protocol bound</h3>
+<p>Inclusions, ordering and balances above the last accepted checkpoint are provisional. Profit taken from
+that state outside the protocol &mdash; a position closed elsewhere, a withdrawal credited off-chain, MEV
+extracted around the unsettled range &mdash; is outside any protocol bound. No rule measures it, no penalty
+recovers it, and protocol penalties are not a compensation channel. The losses on the other side of those
+trades are equally unbounded.</p>
+
+<h3>Data retention is an assumption, not an enforced duty</h3>
+<p>Settlement requires that somebody still holds a batch&rsquo;s data and the witness needed to prove it. Retention is a
+<strong>liveness assumption</strong>: a failure to serve data is not provable on L1 for most classes, so it produces a halt rather than
+a penalty. No rule may claim retention is enforced, and no reward or bond makes serving data a duty a validator can be slashed for
+breaching.</p>
+
+<h3>Inclusion is conditional: no latency guarantee, and no remedy for isolation</h3>
+<p>Published data carries a narrow inclusion obligation, enforced in the proof: after a record&rsquo;s due
+point, a batch that lands must advance a settlement frontier past it by resolving the record &mdash; dead first and unconditionally, when the record&rsquo;s own deadline
+has passed at the anchored view, decided from its own stored block number; otherwise, while the
+record is live, a record over a registered bound or holding a transaction that can never run from its own
+bytes is void before the walk, and otherwise the walk reads its transactions in the record&rsquo;s own order,
+each one either runs or is set aside at its turn because it cannot run there (the no-room ground turns on
+the remaining gas, at that turn, of the block in which the turn lies, and a later block&rsquo;s room neither
+rescues nor condemns a transaction whose turn has passed), and a live record all of whose
+transactions are set aside is void too. It is not a per-transaction latency guarantee: a transaction set aside may
+become runnable later through the sender&rsquo;s own further transactions or through a credit from any
+account &mdash; a credit can only ever enable a transaction, never set one aside, and where it lands relative
+to a turn is the producer&rsquo;s ordering decision &mdash; a residual the design discloses &mdash; and re-publication is the
+remedy. A record can be discharged without being executed; a settlement stall longer than the record&rsquo;s deadline, or a
+queue that drains more slowly than records age, discharges it by expiry; if livable records permanently
+arrive faster than the drain the obligation can force, waits grow without bound &mdash; an open limit, since no
+rule keeps arrivals inside the drain; and the mechanism
+bounds exclusion per unit of the censor&rsquo;s L1 spending, not per unit of time. The condition is part of
+the guarantee: it holds while arrivals stay within the drain, while at least one honest or rational producer
+lands batches, and while L1 includes the user&rsquo;s publication. A pure censor that refuses the front
+record halts its own frontier rather than censoring; a publishing censor pays roughly one L1 publication per
+deadline window; an L1-censored publication cannot be forced at all. No new slashable offence is created:
+the rejected proof is the whole enforcement.</p>
+<p>The forceability test is exact over the record&rsquo;s own bytes and the state at a transaction&rsquo;s
+turn, and over the validity requirements the rule enumerates; it cannot rule out a further execution-validity
+rule a valid block enforces that depends on neither. That gap is carried open, not denied. What would show it
+is a transaction the rule calls forceable and the walk does not set aside at its turn, yet no valid block of
+the range can carry it: the walk would demand an execution that cannot happen, the position could not
+resolve, and settlement would halt until the record&rsquo;s deadline passed &mdash; the same settlement halt
+the enumerated validity classes would otherwise cause. <em>The enumeration residual stays open: the
+rule&rsquo;s demand is exact only over the reasons its own inputs and the enumerated validity classes
+decide.</em></p>
+<p>What does not exist is the <strong>general inclusion list</strong>: no queue of arbitrary transactions,
+no escrow, no fee and no L1 entry point that can force an <em>unpublished</em> transaction into L2, and no
+remedy for an adversary that keeps the data off L1. Proposer selection is weighted and public, so a
+coalition holding less than a third of voting power is selected for fewer than a third of slots in
+expectation, and an unpublished transaction that reaches honest validators is included by the first honest
+proposer with room for it &mdash; but that last clause is behavioural, not a rule, and it does not reach
+data that never reaches L1. A network-level adversary able to isolate a user from every honest proposer, or
+to censor L1 inclusion of the publication itself, can keep the data off L1 and exclude that user&rsquo;s
+transactions indefinitely; because a withdrawal is started by an L2 transaction, the same adversary can
+prevent the user from <em>starting</em> a withdrawal. The protocol offers no remedy for that case.
+Proposer selection is fully predictable, so buying or coercing the proposer of one specific slot is possible
+and no rule prices, detects or penalises it.</p>
+<p>A settlement stall is not an inclusion remedy. The stall resolution can clear it, but it includes nothing; the obligation binds a batch that lands, so nothing operates while settlement is stopped, and the stall cannot lift an exclusion. The specification records the <strong>general inclusion list</strong> as a planned update that may be added later; it is not part of this design, and this version has no L1 path by which a user can force an <em>unpublished</em>
+transaction into L2.</p>
+
+<h3>Rewards depend on a funded pool</h3>
+<p>Validator and prover rewards are ETH, and they can only be paid out of ETH that has actually flowed into the reward pool. L2
+execution and priority fees are the funding source: the L2 fee vault is swept across the preserved Bridge into the L1 reward pool on a
+fixed cadence, so the honest consequences are that rewards lag the settlement pipeline, an empty pool pays nothing, and a bridging
+failure stops rewards rather than creating a claim on future revenue.  What
+an unfunded schedule does is not quietly shrink: the validator count falls through the objective exit path, or the chain halts. The subsidy, if one is funded, is bounded, expiring and netted out of the same inflow &mdash;
+it is not a second funding source. TAIKO has no mint path today, so paying rewards in new TAIKO would require a token upgrade and is not
+a standing source. No rule may be conditioned on TAIKO&rsquo;s price rising, and there is no verified price, float or liquidity data in
+this design.</p>
+
+<h3>Long-range attacks are handled by weak subjectivity</h3>
+<p>An attacker who once held a third of the stake and has since exited can still produce an alternative history whose signatures verify,
+because it kept the keys that were committed at that past epoch; once its stake is released it cannot be punished. The defences are
+that a node never adopts an L2 history conflicting with its L1 checkpoint, and that it refuses to bootstrap from a checkpoint older
+than a fixed freshness window. That window is the weak-subjectivity trust requirement: a node cannot validate its way out of it, and if
+no fresh, Ethereum-finalized checkpoint exists &mdash; because of a long halt or a proving outage &mdash; a new node must not present the
+history it syncs as verified, and new validators cannot be admitted until a newer checkpoint exists.</p>
+
+<h3>Governance can change the rules</h3>
+<p>Upgrades are a governance action, and a governance action can rewrite any rule in this design, including the ones this page
+describes. Malicious or captured governance is outside the protocol&rsquo;s protection: the staking ledger, the offence catalogue and
+the reward identity are all rules that an upgrade could replace. The design's protection in ordinary operation is the absence of an
+emergency operator or an owner-triggered path that moves bonded stake &mdash; not an assumption that governance will always behave.
+The one runtime action governance has is the stall resolution &mdash; DAO-queued, timelocked, resume-only, and it moves no stake &mdash; and a settlement stall is cleared only if governance acts: the halt&rsquo;s continuation is disclosed as a fact of the design and depends on a party choosing to act.</p>
+
+<h3>No measured numbers, and no compensation</h3>
+<p>Proving latency, throughput, bandwidth, storage, retention, operator cost, fee revenue, reward schedules, L1 verification gas,
+evidence windows and the withdrawal delay are all unmeasured, and the stall resolution&rsquo;s window is a stated, unmeasured relation, not a number. Penalties are not compensation and no universal bound on user loss exists:
+a penalty debits an offender&rsquo;s stake, and losses from a broken safety assumption, a key compromise, a proof-system failure, a
+malicious upgrade or an L1 reorganisation are not covered by any rule.</p>
+
+<h2 id="example">Worked example &mdash; what is actually known</h2>
+<p>The table separates three different kinds of number, because the difference is the point.</p>
+<table>
+<thead><tr><th>Number</th><th>Where it comes from</th><th>Tag</th></tr></thead>
+<tbody>
+<tr><td>50,000 gas per blob KZG point-evaluation</td><td>Ethereum&rsquo;s EIP-4844 precompile cost</td><td><span class="tag">sourced</span></td></tr>
+<tr><td>131,072 bytes per blob; 6 blobs target / 9 maximum per L1 block</td><td>Ethereum&rsquo;s EIP-7691 blob parameters</td><td><span class="tag">sourced</span></td></tr>
+<tr><td>Roughly two Ethereum epochs of finality depth</td><td>Ethereum&rsquo;s own finality rule; must be re-derived if Ethereum changes</td><td><span class="tag">sourced</span> property</td></tr>
+<tr><td>900 L2 blocks in thirty minutes</td><td>30 &times; 60 / 2, from the two-second cadence</td><td><span class="tag">derived</span></td></tr>
+<tr><td>About 118 MB published per 900-block envelope</td><td>900 &times; 131,072 bytes at the blob target</td><td><span class="tag">derived</span></td></tr>
+<tr><td>Proving latency, cycles per gas, verifier gas, consensus round time, retention, operator cost, fee revenue, reward rate, evidence window, withdrawal delay</td><td>No measurement exists; each needs a stated experiment with workload, hardware and methodology</td><td><span class="tag">unmeasured</span></td></tr>
+<tr><td>Measured quantities of this design</td><td>None</td><td><span class="tag">unmeasured</span></td></tr>
+</tbody>
+</table>
+
+<h2 id="gives">What this gives you</h2>
+<ul>
+<li>A clear boundary: which claims are arguments, which are arithmetic, and which numbers simply do not exist yet.</li>
+<li>An explicit statement that a settled checkpoint is never rewritten while everything above it is provisional, and that the one path which acts on it is the stall resolution &mdash; DAO-queued, timelocked, executed once, resuming settlement without erasing the range &mdash; while the halt lasts as long as governance does not act. Where nothing can help, a halt can still be permanent.</li>
+<li>A recovery generation that is narrow by construction: it is a signed field that scopes certificates and locks, it advances only through an executed stall resolution (once per entry), no state, checkpoint or height can be chosen through it, and no height is retired.</li>
+<li>A precise statement of the inclusion limit: a proof-enforced obligation over published data that is not
+a latency guarantee and states its conditions, no general inclusion list, and for unpublished data only
+statistical resistance, with no remedy against isolation.</li>
+<li>The dependencies named &mdash; retention, funding, weak subjectivity, and governance liveness for the one recovery rule &mdash; so they can be monitored and priced deliberately.</li>
+</ul>
+
+<h2 id="not">What it does not give you</h2>
+<ul>
+<li>No implementation, deployment, audit, benchmark or model to point at.</li>
+<li>No measurement of any performance, cost or economic quantity of this design.</li>
+<li>No rewrite of settled history, no emergency operator and no degraded mode &mdash; but also no compensation for the off-chain
+losses that provisional history can cause, and no universal bound on them; and no protocol-level guarantee that a stalled chain resumes at all, since the one route back depends on governance acting.</li>
+<li>No latency guarantee, no general inclusion list, no way to force an <em>unpublished</em> transaction
+in, no retention enforcement and no compensation for loss.</li>
+<li>No liveness gate that compels participation: the L1 heartbeat decides who is in future set versions, and an entry that
+stops attesting loses its slots there and no stake. A committed version is never re-drawn, and a cohort that keeps attesting
+while withholding its votes keeps its weight.</li>
+<li>No protection against a malicious upgrade, or against a proof-system or cryptographic failure.</li>
+</ul>
+
+<h2 id="check">Check yourself</h2>
+<details><summary>Settlement stalls for a week. What does the design do about it?</summary>
+<p>The chain halts safely: nothing at or below the last checkpoint accepted on Ethereum is rewritten, and a
+withdrawal whose signal is at or below that checkpoint stays executable on Ethereum alone once a withdrawal
+root of <code>k</code> distinct-family attestations forms over it and the delay runs from the root&rsquo;s
+record with no unexpired veto standing. v1 has no path
+that clears the stall except the stall resolution &mdash; the DAO queues a single entry, and after its stored deadline anyone may execute it once to resume settlement from the checkpoint without erasing the provisional range above it &mdash; and nothing obliges governance to act. If the missing ingredient is data at
+or below the accepted checkpoint, nothing can help and the halt can be permanent. And if the real cause is an
+empty or below-cost reward pool, no update that merely clears the halt would fix it: it would change no
+reward and no fee.</p></details>
+<details><summary>What clears a settlement stall in v1?</summary>
+<p>The stall resolution: a DAO-queued entry, a stored deadline, one execution by any account, resuming settlement from the checkpoint without erasing the provisional range above it. It is not automatic and nothing obliges governance to act, so there is no protocol-level guarantee of liveness after a stall. Users can still exit from the last settled state on Ethereum alone through a withdrawal root that <code>k</code> distinct backend families must attest from data that is still retrievable and that an unexpired veto can delay, but unsettled value above the checkpoint has no L1-provable claim until a later checkpoint covers it. Clearing the stall is left to governance using that rule.</p></details>
+<details><summary>A user is isolated from every honest proposer. Can they withdraw anyway?</summary>
+<p>Only if the transaction&rsquo;s data reaches L1, and even then the obligation it starts is not a latency
+guarantee: a batch that lands must advance the settlement frontier past the record by resolving it &mdash; dead first and unconditionally, when the record&rsquo;s own deadline has
+passed at the anchored view, decided from its own stored block number; otherwise, while the record
+is live, a record over a registered bound or holding a transaction that can never run from its own bytes
+is void before the walk, and otherwise the walk runs or sets aside each transaction at its turn, and a
+live record all of whose transactions are set aside is void too &mdash; but a transaction can be set aside and a record can be discharged
+without being executed, and a stall can let it age out. An adversary that can also keep the data off L1 &mdash;
+by cutting the user off from every honest proposer, or by censoring L1 inclusion of the publication itself
+&mdash; can still prevent the withdrawal from starting, indefinitely, and the protocol offers no remedy. For
+data that never reaches L1, inclusion resistance is a conditional statistical property, not a
+guarantee.</p></details>
+<details><summary>Which numbers in this course are measured?</summary>
+<p>None of this design&rsquo;s own numbers. Ethereum constants such as the blob gas cost and blob sizes are copied from published
+standards, and quantities like 900 blocks per thirty minutes are arithmetic on the two-second cadence. Everything else &mdash; proving
+latency, throughput, operator cost, fee revenue, reward rates, evidence and withdrawal delays &mdash; is unmeasured.</p></details>
+
+<h2 id="assumptions">Assumptions</h2>
+<div class="note assume">
+<ul>
+<li>Fewer than one third of the voting power in each epoch is malicious, and enough validators stay online to reach quorum.</li>
+<li>Somebody retains each batch&rsquo;s data and witness until its proof lands, and a funded proving market
+produces the <code>k&minus;1</code> further attestations a withdrawal root needs from data that is still
+retrievable.</li>
+<li>Somebody publishes a transaction&rsquo;s data to L1 while the blobs are retrievable; publication starts
+the inclusion obligation but not a latency guarantee, so if the data never reaches L1 the protocol has no
+remedy. Arrivals of livable records stay within the drain the obligation can force, and at least one honest
+or rational producer lands batches.</li>
+<li>Ethereum keeps producing and finalizing blocks, and L1 facts reach Ethereum finality at a known depth. Validators post an
+L1 heartbeat once per window of <code>HEARTBEAT_WINDOW</code> L1 blocks and Ethereum includes those transactions; a lapse costs future slots and not stake, and
+censoring honest heartbeats can exclude honest validators from future versions.</li>
+<li>The reward pool is funded by L2 fee revenue or a recorded top-up; otherwise no reward is payable.</li>
+<li>A fresh, Ethereum-finalized L1 checkpoint is available to a new node, and governance does not execute an upgrade that breaks these
+rules.</li>
+<li>The stall resolution is the one route out of a settlement stall &mdash; a DAO-queued entry, a stored deadline, one execution by any account &mdash; and nothing obliges governance to act, so there is no protocol-level guarantee of liveness after a stall. The exit from the last settled state stays available on
+Ethereum alone.</li>
+</ul>
+</div>
+
+<p class="small">Previous: <a href="glossary.html">Glossary</a> &middot; Next: <a href="index.html">Contents</a>.</p>
+
+</main>
+<footer class="site"><p>Etna PoS + ZK engineer&rsquo;s course &middot; the authoritative rules are in the <a href="../spec/index.html">specification</a>.</p></footer>
+</div><!-- /content -->
+</div><!-- /layout -->
+</body></html>
