@@ -170,6 +170,13 @@ REPLAY_REPAIRED = "successful WAL repair"
 REPLAY_COMMIT = "finalizing commit of block"
 # Restarts of the pair after a stock repair of a torn WAL tail that the startup check found.
 MAX_REPAIR_RESTARTS = 3
+# The planned ruleset upgrade during a pause (START-10.1-14b, RECOV-8.2-2): the operator's request
+# file in the run directory arms the signer to stop on a precommit; once the signer reports that
+# its gate closed after one, the supervisor waits STOP_GRACE seconds for Comet to record and send
+# that precommit, stops the pair, writes the outcome beside the request and stays quiescent.
+STOP_REQUEST = "stop-on-precommit"
+STOP_DONE = "stop-on-precommit.done"
+STOP_GRACE = 2.0
 # Go strconv.ParseBool, which Viper's weak decoding applies to a CMT_* string.
 ENV_BOOLS = {"1": True, "t": True, "T": True, "TRUE": True, "true": True, "True": True,
              "0": False, "f": False, "F": False, "FALSE": False, "false": False, "False": False}
@@ -622,6 +629,9 @@ class Supervisor:
         self.preflight = None
         self.head = None
         self.repair_restarts = 0
+        self.stop_armed = False
+        self.stop_reached = None
+        self.stopped_for_upgrade = False
         self.manifest = self.load_manifest()
         self.check_comet_executable()
         genesis = json.loads((self.home / "config/genesis.json").read_text())
@@ -1138,6 +1148,15 @@ class Supervisor:
             reply["replay"] = observer.snapshot()
         elif request["op"] == "wal":
             reply["binding"] = self.live_binding(request.get("height"))
+        elif request["op"] == "stop":
+            reply["stop"] = getattr(self, "stop_armed", False)
+        elif (request["op"] == "stopped" and getattr(self, "stop_armed", False)
+              and type(request.get("height")) is int and type(request.get("round")) is int):
+            if getattr(self, "stop_reached", None) is None:
+                self.stop_reached = (request["height"], request["round"], time.monotonic())
+                print(f"etna_supervisor_signer_stopped_after_precommit: height {request['height']} round "
+                      f"{request['round']}; stopping Comet in {STOP_GRACE:g}s", flush=True)
+            reply["stopped"] = True
         else:
             reply["error"] = f"op {request['op']!r} is unavailable"
         return reply
@@ -1365,6 +1384,35 @@ class Supervisor:
             self.record_unsafe_signer(self.unsafe_reason() + "\n")
         print("etna_supervisor_halted: operator repair required", flush=True)
 
+    def stop_for_upgrade(self):
+        """Arm the stop on a precommit once the operator's request appears, and once the signer
+        reported its gate closed after one and the grace passed, stop the pair for good. True
+        while the supervisor stays quiescent for the upgrade."""
+        if getattr(self, "stopped_for_upgrade", False):
+            return True
+        if getattr(self, "run_dir", None) is None:
+            return False
+        request = self.run_dir / STOP_REQUEST
+        if not getattr(self, "stop_armed", False) and request.exists():
+            self.stop_armed = True
+            print("etna_supervisor_stop_on_precommit_armed: the signer stops after its next precommit, "
+                  "or at once if its last signature is one (START-10.1-14b)", flush=True)
+        reached = getattr(self, "stop_reached", None)
+        if reached is None or time.monotonic() - reached[2] < STOP_GRACE:
+            return False
+        if self.halt_if_unsafe(self.stop()):
+            return True
+        self.stopped_for_upgrade = True
+        outcome = dict(stopped=True, height=reached[0], round=reached[1])
+        temporary = self.run_dir / f".{STOP_DONE}.{secrets.token_hex(8)}"
+        temporary.write_text(json.dumps(outcome) + "\n")
+        os.replace(temporary, self.run_dir / STOP_DONE)
+        request.unlink(missing_ok=True)
+        print(f"etna_supervisor_stopped_for_upgrade: the signer's last signature is the precommit at height "
+              f"{reached[0]} round {reached[1]}; Comet and the signer are stopped. Upgrade, then restart the "
+              "supervisor", flush=True)
+        return True
+
     def tick(self):
         if getattr(self, "halted", False) or self.present(self.latch) or self.unsafe_evidence():
             if self.comet is not None or self.signer is not None:
@@ -1374,6 +1422,8 @@ class Supervisor:
             self.halted = True
             self.retry_latch()
             self.retry_unsafe_record()
+            return
+        if self.stop_for_upgrade():
             return
         observed = self.read_observation(self.events)
         if observed is not None and observed[0] != self.prior_observation:
@@ -1477,7 +1527,37 @@ class Supervisor:
             self.owner_fds = []
 
 
+def request_stop_on_precommit(timeout):
+    """`etna_validator.py stop-on-precommit [--timeout S]`, with the supervisor's environment:
+    arm the running supervisor's signer to stop on a precommit for a planned ruleset upgrade
+    during a pause (START-10.1-14b), wait until it stopped the pair, and print the outcome."""
+    run_dir = Path(os.environ.get("ETNA_SUPERVISOR_RUN_DIR", str(Path(os.environ["ETNA_APP_STORE"]) / "supervisor")))
+    request, done = run_dir / STOP_REQUEST, run_dir / STOP_DONE
+    done.unlink(missing_ok=True)
+    descriptor = os.open(request, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    os.close(descriptor)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if done.exists():
+            print(done.read_text().strip(), flush=True)
+            return 0
+        time.sleep(.2)
+    print(f"etna supervisor: no precommit within {timeout:g}s; the stop stays armed until the supervisor restarts",
+          file=sys.stderr)
+    return 1
+
+
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["stop-on-precommit"]:
+        arguments = sys.argv[2:]
+        if arguments and not (len(arguments) == 2 and arguments[0] == "--timeout"):
+            print("usage: etna_validator.py stop-on-precommit [--timeout SECONDS]", file=sys.stderr)
+            sys.exit(2)
+        try:
+            sys.exit(request_stop_on_precommit(float(arguments[1]) if arguments else 600.0))
+        except (OSError, ValueError, KeyError) as error:
+            print(f"etna supervisor: {error}", file=sys.stderr)
+            sys.exit(1)
     try:
         Supervisor().run()
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:

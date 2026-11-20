@@ -74,7 +74,14 @@ type guardedPV struct {
 	// refused holds the heights at which this process refused a request before it reached the
 	// state (trust, a timeout, the supervisor channel), even before a session was admitted.
 	refused map[int64]bool
-	logger  log.Logger
+	// stopArmed: the operator armed the stop on a precommit for a planned ruleset upgrade
+	// (START-10.1-14b). The next precommit, nil or block, is persisted and returned as the last
+	// signature and closes the gate; closed refuses every later request of this process.
+	stopArmed bool
+	closed    bool
+	// reported: the closure was handed to the gate to tell the supervisor.
+	reported bool
+	logger   log.Logger
 }
 
 // replaySession is a restarted Comet process's same-height replay of the last signed height
@@ -294,6 +301,8 @@ func (p *guardedPV) admissible(chain string, height int64) error {
 		return fmt.Errorf("%w: %w", errSigningStateUnsafe, p.uncertain)
 	case p.admitted == nil:
 		return errors.New("no Comet session has been bound to the signer state")
+	case p.closed:
+		return errors.New("the signer stopped after its precommit for a planned ruleset upgrade (START-10.1-14b)")
 	case height < p.state.Floor:
 		return fmt.Errorf("%w: height %d is below %d", errBelowFloor, height, p.state.Floor)
 	}
@@ -354,6 +363,7 @@ func (p *guardedPV) SignVote(chain string, vote *tm.Vote) error {
 		}
 		vote.Signature = p.state.Signature
 		vote.ExtensionSignature = extSig
+		p.closeAfterPrecommit(step)
 		return nil
 	}
 	sig, err := p.key.Sign(signBytes)
@@ -365,7 +375,48 @@ func (p *guardedPV) SignVote(chain string, vote *tm.Vote) error {
 	}
 	vote.Signature = sig
 	vote.ExtensionSignature = extSig
+	p.closeAfterPrecommit(step)
 	return nil
+}
+
+// armStop arms the stop on a precommit (START-10.1-14b, RECOV-8.2-2). Under the signing lock, so
+// it serializes with every request: when the last signature already is a precommit, the gate
+// closes at once.
+func (p *guardedPV) armStop() (bool, int64, int32) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.stopArmed {
+		p.stopArmed = true
+		p.logger.Info("signer_stop_on_precommit_armed", "last_height", p.state.Height, "last_round", p.state.Round, "last_step", p.state.Step)
+	}
+	if !p.closed && p.state.signed() && p.state.Step == stepPrecommit {
+		p.closed = true
+	}
+	if p.closed && !p.reported {
+		p.reported = true
+		return true, p.state.Height, p.state.Round
+	}
+	return false, 0, 0
+}
+
+// closeAfterPrecommit closes an armed gate after a precommit was persisted and is being
+// returned. The caller holds mu.
+func (p *guardedPV) closeAfterPrecommit(step int8) {
+	if p.stopArmed && step == stepPrecommit && !p.closed {
+		p.closed = true
+		p.logger.Info("signer_stopped_after_precommit", "height", p.state.Height, "round", p.state.Round)
+	}
+}
+
+// stoppedAfter hands a new closure to the gate once.
+func (p *guardedPV) stoppedAfter() (bool, int64, int32) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed && !p.reported {
+		p.reported = true
+		return true, p.state.Height, p.state.Round
+	}
+	return false, 0, 0
 }
 
 // SignProposal applies stock FilePV's signProposal to the durable state.

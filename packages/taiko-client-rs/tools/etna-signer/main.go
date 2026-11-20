@@ -126,6 +126,7 @@ func run() error {
 	if err := server.Start(); err != nil {
 		return err
 	}
+	go gate.pollStop(signer, 250*time.Millisecond)
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(signals)

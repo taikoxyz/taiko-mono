@@ -470,5 +470,10 @@ func (g *gate) handle(signer types.PrivValidator, req pv.Message, chain string) 
 	}
 	response, err := privval.DefaultValidationRequestHandler(signer, req, chain)
 	g.stopIfUncertain(err)
+	if pv, ok := signer.(continuitySigner); ok && signing {
+		if closed, height, round := pv.stoppedAfter(); closed {
+			g.reportStop(height, round, time.Now().Add(time.Second))
+		}
+	}
 	return response, err
 }

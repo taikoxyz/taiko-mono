@@ -346,6 +346,8 @@ same `schema` and `id` (or an `error`):
 | `comet`   | none           | `"comet": null` while no Comet runs, else `{"pid": P, "start": "<ticks>" or null, "store_instance": "<32 hex>", "replay": null or {"height": H, "binding": B, "startup": B, "repair": bool}}`                            |
 | `observe` | none           | `"replay": {"attempt": n, "open": bool, "height": h, "tainted": bool, "repaired": bool}`, the log observer's view of the bound Comet after it consumed every record already written                                     |
 | `wal`     | `"height": H`  | `"binding": null` or B, the live binding of a signing request at H                                                                                                                                                      |
+| `stop`    | none           | `"stop": bool`, whether the operator armed the stop on a precommit for a planned ruleset upgrade (START-10.1-14b)                                                                                                       |
+| `stopped` | `"height": H, "round": R` | `"stopped": true` once armed: the gate closed after the precommit at H, R, its last signature; the supervisor then stops Comet                                                                                 |
 
 `pid` and `start` are the Comet process the supervisor started (its kernel start time, `null`
 without `/proc`), `store_instance` the ID it read before starting it, and `replay` its startup
@@ -378,6 +380,17 @@ Together with the eligible height, which the app names only once it has committe
 means the signer signs above H only once its node has verified a committed chain covering H.
 Failing to make a floor or binding durable is uncertain state (Fence on fsync failure). Import,
 recovery install and restore therefore never reset or lower the signer's state (DATA-5.4-7).
+
+### Stop on a precommit for a planned upgrade
+
+For a planned ruleset upgrade during a pause at an undecided height (START-10.1-14b), the operator
+runs `etna_validator.py stop-on-precommit` (package README). The signer learns that the stop is
+armed on its next request and from a poll every 250 ms. Under its signing lock it then keeps
+signing until a precommit, nil or block, which it persists and returns as its last signature and
+after which it refuses every request, its own retry included; when its last signature already is
+a precommit it closes at once. It reports the closing precommit (`stopped`), and only then does
+the supervisor stop Comet. After the upgrade, the restarted pair confirms that precommit under
+Same-height replay before it signs anything higher at that height.
 
 ### Same-height replay
 

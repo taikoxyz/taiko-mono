@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -90,6 +91,10 @@ func stoppedComet(t *testing.T, data string, height int64) []byte {
 //     the precommit is signed during the replay, bound to the startup prefix (2.k, 12.a).
 //  3. After another crash, stock falls through on a replay error: the saved precommit requested
 //     again live cannot confirm, and the signer persists the floor 6 (2.j).
+//  4. At H6 the operator's stop-on-precommit command arms the signer for a planned ruleset
+//     upgrade (START-10.1-14b): the live prevote signs, the precommit is persisted and returned
+//     as the last signature, every later request is refused, and the supervisor then stops the
+//     pair, which the command reports.
 func TestSupervisedSameHeightReplay(t *testing.T) {
 	python, err := exec.LookPath("python3")
 	if err != nil {
@@ -97,7 +102,9 @@ func TestSupervisedSameHeightReplay(t *testing.T) {
 	}
 	binary := signerBinary(t)
 	_, key, state := filePV(t)
-	controlPath := control(t, func(request map[string]any) any { return snapshotAt(request["op"] != "begin_session", 5) })
+	var eligible atomic.Uint64
+	eligible.Store(5)
+	controlPath := control(t, func(request map[string]any) any { return snapshotAt(request["op"] != "begin_session", eligible.Load()) })
 	root := shortTemp(t)
 	home, store := filepath.Join(root, "comet"), filepath.Join(root, "app")
 	for _, path := range []string{filepath.Join(home, "config"), filepath.Join(home, "data"), store} {
@@ -275,5 +282,42 @@ while True:
 	}
 	if fields := signed(readFile(t, state)); string(fields["floor"]) != `"6"` {
 		t.Fatalf("floor %s", fields["floor"])
+	}
+
+	// 4. The stop on a precommit for a planned upgrade.
+	eligible.Store(6)
+	if _, remote := released(signerExchange(t, conn, heightVote(tm.PrevoteType, 6, 1))); remote != nil {
+		t.Fatalf("live prevote at H6: %v", remote)
+	}
+	stop := exec.Command(python, "../../script/etna_validator.py", "stop-on-precommit", "--timeout", "20")
+	stop.Env = environment
+	var output, stopErrors bytes.Buffer
+	stop.Stdout, stop.Stderr = &output, &stopErrors
+	if err := stop.Start(); err != nil {
+		t.Fatal(err)
+	}
+	waitFor("the supervisor did not arm the stop", func() bool {
+		contents, _ := os.ReadFile(logs.Name())
+		return bytes.Contains(contents, []byte("etna_supervisor_stop_on_precommit_armed"))
+	})
+	precommit, remote := released(signerExchange(t, conn, heightVote(tm.PrecommitType, 6, 1)))
+	if remote != nil || len(precommit) == 0 {
+		t.Fatalf("the armed precommit was refused: %v", remote)
+	}
+	if signature, remote := released(signerExchange(t, conn, heightVote(tm.PrevoteType, 6, 1))); remote == nil || len(signature) != 0 || !strings.Contains(remote.Description, "stopped after its precommit") {
+		t.Fatalf("a request after the closing precommit: %v", remote)
+	}
+	if err := stop.Wait(); err != nil {
+		t.Fatalf("stop-on-precommit: %v %s", err, stopErrors.String())
+	}
+	if strings.TrimSpace(output.String()) != `{"stopped": true, "height": 6, "round": 0}` {
+		t.Fatalf("stop outcome %q", output.String())
+	}
+	if fields := signed(readFile(t, state)); string(fields["height"]) != `"6"` || string(fields["step"]) != "3" {
+		t.Fatalf("the last signature is not the precommit: %s/%s", fields["height"], fields["step"])
+	}
+	time.Sleep(500 * time.Millisecond)
+	if len(lines(starts)) != 3 || len(lines(pids)) != 3 {
+		t.Fatalf("the pair was restarted after the stop: %v %v", lines(starts), lines(pids))
 	}
 }

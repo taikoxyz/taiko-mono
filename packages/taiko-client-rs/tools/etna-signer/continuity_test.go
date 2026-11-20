@@ -58,9 +58,14 @@ func serveSupervisor(t *testing.T, report func() *cometProcess) string {
 						return
 					}
 					reply := map[string]any{"schema": 1, "id": request["id"]}
-					if request["op"] == "comet" {
+					switch request["op"] {
+					case "comet":
 						reply["comet"] = reportJSON(report())
-					} else {
+					case "stop":
+						reply["stop"] = false
+					case "wal":
+						reply["binding"] = nil
+					default:
 						reply["error"] = "unknown op"
 					}
 					raw, _ := json.Marshal(reply)
@@ -814,4 +819,87 @@ func TestReplaySessionNeedsTheSavedBinding(t *testing.T) {
 			t.Fatal("an unavailable observer changed the state")
 		}
 	})
+}
+
+// armedSession is a session whose supervisor has armed the stop on a precommit and records the
+// signer's stop reports.
+func armedSession(t *testing.T, signer *guardedPV, eligible *atomic.Uint64) (*session, *stopLog) {
+	t.Helper()
+	s := sessionFor(t, signer, testComet(), eligible)
+	stops := &stopLog{}
+	reporter := reporting(testComet())
+	reporter.armed, reporter.stops = true, stops
+	s.g.supervisor = reporter
+	return s, stops
+}
+
+// START-10.1-14b, RECOV-8.2-2 vector 2.p: armed for a planned ruleset upgrade after the old app
+// rejected a proposal and prevoted nil at H, the signer still signs the prevote, then persists
+// and returns the next precommit, nil included, as its last signature and closes: every later
+// request, its own retry included, is refused, and the stop is reported once.
+func TestStopOnPrecommitClosesAfterIt(t *testing.T) {
+	signer, key, state := filePV(t)
+	var eligible atomic.Uint64
+	eligible.Store(1)
+	s, stops := armedSession(t, signer, &eligible)
+	s.signs(vote(tm.PrevoteType, 0, 0, 100))
+	if stops.String() != "" {
+		t.Fatal("a prevote closed the gate")
+	}
+	precommit := s.signs(vote(tm.PrecommitType, 0, 0, 100))
+	if got := persisted(t, key, state); got.Step != stepPrecommit || !bytes.Equal(got.Signature, precommit) {
+		t.Fatal("the closing precommit is not the persisted last signature")
+	}
+	if stops.String() != "1/0" {
+		t.Fatalf("stop reports %v", stops)
+	}
+	before := readFile(t, state)
+	for _, request := range []pv.Message{vote(tm.PrecommitType, 0, 0, 100), vote(tm.PrevoteType, 1, 0, 100), vote(tm.PrecommitType, 1, 1, 100), at(proposalRequest(), 1, 2)} {
+		s.refuses(request, "stopped after its precommit")
+	}
+	if !bytes.Equal(before, readFile(t, state)) || stops.String() != "1/0" {
+		t.Fatalf("the closed gate changed the state or reported again: %v", stops)
+	}
+}
+
+// If a precommit already is the last signature, arming closes the gate under the same signing
+// lock: at once from the supervisor poll, before any later request.
+func TestStopOnPrecommitWhenThePrecommitIsAlreadyLast(t *testing.T) {
+	signer, _, _ := filePV(t)
+	var eligible atomic.Uint64
+	eligible.Store(1)
+	sessionFor(t, signer, testComet(), &eligible).signs(vote(tm.PrecommitType, 0, 1, 100))
+	s, stops := armedSession(t, signer, &eligible)
+	go s.g.pollStop(signer, 10*time.Millisecond)
+	defer s.g.closeTransports()
+	deadline := time.Now().Add(2 * time.Second)
+	for stops.String() == "" && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	s.g.closeTransports()
+	if stops.String() != "1/0" {
+		t.Fatalf("stop reports %v", stops)
+	}
+	s, _ = armedSession(t, signer, &eligible)
+	s.refuses(vote(tm.PrevoteType, 1, 0, 100), "stopped after its precommit")
+}
+
+// Without the armed stop a precommit closes nothing; arming waits for the next precommit, and a
+// repeat of a saved prevote does not count.
+func TestStopOnPrecommitWaitsForAPrecommit(t *testing.T) {
+	signer, _, _ := filePV(t)
+	var eligible atomic.Uint64
+	eligible.Store(1)
+	plain := sessionFor(t, signer, testComet(), &eligible)
+	plain.signs(vote(tm.PrevoteType, 0, 1, 100))
+	s, stops := armedSession(t, signer, &eligible)
+	s.signs(vote(tm.PrevoteType, 0, 1, 100))
+	s.signs(vote(tm.PrevoteType, 1, 1, 100))
+	if stops.String() != "" {
+		t.Fatalf("closed without a precommit: %v", stops)
+	}
+	s.signs(vote(tm.PrecommitType, 1, 1, 100))
+	if stops.String() != "1/1" {
+		t.Fatalf("stop reports %v", stops)
+	}
 }

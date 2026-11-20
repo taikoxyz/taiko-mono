@@ -64,6 +64,31 @@ type staticReporter struct {
 	err         error
 	observation *replayObservation
 	binding     *replayBinding
+	// armed is the stop on a precommit; stops records each reported stop.
+	armed bool
+	stops *stopLog
+}
+
+// stopLog records reported stops as "H/R", safely across the poller and the test.
+type stopLog struct {
+	mu      sync.Mutex
+	entries []string
+}
+
+func (l *stopLog) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return strings.Join(l.entries, ",")
+}
+
+func (r staticReporter) stopArmed(time.Time) (bool, error) { return r.armed, nil }
+func (r staticReporter) stopped(height int64, round int32, _ time.Time) error {
+	if r.stops != nil {
+		r.stops.mu.Lock()
+		r.stops.entries = append(r.stops.entries, fmt.Sprintf("%d/%d", height, round))
+		r.stops.mu.Unlock()
+	}
+	return nil
 }
 
 func (r staticReporter) comet(time.Time) (*cometReport, error) { return r.report, r.err }

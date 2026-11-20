@@ -199,8 +199,9 @@ class SupervisorLifecycle(TrustPeer):
                        ' import socket\n'
                        ' with socket.socket(socket.AF_UNIX) as c:\n'
                        '  c.connect(sys.argv[sys.argv.index("--supervisor-socket")+1])\n'
-                       '  op=(root/"signer_query").read_text().strip() or "comet"\n'
-                       '  c.sendall(json.dumps(dict(schema=1,id=1,op=op)).encode()+b"\\n")\n'
+                       '  body=(root/"signer_query").read_text().strip() or "comet"\n'
+                       '  request=dict(schema=1,id=1,**(json.loads(body) if body.startswith("{") else dict(op=body)))\n'
+                       '  c.sendall(json.dumps(request).encode()+b"\\n")\n'
                        '  return c.makefile("rb").readline()\n'
                        'while not Path(os.environ["COMET_PID"]).with_name("release_signer").exists():\n'
                        ' now=code("signer_exit_now")\n'
@@ -1240,6 +1241,35 @@ class UnixSupervisorTests(SupervisorLifecycle, unittest.TestCase):
         report = self.channel_reply()["comet"]["replay"]
         self.assertEqual(report, dict(height=5, repair=True, binding=dict(marker=4, predecessor="ab" * 32, wal_length=100, wal_sha256="cd" * 32),
                                       startup=dict(marker=4, predecessor="ab" * 32, wal_length=120, wal_sha256="cd" * 32)))
+
+    def test_stop_on_precommit_for_a_planned_upgrade(self):
+        """START-10.1-14b, RECOV-8.2-2: the operator's stop-on-precommit command arms the signer
+        through the channel; once the signer reports that its gate closed after a precommit, the
+        supervisor waits for Comet to record and send it, stops Comet and then the signer, prints
+        the outcome through the command and stays quiescent without restarting the pair."""
+        command = subprocess.Popen([sys.executable, str(ROOT / "script/etna_validator.py"), "stop-on-precommit",
+                                    "--timeout", "20"], env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            self.wait(lambda: (self.store / "supervisor/stop-on-precommit").exists())
+            self.wait(lambda: "etna_supervisor_stop_on_precommit_armed" in Path(self.log.name).read_text())
+            self.assertEqual(self.channel_reply("stop")["stop"], True)
+            # Only an armed supervisor accepts the signer's report, and only with its HRS.
+            self.assertEqual(self.channel_reply(json.dumps(dict(op="stopped", height=5, round=1)))["stopped"], True)
+            output, error = command.communicate(timeout=20)
+        finally:
+            if command.poll() is None:
+                command.kill()
+                command.wait()
+        self.assertEqual(command.returncode, 0, error)
+        self.assertEqual(json.loads(output), dict(stopped=True, height=5, round=1))
+        lifecycle = (self.root / "lifecycle").read_text().splitlines()
+        self.assertEqual(lifecycle, ["comet_reaped", "signer_stopped"])
+        self.assertFalse((self.store / "supervisor/stop-on-precommit").exists())
+        time.sleep(1)
+        self.assertEqual((self.starts(), len(self.signers())), (1, 1))
+        self.assertIsNone(self.proc.poll())
+        self.assertIn("etna_supervisor_stopped_for_upgrade", Path(self.log.name).read_text())
+        self.assertFalse((self.store / "validator-supervisor.halted").exists())
 
     def test_malformed_store_instance_is_refused_before_children(self):
         """A store instance file that is not exactly one ID, or not a regular file, refuses the

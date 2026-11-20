@@ -35,6 +35,11 @@ type supervisorClient interface {
 	comet(deadline time.Time) (*cometReport, error)
 	observe(deadline time.Time) (*replayObservation, error)
 	wal(height int64, deadline time.Time) (*replayBinding, error)
+	// stopArmed reports whether the operator armed the stop on a precommit for a planned
+	// ruleset upgrade (START-10.1-14b); stopped tells the supervisor that the signer's gate
+	// closed after the precommit at height and round, its last signature.
+	stopArmed(deadline time.Time) (bool, error)
+	stopped(height int64, round int32, deadline time.Time) error
 }
 
 // cometReport is the supervisor's answer to the comet op: the Comet process and, when this
@@ -348,6 +353,33 @@ func (c *cometConn) verify(proc cometProcess) error {
 	return nil
 }
 
+// stopArmed asks whether the stop on a precommit is armed: {"stop": bool}.
+func (s *supervisorChannel) stopArmed(deadline time.Time) (bool, error) {
+	reply, err := s.query("stop", nil, deadline)
+	if err != nil {
+		return false, err
+	}
+	var armed bool
+	if raw, ok := reply["stop"]; !ok || json.Unmarshal(raw, &armed) != nil {
+		return false, errors.New("supervisor reply has no stop flag")
+	}
+	return armed, nil
+}
+
+// stopped reports the precommit after which the gate closed: {"op": "stopped", "height": H,
+// "round": R}, acknowledged with {"stopped": true}.
+func (s *supervisorChannel) stopped(height int64, round int32, deadline time.Time) error {
+	reply, err := s.query("stopped", map[string]any{"height": height, "round": round}, deadline)
+	if err != nil {
+		return err
+	}
+	var acknowledged bool
+	if raw, ok := reply["stopped"]; !ok || json.Unmarshal(raw, &acknowledged) != nil || !acknowledged {
+		return errors.New("the supervisor did not acknowledge the stop")
+	}
+	return nil
+}
+
 // continuitySigner is a PrivValidator that enforces RECOV-8.2-2 itself: the gate admits each
 // session through it before any signature, tells it what the supervisor observed for the request
 // it passes on, and reports its own refusals.
@@ -357,6 +389,12 @@ type continuitySigner interface {
 	replayHeight() (int64, bool)
 	setRequest(requestContext)
 	refusedAt(height int64)
+	// armStop arms the stop on a precommit; it closes the gate at once, and returns the HRS of
+	// that last precommit, when the last signature already is one.
+	armStop() (closed bool, height int64, round int32)
+	// stoppedAfter reports whether the request just answered closed the gate after its
+	// precommit, once; the caller then tells the supervisor.
+	stoppedAfter() (closed bool, height int64, round int32)
 }
 
 // admitSession verifies, for one signing request, that this transport's Comet is the process the
@@ -424,5 +462,40 @@ func (g *gate) requestFor(pv continuitySigner, height int64, deadline time.Time)
 		}
 		request.observation = observation
 	}
+	armed, err := g.supervisor.stopArmed(deadline)
+	if err != nil {
+		return requestContext{}, err
+	}
+	if armed {
+		g.armStop(pv, deadline)
+	}
 	return request, nil
+}
+
+// armStop arms the signer's stop on a precommit and tells the supervisor at once if that closed
+// the gate (START-10.1-14b).
+func (g *gate) armStop(pv continuitySigner, deadline time.Time) {
+	if closed, height, round := pv.armStop(); closed {
+		g.reportStop(height, round, deadline)
+	}
+}
+
+// reportStop tells the supervisor that the gate closed after the precommit at height and round;
+// it stops Comet only after that.
+func (g *gate) reportStop(height int64, round int32, deadline time.Time) {
+	if err := g.supervisor.stopped(height, round, deadline); err != nil && g.unavailable != nil {
+		g.unavailable(fmt.Errorf("stop after precommit not acknowledged: %w", err))
+	}
+}
+
+// pollStop arms the stop on a precommit as soon as the operator asks, between requests too, so
+// a gate whose last signature already is a precommit closes without waiting for the next request.
+func (g *gate) pollStop(pv continuitySigner, every time.Duration) {
+	for !g.isStopping() {
+		deadline := time.Now().Add(time.Second)
+		if armed, err := g.supervisor.stopArmed(deadline); err == nil && armed {
+			g.armStop(pv, deadline)
+		}
+		time.Sleep(every)
+	}
 }

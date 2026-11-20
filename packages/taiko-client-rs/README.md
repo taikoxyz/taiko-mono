@@ -142,6 +142,30 @@ stop time, at any height; governance recovery clears the stop. Recovery preparat
 refuses rules it cannot implement at R. Rules scheduled after R do not change that fixed
 recovery origin.
 
+A validator that upgrades during a pause at an undecided height H follows RECOV-8.2-2's
+precommit procedure (START-10.1-14b), so that the old software's last vote at H is a precommit
+the upgraded node can confirm on replay:
+
+1. With the supervisor running, and the same environment, run `python3
+   script/etna_validator.py stop-on-precommit` (`--timeout S`, 600 s by default). It writes
+   `stop-on-precommit` into the supervisor's run directory. The supervisor arms the signer through
+   its channel: the signer keeps signing prevotes, persists and returns its next precommit (nil or
+   block) as its last signature and then refuses every later request; if its last signature
+   already is a precommit, the gate closes at once under the same signing lock. Once the signer
+   reports the closing precommit, the supervisor waits 2 s for Comet to record and send it, stops
+   Comet and then the signer, writes the outcome to `stop-on-precommit.done` and stays alive and
+   quiescent (`etna_supervisor_stopped_for_upgrade`). The command prints that outcome, for example
+   `{"stopped": true, "height": 1205, "round": 3}`, and exits 0; on its timeout it exits 1 and the
+   stop stays armed until the supervisor restarts.
+2. Stop the supervisor, install the upgraded app, signer and supervisor, and start them again
+   with the same stores, WAL and signer state. Never reset the signer state.
+3. On restart, the replay of H refuses any prevote that conflicts with the saved precommit or is
+   below it, and confirms the saved precommit when stock asks for it again (its timestamp-only
+   retry included); only then does it sign higher steps at H. This needs the log observer and an
+   eligible replay ([same-height replay](tools/etna-signer/README.md#same-height-replay)). If the
+   precommit cannot be confirmed, H stays fenced and the validator signs again above H once its
+   node has committed H.
+
 The ABCI app supports new networks with Etna start S = 0 and authenticated nonzero starts
 through [the restored Unzen driver handoff](docs/unzen-etna-handoff.md). The standalone lander
 lands batches ending at any height above S, with committee 0 bootstrap and first-landing switch
