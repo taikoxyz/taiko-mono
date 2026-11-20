@@ -24,7 +24,7 @@ taiko-client abci-import export --l1.http http://127.0.0.1:8545 --l2.chain-id 16
 - `--l1.http` is your own L1 node. It must serve the finalized Inbox proofs and the historical L1 headers the checkpoint needs. `--chain-config` is needed only to override the built-in chain parameters (devnet).
 - `--comet.http` and `--l2.http` are an archive node of the selected generation. Export reads only Comet blocks, commits and validator sets, and EL headers through `debug_getRawHeader`. Keep that debug API private.
 - `--comet-genesis` is the generation's original stock `genesis.json`. For a recovery generation, also pass `--recovery-bootstrap /…/recovery-bootstrap.json`.
-- For a checkpoint above the fixed origin, `--comet-state-dir` must contain the `state.db` of an independent stock CometBFT v0.40.0 node at **s − 1**. Use a consistent filesystem snapshot or copy the state DB after that node stops at s − 1. Retain the snapshots for checkpoints you plan to publish along with the application's archived preimages. The verifier opens the snapshot read-only, binds it to header(s)'s chain, predecessor and app hash, and compares both validator sets, including priorities and stored proposers. Export refuses and logs an error on a difference. A historical `/validators` response or a state DB installed from a checkpoint package cannot serve as this independent evidence.
+- For a checkpoint above the fixed origin, `--comet-state-dir` must contain the `state.db` of an independent stock CometBFT v0.40.0 node at exactly **s − 1**. Take it as described in [Stock snapshot for the producer check](#stock-snapshot-for-the-producer-check). The verifier opens the snapshot read-only, binds it to header(s)'s chain, predecessor and app hash, and compares both validator sets, including priorities and stored proposers. Export refuses a snapshot at another height, naming both heights. It refuses and logs an error on a validator-state difference. A historical `/validators` response or a state DB installed from a checkpoint package cannot serve as this independent evidence.
 - `--out` must not exist. Export writes into a private `.<name>.export-*` directory beside it, authenticates the result against your own finalized L1 exactly as `import` does, then renames it to `--out`. An interrupted export leaves only that private directory; delete it and rerun.
 
 The package contains exactly `package.json` (schema-2 metadata, including the validator-state preimage after s − 1 that header(s)'s app_hash commits) and `blocks.jsonl` (one native block, its own commit and its signing keys and powers per line). An import above the fixed origin only needs the origin header when it is part of the required EL ancestry or window boundary. The package holds no EL state. Export walks backward only as far as the required evidence, committee and anchor context, and never executes an old block.
@@ -35,6 +35,30 @@ Export reads the preimage for s − 1 from the source app's `/val_state/<s−1>`
 taiko-client abci-import export … --height 600 --out /srv/etna/archive/cp-600 \
   --validator-state /srv/etna/val-state-archive/0xACTUAL_DOMAIN_DIGEST-599.bin
 ```
+
+### Stock snapshot for the producer check
+
+Stock CometBFT cannot be told to stop at a height, and a landing can end at any height. So take the snapshot first and choose s from it:
+
+1. Stop the independent stock node: a node of this generation whose own CometBFT committed these heights, not one installed from a package.
+2. Copy its `data/state.db` directory into a new directory, for example `/srv/etna/stock-state/state.db`, then restart the node.
+3. Read the snapshot's height x from the copy:
+
+   ```sh
+   etna-comet-import snapshot-height --comet-state-dir /srv/etna/stock-state
+   # {"chain_id":"…","last_block_height":599}
+   ```
+
+4. Land exactly s = x + 1 with a one-shot lander run on your lander's key and journal. Stop your regular lander first, so that it cannot land past s:
+
+   ```sh
+   taiko-client lander … --land-to 600
+   ```
+
+   It submits one batch from the latest checkpoint to s, waits until s is decided, and exits 0 once the landing is confirmed like any other landing. It exits nonzero without landing when the latest checkpoint is already at or above s, or when s lies more than the batch cap above it (the lower of `--max-blocks` and the Inbox's `maxBatchBlocks`). It also exits nonzero when another landing reaches or passes s first. In both cases, take a new snapshot and start again.
+5. Once your own L1 has finalized the landing, export s = 600 with `--comet-state-dir /srv/etna/stock-state`.
+
+Keep the snapshot, and the application's archived preimages, for every checkpoint you plan to publish.
 
 ## Prepare the EL source
 

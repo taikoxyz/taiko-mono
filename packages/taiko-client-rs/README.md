@@ -279,6 +279,15 @@ in memory from the first backlog this process sees at the current checkpoint; a 
 it again. Batches can cross epoch transitions; batch timing and back-pressure follow spec
 sections 6.3 (Batches) and 6.4 (Back-pressure).
 
+`--land-to HEIGHT` runs the lander once: it lands exactly one batch from the latest checkpoint p
+to HEIGHT, with the same selection, leaves and journal as any batch, and exits 0 once that
+landing is confirmed. It waits while the decided tip is below HEIGHT and ignores `--min-blocks`
+and `--max-batch-wait`. It exits nonzero when p is already at or above HEIGHT, when HEIGHT − p
+exceeds the batch cap, when the blocks do not fit one batch, when another landing reaches or
+passes HEIGHT first, or on a signal. It has no environment variable. A checkpoint import
+producer uses it to land the height after its stock snapshot
+([procedure](docs/checkpoint-import.md#stock-snapshot-for-the-producer-check)).
+
 `--chain-config` uses the same authenticated parameters as ABCI. L1 identity is read as full
 uint256 from the actual endpoint; an explicit `l1_chain_id` must match. L2 IDs above uint64 are
 rejected, never truncated. `--engine.timeout`, `--rpc.timeout`, `--proof.timeout`,

@@ -132,6 +132,9 @@ pub struct LanderConfig {
     pub poll_interval: Duration,
     /// Number of canonical confirmations, counting the receipt's own block.
     pub confirmations: u64,
+    /// Land exactly one batch ending at this height, then exit
+    /// ([`crate::batch::BatchBuilder::with_land_to`]).
+    pub land_to: Option<u64>,
 }
 
 impl LanderConfig {
@@ -207,6 +210,7 @@ mod tests {
             timeouts: Timeouts::default(),
             poll_interval: Duration::from_secs(1),
             confirmations: 1,
+            land_to: None,
         }
     }
 

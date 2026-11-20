@@ -95,3 +95,21 @@ The caller compares it with the window it authenticated. Exit 0 means the home
 is installed and durable. Exit 1 means any failure, with the reason on stderr.
 A failed or interrupted run leaves an unpublished partial home: the caller
 discards its whole stage and reruns.
+
+## Export checks
+
+`abci-import export` runs `verify-export` to compare the package's
+validator-state preimage for s − 1 with an independent stock node's stopped
+`state.db` (DATA-5.4-8). That snapshot must be at exactly s − 1. Stock
+CometBFT cannot stop at a chosen height, so the producer reads the height of
+the snapshot it took and lands the checkpoint after it:
+
+```sh
+etna-comet-import snapshot-height --comet-state-dir /srv/etna/stock-state
+```
+
+It opens `state.db` read-only and prints one JSON line,
+`{"chain_id":"…","last_block_height":599}`; a generation's state after
+InitChain reports its `initial_height` − 1. `verify-export` refuses a snapshot
+at another height and names both heights. See the
+[producer procedure](../../../../docs/checkpoint-import.md#stock-snapshot-for-the-producer-check).

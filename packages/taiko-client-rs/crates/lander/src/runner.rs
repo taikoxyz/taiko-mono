@@ -114,6 +114,8 @@ pub struct Runner {
     waiting: Option<(CheckpointId, Instant)>,
     /// Outstanding transaction whose nonce was first seen consumed without a receipt, and when.
     unindexed_receipt: Option<(B256, Instant)>,
+    /// Terminal height of the last landing this process settled with a successful receipt.
+    landed: Option<u64>,
     /// Time and confirmation bounds.
     config: RunnerConfig,
 }
@@ -146,6 +148,7 @@ impl Runner {
             state,
             waiting: None,
             unindexed_receipt: None,
+            landed: None,
             config,
         })
     }
@@ -156,12 +159,22 @@ impl Runner {
     }
 
     /// Run until the caller's shutdown handling drops this future, or a fatal safety error occurs.
+    /// With an exact end ([`BatchSource::land_to`]) it also returns once this process's own
+    /// landing ending there settles, as any landing does, at the confirmation depth.
     pub async fn run(&mut self) -> Result<()> {
+        let exact = self.batches.land_to();
         let mut retry_delay = self.config.poll_interval;
         loop {
             match self.step().await {
                 Ok(outcome) => {
                     retry_delay = self.config.poll_interval;
+                    if let Some(end) = exact &&
+                        outcome == StepOutcome::Settled &&
+                        self.landed == Some(end)
+                    {
+                        tracing::info!(land_to = end, "lander exact landing settled; exiting");
+                        return Ok(());
+                    }
                     if outcome != StepOutcome::Progress {
                         tokio::time::sleep(self.poll_delay()).await;
                     }
@@ -219,6 +232,9 @@ impl Runner {
         );
         match self.state.clone() {
             JournalState::Idle => {
+                // An exact end (`--land-to`) lands as soon as its batch exists: the collection
+                // threshold and wait do not apply to it.
+                let exact = self.batches.land_to().is_some();
                 let preview = self.batches.observe(&snapshot).await?;
                 let observation = preview.observation;
                 if observation.decided_height <= snapshot.checkpoint_height {
@@ -236,7 +252,8 @@ impl Runner {
                     "lander observing batch backlog"
                 );
                 if observation.publishable_blocks == 0 ||
-                    (observation.publishable_blocks < self.config.batch_policy.min_blocks &&
+                    (!exact &&
+                        observation.publishable_blocks < self.config.batch_policy.min_blocks &&
                         elapsed < self.config.batch_policy.max_wait &&
                         !observation.force_back_pressure &&
                         !observation.force_epoch)
@@ -248,7 +265,8 @@ impl Runner {
                     return Ok(StepOutcome::Waiting);
                 };
                 let elapsed = self.wait_elapsed();
-                if request.batch.blocks.len() < self.config.batch_policy.min_blocks &&
+                if !exact &&
+                    request.batch.blocks.len() < self.config.batch_policy.min_blocks &&
                     elapsed < self.config.batch_policy.max_wait &&
                     !observation.force_back_pressure &&
                     !observation.force_epoch
@@ -256,7 +274,9 @@ impl Runner {
                     // The decided tip can regress between observation and full construction.
                     return Ok(StepOutcome::Waiting);
                 }
-                let trigger = if observation.force_back_pressure {
+                let trigger = if exact {
+                    "land-to"
+                } else if observation.force_back_pressure {
                     "back-pressure"
                 } else if observation.force_epoch {
                     "epoch"
@@ -398,14 +418,17 @@ impl Runner {
     /// itself needs no recheck here: the builder checked it before proving, and a restored job
     /// passed [`crate::types::PreparedBatch::verify_restored`] (shape, terminal Comet hash,
     /// reference number, statement hash and blob/KZG binding; not the proof witnesses) when the
-    /// journal was loaded at startup.
+    /// journal was loaded at startup. Under an exact end ([`BatchSource::land_to`]), a restored
+    /// job that ends elsewhere is not current either, so it is never sent.
     async fn unbroadcast_current(
         &self,
         snapshot: &LandingSnapshot,
         job: &ProvedJob,
     ) -> Result<bool> {
         let batch = &job.request.batch;
-        if !overlapping_frontier(snapshot, batch)? {
+        if self.batches.land_to().is_some_and(|end| batch.input.lastHeight != U256::from(end)) ||
+            !overlapping_frontier(snapshot, batch)?
+        {
             return Ok(false);
         }
         let (number, hash) = job_reference(batch)?;
@@ -601,6 +624,7 @@ impl Runner {
                     "successful canonical receipt did not advance the Inbox checkpoint".into(),
                 ));
             }
+            self.landed = Some(crate::types::protocol_u48(job.request.batch.input.lastHeight)?);
         } else if unchanged_revert && !expired_reference_revert {
             // The revert is canonical at the confirmation depth, so its nonce is spent and
             // nothing of this job can land any more. Persist Idle before stopping on an

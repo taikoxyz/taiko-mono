@@ -229,7 +229,8 @@ impl ForwardState {
 pub trait BatchSource: Send + Sync {
     /// Preview complete-prefix capacity and authenticated urgency without building a proof job.
     async fn observe(&self, snapshot: &LandingSnapshot) -> Result<BatchPreview>;
-    /// Build the largest complete publishable prefix above this coherent checkpoint.
+    /// Build the largest complete publishable prefix above this coherent checkpoint, or the
+    /// batch ending exactly at [`BatchSource::land_to`].
     async fn prepare(&self, snapshot: LandingSnapshot) -> Result<Option<ProofRequest>>;
     /// Consume same-iteration observation work when supported; other sources prepare afresh.
     async fn prepare_observed(
@@ -242,6 +243,11 @@ pub trait BatchSource: Send + Sync {
     }
     /// Ensure the current L1 checkpoint identifies this node's certified execution chain.
     async fn validate_checkpoint(&self, snapshot: &LandingSnapshot) -> Result<()>;
+    /// The height every batch ends at exactly (`lander --land-to`), if this source selects one;
+    /// otherwise batches end at the decided tip within the batch cap.
+    fn land_to(&self) -> Option<u64> {
+        None
+    }
 }
 
 /// Validated runtime dependencies and limits for authenticated batch construction.
@@ -321,6 +327,8 @@ pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
     /// The last tip whose anchor [`BatchBuilder::tip_anchor`] authenticated, so a later
     /// observation reads only the blocks decided since.
     tip_anchor: Mutex<Option<TipAnchor>>,
+    /// The exact end of every batch ([`BatchBuilder::with_land_to`]).
+    land_to: Option<u64>,
 }
 
 impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
@@ -351,7 +359,18 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             deflate_budget: MAX_SELECTION_DEFLATE_BYTES,
             checkpoint_cache: Mutex::new(None),
             tip_anchor: Mutex::new(None),
+            land_to: None,
         })
+    }
+
+    /// Ends every batch exactly at `height` (`lander --land-to`), through the same selection,
+    /// authentication and leaves as any other batch. Selection then waits while the decided tip
+    /// is below `height` and refuses, as a configuration error, a `height` at or below the latest
+    /// checkpoint p or more than the batch cap ([`batch_cap`]) above it, because one batch carries
+    /// all of (p, `height`]. `None` keeps the normal selection.
+    pub fn with_land_to(mut self, height: Option<u64>) -> Self {
+        self.land_to = height;
+        self
     }
 
     /// Replaces the selection budgets, so tests reach them with small blocks.
@@ -387,6 +406,30 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         Ok(schedule)
     }
 
+    /// The exact end ([`BatchBuilder::with_land_to`]) of a batch above the latest checkpoint
+    /// `checkpoint`, refused when it is not above it or lies beyond the batch cap.
+    fn exact_end(&self, checkpoint: u64) -> Result<Option<u64>> {
+        let Some(end) = self.land_to else {
+            return Ok(None);
+        };
+        if checkpoint >= end {
+            return Err(LanderError::Configuration(format!(
+                "the latest checkpoint {checkpoint} is already at or above --land-to {end}, so \
+                 no landing can end there"
+            )));
+        }
+        let cap = batch_cap(self.limits.max_blocks, self.max_batch_blocks)?;
+        if end - checkpoint > cap as u64 {
+            return Err(LanderError::Configuration(format!(
+                "--land-to {end} is {} blocks above the latest checkpoint {checkpoint}, beyond \
+                 the {cap}-block batch cap, the lower of --max-blocks and the Inbox \
+                 maxBatchBlocks",
+                end - checkpoint
+            )));
+        }
+        Ok(Some(end))
+    }
+
     /// Read a decided tip from the configured generation and reject a lagging endpoint.
     async fn status(&self, snapshot: &LandingSnapshot) -> Result<CometStatus> {
         let status = self.comet.status().await?;
@@ -414,6 +457,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     /// Select exact complete-block boundaries using canonical codec and blob capacity checks.
     ///
     /// An oversized first block is a capacity error; a later oversized block ends the prefix.
+    /// With an exact end, which the caller has checked and seen decided, the prefix runs to it,
+    /// and a prefix that ends earlier is a capacity error instead.
     /// This shared preview performs no signature/MPT validation, reference reads or KZG work.
     /// Each block is validated and encoded once. A prefix whose worst-case compressed size fits
     /// is accepted without deflating it; otherwise it is deflated off the async workers, within
@@ -432,7 +477,10 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         let mut payload = None;
         let mut deflated = 0usize;
         let most = self.max_batch_blocks.min(self.limits.max_blocks as u64);
-        let stop = decided_height.min(snapshot.checkpoint_height.saturating_add(most));
+        let mut stop = decided_height.min(snapshot.checkpoint_height.saturating_add(most));
+        if let Some(end) = self.land_to {
+            stop = stop.min(end);
+        }
         for height in snapshot.checkpoint_height + 1..=stop {
             let pair = self.comet.block(height).await?;
             if pair.block.header.height.value() != height {
@@ -481,6 +529,16 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 }
                 Err(error) => return Err(error),
             }
+        }
+        let last = snapshot.checkpoint_height + blocks.len() as u64;
+        if let Some(end) = self.land_to &&
+            last != end
+        {
+            return Err(LanderError::Capacity(format!(
+                "blocks {}..={end} do not fit one batch, whose payload, blob and selection limits \
+                 end it at {last}, so --land-to {end} cannot land",
+                snapshot.checkpoint_height + 1
+            )));
         }
         Ok(PublishablePrefix { blocks, list, payload })
     }
@@ -1140,11 +1198,13 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         selected: Option<ObservedPrefix>,
     ) -> Result<Option<ProofRequest>> {
         let schedule = self.schedule(&snapshot)?;
+        let end = self.exact_end(snapshot.checkpoint_height)?;
         if !self.l1.first_landing_ready(&snapshot).await? {
             return Ok(None);
         }
         let status = self.status(&snapshot).await?;
-        if status.height == snapshot.checkpoint_height {
+        if status.height == snapshot.checkpoint_height || end.is_some_and(|end| status.height < end)
+        {
             return Ok(None);
         }
         let mut committees = BTreeMap::new();
@@ -1298,8 +1358,10 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
     /// verifying the decided blocks: `prepare` authenticates the ones a batch selects.
     async fn observe(&self, snapshot: &LandingSnapshot) -> Result<BatchPreview> {
         let schedule = self.schedule(snapshot)?;
+        let end = self.exact_end(snapshot.checkpoint_height)?;
         let status = self.status(snapshot).await?;
         if status.height == snapshot.checkpoint_height ||
+            end.is_some_and(|end| status.height < end) ||
             !self.l1.first_landing_ready(snapshot).await?
         {
             return Ok(BatchPreview::from_observation(BatchObservation {
@@ -1346,6 +1408,11 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
         preview: BatchPreview,
     ) -> Result<Option<ProofRequest>> {
         self.prepare_inner(snapshot, preview.selected).await
+    }
+
+    /// The exact end set by [`BatchBuilder::with_land_to`].
+    fn land_to(&self) -> Option<u64> {
+        self.land_to
     }
 }
 
@@ -2079,6 +2146,76 @@ mod tests {
         assert!(matches!(
             builder.prepare(snapshot).await,
             Err(LanderError::Configuration(reason)) if reason.contains("maxBatchBlocks")
+        ));
+    }
+
+    /// `--land-to h` ends the batch exactly at h, also below the decided tip and at the full cap,
+    /// with the leaves of (p, h) (LAND-6.1-7). Below a decided h it waits; an h at or below the
+    /// checkpoint p, or more than the batch cap above it, is refused.
+    #[tokio::test]
+    async fn land_to_ends_the_batch_exactly_at_its_height_or_refuses() {
+        let fixture = Arc::new(Fixture::new(18, 30));
+        let snapshot = &fixture.snapshot;
+        for end in [19, 23, 30] {
+            let exact = builder(fixture.clone(), limits(12)).with_land_to(Some(end));
+            assert_eq!(exact.land_to(), Some(end));
+            let preview = exact.observe(snapshot).await.unwrap();
+            assert_eq!(preview.observation.publishable_blocks as u64, end - 18, "end {end}");
+            let batch =
+                exact.prepare_observed(snapshot.clone(), preview).await.unwrap().unwrap().batch;
+            assert_eq!(batch.input.parentHeight, U256::from(18));
+            assert_eq!(batch.input.lastHeight, U256::from(end));
+            assert_eq!(batch.blocks.len() as u64, end - 18);
+            assert_eq!(batch.leaves.len() as u64, end - 19);
+            // The terminal block is h, not the decided tip.
+            let last = batch.blocks.last().unwrap();
+            assert_eq!(last.block.header.height.value(), end);
+        }
+        // The decided tip 30 is below h = 31: nothing to land yet.
+        let waiting = builder(fixture.clone(), limits(13)).with_land_to(Some(31));
+        let preview = waiting.observe(snapshot).await.unwrap();
+        assert_eq!(preview.observation.publishable_blocks, 0);
+        assert!(waiting.prepare(snapshot.clone()).await.unwrap().is_none());
+        for (end, max_blocks, max_batch_blocks, reason) in [
+            (18, 12, MAX_BATCH_BLOCKS, "already at or above --land-to 18"),
+            (17, 12, MAX_BATCH_BLOCKS, "already at or above --land-to 17"),
+            (31, 12, MAX_BATCH_BLOCKS, "13 blocks above the latest checkpoint 18, beyond the 12"),
+            (26, 18, 7, "8 blocks above the latest checkpoint 18, beyond the 7"),
+        ] {
+            let refused = builder_with(fixture.clone(), limits(max_blocks), max_batch_blocks)
+                .with_land_to(Some(end));
+            for error in [
+                refused.observe(snapshot).await.unwrap_err(),
+                refused.prepare(snapshot.clone()).await.unwrap_err(),
+            ] {
+                assert!(
+                    matches!(&error, LanderError::Configuration(r) if r.contains(reason)),
+                    "--land-to {end}: {error}"
+                );
+            }
+        }
+    }
+
+    /// An exact end whose blocks do not all fit one batch is a capacity error, not a shorter
+    /// batch.
+    #[tokio::test]
+    async fn land_to_beyond_the_payload_capacity_is_refused() {
+        let fixture = Arc::new(Fixture::new(0, 6));
+        let first = codec::encode(&[fixture.blocks[&1].clone()], &limits(6)).unwrap();
+        let mut bound = limits(6);
+        bound.max_payload_bytes = first.len();
+        let one = builder(fixture.clone(), bound).with_land_to(Some(1));
+        let batch = one.prepare(fixture.snapshot.clone()).await.unwrap().unwrap().batch;
+        assert_eq!(batch.input.lastHeight, U256::from(1));
+        let three = builder(fixture.clone(), bound).with_land_to(Some(3));
+        let error = three.observe(&fixture.snapshot).await.unwrap_err();
+        assert!(
+            matches!(&error, LanderError::Capacity(r) if r.contains("blocks 1..=3 do not fit")),
+            "{error}"
+        );
+        assert!(matches!(
+            three.prepare(fixture.snapshot.clone()).await,
+            Err(LanderError::Capacity(_))
         ));
     }
 

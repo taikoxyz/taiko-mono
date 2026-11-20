@@ -86,6 +86,13 @@ pub struct LanderArgs {
     /// Required canonical confirmations, counting the receipt's own block.
     #[clap(long = "confirmations", env = "LANDER_CONFIRMATIONS", default_value_t = 1, value_parser = clap::value_parser!(u64).range(1..))]
     pub confirmations: u64,
+    /// Land exactly one batch ending at this L2 height, then exit 0 once it is confirmed, as any
+    /// landing is. Waits while the decided tip is below it, without the batch collection wait.
+    /// Exits nonzero when the latest checkpoint is, or becomes, at or above it, or when it lies
+    /// more than the batch cap above that checkpoint. A one-shot command, so it has no
+    /// environment variable.
+    #[clap(long = "land-to", value_name = "HEIGHT", value_parser = clap::value_parser!(u64).range(1..))]
+    pub land_to: Option<u64>,
 }
 
 impl LanderArgs {
@@ -138,6 +145,7 @@ impl LanderArgs {
             },
             poll_interval: Duration::from_millis(self.poll_interval_ms),
             confirmations: self.confirmations,
+            land_to: self.land_to,
         };
         config.validate()?;
         Ok(config)
@@ -394,6 +402,24 @@ mod tests {
             args.push(&option);
             let error = parse(args).unwrap_err();
             assert_eq!(error.kind(), ErrorKind::ValueValidation, "{flag}={value}: {error}");
+        }
+    }
+
+    #[test]
+    fn land_to_is_an_optional_positive_height_set_only_on_the_command_line() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _clear = clear_env();
+        let _ignored = EnvGuard::set("LANDER_LAND_TO", "12");
+        assert_eq!(parse(argv()).unwrap().lander_flags.config().unwrap().land_to, None);
+        let mut args = argv();
+        args.extend(["--land-to", "12"]);
+        assert_eq!(parse(args).unwrap().lander_flags.config().unwrap().land_to, Some(12));
+        for value in ["0", "-1", "1.5"] {
+            let mut args = argv();
+            let option = format!("--land-to={value}");
+            args.push(&option);
+            let error = parse(args).unwrap_err();
+            assert_eq!(error.kind(), ErrorKind::ValueValidation, "--land-to={value}: {error}");
         }
     }
 

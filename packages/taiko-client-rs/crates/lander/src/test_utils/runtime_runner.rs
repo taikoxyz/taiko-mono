@@ -45,6 +45,8 @@ struct Control {
     publishable_blocks: usize,
     force_back_pressure: bool,
     force_epoch: bool,
+    /// The exact end the batch source reports (`--land-to`).
+    land_to: Option<u64>,
     observation_error: bool,
     checkpoint_error: bool,
     prepare_empty: bool,
@@ -82,6 +84,7 @@ impl Fixture {
             publishable_blocks: 2,
             force_back_pressure: false,
             force_epoch: false,
+            land_to: None,
             observation_error: false,
             checkpoint_error: false,
             prepare_empty: false,
@@ -233,6 +236,9 @@ impl BatchSource for MockBatch {
         } else {
             Ok(())
         }
+    }
+    fn land_to(&self) -> Option<u64> {
+        self.control.lock().unwrap().land_to
     }
 }
 struct MockL1 {
@@ -1076,6 +1082,36 @@ async fn consensus_pressure_and_epoch_progress_bypass_high_threshold_and_long_wa
         assert_eq!(fixture.control.lock().unwrap().proofs, 1);
         assert!(waiting(&runner).is_none());
     }
+}
+
+/// An exact end (`--land-to`) prepares at once below a threshold and wait it never reaches,
+/// drops unsigned work that ends elsewhere, and `run` returns once its own landing settles at
+/// the confirmation depth.
+#[tokio::test(start_paused = true)]
+async fn exact_end_skips_the_wait_drops_other_ends_and_run_returns_once_it_settles() {
+    let fixture = Fixture::new();
+    let end = fixture.request.batch.input.lastHeight.to::<u64>();
+    let policy = BatchPolicy { min_blocks: 100, max_wait: Duration::from_secs(3600) };
+    fixture.control.lock().unwrap().land_to = Some(end + 1);
+    let mut runner = fixture.with_policy(policy);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    assert!(matches!(runner.state(), JournalState::Prepared { .. }));
+    // The prepared job ends at `end`, not at this run's exact end.
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Rebuild);
+    assert_eq!(runner.state(), &JournalState::Idle);
+    assert_eq!(fixture.control.lock().unwrap().signs, 0);
+    fixture.control.lock().unwrap().land_to = Some(end);
+    for _ in 0..3 {
+        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    }
+    fixture.mine(&pending_transaction(&runner), true);
+    fixture.control.lock().unwrap().snapshot.l1_block_number = 31;
+    tokio::time::timeout(Duration::from_secs(60), runner.run())
+        .await
+        .expect("an exact run returns once its landing settles")
+        .unwrap();
+    assert_eq!(runner.state(), &JournalState::Idle);
+    assert_eq!(fixture.control.lock().unwrap().broadcasts.len(), 1);
 }
 
 #[tokio::test(start_paused = true)]

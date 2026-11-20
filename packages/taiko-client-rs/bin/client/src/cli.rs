@@ -62,6 +62,11 @@ impl Cli {
             Commands::AbciImport(cmd) => Self::run_one_shot(cmd.run()),
             Commands::AbciRecover(cmd) => Self::run_one_shot(cmd.run()),
             Commands::Abci(cmd) => Self::run_until_shutdown(cmd.run()),
+            // Exit 0 under --land-to means the landing is confirmed, so a signal before that is a
+            // failure, as for any one-shot command.
+            Commands::Lander(cmd) if cmd.lander_flags.land_to.is_some() => {
+                Self::run_one_shot(cmd.run())
+            }
             Commands::Lander(cmd) => Self::run_until_shutdown(cmd.run()),
             Commands::AbciGenesis(cmd) => Self::run_one_shot(cmd.run()),
             Commands::AbciCommitteeRecord(cmd) => Self::run_one_shot(cmd.run()),

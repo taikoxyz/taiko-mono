@@ -42,6 +42,7 @@ impl LanderSubCommand {
     /// Startup endpoint outages are retried; safety/configuration errors stop. Reading the key
     /// obtains its public address but cannot submit anything. The journal lock and integrity
     /// checks precede the first invocation of the runner's signing or broadcasting boundary.
+    /// With `--land-to` it returns once that one landing is confirmed.
     pub async fn run(&self) -> Result<()> {
         let config = self.lander_flags.config()?;
         let _ownership = abci::ownership::ComponentLease::standalone(
@@ -154,18 +155,21 @@ impl LanderSubCommand {
             config.timeouts.rpc,
             max_response_bytes,
         )?);
-        let batches = Arc::new(BatchBuilder::new(
-            comet,
-            landing.clone(),
-            BatchBuilderConfig {
-                params: params.clone(),
-                limits: config.limits,
-                mode: config.sidecar_mode,
-                engine,
-                engine_timeout: config.timeouts.engine,
-                max_batch_blocks: deployment.max_batch_blocks,
-            },
-        )?);
+        let batches = Arc::new(
+            BatchBuilder::new(
+                comet,
+                landing.clone(),
+                BatchBuilderConfig {
+                    params: params.clone(),
+                    limits: config.limits,
+                    mode: config.sidecar_mode,
+                    engine,
+                    engine_timeout: config.timeouts.engine,
+                    max_batch_blocks: deployment.max_batch_blocks,
+                },
+            )?
+            .with_land_to(config.land_to),
+        );
         let mut runner = Runner::new(
             batches,
             landing,
@@ -189,8 +193,10 @@ impl LanderSubCommand {
             data_dir = %config.data_dir.display(),
             proof_provider = "dummy",
             proof = "0x00",
+            land_to = config.land_to,
             "running the permissionless Etna lander"
         );
+        // Returns only on a fatal error or, under --land-to, once that landing is confirmed.
         runner.run().await?;
         Ok(())
     }

@@ -17,6 +17,11 @@
 - Bump the app state from schema 19 to 20 and lander journals from 18 to 19.
 - etna-core: `verify_body_at_origin`, `verify_structure` and `verify_structure_at_origin` drop the `parent_el_hash` parameter, and `GRID_INTERVAL` and `GenesisRecord::is_grid_height` are removed (from abci too). Callers must adapt.
 
+### Exact landings for the import producer check
+
+- `taiko-client lander --land-to <HEIGHT>` lands exactly one batch from the latest checkpoint to HEIGHT through the normal selection, leaves and journal, without the batch collection wait, and exits 0 once that landing is confirmed. It exits nonzero when the latest checkpoint is or becomes at or above HEIGHT, when HEIGHT lies more than the batch cap above it, when the blocks do not fit one batch, or on a signal. It has no environment variable.
+- `etna-comet-import snapshot-height --comet-state-dir DIR` prints the height x of a stopped stock state snapshot as JSON. An import producer lands x + 1 with `--land-to` and exports that checkpoint, so its snapshot is exactly at s − 1 (DATA-5.4-8, [procedure](docs/checkpoint-import.md#stock-snapshot-for-the-producer-check)). `verify-export` names both heights when the snapshot is at another height.
+
 ### Protocol artifact alignment
 
 - Align the ABI/artifact provenance with the published switch contracts in PR #22286, which closes the L2 checkpoint store with `beaconRootsFrom` and removes `SignalServiceL1`. The protocol pin, first at `4c6424bc`, now follows #22412 (above).
