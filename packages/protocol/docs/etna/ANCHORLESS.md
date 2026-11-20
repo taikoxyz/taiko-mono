@@ -41,7 +41,7 @@ A block that keeps its parent's anchor carries the parent's number and root. The
 Other derivation changes at the fork:
 
 - Nothing is prepended to a block's transactions, so the first transaction is treated like any other, and the zk gas limit can abort it.
-- In Unzen’s based derivation a default source manifest yields an empty block. Etna’s ABCI application validates the CometBFT proposal under SPEC §3.
+- In Unzen’s based derivation a default source manifest yields one block containing only the `anchorV4` transaction and no user transactions. Etna’s ABCI application validates the CometBFT proposal under SPEC §3.
 - Transactions from the golden touch address are ordinary transactions.
 - The 1,000,000 gas reserve applies only before the fork.
 
