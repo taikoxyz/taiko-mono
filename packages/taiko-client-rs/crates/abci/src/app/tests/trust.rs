@@ -87,12 +87,14 @@ async fn trust_query_is_closed_and_available_before_init() {
             "target",
             "committed_head",
             "trusted_consensus_head",
+            "eligible_height",
             "reason",
         ]),
         keys
     );
     assert!(value["chain_id"].is_null());
     assert!(value["trusted_consensus_head"].is_null());
+    assert!(value["eligible_height"].is_null());
 }
 
 #[tokio::test]
@@ -226,7 +228,7 @@ async fn checkpoint_proof_root_canonical_status_and_generation_are_authenticated
 }
 
 #[tokio::test]
-async fn target_is_pinned_until_match_then_refresh_can_extend_catchup() {
+async fn a_newer_checkpoint_replaces_the_pending_target_until_matched() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
@@ -244,7 +246,8 @@ async fn target_is_pinned_until_match_then_refresh_can_extend_catchup() {
     fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
     app.l1().set_finalized(101);
     app.refresh_trust().await.unwrap();
-    assert_eq!(app.trust.snapshot().target.unwrap().height, LANDED);
+    // The latest known target is the one a complete match must reach (SYNC-9-6a).
+    assert_eq!(app.trust.snapshot().target.unwrap().height, 2 * LANDED);
     let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
     commit(&mut app).await.unwrap();
@@ -274,7 +277,7 @@ async fn restart_checks_contiguous_ancestry_not_presence_of_genuine_checkpoint()
     let engine = app.engine().reopen();
     engine.state().chain.insert(1, broken);
     let mut restarted =
-        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     target(&restarted, &fx, 0, fx.genesis_hash());
     assert!(!restarted.trust.snapshot().is_ready());
     assert_ne!(restarted.trust.snapshot().session_id, app.trust.snapshot().session_id);
@@ -398,7 +401,7 @@ fn assert_superseded_store(
         fx.engine(),
         fx.params.clone(),
         Store::volatile(dir.into()),
-        AppOptions::default(),
+        crate::test_utils::test_options(),
     );
     assert!(matches!(restart, Err(AbciError::SafetyHalt(_))));
 }
@@ -621,26 +624,37 @@ async fn closed_reconnect_recovers_only_committed_head_without_jumping_to_future
         EngineCall::Forkchoice { head, .. } if *head == B256::repeat_byte(8))));
 }
 
+/// SYNC-9-6a 6a.a/6a.h: a ready node follows the Inbox's latest checkpoint in its own finalized
+/// L1 view although no proposal adopted it: a newer checkpoint it holds is compared (EL hash,
+/// then the slot 285 record read once at that L1 block) and trust stays ready. A finalized
+/// block it read already costs one finalized-number read. Ready sessions label valid
+/// candidates safe and name the durable boundary plus one as the eligible height (SYNC-9-10).
 #[tokio::test]
-async fn ready_session_keeps_fixed_target_and_labels_valid_candidates_safe() {
+async fn ready_session_follows_newer_finalized_checkpoints_and_labels_candidates_safe() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    target(&app, &fx, 0, fx.genesis_hash());
+    commit_to(&mut app, &fx, 2 * LANDED - 1).await;
+    finalize_landing(&app, &fx, 65, LANDED);
     app.refresh_trust().await.unwrap();
-    assert!(app.trust.snapshot().is_ready());
-    let inbox = InboxStorage {
-        last_checkpoint_height: 2,
-        last_checkpoint_hash: B256::repeat_byte(8),
-        last_checkpoint_comet_hash: B256::repeat_byte(8),
-        ..fx.inbox.clone()
-    };
-    fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
-    app.l1().set_finalized(101);
-    let reads = app.l1().calls().len();
+    assert_ready_at(&app, LANDED);
+    assert_eq!(app.trust.snapshot().eligible_height, Some(2 * LANDED));
+
+    finalize_landing(&app, &fx, 66, 2 * LANDED - 1);
+    for _ in 0..3 {
+        app.refresh_trust().await.unwrap();
+    }
+    assert_ready_at(&app, 2 * LANDED - 1);
+    let record = inbox::landing_record_slots(2 * LANDED - 1)[0];
+    let reads = app.l1().calls().into_iter().filter(|call| {
+        matches!(call, L1Call::AccountWitness { slots, block: 66, .. } if slots.contains(&record))
+    });
+    assert_eq!(reads.count(), 1, "one slot 285 read for that checkpoint");
+    let before = app.l1().calls().len();
     app.refresh_trust().await.unwrap();
-    assert_eq!(app.l1().calls().len(), reads, "ready sessions do not chase moving finality");
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+    assert_eq!(app.l1().calls()[before..], [L1Call::Finalized]);
+
+    let env = next_envelope(&app, &fx);
     let hash = env.block.header.hash_slow();
     let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
@@ -649,13 +663,268 @@ async fn ready_session_keeps_fixed_target_and_labels_valid_candidates_safe() {
     commit(&mut app).await.unwrap();
     let snapshot = app.trust.snapshot();
     assert!(snapshot.is_ready());
-    assert_eq!(snapshot.target.unwrap().height, 0);
+    assert_eq!(snapshot.target.unwrap().height, 2 * LANDED - 1);
     assert_eq!(snapshot.trusted_consensus_head.unwrap().hash, hash);
+    assert_eq!(snapshot.eligible_height, Some(2 * LANDED + 1));
 }
 
-/// On a switching network every trust grant checks the built-in L2 SignalService
-/// implementation's fork time in the state at its checkpoint, not only while that is S
-/// (SYNC-9-5a): missing evidence keeps trust closed, a different value halts.
+/// SYNC-9-10 10.g: at a generation's start, before its first commit, the only eligible height
+/// is its `initial_height`, the origin plus one, while `Info` reports height 0.
+#[tokio::test]
+async fn the_first_eligible_height_is_the_generation_initial_height() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    target(&app, &fx, fx.genesis.genesis_height, fx.genesis_hash());
+    app.refresh_trust().await.unwrap();
+    assert_ready_at(&app, fx.genesis.genesis_height);
+    assert_eq!(info(&mut app).await.unwrap().last_block_height.value(), 0);
+    assert_eq!(app.trust.snapshot().eligible_height, Some(fx.genesis.genesis_height + 1));
+}
+
+/// SYNC-9-6a 6a.f/6a.k, CONS-3.4-16 16.h: a newer checkpoint above the committed head makes a
+/// ready node untrusted, with no eligible height, whether or not its slot 285 record is
+/// available. A failed read never clears it. Once the chain reaches it and both hashes match,
+/// trust returns without an operator.
+#[tokio::test]
+async fn a_newer_checkpoint_above_the_head_closes_signing_until_reached_and_matched() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    commit_to(&mut app, &fx, LANDED - 1).await;
+    finalize_landing(&app, &fx, 65, LANDED - 1);
+    app.refresh_trust().await.unwrap();
+    assert_ready_at(&app, LANDED - 1);
+    let env = next_envelope(&app, &fx);
+    target(&app, &fx, LANDED, env.block.header.hash_slow());
+    let record = inbox::landing_record_slots(LANDED)[0];
+    app.l1().state().proof_fail_slot = Some((record, L1Error::Rpc("record unavailable".into())));
+    app.refresh_trust().await.unwrap();
+    let pending = |app: &App<MockL1, MockEngine>| {
+        let snapshot = app.trust.snapshot();
+        assert_eq!(snapshot.phase, TrustPhase::CatchingUp, "{:?}", snapshot.reason);
+        assert_eq!(snapshot.target.unwrap().height, LANDED);
+        assert_eq!(snapshot.eligible_height, None);
+        assert!(snapshot.trusted_consensus_head.is_none());
+    };
+    pending(&app);
+    app.l1().state().fail = Some(L1Error::Rpc("down".into()));
+    app.refresh_trust().await.unwrap();
+    pending(&app);
+    app.l1().state().fail = None;
+    app.l1().state().proof_fail_slot = None;
+    app.refresh_trust().await.unwrap();
+    pending(&app);
+
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
+    finalize(&mut app, finalize_req(&req)).await.unwrap();
+    commit(&mut app).await.unwrap();
+    pending(&app);
+    app.refresh_trust().await.unwrap();
+    assert_ready_at(&app, LANDED);
+    assert_eq!(app.trust.snapshot().eligible_height, Some(LANDED + 1));
+    assert!(app.store.fatal_evidence().unwrap().is_none());
+}
+
+/// SYNC-9-6a 6a.r: with the EL hash matching, a temporarily unavailable slot 285 record keeps
+/// the target pending and is read again at the same pinned L1 block, not at a newer one.
+#[tokio::test]
+async fn an_unavailable_record_is_retried_at_the_pinned_l1_block() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    commit_to(&mut app, &fx, 2 * LANDED).await;
+    finalize_landing(&app, &fx, 65, LANDED);
+    app.refresh_trust().await.unwrap();
+    finalize_landing(&app, &fx, 66, 2 * LANDED);
+    let record = inbox::landing_record_slots(2 * LANDED)[0];
+    app.l1().state().proof_fail_slot = Some((record, L1Error::Rpc("record unavailable".into())));
+    app.refresh_trust().await.unwrap();
+    let snapshot = app.trust.snapshot();
+    assert_eq!(snapshot.phase, TrustPhase::CatchingUp);
+    assert!(snapshot.reason.unwrap().contains("slot 285 record at L1 block 66"));
+    // A newer finalized block with the same checkpoint does not move the pinned read.
+    fx.plant_l1_block(app.l1(), 67, &landed(&app, &fx, 2 * LANDED), &fx.registry);
+    app.l1().state().proof_fail_slot = None;
+    app.refresh_trust().await.unwrap();
+    assert_ready_at(&app, 2 * LANDED);
+    assert!(app.l1().calls().iter().any(|call| {
+        matches!(call, L1Call::AccountWitness { slots, block: 66, .. } if slots.contains(&record))
+    }));
+}
+
+/// SYNC-9-6a 6a.b/6a.c/6a.d/6a.q, RECOV-8-15: once trusted, a newer checkpoint in the own
+/// finalized L1 view whose EL hash conflicts with the node's block at that height (even while
+/// its slot 285 record is unavailable), or whose Comet hash does, revokes trust although no
+/// proposal adopted it. The node reports halted with no eligible height, a reconnect cannot
+/// reopen it and the process keeps running; the fatal record makes a restart refuse (6a.e).
+#[tokio::test]
+async fn a_conflicting_newer_checkpoint_revokes_trust_while_the_process_keeps_running() {
+    for el_conflict in [true, false] {
+        let fx = Fixture::genesis(1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        commit_to(&mut app, &fx, 2 * LANDED).await;
+        finalize_landing(&app, &fx, 65, LANDED);
+        app.refresh_trust().await.unwrap();
+        assert_ready_at(&app, LANDED);
+        let mut inbox = landed(&app, &fx, 2 * LANDED);
+        if el_conflict {
+            inbox.last_checkpoint_hash = B256::repeat_byte(0xc4);
+            let record = inbox::landing_record_slots(2 * LANDED)[0];
+            app.l1().state().proof_fail_slot =
+                Some((record, L1Error::Rpc("record unavailable".into())));
+        } else {
+            inbox.last_checkpoint_comet_hash = B256::repeat_byte(0xc5);
+        }
+        fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+        app.refresh_trust().await.expect("a revocation keeps the process running");
+        let snapshot = app.trust.snapshot();
+        assert_eq!(snapshot.phase, TrustPhase::Halted, "EL conflict {el_conflict}");
+        assert_eq!(snapshot.eligible_height, None);
+        let kind = if el_conflict { "checkpoint hash mismatch" } else { "Comet hash mismatch" };
+        assert!(snapshot.reason.unwrap().contains(kind));
+        assert!(app.store.fatal_evidence().unwrap().is_some());
+        assert_eq!(app.trust.begin_session().phase, TrustPhase::Halted);
+        let restarted = App::new(
+            fx.l1(),
+            app.engine().reopen(),
+            fx.params.clone(),
+            Store::volatile(dir.path().into()),
+            crate::test_utils::test_options(),
+        );
+        assert!(matches!(restarted, Err(AbciError::SafetyHalt(_))));
+    }
+}
+
+/// SYNC-9-6a, SYNC-9-7: at startup the node compares the authenticated lastCheckpoint EL hash as
+/// soon as it holds the target height, and a mismatch halts for safety even while the slot 285
+/// read is pending.
+#[tokio::test]
+async fn a_startup_el_mismatch_halts_while_the_record_is_unavailable() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    commit_to(&mut app, &fx, LANDED).await;
+    fx.advance_l1(
+        app.l1(),
+        66,
+        &fx.inbox_at_checkpoint(LANDED, B256::repeat_byte(0xc4)),
+        &fx.registry,
+    );
+    let record = inbox::landing_record_slots(LANDED)[0];
+    app.l1().state().proof_fail_slot = Some((record, L1Error::Rpc("record unavailable".into())));
+    let result = app.refresh_trust().await;
+    assert!(
+        matches!(result, Err(AbciError::SafetyHalt(ref reason)) if reason.contains("checkpoint hash mismatch")),
+        "{result:?}"
+    );
+    assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
+    assert!(app.store.fatal_evidence().unwrap().is_some());
+}
+
+/// SYNC-9-6a 6a.l/6a.m, RECOV-8-14/8-15 15.d, RECOV-8.2-5: a running ready node revokes its
+/// checkpoint trust as soon as its own finalized L1 view shows a larger `recoveryGeneration`,
+/// with no proposal or signer reconnect, refuses old-generation signing from then on and keeps
+/// running.
+#[tokio::test]
+async fn a_larger_generation_in_the_finalized_view_revokes_a_ready_node() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    target(&app, &fx, 0, fx.genesis_hash());
+    app.refresh_trust().await.unwrap();
+    assert!(app.trust.snapshot().is_ready());
+    let mut inbox = fx.inbox.clone();
+    inbox.recovery_generation += 1;
+    fx.advance_l1(app.l1(), 101, &inbox, &fx.registry);
+    app.refresh_trust().await.expect("a revocation keeps the process running");
+    let snapshot = app.trust.snapshot();
+    assert_eq!(snapshot.phase, TrustPhase::Halted);
+    assert_eq!(snapshot.eligible_height, None);
+    assert!(snapshot.reason.unwrap().contains("recovery generation"));
+    assert!(app.status().unwrap().superseded);
+    assert!(app.store.fatal_evidence().unwrap().is_some());
+    assert_eq!(app.trust.begin_session().phase, TrustPhase::Halted);
+}
+
+/// SYNC-9-6a 6a.g, RECOV-8-5: a ready node whose own L1 cannot answer the latest-checkpoint read
+/// keeps its matched result, and pauses those reads instead of spending the worker's time on
+/// them every tick.
+#[tokio::test(start_paused = true)]
+async fn an_unavailable_latest_checkpoint_keeps_the_matched_result() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    target(&app, &fx, 0, fx.genesis_hash());
+    app.refresh_trust().await.unwrap();
+    assert!(app.trust.snapshot().is_ready());
+    app.l1().state().fail = Some(L1Error::Rpc("down".into()));
+    app.refresh_trust().await.unwrap();
+    let snapshot = app.trust.snapshot();
+    assert!(snapshot.is_ready());
+    assert_eq!(snapshot.eligible_height, Some(fx.genesis.genesis_height + 1));
+    let before = app.l1().calls().len();
+    app.refresh_trust().await.unwrap();
+    assert_eq!(app.l1().calls().len(), before, "paused");
+    app.l1().state().fail = None;
+    tokio::time::advance(crate::app::trust::FOLLOW_RETRY_INITIAL).await;
+    app.refresh_trust().await.unwrap();
+    assert_eq!(app.l1().calls()[before..], [L1Call::Finalized]);
+    assert!(app.trust.snapshot().is_ready());
+}
+
+/// CONS-3.4-16 16.b/16.h/16.i: a ready node rejects a proposal whose own-finalized anchor proves
+/// a checkpoint above the parent, alerts, and signs nothing until its chain has reached that
+/// height and compared; the match then restores signing without an operator. 16.c/16.d/16.g:
+/// a proposal whose anchor proves another hash at a height the node holds is rejected and
+/// revokes its trust while the process keeps running.
+#[tokio::test]
+async fn proposal_checkpoints_above_the_parent_pend_and_conflicting_ones_revoke() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    commit_to(&mut app, &fx, LANDED - 1).await;
+    finalize_landing(&app, &fx, 65, LANDED - 1);
+    app.refresh_trust().await.unwrap();
+    assert_ready_at(&app, LANDED - 1);
+    let env = next_envelope(&app, &fx);
+    target(&app, &fx, LANDED, env.block.header.hash_slow());
+    let ahead = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 100)), None);
+    let logs = crate::test_utils::LogCapture::start();
+    assert_eq!(super::proposal::rejected(&mut app, &ahead).await, "checkpoint_above_parent");
+    assert!(logs.at("ERROR").iter().any(|line| line.contains("checkpoint_above_parent")));
+    let snapshot = app.trust.snapshot();
+    assert_eq!(snapshot.phase, TrustPhase::CatchingUp);
+    assert_eq!(snapshot.target.unwrap().height, LANDED);
+    assert_eq!(snapshot.eligible_height, None);
+
+    let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
+    finalize(&mut app, finalize_req(&req)).await.unwrap();
+    commit(&mut app).await.unwrap();
+    app.refresh_trust().await.unwrap();
+    assert_ready_at(&app, LANDED);
+    assert!(app.store.fatal_evidence().unwrap().is_none());
+
+    fx.advance_l1(
+        app.l1(),
+        101,
+        &fx.inbox_at_checkpoint(LANDED - 2, B256::repeat_byte(0xc4)),
+        &fx.registry,
+    );
+    let conflicting = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 101)), None);
+    assert_eq!(super::proposal::rejected(&mut app, &conflicting).await, "checkpoint_conflict");
+    let snapshot = app.trust.snapshot();
+    assert_eq!(snapshot.phase, TrustPhase::Halted);
+    assert!(snapshot.reason.unwrap().contains("differs from the local block"));
+    assert!(app.store.fatal_evidence().unwrap().is_some());
+    assert_eq!(app.trust.begin_session().phase, TrustPhase::Halted);
+}
+
+/// SYNC-9-5a 5a.d/5a.k: on a switching network every trust grant checks the node's own fork
+/// time against the switching EtnaInbox's immutable `etnaForkTime()`, read at the target's own
+/// finalized L1 block, not only while the checkpoint is S: an unavailable read keeps trust
+/// closed, another value halts.
 #[tokio::test]
 async fn switching_trust_checks_the_fork_time_at_a_later_checkpoint() {
     let mut fx = Fixture::genesis(1);
@@ -674,18 +943,21 @@ async fn switching_trust_checks_the_fork_time_at_a_later_checkpoint() {
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();
     assert!(!snapshot.is_ready());
-    assert!(snapshot.reason.unwrap().contains("fork time is unavailable"));
-    app.engine().state().beacon_roots_from = Some((implementation, fork_timestamp));
+    assert!(snapshot.reason.unwrap().contains("EtnaInbox fork time"));
+    app.l1().state().etna_fork_time = Some((fx.params.inbox, fork_timestamp));
     app.refresh_trust().await.unwrap();
     assert!(app.trust.snapshot().is_ready(), "{:?}", app.trust.snapshot().reason);
+    let l1_hash = app.trust.snapshot().target.unwrap().l1_hash;
+    assert!(app.l1().calls().iter().any(|call| matches!(call,
+        L1Call::CallAt { address, hash, .. } if *address == fx.params.inbox && *hash == l1_hash)));
 
     let mut restarted =
         app_with(fx.l1(), app.engine().reopen(), fx.params.clone(), dir.path(), Default::default());
-    restarted.engine().state().beacon_roots_from = Some((implementation, fork_timestamp + 1));
+    restarted.l1().state().etna_fork_time = Some((fx.params.inbox, fork_timestamp + 1));
     target(&restarted, &fx, LANDED, hash);
     let result = restarted.refresh_trust().await;
     assert!(
-        matches!(result, Err(AbciError::SafetyHalt(ref reason)) if reason.contains("fork time")),
+        matches!(result, Err(AbciError::SafetyHalt(ref reason)) if reason.contains("etnaForkTime")),
         "{result:?}"
     );
     assert!(!restarted.trust.snapshot().is_ready());
@@ -704,7 +976,7 @@ async fn restart_equal_and_above_checkpoint_require_fresh_proof_and_linked_histo
             app.engine().reopen(),
             fx.params.clone(),
             dir.path(),
-            AppOptions::default(),
+            crate::test_utils::test_options(),
         );
         target(&restarted, &fx, checkpoint, hash);
         assert!(!restarted.trust.snapshot().is_ready());
@@ -717,7 +989,7 @@ async fn restart_equal_and_above_checkpoint_require_fresh_proof_and_linked_histo
         app.engine().reopen(),
         fx.params.clone(),
         dir.path(),
-        AppOptions::default(),
+        crate::test_utils::test_options(),
     );
     target(&restarted, &fx, 0, fx.genesis_hash());
     let missing = restarted.engine().state().chain.remove(&1).unwrap();
@@ -911,7 +1183,7 @@ async fn committed_comet_history_is_required_and_survives_restart() {
         app.engine().reopen(),
         fx.params.clone(),
         dir.path(),
-        AppOptions::default(),
+        crate::test_utils::test_options(),
     );
     target(&restarted, &fx, LANDED, el);
     let path = dir.path().join(format!("comet-hash-{LANDED}.json"));
@@ -937,7 +1209,7 @@ async fn committed_comet_history_is_required_and_survives_restart() {
             app.engine().reopen(),
             fx.params.clone(),
             Store::volatile(dir.path().into()),
-            AppOptions::default()
+            crate::test_utils::test_options()
         ),
         Err(AbciError::SafetyHalt(_))
     ));
@@ -1088,7 +1360,7 @@ async fn trust_is_ready_on_a_three_word_record_without_a_validator_state_compari
         let target = snapshot.target.unwrap();
         assert_eq!(target.height, checkpoint);
         assert_eq!(target.hash, app.engine().state().chain[&checkpoint].hash_slow());
-        assert_eq!(target.comet_hash, app.store.load_comet_hash(checkpoint).unwrap().unwrap());
+        assert_eq!(target.comet_hash, app.store.load_comet_hash(checkpoint).unwrap());
         assert!(app.store.fatal_evidence().unwrap().is_none());
     }
 }
@@ -1117,14 +1389,12 @@ async fn landing_record_with_a_reserved_bit_is_invalid() {
 }
 
 /// A pinned target's landing record cannot change: a later proof of the same height whose
-/// only difference is the Comet hash halts, both on the refresh after the link check and
-/// against the floor a reconnect keeps.
+/// only difference is the Comet hash halts against the retained floor, whether the session
+/// reads it again at the newer L1 block or a reconnect does.
 #[tokio::test]
 async fn pinned_target_changing_only_the_comet_hash_is_rejected() {
-    for (reconnect, reason) in [
-        (false, "authenticated checkpoint changed at the same height"),
-        (true, "authenticated checkpoint conflicts with retained floor"),
-    ] {
+    for reconnect in [false, true] {
+        let reason = "authenticated checkpoint conflicts with retained floor";
         let fx = Fixture::genesis(1);
         let dir = tempfile::tempdir().unwrap();
         let mut app = initialized(&fx, dir.path()).await;
@@ -1182,6 +1452,8 @@ async fn trust_stays_closed_until_the_execution_floor_is_checked() {
     info(&mut app).await.expect("the EL serves the floor and its state");
     app.refresh_trust().await.unwrap();
     assert_ready_at(&app, LANDED);
+    // SYNC-9-10 10.h: right after an import at s the only eligible height is s + 1.
+    assert_eq!(app.trust.snapshot().eligible_height, Some(LANDED + 1));
 }
 
 /// A `FinalizeBlock` reaching an imported store before any `Info` still runs the startup

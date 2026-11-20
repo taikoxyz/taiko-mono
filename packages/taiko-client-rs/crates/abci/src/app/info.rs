@@ -48,7 +48,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// a future checkpoint height. Missing ancestry keeps signing closed while replay can
     /// continue.
     pub(super) async fn info(&mut self, _req: request::Info) -> Result<response::Info, AbciError> {
+        let handshake = !self.el_reconciled();
         self.reconcile_el_once("startup Info").await?;
+        if handshake && let Some(state) = &self.state {
+            // CometBFT compares this with the stored and replayed headers' AppHash; on a
+            // mismatch it stops, and the operator compares these values (SYNC-9-5c).
+            let report = super::AppHashReport::of(state, None);
+            tracing::info!(%report, "handshake Info answers the committed app hash");
+        }
         let (last_block_height, last_block_app_hash) = match &self.state {
             Some(state) if !at_generation_origin(state) => {
                 (cometbft_height(state.last_height), app_hash(state))

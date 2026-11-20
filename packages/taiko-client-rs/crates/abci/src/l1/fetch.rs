@@ -333,7 +333,7 @@ mod tests {
     /// The L1 block a call reads, if any.
     fn block_of(call: &L1Call) -> Option<u64> {
         match call {
-            L1Call::Finalized => None,
+            L1Call::Finalized | L1Call::CallAt { .. } => None,
             L1Call::CanonicalHash(block) |
             L1Call::Header(block) |
             L1Call::AccountWitness { block, .. } |

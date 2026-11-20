@@ -14,7 +14,9 @@ use crate::{
     envelope::{AnchorWitness, single_envelope},
     l1::{L1Source, OwnFinality, own_finality},
     metrics::AbciMetrics,
+    rules::RuleViolation,
     store::AppState,
+    types::AnchorState,
 };
 
 impl<L: L1Source, E: Engine> App<L, E> {
@@ -151,7 +153,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
         };
         if let Some(w) = &env.anchor {
             self.check_anchor_final(w).await?;
-            self.check_anchor_checkpoint(state, &validated.anchor).await?;
+            if let Err(rejection) = self.check_anchor_checkpoint(state, &validated.anchor).await {
+                self.checkpoint_refused(&validated.anchor, &rejection);
+                return Err(rejection);
+            }
+            self.observe_anchor_checkpoint(&validated.anchor);
         }
         if let (Some((target_epoch, _)), Some(witness)) = (&validated.derived, &verified) {
             // Validation verified this witness under the same root, cutoff and target, so the
@@ -219,7 +225,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// ¹ Requires the anchor header of `w` to be final and canonical in the own L1 view, within
-    /// the L1 deadline.
+    /// the L1 deadline. An own L1 node that has not finalized it, because its view is behind the
+    /// proposer's, it lags, is unreachable or times out, rejects at once and never waits
+    /// (CONS-3.3-5, RECOV-8-5): the node prevotes nil and judges a later round's proposal against
+    /// its view then. Only malformed own-L1 data needs repair.
     async fn check_anchor_final(&self, w: &AnchorWitness) -> Result<(), Rejection> {
         let number = w.l1_header.number();
         match deadline(
@@ -227,12 +236,34 @@ impl<L: L1Source, E: Engine> App<L, E> {
             self.opts.l1_timeout,
             own_finality(self.l1(), number, w.l1_header.hash()),
         )
-        .await?
+        .await
         {
-            OwnFinality::Canonical => Ok(()),
-            OwnFinality::NotFinal { .. } | OwnFinality::OffChain { .. } => {
+            Ok(OwnFinality::Canonical) => Ok(()),
+            Ok(OwnFinality::NotFinal { .. } | OwnFinality::OffChain { .. }) => {
                 Err(Rejection::AnchorNotFinal { number })
             }
+            Err(error) if error.requires_dependency_repair() => Err(error),
+            Err(error) => {
+                tracing::warn!(number, %error, "own L1 cannot confirm the anchor's finality now");
+                Err(Rejection::AnchorNotFinal { number })
+            }
+        }
+    }
+
+    /// What a proposal's refused checkpoint means for this node itself (CONS-3.4-16): a
+    /// checkpoint above the parent is one its chain has not reached, so it signs nothing until it
+    /// has reached that height and compared ([`App::observe_anchor_checkpoint`]); a hash that
+    /// differs at a height it holds contradicts finalized L1 and revokes its trust. Any other
+    /// refusal, such as a dependency that is not ready, changes nothing.
+    pub(super) fn checkpoint_refused(&self, anchor: &AnchorState, rejection: &Rejection) {
+        match rejection {
+            Rejection::Rule(RuleViolation::CheckpointAboveParent { .. }) => {
+                self.observe_anchor_checkpoint(anchor);
+            }
+            Rejection::Rule(RuleViolation::CheckpointConflict { .. }) => {
+                self.revoke_checkpoint_trust(&rejection.to_string());
+            }
+            _ => {}
         }
     }
 }

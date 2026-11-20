@@ -376,7 +376,7 @@ impl Run {
         let l1 = self.fx.l1();
         plant_anchors(&self.fx, &l1, &self.entries);
         let (params, dir) = (self.fx.params.clone(), self.cold_dir.path());
-        self.cold = app_with(l1, engine, params, dir, AppOptions::default());
+        self.cold = app_with(l1, engine, params, dir, crate::test_utils::test_options());
         prop_assert_eq!(self.cold.state(), Some(committed), "the restart loads the parent");
         info(&mut self.cold).await.map_err(|e| fail(format!("Info after a restart: {e}")))?;
         Ok(())

@@ -403,9 +403,13 @@ async fn run_worker<H: AbciHandler, K: HaltHook>(
     let mut retry = tokio::time::interval(std::time::Duration::from_secs(1));
     retry.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
+        // A wake-up, such as the session a signer begins as it connects before Comet's handshake
+        // Info, or a newly pending checkpoint target, is checked before the next queued request,
+        // so a target the node already holds is verified before stock replays a refused step
+        // (SYNC-9-12) and a held signing request waits as little as possible (SYNC-9-6a).
         let job = tokio::select! {
-            job = queue.recv() => job,
-            _ = retry.tick(), if control.is_some() => {
+            biased;
+            _ = async { if let Some(trust) = &control { trust.notified().await; } }, if control.is_some() => {
                 if let Err(error) = handler.retry_checkpoint().await {
                     if let Some(trust) = &control { trust.revoke(error.to_string()); }
                     let message = format!("checkpoint trust failed: {error}");
@@ -414,7 +418,8 @@ async fn run_worker<H: AbciHandler, K: HaltHook>(
                 }
                 continue;
             }
-            _ = async { if let Some(trust) = &control { trust.notified().await; } }, if control.is_some() => {
+            job = queue.recv() => job,
+            _ = retry.tick(), if control.is_some() => {
                 if let Err(error) = handler.retry_checkpoint().await {
                     if let Some(trust) = &control { trust.revoke(error.to_string()); }
                     let message = format!("checkpoint trust failed: {error}");

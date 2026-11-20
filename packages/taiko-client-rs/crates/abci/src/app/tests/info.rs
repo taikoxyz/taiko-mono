@@ -94,7 +94,8 @@ async fn info_reconciles_the_el_again_after_comet_reconnects() {
     let mut chain = fx.el_chain.clone();
     chain.push(first.clone());
     let engine = MockEngine::with_chain(chain);
-    let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
 
     app.connections().bump();
     let handshake = info(&mut app).await.expect("the handshake Info reconciles");
@@ -155,7 +156,8 @@ async fn info_retries_a_failed_reconcile() {
     let dir = tempfile::tempdir().unwrap();
     drop(initialized(&fx, dir.path()).await);
 
-    let opts = AppOptions { elsync_timeout: Duration::from_secs(30), ..AppOptions::default() };
+    let opts =
+        AppOptions { elsync_timeout: Duration::from_secs(30), ..crate::test_utils::test_options() };
     let mut app = app_with(fx.l1(), MockEngine::new(), fx.params.clone(), dir.path(), opts);
     assert!(tokio::time::timeout(Duration::from_secs(40), info(&mut app)).await.is_err());
     {
@@ -211,7 +213,8 @@ async fn info_after_the_first_block_reports_the_committed_head() {
     let mut chain = fx.el_chain.clone();
     chain.push(first.clone());
     let engine = MockEngine::with_chain(chain);
-    let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     let resp = info(&mut app).await.expect("Info succeeds");
     assert_eq!(resp.last_block_height.value(), first.number);
     assert_eq!(resp.last_block_app_hash, crate::app::app_hash(&state));
@@ -228,7 +231,8 @@ async fn info_syncs_an_el_missing_the_committed_block() {
     for header in &fx.el_chain {
         engine.insert_known(header.clone());
     }
-    let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     let resp = info(&mut app).await.expect("Info succeeds after the EL sync");
     assert_eq!(resp.last_block_height.value(), 0, "still at genesis");
     let h = fx.genesis_hash();
@@ -249,7 +253,8 @@ async fn info_stays_pending_when_the_el_has_not_reached_the_committed_block() {
     let dir = tempfile::tempdir().unwrap();
     drop(initialized(&fx, dir.path()).await);
 
-    let opts = AppOptions { elsync_timeout: Duration::from_secs(30), ..AppOptions::default() };
+    let opts =
+        AppOptions { elsync_timeout: Duration::from_secs(30), ..crate::test_utils::test_options() };
     let mut app = app_with(fx.l1(), MockEngine::new(), fx.params.clone(), dir.path(), opts);
     assert!(tokio::time::timeout(Duration::from_secs(90), info(&mut app)).await.is_err());
     assert!(!dir.path().join("fatal-evidence.txt").exists());
@@ -264,7 +269,8 @@ async fn info_halts_when_the_el_holds_another_committed_block() {
     let mut other = fx.el_chain.clone();
     other[0].gas_used += 1;
     let engine = MockEngine::with_chain(other);
-    let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     let err = info(&mut app).await.expect_err("EL disagrees with the app state");
     assert!(matches!(err, AbciError::SafetyHalt(_)), "{err:?}");
     assert!(
@@ -281,7 +287,8 @@ async fn info_halts_when_the_el_rejects_the_committed_block() {
 
     let engine = MockEngine::new();
     engine.state().forkchoice_script.push_back(Ok(PayloadVerdict::Invalid("bad".into())));
-    let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     let err = info(&mut app).await.expect_err("EL rejects the committed block");
     assert!(matches!(err, AbciError::SafetyHalt(_)), "{err:?}");
 }
@@ -299,8 +306,13 @@ async fn info_forkchoice_invalid_state_halts_but_transient_replies_recover() {
             code,
             message: "fixture refusal".into(),
         }));
-        let mut app =
-            app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+        let mut app = app_with(
+            fx.l1(),
+            engine,
+            fx.params.clone(),
+            dir.path(),
+            crate::test_utils::test_options(),
+        );
         let result = info(&mut app).await;
         if code == -38002 {
             assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "{result:?}");
@@ -326,7 +338,7 @@ fn imported_app(
     Store::volatile(dir.into()).save(state).unwrap();
     let engine = MockEngine::with_chain(chain);
     engine.state().historical_state.extend(states.iter().copied());
-    app_with(fx.l1(), engine, fx.params.clone(), dir, AppOptions::default())
+    app_with(fx.l1(), engine, fx.params.clone(), dir, crate::test_utils::test_options())
 }
 
 /// DATA-5.4-4: the first `Info` over an imported store answers the landed head and its app hash
@@ -422,15 +434,20 @@ fn app_new_rejects_an_execution_floor_outside_the_committed_range() {
         let mut bad = state.clone();
         bad.execution_floor = Some(ExecutionFloor { number, ..state.execution_floor.unwrap() });
         store.save(&bad).unwrap();
-        let err =
-            App::new(fx.l1(), fx.engine(), fx.params.clone(), store.clone(), AppOptions::default())
-                .expect_err("a floor outside the committed range");
+        let err = App::new(
+            fx.l1(),
+            fx.engine(),
+            fx.params.clone(),
+            store.clone(),
+            crate::test_utils::test_options(),
+        )
+        .expect_err("a floor outside the committed range");
         let floor_refused =
             matches!(err, AbciError::StoredState(ref m) if m.contains("execution floor"));
         assert!(floor_refused, "{err:?}");
     }
     store.save(&state).unwrap();
-    App::new(fx.l1(), fx.engine(), fx.params.clone(), store, AppOptions::default())
+    App::new(fx.l1(), fx.engine(), fx.params.clone(), store, crate::test_utils::test_options())
         .expect("a floor at the head is in range");
 }
 
@@ -444,7 +461,7 @@ fn app_new_rejects_invalid_parameters() {
         fx.engine(),
         params,
         Store::volatile(dir.path().into()),
-        AppOptions::default(),
+        crate::test_utils::test_options(),
     )
     .expect_err("invalid parameters");
     assert!(matches!(err, AbciError::Config(ConfigError::ZeroNMax)), "{err:?}");
@@ -462,7 +479,7 @@ async fn app_new_rejects_a_stored_state_of_another_chain() {
         fx.engine(),
         params,
         Store::volatile(dir.path().into()),
-        AppOptions::default(),
+        crate::test_utils::test_options(),
     )
     .expect_err("stored chain id is for another chain");
     assert!(matches!(err, AbciError::ChainId(RuleViolation::InvalidChainId { .. })), "{err:?}");
@@ -480,7 +497,7 @@ async fn app_new_rejects_a_changed_inbox_after_initialization() {
         fx.engine(),
         params,
         Store::volatile(dir.path().into()),
-        AppOptions::default(),
+        crate::test_utils::test_options(),
     )
     .expect_err("Inbox differs from authenticated bootstrap");
     assert!(matches!(err, AbciError::StoredState(_)), "{err:?}");
@@ -499,7 +516,7 @@ async fn app_new_rejects_a_changed_authenticated_unsettled_limit() {
         fx.engine(),
         params,
         Store::volatile(dir.path().into()),
-        AppOptions::default(),
+        crate::test_utils::test_options(),
     )
     .expect_err("stored schedule violates the unsettled limit");
     assert!(
@@ -531,9 +548,14 @@ async fn app_new_rejects_an_inconsistent_stored_state() {
 
     for state in [bad_generation, bad_genesis, bad_parent, bad_height, bad_schema, bad_val_state] {
         store.save(&state).unwrap();
-        let err =
-            App::new(fx.l1(), fx.engine(), fx.params.clone(), store.clone(), AppOptions::default())
-                .expect_err("inconsistent stored state");
+        let err = App::new(
+            fx.l1(),
+            fx.engine(),
+            fx.params.clone(),
+            store.clone(),
+            crate::test_utils::test_options(),
+        )
+        .expect_err("inconsistent stored state");
         assert!(matches!(err, AbciError::StoredState(_)), "{err:?}");
     }
 }
@@ -632,10 +654,49 @@ fn saved_state_rejects_old_and_unknown_protocol_versions() {
         let mut state = fx.expected_state();
         state.app_version = version;
         store.save(&state).unwrap();
-        let result =
-            App::new(fx.l1(), fx.engine(), fx.params.clone(), store, AppOptions::default());
+        let result = App::new(
+            fx.l1(),
+            fx.engine(),
+            fx.params.clone(),
+            store,
+            crate::test_utils::test_options(),
+        );
         assert!(
             matches!(result,Err(AbciError::StoredState(ref msg)) if msg.contains("app version"))
         );
     }
+}
+
+/// SYNC-9-5c: the handshake `Info` reports the committed head's height, app hash, local EL hash
+/// and validator-state hash, whose app hash is the one it answers, so an operator facing a
+/// header AppHash mismatch in CometBFT can compare them; a header AppHash, where known, is
+/// reported beside them and flags the mismatch.
+#[tokio::test]
+async fn handshake_info_reports_the_app_hash_and_its_preimages() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = initialized(&fx, dir.path()).await;
+    let state = app.state().unwrap().clone();
+    let report = crate::app::AppHashReport::of(&state, None);
+    assert_eq!(report.height, state.last_height);
+    assert_eq!(report.el_hash, state.parent.hash);
+    assert_eq!(report.val_state_hash, state.val_state.hash());
+    assert_eq!(report.app_hash.as_slice(), crate::app::app_hash(&state).as_bytes());
+    assert!(!report.mismatched());
+
+    app.connections().bump();
+    let logs = crate::test_utils::LogCapture::start();
+    info(&mut app).await.unwrap();
+    let line = logs.at("INFO").into_iter().find(|line| line.contains("handshake Info"));
+    let line = line.unwrap_or_else(|| panic!("no report: {}", logs.text()));
+    for value in [report.app_hash, report.el_hash, report.val_state_hash] {
+        assert!(line.contains(&value.to_string()), "{line}");
+    }
+    assert!(line.contains("header AppHash unknown"), "{line}");
+
+    let header = Some(B256::repeat_byte(0x11));
+    let reported = crate::app::AppHashReport::of(&state, header);
+    assert!(reported.mismatched());
+    assert!(reported.to_string().contains(&B256::repeat_byte(0x11).to_string()));
+    assert!(!crate::app::AppHashReport::of(&state, Some(report.app_hash)).mismatched());
 }

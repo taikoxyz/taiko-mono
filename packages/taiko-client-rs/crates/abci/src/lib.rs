@@ -67,7 +67,7 @@ pub(crate) mod test_utils;
 #[cfg(test)]
 mod proptests;
 
-pub use app::{AbciError, App, AppOptions, Status};
+pub use app::{AbciError, App, AppHashReport, AppOptions, Status};
 pub use committee::{CommitteeError, Snapshot, committee_config_hash};
 pub use config::{ChainParams, ConfigError, SwitchConfig};
 pub use elsync::{ElSyncError, ensure_block};

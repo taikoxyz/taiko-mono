@@ -227,14 +227,14 @@ impl Fixture {
         (self.l1(), self.engine(), self.params.clone(), self.request.clone())
     }
 
-    /// An app over the fixture's L1 and Engine with a store in `dir` and default options.
+    /// An app over the fixture's L1 and Engine with a store in `dir` and [`test_options`].
     pub(crate) fn app(&self, dir: &Path) -> App<MockL1, MockEngine> {
         App::new(
             self.l1(),
             self.engine(),
             self.params.clone(),
             Store::volatile(dir.to_path_buf()),
-            AppOptions::default(),
+            test_options(),
         )
         .expect("the fixture app starts")
     }
@@ -663,6 +663,13 @@ pub(crate) fn recovery_fixture_with_spec(
         parent_headers: if c == 0 { vec![] } else { vec![parent] },
     };
     (fx, l1, engine, witness)
+}
+
+/// [`AppOptions::default`] but with no proposer anchor hold (CONS-3.3-4): the proposer moves its
+/// anchor as soon as its own L1 finalizes a newer block, which every test but the hold's own
+/// expects.
+pub(crate) fn test_options() -> AppOptions {
+    AppOptions { anchor_hold: std::time::Duration::ZERO, ..AppOptions::default() }
 }
 
 #[cfg(test)]

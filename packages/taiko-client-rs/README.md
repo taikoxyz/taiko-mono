@@ -204,6 +204,7 @@ Serves the ABCI++ application to a CometBFT node.
 | `--engine.timeout`                      | `ABCI_ENGINE_TIMEOUT`  | Deadline of one Engine API or EL RPC call, in seconds (default 5)              |
 | `--elsync.timeout`                      | `ABCI_ELSYNC_TIMEOUT`  | Deadline of an EL sync to a trusted head, in seconds (default 600)             |
 | `--prepare.timeout`                     | `ABCI_PREPARE_TIMEOUT` | `PrepareProposal` deadline in seconds (default 2), below `timeout_propose`     |
+| `--anchor.hold`                         | `ABCI_ANCHOR_HOLD`     | Seconds the proposer keeps its parent's anchor after a newer finality (12)     |
 | `--metrics.enabled` / `.addr` / `.port` | `METRICS_*`            | Prometheus metrics server (default off, `0.0.0.0:9090`)                        |
 | `-v`, `--verbosity`                     | `VERBOSITY`            | Log level, 0 = error … 4 = trace (default 2); `RUST_LOG` overrides it          |
 
@@ -236,9 +237,11 @@ verifies its authenticated c/R origin and generation genesis; see the
 On a network that switched from Unzen (a nonzero Etna start S and a `[switch]` table, see the
 [handoff runbook](docs/unzen-etna-handoff.md)), run alethia-reth with exactly the
 `fork_timestamp` the app uses: the app cannot read the EL's Etna time, so a different value
-shows up as EL errors around the fork, not as a trust check failure. While the Inbox's latest
-checkpoint is S, trust also needs an `eth_getProof` at S's hash from `--l2.http` (SYNC-9-5a,
-SYNC-9-16). reth's `--rpc.eth-proof-window` is 0 by default, so that proof fails once the head
+shows up as EL errors around the fork, not as a trust check failure. Before every trust grant
+the app checks that `fork_timestamp` equals the switching EtnaInbox's immutable
+`etnaForkTime()`, read by `eth_call` at its finalized L1 block's hash, so `--l1.http` must serve
+hash-pinned `eth_call` (SYNC-9-5a). While the Inbox's latest checkpoint is S, trust also needs
+an `eth_getProof` at S's hash from `--l2.http` (SYNC-9-5a, SYNC-9-16). reth's `--rpc.eth-proof-window` is 0 by default, so that proof fails once the head
 passes S and trust stays closed. Until the first landing is final in own L1, keep S's state and
 set a proof window of at least `unsettled_limit` blocks plus a margin, or point `--l2.http` at an
 archive endpoint.
@@ -925,19 +928,36 @@ committing those values to the Inbox.
 
 ### Checkpoint trust
 
-- Every app start and every signer session start closed. The app pins one block of its own L1
-  `finalized` view and authenticates the Inbox's latest checkpoint there: the L1 header and
-  state root, exact account and storage proofs, canonicality, generation and both the checkpoint EL hash and slot-285 Comet hash.
-  Readiness is the trust phase alone: `/trust` reports it as `phase` and `/status` as
-  `trust_phase`, one of `acquiring`, `catching_up`, `ready` or `halted`, and only `ready`
-  means trusted. While closed, neither reports a `trusted_consensus_head`; `trust_target`
-  shows the pinned checkpoint and `trust_reason` why trust is still closed. Info, InitChain
-  and historical Finalize/Commit replay continue normally meanwhile.
-- Trust opens only after both target hashes match durable committed history. A committed head already
-  above the target must prove its complete `parentHash` ancestry down to the target; finding
-  the target in alethia-reth is not enough. Readiness opens after the matching state is durable
-  and the latest finalized checkpoint has been read again; if that checkpoint is now higher,
-  catch-up continues to it.
+- Every app start and every signer session start closed (SYNC-9-4). The app reads the Inbox's
+  latest checkpoint and `recoveryGeneration` at one block of its own L1 `finalized` view: the L1
+  header and state root, exact account and storage proofs, canonicality and generation, then the
+  checkpoint's slot 285 record at that same L1 block. Readiness is the trust phase alone:
+  `/trust` reports it as `phase` and `/status` as `trust_phase`, one of `acquiring`,
+  `catching_up`, `ready` or `halted`, and only `ready` means trusted. The signing gate reads the
+  same value, so no signature needs an L1 read of its own. While closed, neither reports a
+  `trusted_consensus_head` and `/trust` names no `eligible_height`; `trust_target` shows the
+  latest known checkpoint and `trust_reason` why trust is still closed. Info, InitChain and
+  historical Finalize/Commit replay continue normally meanwhile.
+- Trust opens only after the target's hashes match durable committed history: the EL hash and
+  the slot 285 Comet hash, or the EL hash alone while the target is the generation's origin (S,
+  whose record holds Comet hash 0, or a recovery origin c, whose record keeps the old
+  generation's Comet hash that a node joining through the generation's genesis does not hold;
+  SYNC-9-5). A committed head already above the target must prove its complete `parentHash`
+  ancestry down to the target; finding the target in alethia-reth is not enough. The EL hash is
+  compared as soon as the node holds the target height, even while the slot 285 record is
+  unavailable: a mismatch then halts at startup. A ready reply names `eligible_height`, the
+  committed boundary plus one: the generation's `initial_height` before its first commit, s + 1
+  right after an import at s (SYNC-9-10).
+- A trusted node keeps following its own finalized L1 view (SYNC-9-6a). A checkpoint above the
+  last matched one, read there or proven by a proposal's anchor, makes trust `catching_up`
+  until the node has reached it and both hashes match; signing requests wait meanwhile (the
+  signer polls for up to 3.5 s) and are refused explicitly after that, and a match restores trust
+  without an operator. A checkpoint at or below the matched one needs no comparison. An
+  unavailable read keeps the matched result and pauses further reads for 1 s, doubling up to
+  30 s. A newer checkpoint whose EL or Comet hash conflicts with local history, or a larger
+  `recoveryGeneration`, revokes trust at once although no proposal shows it: the phase becomes
+  `halted`, the process keeps running, nothing is signed and the generic fatal record makes the
+  next start refuse.
 - A missing proof, missing history or transient I/O keeps trust closed and retries. An
   authenticated contradiction is a safety halt, and so is malformed or unverifiable data from
   the own L1 node or alethia-reth (a header whose hash or number does not match, a proof that
@@ -949,11 +969,18 @@ committing those values to the Inbox.
   accepted proposal and are not a block-validity rule.
 - Checkpoint ancestry: whenever a block carries an anchor witness, the anchor's proven
   `lastCheckpoint` must be at most the parent height and equal the local chain's EL block hash
-  at that height. `ProcessProposal` rejects a conflict (`checkpoint_conflict` or
+  at that height (CONS-3.4-16). `ProcessProposal` rejects a conflict (`checkpoint_conflict` or
   `checkpoint_above_parent` in `abci_process_rejected_total`, logged at ERROR), a proposer
-  keeps the parent anchor instead of proposing one (`abci_proposal_fallbacks_total`), and a
-  cold `FinalizeBlock` halts on it. An EL that does not serve that block yet only makes the
-  node wait.
+  proposes nothing on it, and a cold `FinalizeBlock` halts on it. A checkpoint above the parent
+  leaves trust `catching_up` until the chain reaches it; a hash conflicting at a held height
+  revokes trust, and the node does not keep producing on an older anchor. An EL that does not
+  serve that block yet only makes the node wait.
+- `ProcessProposal` rejects at once, without waiting, an anchor the own L1 node has not
+  finalized, because its view is behind or it lags, is unreachable or times out (CONS-3.3-5,
+  RECOV-8-5); a decided block's `FinalizeBlock` waits for it instead. The proposer keeps its
+  parent's anchor for `--anchor.hold` seconds (default 12, one L1 slot) after its own L1 first
+  shows a newer finalized block, while that anchor keeps the block fresh and within
+  back-pressure, so validators slightly behind do not reject the proposal (CONS-3.3-4).
 - Checkpoint fence: `FinalizeBlock` passes the `lastCheckpoint.hash` proven by the block's
   anchor as forkchoice `finalized`. alethia-reth rejects a head that does not descend from it
   with `-38002` (invalid forkchoice state), and the app stops with a safety halt. With

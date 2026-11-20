@@ -604,7 +604,7 @@ async fn rpc_engine_invalid_without_a_validation_error_is_a_safety_halt() {
         engine,
         fx.params.clone(),
         Store::volatile(dir.path().to_path_buf()),
-        AppOptions::default(),
+        crate::test_utils::test_options(),
     )
     .expect("the app restarts on the RPC engine");
     let result =
@@ -1230,7 +1230,8 @@ async fn finalize_replays_after_a_crash_before_commit() {
     // Crash before Commit: the EL keeps the block, the store the previous height.
     let engine = app.engine().reopen();
     drop(app);
-    let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     assert_eq!(app.state(), Some(&committed));
     let resp = info(&mut app).await.expect("Info reconciles with an EL ahead");
     assert_eq!(resp.last_block_height.value(), committed.last_height);
@@ -1397,7 +1398,7 @@ async fn replay_validates_inclusion_without_admission_log_reads() {
     plant_due_entry(&fx, &l1, 66, fx.inbox.clone());
     l1.state().calls.clear();
     let store = Store::volatile(dir.path().to_path_buf());
-    let mut app = App::new(l1, engine, fx.params.clone(), store, AppOptions::default())
+    let mut app = App::new(l1, engine, fx.params.clone(), store, crate::test_utils::test_options())
         .expect("the app restarts");
     assert_eq!(app.state(), Some(&committed));
     info(&mut app).await.expect("Info reconciles with an EL ahead");
@@ -1465,7 +1466,8 @@ async fn forced_cursor_survives_restart() {
 
     let engine = app.engine().reopen();
     drop(app);
-    let mut app = app_with(fx.l1(), engine, fx.params.clone(), dir.path(), AppOptions::default());
+    let mut app =
+        app_with(fx.l1(), engine, fx.params.clone(), dir.path(), crate::test_utils::test_options());
     assert_eq!(app.state(), Some(&committed), "loaded from the store");
     info(&mut app).await.expect("Info answers from the stored state");
     assert_eq!(app.state().unwrap().forced_cursor, 1);
@@ -1762,7 +1764,7 @@ async fn switch_replay_survives_crashes_before_and_after_commit() {
                 engine,
                 fx.params.clone(),
                 dir.path(),
-                AppOptions::default(),
+                crate::test_utils::test_options(),
             );
             assert_eq!(app.state(), Some(&committed));
             info(&mut app).await.unwrap();
@@ -1786,7 +1788,7 @@ async fn switch_replay_survives_crashes_before_and_after_commit() {
                 engine,
                 fx.params.clone(),
                 dir.path(),
-                AppOptions::default(),
+                crate::test_utils::test_options(),
             );
             assert_eq!(app.state(), Some(&pending));
             info(&mut app).await.unwrap();
@@ -1821,7 +1823,7 @@ async fn cold_canonical_skip_advances_cursor_on_replay_and_persists_after_commit
         engine,
         fx.params.clone(),
         Store::volatile(dir.path().into()),
-        AppOptions::default(),
+        crate::test_utils::test_options(),
     )
     .unwrap();
     assert_eq!(replay.state(), Some(&parent));
@@ -1837,7 +1839,7 @@ async fn cold_canonical_skip_advances_cursor_on_replay_and_persists_after_commit
         replay.engine().reopen(),
         fx.params.clone(),
         Store::volatile(dir.path().into()),
-        AppOptions::default(),
+        crate::test_utils::test_options(),
     )
     .unwrap();
     assert_eq!(reopened.state().unwrap().forced_cursor, 1);
@@ -1894,7 +1896,7 @@ async fn hot_canonical_skip_matches_cold_replay_and_persists_after_commit() {
         hot.engine().reopen(),
         fx.params.clone(),
         Store::volatile(hot_dir.path().into()),
-        AppOptions::default(),
+        crate::test_utils::test_options(),
     )
     .unwrap();
     assert_eq!(reopened.state(), Some(&expected));

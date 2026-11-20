@@ -1,7 +1,7 @@
 //! `PrepareProposal`: authenticate the L1 witnesses, build a valid minimum proposal, then try
 //! to include optional transactions within the remaining time and size limits.
 
-use std::future::Future;
+use std::{future::Future, sync::PoisonError};
 
 use crate::wire::{request, response};
 use alloy_consensus::Transaction;
@@ -98,10 +98,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Builds the encoded envelope of the block at `req.height` on top of `state`.
     ///
-    /// Chooses `max(parent anchor, own finalized)`, authenticates a changed anchor
-    /// or the forced H0 anchor, checks progress, generation, back-pressure and checkpoint
-    /// ancestry (keeping the parent anchor when a moved one conflicts, see
-    /// [`App::choose_anchor`]), derives
+    /// Chooses `max(parent anchor, own finalized)` subject to the proposer's short hold
+    /// ([`App::anchor_to_propose`]), authenticates a changed anchor or the forced H0 anchor,
+    /// checks progress, generation, back-pressure and checkpoint ancestry (proposing nothing
+    /// when a moved anchor's checkpoint conflicts, see [`App::choose_anchor`]), derives
     /// the header and checks that its timestamp keeps the anchor fresh (an anchor older than
     /// `maxAnchorAge` proposes nothing until L1 finalizes a newer block). At `H(t)-2`, takes
     /// committee `t`'s witness at the snapshot block (the committed parent anchor, or the
@@ -127,8 +127,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
         let finalized = self.l1_read("L1 finalized read", self.l1.finalized_number()).await?;
         set_u64(AbciMetrics::l1_finality_lag(), finalized.saturating_sub(state.anchor.number));
-        let newest = state.anchor.number.max(finalized);
-        let (anchor, anchor_state) = self.choose_anchor(state, height, newest).await?;
+        let n = self.anchor_to_propose(state, height, finalized, unix_secs(req.time));
+        let (anchor, anchor_state) = self.choose_anchor(state, height, n).await?;
         rules::check_rules_schedule(
             anchor_state.inbox.rules_schedule,
             &state.parent,
@@ -333,47 +333,74 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
     }
 
-    /// The anchor of the block at `height` on top of `state`: the newest own-finalized L1 block
-    /// `newest` (never below the parent's), with its witness when the anchor moves or at `H0`
-    /// ([`App::anchor_candidate`]).
+    /// The L1 block the block at `height` on top of `state` anchors at (CONS-3.3-4): the newer of
+    /// the parent's anchor and the own `finalized` block, except that for up to
+    /// [`AppOptions::anchor_hold`](super::AppOptions) after the own L1 first shows a block newer
+    /// than the parent's anchor as finalized the proposer keeps the parent's anchor, so that
+    /// validators whose view is slightly behind do not reject the proposal (RECOV-8-5). It holds
+    /// only while the parent's anchor keeps the block fresh and within back-pressure, and never
+    /// at a generation's first block, which carries a witness of the own finalized head.
+    fn anchor_to_propose(
+        &self,
+        state: &AppState,
+        height: u64,
+        finalized: u64,
+        bft_secs: u64,
+    ) -> u64 {
+        let parent = &state.anchor;
+        if finalized <= parent.number || state.origin_height().checked_add(1) == Some(height) {
+            return parent.number.max(finalized);
+        }
+        let first_seen = {
+            let mut seen = self.anchor_seen.lock().unwrap_or_else(PoisonError::into_inner);
+            match *seen {
+                Some((anchor, at)) if anchor == parent.number => at,
+                _ => seen.insert((parent.number, tokio::time::Instant::now())).1,
+            }
+        };
+        let timestamp = rules::block_timestamp(state.parent.timestamp, bft_secs, parent.timestamp);
+        let usable = rules::check_anchor_freshness(
+            timestamp,
+            parent.timestamp,
+            state.genesis.max_anchor_age,
+        )
+        .is_ok() &&
+            rules::check_back_pressure(
+                height,
+                parent.inbox.last_checkpoint_height,
+                self.params.unsettled_limit(),
+            )
+            .is_ok();
+        if usable && first_seen.elapsed() < self.opts.anchor_hold {
+            tracing::debug!(height, parent = parent.number, finalized, "holding the parent anchor");
+            parent.number
+        } else {
+            finalized
+        }
+    }
+
+    /// The anchor of the block at `height` on top of `state`: L1 block `n` (never below the
+    /// parent's), with its witness when the anchor moves or at `H0` ([`App::anchor_candidate`]).
     ///
-    /// A moved anchor whose proven `lastCheckpoint` conflicts with the local chain
-    /// ([`App::check_anchor_checkpoint`]) is never proposed, since every honest validator rejects
-    /// it: the parent's still-valid anchor is kept instead, and the conflict is logged at ERROR
-    /// and counted in `abci_proposal_fallbacks_total` as an alert. Any other failure of the check
-    /// (a dependency that is not ready, say) refuses the proposal.
+    /// A moved anchor whose proven `lastCheckpoint` does not name a block of the local chain
+    /// ([`App::check_anchor_checkpoint`]) proposes nothing, and the refusal is an alert: a
+    /// checkpoint above the parent leaves signing closed until the chain reaches it, a hash that
+    /// conflicts at a held height revokes trust, and the node never keeps producing on an older
+    /// anchor instead (CONS-3.4-16, [`App::checkpoint_refused`]).
     async fn choose_anchor(
         &self,
         state: &AppState,
         height: u64,
-        newest: u64,
+        n: u64,
     ) -> Result<(Option<AnchorWitness>, AnchorState), Rejection> {
-        let (witness, anchor) = self.anchor_candidate(state, height, newest).await?;
-        if witness.is_none() {
-            return Ok((witness, anchor));
+        let (witness, anchor) = self.anchor_candidate(state, height, n).await?;
+        if witness.is_some() &&
+            let Err(rejection) = self.check_anchor_checkpoint(state, &anchor).await
+        {
+            self.checkpoint_refused(&anchor, &rejection);
+            return Err(rejection);
         }
-        match self.check_anchor_checkpoint(state, &anchor).await {
-            Ok(()) => Ok((witness, anchor)),
-            Err(conflict) if conflict.is_checkpoint_conflict() && newest != state.anchor.number => {
-                tracing::error!(
-                    height,
-                    anchor = newest,
-                    parent_anchor = state.anchor.number,
-                    reason = conflict.label(),
-                    error = %conflict,
-                    "the finalized anchor's lastCheckpoint conflicts with the local chain; \
-                     proposing on the parent anchor"
-                );
-                AbciMetrics::proposal_fallbacks().with_label_values(&[conflict.label()]).inc();
-                let (witness, anchor) =
-                    self.anchor_candidate(state, height, state.anchor.number).await?;
-                if witness.is_some() {
-                    self.check_anchor_checkpoint(state, &anchor).await?;
-                }
-                Ok((witness, anchor))
-            }
-            Err(other) => Err(other),
-        }
+        Ok((witness, anchor))
     }
 
     /// A candidate anchored at L1 block `n`: its witness, fetched when the anchor moves to `n` or

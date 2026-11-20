@@ -98,9 +98,12 @@ async fn refusals_count_by_reason_and_raise_halted() {
     assert_eq!(AbciMetrics::halted().get(), 0);
 }
 
+/// CONS-3.4-16: a finalized anchor whose checkpoint conflicts with the local chain is counted
+/// as a refusal of the proposer's build and of the validator's proposal alike; it is no longer
+/// a fallback to the parent anchor.
 #[tokio::test]
-async fn checkpoint_conflicts_count_as_a_fallback_and_a_rejection() {
-    if !in_own_process(module_path!(), "checkpoint_conflicts_count_as_a_fallback_and_a_rejection") {
+async fn checkpoint_conflicts_count_as_refusals_not_fallbacks() {
+    if !in_own_process(module_path!(), "checkpoint_conflicts_count_as_refusals_not_fallbacks") {
         return;
     }
     let fx = Fixture::genesis(1);
@@ -111,9 +114,12 @@ async fn checkpoint_conflicts_count_as_a_fallback_and_a_rejection() {
     let fallbacks =
         || AbciMetrics::proposal_fallbacks().with_label_values(&["checkpoint_conflict"]).get();
     let (fallen_back, conflicts) = (fallbacks(), rejected("checkpoint_conflict"));
+    let placeholders = AbciMetrics::proposals_placeholder().get();
 
-    assert!(propose(&mut app).await.anchor.is_none(), "the parent anchor is kept");
-    assert_eq!(fallbacks(), fallen_back + 1);
+    let req = super::proposal::prepare_req(super::proposal::next_height(&app), bft_time(&app));
+    assert!(super::proposal::prepare(&mut app, req).await.is_empty(), "nothing is proposed");
+    assert_eq!(AbciMetrics::proposals_placeholder().get(), placeholders + 1);
+    assert_eq!(fallbacks(), fallen_back);
 
     let env = super::proposal::hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
     assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Reject);
