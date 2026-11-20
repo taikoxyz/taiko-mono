@@ -57,6 +57,7 @@ type ethClient interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
+	CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 }
 
@@ -107,6 +108,12 @@ type Processor struct {
 	destChainId *big.Int
 
 	taikoL2 *taikol2.TaikoL2
+
+	destBridgeAddress common.Address
+	etnaTimestamps    etnaTimestampCache
+
+	// now is the processor's clock, replaced in tests. Nil means time.Now.
+	now func() time.Time
 
 	targetTxHash *common.Hash // optional, set to target processing a specific txHash only
 
@@ -345,6 +352,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.srcSignalService = srcSignalService
 
 	p.destBridge = destBridge
+	p.destBridgeAddress = cfg.DestBridgeAddress
 	p.destERC1155Vault = destERC1155Vault
 	p.destERC20Vault = destERC20Vault
 	p.destERC721Vault = destERC721Vault
@@ -458,6 +466,15 @@ func installPrivateSending(
 
 func (p *Processor) Name() string {
 	return "processor"
+}
+
+// currentTime returns the time on the processor's clock.
+func (p *Processor) currentTime() time.Time {
+	if p.now != nil {
+		return p.now()
+	}
+
+	return time.Now()
 }
 
 // WaitForInterrupt returns whether processor should keep running and wait for
@@ -785,6 +802,13 @@ func isTransientProcessMessageError(err error) bool {
 		// dead-lettered, and the dead-letter queue has no consumer. A claim nobody had processed
 		// was parked there for good. The sentinel is %w-wrapped, so this matches it exactly.
 		errors.Is(err, core.ErrNonceTooLow) ||
+		// The L1 block the proof was built at changed root after the wait checked it: an L1 reorg,
+		// or RPC backends that disagree. The next attempt waits for an anchor again.
+		errors.Is(err, proof.ErrStateRootMismatch) ||
+		// A legacy proof used after the Etna fork cannot verify; the next attempt waits for an
+		// Etna anchor and proves the message again.
+		errors.Is(err, errLegacyProofAfterEtna) ||
+		errors.Is(err, errEtnaForkUnknown) ||
 		strings.Contains(err.Error(), "timeout") ||
 		strings.Contains(err.Error(), "i/o") ||
 		strings.Contains(err.Error(), "connect") ||
