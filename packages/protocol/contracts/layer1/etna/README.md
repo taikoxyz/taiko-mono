@@ -61,8 +61,8 @@ matching stock CometBFT's protobuf encoding.
 - `setOrigin(S)`: on a switching network anyone writes the start once (START-10-5a, LAND-6.1-8a),
   following the spec's reference body: an initialized Inbox with slot 273 zero, 0 < S,
   `block.timestamp >= etnaForkTime`, the live Unzen Inbox's `proposeCutoff()` non-zero and reached,
-  its `getCoreState()` showing every proposal finalized (`nextProposalId == lastFinalizedProposalId
-  + 1`), and the L1 SignalService checkpoint at S with a non-zero block hash equal to the
+  its `getCoreState()` showing every proposal finalized
+  (`nextProposalId == lastFinalizedProposalId + 1`), and the L1 SignalService checkpoint at S with a non-zero block hash equal to the
   `lastFinalizedBlockHash` and a non-zero state root. A failing check or read reverts. The caller
   supplies only S; the start write takes the hash and state root from that checkpoint and writes
   slots 272–274 (L1_0 = its own block), generation 0's origin, the checkpoint (S, hash) and S's
@@ -104,8 +104,8 @@ matching stock CometBFT's protobuf encoding.
   `block.number`, each excluded bond's exit moves to min(existing, R) in the registry, each listed
   queue entry's hash becomes `keccak256("")`, the generation increments and its origin (c, R's
   number, R's timestamp) is written once to slot 290 (`OriginAlreadyWritten` if that record
-  exists). It then clears the planned stop and, for a non-zero `rules`, sets `activeRules =
-  nextRules = rules` and `rulesTime = 0`. The checkpoint, its record, the queue head and
+  exists). It then clears the planned stop and, for a non-zero `rules`, sets
+  `activeRules = nextRules = rules` and `rulesTime = 0`. The checkpoint, its record, the queue head and
   `activeCommitteeSnapshot` are kept. The list length is not bounded on chain; F is the length up to
   which the worst case is known to fit (below).
 - `scheduleRules(expectedGeneration, rules, time)` and `scheduleStop(expectedGeneration, time)`:
@@ -126,8 +126,7 @@ F is 212 for this bytecode, the deploy scripts' default (`DeployEtnaDevnet.DEFAU
 `EtnaInboxRecoveryCapacityGasTest` runs the worst-case ordinary recovery through a
 `MainnetDAOController` that owns the Inbox: every slot held, F exclusions spread evenly over the
 4,096 bonds (every one a registered bond in its own slot without an exit, which maximizes the entries
-tree nodes written), one forced inclusion to clear and ruleset 1 installed over an all-zero slot
-293. Counting the 21,000 intrinsic gas and the larger of EIP-7623's calldata floor and the standard
+tree nodes written), one forced inclusion to clear and ruleset 1 installed over an all-zero slot 293. Counting the 21,000 intrinsic gas and the larger of EIP-7623's calldata floor and the standard
 calldata cost plus execution, 212 exclusions need 16,718,165 gas before refunds and 213 need
 16,787,608, above EIP-7825's 2^24 = 16,777,216. Because `init` requires K <= F, a deployment with
 F = 212 needs minStake >= floor(10^27 / 213) + 1 base units (about 4,694,836 TAIKO); the scripts
