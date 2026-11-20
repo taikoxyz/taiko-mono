@@ -649,6 +649,131 @@ def committee(entries):
     return {key: int(power) for key, power, _ in entries}
 
 
+def h256(data):
+    """keccak256 of `data` as 0x-prefixed hex."""
+    return "0x" + keccak256(data).hex()
+
+
+def join_words(*values):
+    """The concatenation of 0x-prefixed 32-byte words."""
+    out = b"".join(hexbytes(v) for v in values)
+    assert len(out) == 32 * len(values)
+    return out
+
+
+ENTRY_FIELDS = ("ck_prefix", "ck_x", "eff_stake", "active_from_l1", "exit_effective_l1")
+ZERO_ENTRY = {"ck_prefix": "0", "ck_x": uint(0), "eff_stake": "0", "active_from_l1": "0",
+              "exit_effective_l1": "0"}
+
+
+def reg_leaf_preimage(slot, entry):
+    """ENC-A-37: seven static words, the bytes32 tag first, indexed by the slot number."""
+    return join_words(
+        tag("ETNA_REG_ENTRY_V1"),
+        uint(slot),
+        uint(entry["ck_prefix"]),
+        entry["ck_x"],
+        uint(entry["eff_stake"]),
+        uint(entry["active_from_l1"]),
+        uint(entry["exit_effective_l1"]),
+    )
+
+
+def reg_leaf(slot, entry):
+    return h256(reg_leaf_preimage(slot, entry))
+
+
+def entries_root(leaves):
+    """ENC-A-38: 0 for no leaf; otherwise right-padded with bytes32(0) to the smallest power of
+    two, inner nodes keccak256(left || right), one leaf its own root."""
+    if not leaves:
+        return uint(0)
+    level = list(leaves)
+    while len(level) & (len(level) - 1):
+        level.append(uint(0))
+    while len(level) > 1:
+        level = [h256(join_words(level[i], level[i + 1])) for i in range(0, len(level), 2)]
+    return level[0]
+
+
+def set_hash_preimage(chain_id, k, members):
+    """ENC-A-39a: four head words (bytes32 tag, l2ChainId, k, offset 128), then the array length
+    and four words per SetMember(ckPrefix, ckX, effStake, assignedPower)."""
+    out = [tag("ETNA_SET_V1"), uint(chain_id), uint(k), uint(128), uint(len(members))]
+    for m in members:
+        out += [uint(m["ck_prefix"]), m["ck_x"], uint(m["eff_stake"]), uint(m["power"])]
+    return join_words(*out)
+
+
+def check_registry_state(test, state):
+    """A listed registry state: count is 0 or 1 + the highest occupied slot (STAKE-4.1-36), every
+    slot below count is listed (an empty one with all-zero fields), each leaf is regLeaf of its
+    slot and the root follows ENC-A-38."""
+    slots = state["slots"]
+    occupied = [int(s["slot"]) for s in slots if s["occupied"]]
+    test.assertEqual(int(state["count"]), occupied[-1] + 1 if occupied else 0)
+    test.assertEqual([int(s["slot"]) for s in slots], list(range(int(state["count"]))))
+    for item in slots:
+        fields = {f: item[f] for f in ENTRY_FIELDS}
+        if item["occupied"]:
+            test.assertIn(item["ck_prefix"], ("2", "3"))
+        else:
+            test.assertEqual(fields, ZERO_ENTRY)
+    test.assertEqual(state["leaves"], [reg_leaf(s["slot"], s) for s in slots])
+    test.assertEqual(state["entries_root"], entries_root(state["leaves"]))
+
+
+def blob_encode(data):
+    """ENC-A-23a-c, written from appendix A: the 131,072-byte blob carrying `data`."""
+    assert len(data) <= 130_044
+    stream = b"\x00" + len(data).to_bytes(3, "big") + data
+    stream += bytes(130_048 - len(stream))
+    out = bytearray()
+    for r in range(1024):
+        c = stream[127 * r : 127 * (r + 1)]
+        x, y, z = c[31], c[63], c[95]
+        hdr = (
+            x & 0x3F,
+            (y & 0x0F) | ((x & 0xC0) >> 2),
+            z & 0x3F,
+            ((z & 0xC0) >> 2) | ((y & 0xF0) >> 4),
+        )
+        for h, body in zip(hdr, (c[0:31], c[32:63], c[64:95], c[96:127])):
+            out += bytes([h]) + body
+    return bytes(out)
+
+
+def blob_decode(blob):
+    """ENC-A-23d strict decoding: the data, or None when the blob does not decode."""
+    if len(blob) != 131_072 or any(blob[32 * i] & 0xC0 for i in range(4096)):
+        return None
+    stream = bytearray()
+    for r in range(1024):
+        fe = [blob[32 * (4 * r + j) : 32 * (4 * r + j + 1)] for j in range(4)]
+        h = [f[0] for f in fe]
+        x = h[0] | ((h[1] & 0x30) << 2)
+        y = (h[1] & 0x0F) | ((h[3] & 0x0F) << 4)
+        z = h[2] | ((h[3] & 0x30) << 2)
+        stream += fe[0][1:] + bytes([x]) + fe[1][1:] + bytes([y]) + fe[2][1:] + bytes([z])
+        stream += fe[3][1:]
+    n = int.from_bytes(stream[1:4], "big")
+    if stream[0] != 0 or n > 130_044 or any(stream[4 + n :]):
+        return None
+    return bytes(stream[4 : 4 + n])
+
+
+# Literal values copied from the Etna spec's vectors/A.md (ENC-A-10b to ENC-A-45).
+APPENDIX_A_LITERALS = {
+    "enc_a_10b_a": "0x05a173eee05e0e03682acaef0ca4dea2f32b47cd3e10eed85233465b524d4507",
+    "enc_a_37_a": "0x21d961646cf730220ee47cda213ec296eba41d18fc39f8f6cb1e1350f77c907d",
+    "enc_a_37_i": "0xe7283e6153912ee69d614724bff4c2c09b9d20287fa4e0840db13c883df21387",
+    "enc_a_37_j": "0x6be6938b2da71c3451f504f138ac0f40a3402012cec0d51f5eb7d37d1fd574e7",
+    "enc_a_39_a": "0x7529ec50109faf073e202f03d7b4804a32a3571765e9749536cc42cc37acb437",
+    "enc_a_39a_a": "0x0c09cd574e795c943cf299b730422425455959f85c169641a97030f4d287566d",
+    "enc_a_42_a": "0x6fa2491c7f7f68e27ae6e55fa1a5cbcc0dfb095bef60d4a69ed7498417368634",
+}
+
+
 class VectorsTest(unittest.TestCase):
     def test_governance_authorization_and_principal_vectors(self):
         self.assertIn("governance_abi", V)
@@ -671,29 +796,37 @@ class VectorsTest(unittest.TestCase):
         for call in calls.values():
             self.assertEqual(call["calldata"][:10], call["selector"])
             self.assertEqual(len(hexbytes(call["selector"])), 4)
+        # forfeit(bondId, incidentId, validUntil): exactly three arguments (ENC-A-54).
+        self.assertEqual(calls["forfeit"]["signature"], "forfeit(uint256,bytes32,uint256)")
+        self.assertEqual(
+            [int(w, 16) for w in words("0x" + calls["forfeit"]["calldata"][10:])],
+            [0, 42, 1_700_000_123],
+        )
         self.assertEqual(
             calls["recover"]["signature"],
-            "recover(uint48,uint256,uint256,uint256,(uint256,bytes32)[],uint256[],uint48)",
+            "recover(uint48,uint256,uint256,uint256,uint256[],uint256[],uint48)",
         )
-        # Seven head words: the two list offsets, then `rules` last.
-        recovery = words("0x" + calls["recover"]["calldata"][10:])
-        self.assertEqual([int(w, 16) for w in recovery[:7]], [2, 12, 7, 1700000123, 224, 320, 4])
-        self.assertEqual(int(recovery[7], 16), 1)
-        self.assertEqual(int(recovery[10], 16), 2)
-        self.assertEqual([int(w, 16) for w in recovery[11:]], [3, 5])
-        self.assertEqual(calls["schedule_rules"]["signature"], "scheduleRules(uint48,uint48)")
+        # Seven head words: the two list offsets, then `rules` last. Exclusions are bond ids, one
+        # word each, strictly increasing (ENC-A-51).
+        recovery = [int(w, 16) for w in words("0x" + calls["recover"]["calldata"][10:])]
+        self.assertEqual(recovery[:7], [2, 12, 7, 1700000123, 224, 352, 4])
+        self.assertEqual(recovery[7:11], [3, 1, 5, 9])
+        self.assertEqual(recovery[11:], [2, 3, 5])
+        self.assertEqual(recovery[8:11], sorted(set(recovery[8:11])))
+        # Both schedule calls take the expected generation first (START-10.1-5c).
+        self.assertEqual(
+            calls["schedule_rules"]["signature"], "scheduleRules(uint48,uint48,uint48)"
+        )
         self.assertEqual(
             [int(w, 16) for w in words("0x" + calls["schedule_rules"]["calldata"][10:])],
-            [2, 1_700_003_600],
+            [1, 2, 1_700_003_600],
         )
-        # scheduleStop(time) takes the stop time only (START-10.1-5b).
-        self.assertEqual(calls["schedule_stop"]["signature"], "scheduleStop(uint48)")
+        self.assertEqual(calls["schedule_stop"]["signature"], "scheduleStop(uint48,uint48)")
         stop = [int(w, 16) for w in words("0x" + calls["schedule_stop"]["calldata"][10:])]
-        self.assertEqual(stop, [1_700_007_200])
-        self.assertEqual(calls["set_origin"]["signature"], "setOrigin(uint256,bytes32,bytes32)")
-        self.assertEqual(
-            words("0x" + calls["set_origin"]["calldata"][10:]), [uint(1000), uint(0x51), uint(0x52)]
-        )
+        self.assertEqual(stop, [1, 1_700_007_200])
+        # setOrigin(S): the caller supplies only the height (START-10-5a, LAND-6.1-8a).
+        self.assertEqual(calls["set_origin"]["signature"], "setOrigin(uint48)")
+        self.assertEqual(words("0x" + calls["set_origin"]["calldata"][10:]), [uint(1000)])
         # saveForcedInclusion(bytes) takes the raw transaction (spec 7.1); sweepProtocolFees() no
         # argument.
         self.assertEqual(calls["save_forced_inclusion"]["signature"], "saveForcedInclusion(bytes)")
@@ -719,16 +852,34 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(registry["top_ups"]["namespace"], "taiko.etna.registry.top-ups")
         for entry in registry["top_ups"]["slots"]:
             self.assertEqual(int(entry["ready_slot"], 16), int(entry["slot"], 16) + 1)
-        self.assertEqual(registry["forfeitures"]["namespace"], "taiko.etna.registry.forfeitures")
-        for entry in registry["forfeitures"]["slots"]:
-            self.assertEqual(len(hexbytes(entry["entry_key"])), 32)
+        # STOR-B-32: the lifetime flag is keyed by bond id, like the top-ups.
+        forfeitures = registry["forfeitures"]
+        self.assertEqual(forfeitures["namespace"], "taiko.etna.registry.forfeitures")
+        self.assertEqual(int(forfeitures["base"], 16) & 0xFF, 0)
+        self.assertEqual([s["bond_id"] for s in forfeitures["slots"]], ["0", "4096"])
+        self.assertEqual(list(forfeitures["slots"][0]), ["bond_id", "slot"])
+        self.assertNotEqual(forfeitures["base"], registry["top_ups"]["base"])
         self.assertEqual(V["layout"]["inbox"]["slots"]["recovery_nonce"], "292")
+
+    def test_entry_keys_are_removed(self):
+        # The lifetime forfeiture flag and recovery exclusions use bond ids, so no key hash remains.
+        self.assertTrue(all("entry_key" not in key for key in V["keys"]))
+        self.assertNotIn("entry_key", json.dumps(V))
+        self.assertNotIn("origin_writer", json.dumps(V))
 
     def test_governance_event_payloads(self):
         self.assertTrue("governance_events" in V, "new events must be shared with ABI consumers")
         events = V["governance_events"]
         rules = int(V["packed_words"]["inbox_293"][0]["word"], 16)
-        entry_key = int(V["keys"][0]["entry_key"], 16)
+        self.assertEqual(
+            events["forfeited"]["signature"], "Forfeited(uint256,bytes32,uint256,uint256)"
+        )
+        self.assertEqual(
+            events["recovered"]["signature"],
+            "Recovered(uint48,uint256,uint256,uint256,uint256[],uint256[])",
+        )
+        for event in events.values():
+            self.assertEqual(event["topic0"], h256(event["signature"].encode()))
         expected = {
             "top_up_deposited": [100, 42],
             "top_up_activated": [100],
@@ -742,18 +893,21 @@ class VectorsTest(unittest.TestCase):
             # left-aligned.
             "forced_inclusion_saved": [64, 1_000_000_000, 1, 0xC0 << 248],
             "protocol_fees_swept": [1_000_000_000],
-            # Five head words with the two list offsets, then each list's length and items.
-            "recovered": [12, 50, 1700000123, 160, 256, 1, 0, entry_key, 2, 3, 5],
+            # Five head words with the two list offsets, then each list's length and items: the
+            # excluded bond ids and the cleared forced inclusion indexes.
+            "recovered": [12, 50, 1700000123, 160, 288, 3, 1, 5, 9, 2, 3, 5],
         }
         self.assertEqual(set(events), set(expected))
         for name, values in expected.items():
             self.assertEqual([int(w, 16) for w in words(events[name]["data"])], values)
             self.assertEqual(len(hexbytes(events[name]["topic0"])), 32)
         # Landed indexes its three heights; ForcedInclusionSaved its queue index; Recovered the
-        # new generation. The other events index nothing.
+        # new generation; Forfeited and the top-up events the bond id. The other events index
+        # nothing.
         self.assertEqual(events["landed"]["indexed_topics"], [uint(0), uint(6), uint(12)])
         self.assertEqual(events["forced_inclusion_saved"]["indexed_topics"], [uint(3)])
         self.assertEqual(events["recovered"]["indexed_topics"], [uint(2)])
+        self.assertEqual(events["forfeited"]["indexed_topics"], [uint(0)])
         for name in (
             "rules_schedule_updated",
             "start_written",
@@ -771,9 +925,14 @@ class VectorsTest(unittest.TestCase):
                 "bond_for_key": "bondForKey(address)",
                 "bond_in_slot": "bondInSlot(uint256)",
                 "slot_of_bond": "slotOfBond(uint256)",
+                "forfeited": "forfeited(uint256)",
+                "min_stake": "minStake()",
                 "etna_start": "etnaStart()",
+                "propose_cutoff": "proposeCutoff()",
             },
         )
+        for view in views.values():
+            self.assertEqual(view["selector"], h256(view["signature"].encode())[:10])
         for name, view in views.items():
             self.assertEqual(view["calldata"][:10], view["selector"], name)
             self.assertEqual(len(hexbytes(view["selector"])), 4, name)
@@ -802,12 +961,26 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(views["etna_start"]["calldata"], views["etna_start"]["selector"])
         written, not_written = views["etna_start"]["results"]
         self.assertEqual(not_written["data"], "0x" + "00" * 64)
-        # The start that `setOrigin` writes: its height and hash.
+        # The start that `setOrigin(S)` writes: S and the hash it copies, as StartWritten reports.
         origin = words("0x" + V["governance_abi"]["set_origin"]["calldata"][10:])
-        self.assertEqual(words(written["data"]), origin[:2])
+        start = words(V["governance_events"]["start_written"]["data"])
+        self.assertEqual(words(written["data"]), [origin[0], start[1]])
+        self.assertEqual(start[0], origin[0])
+        # The lifetime forfeiture flag is read by bond id; minStake is the deployment's.
+        self.assertEqual(words("0x" + views["forfeited"]["calldata"][10:]), [uint(0)])
+        self.assertEqual(
+            [r["values"] for r in views["forfeited"]["results"]], [[True], [False]]
+        )
+        (min_stake,) = views["min_stake"]["results"]
+        self.assertEqual(min_stake["values"], [V["deployment"]["min_stake"]])
+        self.assertEqual(views["min_stake"]["calldata"], views["min_stake"]["selector"])
+        installed, not_installed = views["propose_cutoff"]["results"]
+        self.assertGreater(int(installed["values"][0]), 0)
+        self.assertLess(int(installed["values"][0]), 2**48)
+        self.assertEqual(not_installed["data"], uint(0))
 
-    def test_schema_version_is_8(self):
-        self.assertEqual(V["schema_version"], "8")
+    def test_schema_version_is_9(self):
+        self.assertEqual(V["schema_version"], "9")
 
     def test_deployment(self):
         self.assertEqual(
@@ -818,8 +991,8 @@ class VectorsTest(unittest.TestCase):
                 "inbox": "0x1111111111111111111111111111111111111111",
                 "registry": "0x2222222222222222222222222222222222222222",
                 "l2_block_gas_limit": "45000000",
+                "min_stake": str(250_000 * 10**18),
                 "etna_start": "0",
-                "origin_writer": "0x0000000000000000000000000000000000000000",
                 "unzen_inbox": "0x0000000000000000000000000000000000000000",
                 "etna_fork_time": "0",
             },
@@ -832,6 +1005,12 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(inputs["tag"], "ETNA_PARENT_ANCHOR_V1")
         self.assertEqual(inputs["unsettled_limit"], "3600")
         self.assertEqual(inputs["registry"], V["deployment"]["registry"])
+        # The fifth word is the registry's immutable minStake (ENC-A-36, START-10-14).
+        self.assertEqual(inputs["min_stake"], V["deployment"]["min_stake"])
+        self.assertEqual(
+            list(inputs),
+            ["tag", "l2_chain_id", "registry", "vp_unit", "min_stake", "n_max", "unsettled_limit"],
+        )
         self.assertEqual(
             words(cfg["preimage"]),
             [
@@ -839,11 +1018,20 @@ class VectorsTest(unittest.TestCase):
                 uint(inputs["l2_chain_id"]),
                 address(inputs["registry"]),
                 uint(inputs["vp_unit"]),
-                uint(inputs["s_min"]),
+                uint(inputs["min_stake"]),
                 uint(inputs["n_max"]),
                 uint(inputs["unsettled_limit"]),
             ],
         )
+        self.assertEqual(h256(hexbytes(cfg["preimage"])), cfg["hash"])
+        # START-10-10..12: vp_unit >= ceil(10^27 / MAX), minStake >= vp_unit,
+        # 4096 * minStake > 10^27, 1 <= n_max <= 4096 and 1 <= U <= 65,536.
+        vp_unit, min_stake = int(inputs["vp_unit"]), int(inputs["min_stake"])
+        self.assertGreaterEqual(vp_unit, 867_361_738)
+        self.assertGreaterEqual(min_stake, vp_unit)
+        self.assertGreater(4096 * min_stake, 10**27)
+        self.assertTrue(1 <= int(inputs["n_max"]) <= 4096)
+        self.assertTrue(1 <= int(inputs["unsettled_limit"]) <= 65_536)
 
     def test_validator_state_published_encoding(self):
         case = V["validator_states"][0]
@@ -1755,6 +1943,8 @@ class VectorsTest(unittest.TestCase):
         for key, namespace in (
             ("owners", "taiko.etna.registry.owners"),
             ("exit_confirmations", "taiko.etna.registry.exit-confirmations"),
+            ("top_ups", "taiko.etna.registry.top-ups"),
+            ("forfeitures", "taiko.etna.registry.forfeitures"),
         ):
             self.assertEqual(registry[key]["namespace"], namespace)
             self.assertEqual(int(registry[key]["base"], 16) & 0xFF, 0)
@@ -1763,43 +1953,126 @@ class VectorsTest(unittest.TestCase):
 
     def test_registry_entries_match_keys(self):
         reg = V["registry_entries"]
+        self.assertEqual(
+            list(reg), ["entries", "leaves", "empty_slot", "roots", "checkpoints", "bond_slots"]
+        )
         self.assertEqual(len(reg["entries"]), 5)
         self.assertEqual(len(reg["leaves"]), 5)
+        min_stake = int(V["deployment"]["min_stake"])
         for i, (entry, key) in enumerate(zip(reg["entries"], V["keys"])):
             self.assertEqual(entry["ck_prefix"], key["ck_prefix"])
             self.assertEqual(entry["ck_x"], key["ck_x"])
-            self.assertEqual(int(entry["eff_stake"]), (i + 1) * 10**18)
+            self.assertEqual(int(entry["eff_stake"]), (i + 1) * min_stake)
             self.assertEqual(int(entry["active_from_l1"]), 10 + i)
             self.assertEqual(int(entry["exit_effective_l1"]), 1000 + i if i % 2 else U48_MAX)
+            self.assertEqual(reg["leaves"][i], reg_leaf(i, entry))
+        # Only states whose last listed slot is occupied: every prefix of the five entries.
         roots = reg["roots"]
-        self.assertEqual([int(r["count"]) for r in roots], list(range(7)))
+        self.assertEqual([int(r["count"]) for r in roots], list(range(6)))
+        for n, root in enumerate(roots):
+            self.assertEqual(root["entries_root"], entries_root(reg["leaves"][:n]))
         self.assertEqual(roots[0]["entries_root"], uint(0))
         self.assertEqual(roots[1]["entries_root"], reg["leaves"][0])
 
     def test_empty_slot_leaf_uses_zero_fields(self):
+        # An interior empty slot hashes its all-zero fields under its own slot number: ENC-A-37
+        # 37.a's leaf, Z1 of 38.h.
         empty = V["registry_entries"]["empty_slot"]
-        self.assertEqual(empty["slot"], "5")
-        self.assertEqual(len(hexbytes(empty["leaf"])), 32)
+        self.assertEqual(empty["slot"], "1")
+        self.assertEqual(empty["leaf"], reg_leaf(1, ZERO_ENTRY))
+        self.assertEqual(empty["leaf"], APPENDIX_A_LITERALS["enc_a_37_a"])
         self.assertNotEqual(empty["leaf"], uint(0))
         self.assertNotIn(empty["leaf"], V["registry_entries"]["leaves"])
-        self.assertEqual(V["registry_entries"]["roots"][6]["count"], "6")
+
+    def test_registry_checkpoint_history_count_rule(self):
+        checkpoints = V["registry_entries"]["checkpoints"]
+        self.assertEqual(
+            [(c["name"], int(c["l1_block"]), int(c["count"])) for c in checkpoints],
+            [
+                ("three_bonds", 2, 3),
+                ("slot_1_withdrawn", 2000, 3),
+                ("slot_2_zero_balance", 3000, 3),
+                ("slot_2_withdrawn", 4000, 1),
+                ("slot_0_withdrawn", 5000, 0),
+            ],
+        )
+        entries = V["registry_entries"]["entries"]
+        lanes = V["layout"]["registry"]["packing"]["checkpoint_word1"]
+        for checkpoint in checkpoints:
+            check_registry_state(self, checkpoint)
+            value = int(checkpoint["checkpoint_word1"], 16)
+            for name, field in (("l1_block", "l1_block"), ("count", "count")):
+                lane = lanes[name]
+                self.assertEqual(
+                    (value >> int(lane["offset"])) & ((1 << int(lane["bits"])) - 1),
+                    int(checkpoint[field]),
+                )
+            self.assertEqual(value >> 96, 0)
+        full, interior, zero_balance, one, none = checkpoints
+        self.assertEqual(full["entries_root"], V["registry_entries"]["roots"][3]["entries_root"])
+        # 38.h / 2.d: slots 0 and 2 occupied, slot 1 the all-zero entry Z1, padding P = 0.
+        l0, z1, l2 = interior["leaves"]
+        self.assertEqual((l0, l2), (V["registry_entries"]["leaves"][0], full["leaves"][2]))
+        self.assertEqual(z1, V["registry_entries"]["empty_slot"]["leaf"])
+        self.assertEqual(
+            interior["entries_root"],
+            h256(join_words(h256(join_words(l0, z1)), h256(join_words(l2, uint(0))))),
+        )
+        self.assertEqual(interior["vectors"], ["ENC-A-38 38.h", "COMM-4.3-2 2.d"])
+        wrong = interior["wrong_roots"]
+        self.assertEqual(
+            wrong["zero_word_for_empty_slot"], entries_root([l0, uint(0), l2])
+        )
+        self.assertEqual(
+            wrong["zero_entry_padding"], entries_root([l0, z1, l2, reg_leaf(3, ZERO_ENTRY)])
+        )
+        self.assertEqual(wrong["compacted"], entries_root([l0, reg_leaf(1, entries[2])]))
+        self.assertEqual(wrong["omitted_empty_slot"], entries_root([l0, l2]))
+        self.assertNotIn(interior["entries_root"], wrong.values())
+        # 36.f: a zero-balance bond still occupies slot 2, so count stays 3.
+        slashed = zero_balance["slots"][2]
+        self.assertTrue(slashed["occupied"])
+        self.assertEqual(slashed["eff_stake"], "0")
+        self.assertEqual(slashed["exit_effective_l1"], zero_balance["l1_block"])
+        self.assertEqual(slashed["ck_x"], entries[2]["ck_x"])
+        # 36.g: count shrinks to 1, then 0 with root 0; earlier checkpoints keep theirs.
+        self.assertEqual(one["entries_root"], l0)
+        self.assertEqual((none["slots"], none["entries_root"]), ([], uint(0)))
+        self.assertEqual(len({c["entries_root"] for c in checkpoints}), len(checkpoints))
 
     def test_reg_leaf_is_indexed_by_slot_not_bond_id(self):
         cases = V["registry_entries"]["bond_slots"]
         self.assertEqual(
-            [(c["name"], int(c["bond_id"]), int(c["slot"])) for c in cases],
-            [("full_registry_reuse", 4096, 7), ("withdrawal_reuse", 2, 0)],
+            [(c["name"], int(c["bond_id"]), int(c["slot"]), int(c["count"])) for c in cases],
+            [("full_registry_reuse", 4096, 7, 8), ("withdrawal_reuse", 2, 0, 2)],
         )
         key = V["keys"][5]
         leaves = set(V["registry_entries"]["leaves"])
+        entries = V["registry_entries"]["entries"]
         for case in cases:
             self.assertLess(int(case["slot"]), 4096)
             self.assertNotEqual(case["bond_id"], case["slot"])
             self.assertEqual(case["entry"]["ck_prefix"], key["ck_prefix"])
             self.assertEqual(case["entry"]["ck_x"], key["ck_x"])
+            self.assertEqual(case["leaf"], reg_leaf(case["slot"], case["entry"]))
+            self.assertEqual(case["bond_id_leaf"], reg_leaf(case["bond_id"], case["entry"]))
             self.assertNotEqual(case["leaf"], case["bond_id_leaf"])
             self.assertNotIn(case["leaf"], leaves)
+            # Every state is valid under the count rule, and the bond's slot holds its leaf.
+            check_registry_state(self, case)
+            self.assertTrue(all(s["occupied"] for s in case["slots"]))
+            self.assertEqual(case["leaves"][int(case["slot"])], case["leaf"])
+            self.assertEqual(
+                {f: case["slots"][int(case["slot"])][f] for f in ENTRY_FIELDS}, case["entry"]
+            )
         self.assertNotEqual(cases[0]["leaf"], cases[1]["leaf"])
+        # 37.e: slots 0-4 hold the shared entries, 5 and 6 two more keys, 7 bond 4096.
+        full = cases[0]
+        self.assertEqual(full["leaves"][:5], V["registry_entries"]["leaves"])
+        self.assertEqual(len({s["ck_x"] for s in full["slots"]}), 8)
+        # 37.g: bond 1 keeps slot 1 while bond 2 takes slot 0.
+        reuse = cases[1]
+        self.assertEqual({f: reuse["slots"][1][f] for f in ENTRY_FIELDS}, entries[1])
 
     def test_keys_compress_to_33_bytes(self):
         keys = V["keys"]
@@ -1818,7 +2091,7 @@ class VectorsTest(unittest.TestCase):
             self.assertEqual(len(hexbytes(key["ck_x"])), 32)
             self.assertEqual(len(hexbytes(key["ck_y"])), 32)
             self.assertEqual(len(hexbytes(key["ck_addr"])), 20)
-            self.assertEqual(len(hexbytes(key["entry_key"])), 32)
+            self.assertNotIn("entry_key", key)
             self.assertEqual((y * y - x * x * x - 7) % SECP_P, 0)
         lead = keys[-1]
         self.assertEqual(hexbytes(lead["ck_x"])[0], 0)
@@ -2033,35 +2306,65 @@ class VectorsTest(unittest.TestCase):
     def test_committee_sets_match_appendix_a(self):
         cases = V["committee_sets"]
         self.assertEqual([len(c["members"]) for c in cases], [0, 1, 3, 5])
-        # Spec 4.3 step 4: an empty committee is rejected, so it has no root or record.
+        # Spec 4.3 step 4: an empty committee is rejected, so it has no set hash or record.
         self.assertEqual(cases[0], {"members": [], "valid": False, "reason": "empty_committee"})
         vp_unit = int(V["committee_config"]["inputs"]["vp_unit"])
+        min_stake = int(V["deployment"]["min_stake"])
+        entries = V["registry_entries"]["entries"]
         for case in cases[1:]:
             self.assertTrue(case["valid"])
+            self.assertEqual(
+                list(case),
+                [
+                    "valid",
+                    "l2_chain_id",
+                    "target_epoch",
+                    "set_version",
+                    "cutoff_l1_block",
+                    "checkpoint_index",
+                    "members",
+                    "set_hash_preimage",
+                    "set_hash",
+                    "total_power",
+                    "record_preimage",
+                    "record_hash",
+                ],
+            )
             k = int(case["target_epoch"]) + 1
             self.assertEqual(int(case["set_version"]), k)
             members = case["members"]
             set_keys = [int(m["set_key"], 16) for m in members]
             self.assertEqual(set_keys, sorted(set_keys))
-            for i, member in enumerate(members):
+            # The members are the registry's first entries, each eligible at the snapshot
+            # (COMM-4.3-3: activeFromL1 <= snapshot < exitEffectiveL1, effStake >= minStake).
+            snapshot = int(case["cutoff_l1_block"])
+            selected = entries[: len(members)]
+            self.assertEqual({m["ck_x"] for m in members}, {e["ck_x"] for e in selected})
+            for entry in selected:
+                self.assertLessEqual(int(entry["active_from_l1"]), snapshot)
+                self.assertLess(snapshot, int(entry["exit_effective_l1"]))
+                self.assertGreaterEqual(int(entry["eff_stake"]), min_stake)
+            for member in members:
                 self.assertEqual(int(member["power"]), int(member["eff_stake"]) // vp_unit)
+                self.assertTrue(0 < int(member["power"]) < 2**64)
                 self.assertEqual(
-                    words(case["set_leaf_preimages"][i]),
-                    [
-                        tag("ETNA_SET_LEAF_V1"),
-                        uint(case["l2_chain_id"]),
-                        uint(k),
-                        uint(i),
-                        uint(member["ck_prefix"]),
-                        member["ck_x"],
-                        uint(member["eff_stake"]),
-                        uint(member["power"]),
-                    ],
+                    member["set_key"],
+                    h256(
+                        join_words(
+                            tag("ETNA_SET_KEY_V1"),
+                            uint(case["l2_chain_id"]),
+                            uint(member["ck_prefix"]),
+                            member["ck_x"],
+                        )
+                    ),
                 )
-            self.assertEqual(len(case["set_leaves"]), len(members))
+            # ENC-A-39a: one hash over the whole set, standard ABI encoding.
+            preimage = set_hash_preimage(case["l2_chain_id"], k, members)
+            self.assertEqual(hexbytes(case["set_hash_preimage"]), preimage)
+            self.assertEqual(len(preimage), 32 * (5 + 4 * len(members)))
+            self.assertEqual(h256(preimage), case["set_hash"])
             self.assertEqual(int(case["total_power"]), sum(int(m["power"]) for m in members))
-            if len(members) == 1:
-                self.assertEqual(case["set_root"], case["set_leaves"][0])
+            self.assertLessEqual(int(case["total_power"]), (2**63 - 1) // 8)
             self.assertEqual(
                 words(case["record_preimage"]),
                 [
@@ -2070,10 +2373,148 @@ class VectorsTest(unittest.TestCase):
                     uint(case["target_epoch"]),
                     uint(case["cutoff_l1_block"]),
                     uint(case["checkpoint_index"]),
-                    case["set_root"],
+                    case["set_hash"],
                     uint(case["total_power"]),
                 ],
             )
+            self.assertEqual(h256(hexbytes(case["record_preimage"])), case["record_hash"])
+
+    def test_appendix_a_literals(self):
+        examples = V["appendix_a_examples"]
+        for name, literal in APPENDIX_A_LITERALS.items():
+            self.assertEqual(examples[name]["hash"], literal, name)
+            if "preimage" in examples[name]:
+                self.assertEqual(h256(hexbytes(examples[name]["preimage"])), literal, name)
+        # 10b.a: mixHash = keccak256(abi.encode(bytes32(p.difficulty), uint256(b.number))).
+        mix = examples["enc_a_10b_a"]
+        self.assertEqual(hexbytes(mix["preimage"]), join_words(uint(1_000_000), uint(12_345)))
+        # 37.a and 37.i: seven words under the bytes32 tag (224 bytes).
+        g_x = "0x" + format(SECP_G[0], "064x")
+        self.assertEqual(
+            hexbytes(examples["enc_a_37_a"]["preimage"]), reg_leaf_preimage(1, ZERO_ENTRY)
+        )
+        entry = {"ck_prefix": "2", "ck_x": g_x, "eff_stake": str(250_000 * 10**18),
+                 "active_from_l1": "100", "exit_effective_l1": str(U48_MAX)}
+        self.assertEqual(examples["enc_a_37_i"]["entry"], entry)
+        self.assertEqual(hexbytes(examples["enc_a_37_i"]["preimage"]), reg_leaf_preimage(0, entry))
+        # 37.j: the 37.a entry with the tag as a dynamic string, 288 bytes; rejected.
+        dynamic = hexbytes(examples["enc_a_37_j"]["preimage"])
+        self.assertEqual(len(dynamic), 288)
+        self.assertEqual(
+            dynamic,
+            join_words(uint(224), *words("0x" + reg_leaf_preimage(1, ZERO_ENTRY)[32:].hex()))
+            + join_words(uint(17), tag("ETNA_REG_ENTRY_V1")),
+        )
+        self.assertTrue(examples["enc_a_37_j"]["reject"])
+        # 38.h: root = K(K(L0, Z1), K(L2, P)), the interior-empty-slot checkpoint.
+        h = examples["enc_a_38_h"]
+        self.assertEqual(h["z1"], APPENDIX_A_LITERALS["enc_a_37_a"])
+        self.assertEqual(h["p"], uint(0))
+        self.assertEqual(h["left"], h256(join_words(h["l0"], h["z1"])))
+        self.assertEqual(h["right"], h256(join_words(h["l2"], h["p"])))
+        self.assertEqual(h["root"], h256(join_words(h["left"], h["right"])))
+        (checkpoint,) = [
+            c for c in V["registry_entries"]["checkpoints"] if c["name"] == h["checkpoint"]
+        ]
+        self.assertEqual(checkpoint["leaves"], [h["l0"], h["z1"], h["l2"]])
+        self.assertEqual(checkpoint["entries_root"], h["root"])
+        # 39.a, 39a.a and 42.a: l2ChainId 167000 and G as the key.
+        self.assertEqual(
+            hexbytes(examples["enc_a_39_a"]["preimage"]),
+            join_words(tag("ETNA_SET_KEY_V1"), uint(167000), uint(2), g_x),
+        )
+        member = {"ck_prefix": "2", "ck_x": g_x, "eff_stake": str(250_000 * 10**18),
+                  "power": str(250_000 * 10**9)}
+        self.assertEqual(examples["enc_a_39a_a"]["members"], [member])
+        set_preimage = set_hash_preimage(167000, 1, [member])
+        self.assertEqual(len(set_preimage), 288)
+        self.assertEqual(hexbytes(examples["enc_a_39a_a"]["preimage"]), set_preimage)
+        self.assertEqual(
+            hexbytes(examples["enc_a_42_a"]["preimage"]),
+            join_words(
+                tag("ETNA_COMMITTEE_V1"),
+                uint(167000),
+                uint(0),
+                uint(100),
+                uint(0),
+                APPENDIX_A_LITERALS["enc_a_39a_a"],
+                uint(250_000 * 10**9),
+            ),
+        )
+        # 36.a: seven words (224 bytes) with the deployment's minStake fifth.
+        config = examples["enc_a_36_a"]
+        self.assertEqual(config["preimage_bytes"], "224")
+        self.assertEqual(config["hash"], V["committee_config"]["hash"])
+        self.assertEqual(word(V["committee_config"]["preimage"], 4), uint(config["min_stake"]))
+        # 45.g: seconds = -1 is ten varint bytes; the timestamp field is 2a 0b and those bytes.
+        ts = examples["enc_a_45_g"]
+        self.assertEqual(ts["seconds_field"], "0x08" + "ff" * 9 + "01")
+        self.assertEqual(ts["timestamp_field"], "0x2a0b08" + "ff" * 9 + "01")
+        (vote,) = [c for c in V["votes"]["cases"] if c["name"] == ts["vote"]]
+        self.assertEqual((vote["vote"]["timestampSeconds"], vote["vote"]["timestampNanos"]),
+                         ("-1", "0"))
+        self.assertIn(ts["timestamp_field"][2:], vote["sign_bytes"])
+
+    def test_appendix_a_blobs(self):
+        examples = V["appendix_a_examples"]
+        # 23b.a and 23c.a, copied from A.md: blob bytes up to the last nonzero one.
+        literals = {
+            "enc_a_23b_a": "0x3f0000001c" + "ff" * 27 + "30",
+            "enc_a_23c_a": "0x0000000001ff",
+        }
+        for name, prefix in literals.items():
+            example = examples[name]
+            data = hexbytes(example["data"])
+            blob = blob_encode(data)
+            self.assertEqual(example["blob_prefix"], prefix, name)
+            self.assertEqual(blob, hexbytes(prefix).ljust(131_072, b"\0"), name)
+            self.assertEqual(h256(blob), example["blob_hash"], name)
+            self.assertEqual(blob_decode(blob), data, name)
+        self.assertEqual(hexbytes(examples["enc_a_23b_a"]["data"]), b"\xff" * 28)
+        # 23c.b: 130,044 bytes of 0xff fill the stream; the length bytes are 01 fb fc.
+        full = examples["enc_a_23c_b"]
+        self.assertEqual((full["length_bytes"], full["data_length"]), ("0x01fbfc", "130044"))
+        data = hexbytes(full["data_byte"]) * int(full["data_length"])
+        blob = blob_encode(data)
+        self.assertEqual(blob[:5], hexbytes(full["blob_head"]))
+        self.assertEqual(blob[1:5], b"\x00\x01\xfb\xfc")
+        self.assertEqual(h256(blob), full["blob_hash"])
+        self.assertEqual(blob_decode(blob), data)
+        # 23d.f: a set top bit in the first header byte does not decode.
+        flipped = examples["enc_a_23d_f"]
+        self.assertFalse(flipped["decodes"])
+        self.assertEqual(flipped["blob_prefix"], "0x4000000001ff")
+        self.assertIsNone(blob_decode(hexbytes(flipped["blob_prefix"]).ljust(131_072, b"\0")))
+
+    def test_dynamic_tag_rejects(self):
+        cases = V["appendix_a_examples"]["dynamic_tag_rejects"]
+        self.assertEqual(
+            [c["tag"] for c in cases],
+            [
+                "ETNA_COMET_DOMAIN_V1",
+                "ETNA_PARENT_ANCHOR_V1",
+                "ETNA_REG_ENTRY_V1",
+                "ETNA_SET_KEY_V1",
+                "ETNA_SET_V1",
+                "ETNA_COMMITTEE_V1",
+                "ETNA_VAL_STATE_V1",
+                "ETNA_APP_HASH_V1",
+                "ETNA_LAND_CUTS_V1",
+                "TAIKO_ETNA_LAND_V1",
+            ],
+        )
+        for case in cases:
+            dynamic = hexbytes(case["preimage"])
+            self.assertEqual(h256(dynamic), case["hash"], case["name"])
+            self.assertNotEqual(case["hash"], case["accepted_hash"], case["name"])
+            # The first word is the string's offset; the string is its length and padded ASCII.
+            offset = int.from_bytes(dynamic[:32], "big")
+            self.assertEqual(
+                dynamic[offset : offset + 64],
+                join_words(uint(len(case["tag"])), tag(case["tag"])),
+                case["name"],
+            )
+        self.assertEqual(cases[2]["hash"], APPENDIX_A_LITERALS["enc_a_37_j"])
 
     def test_land_abi_encodes_the_nonzero_statement(self):
         abi = V["land_abi"]
