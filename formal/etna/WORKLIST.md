@@ -44,6 +44,35 @@ its [eleven concrete obligations](conformance/SPEC_CORRESPONDENCE.md#latest-sour
 remain WAITING, without runtime evidence, and source selection remains NOT_EVALUATED.
 That source-only review does not authorize earlier product claims against f556.
 
+## Current Z01–Z07 current-rule batch
+
+After Y01–Y07, the user directly authorized continuation of the established
+seven-task cadence. The [current-rule design](../../docs/superpowers/specs/2026-11-20-etna-current-rule-interleavings-design.md)
+and [plan](../../docs/superpowers/plans/2026-11-20-etna-current-rule-interleavings.md)
+select additive finite models against exact `f556fa94`. Historical models,
+claims and source-only WAITING obligations are preserved. These selected model
+checks do not implement the missing contracts, app, guest or deployment.
+
+| Item | Selected scope | Stage |
+| --- | --- | --- |
+| Z01 | Generation-bound rules/stop updates, recovery carry and same-generation rollback | COMPLETE selected model at `2d9ef5607`; independent source/behavior gates and both document-context regressions passed. |
+| Z02 | Permanent bondId forfeiture, funded top-up, self-report order and slot reuse | IN PROGRESS; source-based independent oracle prepared, implementation underway. |
+| Z03 | Issued/withdrawn exclusions, FI blanking and recovery replay/atomic projection | PENDING. |
+| Z04 | Minimal positional snapshot count/root and authenticated minStake | PENDING. |
+| Z05 | Final-R snapshot versus transaction order and safe empty committee | PENDING. |
+| Z06 | Permissionless proven Unzen origin versus node and guest trust | PENDING. |
+| Z07 | Two-chain replacement deadlines and exact acknowledgment | PENDING. |
+
+[Z01 evidence](REPORT.md#z01-current-generation-bound-schedules) records the
+finite action bank, actual guard control/restoration and three repaired
+verification gaps: standalone import setup, a cancellation witness that
+originally observed no pending value, and optimized Python removing invariant
+assertions. Normal graph and directed checks were independently audited;
+optimized exploration now refuses before visiting any action. Current-source
+model execution remains separate from source classification and from runtime.
+The other six and the accumulated whole-seven/publication gate remain unfinished.
+No eighth starts automatically. Hourly feedback-first checks continue.
+
 ## Completed Y01–Y07 boundary-composition batch
 
 All seven selected increments and their accumulated final review are complete

@@ -6983,3 +6983,85 @@ checks do not assert a new-head CI result. Fixed2e products, latest f556's eleve
 WAITING obligations, Y06 full-producer INCONCLUSIVE, broad runtime work and all
 nineteen archived INCONCLUSIVE searches keep their stated limits. The batch
 returns to feedback-only; another group requires direct user authorization.
+
+## Z01 current-generation-bound schedules
+
+Selected implementation `2d9ef5607dbfe3fe4863d84c82352c6700ba5532` starts the
+new seven-task current-rule batch; it does not restart completed Y/W/older
+batches. The exact normative triple is `f556fa94186b0ab604573e8d3a4c4d4fa835dc84`.
+The canonical checkout's historical `d1835721` documents are a separate refused
+source context, and fixed-product `2e6763e2` is not relabeled as current evidence.
+No existing claim inventory, source-only ledger, model, configuration or pin was
+changed. All eleven current runtime obligations retain their WAITING status.
+
+The initialized/started slot-293 projection offers explicit named call variants
+at L1 timestamps 0,1,2,1296,1297,2592,2593, with maxAnchorAge1296,
+generation/checkpoint0..2 and nonce/rules0..3. It covers owner/initialization
+and recovery-start admission separately; rule promotion, equal rules and
+next+1, the two cancellation sentinels, minimum lead versus strict existing
+schedule deadlines, recovery carry/structural installation, nonce invalidation,
+and rollback preserving generation while increasing nonce. Scalar uint48 and
+uint256 extrema are separate directed cases. Valid landing, trusted earlier
+checkpoint and atomic immutable state transitions are premises; origins,
+landing records and complete recovery events are outside this projection.
+
+The declared bank exhausted52,458 states below a100,000-state cap. It observed
+349,615 accepted edges,759,174 protocol refusals and121,947 successful
+out-of-model-bound offers, for1,230,736 generated offers. Model-bound omissions
+are distinct from refusals. Every accepted edge is checked, and BFS predecessors
+retain shortest paths for six required witnesses. These numbers cover only this
+finite action bank; a progress witness is not an unconditional liveness proof.
+
+An independent behavioral oracle was frozen from the actual clauses before
+candidate inspection. Its actual offline replay checked24 accepted full-state
+and packed-event observations,31 complete-state refusals, every offered graph
+edge and every bound omission. The repaired stale witness uses the actual
+pending tuple(0,1,2592,2592) and all four generation-matching, slot-changing
+controls, with independent literal resulting slots/events. The source review
+checked the complete five-file candidate, actual normative rules, exact hashes
+and the subsequent optimized-mode/clean-base repair diff. Final selected source
+and behavior gates passed.
+
+Three verification defects were repaired before accepting the item:
+
+- Standalone discovery initially reported12 import errors because the private
+  author wrapper supplied the repository root. Each final test establishes its
+  own file-relative root and cleans it up. Tests-only clean-base RED now reports
+  13 intended missing-model assertions and zero import errors.
+- The original stale-cancellation witness used an empty schedule. It now requires
+  genuinely pending rules and a nonzero stop, plus accepted same-generation
+  controls; an old empty witness fails the regression.
+- Python optimization removed the assertion-based checker, allowing the old
+  explorer to return an unchecked edge. The public explorer now raises explicit
+  INCONCLUSIVE before traversal under both -O and -OO. Actual independent mode
+  probes confirmed ordinary2-state/1-edge completion and zero action calls in
+  both optimized modes. Earlier recorded ordinary-mode results remain valid.
+
+A private actual-source generation-guard control let an old-generation call
+change the pending schedule and emitted its new packed value. The final suite
+reported six intended failures, including the explorer's stale-edge invariant;
+restoring the same source bytes returned all13 tests to green. This is a model
+control, not a production-contract fault. The canonical governance SHA-256 is
+`3e7e8d516135700d5ee7a1266dac84d0bc11f2cc8a5ccf886e190f7c5959c6dd`,
+explorer `b43e8ddafc828fc0ad6d22d6ee33b0ae904bd39335164fcd951198f866ea3fc1`,
+and focused tests `ec94af3684afdc74340cd80a5a7832677f14991f58677ac52b87b7a2287a9e68`.
+
+Final ordinary regressions passed659 tests(473main/166conformance/20sensitivity)
+in each actual f556 and d183 document context, with no failures, errors or skips.
+The inspected offline namespace used explicit read-only snapshots and the
+managed Python runtime. Both outer and inner commands reset signal dispositions;
+root's initial wrapper omitted the inner reset and the unchanged old cleanup
+suite failed. The exact same original646 tests passed after that invocation-only
+correction; all failed attempts were retained. No historical runner was patched.
+The original975 tracked input identities were unchanged immediately before
+code commit `2d9ef5607`; the WORKLIST/REPORT changes here are later documentation.
+Focused whitespace, import, path, source and behavioral checks ran; the
+repository-wide formatter hook did not run.
+
+The actual three f556 byte streams classify as SOURCE_REVIEWED and runtime
+NOT_EVALUATED. Each changed/mixed triple refuses, and all20 old nonhistorical
+claims still refuse f556. Source selection does not grant execution evidence.
+No natural protocol defect is confirmed. Actual contracts, proof/guest,
+cryptography, governance authorization, EVM atomicity and chain finality remain
+unverified. Z02–Z07 and the accumulated final gate are still unfinished; this is
+a selected first-item checkpoint, not whole-batch completion or readiness.
