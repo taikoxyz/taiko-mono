@@ -5,42 +5,46 @@ Only private observation and signer refusal events trigger recovery. Neither is
 signing authorization: every new transport still obtains a fresh closed session.
 A durable terminal latch keeps restartAlways containers quiescent until repair.
 
-Stock Comet gives up at once only on a signing request the signer answered with
-an error, a refusal after a timed-out trust query included, and retries any
-other failure (no answer within its fixed 5 s signer read timeout, a dropped
-connection, a malformed answer). So the signer always refuses explicitly and in
-time: --trust-timeout is at most 2 s and a refusal makes at most two trust
-queries. Comet never retries such a refusal; only the WAL replay of a restarted
-Comet asks for that step again. Recovery therefore runs in
-this order: a refusal, then waiting for Ready trust, then a stop of both children
-and a restart of only the signer with --await-trust. That signer begins a fresh
-session and connects to Comet's priv_validator_laddr only once the app has
-authenticated it. Comet starts once the app reports that published session Ready,
-and its WAL replay then requests the refused step again. A first start instead
-runs the signer without --await-trust together with Comet: a node that is behind
-regains trust only after Comet syncs, and Comet's startup needs the signer.
+Every start runs the signer and Comet together. The signer connects to Comet's
+priv_validator_laddr promptly and answers PubKey and Ping while trust is closed
+(START-10-6); each connection begins its own closed trust session, and the signer
+holds a signing request for at most 3.5 s while that session is still being
+authenticated. Stock Comet gives up at once only on a signing request the signer
+answered with an error, and retries any other failure (no answer within its fixed
+5 s signer read timeout, a dropped connection, a malformed answer). So the signer
+always refuses explicitly and in time, and Comet never retries such a refusal; only
+the WAL replay of a restarted Comet asks for that step again. Recovery therefore
+runs in this order: a published refusal, then waiting for Ready trust, then a stop
+of both children and a fresh start of the pair, whose new session the app checks
+while Comet's handshake runs and whose replayed step the signer holds until that
+check passes (SYNC-9-12). Another refusal repeats the guarded restart once trust is
+available again.
 
-While the recovery signer waits, trust staying closed only keeps it waiting,
-logged, without a restart: another restart would begin another session and
-restart the app's check. The exceptions are an app before InitChain, which only Comet
-can initialize, and a pinned checkpoint above the committed head, which only Comet can
-reach; the supervisor then starts the signer and Comet together as on a first start, and
-a refusal there recovers again once Ready.
+Comet's first GetPubKey has a 3 s accept timeout. If Comet exits before the
+signer's transport connected, the pair is started again with the same signer
+state, without a latch (START-10-6).
 
-A signer exit the supervisor did not ask for restarts the pair the same way: Comet is
-reaped, and a fresh signer with the same state path and --await-trust gets Comet once its
-new session is Ready. Unsafe signing state never restarts (SYNC-9-14): exit 3, a retained
-fence, a signer that had to be SIGKILLed on stop, and five exits within 600 s latch. All but
-the last also leave validator-supervisor.signer-unsafe in the app store, independent of the
-first-cause latch, and <chain_id>.signer-unsafe beside the domains log, which survives a fresh
-app store and which the signer itself refuses (RECOV-8.2-3); a kill is recorded in both before
-the SIGKILL is sent.
+A signer exit the supervisor did not ask for restarts the pair the same way. Unsafe
+signing state never restarts (SYNC-9-14): exit 3, a retained fence, a signer that had
+to be SIGKILLed on stop, and five exits within 600 s latch. All but the last also leave
+validator-supervisor.signer-unsafe in the app store, independent of the first-cause
+latch, and <chain_id>.signer-unsafe beside the domains log, which survives a fresh app
+store and which the signer itself refuses (RECOV-8.2-3); a kill is recorded in both
+before the SIGKILL is sent.
+
+Before every Comet start the supervisor checks the executable's digest against the
+deployment manifest (CONS-3.1-1) and, with Comet stopped, deletes the node's
+pending-evidence store and nothing else (CONS-3.1-10).
 """
+import base64
 import fcntl
+import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
 import secrets
+import shutil
 import signal
 import socket
 import stat
@@ -82,16 +86,96 @@ SIGNER_UNSAFE_RECORD_LATCH = ("retained signer-unsafe record or marker; inspect 
 SIGNER_KILLED_LATCH = (f"signer did not stop within {SIGNER_STOP_GRACE}s of SIGTERM and was killed; "
                        "its signing state may be uncertain; inspect its stderr, the state volume, "
                        "`<state>.uncertain` and the domains log")
-# CometBFT v0.40.0 settings every validator keeps at their stock defaults (START-10-6), by Viper
-# path, with the values that keep them there; absent is the default. Adaptive sync runs consensus
-# while block sync catches up, which can sign votes for heights already decided; a nonzero
-# double-sign check height stops a restarted Comet whose key signed recent blocks; a node's clock
-# stays synchronized well inside the 60 s block time tolerance (CONS-3.4-12).
-STOCK_VALIDATOR_SETTINGS = {
-    "blocksync.adaptive_sync": lambda value: value is False,
-    "consensus.double_sign_check_height": lambda value: type(value) is int and value == 0,
-    "consensus.block_time_tolerance": lambda value: value in ("1m0s", "60s", "1m"),
+# Seconds before a pair whose Comet exited before the signer connected starts again.
+MISSED_CONNECTION_RETRY = 1.0
+# The engine every validator runs (CONS-3.1-1): the deployment manifest names its official
+# executable per platform by digest, and the supervisor refuses any other executable.
+COMET_MANIFEST_SCHEMA = 1
+COMET_RELEASE = "v0.40.0"
+COMET_SOURCE_COMMIT = "0880b4d378f347ab16e54ec677ff50d803f37d62"
+# Database backends whose stores live at <db_dir>/<name>.db in stock cometbft-db v0.14.1 and
+# that the official executable supports.
+COMET_DB_BACKENDS = ("goleveldb", "pebbledb")
+
+
+def peer_list(value):
+    """Stock splitAndTrimEmpty(value, ",", " "): the non-empty, space-trimmed list entries."""
+    return [entry.strip(" ") for entry in value.split(",") if entry.strip(" ")]
+
+
+def require_false(value, _runtime):
+    return value is False
+
+
+# CometBFT v0.40.0 settings every validator pins (START-10-6), by Viper path: the stock default
+# and the requirement the effective value must meet. Adaptive sync runs consensus while block
+# sync catches up, which can sign votes for heights already decided; a nonzero double-sign check
+# height stops a restarted Comet whose key signed recent blocks; a node's clock stays synchronized
+# well inside the 60 s block time tolerance (CONS-3.4-12). A validator exchanges P2P messages only
+# with nodes its operator lists: peer exchange off, no seeds or seed mode, no unsafe RPC that dials
+# arbitrary peers and the stock (non-libp2p) switch, so it dials only persistent_peers; no inbound
+# slot, so only unconditional peers connect inbound, and those are exactly the listed inbound IDs
+# (LIMIT-12-2). Unlike the first three, the stock defaults of pex, max_num_inbound_peers and
+# unconditional_peer_ids must be overridden.
+PINNED_SETTINGS = {
+    "blocksync.adaptive_sync": (False, "bool", "false", require_false),
+    "consensus.double_sign_check_height": (0, "int", "0", lambda value, _: type(value) is int and value == 0),
+    "consensus.block_time_tolerance": ("1m0s", "duration", "60s",
+                                       lambda value, _: value in ("1m0s", "60s", "1m")),
+    "p2p.pex": (True, "bool", "false", require_false),
+    "p2p.seeds": ("", "str", "empty", lambda value, _: isinstance(value, str) and not peer_list(value)),
+    "p2p.seed_mode": (False, "bool", "false", require_false),
+    "p2p.libp2p.enabled": (False, "bool", "false", require_false),
+    "rpc.unsafe": (False, "bool", "false", require_false),
+    "p2p.max_num_inbound_peers": (40, "int", "0", lambda value, _: type(value) is int and value == 0),
+    "p2p.unconditional_peer_ids": ("", "str", "exactly ETNA_P2P_INBOUND_PEER_IDS",
+                                   lambda value, inbound: isinstance(value, str)
+                                   and sorted(peer_list(value)) == inbound),
 }
+# Settings the supervisor reads but does not pin, by Viper path, with their stock defaults.
+READ_SETTINGS = {"db_dir": "data", "db_backend": "goleveldb", "node_key_file": "config/node_key.json"}
+# Go strconv.ParseBool, which Viper's weak decoding applies to a CMT_* string.
+ENV_BOOLS = {"1": True, "t": True, "T": True, "TRUE": True, "true": True, "True": True,
+             "0": False, "f": False, "F": False, "FALSE": False, "false": False, "False": False}
+BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+
+def base58(raw):
+    """Bitcoin-alphabet base58, as libp2p peer IDs are printed."""
+    number, out = int.from_bytes(raw, "big"), ""
+    while number:
+        number, digit = divmod(number, 58)
+        out = BASE58[digit] + out
+    return "1" * (len(raw) - len(raw.lstrip(b"\0"))) + out
+
+
+def ed25519_peer_id(path, what):
+    """The libp2p peer ID of the Ed25519 key in a stock node-key JSON file: the identity multihash
+    of the protobuf public key {Type: Ed25519, Data}, base58-encoded (go-libp2p IDFromPublicKey)."""
+    try:
+        document = json.loads(Path(path).read_bytes())
+        key = document["priv_key"]
+        raw = base64.b64decode(key["value"], validate=True)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise ValueError(f"{what} {path} is not a stock Ed25519 node key: {error}") from error
+    if set(document) != {"priv_key"} or key.get("type") != "tendermint/PrivKeyEd25519" or len(raw) != 64:
+        raise ValueError(f"{what} {path} is not a stock Ed25519 node key")
+    public = b"\x08\x01\x12\x20" + raw[32:]
+    return base58(b"\x00" + bytes([len(public)]) + public)
+
+
+def comet_platform():
+    """This host's platform as the deployment manifest names it, such as linux/amd64."""
+    machine = os.uname().machine.lower()
+    return f"{sys.platform}/{dict(x86_64='amd64', aarch64='arm64').get(machine, machine)}"
+
+
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as source:
+        for block in iter(lambda: source.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 class Supervisor:
@@ -107,22 +191,77 @@ class Supervisor:
         return prefix
 
     @staticmethod
-    def check_stock_settings(config):
-        """Refuse a Comet config.toml that moves a pinned validator setting (START-10-6).
-
-        Viper folds key case and also reads a literal dotted key, so every spelling of a
-        setting is checked.
-        """
-        def settings(table, prefix=""):
+    def config_values(config):
+        """Every value config.toml gives each Viper path. Viper folds key case and also reads a
+        literal dotted key, so one path can have several spellings."""
+        found = {}
+        def walk(table, prefix=""):
             for key, value in table.items():
                 path = prefix + key.lower()
-                yield path, value
+                found.setdefault(path, []).append(value)
                 if isinstance(value, dict):
-                    yield from settings(value, path + ".")
-        for path, value in settings(config):
-            stock = STOCK_VALIDATOR_SETTINGS.get(path)
-            if stock is not None and not stock(value):
-                raise ValueError(f"validator startup requires stock CometBFT {path} (START-10-6)")
+                    walk(value, path + ".")
+        walk(config)
+        return found
+
+    @staticmethod
+    def env_values(path, kind):
+        """Every CMT_* override of a Viper path that stock Comet could apply, decoded as Viper's
+        weak decoding would. Both CMT_P2P_PEX and the copied CMTP2P_PEX spelling count; an empty
+        value is ignored, as by Viper. A value that cannot be evaluated exactly is refused."""
+        suffix = path.upper().replace(".", "_").replace("-", "_")
+        values = []
+        for name in ("CMT_" + suffix, "CMT" + suffix):
+            raw = os.environ.get(name, "")
+            if raw == "":
+                continue
+            if kind == "bool" and raw in ENV_BOOLS:
+                values.append((name, ENV_BOOLS[raw]))
+            elif kind == "int" and (raw == "0" or (raw[:1] in "123456789" and raw.isdigit())):
+                values.append((name, int(raw)))
+            elif kind in ("str", "duration"):
+                values.append((name, raw))
+            else:
+                raise ValueError(f"cannot evaluate {name}={raw!r} for CometBFT {path} (START-10-6)")
+        return values
+
+    def effective_values(self, path, default, kind):
+        """(source, value) for every value of path stock Comet could use: each config.toml
+        spelling, or the stock default when there is none, and each CMT_* override. Whether
+        Viper applies an override depends on the key, so every candidate must pass."""
+        values = [("config.toml", value) for value in self.config_settings.get(path, [])]
+        return (values or [("stock default", default)]) + self.env_values(path, kind)
+
+    def check_effective_settings(self):
+        """Refuse a validator whose effective CometBFT configuration moves a pinned setting
+        (START-10-6, LIMIT-12-2), a Comet argv that sets one by flag, which would beat both
+        config.toml and the environment, and a CMTHOME/TMHOME that moves Comet off its home."""
+        for name in ("CMTHOME", "TMHOME"):
+            value = os.environ.get(name, "")
+            if value and Path(value).resolve() != self.home:
+                raise ValueError(f"{name}={value} would start Comet outside ETNA_COMET_HOME")
+        flagged = {argument.lstrip("-").split("=", 1)[0].lower()
+                   for argument in self.comet_command[1:] if argument.startswith("-")}
+        for path in [*PINNED_SETTINGS, *READ_SETTINGS, "priv_validator_laddr"]:
+            if path in flagged:
+                raise ValueError(f"validator startup refuses a --{path} flag in the Comet argv; set it in config.toml (START-10-6)")
+        for path, (default, kind, requirement, check) in PINNED_SETTINGS.items():
+            for source, value in self.effective_values(path, default, kind):
+                if not check(value, self.inbound_peers):
+                    raise ValueError(f"validator startup requires CometBFT {path} {requirement}; "
+                                     f"{source} gives {value!r} (START-10-6)")
+
+    def read_setting(self, path):
+        """The one value stock Comet uses for an unpinned setting; candidates that disagree are
+        refused, since the supervisor could not tell which one Comet applies."""
+        values = {value for _, value in self.effective_values(path, READ_SETTINGS[path], "str")}
+        if len(values) != 1 or not all(isinstance(value, str) and value for value in values):
+            raise ValueError(f"CometBFT {path} is ambiguous or invalid across config.toml and CMT_* overrides: {sorted(map(repr, values))}")
+        return values.pop()
+
+    def rooted(self, path):
+        """Stock rootify: an absolute path as is, a relative one under the Comet home."""
+        return Path(path) if os.path.isabs(path) else self.home / path
 
     def __init__(self):
         self.home = Path(os.environ["ETNA_COMET_HOME"]).resolve()
@@ -145,13 +284,38 @@ class Supervisor:
         self.denial_route = self.validate_denial_route()
         self.events = self.denial_route
         self.prior_observation = None
+        self.latch = self.store / "validator-supervisor.halted"
+        binary = os.environ.get("ETNA_SIGNER_BIN", str(Path(__file__).resolve().parents[1] / "etna-signer"))
+        # start() adds each pair's --comet-signer-addr (and, for Noise, --transport-key).
+        self.signer_command = self.command_prefix("ETNA_SIGNER_COMMAND_JSON", [binary]) + [
+            "--trust-socket", str(self.store / "checkpoint-trust.sock"),
+            "--chain-id", self.chain, "--priv-key", str(self.key),
+            "--priv-state", str(self.state), "--domains-log", str(self.domains_log)]
+        # Comet's complete argv. start_comet() appends only the pair's --priv_validator_laddr.
+        self.comet_command = self.command_prefix("ETNA_COMET_COMMAND_JSON", [
+            os.environ.get("ETNA_COMET_BIN", "cometbft"), "start", "--home", str(self.home)])
+        # The operator's listed inbound peers (LIMIT-12-2), which unconditional_peer_ids must equal.
+        inbound = peer_list(os.environ.get("ETNA_P2P_INBOUND_PEER_IDS", ""))
+        if len(set(inbound)) != len(inbound):
+            raise ValueError("ETNA_P2P_INBOUND_PEER_IDS lists a peer twice")
+        self.inbound_peers = sorted(inbound)
         config = tomllib.loads((self.home / "config/config.toml").read_text())
-        self.check_stock_settings(config)
-        address = config.get("priv_validator_laddr", "")
+        self.config_settings = self.config_values(config)
+        self.check_effective_settings()
+        if self.read_setting("db_backend") not in COMET_DB_BACKENDS:
+            raise ValueError(f"validator startup requires CometBFT db_backend in {COMET_DB_BACKENDS}")
+        # Stock cometbft-db keeps the evidence pool's store at <db_dir>/evidence.db.
+        self.evidence_store = self.rooted(self.read_setting("db_dir")) / "evidence.db"
+        self.manifest = self.load_manifest()
+        self.check_comet_executable()
         if json.loads((self.home / "config/genesis.json").read_text())["chain_id"] != self.chain:
             raise ValueError("signer chain ID differs from Comet genesis")
         # Refuse half a Comet identity before any child starts.
         identity = self.comet_identity()
+        address = config.get("priv_validator_laddr", "")
+        if not isinstance(address, str):
+            address = ""
+        self.unix_run = self.noise = None
         if address.startswith("unix://"):
             # The configured path only selects Unix mode. Every pair start gets a fresh
             # name in run/, so no Comet-owned stale inode ever needs to be pinned or probed.
@@ -160,30 +324,23 @@ class Supervisor:
             sample = self.unix_run / (SIGNER_SOCKET_PREFIX + "0" * 16 + SIGNER_SOCKET_SUFFIX)
             if len(os.fsencode(sample)) > MAX_UNIX_SOCKET_PATH:
                 raise ValueError("Comet home too long for a Unix signer socket")
-            self.address = None
+        elif address.startswith("noise://"):
+            self.noise = (*self.noise_transport(address), address)
+            self.comet_peer_id()  # Refuse a missing Comet node key before any child starts.
         elif address.startswith("tcp://"):
-            self.unix_run = None
-            self.address = address  # Comet listens here; the signer dials it.
+            raise ValueError("validator startup refuses a bare tcp:// priv_validator_laddr, whose stock listener "
+                             "generates a fresh identity at every start; use unix:// or "
+                             "noise://<signer-peer-id>@<ip>:<port> (START-10-6)")
         else:
-            raise ValueError("validator startup requires explicit priv_validator_laddr")
-        self.latch = self.store / "validator-supervisor.halted"
-        binary = os.environ.get("ETNA_SIGNER_BIN", str(Path(__file__).resolve().parents[1] / "etna-signer"))
-        # start() adds each pair's --comet-signer-addr.
-        self.signer_command = self.command_prefix("ETNA_SIGNER_COMMAND_JSON", [binary]) + [
-            "--trust-socket", str(self.store / "checkpoint-trust.sock"),
-            "--chain-id", self.chain, "--priv-key", str(self.key),
-            "--priv-state", str(self.state), "--domains-log", str(self.domains_log)]
-        # Comet's complete argv. start_comet() appends only the Unix pair's --priv_validator_laddr.
-        self.comet_command = self.command_prefix("ETNA_COMET_COMMAND_JSON", [
-            os.environ.get("ETNA_COMET_BIN", "cometbft"), "start", "--home", str(self.home)])
+            raise ValueError("validator startup requires priv_validator_laddr unix://… or noise://<signer-peer-id>@<ip>:<port>")
+        self.address = self.comet_listener = None
         self.signer = self.comet = None
         self.running = True
         self.pending = False
         self.last_event = None
-        self.session = None
+        self.connected = False  # the current pair's signer published its connection
         self.observed_loss = False
         self.was_ready = False
-        self.awaiting = None  # last logged wait state of a recovery signer
         self.owner_fds = []
         self.halted = False
         self.halt_retry = None
@@ -192,6 +349,92 @@ class Supervisor:
         # resets it and container CrashLoopBackOff bounds that case.
         self.crashes = []
         self.signer_killed = False  # stop() had to SIGKILL a running signer
+
+    def noise_transport(self, address):
+        """Comet's stock noise://<signer-peer-id>@<ip>:<port> listener (START-10-6): Comet pins
+        the signer's transport key, ETNA_SIGNER_TRANSPORT_KEY, whose peer ID must be the one the
+        address names, and the signer pins the peer ID of Comet's persistent node key. Returns
+        the signer's transport key and the host:port both sides use."""
+        signer_peer, separator, hostport = address.removeprefix("noise://").rpartition("@")
+        host, _, port = hostport.rpartition(":")
+        try:
+            ipaddress.ip_address(host.removeprefix("[").removesuffix("]"))
+            valid_port = port.isdigit() and 0 < int(port) < 65536
+        except ValueError:
+            valid_port = False
+        if not separator or not signer_peer or not valid_port or (":" in host and not host.startswith("[")):
+            raise ValueError("priv_validator_laddr must be noise://<signer-peer-id>@<ip>:<port> with an IP literal")
+        key = os.environ.get("ETNA_SIGNER_TRANSPORT_KEY")
+        if not key:
+            raise ValueError("a noise:// priv_validator_laddr needs ETNA_SIGNER_TRANSPORT_KEY")
+        key = Path(key).resolve()
+        if key.is_relative_to(self.home) or key.is_relative_to(self.store):
+            raise ValueError("the signer transport key must be outside the Comet home and app store")
+        if ed25519_peer_id(key, "signer transport key") != signer_peer:
+            raise ValueError(f"ETNA_SIGNER_TRANSPORT_KEY is not the signer {signer_peer} that priv_validator_laddr pins")
+        return key, hostport
+
+    def comet_peer_id(self):
+        """The libp2p peer ID of Comet's persistent node key, which the Noise signer pins. A
+        missing key is refused: stock Comet would generate a fresh one the signer cannot know."""
+        return ed25519_peer_id(self.rooted(self.read_setting("node_key_file")), "Comet node key")
+
+    def load_manifest(self):
+        """The deployment manifest (CONS-3.1-1): ETNA_COMET_MANIFEST, or the comet-manifest.json
+        shipped beside script/. Only a manifest for CometBFT v0.40.0 at its source commit is used."""
+        path = Path(os.environ.get("ETNA_COMET_MANIFEST", str(Path(__file__).resolve().parents[1] / "comet-manifest.json")))
+        try:
+            manifest = json.loads(path.read_bytes())
+        except (OSError, ValueError) as error:
+            raise ValueError(f"CometBFT deployment manifest {path}: {error}") from error
+        if (not isinstance(manifest, dict) or manifest.get("schema") != COMET_MANIFEST_SCHEMA
+                or manifest.get("release") != COMET_RELEASE or manifest.get("source_commit") != COMET_SOURCE_COMMIT
+                or not isinstance(manifest.get("platforms"), dict)):
+            raise ValueError(f"{path} is not a schema {COMET_MANIFEST_SCHEMA} manifest for CometBFT {COMET_RELEASE} {COMET_SOURCE_COMMIT}")
+        return manifest
+
+    def check_comet_executable(self):
+        """Refuse to start any executable but the official one the manifest pins for this
+        platform, by its digest: a reported version string alone does not identify the build
+        (CONS-3.1-1). Runs before every Comet start."""
+        platform = comet_platform()
+        entry = self.manifest["platforms"].get(platform)
+        if not isinstance(entry, dict) or not isinstance(entry.get("sha256"), str) or len(entry["sha256"]) != 64:
+            reason = self.manifest.get("unsupported_platforms", {}).get(platform, "the manifest names no executable for it")
+            raise ValueError(f"no official CometBFT {COMET_RELEASE} executable for {platform}: {reason} (CONS-3.1-1)")
+        name = self.comet_command[0]
+        found = name if os.sep in name else shutil.which(name)
+        if found is None:
+            raise ValueError(f"CometBFT executable {name} not found")
+        executable = Path(found).resolve(strict=True)
+        digest = sha256_file(executable)
+        if digest != entry["sha256"]:
+            raise ValueError(f"CometBFT executable {executable} has sha256 {digest}, not the {platform} digest "
+                             f"{entry['sha256']} the deployment manifest pins (CONS-3.1-1)")
+
+    def remove_pending_evidence(self):
+        """Delete the node's pending-evidence store, and only that, with Comet stopped, before
+        every start (CONS-3.1-10, LIMIT-12-22): no block commits evidence, so the stock pool is
+        bounded only by expiry. WAL, block, state, app/EL and signer stores stay. The removal is
+        made durable before Comet starts."""
+        if self.comet is not None:
+            raise ValueError("pending-evidence store removal requires a stopped Comet")
+        try:
+            metadata = os.lstat(self.evidence_store)
+        except FileNotFoundError:
+            return
+        if stat.S_ISLNK(metadata.st_mode):
+            raise ValueError(f"pending-evidence store {self.evidence_store} must not be a symlink")
+        if stat.S_ISDIR(metadata.st_mode):
+            shutil.rmtree(self.evidence_store)
+        else:
+            os.unlink(self.evidence_store)
+        directory = os.open(self.evidence_store.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+        print(f"etna_supervisor_pending_evidence_removed: {self.evidence_store}", flush=True)
 
     @staticmethod
     def read_observation(path):
@@ -338,18 +581,25 @@ class Supervisor:
         print(f"etna_supervisor_signer_kill_recorded: {self.unsafe_record} and {self.unsafe_marker}", flush=True)
 
     def fresh_transport(self):
-        """Return the next pair's signer address, after removing stale Unix rendezvous names.
+        """Return the next pair's signer address and Comet listener, after removing stale Unix
+        rendezvous names.
 
-        Runs with both children reaped and the home owner lock held. Refuses a missing,
-        symlinked or sticky run/, one not owned by the Comet UID, and a prefixed entry that
-        cannot be unlinked. Names with the signer prefix are the supervisor's own namespace:
-        they are unlinked through the opened run/ without type, inode or liveness checks, so a
-        live orphan can only lose its name.
+        Unix: runs with both children reaped and the home owner lock held. Refuses a missing,
+        symlinked or sticky run/, one not owned by the Comet UID or open to its group or others,
+        and a prefixed entry that cannot be unlinked, so only the bound Comet process and the
+        root signer reach the socket (START-10-6). Names with the signer prefix are the
+        supervisor's own namespace: they are unlinked through the opened run/ without type,
+        inode or liveness checks, so a live orphan can only lose its name.
+
+        Noise: Comet listens on its configured noise://<signer-peer-id>@<ip>:<port>, and the
+        signer dials that <ip>:<port> pinning the peer ID of Comet's node key, read again at
+        every start.
         """
         if self.comet is not None or self.signer is not None:
             raise ValueError("signer transport cleanup requires reaped children")
-        if self.unix_run is None:
-            return self.address  # Comet listens on the configured TCP address.
+        if self.noise is not None:
+            _, hostport, listener = self.noise
+            return f"noise://{self.comet_peer_id()}@{hostport}", listener
         # Never follow a substituted run/; a missing one fails startup.
         descriptor = os.open(self.unix_run, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         try:
@@ -360,38 +610,44 @@ class Supervisor:
                 raise ValueError(f"{self.unix_run} must not be sticky")
             if metadata.st_uid != self.run_owner:
                 raise ValueError(f"{self.unix_run} must be owned by the Comet UID {self.run_owner}, not {metadata.st_uid}")
+            if metadata.st_mode & 0o077:
+                raise ValueError(f"{self.unix_run} must be private to the Comet UID (mode 0700), not {stat.S_IMODE(metadata.st_mode):04o}")
             for name in os.listdir(descriptor):
                 if name.startswith(SIGNER_SOCKET_PREFIX) and name.endswith(SIGNER_SOCKET_SUFFIX):
                     os.unlink(name, dir_fd=descriptor)  # Errors (e.g. a directory) fail closed.
         finally:
             os.close(descriptor)
-        name = SIGNER_SOCKET_PREFIX + secrets.token_hex(8) + SIGNER_SOCKET_SUFFIX
-        return "unix://" + str(self.unix_run / name)
+        address = "unix://" + str(self.unix_run / (SIGNER_SOCKET_PREFIX + secrets.token_hex(8) + SIGNER_SOCKET_SUFFIX))
+        return address, address
 
-    def start(self, await_trust=False):
-        """Start a fresh signer, and Comet with it unless the signer must first be trusted.
+    def start(self):
+        """Start a fresh signer and Comet together (START-10-6, SYNC-9-12).
 
         Runs only with both earlier children reaped, so their flocks are released, and never
         while a fence or the unsafe record exists. Every start gets a fresh transport
-        (fresh_transport).
+        (fresh_transport); the signer connects promptly and begins that transport's own
+        closed trust session. Comet's executable and pending-evidence store are checked and
+        cleared first, so a refused start leaves no child running.
         """
         if self.refuse_unsafe_start():
             return
         self.validate_denial_route()
-        self.address = self.fresh_transport()
+        self.address, self.comet_listener = self.fresh_transport()
+        self.check_comet_executable()
+        self.remove_pending_evidence()
         # Never unlink an operator-selected file; ignore its old inode on restart.
         previous = self.read_observation(self.events)
         self.prior_observation = previous[0] if previous is not None else None
         self.last_event = None
         args = self.signer_command + ["--comet-signer-addr", self.address, "--denial-file", str(self.events)]
-        self.signer = subprocess.Popen(args + (["--await-trust"] if await_trust else []), **self.child_options())
+        if self.noise is not None:
+            args += ["--transport-key", str(self.noise[0])]
+        self.signer = subprocess.Popen(args, **self.child_options())
         self.pending = False
-        self.session = None
+        self.connected = False
         self.observed_loss = False
         self.was_ready = False
-        self.awaiting = None
-        if not await_trust:
-            self.start_comet()
+        self.start_comet()
         print("etna_supervisor_started", flush=True)
 
     @staticmethod
@@ -408,9 +664,8 @@ class Supervisor:
         return int(uid), int(gid)
 
     def start_comet(self):
-        command = self.comet_command
-        if self.unix_run is not None:
-            command = command + ["--priv_validator_laddr", self.address]
+        """Start Comet on this pair's listener; the flag beats config.toml and CMT_* overrides."""
+        command = self.comet_command + ["--priv_validator_laddr", self.comet_listener]
         identity = {}
         configured = self.comet_identity()
         if configured is not None:
@@ -559,10 +814,10 @@ class Supervisor:
         """Handle a signer exit the supervisor did not ask for.
 
         Exit 3, a fence and a crash loop latch. Any other exit (0, 1, 2 or a signal) restarts the
-        pair: Comet is reaped, then a fresh signer with the same HRS path begins a new closed
-        session on a fresh transport and dials Comet only once that session is Ready; Comet
-        starts then (start_comet_once_trusted, SYNC-9-12). Stock FilePV continues from the HRS
-        on disk: no signature was released before both fsyncs (SYNC-9-13).
+        pair: Comet is reaped, then a fresh signer with the same HRS path and Comet start
+        together on a fresh transport, whose new closed session gates every signature
+        (SYNC-9-12). Stock FilePV continues from the HRS on disk: no signature was released
+        before both fsyncs (SYNC-9-13).
         """
         if self.halt_if_unsafe(code):
             return
@@ -575,7 +830,21 @@ class Supervisor:
               f"within {SIGNER_CRASH_WINDOW:g}s", flush=True)
         if self.halt_if_unsafe(self.stop()):
             return
-        self.start(await_trust=True)
+        self.start()
+
+    def missed_connection(self):
+        """Comet exited before this pair's signer connected, as when the signer misses the 3 s
+        accept of Comet's first GetPubKey: start the pair again with the same signer state and
+        no latch (START-10-6)."""
+        print("etna_supervisor_missed_first_connection: Comet exited before the signer connected; "
+              "restarting the pair", flush=True)
+        if self.halt_if_unsafe(self.stop()):
+            return
+        deadline = time.monotonic() + MISSED_CONNECTION_RETRY
+        while self.running and time.monotonic() < deadline:
+            time.sleep(.05)
+        if self.running:
+            self.start()
 
     def signer_uncertain(self):
         """The signer's fence beside this chain's HRS."""
@@ -608,7 +877,11 @@ class Supervisor:
         observed = self.read_observation(self.events)
         if observed is not None and observed[0] != self.prior_observation:
             _, event = observed
-            self.session = event["session_id"]
+            # The signer publishes when its transport connects, with the session it began or an
+            # empty one while the app could not begin it, and again for every refusal. Only a
+            # refusal makes Comet restart: a session the app replaced, as after an app restart,
+            # is begun again by the signer's next signing request, which it holds there.
+            self.connected = True
             sequence = event["sequence"]
             if sequence > 0 and sequence != self.last_event:
                 self.pending = True
@@ -619,10 +892,10 @@ class Supervisor:
         if code is not None:
             self.signer_exited(code)
             return
-        if self.comet is None:
-            self.start_comet_once_trusted()
-            return
         comet_exited = self.comet.poll() is not None
+        if comet_exited and not self.connected:
+            self.missed_connection()
+            return
         try:
             status = self.observe()
         except (OSError, ValueError, KeyError):
@@ -643,10 +916,6 @@ class Supervisor:
         if status.get("phase") == "halted":
             self.halt("terminal app trust or deployment identity")
             return
-        # Session changes after app restart also leave stock Comet at a refused step.
-        session = status["session_id"]
-        if self.session is not None and session != self.session:
-            self.pending = True
         ready = self.ready(status)
         if not ready and self.was_ready:
             self.observed_loss = True
@@ -660,56 +929,17 @@ class Supervisor:
             if not self.pending:
                 self.observed_loss = False
         if self.pending and ready:
+            # The refused step comes back only through a restarted Comet's WAL replay. The new
+            # pair's session is checked while Comet's handshake runs, and the signer holds the
+            # replayed request until it passes; another refusal repeats this once Ready.
             if self.halt_if_unsafe(self.stop()):
                 return
-            self.start(await_trust=True)
-            print("etna_supervisor_awaiting_trust: Comet starts after the signer's fresh session is Ready", flush=True)
+            self.start()
+            print("etna_supervisor_restarted_after_refusal: the restarted pair replays the refused step", flush=True)
 
     def ready(self, status):
         """The app's trust phase is its only readiness signal (SYNC-9-15), bound to this chain_id."""
         return status.get("phase") == "ready" and status.get("chain_id") == self.chain
-
-    def start_comet_once_trusted(self):
-        """Recovery: start Comet only when the signer's own published session is Ready.
-
-        Comet is stopped, so no step can be refused meanwhile. Unavailable observation and
-        app shutdown keep waiting; the signer begins a new session on a fresh app.
-        """
-        try:
-            status = self.observe()
-        except (OSError, ValueError, KeyError):
-            return  # Unavailable observation never authorizes starting Comet.
-        if status.get("chain_id") not in (None, self.chain):
-            self.halt("terminal deployment identity")
-            return
-        if status.get("phase") == "halted":
-            if status.get("reason") not in APP_LIFECYCLE_STOPS:
-                self.halt("terminal app trust or deployment identity")
-            return
-        if self.session is None or status["session_id"] != self.session:
-            return  # The signer has not published the session it begins for this transport.
-        if self.ready(status):
-            self.start_comet()
-            self.was_ready = True  # A later trust loss explains a Comet exit.
-            print("etna_supervisor_recovered_after_refusal", flush=True)
-            return
-        target, head = status.get("target"), status.get("committed_head")
-        uninitialized = "chain_id" in status and status["chain_id"] is None
-        if uninitialized or (
-                status.get("phase") == "catching_up" and isinstance(target, dict) and isinstance(head, dict)
-                and isinstance(target.get("height"), int) and isinstance(head.get("height"), int)
-                and head["height"] < target["height"]):
-            # Only Comet can run InitChain, or commit up to this checkpoint, so waiting could
-            # never end. The signer still refuses every signature until trust is Ready.
-            print("etna_supervisor_trust_needs_comet: starting signer and Comet together", flush=True)
-            if self.halt_if_unsafe(self.stop()):
-                return
-            self.start()
-            return
-        state = (self.session, status.get("phase"), status.get("reason"))
-        if self.awaiting is None or self.awaiting[0] != state or time.monotonic() - self.awaiting[1] > 60:
-            self.awaiting = (state, time.monotonic())
-            print(f"etna_supervisor_awaiting_trust: session={state[0]} phase={state[1]} reason={state[2]}", flush=True)
 
     def run(self):
         self.acquire_owner()

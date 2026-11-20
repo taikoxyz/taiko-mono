@@ -1,4 +1,5 @@
 """Real child-process supervision with a controlled private trust peer."""
+import base64
 import contextlib
 import importlib.util
 import fcntl
@@ -19,6 +20,37 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
+# A validator's listed-peer P2P configuration (START-10-6): no peer exchange, no inbound slot and,
+# with no ETNA_P2P_INBOUND_PEER_IDS, no unconditional peer.
+VALIDATOR_P2P = "[p2p]\npex = false\nmax_num_inbound_peers = 0\n"
+# One stock Ed25519 node key and its libp2p peer ID, as the signer's Go tests pin them
+# (TestTransportPeerIDVector).
+PEER_ID_VECTOR = ('{"priv_key":{"type":"tendermint/PrivKeyEd25519","value":"nZGcTgiuNXtFuZUZGISAcSje3hVT+bGhna2LmuPCFRKyPL6KLy400isFcvbvDSQ5ljD7QR05nMHahbB+NhZltA=="}}',
+                  "12D3KooWMp8TizWt75VicSKSACXjXQ8pByDngq47VN51SMPF5mfh")
+
+
+def supervisor_module(name="etna_validator_under_test"):
+    spec = importlib.util.spec_from_file_location(name, ROOT / "script/etna_validator.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def write_manifest(path, executable):
+    """A deployment manifest that pins executable for this host's platform, as the shipped one
+    pins the official linux/amd64 executable."""
+    module = supervisor_module("etna_manifest_writer")
+    path.write_text(json.dumps(dict(schema=1, engine="cometbft", release="v0.40.0",
+                                    source_commit="0880b4d378f347ab16e54ec677ff50d803f37d62",
+                                    platforms={module.comet_platform(): dict(sha256=module.sha256_file(executable))})))
+
+
+def write_node_key(path):
+    """A fresh stock Ed25519 node-key file; returns its libp2p peer ID."""
+    raw = base64.b64encode(os.urandom(64)).decode()
+    path.write_text(json.dumps(dict(priv_key=dict(type="tendermint/PrivKeyEd25519", value=raw))))
+    path.chmod(0o600)
+    return supervisor_module("etna_peer_id").ed25519_peer_id(path, "test key")
 
 
 class TrustPeer:
@@ -78,15 +110,6 @@ class TrustPeer:
         path = self.root / "signers"
         return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
 
-    def publish_recovery_session(self, session="recovered-session", ready=True, phase=None):
-        """Play the recovery signer, which begins a fresh session and publishes it."""
-        self.wait(lambda: len(self.signers()) == 2)
-        self.assertIn("--await-trust", self.signers()[1]["argv"])
-        self.ready = ready
-        self.phase = phase or ("ready" if ready else "acquiring")
-        self.session = session
-        self.publish(0, session)
-
     def wait(self, predicate, timeout=5):
         deadline = time.monotonic() + timeout
         while not predicate() and time.monotonic() < deadline:
@@ -98,14 +121,19 @@ class TrustPeer:
                       f"supervisor exit status: {self.proc.poll()}\nruntime.log:\n{runtime}")
 
 
-class SupervisorTests(TrustPeer, unittest.TestCase):
+class SupervisorLifecycle(TrustPeer):
+    """Lifecycle gates every signer transport repeats; UnixSupervisorTests and
+    NoiseSupervisorTests supply the transport."""
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="etna-supervisor-", dir="/tmp")
         self.root = Path(self.tmp.name)
         self.home = self.root / "comet"
         (self.home / "config").mkdir(parents=True)
+        self.transport_env = {}
         self.configure_transport()
         self.base_config = (self.home / "config/config.toml").read_text()
+        (self.home / "config/config.toml").write_text(self.base_config + VALIDATOR_P2P)
         self.chain, self.generation, self.origin = "etna-test", 0, None
         self.identity_env = {}
         self.configure_identity()
@@ -133,8 +161,10 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
             # The control files signer_exit_on_start and signer_exit_on_term hold the exit code
             # the next signer uses right after starting, or when the supervisor stops it;
             # signer_exit_now makes the running signer exit with its code once, as a crash, and
-            # signer_hang_on_term makes it ignore the supervisor's SIGTERM. Each start records
-            # which earlier signers and which Comet were still alive.
+            # signer_hang_on_term makes it ignore the supervisor's SIGTERM. Like the real signer
+            # each start first publishes its connection (sequence 0, an empty session), unless
+            # signer_skip_connect exists, and then records which earlier signers and which Comet
+            # were still alive.
             "signer": ('import json,os,signal,sys,time\nfrom pathlib import Path\n'
                        'root=Path(os.environ["COMET_PID"]).parent\n'
                        'def code(name):\n'
@@ -151,11 +181,17 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
                        '  while True: time.sleep(1)\n'
                        ' sys.exit(code("signer_exit_on_term") or 0)\n'
                        'signal.signal(signal.SIGTERM,stop)\n'
+                       'if not (root/"signer_skip_connect").exists():\n'
+                       ' events=Path(sys.argv[sys.argv.index("--denial-file")+1])\n'
+                       ' t=events.with_name(".signer-observation-%d"%os.getpid())\n'
+                       ' d=os.open(t,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)\n'
+                       ' os.write(d,json.dumps(dict(sequence=0,session_id="")).encode());os.close(d);os.replace(t,events)\n'
                        'signers=Path(os.environ["SIGNERS"])\n'
                        'earlier=[json.loads(line)["pid"] for line in signers.read_text().splitlines()] if signers.exists() else []\n'
                        'comet=Path(os.environ["COMET_PID"])\n'
+                       'seen=int(comet.read_text()) if comet.exists() else None\n'
                        'record=dict(pid=os.getpid(),argv=sys.argv[1:],alive=[pid for pid in earlier if alive(pid)],\n'
-                       ' comet_alive=comet.exists() and alive(int(comet.read_text())))\n'
+                       ' comet_seen=[seen,seen is not None and alive(seen)])\n'
                        'signers.open("a").write(json.dumps(record)+"\\n")\n'
                        'if code("signer_exit_on_start") is not None: sys.exit(code("signer_exit_on_start"))\n'
                        'while not Path(os.environ["COMET_PID"]).with_name("release_signer").exists():\n'
@@ -166,14 +202,19 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
             path = self.bin / name
             path.write_text("#!/usr/bin/env python3\n" + body + "\n")
             path.chmod(0o755)
+        self.manifest = self.root / "comet-manifest.json"
+        write_manifest(self.manifest, self.bin / "cometbft")
         self.env = dict(os.environ, ETNA_COMET_HOME=str(self.home), ETNA_APP_STORE=str(self.store),
                         ETNA_PRIV_KEY=str(self.key), ETNA_PRIV_STATE_DIR=str(self.state_dir),
                         ETNA_DOMAINS_LOG=str(self.domains_log),
                         ETNA_CHAIN_ID=self.chain, ETNA_SIGNER_BIN=str(self.bin / "signer"),
                         ETNA_DENIAL_FILE=str(self.events), STARTS=str(self.count), COMET_PID=str(self.root / "comet.pid"),
-                        SIGNERS=str(self.root / "signers"),
+                        SIGNERS=str(self.root / "signers"), ETNA_COMET_MANIFEST=str(self.manifest),
                         PATH=str(self.bin) + os.pathsep + os.environ["PATH"])
+        for name in [name for name in self.env if name.startswith(("CMT", "TMHOME", "ETNA_P2P_"))]:
+            del self.env[name]
         self.env.update(self.identity_env)
+        self.env.update(self.transport_env)
         self.log = (self.root / "runtime.log").open("w+")
         self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")], env=self.env,
                                      stdout=self.log, stderr=self.log, start_new_session=True)
@@ -187,22 +228,27 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
     def configure_identity(self):
         pass
 
-    def configure_transport(self):
-        (self.home / "config/config.toml").write_text('priv_validator_laddr = "tcp://127.0.0.1:26659"\n')
-
     def comet_body(self):
         # Record the argv and working directory each Comet start receives. The pid file is
-        # replaced atomically: a signer started with this Comet reads it concurrently.
+        # replaced atomically: a signer started with this Comet reads it concurrently. With the
+        # control file comet_exit_on_start, Comet exits at once, as on a missed first connection.
         return ('from pathlib import Path\nimport json,os,sys,time\n'
                 'with Path(os.environ["COMET_PID"]).with_name("comets").open("a") as out:\n'
-                ' out.write(json.dumps(dict(argv=sys.argv[1:],cwd=os.getcwd()))+"\\n")\n'
+                ' out.write(json.dumps(dict(argv=sys.argv[1:],cwd=os.getcwd(),pid=os.getpid()))+"\\n")\n'
                 'p=Path(os.environ["STARTS"])\np.open("a").write("start\\n")\n'
+                'if Path(os.environ["COMET_PID"]).with_name("comet_exit_on_start").exists(): sys.exit(1)\n'
                 'c=Path(os.environ["COMET_PID"]);t=c.with_name(".comet.pid.%d"%os.getpid())\n'
                 't.write_text(str(os.getpid()));os.replace(t,c)\n\n'
                 'while not Path(os.environ["COMET_PID"]).with_name("release_comet").exists(): time.sleep(.05)')
 
     def starts(self):
         return len(self.count.read_text().splitlines()) if self.count.exists() else 0
+
+    def saw_earlier_comet_alive(self, index):
+        """Whether signer `index` started while an earlier pair's Comet was still alive. The pair
+        starts together, so the Comet it saw may already be its own, the latest one."""
+        seen, alive = self.signers()[index]["comet_seen"]
+        return alive and seen != self.comets()[-1]["pid"]
 
     def comets(self):
         path = self.root / "comets"
@@ -213,12 +259,12 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         return argv[argv.index("--comet-signer-addr") + 1]
 
     def listener_args(self, index):
-        """What the supervisor appends to pair `index`'s Comet argv: nothing over TCP."""
-        return []
+        """What the supervisor appends to pair `index`'s Comet argv: its signer listener."""
+        return ["--priv_validator_laddr", self.comet_listener(index)]
 
-    def comet_listener(self, index):
-        """Over TCP, Comet listens on its configured address."""
-        return "tcp://127.0.0.1:26659"
+    def transport_args(self, index):
+        """The signer argv the transport adds after --comet-signer-addr's value."""
+        return []
 
     def restart_with(self, **changes):
         """Restart the supervisor with a changed environment; wait for its first pair."""
@@ -232,7 +278,8 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
     def test_default_comet_argv(self):
         """Without ETNA_COMET_COMMAND_JSON, Comet runs `cometbft start --home <home>` in the home."""
         home = str(self.home.resolve())
-        self.assertEqual(self.comets(), [dict(argv=["start", "--home", home] + self.listener_args(0), cwd=home)])
+        self.assertEqual([dict(argv=comet["argv"], cwd=comet["cwd"]) for comet in self.comets()],
+                         [dict(argv=["start", "--home", home] + self.listener_args(0), cwd=home)])
 
     def test_comet_command_json_is_the_complete_argv(self):
         """The supervisor adds no --home to an explicit Comet argv."""
@@ -242,7 +289,10 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
     def test_signer_address_override_is_gone(self):
         """ETNA_SIGNER_ADDR no longer exists: the signer dials Comet's own listener."""
         self.restart_with(ETNA_SIGNER_ADDR="tcp://127.0.0.1:1")
-        self.assertEqual(self.signer_address(-1), self.comet_listener(-1))
+        if self.fresh_listener_per_pair:
+            self.assertEqual(self.signer_address(-1), self.comet_listener(-1))
+        else:
+            self.signer_address(-1)  # Noise: Comet's own listener, pinning its node key
 
     def tearDown(self):
         self.proc.terminate()
@@ -378,7 +428,6 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
 
     def test_signer_timeout_recovers_even_if_app_stayed_ready(self):
         self.publish(1, self.session)
-        self.publish_recovery_session()
         self.wait(lambda: self.starts() == 2)
         time.sleep(.4)
         self.assertEqual(self.starts(), 2)
@@ -389,8 +438,8 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
     def test_signer_exit_during_observation_restarts_signer(self):
         """A signer killed after tick's first poll is reaped by the recovery stop, then restarted.
 
-        The kill is not the supervisor's, so the pair restarts with a fresh --await-trust signer;
-        Comet waits for its session, and the HRS is untouched.
+        The kill is not the supervisor's, so the pair restarts with a fresh signer and Comet
+        together, after both old children were reaped, and the HRS is untouched.
         """
         self.proc.terminate()
         self.proc.wait(timeout=5)
@@ -420,11 +469,10 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
                 self.assertFalse(worker.is_alive(), "supervisor recovery did not finish")
                 self.assertFalse((self.store / "validator-supervisor.halted").exists(),
                                  "an ordinary signer crash during observation latched")
-                self.wait(lambda: len(self.signers()) == 3)
-                self.assertIn("--await-trust", self.signers()[2]["argv"])
+                self.wait(lambda: len(self.signers()) == 3 and self.starts() == 3)
+                self.assertNotIn("--await-trust", self.signers()[2]["argv"])
                 self.assertEqual(self.signers()[2]["alive"], [])
-                self.assertFalse(self.signers()[2]["comet_alive"])
-                self.assertEqual(self.starts(), 2, "Comet started before the new session was Ready")
+                self.assertFalse(self.saw_earlier_comet_alive(2))
                 self.assertEqual(self.state.read_text(), "authoritative HRS")
             finally:
                 release.set()
@@ -508,7 +556,8 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
             "--chain-id", self.chain, "--priv-key", str(root / "key.json"),
             "--priv-state", str(root / "hrs" / (self.chain + ".json")),
             "--domains-log", str(root / "domains/domains.log"),
-            "--comet-signer-addr", self.signer_address(0), "--denial-file", str(self.events.resolve())])
+            "--comet-signer-addr", self.signer_address(0), "--denial-file", str(self.events.resolve()),
+            *self.transport_args(0)])
 
     def test_domains_log_inside_comet_home_or_app_store_is_refused(self):
         """Comet's UID never reaches signer storage, and the app store is disposable."""
@@ -529,22 +578,27 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.assertEqual(self.state.read_text(), "authoritative HRS")
         self.assertEqual(self.domains_log.read_text(), "etna-signer-domains-v1\n" + self.chain + "\n")
 
-    def test_fresh_session_closes_trust_until_revalidated(self):
-        self.publish(1, "same-session")
-        self.ready = False
-        self.phase = "acquiring"
-        time.sleep(.3)
-        self.assertEqual(self.starts(), 1)
-        self.ready = True
-        self.phase = "ready"
-        self.publish_recovery_session("new-session", ready=False)
-        time.sleep(.3)
-        self.assertEqual(self.starts(), 1)
-        self.ready = True
-        self.phase = "ready"
-        self.wait(lambda: self.starts() == 2)
+    def test_session_change_alone_does_not_restart(self):
+        """An app restart gives the app a new session; the signer begins one for its next
+        signing request and holds it there, so only a published refusal restarts Comet."""
+        self.session = "app-restarted:0"
+        time.sleep(.6)
+        self.assertEqual((self.starts(), len(self.signers())), (1, 1))
+
+    def test_another_refusal_repeats_the_guarded_restart(self):
+        """The restarted pair's replayed step can be refused again; once trust is Ready the
+        supervisor restarts the pair again (SYNC-9-12), with the HRS untouched."""
+        self.ready, self.phase = False, "acquiring"
+        self.publish(1, self.session)
         time.sleep(.4)
-        self.assertEqual(self.starts(), 2)
+        self.assertEqual(self.starts(), 1)
+        self.ready, self.phase = True, "ready"
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+        self.publish(1, "second-pair-session")
+        self.wait(lambda: self.starts() == 3 and len(self.signers()) == 3)
+        time.sleep(.4)
+        self.assertEqual((self.starts(), len(self.signers())), (3, 3))
+        self.assertFalse((self.store / "validator-supervisor.halted").exists())
         self.assertEqual(self.state.read_text(), "authoritative HRS")
 
     def test_comet_eof_after_observed_control_loss_recovers_only_when_ready(self):
@@ -557,7 +611,6 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.assertEqual(self.starts(), 1)
         self.ready = True
         self.phase = "ready"
-        self.publish_recovery_session()
         self.wait(lambda: self.starts() == 2)
         self.assertEqual(self.state.read_text(), "authoritative HRS")
 
@@ -578,76 +631,50 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.assertEqual(len(self.signers()), 1)
         self.assertNotIn("--await-trust", self.signers()[0]["argv"])
 
-    def test_recovery_starts_comet_only_after_fresh_session_is_trusted(self):
-        # The refused step is replayed only by a restarted Comet, so the app must have
-        # authenticated the new transport's session before Comet can ask again.
+    def test_refusal_restarts_the_pair_together_once_ready(self):
+        """The refused step comes back only through a restarted Comet's WAL replay. Once trust
+        is Ready, both old children are reaped and the signer and Comet start together; the
+        signer connects promptly and holds the replayed step for its new session (SYNC-9-12)."""
+        self.ready, self.phase = False, "acquiring"
         self.publish(1, self.session)
-        self.wait(lambda: len(self.signers()) == 2)
-        self.assertIn("--await-trust", self.signers()[1]["argv"])
-        # Before the signer publishes its session, Ready trust of the old one is no signal.
-        time.sleep(.3)
-        self.assertEqual(self.starts(), 1)
-        self.publish_recovery_session(ready=False)
-        # Delayed authentication: the app checks the new session for several ticks.
         time.sleep(.6)
-        self.assertEqual(self.starts(), 1)
+        self.assertEqual((self.starts(), len(self.signers())), (1, 1))
         self.assertFalse((self.store / "validator-supervisor.halted").exists())
-        self.ready = True
-        self.phase = "ready"
-        self.wait(lambda: self.starts() == 2)
+        self.ready, self.phase = True, "ready"
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+        self.assertNotIn("--await-trust", self.signers()[1]["argv"])
+        self.assertEqual(self.signers()[1]["alive"], [])
+        self.assertFalse(self.saw_earlier_comet_alive(1))
         time.sleep(.6)
-        self.assertEqual(self.starts(), 2)
-        self.assertEqual(len(self.signers()), 2)
+        self.assertEqual((self.starts(), len(self.signers())), (2, 2))
         self.assertFalse((self.store / "validator-supervisor.halted").exists())
-        self.assertEqual(self.state.read_text(), "authoritative HRS")
-
-    def test_signer_exit_while_awaiting_trust_restarts(self):
-        """A recovery signer that exits while awaiting trust is replaced by another fresh one."""
-        self.publish(1, self.session)
-        self.publish_recovery_session(ready=False)
-        os.kill(self.signers()[1]["pid"], signal.SIGTERM)
-        self.wait(lambda: len(self.signers()) == 3)
-        self.assertIn("--await-trust", self.signers()[2]["argv"])
-        self.assertEqual(self.signers()[2]["alive"], [])
-        self.assertFalse((self.store / "validator-supervisor.halted").exists())
-        self.assertEqual(self.starts(), 1)
-        self.ready, self.phase, self.session = True, "ready", "third-session"
-        self.publish(0, "third-session")
-        self.wait(lambda: self.starts() == 2)
-        self.assertEqual(len(self.signers()), 3)
-        self.assertIsNone(self.proc.poll())
         self.assertEqual(self.state.read_text(), "authoritative HRS")
 
     def test_signer_sigkill_restarts_pair_with_fresh_session(self):
-        """A crashed signer restarts with its pair: Comet is reaped first, the new signer begins a
-        new closed session, and Comet starts only once that session is Ready (SYNC-9-12/14). The
-        HRS path is the same and its bytes are untouched (RECOV-8.2-1)."""
+        """A crashed signer restarts with its pair: Comet is reaped first, then the new signer
+        and Comet start together on a fresh transport, where the signer begins a new closed
+        session (SYNC-9-12/14). The HRS path is the same and its bytes are untouched
+        (RECOV-8.2-1)."""
         os.kill(self.signers()[0]["pid"], signal.SIGKILL)
-        self.wait(lambda: len(self.signers()) == 2)
-        self.assertIn("--await-trust", self.signers()[1]["argv"])
+        self.wait(lambda: len(self.signers()) == 2 and self.starts() == 2)
+        self.assertNotIn("--await-trust", self.signers()[1]["argv"])
         # No overlap: the dead signer was reaped and Comet stopped before the new signer ran.
         self.assertEqual(self.signers()[1]["alive"], [])
-        self.assertFalse(self.signers()[1]["comet_alive"])
+        self.assertFalse(self.saw_earlier_comet_alive(1))
         self.assertEqual(self.signers()[1]["argv"][:10], self.signers()[0]["argv"][:10])
-        time.sleep(.3)
-        self.assertEqual(self.starts(), 1, "Comet restarted before the new session was Ready")
-        self.publish_recovery_session()
-        self.wait(lambda: self.starts() == 2)
         time.sleep(.3)
         self.assertEqual((self.starts(), len(self.signers())), (2, 2))
         self.assertFalse((self.store / "validator-supervisor.halted").exists())
         self.assertEqual(self.state.read_text(), "authoritative HRS")
-        self.assertEqual(self.signer_address(1), self.comet_listener(1))
-        if self.listener_args(1):  # Unix: the restarted pair never reuses the dead pair's socket
+        if self.fresh_listener_per_pair:  # Unix: the restarted pair never reuses the dead pair's socket
+            self.assertEqual(self.signer_address(1), self.comet_listener(1))
             self.assertNotEqual(self.comet_listener(0), self.comet_listener(1))
             self.assertFalse(os.path.lexists(self.comet_listener(0).removeprefix("unix://")))
 
     def assert_crash_restarts(self, code):
         (self.root / "signer_exit_now").write_text(str(code))
-        self.wait(lambda: len(self.signers()) == 2)
+        self.wait(lambda: len(self.signers()) == 2 and self.starts() == 2)
         self.assertFalse((self.root / "signer_exit_now").exists())
-        self.publish_recovery_session()
-        self.wait(lambda: self.starts() == 2)
         self.assertFalse((self.store / "validator-supervisor.halted").exists())
         self.assertEqual(self.state.read_text(), "authoritative HRS")
         self.assertIsNone(self.proc.poll())
@@ -669,8 +696,9 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.assertIn("unsafe signing state", latch.read_text())
         self.assertIn("unsafe signing state", self.marker.read_text())
         time.sleep(.5)
-        self.assertEqual(len(self.signers()), 2)
-        self.assertEqual(self.starts(), 1)
+        # The restart started the pair together; the second signer's exit 3 stopped its Comet.
+        self.assertEqual((len(self.signers()), self.starts()), (2, 2))
+        self.assertFalse(self.alive(int((self.root / "comet.pid").read_text())))
         self.assertIsNone(self.proc.poll())
         self.assertEqual(self.state.read_text(), "authoritative HRS")
 
@@ -698,8 +726,8 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.wait(latch.exists)
         self.assertTrue(latch.read_text().startswith("signer exited 5 times within 600s"), latch.read_text())
         time.sleep(.5)
-        self.assertEqual(len(self.signers()), 5)  # the initial signer and four restarts
-        self.assertEqual(self.starts(), 1)
+        # The initial pair and four restarted pairs.
+        self.assertEqual((len(self.signers()), self.starts()), (5, 5))
         self.assertIsNone(self.proc.poll())
         self.assertEqual(self.state.read_text(), "authoritative HRS")
 
@@ -932,88 +960,11 @@ class SupervisorTests(TrustPeer, unittest.TestCase):
         self.assertEqual(self.starts(), 1)
         self.assertEqual(len(self.signers()), 1)
 
-    def restart_over_settings(self, settings, **streams):
-        """Stop the running supervisor and start one whose config.toml adds `settings`."""
-        if self.proc.poll() is None:
-            self.proc.terminate()
-            self.assertEqual(self.proc.wait(timeout=5), 0)
-        (self.home / "config/config.toml").write_text(self.base_config + settings + "\n")
-        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")], env=self.env,
-                                     **(streams or dict(stdout=self.log, stderr=self.log)))
 
-    def assert_settings_refused(self, path, *variants):
-        """Each variant stops a starting supervisor, with no live owner, before any child starts."""
-        for settings in variants:
-            with self.subTest(settings=settings):
-                self.restart_over_settings(settings, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                try:
-                    _, error = self.proc.communicate(timeout=5)
-                except subprocess.TimeoutExpired:
-                    self.proc.terminate()
-                    _, error = self.proc.communicate(timeout=5)
-                self.assertEqual(self.proc.returncode, 1, error)
-                self.assertIn(f"stock CometBFT {path} (START-10-6)".encode(), error)
-                self.assertNotIn(b"Traceback", error)
-                self.assertEqual((self.starts(), len(self.signers())), (1, 1))
+class UnixSupervisorTests(SupervisorLifecycle, unittest.TestCase):
+    """Lifecycle gates over Unix sockets; like stock Comet, the listener leaves its inode."""
 
-    def test_refuses_adaptive_sync(self):
-        """Consensus running while block sync catches up can sign votes for heights already
-        decided, which signer state does not prevent (START-10-6). Viper folds key case and
-        reads a literal dotted key, so those spellings reach the same setting."""
-        self.assert_settings_refused("blocksync.adaptive_sync", "[blocksync]\nadaptive_sync = true",
-                                     "[BlockSync]\nAdaptive_Sync = true", '"blocksync.adaptive_sync" = true')
-
-    def test_refuses_double_sign_check_height(self):
-        """A nonzero height stops a restarted Comet whose key signed recent blocks, which would
-        defeat the automatic restart (START-10-6)."""
-        self.assert_settings_refused("consensus.double_sign_check_height",
-                                     "[consensus]\ndouble_sign_check_height = 10",
-                                     "[CONSENSUS]\nDOUBLE_SIGN_CHECK_HEIGHT = 10")
-
-    def test_refuses_non_default_block_time_tolerance(self):
-        """Only the stock 60 s tolerance (CONS-3.4-12); Comet reads a bare integer as nanoseconds."""
-        self.assert_settings_refused("consensus.block_time_tolerance",
-                                     '[consensus]\nblock_time_tolerance = "2m0s"',
-                                     "[consensus]\nblock_time_tolerance = 60")
-
-    def test_accepts_stock_defaults(self):
-        """setUp's config.toml leaves all three settings absent, and its pair started; spelled
-        out at their stock values, with each spelling of 60 s, they start the pair as well."""
-        for count, tolerance in enumerate(("1m0s", "60s", "1m"), start=2):
-            with self.subTest(tolerance=tolerance):
-                self.restart_over_settings("[blocksync]\nadaptive_sync = false\n[consensus]\n"
-                                           f'double_sign_check_height = 0\nblock_time_tolerance = "{tolerance}"')
-                self.wait(lambda: self.starts() == count and len(self.signers()) == count)
-
-    def test_signer_crash_before_init_chain_starts_comet_with_the_signer(self):
-        """Before InitChain the app reports no chain_id and is never Ready, since only Comet can
-        initialize it: a signer that crashes then restarts with Comet as on a first start
-        instead of waiting for trust forever."""
-        self.extra = dict(chain_id=None)
-        os.kill(self.signers()[0]["pid"], signal.SIGKILL)
-        self.publish_recovery_session(ready=False)
-        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 3)
-        time.sleep(.4)
-        self.assertEqual((self.starts(), len(self.signers())), (2, 3))
-        self.assertNotIn("--await-trust", self.signers()[2]["argv"])
-        self.assertFalse((self.store / "validator-supervisor.halted").exists())
-        self.assertEqual(self.state.read_text(), "authoritative HRS")
-
-    def test_checkpoint_above_committed_head_starts_comet_without_waiting(self):
-        # Only Comet can commit up to such a checkpoint, so awaiting trust could never end.
-        self.publish(1, self.session)
-        self.extra = dict(target=dict(height=10), committed_head=dict(height=5))
-        self.publish_recovery_session(ready=False, phase="catching_up")
-        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 3)
-        time.sleep(.4)
-        self.assertEqual(self.starts(), 2)
-        self.assertEqual(len(self.signers()), 3)
-        self.assertNotIn("--await-trust", self.signers()[2]["argv"])
-        self.assertFalse((self.store / "validator-supervisor.halted").exists())
-
-
-class UnixSupervisorTests(SupervisorTests):
-    """Repeat lifecycle gates over Unix sockets; like stock Comet, the listener leaves its inode."""
+    fresh_listener_per_pair = True
 
     def configure_transport(self):
         (self.home / "run").mkdir(mode=0o700)
@@ -1059,7 +1010,6 @@ class UnixSupervisorTests(SupervisorTests):
 
     def test_each_pair_start_uses_one_fresh_socket(self):
         self.publish(1, self.session)
-        self.publish_recovery_session()
         self.wait(lambda: self.starts() == 2)
         pattern = re.escape(str(self.home.resolve() / "run")) + r"/signer-[0-9a-f]{16}\.sock"
         addresses = []
@@ -1101,7 +1051,7 @@ class UnixSupervisorTests(SupervisorTests):
         with socket.socket(socket.AF_UNIX) as stale:
             stale.bind(str(elsewhere / "signer-dddd.sock"))
         before = {entry.name: entry.lstat().st_ino for entry in elsewhere.iterdir()}
-        (self.home / "config/config.toml").write_text(f'priv_validator_laddr = "unix://{elsewhere / "x.sock"}"\n')
+        (self.home / "config/config.toml").write_text(f'priv_validator_laddr = "unix://{elsewhere / "x.sock"}"\n' + VALIDATOR_P2P)
         self.restart_supervisor()
         self.wait(lambda: self.starts() == 2)
         self.assertEqual({entry.name: entry.lstat().st_ino for entry in elsewhere.iterdir()}, before)
@@ -1167,6 +1117,315 @@ class UnixSupervisorTests(SupervisorTests):
         self.assertEqual(len(self.signers()), 1)
         self.assertEqual(os.listdir(home / "run"), [])
 
+    def restart_over_settings(self, settings, p2p=VALIDATOR_P2P, env=None, **streams):
+        """Stop the running supervisor and start one whose config.toml adds `settings` and, last,
+        the P2P table `p2p`, with `env` added to its environment."""
+        if self.proc.poll() is None:
+            self.proc.terminate()
+            self.assertEqual(self.proc.wait(timeout=5), 0)
+        (self.home / "config/config.toml").write_text(self.base_config + settings + "\n" + p2p)
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")], env={**self.env, **(env or {})},
+                                     **(streams or dict(stdout=self.log, stderr=self.log)))
+
+    def assert_refused_before_children(self, message, settings="", p2p=VALIDATOR_P2P, env=None):
+        """A starting supervisor exits 1 with message, with no live owner, before any child."""
+        if self.proc.poll() is None:
+            self.proc.terminate()
+            self.assertEqual(self.proc.wait(timeout=5), 0)
+        before = (self.starts(), len(self.signers()))
+        self.restart_over_settings(settings, p2p=p2p, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            _, error = self.proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.proc.terminate()
+            _, error = self.proc.communicate(timeout=5)
+        self.assertEqual(self.proc.returncode, 1, error)
+        self.assertIn(message.encode(), error)
+        self.assertNotIn(b"Traceback", error)
+        self.assertEqual((self.starts(), len(self.signers())), before)
+
+    def assert_settings_refused(self, path, *variants, p2p=VALIDATOR_P2P):
+        """Each variant is refused, naming the pinned setting (START-10-6)."""
+        for settings in variants:
+            with self.subTest(settings=settings):
+                self.assert_refused_before_children(f"requires CometBFT {path} ", settings, p2p=p2p)
+
+    def test_refuses_adaptive_sync(self):
+        """Consensus running while block sync catches up can sign votes for heights already
+        decided, which signer state does not prevent (START-10-6). Viper folds key case and
+        reads a literal dotted key, so those spellings reach the same setting."""
+        self.assert_settings_refused("blocksync.adaptive_sync", "[blocksync]\nadaptive_sync = true",
+                                     "[BlockSync]\nAdaptive_Sync = true", '"blocksync.adaptive_sync" = true')
+
+    def test_refuses_double_sign_check_height(self):
+        """A nonzero height stops a restarted Comet whose key signed recent blocks, which would
+        defeat the automatic restart (START-10-6)."""
+        self.assert_settings_refused("consensus.double_sign_check_height",
+                                     "[consensus]\ndouble_sign_check_height = 10",
+                                     "[CONSENSUS]\nDOUBLE_SIGN_CHECK_HEIGHT = 10")
+
+    def test_refuses_non_default_block_time_tolerance(self):
+        """Only the stock 60 s tolerance (CONS-3.4-12); Comet reads a bare integer as nanoseconds."""
+        self.assert_settings_refused("consensus.block_time_tolerance",
+                                     '[consensus]\nblock_time_tolerance = "2m0s"',
+                                     "[consensus]\nblock_time_tolerance = 60")
+
+    def test_accepts_stock_defaults(self):
+        """setUp's config.toml leaves all three settings absent, and its pair started; spelled
+        out at their stock values, with each spelling of 60 s, they start the pair as well."""
+        for count, tolerance in enumerate(("1m0s", "60s", "1m"), start=2):
+            with self.subTest(tolerance=tolerance):
+                self.restart_over_settings("[blocksync]\nadaptive_sync = false\n[consensus]\n"
+                                           f'double_sign_check_height = 0\nblock_time_tolerance = "{tolerance}"')
+                self.wait(lambda: self.starts() == count and len(self.signers()) == count)
+
+    def test_refuses_peer_exchange(self):
+        """Peer exchange off (START-10-6 vector 6.n); its stock default is on, so it must be set."""
+        self.assert_settings_refused("p2p.pex", "", p2p="[p2p]\nmax_num_inbound_peers = 0\n")
+        self.assert_settings_refused("p2p.pex", "", p2p="[p2p]\npex = true\nmax_num_inbound_peers = 0\n")
+
+    def test_refuses_outbound_peers_beyond_the_list(self):
+        """Outbound peers are only persistent_peers: no seeds, no seed mode, no unsafe RPC that
+        dials arbitrary peers, and the stock switch rather than the experimental libp2p one."""
+        seeds = "[p2p]\npex = false\nmax_num_inbound_peers = 0\nseeds = \"aa@127.0.0.1:26656\"\n"
+        self.assert_settings_refused("p2p.seeds", "", p2p=seeds)
+        self.assert_settings_refused("p2p.seed_mode", "", p2p=VALIDATOR_P2P + "seed_mode = true\n")
+        self.assert_settings_refused("p2p.libp2p.enabled", "", p2p=VALIDATOR_P2P + "[p2p.libp2p]\nenabled = true\n")
+        self.assert_settings_refused("rpc.unsafe", "[rpc]\nunsafe = true")
+
+    def test_refuses_inbound_slots(self):
+        """max_num_inbound_peers = 0, so only unconditional peers connect inbound (vectors 6.q/6.r);
+        its stock default is 40, so it must be set."""
+        self.assert_settings_refused("p2p.max_num_inbound_peers", "", p2p="[p2p]\npex = false\n")
+        self.assert_settings_refused("p2p.max_num_inbound_peers", "", p2p="[p2p]\npex = false\nmax_num_inbound_peers = 1\n")
+
+    def test_unconditional_peers_are_exactly_the_listed_inbound_peers(self):
+        """unconditional_peer_ids holds exactly ETNA_P2P_INBOUND_PEER_IDS: a missing, an extra and
+        an unlisted ID are refused; the listed set, in any order and spacing, starts the pair."""
+        listed = {"ETNA_P2P_INBOUND_PEER_IDS": "aa" * 20 + ", " + "bb" * 20}
+        for ids in ("", "aa" * 20, "aa" * 20 + "," + "bb" * 20 + "," + "cc" * 20, "cc" * 20):
+            with self.subTest(ids=ids):
+                self.assert_refused_before_children("requires CometBFT p2p.unconditional_peer_ids ",
+                                                    p2p=VALIDATOR_P2P + f'unconditional_peer_ids = "{ids}"\n', env=listed)
+        self.assert_refused_before_children("requires CometBFT p2p.unconditional_peer_ids ",
+                                            p2p=VALIDATOR_P2P + f'unconditional_peer_ids = "{"aa" * 20}"\n')
+        self.restart_over_settings("", p2p=VALIDATOR_P2P + f'unconditional_peer_ids = " {"bb" * 20} ,{"aa" * 20}"\n', env=listed)
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+
+    def test_environment_overrides_are_checked(self):
+        """CMT_* overrides are checked as stock Comet would apply them, in both spellings, and one
+        that cannot be evaluated exactly is refused; an override that agrees starts the pair."""
+        for env, path in (({"CMT_P2P_PEX": "true"}, "p2p.pex"), ({"CMTP2P_PEX": "1"}, "p2p.pex"),
+                          ({"CMT_P2P_MAX_NUM_INBOUND_PEERS": "40"}, "p2p.max_num_inbound_peers"),
+                          ({"CMT_P2P_SEEDS": "aa@127.0.0.1:26656"}, "p2p.seeds"),
+                          ({"CMT_P2P_UNCONDITIONAL_PEER_IDS": "cc" * 20}, "p2p.unconditional_peer_ids"),
+                          ({"CMT_RPC_UNSAFE": "TRUE"}, "rpc.unsafe"),
+                          ({"CMT_BLOCKSYNC_ADAPTIVE_SYNC": "t"}, "blocksync.adaptive_sync"),
+                          ({"CMT_CONSENSUS_DOUBLE_SIGN_CHECK_HEIGHT": "10"}, "consensus.double_sign_check_height"),
+                          ({"CMT_CONSENSUS_BLOCK_TIME_TOLERANCE": "2m"}, "consensus.block_time_tolerance")):
+            with self.subTest(env=env):
+                self.assert_refused_before_children(f"requires CometBFT {path} ", env=env)
+        for env in ({"CMT_P2P_PEX": "no"}, {"CMT_P2P_MAX_NUM_INBOUND_PEERS": "00"}):
+            with self.subTest(env=env):
+                self.assert_refused_before_children("cannot evaluate", env=env)
+        self.assert_refused_before_children("outside ETNA_COMET_HOME", env={"CMTHOME": str(self.root / "other")})
+        # An override that only restates config.toml cannot move it, and an empty one is ignored.
+        self.restart_over_settings("", env={"CMT_P2P_PEX": "false", "CMTP2P_MAX_NUM_INBOUND_PEERS": "0", "CMT_RPC_UNSAFE": ""})
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+
+    def test_comet_argv_flags_for_pinned_settings_are_refused(self):
+        """A flag would beat config.toml and the environment, so an explicit Comet argv may not
+        set a pinned or read setting, nor the signer listener the supervisor assigns."""
+        for flag in ("--p2p.pex", "--p2p.pex=true", "--p2p.seeds=aa@127.0.0.1:1", "--rpc.unsafe",
+                     "--consensus.double_sign_check_height=1", "--db_dir=elsewhere", "--priv_validator_laddr=tcp://127.0.0.1:1"):
+            with self.subTest(flag=flag):
+                self.assert_refused_before_children(f"refuses a --{flag.lstrip('-').split('=')[0]} flag",
+                                                    env={"ETNA_COMET_COMMAND_JSON": json.dumps([str(self.bin / "cometbft"), "start", flag])})
+
+    def test_pending_evidence_store_is_deleted_before_every_comet_start(self):
+        """With Comet stopped, every start deletes <db_dir>/evidence.db and nothing else: the WAL,
+        block and state stores, the dummy FilePV state, the app store and the signer's files stay
+        (CONS-3.1-10, LIMIT-12-22)."""
+        data = self.home / "data"
+        kept = {data / "blockstore.db/000001.ldb": "blocks", data / "state.db/000001.ldb": "state",
+                data / "cs.wal/wal": "wal", data / "priv_validator_state.json": "dummy",
+                data / "evidence.db.keep": "neighbour"}
+        def populate(marker):
+            (data / "evidence.db/sub").mkdir(parents=True, exist_ok=True)
+            (data / "evidence.db/000001.ldb").write_text(marker)
+            (data / "evidence.db/sub/LOCK").write_text(marker)
+        for path, text in kept.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+        populate("pending before restart")
+        self.restart_over_settings("")
+        self.wait(lambda: self.starts() == 2)
+        self.assertFalse(os.path.lexists(data / "evidence.db"))
+        # A guarded restart after a refusal deletes the store its Comet wrote again.
+        populate("pending while running")
+        self.publish(1, self.session)
+        self.wait(lambda: self.starts() == 3)
+        self.assertFalse(os.path.lexists(data / "evidence.db"))
+        self.assertEqual({path: path.read_text() for path in kept}, kept)
+        self.assertEqual((self.state.read_text(), self.key.read_text()), ("authoritative HRS", "existing key"))
+        self.assertIn("etna_supervisor_pending_evidence_removed", Path(self.log.name).read_text(errors="replace"))
+        # The store follows db_dir, and a symlinked store is refused rather than followed.
+        elsewhere = self.home / "elsewhere"
+        (elsewhere / "evidence.db").mkdir(parents=True)
+        self.restart_over_settings('db_dir = "elsewhere"')
+        self.wait(lambda: self.starts() == 4)
+        self.assertFalse(os.path.lexists(elsewhere / "evidence.db"))
+        target = self.root / "outside-evidence"
+        target.mkdir()
+        (target / "keep").write_text("outside")
+        (data / "evidence.db").symlink_to(target, target_is_directory=True)
+        self.assert_refused_before_children("must not be a symlink")
+        self.assertEqual((target / "keep").read_text(), "outside")
+
+    def test_comet_executable_must_match_the_manifest(self):
+        """Only the executable whose digest the deployment manifest pins for this platform
+        starts (CONS-3.1-1 vector 1.f), at startup and at every later Comet start."""
+        manifest = json.loads(self.manifest.read_text())
+        platform = next(iter(manifest["platforms"]))
+        other = dict(manifest, platforms={platform: dict(sha256="00" * 32)})
+        self.manifest.write_text(json.dumps(other))
+        self.assert_refused_before_children("not the " + platform + " digest")
+        unsupported = dict(manifest, platforms={}, unsupported_platforms={platform: "no official executable here"})
+        self.manifest.write_text(json.dumps(unsupported))
+        self.assert_refused_before_children("no official executable here (CONS-3.1-1)")
+        for broken in (dict(manifest, release="v0.38.0"), dict(manifest, source_commit="00" * 20), dict(manifest, schema=2)):
+            self.manifest.write_text(json.dumps(broken))
+            self.assert_refused_before_children("is not a schema 1 manifest for CometBFT v0.40.0")
+        self.assert_refused_before_children("deployment manifest", env={"ETNA_COMET_MANIFEST": str(self.root / "absent.json")})
+        self.manifest.write_text(json.dumps(manifest))
+        self.restart_over_settings("")
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+        # The executable changes while the supervisor runs: the next Comet start is refused.
+        comet = self.bin / "cometbft"
+        comet.write_text(comet.read_text() + "# rebuilt\n")
+        self.publish(1, self.session)
+        self.assertEqual(self.proc.wait(timeout=10), 1)
+        self.assertIn("the deployment manifest pins (CONS-3.1-1)", Path(self.log.name).read_text(errors="replace"))
+        self.assertEqual((self.starts(), len(self.signers())), (2, 2))
+        self.assertFalse(any(self.alive(signer["pid"]) for signer in self.signers()))
+
+    def test_missed_first_connection_restarts_the_pair_without_a_latch(self):
+        """Comet exits when the signer misses the 3 s accept of its first GetPubKey; the
+        supervisor starts the pair again with the same signer state and no latch (START-10-6).
+        Once the signer connects, the pair stays up."""
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=5), 0)
+        (self.root / "signer_skip_connect").touch()
+        (self.root / "comet_exit_on_start").touch()
+        self.proc = subprocess.Popen(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                     env=self.env, stdout=self.log, stderr=self.log)
+        self.wait(lambda: self.starts() >= 4 and len(self.signers()) >= 4, timeout=10)
+        self.assertFalse((self.store / "validator-supervisor.halted").exists())
+        self.assertFalse((self.store / "validator-supervisor.signer-unsafe").exists())
+        self.assertIn("etna_supervisor_missed_first_connection", Path(self.log.name).read_text(errors="replace"))
+        self.assertTrue(all(signer["alive"] == [] for signer in self.signers()[1:]))
+        (self.root / "signer_skip_connect").unlink()
+        (self.root / "comet_exit_on_start").unlink()
+        self.wait(lambda: self.alive(int((self.root / "comet.pid").read_text())), timeout=10)
+        settled = self.starts()
+        time.sleep(1.5)
+        self.assertEqual(self.starts(), settled)
+        self.assertIsNone(self.proc.poll())
+        self.assertEqual(self.state.read_text(), "authoritative HRS")
+
+    def test_bare_tcp_signer_transport_is_refused(self):
+        """Bare tcp://, whose stock listener generates a fresh identity at every start, and any
+        other scheme are refused before any child starts (START-10-6 vector 6.p)."""
+        for laddr in ("tcp://127.0.0.1:26659", "127.0.0.1:26659", ""):
+            with self.subTest(laddr=laddr):
+                self.base_config = f'priv_validator_laddr = "{laddr}"\n'
+                self.assert_refused_before_children("priv_validator_laddr")
+
+    def test_run_directory_open_to_others_is_refused(self):
+        """The socket's directory restricts access to the bound Comet process and the signer:
+        a run/ open to the group or others, where another user could replace the socket, is
+        refused (START-10-6 vector 6.p)."""
+        self.stop_supervisor()
+        (self.home / "run").chmod(0o750)
+        self.assert_misconfigured_run_refused(f"{self.home.resolve() / 'run'} must be private to the Comet UID (mode 0700), not 0750")
+
+
+class NoiseSupervisorTests(SupervisorLifecycle, unittest.TestCase):
+    """Lifecycle gates over stock Noise with both peer IDs pinned (START-10-6): Comet listens on
+    its configured noise://<signer-peer-id>@<ip>:<port>, and the signer dials it with its own
+    transport key, pinning the peer ID of Comet's persistent node key."""
+
+    fresh_listener_per_pair = False
+
+    def configure_transport(self):
+        self.transport_key = self.root / "signer-transport.json"
+        self.signer_peer = write_node_key(self.transport_key)
+        self.comet_peer = write_node_key(self.home / "config/node_key.json")
+        self.laddr = f"noise://{self.signer_peer}@127.0.0.1:26659"
+        (self.home / "config/config.toml").write_text(f'priv_validator_laddr = "{self.laddr}"\n')
+        self.transport_env = dict(ETNA_SIGNER_TRANSPORT_KEY=str(self.transport_key))
+
+    def comet_listener(self, index):
+        return self.laddr
+
+    def signer_address(self, index):
+        argv = self.signers()[index]["argv"]
+        address = argv[argv.index("--comet-signer-addr") + 1]
+        self.assertEqual(address, f"noise://{self.comet_peer}@127.0.0.1:26659")
+        return address
+
+    def transport_args(self, index):
+        return ["--transport-key", str(self.transport_key.resolve())]
+
+    def test_every_pair_pins_both_noise_peer_ids(self):
+        """Every pair's Comet listens on the configured address and its signer pins Comet's node
+        key with its own transport key, also after a guarded restart."""
+        self.publish(1, self.session)
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+        for index in (0, 1):
+            self.assertEqual(self.comets()[index]["argv"][-2:], ["--priv_validator_laddr", self.laddr])
+            argv = self.signers()[index]["argv"]
+            self.assertEqual(argv[argv.index("--transport-key") + 1], str(self.transport_key.resolve()))
+            self.signer_address(index)
+
+    def test_noise_configuration_is_refused_before_children(self):
+        """A missing or mismatched signer transport key, a key inside the Comet home, a missing
+        Comet node key, which stock Comet would replace with a fresh identity, and a malformed
+        address are refused before any child starts."""
+        self.proc.terminate()
+        self.assertEqual(self.proc.wait(timeout=5), 0)
+        node_key = self.home / "config/node_key.json"
+        other = self.root / "other-transport.json"
+        write_node_key(other)
+        inside = self.home / "transport.json"
+        inside.write_text(self.transport_key.read_text())
+        cases = [
+            (dict(ETNA_SIGNER_TRANSPORT_KEY=""), "needs ETNA_SIGNER_TRANSPORT_KEY", None),
+            (dict(ETNA_SIGNER_TRANSPORT_KEY=str(other)), "is not the signer", None),
+            (dict(ETNA_SIGNER_TRANSPORT_KEY=str(inside)), "outside the Comet home", None),
+            ({}, "Comet node key", "move-node-key"),
+            ({}, "IP literal", f'priv_validator_laddr = "noise://{self.signer_peer}@localhost:26659"\n'),
+            ({}, "IP literal", f'priv_validator_laddr = "noise://127.0.0.1:26659"\n'),
+        ]
+        for env, message, change in cases:
+            with self.subTest(message=message, change=change):
+                config = self.home / "config/config.toml"
+                saved = config.read_text()
+                if change == "move-node-key":
+                    node_key.rename(self.root / "node_key.saved")
+                elif change:
+                    config.write_text(change + VALIDATOR_P2P)
+                try:
+                    refused = subprocess.run(["bash", str(ROOT / "script/start_etna_validator.sh")],
+                                             env={**self.env, **env}, capture_output=True, timeout=5)
+                finally:
+                    config.write_text(saved)
+                    if change == "move-node-key":
+                        (self.root / "node_key.saved").rename(node_key)
+                self.assertEqual(refused.returncode, 1, refused.stderr)
+                self.assertIn(message.encode(), refused.stderr)
+                self.assertEqual((self.starts(), len(self.signers())), (1, 1))
+
 
 def cap_eff(pid):
     """Effective capability mask of a live Linux process."""
@@ -1196,7 +1455,7 @@ class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
         self.home = self.root / "comet"
         (self.home / "config").mkdir(parents=True)
         self.chain, self.generation, self.origin = "etna-test", 0, None
-        (self.home / "config/config.toml").write_text('priv_validator_laddr = "unix://run/signer.sock"\n')
+        (self.home / "config/config.toml").write_text('priv_validator_laddr = "unix://run/signer.sock"\n' + VALIDATOR_P2P)
         (self.home / "config/genesis.json").write_text(json.dumps(dict(chain_id=self.chain)))
         # Without CAP_CHOWN, let the Comet UID create its own private run/ in a briefly open home.
         self.home.chmod(0o777)
@@ -1227,7 +1486,8 @@ class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
                          'with open(os.path.join(os.environ["OBSERVED"],"comets"),"a") as out:\n'
                          ' out.write(json.dumps(dict(pid=os.getpid(),path=path))+"\\n")\n'
                          'while True: time.sleep(1)'),
-            # Root signer: connect to Comet's listener, as the real signer dials it.
+            # Root signer: connect to Comet's listener, as the real signer dials it, and publish
+            # the connection.
             "signer": ('import json,os,socket,sys,time\n'
                        'argv=sys.argv[1:]\n'
                        'open(os.environ["SIGNERS"],"a").write(json.dumps(dict(pid=os.getpid(),argv=argv))+"\\n")\n'
@@ -1236,6 +1496,9 @@ class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
                        ' peer=socket.socket(socket.AF_UNIX)\n'
                        ' try: peer.connect(path); break\n'
                        ' except OSError: peer.close(); time.sleep(.05)\n'
+                       'events=argv[argv.index("--denial-file")+1]\n'
+                       'd=os.open(events+".tmp",os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)\n'
+                       'os.write(d,json.dumps(dict(sequence=0,session_id="")).encode());os.close(d);os.replace(events+".tmp",events)\n'
                        'with open(os.path.join(os.environ["OBSERVED"],"connected"),"a") as out:\n'
                        ' out.write("connected "+path+"\\n")\n'
                        'while True: time.sleep(1)'),
@@ -1249,7 +1512,9 @@ class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
                         ETNA_CHAIN_ID=self.chain, ETNA_SIGNER_BIN=str(self.bin / "signer"),
                         ETNA_DENIAL_FILE=str(self.events), ETNA_COMET_UID=str(self.COMET_UID),
                         ETNA_COMET_GID=str(self.COMET_UID), OBSERVED=str(self.observed),
+                        ETNA_COMET_MANIFEST=str(self.root / "comet-manifest.json"),
                         SIGNERS=str(self.root / "signers"), PATH=str(self.bin) + os.pathsep + os.environ["PATH"])
+        write_manifest(self.root / "comet-manifest.json", self.bin / "cometbft")
         self.log = (self.root / "runtime.log").open("w+")
         self.proc = None
         self.start_peer()
@@ -1321,7 +1586,6 @@ class MinimalCapabilityTests(TrustPeer, unittest.TestCase):
         # with the loss observed, whatever phase it then reads.
         self.wait(lambda: not Path(f"/proc/{comet}").exists())
         self.phase = "ready"
-        self.publish_recovery_session()
         fresh = self.wait_socket(2)
         self.assertNotEqual(fresh, stale)
         self.assertFalse(os.path.lexists(stale))
@@ -1594,6 +1858,41 @@ class SupervisorUnitTests(unittest.TestCase):
                     self.assertEqual(decisions, [("halt", True, True)])
                     self.assertEqual(marker.read_text(), record.read_text())
 
+    def test_noise_peer_id_matches_the_signer(self):
+        """The supervisor's libp2p peer ID derivation matches the signer's (Go) for one vector."""
+        module = supervisor_module()
+        with tempfile.TemporaryDirectory() as directory:
+            key = Path(directory) / "key.json"
+            key.write_text(PEER_ID_VECTOR[0])
+            self.assertEqual(module.ed25519_peer_id(key, "vector"), PEER_ID_VECTOR[1])
+            key.write_text(PEER_ID_VECTOR[0].replace("PrivKeyEd25519", "PrivKeySecp256k1"))
+            with self.assertRaisesRegex(ValueError, "not a stock Ed25519 node key"):
+                module.ed25519_peer_id(key, "vector")
+
+    def test_shipped_manifest_pins_the_official_executable(self):
+        """comet-manifest.json names CometBFT v0.40.0 at its source commit; for linux/amd64 the
+        official image's executable, with the digests the Dockerfile verifies; linux/arm64 as
+        unsupported with its reason; and the configuration the supervisor enforces (CONS-3.1-1)."""
+        module = supervisor_module()
+        manifest = json.loads((ROOT / "comet-manifest.json").read_text())
+        self.assertEqual((manifest["schema"], manifest["release"], manifest["source_commit"]),
+                         (module.COMET_MANIFEST_SCHEMA, module.COMET_RELEASE, module.COMET_SOURCE_COMMIT))
+        self.assertEqual(set(manifest["platforms"]), {"linux/amd64"})
+        amd64 = manifest["platforms"]["linux/amd64"]
+        dockerfile = (ROOT / "Dockerfile").read_text()
+        self.assertIn(f'RUN echo "{amd64["sha256"]}  /usr/bin/cometbft" | sha256sum -c -', dockerfile)
+        self.assertIn("cometbft/cometbft:v0.40.0@" + amd64["artifact"]["platform_manifest"] + " AS comet-amd64", dockerfile)
+        self.assertTrue(amd64["artifact"]["image"].endswith("@sha256:0703fb881dac0987c8e41a5810cc09dbcb503bb59ac91705f6936c4b972ac798"))
+        self.assertIn(amd64["artifact"]["image"].removeprefix("docker.io/"), (ROOT / "script/build_stock_comet.sh").read_text())
+        self.assertEqual(amd64["build"]["build_info"]["vcs.revision"], module.COMET_SOURCE_COMMIT)
+        self.assertIn(amd64["sha256"], manifest["unsupported_platforms"]["linux/arm64"])
+        configuration = manifest["configuration"]
+        for path, (default, kind, requirement, check) in module.PINNED_SETTINGS.items():
+            self.assertIn(path, configuration)
+            if not isinstance(configuration[path], str) or kind != "str":
+                self.assertTrue(check(configuration[path], []), path)
+        self.assertEqual(configuration["db_backend"], list(module.COMET_DB_BACKENDS))
+
     def test_unreadable_unsafe_evidence_counts_as_present(self):
         """A record or marker whose absence cannot be established (EACCES here, or EIO) counts as
         present, as a fence does: only ENOENT proves absence (RECOV-8.2-3)."""
@@ -1620,7 +1919,7 @@ class SupervisorUnitTests(unittest.TestCase):
         spec.loader.exec_module(module)
         runtime = object.__new__(module.Supervisor)
         runtime.home, runtime.unix_run = Path("/private/runtime"), None
-        runtime.comet_command = ["/cometbft", "start"]
+        runtime.comet_command, runtime.comet_listener = ["/cometbft", "start"], "unix:///private/runtime/run/signer.sock"
         runtime.child_options = lambda: {}
         for current_uid, current_gid, uid, gid, expected in [
                 (501, 20, 501, 20, {}),
