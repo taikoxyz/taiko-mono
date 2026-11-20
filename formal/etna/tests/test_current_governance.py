@@ -1,6 +1,7 @@
 """Source-derived observations for the generation-bound schedule projection."""
 
 from dataclasses import replace
+from hashlib import sha256
 from importlib import import_module
 import json
 from pathlib import Path
@@ -318,7 +319,7 @@ class CurrentGovernanceTests(unittest.TestCase):
                 self.assertEqual(edge.events, (("RulesScheduleUpdated", event),))
 
     def test_source_identity_requires_all_exact_raw_streams_and_grants_source_only(self):
-        from formal.etna.conformance.current_spec import MANIFEST_PATH, classify_workspace_documents
+        from formal.etna.conformance.current_spec import MANIFEST_PATH
 
         source = import_module(PACKAGE + ".source")
         docs = {
@@ -326,21 +327,36 @@ class CurrentGovernanceTests(unittest.TestCase):
             for name in ("SPEC.md", "ACCEPTANCE.md", "SWITCH.md")
         }
         revision = "f556fa94186b0ab604573e8d3a4c4d4fa835dc84"
-        workspace = classify_workspace_documents(docs, json.loads(MANIFEST_PATH.read_bytes()))
-        if workspace["bundleId"] == revision:
+        bundles = json.loads(MANIFEST_PATH.read_bytes())["bundles"]
+        # Choose the expectation independently of the classifier under test.
+        digests = {path: sha256(raw).hexdigest() for path, raw in docs.items()}
+        matching_revisions = (
+            bundle for bundle, entries in bundles.items()
+            if digests == {path: entry["sha256"] for path, entry in entries.items()}
+        )
+        known_revision = next(matching_revisions, None)
+        unreviewed = [(path, {**docs, path: raw + b"\n"}) for path, raw in docs.items()]
+        if known_revision == revision:
             identity = source.source_identity(docs)
             self.assertEqual((identity["bundleId"], identity["status"], identity["execution"]), (
                 revision, "SOURCE_REVIEWED", "NOT_EVALUATED",
             ))
-            self.assertEqual(identity["documents"], workspace["documents"])
+            self.assertEqual(identity["documents"], bundles[revision])
+        elif known_revision is None:
+            unreviewed.append(("workspace", docs))
         else:
             with self.assertRaisesRegex(ValueError, "require exact f556 source"):
                 source.source_identity(docs)
-        for path, raw in docs.items():
-            with self.subTest(path=path), self.assertRaises(ValueError):
-                source.source_identity({**docs, path: raw + b"\n"})
-        for invalid in ({**docs, "extra": b""}, {"SPEC.md": b""}):
-            with self.assertRaises(ValueError):
+        for label, raw_by_path in unreviewed:
+            with self.subTest(unreviewed=label), self.assertRaisesRegex(
+                ValueError, r"\Aworkspace documents do not match one reviewed revision\Z",
+            ):
+                source.source_identity(raw_by_path)
+        missing = {path: raw for path, raw in docs.items() if not path.endswith("/SPEC.md")}
+        for invalid in ({**docs, "extra": b""}, missing):
+            with self.assertRaisesRegex(
+                ValueError, r"\Aworkspace requires exact raw SPEC, ACCEPTANCE and SWITCH inputs\Z",
+            ):
                 source.source_identity(invalid)
 
 
