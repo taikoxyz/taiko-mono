@@ -290,7 +290,9 @@ func (g *gate) publishObservation(denied bool) {
 	if denied {
 		g.denials++
 	}
-	if g.denialPath == "" {
+	// A stopping signer has nothing left to report, and a dial still in flight at shutdown
+	// must not fail the process on an observation directory that is already gone.
+	if g.denialPath == "" || g.isStopping() {
 		return
 	}
 	session := ""

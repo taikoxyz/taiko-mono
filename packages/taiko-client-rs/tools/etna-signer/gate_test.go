@@ -739,7 +739,7 @@ func TestDialerConnectsPromptlyWithoutTheApp(t *testing.T) {
 	if err = server.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { server.Stop(); endpoint.Stop() }()
+	defer func() { g.closeTransports(); server.Stop(); endpoint.Stop() }()
 	if err = client.WaitForConnection(3 * time.Second); err != nil {
 		t.Fatal(err)
 	}
@@ -837,7 +837,7 @@ func TestOfficialSignerWire(t *testing.T) {
 			if err = server.Start(); err != nil {
 				t.Fatal(err)
 			}
-			defer func() { server.Stop(); endpoint.Stop() }()
+			defer func() { g.closeTransports(); server.Stop(); endpoint.Stop() }()
 			if err = client.WaitForConnection(3 * time.Second); err != nil {
 				t.Fatal(err)
 			}
