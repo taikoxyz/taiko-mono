@@ -2239,12 +2239,23 @@ mod tests {
         }
     }
 
+    /// PROOF-6.2-30/32 (32.d) and COMM-4.3-13 (13.g): from epoch 1 on every committee of this
+    /// fixture keeps the same keys and powers, so those rotations return no validator update,
+    /// yet the reported activeCommitteeSnapshot is the selection snapshot of the committee
+    /// governing lastHeight and moves from 11 to 13 at that committee's H(t).
     #[tokio::test]
     async fn later_epochs_and_partial_batches_restore_the_terminal_active_cutoff() {
         for (checkpoint, tip, expected) in
             [(6, 12, 1), (12, 18, 11), (18, 24, 11), (24, 30, 13), (30, 36, 13)]
         {
             let fixture = Arc::new(Fixture::with_progressing_epochs(checkpoint, tip));
+            let committees: Vec<_> = fixture.committees.range(1..).map(|(_, c)| &c.state).collect();
+            for pair in committees.windows(2) {
+                assert!(
+                    abci::committee::validator_updates(&pair[0].members, &pair[1].members)
+                        .is_empty()
+                );
+            }
             let batch = builder(fixture.clone(), limits((tip - checkpoint) as usize))
                 .prepare(fixture.snapshot.clone())
                 .await

@@ -1134,6 +1134,24 @@ mod tests {
         s.prune_committees(10);
         assert!(s.committees.is_empty());
     }
+
+    /// COMM-4.3-13 (13.g) and PROOF-6.2-32 (32.d): a rotation that keeps every key and power
+    /// returns no validator update, yet its record and selection snapshot govern from H(t) on,
+    /// not before and not one height later.
+    #[test]
+    fn an_unchanged_rotation_activates_its_record_and_snapshot_at_h_t() {
+        let mut s = state();
+        let (outgoing, incoming) = (committee(2), committee(3));
+        assert!(
+            crate::committee::validator_updates(&outgoing.members, &incoming.members).is_empty()
+        );
+        assert_ne!(outgoing.record.cutoff_l1_block, incoming.record.cutoff_l1_block);
+        s.committees = BTreeMap::from([(2, outgoing.clone()), (3, incoming.clone())]);
+        let h = s.schedule().h_first(3);
+        assert_eq!(s.committee_at(h - 1), Some(&outgoing));
+        assert_eq!(s.committee_at(h), Some(&incoming));
+        assert_eq!(s.committee_at(h).unwrap().record.cutoff_l1_block, 103);
+    }
 }
 
 #[cfg(test)]

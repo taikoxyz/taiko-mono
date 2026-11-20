@@ -239,6 +239,9 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     f
 }
 
+/// PROOF-6.2-30/32 (30.b, 32.a): from the recovery origin c = 6 the batch to 12 reports R (20),
+/// also for L = 6, where the first ordinary rotation (S(2) = 11) is already selected but its
+/// H(2) = 13 lies above lastHeight.
 #[tokio::test]
 async fn recovery_origin_uses_retained_boundary_and_r_committee() {
     for length in [6, 7, 8] {
