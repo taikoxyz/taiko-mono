@@ -3,8 +3,8 @@ import EtnaProofs.CurrentCheckpointRisk
 import EtnaProofs.CurrentUnzen
 
 /-! The bridge's read path (EtnaModel.CurrentBridge): derived authorizations stay backed by a
-checkpoint the L1 `SignalService` holds, and the L2 `SignalService` closes its checkpoint store
-and reads EIP-4788 from `beaconRootsFrom` on. -/
+checkpoint the L1 `SignalService` holds. The L2 `SignalService` gates writes on its block's
+beacon-root read and resolves proof roots with checkpoint precedence. -/
 namespace Etna.Design.Current.Bridge
 open Protocol
 
@@ -161,9 +161,11 @@ theorem revoked_needs_proof (verify : Hash → Hash → Hash → Bool) (w : Worl
 
 /-! ### The L2 `SignalService` -/
 
-private theorem run_saved {c : L2Config} {first last : Nat × List Saved} (run : L2Run c first last) :
+private theorem run_saved {c : L2Config} {blockRoot : Nat → Option Hash}
+    {first last : Nat × List Saved} (run : L2Run c blockRoot first last) :
     first.1 ≤ last.1 ∧ (∀ s ∈ last.2, s ∈ first.2 ∨
-      (s.caller = c.syncer ∧ checkpointsOpen c s.savedAt = true ∧ s.root ≠ 0 ∧ first.1 ≤ s.savedAt)) := by
+      (s.caller = c.syncer ∧ checkpointsOpen c (blockRoot s.savedAt) = true ∧
+        s.root ≠ 0 ∧ first.1 ≤ s.savedAt)) := by
   induction run with
   | refl => exact ⟨Nat.le_refl _,fun s member => .inl member⟩
   | call prior later caller blockId root ok ih =>
@@ -179,50 +181,40 @@ private theorem run_saved {c : L2Config} {first last : Nat × List Saved} (run :
     next => cases ok
   | skip prior later ih => exact ⟨Nat.le_trans ih.1 later,ih.2⟩
 
-/-- ANCHORLESS section 8, checkpoint cutoff: every checkpoint an L2 `SignalService` run saves from
-an empty store was saved by the authorized syncer while the store was open, so on L2 before
-`beaconRootsFrom`, and has a nonzero root. A public anchor key used after the fork forges none. -/
-theorem saved_before_fork {c : L2Config} {start now : Nat} {store : List Saved}
-    (run : L2Run c (start,[]) (now,store)) :
-    ∀ s ∈ store, s.caller = c.syncer ∧ checkpointsOpen c s.savedAt = true ∧ s.root ≠ 0 := by
+/-- Every checkpoint written from an empty store has a nonzero root, an authorized caller
+and, when beacon roots are enabled, a successful zero-root read for its saving block. -/
+theorem saved_with_open_store {c : L2Config} {blockRoot : Nat → Option Hash}
+    {start now : Nat} {store : List Saved} (run : L2Run c blockRoot (start,[]) (now,store)) :
+    ∀ s ∈ store, s.caller = c.syncer ∧
+      (c.usesBeaconRoots = true → blockRoot s.savedAt = some 0) ∧ s.root ≠ 0 := by
   intro s member
   rcases (run_saved run).2 s member with absent | ⟨caller,open_,root,_⟩
   · cases absent
-  · exact ⟨caller,open_,root⟩
+  · exact ⟨caller,fun enabled => by simpa [checkpointsOpen,enabled] using open_,root⟩
 
-/-- ANCHORLESS sections 4 and 8: from `beaconRootsFrom` on, the L2 `SignalService`'s checkpoint
-store gains nothing. -/
-theorem store_closed {c : L2Config} {now later : Nat} {store final : List Saved}
-    (fork : c.beaconRootsFrom ≠ 0) (after : c.beaconRootsFrom ≤ now)
-    (run : L2Run c (now,store) (later,final)) : ∀ s ∈ final, s ∈ store := by
+/-- ANCHORLESS sections 4 and 8: the store gains no checkpoints when beacon roots are enabled
+and every subsequent block has a nonzero root or a failed read. -/
+theorem store_closed {c : L2Config} {blockRoot : Nat → Option Hash}
+    {now later : Nat} {store final : List Saved} (enabled : c.usesBeaconRoots = true)
+    (closed : ∀ timestamp, now ≤ timestamp → blockRoot timestamp ≠ some 0)
+    (run : L2Run c blockRoot (now,store) (later,final)) : ∀ s ∈ final, s ∈ store := by
   intro s member
   rcases (run_saved run).2 s member with old | ⟨_,open_,_,since⟩
   · exact old
-  · simp only [checkpointsOpen,Bool.or_eq_true,beq_iff_eq,decide_eq_true_eq] at open_
-    omega
+  · exact (closed s.savedAt since (by simpa [checkpointsOpen,enabled] using open_)).elim
 
-/-- ANCHORLESS section 4, root resolution after the fork: an L2 block at or after
-`beaconRootsFrom` resolves a proof's root only from the EIP-4788 entry for a `blockId` at or
-after the fork, never from the checkpoint store, and never as zero. -/
-theorem root_after_fork (c : L2Config) (beacon : Nat → Option Hash) (store : List Saved)
-    {timestamp blockId : Nat} {r : Hash} (fork : c.beaconRootsFrom ≠ 0) (after : c.beaconRootsFrom ≤ timestamp)
-    (resolved : stateRoot c beacon store timestamp blockId = some r) :
-    c.beaconRootsFrom ≤ blockId ∧ beacon blockId = some r ∧ r ≠ 0 ∧
-      ∀ other : List Saved, stateRoot c beacon other timestamp blockId = some r := by
-  have closed : checkpointsOpen c timestamp = false := by
-    simp only [checkpointsOpen,Bool.or_eq_false_iff,beq_eq_false_iff_ne,ne_eq,decide_eq_false_iff_not]
-    omega
-  unfold stateRoot at resolved ⊢
-  simp only [closed,Bool.false_eq_true,↓reduceIte] at resolved ⊢
-  split at resolved
-  next early =>
-    obtain ⟨root,found,ok⟩ := Option.bind_eq_some_iff.mp resolved
-    split at ok
-    next => cases ok
-    next nonzero =>
-      cases ok
-      refine ⟨early,found,nonzero,fun _ => ?_⟩
-      simp only [early,↓reduceIte,found,Option.bind_some,nonzero]
-  next => cases resolved
+/-- ANCHORLESS section 4: a held checkpoint wins even when a beacon root shares its id. -/
+theorem root_prefers_checkpoint (c : L2Config) (beacon : Nat → Option Hash) {store : List Saved}
+    {blockId : Nat} {r : Hash} (held : checkpointStateRoot store blockId = some r) :
+    stateRoot c beacon store blockId = some r := by
+  simp [stateRoot,held]
+
+/-- Without a held checkpoint, a proof id resolves only to a nonzero beacon root on L2. -/
+theorem root_beacon_fallback {c : L2Config} {beacon : Nat → Option Hash} {store : List Saved}
+    {blockId : Nat} {r : Hash} (absent : checkpointStateRoot store blockId = none) :
+    stateRoot c beacon store blockId = some r ↔
+      c.usesBeaconRoots = true ∧ beacon blockId = some r ∧ r ≠ 0 := by
+  cases enabled : c.usesBeaconRoots <;> cases found : beacon blockId <;>
+    simp [stateRoot,absent,enabled,found,Option.filter_eq_some_iff,and_comm]
 
 end Etna.Design.Current.Bridge

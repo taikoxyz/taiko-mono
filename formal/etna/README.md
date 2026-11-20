@@ -1,8 +1,8 @@
 # Etna design verification
 
 The authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md` under
-`packages/protocol/docs/etna`, pinned to `3fe7350119f2efe38cf588c145a9913bf9b3b398`
-(2026-11-20, PR #22419). This package contains only the current design; the archived 2026-10-30 model,
+`packages/protocol/docs/etna`, pinned to `6a9f66833afd34bbf218e11ce7b103a522102d6d`
+(2026-11-20, PR #22422). This package contains only the current design; the archived 2026-10-30 model,
 its vectors and reports were removed and remain readable at formal revision
 [`583bc2620`](https://github.com/taikoxyz/taiko-mono/tree/583bc2620258838e75ce353c11f9344616ac1020/formal/etna).
 
@@ -338,10 +338,11 @@ The modelled rollback truncates the retained signals, which are SignalService ch
 them until they are proven again; the model's rollback step revokes them all (vector 27a.k),
 and H1's last conjunct shows that this keeps every derived authorization backed by a held
 checkpoint. Message values, fees, quotas and pausing are not modelled. The same module models
-the L2 `SignalService`: from `beaconRootsFrom` on its checkpoint store gains nothing and only
-the syncer ever saved into it (`Bridge.store_closed`, `Bridge.saved_before_fork`), and a root
-comes only from EIP-4788 (`Bridge.root_after_fork`). These L2 results stand apart from
-H1–H4.
+the L2 `SignalService`. A checkpoint write needs the syncer and a successful zero-root read
+for the current block when beacon roots are enabled (`Bridge.saved_with_open_store`,
+`Bridge.store_closed`). A held checkpoint takes priority at any time. With no checkpoint,
+the L2 proof uses a nonzero EIP-4788 entry (`Bridge.root_prefers_checkpoint`,
+`Bridge.root_beacon_fallback`). These L2 results stand apart from H1–H4.
 A regression constructs that loss and rejects treating it as normal execution.
 There is no restart theorem after a rollback; the normal guarantee then remains
 inapplicable for that deployment. Under H1's premises no rollback is authorized, so an
@@ -380,7 +381,9 @@ SYNC-9-5c record, the appHash encoding (ENC-A-29b), raw key/address binding, the
 ENC-A-29a ABI/Keccak encoder, the checkpoint import's derivation of the state after s, and
 stock CometBFT store/Go implementation refinement remain separate obligations.
 
-The [PR #22419 alignment](reports/alignment-22419.md) records the current re-pin. The
+The [PR #22422 alignment](reports/alignment-22422.md) records the current re-pin, including
+the generation-origin trust check. The [PR #22419 alignment](reports/alignment-22419.md)
+records the launch-hardening changes already included in #22422. The
 [PR #22412 alignment](reports/alignment-22412.md) records the previous one, the
 [PR #22410 alignment](reports/alignment-22410.md) the one before it, and the
 [PR #22348 alignment](reports/alignment-22348.md) the one before that. The
@@ -494,8 +497,8 @@ the current proofs reuse, and fourteen semantic pins (`EtnaProofs/Contracts.lean
 `Consensus.election_valid_iff`) that fail the build if a shared definition the statements use
 is weakened without editing its pin.
 
-The inventory is **68 partial / 510 deferred clauses**, and **45 narrow partial /
-43 supporting / 516 deferred binding rules**, plus 32 deferred assumption/limitation rows.
+The inventory is **67 partial / 512 deferred clauses**, and **44 narrow partial /
+44 supporting / 522 deferred binding rules**, plus 33 deferred assumption/limitation rows.
 SWITCH has narrow first-fence/root evidence. Five ANCHORLESS clauses (section 4's root
 resolution and checkpoint authorization, section 8's checkpoint cutoff) have narrow partial
 evidence; the other 96 and all 47 ACCEPTANCE clauses remain deferred. Margin arithmetic,

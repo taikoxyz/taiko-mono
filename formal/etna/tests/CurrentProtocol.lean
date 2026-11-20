@@ -13,14 +13,19 @@ end Etna.CurrentProtocolRegression
 namespace Etna.CurrentProtocolRegression.ValidatorTrust
 open Etna.Design Etna.Design.Current
 
--- Trust compares the landed record's EL hash, Comet hash and FI cursor; no record holds a
--- validator-state hash (STOR-B-9), so there is nothing else to compare at any height.
+-- Trust compares both hashes after a landing. The origin keeps its previous generation's
+-- Comet hash for proofs, so a node starting a new generation can lack that hash.
 def old : Checkpoint := ⟨40,100,200,3,0,30⟩
 def ownHeader : Blocks.Header := ⟨40,100,50,200,3,0,⟨0,0,0,0,0,0,0⟩⟩
-example : Protocol.trustCut ownHeader old := by simp [Protocol.trustCut,ownHeader,old]
-example : ¬ Protocol.trustCut {ownHeader with elHash := 101} old := by simp [Protocol.trustCut,ownHeader,old]
-example : ¬ Protocol.trustCut {ownHeader with cometHash := 201} old := by simp [Protocol.trustCut,ownHeader,old]
-example : ¬ Protocol.trustCut {ownHeader with cursor := 4} old := by simp [Protocol.trustCut,ownHeader,old]
+example : Protocol.trustCut ownHeader old 30 := by simp [Protocol.trustCut,ownHeader,old]
+example : ¬ Protocol.trustCut {ownHeader with elHash := 101} old 40 := by
+  simp [Protocol.trustCut,ownHeader,old]
+example : ¬ Protocol.trustCut {ownHeader with cometHash := 201} old 30 := by
+  simp [Protocol.trustCut,ownHeader,old]
+example : Protocol.trustCut {ownHeader with cometHash := 0} old 40 := by
+  simp [Protocol.trustCut,ownHeader,old]
+example : ¬ Protocol.trustCut {ownHeader with cursor := 4} old 40 := by
+  simp [Protocol.trustCut,ownHeader,old]
 
 end Etna.CurrentProtocolRegression.ValidatorTrust
 
@@ -81,26 +86,47 @@ def started : Protocol.World := Protocol.transact env block1 (.initializeInbox 7
 def closed2 : Protocol.World := Protocol.transact env started (.advance 2)
 def observed : Protocol.World := Protocol.transact env closed2 (.observe 1)
 
-theorem authenticated_start_trust : Protocol.nodeTrust env observed [] [] := by
-  refine ⟨rfl,⟨0,100,100⟩,rfl,0,⟨0,100,0,0,0,0⟩,?_,?_,?_,?_,?_,env.genesisHeader,
-    ⟨0,100,0,0,0,0⟩,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
+theorem authenticated_start_trust (localCometHash : Hash) :
+    Protocol.nodeTrust env observed [] [] := by
+  let localOrigin := {env.genesisHeader with cometHash := localCometHash}
+  refine ⟨rfl,⟨0,100,100⟩,rfl,0,⟨0,100,0,0,0,0⟩,?_,?_,?_,?_,?_,localOrigin,
+    ⟨0,100,0,0,0,0⟩,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩
   all_goals solve
     | exact True.intro
+    | rfl
     | decide
-    | simp [Protocol.trustCut,env,Blocks.terminal]
-    | (refine ⟨env.genesisHeader,[],rfl,rfl,rfl,rfl,rfl,True.intro,?_,?_,by decide,?_⟩ <;> simp)
+    | exact ⟨rfl,rfl,fun impossible => (impossible rfl).elim⟩
+    | exact fun _ => rfl
+    | exact fun impossible => (impossible rfl).elim
+    | (refine ⟨localOrigin,[],rfl,rfl,rfl,rfl,rfl,True.intro,?_,?_,by decide,?_⟩ <;> simp)
 
 -- Ordinary startup may trust the authenticated genesis after observing its completed block.
 example : observed.initialized = true := by decide
 example : observed.node.trusted = false := by decide
 example : Protocol.NodeEvent env observed {observed.node with trusted := true} :=
-  .trust [] [] authenticated_start_trust
+  .trust [] [] (authenticated_start_trust 99)
+
+def trustedNode : Protocol.World :=
+  {observed with node := {observed.node with trusted := true}}
+
+example : (Protocol.transact env trustedNode (.observe 1)).node.trusted = true := by decide
+
+-- A recovery stays observable when the finalized checkpoint's height has not moved.
+def recoveredView : Protocol.World :=
+  {trustedNode with history := trustedNode.history.map fun s =>
+    {s with inbox := {s.inbox with generation := 1}}}
+
+example :
+    let after := Protocol.transact env recoveredView (.observe 1)
+    after.node.trusted = false ∧ after.node.signer.ready = false ∧
+      after.node.generationWatermark = 1 ∧
+      after.node.target = some (1,observed.inbox.checkpoint) := by decide
 
 -- A written switching origin with no authenticated Unzen root remains untrusted.
 example : ¬ Protocol.nodeTrust {env with core := {env.core with unzenInbox := 5}}
     observed [] [] := by
   intro trust
-  obtain ⟨_,start,hs,_,cp,_,_,hcp,_,_,p,_,_,_,_,_,_,switch,_⟩ := trust
+  obtain ⟨_,start,hs,_,cp,_,_,hcp,_,_,p,_,_,_,_,_,_,_,switch,_⟩ := trust
   have actual : observed.start = some ⟨0,100,100⟩ := by decide
   have sh : start = ⟨0,100,100⟩ := Option.some.inj (hs.symm.trans actual)
   have atStart : cp.height = start.height := by rw [hcp,sh]; decide
@@ -116,7 +142,7 @@ open Etna.Design Etna.Design.Current
 example (env : Protocol.Environment) (w : Protocol.World) (b : Blocks.Block) (bs : List Blocks.Block) :
     ¬ Protocol.nodeTrust env w [] (b :: bs) := by
   intro trusted
-  obtain ⟨_,_,_,_,_,_,_,_,_,_,p,origin,_,_,_,_,_,_,_,_,_,auth⟩ := trusted
+  obtain ⟨_,_,_,_,_,_,_,_,_,_,p,origin,_,_,_,_,_,_,_,_,_,_,auth⟩ := trusted
   obtain ⟨_,prior,_,_,_,shape,_⟩ := auth
   have lengths := congrArg List.length shape
   simp only [List.length_nil,List.length_append,List.length_map,List.length_cons] at lengths

@@ -511,7 +511,19 @@ def unzenProve (env : Environment) (w : World) (proposal : Nat) (h : Header) (pr
 
 def observe (_env : Environment) (w : World) (number : Nat) : Option World :=
   (w.history.find? (fun s => s.number == number)).map fun s =>
-    { w with node := { w.node with target := some (s.inbox.generation,s.inbox.checkpoint),       generationWatermark := max w.node.generationWatermark s.inbox.generation,trusted := false,       signer := { w.node.signer with ready := false } } }
+    let generation := s.inbox.generation
+    let checkpoint := s.inbox.checkpoint
+    let check := w.node.target.all fun (previousGeneration, previousCheckpoint) =>
+      previousGeneration < generation ||
+        (previousGeneration == generation && previousCheckpoint.height < checkpoint.height)
+    let node := if w.node.generationWatermark ≤ generation ∧ check = true then
+      { w.node with
+        target := some (generation,checkpoint)
+        generationWatermark := generation
+        trusted := false
+        signer := { w.node.signer with ready := false } }
+    else w.node
+    { w with node := node }
 
 def nodeImport (env : Environment) (w : World) (candidate : Import.Candidate) (durable : Bool) : Option World :=
   match w.node.target with
@@ -527,11 +539,10 @@ def nodeImport (env : Environment) (w : World) (candidate : Import.Candidate) (d
 def nodeRestart (w : World) : World :=
   { w with node := { w.node with target := none,trusted := false,restartNeeded := false,     signer := { w.node.signer with ready := false } } }
 
-/-- SYNC-9-5: the node's own header matches the slot 285 record's EL hash and Comet hash; the
-model also compares the FI cursor the record holds. The record holds no validator state, at
-the origin or anywhere else; the app commits that in app_hash (SYNC-9-5c). -/
-def trustCut (h : Header) (cp : Checkpoint) : Prop :=
-  h.elHash = cp.elHash ∧ h.cometHash = cp.cometHash ∧ h.cursor = cp.cursor
+/-- SYNC-9-5: the node checks the EL hash at every target and the Comet hash only after the
+generation origin. The model also checks consistency of the recorded FI cursor. -/
+def trustCut (h : Header) (cp : Checkpoint) (originHeight : Nat) : Prop :=
+  h.elHash = cp.elHash ∧ h.cursor = cp.cursor ∧ (cp.height ≠ originHeight → h.cometHash = cp.cometHash)
 
 /-- Abstract validated replay, separate from snapshot publication. The fixed deployment
 adapters authenticate the full origin; this is not a stock-store implementation. -/
@@ -541,16 +552,17 @@ def nodeTrust (env : Environment) (w : World) (archive : List Header) (blocks : 
     cp = w.inbox.checkpoint ∧ w.node.signer.activeGeneration = generation ∧
     w.node.generationWatermark ≤ generation ∧
     ∃ p origin, recordAt w.inbox w.inbox.origin.height = some origin ∧
-      p.height = w.inbox.origin.height ∧ trustCut p origin ∧
+      p.height = w.inbox.origin.height ∧ origin.height = p.height ∧
+      trustCut p origin w.inbox.origin.height ∧
       env.headerHash p = p.elHash ∧
       (p.height = start.height → p.stateRoot = start.stateRoot) ∧
       (env.core.unzenInbox ≠ 0 → cp.height = start.height →
         env.unzenRoot p ∧ env.startImplementation p.stateRoot = true ∧ p.timestamp < env.core.forkTime) ∧
       Blocks.Chain (policy env w archive w.number) p blocks ∧
       (Blocks.terminal p blocks).height = cp.height ∧
-      trustCut (Blocks.terminal p blocks) cp ∧
+      trustCut (Blocks.terminal p blocks) cp w.inbox.origin.height ∧
       Archive.Authenticated env.headerHash env.headerParent (config w)
-        ⟨origin.elHash,origin.cometHash,origin.cursor⟩ w.number archive p blocks
+        ⟨origin.elHash,p.cometHash,origin.cursor⟩ w.number archive p blocks
 
 /-- This is an explicit app validation event, not a caller-supplied trusted Boolean. -/
 inductive NodeEvent (env : Environment) (w : World) : Node → Prop

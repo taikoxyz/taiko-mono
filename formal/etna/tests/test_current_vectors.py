@@ -28,7 +28,7 @@ class CurrentVectorTests(unittest.TestCase):
     def test_current_admission_observables(self):
         data = json.loads((vectors.DIRECTORY/'registry_admission.json').read_text())
         self.assertEqual(data['schema'], 'etna-current-registry-admission-1')
-        self.assertEqual(data['authorityCommit'], '3fe7350119f2efe38cf588c145a9913bf9b3b398')
+        self.assertEqual(data['authorityCommit'], '6a9f66833afd34bbf218e11ce7b103a522102d6d')
         self.assertEqual([v['id'] for v in data['vectors']], [
             'empty-last-slot', 'lowest-empty-slot', 'full-registry-rejected',
             'zero-balance-bond-not-replaced', 'withdrawn-slot-reused', 'pending-topup-irrelevant',

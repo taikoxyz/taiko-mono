@@ -1,8 +1,9 @@
 # Concrete validator-state semantics
 
 The model is based on CometBFT **v0.40.0**, commit
-`0880b4d378f347ab16e54ec677ff50d803f37d62`. Its Etna authority is main
-`3fe7350119f2efe38cf588c145a9913bf9b3b398` (PR #22419), as for the rest of this package.
+`0880b4d378f347ab16e54ec677ff50d803f37d62`. Its Etna authority is
+`6a9f66833afd34bbf218e11ce7b103a522102d6d` (PR #22422). The evidence-pool launch
+gate is separate from the proposer and validator-update arithmetic modelled here.
 
 Since #22412 the validator state is outside settlement (SYNC-9-5c). The app commits it in
 `app_hash` (CONS-3.1-8, ENC-A-29b), and no landing record, cut, `LandInput`, statement or

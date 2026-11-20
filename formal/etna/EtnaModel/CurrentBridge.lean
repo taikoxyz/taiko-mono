@@ -8,8 +8,9 @@ authorizations, next to the protocol machine. A verifier-failure rollback revoke
 (RECOV-8-27a, vector 27a.k). The Merkle proof check is a fixed decoded adapter; message values,
 fees and quotas are not modelled.
 
-It also models the shared `SignalService` on L2, whose `beaconRootsFrom` closes its checkpoint
-store and switches its root source to EIP-4788 at the fork (ANCHORLESS sections 4 and 8). -/
+It also models the shared `SignalService` on L2. The current block's EIP-4788 root gates
+checkpoint writes. Reads prefer a saved checkpoint and otherwise use EIP-4788
+(ANCHORLESS sections 4 and 8). -/
 namespace Etna.Design.Current.Bridge
 open Protocol
 
@@ -106,11 +107,11 @@ def Backed (verify : Hash → Hash → Hash → Bool) (w : World) (b : State) : 
 
 /-! ### The L2 `SignalService` -/
 
-/-- Its immutables (ANCHORLESS section 4): the authorized syncer (the `Anchor` proxy) and
-`beaconRootsFrom`, the fork time on L2 and zero on L1. -/
+/-- Its immutables (ANCHORLESS section 4): the authorized syncer and the flag enabling
+EIP-4788 on L2. -/
 structure L2Config where
   syncer : Nat
-  beaconRootsFrom : Nat
+  usesBeaconRoots : Bool
   deriving DecidableEq, Repr
 
 /-- A saved checkpoint: its L1 block id and state root, and, as ghost provenance, the caller
@@ -122,36 +123,42 @@ structure Saved where
   savedAt : Nat
   deriving DecidableEq, Repr
 
-/-- `_checkpointsOpen`: always on L1, before the fork on L2. -/
-def checkpointsOpen (c : L2Config) (timestamp : Nat) : Bool :=
-  c.beaconRootsFrom == 0 || decide (timestamp < c.beaconRootsFrom)
+/-- On L2, a checkpoint write requires a successful read of a zero root for this block. -/
+def checkpointsOpen (c : L2Config) (currentBeaconRoot : Option Hash) : Bool :=
+  !c.usesBeaconRoots || currentBeaconRoot == some 0
 
 /-- `saveCheckpoint` in an L2 block at `timestamp`: only the syncer, only while the store is
 open, and no zero root. -/
-def save (c : L2Config) (store : List Saved) (caller timestamp blockId : Nat) (root : Hash) :
-    Option (List Saved) :=
-  if caller = c.syncer ∧ checkpointsOpen c timestamp = true ∧ root ≠ 0 then
+def save (c : L2Config) (currentBeaconRoot : Option Hash) (store : List Saved)
+    (caller timestamp blockId : Nat) (root : Hash) : Option (List Saved) :=
+  if caller = c.syncer ∧ checkpointsOpen c currentBeaconRoot = true ∧ root ≠ 0 then
     some (⟨blockId,root,caller,timestamp⟩ :: store)
   else none
 
-/-- `_getStateRoot` in an L2 block at `timestamp`: the newest checkpoint saved for `blockId`, an
-L1 block number, while the store is open; afterwards the EIP-4788 entry for `blockId`, an L2
-timestamp at or after the fork (`beacon` is none for a missing or overwritten entry). A zero
-root rejects the proof. -/
-def stateRoot (c : L2Config) (beacon : Nat → Option Hash) (store : List Saved) (timestamp blockId : Nat) :
-    Option Hash :=
-  let root := if checkpointsOpen c timestamp then
-      if blockId < limit48 then (store.find? (·.blockId == blockId)).map Saved.root else none
-    else if c.beaconRootsFrom ≤ blockId then beacon blockId else none
-  root.bind fun r => if r = 0 then none else some r
+/-- The newest checkpoint root for a uint48 block id, if present and nonzero. -/
+def checkpointStateRoot (store : List Saved) (blockId : Nat) : Option Hash :=
+  if blockId < limit48 then
+    ((store.find? (·.blockId == blockId)).map Saved.root).filter (· != 0)
+  else none
+
+/-- Resolve a proof id independently of the current block's timestamp. A missing checkpoint
+can fall back to a nonzero beacon root on L2. A missing or overwritten entry reads as none. -/
+def stateRoot (c : L2Config) (beacon : Nat → Option Hash) (store : List Saved)
+    (blockId : Nat) : Option Hash :=
+  (checkpointStateRoot store blockId).orElse fun _ =>
+    if c.usesBeaconRoots then (beacon blockId).filter (· != 0) else none
 
 /-- L2 blocks in timestamp order, each running `saveCheckpoint` calls; timestamps never decrease. -/
-inductive L2Run (c : L2Config) : Nat × List Saved → Nat × List Saved → Prop
-  | refl (x : Nat × List Saved) : L2Run c x x
+inductive L2Run (c : L2Config) (blockRoot : Nat → Option Hash) :
+    Nat × List Saved → Nat × List Saved → Prop
+  | refl (x : Nat × List Saved) : L2Run c blockRoot x x
   | call {first : Nat × List Saved} {now : Nat} {store next : List Saved} {timestamp : Nat}
-      (prior : L2Run c first (now,store)) (later : now ≤ timestamp) (caller blockId : Nat) (root : Hash)
-      (ok : save c store caller timestamp blockId root = some next) : L2Run c first (timestamp,next)
+      (prior : L2Run c blockRoot first (now,store)) (later : now ≤ timestamp)
+      (caller blockId : Nat) (root : Hash)
+      (ok : save c (blockRoot timestamp) store caller timestamp blockId root = some next) :
+      L2Run c blockRoot first (timestamp,next)
   | skip {first : Nat × List Saved} {now : Nat} {store : List Saved} {timestamp : Nat}
-      (prior : L2Run c first (now,store)) (later : now ≤ timestamp) : L2Run c first (timestamp,store)
+      (prior : L2Run c blockRoot first (now,store)) (later : now ≤ timestamp) :
+      L2Run c blockRoot first (timestamp,store)
 
 end Etna.Design.Current.Bridge

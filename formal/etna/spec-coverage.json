@@ -4,8 +4,8 @@
   "source": {
     "path": "packages/protocol/docs/etna/SPEC.md",
     "revision": "2026-11-20",
-    "commit": "3fe7350119f2efe38cf588c145a9913bf9b3b398",
-    "sha256": "ff6b3a175aef584cd27850ab69e1a5dce6a1a3d5d280cfe8e1c54ed10207465c"
+    "commit": "6a9f66833afd34bbf218e11ce7b103a522102d6d",
+    "sha256": "9f0863b9e2cdbf19762740b22c1c3f8919a2353d1b58b047663496f039cd6302"
   },
   "boundaries": {
     "current": "Conditional decoded current safety under fifteen raw primitive/deployment premises; external PARAM-11-11 evidence-window sizing is assumed and immutable transport is derived. Image certificates contain no live footprint: actual fresh trace and pure statement binding derive it. H1 exports the postlanding S partition for legacy signals emitted from the modeled empty lane; predeployment SignalService data are absent. H2 whole-committee/overlap retention is above-checkpoint and excludes any rollback since fresh genesis, with no restart theorem. Complete semantic archive ancestry is stronger than an L+2-only guest; bounded suffix extraction is proved but accepted guest refinement is deferred. Profile restrictions include generation1 first switching landing, vacuous upstream extension, genesis risk, self-chain round0 honest agreement and empty accepted prior lists. Raw DAO histories require instrumented per-history authorization; a rollback is authorized only to the last trusted landing below a bad retained record (RECOV-8-28 as an external duty). Production/retarget/availability/launch refinements remain separate.",
@@ -107,7 +107,7 @@
           "Etna.Design.Current.Headlines.recoverability",
           "Etna.Design.Current.Headlines.deployed_recoverability"
         ],
-        "LIVE_EN-c1c6bae5ede00adb": [
+        "LIVE_EN-37bb1bcfa577eecf": [
           "Etna.Design.Current.Headlines.recoverability",
           "Etna.Design.Current.Headlines.deployed_recoverability"
         ]
@@ -117,19 +117,19 @@
   "acceptance_source": {
     "path": "packages/protocol/docs/etna/ACCEPTANCE.md",
     "revision": "2026-11-20",
-    "commit": "3fe7350119f2efe38cf588c145a9913bf9b3b398",
-    "sha256": "1ee58f0600daebc8277c6456145a9112388ae3f7c93efdba4d7618d04debdae4"
+    "commit": "6a9f66833afd34bbf218e11ce7b103a522102d6d",
+    "sha256": "285a6bba4f4244a83234d804593b7f2f8a6c897b610dd338d4736c8d24072812"
   },
   "anchorless_source": {
     "path": "packages/protocol/docs/etna/ANCHORLESS.md",
     "revision": "2026-11-20",
-    "commit": "3fe7350119f2efe38cf588c145a9913bf9b3b398",
-    "sha256": "079af26c59ca5581a76dc2b0848ce78eb1fd692911517f99807bb58c3d9bc683"
+    "commit": "6a9f66833afd34bbf218e11ce7b103a522102d6d",
+    "sha256": "0dd8cfb602df22f03849749a6fb045f44e2bc4c3bf19e4c8ee051b0b810a7d98"
   },
   "switch_source": {
     "path": "packages/protocol/docs/etna/SWITCH.md",
     "revision": "2026-11-20",
-    "commit": "3fe7350119f2efe38cf588c145a9913bf9b3b398",
-    "sha256": "c33db855c674b1907480403a8ad54497e05fb1ca32d9772a15d97e2ffc61e14e"
+    "commit": "6a9f66833afd34bbf218e11ce7b103a522102d6d",
+    "sha256": "265aba1cb6fb45b89999298df0a2655029f3aba8d7a4b382995362a2098fd22c"
   }
 }

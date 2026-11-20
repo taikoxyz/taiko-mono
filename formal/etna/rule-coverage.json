@@ -2,15 +2,15 @@
   "schema_version": 2,
   "spec": {
     "path": "packages/protocol/docs/etna/SPEC.md",
-    "revision": "2026-11-19",
-    "commit": "3fe7350119f2efe38cf588c145a9913bf9b3b398",
-    "sha256": "6f7150d65ff7c4a8b46b719d2ed48e665a60e47a6d013a2994229e8119ff24a7"
+    "revision": "2026-11-20",
+    "commit": "6a9f66833afd34bbf218e11ce7b103a522102d6d",
+    "sha256": "0068d2f88da75fdd81dada64baf99e21ff059865e66f67563484609be9b04fc4"
   },
   "index": {
     "path": "packages/protocol/docs/etna/rules/INDEX.md",
-    "revision": "2026-11-19",
-    "commit": "3fe7350119f2efe38cf588c145a9913bf9b3b398",
-    "sha256": "91871d7c20145042e6a8cbcbfaf7e8921427411af2763f6ed37a096ffdee05bc"
+    "revision": "2026-11-20",
+    "commit": "6a9f66833afd34bbf218e11ce7b103a522102d6d",
+    "sha256": "3b82b5390c233e7e175dc218be7d70f40b631fa36a11fd70f3182fe7b1455183"
   },
   "evidence": {
     "CONS-3.2-2": {
@@ -587,7 +587,7 @@
       "reason": "Every retained checkpoint after a successful decoded registry call is either an existing checkpoint or has the current L1 block and the exact resulting slot-entry list. This is the new-checkpoint fidelity component only."
     },
     "START-10-5": {
-      "clause": "LIVE_EN-6104e9fe7c0d1002",
+      "clause": "LIVE_EN-aae0cb6423d401d0",
       "theorems": [
         "Etna.Design.Current.Protocol.Custody.trace_legacy_prefix",
         "Etna.Design.Current.Protocol.Custody.trace_legacy_etna_disjoint"
@@ -611,7 +611,7 @@
       "reason": "The authenticated switching start can be written once and leaves the retained Unzen checkpoint signals untouched. Successful landing and recovery preserve the written start."
     },
     "START-10.1-3d": {
-      "clause": "LIVE_EN-bb8d2af49a890370",
+      "clause": "LIVE_EN-b58fe8b38b41c2a2",
       "theorems": [
         "Etna.Design.Current.Economics.trace_same_generation_parameters",
         "Etna.Design.Current.Protocol.closed_generation_parameters"
@@ -649,19 +649,19 @@
       "reason": "An accepted landing has an actually submitted proof whose declared image certifies the complete decoded batch under each selected ruleset and stop. This uses the primitive backend/image soundness contract; it establishes neither image-combination availability nor guest implementation refinement."
     },
     "COMM-4.3-13": {
-      "clause": "LIVE_EN-146b18d3aad7cf67",
+      "clause": "LIVE_EN-37c995e8e4184a20",
       "theorems": ["Etna.Design.Current.ValidatorState.hplus2"],
       "reason": "Concrete two-set commit pipeline: H changes leave H+1 unchanged and become H+2 current state. This does not prove stock CometBFT implements the decoded machine."
     },
     "SYNC-9-5": {
-      "clause": "LIVE_EN-763e887de7188d64",
+      "clause": "LIVE_EN-093bd5c714ba1b65",
       "theorems": [
         "Etna.Design.Current.QueueIntegrity.node_trust_matches_checkpoint"
       ],
-      "reason": "The actual nodeTrust predicate targets the Inbox's latest checkpoint and requires the node's own chain to reach that height with a header whose EL hash and Comet hash equal the slot 285 record's, so a mismatch refuses trust; the model also compares the record's FI cursor. A projection of the decoded trust predicate; the node's own L1 finality view, SYNC-9-5a's switching checks and the stock store are not modelled."
+      "reason": "The decoded node trust check requires matching the latest checkpoint's EL hash and FI cursor. Above the generation's origin it also requires matching the Comet hash. The node's own L1 authentication, complete SYNC-9-5a switching checks and stock store behavior remain separate."
     },
     "SYNC-9-5c": {
-      "clause": "LIVE_EN-763e887de7188d64",
+      "clause": "LIVE_EN-093bd5c714ba1b65",
       "theorems": [
         "Etna.Design.Current.ValidatorState.commit_pipeline",
         "Etna.Design.Current.ValidatorState.replay_append",

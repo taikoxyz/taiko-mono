@@ -47,26 +47,18 @@ example (verify : Hash → Hash → Hash → Bool) (w : World) (b : Bridge.State
     execute verify w b (.receive slot height proof) = none := by
   simp [Bridge.execute,prove,absent]
 
--- The L2 SignalService: from `beaconRootsFrom` on, no checkpoint is saved, even by the syncer.
-example (c : L2Config) (store : List Saved) (timestamp blockId : Nat) (root : Hash)
-    (fork : c.beaconRootsFrom ≠ 0) (after : c.beaconRootsFrom ≤ timestamp) :
-    save c store c.syncer timestamp blockId root = none := by
-  have closed : ¬ (c.beaconRootsFrom = 0 ∨ timestamp < c.beaconRootsFrom) := by omega
-  simp [save,checkpointsOpen,closed]
--- Before it, the syncer saves and other callers do not; L1 (`beaconRootsFrom` = 0) never closes.
-example (c : L2Config) (store : List Saved) (timestamp blockId : Nat) (root : Hash)
-    (before : timestamp < c.beaconRootsFrom) (nonzero : root ≠ 0) :
-    save c store c.syncer timestamp blockId root = some (⟨blockId,root,c.syncer,timestamp⟩ :: store) := by
-  simp [save,checkpointsOpen,before,nonzero]
-example (c : L2Config) (store : List Saved) (caller timestamp blockId : Nat) (root : Hash)
-    (other : caller ≠ c.syncer) : save c store caller timestamp blockId root = none := by
-  simp [save,other]
-example (syncer timestamp : Nat) : checkpointsOpen ⟨syncer,0⟩ timestamp = true := rfl
+-- A nonzero current root and a failed beacon read both close writes, even for the syncer.
+example : save ⟨1,true⟩ (some 9) [] 1 7 8 2 = none := by decide
+example : save ⟨1,true⟩ none [] 1 7 8 2 = none := by decide
+example : save ⟨1,true⟩ (some 0) [] 1 7 8 2 = some [⟨8,2,1,7⟩] := by decide
+example : save ⟨1,true⟩ (some 0) [] 2 7 8 2 = none := by decide
+example : save ⟨1,false⟩ none [] 1 7 8 2 = some [⟨8,2,1,7⟩] := by decide
 
--- Before the fork a root comes from the checkpoint store, never from EIP-4788.
-example (c : L2Config) (beacon : Nat → Option Hash) (timestamp blockId : Nat)
-    (before : timestamp < c.beaconRootsFrom) :
-    stateRoot c beacon [] timestamp blockId = none := by
-  simp [stateRoot,checkpointsOpen,before]
+-- The saved root wins on a collision. Missing checkpoints can fall back only on L2.
+example : stateRoot ⟨1,true⟩ (fun _ => some 9) [⟨8,2,1,7⟩] 8 = some 2 := by decide
+example : stateRoot ⟨1,true⟩ (fun _ => some 9) [] limit48 = some 9 := by decide
+example : stateRoot ⟨1,true⟩ (fun _ => some 0) [] 8 = none := by decide
+example : stateRoot ⟨1,true⟩ (fun _ => none) [] 8 = none := by decide
+example : stateRoot ⟨1,false⟩ (fun _ => some 9) [] 8 = none := by decide
 
 end Etna.CurrentBridgeRegression

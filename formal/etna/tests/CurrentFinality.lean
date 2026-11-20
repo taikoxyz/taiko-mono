@@ -72,6 +72,13 @@ theorem commitA : Consensus.CommitValid contextA signature 11 0 20 [vote 0 20] :
 theorem commitB : Consensus.CommitValid contextB signature 11 1 20 [vote 1 20] := by decide +kernel
 theorem conflictCommit : Consensus.CommitValid contextA signature 11 0 30 [vote 0 30] := by decide +kernel
 
+example : ¬ Consensus.CommitValid contextA signature 11 0 20
+    [{vote 0 20 with kind := 1}] := by decide +kernel
+example : ¬ Consensus.CommitValid contextA signature 11 0 20
+    [vote 1 20] := by decide +kernel
+example : ¬ Consensus.CommitValid contextA signature 11 0 20
+    [vote 0 0] := by decide +kernel
+
 def world : RegistryMachine.World := ⟨registry,⟨domain,4,10,true,false,100⟩,100⟩
 theorem refinement : SignatureRefinement registry signature := by
   intro v _

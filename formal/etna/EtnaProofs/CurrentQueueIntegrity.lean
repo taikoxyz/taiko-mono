@@ -143,19 +143,18 @@ theorem import_complete_range {c : Import.Candidate} {generation unsettled : Nat
   · rw [headers]
     exact List.nodup_range'
 
-/-- SYNC-9-5: a node becomes trusted only at the Inbox's latest checkpoint, and only when its own
-chain reaches that height with a header whose EL hash and Comet hash equal the slot 285 record's;
-the model also compares the record's FI cursor. So a mismatch in any of the three refuses
-trust. -/
+/-- SYNC-9-5: a node reaches the latest checkpoint and matches its EL hash. The Comet hash
+must also match once a block has landed in this generation. The model checks the FI cursor. -/
 theorem node_trust_matches_checkpoint {env : Environment} {w : World} {archive : List Header}
     {blocks : List Block} (trusted : nodeTrust env w archive blocks) :
     ∃ p, Blocks.Chain (policy env w archive w.number) p blocks ∧
       (Blocks.terminal p blocks).height = w.inbox.checkpoint.height ∧
       (Blocks.terminal p blocks).elHash = w.inbox.checkpoint.elHash ∧
-      (Blocks.terminal p blocks).cometHash = w.inbox.checkpoint.cometHash ∧
-      (Blocks.terminal p blocks).cursor = w.inbox.checkpoint.cursor := by
-  obtain ⟨-,-,-,-,cp,-,-,rfl,-,-,p,-,-,-,-,-,-,-,chain,height,⟨el,comet,cursor⟩,-⟩ := trusted
-  exact ⟨p,chain,height,el,comet,cursor⟩
+      (Blocks.terminal p blocks).cursor = w.inbox.checkpoint.cursor ∧
+      (w.inbox.checkpoint.height ≠ w.inbox.origin.height →
+        (Blocks.terminal p blocks).cometHash = w.inbox.checkpoint.cometHash) := by
+  obtain ⟨-,-,-,-,cp,-,-,rfl,-,-,p,-,-,-,-,-,-,-,-,chain,height,cut,-⟩ := trusted
+  exact ⟨p,chain,height,cut⟩
 
 /-- Import publication always closes signing readiness and trust, while retaining the
 signer's domain, anti-double-sign HRS, prior records and the completed original-header range

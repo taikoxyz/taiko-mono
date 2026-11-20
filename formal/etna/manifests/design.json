@@ -2710,7 +2710,7 @@
       "sources": [
         "LIVE_EN-806e818366c6b783",
         "LIVE_EN-c36e4d0d76a728b6",
-        "LIVE_EN-5570e5017f405f8f"
+        "LIVE_EN-70ca624a640c9305"
       ],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
@@ -2763,7 +2763,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-5570e5017f405f8f"],
+      "sources": ["LIVE_EN-70ca624a640c9305"],
       "scope": "Derived conditional decoded property. Rollback truncates retained signal/custody associations at the trusted checkpoint, so no voided checkpoint is readable. Every other checkpoint, including the Unzen ones at or below S and block 0, stays usable, and a re-landing at a voided height is usable: the model keeps the checkpoints at or below the trusted one and appends fresh ones. No governance mechanism proof. Signals are SignalService checkpoints only; RECOV-8-27a derived authorizations are not modelled."
     },
     {
@@ -2931,7 +2931,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-5570e5017f405f8f"],
+      "sources": ["LIVE_EN-70ca624a640c9305"],
       "scope": "Derived conditional decoded property. Rollback truncates retained signal/custody associations at the trusted checkpoint, so no voided checkpoint is readable. Every other checkpoint, including the Unzen ones at or below S and block 0, stays usable, and a re-landing at a voided height is usable: the model keeps the checkpoints at or below the trusted one and appends fresh ones. No governance mechanism proof. Signals are SignalService checkpoints only; RECOV-8-27a derived authorizations are not modelled."
     },
     {
@@ -2955,7 +2955,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-5570e5017f405f8f"],
+      "sources": ["LIVE_EN-70ca624a640c9305"],
       "scope": "Derived conditional decoded property. Rollback restores the exact snapshot associated with its retained trusted checkpoint and recheck source."
     },
     {
@@ -3279,7 +3279,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-b82d63337df901b4", "LIVE_EN-ffb6d8f886ed245e"],
+      "sources": ["LIVE_EN-b82d63337df901b4", "LIVE_EN-21d1a02fbd8f9a48"],
       "scope": "Every actually successful public slash has an issued bond, signatures under its stored key, and the decoded doubleSign predicate for this deployment/current generation. Raw SEC1 decompression, ecrecover and encoded vote syntax remain the reverse-signature refinement boundary."
     },
     {
@@ -3339,7 +3339,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-bb8d2af49a890370"],
+      "sources": ["LIVE_EN-b58fe8b38b41c2a2"],
       "scope": "Actual same-generation execution/closed snapshots preserve installed decoded Parameters. This is only parameter immutability within one generation; it proves none of START-10.1-14e planned-stop settlement, DAO transaction sequencing, image deployment, reselection or downtime."
     },
     {
@@ -3723,7 +3723,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-bb8d2af49a890370"],
+      "sources": ["LIVE_EN-b58fe8b38b41c2a2"],
       "scope": "Actual same-generation execution/closed snapshots preserve installed decoded Parameters. This is only parameter immutability within one generation; it proves none of START-10.1-14e planned-stop settlement, DAO transaction sequencing, image deployment, reselection or downtime."
     },
     {
@@ -3856,13 +3856,13 @@
       "declaration": "Etna.Design.Current.QueueIntegrity.node_trust_matches_checkpoint",
       "module": "EtnaProofs.CurrentQueueIntegrity",
       "role": "supporting",
-      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w : Etna.Design.Current.Protocol.World}\n  {archive : List Etna.Design.Current.Protocol.Header} {blocks : List Etna.Design.Current.Protocol.Block},\n  Etna.Design.Current.Protocol.nodeTrust env w archive blocks →\n    ∃ (p : Etna.Design.Current.Protocol.Header),\n      Etna.Design.Current.Blocks.Chain (Etna.Design.Current.Protocol.policy env w archive w.number) p blocks ∧\n        (Etna.Design.Current.Blocks.terminal p blocks).height = w.inbox.checkpoint.height ∧\n          (Etna.Design.Current.Blocks.terminal p blocks).elHash = w.inbox.checkpoint.elHash ∧\n            (Etna.Design.Current.Blocks.terminal p blocks).cometHash = w.inbox.checkpoint.cometHash ∧\n              (Etna.Design.Current.Blocks.terminal p blocks).cursor = w.inbox.checkpoint.cursor",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w : Etna.Design.Current.Protocol.World}\n  {archive : List Etna.Design.Current.Protocol.Header} {blocks : List Etna.Design.Current.Protocol.Block},\n  Etna.Design.Current.Protocol.nodeTrust env w archive blocks →\n    ∃ p,\n      Etna.Design.Current.Blocks.Chain (Etna.Design.Current.Protocol.policy env w archive w.number) p blocks ∧\n        (Etna.Design.Current.Blocks.terminal p blocks).height = w.inbox.checkpoint.height ∧\n          (Etna.Design.Current.Blocks.terminal p blocks).elHash = w.inbox.checkpoint.elHash ∧\n            (Etna.Design.Current.Blocks.terminal p blocks).cursor = w.inbox.checkpoint.cursor ∧\n              (w.inbox.checkpoint.height ≠ w.inbox.origin.height →\n                (Etna.Design.Current.Blocks.terminal p blocks).cometHash = w.inbox.checkpoint.cometHash)",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-763e887de7188d64"],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. The actual nodeTrust predicate targets the Inbox's latest checkpoint and requires the local chain's header at that height to equal the slot 285 record's EL hash, Comet hash and FI cursor (trustCut), so a mismatch in any of them refuses trust. The cursor comparison goes beyond SYNC-9-5's wording; the node's own L1 finality view, the Unzen and start-implementation checks of SYNC-9-5a and stock store refinement are not covered by this projection."
+      "sources": ["LIVE_EN-093bd5c714ba1b65"],
+      "scope": "Projection of the decoded trust predicate: the local chain must reach the latest checkpoint and match its EL hash and FI cursor. It must match the Comet hash above the generation origin. Own-L1 authentication, the complete SYNC-9-5a switching checks and stock store behavior remain outside this projection."
     },
     {
       "declaration": "Etna.Design.Current.QueueIntegrity.node_import_closed",
@@ -5469,7 +5469,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-146b18d3aad7cf67", "LIVE_EN-cc34fca3e258c580"],
+      "sources": ["LIVE_EN-37c995e8e4184a20", "LIVE_EN-cc34fca3e258c580"],
       "scope": "Equal-length physical ancestry chains reaching the same EL hash have the same derived committee cutoff, under fixed parent decoding and hash-to-anchor-number separation. No complete-header or Comet/FI-metadata injectivity is assumed."
     },
     {
@@ -5905,7 +5905,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-6104e9fe7c0d1002"],
+      "sources": ["LIVE_EN-aae0cb6423d401d0"],
       "scope": "For actual switching protocol traces every retained legacy signal height is strictly below every retained Etna signal height, including a legacy proof emitted before a wrong start write. This does not verify SignalService storage/version implementation."
     },
     {
@@ -5958,7 +5958,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-6104e9fe7c0d1002"],
+      "sources": ["LIVE_EN-aae0cb6423d401d0"],
       "scope": "Actual ordinary protocol traces retain an authenticated legacy endpoint bounding every emitted legacy signal height, under the existing per-proof Unzen header/extension primitives. This is legacy-lane prefix compatibility only."
     },
     {
@@ -6018,7 +6018,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-5570e5017f405f8f"],
+      "sources": ["LIVE_EN-70ca624a640c9305"],
       "scope": "Supporting RECOV-8-28 target rule as stated by the rollback duty Governance.RollbackAuthorized: two targets that both meet the duty in the same world are at the same height, so the duty leaves no choice of target. The duty itself (not this theorem) says the target is the last retained record below the first bad actual landing. TrustedRecord requires a certified header or pending start, actual non-start landing provenance and certification of every matching retained event's complete statement, including snapshot and signal root. Existence of a target after a verifier failure, the start-rewrite clause and generation counting are not shown."
     },
     {
@@ -6030,7 +6030,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-5570e5017f405f8f"],
+      "sources": ["LIVE_EN-70ca624a640c9305"],
       "scope": "Supporting RECOV-8-27 effect of a raw verifier-failure rollback that meets its external duty Governance.RollbackAuthorized: the checkpoint, FI head and snapshot become the target's and the ones saved with it, the retained records are exactly those at or below the target, and each is certified from the history's initial world or the pending start. The duty is an assumption here, so this is no evidence that the target is the last trusted landing (RECOV-8-28). It is an authorization obligation on the DAO, not a contract check; the SignalService cache, Bridge RETRIABLE messages (RECOV-8-27a), the registry recheck and the generation rule are not shown."
     },
     {
@@ -6488,7 +6488,7 @@
         "LIVE_EN-c5b0c0adebace931",
         "LIVE_EN-8ef06591adea330d",
         "LIVE_EN-d7f8342dc8bb8e88",
-        "LIVE_EN-c1c6bae5ede00adb",
+        "LIVE_EN-37bb1bcfa577eecf",
         "LIVE_EN-18ee8bd71c05adb4"
       ],
       "scope": "Derived conditional decoded property: the exact current H4 statement (Recoverability), proved by Recovery.recoverable. From every reachable, initialized state satisfying LiveAt, under RecoveryPremises, a RecoveryTrace (no rollback; one plain recovery with the exclusions LiveAt names and no FI blanking) reaches a state where land accepts a landing of the new generation's first block; if anything had landed before, that landing ends above the starting checkpoint. Proof completeness (MODEL-1-1/1-2) is assumed through RecoveryPremises.proofComplete (ProofComplete), not shown. Recovery restoring progress (RECOV-8, LIMIT-12-2) is exercised, including exclusions (RECOV-8-41): LiveAt.window asks only that the committee elected at R after them is live. FI blanking is not exercised, and no witness uses a nonempty exclusion list. Normal-operation liveness, adversarial scheduling and DAO transaction refinement are outside the claim."
@@ -6507,7 +6507,7 @@
         "LIVE_EN-c5b0c0adebace931",
         "LIVE_EN-8ef06591adea330d",
         "LIVE_EN-d7f8342dc8bb8e88",
-        "LIVE_EN-c1c6bae5ede00adb",
+        "LIVE_EN-37bb1bcfa577eecf",
         "LIVE_EN-18ee8bd71c05adb4"
       ],
       "scope": "The actual chosen raw DAO history yields H4 (RecoverableAt) only with per-successful-upgrade historical authorization, the same condition as deployed_claims (Governance.authorized_trace_refines). Owner identity alone does not imply those duties; arbitrary implementation upgrades are not proved. Otherwise the scope of recoverability: a rollback-free path with one plain recovery (the exclusions LiveAt names, no FI blanking) reaches an accepted landing, above the starting checkpoint whenever one had landed. Proof completeness (MODEL-1-1/1-2) is assumed through RecoveryPremises.proofComplete (ProofComplete), not shown. Recovery restoring progress (RECOV-8, LIMIT-12-2) is exercised, including exclusions (RECOV-8-41): LiveAt.window asks only that the committee elected at R after them is live. FI blanking is not exercised, and no witness uses a nonempty exclusion list. Normal-operation liveness, adversarial scheduling and DAO transaction refinement are outside the claim."
@@ -7958,9 +7958,9 @@
         "LIVE_EN-ced8c7aa78799681",
         "LIVE_EN-7bc8d5003506136e",
         "LIVE_EN-287b470870b50710",
-        "LIVE_EN-146b18d3aad7cf67",
+        "LIVE_EN-37c995e8e4184a20",
         "LIVE_EN-29468a34f68ca4c6",
-        "LIVE_EN-a935bced4f3bce23",
+        "LIVE_EN-286a28f5fc30249c",
         "LIVE_EN-4ad2efd265e7f07c",
         "LIVE_EN-8da31506138f2a44",
         "LIVE_EN-2e7fa6e510a4d3cb",
@@ -7988,7 +7988,7 @@
         "LIVE_EN-c5b0c0adebace931",
         "LIVE_EN-8ef06591adea330d",
         "LIVE_EN-d7f8342dc8bb8e88",
-        "LIVE_EN-c1c6bae5ede00adb",
+        "LIVE_EN-37bb1bcfa577eecf",
         "LIVE_EN-18ee8bd71c05adb4"
       ],
       "scope": "Derived conditional decoded property: H4, recoverability (reports/recoverability.md, The claim and The path). From every reachable, initialized state satisfying LiveAt, under RecoveryPremises, a RecoveryTrace (no rollback; one plain recovery with the exclusions LiveAt names and no FI blanking) reaches a state where land accepts a landing; if anything had landed before, that landing ends above the starting checkpoint. The path is Recovery.prepare (L1 to the window block R, the start settled, the image and verifier set, one plain recovery at R that keeps the rules or installs ruleset next+1, L1 to R+2) and Recovery.segment (the new generation's first block on the hash-bound header of the current checkpoint c, anchored at R). The landing runs from c to c+1 with reference block R+1, committee snapshot R, the terminal's hashes, state root and FI cursor, no leaves (no height lies strictly between c and c+1) and one to six blobs from PayloadLive. Its statement is certified at reference R+1 (archive root c's header, no prior headers; the generation's genesis cutoff stays below R because recover keeps it), every block's ruleset is implemented by the registered image, and ProofComplete's verifier version accepts two proofs of it. Proof completeness (MODEL-1-1/1-2) is assumed through RecoveryPremises.proofComplete (ProofComplete), not shown. Recovery restoring progress (RECOV-8, LIMIT-12-2) is exercised, including exclusions (RECOV-8-41): LiveAt.window asks only that the committee elected at R after them is live. FI blanking is not exercised, and no witness uses a nonempty exclusion list. Normal-operation liveness, adversarial scheduling and DAO transaction refinement are outside the claim."
@@ -8039,8 +8039,8 @@
       "bridge_level": "spec-proved",
       "role": "property",
       "sources": [
-        "LIVE_EN-5570e5017f405f8f",
-        "LIVE_ANCHORLESS-325a918cb4ae77b9"
+        "LIVE_EN-70ca624a640c9305",
+        "LIVE_ANCHORLESS-9c1f0ee3ca43e8f5"
       ],
       "scope": "Derived conditional decoded property. RECOV-8-27 and RECOV-8-27a on the L1 read path: along every run of the protocol machine with the L1 SignalService and Bridge alongside (Bridge.Run), under any Merkle adapter, every signal cached as received and every message left RETRIABLE was proven against the state root of a checkpoint the L1 SignalService still holds (an Unzen one or an Etna landing's). An accepted rollback revokes every derived authorization in the same step (vector 27a.k); every other call keeps each checkpoint (CheckpointRisk.execute_retains). The revocation is part of the modelled rollback step, so this shows the design's revocation suffices, not that a DAO upgrade performs it. Message values, fees, quotas, pausing (RECOV-8-25) and Bridge message status beyond RETRIABLE/done are not modelled; the Merkle check is a fixed adapter."
     },
@@ -8053,55 +8053,69 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-5570e5017f405f8f"],
+      "sources": ["LIVE_EN-70ca624a640c9305"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. RECOV-8-27a vectors 27a.a and 27a.c: after the revocation an empty proof for a cached signal and a retry of a RETRIABLE message are refused until the signal is proven again."
     },
     {
       "module": "EtnaProofs.CurrentBridge",
-      "declaration": "Etna.Design.Current.Bridge.saved_before_fork",
-      "type": "∀ {c : Etna.Design.Current.Bridge.L2Config} {start now : Nat}\n  {store : List Etna.Design.Current.Bridge.Saved},\n  Etna.Design.Current.Bridge.L2Run c (start, []) (now, store) →\n    ∀ (s : Etna.Design.Current.Bridge.Saved),\n      s ∈ store → s.caller = c.syncer ∧ Etna.Design.Current.Bridge.checkpointsOpen c s.savedAt = Bool.true ∧ s.root ≠ 0",
+      "declaration": "Etna.Design.Current.Bridge.saved_with_open_store",
+      "type": "∀ {c : Etna.Design.Current.Bridge.L2Config} {blockRoot : Nat → Option Etna.Design.Hash} {start now : Nat}\n  {store : List Etna.Design.Current.Bridge.Saved},\n  Etna.Design.Current.Bridge.L2Run c blockRoot (start, []) (now, store) →\n    ∀ (s : Etna.Design.Current.Bridge.Saved),\n      s ∈ store →\n        s.caller = c.syncer ∧ (c.usesBeaconRoots = Bool.true → blockRoot s.savedAt = Option.some 0) ∧ s.root ≠ 0",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
       "role": "property",
       "sources": [
-        "LIVE_ANCHORLESS-04b5ee63903e1dab",
+        "LIVE_ANCHORLESS-9f426f9b5cc51145",
         "LIVE_ANCHORLESS-d207bf647205c559"
       ],
-      "scope": "Derived decoded property of the shared SignalService's checkpoint store (ANCHORLESS sections 4 and 8): every checkpoint a run of L2 blocks saves into an empty store was saved by the authorized syncer while the store was open (on L2 before beaconRootsFrom, on L1 always) and has a nonzero root, so a public anchor key used from the fork on forges none. The L2 block order, the Anchor and the EVM are not modelled; L1 checkpoint saving is the Inbox's (H1)."
+      "scope": "Every checkpoint added from an empty store has an authorized caller and nonzero state root. When beacon roots are enabled, the saving block's beacon-root read succeeded and returned zero. This uses a decoded adapter for the block's read."
     },
     {
       "module": "EtnaProofs.CurrentBridge",
       "declaration": "Etna.Design.Current.Bridge.store_closed",
-      "type": "∀ {c : Etna.Design.Current.Bridge.L2Config} {now later : Nat}\n  {store final : List Etna.Design.Current.Bridge.Saved},\n  c.beaconRootsFrom ≠ 0 →\n    c.beaconRootsFrom ≤ now →\n      Etna.Design.Current.Bridge.L2Run c (now, store) (later, final) →\n        ∀ (s : Etna.Design.Current.Bridge.Saved), s ∈ final → s ∈ store",
+      "type": "∀ {c : Etna.Design.Current.Bridge.L2Config} {blockRoot : Nat → Option Etna.Design.Hash} {now later : Nat}\n  {store final : List Etna.Design.Current.Bridge.Saved},\n  c.usesBeaconRoots = Bool.true →\n    (∀ (timestamp : Nat), now ≤ timestamp → blockRoot timestamp ≠ Option.some 0) →\n      Etna.Design.Current.Bridge.L2Run c blockRoot (now, store) (later, final) →\n        ∀ (s : Etna.Design.Current.Bridge.Saved), s ∈ final → s ∈ store",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
       "role": "property",
       "sources": [
-        "LIVE_ANCHORLESS-8fdafa7abe7ff1c0",
-        "LIVE_ANCHORLESS-04b5ee63903e1dab",
-        "LIVE_ANCHORLESS-e2b47419a4eee92c"
+        "LIVE_ANCHORLESS-09b6f1ce05103b15",
+        "LIVE_ANCHORLESS-9f426f9b5cc51145",
+        "LIVE_ANCHORLESS-9fa224d179e6a5eb"
       ],
-      "scope": "Derived decoded property: on L2 (beaconRootsFrom nonzero), from beaconRootsFrom on, a run of L2 blocks in timestamp order adds no checkpoint to the SignalService's store. Storage namespace migration, deletion and the pre-fork Anchor are not modelled."
+      "scope": "When beacon roots are enabled and subsequent blocks return a nonzero root or fail the read, a timestamp-ordered run adds no checkpoints. EIP-4788 and EVM execution remain external."
     },
     {
       "module": "EtnaProofs.CurrentBridge",
-      "declaration": "Etna.Design.Current.Bridge.root_after_fork",
-      "type": "∀ (c : Etna.Design.Current.Bridge.L2Config)\n  (beacon : Nat → Option Etna.Design.Hash) (store : List Etna.Design.Current.Bridge.Saved) {timestamp blockId : Nat}\n  {r : Etna.Design.Hash},\n  c.beaconRootsFrom ≠ 0 →\n    c.beaconRootsFrom ≤ timestamp →\n      Etna.Design.Current.Bridge.stateRoot c beacon store timestamp blockId = Option.some r →\n        c.beaconRootsFrom ≤ blockId ∧\n          beacon blockId = Option.some r ∧\n            r ≠ 0 ∧\n              ∀ (other : List Etna.Design.Current.Bridge.Saved),\n                Etna.Design.Current.Bridge.stateRoot c beacon other timestamp blockId = Option.some r",
+      "declaration": "Etna.Design.Current.Bridge.root_prefers_checkpoint",
+      "type": "∀ (c : Etna.Design.Current.Bridge.L2Config) (beacon : Nat → Option Etna.Design.Hash)\n  {store : List Etna.Design.Current.Bridge.Saved} {blockId : Nat} {r : Etna.Design.Hash},\n  Etna.Design.Current.Bridge.checkpointStateRoot store blockId = Option.some r →\n    Etna.Design.Current.Bridge.stateRoot c beacon store blockId = Option.some r",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": [
-        "LIVE_ANCHORLESS-6eb47d0db834bec0",
-        "LIVE_ANCHORLESS-0eac9986fbc839f3",
-        "LIVE_ANCHORLESS-8fdafa7abe7ff1c0"
+        "LIVE_ANCHORLESS-52d66ee3dab025f5",
+        "LIVE_ANCHORLESS-09b6f1ce05103b15"
       ],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. In an L2 block at or after beaconRootsFrom, _getStateRoot resolves a root only from the EIP-4788 entry for a blockId at or after the fork, never as zero, and independently of the checkpoint store. The EIP-4788 ring buffer is an abstract partial function; the Merkle proof and the uint48 bound of the checkpoint path are not shown."
+      "scope": "A nonzero checkpoint root takes priority over the beacon lookup, independent of the execution block's time."
+    },
+    {
+      "module": "EtnaProofs.CurrentBridge",
+      "declaration": "Etna.Design.Current.Bridge.root_beacon_fallback",
+      "type": "∀ {c : Etna.Design.Current.Bridge.L2Config} {beacon : Nat → Option Etna.Design.Hash}\n  {store : List Etna.Design.Current.Bridge.Saved} {blockId : Nat} {r : Etna.Design.Hash},\n  Etna.Design.Current.Bridge.checkpointStateRoot store blockId = Option.none →\n    (Etna.Design.Current.Bridge.stateRoot c beacon store blockId = Option.some r ↔\n      c.usesBeaconRoots = Bool.true ∧ beacon blockId = Option.some r ∧ r ≠ 0)",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "LIVE_ANCHORLESS-52d66ee3dab025f5",
+        "LIVE_ANCHORLESS-5deefceab91a79b8"
+      ],
+      "scope": "With no held checkpoint for the proof id, root resolution returns precisely the nonzero beacon root when that path is enabled. The EIP-4788 ring and Merkle proof verification are external."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Governance.trace_trusted_records",
@@ -8125,7 +8139,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-146b18d3aad7cf67", "LIVE_EN-763e887de7188d64"],
+      "sources": ["LIVE_EN-37c995e8e4184a20", "LIVE_EN-093bd5c714ba1b65"],
       "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: commit_pipeline. No Go implementation refinement, raw ABI/Keccak or appHash proof, or durable store proof; validator state is outside settlement and outside H1–H4."
     },
     {
@@ -8138,7 +8152,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-146b18d3aad7cf67", "LIVE_EN-763e887de7188d64"],
+      "sources": ["LIVE_EN-37c995e8e4184a20", "LIVE_EN-093bd5c714ba1b65"],
       "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: hplus2. No Go implementation refinement, raw ABI/Keccak or appHash proof, or durable store proof; validator state is outside settlement and outside H1–H4."
     },
     {
@@ -8151,7 +8165,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["LIVE_EN-763e887de7188d64"],
+      "sources": ["LIVE_EN-093bd5c714ba1b65"],
       "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: replay_append. No Go implementation refinement, raw ABI/Keccak or appHash proof, or durable store proof; validator state is outside settlement and outside H1–H4."
     },
     {
@@ -8164,7 +8178,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["LIVE_EN-763e887de7188d64"],
+      "sources": ["LIVE_EN-093bd5c714ba1b65"],
       "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: replay_height. No Go implementation refinement, raw ABI/Keccak or appHash proof, or durable store proof; validator state is outside settlement and outside H1–H4."
     }
   ]
