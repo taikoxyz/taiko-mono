@@ -75,17 +75,16 @@
 
 ## STOR-B-9
 
-| Vector     | Claimed layout or data                                                                                                              | Expected                                                                                         |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| 9.a accept | the record for h is three words: word 1 packs actual parentHeight=c, generation and head; words 2 and 3 are the EL and Comet hashes | matches                                                                                          |
-| 9.b accept | the start record at S has parent S, generation 0, head 0, EL hash equal to the start's hash and Comet hash 0                        | matches                                                                                          |
-| 9.c accept | a proof with origin p reads its own retained record at p after later landings                                                       | matches ("never pruned")                                                                         |
-| 9.d reject | the record for h stores proof origin p as parentHeight when p is below c                                                            | violates STOR-B-9 ("actual parentHeight=c")                                                      |
-| 9.e reject | a later landing overwrites the record at an older origin p                                                                          | violates STOR-B-9                                                                                |
-| 9.f reject | the start record carries the start's hash as its Comet hash                                                                         | violates STOR-B-9 ("Comet hash 0")                                                               |
-| 9.g accept | S = 1000 with start hash H                                                                                                          | landings[1000] is (parent 1000, generation 0, head 0, EL hash H, Comet hash 0)                   |
-| 9.h accept | a START-10-5c rewrite changes S                                                                                                     | the record at the old S stays; as an older generation's record it cannot serve as a proof origin |
-| 9.i reject | the record carries a fourth word, for example a validator-state hash                                                                | violates STOR-B-9 ("three words")                                                                |
+| Vector     | Claimed layout or data                                                                                                              | Expected                                                                       |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 9.a accept | the record for h is three words: word 1 packs actual parentHeight=c, generation and head; words 2 and 3 are the EL and Comet hashes | matches                                                                        |
+| 9.b accept | the start record at S has parent S, generation 0, head 0, EL hash equal to the start's hash and Comet hash 0                        | matches                                                                        |
+| 9.c accept | a proof with origin p reads its own retained record at p after later landings                                                       | matches ("never pruned")                                                       |
+| 9.d reject | the record for h stores proof origin p as parentHeight when p is below c                                                            | violates STOR-B-9 ("actual parentHeight=c")                                    |
+| 9.e reject | a later landing overwrites the record at an older origin p                                                                          | violates STOR-B-9                                                              |
+| 9.f reject | the start record carries the start's hash as its Comet hash                                                                         | violates STOR-B-9 ("Comet hash 0")                                             |
+| 9.g accept | S = 1000 with start hash H                                                                                                          | landings[1000] is (parent 1000, generation 0, head 0, EL hash H, Comet hash 0) |
+| 9.i reject | the record carries a fourth word, for example a validator-state hash                                                                | violates STOR-B-9 ("three words")                                              |
 
 ## STOR-B-10
 
@@ -293,12 +292,13 @@
 
 ## STOR-B-32
 
-| Vector      | Claimed layout or data                                                  | Expected                  |
-| ----------- | ----------------------------------------------------------------------- | ------------------------- |
-| 32.a accept | `forfeited[entryKey]` is false before any forfeiture                    | matches                   |
-| 32.b accept | true after a forfeiture, and still true after withdrawal and slot reuse | matches ("never cleared") |
-| 32.c reject | withdrawal or slot reuse clears the flag                                | violates STOR-B-32        |
-| 32.d reject | a value other than 0 or 1 in the flag                                   | violates STOR-B-32        |
+| Vector      | Claimed layout or data                                                                  | Expected                                |
+| ----------- | --------------------------------------------------------------------------------------- | --------------------------------------- |
+| 32.a accept | `forfeited[bondId]` is false before any forfeiture                                      | matches                                 |
+| 32.b accept | true after a forfeiture, and still true after withdrawal and slot reuse                 | matches ("never cleared")               |
+| 32.c reject | withdrawal or slot reuse clears the flag                                                | violates STOR-B-32                      |
+| 32.d reject | a value other than 0 or 1 in the flag                                                   | violates STOR-B-32                      |
+| 32.e accept | old bond id 0 has flag true, new bond id 2 occupies slot 0 and has never been forfeited | flag 0 remains true and flag 2 is false |
 
 ## STOR-B-33
 
