@@ -150,7 +150,7 @@ supplied backend still emits dummy proofs; real proving and switch deployment re
 work.
 [Checkpoint import](docs/checkpoint-import.md) supports nonzero starts using a separately obtained
 offline EL dataset and the operator's original EL chainspec. Public EL snapshot tooling remains
-separate work. App state uses schema 20; lander journals use schema 19.
+separate work. App state uses schema 21; lander journals use schema 20.
 Older stores and witnesses are refused without rewriting signed jobs or FilePV state.
 
 ## Forced inclusion
@@ -325,7 +325,7 @@ the Inbox's `VERSION`, initialization, L2 chain id, registry, committee config h
 `maxBatchBlocks`. Before signing or first scheduling a broadcast it
 rechecks the checkpoint frontier and the reference block.
 
-`lander-state.json` uses schema 19 and is protected by `lander.lock`; other schemas are refused
+`lander-state.json` uses schema 20 and is protected by `lander.lock`; other schemas are refused
 and left intact. The journal is verified once at startup (statement hash, blob and KZG binding,
 signed bytes); later writes are not re-verified. Signed bytes and blob sidecars are durably
 written before broadcast. For an original range (p,h] and competing checkpoint p<=c<h, the
@@ -430,7 +430,7 @@ config hash required by Inbox initialization. A cutoff after the L1 node's `fina
 is refused, as the initialization fixes it irreversibly, and so is a cutoff at which no entry is eligible: initializing with it would leave the chain
 without validators. `--json` prints each member's effective stake as a decimal string. Its top-level fields are
 `record_hash`, `committee_config_hash`, `record`, `members`, `selected_eff_stake`, `proving_block`. The record has
-`target_epoch`, `cutoff_l1_block`, `checkpoint_index`, `set_root`, `total_power`; each member has
+`target_epoch`, `cutoff_l1_block`, `checkpoint_index`, `set_hash`, `total_power`; each member has
 `pubkey`, `eff_stake`, `power`. Logs go to
 standard error.
 

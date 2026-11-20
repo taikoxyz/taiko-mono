@@ -88,9 +88,9 @@ pub struct CommitteeRecord {
     pub cutoff_l1_block: u64,
     /// Index `i` of that registry checkpoint in `checkpoints[]`.
     pub checkpoint_index: u64,
-    /// Set root ([`set_root`](crate::committee::set_root)) over the members, with `chainId` = the
-    /// L2 EVM chain id.
-    pub set_root: B256,
+    /// Set hash ([`set_hash`](crate::committee::set_hash)) over the members, with `l2ChainId` =
+    /// the L2 EVM chain id (ENC-A-39a).
+    pub set_hash: B256,
     /// Sum of the members' voting power; at most `(2^63 - 1) / 8` (CometBFT's total-power cap).
     pub total_power: u64,
 }
@@ -98,7 +98,7 @@ pub struct CommitteeRecord {
 /// One committee member, derived from an eligible registry entry.
 ///
 /// Member lists are kept in set-key order: ascending by
-/// `keccak256(abi.encode("ETNA_SET_KEY_V1", chainId, ckPrefix, ckX))`.
+/// `keccak256(abi.encode(bytes32("ETNA_SET_KEY_V1"), l2ChainId, ckPrefix, ckX))`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Member {
@@ -295,7 +295,7 @@ mod tests {
             target_epoch: 1,
             cutoff_l1_block: 64,
             checkpoint_index: 3,
-            set_root: B256::repeat_byte(0x44),
+            set_hash: B256::repeat_byte(0x44),
             total_power: (i64::MAX as u64) / 8,
         });
     }

@@ -56,8 +56,8 @@ struct RecordJson {
     cutoff_l1_block: u64,
     /// [`CommitteeRecord::checkpoint_index`].
     checkpoint_index: u64,
-    /// [`CommitteeRecord::set_root`].
-    set_root: B256,
+    /// [`CommitteeRecord::set_hash`].
+    set_hash: B256,
     /// [`CommitteeRecord::total_power`].
     total_power: u64,
 }
@@ -80,7 +80,7 @@ fn serialize_record<S: Serializer>(record: &CommitteeRecord, s: S) -> Result<S::
         target_epoch: record.target_epoch,
         cutoff_l1_block: record.cutoff_l1_block,
         checkpoint_index: record.checkpoint_index,
-        set_root: record.set_root,
+        set_hash: record.set_hash,
         total_power: record.total_power,
     }
     .serialize(s)
@@ -314,7 +314,7 @@ mod tests {
                 target_epoch: 0,
                 cutoff_l1_block: 63,
                 checkpoint_index: 2,
-                set_root: B256::repeat_byte(0x5e),
+                set_hash: B256::repeat_byte(0x5e),
                 total_power: 7,
             },
             members: vec![Member {
@@ -336,7 +336,7 @@ mod tests {
                     "target_epoch": 0,
                     "cutoff_l1_block": 63,
                     "checkpoint_index": 2,
-                    "set_root": B256::repeat_byte(0x5e).to_string(),
+                    "set_hash": B256::repeat_byte(0x5e).to_string(),
                     "total_power": 7,
                 },
                 "members": [{

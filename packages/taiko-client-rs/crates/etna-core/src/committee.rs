@@ -24,10 +24,8 @@ pub const MAX_TOTAL_POWER: u64 = (i64::MAX as u64) / 8;
 const REG_ENTRY_TAG: B256 = tag(b"ETNA_REG_ENTRY_V1");
 /// `bytes32("ETNA_SET_KEY_V1")`: domain tag of the member sort key ([`set_key`]).
 const SET_KEY_TAG: B256 = tag(b"ETNA_SET_KEY_V1");
-/// `bytes32("ETNA_SET_LEAF_V1")`: domain tag of set-root leaves.
-const SET_LEAF_TAG: B256 = tag(b"ETNA_SET_LEAF_V1");
-/// `bytes32("ETNA_SET_NODE")`: domain tag of set-root inner nodes.
-const SET_NODE_TAG: B256 = tag(b"ETNA_SET_NODE");
+/// `bytes32("ETNA_SET_V1")`: domain tag of the committee set hash ([`set_hash`]).
+const SET_TAG: B256 = tag(b"ETNA_SET_V1");
 /// `bytes32("ETNA_COMMITTEE_V1")`: domain tag of the committee record hash.
 const RECORD_TAG: B256 = tag(b"ETNA_COMMITTEE_V1");
 
@@ -295,37 +293,30 @@ pub fn entries_root(entries: &[RegistryEntry]) -> B256 {
     level[0]
 }
 
-/// V1 ordering key: keccak256 of ABI words (ETNA_SET_KEY_V1, L2 chain id, prefix, x).
+/// V1 ordering key (ENC-A-39):
+/// `keccak256(abi.encode(bytes32("ETNA_SET_KEY_V1"), l2ChainId, ckPrefix, ckX))`.
 pub fn set_key(l2_chain_id: u64, pubkey: ConsensusKey) -> B256 {
     keccak256([SET_KEY_TAG, word(l2_chain_id), word(pubkey.prefix()), pubkey.x()].concat())
 }
 
-/// V1 committee Merkle root over members already sorted by set key. Leaves bind chain id,
-/// set version, index, prefix, x, effective stake and power. Tagged inner nodes bind chain id
-/// and version; an odd last node is promoted without padding.
-pub fn set_root(l2_chain_id: u64, k: u64, members: &[Member]) -> B256 {
+/// V1 committee set hash (ENC-A-39a) over members already sorted by set key:
+/// `keccak256(abi.encode(bytes32("ETNA_SET_V1"), l2ChainId, k, members))`, where `members` is a
+/// `SetMember[]` of `(uint8 ckPrefix, bytes32 ckX, uint256 effStake, uint64 assignedPower)` in
+/// standard ABI head/tail encoding: four head words (tag, chain id, k, offset 0x80), then the
+/// array length and four words per member. One hash commits the whole set.
+pub fn set_hash(l2_chain_id: u64, k: u64, members: &[Member]) -> B256 {
     debug_assert!(
         members
             .windows(2)
             .all(|w| set_key(l2_chain_id, w[0].pubkey) < set_key(l2_chain_id, w[1].pubkey)),
         "members must be sorted by set key without duplicates"
     );
-    if members.is_empty() {
-        return B256::ZERO;
+    let mut words = Vec::with_capacity(5 + 4 * members.len());
+    words.extend([SET_TAG, word(l2_chain_id), word(k), word(4 * 32), word(members.len())]);
+    for m in members {
+        words.extend([word(m.pubkey.prefix()), m.pubkey.x(), word(m.eff_stake), word(m.power)]);
     }
-    let mut level: Vec<B256> =
-        members.iter().enumerate().map(|(i, m)| set_leaf(l2_chain_id, k, i, m)).collect();
-    while level.len() > 1 {
-        level = level
-            .chunks(2)
-            .map(|chunk| match chunk {
-                [left, right] => set_node(l2_chain_id, k, *left, *right),
-                [odd] => *odd,
-                _ => unreachable!("chunks(2) yields one or two nodes"),
-            })
-            .collect();
-    }
-    level[0]
+    keccak256(words.concat())
 }
 
 /// V1 record hash over the tag, L2 chain id and the five canonical CommitteeRecord fields.
@@ -337,7 +328,7 @@ pub fn record_hash(l2_chain_id: u64, r: &CommitteeRecord) -> B256 {
             word(r.target_epoch),
             word(r.cutoff_l1_block),
             word(r.checkpoint_index),
-            r.set_root,
+            r.set_hash,
             word(r.total_power),
         ]
         .concat(),
@@ -455,7 +446,7 @@ pub fn derive(
         target_epoch,
         cutoff_l1_block: cutoff,
         checkpoint_index: snapshot.checkpoint_index,
-        set_root: set_root(params.l2_chain_id, k, &members),
+        set_hash: set_hash(params.l2_chain_id, k, &members),
         total_power,
     };
     Ok((record, members))
@@ -621,28 +612,6 @@ fn entry_leaf(index: usize, e: &RegistryEntry) -> B256 {
         ]
         .concat(),
     )
-}
-
-/// The set-root leaf of the member at sorted position `index` (see [`set_root`]).
-fn set_leaf(l2_chain_id: u64, k: u64, index: usize, m: &Member) -> B256 {
-    keccak256(
-        [
-            SET_LEAF_TAG,
-            word(l2_chain_id),
-            word(k),
-            word(index),
-            word(m.pubkey.prefix()),
-            m.pubkey.x(),
-            word(m.eff_stake),
-            word(m.power),
-        ]
-        .concat(),
-    )
-}
-
-/// A set-root inner node over `left` and `right` (see [`set_root`]).
-fn set_node(l2_chain_id: u64, k: u64, left: B256, right: B256) -> B256 {
-    keccak256([SET_NODE_TAG, word(l2_chain_id), word(k), left, right].concat())
 }
 
 /// One `abi.encode` word: the unsigned integer `value` left-padded to 32 bytes, big-endian.

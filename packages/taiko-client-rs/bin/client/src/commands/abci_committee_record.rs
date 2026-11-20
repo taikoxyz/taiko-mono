@@ -249,7 +249,7 @@ mod tests {
                 target_epoch: 0,
                 cutoff_l1_block: 63,
                 checkpoint_index: 2,
-                set_root: word("5e").parse().unwrap(),
+                set_hash: word("5e").parse().unwrap(),
                 total_power: 3_000_000_000,
             },
             members: vec![

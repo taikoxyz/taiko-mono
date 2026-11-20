@@ -1,5 +1,6 @@
 use super::*;
 use crate::test_utils::{key_from_seed, test_key};
+use alloy_primitives::b256;
 pub(crate) fn sample_entries(n: usize) -> Vec<RegistryEntry> {
     (0..n)
         .map(|i| {
@@ -77,16 +78,14 @@ fn v1_registry_and_committee_roots_match_schema5() {
                 power: m["power"].as_str().unwrap().parse().unwrap(),
             })
             .collect();
-        let k = case["set_version"].as_str().unwrap().parse().unwrap();
-        assert_eq!(
-            set_root(CHAIN, k, &members),
-            case["set_root"].as_str().unwrap().parse::<B256>().unwrap()
-        );
+        // The pinned shared vectors still carry the set word of the encoding before ENC-A-39a;
+        // the record hash binds whatever set word it is given, so it is checked with theirs.
+        // `appendix_a_hash_vectors_use_bytes32_tags` checks setHash itself.
         let record = CommitteeRecord {
             target_epoch: case["target_epoch"].as_str().unwrap().parse().unwrap(),
             cutoff_l1_block: case["cutoff_l1_block"].as_str().unwrap().parse().unwrap(),
             checkpoint_index: case["checkpoint_index"].as_str().unwrap().parse().unwrap(),
-            set_root: set_root(CHAIN, k, &members),
+            set_hash: case["set_root"].as_str().unwrap().parse().unwrap(),
             total_power: members.iter().map(|m| m.power).sum(),
         };
         assert_eq!(
@@ -220,8 +219,105 @@ fn snapshot_slots_do_not_overflow_at_the_last_index() {
     assert_eq!(snapshot_slots(u64::MAX, true)[3], next);
 }
 
+/// The compressed key of vectors 37.i, 39.a and 39a.a: prefix 2 and the x of the secp256k1
+/// generator point.
+fn generator_key() -> ConsensusKey {
+    let mut bytes = [2; 33];
+    bytes[1..].copy_from_slice(&alloy_primitives::hex!(
+        "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+    ));
+    ConsensusKey::from_slice(&bytes).unwrap()
+}
+
+/// 250,000 TAIKO in base units: the stake of vectors 37.i, 39a.a and 42.a.
+fn stake_250k() -> U256 {
+    U256::from(250_000u64) * U256::from(10u64).pow(U256::from(18))
+}
+
+/// Appendix A hash vectors at 994960561 (ENC-A-5, 37.*, 39.*, 39a.*, 42.*): every tag is one
+/// right-padded `bytes32` word, never a dynamic string.
 #[test]
-fn set_root_binds_chain_version_power_and_promotes_odd_nodes() {
+fn appendix_a_hash_vectors_use_bytes32_tags() {
+    let zero = RegistryEntry {
+        ck_prefix: 0,
+        ck_x: B256::ZERO,
+        eff_stake: U256::ZERO,
+        active_from_l1: 0,
+        exit_effective_l1: 0,
+    };
+    // 37.a: slot 1 with all-zero fields.
+    let leaf = entry_leaf(1, &zero);
+    assert_eq!(leaf, b256!("21d961646cf730220ee47cda213ec296eba41d18fc39f8f6cb1e1350f77c907d"));
+    // 37.j: the same entry with the tag encoded as a dynamic string is another hash.
+    let mut dynamic = [word(224u64), word(1u64)].concat();
+    dynamic.extend([B256::ZERO; 5].concat());
+    dynamic.extend_from_slice(word(17u64).as_slice());
+    dynamic.extend_from_slice(tag(b"ETNA_REG_ENTRY_V1").as_slice());
+    assert_eq!(dynamic.len(), 288);
+    let dynamic = keccak256(&dynamic);
+    assert_eq!(dynamic, b256!("6be6938b2da71c3451f504f138ac0f40a3402012cec0d51f5eb7d37d1fd574e7"));
+    assert_ne!(leaf, dynamic);
+    // 37.i: slot 0, the generator key, 250,000 TAIKO, active from 100, never exiting.
+    let key = generator_key();
+    let entry = RegistryEntry {
+        ck_prefix: key.prefix(),
+        ck_x: key.x(),
+        eff_stake: stake_250k(),
+        active_from_l1: 100,
+        exit_effective_l1: (1 << 48) - 1,
+    };
+    assert_eq!(
+        entry_leaf(0, &entry),
+        b256!("e7283e6153912ee69d614724bff4c2c09b9d20287fa4e0840db13c883df21387")
+    );
+    // 39.a: the set key of that key on chain 167000.
+    assert_eq!(
+        set_key(167_000, key),
+        b256!("7529ec50109faf073e202f03d7b4804a32a3571765e9749536cc42cc37acb437")
+    );
+    // 39a.a: one member at k = 1, a 288-byte preimage.
+    let member = Member { pubkey: key, eff_stake: stake_250k(), power: 250_000_000_000_000 };
+    let set = set_hash(167_000, 1, std::slice::from_ref(&member));
+    assert_eq!(set, b256!("0c09cd574e795c943cf299b730422425455959f85c169641a97030f4d287566d"));
+    // 42a.b: k = targetEpoch is another set.
+    assert_ne!(set_hash(167_000, 0, std::slice::from_ref(&member)), set);
+    // 42.a: committee 0's record over that set.
+    let record = CommitteeRecord {
+        target_epoch: 0,
+        cutoff_l1_block: 100,
+        checkpoint_index: 0,
+        set_hash: set,
+        total_power: 250_000_000_000_000,
+    };
+    assert_eq!(
+        record_hash(167_000, &record),
+        b256!("6fa2491c7f7f68e27ae6e55fa1a5cbcc0dfb095bef60d4a69ed7498417368634")
+    );
+}
+
+/// ENC-A-39a (39a.b..f): one standard ABI hash commits the whole member list in set-key order,
+/// with its chain id, version k, stakes and powers; an independent ABI encoder gives the same
+/// preimage. Another order, a dynamic-string tag or a Merkle root over the members is another
+/// hash.
+#[test]
+fn set_hash_is_one_abi_hash_over_the_sorted_members() {
+    use alloy_sol_types::{
+        SolType,
+        sol_data::{Array, FixedBytes, Uint},
+    };
+    type Members = Array<(Uint<8>, FixedBytes<32>, Uint<256>, Uint<64>)>;
+    type Preimage = (FixedBytes<32>, Uint<256>, Uint<256>, Members);
+    let preimage = |chain: u64, k: u64, members: &[Member]| {
+        Preimage::abi_encode_params(&(
+            tag(b"ETNA_SET_V1"),
+            U256::from(chain),
+            U256::from(k),
+            members
+                .iter()
+                .map(|m| (m.pubkey.prefix(), m.pubkey.x(), m.eff_stake, m.power))
+                .collect::<Vec<_>>(),
+        ))
+    };
     let mut members: Vec<_> = sample_entries(3)
         .iter()
         .map(|e| Member {
@@ -231,23 +327,34 @@ fn set_root_binds_chain_version_power_and_promotes_odd_nodes() {
         })
         .collect();
     members.sort_by_key(|m| set_key(CHAIN, m.pubkey));
-    let root = set_root(CHAIN, 1, &members);
-    assert_eq!(
-        root,
-        set_node(
-            CHAIN,
-            1,
-            set_node(
-                CHAIN,
-                1,
-                set_leaf(CHAIN, 1, 0, &members[0]),
-                set_leaf(CHAIN, 1, 1, &members[1])
-            ),
-            set_leaf(CHAIN, 1, 2, &members[2])
-        )
-    );
-    assert_ne!(root, set_root(CHAIN, 2, &members));
-    members[0].power += 1;
-    assert_ne!(root, set_root(CHAIN, 1, &members));
-    assert_eq!(set_root(CHAIN, 1, &[]), B256::ZERO);
+    let hash = set_hash(CHAIN, 1, &members);
+    let encoded = preimage(CHAIN, 1, &members);
+    assert_eq!(encoded.len(), (5 + 4 * 3) * 32);
+    assert_eq!(hash, keccak256(&encoded));
+    // 39a.c: the same members in another order.
+    let mut reversed = members.clone();
+    reversed.reverse();
+    assert_ne!(hash, keccak256(preimage(CHAIN, 1, &reversed)));
+    // 39a.d: chain id, version, stake and power are each bound. The set-key order depends on
+    // the chain id, so another chain id is checked on the same list's preimage.
+    assert_ne!(hash, keccak256(preimage(CHAIN + 1, 1, &members)));
+    assert_ne!(hash, set_hash(CHAIN, 2, &members));
+    let mut changed = members.clone();
+    changed[0].power += 1;
+    assert_ne!(hash, set_hash(CHAIN, 1, &changed));
+    let mut changed = members.clone();
+    changed[0].eff_stake += U256::from(1);
+    assert_ne!(hash, set_hash(CHAIN, 1, &changed));
+    // 39a.e: a Merkle root over per-member leaves is not the set hash.
+    let leaves: Vec<B256> = members.chunks(1).map(|m| keccak256(preimage(CHAIN, 1, m))).collect();
+    let merkle = keccak256([keccak256([leaves[0], leaves[1]].concat()), leaves[2]].concat());
+    assert_ne!(hash, merkle);
+    // 39a.f: the tag as a dynamic string.
+    // Head: the tag's offset, chain id, k and the members' offset; then the tag's length and
+    // bytes, then the same members.
+    let mut dynamic =
+        [word(128u64), word(CHAIN), word(1u64), word(192u64), word(11u64), tag(b"ETNA_SET_V1")]
+            .concat();
+    dynamic.extend_from_slice(&encoded[4 * 32..]);
+    assert_ne!(hash, keccak256(&dynamic));
 }

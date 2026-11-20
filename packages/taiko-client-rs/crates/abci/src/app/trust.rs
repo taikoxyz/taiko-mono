@@ -437,7 +437,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 el_hash: origin.el_hash,
                 comet_hash: origin.comet_hash,
                 forced_cursor: origin.forced_cursor,
-                committee_hash: origin.committee.record.set_root,
+                committee_hash: origin.committee.record.set_hash,
             });
             within("trust recovery origin", self.opts.l1_timeout, async {
                 crate::recovery::check_recovery_canonicality(self.l1(), &self.params, &witness)

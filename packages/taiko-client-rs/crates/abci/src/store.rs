@@ -48,7 +48,7 @@ pub struct CommitteeState {
 }
 
 /// The one [`AppState`] schema; a state file of any other schema is refused, never migrated.
-pub const STATE_SCHEMA_VERSION: u32 = 20;
+pub const STATE_SCHEMA_VERSION: u32 = 21;
 
 /// The app's committed state, persisted at every `Commit`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -777,7 +777,7 @@ mod tests {
             target_epoch: epoch,
             cutoff_l1_block: 100 + epoch,
             checkpoint_index: epoch,
-            set_root: B256::repeat_byte(epoch as u8 + 1),
+            set_hash: B256::repeat_byte(epoch as u8 + 1),
             total_power: 3_000_000_000,
         }
     }

@@ -359,7 +359,7 @@ mod tests {
                 target_epoch: 2,
                 cutoff_l1_block: 8_990,
                 checkpoint_index: 4,
-                set_root: B256::repeat_byte(0x44),
+                set_hash: B256::repeat_byte(0x44),
                 total_power: 2_000_000,
             },
             registry: account_witness(0xb2),
@@ -859,7 +859,7 @@ mod tests {
                     target_epoch: 2,
                     cutoff_l1_block: 0x23f0,
                     checkpoint_index: 5,
-                    set_root: B256::repeat_byte(0x44),
+                    set_hash: B256::repeat_byte(0x44),
                     total_power: 0x0f_4240,
                 },
                 registry: AccountWitness {
@@ -928,7 +928,7 @@ mod tests {
             &hex!("02"),       // target_epoch
             &hex!("8223f0"),   // cutoff_l1_block
             &hex!("05"),       // checkpoint_index
-            &word(0x44),       // set_root
+            &word(0x44),       // set_hash
             &hex!("830f4240"), // total_power
         ]);
         let registry = list(&[

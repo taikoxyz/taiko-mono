@@ -987,7 +987,7 @@ fn schedule_client(c: &Value, height: u64) -> Decision {
                 target_epoch: epoch,
                 cutoff_l1_block: cutoff,
                 checkpoint_index: i as u64,
-                set_root: B256::ZERO,
+                set_hash: B256::ZERO,
                 total_power: 0,
             },
             registry: state

@@ -117,7 +117,7 @@ proxy's EIP-1967 implementation slot under S's state root (PROOF-6.2-46a), read 
 only for development deployments; a real backend must verify this witness as well as the
 remaining private inputs.
 
-Lander journal schema 19 includes this witness. Older journals are refused, never rewritten.
+Lander journal schema 20 includes this witness. Older journals are refused, never rewritten.
 Resolve outstanding signed jobs with their compatible lander before upgrading. Nonzero-S
 [checkpoint import/export](checkpoint-import.md) preserves the fixed Comet genesis and uses the
 original EL block-zero chainspec independently of the Etna start hash at S.

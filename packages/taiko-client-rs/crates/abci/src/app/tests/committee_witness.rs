@@ -307,7 +307,7 @@ async fn forged_committee_witnesses_are_rejected() {
     let (l1_0, inbox) = (fx.genesis.l1_0, fx.params.inbox);
     let cases: Vec<(&str, Forge, Expect)> = vec![
         // The record.
-        ("set_root", Box::new(|w| w.record.set_root = B256::repeat_byte(0x5e)), record),
+        ("set_hash", Box::new(|w| w.record.set_hash = B256::repeat_byte(0x5e)), record),
         ("total_power", Box::new(|w| w.record.total_power += 1), record),
         ("new anchor's cutoff", Box::new(|w| w.record.cutoff_l1_block = NEW_ANCHOR), record),
         ("target_epoch", Box::new(|w| w.record.target_epoch = 3), record),

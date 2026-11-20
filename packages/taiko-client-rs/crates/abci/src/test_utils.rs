@@ -1005,7 +1005,7 @@ mod tests {
             target_epoch: 1,
             cutoff_l1_block: 0,
             checkpoint_index: 0,
-            set_root: B256::ZERO,
+            set_hash: B256::ZERO,
             total_power: 0,
         };
 

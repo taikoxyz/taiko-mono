@@ -184,12 +184,12 @@ pub(super) fn account_witness() -> impl Strategy<Value = AccountWitness> {
 /// A committee record with arbitrary fields.
 pub(super) fn committee_record() -> impl Strategy<Value = CommitteeRecord> {
     (uint(), uint(), uint(), hash(), uint()).prop_map(
-        |(target_epoch, cutoff_l1_block, checkpoint_index, set_root, total_power)| {
+        |(target_epoch, cutoff_l1_block, checkpoint_index, set_hash, total_power)| {
             CommitteeRecord {
                 target_epoch,
                 cutoff_l1_block,
                 checkpoint_index,
-                set_root,
+                set_hash,
                 total_power,
             }
         },

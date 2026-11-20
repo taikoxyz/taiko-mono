@@ -285,7 +285,7 @@ mod tests {
                     target_epoch: 0,
                     cutoff_l1_block: 64,
                     checkpoint_index: 2,
-                    set_root: B256::repeat_byte(0x77),
+                    set_hash: B256::repeat_byte(0x77),
                     total_power: 10_000_000_000,
                 },
                 registry: account(2),

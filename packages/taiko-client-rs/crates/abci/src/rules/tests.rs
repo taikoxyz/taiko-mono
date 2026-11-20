@@ -240,6 +240,18 @@ fn expected_header_clamps_the_base_fee_to_the_minimum() {
     assert_eq!(e.base_fee, min_base_fee_for_chain(params.l2_chain_id));
 }
 
+/// ENC-A-10b (vector 10b.a): `mixHash = keccak256(abi.encode(bytes32(p.difficulty),
+/// uint256(b.number)))`, two 32-byte words, for a parent difficulty of 1,000,000 at block 12345.
+#[test]
+fn expected_header_mix_hash_matches_vector_10b_a() {
+    let (a, params) = (anchor(500, 0), devnet());
+    let p = ParentInfo { difficulty: U256::from(1_000_000u64), ..parent(12_344) };
+    assert_eq!(
+        expected_header(&inputs(12_345, &p, &a, &params)).unwrap().mix_hash,
+        b256!("05a173eee05e0e03682acaef0ca4dea2f32b47cd3e10eed85233465b524d4507")
+    );
+}
+
 #[test]
 fn expected_header_requires_the_next_height() {
     let (p, a, params) = (parent(10), anchor(500, 0), devnet());

@@ -124,11 +124,11 @@ fn anchor_witness() -> impl Strategy<Value = AnchorWitness> {
 /// A committee witness with an arbitrary record, registry witness and up to three entries.
 fn committee_witness() -> impl Strategy<Value = CommitteeWitness> {
     let record = (uint(), uint(), uint(), hash(), uint()).prop_map(
-        |(target_epoch, cutoff, index, set_root, total_power)| CommitteeRecord {
+        |(target_epoch, cutoff, index, set_hash, total_power)| CommitteeRecord {
             target_epoch,
             cutoff_l1_block: cutoff,
             checkpoint_index: index,
-            set_root,
+            set_hash,
             total_power,
         },
     );

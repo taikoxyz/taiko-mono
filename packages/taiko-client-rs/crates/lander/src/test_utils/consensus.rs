@@ -3,7 +3,7 @@
 use abci::{
     AccountWitness, AnchorState, ChainParams, CommitteeRecord, CommitteeState, CommitteeWitness,
     EtnaEnvelope, ExecutionBlock, InboxFacts, Member, RegistryEntry,
-    committee::{set_key, set_root},
+    committee::{set_hash, set_key},
     key::ConsensusKey,
 };
 pub use alloy::signers::k256::ecdsa::SigningKey;
@@ -96,7 +96,7 @@ fn committee_with_keys(
         target_epoch: epoch,
         cutoff_l1_block: 1,
         checkpoint_index: 0,
-        set_root: set_root(params.l2_chain_id, epoch + 1, &members),
+        set_hash: set_hash(params.l2_chain_id, epoch + 1, &members),
         total_power: powers.iter().sum(),
     };
     let entries = keys

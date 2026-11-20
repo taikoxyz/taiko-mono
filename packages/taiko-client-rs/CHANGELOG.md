@@ -5,6 +5,8 @@
 ### Etna specification alignment (#22422)
 
 - **BREAKING:** the consensus parameters follow START-10-21: `block.max_bytes` = 1,572,864 + 4,096 × n_max (2,097,152 at n_max = 128), no gas limit, evidence age limits of 16 blocks and 3 min, and zero evidence bytes in every block (CONS-3.1-10). The initial and recovery genesis, InitChain, the recovery plan check and checkpoint import (the header consensus hash and the per-block byte bound) take them from the deployment's n_max, and import windows follow the shorter age limits. Older geneses are refused. `etna-comet-import install` takes the authenticated `--n-max` and refuses a genesis with other parameters.
+- A rotation's FinalizeBlock returns only the difference from the set in force (COMM-4.3-13): a leaver at power 0, a new member or changed power at its new power, and no entry for an unchanged key and power. Stock CometBFT reaches the same validator state, so valStateHash is unchanged.
+- **BREAKING:** the committee record commits its members with one ABI hash, `setHash = keccak256(abi.encode(bytes32("ETNA_SET_V1"), l2ChainId, k, SetMember[]))` (ENC-A-39a), instead of the tagged Merkle set root, so every record hash changes. `CommitteeRecord::set_root` is now `set_hash`, also in the persisted app state, lander journals, recovery plans and the `abci-committee-record --json` report. App state moves to schema 21 and lander journals to schema 20; older ones are refused.
 
 ### Etna specification simplification (#22412)
 
@@ -58,8 +60,8 @@
 
 ### ⚠ BREAKING CHANGES
 
-Etna is unlaunched, so start a fresh devnet: the app state (schema 20), validator-state records,
-lander journals (19), checkpoint import packages (schema 2), private trust control (schema 1)
+Etna is unlaunched, so start a fresh devnet: the app state (schema 21), validator-state records,
+lander journals (20), checkpoint import packages (schema 2), private trust control (schema 1)
 and the signer's state layout are new, and older stores are refused, never migrated
 (START-10-24). Regenerate older geneses with `abci-genesis`: InitChain and `etna-comet-import`
 refuse CometBFT's default evidence limits (START-10-21).
