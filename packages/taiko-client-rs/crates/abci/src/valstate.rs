@@ -1077,3 +1077,64 @@ mod tests {
         assert_eq!(safe_sub_clip(i64::MIN, i64::MIN), 0);
     }
 }
+
+/// Appendix A's proposer-priority vectors new at #22422 (29a.n..p), whose expected states also
+/// come from stock CometBFT v0.40.0's `IncrementProposerPriority` and `UpdateWithChangeSet`.
+#[cfg(test)]
+mod priority_vector_tests {
+    use super::*;
+    use crate::test_utils::test_key;
+
+    /// Three fixture keys in address order: A < B < C.
+    fn ordered_keys() -> [ConsensusKey; 3] {
+        let mut keys = [test_key(1), test_key(2), test_key(3)];
+        keys.sort_by_key(|key| key.address());
+        keys
+    }
+
+    /// A state whose next set is `entries`, already in CometBFT order.
+    fn state(entries: Vec<ValEntry>) -> ValState {
+        let set = ValSet { entries, proposer: 0 };
+        ValState { height: 5, current: set.clone(), next: set }
+    }
+
+    /// `(key, priority)` of each member of `set`, and the stored proposer's key.
+    fn priorities(set: &ValSet) -> (Vec<(ConsensusKey, i64)>, ConsensusKey) {
+        (
+            set.entries.iter().map(|entry| (entry.key, entry.priority)).collect(),
+            set.entries[set.proposer].key,
+        )
+    }
+
+    /// 29a.n: equal power 1, priorities (−3, 2): the spread 5 exceeds 2 × 2, so one increment
+    /// rescales toward zero to (−1, 1), centres to (−1, 1), adds power and B wins: (0, 0).
+    /// 29a.o: priorities (−1, 0) without an update: no rescale, the average floors to −1, centred
+    /// (0, 1), B wins: (1, 0).
+    #[test]
+    fn one_increment_rescales_toward_zero_and_always_centres() {
+        let [a, b, _] = ordered_keys();
+        for (start, end) in [((-3, 2), (0, 0)), ((-1, 0), (1, 0))] {
+            let s = state(vec![
+                ValEntry { key: a, power: 1, priority: start.0 },
+                ValEntry { key: b, power: 1, priority: start.1 },
+            ]);
+            let next = s.advance(&[]).unwrap().next;
+            assert_eq!(priorities(&next), (vec![(a, end.0), (b, end.1)], b), "{start:?}");
+        }
+    }
+
+    /// 29a.p: A (power 5) and B (power 4) at priority 0; C joins at 8 and B leaves. The power
+    /// after additions and reweights but before removals is 17, so C starts at −(17 + 17 >> 3) =
+    /// −19; centring by floor(−19 / 2) = −10 gives C −9 and A 10, and the increment gives C −1
+    /// and A 2 with A as proposer.
+    #[test]
+    fn a_new_member_starts_below_the_power_before_removals() {
+        let [a, b, c] = ordered_keys();
+        let s = state(vec![
+            ValEntry { key: a, power: 5, priority: 0 },
+            ValEntry { key: b, power: 4, priority: 0 },
+        ]);
+        let next = s.advance(&[(b, 0), (c, 8)]).unwrap().next;
+        assert_eq!(priorities(&next), (vec![(c, -1), (a, 2)], a));
+    }
+}

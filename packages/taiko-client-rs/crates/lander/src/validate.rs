@@ -615,6 +615,109 @@ mod tests {
         );
     }
 
+    /// A `BlockIdFlagCommit` slot for validator `index` holding its signature over a vote of
+    /// `vote_type`, `round` and `block_id` at the commit's height.
+    fn signed_slot(
+        pair: &CertifiedBlock,
+        committee: &AuthenticatedCommittee,
+        keys: &[consensus::SigningKey],
+        index: usize,
+        vote_type: Type,
+        round: u16,
+        block_id: Option<tendermint::block::Id>,
+    ) -> CommitSig {
+        let validator = &committee.validators.validators()[index];
+        let key = keys.iter().find(|key| consensus::public_key(key) == validator.pub_key).unwrap();
+        let timestamp = pair.block.header.time;
+        let vote = Vote {
+            vote_type,
+            height: pair.commit.height,
+            round: round.into(),
+            block_id,
+            timestamp: Some(timestamp),
+            validator_address: validator.address,
+            validator_index: u32::try_from(index).unwrap().try_into().unwrap(),
+            signature: None,
+            extension: vec![],
+            extension_signature: None,
+        };
+        let bytes = Protobuf::<RawVote>::encode_length_delimited_vec(CanonicalVote::new(
+            vote,
+            pair.block.header.chain_id.clone(),
+        ));
+        CommitSig::BlockIdFlagCommit {
+            validator_address: validator.address,
+            timestamp,
+            signature: Some(consensus::sign(key, &bytes)),
+        }
+    }
+
+    /// PROOF-6.2-17 (vectors 17.m..q): only the precommits of one round for the block's BlockID,
+    /// with the commit's part-set header, count. Prevotes, precommits of several rounds that only
+    /// together pass 2/3, a nil or other-block precommit presented as a commit vote, and votes
+    /// for the header hash under another part-set header are refused; a commit of a later round
+    /// than the successor's LastCommit is accepted.
+    #[test]
+    fn commit_rule_counts_one_round_of_precommits_for_the_block_id() {
+        const CHAIN: &str = "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4";
+        let (_, committee, keys) = committee(&[1, 1, 1], 0);
+        let original = pair(1, B256::repeat_byte(9), &committee, &keys, None);
+        let verify = |block: &CertifiedBlock| {
+            verify_commit(&block.commit, &block.block.header, &committee, CHAIN)
+        };
+        verify(&original).unwrap();
+        let id = original.commit.block_id;
+        let all = |vote_type, round, block_id| {
+            let mut block = original.clone();
+            block.commit.signatures = (0..3)
+                .map(|i| signed_slot(&block, &committee, &keys, i, vote_type, round, block_id))
+                .collect();
+            block
+        };
+        // 17.m: prevotes of every validator for the block's BlockID.
+        assert!(verify(&all(Type::Prevote, 0, Some(id))).is_err(), "17.m");
+        // 17.n: one precommit of round 0 and two of round 1, under either round.
+        for round in [0u16, 1] {
+            let mut block = original.clone();
+            block.commit.round = round.into();
+            block.commit.signatures = (0..3)
+                .map(|i| {
+                    let signed_round = if i == 0 { 0 } else { 1 };
+                    signed_slot(
+                        &block,
+                        &committee,
+                        &keys,
+                        i,
+                        Type::Precommit,
+                        signed_round,
+                        Some(id),
+                    )
+                })
+                .collect();
+            assert!(verify(&block).is_err(), "17.n under round {round}");
+        }
+        // 17.o: a nil precommit, or one for another BlockID, presented as a vote for the block.
+        let other = tendermint::block::Id { hash: Hash::Sha256([7; 32]), ..id };
+        for vote in [None, Some(other)] {
+            let mut block = original.clone();
+            block.commit.signatures[2] =
+                signed_slot(&block, &committee, &keys, 2, Type::Precommit, 0, vote);
+            assert!(verify(&block).is_err(), "17.o {vote:?}");
+        }
+        // 17.p: precommits for the header hash with another part-set header.
+        let parts = tendermint::block::parts::Header::new(
+            id.part_set_header.total + 1,
+            id.part_set_header.hash,
+        )
+        .unwrap();
+        let moved = tendermint::block::Id { part_set_header: parts, ..id };
+        assert!(verify(&all(Type::Precommit, 0, Some(moved))).is_err(), "17.p");
+        // 17.q: a complete commit of round 2 serves as well as the round-0 one.
+        let mut later = all(Type::Precommit, 2, Some(id));
+        later.commit.round = 2u16.into();
+        verify(&later).unwrap();
+    }
+
     /// Anchor freshness, inclusive: block 1 of the fixture is at 101 s and its anchor (L1 block
     /// 10) at 10 s, an anchor age of 91 s.
     #[test]

@@ -406,6 +406,9 @@ mod tests {
         BlockId as RawBlockId, Header as RawHeader, PartSetHeader as RawPartSetHeader,
     };
 
+    /// DATA-5.2-5 (5.a, 5.e) and CONS-3.4-13: an executionBlock of exactly 124,000 bytes, its
+    /// RLP list header and every transaction byte string counted, lands; one of 124,001 does
+    /// not. The other mutations break Etna's execution-header shape.
     #[test]
     fn v1_landed_import_rejects_oversize_and_non_unzen_execution() {
         let original = abci::EtnaEnvelope::decode(&chain(1)[0].block.data[0]).unwrap().block;
@@ -912,6 +915,43 @@ mod tests {
         let mut uncompressed = vec![VERSION];
         uncompressed.extend_from_slice(&list);
         assert!(encoding_error(decode(&uncompressed, &limits())).contains("zlib"));
+    }
+
+    /// DATA-5.2-3 (vector 3.d): each payload item is the executionBlock list itself, encoded
+    /// once; a payload whose items are byte strings holding those encodings is refused.
+    #[test]
+    fn payload_items_that_wrap_the_execution_block_in_a_byte_string_are_rejected() {
+        let blocks = chain(2);
+        assert_eq!(decode(&wire(&items(&blocks)), &limits()).unwrap(), published(&blocks));
+        let mut body = Vec::new();
+        for (_, execution) in items(&blocks) {
+            execution.as_slice().encode(&mut body);
+        }
+        let mut wrapped = Vec::new();
+        Header { list: true, payload_length: body.len() }.encode(&mut wrapped);
+        wrapped.extend(body);
+        assert!(decode(&frame(VERSION, &wrapped), &limits()).is_err());
+    }
+
+    /// DATA-5.2-6 (vectors 6.c, 6.d): the zlib stream is not re-encoded. Streams made with other
+    /// compressor settings, stored blocks included, decode to the same canonical RLP and are
+    /// accepted.
+    #[test]
+    fn any_zlib_stream_of_the_canonical_list_is_accepted() {
+        use flate2::{Compression, write::ZlibEncoder};
+        use std::io::Write;
+        let blocks = chain(3);
+        let list = list(&items(&blocks));
+        let canonical = encode(&blocks, &limits()).unwrap();
+        for level in [Compression::none(), Compression::fast(), Compression::best()] {
+            let mut encoder = ZlibEncoder::new(vec![VERSION], level);
+            encoder.write_all(&list).unwrap();
+            let payload = encoder.finish().unwrap();
+            if level == Compression::none() {
+                assert_ne!(payload, canonical, "a stored stream differs from the encoder's");
+            }
+            assert_eq!(decode(&payload, &limits()).unwrap(), published(&blocks), "{level:?}");
+        }
     }
 
     #[test]

@@ -172,6 +172,22 @@ mod tests {
         assert!(decode(&[blob], &limits(1)).is_err());
     }
 
+    /// ENC-A-23c/23d (vectors 23c.a, 23d.f): the one-byte payload 0xff gives blob bytes
+    /// `00 00 00 00 01 ff` and zeros elsewhere; setting the first field element's top bits
+    /// (`0x40` in byte 0) keeps it below the BLS12-381 modulus, and a decoder that masked them
+    /// would return the same data, yet the blob does not decode.
+    #[test]
+    fn the_23c_a_blob_with_a_top_bit_in_its_first_field_element_does_not_decode() {
+        let prepared = build(&[0xff], &limits(1), SidecarMode::Eip4844).unwrap();
+        let blob = prepared.sidecar.blobs()[0];
+        assert_eq!(&blob[..6], &[0, 0, 0, 0, 1, 0xff]);
+        assert!(blob[6..].iter().all(|byte| *byte == 0));
+        assert_eq!(decode(&[blob], &limits(1)).unwrap(), [0xff]);
+        let mut flagged = blob;
+        flagged[0] = 0x40;
+        assert!(decode(&[flagged], &limits(1)).is_err());
+    }
+
     #[test]
     fn protocol_blob_limit_cannot_be_raised_by_operator_configuration() {
         let prepared =
