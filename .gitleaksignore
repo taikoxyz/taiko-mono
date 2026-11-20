@@ -1,0 +1,32 @@
+# Exact historical false positives from public Etna registration vectors.
+# These18 fields are12 compressed public keys and6 public entry-key digests,
+# independently matched to published blob e069e2930143cbaf126d46532a96179764ec0ab6.
+# Each exclusion binds the original commit, exact file, rule and line; no path
+# or value wildcard. New commits/fields remain subject to the existing CI check.
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:14
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:24
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:34
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:44
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:54
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:64
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:74
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:84
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:94
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:104
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:114
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:124
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:141
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:150
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:159
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:168
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:177
+7a550c1c30c3b93818e305fdf59018b7f34b1e8d:formal/etna/conformance/registry_public/registration.json:generic-api-key:186
+
+# Exact J02 false positive: fixed event label "EvidenceB1Exact" in a literal
+# schedule, not a credential. Only this historical commit/file/rule/line.
+1d399f051efaefcd94aeaf04ac375e7eb654ea94:formal/etna/EtnaTrustSupersession.tla:generic-api-key:14
+
+# Exact Y04 false positive: SHA-256 of public LibEtnaKeys.sol source,
+# matched to the retained contract manifest and compiled source bytes.
+# Only this historical commit/file/rule/line; no broader exemption.
+ee18ad8e1ebe2248bf901884409a73a8e7bbe0a0:formal/etna/conformance/registry_funding/pins.json:generic-api-key:79

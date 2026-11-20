@@ -1,0 +1,1446 @@
+{
+  "schema": "etna-fault-campaign-1",
+  "inventory_scope": "V02 assessed import input/classification obligations plus pending progress/publication and explicit unassessed boundaries; finite reviewed inventory, no completeness claim.",
+  "obligations": [
+    {
+      "id": "m10-el-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ x.peer.el = x.l1.el /\\ x.peer.state = x.l1.state",
+        "new": "/\\ x.peer.state = x.l1.state"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves el-binding; raw input 16 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-connect-enabled",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "Connect ==\n    /\\ n.phase = \"Running\"",
+        "new": "Connect ==\n    /\\ FALSE\n    /\\ n.phase = \"Running\""
+      },
+      "workloads": [
+        "configs/import-progress-enabled-latest.cfg",
+        "configs/import-progress-enabled-older.cfg"
+      ],
+      "failure": {
+        "kind": "invariant",
+        "name": "ConnectionEnabledWhenReady"
+      },
+      "obligation": "Correct available Raw(0), fixed generation/target and optional one process crash: ready admission enables Connect."
+    },
+    {
+      "id": "settlement-signal-publication",
+      "obligation": "A successful actual land publishes the original terminal height, EL block hash and state root to SignalService.",
+      "required": true,
+      "engine": "forge",
+      "source": "contracts",
+      "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+      "replace": {
+        "old": "        _signalService.saveCheckpoint(\n            ICheckpointStore.Checkpoint({\n                blockNumber: h, blockHash: lastBlockHash, stateRoot: _input.lastStateRoot\n            })\n        );",
+        "new": "        // Deliberate validation fault: checkpoint publication omitted."
+      },
+      "workloads": [
+        "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()"
+      ],
+      "failure": {
+        "kind": "forge",
+        "failures": {
+          "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()": "publication: SignalService missing"
+        }
+      }
+    },
+    {
+      "id": "unselected-protocol-obligations",
+      "required": false,
+      "unassessed_reason": "This reviewed finite selection does not assess the remaining protocol obligations, guest/client refinement, proof validity, committee derivation or full liveness."
+    },
+    {
+      "id": "m10-state-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ x.peer.el = x.l1.el /\\ x.peer.state = x.l1.state",
+        "new": "/\\ x.peer.el = x.l1.el"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves state-binding; raw input 17 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-computed-state-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ x.peer.computedState = x.peer.state",
+        "new": "/\\ TRUE"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves computed-state-binding; raw input 9 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-header-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ Hash(x.peer.header) = x.l1.comet\n       /\\ Hash(x.peer.envelope)",
+        "new": "/\\ TRUE\n       /\\ Hash(x.peer.envelope)"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves header-binding; raw input 15 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-envelope-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ Hash(x.peer.envelope) = x.peer.header.data",
+        "new": "/\\ TRUE"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves envelope-binding; raw input 2 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-preimage-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ Hash(x.peer.preimage) = x.l1.val",
+        "new": "/\\ TRUE"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves preimage-binding; raw input 4 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-entries-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "\n       /\\ Hash(x.peer.entries) = x.l1.registry",
+        "new": "\n       /\\ TRUE"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves entries-binding; raw input 18 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-window-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ Hash(x.peer.window) = x.peer.header.window",
+        "new": "/\\ TRUE"
+      },
+      "workloads": ["configs/import-input-bindings.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves window-binding; raw input 19 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-missing-present",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "Missing(x) == ~x.peer.present \\/ ~x.l1.finalized \\/",
+        "new": "Missing(x) == ~x.l1.finalized \\/"
+      },
+      "workloads": ["configs/import-latest.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves missing-present; raw input 7 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-missing-finality",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "Missing(x) == ~x.peer.present \\/ ~x.l1.finalized \\/",
+        "new": "Missing(x) == ~x.peer.present \\/"
+      },
+      "workloads": ["configs/import-latest.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves missing-finality; raw input 1 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-missing-ancestors",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "              ~RequiredAncestors \\subseteq x.peer.ancestors \\/",
+        "new": "              FALSE \\/"
+      },
+      "workloads": ["configs/import-latest.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves missing-ancestors; raw input 8 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-missing-evidence",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "              ~RequiredEvidence \\subseteq x.peer.evidence",
+        "new": "              FALSE"
+      },
+      "workloads": ["configs/import-latest.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves missing-evidence; raw input 10 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-contradiction-envelope",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "(Hash(x.peer.envelope) = x.peer.header.data /\\ x.peer.envelope.execution # x.l1.el)",
+        "new": "FALSE"
+      },
+      "workloads": ["configs/import-input-contradictions.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves contradiction-envelope; raw input 3 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-contradiction-next",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "(Hash(x.peer.preimage) = x.l1.val /\\ VHash(x.peer.preimage.first) # x.peer.header.next)",
+        "new": "FALSE"
+      },
+      "workloads": ["configs/import-input-contradictions.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves contradiction-next; raw input 21 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-contradiction-entries",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "(Hash(x.peer.preimage) = x.l1.val /\\ Hash(x.peer.entries) = x.l1.registry /\\\n             Hash(x.peer.window) = x.peer.header.window /\\\n             x.peer.entries # <<KP(x.peer.preimage.first), KP(x.peer.preimage.second)>>)",
+        "new": "FALSE"
+      },
+      "workloads": ["configs/import-input-contradictions.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Import classification preserves contradiction-entries; raw input 6 isolates this operational condition in the bounded model."
+    },
+    {
+      "id": "m10-conflict-non-origin",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ ~AtOrigin(x) /\\ x.l1.finalized /\\ x.peer.present",
+        "new": "/\\ x.l1.finalized /\\ x.peer.present"
+      },
+      "workloads": ["configs/import-input-origin.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Contradiction classification preserves the conflict-non-origin prerequisite; isolated raw3 rejects a false safety halt."
+    },
+    {
+      "id": "m10-conflict-finality",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ ~AtOrigin(x) /\\ x.l1.finalized /\\ x.peer.present",
+        "new": "/\\ ~AtOrigin(x) /\\ x.peer.present"
+      },
+      "workloads": ["configs/import-input-conflict-prerequisites.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Contradiction classification preserves the conflict-finality prerequisite; isolated raw22 rejects a false safety halt."
+    },
+    {
+      "id": "m10-conflict-present",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ ~AtOrigin(x) /\\ x.l1.finalized /\\ x.peer.present",
+        "new": "/\\ ~AtOrigin(x) /\\ x.l1.finalized"
+      },
+      "workloads": ["configs/import-input-conflict-prerequisites.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Contradiction classification preserves the conflict-present prerequisite; isolated raw23 rejects a false safety halt."
+    },
+    {
+      "id": "m10-conflict-header-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ Hash(x.peer.header) = x.l1.comet\n    /\\ \\/",
+        "new": "/\\ TRUE\n    /\\ \\/"
+      },
+      "workloads": ["configs/import-input-conflict-prerequisites.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Contradiction classification preserves the conflict-header-binding prerequisite; isolated raw24 rejects a false safety halt."
+    },
+    {
+      "id": "m10-header-chain-height",
+      "required": false,
+      "unassessed_reason": "The two selected finite wrong-chain/wrong-height classifier inputs and individual Authentic guard omissions are now assessed. Concrete authentication, cryptography, full authenticated extended-input classification, and valid STF/window/history reconstruction remain unassessed; rebinding the symbolic finalized L1 Comet commitment does not establish a proof-valid landing or an authenticated contradiction."
+    },
+    {
+      "id": "m10-conflict-authentication-prerequisites",
+      "required": false,
+      "unassessed_reason": "Global prerequisites and five selected branch-specific envelope/preimage/registry/window guard removals are now assessed by finite symbolic source faults. Concrete authentication, cryptography, and window reconstruction remain unassessed; these fixtures do not establish an executed STF or proof-validity claim."
+    },
+    {
+      "id": "settlement-signal-state-root",
+      "obligation": "SignalService stores the exact nonzero original input state root after successful land.",
+      "required": true,
+      "engine": "forge",
+      "source": "contracts",
+      "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+      "replace": {
+        "old": "                blockNumber: h, blockHash: lastBlockHash, stateRoot: _input.lastStateRoot",
+        "new": "                blockNumber: h, blockHash: lastBlockHash, stateRoot: bytes32(uint256(_input.lastStateRoot) ^ 1)"
+      },
+      "workloads": [
+        "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()"
+      ],
+      "failure": {
+        "kind": "forge",
+        "failures": {
+          "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()": "publication: SignalService state root: 0x0000000000000000000000000000000000000000000000000000000000000139 != 0x0000000000000000000000000000000000000000000000000000000000000138"
+        }
+      }
+    },
+    {
+      "id": "settlement-active-snapshot",
+      "obligation": "A successful actual land publishes the original input snapshot after real changed registry checkpoint history.",
+      "required": true,
+      "engine": "forge",
+      "source": "contracts",
+      "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+      "replace": {
+        "old": "        _activeCommitteeSnapshot = _input.activeCommitteeSnapshot;",
+        "new": "        // Deliberate validation fault: active committee publication omitted."
+      },
+      "workloads": [
+        "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()"
+      ],
+      "failure": {
+        "kind": "forge",
+        "failures": {
+          "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()": "publication: active committee snapshot: 1 != 21"
+        }
+      }
+    },
+    {
+      "id": "m10-connect-disabled-progress",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "Connect ==\n    /\\ n.phase = \"Running\"",
+        "new": "Connect ==\n    /\\ FALSE\n    /\\ n.phase = \"Running\""
+      },
+      "workloads": [
+        "sensitivity/configs/import-progress-latest.cfg",
+        "sensitivity/configs/import-progress-older.cfg"
+      ],
+      "failure": {
+        "kind": "property",
+        "name": "ConditionalStableConnection"
+      },
+      "obligation": "Correct available Raw(0), fixed generation/target and optional one process crash: fair internal import/continuation must eventually remain connected; no external availability or client liveness claim."
+    },
+    {
+      "id": "m10-connect-no-effect",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ n' = [n EXCEPT !.connected = TRUE]",
+        "new": "/\\ n' = [n EXCEPT !.connected = FALSE]"
+      },
+      "workloads": [
+        "sensitivity/configs/import-progress-latest.cfg",
+        "sensitivity/configs/import-progress-older.cfg"
+      ],
+      "failure": {
+        "kind": "property",
+        "name": "ConditionalStableConnection"
+      },
+      "obligation": "Correct available Raw(0), fixed generation/target and optional one process crash: fair internal import/continuation must eventually remain connected; no external availability or client liveness claim."
+    },
+    {
+      "id": "m10-target-auth-progress",
+      "obligation": "With fixed available correct input/current target and fair actual internal work, missing target authentication cannot be silently accepted as progress.",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "ReadTarget ==\n    /\\ n.phase",
+        "new": "ReadTarget ==\n    /\\ FALSE\n    /\\ n.phase"
+      },
+      "workloads": ["sensitivity/configs/import-progress-older.cfg"],
+      "failure": {
+        "kind": "property",
+        "name": "ConditionalStableConnection"
+      }
+    },
+    {
+      "id": "handoff-latest-schedule",
+      "required": true,
+      "obligation": "Held-candidate handoff: handoff-latest-schedule",
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRulesSchedule.tla",
+      "replace": {
+        "old": "IF Mutant = \"LatestAnchor\" THEN schedule ELSE history[x.anchor].schedule",
+        "new": "schedule"
+      },
+      "workloads": ["configs/handoff-normal-handoffrecovery.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      }
+    },
+    {
+      "id": "handoff-current-clock",
+      "required": true,
+      "obligation": "Held-candidate handoff: handoff-current-clock",
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "IF Mutant = \"CurrentClock\" THEN now ELSE x.timestamp",
+        "new": "now"
+      },
+      "workloads": ["configs/handoff-normal-handoffrecovery.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      }
+    },
+    {
+      "id": "handoff-relabel-generation",
+      "required": true,
+      "obligation": "Held-candidate handoff: handoff-relabel-generation",
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "Mutant = \"RelabelHeld\"",
+        "new": "TRUE"
+      },
+      "workloads": ["configs/handoff-normal-handoffrecovery.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HeldIdentity"
+      }
+    },
+    {
+      "id": "handoff-relabel-anchor",
+      "required": true,
+      "obligation": "Held-candidate handoff: handoff-relabel-anchor",
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "Mutant = \"RelabelAnchor\"",
+        "new": "TRUE"
+      },
+      "workloads": ["configs/handoff-normal-handoffrecovery.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HeldIdentity"
+      }
+    },
+    {
+      "id": "handoff-cached-authorization",
+      "required": true,
+      "obligation": "Held-candidate handoff: handoff-cached-authorization",
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "IF Mutant = \"CachedAuthorization\" THEN held.cachedAllowed ELSE LiveAuthorization",
+        "new": "held.cachedAllowed"
+      },
+      "workloads": ["configs/handoff-normal-handoffrecovery.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "SignatureFence"
+      }
+    },
+    {
+      "id": "handoff-proof-generation",
+      "required": true,
+      "obligation": "Held-candidate handoff: handoff-proof-generation",
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaSettlement.tla",
+      "replace": {
+        "old": "(~CheckProofGeneration \\/ proof.generation = generation)",
+        "new": "TRUE"
+      },
+      "workloads": ["configs/handoff-normal-handoffrecovery.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ProofGenerationFence"
+      }
+    },
+    {
+      "id": "handoff-positive-stop-composition",
+      "required": false,
+      "unassessed_reason": "Historical diagnostic: original 19 zero-stop handoff profiles survived complete stop removal. Closed for the three bounded StopDueRecovery/StopFutureRecovery/StopOffGridRecovery profiles by the assessed handoff-stop-* source faults; broader stop compositions remain unassessed."
+    },
+    {
+      "id": "handoff-stop-ignore-stop",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRulesSchedule.tla",
+      "replace": {
+        "old": "IN IF sch.stopTime = 0 THEN FALSE",
+        "new": "IN IF TRUE THEN FALSE"
+      },
+      "workloads": ["configs/handoff-stop-normal-due.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      },
+      "obligation": "Retained positive-stop handoff: ignore-stop must fail the independent historical/signing observation."
+    },
+    {
+      "id": "handoff-stop-premature-stop",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRulesSchedule.tla",
+      "replace": {
+        "old": "time >= sch.stopTime",
+        "new": "TRUE"
+      },
+      "workloads": ["configs/handoff-stop-normal-future.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      },
+      "obligation": "Retained positive-stop handoff: premature-stop must fail the independent historical/signing observation."
+    },
+    {
+      "id": "handoff-stop-ignore-grid",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRulesSchedule.tla",
+      "replace": {
+        "old": "(height - origin) % sch.stopGrid = 0 /\\ time >= sch.stopTime",
+        "new": "time >= sch.stopTime"
+      },
+      "workloads": ["configs/handoff-stop-normal-offgrid.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      },
+      "obligation": "Retained positive-stop handoff: ignore-grid must fail the independent historical/signing observation."
+    },
+    {
+      "id": "handoff-stop-current-cleared-stop",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRulesSchedule.tla",
+      "replace": {
+        "old": "Stopped(x) ==\n    LET sch == UsedSchedule(x)",
+        "new": "Stopped(x) ==\n    LET sch == schedule"
+      },
+      "workloads": ["configs/handoff-stop-normal-due.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      },
+      "obligation": "Retained positive-stop handoff: current-cleared-stop must fail the independent historical/signing observation."
+    },
+    {
+      "id": "handoff-stop-sign-stop-bypass",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "(~StopProfile \\/ ~Stopped(held.candidate))",
+        "new": "TRUE"
+      },
+      "workloads": ["configs/handoff-stop-normal-due.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "StoppedSignatureFence"
+      },
+      "obligation": "Retained positive-stop handoff: sign-stop-bypass must fail the independent historical/signing observation."
+    },
+    {
+      "id": "handoff-stop-recovery-origin",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRulesSchedule.tla",
+      "replace": {
+        "old": "IF Mutant = \"RecoveryOrigin\" THEN H(startHeight) ELSE S",
+        "new": "H(startHeight)"
+      },
+      "workloads": ["configs/handoff-stop-normal-due.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      },
+      "obligation": "Retained positive-stop handoff: recovery-origin must fail the independent historical/signing observation."
+    },
+    {
+      "id": "handoff-stop-candidate-time",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRulesSchedule.tla",
+      "replace": {
+        "old": "IF Mutant = \"CandidateStop\" THEN x.timestamp ELSE x.parentTime",
+        "new": "x.timestamp"
+      },
+      "workloads": ["configs/handoff-stop-normal-future.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "HistoricalDerivation"
+      },
+      "obligation": "Retained positive-stop handoff: candidate-time must fail the independent historical/signing observation."
+    },
+    {
+      "id": "handoff-actual-stop-clear",
+      "required": true,
+      "engine": "forge",
+      "source": "contracts",
+      "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+      "replace": {
+        "old": "        schedule_.stopTime = 0;",
+        "new": "        // Deliberate source-only omission of stop clear."
+      },
+      "workloads": [
+        "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_conformance_stopHandoffReplay()"
+      ],
+      "failure": {
+        "kind": "forge",
+        "failures": {
+          "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_conformance_stopHandoffReplay()": "assertion failed: 102304 != 0"
+        }
+      },
+      "obligation": "Actual positive-stop handoff replay observes stop-clear"
+    },
+    {
+      "id": "handoff-actual-stop-event",
+      "required": true,
+      "engine": "forge",
+      "source": "contracts",
+      "path": "packages/protocol/contracts/layer1/etna/impl/EtnaInbox.sol",
+      "replace": {
+        "old": "| uint256(_schedule.stopGrid) << 192",
+        "new": "| uint256(_schedule.stopGrid) << 191"
+      },
+      "workloads": [
+        "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_conformance_stopHandoffReplay()"
+      ],
+      "failure": {
+        "kind": "forge",
+        "failures": {
+          "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_conformance_stopHandoffReplay()": "raw RulesScheduleUpdated payload: 37662610414601540019805213409117668618779150642292027555840 != 75325220826921624602819949948363667115393283309076234633216"
+        }
+      },
+      "obligation": "Actual positive-stop handoff replay observes stop-event"
+    },
+    {
+      "id": "handoff-fresh-first-time",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "LET x == [timestamp |-> originRecord.timestamp,",
+        "new": "LET x == [timestamp |-> now + 1,"
+      },
+      "workloads": [
+        "configs/handoff-normal-handoffrecovery.cfg",
+        "configs/handoff-stop-normal-due.cfg",
+        "configs/handoff-stop-normal-future.cfg",
+        "configs/handoff-stop-normal-offgrid.cfg"
+      ],
+      "failure": {
+        "kind": "invariant",
+        "name": "FreshIdentity"
+      },
+      "obligation": "Recovery first candidate uses raw recovery/genesis time under retained-parent1/anchor3 premises."
+    },
+    {
+      "id": "handoff-fresh-parent-time",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "SeededParent == [height |-> 12, timestamp |-> 1]",
+        "new": "SeededParent == [height |-> 12, timestamp |-> 2]"
+      },
+      "workloads": [
+        "configs/handoff-normal-handoffrecovery.cfg",
+        "configs/handoff-stop-normal-due.cfg",
+        "configs/handoff-stop-normal-future.cfg",
+        "configs/handoff-stop-normal-offgrid.cfg"
+      ],
+      "failure": {
+        "kind": "invariant",
+        "name": "FreshIdentity"
+      },
+      "obligation": "Fresh continuation preserves retained checkpoint12 parent time1; wrong2 remains below candidate3 so the oracle must reject it."
+    },
+    {
+      "id": "handoff-fresh-parent-height",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCandidateHandoff.tla",
+      "replace": {
+        "old": "SeededParent == [height |-> 12, timestamp |-> 1]",
+        "new": "SeededParent == [height |-> 18, timestamp |-> 1]"
+      },
+      "workloads": [
+        "configs/handoff-normal-handoffrecovery.cfg",
+        "configs/handoff-stop-normal-due.cfg",
+        "configs/handoff-stop-normal-future.cfg",
+        "configs/handoff-stop-normal-offgrid.cfg"
+      ],
+      "failure": {
+        "kind": "invariant",
+        "name": "FreshIdentity"
+      },
+      "obligation": "Fresh first block extends the exact retained checkpoint12, not the discarded height18 suffix."
+    },
+    {
+      "id": "recovery-time-bft-origin",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRecoveryTime.tla",
+      "replace": {
+        "old": "FirstBFT(x) == x.origin.l1Timestamp",
+        "new": "FirstBFT(x) == x.origin.l1Timestamp+1"
+      },
+      "workloads": ["configs/recovery-time-normal.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ObservationExact"
+      },
+      "obligation": "First BFT time must equal fixed R.timestamp, independently of the EL clock."
+    },
+    {
+      "id": "recovery-time-parent-step",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRecoveryTime.tla",
+      "replace": {
+        "old": "FirstEL(x) == Max2(x.parent.elTimestamp+1, Max2(FirstBFT(x),x.anchor.l1Timestamp))",
+        "new": "FirstEL(x) == Max2(FirstBFT(x),x.anchor.l1Timestamp)"
+      },
+      "workloads": ["configs/recovery-time-parent-witness.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ObservationExact"
+      },
+      "obligation": "Parent12/time3 requires EL4 while BFT remains3; omitting parent+1 loses that header."
+    },
+    {
+      "id": "recovery-time-later-anchor",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRecoveryTime.tla",
+      "replace": {
+        "old": "FirstEL(x) == Max2(x.parent.elTimestamp+1, Max2(FirstBFT(x),x.anchor.l1Timestamp))",
+        "new": "FirstEL(x) == Max2(x.parent.elTimestamp+1,FirstBFT(x))"
+      },
+      "workloads": ["configs/recovery-time-later-witness.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ObservationExact"
+      },
+      "obligation": "Valid finalized anchor104/time4 requires EL4 while BFT remains3."
+    },
+    {
+      "id": "recovery-time-collapse-clocks",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRecoveryTime.tla",
+      "replace": {
+        "old": "FirstEL(x) == Max2(x.parent.elTimestamp+1, Max2(FirstBFT(x),x.anchor.l1Timestamp))",
+        "new": "FirstEL(x) == FirstBFT(x)"
+      },
+      "workloads": [
+        "configs/recovery-time-parent-witness.cfg",
+        "configs/recovery-time-later-witness.cfg"
+      ],
+      "failure": {
+        "kind": "invariant",
+        "name": "ObservationExact"
+      },
+      "obligation": "Both valid EL4/BFT3 cases independently reject collapsing EL timestamp to BFT time."
+    },
+    {
+      "id": "recovery-time-construction-enabled",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRecoveryTime.tla",
+      "replace": {
+        "old": "Construct == /\\ ~observed.present",
+        "new": "Construct == /\\ FALSE /\\ ~observed.present"
+      },
+      "workloads": ["configs/recovery-time-normal.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ConstructionEnabled"
+      },
+      "obligation": "Suppressing first-header construction must fail an enabledness obligation rather than vacuously pass safety."
+    },
+    {
+      "id": "m10-conflict-auth-envelope",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "(Hash(x.peer.envelope) = x.peer.header.data /\\ x.peer.envelope.execution # x.l1.el)",
+        "new": "(TRUE /\\ x.peer.envelope.execution # x.l1.el)"
+      },
+      "workloads": ["configs/import-input-conflict-auth-envelope.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Unbound envelope execution cannot establish an authenticated EL conflict; raw2 requires Reject, not Halt."
+    },
+    {
+      "id": "m10-conflict-auth-preimage-next",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "(Hash(x.peer.preimage) = x.l1.val /\\ VHash(x.peer.preimage.first) # x.peer.header.next)",
+        "new": "(TRUE /\\ VHash(x.peer.preimage.first) # x.peer.header.next)"
+      },
+      "workloads": ["configs/import-input-conflict-auth-preimage-next.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Unbound first-set powers with matching derived entries cannot establish a header next-set contradiction; raw25 requires Reject, not Halt."
+    },
+    {
+      "id": "m10-conflict-auth-preimage-entry",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "(Hash(x.peer.preimage) = x.l1.val /\\ Hash(x.peer.entries) = x.l1.registry /\\",
+        "new": "(TRUE /\\ Hash(x.peer.entries) = x.l1.registry /\\"
+      },
+      "workloads": ["configs/import-input-conflict-auth-preimage-entry.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Unbound second-set powers cannot establish a derived-entry contradiction; raw26 leaves the first set/header next binding unchanged and requires Reject, not Halt."
+    },
+    {
+      "id": "m10-conflict-auth-registry",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "(Hash(x.peer.preimage) = x.l1.val /\\ Hash(x.peer.entries) = x.l1.registry /\\",
+        "new": "(Hash(x.peer.preimage) = x.l1.val /\\ TRUE /\\"
+      },
+      "workloads": ["configs/import-input-conflict-auth-registry.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Unbound reordered entries cannot establish a derived-committee contradiction; raw18 requires Reject, not Halt."
+    },
+    {
+      "id": "m10-conflict-auth-window",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "             Hash(x.peer.window) = x.peer.header.window /\\",
+        "new": "             TRUE /\\"
+      },
+      "workloads": ["configs/import-input-conflict-auth-window.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "A bound but contradictory entry tuple with an unbound window cannot establish a committee contradiction; raw27 is a negative classifier input requiring Reject, not an executed STF or proof-validity witness."
+    },
+    {
+      "id": "m10-positive-import-chronology",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "time |-> IF ImportHeight = Origin THEN 20 ELSE 102]",
+        "new": "time |-> IF ImportHeight = Origin THEN 20 ELSE 40]"
+      },
+      "workloads": ["configs/import-premise-chronology.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "PositiveImportPremises"
+      },
+      "obligation": "The actual healthy non-origin published checkpoint preserves a necessary same-generation chronology premise: header4 time102 is later than fixed genesis100. Exact source fault restores canonical time40; independent audit observes raw input and actual stores only. This does not establish full window/STF validity."
+    },
+    {
+      "id": "m10-positive-origin-genesis-proposer",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "GenesisPreimage == [first |-> [keys |-> <<1, 2>>, powers |-> <<3, 2>>, priorities |-> <<-2, 2>>, proposer |-> 1],",
+        "new": "GenesisPreimage == [first |-> [keys |-> <<1, 2>>, powers |-> <<3, 2>>, priorities |-> <<-2, 2>>, proposer |-> 2],"
+      },
+      "workloads": ["configs/import-premise-origin.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "PositiveImportPremises"
+      },
+      "obligation": "Actual origin publication installs the stock fixed-genesis first stored proposer key1 with priorities[-2,2] and next stored proposer key2 with priorities[1,-1], independently of retained landed priorities/proposers. Exact source fault restores the old wrong first proposer key2; independent literal audit must reject it."
+    },
+    {
+      "id": "m10-header-chain",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ x.peer.header.chain = Chain /\\ x.peer.header.height = x.l1.height",
+        "new": "/\\ TRUE /\\ x.peer.header.height = x.l1.height"
+      },
+      "workloads": ["configs/import-input-chain-height-chain.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Raw28 changes only the non-origin peer header chain and rebinds the L1 Comet commitment, isolating Authentic's chain equality without another failed binding or an established contradiction branch. This deliberately invalid classifier input must Reject; omission must cause false Verified at Check/Classified. It is not a proof-valid landing or executed STF witness."
+    },
+    {
+      "id": "m10-header-height",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "/\\ x.peer.header.chain = Chain /\\ x.peer.header.height = x.l1.height",
+        "new": "/\\ x.peer.header.chain = Chain /\\ TRUE"
+      },
+      "workloads": ["configs/import-input-chain-height-height.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "ClassificationCorrect"
+      },
+      "obligation": "Raw29 changes only the non-origin peer header height and rebinds the L1 Comet commitment, isolating Authentic's height equality without another failed binding or an established contradiction branch. This deliberately invalid classifier input must Reject; omission must cause false Verified at Check/Classified. It is not a proof-valid landing or executed STF witness."
+    },
+    {
+      "id": "m10-positive-first-priority-bound",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "!.first.priorities = <<4, -4>>",
+        "new": "!.first.priorities = <<7, -7>>"
+      },
+      "workloads": ["configs/import-premise-current.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "PositiveImportPremises"
+      },
+      "obligation": "Actual non-origin Raw11 publication must satisfy the necessary two-member post-increment priority-difference bound for its fixed powers. Restore only that raw constructor priority tuple to the old impossible value; the independent actual-store audit must fail at Published despite old store alignment sharing the same raw preimage. No full STF/history validity claim."
+    },
+    {
+      "id": "m10-positive-second-priority-bound",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "!.second.priorities = <<2, -2>>",
+        "new": "!.second.priorities = <<6, -6>>"
+      },
+      "workloads": ["configs/import-premise-current.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "PositiveImportPremises"
+      },
+      "obligation": "Actual non-origin Raw20 publication must satisfy the necessary two-member post-increment priority-difference bound for its fixed powers. Restore only that raw constructor priority tuple to the old impossible value; the independent actual-store audit must fail at Published despite old store alignment sharing the same raw preimage. No full STF/history validity claim."
+    },
+    {
+      "id": "m10-positive-committed-pair",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaCheckpointImport.tla",
+      "replace": {
+        "old": "!.second.priorities = <<-1, 1>>",
+        "new": "!.second.priorities = <<2, -1>>"
+      },
+      "workloads": ["configs/import-premise-current.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "PositiveImportPremises"
+      },
+      "obligation": "Raw11 preserves individually bounded actual member fields but substitutes the base Next priority vector into the first-alternate pair. Coherent hashes/store alignment alone cannot identify this wrong pair. The independent literal actual-publication pair table must fail at Published; original and actual restoration must pass. This selected two-update-prefix correspondence does not establish full STF/committee history."
+    },
+    {
+      "id": "proving-recovery-origin",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaProvingProgress.tla",
+      "replace": {
+        "old": "!.start=r.included",
+        "new": "!.start=0"
+      },
+      "workloads": ["configs/proving-recovery-origin-audit.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "RecoveryOriginAudit"
+      },
+      "obligation": "FreshPresent settles1 through ordinary finality before completed authenticated recovery; the actual new generation start remains the nonzero included origin1."
+    },
+    {
+      "id": "proving-recovery-resources",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaProvingProgress.tla",
+      "replace": {
+        "old": "!.now=observed,!.dependency=execution",
+        "new": "!.privateHistory=TRUE,!.available=[b \\in Backends |-> TRUE],!.now=observed,!.dependency=execution"
+      },
+      "workloads": ["configs/proving-recovery-resources-audit.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "RecoveryResourceAudit"
+      },
+      "obligation": "FreshAbsent explicitly removes history and both backends before completed recovery; recovery preserves absence and only later explicit resource arrivals restore fresh-task completion."
+    },
+    {
+      "id": "proving-recovery-generation",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaProvingProgress.tla",
+      "replace": {
+        "old": "(~CheckGeneration \\/ x.generation=r.generation)",
+        "new": "TRUE"
+      },
+      "workloads": ["configs/proving-recovery-generation-audit.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "RecoveryGenerationAudit"
+      },
+      "obligation": "OldOutstanding keeps original generation0 proofs, live reference0, ancestry support, matching frontier1, full data and head2 after recovery at1; actual old Land must remain rejected. The original M07 generation semantic control is retained."
+    },
+    {
+      "id": "proving-recovery-enabled",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaProvingProgress.tla",
+      "replace": {
+        "old": "/\\ r.generation=0 /\\ r.now+2<=MaxTime",
+        "new": "/\\ FALSE /\\ r.generation=0 /\\ r.now+2<=MaxTime"
+      },
+      "workloads": ["configs/proving-recovery-enabled-audit.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "RecoveryEnabledAudit"
+      },
+      "obligation": "FreshPresent must actually execute the required nonzero-origin recovery step; a disabled action is recorded and fails independently enumerated enabledness rather than earning vacuous safety success."
+    },
+    {
+      "id": "handoff-stop-proof-generation",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaSettlement.tla",
+      "replace": {
+        "old": "    /\\ (~CheckProofGeneration \\/ proof.generation = generation)",
+        "new": "    /\\ TRUE \\* Deliberate selected-product generation-binding fault."
+      },
+      "workloads": ["configs/stop-proof-generation-audit-due.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "StopProofGenerationAudit"
+      },
+      "obligation": "Positive due-stop held-candidate/opaque-proof composition: an independently queued generation-zero proof is land-enabled before actual public recovery at nonzero checkpoint1, then its actual enabledness receipt must refuse landing under generation1 while its retained parent reference stays live. Selected abstract proof availability is a fixed premise, not produced-proof, retention-clock or full-product evidence."
+    },
+    {
+      "id": "handoff-signer-durable-floor",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaSignerCrash.tla",
+      "replace": {
+        "old": "    /\\ durableFloor' = IF PreserveGenerationFence THEN 1 ELSE durableFloor",
+        "new": "    /\\ durableFloor' = durableFloor \\* Deliberate omitted durable floor."
+      },
+      "workloads": ["configs/handoff-signer-floor-audit.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "SignerFloorExposureAudit"
+      },
+      "obligation": "Selected actual-action Future/queued-proof/signer product: authenticated public recovery must survive signer restart and refuse an actually attempted same-record old-domain re-exposure, including idempotent returned/network set reuse."
+    },
+    {
+      "id": "handoff-signer-crash-hrs",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaSignerCrash.tla",
+      "replace": {
+        "old": "    /\\ durable' = IF PreserveHRSOnCrash THEN durable ELSE [d \\in Domains |-> EmptyRecord(d)]",
+        "new": "    /\\ durable' = [d \\in Domains |-> EmptyRecord(d)] \\* Deliberate HRS loss on crash."
+      },
+      "workloads": ["configs/handoff-signer-hrs-audit.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "SignerHRSExposureAudit"
+      },
+      "obligation": "Selected actual-action handoff/signer product: fresh domain1 two-slot persisted returns must retain HRS across actual Crash/Restart, preventing the actually attempted lower-slot conflicting exposure."
+    },
+    {
+      "id": "registry-public-pending-deduction",
+      "required": true,
+      "engine": "forge",
+      "source": "contracts",
+      "path": "packages/protocol/contracts/layer1/etna/impl/EtnaStakingRegistry.sol",
+      "replace": {
+        "old": "        pending.pendingTopUp -= penalty - fromEffective;",
+        "new": "        // Diagnostic omission: pending principal not deducted."
+      },
+      "workloads": [
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_allPublishedOwnerAAPoPs()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_allPublishedOwnerBBPoPs()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_repeatedActivationAndClosedHistory()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_pendingLiabilityConfirmationAndPayout()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_fullForfeitPublicZeroWithdrawal()"
+      ],
+      "failure": {
+        "kind": "forge",
+        "failures": {
+          "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_pendingLiabilityConfirmationAndPayout()": "public ledger: pending principal"
+        }
+      }
+    },
+    {
+      "id": "m07-recapture-reference-age",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaProvingProgress.tla",
+      "replace": {
+        "old": "/\\ (IF PastReference THEN x.reference<r.now ELSE x.reference<=r.now) /\\ r.now-x.reference<=RefWindow /\\ x.reference-x.dependency<=AncestryBudget",
+        "new": "/\\ (IF PastReference THEN x.reference<r.now ELSE x.reference<=r.now) /\\ x.reference-x.dependency<=AncestryBudget"
+      },
+      "workloads": ["configs/proof-recapture-audit-expiry.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "RecaptureExpiryAudit"
+      },
+      "obligation": "H03 actual expiry omission executes bad Land against independent raw attempt audit."
+    },
+    {
+      "id": "m07-recapture-backend-binding",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaProvingProgress.tla",
+      "replace": {
+        "old": " /\\ (~CheckBackendBinding \\/ (r.proofs[<<j,\"A\">>].statement=x.statement /\\ r.proofs[<<j,\"B\">>].statement=x.statement))",
+        "new": ""
+      },
+      "workloads": ["configs/proof-recapture-audit-binding.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "RecaptureBindingAudit"
+      },
+      "obligation": "H03 actual binding omission executes bad Land against independent raw attempt audit."
+    },
+    {
+      "id": "m06-suffix-cursor-rewind",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaForcedInclusion.tla",
+      "replace": {
+        "old": "!.frontier=c, !.cursor=fi.landedCuts[c], !.anchorFloor=now, !.lastAnchor=now,",
+        "new": "!.frontier=c, !.cursor=fi.cursor, !.anchorFloor=now, !.lastAnchor=now,"
+      },
+      "workloads": ["configs/fi-suffix-recovery-audit-cursor.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "SuffixCursorAudit"
+      },
+      "obligation": "H04 actual cursor recovery write fault executes real FIRecover against an independent raw before/after audit."
+    },
+    {
+      "id": "m06-suffix-hash-blanking",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaForcedInclusion.tla",
+      "replace": {
+        "old": "THEN [fi.queue[i] EXCEPT !.hash=\"Nil\"] ELSE fi.queue[i]],",
+        "new": "THEN fi.queue[i] ELSE fi.queue[i]],"
+      },
+      "workloads": ["configs/fi-suffix-recovery-audit-hash.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "SuffixHashAudit"
+      },
+      "obligation": "H04 actual hash recovery write fault executes real FIRecover against an independent raw before/after audit."
+    },
+    {
+      "id": "m09-payments-upgrade-cash",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaVerifierRollback.tla",
+      "replace": {
+        "old": "/\\ UNCHANGED <<now,authorization,pendingProof,lastLanding,audit,cash>>",
+        "new": "/\\ cash'=[cash EXCEPT !.valuePaid=1]\n /\\ UNCHANGED <<now,authorization,pendingProof,lastLanding,audit>>"
+      },
+      "workloads": ["configs/rollback-payments-audit-cash.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "PaymentUpgradeCashAudit"
+      },
+      "obligation": "Actual paid value2 before real Upgrade must remain2; dedicated observer reads primed raw cash, not unprimed journal.afterCash. Reset to imported1 must fail immediately, never count as a harmless net offset."
+    },
+    {
+      "id": "m09-payments-upgrade-completed",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaVerifierRollback.tla",
+      "replace": {
+        "old": "!.upgraded=TRUE,!.epoch=@+1]",
+        "new": "!.completed[\"Forged\"]=FALSE,!.upgraded=TRUE,!.epoch=@+1]"
+      },
+      "workloads": ["configs/rollback-payments-audit-completed.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "PaymentUpgradeCompletedAudit"
+      },
+      "obligation": "Actual pre-correction Forged payment has escrow0/completedTRUE; real Upgrade must preserve its completed flag. This is preservation, not an invented duplicate cash payout."
+    },
+    {
+      "id": "identity-second-recovery-generation",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaSettlement.tla",
+      "replace": {
+        "old": "    /\\ generation' = generation + 1",
+        "new": "    /\\ generation' = 1"
+      },
+      "workloads": [
+        "configs/repeated-recovery-identity-sourcefault-generation.cfg"
+      ],
+      "failure": {
+        "kind": "invariant",
+        "name": "RepeatedSecondGenerationAudit"
+      },
+      "obligation": "J01 actual second structural Recover must increment raw generation1 to2; a saturated1 write is indistinguishable at the first recovery and fails only the dedicated immediate second-recovery audit. Actual action execution and complete original/restored histories are separately observed."
+    },
+    {
+      "id": "trust-node-local-revocation",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaL1Trust.tla",
+      "replace": {
+        "old": "/\\ trusted' = [trusted EXCEPT ![n] =\n          IF CheckSupersession /\\ Gen(provider[n]) > SessionGeneration THEN FALSE ELSE @]",
+        "new": "/\\ trusted' = [m \\in Nodes |->\n          IF CheckSupersession /\\ Gen(provider[n]) > SessionGeneration THEN FALSE ELSE trusted[m]]"
+      },
+      "workloads": ["configs/trust-supersession-audit-first1.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "TrustSelectiveRevokeAudit"
+      },
+      "obligation": "J02 actual first finalized generation observation must revoke only its observing node and preserve all twelve fields of the other still-trusted node, whose actual old-view Retained signing and service remain available. Excess revocation can preserve inherited conservative safety; a dedicated immediate raw noninterference observer must detect the actual cross-node trust write."
+    },
+    {
+      "id": "registry-pending-admission-balance",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaRegistry.tla",
+      "replace": {
+        "old": "SlotBalance(s) == IF r.slots[s].occupied THEN Balance(r.bonds[r.slots[s].id]) ELSE 0",
+        "new": "SlotBalance(s) == IF r.slots[s].occupied THEN r.bonds[r.slots[s].id].eff ELSE 0"
+      },
+      "workloads": ["configs/registry-retirement-admission-audit.cfg"],
+      "failure": {
+        "kind": "invariant",
+        "name": "RegistryRawAdmissionAudit"
+      },
+      "obligation": "J03 actual occupied-slot admission must count effective1 plus pending2 on each tied slot. Register amount2 executes its reject branch with operational state unchanged; omitting pending from actual SlotBalance accepts key2/ID2 and transfers2 at receipt9, caught by the immediate independent raw admission observer before generic audits or later calls."
+    },
+    {
+      "id": "signer-nil-replay-saved-bytes",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaSignerCrash.tla",
+      "replace": {
+        "old": "/\\ pending' = IF reuse' THEN durable[d]",
+        "new": "/\\ pending' = IF reuse' THEN Record(d,s,p,salt)"
+      },
+      "workloads": [
+        "configs/signer-nil-replay-replay-audit-written-salt0-early.cfg"
+      ],
+      "failure": {
+        "kind": "invariant",
+        "name": "NilRetryByteAudit"
+      },
+      "obligation": "J04 actual Written same-request retry must restore saved Nil salt0 bytes despite caller salt1. Mutating only actual Request reuse pending assignment creates alternate bytes and fails immediate raw retry audit at receipt10, before Expose12. Computed fresh-recompute profiles remain separately measured positive controls, not extra kills."
+    },
+    {
+      "id": "proving-overlap-retained-prefix",
+      "required": true,
+      "engine": "tlc",
+      "source": "formal",
+      "path": "EtnaProvingProgress.tla",
+      "replace": {
+        "old": "r'=[r EXCEPT !.included=x.terminal,!.records[x.terminal]=rec]",
+        "new": "r'=[r EXCEPT !.included=x.terminal,!.records[x.terminal]=rec,!.records[r.included]=IF r.included=0 THEN @ ELSE AbsentRecord]"
+      },
+      "workloads": [
+        "configs/proving-arrival-overlap-retained-prefix-audit.cfg"
+      ],
+      "failure": {
+        "kind": "invariant",
+        "name": "OverlapRetainedPrefixAudit"
+      },
+      "obligation": "J05 overlapping same-block long settlement must retain the already landed interior record1. Mutating the actual Land r-prime write preserves genesis on first landing but erases record1 on second. Dedicated immediate literal raw audit detects this without relying on observer expectedRecords; twelve full baseline/restored histories and distinct independent finality/omission challenges are separately attributed."
+    }
+  ]
+}

@@ -1,0 +1,3150 @@
+{
+  "boundaries": [
+    "Authenticated resolved L2 anchor and actual node/image rules are model-only",
+    "Unzen finalization and first-landing proof are explicit setup premises",
+    "Registry callback lock and structural K upgrade are not replayed"
+  ],
+  "cases": [
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 7,
+          "rules": 0,
+          "time": 2,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Stop",
+        "present": true,
+        "program": "BadStop",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 0, 0],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "BadStop/1"
+    },
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 6,
+          "rules": 0,
+          "time": 0,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Stop",
+        "present": true,
+        "program": "BadZeroStop",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 0, 0],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "BadZeroStop/1"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 2,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 1,
+          "time": 2,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Rules",
+        "present": true,
+        "program": "Earliest",
+        "scheduleEvent": {
+          "limbs": [0, 1, 2, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "Earliest/1"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 2,
+            "stopGrid": 6,
+            "stopTime": 3
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 6,
+          "rules": 0,
+          "time": 3,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 2,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 2,
+        "operation": "Stop",
+        "present": true,
+        "program": "Earliest",
+        "scheduleEvent": {
+          "limbs": [0, 1, 2, 3, 6],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "Earliest/2"
+    },
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 1,
+          "time": 3,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": false,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Rules",
+        "present": true,
+        "program": "NotOwner",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 0, 0],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "NotOwner/1"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 2,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 1,
+          "time": 2,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Rules",
+        "present": true,
+        "program": "Promote",
+        "scheduleEvent": {
+          "limbs": [0, 1, 2, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "Promote/1"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 1,
+            "nextRules": 2,
+            "rulesTime": 4,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 2,
+          "time": 4,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 2,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 2,
+        "operation": "Rules",
+        "present": true,
+        "program": "Promote",
+        "scheduleEvent": {
+          "limbs": [1, 2, 4, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "Promote/2"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 2,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 1,
+          "time": 2,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Rules",
+        "present": true,
+        "program": "PromotionRevert",
+        "scheduleEvent": {
+          "limbs": [0, 1, 2, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "PromotionRevert/1"
+    },
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 2,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 3,
+          "time": 4,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 2,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 2,
+        "operation": "Rules",
+        "present": true,
+        "program": "PromotionRevert",
+        "scheduleEvent": {
+          "limbs": [0, 1, 2, 0, 0],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "PromotionRevert/2"
+    },
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 0,
+          "time": 0,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 1,
+        "operation": "Recover",
+        "present": true,
+        "program": "RecoveryCheckpoint",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 0, 0],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": true,
+          "startWritten": true
+        }
+      },
+      "id": "RecoveryCheckpoint/1"
+    },
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 12,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 0,
+          "time": 0,
+          "validUntil": 1
+        },
+        "before": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 1,
+        "operation": "Recover",
+        "present": true,
+        "program": "RecoveryExpired",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 0, 0],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": true,
+          "startWritten": true
+        }
+      },
+      "id": "RecoveryExpired/1"
+    },
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 12,
+          "expectedGeneration": 1,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 0,
+          "time": 0,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 1,
+        "operation": "Recover",
+        "present": true,
+        "program": "RecoveryGeneration",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 0, 0],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": true,
+          "startWritten": true
+        }
+      },
+      "id": "RecoveryGeneration/1"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 5,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 1,
+          "time": 5,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Rules",
+        "present": true,
+        "program": "RecoveryNew",
+        "scheduleEvent": {
+          "limbs": [0, 1, 5, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": true,
+          "startWritten": true
+        }
+      },
+      "id": "RecoveryNew/1"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 5,
+            "stopGrid": 12,
+            "stopTime": 4
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 12,
+          "rules": 0,
+          "time": 4,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 5,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 2,
+        "operation": "Stop",
+        "present": true,
+        "program": "RecoveryNew",
+        "scheduleEvent": {
+          "limbs": [0, 1, 5, 4, 12],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": true,
+          "startWritten": true
+        }
+      },
+      "id": "RecoveryNew/2"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 12,
+          "generation": 1,
+          "nonce": 1,
+          "origin": {
+            "height": 12,
+            "l1Block": 103,
+            "present": true,
+            "timestamp": 3
+          },
+          "originHeight": 12,
+          "schedule": {
+            "activeRules": 2,
+            "nextRules": 2,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 12,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 2,
+          "time": 0,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 5,
+            "stopGrid": 12,
+            "stopTime": 4
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 103,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 3
+        },
+        "index": 3,
+        "operation": "Recover",
+        "present": true,
+        "program": "RecoveryNew",
+        "scheduleEvent": {
+          "limbs": [2, 2, 0, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": true,
+          "startWritten": true
+        }
+      },
+      "id": "RecoveryNew/3"
+    },
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 0,
+            "l1Block": 0,
+            "present": false,
+            "timestamp": 0
+          },
+          "originHeight": 0,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 0,
+          "time": 0,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 0,
+            "l1Block": 0,
+            "present": false,
+            "timestamp": 0
+          },
+          "originHeight": 0,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": false,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Recover",
+        "present": true,
+        "program": "RecoveryNoStart",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 0, 0],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": false
+        }
+      },
+      "id": "RecoveryNoStart/1"
+    },
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 12,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 1,
+          "grid": 0,
+          "rules": 0,
+          "time": 0,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 1,
+        "operation": "Recover",
+        "present": true,
+        "program": "RecoveryNonce",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 0, 0],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": true,
+          "startWritten": true
+        }
+      },
+      "id": "RecoveryNonce/1"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 5,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 1,
+          "time": 5,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Rules",
+        "present": true,
+        "program": "RecoveryNumber",
+        "scheduleEvent": {
+          "limbs": [0, 1, 5, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": true,
+          "startWritten": true
+        }
+      },
+      "id": "RecoveryNumber/1"
+    },
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 5,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 12,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 3,
+          "time": 0,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 5,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 2,
+        "operation": "Recover",
+        "present": true,
+        "program": "RecoveryNumber",
+        "scheduleEvent": {
+          "limbs": [0, 1, 5, 0, 0],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": true,
+          "startWritten": true
+        }
+      },
+      "id": "RecoveryNumber/2"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 12,
+          "generation": 1,
+          "nonce": 1,
+          "origin": {
+            "height": 12,
+            "l1Block": 102,
+            "present": true,
+            "timestamp": 2
+          },
+          "originHeight": 12,
+          "schedule": {
+            "activeRules": 1,
+            "nextRules": 1,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 12,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 1,
+          "time": 0,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 1,
+        "operation": "Recover",
+        "present": true,
+        "program": "RecoveryStop",
+        "scheduleEvent": {
+          "limbs": [1, 1, 0, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": true,
+          "startWritten": true
+        }
+      },
+      "id": "RecoveryStop/1"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 12,
+          "generation": 1,
+          "nonce": 1,
+          "origin": {
+            "height": 12,
+            "l1Block": 102,
+            "present": true,
+            "timestamp": 2
+          },
+          "originHeight": 12,
+          "schedule": {
+            "activeRules": 1,
+            "nextRules": 1,
+            "rulesTime": 0,
+            "stopGrid": 12,
+            "stopTime": 4
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 12,
+          "rules": 0,
+          "time": 4,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 12,
+          "generation": 1,
+          "nonce": 1,
+          "origin": {
+            "height": 12,
+            "l1Block": 102,
+            "present": true,
+            "timestamp": 2
+          },
+          "originHeight": 12,
+          "schedule": {
+            "activeRules": 1,
+            "nextRules": 1,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 103,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 3
+        },
+        "index": 2,
+        "operation": "Stop",
+        "present": true,
+        "program": "RecoveryStop",
+        "scheduleEvent": {
+          "limbs": [1, 1, 0, 4, 12],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": true,
+          "startWritten": true
+        }
+      },
+      "id": "RecoveryStop/2"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 5,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 1,
+          "time": 5,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Rules",
+        "present": true,
+        "program": "RecoveryZero",
+        "scheduleEvent": {
+          "limbs": [0, 1, 5, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": true,
+          "startWritten": true
+        }
+      },
+      "id": "RecoveryZero/1"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 5,
+            "stopGrid": 12,
+            "stopTime": 4
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 12,
+          "rules": 0,
+          "time": 4,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 5,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 2,
+        "operation": "Stop",
+        "present": true,
+        "program": "RecoveryZero",
+        "scheduleEvent": {
+          "limbs": [0, 1, 5, 4, 12],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": true,
+          "startWritten": true
+        }
+      },
+      "id": "RecoveryZero/2"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 12,
+          "generation": 1,
+          "nonce": 1,
+          "origin": {
+            "height": 12,
+            "l1Block": 103,
+            "present": true,
+            "timestamp": 3
+          },
+          "originHeight": 12,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 5,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 12,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 0,
+          "time": 0,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 12,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 5,
+            "stopGrid": 12,
+            "stopTime": 4
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 103,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 3
+        },
+        "index": 3,
+        "operation": "Recover",
+        "present": true,
+        "program": "RecoveryZero",
+        "scheduleEvent": {
+          "limbs": [0, 1, 5, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": true,
+          "startWritten": true
+        }
+      },
+      "id": "RecoveryZero/3"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 5,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 1,
+          "time": 5,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Rules",
+        "present": true,
+        "program": "Reschedule",
+        "scheduleEvent": {
+          "limbs": [0, 1, 5, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "Reschedule/1"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 6,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 1,
+          "time": 6,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 5,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 2,
+        "operation": "Rules",
+        "present": true,
+        "program": "Reschedule",
+        "scheduleEvent": {
+          "limbs": [0, 1, 6, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "Reschedule/2"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 99,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 1,
+          "time": 99,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 6,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 103,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 3
+        },
+        "index": 3,
+        "operation": "Rules",
+        "present": true,
+        "program": "Reschedule",
+        "scheduleEvent": {
+          "limbs": [0, 1, 99, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "Reschedule/3"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 2,
+            "rulesTime": 5,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 2,
+          "time": 5,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 99,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 104,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 4
+        },
+        "index": 4,
+        "operation": "Rules",
+        "present": true,
+        "program": "Reschedule",
+        "scheduleEvent": {
+          "limbs": [0, 2, 5, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "Reschedule/4"
+    },
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 2,
+          "time": 3,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Rules",
+        "present": true,
+        "program": "RuleNumber",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 0, 0],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "RuleNumber/1"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 3,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 1,
+          "time": 3,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Rules",
+        "present": true,
+        "program": "RulesLock",
+        "scheduleEvent": {
+          "limbs": [0, 1, 3, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "RulesLock/1"
+    },
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 3,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 1,
+          "time": 4,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 1,
+            "rulesTime": 3,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 2,
+        "operation": "Rules",
+        "present": true,
+        "program": "RulesLock",
+        "scheduleEvent": {
+          "limbs": [0, 1, 3, 0, 0],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "RulesLock/2"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 6,
+            "stopTime": 5
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 6,
+          "rules": 0,
+          "time": 5,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Stop",
+        "present": true,
+        "program": "StopCancel",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 5, 6],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "StopCancel/1"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 0,
+          "time": 0,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 6,
+            "stopTime": 5
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 2,
+        "operation": "Stop",
+        "present": true,
+        "program": "StopCancel",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 0, 0],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "StopCancel/2"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 6,
+            "stopTime": 3
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 6,
+          "rules": 0,
+          "time": 3,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Stop",
+        "present": true,
+        "program": "StopLock",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 3, 6],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "StopLock/1"
+    },
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 6,
+            "stopTime": 3
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 0,
+          "time": 0,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 6,
+            "stopTime": 3
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 102,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 2
+        },
+        "index": 2,
+        "operation": "Stop",
+        "present": true,
+        "program": "StopLock",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 3, 6],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "StopLock/2"
+    },
+    {
+      "attempt": {
+        "accepted": true,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 6,
+            "stopTime": 2
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 6,
+          "rules": 0,
+          "time": 2,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Stop",
+        "present": true,
+        "program": "StopReached",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 2, 6],
+          "present": true,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "StopReached/1"
+    },
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 0,
+          "rules": 1,
+          "time": 1,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 6,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 6,
+            "l1Block": 100,
+            "present": true,
+            "timestamp": 0
+          },
+          "originHeight": 6,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": true,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": true,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Rules",
+        "present": true,
+        "program": "TooEarly",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 0, 0],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": true,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": true
+        }
+      },
+      "id": "TooEarly/1"
+    },
+    {
+      "attempt": {
+        "accepted": false,
+        "after": {
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 0,
+            "l1Block": 0,
+            "present": false,
+            "timestamp": 0
+          },
+          "originHeight": 0,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "args": {
+          "expectedC": 6,
+          "expectedGeneration": 0,
+          "expectedRecoveryNonce": 0,
+          "grid": 6,
+          "rules": 0,
+          "time": 3,
+          "validUntil": 6
+        },
+        "before": {
+          "checkpoint": 0,
+          "generation": 0,
+          "nonce": 0,
+          "origin": {
+            "height": 0,
+            "l1Block": 0,
+            "present": false,
+            "timestamp": 0
+          },
+          "originHeight": 0,
+          "schedule": {
+            "activeRules": 0,
+            "nextRules": 0,
+            "rulesTime": 0,
+            "stopGrid": 0,
+            "stopTime": 0
+          }
+        },
+        "context": {
+          "initialized": false,
+          "l1Block": 101,
+          "owner": true,
+          "registryUnlocked": true,
+          "startWritten": false,
+          "timestamp": 1
+        },
+        "index": 1,
+        "operation": "Stop",
+        "present": true,
+        "program": "Uninitialized",
+        "scheduleEvent": {
+          "limbs": [0, 0, 0, 0, 0],
+          "present": false,
+          "reserved16": 0
+        },
+        "schemaVersion": 1,
+        "setup": {
+          "cancellationSentinel": 99,
+          "etnaStart": 6,
+          "gridInterval": 6,
+          "initialized": false,
+          "maxAnchorAge": 1,
+          "originL1Block": 100,
+          "originTimestamp": 0,
+          "seededLanding": false,
+          "startWritten": false
+        }
+      },
+      "id": "Uninitialized/1"
+    }
+  ],
+  "content_sha256": "20ab1a3b83ba4f268a461e8bb9203f0b9c7539d5b50ab292564bd50e63d6f03e",
+  "mapping": {
+    "cancellation_sentinel": 99,
+    "cancellation_uint48": 281474976710655,
+    "etna_start": 6,
+    "grid_interval": 6,
+    "timestamp_base": 100000,
+    "timestamp_scale": 1152
+  },
+  "provenance": {
+    "base_sha256": "3fd57284128ea5a19966c2684161f909155a4730310972fee87d50eed009b84a",
+    "contracts_commit": "89f419915de4b73bb57c53bf970f6dea9e8e8c8c",
+    "contracts_manifest_sha256": "028393e722e7706407581fb4288bd4ee8def03803b11cc4006326cfaf7167c34",
+    "export_config_sha256": "523594aa82c984993e0c18038562297009c7008a1306bcb52b6e11b422f062e0",
+    "model_sha256": "7057ba1679583b03282a5a290cee6f0d8df222fa2c10b5a79ceefc1c07ce183f",
+    "parser_sha256": "52a12a70d8e4964d1420c5e19700a715f572bbf14e1bce1426b1cc0b475dac00",
+    "pins_sha256": "6b48158f184f3daa83118edf02ba82e0c480ee9ff75f775b5bccea7d831ea00d",
+    "source_config_sha256": "6ca567440b86d5de1aa1897bed65969bd3e0a8c0e2ba156713241118cdd36d4f",
+    "tlc_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+    "wrapper_sha256": "dc57fa9ad2a807788a6325eaafd1832972dfaf69cdc9a013121678f019917d54"
+  },
+  "schema": "etna-rules-replay-1",
+  "supplemental": [
+    "Concrete uint48 scheduling boundary and ABI range rejection"
+  ]
+}

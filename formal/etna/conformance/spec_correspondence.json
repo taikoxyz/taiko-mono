@@ -1,0 +1,16 @@
+{
+  "schema": "etna-spec-correspondence-1",
+  "path": "packages/protocol/docs/etna/SPEC.md",
+  "authority": {
+    "commit": "d18357214fab30ea512ae9858a11699806d72ba1",
+    "blob": "649548c58d6629dd85143b33efd3644a3bb71509",
+    "sha256": "4d81d5dadcee3eb94ff554ec5a8144a47888dd5a8263ac5852422a0f1d1dd71b"
+  },
+  "reviewedWorkspace": {
+    "commit": "9c832234b4681fbc5eccdbaf9c9303b7869f91f4",
+    "blob": "033f7ffd28ab9c3de7188948fb67eabfe9d180e6",
+    "sha256": "7875c10373114ca5eaa7b164d2bfa844b4f5bbbede2ebfa252bb59246efd96de"
+  },
+  "classification": "reviewed-scoped-correspondence",
+  "rationale": "Exact-source scoped review of main9c832234 after #22410 supersedes the prior reviewed workspace991e06f6; the historical authority and consumer pins remain unchanged. SPEC_CORRESPONDENCE.md maps all amended clauses to the selected historical consumers. The registry initialization tail, stock Comet vote/sign-bytes/FilePV/handler rules, selected Registry lifecycle and ordinary L1 checkpoint save/get behavior remain within the historical bounded scope. This does not validate the new SignalService deployment, L1 Unzen checkpoint forwarding/cutoff, L2 EIP-4788 root lookup/store closure, implementation proof at S, or the additional beaconRootsFrom-versus-local-fork-time check at every trust target. Abstract trusted-state premises and mocked Registry snapshot/generation inputs do not establish those checks. This is neither editorial nor whole-SPEC equivalence, does not cover future bytes, and cannot make historical native results evidence of the amended paths."
+}

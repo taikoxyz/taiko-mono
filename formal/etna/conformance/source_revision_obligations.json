@@ -1,0 +1,149 @@
+{
+  "schema": "etna-source-revision-obligations-1",
+  "bundles": {
+    "f556fa94186b0ab604573e8d3a4c4d4fa835dc84": {
+      "disposition": "source-review-only",
+      "execution": "NOT_EVALUATED",
+      "supersedes": "2e6763e21bc236cfcda6011d164b32040f9e0c8d",
+      "evidence": null,
+      "obligations": [
+        {
+          "id": "Y01",
+          "ruleIds": [
+            "START-10.1-5a",
+            "START-10.1-5b",
+            "START-10.1-5c"
+          ],
+          "scope": "Generation-bound rules/stop writes and cancellation, including delayed authorized calls after recovery. The original same-domain finite projection remains conditional on its fixed transition system.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y02",
+          "ruleIds": [
+            "STAKE-4.1-13a",
+            "RECOV-8.1-1",
+            "RECOV-8.3-1",
+            "RECOV-8.4-3",
+            "START-10-21",
+            "RECOV-8-38",
+            "RECOV-8.1-7"
+          ],
+          "scope": "Permanent issued bondId exclusions in strictly increasing order, whole-landing authorization audit, voided records and fixed recovery genesis. Original empty-list repeated-recovery examples do not cover the current nonempty ABI or governance execution.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y03",
+          "ruleIds": [
+            "START-10.1-5a",
+            "PROOF-6.2-17",
+            "PROOF-6.2-43",
+            "LAND-6.1-6",
+            "LAND-6.1-10",
+            "RECOV-8-27"
+          ],
+          "scope": "Unvoided origin and non-regressing snapshot checks before verification, current signing-set/header/anchor checks and actual per-rule guest proofs. Earlier ordered-range and per-family finite results retain their original premises.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y04",
+          "ruleIds": [
+            "STAKE-4.1-13a",
+            "FORF-4.4-1",
+            "FORF-4.4-20"
+          ],
+          "scope": "Permanent bondId forfeiture calldata, flags/events, issued-id and withdrawal races, ascending exclusions and ordered self-report economics. Historical funded proxy accounting does not implement the new key space or ABI.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y05",
+          "ruleIds": [
+            "STAKE-4.1-36",
+            "COMM-4.3-2",
+            "COMM-4.3-5",
+            "START-10-12",
+            "COMM-4.3-3",
+            "COMM-4.3-4"
+          ],
+          "scope": "Snapshot count is zero for an empty registry or highest occupied slot plus one, with an occupied final entry, shrinking counts, unified immutable minStake and bondId exclusion resolution. The old API accepts positive-width trailing/all-empty entries and is not current snapshot admission evidence.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y06",
+          "ruleIds": [
+            "DATA-5.4-1",
+            "DATA-5.4-8",
+            "RECOV-8.2-2",
+            "SYNC-9-5c",
+            "DATA-5.4-2",
+            "DATA-5.4-3",
+            "DATA-5.4-4",
+            "DATA-5.4-6",
+            "DATA-5.4-5"
+          ],
+          "scope": "Authenticated full window, LoadBlockCommit and LoadSeenCommit, metadata and complete validator sets with stored proposer, durable aligned app/EL/Comet install and signer fencing. Historical seen-commit constructor observations remain separate and the prior full Y06 native producer integration remains inconclusive.",
+          "status": "WAITING"
+        },
+        {
+          "id": "Y07",
+          "ruleIds": [
+            "CONS-3.1-10",
+            "START-10-21",
+            "DATA-5.4-2",
+            "DATA-5.4-8",
+            "START-10-20",
+            "START-10-22",
+            "START-10-23",
+            "DATA-5.4-3",
+            "DATA-5.4-4",
+            "DATA-5.4-5",
+            "DATA-5.4-6",
+            "RECOV-8.4-7"
+          ],
+          "scope": "Zero block evidence budget in both genesis types, proposal and block-sync rejection of every nonempty list, fresh import evidence database and authenticated retained history for continued incoming gossip/light-client evidence. The old synthetic max_bytes=1048576 committed-marker fixture cannot represent valid current imported Etna history.",
+          "status": "WAITING"
+        },
+        {
+          "id": "STOCK_DEPLOYMENT",
+          "ruleIds": [
+            "CONS-3.1-1",
+            "CONS-3.1-8",
+            "RECOV-8.2-1",
+            "SYNC-9-5c",
+            "CONS-3.1-9"
+          ],
+          "scope": "Installed platform binary digest/build/config, recovery of the exact certified first block, complete historical proposer/validator state and isolated signer restart. Version strings and selected stock public API operations do not establish deployment behavior.",
+          "status": "WAITING"
+        },
+        {
+          "id": "SWITCH",
+          "ruleIds": [
+            "START-10-5b",
+            "START-10-5c",
+            "LAND-6.1-8a",
+            "START-10-20"
+          ],
+          "scope": "Permissionless proven Unzen-tip origin latch, finalized R0, closed checkpoint forwarding after start, deadline-bound two-chain replacement and acknowledgment, split-configuration failure and actual first landing. Old originWriter/start-before-proof assumptions do not apply.",
+          "status": "WAITING"
+        },
+        {
+          "id": "PUBLIC_HISTORY",
+          "ruleIds": [
+            "DATA-5.3-9a",
+            "DATA-5.4-8"
+          ],
+          "scope": "Independent public availability and import packages after blob expiry, authenticated header/commit ancestry and current retained evidence/committee/anchor windows. Existing symbolic trust premises and archived inconclusive results remain open.",
+          "status": "WAITING"
+        },
+        {
+          "id": "RESOURCES",
+          "ruleIds": [
+            "MODEL-1-2",
+            "LIMIT-12-17"
+          ],
+          "scope": "Current worst legal single-block and full-batch two-proof feasibility, 4096-slot sparse/full registry gas and witness measurements, resource/latency and complete operational rehearsals. Finite models, mock execution and source classification do not supply these measurements.",
+          "status": "WAITING"
+        }
+      ]
+    }
+  }
+}

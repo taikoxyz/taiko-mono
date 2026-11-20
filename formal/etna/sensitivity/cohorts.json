@@ -1,0 +1,119 @@
+{
+  "schema": "etna-fault-cohorts-1",
+  "manifest": "mutations.json",
+  "cohorts": [
+    {
+      "id": "tlc",
+      "engine": "tlc",
+      "test_ids": [],
+      "required_ids": [
+        "m10-el-binding",
+        "m10-connect-enabled",
+        "m10-state-binding",
+        "m10-computed-state-binding",
+        "m10-header-binding",
+        "m10-envelope-binding",
+        "m10-preimage-binding",
+        "m10-entries-binding",
+        "m10-window-binding",
+        "m10-missing-present",
+        "m10-missing-finality",
+        "m10-missing-ancestors",
+        "m10-missing-evidence",
+        "m10-contradiction-envelope",
+        "m10-contradiction-next",
+        "m10-contradiction-entries",
+        "m10-conflict-non-origin",
+        "m10-conflict-finality",
+        "m10-conflict-present",
+        "m10-conflict-header-binding",
+        "m10-connect-disabled-progress",
+        "m10-connect-no-effect",
+        "m10-target-auth-progress",
+        "handoff-latest-schedule",
+        "handoff-current-clock",
+        "handoff-relabel-generation",
+        "handoff-relabel-anchor",
+        "handoff-cached-authorization",
+        "handoff-proof-generation",
+        "handoff-stop-ignore-stop",
+        "handoff-stop-premature-stop",
+        "handoff-stop-ignore-grid",
+        "handoff-stop-current-cleared-stop",
+        "handoff-stop-sign-stop-bypass",
+        "handoff-stop-recovery-origin",
+        "handoff-stop-candidate-time",
+        "handoff-fresh-first-time",
+        "handoff-fresh-parent-time",
+        "handoff-fresh-parent-height",
+        "recovery-time-bft-origin",
+        "recovery-time-parent-step",
+        "recovery-time-later-anchor",
+        "recovery-time-collapse-clocks",
+        "recovery-time-construction-enabled",
+        "m10-conflict-auth-envelope",
+        "m10-conflict-auth-preimage-next",
+        "m10-conflict-auth-preimage-entry",
+        "m10-conflict-auth-registry",
+        "m10-conflict-auth-window",
+        "m10-positive-import-chronology",
+        "m10-positive-origin-genesis-proposer",
+        "m10-header-chain",
+        "m10-header-height",
+        "m10-positive-first-priority-bound",
+        "m10-positive-second-priority-bound",
+        "m10-positive-committed-pair",
+        "proving-recovery-origin",
+        "proving-recovery-resources",
+        "proving-recovery-generation",
+        "proving-recovery-enabled",
+        "handoff-stop-proof-generation",
+        "handoff-signer-durable-floor",
+        "handoff-signer-crash-hrs",
+        "m07-recapture-reference-age",
+        "m07-recapture-backend-binding",
+        "m06-suffix-cursor-rewind",
+        "m06-suffix-hash-blanking",
+        "m09-payments-upgrade-cash",
+        "m09-payments-upgrade-completed",
+        "identity-second-recovery-generation",
+        "trust-node-local-revocation",
+        "registry-pending-admission-balance",
+        "signer-nil-replay-saved-bytes",
+        "proving-overlap-retained-prefix"
+      ]
+    },
+    {
+      "id": "forge-identity",
+      "engine": "forge",
+      "test_ids": [
+        "test/layer1/etna/conformance/EtnaIdentityReplay.t.sol:EtnaIdentityReplayTest::test_identity_publicHistoryPublication()"
+      ],
+      "required_ids": [
+        "settlement-signal-publication",
+        "settlement-signal-state-root",
+        "settlement-active-snapshot"
+      ]
+    },
+    {
+      "id": "forge-rules",
+      "engine": "forge",
+      "test_ids": [
+        "test/layer1/etna/conformance/EtnaRulesReplay.t.sol:EtnaRulesReplayTest::test_conformance_stopHandoffReplay()"
+      ],
+      "required_ids": ["handoff-actual-stop-clear", "handoff-actual-stop-event"]
+    },
+    {
+      "id": "forge-registry-public",
+      "engine": "forge",
+      "test_ids": [
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_allPublishedOwnerAAPoPs()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_allPublishedOwnerBBPoPs()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_repeatedActivationAndClosedHistory()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_pendingLiabilityConfirmationAndPayout()",
+        "test/layer1/etna/conformance/EtnaRegistryPublicReplay.t.sol:EtnaRegistryPublicReplayTest::test_public_fullForfeitPublicZeroWithdrawal()"
+      ],
+      "required_ids": ["registry-public-pending-deduction"]
+    }
+  ]
+}

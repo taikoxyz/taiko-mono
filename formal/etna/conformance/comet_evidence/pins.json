@@ -1,0 +1,45 @@
+{
+  "cases": [
+    "cold-grid",
+    "gossip",
+    "pending-restart",
+    "committed-window"
+  ],
+  "claim": "evidence-lifecycle",
+  "goToolSha256": {
+    "VERSION": "28ff77ac2178f2faca8a4f535e60b1738e397c9086b3ecfc18c9955abe75634a",
+    "bin/go": "de0ae3e082ce7599eae4fb69fa2ef1e43b8f31ffd3fce62cdf81930aa9005050",
+    "pkg/tool/linux_amd64/asm": "a67997d99985e3ef3ecd30f029685d67d778a0c8f78b852396ef7738426c04b5",
+    "pkg/tool/linux_amd64/compile": "40307e5f5c65a4b4220bbf35dbe014348780589ea2964003f0bf318fa14640e1",
+    "pkg/tool/linux_amd64/link": "e2248a29fbbf15dac1fe72c9d646776dbcd38c9813b78182fe01a4a47f3299c3",
+    "pkg/tool/linux_amd64/vet": "d8a579657a9222c8e69e19e3f9783d5694976b2a0bbf39cda12e90e49944ba52"
+  },
+  "inputsSha256": {
+    "evidence_test.go": "7956ddba05937e5ddf4cc7fa455969a3b858baa6ce518004b7e1411b0ade2cbb",
+    "go.mod": "ec593522b6e150f80d7453dc2443ee472ff0faf02bfe61f1a302252a1a34b48e",
+    "go.sum": "f79af3ec03edcbd7f173a87cca9318677d139fda4f3cb629873546b3ec71842a",
+    "public-votes.json": "34932f8ddf991ae41eb1be94c873e99524f51cf96d427faed4a1bfc443dc960e",
+    "public_input.go": "5933e850c60b73872526af3e58e6a1229428f80bab207d8121ce557f1f488d46"
+  },
+  "package": "example.org/etna-comet-evidence",
+  "parent": "TestEvidenceLifecycle",
+  "schema": "etna-comet-boundary-pins-1",
+  "source": {
+    "commit": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+    "files": 1659,
+    "goModSum": "h1:3z+Aq3BSkwNKw+Z40yPUTxtSRIpQa0w2PyCwyaxxHeU=",
+    "goModuleSum": "h1:0+zc7FlcnonFfMwzhyDCd5vK/fHZqz0RfRyTCxZsFPU=",
+    "license": "Apache-2.0",
+    "manifestSha256": "627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c",
+    "module": "github.com/cometbft/cometbft",
+    "officialTree": "083ecc3cf413b6333ffe47c2b0ce1d91ce84a259",
+    "version": "v0.40.0"
+  },
+  "sourceFault": {
+    "afterSha256": "2e3b745d4f7fb7c82ec43408467d8ffadfc37402f176b8c75d997f7799519dfd",
+    "beforeSha256": "ea13e9b3bbe47e961c063de70152ddf1045a903df2b0fbcefdd26660a7ac64c6",
+    "mutantSha256": "4ab7d94f1259019138291012098b307e486e5a5ceb2dcf39ddd1f33b97588928",
+    "originalSha256": "df8595a75edb9f1e56cda5a543170fdb88ccd3eda4396f1e0747e8acf86d4fa6",
+    "path": "evidence/verify.go"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema": "etna-comet-apphash-programs-1",
+  "cases": {
+    "late-rescale": {
+      "generation": "0",
+      "initial_height": 1,
+      "last_height": 8,
+      "genesis": {"A": 1, "B": 36, "H": 156},
+      "updates": {"1": {"A": 80, "B": 19, "C": 1, "H": 0}},
+      "checkpoint": 6
+    },
+    "recovery-origin": {
+      "generation": "1",
+      "initial_height": 21,
+      "last_height": 22,
+      "genesis": {"A": 1, "B": 1, "C": 1},
+      "updates": {"21": {"H": 1}, "22": {"B": 0}},
+      "checkpoint": 0
+    }
+  }
+}

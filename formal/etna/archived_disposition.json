@@ -1,0 +1,335 @@
+{
+  "schema_version": 1,
+  "signer_predecessor_sha256": "7c86c43e5d10a64cf101d3c61d6ed47d7ec0212c7c59ae11266bd8ff12b957cf",
+  "source_sha256": {
+    "EtnaSignerCrash.tla": "c948786960d3dd5af381c653f3c0c28795291b19d3b96e660efa8825f6d93c4a",
+    "experiments/fi-base/EtnaSettlement.tla": "3fd57284128ea5a19966c2684161f909155a4730310972fee87d50eed009b84a",
+    "experiments/fi-budget/EtnaForcedInclusion.tla": "88e57203820d9c7181492e26acb66f11780122608aca23eecb6f365c52391ce3",
+    "experiments/fi-prefix/EtnaForcedInclusion.tla": "b67dff82898d529f50766f1753d19ec9d6f2b03aabe9f9f74b63d43173a72464",
+    "experiments/fi-projected/EtnaForcedInclusion.tla": "4b0630076730e46ca5af773ab7254f51ace45c5e2c1887b5d333adfeec50d344",
+    "experiments/fi-raw/EtnaForcedInclusion.tla": "e2dfa04e24692e8341e213d65a16469ec4c5d8bddcd93c44e81dedf5a8c754f1",
+    "experiments/m09-wide-runtime/EtnaSettlement.tla": "3fd57284128ea5a19966c2684161f909155a4730310972fee87d50eed009b84a",
+    "experiments/m09-wide-runtime/EtnaVerifierRollback.tla": "a6372f24c9255a1b4affdad33792f273ac3267d5dd5a12fcc4cc31f9047d84a3",
+    "experiments/progress-initial/EtnaProvingProgress.tla": "42376253c4cd531596952ae2b0a5a03b82295ba8b0c9aa6e1a42e828dc4d4e2d",
+    "experiments/registry-fixed-init/EtnaRegistry.tla": "236099023b8bf8565adb96f02352f9aac9ae4ada5d1fda8432809882fe374441",
+    "experiments/registry-raw-init/EtnaRegistry.tla": "e5c1106a85271a47fda08ec2172367af7a814638d37228cb65cbae7c602e7abe",
+    "experiments/registry-rich-receipt/EtnaRegistry.tla": "d254748f88a33ab12fb4df6fe90553d0c3e8a5a10ff7893bca08c49302609b74",
+    "experiments/registry-two-slot-raw/EtnaRegistry.tla": "dd3ae90d4a9a50e8d0602442028d534db518ac178a7d5f3e6253151265a0aee4"
+  },
+  "evidence": {
+    "C01": {
+      "CRASH_RECOVERY.md#checked-signer-profiles-and-incomplete-wider-experiments": "M03 separately covers one rank with A/B/Nil and both salts, and two ranks with A/B and one salt.",
+      "REPORT.md#coverage-closure-batch--g05-actual-signer-composition": "G05 composes actual symbolic signer actions with selected computed, persisted and exposed/retried positive-stop and recovery histories.",
+      "SIGNER_NIL_REPLAY.md#frozen-profiles-and-record-identities": "J04 executes eight literal two-rank Nil/B/A histories across the first crash cut, salt and old-delivery timing.",
+      "conformance/COMET_SIGNED.md#expected-native-behavior": "N01 uses the stock CometBFT vote/commit APIs with unchanged public signatures. It observes selected signed admission, Nil versus non-Nil power, conflict, threshold and POL behavior.",
+      "REPORT.md#n01-feedback-repair-bind-actual-native-inputs": "N01 correction binds the actual native inputs to the selected signed API matrix. That matrix has one public signer and synthetic power/absent-slot profiles."
+    },
+    "R01": {
+      "REGISTRY.md": "M05 executes prepared one-slot and two-slot prefixes followed by all selected legal finite actions. Additional bounded workloads isolate repeated top-up, forfeiture split and public zero withdrawal.",
+      "REGISTRY_RETIREMENT_PRODUCT.md#literal-program-and-expected-operational-observations": "J03 executes six literal retirement orders with third registration, a total pending-plus-effective tie, low rejection, and pending-funded displacement.",
+      "conformance/REGISTRY_PUBLIC.md#literal-execution-ledgers": "H01 exercises selected actual public-PoP Registry lifecycles with independent raw roots, state, events and cash against a mocked Inbox.",
+      "conformance/REGISTRY_CASES.md#internal-solidity-fixture": "N02/N03/N04 share the actual pinned Registry/proxy, an initialized and unlocked mock Inbox, published public inputs and an exact-transfer test token.",
+      "conformance/REGISTRY_CASES.md#ordinary-exit-withdrawal-and-slot-reuse": "N03 runs one sequence of two actual exit, confirmation, withdrawal and slot-reuse cycles.",
+      "conformance/REGISTRY_CASES.md#late-token-refusal-and-identical-calldata-retry": "N04 exercises selected actual allowance and balance refusals against the exact-transfer fixture, followed by identical calldata retries.",
+      "REPORT.md#n02-actual-signed-evidence-and-input-binding": "N02 binds named public double-sign tuples to actual Solidity calldata/receipts and checks selected slash, refusal, split and replay effects.",
+      "REPORT.md#n03-actual-exit-withdrawal-and-slot-reuse": "N03's 16-step journal binds the actual caller, height, ABI, result and selected raw state/history/ledger for the two retirement cycles.",
+      "REPORT.md#n04-actual-late-token-failures-and-identical-retries": "N04 binds seven actual calls including late token failure, identical successful retry and top-up activation, with raw rollback and history checks."
+    },
+    "F01": {
+      "FORCED_INCLUSION.md#finite-workloads-and-observation-projections": "M06 executes actual finite EmptyReady, MixedReady and FeeLag prefixes with a global production budget of two and current cursor, anchor, halt and build observations.",
+      "FI_SUFFIX_RECOVERY.md#omitted-chronology-and-finite-program": "H04 uses three builds and time four in two literal A/B histories to land an old prefix, recover, then produce and land a retained or blanked suffix replacement.",
+      "REPORT.md#coverage-closure-batch--g04-positive-stop-old-proof-handoff": "G04 isolates the old proof generation fence with a fixed opaque proof and an otherwise eligible parent, unlike H04's multicausal refusal."
+    },
+    "P01": {
+      "PROVING_PROGRESS.md#exhaustive-workload-profiles": "M07 checks the repaired-clock ready and absent workloads under the finite head, production, clock and ancestry bounds.",
+      "PROVING_ARRIVAL_OVERLAP.md#finite-product-and-frozen-literal-calls": "J05 executes twelve capacity-two partial-arrival orders and long-A timings with one B outage, overlapping landings and block-end finality.",
+      "PROOF_RECAPTURE.md#previously-omitted-chronology": "H03 executes two capacity-two expiry and recapture orders with mismatched backend binding refusal, finality and actual modeled resumption.",
+      "PROVING_RECOVERY.md": "Selected bounded recovery profiles separately check authenticated origin and resource preservation under the corrected timeline.",
+      "REPORT.md#f05--nonzero-recovery-and-proving-resource-scenarios": "F05 executes three fixed nonzero-origin recovery and resource programs under the trusted completed bootstrap premise."
+    },
+    "Q02": {
+      "VERIFIER_ROLLBACK.md#checked-behavior-and-independent-observations": "M09 exhausts three prepared workloads and adds actual base-record observations, checkpoint reads and authority observations.",
+      "ROLLBACK_PAYMENTS.md": "H05 executes three literal payment, nonce and identity-reuse programs through an atomic modeled correction. Primed cash, completed flags and escrow have dedicated immediate audits.",
+      "REPORT.md#adversarial-coverage-batch--h05-pre-correction-payments-and-fresh-retry": "H05 execution evidence covers actual modeled pre-correction withdrawals/value, same-block authority revocation, fresh proof and fee-preserving retry."
+    }
+  },
+  "rows": [
+    {
+      "config": "experiments/fi-budget/configs/fi-empty-revert.cfg",
+      "config_sha256": "b127f999495694925f01732c0c010d26695a43f39c6944ac2b0c5a3014cc99d3",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": [
+        "experiments/fi-budget/EtnaForcedInclusion.tla",
+        "experiments/fi-base/EtnaSettlement.tla"
+      ],
+      "observation": "experiments/fi-budget/OBSERVATION.md",
+      "version_hazard": "Budget FI records the actual pre-cursor and independently snapshots the closed queue. FIRecover already preserves halted; its observations do not check the halt frame or the halted pre-production state. Blank raw bytes depend on body mode and full build context is retained.",
+      "omitted_dimension": "The admissions prefix is followed by a total cross-generation production budget of two. It leaves pre-due blocks, singleton availability/refusal, Empty skip, B and settlement actions variable after the first closure.",
+      "selected_scope": "M06 EmptyReady executes both admissions, clock closure, an actual transient then complete Empty singleton build and legal skip, then permits variable B inclusion and settlement in the remaining budget. Individual M06 witnesses observe transient retry and included revert.",
+      "obligation": "F01",
+      "remaining": "Broader post-closure retry, delayed settlement and recovery product, including actual resource failure and STF."
+    },
+    {
+      "config": "experiments/fi-budget/configs/fi-mixed.cfg",
+      "config_sha256": "49efe348f24abfeb34bbb8c5c036ec2f48579036bc673b00a607dd511236dc5f",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": [
+        "experiments/fi-budget/EtnaForcedInclusion.tla",
+        "experiments/fi-base/EtnaSettlement.tla"
+      ],
+      "observation": "experiments/fi-budget/OBSERVATION.md",
+      "version_hazard": "Budget FI records the actual pre-cursor and independently snapshots the closed queue. FIRecover already preserves halted; its observations do not check the halt frame or the halted pre-production state. Blank raw bytes depend on body mode and full build context is retained.",
+      "omitted_dimension": "The admissions prefix and global cap of two leave early A versus a nonadvancing ordinary block, due A, Bad and their actual earliest witness under variable time/settlement.",
+      "selected_scope": "M06 MixedReady executes both admissions, closes both available blocks and includes due A before exploring the remaining Bad and settlement paths. H04 uses A/B for selected retain/blank suffix recovery.",
+      "obligation": "F01",
+      "remaining": "Post-admission ordering, true historical-anchor binding and actual earliest-entry/STF behavior."
+    },
+    {
+      "config": "experiments/fi-prefix/configs/fi-empty-revert.cfg",
+      "config_sha256": "3b8a02d45ff796c02612926eb40670acd0d80a311ac13aeb2d644c3e96638c77",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": [
+        "experiments/fi-prefix/EtnaForcedInclusion.tla",
+        "experiments/fi-base/EtnaSettlement.tla"
+      ],
+      "observation": "experiments/fi-prefix/OBSERVATION.md",
+      "version_hazard": "Prefix FI adds direct closed-queue snapshots and reconstructs the predecessor cursor, but records the predicate-local before value and has no later corruption controls for those two capture sites. FIRecover clears the pruned-parent halt.",
+      "omitted_dimension": "SetupAdmissions enqueues twice in block 0 and closes it. Unrestricted subsequent production permits alternative pre-due deferral, build failure/retry/restoration, due Empty skip and position-zero B under recovery.",
+      "selected_scope": "M06 EmptyReady executes both admissions, clock closure, an actual transient then complete Empty singleton build and legal skip, then permits variable B inclusion and settlement in the remaining budget. The fixed prefix spends one production and the full clock budget.",
+      "obligation": "F01",
+      "remaining": "Post-admission pre-due/resource and recovery interleavings with actual STF and settlement."
+    },
+    {
+      "config": "experiments/fi-prefix/configs/fi-fee-lag.cfg",
+      "config_sha256": "b3c060336be5abf68bd6305cdee98a5d0dd0a252c6c231dc5f288d4abfe770fc",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": [
+        "experiments/fi-prefix/EtnaForcedInclusion.tla",
+        "experiments/fi-base/EtnaSettlement.tla"
+      ],
+      "observation": "experiments/fi-prefix/OBSERVATION.md",
+      "version_hazard": "Prefix FI adds direct closed-queue snapshots and reconstructs the predecessor cursor, but records the predicate-local before value and has no later corruption controls for those two capture sites. FIRecover clears the pruned-parent halt.",
+      "omitted_dimension": "SetupFeeLag admits A, closes block 0, includes A early and admits B at cursor 1 with L1 head 0. Vary the after-prefix suffix and queued proofs without a global production limit.",
+      "selected_scope": "Current FeeLag uses the same actual prefix with two total productions and repaired observations. H04 uses three productions and time four to settle old height 1, recover, then produce and land replacement height 2 after fees 1 and 2.",
+      "obligation": "F01",
+      "remaining": "Wider suffix/proof/reference and backlog ordering, runtime fee accounting and real STF/settlement."
+    },
+    {
+      "config": "experiments/fi-prefix/configs/fi-mixed.cfg",
+      "config_sha256": "f901fd43ce9b7ed3b551a51acecb41eb0b162a4b0cfc11c04fb557096b58cd00",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": [
+        "experiments/fi-prefix/EtnaForcedInclusion.tla",
+        "experiments/fi-base/EtnaSettlement.tla"
+      ],
+      "observation": "experiments/fi-prefix/OBSERVATION.md",
+      "version_hazard": "Prefix FI adds direct closed-queue snapshots and reconstructs the predecessor cursor, but records the predicate-local before value and has no later corruption controls for those two capture sites. FIRecover clears the pruned-parent halt.",
+      "omitted_dimension": "Two admissions and one closure precede free pre-due A deferral or inclusion, due A, Bad handling, build and landing/recovery interleavings. No global production cap.",
+      "selected_scope": "M06 MixedReady executes both admissions, closes both available blocks and includes due A before exploring the remaining Bad and settlement paths. H04 binds the cursor rewind and replacement under a different A/B workload.",
+      "obligation": "F01",
+      "remaining": "Free choices before A consumption, nonadvancing cursor behavior before due, and actual STF/settlement."
+    },
+    {
+      "config": "experiments/fi-projected/configs/fi-empty-revert.cfg",
+      "config_sha256": "b127f999495694925f01732c0c010d26695a43f39c6944ac2b0c5a3014cc99d3",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": [
+        "experiments/fi-projected/EtnaForcedInclusion.tla",
+        "experiments/fi-base/EtnaSettlement.tla"
+      ],
+      "observation": "experiments/fi-projected/OBSERVATION.md",
+      "version_hazard": "Projected FI has the same config bytes as Budget and a distinct module. It checks halt preservation, canonicalizes blank raw bytes and retains build context only when a due eligible omission needs it. WrongParent still uses the historical string sentinel; this config selects Correct.",
+      "omitted_dimension": "The projected observer and two-production cap still permit free pre-due Empty refusal/retry, prune/restoration, exact skip, ordinary B and landing actions after the admission/closure prefix.",
+      "selected_scope": "M06 EmptyReady executes both admissions, clock closure, an actual transient then complete Empty singleton build and legal skip, then permits variable B inclusion and settlement in the remaining budget. H04 skips the Empty singleton workload and its B does not execute an ordinary revert.",
+      "obligation": "F01",
+      "remaining": "The wider post-admission order product or a justified reduction, plus real resource/EL/STF behavior."
+    },
+    {
+      "config": "experiments/fi-projected/configs/fi-mixed.cfg",
+      "config_sha256": "49efe348f24abfeb34bbb8c5c036ec2f48579036bc673b00a607dd511236dc5f",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": [
+        "experiments/fi-projected/EtnaForcedInclusion.tla",
+        "experiments/fi-base/EtnaSettlement.tla"
+      ],
+      "observation": "experiments/fi-projected/OBSERVATION.md",
+      "version_hazard": "Projected FI has the same config bytes as Budget and a distinct module. It checks halt preservation, canonicalizes blank raw bytes and retains build context only when a due eligible omission needs it. WrongParent still uses the historical string sentinel; this config selects Correct.",
+      "omitted_dimension": "After two admissions and first closure, unconsumed early/due A and Bad remain variable with time, proofs and recovery under a total production budget of two.",
+      "selected_scope": "M06 MixedReady executes both admissions, closes both available blocks and includes due A before exploring the remaining Bad and settlement paths. H04 restores only a selected three-production A/B suffix history.",
+      "obligation": "F01",
+      "remaining": "The wider remaining finite action product or a justified reduction and actual queue/STF/settlement execution."
+    },
+    {
+      "config": "experiments/fi-raw/configs/fi-empty-revert.cfg",
+      "config_sha256": "e6b5234ac16ffccb1a6f15095447f8f43209b10008d18a851e57f98daa4a70ef",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": [
+        "experiments/fi-raw/EtnaForcedInclusion.tla",
+        "experiments/fi-base/EtnaSettlement.tla"
+      ],
+      "observation": "experiments/fi-raw/OBSERVATION.md",
+      "version_hazard": "Raw FI observes the selected anchor and predicate-local before value. It lacks an independent closed-queue snapshot and predecessor cursor oracle, and FIRecover clears the pruned-parent halt.",
+      "omitted_dimension": "From an empty queue with no prefix or total production bound, vary Empty/B admission against Tick, build availability and restoration, due Empty skip and due position-zero B inclusion across recovery.",
+      "selected_scope": "M06 EmptyReady executes both admissions, clock closure, an actual transient then complete Empty singleton build and legal skip, then permits variable B inclusion and settlement in the remaining budget. H04 uses an A/B suffix instead and its B is a body token.",
+      "obligation": "F01",
+      "remaining": "Unrestricted early admission/availability and recovery order, including nonadvancing pre-due blocks and actual STF singleton/included-revert correspondence."
+    },
+    {
+      "config": "experiments/fi-raw/configs/fi-mixed.cfg",
+      "config_sha256": "984605821f31418b2b4bb74a57ef82705a7338114ca22a278f6b3775ad1a98d6",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": [
+        "experiments/fi-raw/EtnaForcedInclusion.tla",
+        "experiments/fi-base/EtnaSettlement.tla"
+      ],
+      "observation": "experiments/fi-raw/OBSERVATION.md",
+      "version_hazard": "Raw FI observes the selected anchor and predicate-local before value. It lacks an independent closed-queue snapshot and predecessor cursor oracle, and FIRecover clears the pruned-parent halt.",
+      "omitted_dimension": "From an empty queue with no prefix or total production bound, vary A/Bad admission, pre-due ordinary blocks, due A and legal Bad skip, delayed landing and recovery.",
+      "selected_scope": "M06 MixedReady executes both admissions, closes both available blocks and includes due A before exploring the remaining Bad and settlement paths. H04 covers partial landing and recovery with an entitled A/B suffix.",
+      "obligation": "F01",
+      "remaining": "Raw admission/clock/body interleavings, cursor/anchor cuts through delayed landing and actual STF/settlement."
+    },
+    {
+      "config": "experiments/m09-wide-runtime/configs/rollback-replay.cfg",
+      "config_sha256": "a4644485aedfd476690e56909a96bf42598fa2c447fde3947e395145a77fea41",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": [
+        "experiments/m09-wide-runtime/EtnaVerifierRollback.tla",
+        "experiments/m09-wide-runtime/EtnaSettlement.tla"
+      ],
+      "observation": "experiments/m09-wide-runtime/README.md",
+      "version_hazard": "Archived Upgrade writes landings but its journal omits actual before/after base records. Later BaseLandingRollbackCorrect, explicit checkpoint reads and independent authority provenance strengthen observation. The local historical base copy is byte-identical to the FI base and current root base.",
+      "omitted_dimension": "Replay profile with height≤2, generation≤2, nonce≤4 and time≤1. After setup, Runtime permits authorization, recovery, invalidation and confirmation around correction. Check exact retained and voided base/SignalService records, current-nonce fencing, confirmation reset and payment continuity.",
+      "selected_scope": "Current M09 makes correction the first post-prefix action in three prepared workloads. H05 executes selected actual modeled pre-correction withdrawals and retry/value, nonce advance, height reuse, same-block authority revocation and fresh proof with fee/transfer checks.",
+      "obligation": "Q02",
+      "remaining": "Freer pre/post-correction interleavings, concrete atomic migration/rollback, node and bridge/SignalService handling, and real consumer/token failure behavior."
+    },
+    {
+      "config": "experiments/progress-initial/configs/progress-ancestry.cfg",
+      "config_sha256": "c65ca8675bfc3172639ea3a26f2ba3c3c058187c72659f3b04dfd3d02b297f98",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": ["experiments/progress-initial/EtnaProvingProgress.tla"],
+      "observation": "experiments/progress-initial/OBSERVATION.md",
+      "version_hazard": "Initial Ready permits same-time references. Finalize selects a height, PublishAnchor uses the observation time, and Recover combines execution with observation. It predates independent block-end checkpoint selection and the trusted completed recovery timeline.",
+      "omitted_dimension": "OneJob, capacity two, with one unused task ID; head and productions three, clock 0..2, U two and both age budgets one. Dynamic availability/history and a fresh reference beyond ancestry support can vary around recovery and recapture.",
+      "selected_scope": "Current OneJob uses always-absent resources. H03 expires and recaptures a distinct job under supported ancestry, at capacity two and a longer clock. J05/H03 omit recovery; current recovery profiles check selected trusted-origin transitions.",
+      "obligation": "P01",
+      "remaining": "Arbitrary resource churn through a topology change, age versus ancestry and authenticated resumption under explicit service premises; P02 retains actual capacity."
+    },
+    {
+      "config": "experiments/progress-initial/configs/progress-pipeline.cfg",
+      "config_sha256": "906b52f3d17640c8a9fb692288d8aac926ef9b06223dd54433ea68402c750678",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": ["experiments/progress-initial/EtnaProvingProgress.tla"],
+      "observation": "experiments/progress-initial/OBSERVATION.md",
+      "version_hazard": "Initial Ready permits same-time references. Finalize selects a height, PublishAnchor uses the observation time, and Recover combines execution with observation. It predates independent block-end checkpoint selection and the trusted completed recovery timeline.",
+      "omitted_dimension": "TwoJobs, capacity two with shared proving bounds. The short and long job have independent completion/publication before readiness. Their original statements/data must remain immutable through an overlapping short landing and later finality/resumption.",
+      "selected_scope": "Current ReadyTwoJobs pre-completes and publishes both jobs. J05 restores twelve actual modeled partial-arrival orders with one B outage, preserved prefix and past block-end finality. H03 checks two distinct recapture orders.",
+      "obligation": "P01",
+      "remaining": "Arbitrary loss/arrival/retry, different outage/tick and recovery orders, and eventual progress only under stated resource and fairness premises."
+    },
+    {
+      "config": "experiments/progress-initial/configs/progress-small-capacity.cfg",
+      "config_sha256": "bfbd5a781202eab9e437a95211b64bf2f999361d6ae9c105c9b5e601c403d3b3",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": ["experiments/progress-initial/EtnaProvingProgress.tla"],
+      "observation": "experiments/progress-initial/OBSERVATION.md",
+      "version_hazard": "Initial Ready permits same-time references. Finalize selects a height, PublishAnchor uses the observation time, and Recover combines execution with observation. It predates independent block-end checkpoint selection and the trusted completed recovery timeline.",
+      "omitted_dimension": "TwoJobs and the same dynamic product at capacity one. A short landing leaves a long suffix of one, but its immutable original publication remains two; neither suffix-only data nor full length two can enable the long landing.",
+      "selected_scope": "Current ReadyTwoJobs fixes initial arrivals at capacity one. J05 and H03 restore selected dynamic overlap/expiry only at capacity two.",
+      "obligation": "P01",
+      "remaining": "Capacity-one arrival competition and short-job resumption with the long job correctly refused, plus P02 actual blob and prover throughput."
+    },
+    {
+      "config": "experiments/registry-fixed-init/registry-workflow.cfg",
+      "config_sha256": "fb59d91cca159c37c0bf51e298e4731c5f01eba500a508615f3284c003c83a27",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": ["experiments/registry-fixed-init/EtnaRegistry.tla"],
+      "observation": "experiments/registry-fixed-init/OBSERVATION.md",
+      "version_hazard": "Adds direct raw snapshot/committee observations and ceil-half forfeiture using normalized top-up 1. Withdrawal records computed afterSlots, before actual-frame, rejection atomicity and per-bond checks.",
+      "omitted_dimension": "Empty Init and the same one-slot bounds, with external registration at 1+2×nextId. Top-up activation, historical initialization, exit changes, punishment and complete retirement still vary around the fixed blocks.",
+      "selected_scope": "Current M05 fixes the same blocks and additionally executes the first active bond and replacement prefix. Separate finite split, repeated top-up and public-zero configurations plus H01 and N02–N04 address selected effects.",
+      "obligation": "R01",
+      "remaining": "Histories excluded by the prepared prefix, including earlier retirement/punishment and its interaction with other live lifecycles."
+    },
+    {
+      "config": "experiments/registry-raw-init/registry-workflow.cfg",
+      "config_sha256": "586ee8274ae1da230fa8aefdcc680b3e805e2165afa628740d2e3c0d30b2c1a5",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": ["experiments/registry-raw-init/EtnaRegistry.tla"],
+      "observation": "experiments/registry-raw-init/OBSERVATION.md",
+      "version_hazard": "Tick reuses CapturedSnapshot for the observer and committee comparison reuses Members/Powers. Later independent rounded forfeiture/readiness, withdrawal-frame, rejection atomicity and per-bond checks are absent.",
+      "omitted_dimension": "Empty Init, one slot, two issues, time 1..6, amounts {1,3} and one top-up per ID. Registration, historical selection, activation, replacement, punishment and retirement can be interleaved from the start.",
+      "selected_scope": "M05 fixes external registration blocks and runs a prepared lifecycle. J03 starts at Init with a literal prefix. H01 and N02–N04 check actual selected Registry topology, slashing, retirement and rollback/retry.",
+      "obligation": "R01",
+      "remaining": "Free initial registration and historical eligibility ordering, wider live lifecycle interactions and actual finalized-R selection."
+    },
+    {
+      "config": "experiments/registry-rich-receipt/registry-two-slot.cfg",
+      "config_sha256": "5b450d9d777b172ffafa740aed56a1a530069eba9f102b1f42c85e629d6ec97e",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": ["experiments/registry-rich-receipt/EtnaRegistry.tla"],
+      "observation": "experiments/registry-rich-receipt/OBSERVATION.md",
+      "version_hazard": "Full last-registration receipt includes rejection decisions, while withdrawal captures computed afterSlots. Later sticky actual rejected-write and per-bond/withdrawn-state assertions are absent.",
+      "omitted_dimension": "Two slots, three issues, time 1..4 and one top-up per ID. The prepared opening deposits twice and selects a snapshot, then admission minimum, tie, displacement and refusals vary with remaining lifecycle actions.",
+      "selected_scope": "Current M05 keeps the same prepared opening and uses independent ExpectedAcceptance with compact sticky rejection observations. J03 tests the total-stake tie, amount-2 rejection against minimum 3 and selected retirement. N04 checks actual late transfer failure and retry state.",
+      "obligation": "R01",
+      "remaining": "Free composition across admission/replacement, external failure/retry and whole retirement, plus actual Registry recovery selection and capacity."
+    },
+    {
+      "config": "experiments/registry-two-slot-raw/registry-two-slot.cfg",
+      "config_sha256": "6b78495119b82bf4e9089c5afb1cf509b09f2dc3ec83450f58a23c0cc75db33d",
+      "status": "INCONCLUSIVE",
+      "run_source": "archived_bytes",
+      "sources": ["experiments/registry-two-slot-raw/EtnaRegistry.tla"],
+      "observation": "experiments/registry-two-slot-raw/OBSERVATION.md",
+      "version_hazard": "Retains direct snapshot and split checks. PreparedWorkflow is false; it predates independent admission and actual withdrawal/reject-frame checks.",
+      "omitted_dimension": "Empty Init, two slots/two issues, time 1..4, one top-up per ID and free registration timing. Occupancy, tie, history selection and holder exit/confirmation order may vary. Two issues cannot exercise third-bond displacement.",
+      "selected_scope": "Current M05 initializes via two actual deposits and a block-2 snapshot, then admits a third candidate by time 4. J03 checks six selected three-issue orders at time 6. N03 observes vacant-slot reuse with a surviving neighbor.",
+      "obligation": "R01",
+      "remaining": "Raw two-slot prefixes, unconstrained displacement/retirement composition, and actual integration at capacity."
+    },
+    {
+      "config": "experiments/signer-wide-three-payloads.cfg",
+      "config_sha256": "26f0b6ab643a5582ffce7bfc81c83a732c308fd377f6f3fbf256e7d5e3fd89bd",
+      "status": "INCONCLUSIVE",
+      "run_source": "attested_predecessor",
+      "sources": ["EtnaSignerCrash.tla"],
+      "observation": "experiments/signer-wide-progress.txt",
+      "version_hazard": "The progress note attests a predecessor with salts fixed at 0..1. The verified local EtnaSignerCrash parameterizes SignatureSalts with the same domain; its digest identifies the available reproduction model.",
+      "omitted_dimension": "The rank/salt/cut product also permits Nil beside A/B at either rank or domain. Include same-rank Nil/value conflict, genuine exact-byte Nil replay, and delayed old delivery after recovery.",
+      "selected_scope": "J04 selects old rank-1 Nil, old rank-2 B and new rank-1 A in eight histories by crash cut, salt and delivery time. G05 and M03 provide complementary selected cases. N01 tests genuine signed Nil and selected conflict admission at the consumer.",
+      "obligation": "C01",
+      "remaining": "Arbitrary payload/rank/domain and repeated-order composition, uncertainty and genuine signer persistence, fencing and restart behavior."
+    },
+    {
+      "config": "experiments/signer-wide-two-payloads.cfg",
+      "config_sha256": "60b54f2e551a277d2123ec9d754a47d2674fd8a3fa9cf22b124ef7f05dbb3adc",
+      "status": "INCONCLUSIVE",
+      "run_source": "attested_predecessor",
+      "sources": ["EtnaSignerCrash.tla"],
+      "observation": "experiments/signer-wide-progress.txt",
+      "version_hazard": "The progress note attests a predecessor with salts fixed at 0..1. The verified local EtnaSignerCrash parameterizes SignatureSalts with the same domain; its digest identifies the available reproduction model.",
+      "omitted_dimension": "Both domains, ranks 1 and 2, A/B and salts 0/1 jointly under free Request, Persist, Expose, Deliver, both crash cuts, restart, trust, reconnection and recovery/uncertainty. Require monotone durable HRS, uniqueness and exact saved bytes.",
+      "selected_scope": "M03 splits rank depth from salt breadth. G05 composes selected pending/persisted/exposed recovery cuts. J04 fixes each actual call position and also uses A/B. N01 checks stock signed API behavior on previously signed public inputs.",
+      "obligation": "C01",
+      "remaining": "Free joint rank/salt/recovery composition and concrete supervisor/WAL durable floor, authenticated reconnect, lost-HRS refusal and old-generation behavior."
+    }
+  ]
+}
