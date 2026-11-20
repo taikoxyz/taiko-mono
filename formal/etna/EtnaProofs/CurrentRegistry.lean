@@ -233,12 +233,12 @@ theorem bondEdit_balance {s : State} {v : InboxView} {now : Nat} {b value : Stak
     split at ok
     · cases Option.some.inj ok; simp [outgoingBond,incoming,Staking.Bond.balance]
     · cases ok
-  | forfeit id caller key incident deadline =>
+  | forfeit id caller incident deadline =>
     simp only [bondEdit] at ok
     split at ok
     next allowed =>
       cases Option.some.inj ok
-      have bounded := Staking.forfeit_penalty_bounded b.balance s.config.forfeitBps allowed.2.2.2.2.2.2.2.2
+      have bounded := Staking.forfeit_penalty_bounded b.balance s.config.forfeitBps allowed.2.2.2.2.2.2.2
       simp only [Staking.Bond.balance,outgoingBond,incoming,Nat.add_zero] at *
       omega
     next => cases ok
@@ -295,7 +295,7 @@ theorem withdrawal_payout {s t : Registry.State} {id caller now delay payout : N
       · cases ok
   · cases ok
 
-theorem excluded_reserve (s : State) (xs : List (Nat × Hash)) (cutoff : Nat) :
+theorem excluded_reserve (s : State) (xs : List Nat) (cutoff : Nat) :
     reserve (excludedLedger s xs cutoff) = reserve s.ledger := by
   apply sumBalances_congr
   intro id _
@@ -352,7 +352,7 @@ theorem execute_reserve {s t : State} {v : InboxView} {now : Nat} {action : Acti
       · cases Option.some.inj checked
         simpa only [outgoing,incoming,Nat.add_zero] using rechecked_reserve s cutoff
       · cases checked
-    | forfeit id caller key incident deadline =>
+    | forfeit id caller incident deadline =>
       obtain ⟨u,edited,rfl⟩ := Option.map_eq_some_iff.mp checked
       have change := edit_reserve edited (fun b found => by simp [outgoing,found])
       exact change
@@ -372,7 +372,7 @@ theorem bondEdit_clock {s : State} {v : InboxView} {now since : Nat} {b value : 
     split at ok
     · cases Option.some.inj ok; exact ⟨live,clock⟩
     · cases ok
-  | topUp _ _ _ | activateTopUp _ | slash _ _ _ _ _ | forfeit _ _ _ _ _ =>
+  | topUp _ _ _ | activateTopUp _ | slash _ _ _ _ _ | forfeit _ _ _ _ =>
     simp only [bondEdit] at ok
     split at ok
     · cases Option.some.inj ok; exact ⟨live,clock⟩
@@ -481,7 +481,7 @@ theorem execute_clock {s t : State} {v : InboxView} {now since id : Nat} {a : Ac
       split at checked
       · cases Option.some.inj checked
         obtain ⟨bond,issued,found,live,clock⟩ := old
-        refine ⟨(if xs.any (fun x => x.1 == id) then
+        refine ⟨(if xs.contains id then
           ⟨Staking.exclude bond.value cutoff,bond.slot⟩ else bond),issued,?_,?_,?_⟩
         · simp only [excludedLedger,found,Option.map_some]
         · split <;> exact live
@@ -503,7 +503,7 @@ theorem execute_clock {s t : State} {v : InboxView} {now since id : Nat} {a : Ac
             · exact clock
           · exact clock
       · cases checked
-    | forfeit target caller key incident deadline =>
+    | forfeit target caller incident deadline =>
       obtain ⟨u,edited,rfl⟩ := Option.map_eq_some_iff.mp checked
       have kept := edit_clock old time edited
       exact kept
@@ -513,7 +513,7 @@ theorem execute_clock {s t : State} {v : InboxView} {now since id : Nat} {a : Ac
 
 theorem ledger_refl (s : Registry.State) : LedgerStable s s :=
   ⟨Nat.le_refl _,rfl,rfl,fun _ _ h => h,fun _ b _ h => ⟨b,h,rfl⟩⟩
-theorem stable_refl (s : State) : Stable s s := ⟨rfl,rfl,rfl,rfl,ledger_refl _⟩
+theorem stable_refl (s : State) : Stable s s := ⟨rfl,rfl,rfl,ledger_refl _⟩
 
 theorem ledger_trans {s t u : Registry.State} (a : LedgerStable s t) (b : LedgerStable t u) :
     LedgerStable s u := by
@@ -526,10 +526,10 @@ theorem ledger_trans {s t u : Registry.State} (a : LedgerStable s t) (b : Ledger
 
 theorem stable_trans {s t u : State} (a : Stable s t) (b : Stable t u) : Stable s u :=
   ⟨b.config.trans a.config,b.verify.trans a.verify,b.registration.trans a.registration,
-   b.entryKey.trans a.entryKey,ledger_trans a.ledger b.ledger⟩
+   ledger_trans a.ledger b.ledger⟩
 
 theorem finish_stable {s t : State} (now : Nat) (h : Stable s t) : Stable s (finish s now t) :=
-  ⟨h.config,h.verify,h.registration,h.entryKey,h.ledger⟩
+  ⟨h.config,h.verify,h.registration,h.ledger⟩
 
 theorem write_stable (s : Registry.State) (id : Nat) (b : Registry.Bond)
     (found : s.bonds id = some b) (value : Staking.Bond) :
@@ -555,7 +555,7 @@ theorem edit_stable {s t : State} {id : Nat} {f : Staking.Bond → Option Stakin
       next => contradiction
       next value =>
         cases Option.some.inj ok
-        exact ⟨rfl,rfl,rfl,rfl,write_stable _ _ _ hb _⟩
+        exact ⟨rfl,rfl,rfl,write_stable _ _ _ hb _⟩
   next => simp at ok
 
 theorem registration_stable {s t : Registry.State} {key caller amount now id : Nat}
@@ -602,16 +602,16 @@ theorem withdrawal_stable {s t : Registry.State} {id caller now delay payout : N
         next => simp at ok
   next => simp at ok
 
-theorem excluded_stable (s : State) (xs : List (Nat × Hash)) (snapshot : Nat) :
+theorem excluded_stable (s : State) (xs : List Nat) (snapshot : Nat) :
     Stable s { s with ledger := excludedLedger s xs snapshot } := by
-  refine ⟨rfl,rfl,rfl,rfl,⟨Nat.le_refl _,rfl,rfl,fun _ _ h => h,?_⟩⟩
+  refine ⟨rfl,rfl,rfl,⟨Nat.le_refl _,rfl,rfl,fun _ _ h => h,?_⟩⟩
   intro id b _ hb
   simp only [excludedLedger,hb,Option.map_some]
   split <;> exact ⟨_,rfl,rfl⟩
 
 theorem recheck_stable (s : State) (snapshot : Nat) :
     Stable s { s with ledger := recheckedLedger s snapshot } := by
-  refine ⟨rfl,rfl,rfl,rfl,⟨Nat.le_refl _,rfl,rfl,fun _ _ h => h,?_⟩⟩
+  refine ⟨rfl,rfl,rfl,⟨Nat.le_refl _,rfl,rfl,fun _ _ h => h,?_⟩⟩
   intro id b _ hb
   refine ⟨⟨Staking.rollbackBySnapshot snapshot b.value,b.slot⟩,by simp [recheckedLedger,hb],?_⟩
   simp only [Staking.rollbackBySnapshot]
@@ -632,11 +632,11 @@ theorem execute_stable {s t : State} {v : InboxView} {now : Nat} {action : Actio
       split at hu
       next =>
         obtain ⟨⟨ledger,id⟩,h,rfl⟩ := Option.map_eq_some_iff.mp hu
-        exact ⟨rfl,rfl,rfl,rfl,registration_stable h⟩
+        exact ⟨rfl,rfl,rfl,registration_stable h⟩
       next => simp at hu
     | withdraw id caller to =>
       obtain ⟨⟨ledger,payout⟩,h,rfl⟩ := Option.map_eq_some_iff.mp hu
-      exact ⟨rfl,rfl,rfl,rfl,withdrawal_stable h⟩
+      exact ⟨rfl,rfl,rfl,withdrawal_stable h⟩
     | exclude caller snapshot xs =>
       simp only at hu
       split at hu
@@ -647,10 +647,10 @@ theorem execute_stable {s t : State} {v : InboxView} {now : Nat} {action : Actio
       split at hu
       next => cases Option.some.inj hu; exact recheck_stable _ _
       next => simp at hu
-    | forfeit id caller key incident deadline =>
+    | forfeit id caller incident deadline =>
       obtain ⟨r,h,rfl⟩ := Option.map_eq_some_iff.mp hu
       have hs := edit_stable h
-      exact ⟨hs.config,hs.verify,hs.registration,hs.entryKey,hs.ledger⟩
+      exact ⟨hs.config,hs.verify,hs.registration,hs.ledger⟩
     | requestExit _ _ | topUp _ _ _ | activateTopUp _ | confirm _ | slash _ _ _ _ _ =>
       exact edit_stable hu
   next => simp at ok
@@ -785,7 +785,7 @@ theorem execute_slots_issued {s t : State} {v : InboxView} {now : Nat} {action :
       split at checked
       · cases Option.some.inj checked; exact old
       · cases checked
-    | forfeit id caller key incident deadline =>
+    | forfeit id caller incident deadline =>
       obtain ⟨u,edited,rfl⟩ := Option.map_eq_some_iff.mp checked
       have kept := edit_slots_issued old edited
       exact kept

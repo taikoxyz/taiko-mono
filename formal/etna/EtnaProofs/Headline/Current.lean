@@ -48,8 +48,8 @@ theorem fund_safety : FundSafety := by
     exact reference_hash_binds_prefix premises.currentReferenceBinding (congrArg StatementData.referenceHash same)
   · intro cp snap member
     exact Custody.trace_snapshot_provenance trace (cp,snap) member
-  · intro start written caller height hash root
-    exact Custody.set_origin_once written caller height hash root
+  · intro start written caller height
+    exact Custody.set_origin_once written caller height
   · intro switching
     exact ⟨Custody.trace_legacy_etna_disjoint premises.currentRegistryGenesis switching premises.currentPrimitives
       premises.currentUnzenExtension premises.currentVerifierSound trace,

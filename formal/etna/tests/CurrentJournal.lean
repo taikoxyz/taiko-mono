@@ -15,7 +15,7 @@ def registry : RegistryMachine.State :=
   { ledger := {nextId := 0,bonds := fun _ => none,slots := fun _ => none,keyId := fun _ => none},
     config := {inbox := 3} }
 def env : Protocol.Environment where
-  core := ⟨domain,7,8,0,0,9⟩
+  core := ⟨domain,7,0,0,9⟩
   parameters := ⟨10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,2,1152,10,1,1,9⟩
   genesisHeader := ⟨0,100,100,0,0,0,⟨0,0,0,0,0,0,0⟩⟩
   initialSigner := ⟨domain,0,0,[],false,[]⟩
@@ -58,7 +58,7 @@ example : (Protocol.transact env third (.advance 3)).history.map Protocol.Snapsh
 example : (Protocol.transact env third (.sweep false)).queue = third.queue := by decide
 example : (Protocol.transact env third (.sweep true)).queue = third.queue := by decide
 example : (Protocol.transact env third .restart).queue = third.queue := by decide
-example : (Protocol.transact env third (.scheduleRules 7 1 2000)).queue = third.queue := by decide
+example : (Protocol.transact env third (.scheduleRules 7 0 1 2000)).queue = third.queue := by decide
 
 def request : Protocol.RecoveryRequest := ⟨7,0,0,0,1000,[],[0],0,none⟩
 def recovered : Protocol.World := Protocol.transact env third (.recover request)
@@ -96,24 +96,29 @@ def rolled : Protocol.World := Protocol.transact env third (.rollback 7 third.in
 example : recordAt rolled.inbox rolled.inbox.checkpoint.height = some rolled.inbox.checkpoint :=
   (trace_frontier_record (.step third_trace (.call third (.rollback 7 third.inbox.checkpoint 0))) (by decide)).2.1
 
--- A genuine switching start correction keeps old records archival and installs a new frontier.
-def switchEnv : Protocol.Environment := {env with core := {env.core with unzenInbox := 5}}
-def switchInitial : Protocol.World := Protocol.empty switchEnv registry
-def switchBlock : Protocol.World := Protocol.transact switchEnv switchInitial (.advance 1)
-def switchReady : Protocol.World := Protocol.transact switchEnv switchBlock (.initializeInbox 7)
-def switchWritten : Protocol.World := Protocol.transact switchEnv switchReady (.setOrigin 8 8 108 208)
-def switchCorrected : Protocol.World := Protocol.transact switchEnv switchWritten (.correctStart 7 9 109 209)
-theorem switch_trace : Protocol.Trace switchEnv switchInitial switchCorrected :=
-  .step (.step (.step (.step (.refl switchInitial) (.call switchInitial (.advance 1)))
-    (.call switchBlock (.initializeInbox 7))) (.call switchReady (.setOrigin 8 8 108 208)))
-    (.call switchWritten (.correctStart 7 9 109 209))
-example : switchCorrected.inbox.generation = 1 := by decide
-example : switchCorrected.activeRecords.map Checkpoint.height = [9] := by decide
-example : (recordAt switchCorrected.inbox 8).map Checkpoint.elHash = some 108 := by decide
-example : (recordAt switchCorrected.inbox 9).map Checkpoint.elHash = some 109 := by decide
-example : switchCorrected.inbox.checkpoint ∈ switchCorrected.activeRecords ∧
-    recordAt switchCorrected.inbox switchCorrected.inbox.checkpoint.height = some switchCorrected.inbox.checkpoint ∧
-    switchCorrected.inbox.checkpoint.cursor = switchCorrected.inbox.head :=
+-- The permissionless latch installs the authenticated start as the sole frontier.
+def switchEnv : Protocol.Environment :=
+  { env with
+    core := { env.core with unzenInbox := 5, forkTime := 1 }
+    unzenProposeCutoff := 1
+    unzenNextProposal := 2
+    unzenValid := fun _ _ _ => true }
+def switchInitial := Protocol.empty switchEnv registry
+def switchBlock := Protocol.transact switchEnv switchInitial (.advance 1)
+def switchReady := Protocol.transact switchEnv switchBlock (.initializeInbox 7)
+def legacy : Protocol.Header := { env.genesisHeader with height := 8, elHash := 108, stateRoot := 208 }
+def switchProven := Protocol.transact switchEnv switchReady (.unzenProve 1 legacy 77)
+def switchWritten := Protocol.transact switchEnv switchProven (.setOrigin 88 8)
+
+theorem switch_trace : Protocol.Trace switchEnv switchInitial switchWritten :=
+  .step (.step (.step (.step (.refl _) (.call _ (.advance 1))) (.call _ (.initializeInbox 7)))
+    (.call _ (.unzenProve 1 legacy 77))) (.call _ (.setOrigin 88 8))
+
+example : switchWritten.activeRecords.map Checkpoint.height = [8] := by decide
+example : (recordAt switchWritten.inbox 8).map Checkpoint.elHash = some 108 := by decide
+example : switchWritten.inbox.checkpoint ∈ switchWritten.activeRecords ∧
+    recordAt switchWritten.inbox switchWritten.inbox.checkpoint.height = some switchWritten.inbox.checkpoint ∧
+    switchWritten.inbox.checkpoint.cursor = switchWritten.inbox.head :=
   trace_frontier_record switch_trace (by decide)
 
 end Etna.Design.Current.Journal.Tests

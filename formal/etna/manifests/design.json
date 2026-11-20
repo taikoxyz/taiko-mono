@@ -288,7 +288,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-1afd41294ce37c15"],
+      "sources": ["LIVE_EN-d5755198d1e792f1"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Accepted rules scheduling fields, ownership/deadline and visible-window preservation only; no event or client refinement."
     },
     {
@@ -300,7 +300,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-1afd41294ce37c15"],
+      "sources": ["LIVE_EN-d5755198d1e792f1"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Accepted stop scheduling fields, ownership and deadline checks only."
     },
     {
@@ -312,7 +312,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-1afd41294ce37c15"],
+      "sources": ["LIVE_EN-d5755198d1e792f1"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Accepted rules scheduling fields, ownership/deadline and visible-window preservation only; no event or client refinement."
     },
     {
@@ -324,7 +324,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-1afd41294ce37c15"],
+      "sources": ["LIVE_EN-d5755198d1e792f1"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Accepted stop scheduling fields, ownership and deadline checks only."
     },
     {
@@ -336,7 +336,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["LIVE_EN-1afd41294ce37c15"],
+      "sources": ["LIVE_EN-d5755198d1e792f1"],
       "scope": "Derived conditional decoded property. Schedule fields remain representable after every successful decoded schedule call."
     },
     {
@@ -348,7 +348,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-1afd41294ce37c15"],
+      "sources": ["LIVE_EN-d5755198d1e792f1"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Accepted rules scheduling fields, ownership/deadline and visible-window preservation only; no event or client refinement."
     },
     {
@@ -372,7 +372,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-dff27e7057a061cd"],
+      "sources": ["LIVE_EN-c5272db00f504842"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Permanent issued bond/key identity only; no slot admission conclusion."
     },
     {
@@ -385,7 +385,7 @@
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": [],
-      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
+      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, and RegistryMachine."
     },
     {
       "module": "EtnaProofs.Current",
@@ -397,7 +397,7 @@
       "bridge_level": "spec-proved",
       "role": "supporting",
       "sources": [],
-      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
+      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, and RegistryMachine."
     },
     {
       "module": "EtnaProofs.Current",
@@ -408,7 +408,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-dff27e7057a061cd"],
+      "sources": ["LIVE_EN-c5272db00f504842"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Permanent issued bond/key identity only; no slot admission conclusion."
     },
     {
@@ -420,7 +420,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-66d59803d30c85d4"],
+      "sources": ["LIVE_EN-0cb12b3fe2dfebf9"],
       "scope": "Supporting exact withdrawn-bond transform preserves key/effective exit, marks released and clears its slot association. This theorem alone does not prove every zeroed field, lifetime mapping/forfeiture state or successful withdrawal execution."
     },
     {
@@ -432,7 +432,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-dff27e7057a061cd", "LIVE_EN-66d59803d30c85d4"],
+      "sources": ["LIVE_EN-c5272db00f504842", "LIVE_EN-0cb12b3fe2dfebf9"],
       "scope": "An actually successful decoded withdrawal preserves the permanent issued-id counter and lifetime key-to-id registration. It does not alone establish balance clearing or all slot/flag effects."
     },
     {
@@ -445,7 +445,7 @@
       "bridge_level": "spec-proved",
       "role": "property",
       "sources": [],
-      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
+      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, and RegistryMachine."
     },
     {
       "module": "EtnaProofs.Current",
@@ -456,32 +456,12 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-3d0fb99927ba67de"],
+      "sources": [
+        "LIVE_EN-c004ba62c562b36c",
+        "LIVE_EN-52f103f72fef6522",
+        "LIVE_EN-b4ebbac0968bb0e9"
+      ],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. The decoded first switching landing requires the Unzen checkpoint fence, including the checkpoint's height."
-    },
-    {
-      "module": "EtnaProofs.Current",
-      "declaration": "Etna.Design.Current.Start.origin_written_once",
-      "type": "∀ (s : Etna.Design.Current.Start.State) (caller now l1Block height hash root : Nat),\n  s.start ≠ Option.none → Etna.Design.Current.Start.setOrigin s caller now l1Block height hash root = Option.none",
-      "assumptions": [
-        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
-      ],
-      "bridge_level": "spec-proved",
-      "role": "supporting",
-      "sources": [],
-      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
-    },
-    {
-      "module": "EtnaProofs.Current",
-      "declaration": "Etna.Design.Current.Start.correction_new_generation",
-      "type": "∀ {s t : Etna.Design.Current.Start.State} {owner authenticated : Bool} {checkpoint height hash root l1Block now : Nat},\n  Etna.Design.Current.Start.correct s owner authenticated checkpoint height hash root l1Block now = Option.some t →\n    t.generation = s.generation + 1 ∧ ∀ (g : Nat), g ≤ s.generation → t.origins g = s.origins g",
-      "assumptions": [
-        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
-      ],
-      "bridge_level": "spec-proved",
-      "role": "supporting",
-      "sources": [],
-      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
     },
     {
       "module": "EtnaProofs.Current",
@@ -492,7 +472,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-4266dc92f72e00d9"],
+      "sources": ["LIVE_EN-c6a77e73b2279c1b"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Finalized authenticated imported envelope disagreement halts; decoded candidate inspection only, no alert or store implementation proof."
     },
     {
@@ -504,7 +484,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-4266dc92f72e00d9"],
+      "sources": ["LIVE_EN-c6a77e73b2279c1b"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. A checkpoint record landed only in an unfinalized L1 block leaves decoded import retrying until it finalizes (DATA-5.3-4 as DATA-5.4-5 applies it); no L1 finality adapter proof."
     },
     {
@@ -516,7 +496,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-4266dc92f72e00d9"],
+      "sources": ["LIVE_EN-c6a77e73b2279c1b"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. An unauthenticated DataHash rejects the candidate; decoded inspection only, no store implementation proof."
     },
     {
@@ -528,7 +508,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-4266dc92f72e00d9"],
+      "sources": ["LIVE_EN-c6a77e73b2279c1b"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. For s > o, a validator-state preimage that, with the EL hash of s − 1, does not give header(s)'s app_hash rejects the candidate in the absence of a finalized envelope conflict; decoded inspection only, no appHash encoding or store implementation proof."
     },
     {
@@ -552,7 +532,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-4266dc92f72e00d9"],
+      "sources": ["LIVE_EN-c6a77e73b2279c1b"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. For s > o, a finalized record whose validator-state preimage gives header(s)'s app_hash with the EL hash of s − 1 but whose sets differ from header(s)'s validators_hash or next_validators_hash halts; decoded inspection only, no alert or CometBFT state proof."
     },
     {
@@ -564,7 +544,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-4266dc92f72e00d9"],
+      "sources": ["LIVE_EN-c6a77e73b2279c1b"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. For s > o, with the window available and authenticated, a derived committee that disagrees with the set derived from the preimage under DATA-5.4-3 halts; decoded inspection only, no 4.3 derivation or alert proof."
     },
     {
@@ -576,7 +556,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-4266dc92f72e00d9", "LIVE_EN-f98242f5400aa7f7"],
+      "sources": ["LIVE_EN-c6a77e73b2279c1b", "LIVE_EN-5d60b65a2114db37"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Successful decoded publication requires the durable flag, preserves the signer and grants no trust; actual store staging remains external."
     },
     {
@@ -588,7 +568,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-dff27e7057a061cd"],
+      "sources": ["LIVE_EN-c5272db00f504842"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Permanent issued bond/key identity only; no slot admission conclusion."
     },
     {
@@ -601,7 +581,7 @@
       "bridge_level": "spec-proved",
       "role": "property",
       "sources": [],
-      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
+      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, and RegistryMachine."
     },
     {
       "module": "EtnaProofs.Current",
@@ -612,7 +592,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["LIVE_EN-dff27e7057a061cd"],
+      "sources": ["LIVE_EN-c5272db00f504842"],
       "scope": "STAKE-4.1-14a: admission finds no slot exactly when all 4096 slots are held; only occupancy is read, never a balance."
     },
     {
@@ -624,7 +604,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["LIVE_EN-dff27e7057a061cd", "LIVE_EN-9660f6ee72719fa1"],
+      "sources": ["LIVE_EN-c5272db00f504842", "LIVE_EN-9660f6ee72719fa1"],
       "scope": "STAKE-4.1-14a, LIMIT-12-11: with every slot held, registration fails whatever the amount, also when a holder's balance is zero; it replaces nobody. The deployment bound 4096 × minStake > 10^27 is a contract and deployment check, not part of the model's config.valid."
     },
     {
@@ -636,32 +616,8 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-dff27e7057a061cd"],
+      "sources": ["LIVE_EN-c5272db00f504842"],
       "scope": "STAKE-4.1-14a: a successful registration takes a slot below 4096 that was empty while every lower slot was held; the new bond holds it and every other slot and bond is unchanged, so admission never moves or removes another bond. minStake, PoP and gas are not concluded here."
-    },
-    {
-      "module": "EtnaProofs.Current",
-      "declaration": "Etna.Design.Current.Start.trace_generations_monotone",
-      "type": "∀ {s t : Etna.Design.Current.Start.State}, Etna.Design.Current.Start.Trace s t → s.generation ≤ t.generation",
-      "assumptions": [
-        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
-      ],
-      "bridge_level": "spec-proved",
-      "role": "property",
-      "sources": [],
-      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
-    },
-    {
-      "module": "EtnaProofs.Current",
-      "declaration": "Etna.Design.Current.Start.trace_origins_retained",
-      "type": "∀ {s t : Etna.Design.Current.Start.State},\n  Etna.Design.Current.Start.Trace s t → ∀ (g : Nat), g ≤ s.generation → t.origins g = s.origins g",
-      "assumptions": [
-        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
-      ],
-      "bridge_level": "spec-proved",
-      "role": "property",
-      "sources": [],
-      "scope": "Model algebra over a decoded sketch in EtnaModel/Current.lean that Protocol.execute never runs (Start.State/setOrigin/correct/Trace, or Registry.Trace through Registry.modify); no clause credit. The executed rules are Protocol.setOrigin, Protocol.correctStart and RegistryMachine."
     },
     {
       "module": "EtnaProofs.Current",
@@ -718,7 +674,7 @@
       "type": "∀ {r : Etna.Design.Current.Blocks.GenerationPolicy} {p : Etna.Design.Current.Blocks.Header}\n  {bs : List Etna.Design.Current.Blocks.Block},\n  Etna.Design.Current.Blocks.Chain r p bs → Etna.Design.cursorSteps (Etna.Design.Current.Blocks.cuts p bs) = Bool.true",
       "sources": [
         "LIVE_EN-2e7fa6e510a4d3cb",
-        "LIVE_EN-6c59150df089c846",
+        "LIVE_EN-b4ebbac0968bb0e9",
         "LIVE_EN-332fe10acb3ea4eb"
       ],
       "assumptions": [
@@ -734,7 +690,7 @@
       "type": "∀ {r : Etna.Design.Current.Blocks.GenerationPolicy} {p : Etna.Design.Current.Blocks.Header}\n  {bs : List Etna.Design.Current.Blocks.Block},\n  Etna.Design.Current.Blocks.Chain r p bs →\n    ∀ (edge : Nat × Nat),\n      edge ∈ Etna.Design.Current.Blocks.cursorWalk p bs → edge.fst ≤ edge.snd ∧ edge.snd ≤ edge.fst + 1",
       "sources": [
         "LIVE_EN-2e7fa6e510a4d3cb",
-        "LIVE_EN-6c59150df089c846",
+        "LIVE_EN-b4ebbac0968bb0e9",
         "LIVE_EN-332fe10acb3ea4eb"
       ],
       "assumptions": [
@@ -748,7 +704,7 @@
       "module": "EtnaProofs.CurrentBlocks",
       "role": "property",
       "type": "∀ {r : Etna.Design.Current.Blocks.GenerationPolicy} {p : Etna.Design.Current.Blocks.Header}\n  {bs : List Etna.Design.Current.Blocks.Block},\n  Etna.Design.Current.Blocks.Chain r p bs → (Etna.Design.Current.Blocks.terminal p bs).height = p.height + bs.length",
-      "sources": ["LIVE_EN-6c59150df089c846"],
+      "sources": ["LIVE_EN-b4ebbac0968bb0e9"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -904,7 +860,7 @@
       "module": "EtnaProofs.CurrentBlocks",
       "role": "supporting",
       "type": "∀ {r : Etna.Design.Current.Blocks.GenerationPolicy} {p : Etna.Design.Current.Blocks.Header}\n  {b : Etna.Design.Current.Blocks.Block},\n  p.height ≠ r.consensus.originHeight →\n    Etna.Design.Current.Blocks.AnchorValid r p b →\n      p.anchor.number ≤ b.header.anchor.number ∧\n        r.consensus.anchorAt p.height = p.anchor.number ∧\n          b.body.anchorWitness = Decidable.decide (p.anchor.number ≠ b.header.anchor.number) ∧\n            (p.anchor.number = b.header.anchor.number → p.anchor = b.header.anchor)",
-      "sources": ["LIVE_EN-6c59150df089c846"],
+      "sources": ["LIVE_EN-b4ebbac0968bb0e9"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -964,7 +920,7 @@
       "module": "EtnaProofs.CurrentBlocks",
       "role": "supporting",
       "type": "∀ (r : Etna.Design.Current.Blocks.GenerationPolicy) (p : Etna.Design.Current.Blocks.Header)\n  (bs : List Etna.Design.Current.Blocks.Block) (blobs : List Etna.Design.Hash),\n  (Etna.Design.Current.Blocks.statement r p bs blobs).input.parentHeight = p.height ∧\n    (Etna.Design.Current.Blocks.statement r p bs blobs).input.lastHeight =\n        (Etna.Design.Current.Blocks.terminal p bs).height ∧\n      (Etna.Design.Current.Blocks.statement r p bs blobs).input.lastBlockHash =\n          (Etna.Design.Current.Blocks.terminal p bs).elHash ∧\n        (Etna.Design.Current.Blocks.statement r p bs blobs).input.lastCometHash =\n            (Etna.Design.Current.Blocks.terminal p bs).cometHash ∧\n          (Etna.Design.Current.Blocks.statement r p bs blobs).input.lastStateRoot =\n              (Etna.Design.Current.Blocks.terminal p bs).stateRoot ∧\n            (Etna.Design.Current.Blocks.statement r p bs blobs).input.forcedInclusionHead =\n                (Etna.Design.Current.Blocks.terminal p bs).cursor ∧\n              (Etna.Design.Current.Blocks.statement r p bs blobs).cutHash =\n                Etna.Design.tableHash r.consensus.generation p.height (Etna.Design.Current.Blocks.terminal p bs).height\n                  (Etna.Design.Current.Blocks.cuts p bs)",
-      "sources": ["LIVE_EN-6c59150df089c846"],
+      "sources": ["LIVE_EN-b4ebbac0968bb0e9"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -1000,7 +956,7 @@
       "module": "EtnaProofs.CurrentBlocks",
       "role": "supporting",
       "type": "∀ {r : Etna.Design.Current.Blocks.GenerationPolicy} {p : Etna.Design.Current.Blocks.Header}\n  {b : Etna.Design.Current.Blocks.Block},\n  r.catalogue (Etna.Design.Current.Blocks.selectedRules b) = Option.none → ¬Etna.Design.Current.Blocks.Valid r p b",
-      "sources": ["LIVE_EN-6c59150df089c846"],
+      "sources": ["LIVE_EN-b4ebbac0968bb0e9"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -1026,7 +982,7 @@
       "type": "∀ {r : Etna.Design.Current.Blocks.GenerationPolicy} {p : Etna.Design.Current.Blocks.Header}\n  {b : Etna.Design.Current.Blocks.Block},\n  Etna.Design.Current.Blocks.Valid r p b → p.cursor ≤ b.header.cursor ∧ b.header.cursor ≤ p.cursor + 1",
       "sources": [
         "LIVE_EN-2e7fa6e510a4d3cb",
-        "LIVE_EN-6c59150df089c846",
+        "LIVE_EN-b4ebbac0968bb0e9",
         "LIVE_EN-332fe10acb3ea4eb"
       ],
       "assumptions": [
@@ -1081,7 +1037,7 @@
       "module": "EtnaProofs.CurrentCustody",
       "role": "property",
       "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {registry : Etna.Design.Current.RegistryMachine.State}\n  {w t : Etna.Design.Current.Protocol.World} {a : Etna.Design.Current.Protocol.Landing},\n  Etna.Design.Current.RegistryMachine.Genesis registry →\n    Etna.Design.Current.Protocol.Custody.Primitives env →\n      Etna.Design.Current.Protocol.VerifierSound env (Etna.Design.Current.Protocol.empty env registry) →\n        Etna.Design.Current.Protocol.Trace env (Etna.Design.Current.Protocol.empty env registry) w →\n          Etna.Design.Current.Protocol.land env w a = Option.some t →\n            Etna.Design.Current.Protocol.Custody.Invariant env (Etna.Design.Current.Protocol.empty env registry) w →\n              Etna.Design.Current.Protocol.Custody.Frontier w →\n                ∃ segment : Etna.Design.Current.Protocol.Suffix env w a,\n                  Etna.Design.Current.Protocol.Custody.Path env (Etna.Design.Current.Protocol.empty env registry)\n                      segment.parent ∧\n                    Etna.Design.Current.Protocol.Custody.Path env (Etna.Design.Current.Protocol.empty env registry)\n                      (Etna.Design.Current.Blocks.terminal segment.parent segment.blocks)",
-      "sources": ["LIVE_EN-3d0fb99927ba67de"],
+      "sources": ["LIVE_EN-c004ba62c562b36c"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -1105,7 +1061,7 @@
       "module": "EtnaProofs.CurrentCustody",
       "role": "property",
       "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {registry : Etna.Design.Current.RegistryMachine.State}\n  {w t : Etna.Design.Current.Protocol.World} {a : Etna.Design.Current.Protocol.Landing},\n  Etna.Design.Current.RegistryMachine.Genesis registry →\n    Etna.Design.Current.Protocol.VerifierSound env (Etna.Design.Current.Protocol.empty env registry) →\n      Etna.Design.Current.Protocol.Trace env (Etna.Design.Current.Protocol.empty env registry) w →\n        Etna.Design.Current.Protocol.land env w a = Option.some t →\n          Etna.Design.Current.Protocol.LiveCertifies env w (Etna.Design.Current.Protocol.statement env w a)",
-      "sources": ["LIVE_EN-3d0fb99927ba67de"],
+      "sources": ["LIVE_EN-c004ba62c562b36c"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -1153,7 +1109,7 @@
       "module": "EtnaProofs.CurrentCustody",
       "role": "property",
       "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {registry : Etna.Design.Current.RegistryMachine.State}\n  {w : Etna.Design.Current.Protocol.World},\n  Etna.Design.Current.RegistryMachine.Genesis registry →\n    Etna.Design.Current.Protocol.Custody.Primitives env →\n      Etna.Design.Current.Protocol.VerifierSound env (Etna.Design.Current.Protocol.empty env registry) →\n        Etna.Design.Current.Protocol.Trace env (Etna.Design.Current.Protocol.empty env registry) w →\n          ∀ (signal : Etna.Design.Signal),\n            signal ∈ w.inbox.signals →\n              Etna.Design.Current.Protocol.Custody.SignalSafe env (Etna.Design.Current.Protocol.empty env registry)\n                signal",
-      "sources": ["LIVE_EN-3d0fb99927ba67de"],
+      "sources": ["LIVE_EN-c004ba62c562b36c"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -1177,7 +1133,7 @@
       "module": "EtnaProofs.CurrentCustody",
       "role": "property",
       "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {registry : Etna.Design.Current.RegistryMachine.State}\n  {w t : Etna.Design.Current.Protocol.World} {a : Etna.Design.Current.Protocol.Landing},\n  Etna.Design.Current.RegistryMachine.Genesis registry →\n    Etna.Design.Current.Protocol.Custody.Primitives env →\n      Etna.Design.Current.Protocol.VerifierSound env (Etna.Design.Current.Protocol.empty env registry) →\n        Etna.Design.Current.Protocol.Trace env (Etna.Design.Current.Protocol.empty env registry) w →\n          Etna.Design.Current.Protocol.land env w a = Option.some t →\n            ∃ segment : Etna.Design.Current.Protocol.Suffix env w a,\n              Etna.Design.Current.Protocol.Custody.Path env (Etna.Design.Current.Protocol.empty env registry)\n                  segment.parent ∧\n                Etna.Design.Current.Protocol.Custody.Path env (Etna.Design.Current.Protocol.empty env registry)\n                  (Etna.Design.Current.Blocks.terminal segment.parent segment.blocks)",
-      "sources": ["LIVE_EN-3d0fb99927ba67de"],
+      "sources": ["LIVE_EN-c004ba62c562b36c"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -1189,7 +1145,7 @@
       "module": "EtnaProofs.CurrentCustody",
       "role": "property",
       "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {registry : Etna.Design.Current.RegistryMachine.State}\n  {w t : Etna.Design.Current.Protocol.World} {a : Etna.Design.Current.Protocol.Landing},\n  Etna.Design.Current.RegistryMachine.Genesis registry →\n    Etna.Design.Current.Protocol.Custody.Primitives env →\n      Etna.Design.Current.Protocol.VerifierSound env (Etna.Design.Current.Protocol.empty env registry) →\n        Etna.Design.Current.Protocol.Trace env (Etna.Design.Current.Protocol.empty env registry) w →\n          Etna.Design.Current.Protocol.land env w a = Option.some t →\n            Etna.Design.Current.Protocol.Custody.Invariant env (Etna.Design.Current.Protocol.empty env registry) w →\n              Etna.Design.Current.Protocol.Custody.Frontier w →\n                Etna.Design.Current.Protocol.Custody.Invariant env (Etna.Design.Current.Protocol.empty env registry) t",
-      "sources": ["LIVE_EN-3d0fb99927ba67de"],
+      "sources": ["LIVE_EN-c004ba62c562b36c"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -1202,44 +1158,34 @@
       "role": "property",
       "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {initial : Etna.Design.Current.Protocol.World}\n  {h : Etna.Design.Current.Protocol.Header},\n  Etna.Design.Current.Protocol.Custody.Path env initial h →\n    ∃ root,\n      Etna.Design.Current.Protocol.Custody.AuthenticRoot env initial root ∧\n        Etna.Design.Current.Protocol.Custody.Descends env initial root h",
       "sources": [
-        "LIVE_EN-3d0fb99927ba67de",
-        "LIVE_EN-6c59150df089c846",
-        "LIVE_SWITCH-1b91cab49034187c",
-        "LIVE_SWITCH-c744303db39a7ea9"
+        "LIVE_EN-c004ba62c562b36c",
+        "LIVE_EN-b4ebbac0968bb0e9",
+        "LIVE_EN-52f103f72fef6522"
       ],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "scope": "Derived conditional decoded property. Paths start at accepted genesis or the exact Unzen first fence; guest implementation-check adapter is distinct from off-chain origin duties. LIVE_SWITCH-1b91cab49034187c: The accepted first-proof root additionally satisfies the fixed guest implementation checker. The actual account/storage proof checker and node pre-signing checks are not proved.; LIVE_SWITCH-c744303db39a7ea9: Only the L1 accepting-root portion is addressed: an authenticated custody root retains the accepted first fence and matching Unzen header. Honest-node refusal and originWriter operational checks are not asserted."
+      "scope": "Derived conditional decoded property. Paths start at accepted genesis or the exact Unzen first fence; guest implementation-check adapter is distinct from off-chain origin duties."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Custody.pending_parent",
       "module": "EtnaProofs.CurrentCustody",
       "role": "supporting",
       "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {initial w t : Etna.Design.Current.Protocol.World}\n  {a : Etna.Design.Current.Protocol.Landing},\n  Etna.Design.Current.Protocol.Custody.Primitives env →\n    Etna.Design.Current.Protocol.Trace env initial w →\n      Etna.Design.Current.Protocol.land env w a = Option.some t →\n        Etna.Design.Current.Protocol.Custody.Invariant env initial w →\n          ∀ (segment : Etna.Design.Current.Protocol.Suffix env w a),\n            w.inbox.checkpoint.cursor = w.inbox.head →\n              Etna.Design.recordAt w.inbox w.inbox.checkpoint.height = Option.some w.inbox.checkpoint →\n                Etna.Design.Current.Protocol.Custody.Pending env w w.inbox.checkpoint →\n                  Etna.Design.Current.Protocol.LiveCertifies env w (Etna.Design.Current.Protocol.statement env w a) →\n                    (∀ (start : Etna.Design.Current.Protocol.StartData),\n                        w.start = Option.some start → start.height ≤ w.inbox.origin.height) →\n                      Etna.Design.Current.Protocol.Custody.Path env initial segment.parent",
-      "sources": [
-        "LIVE_SWITCH-cc0dc0613d835bcf",
-        "LIVE_SWITCH-f52091db530cc114",
-        "LIVE_SWITCH-512ea2bb85cd825f",
-        "LIVE_SWITCH-a707198d4d5c29a0",
-        "LIVE_SWITCH-a13034155faca211",
-        "LIVE_SWITCH-295b5131df643eda",
-        "LIVE_SWITCH-1b91cab49034187c",
-        "LIVE_SWITCH-c744303db39a7ea9"
-      ],
+      "sources": ["LIVE_EN-52f103f72fef6522", "LIVE_EN-b4ebbac0968bb0e9"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Exact accepted first-fence/root construction under explicit primitive adapters. LIVE_SWITCH-cc0dc0613d835bcf: The decoded accepted first fence has nextProposal = finalizedProposal + 1. This is the closed Unzen-counter condition; no implementation of Unzen proposal storage is proved.; LIVE_SWITCH-f52091db530cc114: The decoded first fence equates the last finalized Unzen hash with the written start hash.; LIVE_SWITCH-512ea2bb85cd825f: The decoded first fence requires the saved checkpoint hash and stateRoot to match the written start; actual SignalService storage/contract refinement remains external.; LIVE_SWITCH-a707198d4d5c29a0: The three decoded first-fence conditions are retained together for the accepted root; the theorem relies on the explicit upstream Unzen/header authentication boundary.; LIVE_SWITCH-a13034155faca211: The accepted root retains the finalized-proposal counter/hash conditions, excluding an earlier decoded checkpoint as the selected last finalized start.; LIVE_SWITCH-295b5131df643eda: The accepted root has the same written height/hash/stateRoot as the authenticated Unzen header and saved checkpoint.; LIVE_SWITCH-1b91cab49034187c: The accepted first-proof root additionally satisfies the fixed guest implementation checker. The actual account/storage proof checker and node pre-signing checks are not proved.; LIVE_SWITCH-c744303db39a7ea9: Only the L1 accepting-root portion is addressed: an authenticated custody root retains the accepted first fence and matching Unzen header. Honest-node refusal and originWriter operational checks are not asserted."
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Exact accepted first-fence/root construction under explicit primitive adapters."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Custody.suffix_terminal_bound",
       "module": "EtnaProofs.CurrentCustody",
       "role": "property",
       "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w : Etna.Design.Current.Protocol.World}\n  {a : Etna.Design.Current.Protocol.Landing} (segment : Etna.Design.Current.Protocol.Suffix env w a),\n  Etna.Design.Current.Protocol.HashBound env (Etna.Design.Current.Blocks.terminal segment.parent segment.blocks)",
-      "sources": ["LIVE_EN-3d0fb99927ba67de"],
+      "sources": ["LIVE_EN-c004ba62c562b36c"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -2288,7 +2234,7 @@
       "declaration": "Etna.Design.Current.RegistryMachine.excluded_stable",
       "module": "EtnaProofs.CurrentRegistry",
       "role": "supporting",
-      "type": "∀ (s : Etna.Design.Current.RegistryMachine.State) (xs : List (Nat × Etna.Design.Hash)) (snapshot : Nat),\n  Etna.Design.Current.RegistryMachine.Stable s\n    { ledger := Etna.Design.Current.RegistryMachine.excludedLedger s xs snapshot, config := s.config,\n      verify := s.verify, registerAuth := s.registerAuth, entryKey := s.entryKey, forfeited := s.forfeited,\n      history := s.history }",
+      "type": "∀ (s : Etna.Design.Current.RegistryMachine.State) (xs : List Nat) (snapshot : Nat),\n  Etna.Design.Current.RegistryMachine.Stable s\n    { ledger := Etna.Design.Current.RegistryMachine.excludedLedger s xs snapshot, config := s.config,\n      verify := s.verify, registerAuth := s.registerAuth, forfeited := s.forfeited, history := s.history }",
       "sources": [],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
@@ -2348,7 +2294,7 @@
       "declaration": "Etna.Design.Current.RegistryMachine.recheck_stable",
       "module": "EtnaProofs.CurrentRegistry",
       "role": "supporting",
-      "type": "∀ (s : Etna.Design.Current.RegistryMachine.State) (snapshot : Nat),\n  Etna.Design.Current.RegistryMachine.Stable s\n    { ledger := Etna.Design.Current.RegistryMachine.recheckedLedger s snapshot, config := s.config, verify := s.verify,\n      registerAuth := s.registerAuth, entryKey := s.entryKey, forfeited := s.forfeited, history := s.history }",
+      "type": "∀ (s : Etna.Design.Current.RegistryMachine.State) (snapshot : Nat),\n  Etna.Design.Current.RegistryMachine.Stable s\n    { ledger := Etna.Design.Current.RegistryMachine.recheckedLedger s snapshot, config := s.config, verify := s.verify,\n      registerAuth := s.registerAuth, forfeited := s.forfeited, history := s.history }",
       "sources": [],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
@@ -2433,7 +2379,7 @@
       "module": "EtnaProofs.CurrentRegistry",
       "role": "property",
       "type": "∀ {s t : Etna.Design.Current.RegistryMachine.World},\n  Etna.Design.Current.RegistryMachine.Trace s t → Etna.Design.Current.RegistryMachine.WorldStable s t",
-      "sources": ["LIVE_EN-dff27e7057a061cd"],
+      "sources": ["LIVE_EN-c5272db00f504842"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -2445,7 +2391,7 @@
       "module": "EtnaProofs.CurrentRegistry",
       "role": "supporting",
       "type": "∀ {s : Etna.Design.Current.RegistryMachine.State} (v : Etna.Design.Current.RegistryMachine.InboxView)\n  (now key caller amount pop id : Nat),\n  s.ledger.keyId key = Option.some id →\n    Etna.Design.Current.RegistryMachine.execute s v now\n        (Etna.Design.Current.RegistryMachine.Action.register key caller amount pop) =\n      Option.none",
-      "sources": ["LIVE_EN-dff27e7057a061cd"],
+      "sources": ["LIVE_EN-c5272db00f504842"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -2457,7 +2403,7 @@
       "module": "EtnaProofs.CurrentRegistry",
       "role": "supporting",
       "type": "∀ (s : Etna.Design.Current.RegistryMachine.State) (id : Nat)\n  (f : Etna.Design.Staking.Bond → Option Etna.Design.Staking.Bond),\n  s.ledger.nextId ≤ id → Etna.Design.Current.RegistryMachine.editValue s id f = Option.none",
-      "sources": ["LIVE_EN-dff27e7057a061cd"],
+      "sources": ["LIVE_EN-c5272db00f504842"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -2528,7 +2474,7 @@
       "declaration": "Etna.Design.Current.RegistryPayments.forfeit_payment_exact",
       "module": "EtnaProofs.CurrentRegistryPayments",
       "role": "supporting",
-      "type": "∀ (env : Etna.Design.Current.RegistryPayments.PaymentEnvironment) (s : Etna.Design.Current.RegistryMachine.State)\n  (caller id embedded key incident validUntil : Nat) (b : Etna.Design.Current.Registry.Bond),\n  s.ledger.bonds id = Option.some b →\n    Etna.Design.Current.RegistryPayments.paymentIntents env s caller\n        (Etna.Design.Current.RegistryMachine.Action.forfeit id embedded key incident validUntil) =\n      [{ source := env.registryAddress, recipient := env.slashSink,\n          amount := Etna.Design.Staking.forfeitPenalty b.value.balance s.config.forfeitBps }]",
+      "type": "∀ (env : Etna.Design.Current.RegistryPayments.PaymentEnvironment) (s : Etna.Design.Current.RegistryMachine.State)\n  (caller id embedded incident validUntil : Nat) (b : Etna.Design.Current.Registry.Bond),\n  s.ledger.bonds id = Option.some b →\n    Etna.Design.Current.RegistryPayments.paymentIntents env s caller\n        (Etna.Design.Current.RegistryMachine.Action.forfeit id embedded incident validUntil) =\n      [{ source := env.registryAddress, recipient := env.slashSink,\n          amount := Etna.Design.Staking.forfeitPenalty b.value.balance s.config.forfeitBps }]",
       "sources": ["LIVE_EN-bf78b9d3bc888c6c"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
@@ -2625,7 +2571,7 @@
       "module": "EtnaProofs.CurrentRegistryPayments",
       "role": "supporting",
       "type": "∀ (env : Etna.Design.Current.RegistryPayments.PaymentEnvironment) (s : Etna.Design.Current.RegistryMachine.State)\n  (caller id embedded recipient : Nat) (b : Etna.Design.Current.Registry.Bond),\n  s.ledger.bonds id = Option.some b →\n    0 < b.value.balance →\n      Etna.Design.Current.RegistryPayments.paymentIntents env s caller\n          (Etna.Design.Current.RegistryMachine.Action.withdraw id embedded recipient) =\n        [{ source := env.registryAddress, recipient := recipient, amount := b.value.balance }]",
-      "sources": ["LIVE_EN-66d59803d30c85d4"],
+      "sources": ["LIVE_EN-0cb12b3fe2dfebf9"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -2637,7 +2583,7 @@
       "module": "EtnaProofs.CurrentSettlement",
       "role": "property",
       "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w t : Etna.Design.Current.Protocol.World}\n  {a : Etna.Design.Current.Protocol.Landing},\n  Etna.Design.Current.Protocol.land env w a = Option.some t →\n    Etna.Design.Current.Protocol.LiveCertifies env w (Etna.Design.Current.Protocol.statement env w a) →\n      Etna.Design.recordAt w.inbox w.inbox.checkpoint.height = Option.some w.inbox.checkpoint →\n        Nonempty (Etna.Design.Current.Protocol.Suffix env w a)",
-      "sources": ["LIVE_EN-3d0fb99927ba67de", "LIVE_EN-9e082fe4b4d911e8"],
+      "sources": ["LIVE_EN-c004ba62c562b36c", "LIVE_EN-9e082fe4b4d911e8"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -2661,7 +2607,7 @@
       "module": "EtnaProofs.CurrentReference",
       "role": "supporting",
       "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w t : Etna.Design.Current.Protocol.World}\n  {a : Etna.Design.Current.Protocol.Landing},\n  Etna.Design.Current.Protocol.land env w a = Option.some t →\n    Etna.Design.Current.Protocol.LandingChecks env w a ∧ t = Etna.Design.Current.Protocol.landed w a",
-      "sources": ["LIVE_EN-3d0fb99927ba67de"],
+      "sources": ["LIVE_EN-c004ba62c562b36c"],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -2683,13 +2629,13 @@
     {
       "module": "EtnaProofs.CurrentSettlement",
       "declaration": "Etna.Design.Current.Protocol.land_single_block",
-      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w : Etna.Design.Current.Protocol.World}\n  {a : Etna.Design.Current.Protocol.Landing},\n  a.input.lastHeight = a.input.parentHeight + 1 →\n    a.leaves = [] →\n      w.initialized = Bool.true →\n        w.start.isSome = Bool.true →\n          w.inbox.entered = Bool.false →\n            w.inbox.origin.height ≤ a.input.parentHeight →\n              a.input.parentHeight ≤ w.inbox.checkpoint.height →\n                w.inbox.checkpoint.height < a.input.lastHeight →\n                  a.input.lastHeight < Etna.Design.limit48 →\n                    a.input.lastHeight - a.input.parentHeight ≤ w.inbox.maxBatchBlocks →\n                      (Etna.Design.recordAt w.inbox a.input.parentHeight).isSome = Bool.true →\n                        ((Etna.Design.recordAt w.inbox a.input.parentHeight).getD Inhabited.default).generation =\n                              w.inbox.generation ∨\n                            a.input.parentHeight = w.inbox.origin.height →\n                          ((Etna.Design.recordAt w.inbox w.inbox.checkpoint.height).getD Inhabited.default).cursor =\n                              w.inbox.head →\n                            w.inbox.head ≤ a.input.forcedInclusionHead →\n                              a.input.forcedInclusionHead ≤ w.inbox.tail →\n                                a.input.forcedInclusionHead - w.inbox.head ≤\n                                    a.input.lastHeight - w.inbox.checkpoint.height →\n                                  a.input.l1ReferenceBlockNumber < w.number →\n                                    w.number - a.input.l1ReferenceBlockNumber ≤ 8191 →\n                                      Etna.Design.Current.Protocol.referenceHash env w a.input.l1ReferenceBlockNumber ≠ 0 →\n                                        1 ≤ a.blobs.length ∧ a.blobs.length ≤ 6 →\n                                          Etna.Design.Current.Protocol.firstFence env w = Bool.true →\n                                            Etna.Design.Current.Protocol.proofsAccepted env w a = Bool.true →\n                                              (∀ (table : List Etna.Design.Cut),\n                                                  Etna.Design.innerLeaves a.input.parentHeight a.input.lastHeight table =\n                                                    a.leaves) ∧\n                                                Etna.Design.Current.Protocol.land env w a =\n                                                  Option.some (Etna.Design.Current.Protocol.landed w a)",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w : Etna.Design.Current.Protocol.World}\n  {a : Etna.Design.Current.Protocol.Landing},\n  a.input.lastHeight = a.input.parentHeight + 1 →\n    a.leaves = [] →\n      w.initialized = Bool.true →\n        w.start.isSome = Bool.true →\n          w.inbox.entered = Bool.false →\n            w.inbox.origin.height ≤ a.input.parentHeight →\n              a.input.parentHeight ≤ w.inbox.checkpoint.height →\n                w.inbox.checkpoint.height < a.input.lastHeight →\n                  a.input.lastHeight < Etna.Design.limit48 →\n                    a.input.lastHeight - a.input.parentHeight ≤ w.inbox.maxBatchBlocks →\n                      (Etna.Design.recordAt w.inbox a.input.parentHeight).isSome = Bool.true →\n                        ((Etna.Design.recordAt w.inbox a.input.parentHeight).getD Inhabited.default).generation =\n                              w.inbox.generation ∨\n                            a.input.parentHeight = w.inbox.origin.height →\n                          ((Etna.Design.recordAt w.inbox w.inbox.checkpoint.height).getD Inhabited.default).cursor =\n                              w.inbox.head →\n                            w.inbox.head ≤ a.input.forcedInclusionHead →\n                              a.input.forcedInclusionHead ≤ w.inbox.tail →\n                                a.input.forcedInclusionHead - w.inbox.head ≤\n                                    a.input.lastHeight - w.inbox.checkpoint.height →\n                                  a.input.l1ReferenceBlockNumber < w.number →\n                                    w.number - a.input.l1ReferenceBlockNumber ≤ 8191 →\n                                      Etna.Design.Current.Protocol.referenceHash env w a.input.l1ReferenceBlockNumber ≠\n                                          0 →\n                                        1 ≤ a.blobs.length ∧ a.blobs.length ≤ 6 →\n                                          Etna.Design.Current.Protocol.firstFence env w = Bool.true →\n                                            (Etna.Design.recordAt w.inbox a.input.parentHeight).getD Inhabited.default ∈\n                                                w.activeRecords →\n                                              w.inbox.snapshot ≤ a.input.activeCommitteeSnapshot →\n                                                Etna.Design.Current.Protocol.proofsAccepted env w a = Bool.true →\n                                                  (∀ (table : List Etna.Design.Cut),\n                                                      Etna.Design.innerLeaves a.input.parentHeight a.input.lastHeight\n                                                          table =\n                                                        a.leaves) ∧\n                                                    Etna.Design.Current.Protocol.land env w a =\n                                                      Option.some (Etna.Design.Current.Protocol.landed w a)",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-3d0fb99927ba67de", "LIVE_EN-012df13389447c60"],
+      "sources": ["LIVE_EN-c004ba62c562b36c", "LIVE_EN-0300073c68619a9e"],
       "scope": "LAND-6.1-5, ENC-A-31/32: a landing of the single block p+1 carries no leaves, every cut table gives the same empty inner list (keccak256(\"\") on L1), and land accepts it whenever the checks that do not read the leaves pass. Decoded land only; no Solidity, calldata or Keccak implementation proof."
     },
     {
@@ -2701,7 +2647,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-3d0fb99927ba67de", "LIVE_EN-8d4e69da306a2092"],
+      "sources": ["LIVE_EN-c004ba62c562b36c", "LIVE_EN-8d4e69da306a2092"],
       "scope": "LAND-6.1-7, BATCH-6.3-10: after a competing landing moves c to p+1, the leaf count h-p-1 does not depend on c, and the frontier check reads index c-p-1 = 0, which an honest inner list fills with cutLeaf(p+1); it holds whenever c's slot 285 record and the FI head match the batch's cut at p+1. Leaf checks only; the other landing checks and the proofs are not concluded."
     },
     {
@@ -2711,7 +2657,7 @@
       "type": "Etna.Statements.Current.AccountableFinality",
       "sources": [
         "LIVE_EN-fb39b71e9b4c760c",
-        "LIVE_EN-66d59803d30c85d4",
+        "LIVE_EN-0cb12b3fe2dfebf9",
         "LIVE_EN-c36e4d0d76a728b6"
       ],
       "assumptions": [
@@ -2764,7 +2710,7 @@
       "sources": [
         "LIVE_EN-806e818366c6b783",
         "LIVE_EN-c36e4d0d76a728b6",
-        "LIVE_EN-4a56676c3ce76122"
+        "LIVE_EN-5570e5017f405f8f"
       ],
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
@@ -2817,20 +2763,8 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-4a56676c3ce76122"],
+      "sources": ["LIVE_EN-5570e5017f405f8f"],
       "scope": "Derived conditional decoded property. Rollback truncates retained signal/custody associations at the trusted checkpoint, so no voided checkpoint is readable. Every other checkpoint, including the Unzen ones at or below S and block 0, stays usable, and a re-landing at a voided height is usable: the model keeps the checkpoints at or below the trusted one and appends fresh ones. No governance mechanism proof. Signals are SignalService checkpoints only; RECOV-8-27a derived authorizations are not modelled."
-    },
-    {
-      "declaration": "Etna.Design.Current.Protocol.Custody.correction_before_any_landing",
-      "module": "EtnaProofs.CurrentCoherentCustody",
-      "role": "supporting",
-      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w t : Etna.Design.Current.Protocol.World}\n  {caller height hash root : Nat},\n  Etna.Design.Current.Protocol.correctStart env w caller height hash root = Option.some t →\n    w.everLanded = Bool.false ∧ w.inbox.signals = []",
-      "assumptions": [
-        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
-      ],
-      "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-434877759085292e"],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Start correction is refused after any successful landing and the written start remains frozen thereafter."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Custody.empty_coherent",
@@ -2937,7 +2871,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-3d0fb99927ba67de"],
+      "sources": ["LIVE_EN-c004ba62c562b36c"],
       "scope": "Supporting decoded write/provenance fragment: successful land retains the submitted selection snapshot alongside the new checkpoint. This is only the snapshot/record association within the atomic landed value, not the full atomic update."
     },
     {
@@ -2997,7 +2931,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-4a56676c3ce76122"],
+      "sources": ["LIVE_EN-5570e5017f405f8f"],
       "scope": "Derived conditional decoded property. Rollback truncates retained signal/custody associations at the trusted checkpoint, so no voided checkpoint is readable. Every other checkpoint, including the Unzen ones at or below S and block 0, stays usable, and a re-landing at a voided height is usable: the model keeps the checkpoints at or below the trusted one and appends fresh ones. No governance mechanism proof. Signals are SignalService checkpoints only; RECOV-8-27a derived authorizations are not modelled."
     },
     {
@@ -3021,19 +2955,35 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-4a56676c3ce76122"],
+      "sources": ["LIVE_EN-5570e5017f405f8f"],
       "scope": "Derived conditional decoded property. Rollback restores the exact snapshot associated with its retained trusted checkpoint and recheck source."
+    },
+    {
+      "declaration": "Etna.Design.Current.Protocol.Custody.set_origin_authenticates",
+      "module": "EtnaProofs.CurrentCoherentCustody",
+      "role": "supporting",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w t : Etna.Design.Current.Protocol.World} {caller height : Nat},\n  Etna.Design.Current.Protocol.setOrigin env w caller height = Option.some t →\n    t.start = Option.some { height := height, hash := w.unzen.finalizedHash, stateRoot := w.unzen.checkpointRoot } ∧\n      t.legacySignals = w.legacySignals ∧\n        env.unzenProposeCutoff ≠ 0 ∧\n          env.unzenProposeCutoff ≤ env.time w.number ∧\n            Etna.Design.Current.Start.firstLanding Bool.true height height w.unzen.finalizedHash w.unzen.checkpointRoot\n                w.unzen =\n              Bool.true",
+      "assumptions": [
+        "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
+      ],
+      "bridge_level": "spec-proved",
+      "sources": [
+        "LIVE_EN-fb7be596488e5869",
+        "LIVE_EN-52f103f72fef6522",
+        "LIVE_EN-5bb4b7770ad2139a"
+      ],
+      "scope": "Supporting exact successful start write: reads the closed proposal lane and matching height checkpoint at the permissionless latch; preserves existing legacy signals."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Custody.set_origin_once",
       "module": "EtnaProofs.CurrentCoherentCustody",
       "role": "supporting",
-      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w : Etna.Design.Current.Protocol.World}\n  {start : Etna.Design.Current.Protocol.StartData},\n  w.start = Option.some start →\n    ∀ (caller height hash root : Nat),\n      Etna.Design.Current.Protocol.setOrigin env w caller height hash root = Option.none",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w : Etna.Design.Current.Protocol.World}\n  {start : Etna.Design.Current.Protocol.StartData},\n  w.start = Option.some start →\n    ∀ (caller height : Nat), Etna.Design.Current.Protocol.setOrigin env w caller height = Option.none",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-8c95830dc59e5ff1"],
+      "sources": ["LIVE_EN-fb7be596488e5869", "LIVE_EN-5bb4b7770ad2139a"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. The current switching origin is written at most once before correction."
     },
     {
@@ -3045,7 +2995,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-434877759085292e"],
+      "sources": ["LIVE_EN-5bb4b7770ad2139a"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Start rewrite retains the baseline snapshot association only."
     },
     {
@@ -3105,8 +3055,8 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-434877759085292e"],
-      "scope": "Derived conditional decoded property. Start correction is refused after any successful landing and the written start remains frozen thereafter."
+      "sources": ["LIVE_EN-5bb4b7770ad2139a"],
+      "scope": "Derived conditional decoded property. The written start remains frozen on all traces after a successful landing."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Custody.unstarted_no_signals",
@@ -3142,18 +3092,11 @@
       ],
       "bridge_level": "spec-proved",
       "sources": [
-        "LIVE_EN-3d0fb99927ba67de",
-        "LIVE_EN-6c59150df089c846",
-        "LIVE_SWITCH-cc0dc0613d835bcf",
-        "LIVE_SWITCH-f52091db530cc114",
-        "LIVE_SWITCH-512ea2bb85cd825f",
-        "LIVE_SWITCH-a707198d4d5c29a0",
-        "LIVE_SWITCH-a13034155faca211",
-        "LIVE_SWITCH-295b5131df643eda",
-        "LIVE_SWITCH-1b91cab49034187c",
-        "LIVE_SWITCH-c744303db39a7ea9"
+        "LIVE_EN-c004ba62c562b36c",
+        "LIVE_EN-b4ebbac0968bb0e9",
+        "LIVE_EN-52f103f72fef6522"
       ],
-      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Exact accepted first-fence/root construction under explicit primitive adapters. LIVE_SWITCH-cc0dc0613d835bcf: The decoded accepted first fence has nextProposal = finalizedProposal + 1. This is the closed Unzen-counter condition; no implementation of Unzen proposal storage is proved.; LIVE_SWITCH-f52091db530cc114: The decoded first fence equates the last finalized Unzen hash with the written start hash.; LIVE_SWITCH-512ea2bb85cd825f: The decoded first fence requires the saved checkpoint hash and stateRoot to match the written start; actual SignalService storage/contract refinement remains external.; LIVE_SWITCH-a707198d4d5c29a0: The three decoded first-fence conditions are retained together for the accepted root; the theorem relies on the explicit upstream Unzen/header authentication boundary.; LIVE_SWITCH-a13034155faca211: The accepted root retains the finalized-proposal counter/hash conditions, excluding an earlier decoded checkpoint as the selected last finalized start.; LIVE_SWITCH-295b5131df643eda: The accepted root has the same written height/hash/stateRoot as the authenticated Unzen header and saved checkpoint.; LIVE_SWITCH-1b91cab49034187c: The accepted first-proof root additionally satisfies the fixed guest implementation checker. The actual account/storage proof checker and node pre-signing checks are not proved.; LIVE_SWITCH-c744303db39a7ea9: Only the L1 accepting-root portion is addressed: an authenticated custody root retains the accepted first fence and matching Unzen header. Honest-node refusal and originWriter operational checks are not asserted."
+      "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Exact accepted first-fence/root construction under explicit primitive adapters."
     },
     {
       "declaration": "Etna.Design.Current.Economics.closed_registry_history",
@@ -3164,7 +3107,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-dff27e7057a061cd", "LIVE_EN-78c909bca20c5cd0"],
+      "sources": ["LIVE_EN-c5272db00f504842", "LIVE_EN-78c909bca20c5cd0"],
       "scope": "Derived conditional decoded property. Closed earlier election history and its derived committee authority remain unchanged across actual later calls."
     },
     {
@@ -3176,7 +3119,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-dff27e7057a061cd"],
+      "sources": ["LIVE_EN-c5272db00f504842"],
       "scope": "Derived conditional decoded property. Actual committee keys have issued permanent-bond provenance from a valid fresh registry trace."
     },
     {
@@ -3224,7 +3167,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-27f6a5d40d0ce55d", "LIVE_EN-66d59803d30c85d4"],
+      "sources": ["LIVE_EN-27f6a5d40d0ce55d", "LIVE_EN-0cb12b3fe2dfebf9"],
       "scope": "Derived conditional decoded property. Actual later worlds cannot release an observed live unconfirmed bond before the full configured evidence duration."
     },
     {
@@ -3296,7 +3239,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-dff27e7057a061cd", "LIVE_EN-78c909bca20c5cd0"],
+      "sources": ["LIVE_EN-c5272db00f504842", "LIVE_EN-78c909bca20c5cd0"],
       "scope": "Derived conditional decoded property. Each retained historical registry checkpoint comes from an exact actual earlier world and both connecting traces; no full present-window slashability claim."
     },
     {
@@ -3309,7 +3252,7 @@
       ],
       "bridge_level": "spec-proved",
       "sources": [
-        "LIVE_EN-dff27e7057a061cd",
+        "LIVE_EN-c5272db00f504842",
         "LIVE_EN-78c909bca20c5cd0",
         "LIVE_EN-fb39b71e9b4c760c"
       ],
@@ -3348,7 +3291,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-dff27e7057a061cd", "LIVE_EN-78c909bca20c5cd0"],
+      "sources": ["LIVE_EN-c5272db00f504842", "LIVE_EN-78c909bca20c5cd0"],
       "scope": "Derived conditional decoded property. Closed earlier election history and its derived committee authority remain unchanged across actual later calls."
     },
     {
@@ -3384,7 +3327,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-dff27e7057a061cd", "LIVE_EN-78c909bca20c5cd0"],
+      "sources": ["LIVE_EN-c5272db00f504842", "LIVE_EN-78c909bca20c5cd0"],
       "scope": "Derived conditional decoded property. Closed earlier election history and its derived committee authority remain unchanged across actual later calls."
     },
     {
@@ -3768,7 +3711,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-6c59150df089c846", "LIVE_EN-184e98d059f7f4cd"],
+      "sources": ["LIVE_EN-b4ebbac0968bb0e9", "LIVE_EN-184e98d059f7f4cd"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. An accepted landing has an actually submitted proof whose declared image certifies the complete decoded batch under each selected ruleset and stop. This uses the primitive backend/image soundness contract; it establishes neither image-combination availability nor guest implementation refinement. LIVE_EN-7ae0985576149bdc: Only PROOF-6.2-45a: the certificate is tied to one actually submitted sound proof image and a complete per-block valid batch with selected-interpreter/stop checks. No unrelated cuts, switching-implementation, or inherited-anchor requirement is inferred.; LIVE_EN-ad883390e144f5e5: Only START-10.1-6a: every selected ruleset of the image-certified decoded batch belongs to that actual image's declared implementation set. No proof-combination availability or registration/revocation policy follows."
     },
     {
@@ -3792,7 +3735,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-1d7a0cb1eb3d5efb"],
+      "sources": ["LIVE_EN-bcd8fdda0bd20246"],
       "scope": "Derived conditional decoded property. A complete closed, already-started snapshot in the current generation has the same start and active raw origin as the current World. Only active-origin immutability within that generation is protocol evidence. LIVE_EN-1d7a0cb1eb3d5efb: Only RECOV-8.4-4's active-origin immutability component: the decoded current origin is unchanged within a reached, already-started generation. The theorem does not establish the exact initial c/R/timestamp triple or permanence of every historical slot-290 mapping entry."
     },
     {
@@ -3828,7 +3771,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-1d7a0cb1eb3d5efb"],
+      "sources": ["LIVE_EN-bcd8fdda0bd20246"],
       "scope": "Derived conditional decoded property. A reached already-started World retains its start and active raw origin along any actual trace whose observed generation is unchanged. No claim about exact origin construction or all historical mapping entries is added. LIVE_EN-1d7a0cb1eb3d5efb: Only RECOV-8.4-4's active-origin immutability component: the decoded current origin is unchanged within a reached, already-started generation. The theorem does not establish the exact initial c/R/timestamp triple or permanence of every historical slot-290 mapping entry."
     },
     {
@@ -3918,7 +3861,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-5822dd8d7b64f579"],
+      "sources": ["LIVE_EN-763e887de7188d64"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. The actual nodeTrust predicate targets the Inbox's latest checkpoint and requires the local chain's header at that height to equal the slot 285 record's EL hash, Comet hash and FI cursor (trustCut), so a mismatch in any of them refuses trust. The cursor comparison goes beyond SYNC-9-5's wording; the node's own L1 finality view, the Unzen and start-implementation checks of SYNC-9-5a and stock store refinement are not covered by this projection."
     },
     {
@@ -3930,7 +3873,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-0f8e196ab4a6954b", "LIVE_EN-f98242f5400aa7f7"],
+      "sources": ["LIVE_EN-0f8e196ab4a6954b", "LIVE_EN-5d60b65a2114db37"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Closed decoded import installs the actual-generation numeric interval max(o, s - U + 1)..s and preserves signer state with readiness false; actual EL headers, indexes, stores and availability are deferred."
     },
     {
@@ -3942,7 +3885,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-4d6ef522fb0ee3fa", "LIVE_EN-e83bfb4c2586fe1b"],
+      "sources": ["LIVE_EN-c5b0c0adebace931", "LIVE_EN-e83bfb4c2586fe1b"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Successful recovery has a strictly sorted FI clear list entirely within the pending execution-time queue interval; no nonce/generation conclusion."
     },
     {
@@ -4105,7 +4048,7 @@
       "declaration": "Etna.Design.Current.RegistryMachine.excluded_reserve",
       "module": "EtnaProofs.CurrentRegistry",
       "role": "property",
-      "type": "∀ (s : Etna.Design.Current.RegistryMachine.State) (xs : List (Nat × Etna.Design.Hash)) (cutoff : Nat),\n  Etna.Design.Current.RegistryMachine.reserve (Etna.Design.Current.RegistryMachine.excludedLedger s xs cutoff) =\n    Etna.Design.Current.RegistryMachine.reserve s.ledger",
+      "type": "∀ (s : Etna.Design.Current.RegistryMachine.State) (xs : List Nat) (cutoff : Nat),\n  Etna.Design.Current.RegistryMachine.reserve (Etna.Design.Current.RegistryMachine.excludedLedger s xs cutoff) =\n    Etna.Design.Current.RegistryMachine.reserve s.ledger",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
@@ -4134,7 +4077,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-dff27e7057a061cd", "LIVE_EN-78c909bca20c5cd0"],
+      "sources": ["LIVE_EN-c5272db00f504842", "LIVE_EN-78c909bca20c5cd0"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Previously closed earlier election snapshots remain unchanged; exact temporal checkpoint result only."
     },
     {
@@ -4146,7 +4089,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-dff27e7057a061cd"],
+      "sources": ["LIVE_EN-c5272db00f504842"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Every nonzero historical election key comes from an actual issued permanent bond; no independent stake-quantity assertion."
     },
     {
@@ -4170,7 +4113,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-1d6f17bd21c3404a"],
+      "sources": ["LIVE_EN-c4d94825ec2fca74"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Every retained checkpoint after a successful decoded registry call is either an existing checkpoint or has the current L1 block and the exact resulting slot-entry list. This is the new-checkpoint fidelity component only. LIVE_EN-255e96e167914963: New-checkpoint block/entry fidelity only. The theorem does not independently assert end-of-block uniqueness, the converse slot-change/write condition, count/root encoding, or historical MPT verification."
     },
     {
@@ -4218,7 +4161,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-dff27e7057a061cd", "LIVE_EN-78c909bca20c5cd0"],
+      "sources": ["LIVE_EN-c5272db00f504842", "LIVE_EN-78c909bca20c5cd0"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Previously closed earlier election snapshots remain unchanged; exact temporal checkpoint result only."
     },
     {
@@ -4242,7 +4185,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-dff27e7057a061cd", "LIVE_EN-78c909bca20c5cd0"],
+      "sources": ["LIVE_EN-c5272db00f504842", "LIVE_EN-78c909bca20c5cd0"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. Previously closed earlier election snapshots remain unchanged; exact temporal checkpoint result only."
     },
     {
@@ -4350,7 +4293,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-dff27e7057a061cd", "LIVE_EN-78c909bca20c5cd0"],
+      "sources": ["LIVE_EN-c5272db00f504842", "LIVE_EN-78c909bca20c5cd0"],
       "scope": "Derived conditional decoded property. Previously closed earlier election snapshots remain unchanged; exact temporal checkpoint result only."
     },
     {
@@ -4362,7 +4305,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-27f6a5d40d0ce55d", "LIVE_EN-66d59803d30c85d4"],
+      "sources": ["LIVE_EN-27f6a5d40d0ce55d", "LIVE_EN-0cb12b3fe2dfebf9"],
       "scope": "A bond whose actual evidence clock begins no earlier than the observation remains issued and unreleased throughout its configured withdrawal delay, over real closed registry calls including rollback. Confirmation-clock and live-bond assumptions are explicit at observation; selected-bond retention is proved separately."
     },
     {
@@ -4374,7 +4317,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-dff27e7057a061cd"],
+      "sources": ["LIVE_EN-c5272db00f504842"],
       "scope": "Derived conditional decoded property. Every nonzero historical election key comes from an actual issued permanent bond; no independent stake-quantity assertion."
     },
     {
@@ -4458,7 +4401,7 @@
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-27f6a5d40d0ce55d", "LIVE_EN-66d59803d30c85d4"],
+      "sources": ["LIVE_EN-27f6a5d40d0ce55d", "LIVE_EN-0cb12b3fe2dfebf9"],
       "scope": "A successful withdrawal has an issued pre-state bond and recorded confirmation, with current block at least confirmation plus any duration no larger than the configured delay. This is delay/confirmation provenance only, not owner checks, zeroing or payment atomicity."
     },
     {
@@ -5526,7 +5469,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-1e8d3744485e2a29", "LIVE_EN-cc34fca3e258c580"],
+      "sources": ["LIVE_EN-146b18d3aad7cf67", "LIVE_EN-cc34fca3e258c580"],
       "scope": "Equal-length physical ancestry chains reaching the same EL hash have the same derived committee cutoff, under fixed parent decoding and hash-to-anchor-number separation. No complete-header or Comet/FI-metadata injectivity is assumed."
     },
     {
@@ -5574,7 +5517,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-2474bdce909c86f9"],
+      "sources": ["LIVE_EN-5e8464fbc5111920"],
       "scope": "The derived active committee cutoff at the actual authenticated batch terminal is no later than the declared closed L1 reference. This is numeric ancestry/reference closure only; exact committee/snapshot binding is part of the supplied certificate semantics, and raw L1-header decoding/hash-chain refinement remains external."
     },
     {
@@ -5742,7 +5685,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-2474bdce909c86f9"],
+      "sources": ["LIVE_EN-5e8464fbc5111920"],
       "scope": "Supporting certificate requirement: the committed reference prefix enumerates every closed L1 snapshot number through reference. Real canonical L1 raw-header decoding/hash links are a separate refinement."
     },
     {
@@ -5766,7 +5709,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-2474bdce909c86f9"],
+      "sources": ["LIVE_EN-5e8464fbc5111920"],
       "scope": "The reference-local pure semantic certificate derives statement.activeCommitteeSnapshot <= statement.reference independently of later world state. This numeric bound does not itself conclude the actual-governing-snapshot equality assumed by the certificate."
     },
     {
@@ -5778,7 +5721,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-cc34fca3e258c580", "LIVE_EN-1d7a0cb1eb3d5efb"],
+      "sources": ["LIVE_EN-cc34fca3e258c580", "LIVE_EN-bcd8fdda0bd20246"],
       "scope": "Supporting reference-local guest certificate requirement: its actual closed-prefix fixed-origin lookup is present. It does not prove the origin triple construction or production MPT authentication."
     },
     {
@@ -5790,7 +5733,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-2474bdce909c86f9"],
+      "sources": ["LIVE_EN-5e8464fbc5111920"],
       "scope": "A live semantic certificate derives statement.activeCommitteeSnapshot <= statement.reference. The conclusion is only numeric reference closure: it must not independently credit the actual-governing-snapshot equality already assumed in certificate semantics."
     },
     {
@@ -5802,7 +5745,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-3d0fb99927ba67de", "LIVE_EN-cc34fca3e258c580"],
+      "sources": ["LIVE_EN-c004ba62c562b36c", "LIVE_EN-cc34fca3e258c580"],
       "scope": "An actual accepted landing and live certificate split its full hash-bound physical archive exactly at the current stored checkpoint height/hash, using the execution-time frontier cut. No candidate cutoff, snapshot order or derived committee equality is assumed."
     },
     {
@@ -5838,7 +5781,11 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-3d0fb99927ba67de"],
+      "sources": [
+        "LIVE_EN-c004ba62c562b36c",
+        "LIVE_EN-52f103f72fef6522",
+        "LIVE_EN-b4ebbac0968bb0e9"
+      ],
       "scope": "Once nextProposal = finalizedProposal+1, no ordinary modeled Unzen proof can succeed, because every accepted proof must strictly advance to a proposal below nextProposal. No external Unzen upgrade/recovery is included."
     },
     {
@@ -5958,7 +5905,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-8dbee22be3a3eda7"],
+      "sources": ["LIVE_EN-6104e9fe7c0d1002"],
       "scope": "For actual switching protocol traces every retained legacy signal height is strictly below every retained Etna signal height, including a legacy proof emitted before a wrong start write. This does not verify SignalService storage/version implementation."
     },
     {
@@ -5994,7 +5941,12 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-3d0fb99927ba67de", "LIVE_EN-434877759085292e"],
+      "sources": [
+        "LIVE_EN-c004ba62c562b36c",
+        "LIVE_EN-5bb4b7770ad2139a",
+        "LIVE_EN-52f103f72fef6522",
+        "LIVE_EN-b4ebbac0968bb0e9"
+      ],
       "scope": "After an accepted first switching landing, Unzen is closed, all legacy signals are at/below its retained start and all retained Etna signals lie above that start. The prelanding branch remains pending; sound guests and the per-proof Unzen extension are explicit assumptions."
     },
     {
@@ -6006,7 +5958,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-8dbee22be3a3eda7"],
+      "sources": ["LIVE_EN-6104e9fe7c0d1002"],
       "scope": "Actual ordinary protocol traces retain an authenticated legacy endpoint bounding every emitted legacy signal height, under the existing per-proof Unzen header/extension primitives. This is legacy-lane prefix compatibility only."
     },
     {
@@ -6066,7 +6018,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-4a56676c3ce76122"],
+      "sources": ["LIVE_EN-5570e5017f405f8f"],
       "scope": "Supporting RECOV-8-28 target rule as stated by the rollback duty Governance.RollbackAuthorized: two targets that both meet the duty in the same world are at the same height, so the duty leaves no choice of target. The duty itself (not this theorem) says the target is the last retained record below the first bad actual landing. TrustedRecord requires a certified header or pending start, actual non-start landing provenance and certification of every matching retained event's complete statement, including snapshot and signal root. Existence of a target after a verifier failure, the start-rewrite clause and generation counting are not shown."
     },
     {
@@ -6078,20 +6030,8 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-4a56676c3ce76122"],
+      "sources": ["LIVE_EN-5570e5017f405f8f"],
       "scope": "Supporting RECOV-8-27 effect of a raw verifier-failure rollback that meets its external duty Governance.RollbackAuthorized: the checkpoint, FI head and snapshot become the target's and the ones saved with it, the retained records are exactly those at or below the target, and each is certified from the history's initial world or the pending start. The duty is an assumption here, so this is no evidence that the target is the last trusted landing (RECOV-8-28). It is an authorization obligation on the DAO, not a contract check; the SignalService cache, Bridge RETRIABLE messages (RECOV-8-27a), the registry recheck and the generation rule are not shown."
-    },
-    {
-      "declaration": "Etna.Design.Current.Protocol.Governance.raw_correct_refines",
-      "module": "EtnaProofs.CurrentGovernance",
-      "role": "supporting",
-      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w t : Etna.Design.Current.Protocol.World}\n  {caller height hash root : Nat},\n  w.everLanded = Bool.false →\n    Etna.Design.Current.Protocol.Governance.rawCorrectStart env w caller height hash root = Option.some t →\n      Etna.Design.Current.Protocol.correctStart env w caller height hash root = Option.some t",
-      "assumptions": [
-        "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
-      ],
-      "bridge_level": "spec-proved",
-      "sources": [],
-      "scope": "Reviewed supporting model algebra, internal lifecycle invariant, projection or trace-composition lemma. Its stated conclusion supplies an ingredient of the sourced endpoint results but does not independently establish another protocol obligation; do not infer source credit from its module or dependencies."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Governance.recover_origin_exact",
@@ -6102,20 +6042,8 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-1d7a0cb1eb3d5efb", "LIVE_EN-8ef06591adea330d"],
+      "sources": ["LIVE_EN-bcd8fdda0bd20246", "LIVE_EN-8ef06591adea330d"],
       "scope": "Supporting exact successful ordinary-recovery result: the new generation is old+1 and its origin is (old checkpoint height, execution L1 block, execution timestamp); the prior decoded origin list is retained verbatim as a prefix and one new record is appended. Checkpoint, every existing Inbox record and the FI head are preserved together in that result. This proves only construction/preservation by this call: no generation-0 initialization/start-correction case, unique-key invariant, all-future mapping permanence, raw storage packing or production DAO transaction refinement."
-    },
-    {
-      "declaration": "Etna.Design.Current.Protocol.Governance.correct_start_origin_exact",
-      "module": "EtnaProofs.CurrentGovernance",
-      "role": "supporting",
-      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w t : Etna.Design.Current.Protocol.World}\n  {caller height hash root : Nat},\n  Etna.Design.Current.Protocol.correctStart env w caller height hash root = Option.some t →\n    t.inbox.generation = w.inbox.generation + 1 ∧\n      t.inbox.origin = { height := height, l1Block := w.number, timestamp := env.time w.number } ∧\n        t.inbox.origins =\n            w.inbox.origins ++\n              [(w.inbox.generation + 1, { height := height, l1Block := w.number, timestamp := env.time w.number })] ∧\n          t.start = Option.some { height := height, hash := hash, stateRoot := root }",
-      "assumptions": [
-        "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
-      ],
-      "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-434877759085292e", "LIVE_EN-1d7a0cb1eb3d5efb"],
-      "scope": "Supporting exact successful start-correction result (START-10-5c): the corrected start opens generation old+1 with origin (corrected S, execution L1 block, execution timestamp); the prior decoded origin list is retained verbatim as a prefix and one record is appended; the start becomes the corrected (S, hash, stateRoot). The no-prior-landing duty is separate (Custody.correction_before_any_landing, Governance.UpgradeAuthorized). No slot 272-274 storage, R-snapshot committee, SignalService or production DAO transaction refinement."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.Governance.authorized_trace_refines",
@@ -6162,7 +6090,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-fb39b71e9b4c760c", "LIVE_EN-66d59803d30c85d4"],
+      "sources": ["LIVE_EN-fb39b71e9b4c760c", "LIVE_EN-0cb12b3fe2dfebf9"],
       "scope": "An actually observed issued live unconfirmed keyed bond remains unreleased throughout the full supplied evidence window. At future use it is either already exhausted or every positive remainder has an executable fully funded slash with exact receipts. No future live/balance/funding outcome is supplied. The initial live/unconfirmed and window<=withdrawalDelay hypotheses are explicit here."
     },
     {
@@ -6198,7 +6126,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-27f6a5d40d0ce55d", "LIVE_EN-66d59803d30c85d4"],
+      "sources": ["LIVE_EN-27f6a5d40d0ce55d", "LIVE_EN-0cb12b3fe2dfebf9"],
       "scope": "From raw registry Genesis and the internal ordinary lifecycle projection, every positive historically eligible entry selected at a cutoff >= current landed snapshot has its permanent bond still unreleased and unconfirmed. Snapshot order is an internal projection premise here, not the public theorem input."
     },
     {
@@ -6222,7 +6150,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-27f6a5d40d0ce55d", "LIVE_EN-66d59803d30c85d4"],
+      "sources": ["LIVE_EN-27f6a5d40d0ce55d", "LIVE_EN-0cb12b3fe2dfebf9"],
       "scope": "The selected-unconfirmed property specializes to members of the actual derived active committee at the stated cutoff. Positive unit and current snapshot <= cutoff are explicit intermediate hypotheses; this is not the final candidate-derived retention result."
     },
     {
@@ -6294,7 +6222,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-fb39b71e9b4c760c", "LIVE_EN-66d59803d30c85d4"],
+      "sources": ["LIVE_EN-fb39b71e9b4c760c", "LIVE_EN-0cb12b3fe2dfebf9"],
       "scope": "Internal normal-history accountable-overlap composition. It explicitly consumes snapshot and evidence-window inequalities; the public checkpoint theorem derives snapshot status and transports the separately assumed deployment window policy."
     },
     {
@@ -6330,7 +6258,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-66d59803d30c85d4"],
+      "sources": ["LIVE_EN-0cb12b3fe2dfebf9"],
       "scope": "From actual ordinary checkpoint writers and later execution, a hash-bound physical candidate passing the stored checkpoint fence has cutoff >= the real stored activeCommitteeSnapshot. This is the candidate-bound component; it does not assume that inequality or an economic outcome."
     },
     {
@@ -6417,7 +6345,7 @@
       "sources": [
         "LIVE_EN-fb39b71e9b4c760c",
         "LIVE_EN-27f6a5d40d0ce55d",
-        "LIVE_EN-66d59803d30c85d4"
+        "LIVE_EN-0cb12b3fe2dfebf9"
       ],
       "scope": "Actual rollback-free fresh-deployment history and checkpoint-fenced physical candidate derive snapshot/cutoff order and issued live/unconfirmed overlap bonds. Correct external deployment evidence-window sizing is an explicit input, transported through immutable configuration; initialized state does not enforce it. Protected liabilities are exhausted-or-funded. No post-rollback restart or recovery of already paid funds is claimed."
     },
@@ -6454,7 +6382,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-3d0fb99927ba67de", "LIVE_EN-5d5828fcdce5ab2a"],
+      "sources": ["LIVE_EN-c004ba62c562b36c", "LIVE_EN-5d5828fcdce5ab2a"],
       "scope": "Every actual accepted landing yields a physical candidate through the current checkpoint and its actual active cutoff equals the submitted activeCommitteeSnapshot. The raw frontier record and accepted guest certificate supply the split, with no snapshot-order hypothesis."
     },
     {
@@ -6490,7 +6418,7 @@
         "Conditional decoded current machine and explicitly quantified raw primitive/deployment hypotheses; production crypto, parser/EL/guest, token, Solidity, node/store and launch refinements remain separate. Exceptional bad-checkpoint payouts are not recovered."
       ],
       "bridge_level": "spec-proved",
-      "sources": ["LIVE_EN-66d59803d30c85d4"],
+      "sources": ["LIVE_EN-0cb12b3fe2dfebf9"],
       "scope": "Every actual protocol history from empty deployment excluding exceptional rollback has nondecreasing stored activeCommitteeSnapshot. Each landing step derives its cutoff bound from its accepted certificate/frontier ancestry; no snapshot monotonicity or cutoff inequality is an input."
     },
     {
@@ -6527,7 +6455,7 @@
       ],
       "bridge_level": "spec-proved",
       "sources": [
-        "LIVE_EN-66d59803d30c85d4",
+        "LIVE_EN-0cb12b3fe2dfebf9",
         "LIVE_EN-806e818366c6b783",
         "LIVE_EN-c36e4d0d76a728b6",
         "LIVE_EN-9e8e4c90054257e9"
@@ -6557,11 +6485,11 @@
       "bridge_level": "spec-proved",
       "sources": [
         "LIVE_EN-8773689481af38c9",
-        "LIVE_EN-4d6ef522fb0ee3fa",
+        "LIVE_EN-c5b0c0adebace931",
         "LIVE_EN-8ef06591adea330d",
         "LIVE_EN-d7f8342dc8bb8e88",
-        "LIVE_EN-03cb21954a3b2213",
-        "LIVE_EN-1885dff5441f40db"
+        "LIVE_EN-c1c6bae5ede00adb",
+        "LIVE_EN-18ee8bd71c05adb4"
       ],
       "scope": "Derived conditional decoded property: the exact current H4 statement (Recoverability), proved by Recovery.recoverable. From every reachable, initialized state satisfying LiveAt, under RecoveryPremises, a RecoveryTrace (no rollback; one plain recovery with the exclusions LiveAt names and no FI blanking) reaches a state where land accepts a landing of the new generation's first block; if anything had landed before, that landing ends above the starting checkpoint. Proof completeness (MODEL-1-1/1-2) is assumed through RecoveryPremises.proofComplete (ProofComplete), not shown. Recovery restoring progress (RECOV-8, LIMIT-12-2) is exercised, including exclusions (RECOV-8-41): LiveAt.window asks only that the committee elected at R after them is live. FI blanking is not exercised, and no witness uses a nonempty exclusion list. Normal-operation liveness, adversarial scheduling and DAO transaction refinement are outside the claim."
     },
@@ -6576,11 +6504,11 @@
       "bridge_level": "spec-proved",
       "sources": [
         "LIVE_EN-8773689481af38c9",
-        "LIVE_EN-4d6ef522fb0ee3fa",
+        "LIVE_EN-c5b0c0adebace931",
         "LIVE_EN-8ef06591adea330d",
         "LIVE_EN-d7f8342dc8bb8e88",
-        "LIVE_EN-03cb21954a3b2213",
-        "LIVE_EN-1885dff5441f40db"
+        "LIVE_EN-c1c6bae5ede00adb",
+        "LIVE_EN-18ee8bd71c05adb4"
       ],
       "scope": "The actual chosen raw DAO history yields H4 (RecoverableAt) only with per-successful-upgrade historical authorization, the same condition as deployed_claims (Governance.authorized_trace_refines). Owner identity alone does not imply those duties; arbitrary implementation upgrades are not proved. Otherwise the scope of recoverability: a rollback-free path with one plain recovery (the exclusions LiveAt names, no FI blanking) reaches an accepted landing, above the starting checkpoint whenever one had landed. Proof completeness (MODEL-1-1/1-2) is assumed through RecoveryPremises.proofComplete (ProofComplete), not shown. Recovery restoring progress (RECOV-8, LIMIT-12-2) is exercised, including exclusions (RECOV-8-41): LiveAt.window asks only that the committee elected at R after them is live. FI blanking is not exercised, and no witness uses a nonempty exclusion list. Normal-operation liveness, adversarial scheduling and DAO transaction refinement are outside the claim."
     },
@@ -7758,7 +7686,7 @@
       ],
       "bridge_level": "spec-proved",
       "scope": "Every member of a valid authenticated candidate committee retains an issued unreleased unconfirmed bond in rollback-free fresh-deployment history. Independent of a particular overlap or round; no original principal amount or post-rollback restart guarantee.",
-      "sources": ["LIVE_EN-27f6a5d40d0ce55d", "LIVE_EN-66d59803d30c85d4"]
+      "sources": ["LIVE_EN-27f6a5d40d0ce55d", "LIVE_EN-0cb12b3fe2dfebf9"]
     },
     {
       "declaration": "Etna.Design.Current.CheckpointRisk.evidence_window_of_deployment",
@@ -7968,13 +7896,13 @@
       "declaration": "Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.all_premises_satisfiable",
       "module": "EtnaWitnesses.NonVacuity.CurrentRecoverySwitch",
       "role": "regression",
-      "type": "∃ e registry engine w,\n  Etna.Statements.Current.Premises e registry engine ∧\n    Etna.Statements.Current.RecoveryPremises e registry ∧\n      Etna.Design.Current.Protocol.Trace e (Etna.Design.Current.Protocol.empty e registry) w ∧\n        w.initialized = Bool.true ∧\n          Etna.Statements.Current.LiveAt e w ∧\n            e.core.unzenInbox ≠ 0 ∧\n              (∃ s, w.start = Option.some s ∧ 0 < s.height) ∧ w.unzen.checkpointExists = Bool.false",
+      "type": "∃ e registry engine w,\n  Etna.Statements.Current.Premises e registry engine ∧\n    Etna.Statements.Current.RecoveryPremises e registry ∧\n      Etna.Design.Current.Protocol.Trace e (Etna.Design.Current.Protocol.empty e registry) w ∧\n        w.initialized = Bool.true ∧\n          Etna.Statements.Current.LiveAt e w ∧\n            e.core.unzenInbox ≠ 0 ∧ w.start = Option.none ∧ w.unzen.checkpointExists = Bool.false",
       "assumptions": [
         "Concrete restricted switching interpreter with ideal unbounded Nat commitments, a classically decided ideal verifier, a classical physical-parent decoder and one fixed legacy proof; the standard-token deployment and signature adapters are constructed, not assumed. Not a production cryptographic, EL, guest or Unzen realization."
       ],
       "bridge_level": "spec-proved",
       "sources": [],
-      "scope": "Joint switching realization (reports/recoverability.md, Joint witness): one environment with an Unzen Inbox, a registry and an engine satisfy H1-H3's fifteen Premises and H4's RecoveryPremises together, with a reachable initialized world satisfying LiveAt in which the origin writer has set S = 5 from the legacy header and no Unzen proof has been accepted, so the Unzen lane has no checkpoint. H4's path from there must prove the lane with unzenProve and pass the first-landing fence, including its check that the Unzen checkpoint is at S. Primitives.unzen and UnzenStartUsable hold of one real hash-bound legacy header (S = 5, timestamp before forkTime). Restrictions: the environment is RecoveryNonVacuity's with the switching fields set, so that witness's restrictions apply (one online key; a single catalogue definition that checks only the two header hashes and accepts every payload; the ideal classical verifier; an engine that attributes every precommit; a payload check that accepts any one to six blobs); one legacy header, accepted only for the final proposal 1 with one fixed proof; unzenParent returns 0, the empty lane's finalized hash, so UnzenExtension's antecedent is never true (no hash-bound header has EL hash 0), as in CurrentSwitch; the written start equals the Unzen final header, so the path's correctStart branch is not exercised; LiveAt holds by LiveRules' first case (c = S = 5), so the path keeps the rules and its second case, which installs ruleset nextRules + 1, is not exercised. The world has not landed yet; no standalone rule credit."
+      "scope": "Joint switching realization. H1–H4 premises hold in a reachable, initialized switching world before the final Unzen proof or the start write."
     },
     {
       "declaration": "Etna.Design.Current.Protocol.RecoverySwitchNonVacuity.live_recovers",
@@ -7998,12 +7926,12 @@
       ],
       "bridge_level": "spec-proved",
       "sources": [
-        "LIVE_EN-4d6ef522fb0ee3fa",
+        "LIVE_EN-c5b0c0adebace931",
         "LIVE_EN-8ef06591adea330d",
         "LIVE_EN-f7e2b71973efaba8",
-        "LIVE_EN-3d0fb99927ba67de",
-        "LIVE_EN-434877759085292e",
-        "LIVE_EN-1885dff5441f40db"
+        "LIVE_EN-c004ba62c562b36c",
+        "LIVE_EN-5bb4b7770ad2139a",
+        "LIVE_EN-18ee8bd71c05adb4"
       ],
       "scope": "Derived conditional decoded property: the L1 half of H4's recovery path (reports/recoverability.md, The path, steps 1-5). From a reachable, initialized state satisfying LiveAt, under RecoveryPremises, a RecoveryTrace (no rollback; one plain recovery with the exclusions LiveAt names and no FI blanking) advances L1 to the window block R; on a switching network it writes the start with setOrigin, rewrites a start that differs from the final Unzen header with correctStart (only before any landing) and proves the final Unzen proposal with unzenProve unless the lane is finalized; it registers an image implementing every selected ruleset, selects ProofComplete's verifier version, recovers at R with the current generation, checkpoint and nonce, keeping the schedule (rules 0) when LiveRules' first case holds and otherwise installing ruleset next+1, and advances L1 to R+2. The reached state's facts (Recovery.Prepared) include a hash-bound header of the current checkpoint whose timestamp is at least 2 seconds before R's, the first-landing fence, the snapshots at R and R+1 closed, and a live committee elected at R after the exclusions. The segment, certificate and landing are proved separately; DAO transaction refinement is outside the model."
     },
@@ -8030,9 +7958,9 @@
         "LIVE_EN-ced8c7aa78799681",
         "LIVE_EN-7bc8d5003506136e",
         "LIVE_EN-287b470870b50710",
-        "LIVE_EN-1e8d3744485e2a29",
+        "LIVE_EN-146b18d3aad7cf67",
         "LIVE_EN-29468a34f68ca4c6",
-        "LIVE_EN-16923cd8df6a0d78",
+        "LIVE_EN-a935bced4f3bce23",
         "LIVE_EN-4ad2efd265e7f07c",
         "LIVE_EN-8da31506138f2a44",
         "LIVE_EN-2e7fa6e510a4d3cb",
@@ -8057,11 +7985,11 @@
       "bridge_level": "spec-proved",
       "sources": [
         "LIVE_EN-8773689481af38c9",
-        "LIVE_EN-4d6ef522fb0ee3fa",
+        "LIVE_EN-c5b0c0adebace931",
         "LIVE_EN-8ef06591adea330d",
         "LIVE_EN-d7f8342dc8bb8e88",
-        "LIVE_EN-03cb21954a3b2213",
-        "LIVE_EN-1885dff5441f40db"
+        "LIVE_EN-c1c6bae5ede00adb",
+        "LIVE_EN-18ee8bd71c05adb4"
       ],
       "scope": "Derived conditional decoded property: H4, recoverability (reports/recoverability.md, The claim and The path). From every reachable, initialized state satisfying LiveAt, under RecoveryPremises, a RecoveryTrace (no rollback; one plain recovery with the exclusions LiveAt names and no FI blanking) reaches a state where land accepts a landing; if anything had landed before, that landing ends above the starting checkpoint. The path is Recovery.prepare (L1 to the window block R, the start settled, the image and verifier set, one plain recovery at R that keeps the rules or installs ruleset next+1, L1 to R+2) and Recovery.segment (the new generation's first block on the hash-bound header of the current checkpoint c, anchored at R). The landing runs from c to c+1 with reference block R+1, committee snapshot R, the terminal's hashes, state root and FI cursor, no leaves (no height lies strictly between c and c+1) and one to six blobs from PayloadLive. Its statement is certified at reference R+1 (archive root c's header, no prior headers; the generation's genesis cutoff stays below R because recover keeps it), every block's ruleset is implemented by the registered image, and ProofComplete's verifier version accepts two proofs of it. Proof completeness (MODEL-1-1/1-2) is assumed through RecoveryPremises.proofComplete (ProofComplete), not shown. Recovery restoring progress (RECOV-8, LIMIT-12-2) is exercised, including exclusions (RECOV-8-41): LiveAt.window asks only that the committee elected at R after them is live. FI blanking is not exercised, and no witness uses a nonempty exclusion list. Normal-operation liveness, adversarial scheduling and DAO transaction refinement are outside the claim."
     },
@@ -8074,19 +8002,19 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-1885dff5441f40db"],
+      "sources": ["LIVE_EN-18ee8bd71c05adb4"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. A recovery with an empty exclusion list leaves the registry exactly as it is, so LiveAt.window with no exclusions asks for the committee the current registry elects at R."
     },
     {
       "module": "EtnaProofs.CurrentRecoveryPath",
       "declaration": "Etna.Design.Current.Protocol.Recovery.recover_excludes",
-      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w t : Etna.Design.Current.Protocol.World}\n  {request : Etna.Design.Current.Protocol.RecoveryRequest},\n  Etna.Design.Current.Protocol.recover env w request = Option.some t →\n    List.Pairwise (fun x y => x.fst < y.fst) request.exclusions ∧\n      Etna.Design.Current.RegistryMachine.exclusionsValid w.registry.registry request.exclusions = Bool.true ∧\n        t.registry = (Etna.Design.Current.Protocol.excluded w w.number request.exclusions).registry",
+      "type": "∀ {env : Etna.Design.Current.Protocol.Environment} {w t : Etna.Design.Current.Protocol.World}\n  {request : Etna.Design.Current.Protocol.RecoveryRequest},\n  Etna.Design.Current.Protocol.recover env w request = Option.some t →\n    List.Pairwise (fun x1 x2 => x1 < x2) request.exclusions ∧\n      Etna.Design.Current.RegistryMachine.exclusionsValid w.registry.registry request.exclusions = Bool.true ∧\n        t.registry = (Etna.Design.Current.Protocol.excluded w w.number request.exclusions).registry",
       "assumptions": [
         "Current decoded model and exactly quantified primitive/deployment hypotheses; raw decoder/EL/crypto/Comet refinement, liveness and launch acceptance are not implementation proofs."
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-4d6ef522fb0ee3fa", "LIVE_EN-1885dff5441f40db"],
+      "sources": ["LIVE_EN-c5b0c0adebace931", "LIVE_EN-18ee8bd71c05adb4"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. A successful recover had its exclusion list strictly sorted by bond id, every entry naming an issued id below nextId whose stored key's entryKey equals the listed one, and writes exactly the registry `excluded` describes at its L1 block R: each listed bond's exit becomes min(exit, R), no other bond field changes (no forfeiture by recover itself) and the registry records the changed slots at R. Independent forfeiture and double-sign evidence (RECOV-8-42) are not shown."
     },
     {
@@ -8098,7 +8026,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-1885dff5441f40db"],
+      "sources": ["LIVE_EN-18ee8bd71c05adb4"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. A bond whose exit an exclusion at L1 block R set to min(exit, R) is ineligible in every election at a cutoff at or after R."
     },
     {
@@ -8111,7 +8039,7 @@
       "bridge_level": "spec-proved",
       "role": "property",
       "sources": [
-        "LIVE_EN-4a56676c3ce76122",
+        "LIVE_EN-5570e5017f405f8f",
         "LIVE_ANCHORLESS-325a918cb4ae77b9"
       ],
       "scope": "Derived conditional decoded property. RECOV-8-27 and RECOV-8-27a on the L1 read path: along every run of the protocol machine with the L1 SignalService and Bridge alongside (Bridge.Run), under any Merkle adapter, every signal cached as received and every message left RETRIABLE was proven against the state root of a checkpoint the L1 SignalService still holds (an Unzen one or an Etna landing's). An accepted rollback revokes every derived authorization in the same step (vector 27a.k); every other call keeps each checkpoint (CheckpointRisk.execute_retains). The revocation is part of the modelled rollback step, so this shows the design's revocation suffices, not that a DAO upgrade performs it. Message values, fees, quotas, pausing (RECOV-8-25) and Bridge message status beyond RETRIABLE/done are not modelled; the Merkle check is a fixed adapter."
@@ -8125,7 +8053,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-4a56676c3ce76122"],
+      "sources": ["LIVE_EN-5570e5017f405f8f"],
       "scope": "Supporting guard, projection or conditional interface; not independent derived rule coverage. RECOV-8-27a vectors 27a.a and 27a.c: after the revocation an empty proof for a cached signal and a retry of a RETRIABLE message are refused until the signal is proven again."
     },
     {
@@ -8155,7 +8083,7 @@
       "sources": [
         "LIVE_ANCHORLESS-8fdafa7abe7ff1c0",
         "LIVE_ANCHORLESS-04b5ee63903e1dab",
-        "LIVE_ANCHORLESS-3790abc1517ccc8d"
+        "LIVE_ANCHORLESS-e2b47419a4eee92c"
       ],
       "scope": "Derived decoded property: on L2 (beaconRootsFrom nonzero), from beaconRootsFrom on, a run of L2 blocks in timestamp order adds no checkpoint to the SignalService's store. Storage namespace migration, deletion and the pre-fork Anchor are not modelled."
     },
@@ -8197,7 +8125,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-1e8d3744485e2a29", "LIVE_EN-5822dd8d7b64f579"],
+      "sources": ["LIVE_EN-146b18d3aad7cf67", "LIVE_EN-763e887de7188d64"],
       "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: commit_pipeline. No Go implementation refinement, raw ABI/Keccak or appHash proof, or durable store proof; validator state is outside settlement and outside H1–H4."
     },
     {
@@ -8210,7 +8138,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "supporting",
-      "sources": ["LIVE_EN-1e8d3744485e2a29", "LIVE_EN-5822dd8d7b64f579"],
+      "sources": ["LIVE_EN-146b18d3aad7cf67", "LIVE_EN-763e887de7188d64"],
       "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: hplus2. No Go implementation refinement, raw ABI/Keccak or appHash proof, or durable store proof; validator state is outside settlement and outside H1–H4."
     },
     {
@@ -8223,7 +8151,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["LIVE_EN-5822dd8d7b64f579"],
+      "sources": ["LIVE_EN-763e887de7188d64"],
       "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: replay_append. No Go implementation refinement, raw ABI/Keccak or appHash proof, or durable store proof; validator state is outside settlement and outside H1–H4."
     },
     {
@@ -8236,7 +8164,7 @@
       ],
       "bridge_level": "spec-proved",
       "role": "property",
-      "sources": ["LIVE_EN-5822dd8d7b64f579"],
+      "sources": ["LIVE_EN-763e887de7188d64"],
       "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: replay_height. No Go implementation refinement, raw ABI/Keccak or appHash proof, or durable store proof; validator state is outside settlement and outside H1–H4."
     }
   ]

@@ -56,8 +56,7 @@ The last two conjuncts are SPEC section 1's finality of checkpoints: every later
 a rollback keeps each signal and, once something has landed, each retained record and a
 checkpoint at least as high; and no rollback meets its verifier-failure duty
 (`Governance.RollbackAuthorized`, RECOV-8-28), because no retained record is bad.
-The record and height parts wait for a landing because START-10-5c's start correction
-(`correctStart`) may lower the checkpoint, and replace the start record, before any landing.
+The record and height parts concern the settled history after the first landing.
 Unzen checkpoints at or below S (`legacySignals`) are not in the retention conjunct; the model
 only appends to them.
 The last conjunct is the bridge's read path (RECOV-8-27, RECOV-8-27a): with the L1
@@ -74,8 +73,8 @@ def FundSafetyAt (env : Environment) (registry : RegistryMachine.State) (w : Wor
     (∀ later, Trace env w later → w.everLanded = true → later.start = w.start ∧ later.everLanded = true) ∧
     ReferenceAuthority env w ∧
     (∀ cp snap, (cp,snap) ∈ w.activeSnapshots → Custody.SnapshotSource env (empty env registry) cp snap) ∧
-    (∀ start, w.start = some start → ∀ caller height hash root,
-      setOrigin env w caller height hash root = none) ∧
+    (∀ start, w.start = some start → ∀ caller height,
+      setOrigin env w caller height = none) ∧
     (env.core.unzenInbox ≠ 0 → Custody.LegacyEtnaDisjoint w ∧ Custody.SwitchingFence env w) ∧
     (∀ later, CheckpointRisk.RollbackFreeRun env w later →
       (∀ s ∈ w.inbox.signals, s ∈ later.inbox.signals) ∧
@@ -221,10 +220,11 @@ def UnzenStartUsable (env : Environment) : Prop :=
 /-- LIMIT-12-9: the Unzen lane has finalized its last proposal, or can from where it is. -/
 def UnzenLaneLive (env : Environment) (w : World) : Prop :=
   env.core.unzenInbox ≠ 0 →
-    (w.unzen.checkpointExists = true ∧ w.unzen.nextProposal = w.unzen.finalizedProposal+1) ∨
-    ∃ h proof, env.unzenValid (w.unzen.nextProposal-1) h proof = true ∧
-      w.unzen.finalizedProposal < w.unzen.nextProposal-1 ∧
-      env.unzenParent w.unzen.finalizedProposal (w.unzen.nextProposal-1) h proof = w.unzen.finalizedHash
+    env.core.forkTime ≠ 0 ∧ env.unzenProposeCutoff ≠ 0 ∧ env.unzenProposeCutoff ≤ env.core.forkTime ∧
+    ((w.unzen.checkpointExists = true ∧ w.unzen.nextProposal = w.unzen.finalizedProposal+1) ∨
+      ∃ h proof, env.unzenValid (w.unzen.nextProposal-1) h proof = true ∧
+        w.unzen.finalizedProposal < w.unzen.nextProposal-1 ∧
+        env.unzenParent w.unzen.finalizedProposal (w.unzen.nextProposal-1) h proof = w.unzen.finalizedHash)
 
 /-- START-10.1, LIMIT-12-21: a recovery from `w` can leave live rulesets. First case: the
 current rulesets are live with one image for both, and a recovery keeps them. Second case: ruleset
@@ -255,10 +255,10 @@ structure LiveAt (env : Environment) (w : World) : Prop where
   rules : w.schedule.next+1 < limit48
   height : w.inbox.checkpoint.height+1 < limit48
   /-- The committee left once the recovery at `n` excludes `exclusions` is live. The exclusion
-  list is sorted by bond id and names issued bonds with their entry keys (RECOV-8-38, 8-40a);
+  list is sorted by bond id and names permanently issued bonds (RECOV-8-38, 8-40a);
   with no exclusions this is the committee `w`'s registry elects at `n`. -/
   window : ∃ n keys exclusions, w.number < n ∧ n+4 < limit48 ∧ WindowBound env w ≤ env.time n ∧
-    env.time n+8 < limit256 ∧ exclusions.Pairwise (fun x y => x.1 < y.1) ∧
+    env.time n+8 < limit256 ∧ w.inbox.snapshot ≤ n ∧ exclusions.Pairwise (· < ·) ∧
     RegistryMachine.exclusionsValid w.registry.registry exclusions = true ∧
     CommitteeLive env (excluded w n exclusions) n keys
   ruleset : LiveRules env w

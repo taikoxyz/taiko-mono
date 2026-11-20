@@ -41,9 +41,9 @@ example : ∃ id, Retained slashed 1 id 7 :=
 example : (slashed.ledger.bonds 0).map (fun b => b.value.balance) = some 0 := by decide +kernel
 example : (slashed.ledger.bonds 0).map (fun b => b.value.released) = some false := by decide +kernel
 
-def forfeited := (execute registered closedView 2 (.forfeit 0 1 7 123 3)).getD registered
+def forfeited := (execute registered closedView 2 (.forfeit 0 1 123 3)).getD registered
 theorem forfeitedRun : NormalTrace first ⟨forfeited,closedView,2⟩ :=
-  .call closedRun (.forfeit 0 1 7 123 3) True.intro rfl
+  .call closedRun (.forfeit 0 1 123 3) True.intro rfl
 example : ∃ id, Retained forfeited 1 id 7 :=
   selected_unconfirmed forfeitedRun genesis (by decide) (entry := entry)
     (by decide +kernel) (by decide) (by decide)
@@ -51,7 +51,7 @@ example : (execute forfeited closedView 2 (.confirm 0)).isNone = true := by deci
 
 -- Internal recovery exclusion authenticates its actual block. Earlier caller-supplied
 -- cutoff replacement and exceptional confirmation recheck are excluded from normality.
-example : ¬ NormalAction 2 (.exclude 2 1 [(0,7)]) := by change ¬ 1 = 2; decide
+example : ¬ NormalAction 2 (.exclude 2 1 [0]) := by change ¬ 1 = 2; decide
 example : ¬ NormalAction 2 (.recheck 2 1) := by intro impossible; exact impossible
 example : ¬ (3 ≤ 1) := by decide
 

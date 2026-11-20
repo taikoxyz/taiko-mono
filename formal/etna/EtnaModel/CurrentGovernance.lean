@@ -1,20 +1,9 @@
 import EtnaModel.CurrentCoherentCustody
 
-/-! External DAO upgrades and their history obligations. `correctStart` and `rollback`
-in the normative machine are admissible upgrade actions, not deployed public entry
-points. The raw functions below erase the historical ghost guards. `everLanded`,
+/-! External DAO rollback and its history obligations. The raw transition erases the historical guards of the normative rollback. `everLanded`,
 `activeRecords` and `activeSnapshots` instrument the actual transaction history; an owner
 must establish their obligations from that history, not read them from Inbox storage. -/
 namespace Etna.Design.Current.Protocol.Governance
-
-/-- Physical start-rewrite checks/effect without the external no-prior-landing duty. -/
-def rawCorrectStart (env : Environment) (w : World) (caller height hash root : Nat) : Option World :=
-  w.start.bind fun old =>
-    if caller = env.core.owner ∧ env.core.unzenInbox ≠ 0 ∧
-        w.inbox.checkpoint.height = old.height ∧ w.inbox.signals = [] ∧
-        0 < height ∧ height < limit48 ∧ hash ≠ 0 ∧ root ≠ 0 ∧ w.inbox.generation+1 < limit48 then
-      some (writeStart w height hash root w.number (env.time w.number) (w.inbox.generation+1))
-    else none
 
 /-- Raw rollback checks/effect without retained-lineage or checkpoint/snapshot
 authorization. `inbox.records` is the physical height-indexed mapping represented by
@@ -45,7 +34,6 @@ def rawRollback (env : Environment) (w : World) (caller : Nat) (trusted : Checkp
   else none
 
 def execute (env : Environment) (w : World) : Call → Option World
-  | .correctStart caller height hash root => rawCorrectStart env w caller height hash root
   | .rollback caller trusted snapshot => rawRollback env w caller trusted snapshot
   | call => Protocol.execute env w call
 
@@ -60,7 +48,7 @@ inductive DeployedTrace (env : Environment) : World → World → Type
   | node {first w : World} (prior : DeployedTrace env first w) (after : Node)
       (event : NodeEvent env w after) : DeployedTrace env first { w with node := after }
 
-/-- The current start record, including a corrected start. A start write is not a landing. -/
+/-- The current start record, created by the one-time start write. -/
 def StartRecord (w : World) (cp : Checkpoint) : Prop :=
   ∃ start, w.start = some start ∧ cp.height = start.height ∧ cp.elHash = start.hash ∧
     cp.cometHash = 0 ∧ cp.cursor = 0
@@ -88,10 +76,8 @@ def RollbackAuthorized (env : Environment) (initial w : World) (trusted : Checkp
     ∀ r ∈ w.activeRecords, r.height < bad.height → r.height ≤ trusted.height
 
 /-- These are external authorization duties over instrumented history, not runtime
-checks. A correction follows no successful landing; a rollback meets `RollbackAuthorized`
-for the history's initial world. They state no custody outcome. -/
+checks. A rollback meets `RollbackAuthorized` for the history's initial world. They state no custody outcome. -/
 def UpgradeAuthorized (env : Environment) (initial w : World) : Call → Prop
-  | .correctStart _ _ _ _ => w.everLanded = false
   | .rollback _ trusted snapshot => RollbackAuthorized env initial w trusted snapshot
   | _ => True
 

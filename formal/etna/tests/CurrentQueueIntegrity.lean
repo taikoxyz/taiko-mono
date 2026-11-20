@@ -10,7 +10,7 @@ def registry : RegistryMachine.State :=
   { ledger := {nextId := 0,bonds := fun _ => none,slots := fun _ => none,keyId := fun _ => none},
     config := {inbox := 3} }
 def env : Protocol.Environment where
-  core := ⟨domain,7,8,0,0,9⟩
+  core := ⟨domain,7,0,0,9⟩
   parameters := ⟨10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,2,1152,10,1,1,9⟩
   genesisHeader := ⟨0,100,100,0,0,0,⟨0,0,0,0,0,0,0⟩⟩
   initialSigner := ⟨domain,0,0,[],false,[]⟩

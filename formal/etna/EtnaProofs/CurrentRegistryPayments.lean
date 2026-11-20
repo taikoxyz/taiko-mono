@@ -191,9 +191,9 @@ theorem slash_payments_exact (env : PaymentEnvironment) (s : RegistryMachine.Sta
   simp [paymentIntents,found]
 
 theorem forfeit_payment_exact (env : PaymentEnvironment) (s : RegistryMachine.State)
-    (caller id embedded key incident validUntil : Nat) (b : Registry.Bond)
+    (caller id embedded incident validUntil : Nat) (b : Registry.Bond)
     (found : s.ledger.bonds id = some b) :
-    paymentIntents env s caller (.forfeit id embedded key incident validUntil) =
+    paymentIntents env s caller (.forfeit id embedded incident validUntil) =
       [⟨env.registryAddress,env.slashSink,Staking.forfeitPenalty b.value.balance s.config.forfeitBps,false⟩] := by
   simp [paymentIntents,found]
 

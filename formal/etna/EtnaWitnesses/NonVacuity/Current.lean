@@ -34,7 +34,7 @@ def initialSigner : Signer.State := ⟨domain,0,1,[],false,[]⟩
 def txHash (bytes : Blocks.Bytes) : Hash := if bytes = [1] then 1 else 0
 
 def baseEnv : Environment where
-  core := ⟨domain,7,8,0,2,9⟩
+  core := ⟨domain,7,0,2,9⟩
   parameters := ⟨10,1,⟨unit,unit,1,10⟩,1,1152,10,1,1,9⟩
   genesisHeader := genesis
   initialSigner := initialSigner
@@ -1000,7 +1000,7 @@ theorem after_reference_preserves_commitment :
 
 theorem after_reference_landing_accepted :
     land env afterReference landing = some (landed afterReference landing) := by
-  have checks : LandingChecks env afterReference landing := ⟨source_landing_checks.initialized,source_landing_checks.started,source_landing_checks.entered,source_landing_checks.origin,source_landing_checks.parentBeforeFrontier,source_landing_checks.progress,source_landing_checks.height,source_landing_checks.batchSize,source_landing_checks.record,source_landing_checks.generation,source_landing_checks.leafCount,source_landing_checks.frontier,source_landing_checks.cursor,source_landing_checks.head,source_landing_checks.tail,source_landing_checks.service,source_landing_checks.reference,source_landing_checks.referenceAge,source_landing_checks.referenceReadable,source_landing_checks.blobs,source_landing_checks.unzen,source_landing_checks.proofs⟩
+  have checks : LandingChecks env afterReference landing := ⟨source_landing_checks.initialized,source_landing_checks.started,source_landing_checks.entered,source_landing_checks.origin,source_landing_checks.parentBeforeFrontier,source_landing_checks.progress,source_landing_checks.height,source_landing_checks.batchSize,source_landing_checks.record,source_landing_checks.generation,source_landing_checks.leafCount,source_landing_checks.frontier,source_landing_checks.cursor,source_landing_checks.head,source_landing_checks.tail,source_landing_checks.service,source_landing_checks.reference,source_landing_checks.referenceAge,source_landing_checks.referenceReadable,source_landing_checks.blobs,source_landing_checks.unzen,source_landing_checks.retained,source_landing_checks.snapshotFloor,source_landing_checks.proofs⟩
   simp only [Protocol.land,checks,ite_true]
 
 
@@ -1057,7 +1057,7 @@ theorem positive_rollback : rollback env firstLanded 7 (source env).inbox.checkp
 
 theorem rollback_then_landing_accepted :
     land env rolledBack landing = some (landed rolledBack landing) := by
-  have checks : LandingChecks env rolledBack landing := ⟨source_landing_checks.initialized,source_landing_checks.started,source_landing_checks.entered,source_landing_checks.origin,source_landing_checks.parentBeforeFrontier,source_landing_checks.progress,source_landing_checks.height,source_landing_checks.batchSize,source_landing_checks.record,source_landing_checks.generation,source_landing_checks.leafCount,source_landing_checks.frontier,source_landing_checks.cursor,source_landing_checks.head,source_landing_checks.tail,source_landing_checks.service,source_landing_checks.reference,source_landing_checks.referenceAge,source_landing_checks.referenceReadable,source_landing_checks.blobs,source_landing_checks.unzen,source_landing_checks.proofs⟩
+  have checks : LandingChecks env rolledBack landing := ⟨source_landing_checks.initialized,source_landing_checks.started,source_landing_checks.entered,source_landing_checks.origin,source_landing_checks.parentBeforeFrontier,source_landing_checks.progress,source_landing_checks.height,source_landing_checks.batchSize,source_landing_checks.record,source_landing_checks.generation,source_landing_checks.leafCount,source_landing_checks.frontier,source_landing_checks.cursor,source_landing_checks.head,source_landing_checks.tail,source_landing_checks.service,source_landing_checks.reference,source_landing_checks.referenceAge,source_landing_checks.referenceReadable,source_landing_checks.blobs,source_landing_checks.unzen,source_landing_checks.retained,source_landing_checks.snapshotFloor,source_landing_checks.proofs⟩
   simp only [Protocol.land,checks,ite_true]
 
 

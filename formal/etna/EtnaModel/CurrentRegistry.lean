@@ -33,9 +33,8 @@ structure State where
   verify : Hash → Staking.Vote → Hash → Bool := fun _ _ _ => false
   /-- Canonical key decoding and owner/amount-bound registration PoP. -/
   registerAuth : Hash → Nat → Nat → Hash → Bool := fun _ _ _ _ => false
-  /-- Canonical stored-public-key entryKey derivation (FORF-4.4-2). -/
-  entryKey : Hash → Hash := id
-  forfeited : List Hash := []
+  /-- Permanently issued bond IDs forfeited at least once. -/
+  forfeited : List Nat := []
   history : List RegistryHistory.Snapshot := []
 
 /-- A fresh deployment has no previously issued identities, slots, or election history.
@@ -72,9 +71,13 @@ structure InboxView where
   timestamp : Nat := 0
   deriving DecidableEq, Repr
 
-/-- Slots, not permanent bond ids, index the complete election view. -/
+/-- STAKE-4.1-36: one past the highest occupied slot, including a zero-balance bond. -/
+def count (s : State) : Nat :=
+  ((List.range 4096).reverse.find? fun slot => (s.ledger.slots slot).isSome).map (· + 1) |>.getD 0
+
+/-- Slots below count, including interior gaps, index the complete election view. -/
 def entries (s : State) : List Committee.Entry :=
-  (List.range 4096).map fun slot =>
+  (List.range (count s)).map fun slot =>
     match s.ledger.slots slot with
     | none => ⟨0,0,0,0⟩
     | some id => match s.ledger.bonds id with
@@ -100,9 +103,9 @@ inductive Action where
   | confirm (id : Nat)
   | withdraw (id caller to : Nat)
   | slash (id : Nat) (a b : Staking.Vote) (sigA sigB : Hash)
-  | forfeit (id caller entryKey incidentId validUntil : Nat)
+  | forfeit (id caller incidentId validUntil : Nat)
   /-- Internal recovery operation: all identities checked before any write. -/
-  | exclude (caller snapshot : Nat) (xs : List (Nat × Hash))
+  | exclude (caller snapshot : Nat) (xs : List Nat)
   | recheck (caller snapshot : Nat)
   deriving DecidableEq, Repr
 
@@ -112,12 +115,12 @@ def incoming : Action → Nat
 
 def outgoingBond (s : State) (b : Staking.Bond) : Action → Nat
   | .withdraw _ _ _ | .slash _ _ _ _ _ => b.balance
-  | .forfeit _ _ _ _ _ => Staking.forfeitPenalty b.balance s.config.forfeitBps
+  | .forfeit _ _ _ _ => Staking.forfeitPenalty b.balance s.config.forfeitBps
   | _ => 0
 
 def outgoing (s : State) (a : Action) : Nat :=
   match a with
-  | .withdraw id _ _ | .slash id _ _ _ _ | .forfeit id _ _ _ _ =>
+  | .withdraw id _ _ | .slash id _ _ _ _ | .forfeit id _ _ _ =>
       ((s.ledger.bonds id).map (fun b => outgoingBond s b.value a)).getD 0
   | _ => 0
 
@@ -156,9 +159,9 @@ def bondEdit (s : State) (v : InboxView) (now : Nat) (b : Staking.Bond) : Action
       s.config.slashBountyBps < 10000 ∧ Evidence s v b.key a z sa sz then
       some { b with stake := 0, pendingTopUp := 0, topUpReadyAtL1 := 0, exitAt := min b.exitAt now }
     else none
-  | .forfeit _ caller key _ validUntil =>
+  | .forfeit id caller _ validUntil =>
     if v.initialized = true ∧ caller = s.config.owner ∧ b.released = false ∧
-      key = s.entryKey b.key ∧ key ∉ s.forfeited ∧ 0 < b.balance ∧
+      id ∉ s.forfeited ∧ 0 < b.balance ∧
       v.timestamp ≤ validUntil ∧ 0 < s.config.forfeitBps ∧ s.config.forfeitBps ≤ 10000 then
       let penalty := Staking.forfeitPenalty b.balance s.config.forfeitBps
       let pending := b.pendingTopUp-(penalty-b.stake)
@@ -167,13 +170,12 @@ def bondEdit (s : State) (v : InboxView) (now : Nat) (b : Staking.Bond) : Action
   | _ => none
 
 /-- Issued withdrawn bonds remain authentic; unissued default storage never does. -/
-def exclusionsValid (s : State) (xs : List (Nat × Hash)) : Bool :=
-  xs.all fun (id,key) => decide (id < s.ledger.nextId) &&
-    ((s.ledger.bonds id).map fun b => s.entryKey b.value.key == key).getD false
+def exclusionsValid (s : State) (xs : List Nat) : Bool :=
+  xs.all fun id => decide (id < s.ledger.nextId) && (s.ledger.bonds id).isSome
 
-def excludedLedger (s : State) (xs : List (Nat × Hash)) (snapshot : Nat) : Registry.State :=
+def excludedLedger (s : State) (xs : List Nat) (snapshot : Nat) : Registry.State :=
   { s.ledger with bonds := fun id => (s.ledger.bonds id).map fun b =>
-      if (xs.any (fun x => x.1 == id)) then ⟨Staking.exclude b.value snapshot,b.slot⟩ else b }
+      if (xs.contains id) then ⟨Staking.exclude b.value snapshot,b.slot⟩ else b }
 
 def recheckedLedger (s : State) (snapshot : Nat) : Registry.State :=
   { s.ledger with bonds := fun id => (s.ledger.bonds id).map fun b =>
@@ -197,9 +199,9 @@ def execute (s : State) (v : InboxView) (now : Nat) (action : Action) : Option S
       | .recheck caller snapshot =>
           if caller = s.config.inbox then some { s with ledger := recheckedLedger s snapshot }
           else none
-      | .forfeit id _ key _ _ =>
+      | .forfeit id _ _ _ =>
           (editValue s id (fun b => bondEdit s v now b action)).map fun t =>
-            { t with forfeited := key :: s.forfeited }
+            { t with forfeited := id :: s.forfeited }
       | .requestExit id _ | .topUp id _ _ | .activateTopUp id | .confirm id | .slash id _ _ _ _ =>
           editValue s id (fun b => bondEdit s v now b action)
     result.map (finish s now)
@@ -242,7 +244,6 @@ structure Stable (s t : State) : Prop where
   config : t.config = s.config
   verify : t.verify = s.verify
   registration : t.registerAuth = s.registerAuth
-  entryKey : t.entryKey = s.entryKey
   ledger : LedgerStable s.ledger t.ledger
 
 structure WorldStable (s t : World) : Prop where

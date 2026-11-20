@@ -51,16 +51,9 @@ private theorem execute_unstarted_records {env : Environment} {w t : World} {cal
         · cases ok
       · cases Option.some.inj ok; exact prior
     · cases ok
-  | setOrigin caller height hash root =>
+  | setOrigin caller height =>
     simp only [execute] at ok
     unfold setOrigin at ok
-    split at ok
-    · cases Option.some.inj ok; simp [writeStart]
-    · cases ok
-  | correctStart caller height hash root =>
-    simp only [execute] at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
     split at ok
     · cases Option.some.inj ok; simp [writeStart]
     · cases ok
@@ -89,7 +82,7 @@ private theorem execute_unstarted_records {env : Environment} {w t : World} {cal
     · cases Option.some.inj swept; exact prior
     · cases swept
   | forcedETH amount => cases Option.some.inj ok; exact prior
-  | scheduleRules caller rule time | scheduleStop caller time =>
+  | scheduleRules caller expectedGeneration rule time | scheduleStop caller expectedGeneration time =>
     simp only [execute] at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok; exact prior
   | recover request =>

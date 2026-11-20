@@ -96,7 +96,7 @@ def sources():
                     body.append(line)
             bodies.append(f'-- BEGIN cloned {library}.{name}\n' + '\n'.join(body))
     current = (ROOT / 'EtnaModel/Current.lean').read_text()
-    fence = current.split('def firstLanding ', 1)[1].split('\nstructure Origin', 1)[0]
+    fence = current.split('def firstLanding ', 1)[1].split('\nend Start', 1)[0]
     fence = ('namespace Etna.Design.Current.SwitchProofFirstFence\nopen Start\n'
              'def firstLanding ' + fence + '\nend Etna.Design.Current.SwitchProofFirstFence\n')
 
@@ -155,9 +155,10 @@ class CurrentSwitchingProofMutationTests(unittest.TestCase):
             rejected.add(next(match.group(1) for match in declarations if match))
         self.assertIn(required_theorem, rejected, result.stdout + result.stderr)
 
-    def test_correction_after_landing_breaks_start_freezing(self):
-        self.reject('env.core.unzenInbox ≠ 0 ∧ w.everLanded = false ∧',
-                    'env.core.unzenInbox ≠ 0 ∧ True ∧', 'execute_frozen')
+    def test_reopening_start_breaks_freezing(self):
+        self.reject('w.initialized = true ∧ w.start = none ∧ w.inbox.generation = 0 ∧ env.core.forkTime ≠ 0',
+                    'w.initialized = true ∧ True ∧ w.inbox.generation = 0 ∧ env.core.forkTime ≠ 0',
+                    'execute_frozen')
 
     def test_unfiltered_rollback_breaks_retained_signal_custody(self):
         self.reject('w.inbox.signals.filter (fun s => s.height ≤ trusted.height)',
@@ -171,7 +172,7 @@ class CurrentSwitchingProofMutationTests(unittest.TestCase):
 
     # This mutant fails only because `Custody.FirstFence` restates the height conjunct, so
     # `pending_parent_fence` can no longer derive it. H1's other conclusions do not need the
-    # height check; the behavioural regression (a shifted start refused by `land`) is in
+    # height check; the behavioural regression (a mismatching height refused by `setOrigin`) is in
     # tests/CurrentGuards.lean.
     def test_missing_checkpoint_height_breaks_first_fence_derivation(self):
         self.reject('u.checkpointHeight = start ∧', 'start = start ∧', 'pending_parent_fence')

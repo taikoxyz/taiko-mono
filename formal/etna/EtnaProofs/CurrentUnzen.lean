@@ -30,16 +30,9 @@ theorem execute_unzen_frame {env : Environment} {w t : World} {call : Call}
         next => simp at ok
       next => cases Option.some.inj ok; exact ⟨rfl,rfl,rfl⟩
     next => simp at ok
-  | setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  | setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
-    split at ok
-    next => cases Option.some.inj ok; exact ⟨rfl,rfl,rfl⟩
-    next => simp at ok
-  | correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
     split at ok
     next => cases Option.some.inj ok; exact ⟨rfl,rfl,rfl⟩
     next => simp at ok
@@ -75,12 +68,12 @@ theorem execute_unzen_frame {env : Environment} {w t : World} {call : Call}
   | forcedETH amount =>
     cases Option.some.inj ok
     exact ⟨rfl,rfl,rfl⟩
-  | scheduleRules caller rule time =>
-    change scheduleRules env w caller rule time = some t at ok
+  | scheduleRules caller expectedGeneration rule time =>
+    change scheduleRules env w caller expectedGeneration rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact ⟨rfl,rfl,rfl⟩
-  | scheduleStop caller time =>
-    change scheduleStop env w caller time = some t at ok
+  | scheduleStop caller expectedGeneration time =>
+    change scheduleStop env w caller expectedGeneration time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact ⟨rfl,rfl,rfl⟩
   | recover request =>
@@ -288,26 +281,15 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
       cases Option.some.inj ok
       exact nonlanding_frame rfl rfl rfl rfl rfl
     next => simp at ok
-  | setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  | setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
     split at ok
     next =>
       cases Option.some.inj ok
       refine ⟨rfl,fun _ mem => mem,?_⟩
       intro held
-      exact ⟨held.1,Or.inr ⟨rfl,switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl⟩⟩
-    next => simp at ok
-  | correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
-    split at ok
-    next =>
-      cases Option.some.inj ok
-      refine ⟨rfl,fun _ mem => mem,?_⟩
-      intro held
-      exact ⟨held.1,Or.inr ⟨rfl,switching,⟨height,hash,root⟩,rfl,rfl,rfl,rfl,rfl⟩⟩
+      exact ⟨held.1,Or.inr ⟨rfl,switching,⟨height,w.unzen.finalizedHash,w.unzen.checkpointRoot⟩,rfl,rfl,rfl,rfl,rfl⟩⟩
     next => simp at ok
   | registry caller action =>
     change registryCall env w caller action = some t at ok
@@ -341,12 +323,12 @@ theorem execute_nonlanding_effect {env : Environment} {w t : World} {call : Call
   | forcedETH amount =>
     cases Option.some.inj ok
     exact nonlanding_frame rfl rfl rfl rfl rfl
-  | scheduleRules caller rule time =>
-    change scheduleRules env w caller rule time = some t at ok
+  | scheduleRules caller expectedGeneration rule time =>
+    change scheduleRules env w caller expectedGeneration rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact nonlanding_frame rfl rfl rfl rfl rfl
-  | scheduleStop caller time =>
-    change scheduleStop env w caller time = some t at ok
+  | scheduleStop caller expectedGeneration time =>
+    change scheduleStop env w caller expectedGeneration time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact nonlanding_frame rfl rfl rfl rfl rfl
   | recover request =>

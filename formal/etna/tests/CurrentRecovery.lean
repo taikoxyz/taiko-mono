@@ -13,7 +13,7 @@ example (caller : Nat) (trusted : Checkpoint) (snapshot : Nat) :
     ¬ RecoveryCall (.rollback caller trusted snapshot) := id
 example (r : RecoveryRequest) (i : Nat) :
     ¬ RecoveryCall (.recover { r with clear := [i] }) := fun h => nomatch h.1
-example (r : RecoveryRequest) (xs : List (Nat × Hash)) (h2 : r.clear = []) (h3 : r.upgrade = none) :
+example (r : RecoveryRequest) (xs : List Nat) (h2 : r.clear = []) (h3 : r.upgrade = none) :
     RecoveryCall (.recover { r with exclusions := xs }) := ⟨h2,h3⟩
 -- Any upgrade, even one that reinstalls the current parameters, is out.
 example (w : World) (r : RecoveryRequest) :
@@ -43,7 +43,7 @@ example (env : Environment) (w : World)
     (a : w.inbox.generation+2 < limit48) (b : w.inbox.recoveryNonce+1 < limit256)
     (c : w.schedule.next+1 < limit48) (d : w.inbox.checkpoint.height+1 < limit48)
     (e : ∃ n keys exclusions, w.number < n ∧ n+4 < limit48 ∧ WindowBound env w ≤ env.time n ∧
-      env.time n+8 < limit256 ∧ exclusions.Pairwise (fun x y => x.1 < y.1) ∧
+      env.time n+8 < limit256 ∧ w.inbox.snapshot ≤ n ∧ exclusions.Pairwise (· < ·) ∧
       RegistryMachine.exclusionsValid w.registry.registry exclusions = true ∧
       CommitteeLive env (excluded w n exclusions) n keys)
     (f : LiveRules env w) (g : UnzenLaneLive env w) :
@@ -52,7 +52,7 @@ example (env : Environment) (w : World)
     (a : w.inbox.generation+2 < limit48) (b : w.inbox.recoveryNonce+1 < limit256)
     (c : w.schedule.next+1 < limit48) (d : w.inbox.checkpoint.height+1 < limit48)
     (e : ∃ n keys exclusions, w.number < n ∧ n+4 < limit48 ∧ WindowBound env w ≤ env.time n ∧
-      env.time n+8 < limit256 ∧ exclusions.Pairwise (fun x y => x.1 < y.1) ∧
+      env.time n+8 < limit256 ∧ w.inbox.snapshot ≤ n ∧ exclusions.Pairwise (· < ·) ∧
       RegistryMachine.exclusionsValid w.registry.registry exclusions = true ∧
       CommitteeLive env (excluded w n exclusions) n keys)
     (f : LiveRules env w) (g : UnzenLaneLive env w) : LiveAt env w :=

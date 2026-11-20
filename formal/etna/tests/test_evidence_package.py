@@ -15,10 +15,10 @@ spec.loader.exec_module(coverage)
 class EvidencePackageTests(unittest.TestCase):
     def test_claim_pairs_have_reviewed_edges(self):
         rows = coverage.inventory()
-        self.assertEqual(len([r for r in rows if r['language'] in ('live_en', 'live_acceptance')]),360)
-        self.assertEqual(len([r for r in rows if r['language'] == 'live_anchorless']),101)
-        self.assertEqual(len([r for r in rows if r['language'] == 'live_switch']),117)
-        self.assertEqual(len(rows),578)
+        self.assertEqual(len([r for r in rows if r['language'] in ('live_en', 'live_acceptance')]),390)
+        self.assertEqual(len([r for r in rows if r['language'] == 'live_anchorless']),102)
+        self.assertEqual(len([r for r in rows if r['language'] == 'live_switch']),83)
+        self.assertEqual(len(rows),575)
         # inventory() checks each explicit claim edge and its general-property role.
 
     def test_clause_ids_survive_line_insertion(self):
@@ -63,13 +63,13 @@ class EvidencePackageTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             hashes = json.loads((Path(tmp)/'coverage.json').read_text())['source_sha256']
             self.assertEqual(hashes['packages/protocol/docs/etna/SPEC.md'],
-                             'b331b3af7b42a4645ebe3e2b4f42e912e33508893a091c3c3c289c8fdbd53a70')
+                             '6f7150d65ff7c4a8b46b719d2ed48e665a60e47a6d013a2994229e8119ff24a7')
             self.assertEqual(hashes['packages/protocol/docs/etna/ACCEPTANCE.md'],
-                             '525a2c06ed1b369fe53ee546c16fd181e7429b036dfeb121e1d51fa964543ade')
+                             '1ee58f0600daebc8277c6456145a9112388ae3f7c93efdba4d7618d04debdae4')
             self.assertEqual(hashes['packages/protocol/docs/etna/ANCHORLESS.md'],
-                             '4566a331893f1220459ef6a809d57140e1834403f2f5ae73a4e418e7ab0d7578')
+                             '079af26c59ca5581a76dc2b0848ce78eb1fd692911517f99807bb58c3d9bc683')
             self.assertEqual(hashes['packages/protocol/docs/etna/SWITCH.md'],
-                             'c9cd828d7e227fe5a9478de4b075a0b07e4c46e4ccce26905a3f2dd06e11ace3')
+                             'c33db855c674b1907480403a8ad54497e05fb1ca32d9772a15d97e2ffc61e14e')
             self.assertNotIn('packages/protocol/docs/etna/sources/manifest.json', hashes)
 
     def test_generator_detects_stale_outputs(self):

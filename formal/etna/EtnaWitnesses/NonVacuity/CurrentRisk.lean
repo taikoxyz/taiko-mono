@@ -26,7 +26,7 @@ def genesis : Header := ⟨0,100,10,0,0,1,⟨0,0,0,0,0,0,0⟩⟩
 def first : Header := ⟨1,101,11,201,0,3,⟨2,2,0,0,100,0,0⟩⟩
 def other : Header := {first with cometHash := 202}
 def baseEnv : Environment where
-  core := ⟨domain,7,8,0,2,9⟩
+  core := ⟨domain,7,0,2,9⟩
   parameters := ⟨10,1,⟨unit,unit,1,10⟩,1,1152,10,1,1,9⟩
   genesisHeader := genesis
   initialSigner := ⟨domain,0,1,[],false,[]⟩

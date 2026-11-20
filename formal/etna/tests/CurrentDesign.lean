@@ -84,8 +84,8 @@ theorem withdrawn_id_survives_and_slot_frees :
     ((withdrawnRegistry.bonds 17).map (fun b => (b.value.key,b.value.exitAt,b.value.released,b.slot))) =
       some (11,20,true,none) ∧
     withdrawnRegistry.slots 17 = none ∧ withdrawnRegistry.slots 0 = some 0 ∧ withdrawnRegistry.keyId 11 = some 17 ∧
-    (Registry.exclude withdrawnRegistry 17 11 40).isSome = true ∧
-    Registry.exclude withdrawnRegistry 4097 0 40 = none := by decide +kernel
+    (Registry.exclude withdrawnRegistry 17 40).isSome = true ∧
+    Registry.exclude withdrawnRegistry 4097 40 = none := by decide +kernel
 
 def reused : Registry.State := ((Registry.register withdrawnRegistry 55 9 14 32).getD (emptyRegistry,0)).1
 
@@ -97,17 +97,6 @@ theorem recover_number_and_pending_schedule :
     Rules.recover ⟨1,2,100,80⟩ 2 = none ∧
     Rules.recover ⟨1,2,100,80⟩ 3 = some ⟨3,3,0,0⟩ ∧
     Rules.recover ⟨1,2,100,80⟩ 0 = some ⟨1,2,100,0⟩ := by decide +kernel
-
-def initializedOrigin : Start.State := ⟨true,none,0,fun _ => none,7,8,100⟩
-def writtenOrigin : Start.State :=
-  (Start.setOrigin initializedOrigin 7 100 9 5 70 80).getD initializedOrigin
-
-theorem start_write_and_correction :
-    Start.setOrigin initializedOrigin 7 99 9 5 70 80 = none ∧
-    writtenOrigin.start = some (5,70,80) ∧
-    Start.setOrigin writtenOrigin 7 101 10 6 71 81 = none ∧
-    ((Start.correct writtenOrigin true true 5 6 71 81 10 101).map (fun s =>
-      (s.generation,s.origins 0,s.origins 1))) = some (1,some ⟨5,9,100⟩,some ⟨6,10,101⟩) := by decide +kernel
 
 def candidate : Import.Candidate := ⟨2,5,400,70,70,true,true,true,true,true,true,true,true⟩
 
@@ -177,7 +166,7 @@ namespace Etna.CurrentRegression
 open Etna.Design.Current
 
 theorem unissued_default_storage_cannot_authenticate :
-    Registry.exclude { emptyRegistry with bonds := fun _ => some lowBond } 0 11 40 = none := by decide +kernel
+    Registry.exclude { emptyRegistry with bonds := fun _ => some lowBond } 0 40 = none := by decide +kernel
 
 def gapRegistry : Registry.State := { fullRegistry with slots := fun slot => if slot = 1 ∨ 4 ≤ slot then none else some slot }
 

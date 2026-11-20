@@ -49,7 +49,7 @@ def registry : RegistryMachine.State :=
   { ledger := {nextId := 0,bonds := fun _ => none,slots := fun _ => none,keyId := fun _ => none},
     config := {inbox := 3} }
 def env : Protocol.Environment where
-  core := ⟨domain,7,8,0,0,9⟩
+  core := ⟨domain,7,0,0,9⟩
   parameters := ⟨10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,2,1152,10,1,1,9⟩
   genesisHeader := ⟨0,100,100,0,0,0,⟨0,0,0,0,0,0,0⟩⟩
   initialSigner := ⟨domain,0,0,[],false,[]⟩
@@ -141,7 +141,7 @@ def registry : RegistryMachine.State where
   config := { inbox := 3 }
   registerAuth := fun key owner amount pop => decide (key = 7 ∧ owner = 8 ∧ amount = unit ∧ pop = 1)
 def env : Protocol.Environment where
-  core := ⟨domain,7,8,0,2,9⟩
+  core := ⟨domain,7,0,2,9⟩
   parameters := ⟨10,1,⟨unit,unit,1,6⟩,1,1152,10,1,1,9⟩
   genesisHeader := ⟨0,100,10,0,0,1,⟨0,0,0,0,0,0,0⟩⟩
   initialSigner := ⟨domain,0,1,[],false,[]⟩
@@ -177,7 +177,7 @@ def landed : Protocol.World :=
 
 /-- A stop at L1 time 7296, the earliest `scheduleStop` accepts; c's block is at time 0
 (`timestampOf`), so the stop is not in effect at c. -/
-def stopping : Protocol.World := Protocol.transact env landed (.scheduleStop 7 7296)
+def stopping : Protocol.World := Protocol.transact env landed (.scheduleStop 7 0 7296)
 
 /-- Reinstall the current parameters with `rules` = nextRules + 1 = 1. -/
 def structural (w : Protocol.World) : Protocol.RecoveryRequest :=

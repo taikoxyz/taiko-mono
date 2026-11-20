@@ -248,22 +248,13 @@ theorem execute_invariant {env : Environment} {registry : RegistryMachine.State}
     next guard => cases Option.some.inj ok; exact unchanged_invariant inv rfl rfl rfl rfl rfl
     next => simp at ok
   | initializeInbox caller => exact initialize_invariant primitive reach inv ok
-  | setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  | setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
     split at ok
     next guard =>
       cases Option.some.inj ok
       exact write_start_invariant inv guard.2.2.2.2.1 _ _ _ _ _ _
-    next => simp at ok
-  | correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
-    split at ok
-    next guard =>
-      cases Option.some.inj ok
-      exact write_start_invariant inv guard.2.1 _ _ _ _ _ _
     next => simp at ok
   | registry caller action =>
     change registryCall env w caller action = some t at ok
@@ -297,12 +288,12 @@ theorem execute_invariant {env : Environment} {registry : RegistryMachine.State}
   | forcedETH amount =>
     cases Option.some.inj ok
     exact unchanged_invariant inv rfl rfl rfl rfl rfl
-  | scheduleRules caller rule time =>
-    change scheduleRules env w caller rule time = some t at ok
+  | scheduleRules caller expectedGeneration rule time =>
+    change scheduleRules env w caller expectedGeneration rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact unchanged_invariant inv rfl rfl rfl rfl rfl
-  | scheduleStop caller time =>
-    change scheduleStop env w caller time = some t at ok
+  | scheduleStop caller expectedGeneration time =>
+    change scheduleStop env w caller expectedGeneration time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact unchanged_invariant inv rfl rfl rfl rfl rfl
   | recover request =>

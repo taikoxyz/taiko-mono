@@ -16,7 +16,7 @@ def headerCommitment (h : Header) : Hash :=
     Encoding.Tree.code (Encoding.header h)+100
 
 def env : Environment where
-  core := ⟨domain,7,8,0,2,9⟩
+  core := ⟨domain,7,0,2,9⟩
   parameters := ⟨10,1,⟨Committee.minUnit,Committee.minUnit,1,10⟩,1,1152,10,1,1,9⟩
   genesisHeader := genesis
   initialSigner := ⟨domain,0,1,[],false,[]⟩
@@ -234,63 +234,6 @@ example (target : Checkpoint) (snapshot : Nat)
 example : ¬ Governance.RollbackAuthorized failEnv failInitial failed badRecord 1 := by
   intro authorized
   exact (authorized.2.2.1 badRecord authorized.1 (Nat.le_refl _)).1.elim bad_uncertified bad_unpending
-
--- A corrected switching origin retains the old physical mapping entry while
--- replacing its ghost retained lineage. Physical existence does not authorize it.
-def switchEnv : Environment := { env with core := { env.core with unzenInbox := 99 } }
-def switchInitial := empty switchEnv registry
-def switchAdvanced := Governance.transact switchEnv switchInitial (.advance 2)
-def switchInitialized := Governance.transact switchEnv switchAdvanced (.initializeInbox 7)
-def firstOrigin := Governance.transact switchEnv switchInitialized (.setOrigin 8 5 101 15)
-def oldCheckpoint := firstOrigin.inbox.checkpoint
-def correctedOrigin := Governance.transact switchEnv firstOrigin (.correctStart 7 10 102 20)
-
-def correctedHistory : Governance.DeployedTrace switchEnv switchInitial correctedOrigin :=
-  .call (.call (.call (.call (.refl _) (.advance 2)) (.initializeInbox 7))
-    (.setOrigin 8 5 101 15)) (.correctStart 7 10 102 20)
-
-theorem corrected_prefix_authorized : Governance.AuthorizedUpgrades correctedHistory := by
-  unfold correctedHistory correctedOrigin firstOrigin switchInitialized switchAdvanced
-  rw [Governance.AuthorizedUpgrades.eq_2,Governance.AuthorizedUpgrades.eq_2,
-    Governance.AuthorizedUpgrades.eq_2,Governance.AuthorizedUpgrades.eq_2,
-    Governance.AuthorizedUpgrades.eq_1]
-  refine ⟨⟨⟨⟨True.intro,?_⟩,?_⟩,?_⟩,?_⟩
-  · intro t _; trivial
-  · intro t _; trivial
-  · intro t _; trivial
-  · intro t _
-    change firstOrigin.everLanded = false
-    decide +kernel
-
-example : Trace switchEnv switchInitial correctedOrigin :=
-  Governance.authorized_trace_refines correctedHistory corrected_prefix_authorized
-
-theorem archived_target_raw_success_normative_refusal :
-    recordAt correctedOrigin.inbox oldCheckpoint.height = some oldCheckpoint ∧
-    oldCheckpoint ∉ correctedOrigin.activeRecords ∧
-    (Governance.rawRollback switchEnv correctedOrigin 7 oldCheckpoint 1).isSome = true ∧
-    (rollback switchEnv correctedOrigin 7 oldCheckpoint 1).isNone = true ∧
-    ¬ Governance.UpgradeAuthorized switchEnv switchInitial correctedOrigin (.rollback 7 oldCheckpoint 1) := by
-  have archived : oldCheckpoint ∉ correctedOrigin.activeRecords := by decide +kernel
-  refine ⟨by decide +kernel,archived,by decide +kernel,by decide +kernel,fun authorized => ?_⟩
-  change Governance.RollbackAuthorized switchEnv switchInitial correctedOrigin oldCheckpoint 1 at authorized
-  exact archived authorized.1
-
-def archivedRollbackHistory : Governance.DeployedTrace switchEnv switchInitial
-    (Governance.transact switchEnv correctedOrigin (.rollback 7 oldCheckpoint 1)) :=
-  .call correctedHistory (.rollback 7 oldCheckpoint 1)
-
-theorem archived_history_not_authorized : ¬ Governance.AuthorizedUpgrades archivedRollbackHistory := by
-  intro authorization
-  unfold archivedRollbackHistory at authorization
-  rw [Governance.AuthorizedUpgrades.eq_2] at authorization
-  have duty : ∀ t, Governance.execute switchEnv correctedOrigin (.rollback 7 oldCheckpoint 1) = some t →
-      Governance.UpgradeAuthorized switchEnv switchInitial correctedOrigin (.rollback 7 oldCheckpoint 1) :=
-    authorization.2
-  have ok : Governance.execute switchEnv correctedOrigin (.rollback 7 oldCheckpoint 1) =
-      some ((Governance.rawRollback switchEnv correctedOrigin 7 oldCheckpoint 1).getD correctedOrigin) := by
-    rfl
-  exact archived_target_raw_success_normative_refusal.2.2.2.2 (duty _ ok)
 
 def recoveryRequest : RecoveryRequest := ⟨7,0,0,0,100,[],[],0,none⟩
 def recovered : World := (recover env initialized recoveryRequest).getD initialized

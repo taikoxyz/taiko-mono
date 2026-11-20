@@ -66,7 +66,7 @@ def CommitteeLive (env : Environment) (w : World) (cutoff : Nat) (keys : List Ha
 /-- RECOV-8-41: `w` once a `recover` at L1 block `n` excludes `exclusions`. Each listed bond's
 exit becomes min(exit, n), so it is out of every election at cutoff `n` or later; the registry
 records the changed slots at `n`. Nothing else changes, and no stake is forfeited. -/
-def excluded (w : World) (n : Nat) (exclusions : List (Nat × Hash)) : World :=
+def excluded (w : World) (n : Nat) (exclusions : List Nat) : World :=
   { w with registry := { w.registry with registry := (RegistryMachine.finish w.registry.registry n
       { w.registry.registry with ledger := RegistryMachine.excludedLedger w.registry.registry exclusions n }) } }
 

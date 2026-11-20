@@ -61,7 +61,7 @@ private theorem bondEdit_metadata {s : RegistryMachine.State} {v : InboxView} {n
       cases Option.some.inj ok
       exact ⟨old.1,fun _ => allowed.2.2.2⟩
     next => cases ok
-  | slash id a b sa sb | forfeit id caller key incident deadline =>
+  | slash id a b sa sb | forfeit id caller incident deadline =>
     simp only [bondEdit] at ok
     split at ok
     next allowed =>
@@ -169,7 +169,7 @@ theorem execute_metadata {s t : RegistryMachine.State} {v : InboxView} {now : Na
           · cases Option.some.inj found; exact valid
       · cases checked
     | recheck caller cutoff => exact False.elim normal
-    | forfeit id caller key incident deadline =>
+    | forfeit id caller incident deadline =>
       obtain ⟨u,edited,rfl⟩ := Option.map_eq_some_iff.mp checked
       change Metadata u v.snapshot
       exact edit_metadata old edited
@@ -238,7 +238,7 @@ private theorem bondEdit_retained {s : RegistryMachine.State} {v : InboxView} {n
     split at ok
     next allowed => have covered := allowed.2.2.2; omega
     next => cases ok
-  | slash _ _ _ _ _ | forfeit _ _ _ _ _ =>
+  | slash _ _ _ _ _ | forfeit _ _ _ _ =>
     simp only [bondEdit] at ok
     split at ok
     · cases Option.some.inj ok
@@ -335,7 +335,7 @@ theorem execute_retained {s t : RegistryMachine.State} {v : InboxView} {now cuto
         obtain ⟨bond,issued,found,key,live,clock,exit⟩ := old
         have same : selection = now := normal
         subst selection
-        refine ⟨(if xs.any (fun x => x.1 == id) then
+        refine ⟨(if xs.contains id then
           ⟨Staking.exclude bond.value now,bond.slot⟩ else bond),issued,?_,?_,?_,?_,?_⟩
         · simp only [excludedLedger,found,Option.map_some]
         · split <;> exact key
@@ -346,7 +346,7 @@ theorem execute_retained {s t : RegistryMachine.State} {v : InboxView} {now cuto
           · exact exit
       · cases checked
     | recheck caller selection => exact False.elim normal
-    | forfeit target caller entry incident deadline =>
+    | forfeit target caller incident deadline =>
       obtain ⟨u,edited,rfl⟩ := Option.map_eq_some_iff.mp checked
       change Retained u cutoff id key
       exact edit_retained old time snapshot edited

@@ -144,8 +144,8 @@ theorem execute_effect {env : Environment} {w t : World} {call : Call}
         next => simp at ok
       next => cases Option.some.inj ok; exact .frame rfl rfl rfl rfl (Nat.le_refl _)
     next => simp at ok
-  | setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  | setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
     split at ok
     next guard =>
@@ -153,13 +153,6 @@ theorem execute_effect {env : Environment} {w t : World} {call : Call}
       refine .frame rfl rfl rfl rfl ?_
       dsimp only [writeStart]
       omega
-    next => simp at ok
-  | correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
-    split at ok
-    next => cases Option.some.inj ok; exact .frame rfl rfl rfl rfl (Nat.le_succ _)
     next => simp at ok
   | registry caller action =>
     change registryCall env w caller action = some t at ok
@@ -193,12 +186,12 @@ theorem execute_effect {env : Environment} {w t : World} {call : Call}
   | forcedETH amount =>
     cases Option.some.inj ok
     exact .frame rfl rfl rfl rfl (Nat.le_refl _)
-  | scheduleRules caller rule time =>
-    change scheduleRules env w caller rule time = some t at ok
+  | scheduleRules caller expectedGeneration rule time =>
+    change scheduleRules env w caller expectedGeneration rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact .frame rfl rfl rfl rfl (Nat.le_refl _)
-  | scheduleStop caller time =>
-    change scheduleStop env w caller time = some t at ok
+  | scheduleStop caller expectedGeneration time =>
+    change scheduleStop env w caller expectedGeneration time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact .frame rfl rfl rfl rfl (Nat.le_refl _)
   | recover request =>
@@ -421,20 +414,13 @@ theorem execute_record_effect {env : Environment} {w t : World} {call : Call}
         next => simp at ok
       next => cases Option.some.inj ok; exact .frame rfl rfl rfl rfl
     next => simp at ok
-  | setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  | setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
     split at ok
     next guard =>
       cases Option.some.inj ok
       exact .start _ rfl rfl rfl rfl rfl
-    next => simp at ok
-  | correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
-    split at ok
-    next => cases Option.some.inj ok; exact .start _ rfl rfl rfl rfl rfl
     next => simp at ok
   | registry caller action =>
     change registryCall env w caller action = some t at ok
@@ -468,12 +454,12 @@ theorem execute_record_effect {env : Environment} {w t : World} {call : Call}
   | forcedETH amount =>
     cases Option.some.inj ok
     exact .frame rfl rfl rfl rfl
-  | scheduleRules caller rule time =>
-    change scheduleRules env w caller rule time = some t at ok
+  | scheduleRules caller expectedGeneration rule time =>
+    change scheduleRules env w caller expectedGeneration rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact .frame rfl rfl rfl rfl
-  | scheduleStop caller time =>
-    change scheduleStop env w caller time = some t at ok
+  | scheduleStop caller expectedGeneration time =>
+    change scheduleStop env w caller expectedGeneration time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact .frame rfl rfl rfl rfl
   | recover request =>
@@ -655,20 +641,13 @@ theorem execute_nonlanding_head {env : Environment} {w t : World} {call : Call}
         next => simp at ok
       next => cases Option.some.inj ok; exact Nat.le_refl _
     next => simp at ok
-  | setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  | setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
     split at ok
     next guard =>
       cases Option.some.inj ok
       exact Nat.le_refl _
-    next => simp at ok
-  | correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
-    split at ok
-    next => cases Option.some.inj ok; exact Nat.le_refl _
     next => simp at ok
   | registry caller action =>
     change registryCall env w caller action = some t at ok
@@ -702,12 +681,12 @@ theorem execute_nonlanding_head {env : Environment} {w t : World} {call : Call}
   | forcedETH amount =>
     cases Option.some.inj ok
     exact Nat.le_refl _
-  | scheduleRules caller rule time =>
-    change scheduleRules env w caller rule time = some t at ok
+  | scheduleRules caller expectedGeneration rule time =>
+    change scheduleRules env w caller expectedGeneration rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact Nat.le_refl _
-  | scheduleStop caller time =>
-    change scheduleStop env w caller time = some t at ok
+  | scheduleStop caller expectedGeneration time =>
+    change scheduleStop env w caller expectedGeneration time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact Nat.le_refl _
   | recover request =>
@@ -802,20 +781,13 @@ theorem execute_preserves_existing {env : Environment} {w t : World} {call : Cal
         next => simp at ok
       next => cases Option.some.inj ok; exact ⟨[],by simp [landed,nodeRestart]⟩
     next => simp at ok
-  | setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  | setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
     split at ok
     next guard =>
       cases Option.some.inj ok
       exact ⟨[],by simp [writeStart]⟩
-    next => simp at ok
-  | correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
-    split at ok
-    next => cases Option.some.inj ok; exact ⟨[],by simp [writeStart]⟩
     next => simp at ok
   | registry caller action =>
     change registryCall env w caller action = some t at ok
@@ -849,12 +821,12 @@ theorem execute_preserves_existing {env : Environment} {w t : World} {call : Cal
   | forcedETH amount =>
     cases Option.some.inj ok
     exact ⟨[],by simp [landed,nodeRestart]⟩
-  | scheduleRules caller rule time =>
-    change scheduleRules env w caller rule time = some t at ok
+  | scheduleRules caller expectedGeneration rule time =>
+    change scheduleRules env w caller expectedGeneration rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact ⟨[],by simp [landed,nodeRestart]⟩
-  | scheduleStop caller time =>
-    change scheduleStop env w caller time = some t at ok
+  | scheduleStop caller expectedGeneration time =>
+    change scheduleStop env w caller expectedGeneration time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact ⟨[],by simp [landed,nodeRestart]⟩
   | recover request =>
@@ -1130,30 +1102,14 @@ theorem execute_frontier_shape {env : Environment} {w t : World} {call : Call}
         cases Option.some.inj ok
         exact ⟨by simp,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
     next => simp at ok
-  | setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  | setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
     split at ok
     next guard =>
       cases Option.some.inj ok
-      exact write_start_frontier w height hash root w.number (env.time w.number) 0
+      exact write_start_frontier w height w.unzen.finalizedHash w.unzen.checkpointRoot w.number (env.time w.number) 0
         guard.1 (prior.unlanded (prior.unstarted guard.2.1))
-    next => simp at ok
-  | correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨old,present,ok⟩ := Option.bind_eq_some_iff.mp ok
-    split at ok
-    next guard =>
-      cases Option.some.inj ok
-      have initialized : w.initialized = true := by
-        cases hi : w.initialized
-        · have absent := prior.uninitialized hi
-          rw [absent] at present
-          cases present
-        · rfl
-      exact write_start_frontier w height hash root w.number (env.time w.number) (w.inbox.generation+1)
-        initialized (prior.unlanded guard.2.2.1)
     next => simp at ok
   | registry caller action =>
     change registryCall env w caller action = some t at ok
@@ -1187,12 +1143,12 @@ theorem execute_frontier_shape {env : Environment} {w t : World} {call : Call}
   | forcedETH amount =>
     cases Option.some.inj ok
     exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
-  | scheduleRules caller rule time =>
-    change scheduleRules env w caller rule time = some t at ok
+  | scheduleRules caller expectedGeneration rule time =>
+    change scheduleRules env w caller expectedGeneration rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
-  | scheduleStop caller time =>
-    change scheduleStop env w caller time = some t at ok
+  | scheduleStop caller expectedGeneration time =>
+    change scheduleStop env w caller expectedGeneration time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact ⟨prior.uninitialized,prior.unstarted,prior.unlanded,prior.member,prior.records,prior.cursor,prior.floor⟩
   | recover request =>

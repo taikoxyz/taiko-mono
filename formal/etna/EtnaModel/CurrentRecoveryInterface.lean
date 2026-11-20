@@ -32,6 +32,7 @@ structure Prepared (env : Environment) (registry : RegistryMachine.State) (w u :
   started : ∃ start, u.start = some start ∧ u.inbox.checkpoint.height+1 < limit48 ∧
     (env.core.unzenInbox ≠ 0 → p.height = start.height → env.startImplementation p.stateRoot = true)
   fence : firstFence env u = true
+  snapshotFloor : u.inbox.snapshot ≤ R
   stop : u.schedule.stopTime = 0
   rules : ∀ t, RulesetLive env (Rules.select u.schedule t) ∧ Rules.select u.schedule t ∈ env.imageRules image
   proofs : image ∈ u.images ∧ ∀ w' image' d, ImageCertifies env w' image' d →

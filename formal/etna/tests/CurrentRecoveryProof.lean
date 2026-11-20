@@ -30,7 +30,7 @@ example (env : Environment) (registry : RegistryMachine.State) (w u : World) (p 
     (parentTime : p.timestamp+2 ≤ env.time R ∧ env.time R+8 < limit256)
     (started : ∃ start, u.start = some start ∧ u.inbox.checkpoint.height+1 < limit48 ∧
       (env.core.unzenInbox ≠ 0 → p.height = start.height → env.startImplementation p.stateRoot = true))
-    (fence : firstFence env u = true) (stop : u.schedule.stopTime = 0)
+    (fence : firstFence env u = true) (snapshotFloor : u.inbox.snapshot ≤ R) (stop : u.schedule.stopTime = 0)
     (rules : ∀ t, RulesetLive env (Rules.select u.schedule t) ∧ Rules.select u.schedule t ∈ env.imageRules image)
     (proofs : image ∈ u.images ∧ ∀ w' image' d, ImageCertifies env w' image' d →
       ∃ proofs : List Proof, dualOK (proofs.map fun q => (q.backend,true)) = true ∧
@@ -44,13 +44,13 @@ example (env : Environment) (registry : RegistryMachine.State) (w u : World) (p 
     (queue : ∀ i e, (i,e) ∈ u.queue → ∃ raw : Blocks.Bytes, env.txHash raw = e.txHash ∧ raw.length ≤ 8192) :
     Recovery.Prepared env registry w u p R keys image :=
   { path := path, reachable := reachable, number := number, progress := progress, recovered := recovered,
-    closed := closed, parent := parent, parentTime := parentTime, started := started, fence := fence, stop := stop,
+    closed := closed, parent := parent, parentTime := parentTime, started := started, fence := fence, snapshotFloor := snapshotFloor, stop := stop,
     rules := rules, proofs := proofs, committee := committee, initialized := initialized, entered := entered,
     params := params, queue := queue }
 example (env : Environment) (registry : RegistryMachine.State) (w u : World) (p : Header) (R : Nat)
     (keys : List Hash) (image : Hash) (x : Recovery.Prepared env registry w u p R keys image) :
     Recovery.Prepared env registry w u p R keys image :=
-  ⟨x.path,x.reachable,x.number,x.progress,x.recovered,x.closed,x.parent,x.parentTime,x.started,x.fence,x.stop,
+  ⟨x.path,x.reachable,x.number,x.progress,x.recovered,x.closed,x.parent,x.parentTime,x.started,x.fence,x.snapshotFloor,x.stop,
     x.rules,x.proofs,x.committee,x.initialized,x.entered,x.params,x.queue⟩
 
 -- The one-block segment after recovery (`Recovery.segment`) over the closed certificate world.
@@ -105,7 +105,7 @@ example {env : Environment} {registry : RegistryMachine.State} {w : World}
     (nonce : w.inbox.recoveryNonce+1 < limit256) (rules : w.schedule.next+1 < limit48)
     (height : w.inbox.checkpoint.height+1 < limit48)
     (window : ∃ n keys exclusions, w.number < n ∧ n+4 < limit48 ∧ WindowBound env w ≤ env.time n ∧
-      env.time n+8 < limit256 ∧ exclusions.Pairwise (fun x y => x.1 < y.1) ∧
+      env.time n+8 < limit256 ∧ w.inbox.snapshot ≤ n ∧ exclusions.Pairwise (· < ·) ∧
       RegistryMachine.exclusionsValid w.registry.registry exclusions = true ∧
       CommitteeLive env (excluded w n exclusions) n keys)
     (fresh : RulesetLive env (w.schedule.next+1)) (image : Hash)

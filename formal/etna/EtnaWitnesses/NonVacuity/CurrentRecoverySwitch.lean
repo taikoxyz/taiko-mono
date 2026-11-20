@@ -37,7 +37,7 @@ def legacy : Header := { legacyFields with elHash := Encoding.headerHash legacyF
 3), final proposal 1, proven only by proof 77 of `legacy`, and a parent decoder that returns the
 empty lane's finalized hash 0. -/
 noncomputable def base : Environment := { RecoveryNonVacuity.base with
-  core := ⟨NonVacuity.domain,7,8,99,1036,9⟩
+  core := ⟨NonVacuity.domain,7,99,1036,9⟩
   unzenNextProposal := 2
   unzenValid := fun proposal h proof => decide (proposal = 1 ∧ h = legacy ∧ proof = 77)
   unzenRoot := fun h => h = legacy
@@ -57,7 +57,7 @@ noncomputable def registered : World :=
 noncomputable def activated : World := transact env registered (.advance 2)
 noncomputable def initialized : World := transact env activated (.initializeInbox 7)
 noncomputable def forked : World := transact env initialized (.advance 3)
-noncomputable def live : World := transact env forked (.setOrigin 8 5 legacy.elHash legacy.stateRoot)
+noncomputable def live : World := forked
 
 /-! The verifier and the L1 commitment. -/
 
@@ -267,11 +267,10 @@ private theorem ruleset_live (m : Nat) : RulesetLive env m := by
 /-! The reachable world and `LiveAt`. -/
 
 private theorem live_trace : Trace env (empty env RecoveryNonVacuity.registry) live :=
-  .step (.step (.step (.step (.step (.refl _) (.call _ (.registry 8 (.register 7 8 NonVacuity.unit 1))))
-    (.call _ (.advance 2))) (.call _ (.initializeInbox 7))) (.call _ (.advance 3)))
-    (.call _ (.setOrigin 8 5 legacy.elHash legacy.stateRoot))
+  .step (.step (.step (.step (.refl _) (.call _ (.registry 8 (.register 7 8 NonVacuity.unit 1))))
+    (.call _ (.advance 2))) (.call _ (.initializeInbox 7))) (.call _ (.advance 3))
 
-private theorem live_start : live.start = some ⟨5,legacy.elHash,legacy.stateRoot⟩ := by
+private theorem live_start : live.start = none := by
   decide +kernel
 
 /-- The online key's bond, active from L1 block 1, is the whole committee at cutoff 100. -/
@@ -286,23 +285,22 @@ final proposal for `legacy` is valid and links to the empty lane's finalized has
 private theorem live_at : Etna.Statements.Current.LiveAt env live := by
   refine ⟨by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,
     ⟨100,[RecoveryNonVacuity.onlineKey],[],by decide +kernel,by decide +kernel,by decide +kernel,
-      by decide +kernel,.nil,rfl,by rw [Recovery.excluded_none]; exact committee_live⟩,
+      by decide +kernel,by decide +kernel,.nil,rfl,by rw [Recovery.excluded_none]; exact committee_live⟩,
     .inl ⟨ruleset_live _,ruleset_live _,0,by decide +kernel,by decide +kernel⟩,?_⟩
   intro _
-  exact .inr ⟨legacy,77,by decide +kernel,by decide +kernel,by decide +kernel⟩
+  exact ⟨by decide,by decide,by decide,.inr ⟨legacy,77,by decide +kernel,by decide +kernel,by decide +kernel⟩⟩
 
 /-- The premises of H1–H4 can hold of one switching deployment (reports/recoverability.md, Joint
 witness): one environment with an Unzen Inbox, a registry and an engine satisfy H1–H3's
 `Premises` and H4's `RecoveryPremises` together, with a reachable initialized world that
-satisfies `LiveAt`, in which the origin writer has set a start S > 0 and the Unzen lane has no
-checkpoint yet, so the path must prove the lane before the first landing. -/
+satisfies `LiveAt`, where no start or Unzen checkpoint has been written. The path first finalizes the Unzen tip. -/
 theorem all_premises_satisfiable :
     ∃ e registry engine w, Etna.Statements.Current.Premises e registry engine ∧
       Etna.Statements.Current.RecoveryPremises e registry ∧
       Trace e (empty e registry) w ∧ w.initialized = true ∧ Etna.Statements.Current.LiveAt e w ∧
-      e.core.unzenInbox ≠ 0 ∧ (∃ s, w.start = some s ∧ 0 < s.height) ∧ w.unzen.checkpointExists = false :=
+      e.core.unzenInbox ≠ 0 ∧ w.start = none ∧ w.unzen.checkpointExists = false :=
   ⟨env,RecoveryNonVacuity.registry,NonVacuity.engine,live,premises,recovery_premises,live_trace,by decide +kernel,
-    live_at,by decide,⟨_,live_start,by decide⟩,by decide +kernel⟩
+    live_at,by decide,live_start,by decide +kernel⟩
 
 /-- H4 at the switching joint witness: this environment and registry meet `RecoveryPremises`,
 `live` is reachable, initialized and meets `LiveAt`, and `Recovery.recoverable` gives

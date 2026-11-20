@@ -62,10 +62,10 @@ example : resultStake (execute unslotted view 11 (.slash 0 {voteA with generatio
 example : resultStake (execute unslotted view 11 (.slash 0 {voteA with domain := ⟨9,2,3,4⟩} voteB 1 1)) 0 = none := by decide
 example : resultStake (execute unslotted view 11 (.slash 0 voteA voteB 999 1)) 0 = none := by decide
 
-def forfeited : RegistryMachine.State := (execute unslotted view 11 (.forfeit 0 1 1 99 100)).getD unslotted
+def forfeited : RegistryMachine.State := (execute unslotted view 11 (.forfeit 0 1 99 100)).getD unslotted
 example : stakeAt forfeited 0 = some 9 := by decide
 example : resultStake (execute forfeited view 12 (.slash 0 voteA voteB 1 1)) 0 = some 0 := by decide
-example : (execute forfeited view 12 (.forfeit 0 1 1 100 100)).isNone = true := by decide
+example : (execute forfeited view 12 (.forfeit 0 1 100 100)).isNone = true := by decide
 
 def slashed : RegistryMachine.State := (execute forfeited view 12 (.slash 0 voteA voteB 1 1)).getD forfeited
 example : (execute slashed view 13 (.slash 0 voteA voteB 1 1)).isNone = true := by decide
@@ -80,10 +80,10 @@ example : keyAt withdrawn 1 = some 9000 := by decide
 example : keyAt withdrawn 0 = some 1 := by decide
 example : withdrawn.ledger.keyId 1 = some 0 := by decide
 example : (execute withdrawn view 15 (.register 1 4 20 1)).isNone = true := by decide
-example : (execute withdrawn view 15 (.exclude 2 5 [(0,1)])).isSome = true := by decide
-example : (execute withdrawn view 15 (.exclude 2 5 [(6000,0)])).isNone = true := by decide
+example : (execute withdrawn view 15 (.exclude 2 5 [0])).isSome = true := by decide
+example : (execute withdrawn view 15 (.exclude 2 5 [6000])).isNone = true := by decide
 -- Atomic list validation: the valid first identity is not changed if a later one is absent.
-example : (execute withdrawn view 15 (.exclude 2 5 [(0,1),(6000,0)])).isNone = true := by decide
+example : (execute withdrawn view 15 (.exclude 2 5 [0,6000])).isNone = true := by decide
 -- Actual initialization, not an archival origin, gates evidence and confirmation.
 example : (execute unslotted {view with initialized := false} 12 (.slash 0 voteA voteB 1 1)).isNone = true := by decide
 example : (execute unslotted {view with initialized := false} 12 (.confirm 0)).isNone = true := by decide
@@ -106,7 +106,7 @@ set_option maxHeartbeats 8000000
 
 def phantom : RegistryMachine.State :=
   { initial with ledger := { nextId := 0, bonds := fun _ => some (bond 0 0 none), slots := fun _ => none, keyId := fun _ => none } }
-example : (execute phantom view 20 (.exclude 2 5 [(0,0)])).isNone = true := by decide
+example : (execute phantom view 20 (.exclude 2 5 [0])).isNone = true := by decide
 
 def active : RegistryMachine.State :=
   { initial with ledger := { nextId := 1, bonds := fun i => if i = 0 then some (bond 1 10 (some 0)) else none, slots := fun i => if i = 0 then some 0 else none, keyId := fun k => if k = 1 then some 0 else none } }

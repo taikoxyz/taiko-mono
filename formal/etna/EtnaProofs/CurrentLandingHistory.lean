@@ -55,24 +55,14 @@ private theorem execute_landing_effect {env : Environment} {w t : World} {call :
         next => cases ok
       next => cases Option.some.inj ok; exact Or.inl ⟨rfl,rfl,rfl⟩
     next => cases ok
-  | setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  | setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
     split at ok
     next =>
       cases Option.some.inj ok
       exact Or.inr (Or.inl ⟨rfl,
-        write_start_records w height hash root w.number (env.time w.number) 0⟩)
-    next => cases ok
-  | correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
-    split at ok
-    next =>
-      cases Option.some.inj ok
-      exact Or.inr (Or.inl ⟨rfl,
-        write_start_records w height hash root w.number (env.time w.number) (w.inbox.generation+1)⟩)
+        write_start_records w height w.unzen.finalizedHash w.unzen.checkpointRoot w.number (env.time w.number) 0⟩)
     next => cases ok
   | registry caller action =>
     change registryCall env w caller action = some t at ok
@@ -104,12 +94,12 @@ private theorem execute_landing_effect {env : Environment} {w t : World} {call :
   | forcedETH amount =>
     cases Option.some.inj ok
     exact Or.inl ⟨rfl,rfl,rfl⟩
-  | scheduleRules caller rule time =>
-    change scheduleRules env w caller rule time = some t at ok
+  | scheduleRules caller expectedGeneration rule time =>
+    change scheduleRules env w caller expectedGeneration rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact Or.inl ⟨rfl,rfl,rfl⟩
-  | scheduleStop caller time =>
-    change scheduleStop env w caller time = some t at ok
+  | scheduleStop caller expectedGeneration time =>
+    change scheduleStop env w caller expectedGeneration time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact Or.inl ⟨rfl,rfl,rfl⟩
   | recover request =>

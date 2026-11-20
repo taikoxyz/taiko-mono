@@ -1,7 +1,7 @@
 # Etna recoverability (H4)
 
-Authorities: main `2e6763e21bc236cfcda6011d164b32040f9e0c8d` (2026-11-19) for SPEC,
-ACCEPTANCE, ANCHORLESS and SWITCH, as for the rest of this package.
+Authorities: PR #22419 at `3fe7350119f2efe38cf588c145a9913bf9b3b398` (2026-11-20) for SPEC,
+ACCEPTANCE, ANCHORLESS and SWITCH.
 
 H1–H3 are safety claims: they say that nothing bad happens. Most Etna design bugs found so far
 were of another kind: permanent halts, where no landing could ever succeed again. No safety
@@ -79,12 +79,9 @@ Two parts of the conclusion need explaining.
 - **No rollback.** A rollback rewinds settled checkpoints. The spec allows one only after a
   verifier failure, and then only to the last trusted landing (RECOV-8-28). If the path could
   use one, the claim could be met by rewinding the settled prefix, which RECOV-8-58 forbids.
-- **"Above the starting checkpoint" only when something has landed.** `setOrigin` accepts any
-  start height, so a reachable state can hold a wrong start far above the true last Unzen
-  block. The only way out is `correctStart` (the DAO's start rewrite, START-10-5c), which
-  lowers the checkpoint to the true block, so no landing from there ends above the starting
-  checkpoint. `correctStart` is only possible while nothing has landed, so no settled
-  checkpoint is lost.
+- **Above the starting checkpoint after any landing.** The headline compares the destination
+  with the current settled checkpoint. Before the switch latch, the model has no Etna
+  checkpoint to compare.
 
 The state after the landing is again reachable. Wherever `LiveAt` holds again, H4 applies
 again, so landings can resume again and again.
@@ -118,19 +115,10 @@ not depend on `Premises`, `Locking.HonestRules`, `Locking.Minority`,
 From w, the proof builds these steps in order. The owner is the DAO.
 
 1. **L1 time.** Advance L1 to the block R that the `window` hypothesis names.
-2. **Start, on a switching network only.**
-
-   - If no start is written, the origin writer calls `setOrigin` with the Unzen lane's final
-     header.
-   - If the written start differs from that header in height, hash or state root and nothing
-     has landed, the owner calls `correctStart` with it.
-   - If the Unzen lane has not finalized its last proposal, anyone calls `unzenProve` with the
-     proof that the `unzen` hypothesis supplies, so the first-landing check (LAND-6.1-8a)
-     passes. That check also compares the height of the Unzen checkpoint with S; it holds
-     because the checkpoint and the start both come from the lane's final header.
-
-   Once something has landed, H1's first-landing fence already shows that the start is the
-   Unzen lane's final header.
+2. **Start, on a switching network only.** If the start is already written, use it. Otherwise,
+   finish the last Unzen proposal with `unzenProve` if needed, then call `setOrigin(S)`.
+   The permissionless call reads the finalized tip and its checkpoint at S after the fork
+   time and the proposal cutoff. The legacy checkpoint remains unchanged.
 
 3. **Image and verifier.** The owner registers an image that implements every ruleset the
    schedule will select (`image`) and selects the verifier version that `proofComplete` names
@@ -198,13 +186,13 @@ requires H4's proof to read each of them.
 
 | Field        | What it assumes about w                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Spec                                                                                          | Who must make it true                                                                                                                          |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `generation` | generation + 2 < 2^48 (the path may run both `correctStart` and `recover`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | RECOV-8-47                                                                                    | Counter headroom; no realistic deployment exhausts it                                                                                          |
+| `generation` | generation + 2 < 2^48 (headroom for the recovered generation)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | RECOV-8-47                                                                                    | Counter headroom; no realistic deployment exhausts it                                                                                          |
 | `nonce`      | recoveryNonce + 1 < 2^256                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | RECOV-8.3-11                                                                                  | Counter headroom                                                                                                                               |
 | `rules`      | nextRules + 1 < 2^48                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | RECOV-8-47a, appendix A's `recover(…, uint48 rules)`, STOR-B-15a                              | Counter headroom                                                                                                                               |
 | `height`     | c + 1 < 2^48                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | 6.1 land (48-bit heights)                                                                     | Height headroom                                                                                                                                |
-| `window`     | Some later L1 block R, with room in 48 bits, whose time is more than one second past each of: the current L1 time plus the largest `maxAnchorAge` of any generation so far, `forkTime`, and the genesis timestamp. At R, once the recovery excludes a list of members (sorted by bond id, each an issued bond named by its entry key; possibly empty), the election over the registry succeeds, and a set of online keys that can sign every vote holds more than 2/3 of the elected power (`CommitteeLive` on `excluded w R exclusions`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 3.4 rule 7 (anchor age), START-10-5a, 4.3, RECOV-8-17 to 8-21, RECOV-8-38 to 8-41, LIMIT-12-6 | Ethereum L1; the deployer, by picking a genesis timestamp and `forkTime` that L1 reaches; validators online and signing; enough eligible stake |
+| `window`     | Some later L1 block R at or above the current active committee snapshot, with room in 48 bits, whose time is more than one second past each of: the current L1 time plus the largest `maxAnchorAge` of any generation so far, `forkTime`, and the genesis timestamp. At R, once the recovery excludes a list of members (sorted by bond id, each an issued bond named by its entry key; possibly empty), the election over the registry succeeds, and a set of online keys that can sign every vote holds more than 2/3 of the elected power (`CommitteeLive` on `excluded w R exclusions`)                                                                                                                                                                                                                                                                                                                                                                                                                                               | 3.4 rule 7 (anchor age), START-10-5a, 4.3, RECOV-8-17 to 8-21, RECOV-8-38 to 8-41, LIMIT-12-6 | Ethereum L1; the deployer, by picking a genesis timestamp and `forkTime` that L1 reaches; validators online and signing; enough eligible stake |
 | `ruleset`    | `LiveRules`: either the active and next rulesets are live and one image implements both; or ruleset nextRules + 1 is live and some image implements it. A ruleset is live (`ExecutionLive`) when, for every parent header and every FI cursor, timestamp above the parent's, anchor and witness bytes a block producer picks, its EL accepts some hash-bound child with an empty transaction list; and when the witness bytes are a canonical forced transaction of at most 8,192 bytes, that transaction either executes as the only transaction or its single-transaction trial completes empty. The witness bytes are the queue head's raw bytes in a block that carries a forced-inclusion witness, and empty otherwise. The EL accepts a child when its execution and payload checks pass, at those witness bytes, for every block body that names the parent's hash, pays a fee share of 100 and carries the anchor's state root as its parent beacon root (the body fields the EL reads, 3.2); the other body fields are left free | MODEL-1-1 (EL side), 7.2 trial, START-10.1, START-10.1-14e, LIMIT-12-21                       | The ruleset's EL and guest images; the DAO and validators for rule upgrades                                                                    |
-| `unzen`      | On a switching network, the Unzen lane has finalized its last proposal, or a valid proof of that proposal, linked to the lane's last finalized hash, exists from the current lane state                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | LIMIT-12-9, LAND-6.1-8a                                                                       | Unzen provers and the existing Unzen guest                                                                                                     |
+| `unzen`      | On a switching network with nonzero fork time and a nonzero proposal cutoff at or before that time, the Unzen lane has finalized its last proposal or a valid proof of the last proposal extends the current finalized tip                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | LIMIT-12-9, LAND-6.1-8a                                                                       | Unzen provers and the existing Unzen guest                                                                                                     |
 
 Why `window` has those three bounds: the batch parent's timestamp is bounded by its anchor's
 L1 time plus that generation's `maxAnchorAge` (for c above S), by `forkTime` (a switching
@@ -291,9 +279,6 @@ They get no Lean counterexample. For each, here is who must make it true.
   and that online keys hold more than 2/3 of its power. Excluding offline members is the
   usual way to get there (LIMIT-12-2); eligible stake must still exist, and the validators
   left must be online.
-- **LIMIT-12-9, start written by a multisig.** A wrong start stops Etna until the DAO
-  rewrites it. The path does this with `correctStart` while nothing has landed; the
-  final-proof part is the `unzen` hypothesis above.
 - **LIMIT-12-21, upgrades depend on the DAO and validators.** A defective ruleset that has
   taken effect is replaced by recovery's `rules`. The path does this when the current
   rulesets are not live, which needs ruleset nextRules + 1 to be live and implemented by an
@@ -338,8 +323,7 @@ engine meet H1–H3's fifteen `Premises` and H4's `RecoveryPremises` together, w
 initialized world that meets `LiveAt`. `live_recovers` then applies H4's proof there: in that
 environment the path does reach an accepted landing. The witness is restricted:
 
-- a new network only: `initializeInbox` writes S = 0, and `setOrigin`, `correctStart`,
-  `unzenProve` and the Unzen premises are not exercised;
+- a new network only: `initializeInbox` writes S = 0, and `setOrigin` and `unzenProve` and the Unzen premises are not exercised;
 - the landed segment is one block, as on every H4 path, so no epoch switch falls inside it;
 - `LiveAt.ruleset` holds by `LiveRules`' first case, so the path keeps the rulesets and its
   rules replacement is not exercised;
@@ -363,22 +347,16 @@ environment the path does reach an accepted landing. The witness is restricted:
 Mainnet is one: it takes over from the Unzen rollup. The environment is the one above with the
 switching fields set: an Unzen Inbox, a fork time that L1 reaches at block 3, and one legacy
 header L at height 5. L is hash-bound, its timestamp is before the fork time, and a valid proof
-of the Unzen Inbox's final proposal authenticates it. In the reachable world `live`, the origin
-writer has set S = 5 from L and no Unzen proof has been accepted, so `LiveAt.unzen` holds
-because a valid proof of the final proposal exists. `live_recovers` applies H4's proof there.
-Nothing has landed and the Unzen lane has no checkpoint, so the landing the path reaches is the
-first one, at c = S. To get there the path proves the lane with `unzenProve`, and the landing
-passes the first-landing fence, including its check that the Unzen checkpoint is at S.
-`tests/CurrentRecoveryWitness.lean` pins that the fence refuses at `live`, passes after that
-proof, and refuses a start at height 6 that has L's hash and state root. This witness keeps the
+of the Unzen Inbox's final proposal authenticates it. In the reachable world `live`, the start
+and the Unzen checkpoint are both absent. H4's path submits the final proof and latches S = 5
+before recovering and landing. `tests/CurrentRecoveryWitness.lean` checks the latch refuses
+before the proof, accepts height 5 afterwards and rejects height 6. This witness keeps the
 first one's restrictions, except those of a new network, and adds these:
 
 - one legacy header, and the Unzen guest accepts one proof, of the final proposal 1;
 - `unzenParent` returns 0, the empty lane's finalized hash, so that `unzenProve`'s link check
   passes. `UnzenExtension` therefore holds vacuously: its only valid proof has boundary 0, and
   no hash-bound header has EL hash 0. `NonVacuity.CurrentSwitch` has the same limit;
-- the written start equals the Unzen final header, so the path's `correctStart` branch is not
-  exercised;
 - `LiveAt.ruleset` holds by `LiveRules`' first case;
 - no Unzen implementation runs: the legacy proof is one fixed value.
 

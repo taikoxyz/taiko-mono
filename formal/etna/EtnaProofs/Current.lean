@@ -157,26 +157,6 @@ theorem first_landing_fenced {start hash root : Nat} {u : Unzen}
     u.checkpointExists = true ∧ u.checkpointHeight = start ∧ u.checkpointHash = hash ∧ u.checkpointRoot = root := by
   simpa [firstLanding] using ok
 
-theorem origin_written_once (s : State) (caller now l1Block height hash root : Nat)
-    (written : s.start ≠ none) : setOrigin s caller now l1Block height hash root = none := by
-  simp [setOrigin, written]
-
-theorem correction_new_generation {s t : State} {owner authenticated : Bool}
-    {checkpoint height hash root l1Block now : Nat}
-    (ok : correct s owner authenticated checkpoint height hash root l1Block now = some t) :
-    t.generation = s.generation+1 ∧ ∀ g, g ≤ s.generation → t.origins g = s.origins g := by
-  unfold correct at ok
-  cases h : s.start <;> simp only [h, Option.bind_none, Option.bind_some] at ok
-  next => contradiction
-  next old =>
-    split at ok
-    next =>
-      cases Option.some.inj ok
-      refine ⟨rfl,?_⟩
-      intro g prior
-      have ne : g ≠ s.generation+1 := by omega
-      simp [ne]
-    next => simp at ok
 end Start
 
 namespace Import
@@ -357,23 +337,6 @@ theorem register_takes_lowest_empty {s t : State} {key owner amount now id : Nat
       by simp [updateBond],fun other ne => by simp [ne],fun other ne => by simp [updateBond,ne]⟩
   next => simp at ok
 end Etna.Design.Current.Registry
-
-namespace Etna.Design.Current.Start
-
-theorem trace_generations_monotone {s t : State} (trace : Trace s t) : s.generation ≤ t.generation := by
-  induction trace with
-  | refl => exact Nat.le_refl _
-  | correction _ _ _ _ _ _ _ _ _ ok ih => have h := correction_new_generation ok; omega
-
-theorem trace_origins_retained {s t : State} (trace : Trace s t) (g : Nat)
-    (prior : g ≤ s.generation) : t.origins g = s.origins g := by
-  induction trace with
-  | refl => rfl
-  | correction history _ _ _ _ _ _ _ _ ok ih =>
-    have bound := trace_generations_monotone history
-    have preserve := (correction_new_generation ok).2 g (by omega)
-    exact preserve.trans ih
-end Etna.Design.Current.Start
 
 namespace Etna.Design.Current.Rules
 

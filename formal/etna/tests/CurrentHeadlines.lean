@@ -77,9 +77,9 @@ example (env : Environment) (registry : RegistryMachine.State) (engine : Finalit
 example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
     (premises : Premises env registry engine) (w : World)
     (run : Trace env (empty env registry) w) (start : StartData) (written : w.start = some start)
-    (caller height hash root : Nat) : setOrigin env w caller height hash root = none :=
+    (caller height : Nat) : setOrigin env w caller height = none :=
   (Headlines.fund_safety env registry premises.toFundPremises w run).2.2.2.2.2.2.1
-    start written caller height hash root
+    start written caller height
 
 example (env : Environment) (registry : RegistryMachine.State) (engine : Finality.Engine)
     (premises : Premises env registry engine) (w : World)

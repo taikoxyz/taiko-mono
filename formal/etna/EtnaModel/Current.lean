@@ -142,8 +142,8 @@ def confirm (s : State) (initialized : Bool) (snapshot id now : Nat) : Option St
       some ⟨{ b.value with confirmedAt := some (b.value.confirmedAt.getD now) },b.slot⟩
     else none
 
-def exclude (s : State) (id key now : Nat) : Option State :=
-  modify s id fun b => if b.value.key = key then some ⟨Staking.exclude b.value now,b.slot⟩ else none
+def exclude (s : State) (id now : Nat) : Option State :=
+  modify s id fun b => some ⟨Staking.exclude b.value now,b.slot⟩
 
 /-- Reuse the exact principal-only slashing arithmetic after separately checking the
 current initialized storage fact and fixed-adapter evidence. Slot possession is irrelevant. -/
@@ -194,42 +194,6 @@ def firstLanding (switching : Bool) (start checkpoint hash root : Nat) (u : Unze
     u.finalizedHash = hash ∧ u.checkpointExists = true ∧ u.checkpointHeight = start ∧
     u.checkpointHash = hash ∧ u.checkpointRoot = root)
 
-structure Origin where
-  height : Nat
-  l1Block : Nat
-  timestamp : Nat
-  deriving DecidableEq, Repr
-
-structure State where
-  initialized : Bool
-  start : Option (Nat × Hash × Hash)
-  generation : Nat
-  origins : Nat → Option Origin
-  writer : Nat
-  unzenInbox : Nat
-  forkTime : Nat
-
-def setOrigin (s : State) (caller now l1Block height hash root : Nat) : Option State :=
-  if s.initialized = true ∧ s.start = none ∧ s.generation = 0 ∧
-      caller = s.writer ∧ s.unzenInbox ≠ 0 ∧ s.forkTime ≤ now ∧
-      0 < height ∧ height < limit48 ∧ hash ≠ 0 ∧ root ≠ 0 ∧ l1Block < limit48 then
-    some { s with start := some (height,hash,root), origins := fun g => if g = 0 then some ⟨height,l1Block,now⟩ else s.origins g }
-  else none
-
-/-- A corrected start is a new generation, only before any landing. The original
-origin record is retained. Authentication of the replacement Unzen state is external. -/
-def correct (s : State) (owner authenticated : Bool) (checkpoint height hash root l1Block now : Nat) : Option State :=
-  s.start.bind fun old =>
-    if owner = true ∧ authenticated = true ∧ checkpoint = old.1 ∧
-        0 < height ∧ height < limit48 ∧ hash ≠ 0 ∧ root ≠ 0 ∧
-        s.generation+1 < limit48 ∧ l1Block < limit48 then
-      some { s with start := some (height,hash,root), generation := s.generation+1, origins := fun g => if g = s.generation+1 then some ⟨height,l1Block,now⟩ else s.origins g }
-    else none
-inductive Trace : State → State → Prop
-  | refl (s : State) : Trace s s
-  | correction {first s t : State} (prior : Trace first s) (owner authenticated : Bool)
-      (checkpoint height hash root l1Block now : Nat)
-      (ok : correct s owner authenticated checkpoint height hash root l1Block now = some t) : Trace first t
 end Start
 
 namespace Import

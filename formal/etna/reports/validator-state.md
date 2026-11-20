@@ -2,7 +2,7 @@
 
 The model is based on CometBFT **v0.40.0**, commit
 `0880b4d378f347ab16e54ec677ff50d803f37d62`. Its Etna authority is main
-`2e6763e21bc236cfcda6011d164b32040f9e0c8d` (after #22412), as for the rest of this package.
+`3fe7350119f2efe38cf588c145a9913bf9b3b398` (PR #22419), as for the rest of this package.
 
 Since #22412 the validator state is outside settlement (SYNC-9-5c). The app commits it in
 `app_hash` (CONS-3.1-8, ENC-A-29b), and no landing record, cut, `LandInput`, statement or

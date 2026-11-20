@@ -33,7 +33,7 @@ def oldRegistry : RegistryMachine.State where
   registerAuth := fun _ _ _ _ => true
 
 def baseEnv : Environment where
-  core := ⟨domain,1,2,0,0,90⟩
+  core := ⟨domain,1,0,0,90⟩
   parameters := ⟨10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,1,1152,10,1,1,99⟩
   genesisHeader := ⟨0,100,200,0,0,0,⟨0,0,0,0,0,0,0⟩⟩
   initialSigner := ⟨domain,0,1,[],false,[]⟩
@@ -162,10 +162,10 @@ example : RegistryMachine.EvidenceClock slashed.registry.registry 0 started.numb
   Economics.evidence_window_retained (.step (.refl started) (.call started (.registry 77 (.slash 0 evA evB 7 7))))
     (bond := depositedBond) (window := 1) (by decide) (by decide +kernel) rfl rfl (by decide) (by decide)
 
-def forfeited := Protocol.transact env started (.registry 1 (.forfeit 0 1 7 123 5))
-example : (Protocol.registryCall env started 1 (.forfeit 0 1 7 123 5)).isSome = true := by decide +kernel
+def forfeited := Protocol.transact env started (.registry 1 (.forfeit 0 1 123 5))
+example : (Protocol.registryCall env started 1 (.forfeit 0 1 123 5)).isSome = true := by decide +kernel
 example : RegistryMachine.EvidenceClock forfeited.registry.registry 0 started.number :=
-  Economics.evidence_window_retained (.step (.refl started) (.call started (.registry 1 (.forfeit 0 1 7 123 5))))
+  Economics.evidence_window_retained (.step (.refl started) (.call started (.registry 1 (.forfeit 0 1 123 5))))
     (bond := depositedBond) (window := 1) (by decide) (by decide +kernel) rfl rfl (by decide) (by decide)
 
 def falseVerifier := {registry with verify := fun _ _ _ => true}

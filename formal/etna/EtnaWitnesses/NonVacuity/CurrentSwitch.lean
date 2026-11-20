@@ -14,7 +14,7 @@ set_option backward.isDefEq.respectTransparency false
 
 def legacy : Header := { first with cometHash := 0,cursor := 0 }
 def baseEnv : Environment := { NonVacuity.baseEnv with
-  core := ⟨domain,7,8,99,3,9⟩
+  core := ⟨domain,7,99,3,9⟩
   unzenNextProposal := 2
   headerHash := NonVacuity.headerCommitment
   headerParent := fun hash => hash-1
@@ -27,7 +27,7 @@ def advanced (e : Environment) := transact e (registered e) (.advance 2)
 def initialized (e : Environment) := transact e (advanced e) (.initializeInbox 7)
 def forked (e : Environment) := transact e (initialized e) (.advance 3)
 def proven (e : Environment) := transact e (forked e) (.unzenProve 1 legacy 77)
-def started (e : Environment) := transact e (proven e) (.setOrigin 8 1 101 100)
+def started (e : Environment) := transact e (proven e) (.setOrigin 8 1)
 def enqueued (e : Environment) := transact e (started e) (.enqueue [1] 1000000000 true)
 def imaged (e : Environment) := transact e (enqueued e) (.image 7 11 true)
 def beforeRecovery (e : Environment) := transact e (imaged e) (.advance 4)
@@ -69,7 +69,7 @@ instance : DecidablePred pol.signature := fun candidate =>
 instance : Decidable (Blocks.HeaderValid pol legacy block) := inferInstanceAs (Decidable (_ ∧ _))
 
  theorem source_reachable (e : Environment) : Trace e (empty e registry) (source e) :=
-  .step (.step (.step (.step (.step (.step (.step (.step (.step (.step (.step (.refl _) (.call _ (.registry 8 (.register 7 8 unit 1)))) (.call _ (.advance 2))) (.call _ (.initializeInbox 7))) (.call _ (.advance 3))) (.call _ (.unzenProve 1 legacy 77))) (.call _ (.setOrigin 8 1 101 100))) (.call _ (.enqueue [1] 1000000000 true))) (.call _ (.image 7 11 true))) (.call _ (.advance 4))) (.call _ (.recover request))) (.call _ (.advance 5))
+  .step (.step (.step (.step (.step (.step (.step (.step (.step (.step (.step (.refl _) (.call _ (.registry 8 (.register 7 8 unit 1)))) (.call _ (.advance 2))) (.call _ (.initializeInbox 7))) (.call _ (.advance 3))) (.call _ (.unzenProve 1 legacy 77))) (.call _ (.setOrigin 8 1))) (.call _ (.enqueue [1] 1000000000 true))) (.call _ (.image 7 11 true))) (.call _ (.advance 4))) (.call _ (.recover request))) (.call _ (.advance 5))
 
  theorem seed_calls_independent (w : World) (call : Call) (notLanding : ∀ a, call ≠ .land a) :
     transact env w call = transact baseEnv w call := by
@@ -81,7 +81,7 @@ instance : Decidable (Blocks.HeaderValid pol legacy block) := inferInstanceAs (D
   have b (w : World) := seed_calls_independent w (.registry 8 (.register 7 8 unit 1)) (by intro x impossible; cases impossible)
   have c (w : World) := seed_calls_independent w (.initializeInbox 7) (by intro x impossible; cases impossible)
   have d (w : World) := seed_calls_independent w (.unzenProve 1 legacy 77) (by intro x impossible; cases impossible)
-  have e (w : World) := seed_calls_independent w (.setOrigin 8 1 101 100) (by intro x impossible; cases impossible)
+  have e (w : World) := seed_calls_independent w (.setOrigin 8 1) (by intro x impossible; cases impossible)
   have f (w : World) := seed_calls_independent w (.enqueue [1] 1000000000 true) (by intro x impossible; cases impossible)
   have g (w : World) := seed_calls_independent w (.image 7 11 true) (by intro x impossible; cases impossible)
   have h (w : World) := seed_calls_independent w (.recover request) (by intro x impossible; cases impossible)

@@ -13,7 +13,7 @@ def legacy : Header := ⟨1,101,11,201,0,1,⟨0,1,0,0,100,0,0⟩⟩
 def registry : RegistryMachine.State :=
   { ledger := ⟨0,fun _ => none,fun _ => none,fun _ => none,1,1⟩,config := { inbox := 3 } }
 def env : Environment where
-  core := ⟨domain,7,8,99,2,9⟩
+  core := ⟨domain,7,99,2,9⟩
   parameters := ⟨10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,1,1152,10,1,1,9⟩
   genesisHeader := genesis
   initialSigner := ⟨domain,0,0,[],false,[]⟩
@@ -42,7 +42,7 @@ def initial := empty env registry
 def advanced := transact env initial (.advance 2)
 def initialized := transact env advanced (.initializeInbox 7)
 def proven := transact env initialized (.unzenProve 1 legacy 77)
-def started := transact env proven (.setOrigin 8 1 101 11)
+def started := transact env proven (.setOrigin 88 1)
 def imaged := transact env started (.image 7 11 true)
 def source := transact env imaged (.advance 3)
 def landing : Landing := ⟨⟨1,2,102,202,22,2,0,0⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
@@ -58,23 +58,16 @@ example : initialized.initialized = true ∧ source.start = some ⟨1,101,11⟩ 
 example : recordAt firstLanded.inbox 2 = some ⟨2,102,202,0,0,1⟩ := by decide +kernel
 
 -- Repeating the origin write must be rejected even before a first landing.
-example : (setOrigin env source 8 1 101 11).isNone = true := by decide +kernel
+example : (setOrigin env source 8 1).isNone = true := by decide +kernel
 
--- START-10-5a: the origin write waits for the fork time. At L1 block 1 (time 1, before
--- forkTime 2) it is refused; the same initialized world one block later accepts it.
-def early := transact env (transact env initial (.advance 1)) (.initializeInbox 7)
-example : early.initialized = true ∧ (setOrigin env early 8 1 101 11).isNone = true ∧
-    (setOrigin env (transact env early (.advance 2)) 8 1 101 11).isSome = true := by decide +kernel
+-- The exact fork and proposal cutoff are inclusive, but an open or unset cutoff rejects.
+example : (setOrigin { env with core := { env.core with forkTime := 3 } } proven 88 1).isNone = true ∧
+    (setOrigin { env with unzenProposeCutoff := 3 } proven 88 1).isNone = true ∧
+    (setOrigin { env with unzenProposeCutoff := 0 } proven 88 1).isNone = true ∧
+    (setOrigin env proven 88 1).isSome = true := by decide +kernel
 
--- START-10-5c: a start correction before any landing opens generation 1 and appends its
--- origin after generation 0's.
-example : ((correctStart env source 7 1 102 12).map fun w =>
-    (w.inbox.generation,w.inbox.origins.map Prod.fst)) = some (1,[0,1]) := by decide +kernel
-
--- Rollback removes newer signals but must not reopen the pre-landing correction gate.
 example : restored.inbox.checkpoint.height = 1 ∧ restored.inbox.signals = [] ∧
-    restored.everLanded = true := by decide +kernel
-example : (correctStart env restored 7 1 101 11).isNone = true := by decide +kernel
+    restored.everLanded = true ∧ (setOrigin env restored 7 1).isNone = true := by decide +kernel
 
 -- The trusted checkpoint and selection snapshot must be a saved pair.
 example : (rollback env firstLanded 7 source.inbox.checkpoint 999).isNone = true := by
@@ -93,23 +86,22 @@ example : firstFence env { source with unzen := { source.unzen with checkpointHa
 example : firstFence env { source with unzen := { source.unzen with checkpointRoot := 0 } } = false := by
   decide +kernel
 
--- LAND-6.1-8a reads the SignalService checkpoint at S. A start S = 5 written with the hash and
--- stateRoot of the Unzen block at height 10 is refused. Every other landing check passes: the
--- same world with the checkpoint's height set to 5 lands, as this world did before the model
--- recorded that height.
+-- A checkpoint at another height cannot authenticate the supplied height.
 def legacy10 : Header := { legacy with height := 10 }
 def proven10 := transact env initialized (.unzenProve 1 legacy10 77)
-def shiftedStarted := transact env proven10 (.setOrigin 8 5 101 11)
-def shiftedImaged := transact env shiftedStarted (.image 7 11 true)
-def shiftedSource := transact env shiftedImaged (.advance 3)
-def shiftedLanding : Landing := ⟨⟨5,6,102,202,22,2,0,0⟩,[],[1],[⟨.sgx,11,1⟩,⟨.sp1,11,2⟩]⟩
-
-example : shiftedSource.start = some ⟨5,101,11⟩ ∧ shiftedSource.unzen.checkpointHeight = 10 ∧
-    shiftedSource.unzen.checkpointHash = 101 ∧ shiftedSource.unzen.checkpointRoot = 11 ∧
-    firstFence env shiftedSource = false ∧ (land env shiftedSource shiftedLanding).isNone = true := by
+example : (setOrigin env proven10 88 5).isNone = true ∧
+    ((setOrigin env proven10 88 10).map World.start) = some (some ⟨10,101,11⟩) := by
   decide +kernel
-example : (land env { shiftedSource with unzen := { shiftedSource.unzen with checkpointHeight := 5 } }
-    shiftedLanding).isSome = true := by
+
+-- Land cannot use a stale physical record or decrease the active committee snapshot.
+example : (land env { source with activeRecords := [] } landing).isNone = true ∧
+    (land env { source with inbox := { source.inbox with snapshot := 1 } } landing).isNone = true := by
+  decide +kernel
+
+example : (scheduleRules env source 7 1 1 3000).isNone = true ∧
+    (scheduleStop env source 7 1 3000).isNone = true ∧
+    (scheduleRules env source 7 0 1 3000).isSome = true ∧
+    (scheduleStop env source 7 0 3000).isSome = true := by
   decide +kernel
 
 end Etna.CurrentGuardRegression

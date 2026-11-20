@@ -59,7 +59,7 @@ theorem execute_registry_normal {env : Environment} {w t : World} {call : Call}
         apply frame_trace snapshot
         exact ⟨rfl,rfl,Nat.le_refl _,fun _ => rfl,Nat.le_refl _,Nat.le_refl _⟩
     next => cases ok
-  | setOrigin caller height hash root =>
+  | setOrigin caller height =>
     simp only [Protocol.execute] at ok
     unfold Protocol.setOrigin at ok
     split at ok
@@ -68,15 +68,6 @@ theorem execute_registry_normal {env : Environment} {w t : World} {call : Call}
       apply frame_trace snapshot
       constructor <;> simp_all [writeStart]
     next => cases ok
-  | correctStart caller height hash root =>
-    simp only [Protocol.execute] at ok
-    unfold Protocol.correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
-    split at ok
-    · cases Option.some.inj ok
-      apply frame_trace snapshot
-      exact ⟨rfl,rfl,Nat.le_succ _,id,Nat.le_refl _,Nat.le_refl _⟩
-    · cases ok
   | registry caller action =>
     simp only [Protocol.execute] at ok
     unfold Protocol.registryCall at ok
@@ -113,13 +104,13 @@ theorem execute_registry_normal {env : Environment} {w t : World} {call : Call}
   | forcedETH amount =>
     cases Option.some.inj ok
     exact unchanged_trace rfl
-  | scheduleRules caller rule time =>
+  | scheduleRules caller expectedGeneration rule time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleRules at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
     subst t
     exact unchanged_trace rfl
-  | scheduleStop caller time =>
+  | scheduleStop caller expectedGeneration time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleStop at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
@@ -261,8 +252,7 @@ theorem execute_checkpoint_frame {env : Environment} {w t : World} {call : Call}
       exact Or.inr ⟨rfl,rfl,rfl⟩
     next => cases ok
   | initializeInbox caller => exact Or.inl rfl
-  | setOrigin caller height hash root => exact Or.inl rfl
-  | correctStart caller height hash root => exact Or.inl rfl
+  | setOrigin caller height => exact Or.inl rfl
   | registry caller action =>
     simp only [Protocol.execute] at ok
     unfold Protocol.registryCall at ok
@@ -297,13 +287,13 @@ theorem execute_checkpoint_frame {env : Environment} {w t : World} {call : Call}
   | forcedETH amount =>
     cases Option.some.inj ok
     exact Or.inr ⟨rfl,rfl,rfl⟩
-  | scheduleRules caller rule time =>
+  | scheduleRules caller expectedGeneration rule time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleRules at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
     subst t
     exact Or.inr ⟨rfl,rfl,rfl⟩
-  | scheduleStop caller time =>
+  | scheduleStop caller expectedGeneration time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleStop at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
@@ -406,16 +396,9 @@ private theorem execute_origin_progress {env : Environment} {w t : World} {call 
         · cases ok
       · cases Option.some.inj ok; exact Or.inl ⟨rfl,rfl⟩
     · cases ok
-  | setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  | setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
-    split at ok
-    · cases Option.some.inj ok; exact Or.inr rfl
-    · cases ok
-  | correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨previous,_,ok⟩ := Option.bind_eq_some_iff.mp ok
     split at ok
     · cases Option.some.inj ok; exact Or.inr rfl
     · cases ok
@@ -453,13 +436,13 @@ private theorem execute_origin_progress {env : Environment} {w t : World} {call 
   | forcedETH amount =>
     cases Option.some.inj ok
     exact Or.inl ⟨rfl,rfl⟩
-  | scheduleRules caller rule time =>
+  | scheduleRules caller expectedGeneration rule time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleRules at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
     subst t
     exact Or.inl ⟨rfl,rfl⟩
-  | scheduleStop caller time =>
+  | scheduleStop caller expectedGeneration time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleStop at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
@@ -556,16 +539,9 @@ private theorem execute_initialized_change {env : Environment} {w t : World} {ca
       exact Or.inl rfl
     next => cases ok
   | initializeInbox caller => exact Or.inr ⟨caller,rfl⟩
-  | setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  | setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
-    split at ok
-    · cases Option.some.inj ok; exact Or.inl rfl
-    · cases ok
-  | correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨previous,_,ok⟩ := Option.bind_eq_some_iff.mp ok
     split at ok
     · cases Option.some.inj ok; exact Or.inl rfl
     · cases ok
@@ -603,13 +579,13 @@ private theorem execute_initialized_change {env : Environment} {w t : World} {ca
   | forcedETH amount =>
     cases Option.some.inj ok
     exact Or.inl rfl
-  | scheduleRules caller rule time =>
+  | scheduleRules caller expectedGeneration rule time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleRules at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
     subst t
     exact Or.inl rfl
-  | scheduleStop caller time =>
+  | scheduleStop caller expectedGeneration time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleStop at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
@@ -800,16 +776,9 @@ private theorem execute_snapshot_timed {env : Environment} {registry : RegistryM
         · cases ok
       · cases Option.some.inj ok; exact Nat.le_of_lt cutoff
     next => cases ok
-  case setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  case setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
-    split at ok
-    · cases Option.some.inj ok; exact old
-    · cases ok
-  case correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨previous,_,ok⟩ := Option.bind_eq_some_iff.mp ok
     split at ok
     · cases Option.some.inj ok; exact old
     · cases ok
@@ -853,16 +822,9 @@ private theorem execute_unlanded_snapshot {env : Environment} {w t : World} {cal
         · cases ok
       · cases Option.some.inj ok; exact Nat.le_refl _
     · cases ok
-  case setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  case setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
-    split at ok
-    · cases Option.some.inj ok; exact old
-    · cases ok
-  case correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨previous,_,ok⟩ := Option.bind_eq_some_iff.mp ok
     split at ok
     · cases Option.some.inj ok; exact old
     · cases ok
@@ -1074,8 +1036,8 @@ theorem candidate_snapshot_bound {env : Environment} {registry : RegistryMachine
           rw [absent] at sourceStarted
           cases sourceStarted
       next => cases accepted
-    case setOrigin caller height hash root =>
-      change setOrigin env before caller height hash root = some after at accepted
+    case setOrigin caller height =>
+      change setOrigin env before caller height = some after at accepted
       unfold setOrigin at accepted
       split at accepted
       next allowed =>
@@ -1088,23 +1050,6 @@ theorem candidate_snapshot_bound {env : Environment} {registry : RegistryMachine
         rw [actual]
         exact Nat.le_trans old (candidate_genesis_floor run candidate zero)
       next => cases accepted
-    case correctStart caller height hash root =>
-      change correctStart env before caller height hash root = some after at accepted
-      unfold correctStart at accepted
-      obtain ⟨previous,_,accepted⟩ := Option.bind_eq_some_iff.mp accepted
-      split at accepted
-      · cases Option.some.inj accepted
-        have origin := (trace_started_metadata complete.project later.project sourceStarted sameGeneration).2
-        have old := priorRun.snapshot_timed genesis sound
-        have positive : w.inbox.generation ≠ 0 := by
-          change w.inbox.generation = before.inbox.generation+1 at sameGeneration
-          omega
-        have actual : w.inbox.snapshot = before.inbox.snapshot := snapshot.symm
-        rw [actual]
-        have floor := candidate_origin_floor candidate positive
-        rw [origin] at floor
-        exact Nat.le_trans old floor
-      · cases accepted
     all_goals cases writes
   · have increased : after.inbox.generation < w.inbox.generation := by omega
     have origin := later.generation_origin_floor increased
@@ -1183,16 +1128,9 @@ private theorem ordinary_snapshot_order {env : Environment} {registry : Registry
         · cases ok
       · cases Option.some.inj ok; exact old
     next => cases ok
-  case setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  case setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
-    split at ok
-    · cases Option.some.inj ok; exact Nat.le_refl _
-    · cases ok
-  case correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨previous,_,ok⟩ := Option.bind_eq_some_iff.mp ok
     split at ok
     · cases Option.some.inj ok; exact Nat.le_refl _
     · cases ok
@@ -1257,23 +1195,14 @@ theorem execute_retains {env : Environment} {initial w t : World} {call : Call}
       have unlanded := shape.unstarted unstarted
       exact ⟨by simp [none],fun ever => by simp [ever] at unlanded⟩
     next => simp at ok
-  | setOrigin caller height hash root =>
-    change Protocol.setOrigin env w caller height hash root = some t at ok
+  | setOrigin caller height =>
+    change Protocol.setOrigin env w caller height = some t at ok
     unfold Protocol.setOrigin at ok
     split at ok
     next guard =>
       cases Option.some.inj ok
       have unlanded := shape.unstarted guard.2.1
       exact ⟨fun _ m => m,fun ever => by simp [ever] at unlanded⟩
-    next => simp at ok
-  | correctStart caller height hash root =>
-    change Protocol.correctStart env w caller height hash root = some t at ok
-    unfold Protocol.correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
-    split at ok
-    next guard =>
-      cases Option.some.inj ok
-      exact ⟨fun _ m => m,fun ever => by simp [ever] at guard⟩
     next => simp at ok
   | registry caller action =>
     change Protocol.registryCall env w caller action = some t at ok
@@ -1305,12 +1234,12 @@ theorem execute_retains {env : Environment} {initial w t : World} {call : Call}
   | forcedETH amount =>
     cases Option.some.inj ok
     exact keep rfl rfl rfl
-  | scheduleRules caller rule time =>
-    change Protocol.scheduleRules env w caller rule time = some t at ok
+  | scheduleRules caller expectedGeneration rule time =>
+    change Protocol.scheduleRules env w caller expectedGeneration rule time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact keep rfl rfl rfl
-  | scheduleStop caller time =>
-    change Protocol.scheduleStop env w caller time = some t at ok
+  | scheduleStop caller expectedGeneration time =>
+    change Protocol.scheduleStop env w caller expectedGeneration time = some t at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact keep rfl rfl rfl
   | recover request =>

@@ -27,7 +27,7 @@ def registry : RegistryMachine.State where
   registerAuth := fun _ _ _ _ => true
 
 def env : Environment where
-  core := ⟨domain,1,2,0,0,90⟩
+  core := ⟨domain,1,0,0,90⟩
   parameters := ⟨10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,1,1152,10,1,1,99⟩
   genesisHeader := ⟨0,100,200,0,0,0,⟨0,0,0,0,0,0,0⟩⟩
   initialSigner := ⟨domain,0,1,[],false,[]⟩
@@ -57,8 +57,8 @@ def env : Environment where
 def initial : World := Protocol.empty env registry
 def advanced := Protocol.transact env initial (.advance 1)
 def started := Protocol.transact env advanced (.initializeInbox 1)
-def forfeited := Protocol.transact env started (.registry 1 (.forfeit 0 1 7 123 100))
-def recovery : RecoveryRequest := ⟨1,0,0,0,100,[(0,7)],[],0,none⟩
+def forfeited := Protocol.transact env started (.registry 1 (.forfeit 0 1 123 100))
+def recovery : RecoveryRequest := ⟨1,0,0,0,100,[0],[],0,none⟩
 def recovered := Protocol.transact env forfeited (.recover recovery)
 def later := Protocol.transact env recovered (.advance 2)
 def rolled := Protocol.transact env later (.rollback 1 later.inbox.checkpoint 0)
@@ -68,7 +68,7 @@ def restarted := Protocol.transact env attempted .restart
 
 theorem actual_run : Protocol.Trace env started restarted :=
   .step (.step (.step (.step (.step (.step (.refl started)
-    (.call started (.registry 1 (.forfeit 0 1 7 123 100))))
+    (.call started (.registry 1 (.forfeit 0 1 123 100))))
     (.call forfeited (.recover recovery))) (.call recovered (.advance 2)))
     (.call later (.rollback 1 later.inbox.checkpoint 0))) (.call rolled (.sign signMessage 7 true)))
     (.call attempted .restart)
@@ -79,7 +79,7 @@ theorem started_reachable : Protocol.Trace env (Protocol.empty env registry) sta
 
 theorem full_run : Protocol.Trace env (Protocol.empty env registry) restarted :=
   .step (.step (.step (.step (.step (.step started_reachable
-    (.call started (.registry 1 (.forfeit 0 1 7 123 100))))
+    (.call started (.registry 1 (.forfeit 0 1 123 100))))
     (.call forfeited (.recover recovery))) (.call recovered (.advance 2)))
     (.call later (.rollback 1 later.inbox.checkpoint 0))) (.call rolled (.sign signMessage 7 true)))
     (.call attempted .restart)

@@ -45,7 +45,7 @@ def Backed (env : PaymentEnvironment) (s : State) : Prop :=
 operations use the outer caller directly (in particular for the double-sign bounty). -/
 def callerMatches (caller : Nat) : RegistryMachine.Action → Bool
   | .register _ embedded _ _ | .requestExit _ embedded | .topUp _ embedded _
-  | .withdraw _ embedded _ | .forfeit _ embedded _ _ _
+  | .withdraw _ embedded _ | .forfeit _ embedded _ _
   | .exclude embedded _ _ | .recheck embedded _ => caller == embedded
   | .activateTopUp _ | .confirm _ | .slash _ _ _ _ _ => true
 
@@ -66,7 +66,7 @@ def paymentIntents (env : PaymentEnvironment) (s : RegistryMachine.State)
         let bounty := Staking.fraction b.value.balance s.config.slashBountyBps
         [⟨env.registryAddress,caller,bounty,false⟩,
          ⟨env.registryAddress,env.slashSink,b.value.balance-bounty,false⟩]
-  | .forfeit id _ _ _ _ =>
+  | .forfeit id _ _ _ =>
       match s.ledger.bonds id with
       | none => []
       | some b => [⟨env.registryAddress,env.slashSink,

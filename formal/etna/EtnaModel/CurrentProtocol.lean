@@ -11,7 +11,6 @@ namespace Etna.Design.Current.Protocol
 structure Core where
   domain : Domain
   owner : Nat
-  originWriter : Nat
   unzenInbox : Nat
   forkTime : Nat
   slashSink : Nat
@@ -81,6 +80,8 @@ structure Environment where
   signature : Consensus.Vote → Prop
   txHash : Blocks.Bytes → Hash
   unzenNextProposal : Nat
+  /-- Live Unzen proposal cutoff; zero represents an open proposal lane. -/
+  unzenProposeCutoff : Nat := core.forkTime
   timestampOf : Hash → Nat
   catalogue : Blocks.RulesetCatalogue
   payload : List Hash → List Blocks.Block → Bool
@@ -230,22 +231,16 @@ def initializeInbox (env : Environment) (w : World) (caller : Nat) : Option Worl
     else some initial
   else none
 
-def setOrigin (env : Environment) (w : World) (caller height hash root : Nat) : Option World :=
-  if w.initialized = true ∧ w.start = none ∧ w.inbox.generation = 0 ∧ caller = env.core.originWriter ∧
+/-- START-10-5a and LAND-6.1-8a: permissionlessly latch the completely finalized
+Unzen tip and root read at the requested height. -/
+def setOrigin (env : Environment) (w : World) (_caller height : Nat) : Option World :=
+  if w.initialized = true ∧ w.start = none ∧ w.inbox.generation = 0 ∧ env.core.forkTime ≠ 0 ∧
       env.core.unzenInbox ≠ 0 ∧ env.core.forkTime ≤ env.time w.number ∧
-      0 < height ∧ height < limit48 ∧ hash ≠ 0 ∧ root ≠ 0 then
-    some (writeStart w height hash root w.number (env.time w.number) 0)
+      0 < height ∧ height < limit48 ∧ w.unzen.finalizedHash ≠ 0 ∧ w.unzen.checkpointRoot ≠ 0 ∧
+      env.unzenProposeCutoff ≠ 0 ∧ env.unzenProposeCutoff ≤ env.time w.number ∧
+      Start.firstLanding true height height w.unzen.finalizedHash w.unzen.checkpointRoot w.unzen = true then
+    some (writeStart w height w.unzen.finalizedHash w.unzen.checkpointRoot w.number (env.time w.number) 0)
   else none
-
-/-- Normative DAO implementation-upgrade action, not a deployed public entry point.
-The everLanded guard constrains admissible history; it is not a bytecode storage check. -/
-def correctStart (env : Environment) (w : World) (caller height hash root : Nat) : Option World :=
-  w.start.bind fun old =>
-    if caller = env.core.owner ∧ env.core.unzenInbox ≠ 0 ∧ w.everLanded = false ∧
-        w.inbox.checkpoint.height = old.height ∧ w.inbox.signals = [] ∧
-        0 < height ∧ height < limit48 ∧ hash ≠ 0 ∧ root ≠ 0 ∧ w.inbox.generation+1 < limit48 then
-      some (writeStart w height hash root w.number (env.time w.number) (w.inbox.generation+1))
-    else none
 
 /-- Only actual public operations reach the payment wrapper. Internal exclusion and
 confirmation recheck are invoked exclusively by recovery/rollback below. -/
@@ -268,12 +263,14 @@ def enqueue (env : Environment) (w : World) (raw : Blocks.Bytes) (paid : Nat) (r
 def sweep (w : World) (transfer : Bool) : Option World :=
   (Forced.sweep w.inbox transfer).map fun inbox => { w with inbox := inbox }
 
-def scheduleRules (env : Environment) (w : World) (caller rule time : Nat) : Option World :=
-  (Rules.scheduleRules ⟨w.initialized,env.core.owner,w.inbox.maxAnchorAge⟩
+def scheduleRules (env : Environment) (w : World) (caller expectedGeneration rule time : Nat) : Option World :=
+  (Rules.scheduleRules ⟨w.initialized && decide (expectedGeneration = w.inbox.generation),
+    env.core.owner,w.inbox.maxAnchorAge⟩
     w.schedule caller (env.time w.number) rule time).map fun schedule => { w with schedule := schedule }
 
-def scheduleStop (env : Environment) (w : World) (caller time : Nat) : Option World :=
-  (Rules.scheduleStop ⟨w.initialized,env.core.owner,w.inbox.maxAnchorAge⟩
+def scheduleStop (env : Environment) (w : World) (caller expectedGeneration time : Nat) : Option World :=
+  (Rules.scheduleStop ⟨w.initialized && decide (expectedGeneration = w.inbox.generation),
+    env.core.owner,w.inbox.maxAnchorAge⟩
     w.schedule caller (env.time w.number) time).map fun schedule => { w with schedule := schedule }
 
 structure RecoveryRequest where
@@ -282,7 +279,7 @@ structure RecoveryRequest where
   expectedCheckpoint : Nat
   expectedNonce : Nat
   validUntil : Nat
-  exclusions : List (Nat × Hash)
+  exclusions : List Nat
   clear : List Nat
   rules : Nat
   upgrade : Option Parameters := none
@@ -304,7 +301,7 @@ def recover (env : Environment) (w : World) (a : RecoveryRequest) : Option World
         a.expectedGeneration = w.inbox.generation ∧ a.expectedCheckpoint = w.inbox.checkpoint.height ∧
         a.expectedNonce = w.inbox.recoveryNonce ∧ w.inbox.recoveryNonce+1 < limit256 ∧
         env.time w.number ≤ a.validUntil ∧ a.validUntil < limit256 ∧ w.inbox.generation+1 < limit48 ∧
-        a.exclusions.Pairwise (fun x y => x.1 < y.1) ∧ a.clear.Pairwise (· < ·) ∧
+        a.exclusions.Pairwise (· < ·) ∧ a.clear.Pairwise (· < ·) ∧
         (∀ i ∈ a.clear,w.inbox.head ≤ i ∧ i < w.inbox.tail) ∧
         -- SPEC 8.3 has no planned-stop check: START-10.1-14e's stop is DAO procedure, and
         -- vector 14e.k recovers from a settled c below a stop height that cannot settle.
@@ -453,6 +450,8 @@ structure LandingChecks (env : Environment) (w : World) (a : Landing) : Prop whe
   referenceReadable : referenceHash env w a.input.l1ReferenceBlockNumber ≠ 0
   blobs : 1 ≤ a.blobs.length ∧ a.blobs.length ≤ 6
   unzen : firstFence env w = true
+  retained : ((recordAt w.inbox a.input.parentHeight).getD default) ∈ w.activeRecords
+  snapshotFloor : w.inbox.snapshot ≤ a.input.activeCommitteeSnapshot
   proofs : proofsAccepted env w a = true
 
 instance (env : Environment) (w : World) (a : Landing) : Decidable (LandingChecks env w a) :=
@@ -478,15 +477,17 @@ instance (env : Environment) (w : World) (a : Landing) : Decidable (LandingCheck
     (referenceHash env w a.input.l1ReferenceBlockNumber ≠ 0) ∧
     (1 ≤ a.blobs.length ∧ a.blobs.length ≤ 6) ∧
     (firstFence env w = true) ∧
+    (((recordAt w.inbox a.input.parentHeight).getD default) ∈ w.activeRecords) ∧
+    (w.inbox.snapshot ≤ a.input.activeCommitteeSnapshot) ∧
     (proofsAccepted env w a = true))
     (by
       constructor <;>
         rintro ⟨initialized,started,entered,origin,parentBeforeFrontier,progress,height,batchSize,
           record,generation,leafCount,frontier,cursor,head,tail,service,reference,referenceAge,
-          referenceReadable,blobs,unzen,proofs⟩ <;>
+          referenceReadable,blobs,unzen,retained,snapshot,proofs⟩ <;>
         exact ⟨initialized,started,entered,origin,parentBeforeFrontier,progress,height,batchSize,
           record,generation,leafCount,frontier,cursor,head,tail,service,reference,referenceAge,
-          referenceReadable,blobs,unzen,proofs⟩)
+          referenceReadable,blobs,unzen,retained,snapshot,proofs⟩)
 
 /-- State written by L1 contains only decoded statement fields, never an assumed valid chain. -/
 def landed (w : World) (a : Landing) : World :=
@@ -563,14 +564,13 @@ inductive NodeEvent (env : Environment) (w : World) : Node → Prop
 inductive Call where
   | advance (number : Nat)
   | initializeInbox (caller : Nat)
-  | setOrigin (caller height hash root : Nat)
-  | correctStart (caller height hash root : Nat)
+  | setOrigin (caller height : Nat)
   | registry (caller : Nat) (action : RegistryMachine.Action)
   | enqueue (raw : Blocks.Bytes) (paid : Nat) (refund : Bool)
   | sweep (transfer : Bool)
   | forcedETH (amount : Nat)
-  | scheduleRules (caller rule time : Nat)
-  | scheduleStop (caller time : Nat)
+  | scheduleRules (caller expectedGeneration rule time : Nat)
+  | scheduleStop (caller expectedGeneration time : Nat)
   | recover (request : RecoveryRequest)
   | invalidate (caller nonce : Nat)
   | rollback (caller : Nat) (trusted : Checkpoint) (snapshot : Nat)
@@ -589,14 +589,13 @@ inductive Call where
 def execute (env : Environment) (w : World) : Call → Option World
   | .advance number => advance env w number
   | .initializeInbox caller => initializeInbox env w caller
-  | .setOrigin caller height hash root => setOrigin env w caller height hash root
-  | .correctStart caller height hash root => correctStart env w caller height hash root
+  | .setOrigin caller height => setOrigin env w caller height
   | .registry caller action => registryCall env w caller action
   | .enqueue raw paid refund => enqueue env w raw paid refund
   | .sweep transfer => sweep w transfer
   | .forcedETH amount => some { w with inbox := Forced.extraETH w.inbox amount }
-  | .scheduleRules caller rule time => scheduleRules env w caller rule time
-  | .scheduleStop caller time => scheduleStop env w caller time
+  | .scheduleRules caller expectedGeneration rule time => scheduleRules env w caller expectedGeneration rule time
+  | .scheduleStop caller expectedGeneration time => scheduleStop env w caller expectedGeneration time
   | .recover a => recover env w a
   | .invalidate caller nonce => invalidate env w caller nonce
   | .rollback caller trusted snapshot => rollback env w caller trusted snapshot

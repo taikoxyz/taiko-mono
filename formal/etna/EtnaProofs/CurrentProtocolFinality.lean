@@ -62,7 +62,7 @@ theorem execute_registry_trace {env : Environment} {w t : World} {call : Call}
         apply frame_trace
         exact ⟨rfl,rfl,Nat.le_refl _,fun _ => rfl,Nat.le_refl _,Nat.le_refl _⟩
     next => cases ok
-  | setOrigin caller height hash root =>
+  | setOrigin caller height =>
     simp only [Protocol.execute] at ok
     unfold Protocol.setOrigin at ok
     split at ok
@@ -71,15 +71,6 @@ theorem execute_registry_trace {env : Environment} {w t : World} {call : Call}
       apply frame_trace
       constructor <;> simp_all [writeStart]
     next => cases ok
-  | correctStart caller height hash root =>
-    simp only [Protocol.execute] at ok
-    unfold Protocol.correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
-    split at ok
-    · cases Option.some.inj ok
-      apply frame_trace
-      exact ⟨rfl,rfl,Nat.le_succ _,id,Nat.le_refl _,Nat.le_refl _⟩
-    · cases ok
   | registry caller action =>
     simp only [Protocol.execute] at ok
     unfold Protocol.registryCall at ok
@@ -114,13 +105,13 @@ theorem execute_registry_trace {env : Environment} {w t : World} {call : Call}
   | forcedETH amount =>
     cases Option.some.inj ok
     exact unchanged_trace rfl
-  | scheduleRules caller rule time =>
+  | scheduleRules caller expectedGeneration rule time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleRules at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok
     subst t
     exact unchanged_trace rfl
-  | scheduleStop caller time =>
+  | scheduleStop caller expectedGeneration time =>
     simp only [Protocol.execute] at ok
     unfold Protocol.scheduleStop at ok
     obtain ⟨schedule,_,equal⟩ := Option.map_eq_some_iff.mp ok

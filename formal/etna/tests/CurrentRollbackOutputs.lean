@@ -59,23 +59,24 @@ private theorem before_reference_readable : referenceHash broken before 2 ≠ 0 
     NonVacuity.source_landing_checks.referenceReadable
 
 -- All three cases pass the physical guards; the broken verifier ignores the wrong output.
-theorem first_accepted (snapshot root : Nat) :
+theorem first_accepted (snapshot root : Nat) (floor : before.inbox.snapshot ≤ snapshot) :
     land broken before (firstLanding snapshot root) = some (afterFirst snapshot root) := by
   have checks : LandingChecks broken before (firstLanding snapshot root) := by
     constructor
     case referenceReadable =>
       simpa only [firstLanding, NonVacuity.landing] using before_reference_readable
+    case snapshotFloor => exact floor
     all_goals
       (try dsimp only [firstLanding,afterFirst,landed,proofsAccepted,broken,recordAt,writeRecord,
         firstFence,Start.firstLanding]) <;> first | rfl | decide +kernel
   simp only [land,checks,ite_true,afterFirst]
 
-theorem first_reachable (snapshot root : Nat) :
+theorem first_reachable (snapshot root : Nat) (floor : before.inbox.snapshot ≤ snapshot) :
     Trace broken initial (afterFirst snapshot root) := by
   have next : transact broken before (.land (firstLanding snapshot root)) =
       afterFirst snapshot root := by
     change (land broken before (firstLanding snapshot root)).getD before = _
-    rw [first_accepted]
+    rw [first_accepted snapshot root floor]
     rfl
   rw [← next]
   exact .step (NonVacuity.source_reachable broken) (.call _ (.land (firstLanding snapshot root)))
@@ -120,7 +121,7 @@ theorem first_record_still_certified (snapshot root : Nat) :
       Custody.Certified broken initial firstRecord := by
   refine ⟨rfl,NonVacuity.first,?_,NonVacuity.first_bound,?_⟩
   · constructor <;> rfl
-  · exact .landing (NonVacuity.source_reachable broken) (first_accepted 1 100)
+  · exact .landing (NonVacuity.source_reachable broken) (first_accepted 1 100 (by decide +kernel))
       goodSegment genesis_path
 
 private theorem good_event_certified : (firstEvent 1 100).Certified broken initial := by
@@ -264,13 +265,14 @@ def nextEvent (snapshot root : Nat) : LandingRecord :=
   ⟨(afterFirst snapshot root).inbox,(afterFirst snapshot root).history,nextLanding⟩
 def afterNext (snapshot root : Nat) : World := landed (afterFirst snapshot root) nextLanding
 
-theorem next_accepted (snapshot root : Nat) :
+theorem next_accepted (snapshot root : Nat) (floor : snapshot ≤ 999) :
     land broken (afterFirst snapshot root) nextLanding = some (afterNext snapshot root) := by
   have checks : LandingChecks broken (afterFirst snapshot root) nextLanding := by
     constructor
     case referenceReadable =>
       simpa only [referenceHash, referencePrefix, afterFirst, landed, nextLanding] using
         before_reference_readable
+    case snapshotFloor => exact floor
     all_goals
       (try dsimp only [firstLanding,afterFirst,landed,proofsAccepted,broken,recordAt,writeRecord,
         firstFence,Start.firstLanding]) <;> first | rfl | decide +kernel

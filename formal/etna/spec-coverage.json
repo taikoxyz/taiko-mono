@@ -3,13 +3,13 @@
   "scope": "conditional decoded specification property only",
   "source": {
     "path": "packages/protocol/docs/etna/SPEC.md",
-    "revision": "2026-11-19",
-    "commit": "2e6763e21bc236cfcda6011d164b32040f9e0c8d",
-    "sha256": "1d6540e984b683a89f6ddbf496de6313aeb4bf727eabf7fdbf1213841679c48e"
+    "revision": "2026-11-20",
+    "commit": "3fe7350119f2efe38cf588c145a9913bf9b3b398",
+    "sha256": "ff6b3a175aef584cd27850ab69e1a5dce6a1a3d5d280cfe8e1c54ed10207465c"
   },
   "boundaries": {
     "current": "Conditional decoded current safety under fifteen raw primitive/deployment premises; external PARAM-11-11 evidence-window sizing is assumed and immutable transport is derived. Image certificates contain no live footprint: actual fresh trace and pure statement binding derive it. H1 exports the postlanding S partition for legacy signals emitted from the modeled empty lane; predeployment SignalService data are absent. H2 whole-committee/overlap retention is above-checkpoint and excludes any rollback since fresh genesis, with no restart theorem. Complete semantic archive ancestry is stronger than an L+2-only guest; bounded suffix extraction is proved but accepted guest refinement is deferred. Profile restrictions include generation1 first switching landing, vacuous upstream extension, genesis risk, self-chain round0 honest agreement and empty accepted prior lists. Raw DAO histories require instrumented per-history authorization; a rollback is authorized only to the last trusted landing below a bad retained record (RECOV-8-28 as an external duty). Production/retarget/availability/launch refinements remain separate.",
-    "recovery": "Conditional decoded current recoverability (H4) under RecoveryPremises: H1's five fund premises, a strictly increasing L1 clock, catalogue byte hashing, assumed proof completeness (MODEL-1-1/1-2), payload availability of one block in one to six blobs usable final Unzen headers and nonzero hashes for complete closed L1 reference prefixes; and under the per-state LiveAt hypotheses: 48/256-bit headroom for the generation, recovery nonce, ruleset and checkpoint, one later L1 window block with a live committee, live rulesets (the current ones, sharing an image, or ruleset nextRules + 1 with an image) and a live Unzen lane. EL execution, signatures and blobs come from these hypotheses existentially. A live ruleset gives some child for every parent, FI cursor, timestamp above the parent's, anchor and witness bytes a block producer picks, accepted only at those witness bytes and only for bodies that name the parent's hash, pay a fee share of 100 and carry the anchor's state root as parent beacon root; no EL, signer or DA implementation is modeled. The path is rollback-free with one plain recovery (the exclusions LiveAt names, no FI blanking) that keeps the rules or installs ruleset nextRules + 1, then lands the new generation's first block, from the checkpoint c to c+1. Normal-operation liveness, adversarial scheduling, DAO transaction refinement and production/launch refinements remain separate."
+    "recovery": "Conditional decoded current recoverability (H4) under RecoveryPremises: H1's five fund premises, a strictly increasing L1 clock, catalogue byte hashing, assumed proof completeness (MODEL-1-1/1-2), payload availability of one block in one to six blobs usable final Unzen headers and nonzero hashes for complete closed L1 reference prefixes; and under the per-state LiveAt hypotheses: 48/256-bit headroom for the generation, recovery nonce, ruleset and checkpoint, one later L1 window block at or above the current active committee snapshot with a live committee, live rulesets (the current ones, sharing an image, or ruleset nextRules + 1 with an image) and a live Unzen lane with a nonzero closed proposal cutoff by the fork. EL execution, signatures and blobs come from these hypotheses existentially. A live ruleset gives some child for every parent, FI cursor, timestamp above the parent's, anchor and witness bytes a block producer picks, accepted only at those witness bytes and only for bodies that name the parent's hash, pay a fee share of 100 and carry the anchor's state root as parent beacon root; no EL, signer or DA implementation is modeled. The path is rollback-free with one plain recovery (the exclusions LiveAt names, no FI blanking) that keeps the rules or installs ruleset nextRules + 1, then lands the new generation's first block, from the checkpoint c to c+1. Normal-operation liveness, adversarial scheduling, DAO transaction refinement and production/launch refinements remain separate."
   },
   "design_pending": [],
   "claims": [
@@ -20,7 +20,7 @@
       "description": "Along successful current scheduleRules/scheduleStop traces, all five schedule fields remain within their 48-bit bounds, from a fitting initial schedule.",
       "assumptions": ["current"],
       "evidence": {
-        "LIVE_EN-1afd41294ce37c15": [
+        "LIVE_EN-d5755198d1e792f1": [
           "Etna.Design.Current.Rules.trace_fields_fit"
         ]
       }
@@ -32,7 +32,7 @@
       "description": "The lifetime issuance counter never decreases along registry-machine traces: registration, every bond edit, withdrawal, recovery exclusion, Inbox frames and rollback rechecks. This is not a proof of token custody.",
       "assumptions": ["current"],
       "evidence": {
-        "LIVE_EN-dff27e7057a061cd": [
+        "LIVE_EN-c5272db00f504842": [
           "Etna.Design.Current.RegistryMachine.trace_stable"
         ]
       }
@@ -44,7 +44,7 @@
       "description": "Every existing key-to-bond-id lookup survives registry-machine traces (the same steps); numeric zero is a valid present id.",
       "assumptions": ["current"],
       "evidence": {
-        "LIVE_EN-dff27e7057a061cd": [
+        "LIVE_EN-c5272db00f504842": [
           "Etna.Design.Current.RegistryMachine.trace_stable"
         ]
       }
@@ -76,7 +76,7 @@
         "LIVE_EN-fb39b71e9b4c760c": [
           "Etna.Design.Current.Headlines.accountable_finality"
         ],
-        "LIVE_EN-66d59803d30c85d4": [
+        "LIVE_EN-0cb12b3fe2dfebf9": [
           "Etna.Design.Current.Headlines.accountable_finality"
         ],
         "LIVE_EN-c36e4d0d76a728b6": [
@@ -107,7 +107,7 @@
           "Etna.Design.Current.Headlines.recoverability",
           "Etna.Design.Current.Headlines.deployed_recoverability"
         ],
-        "LIVE_EN-03cb21954a3b2213": [
+        "LIVE_EN-c1c6bae5ede00adb": [
           "Etna.Design.Current.Headlines.recoverability",
           "Etna.Design.Current.Headlines.deployed_recoverability"
         ]
@@ -116,20 +116,20 @@
   ],
   "acceptance_source": {
     "path": "packages/protocol/docs/etna/ACCEPTANCE.md",
-    "revision": "2026-11-19",
-    "commit": "2e6763e21bc236cfcda6011d164b32040f9e0c8d",
-    "sha256": "525a2c06ed1b369fe53ee546c16fd181e7429b036dfeb121e1d51fa964543ade"
+    "revision": "2026-11-20",
+    "commit": "3fe7350119f2efe38cf588c145a9913bf9b3b398",
+    "sha256": "1ee58f0600daebc8277c6456145a9112388ae3f7c93efdba4d7618d04debdae4"
   },
   "anchorless_source": {
     "path": "packages/protocol/docs/etna/ANCHORLESS.md",
-    "revision": "2026-11-19",
-    "commit": "2e6763e21bc236cfcda6011d164b32040f9e0c8d",
-    "sha256": "4566a331893f1220459ef6a809d57140e1834403f2f5ae73a4e418e7ab0d7578"
+    "revision": "2026-11-20",
+    "commit": "3fe7350119f2efe38cf588c145a9913bf9b3b398",
+    "sha256": "079af26c59ca5581a76dc2b0848ce78eb1fd692911517f99807bb58c3d9bc683"
   },
   "switch_source": {
     "path": "packages/protocol/docs/etna/SWITCH.md",
-    "revision": "2026-11-19",
-    "commit": "2e6763e21bc236cfcda6011d164b32040f9e0c8d",
-    "sha256": "c9cd828d7e227fe5a9478de4b075a0b07e4c46e4ccce26905a3f2dd06e11ace3"
+    "revision": "2026-11-20",
+    "commit": "3fe7350119f2efe38cf588c145a9913bf9b3b398",
+    "sha256": "c33db855c674b1907480403a8ad54497e05fb1ca32d9772a15d97e2ffc61e14e"
   }
 }

@@ -16,7 +16,7 @@ def headerCommitment (h : Header) : Hash :=
     Encoding.Tree.code (Encoding.header h)+100
 
 def env : Environment where
-  core := ⟨domain,7,8,99,2,9⟩
+  core := ⟨domain,7,99,2,9⟩
   parameters := ⟨10,1,⟨Committee.minUnit,Committee.minUnit,1,10⟩,1,1152,10,1,1,9⟩
   genesisHeader := genesis
   initialSigner := ⟨domain,0,1,[],false,[]⟩
@@ -62,12 +62,12 @@ def initial := empty env registry
 def advanced := transact env initial (.advance 2)
 def initialized := transact env advanced (.initializeInbox 7)
 def proven10 := transact env initialized (.unzenProve 2 h10 77)
-def wrongStart := transact env proven10 (.setOrigin 8 5 101 15)
+def wrongStart := transact env proven10 (.setOrigin 88 5)
 def replayed5 := transact env wrongStart (.unzenProve 2 h5 77)
 
 theorem wrong_start_reachable : Trace env initial wrongStart :=
   .step (.step (.step (.step (.refl _) (.call _ (.advance 2))) (.call _ (.initializeInbox 7)))
-    (.call _ (.unzenProve 2 h10 77))) (.call _ (.setOrigin 8 5 101 15))
+    (.call _ (.unzenProve 2 h10 77))) (.call _ (.setOrigin 88 5))
 
 /-- The new per-proof progress boundary is simultaneously consistent with global
 header separation. Disconnected proofs decode parent hash 0. The legitimate second proof links

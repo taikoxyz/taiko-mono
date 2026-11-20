@@ -41,9 +41,9 @@ class PinnedSourceTests(unittest.TestCase):
 
     def test_anchorless_has_independent_exact_inventory(self):
         rows = self.check_sources()
-        self.assertEqual(len([r for r in rows if r['language'] in ('live_en', 'live_acceptance')]), 360)
-        self.assertEqual(len([r for r in rows if r['language'] == 'live_anchorless']), 101)
-        self.assertEqual(len([r for r in rows if r['language'] == 'live_switch']), 117)
+        self.assertEqual(len([r for r in rows if r['language'] in ('live_en', 'live_acceptance')]), 390)
+        self.assertEqual(len([r for r in rows if r['language'] == 'live_anchorless']), 102)
+        self.assertEqual(len([r for r in rows if r['language'] == 'live_switch']), 83)
 
     def test_anchorless_edit_is_rejected(self):
         with self.assertRaisesRegex(ValueError, 'anchorless digest mismatch'):

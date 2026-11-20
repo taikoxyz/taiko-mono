@@ -1,10 +1,11 @@
 # Latest Etna design alignment
 
-Authorities: main `2e6763e21bc236cfcda6011d164b32040f9e0c8d` (2026-11-19) for SPEC,
-ACCEPTANCE, ANCHORLESS and SWITCH. This revision re-pins to #22412, which removes the landing
-grid, takes the validator state out of settlement and replaces registry displacement with
-lowest-empty-slot admission. The model follows, and H4's path is one plain recovery and a
-landing of one block; [the #22412 alignment](alignment-22412.md) has the details. The re-pins
+Authorities: PR #22419 at `3fe7350119f2efe38cf588c145a9913bf9b3b398` (2026-11-20) for SPEC,
+ACCEPTANCE, ANCHORLESS and SWITCH. See the [#22419 alignment](alignment-22419.md) for
+the permissionless start, registry and landing changes. The previous revision re-pinned to
+#22412 and removed the landing grid, the validator state in settlement and registry
+displacement. H4 still lands one block after a plain recovery.
+The re-pins
 before it, to #22410 and #22348, changed no definition or theorem statement
 ([#22410 alignment](alignment-22410.md), [#22348 alignment](alignment-22348.md)). An earlier revision re-pinned to #22341 and restated
 H1 over its own five premises (`FundPremises`) ([#22341 alignment](alignment-22341.md)). Before that, a revision
@@ -60,7 +61,7 @@ proofs excluded).
 CI compares it with the base branch using the base revision's copy of `scripts/review_surface.py`;
 a change to the lock or to a gate file needs the `formal-statement-change` label.
 
-## Local validation (macOS, Lean 4.35.0)
+## Historical validation at the #22338 pin (macOS, Lean 4.35.0)
 
 - Fresh `lake build` from an empty `.lake/build`: 90 jobs, 2 min 59 s, no warnings.
 - `lint_sources`, `check_imports` (84 modules), `check_spec_coverage` (567 clauses),

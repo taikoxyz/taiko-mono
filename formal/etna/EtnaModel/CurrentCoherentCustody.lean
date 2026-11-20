@@ -44,7 +44,7 @@ def LegacySignalSafe (env : Environment) (signal : Signal) : Prop :=
 
 /-- Calls that can write a new checkpoint and its associated selection snapshot. -/
 def writesCheckpoint : Call → Bool
-  | .initializeInbox _ | .setOrigin _ _ _ _ | .correctStart _ _ _ _ | .land _ => true
+  | .initializeInbox _ | .setOrigin _ _ | .land _ => true
   | _ => false
 
 /-- Exact snapshot provenance is an actual accepted checkpoint-writing call. -/

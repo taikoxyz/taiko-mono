@@ -2,12 +2,6 @@ import EtnaModel.CurrentGovernance
 
 namespace Etna.Design.Current.Protocol.Governance
 
- theorem raw_correct_refines {env : Environment} {w t : World} {caller height hash root : Nat}
-    (authorized : w.everLanded = false)
-    (ok : rawCorrectStart env w caller height hash root = some t) :
-    correctStart env w caller height hash root = some t := by
-  simpa only [rawCorrectStart,correctStart,authorized, and_true,true_and] using ok
-
  theorem raw_rollback_refines {env : Environment} {w t : World} {caller snapshot : Nat}
     {trusted : Checkpoint}
     (authorized : trusted ∈ w.activeRecords ∧ (trusted,snapshot) ∈ w.activeSnapshots)
@@ -19,7 +13,6 @@ namespace Etna.Design.Current.Protocol.Governance
     (authorized : UpgradeAuthorized env initial w call) (ok : execute env w call = some t) :
     Protocol.execute env w call = some t := by
   cases call <;> first
-    | exact raw_correct_refines authorized ok
     | exact raw_rollback_refines ⟨authorized.1,authorized.2.1⟩ ok
     | exact ok
 
@@ -116,22 +109,6 @@ theorem recover_origin_exact {env : Environment} {w t : World} {request : Recove
       exact ⟨rfl,rfl,rfl,rfl,rfl,rfl⟩
     next => simp at ok
 
-/-- A start correction (START-10-5c) starts the corrected start as the next generation, with
-its origin at the corrected height and this exact L1 call, appended after every earlier origin. -/
-theorem correct_start_origin_exact {env : Environment} {w t : World} {caller height hash root : Nat}
-    (ok : correctStart env w caller height hash root = some t) :
-    t.inbox.generation = w.inbox.generation+1 ∧
-    t.inbox.origin = ⟨height,w.number,env.time w.number⟩ ∧
-    t.inbox.origins = w.inbox.origins ++
-      [(w.inbox.generation+1,⟨height,w.number,env.time w.number⟩)] ∧
-    t.start = some ⟨height,hash,root⟩ := by
-  unfold correctStart at ok
-  obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
-  split at ok
-  next => cases ok; exact ⟨rfl,rfl,rfl,rfl⟩
-  next => simp at ok
-
-/-- Ordinary governance recovery keeps the exact already-consumed FI head. -/
 theorem recovery_preserves_head {env : Environment} {w t : World} {request : RecoveryRequest}
     (ok : recover env w request = some t) : t.inbox.head = w.inbox.head :=
   (recover_origin_exact ok).2.2.2.2.2

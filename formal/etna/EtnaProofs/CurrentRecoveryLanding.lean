@@ -106,16 +106,9 @@ private theorem execute_settled {env : Environment} {w t : World} {call : Call} 
         rw [unstarted guard.2.1] at started
         cases started
     next => simp at ok
-  | setOrigin caller height hash root =>
-    change setOrigin env w caller height hash root = some t at ok
+  | setOrigin caller height =>
+    change setOrigin env w caller height = some t at ok
     unfold setOrigin at ok
-    split at ok
-    next => cases Option.some.inj ok; exact settled_write held
-    next => simp at ok
-  | correctStart caller height hash root =>
-    change correctStart env w caller height hash root = some t at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
     split at ok
     next => cases Option.some.inj ok; exact settled_write held
     next => simp at ok
@@ -153,12 +146,12 @@ private theorem execute_settled {env : Environment} {w t : World} {call : Call} 
   | forcedETH amount =>
     cases Option.some.inj ok
     exact settled_frame held rfl rfl rfl rfl rfl (Nat.le_refl _)
-  | scheduleRules caller rule time =>
-    change Protocol.scheduleRules env w caller rule time = some t at ok
+  | scheduleRules caller expectedGeneration rule time =>
+    change Protocol.scheduleRules env w caller expectedGeneration rule time = some t at ok
     obtain ⟨schedule,scheduled,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact ⟨(Rules.schedule_rules_result scheduled).2.2.2.2,held.cutoff,held.past,held.origin⟩
-  | scheduleStop caller time =>
-    change Protocol.scheduleStop env w caller time = some t at ok
+  | scheduleStop caller expectedGeneration time =>
+    change Protocol.scheduleStop env w caller expectedGeneration time = some t at ok
     obtain ⟨schedule,scheduled,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact ⟨(Rules.schedule_stop_result scheduled).2.2.2.2,held.cutoff,held.past,held.origin⟩
   | recover request =>
@@ -433,7 +426,7 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
   have genesis : u.inbox.genesisCutoff ≤ R := by
     rw [settled.cutoff,← prepared.recovered.2.2]
     exact Nat.le_of_lt (settled.origin prepared.initialized (by rw [written]; rfl))
-  obtain ⟨-,record,cursor⟩ := Journal.trace_frontier_record reach (by rw [written]; rfl)
+  obtain ⟨retained,record,cursor⟩ := Journal.trace_frontier_record reach (by rw [written]; rfl)
   have complete : u.history.map Snapshot.number = List.range (R+2) := by
     rw [journal.complete,prepared.number.1]
   obtain ⟨whole,inbox,schedule,queue,history,started,snapshots⟩ :=
@@ -644,6 +637,10 @@ private theorem lands {env : Environment} {registry : RegistryMachine.State} {w 
       simp [referencePrefix,List.map_take,complete,Nat.add_assoc]
     blobs := ⟨fewest,most⟩
     unzen := prepared.fence
+    retained := by
+      change (recordAt u.inbox u.inbox.checkpoint.height).getD default ∈ u.activeRecords
+      simpa only [record,Option.getD_some] using retained
+    snapshotFloor := prepared.snapshotFloor
     proofs := proofs_accepted prepared.proofs.1 dual verified }
   refine ⟨segmentLanding u (Blocks.terminal p bs) R blobs proofs,
     landed u (segmentLanding u (Blocks.terminal p bs) R blobs proofs),?_,Nat.lt_add_one _⟩

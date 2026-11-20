@@ -33,7 +33,7 @@ are proved below, but `verify := true` and `headerHash := elHash` intentionally 
 not instantiate global `VerifierSound` or `Custody.Primitives.separation`. The
 universal headline regression above retains those explicit trust assumptions. -/
 def env : Environment where
-  core := ⟨domain,7,8,0,2,9⟩
+  core := ⟨domain,7,0,2,9⟩
   parameters := ⟨10,0,⟨Committee.minUnit,Committee.minUnit,1,10⟩,1,1152,10,1,1,9⟩
   genesisHeader := genesis
   initialSigner := signer
@@ -218,26 +218,28 @@ example : (Protocol.land env afterFirst { landing with leaves := [cutLeaf 1 ⟨9
 example : (Protocol.land env afterFirst { landing with leaves := [cutLeaf 1 { h1.cut with cursor := 5 }] }).isNone = true := by
   decide +kernel
 
--- A refused start is corrected before any landing, preserving the old archival record.
+-- The live Unzen tip is proved, latched by an unrelated caller, then used for recovery.
 def switchEnv : Environment := { env with core := { env.core with unzenInbox := 99 } }
 def switchInitial := empty switchEnv registry
 def switchAdvanced := Protocol.transact switchEnv switchInitial (.advance 2)
 def switchInitialized := Protocol.transact switchEnv switchAdvanced (.initializeInbox 7)
-def wrongStart := Protocol.transact switchEnv switchInitialized (.setOrigin 8 5 505 505)
-def correctedStart := Protocol.transact switchEnv wrongStart (.correctStart 7 1 501 501)
 def legacyHeader : Header := ⟨1,501,501,0,0,1,⟨500,1,500,0,0,0,0⟩⟩
-def provenStart := Protocol.transact switchEnv correctedStart (.unzenProve 1 legacyHeader 77)
-def switchImaged := Protocol.transact switchEnv provenStart (.image 7 11 true)
+def provenStart := Protocol.transact switchEnv switchInitialized (.unzenProve 1 legacyHeader 77)
+def switchStarted := Protocol.transact switchEnv provenStart (.setOrigin 88 1)
+def switchRecovery : RecoveryRequest := ⟨7,0,1,0,100,[],[],0,none⟩
+def switchRecovered := Protocol.transact switchEnv switchStarted (.recover switchRecovery)
+def switchImaged := Protocol.transact switchEnv switchRecovered (.image 7 11 true)
 def switchSource := Protocol.transact switchEnv switchImaged (.advance 3)
 
 theorem switch_reachable : Trace switchEnv switchInitial switchSource :=
   .step (.step (.step (.step (.step (.step (.step (.refl _) (.call _ (.advance 2)))
-    (.call _ (.initializeInbox 7))) (.call _ (.setOrigin 8 5 505 505)))
-    (.call _ (.correctStart 7 1 501 501))) (.call _ (.unzenProve 1 legacyHeader 77)))
+    (.call _ (.initializeInbox 7))) (.call _ (.unzenProve 1 legacyHeader 77)))
+    (.call _ (.setOrigin 88 1))) (.call _ (.recover switchRecovery)))
     (.call _ (.image 7 11 true))) (.call _ (.advance 3))
 
-example : correctedStart.inbox.generation = 1 ∧ correctedStart.inbox.signals = [] ∧
-    (recordAt correctedStart.inbox 5).isSome = true ∧ correctedStart.inbox.checkpoint.height = 1 := by
+example : (setOrigin switchEnv switchInitialized 88 1).isNone = true ∧
+    (setOrigin switchEnv provenStart 88 5).isNone = true ∧
+    switchStarted.start = some ⟨1,501,501⟩ ∧ switchStarted.legacySignals = provenStart.legacySignals := by
   decide +kernel
 
 def switchHeader : Header := ⟨2,502,502,602,0,3,⟨2,2,2,1,501,1,0⟩⟩
@@ -301,19 +303,18 @@ def switchSuffix : Suffix switchEnv switchSource switchLanding where
     subst b
     rfl
 
-theorem corrected_root_path : Custody.Path switchEnv switchInitial legacyHeader :=
+theorem switch_root_path : Custody.Path switchEnv switchInitial legacyHeader :=
   .unzen switch_reachable switch_accepted rfl (by decide) rfl True.intro
     ⟨rfl,rfl,rfl,rfl,rfl,rfl,rfl⟩ rfl ⟨⟨1,501,501⟩,by decide +kernel⟩
 
-theorem corrected_landing_path : Custody.Path switchEnv switchInitial switchHeader :=
-  .landing switch_reachable switch_accepted switchSuffix corrected_root_path
+theorem switch_landing_path : Custody.Path switchEnv switchInitial switchHeader :=
+  .landing switch_reachable switch_accepted switchSuffix switch_root_path
 
 example : Custody.SignalSafe switchEnv switchInitial ⟨2,502,502⟩ :=
-  ⟨switchHeader,corrected_landing_path,rfl,rfl,rfl,rfl⟩
+  ⟨switchHeader,switch_landing_path,rfl,rfl,rfl,rfl⟩
 
--- Neither the wrong archival start nor a start lacking the legacy proof can land.
-example : (Protocol.land switchEnv wrongStart switchLanding).isNone = true := by decide +kernel
-example : (Protocol.land switchEnv correctedStart switchLanding).isNone = true := by decide +kernel
+-- A finalized Unzen checkpoint still needs to be latched before Etna can land.
+example : (Protocol.land switchEnv provenStart switchLanding).isNone = true := by decide +kernel
 
 -- Rollback restores the snapshot saved with its checkpoint, never an arbitrary argument.
 theorem arbitrary_rollback_snapshot_rejected :
@@ -360,9 +361,8 @@ theorem missing_signal_filter_breaks_shared_chain : ¬ Custody.Coherent env init
   change 1 ≤ 0 at impossible
   omega
 
--- Start reuse and correction after any landing remain rejected after a rollback to S.
-example : (setOrigin switchEnv correctedStart 8 2 502 502).isNone = true := by decide +kernel
-example : (correctStart switchEnv (landed switchSource switchLanding) 7 1 501 501).isNone = true := by
+-- A successful landing cannot reopen the start latch.
+example : (setOrigin switchEnv (landed switchSource switchLanding) 7 1).isNone = true := by
   decide +kernel
 
 example : (rollback env afterFirst 7 source.inbox.checkpoint 0).isSome = true ∧
@@ -394,7 +394,7 @@ def switchRestored : World :=
 example : (rollback switchEnv switchAfterLanding 7 switchSource.inbox.checkpoint 0).isSome = true ∧
     switchRestored.everLanded = true ∧ switchRestored.inbox.checkpoint.height = 1 ∧
     switchRestored.legacySignals = switchAfterLanding.legacySignals ∧
-    (correctStart switchEnv switchRestored 7 2 502 502).isNone = true := by decide +kernel
+    (setOrigin switchEnv switchRestored 7 2).isNone = true := by decide +kernel
 
 -- An earlier Unzen checkpoint alone is insufficient: every accepted proposal must
 -- have finalized, and rollback to S reopens this same fence.
@@ -403,36 +403,8 @@ example : (land switchEnv { switchSource with unzen := { switchSource.unzen with
     (land switchEnv { switchRestored with unzen := { switchRestored.unzen with nextProposal := 3 } }
       switchLanding).isNone = true := by decide +kernel
 
--- Executable semantic mutants demonstrate which lifecycle boundary each rejection
--- protects. The signal guard is deliberately retained in the correction mutant.
-def setOriginWithoutOnce (w : World) (caller height hash root : Nat) : Option World :=
-  if w.initialized = true ∧ w.inbox.generation = 0 ∧ caller = switchEnv.core.originWriter ∧
-      switchEnv.core.unzenInbox ≠ 0 ∧ switchEnv.core.forkTime ≤ switchEnv.time w.number ∧
-      0 < height ∧ height < limit48 ∧ hash ≠ 0 ∧ root ≠ 0 then
-    some (writeStart w height hash root w.number (switchEnv.time w.number) 0)
-  else none
-
-def correctWithoutEverLanded (w : World) (caller height hash root : Nat) : Option World :=
-  w.start.bind fun old =>
-    if caller = switchEnv.core.owner ∧ switchEnv.core.unzenInbox ≠ 0 ∧ w.inbox.checkpoint.height = old.height ∧ w.inbox.signals = [] ∧
-        0 < height ∧ height < limit48 ∧ hash ≠ 0 ∧ root ≠ 0 ∧ w.inbox.generation+1 < limit48 then
-      some (writeStart w height hash root w.number (switchEnv.time w.number) (w.inbox.generation+1))
-    else none
-
-example : (setOrigin switchEnv wrongStart 8 2 502 502).isNone = true ∧
-    (setOriginWithoutOnce wrongStart 8 2 502 502).isSome = true := by decide +kernel
-
-example : (correctStart switchEnv switchRestored 7 2 502 502).isNone = true ∧
-    (correctWithoutEverLanded switchRestored 7 2 502 502).isSome = true := by decide +kernel
-
--- Ghost guards describe DAO upgrade admissibility, not storage checks. Erasing them
--- accepts these raw owner actions, and external historical authorization rejects them.
-example : (Governance.rawCorrectStart switchEnv switchRestored 7 2 502 502).isSome = true ∧
-    ¬ Governance.UpgradeAuthorized switchEnv switchInitial switchRestored (.correctStart 7 2 502 502) := by
-  constructor
-  · decide +kernel
-  · change ¬ switchRestored.everLanded = false
-    decide +kernel
+-- A second caller cannot rewrite an authenticated start, even before recovery or landing.
+example : (setOrigin switchEnv switchStarted 7 1).isNone = true := by decide +kernel
 
 example : (Governance.rawRollback env afterFirst 7 source.inbox.checkpoint 999).isSome = true ∧
     ¬ Governance.UpgradeAuthorized env initial afterFirst (.rollback 7 source.inbox.checkpoint 999) := by

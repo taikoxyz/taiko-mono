@@ -29,7 +29,7 @@ def initial : State := ⟨registry,token⟩
 def env : PaymentEnvironment := standardEnvironment 100 200
 def sinkRejects : PaymentEnvironment :=
   { env with transfer := fun s p => if p.recipient = 200 then none else standardTransfer 100 s p }
-def forfeiture : RegistryMachine.Action := .forfeit 0 1 1 99 100
+def forfeiture : RegistryMachine.Action := .forfeit 0 1 99 100
 
 -- Real inner principal edit succeeds, deducting ceil(10*1000/10000)=1.
 example : ((RegistryMachine.execute registry view 10 forfeiture).bind fun s =>
@@ -44,7 +44,7 @@ example : ((transact sinkRejects initial view 10 1 forfeiture).registry.ledger.b
 -- Successful responsibility forfeiture sends only the fixed penalty to the sink.
 example : (executeTransaction env initial view 10 1 forfeiture).map Prod.snd =
     some [⟨100,200,1,false⟩] := by decide
-example : (transact env initial view 10 1 forfeiture).registry.forfeited = [1] := by decide
+example : (transact env initial view 10 1 forfeiture).registry.forfeited = [0] := by decide
 
 -- Withdrawal pays the whole principal to the named recipient.
 example : (executeTransaction env initial view 10 4 (.withdraw 0 4 9)).map Prod.snd =

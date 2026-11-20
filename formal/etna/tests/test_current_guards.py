@@ -4,9 +4,7 @@ These assertions exercise each fence conjunct on raw synthetic Unzen records;
 they do not recompile proofs or establish each guard independently necessary on
 reachable traces. Reachable finalizedHash and checkpointHash are always equal,
 so their two equality guards imply one another. A nonzero switching start hash
-also rules out the initial, checkpointExists=false Unzen state. The checkpoint
-height guard is not implied by the others: the fixture reaches a start whose hash
-and stateRoot match an Unzen checkpoint at another height. Substantive
+also rules out the initial, checkpointExists=false Unzen state. A start write with a checkpoint at another height is rejected by the latch. Substantive
 switching derivations are recompiled in test_current_switching_proof_mutations.
 """
 from pathlib import Path
@@ -26,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def sources():
     current = (ROOT / 'EtnaModel/Current.lean').read_text()
-    fence = current.split('def firstLanding ', 1)[1].split('\nstructure Origin', 1)[0]
+    fence = current.split('def firstLanding ', 1)[1].split('\nend Start', 1)[0]
     fence = ('namespace Etna.Design.Current.FirstFenceMutation\nopen Start\n'
              'def firstLanding ' + fence + '\nend Etna.Design.Current.FirstFenceMutation\n')
     lines = (ROOT / 'EtnaModel/CurrentProtocol.lean').read_text().splitlines()
@@ -74,11 +72,11 @@ class CurrentGuardTests(unittest.TestCase):
     def test_origin_waits_for_fork_time(self):
         self.reject('env.core.forkTime ≤ env.time w.number', 'True')
 
-    def test_correction_opens_new_generation(self):
-        self.reject('(env.time w.number) (w.inbox.generation+1))', '(env.time w.number) w.inbox.generation)')
+    def test_waits_for_propose_cutoff(self):
+        self.reject('env.unzenProposeCutoff ≤ env.time w.number', 'True')
 
-    def test_correction_stays_closed_after_rollback(self):
-        self.reject('w.everLanded = false ∧', 'True ∧')
+    def test_requires_nonzero_propose_cutoff(self):
+        self.reject('env.unzenProposeCutoff ≠ 0', 'True')
 
     def test_rollback_snapshot_pair_guard(self):
         self.reject('(trusted,snapshot) ∈ w.activeSnapshots', 'True')

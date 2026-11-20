@@ -60,7 +60,7 @@ which avoids self-reference; certification reads no verifier, so both environmen
 the same statements. New network (`unzenInbox = 0`), owner 7, epoch length 10, genesis
 cutoff 1, one-seat committee with U = 10, maxAnchorAge 1152; L1 block n has time 12n + 1000. -/
 noncomputable def base : Environment where
-  core := ⟨NonVacuity.domain,7,8,0,2,9⟩
+  core := ⟨NonVacuity.domain,7,0,2,9⟩
   parameters := ⟨10,1,⟨NonVacuity.unit,NonVacuity.unit,1,10⟩,1,1152,10,1,1,9⟩
   genesisHeader := genesis
   initialSigner := NonVacuity.initialSigner
@@ -313,7 +313,7 @@ private theorem committee_live : CommitteeLive env live 100 [onlineKey] := by
 in its plain recovery here. -/
 private theorem live_at : Etna.Statements.Current.LiveAt env live := by
   refine ⟨by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,
-    ⟨100,[onlineKey],[],by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,.nil,rfl,
+    ⟨100,[onlineKey],[],by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,by decide +kernel,.nil,rfl,
       by rw [Recovery.excluded_none]; exact committee_live⟩,
     .inl ⟨ruleset_live _,ruleset_live _,0,by decide +kernel,by decide +kernel⟩,?_⟩
   intro switching

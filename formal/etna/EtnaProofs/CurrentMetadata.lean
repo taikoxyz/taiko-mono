@@ -24,19 +24,11 @@ private theorem execute_metadata {env : Environment} {w t : World} {call : Call}
     split at ok
     next guard => exact Or.inr (Or.inl guard.2.1)
     · cases ok
-  | setOrigin caller h hash root =>
+  | setOrigin caller h =>
     simp only [execute] at ok
     unfold setOrigin at ok
     split at ok
     next guard => exact Or.inr (Or.inr (Or.inl guard.2.1))
-    · cases ok
-  | correctStart caller h hash root =>
-    simp only [execute] at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
-    split at ok
-    · cases Option.some.inj ok
-      exact Or.inr (Or.inr (Or.inr (Nat.lt_succ_self _)))
     · cases ok
   | registry caller action =>
     simp only [execute] at ok
@@ -64,7 +56,7 @@ private theorem execute_metadata {env : Environment} {w t : World} {call : Call}
     · cases Option.some.inj swept; exact Or.inl ⟨rfl,rfl⟩
     · cases swept
   | forcedETH amount => cases Option.some.inj ok; exact Or.inl ⟨rfl,rfl⟩
-  | scheduleRules caller rule time | scheduleStop caller time =>
+  | scheduleRules caller expectedGeneration rule time | scheduleStop caller expectedGeneration time =>
     simp only [execute] at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact Or.inl ⟨rfl,rfl⟩

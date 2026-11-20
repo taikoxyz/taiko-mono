@@ -116,16 +116,9 @@ private theorem execute_history_cases {env : Environment} {w t : World} {call : 
         · cases ok
       · cases Option.some.inj ok; exact Or.inl ⟨rfl,rfl⟩
     · cases ok
-  | setOrigin caller h hash root =>
+  | setOrigin caller h =>
     simp only [execute] at ok
     unfold setOrigin at ok
-    split at ok
-    · cases Option.some.inj ok; exact Or.inl ⟨rfl,rfl⟩
-    · cases ok
-  | correctStart caller h hash root =>
-    simp only [execute] at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
     split at ok
     · cases Option.some.inj ok; exact Or.inl ⟨rfl,rfl⟩
     · cases ok
@@ -148,7 +141,7 @@ private theorem execute_history_cases {env : Environment} {w t : World} {call : 
     obtain ⟨inbox,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact Or.inl ⟨rfl,rfl⟩
   | forcedETH amount => cases Option.some.inj ok; exact Or.inl ⟨rfl,rfl⟩
-  | scheduleRules caller rule time | scheduleStop caller time =>
+  | scheduleRules caller expectedGeneration rule time | scheduleStop caller expectedGeneration time =>
     simp only [execute] at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact Or.inl ⟨rfl,rfl⟩
@@ -269,16 +262,9 @@ private theorem execute_parameters {env : Environment} {w t : World} {call : Cal
         · cases ok
       · cases Option.some.inj ok; exact Or.inl rfl
     · cases ok
-  | setOrigin caller h hash root =>
+  | setOrigin caller h =>
     simp only [execute] at ok
     unfold setOrigin at ok
-    split at ok
-    · cases Option.some.inj ok; exact Or.inl rfl
-    · cases ok
-  | correctStart caller h hash root =>
-    simp only [execute] at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
     split at ok
     · cases Option.some.inj ok; exact Or.inl rfl
     · cases ok
@@ -308,7 +294,7 @@ private theorem execute_parameters {env : Environment} {w t : World} {call : Cal
     · cases Option.some.inj swept; exact Or.inl rfl
     · cases swept
   | forcedETH amount => cases Option.some.inj ok; exact Or.inl rfl
-  | scheduleRules caller rule time | scheduleStop caller time =>
+  | scheduleRules caller expectedGeneration rule time | scheduleStop caller expectedGeneration time =>
     simp only [execute] at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact Or.inl rfl
@@ -448,16 +434,9 @@ theorem execute_backed {env : Environment} {w t : World} {call : Call}
         · cases ok
       · cases Option.some.inj ok; exact backed
     · cases ok
-  | setOrigin caller h hash root =>
+  | setOrigin caller h =>
     simp only [execute] at ok
     unfold setOrigin at ok
-    split at ok
-    · cases Option.some.inj ok; exact backed
-    · cases ok
-  | correctStart caller h hash root =>
-    simp only [execute] at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
     split at ok
     · cases Option.some.inj ok; exact backed
     · cases ok
@@ -487,7 +466,7 @@ theorem execute_backed {env : Environment} {w t : World} {call : Call}
     · cases Option.some.inj swept; exact backed
     · cases swept
   | forcedETH amount => cases Option.some.inj ok; exact backed
-  | scheduleRules caller rule time | scheduleStop caller time =>
+  | scheduleRules caller expectedGeneration rule time | scheduleStop caller expectedGeneration time =>
     simp only [execute] at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact backed
@@ -787,16 +766,9 @@ private theorem execute_registry_origin {env : Environment} {w t : World} {call 
         · cases ok
       · cases Option.some.inj ok; exact Or.inl member
     · cases ok
-  | setOrigin caller h hash root =>
+  | setOrigin caller h =>
     simp only [execute] at ok
     unfold setOrigin at ok
-    split at ok
-    · cases Option.some.inj ok; exact Or.inl member
-    · cases ok
-  | correctStart caller h hash root =>
-    simp only [execute] at ok
-    unfold correctStart at ok
-    obtain ⟨old,_,ok⟩ := Option.bind_eq_some_iff.mp ok
     split at ok
     · cases Option.some.inj ok; exact Or.inl member
     · cases ok
@@ -826,7 +798,7 @@ private theorem execute_registry_origin {env : Environment} {w t : World} {call 
     · cases Option.some.inj swept; exact Or.inl member
     · cases swept
   | forcedETH amount => cases Option.some.inj ok; exact Or.inl member
-  | scheduleRules caller rule time | scheduleStop caller time =>
+  | scheduleRules caller expectedGeneration rule time | scheduleStop caller expectedGeneration time =>
     simp only [execute] at ok
     obtain ⟨schedule,_,rfl⟩ := Option.map_eq_some_iff.mp ok
     exact Or.inl member
