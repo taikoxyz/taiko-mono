@@ -880,6 +880,94 @@ async fn rule_failure_below_s_halts_only_when_the_landed_chain_contains_it() {
     }
 }
 
+/// Give block `at` one duplicate-vote evidence item, committed by its EvidenceHash, re-sign it
+/// and relink and re-sign each later block through `to`.
+fn land_evidence(fx: &mut Fixture, at: u64, to: u64) {
+    use crate::test_utils::consensus::{SigningKey, merkle, raw_block, resign, sign_commit};
+    let keys =
+        [SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()];
+    let item = tendermint_proto::v0_38::types::DuplicateVoteEvidence {
+        total_voting_power: 2,
+        validator_power: 1,
+        ..Default::default()
+    };
+    let pair = fx.blocks.get_mut(&at).unwrap();
+    pair.block.header.evidence_hash = Some(merkle(&[item.encode_to_vec()]));
+    let mut raw = raw_block(&pair.block);
+    raw.evidence = Some(crate::native::EvidenceList {
+        evidence: vec![crate::native::Evidence {
+            sum: Some(crate::native::evidence::Sum::DuplicateVoteEvidence(item)),
+        }],
+    });
+    pair.raw_block = raw.encode_to_vec().into();
+    pair.commit.block_id.part_set_header = crate::validate::block_parts(&raw);
+    pair.commit.block_id.hash = pair.block.header.hash();
+    let chain = pair.block.header.chain_id.clone();
+    sign_commit(&mut pair.commit, &chain, &fx.committees[&0], &keys, pair.block.header.time);
+    let mut previous = pair.commit.clone();
+    for h in at + 1..=to {
+        let pair = fx.blocks.get_mut(&h).unwrap();
+        pair.block.header.last_block_id = Some(previous.block_id);
+        pair.block.header.last_commit_hash = Some(crate::validate::commit_hash(&previous));
+        pair.block.last_commit = Some(previous);
+        resign(pair, &fx.committees[&0], &keys);
+        previous = pair.commit.clone();
+    }
+}
+
+/// Vector 2.u (CONS-3.1-10, DATA-5.4-2/5): a window block whose header commits nonempty evidence
+/// halts for safety once the landed chain authenticates it, at s or below. A forged block off the
+/// landed chain, or evidence bytes its header does not commit, only rejects the candidate.
+#[tokio::test]
+async fn window_evidence_halts_only_when_the_landed_chain_contains_it() {
+    for (at, landed) in [(3u64, true), (6, true), (3, false)] {
+        let mut fx = Fixture::new(6, 6);
+        let package = import_package(&fx, 6).await;
+        // A forged block keeps the published successors, whose links name the original block.
+        land_evidence(&mut fx, at, if landed { 6 } else { at });
+        let comet = B256::from_slice(fx.blocks[&6].block.header.hash().as_bytes());
+        fx.import_landings(&[(6, fx.headers[&6].hash_slow(), comet)]);
+        let fx = std::sync::Arc::new(fx);
+        let result = authenticate_import(
+            &package,
+            frames(&fx, 6).into_iter(),
+            &fx.params,
+            &OwnL1(fx.clone()),
+        )
+        .await;
+        if landed {
+            assert!(
+                matches!(result, Err(ImportError::Safety(ref m)) if m.contains("carries evidence")),
+                "{at}: {result:?}"
+            );
+        } else {
+            assert!(
+                matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("not on the landed chain")),
+                "{at}: {result:?}"
+            );
+        }
+    }
+    // The landed header at 3 commits no evidence; a publisher's evidence bytes beside it fail
+    // the EvidenceHash commitment.
+    let fx = std::sync::Arc::new(Fixture::new(6, 6));
+    let package = import_package(&fx, 6).await;
+    let mut input = frames(&fx, 6);
+    let frame = input[2].as_mut().unwrap();
+    let mut raw = crate::native::RawBlock::decode(frame.block.as_ref()).unwrap();
+    raw.evidence = Some(crate::native::EvidenceList {
+        evidence: vec![crate::native::Evidence {
+            sum: Some(crate::native::evidence::Sum::DuplicateVoteEvidence(Default::default())),
+        }],
+    });
+    frame.block = raw.encode_to_vec().into();
+    let result =
+        authenticate_import(&package, input.into_iter(), &fx.params, &OwnL1(fx.clone())).await;
+    assert!(
+        matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("evidence")),
+        "{result:?}"
+    );
+}
+
 #[tokio::test]
 async fn rule_failure_below_s_waits_for_missing_frames_before_classifying() {
     let mut fx = Fixture::new(6, 6);
@@ -1077,6 +1165,50 @@ fn window_must_reach_required_heights_and_may_be_longer() {
             ),
             Err(ImportError::Unavailable(_))
         ));
+    }
+}
+
+/// Vector 2.v (DATA-5.4-2): the window holds every height within either age limit at s,
+/// including a height exactly at one. At s = 1802 with 4 s blocks a window from 1798 omits 1790,
+/// still within 16 blocks; the shortest window reaches 1757, exactly 180 s before s. With 12 s
+/// blocks it reaches 1786, exactly 16 blocks back, and with 1 s blocks 1622, exactly 180 s back.
+/// A window one height longer is still complete; one height shorter remains incomplete.
+#[test]
+fn window_keeps_every_height_within_either_age_limit_including_equality() {
+    let schedule = Schedule { l1_0: 10, genesis_cutoff: 1, epoch_len: 1_000_000 };
+    let fx = Fixture::new(0, 1);
+    let s = 1802u64;
+    for (seconds_per_block, shortest_w) in [(4u64, 1756u64), (12, 1785), (1, 1621)] {
+        let time = |h: u64| {
+            tendermint::Time::from_unix_timestamp((h * seconds_per_block) as i64, 0).unwrap()
+        };
+        let check = |w: u64| {
+            let mut boundary = fx.blocks[&1].block.header.clone();
+            boundary.height = w.try_into().unwrap();
+            boundary.time = time(w);
+            let heights = (w + 1..=s).map(|h| (h, time(h))).collect::<Vec<_>>();
+            window::verify_complete_window(
+                w,
+                &heights,
+                Some(&boundary),
+                window::WindowContext {
+                    origin: 0,
+                    terminal: s,
+                    schedule: &schedule,
+                    future: &[0, 0],
+                    latest_anchor: s,
+                },
+            )
+        };
+        check(shortest_w).unwrap();
+        check(shortest_w - 1).unwrap();
+        assert!(
+            matches!(check(shortest_w + 1), Err(ImportError::Unavailable(_))),
+            "{seconds_per_block} s: the window omits a height exactly at an age limit"
+        );
+        if seconds_per_block == 4 {
+            assert!(matches!(check(1797), Err(ImportError::Unavailable(_))));
+        }
     }
 }
 

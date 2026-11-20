@@ -80,6 +80,15 @@ func TestExportComparesStoredPrioritiesAndProposers(t *testing.T) {
 			}
 		})
 	}
+	// The stored proposer is compared in full: a stock State whose NextValidators proposer
+	// carries another priority than the preimage's member differs.
+	other := stock.Copy()
+	other.NextValidators = next.Copy()
+	other.NextValidators.Proposer = other.NextValidators.Proposer.Copy()
+	other.NextValidators.Proposer.ProposerPriority++
+	if err := VerifyExportState(saveStockState(t, other), preimage, identity); !errors.Is(err, ErrExportValStateMismatch) {
+		t.Fatalf("stock proposer with another priority got %v", err)
+	}
 	identity.AppHash = bytes.Repeat([]byte{4}, 32)
 	if err := VerifyExportState(dir, preimage, identity); err == nil || errors.Is(err, ErrExportValStateMismatch) {
 		t.Fatalf("wrong snapshot identity got %v", err)

@@ -18,7 +18,6 @@ import (
 	sm "github.com/cometbft/cometbft/state"
 	bs "github.com/cometbft/cometbft/store"
 	"github.com/cometbft/cometbft/types"
-	gogotypes "github.com/cosmos/gogoproto/types"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
@@ -183,11 +182,13 @@ func syncStockTree(path string) (err error) {
 	return f.Sync()
 }
 
-// Install decodes the stock dir, creates the absent home with config/genesis.json and the stock
-// state, blockstore and evidence databases, then reopens them read-only and checks them. nMax is
-// the committee cap the caller authenticated (committeeConfigHash covers it); the genesis must
-// carry the consensus params it fixes. Signer keys and WAL are never read. The caller stages the
-// other stores and publishes them together.
+// Install decodes the stock dir, creates the absent home with config/genesis.json, the stock
+// state and blockstore databases and an empty evidence database, then reopens them read-only and
+// checks them. It is the offline store tool CONS-3.1-1 permits for 5.4 import: it runs with
+// CometBFT stopped and the signer disconnected, never runs consensus or signs, and never reads
+// signer keys, signer state or the WAL (DATA-5.4-5/7). nMax is the committee cap the caller
+// authenticated (committeeConfigHash covers it); the genesis must carry the consensus params it
+// fixes. The caller stages the other stores and publishes them together.
 func Install(home, stockDir string, appHash []byte, nMax int64) (Report, error) {
 	return installFresh(home, stockDir, appHash, nMax, syncStockTree)
 }
@@ -244,8 +245,10 @@ func installFresh(home, stockDir string, appHash []byte, nMax int64, flushTree f
 }
 
 // writeStores saves every window block and commit through stock SaveBlock, the historical
-// validator and params records, a committed-evidence marker per evidence item without
-// validating it again (DATA-5.4-3), and the post-s state through stock Bootstrap.
+// validator and params records, s's own commit under the block-commit lookup and the post-s
+// state through stock Bootstrap (DATA-5.4-3/4). The evidence database is created empty: the stock
+// pool starts with no pending or committed evidence, and no window block carries any
+// (CONS-3.1-10).
 func writeStores(data string, in *stockInput) (Report, error) {
 	// Native consensus fsyncs each live commit. Here every row belongs to a fresh,
 	// unpublished image: a crash discards it. Use the same stock block/state APIs and
@@ -270,24 +273,10 @@ func writeStores(data string, in *stockInput) (Report, error) {
 	blocks := bs.NewBlockStore(blockDB)
 	// The public Bootstrap API has no historical-record-only operation. Use the
 	// pinned public protobuf records and stock key formats, with bounded metadata pointers.
-	// Reopening through LoadValidatorsFast/LoadConsensusParams checks compatibility.
-	initial, err := sm.MakeGenesisState(in.genesis)
-	if err != nil {
-		return Report{}, err
-	}
-	initial.Version.Consensus.App = 1
-	temporary := sm.NewStore(dbm.NewMemDB(), sm.StoreOptions{})
-	if err = temporary.Bootstrap(initial); err != nil {
-		return Report{}, err
-	}
-	pool, err := evidence.NewPool(evidenceDB, temporary, blocks)
-	if err != nil {
-		return Report{}, err
-	}
+	// Reopening through LoadValidators/LoadConsensusParams checks compatibility.
 	params := in.genesis.ConsensusParams.ToProto()
 	var first int64
 	var last *blockRecord
-	var lastEvidence types.Evidence
 	var previousHash []byte
 	var changed int64
 	err = in.walk(func(record *blockRecord) error {
@@ -296,8 +285,7 @@ func writeStores(data string, in *stockInput) (Report, error) {
 			first = b.Height
 		}
 		last = record
-		// Stock SaveBlock(h) writes C:h-1 and SC:h. Like a stock node at state s,
-		// the terminal commit is only SC:s; C:s appears when s+1 is saved.
+		// Stock SaveBlock(h) writes C:h-1 and SC:h; C:s follows below.
 		blocks.SaveBlock(b, record.parts, record.commit)
 		batch := stateDB.NewBatch()
 		defer batch.Close()
@@ -308,7 +296,10 @@ func writeStores(data string, in *stockInput) (Report, error) {
 			previousHash = bytes.Clone(hash)
 		}
 		info := statepb.ValidatorsInfo{LastHeightChanged: changed}
-		if b.Height == changed || b.Height%100000 == 0 {
+		if fullSetHeight(b.Height, changed) {
+			if e = checkFullSet(record.set); e != nil {
+				return fmt.Errorf("validator set at %d: %w", b.Height, e)
+			}
 			info.ValidatorSet, e = record.set.ToProto()
 			if e != nil {
 				return e
@@ -318,7 +309,7 @@ func writeStores(data string, in *stockInput) (Report, error) {
 		if e != nil {
 			return e
 		}
-		if e = batch.Set([]byte(fmt.Sprintf("validatorsKey:%d", b.Height)), raw); e != nil {
+		if e = batch.Set(validatorsKey(b.Height), raw); e != nil {
 			return e
 		}
 		cp := statepb.ConsensusParamsInfo{LastHeightChanged: first}
@@ -332,18 +323,7 @@ func writeStores(data string, in *stockInput) (Report, error) {
 		if e = batch.Set([]byte(fmt.Sprintf("consensusParamsKey:%d", b.Height)), raw); e != nil {
 			return e
 		}
-		if e = batch.WriteSync(); e != nil {
-			return e
-		}
-		// Public Update marks committed evidence without historical verification.
-		post := initial.Copy()
-		post.LastBlockHeight = b.Height
-		post.LastBlockTime = b.Time
-		pool.Update(post, b.Evidence.Evidence)
-		if len(b.Evidence.Evidence) > 0 {
-			lastEvidence = b.Evidence.Evidence[len(b.Evidence.Evidence)-1]
-		}
-		return nil
+		return batch.WriteSync()
 	})
 	if err != nil {
 		return Report{}, err
@@ -352,13 +332,19 @@ func writeStores(data string, in *stockInput) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
-	if lastEvidence != nil {
-		key, raw, e := evidenceMarker(lastEvidence)
-		if e != nil {
-			return Report{}, e
-		}
-		if e = evidenceDB.SetSync(key, raw); e != nil {
-			return Report{}, e
+	// A stock node writes C:s only when it saves s+1, from that block's LastCommit. Stock
+	// evidence verification reads C:x for a signed header at any height it accepts, s
+	// included, so s's verified own commit is installed there as well as under SC:s.
+	terminal, err := last.commit.ToProto().Marshal()
+	if err != nil {
+		return Report{}, err
+	}
+	if err = blockDB.Set(blockCommitKey(state.LastBlockHeight), terminal); err != nil {
+		return Report{}, err
+	}
+	for _, set := range []*types.ValidatorSet{state.LastValidators, state.Validators, state.NextValidators} {
+		if err = checkFullSet(set); err != nil {
+			return Report{}, fmt.Errorf("post-s validator set: %w", err)
 		}
 	}
 	if err = store.Bootstrap(state); err != nil {
@@ -374,12 +360,24 @@ func writeStores(data string, in *stockInput) (Report, error) {
 	return Report{FirstHeight: first, LastHeight: state.LastBlockHeight, BlockID: BlockID{Hash: hexBytes(id.Hash), Parts: PartSet{Total: id.PartSetHeader.Total, Hash: hexBytes(id.PartSetHeader.Hash)}}}, nil
 }
 
+// fullSetHeight reports whether stock saveValidatorsInfo stores a full set at height: the height
+// its set changed or a multiple of valSetCheckpointInterval (100,000, state/store.go). The first
+// window height counts as a change, so no record points below the window.
+func fullSetHeight(height, lastChanged int64) bool {
+	return height == lastChanged || height%100000 == 0
+}
+
+// validatorsKey and blockCommitKey are the pinned stock keys of state/store.go and
+// store/store.go.
+func validatorsKey(height int64) []byte  { return []byte(fmt.Sprintf("validatorsKey:%d", height)) }
+func blockCommitKey(height int64) []byte { return []byte(fmt.Sprintf("C:%d", height)) }
+
 func openReadOnly(home, name string) (*dbm.GoLevelDB, error) {
 	return dbm.NewGoLevelDBWithOpts(name, filepath.Join(home, "data"), &opt.Options{ReadOnly: true, ErrorIfMissing: true})
 }
 
-// historicalValidatorLookup exposes only the pinned stock keys/powers fast path.
-// Full landed sets/priorities are loaded through State.Load, never this view.
+// historicalValidatorLookup exposes only the pinned stock keys/powers fast path, which reads
+// the same stored record as LoadValidators without its in-memory priority increment.
 func historicalValidatorLookup(store sm.Store) (func(int64) (*types.ValidatorSet, error), error) {
 	fast, ok := store.(interface {
 		LoadValidatorsFast(int64) (*types.ValidatorSet, error)
@@ -390,9 +388,56 @@ func historicalValidatorLookup(store sm.Store) (func(int64) (*types.ValidatorSet
 	return fast.LoadValidatorsFast, nil
 }
 
+// storedFullSet decodes the full set stored at height, or returns nil where stock keeps only a
+// pointer, and holds it to checkFullSet.
+func storedFullSet(db dbm.DB, height int64) (*types.ValidatorSet, error) {
+	raw, err := db.Get(validatorsKey(height))
+	if err != nil {
+		return nil, err
+	}
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("missing reopened validators record at %d", height)
+	}
+	var info statepb.ValidatorsInfo
+	if err = info.Unmarshal(raw); err != nil {
+		return nil, err
+	}
+	if info.ValidatorSet == nil {
+		return nil, nil
+	}
+	set, err := types.ValidatorSetFromProto(info.ValidatorSet)
+	if err != nil {
+		return nil, fmt.Errorf("reopened validator set at %d: %w", height, err)
+	}
+	if err = checkFullSet(set); err != nil {
+		return nil, fmt.Errorf("reopened validator set at %d: %w", height, err)
+	}
+	return set, nil
+}
+
+// sameCommit compares a stored commit with the input one byte for byte.
+func sameCommit(stored, input *types.Commit) bool {
+	if stored == nil {
+		return false
+	}
+	a, e1 := stored.ToProto().Marshal()
+	b, e2 := input.ToProto().Marshal()
+	return e1 == nil && e2 == nil && bytes.Equal(a, b)
+}
+
 // verifyReopened reads the closed stores back through stock APIs and compares them with a
-// second decode of the stock dir. It re-verifies no commit: the stored bytes must equal the
-// input bytes that authenticate_import already verified.
+// second decode of the stock dir, as DATA-5.4-3 requires before P2P is enabled: at every window
+// height x, LoadBlockMeta(x) holds the authenticated header and time, LoadBlockCommit(x) x's own
+// commit and the stored validator lookup the matching set; every full set passes checkFullSet;
+// the evidence database is empty. It re-verifies no commit: the stored bytes must equal the input
+// bytes that authenticate_import already verified.
+//
+// Stock LoadValidators(x) rebuilds a height without a stored set by advancing the last stored
+// one by x minus its height, so calling it at every height costs the window length squared times
+// the set size. It is called at every height still inside either evidence age limit at s, the
+// only heights a stock pool at s or later passes to it (verify checks expiry first), and at
+// every stored full set; the other heights check the same stored record through stock
+// LoadValidatorsFast, which skips only the in-memory priority increment.
 func verifyReopened(home string, in *stockInput) (err error) {
 	sd, e := openReadOnly(home, "state")
 	if e != nil {
@@ -409,8 +454,11 @@ func verifyReopened(home string, in *stockInput) (err error) {
 		return e
 	}
 	defer func() { err = errors.Join(err, ed.Close()) }()
+	if e = requireEmpty(ed); e != nil {
+		return e
+	}
 	store := sm.NewStore(sd, sm.StoreOptions{})
-	loadValidators, e := historicalValidatorLookup(store)
+	loadStored, e := historicalValidatorLookup(store)
 	if e != nil {
 		return e
 	}
@@ -427,48 +475,28 @@ func verifyReopened(home string, in *stockInput) (err error) {
 		if read == nil || !bytes.Equal(read.Hash(), b.Hash()) {
 			return errors.New("reopened block mismatch")
 		}
-		key := "C"
-		var storedCommit *types.Commit
-		if b.Height == in.height {
-			// A stock node has no C:s before s+1, so stock evidence lookups at
-			// height s fail on both nodes alike.
-			if blocks.LoadBlockCommit(b.Height) != nil {
-				return errors.New("reopened terminal C:s diverges from stock")
-			}
-			key = "SC"
-			storedCommit = blocks.LoadSeenCommit(b.Height)
-		} else {
-			storedCommit = blocks.LoadBlockCommit(b.Height)
+		meta := blocks.LoadBlockMeta(b.Height)
+		if meta == nil || !meta.BlockID.Equals(record.id) || !bytes.Equal(meta.Header.Hash(), b.Hash()) || !meta.Header.Time.Equal(b.Time) {
+			return fmt.Errorf("reopened block meta at %d differs from the authenticated header", b.Height)
 		}
-		if storedCommit == nil {
-			return fmt.Errorf("missing reopened %s:%d", key, b.Height)
+		if !sameCommit(blocks.LoadBlockCommit(b.Height), record.commit) {
+			return fmt.Errorf("reopened C:%d differs from the input commit", b.Height)
 		}
-		storedBytes, e := storedCommit.ToProto().Marshal()
+		if b.Height == in.height && !sameCommit(blocks.LoadSeenCommit(b.Height), record.commit) {
+			return fmt.Errorf("reopened SC:%d differs from the input commit", b.Height)
+		}
+		full, e := storedFullSet(sd, b.Height)
 		if e != nil {
 			return e
 		}
-		inputBytes, e := record.commit.ToProto().Marshal()
-		if e != nil {
-			return e
-		}
-		if !bytes.Equal(storedBytes, inputBytes) {
-			return fmt.Errorf("reopened %s:%d differs from the input commit", key, b.Height)
-		}
-		vals, e := loadValidators(b.Height)
+		vals, e := loadStored(b.Height)
 		if e != nil || !bytes.Equal(vals.Hash(), record.set.Hash()) {
 			return errors.New("reopened historical validators mismatch")
 		}
-		for _, ev := range b.Evidence.Evidence {
-			key, want, e := evidenceMarker(ev)
-			if e != nil {
-				return e
-			}
-			raw, e := ed.Get(key)
-			if e != nil {
-				return e
-			}
-			if !bytes.Equal(raw, want) {
-				return errors.New("reopened committed evidence marker mismatch")
+		if full != nil || !evidence.IsEvidenceExpired(s.LastBlockHeight, s.LastBlockTime, b.Height, b.Time, s.ConsensusParams.Evidence) {
+			vals, e = store.LoadValidators(b.Height)
+			if e != nil || !bytes.Equal(vals.Hash(), record.set.Hash()) {
+				return fmt.Errorf("reopened stock LoadValidators(%d) mismatch: %v", b.Height, e)
 			}
 		}
 		params, e := store.LoadConsensusParams(b.Height)
@@ -486,18 +514,33 @@ func verifyReopened(home string, in *stockInput) (err error) {
 	if !bytes.Equal(s.Bytes(), want.Bytes()) {
 		return errors.New("reopened stock state mismatch")
 	}
-	c := blocks.LoadSeenCommit(s.LastBlockHeight)
-	if c == nil || !c.BlockID.Equals(s.LastBlockID) {
-		return errors.New("missing reopened terminal seen commit")
+	for offset, set := range []*types.ValidatorSet{want.LastValidators, want.Validators, want.NextValidators} {
+		height := want.LastBlockHeight + int64(offset)
+		stored, e := storedFullSet(sd, height)
+		if e != nil {
+			return e
+		}
+		if stored == nil || !bytes.Equal(stored.Hash(), set.Hash()) || !bytes.Equal(stored.Proposer.Address, set.Proposer.Address) {
+			return fmt.Errorf("reopened full validator set at %d mismatch", height)
+		}
+	}
+	for _, set := range []*types.ValidatorSet{s.LastValidators, s.Validators, s.NextValidators} {
+		if e = checkFullSet(set); e != nil {
+			return fmt.Errorf("reopened post-s state: %w", e)
+		}
 	}
 	return nil
 }
 
-// evidenceMarker follows the pinned stock pool's committed marker wire format;
-// inspection performs no historical evidence verification or block lookup.
-func evidenceMarker(ev types.Evidence) ([]byte, []byte, error) {
-	key := append([]byte{0}, []byte(fmt.Sprintf("%016X/%X", ev.Height(), ev.Hash()))...)
-	height := gogotypes.Int64Value{Value: ev.Height()}
-	raw, err := height.Marshal()
-	return key, raw, err
+// requireEmpty refuses an evidence database holding any key: the stock pool starts empty.
+func requireEmpty(db dbm.DB) (err error) {
+	it, err := db.Iterator(nil, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, it.Close()) }()
+	if it.Valid() {
+		return errors.New("reopened evidence store is not empty")
+	}
+	return it.Error()
 }

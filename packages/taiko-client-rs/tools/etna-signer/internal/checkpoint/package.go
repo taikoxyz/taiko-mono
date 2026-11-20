@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -235,8 +236,49 @@ func decodeGenesis(raw []byte, nMax int64) (*types.GenesisDoc, error) {
 	return g, nil
 }
 
+// checkFullSet holds a full ValidatorSet the installer writes or reads back to what stock
+// requires of a stored set, historical ones included (DATA-5.4-3): stock ValidateBasic, a stored
+// proposer equal to one of the members, and a protobuf serialization round trip that keeps every
+// byte.
+func checkFullSet(set *types.ValidatorSet) error {
+	if err := set.ValidateBasic(); err != nil {
+		return fmt.Errorf("validator set fails stock ValidateBasic: %w", err)
+	}
+	_, member := set.GetByAddress(set.Proposer.Address)
+	if member == nil || !member.PubKey.Equals(set.Proposer.PubKey) || member.VotingPower != set.Proposer.VotingPower || member.ProposerPriority != set.Proposer.ProposerPriority {
+		return errors.New("stored proposer is not a member of its validator set")
+	}
+	pv, err := set.ToProto()
+	if err != nil {
+		return err
+	}
+	raw, err := pv.Marshal()
+	if err != nil {
+		return err
+	}
+	var decoded pb.ValidatorSet
+	if err = decoded.Unmarshal(raw); err != nil {
+		return err
+	}
+	back, err := types.ValidatorSetFromProto(&decoded)
+	if err != nil {
+		return fmt.Errorf("validator set fails its stock round trip: %w", err)
+	}
+	again, err := back.ToProto()
+	if err != nil {
+		return err
+	}
+	rawAgain, err := again.Marshal()
+	if err != nil || !bytes.Equal(raw, rawAgain) {
+		return errors.New("validator set changes in its stock serialization round trip")
+	}
+	return nil
+}
+
 // decodeBlock decodes one line's canonical protobufs and computes the block's full ID. It
-// checks no commit, link or block rule: authenticate_import already did (DATA-5.4-3).
+// checks no commit, link or block rule: authenticate_import already did (DATA-5.4-3). It refuses
+// a block with evidence, which every Comet block lacks (CONS-3.1-10) and authenticate_import
+// already halts on.
 func decodeBlock(g *types.GenesisDoc, item Block) (*blockRecord, error) {
 	bb, e := decodeHex(item.Block, int(g.ConsensusParams.Block.MaxBytes))
 	if e != nil {
@@ -265,6 +307,9 @@ func decodeBlock(g *types.GenesisDoc, item Block) (*blockRecord, error) {
 	b, e := types.BlockFromProto(&bp)
 	if e != nil {
 		return nil, e
+	}
+	if len(b.Evidence.Evidence) != 0 {
+		return nil, fmt.Errorf("window block %d carries evidence (CONS-3.1-10)", b.Height)
 	}
 	c, e := types.CommitFromProto(&cp)
 	if e != nil {

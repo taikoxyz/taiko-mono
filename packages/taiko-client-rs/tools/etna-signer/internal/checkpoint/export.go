@@ -24,9 +24,13 @@ type ExportIdentity struct {
 	AppHash       []byte
 }
 
-// VerifyExportState reads the full stock state from an independent node's stopped or
-// snapshotted goleveldb state store. Load returns the exact committed state. Historical
-// LoadValidators may reconstruct priorities with different rescaling (DATA-5.4-8).
+// VerifyExportState reads, read-only, the stock State an independent node's stopped or
+// snapshotted goleveldb state store holds: Store.Load(), the state immediately after its height,
+// which at the origin is the state after InitChain. It must be labelled with identity's height,
+// chain and predecessor, and its Validators and NextValidators, stored proposers included, must
+// equal the preimage's (DATA-5.4-8). A later state, a historical LoadValidators, /validators or an
+// app's copy cannot stand in: LoadValidators may rebuild priorities with different rescaling
+// (SYNC-9-5c).
 func VerifyExportState(dataDir string, preimage []byte, identity ExportIdentity) error {
 	height, current, next, err := DecodeValState(preimage)
 	if err != nil {
@@ -120,17 +124,23 @@ func verifyExportState(stock sm.State, identity ExportIdentity, current, next *t
 	return nil
 }
 
+// sameExportSet compares one set of the stock State with the preimage's: every member's key,
+// power and priority in canonical order, and the stored proposer with its key, power and
+// priority (DATA-5.4-8).
 func sameExportSet(a, b *types.ValidatorSet) bool {
 	if a == nil || b == nil || a.Proposer == nil || b.Proposer == nil ||
-		len(a.Validators) != len(b.Validators) || !bytes.Equal(a.Proposer.Address, b.Proposer.Address) {
+		len(a.Validators) != len(b.Validators) || !sameValidator(a.Proposer, b.Proposer) {
 		return false
 	}
 	for i, av := range a.Validators {
-		bv := b.Validators[i]
-		if !av.PubKey.Equals(bv.PubKey) || av.VotingPower != bv.VotingPower ||
-			av.ProposerPriority != bv.ProposerPriority {
+		if !sameValidator(av, b.Validators[i]) {
 			return false
 		}
 	}
 	return true
+}
+
+func sameValidator(a, b *types.Validator) bool {
+	return bytes.Equal(a.Address, b.Address) && a.PubKey.Equals(b.PubKey) &&
+		a.VotingPower == b.VotingPower && a.ProposerPriority == b.ProposerPriority
 }
