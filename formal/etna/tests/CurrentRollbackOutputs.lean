@@ -54,11 +54,18 @@ private theorem policy_same : policy broken before NonVacuity.archive 2 = NonVac
   rw [source_same]
   rfl
 
+private theorem before_reference_readable : referenceHash broken before 2 ≠ 0 := by
+  simpa only [referenceHash, source_same, broken, NonVacuity.landing] using
+    NonVacuity.source_landing_checks.referenceReadable
+
 -- All three cases pass the physical guards; the broken verifier ignores the wrong output.
 theorem first_accepted (snapshot root : Nat) :
     land broken before (firstLanding snapshot root) = some (afterFirst snapshot root) := by
   have checks : LandingChecks broken before (firstLanding snapshot root) := by
-    constructor <;>
+    constructor
+    case referenceReadable =>
+      simpa only [firstLanding, NonVacuity.landing] using before_reference_readable
+    all_goals
       (try dsimp only [firstLanding,afterFirst,landed,proofsAccepted,broken,recordAt,writeRecord,
         firstFence,Start.firstLanding]) <;> first | rfl | decide +kernel
   simp only [land,checks,ite_true,afterFirst]
@@ -260,7 +267,11 @@ def afterNext (snapshot root : Nat) : World := landed (afterFirst snapshot root)
 theorem next_accepted (snapshot root : Nat) :
     land broken (afterFirst snapshot root) nextLanding = some (afterNext snapshot root) := by
   have checks : LandingChecks broken (afterFirst snapshot root) nextLanding := by
-    constructor <;>
+    constructor
+    case referenceReadable =>
+      simpa only [referenceHash, referencePrefix, afterFirst, landed, nextLanding] using
+        before_reference_readable
+    all_goals
       (try dsimp only [firstLanding,afterFirst,landed,proofsAccepted,broken,recordAt,writeRecord,
         firstFence,Start.firstLanding]) <;> first | rfl | decide +kernel
   simp only [land,checks,ite_true,afterNext]

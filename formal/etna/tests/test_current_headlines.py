@@ -117,7 +117,7 @@ class CurrentHeadlineTests(unittest.TestCase):
         result = self.checked('\n'.join(AUDIT.render_headline_check(CLAIMS, HEADLINES, PREMISES)))
         self.assert_success(result, silent=False)
         uses, rest = AUDIT.premise_uses(result.stdout + result.stderr)
-        self.assertEqual(len(uses), 29, 'current headline audit lost a primitive field or hypothesis')
+        self.assertEqual(len(uses), 30, 'current headline audit lost a primitive field or hypothesis')
         self.assertEqual(uses, PREMISE_USES)
         self.assertEqual(rest.strip(), '')
 
