@@ -56,3 +56,26 @@ func TestSnapshotHeightRequiresOnlyTheStateDir(t *testing.T) {
 		t.Fatalf("a read-only snapshot read wrote %v: %v", entries, err)
 	}
 }
+
+func TestFirstBlockCommandsRequireTheirFlags(t *testing.T) {
+	work := t.TempDir()
+	full := []string{"--home", filepath.Join(work, "comet"), "--backup", filepath.Join(work, "backup"), "--app", "tcp://127.0.0.1:1"}
+	for drop := 0; drop < len(full); drop += 2 {
+		args := append([]string{"repair-first-block"}, full[:drop]...)
+		args = append(args, full[drop+2:]...)
+		if err := run(args); err == nil || !strings.Contains(err.Error(), "repair-first-block requires --home, --backup and --app") {
+			t.Fatalf("accepted repair-first-block without %s: %v", full[drop], err)
+		}
+	}
+	for _, args := range [][]string{{"export-first-block"}, {"export-first-block", "--home", work, "extra"}} {
+		if err := run(args); err == nil || !strings.Contains(err.Error(), "export-first-block requires only --home") {
+			t.Fatalf("accepted %q: %v", args, err)
+		}
+	}
+	if err := run([]string{"repair-first-block", "--home", work, "--backup", filepath.Join(work, "backup"), "--app", "tcp://127.0.0.1:1"}); err == nil || !strings.Contains(err.Error(), "genesis.json") {
+		t.Fatalf("repaired a home without a genesis: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(work, "backup")); !os.IsNotExist(err) {
+		t.Fatalf("a refused repair wrote its backup: %v", err)
+	}
+}

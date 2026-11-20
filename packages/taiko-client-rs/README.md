@@ -883,10 +883,11 @@ committing those values to the Inbox.
   This is a CometBFT process-lifecycle limitation, not a request to edit or discard chain state.
 - The normal handshake cannot resume one case (spec CONS-3.1-9): a crash inside a generation's
   first block, between CometBFT saving that block and saving its state, when the generation's
-  `initial_height` is above 1. Stock CometBFT v0.40.0 then stops at its handshake whatever the
-  app reports, and the spec leaves the repair open (review question Q3.1-8). Generation 0 here
-  always has `initial_height` 1; a recovery generation starts at c + 1, so one whose origin c is
-  above 0 is exposed.
+  `initial_height` is above 1 (a recovery generation with c above 0, or a nonzero Etna start).
+  Stock CometBFT v0.40.0 then stops at its handshake whatever the app reports. The offline
+  `etna-comet-import repair-first-block` installs the certified block on the stopped home,
+  preserving the original stores and fencing the signer with a fresh store instance ID; see
+  [A crash inside the first block](docs/governance-recovery.md#a-crash-inside-the-first-block).
 - Before it opens its ABCI socket, the app establishes the boundary it reports (CONS-3.1-9),
   independently of `Info` and every other CometBFT callback and with signing closed: it
   re-executes the committed blocks alethia-reth lacks from the execution bodies it retains,

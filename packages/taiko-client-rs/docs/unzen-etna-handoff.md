@@ -164,5 +164,7 @@ The command accepts the same fixed genesis and resumes the app store. Missing hi
 metadata keeps the handoff pending; authenticated origin contradictions stop the process.
 After a first landing, ordinary authenticated checkpoint startup can use the standalone app.
 
-Stock CometBFT's documented nonzero initial-height first-block crash limitation remains;
-this command does not repair Comet stores or reset signer HRS to bypass it.
+Generation 0 starts at S + 1, so a crash between CometBFT saving that first block and saving its
+state stops the stock handshake (CONS-3.1-9). This command does not repair Comet stores or reset
+signer HRS; `etna-comet-import repair-first-block` installs the certified block offline (see
+[A crash inside the first block](governance-recovery.md#a-crash-inside-the-first-block)).

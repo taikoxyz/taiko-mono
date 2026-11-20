@@ -1,0 +1,569 @@
+package checkpoint
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io/fs"
+	"net"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	dbm "github.com/cometbft/cometbft-db"
+	abciserver "github.com/cometbft/cometbft/abci/server"
+	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/consensus"
+	"github.com/cometbft/cometbft/crypto/merkle"
+	"github.com/cometbft/cometbft/crypto/secp256k1eth"
+	"github.com/cometbft/cometbft/libs/log"
+	pb "github.com/cometbft/cometbft/proto/tendermint/types"
+	"github.com/cometbft/cometbft/proxy"
+	sm "github.com/cometbft/cometbft/state"
+	bs "github.com/cometbft/cometbft/store"
+	"github.com/cometbft/cometbft/types"
+)
+
+// firstHeight is the fixtures' generation initial_height, above 1 as for a recovery generation
+// or a nonzero Etna start.
+const firstHeight = 71
+
+// firstBlockApp is a deterministic ABCI app with the Etna app's height rules: Info reports 0
+// until Commit, InitChain answers the same app hash every time, and FinalizeBlock of the first
+// block answers the same result every time (CONS-3.1-9).
+type firstBlockApp struct {
+	abci.BaseApplication
+	mu sync.Mutex
+	// genesisHash is InitChain's app hash, the one the first block's header carries.
+	genesisHash []byte
+	// committed is 0 or firstHeight; committedHash the app hash after it.
+	committed     int64
+	committedHash []byte
+	pending       []byte
+	// salt changes the FinalizeBlock result, standing for an app that answers differently.
+	salt  string
+	calls []string
+}
+
+func (a *firstBlockApp) record(call string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.calls = append(a.calls, call)
+}
+
+func (a *firstBlockApp) callLog() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]string(nil), a.calls...)
+}
+
+func (a *firstBlockApp) resetCalls() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.calls = nil
+}
+
+func (a *firstBlockApp) Info(context.Context, *abci.RequestInfo) (*abci.ResponseInfo, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return &abci.ResponseInfo{AppVersion: 1, LastBlockHeight: a.committed, LastBlockAppHash: a.committedHash}, nil
+}
+
+func (a *firstBlockApp) InitChain(context.Context, *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
+	a.record("InitChain")
+	return &abci.ResponseInitChain{AppHash: a.genesisHash}, nil
+}
+
+// resultHash is the app hash after block hash h.
+func (a *firstBlockApp) resultHash(h []byte) []byte {
+	sum := sha256.Sum256(append(append([]byte("after:"), h...), a.salt...))
+	return sum[:]
+}
+
+func (a *firstBlockApp) FinalizeBlock(_ context.Context, req *abci.RequestFinalizeBlock) (*abci.ResponseFinalizeBlock, error) {
+	a.record("FinalizeBlock")
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.pending = a.resultHash(req.Hash)
+	return finalizeResponse(len(req.Txs), a.pending), nil
+}
+
+func (a *firstBlockApp) Commit(context.Context, *abci.RequestCommit) (*abci.ResponseCommit, error) {
+	a.record("Commit")
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.committed, a.committedHash = firstHeight, a.pending
+	return &abci.ResponseCommit{}, nil
+}
+
+// finalizeResponse is the Etna result: one fixed ExecTxResult per transaction (CONS-3.1-8).
+func finalizeResponse(txs int, appHash []byte) *abci.ResponseFinalizeBlock {
+	results := make([]*abci.ExecTxResult, txs)
+	for i := range results {
+		results[i] = &abci.ExecTxResult{}
+	}
+	return &abci.ResponseFinalizeBlock{TxResults: results, AppHash: appHash}
+}
+
+// serve runs app behind a stock ABCI socket server and returns its address.
+func serve(t *testing.T, app abci.Application) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := abciserver.NewSocketServerWithListener(listener, app)
+	server.SetLogger(log.NewNopLogger())
+	if err = server.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = server.Stop() })
+	return "tcp://" + listener.Addr().String()
+}
+
+// firstBlockFixture is one generation's genesis, committee keys and certified first block.
+type firstBlockFixture struct {
+	genesis *types.GenesisDoc
+	keys    []secp256k1eth.PrivKey
+	vals    *types.ValidatorSet
+	// state is the stock state InitChain leaves: height 0 with InitChain's app hash.
+	state  sm.State
+	block  *types.Block
+	parts  *types.PartSet
+	id     types.BlockID
+	commit *types.Commit
+	app    *firstBlockApp
+}
+
+// newFirstBlockFixture builds a genesis at firstHeight with n equal validators and a first
+// block carrying envelope, committed by the first signers validators in set order.
+func newFirstBlockFixture(t *testing.T, n, signers int, envelope string) *firstBlockFixture {
+	t.Helper()
+	f := &firstBlockFixture{app: &firstBlockApp{genesisHash: bytes.Repeat([]byte{0x11}, 32)}}
+	var genVals []types.GenesisValidator
+	for i := 0; i < n; i++ {
+		key := secp256k1eth.PrivKey(bytes.Repeat([]byte{byte(7 + i)}, 32))
+		f.keys = append(f.keys, key)
+		genVals = append(genVals, types.GenesisValidator{PubKey: key.PubKey(), Power: 10})
+	}
+	f.genesis = &types.GenesisDoc{GenesisTime: time.Unix(100, 0).UTC(), ChainID: "etna-first-block", InitialHeight: firstHeight, ConsensusParams: etnaParams(), Validators: genVals, AppState: json.RawMessage(`{}`)}
+	if err := f.genesis.ValidateAndComplete(); err != nil {
+		t.Fatal(err)
+	}
+	state, err := sm.MakeGenesisState(f.genesis)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Version.Consensus.App = 1
+	state.AppHash = f.app.genesisHash
+	state.LastResultsHash = merkle.HashFromByteSlices(nil)
+	f.state, f.vals = state, state.Validators
+	f.block, f.parts, f.id, f.commit = f.makeBlock(t, envelope, signers)
+	return f
+}
+
+// makeBlock builds the first block with envelope as its one transaction, committed by the
+// first signers members of the committee in set order.
+func (f *firstBlockFixture) makeBlock(t *testing.T, envelope string, signers int) (*types.Block, *types.PartSet, types.BlockID, *types.Commit) {
+	t.Helper()
+	block, err := f.state.MakeBlock(firstHeight, []types.Tx{types.Tx(envelope)}, &types.Commit{}, nil, f.vals.GetProposer().Address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts, err := block.MakePartSet(types.BlockPartSizeBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := types.BlockID{Hash: block.Hash(), PartSetHeader: parts.Header()}
+	commit := &types.Commit{Height: firstHeight, Round: 0, BlockID: id}
+	for index, val := range f.vals.Validators {
+		if index >= signers {
+			commit.Signatures = append(commit.Signatures, types.CommitSig{BlockIDFlag: types.BlockIDFlagAbsent})
+			continue
+		}
+		var key secp256k1eth.PrivKey
+		for _, k := range f.keys {
+			if bytes.Equal(k.PubKey().Address(), val.Address) {
+				key = k
+			}
+		}
+		vote := &types.Vote{Type: pb.PrecommitType, Height: firstHeight, Round: 0, BlockID: id, Timestamp: block.Time.Add(time.Second), ValidatorAddress: val.Address, ValidatorIndex: int32(index)}
+		if vote.Signature, err = key.Sign(types.VoteSignBytes(f.genesis.ChainID, vote.ToProto())); err != nil {
+			t.Fatal(err)
+		}
+		commit.Signatures = append(commit.Signatures, vote.CommitSig())
+	}
+	return block, parts, id, commit
+}
+
+// home writes a stopped home as stock leaves it after a crash between saving the first block
+// and saving its state: genesis, the post-InitChain state at height 0, the block with its seen
+// commit unless withBlock is false, and a WAL.
+func (f *firstBlockFixture) home(t *testing.T, withBlock bool) string {
+	t.Helper()
+	home := filepath.Join(t.TempDir(), "comet")
+	for _, dir := range []string{"config", "data/cs.wal"} {
+		if err := os.MkdirAll(filepath.Join(home, dir), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := f.genesis.SaveAs(filepath.Join(home, "config/genesis.json")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, "data/cs.wal/wal"), []byte("#ENDHEIGHT 71 and the votes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f.withStores(t, home, func(states sm.Store, blocks *bs.BlockStore) {
+		if err := states.Save(f.state); err != nil {
+			t.Fatal(err)
+		}
+		if withBlock {
+			blocks.SaveBlock(f.block, f.parts, f.commit)
+		}
+	})
+	return home
+}
+
+// withStores opens home's stock state and block stores read-write for visit.
+func (f *firstBlockFixture) withStores(t *testing.T, home string, visit func(sm.Store, *bs.BlockStore)) {
+	t.Helper()
+	data := filepath.Join(home, "data")
+	stateDB, err := dbm.NewGoLevelDB("state", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stateDB.Close()
+	blockDB, err := dbm.NewGoLevelDB("blockstore", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer blockDB.Close()
+	visit(sm.NewStore(stateDB, sm.StoreOptions{}), bs.NewBlockStore(blockDB))
+}
+
+// stockHandshake runs the pinned stock Handshaker on home against app, as CometBFT does at
+// startup, and returns its error or panic.
+func (f *firstBlockFixture) stockHandshake(t *testing.T, home string, app abci.Application) (err error) {
+	t.Helper()
+	f.withStores(t, home, func(states sm.Store, blocks *bs.BlockStore) {
+		state, e := states.LoadFromDBOrGenesisDoc(f.genesis)
+		if e != nil {
+			t.Fatal(e)
+		}
+		conns := proxy.NewAppConns(proxy.NewLocalClientCreator(app), proxy.NopMetrics())
+		conns.SetLogger(log.NewNopLogger())
+		if e = conns.Start(); e != nil {
+			t.Fatal(e)
+		}
+		defer func() { _ = conns.Stop() }()
+		handshaker := consensus.NewHandshaker(states, state, blocks, f.genesis)
+		handshaker.SetLogger(log.NewNopLogger())
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("stock handshake panicked: %v", r)
+			}
+		}()
+		err = handshaker.Handshake(conns)
+	})
+	return err
+}
+
+// stored reads home's state height and app hash and its block store height.
+func (f *firstBlockFixture) stored(t *testing.T, home string) (stateHeight int64, appHash []byte, storeHeight int64) {
+	t.Helper()
+	f.withStores(t, home, func(states sm.Store, blocks *bs.BlockStore) {
+		state, err := states.Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		stateHeight, appHash, storeHeight = state.LastBlockHeight, state.AppHash, blocks.Height()
+	})
+	return
+}
+
+// tree reads every regular file under root by its relative path.
+func tree(t *testing.T, root string) map[string]string {
+	t.Helper()
+	files := map[string]string{}
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		raw, err := os.ReadFile(path)
+		rel, _ := filepath.Rel(root, path)
+		files[rel] = string(raw)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return files
+}
+
+func (f *firstBlockFixture) repair(t *testing.T, home, addr, peer string) (RepairReport, string, error) {
+	t.Helper()
+	backup := filepath.Join(t.TempDir(), "backup")
+	report, err := RepairFirstBlock(RepairOptions{Home: home, Backup: backup, App: addr, PeerExport: peer})
+	return report, backup, err
+}
+
+var instancePattern = regexp.MustCompile(`^[0-9a-f]{32}\n$`)
+
+// readInstance checks the store instance ID file's format and mode and returns its value.
+func readInstance(t *testing.T, home string) string {
+	t.Helper()
+	path := filepath.Join(home, "data", StoreInstanceFile)
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(path)
+	if info.Mode().Perm() != 0o600 || !instancePattern.Match(raw) {
+		t.Fatalf("store instance %q mode %v", raw, info.Mode())
+	}
+	return strings.TrimSpace(string(raw))
+}
+
+// TestStockHandshakeStopsOnTheFirstBlockAndTheRepairResumesIt reproduces the CONS-3.1-9
+// first-block failure with the pinned stock Handshaker: initial_height 71, the block and its
+// seen commit saved, the state still at 0, so stock panics whatever the app reports. The repair
+// preserves the original stores, verifies the certified block, applies it through the app
+// (InitChain, FinalizeBlock and Commit, as stock's real-app replay would), writes a fresh store
+// instance ID, and the unmodified stock handshake then completes (vector 9.q).
+func TestStockHandshakeStopsOnTheFirstBlockAndTheRepairResumesIt(t *testing.T) {
+	f := newFirstBlockFixture(t, 4, 3, "certified-envelope")
+	home := f.home(t, true)
+	err := f.stockHandshake(t, home, f.app)
+	if err == nil || !strings.Contains(err.Error(), "StoreBlockHeight (71) > StateBlockHeight + 1 (1)") {
+		t.Fatalf("stock handshake did not stop on the first block: %v", err)
+	}
+	f.app.resetCalls()
+	original := tree(t, filepath.Join(home, "data"))
+
+	report, backup, err := f.repair(t, home, serve(t, f.app), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := tree(t, backup); fmt.Sprint(got) != fmt.Sprint(original) {
+		t.Fatalf("the backup is not the original data directory:\n%v\n%v", got, original)
+	}
+	if got := f.app.callLog(); strings.Join(got, ",") != "InitChain,FinalizeBlock,Commit" {
+		t.Fatalf("app calls %v", got)
+	}
+	afterHash := f.app.resultHash(f.id.Hash)
+	want := RepairReport{Height: firstHeight, BlockID: BlockID{Hash: hexBytes(f.id.Hash), Parts: PartSet{Total: f.id.PartSetHeader.Total, Hash: hexBytes(f.id.PartSetHeader.Hash)}}, AppHash: hexBytes(afterHash), Source: "local", Applied: "executed", Backup: backup, StoreInstance: readInstance(t, home)}
+	if report != want {
+		t.Fatalf("report %+v, want %+v", report, want)
+	}
+	if h, hash, store := f.stored(t, home); h != firstHeight || !bytes.Equal(hash, afterHash) || store != firstHeight {
+		t.Fatalf("stored state %d %X, block store %d", h, hash, store)
+	}
+	if wal, _ := os.ReadFile(filepath.Join(home, "data/cs.wal/wal")); string(wal) != "#ENDHEIGHT 71 and the votes" {
+		t.Fatalf("the WAL changed: %q", wal)
+	}
+	if err = f.stockHandshake(t, home, f.app); err != nil {
+		t.Fatalf("the stock handshake still stops after the repair: %v", err)
+	}
+
+	// A rerun only checks, under a fresh store instance ID.
+	again, _, err := f.repair(t, home, serve(t, f.app), "")
+	if err != nil || again.Applied != "already_repaired" || again.AppHash != want.AppHash || again.StoreInstance == want.StoreInstance {
+		t.Fatalf("rerun %+v: %v", again, err)
+	}
+}
+
+// When the app committed the first block before the crash, stock kept its FinalizeBlock
+// response; the repair replays that response instead of executing the block again, as stock's
+// mock-app replay does. Without the response, or with one the app's hash contradicts, it stops.
+func TestRepairReplaysTheKeptResponseOfAnAppThatCommitted(t *testing.T) {
+	for _, tc := range []struct {
+		name, kept string
+		wantErr    string
+	}{
+		{"replayed", "same", ""},
+		{"missing response", "none", "kept no FinalizeBlock response"},
+		{"contradicting response", "other", "first-block contradiction"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFirstBlockFixture(t, 1, 1, "certified-envelope")
+			home := f.home(t, true)
+			after := f.app.resultHash(f.id.Hash)
+			f.app.committed, f.app.committedHash = firstHeight, after
+			if tc.kept != "none" {
+				hash := after
+				if tc.kept == "other" {
+					hash = bytes.Repeat([]byte{0x22}, 32)
+				}
+				f.withStores(t, home, func(states sm.Store, _ *bs.BlockStore) {
+					if err := states.SaveFinalizeBlockResponse(firstHeight, finalizeResponse(1, hash)); err != nil {
+						t.Fatal(err)
+					}
+				})
+			}
+			report, _, err := f.repair(t, home, serve(t, f.app), "")
+			if calls := f.app.callLog(); len(calls) != 0 {
+				t.Fatalf("an app that committed was asked to %v", calls)
+			}
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("got %+v, %v", report, err)
+				}
+				if h, _, _ := f.stored(t, home); h != 0 {
+					t.Fatalf("a refused repair saved state %d", h)
+				}
+				return
+			}
+			if err != nil || report.Applied != "replayed" || report.AppHash != hexBytes(after) {
+				t.Fatalf("got %+v, %v", report, err)
+			}
+			if err = f.stockHandshake(t, home, f.app); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+// A node whose block store never saved the first block, while the committee decided it, applies
+// exactly that certified block from a peer's export instead of letting fresh rounds replace it
+// (vector 9.t); the export is the blocks.jsonl line format.
+func TestRepairInstallsTheCertifiedBlockFromAPeerExport(t *testing.T) {
+	f := newFirstBlockFixture(t, 4, 3, "certified-envelope")
+	peerHome := f.home(t, true)
+	item, err := ExportFirstBlock(peerHome)
+	if err != nil {
+		t.Fatal(err)
+	}
+	export := filepath.Join(t.TempDir(), "first-block.json")
+	raw, _ := json.Marshal(item)
+	if err = os.WriteFile(export, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	home := f.home(t, false)
+	if _, _, err = f.repair(t, home, serve(t, f.app), ""); err == nil || !strings.Contains(err.Error(), "holds no block") {
+		t.Fatalf("repaired a store without a block or export: %v", err)
+	}
+	if calls := f.app.callLog(); len(calls) != 0 {
+		t.Fatalf("app calls %v", calls)
+	}
+	report, _, err := f.repair(t, home, serve(t, f.app), export)
+	if err != nil || report.Source != "peer" || report.Applied != "executed" || report.BlockID.Hash != hexBytes(f.id.Hash) {
+		t.Fatalf("got %+v, %v", report, err)
+	}
+	f.withStores(t, home, func(_ sm.Store, blocks *bs.BlockStore) {
+		if meta := blocks.LoadBlockMeta(firstHeight); meta == nil || !meta.BlockID.Equals(f.id) || !sameCommit(blocks.LoadSeenCommit(firstHeight), f.commit) {
+			t.Fatal("the certified block and its commit are not in the block store")
+		}
+	})
+	if err = f.stockHandshake(t, home, f.app); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Only a block that more than 2/3 of the genesis committee certified, for the full BlockID, is
+// applied; a peer's different certified block contradicts the stored one; an app whose result
+// differs from the one stock kept stops the repair before stock saves anything.
+func TestRepairRefusesUncertifiedAndContradictingFirstBlocks(t *testing.T) {
+	t.Run("two thirds not reached", func(t *testing.T) {
+		f := newFirstBlockFixture(t, 4, 2, "certified-envelope")
+		home := f.home(t, true)
+		if _, _, err := f.repair(t, home, serve(t, f.app), ""); err == nil || !strings.Contains(err.Error(), "does not certify") {
+			t.Fatalf("applied a block with half the power: %v", err)
+		}
+		if calls := f.app.callLog(); len(calls) != 0 {
+			t.Fatalf("app calls %v", calls)
+		}
+	})
+	t.Run("a different certified block", func(t *testing.T) {
+		f := newFirstBlockFixture(t, 4, 3, "certified-envelope")
+		home := f.home(t, true)
+		other := newFirstBlockFixture(t, 4, 3, "another-envelope")
+		item, err := encodeFirstBlock(other.block, other.commit, other.vals)
+		if err != nil {
+			t.Fatal(err)
+		}
+		export := filepath.Join(t.TempDir(), "first-block.json")
+		raw, _ := json.Marshal(item)
+		if err = os.WriteFile(export, raw, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		_, _, err = f.repair(t, home, serve(t, f.app), export)
+		if !errors.Is(err, ErrFirstBlockContradiction) {
+			t.Fatalf("accepted a second certified block: %v", err)
+		}
+		if h, _, _ := f.stored(t, home); h != 0 || len(f.app.callLog()) != 0 {
+			t.Fatal("a contradiction changed the stores or the app")
+		}
+	})
+	t.Run("a FinalizeBlock result unlike the kept one", func(t *testing.T) {
+		f := newFirstBlockFixture(t, 1, 1, "certified-envelope")
+		home := f.home(t, true)
+		f.withStores(t, home, func(states sm.Store, _ *bs.BlockStore) {
+			if err := states.SaveFinalizeBlockResponse(firstHeight, finalizeResponse(1, f.app.resultHash(f.id.Hash))); err != nil {
+				t.Fatal(err)
+			}
+		})
+		f.app.salt = "the EL now executes differently"
+		_, _, err := f.repair(t, home, serve(t, f.app), "")
+		if !errors.Is(err, ErrFirstBlockContradiction) {
+			t.Fatalf("accepted a different result: %v", err)
+		}
+		if h, _, _ := f.stored(t, home); h != 0 {
+			t.Fatal("stock saved the state after a different result")
+		}
+		if calls := strings.Join(f.app.callLog(), ","); calls != "InitChain,FinalizeBlock" {
+			t.Fatalf("the app committed a different result: %v", calls)
+		}
+	})
+}
+
+// The repair runs only offline on a stopped Comet home of a generation above height 1, and
+// never overwrites or nests its backup.
+func TestRepairRefusesARunningCometAndAnUnusableBackup(t *testing.T) {
+	f := newFirstBlockFixture(t, 1, 1, "certified-envelope")
+	home := f.home(t, true)
+	addr := serve(t, f.app)
+	db, err := dbm.NewGoLevelDB("state", filepath.Join(home, "data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, backup, err := f.repair(t, home, addr, ""); err == nil || !strings.Contains(err.Error(), "is CometBFT stopped?") {
+		t.Fatalf("repaired a home Comet holds: %v", err)
+	} else if _, e := os.Lstat(backup); !errors.Is(e, os.ErrNotExist) {
+		t.Fatalf("a refused repair wrote its backup: %v", e)
+	}
+	db.Close()
+	existing := t.TempDir()
+	for backup, message := range map[string]string{
+		existing:                            "must not exist",
+		filepath.Join(home, "data", "copy"): "outside the data directory",
+		filepath.Join(home, "data"):         "outside the data directory",
+	} {
+		if _, err = RepairFirstBlock(RepairOptions{Home: home, Backup: backup, App: addr}); err == nil || !strings.Contains(err.Error(), message) {
+			t.Fatalf("backup %s: %v", backup, err)
+		}
+	}
+	if _, err = os.Stat(filepath.Join(home, "data", StoreInstanceFile)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("a refused repair wrote a store instance ID: %v", err)
+	}
+	f.genesis.InitialHeight = 1
+	one := filepath.Join(t.TempDir(), "comet")
+	if err = os.MkdirAll(filepath.Join(one, "config"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err = f.genesis.SaveAs(filepath.Join(one, "config/genesis.json")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = RepairFirstBlock(RepairOptions{Home: one, Backup: filepath.Join(t.TempDir(), "b"), App: addr}); err == nil || !strings.Contains(err.Error(), "nothing to repair") {
+		t.Fatalf("repaired a generation starting at height 1: %v", err)
+	}
+	if calls := f.app.callLog(); len(calls) != 0 {
+		t.Fatalf("app calls %v", calls)
+	}
+}

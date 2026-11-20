@@ -9,7 +9,8 @@ go test -race -mod=readonly ./...
 
 Package this binary beside `etna-signer` in runtime
 images. It is the offline store tool that CONS-3.1-1 permits for 5.4 checkpoint
-import: it links the pinned CometBFT v0.40.0 module and GoLevelDB only to write
+import and for the certified first-block repair of CONS-3.1-9
+([below](#first-block-repair)): it links the pinned CometBFT v0.40.0 module and GoLevelDB only to write
 and read back the native stores, unforked (DATA-5.4-5). Run it with CometBFT
 stopped and the signer disconnected. It starts no service, never runs consensus
 or signs, loads no signing keys and never reads or writes FilePV state, signer
@@ -144,3 +145,72 @@ priority, in canonical order) and their stored proposers in full, and exits 2 on
 any difference. A later state, a historical `LoadValidators`, `/validators` or an
 app's copy cannot stand in for this snapshot (SYNC-9-5c). See the
 [producer procedure](../../../../docs/checkpoint-import.md#stock-snapshot-for-the-producer-check).
+
+## First-block repair
+
+When a generation's `initial_height` is above 1, stock CometBFT v0.40.0 stops at
+its handshake after a crash between saving the generation's first block and
+saving that block's state: its state stays at height 0 and its handshake
+requires the block store to be at most one block above it (CONS-3.1-9). The
+operator procedure is in
+[A crash inside the first block](../../../../docs/governance-recovery.md#a-crash-inside-the-first-block).
+
+```sh
+etna-comet-import repair-first-block --home /stopped/comet/home \
+  --backup /absent/backup --app tcp://127.0.0.1:26658 [--peer-export first-block.json]
+etna-comet-import export-first-block --home /stopped/comet/home > first-block.json
+```
+
+`repair-first-block` needs CometBFT stopped (it opens `state.db` and
+`blockstore.db` read-only first, which fails while CometBFT holds them), the
+signer fenced, and the app (`taiko-client abci`) serving `--app`. In order, it:
+
+1. copies `<home>/data` to `--backup` (absent, outside `data/`) and syncs the
+   copy; the original block store with its seen commit, the state store, the WAL
+   and the evidence store are never deleted;
+2. writes a fresh store instance ID, `<home>/data/etna-store-instance` (32
+   lowercase hex characters and a newline, mode 0600, by temporary file, rename
+   and directory sync), so the signer fences through the last height its key
+   signed (RECOV-8.2-2);
+3. takes the first block and its seen commit from the block store, or, when the
+   block store holds no block, from `--peer-export`, and checks them against the
+   home's genesis: canonical protobuf, chain_id and `initial_height`, no evidence
+   (CONS-3.1-10), and a commit with more than 2/3 of the genesis committee's
+   power for the full BlockID (stock `VerifyCommit`). A peer block that differs
+   from the stored one is a contradiction (exit 2);
+4. asks the app for `Info` and applies the block with the stock handshake's own
+   steps: at app height 0, InitChain from the genesis (the state is saved as stock
+   saves it) and stock `BlockExecutor.ApplyBlock` against the app, so the app runs
+   FinalizeBlock and Commit and executes the block on its EL; at the first height
+   (the app committed before the crash), stock's mock-app replay of the
+   FinalizeBlock response the state store kept, which must carry the app's own
+   app hash. A FinalizeBlock result that differs from a kept response is refused
+   before stock saves anything (exit 2);
+5. reads back the state (the first height and BlockID), the block store (the
+   block and a certifying seen commit) and the app's `Info` (the first height and
+   the state's app hash), and prints one JSON line:
+
+```json
+{
+  "height": 1001,
+  "block_id": { "hash": "0x…", "parts": { "total": 1, "hash": "0x…" } },
+  "app_hash": "0x…",
+  "source": "local",
+  "applied": "executed",
+  "backup": "/absent/backup",
+  "store_instance": "<32 hex>"
+}
+```
+
+`applied` is `executed`, `replayed` (the kept response) or `already_repaired`
+(a rerun after success, which only checks). Exit 0 means the home is repaired
+and stock CometBFT's handshake finds its state, block store and app at the
+first height. Exit 1 is any other failure; the stores are as stock left them,
+apart from the backup and the instance ID, so the operator fixes the cause and
+reruns with a new `--backup`. Only goleveldb stores at the stock default `db_dir`,
+`<home>/data`, are supported.
+
+`export-first-block` prints the certified first block of a stopped home as one
+`blocks.jsonl` line: the original block, its own-height commit (C:h if the node
+saved the next block, else the seen commit) and the genesis keys and powers. It
+refuses a block the genesis committee did not certify.

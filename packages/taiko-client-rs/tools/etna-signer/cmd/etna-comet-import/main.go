@@ -1,5 +1,6 @@
-// etna-comet-import reads and verifies independent stock state for export and installs
-// authenticated checkpoint windows into fresh offline stock stores.
+// etna-comet-import reads and verifies independent stock state for export, installs
+// authenticated checkpoint windows into fresh offline stock stores, and repairs a generation's
+// first block after the stock handshake stopped on it (CONS-3.1-9).
 package main
 
 import (
@@ -12,6 +13,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cometbft/cometbft/libs/log"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client-rs/tools/etna-signer/internal/checkpoint"
 )
 
@@ -22,8 +24,14 @@ func run(args []string) error {
 	if len(args) != 0 && args[0] == "snapshot-height" {
 		return snapshotHeight(args[1:])
 	}
+	if len(args) != 0 && args[0] == "export-first-block" {
+		return exportFirstBlock(args[1:])
+	}
+	if len(args) != 0 && args[0] == "repair-first-block" {
+		return repairFirstBlock(args[1:])
+	}
 	if len(args) == 0 || args[0] != "install" {
-		return errors.New("expected install, snapshot-height or verify-export")
+		return errors.New("expected install, snapshot-height, verify-export, export-first-block or repair-first-block")
 	}
 	flags := flag.NewFlagSet("install", flag.ContinueOnError)
 	home := flags.String("home", "", "absent stock home to create")
@@ -112,10 +120,52 @@ func verifyExport(args []string) error {
 	})
 }
 
+// exportFirstBlock prints, as one blocks.jsonl line, the certified first block of a stopped
+// node's generation: the original block, its own-height commit and the genesis committee.
+func exportFirstBlock(args []string) error {
+	flags := flag.NewFlagSet("export-first-block", flag.ContinueOnError)
+	home := flags.String("home", "", "stopped stock home holding the generation's first block")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 || *home == "" {
+		return errors.New("export-first-block requires only --home")
+	}
+	item, err := checkpoint.ExportFirstBlock(*home)
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(os.Stdout).Encode(item)
+}
+
+// repairFirstBlock repairs a stopped home whose stock handshake stops on the generation's first
+// block (CONS-3.1-9), printing one JSON report line.
+func repairFirstBlock(args []string) error {
+	flags := flag.NewFlagSet("repair-first-block", flag.ContinueOnError)
+	home := flags.String("home", "", "stopped stock home whose handshake stops on the first block")
+	backup := flags.String("backup", "", "absent directory, outside <home>/data, receiving a copy of <home>/data")
+	app := flags.String("app", "", "the running app's ABCI address (tcp://host:port or unix://path)")
+	peer := flags.String("peer-export", "", "optional export-first-block output of a peer of the same genesis")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 || *home == "" || *backup == "" || *app == "" {
+		return errors.New("repair-first-block requires --home, --backup and --app")
+	}
+	report, err := checkpoint.RepairFirstBlock(checkpoint.RepairOptions{
+		Home: *home, Backup: *backup, App: *app, PeerExport: *peer,
+		Logger: log.NewTMLogger(log.NewSyncWriter(os.Stderr)),
+	})
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(os.Stdout).Encode(report)
+}
+
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		if errors.Is(err, checkpoint.ErrExportValStateMismatch) {
+		if errors.Is(err, checkpoint.ErrExportValStateMismatch) || errors.Is(err, checkpoint.ErrFirstBlockContradiction) {
 			os.Exit(2)
 		}
 		os.Exit(1)
