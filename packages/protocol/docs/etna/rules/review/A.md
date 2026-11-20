@@ -32,7 +32,7 @@ Raised by: DeepSeek-V4.1-Flash (dantaik)
 
 **`AccountWitness` order is "exactly" — rejected, or merely described?**
 
-**Text.** "`Prove exactly in order: anchor [268, 270, 271, 281]; forced entry [base,base+1], base=keccak256(abi.encode(i,280));`" and "`// accountProof and each storage proof are exactly the ordered MPT path from the root to the leaf (or to the node proving absence), with no extra nodes;`".
+**Text.** "`Prove exactly in order: anchor [268, 270, 271, 281, 293]; forced entry [base,base+1], base=keccak256(abi.encode(i,280));`" and "`// accountProof and each storage proof are exactly the ordered MPT path from the root to the leaf (or to the node proving absence), with no extra nodes;`".
 
 **Why it matters.** "exactly in order" can be read as a property of the witness — an out-of-order, short or extra slot list is invalid — or as a description of how a prover builds it. The strict-decoding rules make the envelope's item list exact, but they do not mention the witness slot list, and 3.4 rule 2 only requires that "the witness verifies". Two guests can therefore differ on whether a complete but reordered proof set is accepted, and the difference is visible only on a crafted proposal.
 
@@ -44,7 +44,7 @@ Raised by: DeepSeek-V4.1-Flash (dantaik)
 
 **The shared-vector obligation has no owner and no type**
 
-**Text.** "`**Shared vectors**`: every encoding, interface, storage layout and boundary condition needs accept/reject vectors shared by nodes, contracts and both guests; the list is in [Etna Acceptance and Launch Checklist](../../ACCEPTANCE.md)."
+**Text.** "`**Shared vectors**`: every encoding, interface, storage layout and boundary condition needs accept/reject vectors shared by nodes, contracts and both guests; the list is in" [Etna Acceptance and Launch Checklist](../../ACCEPTANCE.md).
 
 **Why it matters.** This is the only place the spec requires shared vectors, and it is the sentence that justifies this directory. It is a delivery obligation on artifacts, not a property of any block, so none of the three types (rule, limitation, assumption) fits and nothing can conform or fail against it. It also names no owner, no minimum set and no check, while the actual list lives in ACCEPTANCE §3, so the two can drift apart without anyone noticing.
 
