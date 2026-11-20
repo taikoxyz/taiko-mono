@@ -22,6 +22,12 @@
 - `taiko-client lander --land-to <HEIGHT>` lands exactly one batch from the latest checkpoint to HEIGHT through the normal selection, leaves and journal, without the batch collection wait, and exits 0 once that landing is confirmed. It exits nonzero when the latest checkpoint is or becomes at or above HEIGHT, when HEIGHT lies more than the batch cap above it, when the blocks do not fit one batch, or on a signal. It has no environment variable.
 - `etna-comet-import snapshot-height --comet-state-dir DIR` prints the height x of a stopped stock state snapshot as JSON. An import producer lands x + 1 with `--land-to` and exports that checkpoint, so its snapshot is exactly at s − 1 (DATA-5.4-8, [procedure](docs/checkpoint-import.md#stock-snapshot-for-the-producer-check)). `verify-export` names both heights when the snapshot is at another height.
 
+### Recovery from a settled chain that differs from the node's own
+
+- Recovery InitChain points the EL at c's authenticated hash, as at the Etna start, before it compares c. An EL that holds another block at c or at c − 1, or none, is missing data: InitChain waits with trust closed and retries, instead of halting, until the EL serves the settled blocks (RECOV-8.1-7, RECOV-8.1-8, SYNC-9-7). An EL that rejects that hash, accepts it and keeps serving another block, or answers the read of c with a header of another height or hash still halts.
+- `abci-recover prepare` reports an EL without the settled block at c as a missing prerequisite that names c and the landing's EL hash and points to the runbook, instead of invalid evidence. The lander waits on the same condition as a temporary failure. The [runbook](docs/governance-recovery.md#take-the-settled-el-state-at-c) describes how a node takes the settled EL state at c.
+- abci: `RecoveryError::OriginNotHeld` is new, and `authenticate_recovery_with_headers` readers return `Option<Header>`. Callers must adapt.
+
 ### Protocol artifact alignment
 
 - Align the ABI/artifact provenance with the published switch contracts in PR #22286, which closes the L2 checkpoint store with `beaconRootsFrom` and removes `SignalServiceL1`. The protocol pin, first at `4c6424bc`, now follows #22412 (above).

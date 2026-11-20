@@ -366,7 +366,9 @@ writes a plan file, `install` writes a fresh Comet home and an empty app directo
 no command starts, stops or signals a process. Follow the
 [governance recovery runbook](docs/governance-recovery.md) for the exact commands, the signer
 environment of the new generation, the start order and full nodes. Recovery requires usable local
-EL state at c; it imports no snapshots and retains the dummy-proof development scope.
+EL state at c, the block of the retained landing; a node whose EL holds another block there, or
+none, takes the settled one first (runbook, "Take the settled EL state at c"). `abci-recover`
+imports no snapshots and retains the dummy-proof development scope.
 
 ### `abci-genesis`
 

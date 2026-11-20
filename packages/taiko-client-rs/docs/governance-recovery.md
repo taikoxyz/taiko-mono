@@ -38,12 +38,14 @@ InitChain.
 
 ## Before you start
 
-- Keep usable canonical EL state at c and the old EL ancestry. Keep own-L1 headers back to
-  `L1_0` and the historical `eth_getProof` and `debug_getRawHeader` the checks need (SYNC-9-16).
-  `prepare` checks that the state at c is readable; it never builds a block. The recovered
-  app's InitChain checks it again and waits, with trust closed, while it is missing. Keep
-  `--engine.allow-unwind-canonical-header` disabled. The old EL head may stay above c until the
-  recovered app commits its first block through normal Engine calls.
+- Keep usable canonical EL state at c, the block of the retained landing, and the old EL
+  ancestry. Keep own-L1 headers back to `L1_0` and the historical `eth_getProof` and
+  `debug_getRawHeader` the checks need (SYNC-9-16). `prepare` checks that the state at c is
+  readable; it never builds a block. The recovered app's InitChain checks it again and waits,
+  with trust closed, while it is missing. Keep `--engine.allow-unwind-canonical-header`
+  disabled. The old EL head may stay above c until the recovered app commits its first block
+  through normal Engine calls. An EL that holds another block at c, or none, first takes the
+  settled one ([Take the settled EL state at c](#take-the-settled-el-state-at-c)).
 - Never copy, restore or reset signing state (RECOV-8.2-1..3); only a failover moves the latest
   state, with the old host stopped (signer README, Failover). The signer keeps one HRS state per
   full `chain_id` and never lowers it. A backup can omit signatures already released, so an older
@@ -77,6 +79,11 @@ committee on own finalized L1 (RECOV-8.2-4), checks the EL state at c, rechecks 
 the current generation, and only then writes the plan with mode 0600. A newer generation on own
 L1 fails with `superseded`. The plan holds the deployment parameters, the canonical witness, the
 origin and the exact genesis bytes; it holds no endpoint, path or credential.
+
+An EL that holds another block at c than the retained landing, or none, fails `prepare` as a
+missing prerequisite that names c and the landing's EL hash at c, and no plan is written. That
+is no invalid evidence: take the settled EL state at c first
+([Take the settled EL state at c](#take-the-settled-el-state-at-c)).
 
 `prepare` prints the same summary as `status`. Compare `genesis_hash` with the other operators
 (ACC §2.2): every honest node of the generation has the same genesis. A later checkpoint never
@@ -191,6 +198,61 @@ continues. If the confirmed account nonce advances without this transaction's re
 runner allows a bounded receipt-index grace period, then stops for reconciliation. Investigate
 with the account owner and canonical L1; do not edit the journal, reset the nonce or bypass the
 account path.
+
+## Take the settled EL state at c
+
+Honest nodes can hold another block than the one L1 settled at a height at or below c, or no
+block there, without any verifier failure (RECOV-8.1-7, RECOV-8.1-8). When more than 1/3 of the
+voting power double-signs, L1 can settle the block honest nodes did not commit, and they hold
+their own blocks from that height on. A block that only stock CometBFT rejects, such as one whose
+header commits another validator state (SYNC-9-5c), stops honest nodes below it. Before
+recovery, the settled chain is verified independently from the last settled block honest nodes
+executed themselves, by executing the settled blocks up to c from the landings' blobs. Nodes
+take the EL state at c from that execution, in place of any blocks of their own that differ.
+
+`prepare` on such a node fails and writes nothing:
+
+```text
+recovery prerequisite missing: the EL does not serve the settled block 0x… at c = 6; take the settled EL state at c as docs/governance-recovery.md describes, then run prepare again
+```
+
+The hash is c's EL hash in the retained landing, read from your own finalized L1. The recovered
+app's InitChain treats the same EL as missing data (SYNC-9-7): it waits until the EL serves the
+settled block at c, its authenticated parent and its state. The node keeps trust closed, so its
+signer signs nothing, until its EL holds c's authenticated block. An EL that rejects that hash,
+or accepts it and keeps serving another block at c, contradicts the settled chain: a safety
+halt.
+
+Take the settled state at c in one of these ways:
+
+- **From a peer.** Give your EL a peer whose EL holds the settled chain through c, for example
+  the EL of a node that executed it, as a trusted peer. An EL syncs only toward a head it is
+  pointed at, and `prepare` makes no forkchoice call. The recovered app's InitChain points the EL
+  at c's authenticated hash, as at the Etna start; the EL then switches to the settled blocks or
+  downloads them. So install a plan that `prepare` wrote on a node whose EL holds the settled
+  block at c, and compare its `genesis_hash` with the other operators: InitChain repeats every
+  check of that plan against your own L1 and EL. While the EL lacks the block, InitChain stays
+  pending and points the EL at it again after each `--elsync.timeout` (600 s by default); from
+  the first, `/trust` names the sync (`execution engine did not reach block <c> …`). Once
+  InitChain has answered, run `prepare` on your node to a new `--out` and compare its
+  `genesis_hash` again. If the EL does not reach the block, use one of the ways below.
+- **Replace the EL datadir.** Stop your EL and replace its datadir with a copy of a stopped EL
+  datadir from a node whose EL executed the settled chain through c, then run `prepare`. Copy
+  only from a node you trust as you trust your own EL: `prepare` and InitChain check that the
+  header at c hashes to the landing and that its state is readable, but they do not recompute
+  that state's root.
+- **Install it with its state root checked.** `etna-el-import install` builds a fresh datadir
+  from a stopped EL whose state is exactly at c, and recomputes the state root. It takes c's EL
+  hash (`--trusted-el-hash`, the hash `prepare` names), the stateRoot of the header with that
+  hash (`--trusted-state-root`), the original block-zero hash (`--trusted-genesis-hash`, from
+  `etna-el-import chain-identity`), the L2 chain id, the EL runtime genesis JSON and a
+  `--manifest` of authenticated headers through c with the EL finality fence. No `abci-recover`
+  command writes that manifest. `abci-import import` at height c does: it authenticates, on your
+  own L1, a package that a node of the new generation exported at the generation's origin with
+  its recovery bootstrap, and runs `etna-el-import` with those roots
+  ([checkpoint import](checkpoint-import.md)). It also installs the origin's Comet genesis and
+  recovery bootstrap, so the node starts from `ROOT/ready` instead of from
+  `abci-recover install`.
 
 ## Full nodes
 

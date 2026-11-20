@@ -355,7 +355,11 @@ async fn prepare_reports_an_el_without_the_settled_block_at_c_as_missing() {
                 message.contains("docs/governance-recovery.md"),
             "{message}"
         );
+        // The runbook quotes the message it points to, with an illustrative hash.
+        let quoted = message.replace(&settled.to_string(), "0x…");
+        assert!(RUNBOOK.contains(&format!("```text\n{quoted}\n```")), "{quoted}");
     }
+    assert!(RUNBOOK.contains("\n## Take the settled EL state at c\n"));
 }
 
 #[tokio::test]
