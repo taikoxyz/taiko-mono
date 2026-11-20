@@ -40,8 +40,10 @@ pub struct ChainParams {
     /// `VP_UNIT`: effective stake per unit of voting power, in TAIKO base units; at least the
     /// START-10-12 floor ([`ChainParams::validate`]).
     pub vp_unit: U256,
-    /// `S_min`: minimum effective stake of an eligible entry, in TAIKO base units; `>= vp_unit`.
-    pub s_min: U256,
+    /// `minStake`: the staking registry's immutable minimum stake, in TAIKO base units. It is
+    /// both the registration minimum and the selection eligibility floor (COMM-4.3-3), the fifth
+    /// word of the committee config hash (START-10-14, ENC-A-36), and `>= vp_unit` (START-10-12).
+    pub min_stake: U256,
     /// `N_MAX`: maximum committee size; in `1..=`[`MAX_N_MAX`].
     pub n_max: usize,
     /// `L2_BLOCK_GAS_LIMIT`: gas limit of every L2 block, in gas; `> 0`.
@@ -80,11 +82,18 @@ pub enum ParamsError {
     /// `block_gas_limit == 0`.
     #[error("block_gas_limit must be > 0")]
     ZeroBlockGasLimit,
-    /// `s_min < vp_unit`, so an eligible entry could map to zero voting power.
-    #[error("s_min ({s_min}) must be >= vp_unit ({vp_unit})")]
-    SMinBelowVpUnit {
-        /// Configured `s_min`.
-        s_min: U256,
+    /// `4096 × min_stake <= 10^27`: the registry could hold more eligible bonds than its 4096
+    /// slots (START-10-12, START-10-18).
+    #[error("4096 × min_stake ({min_stake}) must exceed 10^27")]
+    MinStakeTooSmall {
+        /// Configured `min_stake`.
+        min_stake: U256,
+    },
+    /// `min_stake < vp_unit`, so an eligible entry could map to zero voting power.
+    #[error("min_stake ({min_stake}) must be >= vp_unit ({vp_unit})")]
+    MinStakeBelowVpUnit {
+        /// Configured `min_stake`.
+        min_stake: U256,
         /// Configured `vp_unit`.
         vp_unit: U256,
     },
@@ -97,7 +106,8 @@ impl ChainParams {
     }
 
     /// Checks the unsettled-depth bounds, token-supply voting-power safety, committee capacity,
-    /// positive block gas limit and s_min >= vp_unit. Returns the first invalid deployment
+    /// positive block gas limit, `min_stake >= vp_unit` and `4096 × min_stake > 10^27`
+    /// (START-10-12). Returns the first invalid deployment
     /// parameter.
     pub fn validate(&self) -> Result<(), ParamsError> {
         if self.switch.as_ref().is_some_and(|switch| {
@@ -122,8 +132,14 @@ impl ChainParams {
         if self.block_gas_limit == 0 {
             return Err(ParamsError::ZeroBlockGasLimit);
         }
-        if self.s_min < self.vp_unit {
-            return Err(ParamsError::SMinBelowVpUnit { s_min: self.s_min, vp_unit: self.vp_unit });
+        if self.min_stake < self.vp_unit {
+            return Err(ParamsError::MinStakeBelowVpUnit {
+                min_stake: self.min_stake,
+                vp_unit: self.vp_unit,
+            });
+        }
+        if self.min_stake.saturating_mul(U256::from(4096)) <= U256::from(10).pow(U256::from(27)) {
+            return Err(ParamsError::MinStakeTooSmall { min_stake: self.min_stake });
         }
         Ok(())
     }
@@ -175,5 +191,29 @@ mod tests {
                 "U={limit}"
             );
         }
+    }
+
+    /// START-10-12, COMM-4.3-3: `min_stake` is at least `vp_unit` and `4096 × min_stake`
+    /// exceeds 10^27.
+    #[test]
+    fn min_stake_is_at_least_vp_unit_and_above_the_supply_bound() {
+        let base = crate::test_utils::params();
+        let floor = U256::from(10).pow(U256::from(27)) / U256::from(4096);
+        assert_eq!(
+            ChainParams { min_stake: floor, ..base.clone() }.validate(),
+            Err(ParamsError::MinStakeTooSmall { min_stake: floor })
+        );
+        assert_eq!(
+            ChainParams { min_stake: floor + U256::from(1), ..base.clone() }.validate(),
+            Ok(())
+        );
+        let huge = U256::MAX / U256::from(2);
+        assert_eq!(
+            ChainParams { min_stake: huge, vp_unit: huge + U256::from(1), ..base }.validate(),
+            Err(ParamsError::MinStakeBelowVpUnit {
+                min_stake: huge,
+                vp_unit: huge + U256::from(1)
+            })
+        );
     }
 }

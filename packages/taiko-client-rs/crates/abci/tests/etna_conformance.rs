@@ -453,7 +453,7 @@ fn proposer_registry() -> (BTreeMap<B256, U256>, Vec<RegistryEntry>) {
     let entries = vec![RegistryEntry {
         ck_prefix: key.prefix(),
         ck_x: key.x(),
-        eff_stake: params().s_min,
+        eff_stake: params().min_stake,
         active_from_l1: 0,
         exit_effective_l1: NO_EXIT,
     }];
@@ -959,7 +959,7 @@ fn schedule_client(c: &Value, height: u64) -> Decision {
     };
     let params = ChainParams {
         vp_unit: U256::from(u64_of(&c["unit"])),
-        s_min: U256::from(u64_of(&c["minimum"])),
+        min_stake: U256::from(u64_of(&c["minimum"])),
         n_max: u64_of(&c["nMax"]) as usize,
         ..params()
     };

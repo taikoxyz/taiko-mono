@@ -8,7 +8,7 @@ pub(crate) fn sample_entries(n: usize) -> Vec<RegistryEntry> {
             RegistryEntry {
                 ck_prefix: pubkey.prefix(),
                 ck_x: pubkey.x(),
-                eff_stake: U256::from(i + 1) * U256::from(10u64).pow(U256::from(18u64)),
+                eff_stake: ether(i as u64 + 1),
                 active_from_l1: 0,
                 exit_effective_l1: (1 << 48) - 1,
             }
@@ -19,8 +19,9 @@ const CHAIN: u64 = 167001;
 fn devnet() -> ChainParams {
     crate::test_utils::params()
 }
+/// `n` fixture stake units of 250,000 TAIKO, the devnet minStake; one unit is 10^9 power.
 fn ether(n: u64) -> U256 {
-    U256::from(n) * U256::from(10u64).pow(U256::from(18))
+    U256::from(n) * U256::from(250_000u64) * U256::from(10u64).pow(U256::from(18))
 }
 fn vectors() -> serde_json::Value {
     serde_json::from_str(include_str!("../../../../../testdata/etna_vectors/vectors.json")).unwrap()
@@ -34,12 +35,24 @@ fn key(v: &serde_json::Value) -> ConsensusKey {
 #[test]
 fn v1_configuration_matches_seven_word_vector() {
     let v = vectors();
+    let inputs = &v["committee_config"]["inputs"];
+    let number = |name: &str| inputs[name].as_str().unwrap().parse::<U256>().unwrap();
     let mut p = devnet();
-    p.registry = v["deployment"]["registry"].as_str().unwrap().parse().unwrap();
+    p.registry = inputs["registry"].as_str().unwrap().parse().unwrap();
+    p.vp_unit = number("vp_unit");
+    // The fifth word is the registry's minStake (ENC-A-36); the pinned vectors still call it
+    // s_min.
+    p.min_stake = number("s_min");
+    p.n_max = number("n_max").to();
+    p.unsettled_limit = number("unsettled_limit").to();
     assert_eq!(
         committee_config_hash(&p),
         v["committee_config"]["hash"].as_str().unwrap().parse::<B256>().unwrap()
     );
+    // 36.e: the fifth word is minStake itself, not an independently chosen threshold.
+    let mut other = p.clone();
+    other.min_stake += U256::from(1);
+    assert_ne!(committee_config_hash(&other), committee_config_hash(&p));
     let original = committee_config_hash(&p);
     p.unsettled_limit += 6;
     assert_ne!(committee_config_hash(&p), original);

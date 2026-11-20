@@ -136,14 +136,14 @@ pub enum CommitteeRecordError {
         "no registry entry is eligible at the genesis cutoff {genesis_cutoff}: the registry has \
          no checkpoint at or before it, or no entry of that checkpoint is active at it \
          (activeFromL1 <= cutoff < exitEffectiveL1) with an effective stake of at least \
-         {min_stake} (max(s_min, vp_unit)); an genesis with this cutoff would halt the chain \
+         {min_stake} (the registry's minStake); an genesis with this cutoff would halt the chain \
          at genesis"
     )]
     NoEligibleEntry {
         /// The requested `genesisCutoff`.
         genesis_cutoff: u64,
-        /// The minimum effective stake of an eligible entry, `max(s_min, vp_unit)`, in TAIKO
-        /// base units.
+        /// The minimum effective stake of an eligible entry, the registry's `minStake`
+        /// (COMM-4.3-3), in TAIKO base units.
         min_stake: U256,
     },
     /// The committee witness could not be built from L1 (boxed, as the error is large).
@@ -185,10 +185,8 @@ pub async fn build_committee_record<L: L1Source + ?Sized>(
     if at <= genesis_cutoff {
         return Err(CommitteeRecordError::ProvingBlockNotAfterCutoff { at, genesis_cutoff });
     }
-    let no_eligible_entry = || CommitteeRecordError::NoEligibleEntry {
-        genesis_cutoff,
-        min_stake: params.s_min.max(params.vp_unit),
-    };
+    let no_eligible_entry =
+        || CommitteeRecordError::NoEligibleEntry { genesis_cutoff, min_stake: params.min_stake };
 
     let header = header_at(l1, at).await?;
     let witness = build_committee_witness_at_cutoff(l1, params, at, genesis_cutoff, Schedule::E0)
@@ -247,7 +245,7 @@ mod tests {
             "the recorded committee[e_0]"
         );
         assert_eq!(report.record.cutoff_l1_block, cutoff);
-        assert_eq!(report.selected_eff_stake, U256::from(6_000_000_000_000_000_000u64));
+        assert_eq!(report.selected_eff_stake, U256::from(6) * crate::test_utils::stake_unit());
         assert_eq!(l1.calls()[0], L1Call::Finalized);
         let json: serde_json::Value = serde_json::from_str(&report.to_json_pretty()).unwrap();
         assert_eq!(json["record_hash"], report.record_hash.to_string());
@@ -287,7 +285,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(report.members.len(), 1);
-        assert_eq!(report.selected_eff_stake, U256::from(3_000_000_000_000_000_000u64));
+        assert_eq!(report.selected_eff_stake, U256::from(3) * crate::test_utils::stake_unit());
         assert_eq!(report.record.total_power, 3_000_000_000);
     }
 
@@ -370,7 +368,7 @@ mod tests {
                 err,
                 CommitteeRecordError::NoEligibleEntry { genesis_cutoff, min_stake }
                     if genesis_cutoff == fx.genesis.genesis_cutoff
-                        && min_stake == fx.params.s_min.max(fx.params.vp_unit)
+                        && min_stake == fx.params.min_stake
             ),
             "{err:?}"
         );

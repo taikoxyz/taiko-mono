@@ -35,7 +35,7 @@ pub struct Deployment {
     /// Effective stake per unit of voting power.
     pub vp_unit: U256,
     /// Minimum eligible effective stake.
-    pub s_min: U256,
+    pub min_stake: U256,
     /// Maximum committee membership.
     pub n_max: usize,
     /// L2 block gas limit.
@@ -52,7 +52,7 @@ impl From<&ChainParams> for Deployment {
             unsettled_limit: p.unsettled_limit,
             fee_recipient: p.fee_recipient,
             vp_unit: p.vp_unit,
-            s_min: p.s_min,
+            min_stake: p.min_stake,
             n_max: p.n_max,
             block_gas_limit: p.block_gas_limit,
         }
@@ -70,7 +70,7 @@ impl Deployment {
             unsettled_limit: self.unsettled_limit,
             fee_recipient: self.fee_recipient,
             vp_unit: self.vp_unit,
-            s_min: self.s_min,
+            min_stake: self.min_stake,
             n_max: self.n_max,
             block_gas_limit: self.block_gas_limit,
         };

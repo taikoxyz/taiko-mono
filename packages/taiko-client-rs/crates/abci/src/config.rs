@@ -42,8 +42,10 @@ pub struct ChainParams {
     /// `VP_UNIT`: effective stake per unit of voting power, in TAIKO base units; at least the
     /// START-10-12 floor ([`ChainParams::validate`]).
     pub vp_unit: U256,
-    /// `S_min`: minimum effective stake of an eligible entry, in TAIKO base units; `>= vp_unit`.
-    pub s_min: U256,
+    /// `minStake`: the staking registry's immutable minimum stake, in TAIKO base units. It is
+    /// both the registration minimum and the selection eligibility floor (COMM-4.3-3), the fifth
+    /// word of the committee config hash (START-10-14, ENC-A-36), and `>= vp_unit` (START-10-12).
+    pub min_stake: U256,
     /// `N_MAX`: maximum committee size; in `1..=`[`MAX_N_MAX`].
     pub n_max: usize,
     /// `L2_BLOCK_GAS_LIMIT`: gas limit of every L2 block, in gas; `> 0`.
@@ -107,11 +109,18 @@ pub enum ConfigError {
     /// `block_gas_limit == 0`.
     #[error("block_gas_limit must be > 0")]
     ZeroBlockGasLimit,
-    /// `s_min < vp_unit`, so an eligible entry could map to zero voting power.
-    #[error("s_min ({s_min}) must be >= vp_unit ({vp_unit})")]
-    SMinBelowVpUnit {
-        /// Configured `s_min`.
-        s_min: U256,
+    /// `4096 × min_stake <= 10^27`: the registry could hold more eligible bonds than its 4096
+    /// slots (START-10-12, START-10-18).
+    #[error("4096 × min_stake ({min_stake}) must exceed 10^27")]
+    MinStakeTooSmall {
+        /// Configured `min_stake`.
+        min_stake: U256,
+    },
+    /// `min_stake < vp_unit`, so an eligible entry could map to zero voting power.
+    #[error("min_stake ({min_stake}) must be >= vp_unit ({vp_unit})")]
+    MinStakeBelowVpUnit {
+        /// Configured `min_stake`.
+        min_stake: U256,
         /// Configured `vp_unit`.
         vp_unit: U256,
     },
@@ -133,7 +142,9 @@ impl ChainParams {
                 unsettled_limit: 3600,
                 fee_recipient: Address::ZERO,
                 vp_unit: U256::from(1_000_000_000u64),
-                s_min: U256::from(1_000_000_000_000_000_000u64),
+                // The registry default of the devnet deployment: 250,000 TAIKO, above the
+                // 10^27 / 4096 = 244,140.625 TAIKO floor of START-10-12.
+                min_stake: U256::from(250_000u64) * U256::from(10u64).pow(U256::from(18)),
                 n_max: 128,
                 block_gas_limit: 45_000_000,
                 switch: None,
@@ -165,7 +176,7 @@ impl ChainParams {
         self.unsettled_limit = o.unsettled_limit.unwrap_or(self.unsettled_limit);
         self.fee_recipient = o.fee_recipient.unwrap_or(self.fee_recipient);
         self.vp_unit = o.vp_unit.map_or(self.vp_unit, |v| v.0);
-        self.s_min = o.s_min.map_or(self.s_min, |v| v.0);
+        self.min_stake = o.min_stake.map_or(self.min_stake, |v| v.0);
         self.n_max = o.n_max.unwrap_or(self.n_max);
         self.block_gas_limit = o.block_gas_limit.unwrap_or(self.block_gas_limit);
         if let Some(switch) = o.switch {
@@ -184,7 +195,8 @@ impl ChainParams {
     }
 
     /// Checks the unsettled-depth bounds, token-supply voting-power safety, committee capacity,
-    /// positive block gas limit and s_min >= vp_unit. Returns the first invalid deployment
+    /// positive block gas limit, `min_stake >= vp_unit` and `4096 × min_stake > 10^27`
+    /// (START-10-12). Returns the first invalid deployment
     /// parameter.
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.switch.as_ref().is_some_and(|switch| {
@@ -209,8 +221,14 @@ impl ChainParams {
         if self.block_gas_limit == 0 {
             return Err(ConfigError::ZeroBlockGasLimit);
         }
-        if self.s_min < self.vp_unit {
-            return Err(ConfigError::SMinBelowVpUnit { s_min: self.s_min, vp_unit: self.vp_unit });
+        if self.min_stake < self.vp_unit {
+            return Err(ConfigError::MinStakeBelowVpUnit {
+                min_stake: self.min_stake,
+                vp_unit: self.vp_unit,
+            });
+        }
+        if self.min_stake.saturating_mul(U256::from(4096)) <= U256::from(10).pow(U256::from(27)) {
+            return Err(ConfigError::MinStakeTooSmall { min_stake: self.min_stake });
         }
         Ok(())
     }
@@ -234,8 +252,8 @@ struct Overrides {
     fee_recipient: Option<Address>,
     /// See [`ChainParams::vp_unit`].
     vp_unit: Option<U256String>,
-    /// See [`ChainParams::s_min`].
-    s_min: Option<U256String>,
+    /// See [`ChainParams::min_stake`].
+    min_stake: Option<U256String>,
     /// See [`ChainParams::n_max`].
     n_max: Option<usize>,
     /// See [`ChainParams::block_gas_limit`].
@@ -297,10 +315,34 @@ mod tests {
             ChainParams { n_max: 0, ..devnet() },
             ChainParams { n_max: 4097, ..devnet() },
             ChainParams { block_gas_limit: 0, ..devnet() },
-            ChainParams { s_min: U256::ZERO, ..devnet() },
+            ChainParams { min_stake: U256::ZERO, ..devnet() },
         ] {
             assert!(p.validate().is_err());
         }
+    }
+    /// START-10-12/14, COMM-4.3-3: `min_stake` is the registry's minimum, at least `vp_unit` and
+    /// with `4096 × min_stake > 10^27`; the TOML key is `min_stake`, and the replaced `s_min`
+    /// is an unknown key.
+    #[test]
+    fn min_stake_is_bounded_and_the_old_s_min_key_is_refused() {
+        let floor = U256::from(10).pow(U256::from(27)) / U256::from(4096); // 244,140.625 TAIKO
+        assert_eq!(
+            devnet().min_stake,
+            U256::from(250_000u64) * U256::from(10u64).pow(U256::from(18))
+        );
+        assert!(matches!(
+            ChainParams { min_stake: floor, ..devnet() }.validate(),
+            Err(ConfigError::MinStakeTooSmall { .. })
+        ));
+        ChainParams { min_stake: floor + U256::from(1), ..devnet() }.validate().unwrap();
+        let huge = U256::MAX / U256::from(2);
+        assert!(matches!(
+            ChainParams { min_stake: huge, vp_unit: huge + U256::from(1), ..devnet() }.validate(),
+            Err(ConfigError::MinStakeBelowVpUnit { .. })
+        ));
+        let p = devnet().with_overrides("min_stake = '300000000000000000000000'").unwrap();
+        assert_eq!(p.min_stake, U256::from(300_000u64) * U256::from(10u64).pow(U256::from(18)));
+        assert!(devnet().with_overrides("s_min = '300000000000000000000000'").is_err());
     }
     #[test]
     fn zero_values_hit_the_range_checks() {

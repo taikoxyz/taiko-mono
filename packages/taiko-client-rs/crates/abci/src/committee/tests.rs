@@ -7,11 +7,16 @@ use alloy_primitives::{address, b256};
 const CHAIN: u64 = 167001;
 const REGISTRY: Address = address!("00000000000000000000000000000000E7A10002");
 const OTHER: Address = address!("00000000000000000000000000000000E7A10001");
+/// The devnet parameters with the fixtures' `vp_unit` ([`crate::test_utils::fixture_vp_unit`]).
 fn devnet() -> ChainParams {
-    ChainParams::builtin(CHAIN).unwrap()
+    ChainParams {
+        vp_unit: crate::test_utils::fixture_vp_unit(),
+        ..ChainParams::builtin(CHAIN).unwrap()
+    }
 }
+/// `n` fixture stake units of 250,000 TAIKO ([`crate::test_utils::stake_unit`]).
 fn ether(n: u64) -> U256 {
-    U256::from(n) * U256::from(10u64).pow(U256::from(18))
+    U256::from(n) * crate::test_utils::stake_unit()
 }
 fn vector_record() -> CommitteeRecord {
     CommitteeRecord {
@@ -35,12 +40,24 @@ fn key(v: &serde_json::Value) -> ConsensusKey {
 #[test]
 fn v1_configuration_matches_seven_word_vector() {
     let v = vectors();
+    let inputs = &v["committee_config"]["inputs"];
+    let number = |name: &str| inputs[name].as_str().unwrap().parse::<U256>().unwrap();
     let mut p = devnet();
-    p.registry = v["deployment"]["registry"].as_str().unwrap().parse().unwrap();
+    p.registry = inputs["registry"].as_str().unwrap().parse().unwrap();
+    p.vp_unit = number("vp_unit");
+    // The fifth word is the registry's minStake (ENC-A-36); the pinned vectors still call it
+    // s_min.
+    p.min_stake = number("s_min");
+    p.n_max = number("n_max").to();
+    p.unsettled_limit = number("unsettled_limit").to();
     assert_eq!(
         committee_config_hash(&p),
         v["committee_config"]["hash"].as_str().unwrap().parse::<B256>().unwrap()
     );
+    // 36.e: the fifth word is minStake itself, not an independently chosen threshold.
+    let mut other = p.clone();
+    other.min_stake += U256::from(1);
+    assert_ne!(committee_config_hash(&other), committee_config_hash(&p));
     let original = committee_config_hash(&p);
     p.unsettled_limit += 6;
     assert_ne!(committee_config_hash(&p), original);
@@ -461,7 +478,7 @@ fn direct_selection_stake_floor_activation_exit_and_ineligible_duplicates() {
     let mut entries = sample_entries(3);
     entries[0].active_from_l1 = 100;
     entries[1].exit_effective_l1 = 100;
-    entries[2].eff_stake = params.s_min - U256::from(1);
+    entries[2].eff_stake = params.min_stake - U256::from(1);
     let mut inactive_duplicate = entries[0].clone();
     inactive_duplicate.active_from_l1 = 101;
     entries.push(inactive_duplicate);
@@ -522,7 +539,7 @@ fn record_and_config_hashes_bind_every_canonical_field() {
     changes[0].l2_chain_id += 1;
     changes[1].registry = OTHER;
     changes[2].vp_unit += U256::from(1);
-    changes[3].s_min += U256::from(1);
+    changes[3].min_stake += U256::from(1);
     changes[4].n_max += 1;
     changes[5].unsettled_limit += 6;
     for changed in changes {
@@ -677,7 +694,7 @@ fn derivation_checks_zero_unit_and_stake_overflow() {
     params.vp_unit = U256::ZERO;
     assert_eq!(derive(&snapshot, 100, 0, &params), Err(CommitteeError::ZeroVpUnit));
     params.vp_unit = U256::MAX / U256::from(2);
-    params.s_min = params.vp_unit;
+    params.min_stake = params.vp_unit;
     for entry in &mut snapshot.entries {
         entry.eff_stake = U256::MAX;
     }

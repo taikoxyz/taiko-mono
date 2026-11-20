@@ -89,6 +89,7 @@ impl GenesisSpec {
             committee_e0: None,
             params: ChainParams {
                 unsettled_limit: 12,
+                vp_unit: super::fixture_vp_unit(),
                 ..ChainParams::builtin(protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID).unwrap()
             },
         }

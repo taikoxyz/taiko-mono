@@ -294,7 +294,7 @@ impl ContractFixture {
             committeeRecordHash: record_hash(L2_CHAIN_ID, &committee.record),
             committeeConfig: IEtnaInbox::CommitteeConfig {
                 vpUnit: params.vp_unit,
-                sMin: params.s_min,
+                sMin: params.min_stake,
                 nMax: U256::from(params.n_max),
                 unsettledLimit: U256::from(params.unsettled_limit),
             },

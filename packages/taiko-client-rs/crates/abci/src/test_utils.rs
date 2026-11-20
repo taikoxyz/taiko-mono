@@ -127,6 +127,23 @@ impl TestState {
         self.state_root
     }
 
+    /// This state with `edits` applied to the storage of `address` (a zero value clears the
+    /// slot), its storage root and the state root recomputed.
+    pub(crate) fn with_storage(&self, address: Address, edits: &[(B256, U256)]) -> Self {
+        let mut accounts = self.accounts.clone();
+        let account = accounts.get_mut(&address).expect("address is part of the test state");
+        for (slot, value) in edits {
+            if value.is_zero() {
+                account.storage.remove(slot);
+            } else {
+                account.storage.insert(*slot, *value);
+            }
+        }
+        account.storage_root = build_trie(&account.storage_leaves(), vec![]).0;
+        let state_root = build_trie(&account_leaves(&accounts), vec![]).0;
+        Self { accounts, state_root }
+    }
+
     /// Whether `address` is part of the state.
     pub(crate) fn has_account(&self, address: Address) -> bool {
         self.accounts.contains_key(&address)
@@ -564,9 +581,22 @@ pub(crate) fn committee_witness(
     }
 }
 
-/// `n` registry entries that are eligible at any cutoff below `2^48 - 1` under the devnet
-/// parameters: deterministic, distinct keys [`test_key`]`(i + 1)`, stake `(i + 1)` TAIKO,
-/// active from L1 block 0 and no exit (`exitEffectiveL1` is the `uint48` maximum).
+/// The fixtures' stake unit: the devnet registry's `minStake`, 250,000 TAIKO, above the
+/// `10^27 / 4096` floor of START-10-12.
+pub(crate) fn stake_unit() -> U256 {
+    U256::from(250_000u64) * U256::from(10u64).pow(U256::from(18u64))
+}
+
+/// The fixtures' `vp_unit`: one [`stake_unit`] gives 10^9 voting power, so a fixture member's
+/// power is its stake in stake units times 10^9.
+pub(crate) fn fixture_vp_unit() -> U256 {
+    stake_unit() / U256::from(1_000_000_000u64)
+}
+
+/// `n` registry entries that are eligible at any cutoff below `2^48 - 1` under the fixture
+/// parameters: deterministic, distinct keys [`test_key`]`(i + 1)`, stake `(i + 1)` stake units
+/// ([`stake_unit`]), active from L1 block 0 and no exit (`exitEffectiveL1` is the `uint48`
+/// maximum).
 pub(crate) fn sample_entries(n: usize) -> Vec<RegistryEntry> {
     (0..n)
         .map(|i| {
@@ -574,7 +604,7 @@ pub(crate) fn sample_entries(n: usize) -> Vec<RegistryEntry> {
             RegistryEntry {
                 ck_prefix: pubkey.prefix(),
                 ck_x: pubkey.x(),
-                eff_stake: U256::from(i + 1) * U256::from(10u64).pow(U256::from(18u64)),
+                eff_stake: U256::from(i + 1) * stake_unit(),
                 active_from_l1: 0,
                 exit_effective_l1: (1 << 48) - 1,
             }
@@ -1032,7 +1062,7 @@ mod tests {
         let pubkeys: std::collections::BTreeSet<_> =
             entries.iter().map(|e| e.consensus_key().unwrap()).collect();
         assert_eq!(pubkeys.len(), 4);
-        assert_eq!(entries[3].eff_stake, U256::from(4_000_000_000_000_000_000u64));
+        assert_eq!(entries[3].eff_stake, U256::from(4) * stake_unit());
     }
 
     #[test]

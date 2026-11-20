@@ -344,7 +344,7 @@ pub fn committee_config_hash(params: &ChainParams) -> B256 {
             word(params.l2_chain_id),
             B256::from(U256::from_be_slice(params.registry.as_slice())),
             word(params.vp_unit),
-            word(params.s_min),
+            word(params.min_stake),
             word(params.n_max),
             word(params.unsettled_limit),
         ]
@@ -430,7 +430,7 @@ pub fn verify_snapshot<P: RegistryProof>(
     Ok(Snapshot { checkpoint_index: index, l1_block, entries: entries.to_vec() })
 }
 
-/// Derives a committee from entries active at cutoff with stake >= max(s_min, vp_unit).
+/// Derives a committee from entries active at cutoff with stake >= min_stake (COMM-4.3-3).
 /// Rejects duplicate eligible keys, ranks descending stake then ascending set key, and keeps
 /// at most n_max members. Output is encoded in set-key order with floor(stake/vp_unit) powers.
 /// Empty sets, invalid keys and arithmetic/power overflows fail closed.
@@ -522,13 +522,12 @@ fn select(
         .checked_sub(Schedule::E0)
         .and_then(|d| d.checked_add(1))
         .ok_or(CommitteeError::EpochOutOfRange(target_epoch))?;
-    let min_stake = params.s_min.max(params.vp_unit);
 
     // `(set key, slot, entry)`; `slot` is the entry's index in the snapshot.
     let mut eligible: Vec<(B256, usize, &RegistryEntry)> = entries
         .iter()
         .enumerate()
-        .filter(|(_, e)| is_base_eligible(e, cutoff, min_stake))
+        .filter(|(_, e)| is_base_eligible(e, cutoff, params.min_stake))
         .map(|(slot, e)| Ok((set_key(params.l2_chain_id, e.consensus_key()?), slot, e)))
         .collect::<Result<_, CommitteeError>>()?;
     // Adjacent equal set keys identify duplicate eligible consensus identities.
@@ -560,7 +559,10 @@ fn select(
     Ok(Selection { k, members, total_power })
 }
 
-/// Computes canonical positive voting power from eligible stake, with checked narrowing.
+/// Computes canonical positive voting power from eligible stake, with checked narrowing. A stake
+/// below `min_stake`, or below `vp_unit` under parameters that skipped
+/// [`ChainParams::validate`], would get no positive power and rejects the derivation
+/// (COMM-4.3-8).
 fn member_power(
     pubkey: ConsensusKey,
     eff_stake: U256,
@@ -569,7 +571,7 @@ fn member_power(
     if params.vp_unit.is_zero() {
         return Err(CommitteeError::ZeroVpUnit);
     }
-    if eff_stake < params.s_min.max(params.vp_unit) {
+    if eff_stake < params.min_stake || eff_stake < params.vp_unit {
         return Err(CommitteeError::IneligibleStake { pubkey });
     }
     u64::try_from(eff_stake / params.vp_unit).map_err(|_| CommitteeError::PowerOverflow { pubkey })
