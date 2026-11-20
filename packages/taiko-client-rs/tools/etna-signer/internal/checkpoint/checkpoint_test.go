@@ -18,6 +18,7 @@ import (
 	"github.com/cometbft/cometbft/crypto/secp256k1eth"
 	"github.com/cometbft/cometbft/evidence"
 	cmtjson "github.com/cometbft/cometbft/libs/json"
+	statepb "github.com/cometbft/cometbft/proto/tendermint/state"
 	pb "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmtversion "github.com/cometbft/cometbft/proto/tendermint/version"
 	sm "github.com/cometbft/cometbft/state"
@@ -278,6 +279,15 @@ func TestStoredProposerAtSwitch(t *testing.T) {
 			}
 		}
 	}
+	// Vector 3.r: the authenticated index names a member in canonical set order, here the
+	// second, never a member chosen another way.
+	p, term, vals = fixture(t)
+	next = types.NewValidatorSet([]*types.Validator{types.NewValidator(vals.Validators[0].PubKey, 10), types.NewValidator(key.PubKey(), 20)})
+	p.ValidatorState = makePreimage(100001, vals, next, 0, 1)
+	home, _ = install(t, p, term)
+	if got := loadState(t, home).NextValidators.Proposer; !bytes.Equal(got.Address, next.Validators[1].Address) || bytes.Equal(next.Validators[0].Address, next.Validators[1].Address) {
+		t.Fatal("stored proposer differs from the authenticated index in canonical order")
+	}
 }
 
 func duplicateEvidence(t *testing.T, h int64, at time.Time, vals *types.ValidatorSet) *types.DuplicateVoteEvidence {
@@ -335,37 +345,37 @@ func addEvidence(t *testing.T, p *stockPackage, term *terminal, ev types.Evidenc
 	p.Blocks[0].Commit = hexBytes(cb)
 	term.id = id
 }
-func TestEvidenceBelowWindowCommittedMarkerAndNewEvidence(t *testing.T) {
+
+// CONS-3.1-10, DATA-5.4-3/5: a window block with evidence is refused, even though
+// authenticate_import already halts on it, and an installed home starts with an empty stock
+// evidence pool that still verifies new evidence at s.
+func TestInstallRefusesEvidenceAndStartsWithAnEmptyPool(t *testing.T) {
 	p, term, vals := fixture(t)
-	below := duplicateEvidence(t, 99990, time.Unix(150, 0).UTC(), vals)
-	addEvidence(t, p, &term, below)
-	home, _ := install(t, p, term)
-	sd, e := dbm.NewGoLevelDB("state", filepath.Join(home, "data"))
+	addEvidence(t, p, &term, duplicateEvidence(t, 100000, time.Unix(150, 0).UTC(), vals))
+	if _, e := Install(filepath.Join(t.TempDir(), "comet"), writeStockDir(t, p), term.appHash, testNMax); e == nil || !strings.Contains(e.Error(), "carries evidence (CONS-3.1-10)") {
+		t.Fatalf("installed a window block with evidence: %v", e)
+	}
+	p, term, vals = fixture(t)
+	home, dir := install(t, p, term)
+	data := filepath.Join(home, "data")
+	sd, e := dbm.NewGoLevelDB("state", data)
 	if e != nil {
 		t.Fatal(e)
 	}
-	defer sd.Close()
-	bd, e := dbm.NewGoLevelDB("blockstore", filepath.Join(home, "data"))
+	bd, e := dbm.NewGoLevelDB("blockstore", data)
 	if e != nil {
 		t.Fatal(e)
 	}
-	defer bd.Close()
-	ed, e := dbm.NewGoLevelDB("evidence", filepath.Join(home, "data"))
+	ed, e := dbm.NewGoLevelDB("evidence", data)
 	if e != nil {
 		t.Fatal(e)
 	}
-	defer ed.Close()
-	store := sm.NewStore(sd, sm.StoreOptions{})
-	blocks := bs.NewBlockStore(bd)
-	pool, e := evidence.NewPool(ed, store, blocks)
+	pool, e := evidence.NewPool(ed, sm.NewStore(sd, sm.StoreOptions{}), bs.NewBlockStore(bd))
 	if e != nil {
 		t.Fatal(e)
 	}
-	if blocks.LoadBlockMeta(99990) != nil {
-		t.Fatal("invented below-window block")
-	}
-	if e = pool.CheckEvidence(types.EvidenceList{below}); e == nil || !strings.Contains(e.Error(), "already committed") {
-		t.Fatalf("missing committed duplicate marker: %v", e)
+	if pending, size := pool.PendingEvidence(1 << 20); pool.Size() != 0 || len(pending) != 0 || size != 0 {
+		t.Fatalf("imported pool holds evidence: %d %v", pool.Size(), pending)
 	}
 	fresh := duplicateEvidence(t, 100001, time.Unix(200, 0).UTC(), vals)
 	if e = pool.CheckEvidence(types.EvidenceList{fresh}); e != nil {
@@ -374,9 +384,21 @@ func TestEvidenceBelowWindowCommittedMarkerAndNewEvidence(t *testing.T) {
 	if e = pool.CheckEvidence(types.EvidenceList{fresh, fresh}); e == nil {
 		t.Fatal("stock accepted duplicate evidence")
 	}
+	// The reopen check refuses any row in the evidence store, such as a committed marker.
+	if e = ed.SetSync([]byte("marker"), []byte{1}); e != nil {
+		t.Fatal(e)
+	}
+	if e = errors.Join(sd.Close(), bd.Close(), ed.Close()); e != nil {
+		t.Fatal(e)
+	}
+	if e = reopen(t, home, dir, term); e == nil || !strings.Contains(e.Error(), "evidence store is not empty") {
+		t.Fatalf("reopen accepted a nonempty evidence store: %v", e)
+	}
 }
 
-func TestTerminalCommitUsesStockKeysWithoutSuccessorBlock(t *testing.T) {
+// DATA-5.4-3: s's verified terminal commit is installed under the block-commit lookup C:s as
+// well as the seen-commit lookup SC:s, with the input bytes, and no successor block is invented.
+func TestTerminalCommitIsInstalledUnderBothCommitLookups(t *testing.T) {
 	p, term, _ := fixture(t)
 	home, dir := install(t, p, term)
 	if e := reopen(t, home, dir, term); e != nil {
@@ -387,30 +409,26 @@ func TestTerminalCommitUsesStockKeysWithoutSuccessorBlock(t *testing.T) {
 		t.Fatal(e)
 	}
 	blocks := bs.NewBlockStore(db)
-	// A stock node at state s has SC:s but no C:s, so stock evidence's
-	// signed-header lookup at height s must fail here too.
-	if blocks.LoadBlockCommit(100001) != nil {
-		t.Fatal("installed C:s that a stock node at state s does not have")
-	}
-	seen := blocks.LoadSeenCommit(100001)
-	if seen == nil || !seen.BlockID.Equals(term.id) {
-		t.Fatal("terminal seen commit missing")
+	for name, stored := range map[string]*types.Commit{"C:s": blocks.LoadBlockCommit(100001), "SC:s": blocks.LoadSeenCommit(100001)} {
+		if stored == nil || !stored.BlockID.Equals(term.id) {
+			t.Fatalf("terminal %s missing", name)
+		}
+		raw, e := stored.ToProto().Marshal()
+		if e != nil || hexBytes(raw) != p.Blocks[0].Commit {
+			t.Fatalf("terminal %s changed the input commit", name)
+		}
 	}
 	if blocks.LoadBlock(100002) != nil {
 		t.Fatal("invented successor block")
 	}
-	raw, e := seen.ToProto().Marshal()
-	if e != nil {
-		t.Fatal(e)
-	}
-	if e = db.SetSync([]byte("C:100001"), raw); e != nil {
+	if e = db.DeleteSync([]byte("C:100001")); e != nil {
 		t.Fatal(e)
 	}
 	if e = db.Close(); e != nil {
 		t.Fatal(e)
 	}
-	if e = reopen(t, home, dir, term); e == nil || !strings.Contains(e.Error(), "terminal C:s diverges from stock") {
-		t.Fatalf("reopen accepted a terminal C:s that stock does not write: %v", e)
+	if e = reopen(t, home, dir, term); e == nil || !strings.Contains(e.Error(), "C:100001 differs from the input commit") {
+		t.Fatalf("reopen accepted a missing terminal C:s: %v", e)
 	}
 }
 
@@ -466,33 +484,28 @@ func lightClientAttackVerdict(t *testing.T, data string, vals *types.ValidatorSe
 	return pool.CheckEvidence(types.EvidenceList{ev})
 }
 
-func TestLightClientAttackAtTerminalHeightMatchesStock(t *testing.T) {
+// Light-client evidence loads a signed header at its common height; with C:s installed the
+// stock pool verifies one whose common height is s (DATA-5.4-3).
+func TestLightClientAttackAtTerminalHeightVerifies(t *testing.T) {
 	p, term, vals := fixture(t)
 	home, _ := install(t, p, term)
 	data := filepath.Join(home, "data")
-	// A stock node at state s has no C:s, so its signed-header lookup at
-	// common height s fails. The imported node must give the same verdict.
-	if e := lightClientAttackVerdict(t, data, vals); e == nil || !strings.Contains(e.Error(), "don't have commit at height #100001") {
-		t.Fatalf("imported verdict at state s differs from stock: %v", e)
+	if e := lightClientAttackVerdict(t, data, vals); e != nil {
+		t.Fatalf("stock rejected light-client evidence at common height s: %v", e)
 	}
-	// Control: with a C:s row the same evidence verifies, so only the key
-	// layout decides the verdict above.
+	// Control: without C:s the same evidence fails the stock signed-header lookup.
 	db, e := dbm.NewGoLevelDB("blockstore", data)
 	if e != nil {
 		t.Fatal(e)
 	}
-	raw, e := bs.NewBlockStore(db).LoadSeenCommit(100001).ToProto().Marshal()
-	if e != nil {
-		t.Fatal(e)
-	}
-	if e = db.SetSync([]byte("C:100001"), raw); e != nil {
+	if e = db.DeleteSync([]byte("C:100001")); e != nil {
 		t.Fatal(e)
 	}
 	if e = db.Close(); e != nil {
 		t.Fatal(e)
 	}
-	if e = lightClientAttackVerdict(t, data, vals); e != nil {
-		t.Fatalf("control evidence rejected with C:s present: %v", e)
+	if e = lightClientAttackVerdict(t, data, vals); e == nil || !strings.Contains(e.Error(), "don't have commit at height #100001") {
+		t.Fatalf("control evidence without C:s: %v", e)
 	}
 }
 
@@ -604,6 +617,134 @@ func TestHistoricalValidatorLookupsAtChangesAndPeriodicCheckpoints(t *testing.T)
 	}
 }
 
+// DATA-5.4-3: before P2P, reopen reads stock LoadBlockMeta(x) and refuses a meta whose header
+// or time differs from the authenticated block, even where LoadBlock still reassembles the parts.
+func TestReopenRefusesABlockMetaThatDiffersFromTheAuthenticatedHeader(t *testing.T) {
+	p, term, _ := windowFixture(t)
+	home, dir := install(t, p, term)
+	db, e := dbm.NewGoLevelDB("blockstore", filepath.Join(home, "data"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	meta := bs.NewBlockStore(db).LoadBlockMeta(100001)
+	meta.Header.Time = meta.Header.Time.Add(time.Nanosecond)
+	raw, e := meta.ToProto().Marshal()
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = db.SetSync([]byte("H:100001"), raw); e != nil {
+		t.Fatal(e)
+	}
+	if e = db.Close(); e != nil {
+		t.Fatal(e)
+	}
+	if e = reopen(t, home, dir, term); e == nil || !strings.Contains(e.Error(), "block meta at 100001") {
+		t.Fatalf("reopen accepted a changed block meta: %v", e)
+	}
+}
+
+// rewriteValidatorsInfo replaces the stored ValidatorsInfo at height in an installed home.
+func rewriteValidatorsInfo(t *testing.T, home string, height int64, info *statepb.ValidatorsInfo) {
+	t.Helper()
+	db, e := dbm.NewGoLevelDB("state", filepath.Join(home, "data"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	raw, e := info.Marshal()
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = db.SetSync(validatorsKey(height), raw); e != nil {
+		t.Fatal(e)
+	}
+	if e = db.Close(); e != nil {
+		t.Fatal(e)
+	}
+}
+
+// Vector 3.j: the periodic save height 100,000 holds a full set. A pointer there makes stock
+// LoadValidators fail for that height and a later window height, and reopen refuses it.
+func TestPeriodicSaveHeightNeedsAFullSet(t *testing.T) {
+	p, term, _ := windowFixture(t)
+	home, dir := install(t, p, term)
+	rewriteValidatorsInfo(t, home, 100000, &statepb.ValidatorsInfo{LastHeightChanged: 99999})
+	db, e := dbm.NewGoLevelDB("state", filepath.Join(home, "data"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = sm.NewStore(db, sm.StoreOptions{}).LoadValidators(100001); e == nil {
+		t.Fatal("stock lookup at a later window height survived a missing periodic set")
+	}
+	if e = db.Close(); e != nil {
+		t.Fatal(e)
+	}
+	if e = reopen(t, home, dir, term); e == nil || !strings.Contains(e.Error(), "historical validators mismatch") {
+		t.Fatalf("reopen accepted a pointer at a periodic save height: %v", e)
+	}
+}
+
+// Vector 3.q: keys and powers that hash to the header's are not enough; a stored full set
+// without a proposer, or naming a non-member, fails stock ValidateBasic and reopen refuses it.
+func TestStoredFullSetsNeedAMemberProposer(t *testing.T) {
+	outsider := types.NewValidator(secp256k1eth.PrivKey(bytes.Repeat([]byte{9}, 32)).PubKey(), 10)
+	for name, edit := range map[string]func(*types.ValidatorSet){
+		"no proposer":         func(set *types.ValidatorSet) { set.Proposer = nil },
+		"non-member proposer": func(set *types.ValidatorSet) { set.Proposer = outsider },
+	} {
+		t.Run(name, func(t *testing.T) {
+			p, term, sets := windowFixture(t)
+			home, dir := install(t, p, term)
+			set := sets[3].Copy()
+			edit(set)
+			pv := &pb.ValidatorSet{}
+			for _, v := range set.Validators {
+				vp, e := v.ToProto()
+				if e != nil {
+					t.Fatal(e)
+				}
+				pv.Validators = append(pv.Validators, vp)
+			}
+			if set.Proposer != nil {
+				vp, e := set.Proposer.ToProto()
+				if e != nil {
+					t.Fatal(e)
+				}
+				pv.Proposer = vp
+			}
+			rewriteValidatorsInfo(t, home, 100002, &statepb.ValidatorsInfo{LastHeightChanged: 100002, ValidatorSet: pv})
+			if e := reopen(t, home, dir, term); e == nil || !strings.Contains(e.Error(), "validator set at 100002") {
+				t.Fatalf("reopen accepted a stored set with %s: %v", name, e)
+			}
+		})
+	}
+}
+
+// checkFullSet accepts a stock set and refuses one whose stored proposer is missing, not a
+// member, or a member with another power or priority.
+func TestCheckFullSetRequiresStockValidityAndAMemberProposer(t *testing.T) {
+	key1 := secp256k1eth.PrivKey(bytes.Repeat([]byte{7}, 32))
+	key2 := secp256k1eth.PrivKey(bytes.Repeat([]byte{8}, 32))
+	base := types.NewValidatorSet([]*types.Validator{types.NewValidator(key1.PubKey(), 10), types.NewValidator(key2.PubKey(), 20)})
+	if e := checkFullSet(base); e != nil {
+		t.Fatalf("refused a stock set: %v", e)
+	}
+	for name, edit := range map[string]func(*types.ValidatorSet){
+		"no proposer": func(s *types.ValidatorSet) { s.Proposer = nil },
+		"non-member proposer": func(s *types.ValidatorSet) {
+			s.Proposer = types.NewValidator(secp256k1eth.PrivKey(bytes.Repeat([]byte{9}, 32)).PubKey(), 10)
+		},
+		"proposer power":    func(s *types.ValidatorSet) { s.Proposer = s.Proposer.Copy(); s.Proposer.VotingPower++ },
+		"proposer priority": func(s *types.ValidatorSet) { s.Proposer = s.Proposer.Copy(); s.Proposer.ProposerPriority++ },
+		"empty":             func(s *types.ValidatorSet) { s.Validators = nil },
+	} {
+		set := base.Copy()
+		edit(set)
+		if e := checkFullSet(set); e == nil {
+			t.Fatalf("accepted a set with %s", name)
+		}
+	}
+}
+
 func TestRejectsGenesisHeightNormalization(t *testing.T) {
 	p, term, _ := fixture(t)
 	p.Genesis = bytes.Replace(p.Genesis, []byte(`"initial_height":"71"`), []byte(`"initial_height":"0"`), 1)
@@ -676,8 +817,8 @@ func linkedFixture(t *testing.T) (*stockPackage, terminal) {
 	return p, term
 }
 
-// Stock SaveBlock keeps each nonterminal commit as the successor's C:h and the terminal one as
-// SC:s. Reopen must compare those actual records with the input commit bytes.
+// Stock SaveBlock keeps each nonterminal commit as the successor's C:h; the installer adds C:s
+// beside SC:s. Reopen must compare those actual records with the input commit bytes.
 func TestReopensActualSuccessorCommits(t *testing.T) {
 	p, term := linkedFixture(t)
 	home, dir := install(t, p, term)
@@ -691,13 +832,6 @@ func TestReopensActualSuccessorCommits(t *testing.T) {
 	blocks := bs.NewBlockStore(db)
 	for _, height := range []int64{100001, 100002} {
 		stored := blocks.LoadBlockCommit(height)
-		if height == 100002 {
-			// Stock keeps the terminal commit only as SC:s until s+1 is saved.
-			if stored != nil {
-				t.Fatal("installed terminal C:s")
-			}
-			stored = blocks.LoadSeenCommit(height)
-		}
 		if stored == nil {
 			t.Fatal("missing actual stored commit")
 		}
