@@ -198,7 +198,7 @@ impl Devnet {
         &self.keys
     }
 
-    /// The registry entry the devnet plants for validator `i` (10 TAIKO, always active).
+    /// The registry entry the devnet plants for validator `i` (250,000 TAIKO, always active).
     pub fn registry_entry(&self, i: usize) -> RegistryEntry {
         registry_entry(self.keys[i].pubkey(), U256::from(VALIDATOR_STAKE))
     }
