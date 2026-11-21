@@ -43,18 +43,41 @@ contract EtnaSwitchGuardTest is InboxTestBase {
 
     function test_checkDeadline_OnTimeExactlyAtTheLead() external {
         vm.warp(_FORK_TIME - _LEAD);
-        _guard.checkDeadline(_FORK_TIME, _LEAD);
+        _guard.checkDeadline(_FORK_TIME, _LEAD, _FI_MARGIN);
     }
 
     function test_checkDeadline_RevertWhen_OneSecondPastTheLead() external {
         vm.warp(_FORK_TIME - _LEAD + 1);
         vm.expectRevert(EtnaSwitchGuard.ProposalLeadMissed.selector);
-        _guard.checkDeadline(_FORK_TIME, _LEAD);
+        _guard.checkDeadline(_FORK_TIME, _LEAD, _FI_MARGIN);
     }
 
     function test_checkDeadline_RevertWhen_LeadExceedsTheForkTime() external {
         vm.expectRevert(EtnaSwitchGuard.ProposalLeadMissed.selector);
-        _guard.checkDeadline(_LEAD, _LEAD + 1);
+        _guard.checkDeadline(_LEAD, _LEAD + 1, _FI_MARGIN);
+    }
+
+    /// @dev Vector 5d.f: the batch cannot execute at or after `ETNA_FORK_TIME - FI_MARGIN`, the
+    /// forced-inclusion cutoff its Unzen Inbox upgrade installs. The smallest accepted lead,
+    /// `FI_MARGIN + 1`, is on time one second before the cutoff and late at it; a lead of
+    /// `FI_MARGIN`, which would be on time at the cutoff, is refused at any time.
+    function test_checkDeadline_RevertWhen_AtOrAfterTheForcedInclusionCutoff() external {
+        uint48 cutoff = _FORK_TIME - _FI_MARGIN;
+        vm.warp(cutoff - 1);
+        _guard.checkDeadline(_FORK_TIME, _FI_MARGIN + 1, _FI_MARGIN);
+
+        vm.warp(cutoff);
+        vm.expectRevert(EtnaSwitchGuard.ProposalLeadMissed.selector);
+        _guard.checkDeadline(_FORK_TIME, _FI_MARGIN + 1, _FI_MARGIN);
+        vm.expectRevert(EtnaSwitchGuard.ProposalLeadNotAboveFiMargin.selector);
+        _guard.checkDeadline(_FORK_TIME, _FI_MARGIN, _FI_MARGIN);
+    }
+
+    function test_checkDeadline_RevertWhen_LeadNotAboveTheFiMargin() external {
+        vm.expectRevert(EtnaSwitchGuard.ProposalLeadNotAboveFiMargin.selector);
+        _guard.checkDeadline(_FORK_TIME, _FI_MARGIN, _FI_MARGIN);
+        vm.expectRevert(EtnaSwitchGuard.ProposalLeadNotAboveFiMargin.selector);
+        _guard.checkDeadline(_FORK_TIME, _FI_MARGIN - 1, _FI_MARGIN);
     }
 
     // ---------------------------------------------------------------
@@ -147,6 +170,16 @@ contract EtnaSwitchGuardTest is InboxTestBase {
         _checkPostponement(_schedule(), _NEW_FORK_TIME, _NEW_LEAD, _DEADLINE);
     }
 
+    /// @dev Vector 5d.f for the replacement cutoffs: the new lead must exceed the new FI margin,
+    /// so the batch also executes before the new forced-inclusion cutoff.
+    function test_checkPostponement_RevertWhen_NewLeadNotAboveTheNewFiMargin() external {
+        uint48 cutoff = _FORK_TIME - _FI_MARGIN;
+        vm.warp(cutoff - 1);
+        _checkPostponement(_schedule(), _NEW_FORK_TIME, _FI_MARGIN + 1, cutoff);
+        vm.expectRevert(EtnaSwitchGuard.ProposalLeadNotAboveFiMargin.selector);
+        _checkPostponement(_schedule(), _NEW_FORK_TIME, _FI_MARGIN, cutoff);
+    }
+
     /// @dev 5d.k: submitted before B, included at it.
     function test_checkPostponement_RevertWhen_IncludedAtTheDeadline() external {
         vm.warp(_DEADLINE);
@@ -182,9 +215,9 @@ contract EtnaSwitchGuardTest is InboxTestBase {
     function test_checkPostponement_RevertWhen_DeadlineAfterTheEarlierCutoff() external {
         uint48 cutoff = _FORK_TIME - _FI_MARGIN;
         vm.warp(cutoff - 1);
-        _checkPostponement(_schedule(), _NEW_FORK_TIME, 1, cutoff);
+        _checkPostponement(_schedule(), _NEW_FORK_TIME, _FI_MARGIN + 1, cutoff);
         vm.expectRevert(EtnaSwitchGuard.DeadlineAfterCutoff.selector);
-        _checkPostponement(_schedule(), _NEW_FORK_TIME, 1, cutoff + 1);
+        _checkPostponement(_schedule(), _NEW_FORK_TIME, _FI_MARGIN + 1, cutoff + 1);
     }
 
     function test_checkPostponement_RevertWhen_NewForkTimeNotLater() external {
@@ -213,9 +246,9 @@ contract EtnaSwitchGuardTest is InboxTestBase {
         private
         view
     {
-        _guard.checkPostponement(
-            address(inbox), address(_etna), _old, _newForkTime, _newLead, _deadline
-        );
+        EtnaSwitchGuard.Schedule memory next = _schedule();
+        next.etnaForkTime = _newForkTime;
+        _guard.checkPostponement(address(inbox), address(_etna), _old, next, _newLead, _deadline);
     }
 
     function _schedule() private pure returns (EtnaSwitchGuard.Schedule memory) {

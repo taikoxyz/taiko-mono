@@ -111,7 +111,7 @@ the artifact's `immutableReferences`, and requires it to equal the deployed code
 
 | #    | Target           | Call                                                                                    |
 | ---- | ---------------- | --------------------------------------------------------------------------------------- |
-| 0    | guard            | `checkDeadline(ETNA_FORK_TIME, PROPOSAL_LEAD)`                                          |
+| 0    | guard            | `checkDeadline(ETNA_FORK_TIME, PROPOSAL_LEAD, FI_MARGIN)`                               |
 | 1    | Unzen Inbox      | `upgradeTo(UNZEN_INBOX_IMPLEMENTATION)`                                                 |
 | 2    | L1 SignalService | `upgradeTo(SIGNAL_SERVICE_IMPLEMENTATION)`                                              |
 | 3    | guard            | `checkL1SignalService(SIGNAL_SERVICE, SIGNAL_SERVICE_IMPLEMENTATION, codehash)`         |
@@ -120,7 +120,10 @@ the artifact's `immutableReferences`, and requires it to equal the deployed code
 | last | guard            | `checkSchedule(UNZEN_INBOX, INBOX_PROXY, (ETNA_FORK_TIME, PROPOSE_MARGIN, FI_MARGIN))`  |
 
 Executed later than `ETNA_FORK_TIME - PROPOSAL_LEAD`, the first action reverts and nothing is
-installed; executing exactly at the lead is on time. Actions 1, 2 and 4 run in one transaction, so
+installed; executing exactly at the lead is on time. It also reverts unless
+`PROPOSAL_LEAD > FI_MARGIN`, so the batch can never execute at or after
+`ETNA_FORK_TIME - FI_MARGIN`, the forced-inclusion cutoff its Unzen Inbox upgrade installs (vector
+5d.f). Actions 1, 2 and 4 run in one transaction, so
 no Unzen `prove` lands between them. `init` does not write the start.
 
 ## Postponement
@@ -136,7 +139,7 @@ actions are:
 
 | #    | Target        | Call                                                                                        |
 | ---- | ------------- | ------------------------------------------------------------------------------------------- |
-| 0    | guard         | `checkPostponement(UNZEN_INBOX, INBOX_PROXY, oldSchedule, newForkTime, newProposalLead, B)` |
+| 0    | guard         | `checkPostponement(UNZEN_INBOX, INBOX_PROXY, oldSchedule, newSchedule, newProposalLead, B)` |
 | 1    | Unzen Inbox   | `upgradeTo(UNZEN_INBOX_IMPLEMENTATION)`                                                     |
 | 2    | EtnaInbox     | `upgradeTo(ETNA_INBOX_IMPLEMENTATION)`                                                      |
 | 3…   | sub-verifiers | the `UNZEN_*` then `ETNA_*` trust changes the new schedule needs                            |
@@ -153,7 +156,8 @@ A stateless contract (`contracts/layer1/etna/switch/EtnaSwitchGuard.sol`); every
 it checks is a parameter fixed in the batch. `Schedule` is `(uint48 etnaForkTime, uint48
 proposeMargin, uint48 fiMargin)`.
 
-- `checkDeadline(uint48 etnaForkTime, uint48 proposalLead)`: `ProposalLeadMissed` if
+- `checkDeadline(uint48 etnaForkTime, uint48 proposalLead, uint48 fiMargin)`:
+  `ProposalLeadNotAboveFiMargin` unless `proposalLead > fiMargin`; `ProposalLeadMissed` if
   `block.timestamp + proposalLead > etnaForkTime`.
 - `checkL1SignalService(address signalService, address expectedImpl, bytes32 expectedCodeHash)`:
   `UnexpectedImplementation` unless the proxy's `impl()` is `expectedImpl`; `UnexpectedCodeHash`
@@ -163,11 +167,11 @@ proposeMargin, uint48 fiMargin)`.
   `ForcedInclusionCutoffMismatch` unless the EtnaInbox names the Unzen Inbox and both hold the
   schedule's fork time with the Unzen `proposeCutoff()` and `FI_CUTOFF()` its margins before it;
   `CheckpointPathMismatch` unless the Unzen Inbox's `getConfig().signalService` is the EtnaInbox.
-- `checkPostponement(unzenInbox, etnaInbox, old, newForkTime, newProposalLead, deadline)`, the
-  last three `uint48`: `StartAlreadyWritten` once `etnaStart()` has a hash,
-  the `checkSchedule` errors for `old`, `PostponementDeadlinePassed` unless
-  `block.timestamp < deadline`, `DeadlineAfterCutoff` if the deadline is after the earlier of `old`'s
-  cutoffs, `ForkTimeNotLater` and `ProposalLeadMissed` for the new schedule.
+- `checkPostponement(unzenInbox, etnaInbox, old, new, newProposalLead, deadline)`, the last two
+  `uint48`: `StartAlreadyWritten` once `etnaStart()` has a hash, the `checkSchedule` errors for
+  `old`, `PostponementDeadlinePassed` unless `block.timestamp < deadline`, `DeadlineAfterCutoff` if
+  the deadline is after the earlier of `old`'s cutoffs, then `ForkTimeNotLater`,
+  `ProposalLeadNotAboveFiMargin` and `ProposalLeadMissed` for the new schedule.
 
 ## Cutoffs and retained state
 

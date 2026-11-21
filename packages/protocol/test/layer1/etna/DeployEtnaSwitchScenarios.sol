@@ -305,6 +305,10 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         Controller.Action[] memory actions = _proposals.schedulingActions();
         assertEq(actions.length, 11);
         assertEq(actions[0].target, _guard);
+        assertEq(
+            actions[0].data,
+            abi.encodeCall(EtnaSwitchGuard.checkDeadline, (_FORK_TIME, _LEAD, _FI_MARGIN))
+        );
         assertEq(actions[1].target, address(inbox));
         assertEq(actions[1].data, abi.encodeCall(UUPSUpgradeable.upgradeTo, (_cutoff)));
         assertEq(actions[2].target, address(signalService));
@@ -353,6 +357,18 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         assertEq(signalService.impl(), signalImpl);
         assertTrue(vm.revertToState(snapshot));
         actions[3].data = pinned;
+
+        // 5d.f: a batch whose lead does not exceed FI_MARGIN, which the builder refuses, would be on
+        // time at the forced-inclusion cutoff it installs; it reverts there as a whole.
+        bytes memory deadline = actions[0].data;
+        actions[0].data =
+            abi.encodeCall(EtnaSwitchGuard.checkDeadline, (_FORK_TIME, _FI_MARGIN, _FI_MARGIN));
+        vm.warp(_FORK_TIME - _FI_MARGIN);
+        _expectGuardRevert(EtnaSwitchGuard.ProposalLeadNotAboveFiMargin.selector);
+        _execute(actions);
+        assertEq(_unzenImplementation(), unzenImpl);
+        assertTrue(vm.revertToState(snapshot));
+        actions[0].data = deadline;
 
         vm.warp(_FORK_TIME - _LEAD);
         _execute(actions);

@@ -30,13 +30,23 @@ contract EtnaSwitchGuard {
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice The scheduling proposal's first action (SWITCH.md section 3, action 0): reverts if
-    /// `block.timestamp > _etnaForkTime - _proposalLead`. Executing exactly `_proposalLead` before
-    /// the fork time is on time.
+    /// @notice The scheduling proposal's first action (SWITCH.md section 3, action 0): reverts
+    /// unless `_proposalLead > _fiMargin`, and if `block.timestamp > _etnaForkTime - _proposalLead`.
+    /// Executing exactly `_proposalLead` before the fork time is on time. Together the two keep the
+    /// batch strictly before `_etnaForkTime - _fiMargin`, the forced-inclusion cutoff its Unzen
+    /// Inbox upgrade installs (vector 5d.f).
     /// @param _etnaForkTime The fork time the batch installs.
     /// @param _proposalLead `PROPOSAL_LEAD` in seconds.
-    function checkDeadline(uint48 _etnaForkTime, uint48 _proposalLead) external view {
-        _checkLead(_etnaForkTime, _proposalLead);
+    /// @param _fiMargin The batch's `FI_MARGIN` in seconds.
+    function checkDeadline(
+        uint48 _etnaForkTime,
+        uint48 _proposalLead,
+        uint48 _fiMargin
+    )
+        external
+        view
+    {
+        _checkLead(_etnaForkTime, _proposalLead, _fiMargin);
     }
 
     /// @notice Runs after the L1 SignalService upgrade (SWITCH.md section 3, action 2): reverts
@@ -83,19 +93,21 @@ contract EtnaSwitchGuard {
 
     /// @notice The postponement batch's first action (SWITCH.md section 7): reverts unless the
     /// Etna start is unwritten, the live schedule is exactly `_old`, `block.timestamp < _deadline`,
-    /// the deadline is no later than the earlier of `_old`'s two cutoffs, `_newForkTime` is later
-    /// than `_old`'s and `block.timestamp <= _newForkTime - _newProposalLead`.
+    /// the deadline is no later than the earlier of `_old`'s two cutoffs, `_new`'s fork time is
+    /// later than `_old`'s, `_newProposalLead > _new.fiMargin` and
+    /// `block.timestamp <= _new.etnaForkTime - _newProposalLead`, so the batch also executes before
+    /// the new forced-inclusion cutoff (vector 5d.f).
     /// @param _unzenInbox The Unzen Inbox proxy.
     /// @param _etnaInbox The EtnaInbox proxy.
     /// @param _old The installed schedule the batch replaces.
-    /// @param _newForkTime The fork time the batch installs.
+    /// @param _new The schedule the batch installs.
     /// @param _newProposalLead The `PROPOSAL_LEAD` the new fork time must keep.
     /// @param _deadline B, the batch's exclusive inclusion deadline.
     function checkPostponement(
         address _unzenInbox,
         address _etnaInbox,
         Schedule calldata _old,
-        uint48 _newForkTime,
+        Schedule calldata _new,
         uint48 _newProposalLead,
         uint48 _deadline
     )
@@ -108,18 +120,28 @@ contract EtnaSwitchGuard {
         require(block.timestamp < _deadline, PostponementDeadlinePassed());
         uint256 maxMargin = _old.fiMargin > _old.proposeMargin ? _old.fiMargin : _old.proposeMargin;
         require(uint256(_deadline) + maxMargin <= _old.etnaForkTime, DeadlineAfterCutoff());
-        require(_newForkTime > _old.etnaForkTime, ForkTimeNotLater());
-        _checkLead(_newForkTime, _newProposalLead);
+        require(_new.etnaForkTime > _old.etnaForkTime, ForkTimeNotLater());
+        _checkLead(_new.etnaForkTime, _newProposalLead, _new.fiMargin);
     }
 
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Reverts if `block.timestamp > _etnaForkTime - _proposalLead`, without underflow.
+    /// @dev Reverts unless `_proposalLead > _fiMargin`, and if
+    /// `block.timestamp > _etnaForkTime - _proposalLead`, without underflow.
     /// @param _etnaForkTime The fork time.
     /// @param _proposalLead The lead the batch must keep.
-    function _checkLead(uint48 _etnaForkTime, uint48 _proposalLead) private view {
+    /// @param _fiMargin The schedule's forced-inclusion margin.
+    function _checkLead(
+        uint48 _etnaForkTime,
+        uint48 _proposalLead,
+        uint48 _fiMargin
+    )
+        private
+        view
+    {
+        require(_proposalLead > _fiMargin, ProposalLeadNotAboveFiMargin());
         require(block.timestamp + _proposalLead <= _etnaForkTime, ProposalLeadMissed());
     }
 
@@ -166,6 +188,7 @@ contract EtnaSwitchGuard {
     error ForkTimeNotLater();
     error PostponementDeadlinePassed();
     error ProposalLeadMissed();
+    error ProposalLeadNotAboveFiMargin();
     error ProposeCutoffMismatch();
     error StartAlreadyWritten();
     error UnexpectedCodeHash();

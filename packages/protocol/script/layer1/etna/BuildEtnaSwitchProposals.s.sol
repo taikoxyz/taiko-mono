@@ -128,7 +128,8 @@ library LibEtnaSwitchActions {
         actions_[0] = _action(
             _s.guard,
             abi.encodeCall(
-                EtnaSwitchGuard.checkDeadline, (_s.schedule.etnaForkTime, _s.proposalLead)
+                EtnaSwitchGuard.checkDeadline,
+                (_s.schedule.etnaForkTime, _s.proposalLead, _s.schedule.fiMargin)
             )
         );
         actions_[1] =
@@ -171,7 +172,7 @@ library LibEtnaSwitchActions {
                     _p.unzenInbox,
                     _p.etnaInbox,
                     _p.oldSchedule,
-                    _p.newSchedule.etnaForkTime,
+                    _p.newSchedule,
                     _p.newProposalLead,
                     _p.deadline
                 )

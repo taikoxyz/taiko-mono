@@ -21,6 +21,10 @@
   L2 and also reads `ANCHOR_PROXY` and `L1_SIGNAL_SERVICE`. `EtnaSwitchGuard.checkL1SignalService`
   and `EtnaSignalServiceUpgradeGuard.checkAfterUpgrade` take the implementation's expected code
   hash and revert `UnexpectedCodeHash` on any other code.
+- Etna (BREAKING): `EtnaSwitchGuard.checkDeadline` takes the batch's `FI_MARGIN` and reverts
+  `ProposalLeadNotAboveFiMargin` unless `PROPOSAL_LEAD` exceeds it, so the scheduling batch reverts
+  on chain at or after `ETNA_FORK_TIME - FI_MARGIN` (vector 5d.f); `checkPostponement` takes the
+  whole new schedule and applies the same rule to it.
 - Etna (BREAKING): `setOrigin(uint48 s)` is permissionless. It reads the upgraded Unzen Inbox's new
   `proposeCutoff()` (`InboxWithEtnaCutoffs`) and `getCoreState()` and takes the start's hash and
   state root from the SignalService checkpoint at S; the `originWriter` immutable and getter are
