@@ -32,9 +32,12 @@ latch, and <chain_id>.signer-unsafe beside the domains log, which survives a fre
 store and which the signer itself refuses (RECOV-8.2-3); a kill is recorded in both
 before the SIGKILL is sent.
 
-Before every Comet start the supervisor checks the executable's digest against the
-deployment manifest (CONS-3.1-1) and, with Comet stopped, deletes the node's
-pending-evidence store and nothing else (CONS-3.1-10).
+Before every Comet start the supervisor reads and checks the effective Comet configuration again
+(config.toml, the Comet argv and the CMT_* environment, START-10-6), copies the executable into a
+sealed memfd whose digest must be the one the deployment manifest pins and execs exactly that copy
+(CONS-3.1-1), and, with Comet stopped, deletes the node's pending-evidence store and nothing else
+(CONS-3.1-10). The executable and pending-evidence checks are shared with the full-node launcher
+(etna_comet_guard.py). A failed check stops the supervisor before any child of that start runs.
 
 The supervisor also serves the signer's authenticated channel (RECOV-8.2-2): a Unix socket in
 its private run directory that only the signer it started may use (peer credentials). Over it
@@ -45,14 +48,13 @@ fresh ID before Comet starts: its stores are new, or rebuilt as far as the signe
 """
 import base64
 import fcntl
-import hashlib
+import importlib.util
 import ipaddress
 import json
 import os
 from pathlib import Path
 import secrets
 import select
-import shutil
 import signal
 import socket
 import stat
@@ -62,6 +64,18 @@ import sys
 import threading
 import time
 import tomllib
+
+
+def comet_guard():
+    """The pre-start checks shared with the full-node launcher (etna_comet_guard.py beside this
+    script), loaded by path so that isolated interpreters (python3 -I, PYTHONSAFEPATH) find them."""
+    spec = importlib.util.spec_from_file_location("etna_comet_guard", Path(__file__).resolve().with_name("etna_comet_guard.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+GUARD = comet_guard()
 
 # These exact process-lifecycle revocations are transient only across app restart.
 APP_LIFECYCLE_STOPS = ("ABCI server stopped", "app worker stopped", "checkpoint control listener stopped")
@@ -100,9 +114,9 @@ SIGNER_KILLED_LATCH = (f"signer did not stop within {SIGNER_STOP_GRACE}s of SIGT
 MISSED_CONNECTION_RETRY = 1.0
 # The engine every validator runs (CONS-3.1-1): the deployment manifest names its official
 # executable per platform by digest, and the supervisor refuses any other executable.
-COMET_MANIFEST_SCHEMA = 1
-COMET_RELEASE = "v0.40.0"
-COMET_SOURCE_COMMIT = "0880b4d378f347ab16e54ec677ff50d803f37d62"
+COMET_MANIFEST_SCHEMA, COMET_RELEASE, COMET_SOURCE_COMMIT = (
+    GUARD.COMET_MANIFEST_SCHEMA, GUARD.COMET_RELEASE, GUARD.COMET_SOURCE_COMMIT)
+comet_platform, sha256_file = GUARD.comet_platform, GUARD.sha256_file
 # The supervisor channel's one wire version, its socket's name in the private run directory and
 # the bound on one request line.
 SUPERVISOR_SCHEMA = 1
@@ -114,7 +128,7 @@ MAX_SUPERVISOR_FRAME = 16384
 STORE_INSTANCE = "data/etna-store-instance"
 # Database backends whose stores live at <db_dir>/<name>.db in stock cometbft-db v0.14.1 and
 # that the official executable supports.
-COMET_DB_BACKENDS = ("goleveldb", "pebbledb")
+COMET_DB_BACKENDS = GUARD.COMET_DB_BACKENDS
 
 
 def peer_list(value):
@@ -346,20 +360,6 @@ class LogObserver:
 def valid_store_instance(raw):
     """Exactly 32 lowercase hex characters and a newline."""
     return len(raw) == 33 and raw.endswith(b"\n") and all(c in b"0123456789abcdef" for c in raw[:32])
-
-
-def comet_platform():
-    """This host's platform as the deployment manifest names it, such as linux/amd64."""
-    machine = os.uname().machine.lower()
-    return f"{sys.platform}/{dict(x86_64='amd64', aarch64='arm64').get(machine, machine)}"
-
-
-def sha256_file(path):
-    digest = hashlib.sha256()
-    with open(path, "rb") as source:
-        for block in iter(lambda: source.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 class Supervisor:
@@ -612,6 +612,43 @@ class Supervisor:
         if len(set(inbound)) != len(inbound):
             raise ValueError("ETNA_P2P_INBOUND_PEER_IDS lists a peer twice")
         self.inbound_peers = sorted(inbound)
+        self.load_comet_config()
+        self.observer = None
+        self.preflight = None
+        self.head = None
+        self.repair_restarts = 0
+        self.stop_armed = False
+        self.stop_reached = None
+        self.stopped_for_upgrade = False
+        self.manifest = GUARD.load_manifest()
+        os.close(self.comet_executable())
+        self.address = self.comet_listener = None
+        self.signer = self.comet = None
+        self.running = True
+        self.pending = False
+        self.last_event = None
+        self.connected = False  # the current pair's signer published its connection
+        self.observed_loss = False
+        self.was_ready = False
+        self.owner_fds = []
+        self.halted = False
+        self.halt_retry = None
+        self.halt_error = None
+        # Monotonic times of non-unsafe signer exits; in memory only, so a supervisor restart
+        # resets it and container CrashLoopBackOff bounds that case.
+        self.crashes = []
+        self.signer_killed = False  # stop() had to SIGKILL a running signer
+
+    def load_comet_config(self):
+        """Read and check the effective Comet configuration that the next Comet start uses: at
+        startup and again before every Comet start, since Comet reads its own files afresh each
+        time (START-10-6). It covers config.toml, the Comet argv and the CMT_* environment (the
+        pinned settings, the stores' backend and location, the WAL, the log observer's
+        prerequisites), the genesis chain ID and initial height, and the signer transport that
+        priv_validator_laddr selects. A failed check raises before any child of the start runs, so
+        signing stays closed and the supervisor exits naming the setting. A log observer that
+        cannot follow this Comet is recorded in observer_reason: observer-dependent signing stays
+        closed for that start."""
         config = tomllib.loads((self.home / "config/config.toml").read_text())
         self.config_settings = self.config_values(config)
         self.check_effective_settings()
@@ -622,18 +659,6 @@ class Supervisor:
         self.evidence_store = self.db_dir / "evidence.db"
         self.wal_file = self.rooted(self.read_setting("consensus.wal_file"))
         self.observer_reason = self.observer_refusal()
-        if self.observer_reason is not None:
-            print(f"etna_supervisor_log_observer_disabled: {self.observer_reason}; same-height replay "
-                  "stays closed and restarts fence the last signed height (START-10-6, RECOV-8.2-2)", flush=True)
-        self.observer = None
-        self.preflight = None
-        self.head = None
-        self.repair_restarts = 0
-        self.stop_armed = False
-        self.stop_reached = None
-        self.stopped_for_upgrade = False
-        self.manifest = self.load_manifest()
-        self.check_comet_executable()
         genesis = json.loads((self.home / "config/genesis.json").read_text())
         if genesis["chain_id"] != self.chain:
             raise ValueError("signer chain ID differs from Comet genesis")
@@ -661,22 +686,6 @@ class Supervisor:
                              "noise://<signer-peer-id>@<ip>:<port> (START-10-6)")
         else:
             raise ValueError("validator startup requires priv_validator_laddr unix://… or noise://<signer-peer-id>@<ip>:<port>")
-        self.address = self.comet_listener = None
-        self.signer = self.comet = None
-        self.running = True
-        self.pending = False
-        self.last_event = None
-        self.connected = False  # the current pair's signer published its connection
-        self.observed_loss = False
-        self.was_ready = False
-        self.owner_fds = []
-        self.halted = False
-        self.halt_retry = None
-        self.halt_error = None
-        # Monotonic times of non-unsafe signer exits; in memory only, so a supervisor restart
-        # resets it and container CrashLoopBackOff bounds that case.
-        self.crashes = []
-        self.signer_killed = False  # stop() had to SIGKILL a running signer
 
     def noise_transport(self, address):
         """Comet's stock noise://<signer-peer-id>@<ip>:<port> listener (START-10-6): Comet pins
@@ -707,38 +716,13 @@ class Supervisor:
         missing key is refused: stock Comet would generate a fresh one the signer cannot know."""
         return ed25519_peer_id(self.rooted(self.read_setting("node_key_file")), "Comet node key")
 
-    def load_manifest(self):
-        """The deployment manifest (CONS-3.1-1): ETNA_COMET_MANIFEST, or the comet-manifest.json
-        shipped beside script/. Only a manifest for CometBFT v0.40.0 at its source commit is used."""
-        path = Path(os.environ.get("ETNA_COMET_MANIFEST", str(Path(__file__).resolve().parents[1] / "comet-manifest.json")))
-        try:
-            manifest = json.loads(path.read_bytes())
-        except (OSError, ValueError) as error:
-            raise ValueError(f"CometBFT deployment manifest {path}: {error}") from error
-        if (not isinstance(manifest, dict) or manifest.get("schema") != COMET_MANIFEST_SCHEMA
-                or manifest.get("release") != COMET_RELEASE or manifest.get("source_commit") != COMET_SOURCE_COMMIT
-                or not isinstance(manifest.get("platforms"), dict)):
-            raise ValueError(f"{path} is not a schema {COMET_MANIFEST_SCHEMA} manifest for CometBFT {COMET_RELEASE} {COMET_SOURCE_COMMIT}")
-        return manifest
-
-    def check_comet_executable(self):
-        """Refuse to start any executable but the official one the manifest pins for this
-        platform, by its digest: a reported version string alone does not identify the build
-        (CONS-3.1-1). Runs before every Comet start."""
-        platform = comet_platform()
-        entry = self.manifest["platforms"].get(platform)
-        if not isinstance(entry, dict) or not isinstance(entry.get("sha256"), str) or len(entry["sha256"]) != 64:
-            reason = self.manifest.get("unsupported_platforms", {}).get(platform, "the manifest names no executable for it")
-            raise ValueError(f"no official CometBFT {COMET_RELEASE} executable for {platform}: {reason} (CONS-3.1-1)")
-        name = self.comet_command[0]
-        found = name if os.sep in name else shutil.which(name)
-        if found is None:
-            raise ValueError(f"CometBFT executable {name} not found")
-        executable = Path(found).resolve(strict=True)
-        digest = sha256_file(executable)
-        if digest != entry["sha256"]:
-            raise ValueError(f"CometBFT executable {executable} has sha256 {digest}, not the {platform} digest "
-                             f"{entry['sha256']} the deployment manifest pins (CONS-3.1-1)")
+    def comet_executable(self):
+        """The official executable the next Comet start runs, by its digest in the deployment
+        manifest (ETNA_COMET_MANIFEST or comet-manifest.json beside script/): a reported version
+        string alone does not identify the build (CONS-3.1-1). Checked before every Comet start,
+        it is an open, sealed copy of the bytes it hashed (etna_comet_guard), which start_comet
+        execs; the caller closes it."""
+        return GUARD.sealed_comet_executable(self.manifest, self.comet_command[0])
 
     def remove_pending_evidence(self):
         """Delete the node's pending-evidence store, and only that, with Comet stopped, before
@@ -747,22 +731,7 @@ class Supervisor:
         made durable before Comet starts."""
         if self.comet is not None:
             raise ValueError("pending-evidence store removal requires a stopped Comet")
-        try:
-            metadata = os.lstat(self.evidence_store)
-        except FileNotFoundError:
-            return
-        if stat.S_ISLNK(metadata.st_mode):
-            raise ValueError(f"pending-evidence store {self.evidence_store} must not be a symlink")
-        if stat.S_ISDIR(metadata.st_mode):
-            shutil.rmtree(self.evidence_store)
-        else:
-            os.unlink(self.evidence_store)
-        directory = os.open(self.evidence_store.parent, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
-        print(f"etna_supervisor_pending_evidence_removed: {self.evidence_store}", flush=True)
+        GUARD.remove_pending_evidence(self.evidence_store, "etna_supervisor")
 
     @staticmethod
     def read_observation(path):
@@ -957,30 +926,38 @@ class Supervisor:
         Runs only with both earlier children reaped, so their flocks are released, and never
         while a fence or the unsafe record exists. Every start gets a fresh transport
         (fresh_transport); the signer connects promptly and begins that transport's own
-        closed trust session. Comet's executable, pending-evidence store and store instance are
-        checked, cleared and assigned first, so a refused start leaves no child running.
+        closed trust session. Comet's configuration, executable, pending-evidence store and store
+        instance are checked, cleared and assigned first, so a refused start leaves no child
+        running.
         """
         if self.refuse_unsafe_start():
             return
+        self.load_comet_config()
+        if self.observer_reason is not None:
+            print(f"etna_supervisor_log_observer_disabled: {self.observer_reason}; same-height replay "
+                  "stays closed and this start fences the last signed height (START-10-6, RECOV-8.2-2)", flush=True)
         self.validate_denial_route()
         self.address, self.comet_listener = self.fresh_transport()
-        self.check_comet_executable()
-        self.remove_pending_evidence()
-        instance = self.store_instance()
-        self.preflight = self.replay_preflight()
-        # Never unlink an operator-selected file; ignore its old inode on restart.
-        previous = self.read_observation(self.events)
-        self.prior_observation = previous[0] if previous is not None else None
-        self.last_event = None
-        args = self.signer_command + ["--comet-signer-addr", self.address, "--denial-file", str(self.events)]
-        if self.noise is not None:
-            args += ["--transport-key", str(self.noise[0])]
-        self.signer = subprocess.Popen(args, **self.child_options())
-        self.pending = False
-        self.connected = False
-        self.observed_loss = False
-        self.was_ready = False
-        self.start_comet(instance)
+        executable = self.comet_executable()
+        try:
+            self.remove_pending_evidence()
+            instance = self.store_instance()
+            self.preflight = self.replay_preflight()
+            # Never unlink an operator-selected file; ignore its old inode on restart.
+            previous = self.read_observation(self.events)
+            self.prior_observation = previous[0] if previous is not None else None
+            self.last_event = None
+            args = self.signer_command + ["--comet-signer-addr", self.address, "--denial-file", str(self.events)]
+            if self.noise is not None:
+                args += ["--transport-key", str(self.noise[0])]
+            self.signer = subprocess.Popen(args, **self.child_options())
+            self.pending = False
+            self.connected = False
+            self.observed_loss = False
+            self.was_ready = False
+            self.start_comet(instance, executable)
+        finally:
+            os.close(executable)
         print("etna_supervisor_started", flush=True)
 
     @staticmethod
@@ -1173,19 +1150,22 @@ class Supervisor:
                 return dict(user=uid, group=gid, extra_groups=[])
         return {}
 
-    def start_comet(self, instance):
-        """Start Comet on this pair's listener; the flag beats config.toml and CMT_* overrides. The
-        signer channel then reports this process, instance (its home's store instance) and the
-        startup replay check. With the log observer, Comet's stdout is a fresh pipe the supervisor
-        owns for this process alone."""
+    def start_comet(self, instance, executable):
+        """Start Comet on this pair's listener; the flag beats config.toml and CMT_* overrides. It
+        execs the sealed copy `executable` that comet_executable hashed, which it inherits, with
+        the configured name as argv[0]. The signer channel then reports this process, instance
+        (its home's store instance) and the startup replay check. With the log observer, Comet's
+        stdout is a fresh pipe the supervisor owns for this process alone."""
         command = self.comet_command + ["--priv_validator_laddr", self.comet_listener]
+        options = self.child_options()
+        options["pass_fds"] += (executable,)
         streams, write_end = {}, None
         if self.observer_reason is None:
             read_end, write_end = os.pipe()
             streams = dict(stdout=write_end)
         try:
-            self.comet = subprocess.Popen(command, cwd=self.home, **streams, **self.comet_identity_options(),
-                                          **self.child_options())
+            self.comet = subprocess.Popen(command, executable=GUARD.executable_path(executable), cwd=self.home,
+                                          **streams, **self.comet_identity_options(), **options)
         finally:
             if write_end is not None:
                 os.close(write_end)

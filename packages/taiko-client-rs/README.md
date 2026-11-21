@@ -606,7 +606,10 @@ or config opening differs.
    evaluated exactly is refused, and so are a `CMTHOME`/`TMHOME` that would move Comet off
    `ETNA_COMET_HOME` and an explicit Comet argv (`ETNA_COMET_COMMAND_JSON`) that sets any of these
    settings, `db_dir`, `db_backend`, `node_key_file` or `priv_validator_laddr` by flag. Keep the
-   values in `config.toml`.
+   values in `config.toml`. The supervisor reads `config.toml` and `genesis.json` again and repeats
+   every check before each Comet start, not only when it starts, since Comet reads its files
+   afresh each time; a start that fails a check stops the supervisor (exit 1, naming the setting)
+   before any child of that start runs, so signing stays closed until the operator fixes it.
 
 4. **Start alethia-reth** with Etna active and the agreed L2 genesis allocation (devnet example):
 
@@ -691,7 +694,11 @@ committing those values to the Inbox.
    `cometbft/cometbft:v0.40.0@sha256:0703fb88…` (platform manifest `sha256:53421974…`) and checks
    its sha256 `5fbb1bf5…`; the supervisor checks the digest again before every Comet start, since
    a reported version string alone does not identify the build (the official executable also
-   reports `0.39.0+0880b4d`). Upstream published no arm64 executable for v0.40.0: the GitHub
+   reports `0.39.0+0880b4d`). It copies the executable into a sealed memfd, hashing the bytes as
+   it copies them, and execs that copy (`/proc/self/fd/<n>`), so the bytes it hashed are the bytes
+   that run: a later write to the file or a rename over its path cannot reach them. This needs
+   Linux with an executable memfd (`vm.memfd_noexec` below 2); the copy, about 40 MB for the
+   official executable, stays in memory while that Comet runs. Upstream published no arm64 executable for v0.40.0: the GitHub
    release has no assets, and the official linux/arm64 image holds the same x86-64 executable.
    The arm64 image therefore keeps an unmodified source build only for development, and the
    supervisor refuses to start a validator on linux/arm64, naming that reason. `ETNA_COMET_MANIFEST`
@@ -727,9 +734,10 @@ committing those values to the Inbox.
    unregistered local identity, through `python3 /app/script/start_etna_full_node.py` with
    `ETNA_COMET_HOME` set. That launcher refuses a `priv_validator_laddr`, holds a writer lease
    beside the home and makes the supervisor's two pre-start checks (`script/etna_comet_guard.py`)
-   before it execs Comet: the executable's sha256 must be the one the deployment manifest pins
-   (CONS-3.1-1), and the pending-evidence store below is deleted (CONS-3.1-10). It execs the
-   exact file it hashed.
+   before it execs Comet, after it reads and checks `config.toml` under that lease: the
+   executable's sha256 must be the one the deployment manifest pins (CONS-3.1-1), and the
+   pending-evidence store below is deleted (CONS-3.1-10). It execs the sealed copy it hashed,
+   as the supervisor does.
 
    Every time it starts Comet, with Comet stopped, the supervisor (and the full-node launcher,
    under its writer lease) deletes the node's pending-evidence store, `<db_dir>/evidence.db` (stock goleveldb or pebbledb; `data/evidence.db`

@@ -246,7 +246,7 @@ class SupervisorLifecycle(TrustPeer):
         # control file comet_exit_on_start, Comet exits at once, as on a missed first connection.
         return ('from pathlib import Path\nimport json,os,sys,time\n'
                 'with Path(os.environ["COMET_PID"]).with_name("comets").open("a") as out:\n'
-                ' out.write(json.dumps(dict(argv=sys.argv[1:],cwd=os.getcwd(),pid=os.getpid()))+"\\n")\n'
+                ' out.write(json.dumps(dict(argv=sys.argv[1:],cwd=os.getcwd(),pid=os.getpid(),script=sys.argv[0]))+"\\n")\n'
                 'p=Path(os.environ["STARTS"])\np.open("a").write("start\\n")\n'
                 'if Path(os.environ["COMET_PID"]).with_name("comet_exit_on_start").exists(): sys.exit(1)\n'
                 'c=Path(os.environ["COMET_PID"]);t=c.with_name(".comet.pid.%d"%os.getpid())\n'
@@ -1184,8 +1184,8 @@ class UnixSupervisorTests(SupervisorLifecycle, unittest.TestCase):
         """With the stock JSON log format and the consensus module at Info, the supervisor owns a
         fresh pipe for each Comet process's stdout: it forwards every line and follows the replay
         attempts it announces, which the signer's observe op reports after consuming every record
-        already written (RECOV-8.2-2). Without them the observer is off, reported once, and the
-        channel reports no replay."""
+        already written (RECOV-8.2-2). Without them the observer is off for that start, reported,
+        and the channel reports no replay."""
         self.assertIn("etna_supervisor_log_observer_disabled: log_format is ['plain']", Path(self.log.name).read_text())
         self.assertIsNone(self.channel_reply()["comet"]["replay"])
         self.assertIn("is unavailable", self.channel_reply("observe")["error"])
@@ -1196,14 +1196,33 @@ class UnixSupervisorTests(SupervisorLifecycle, unittest.TestCase):
         ]) + "\n")
         self.restart_over_settings('log_format = "json"\nlog_level = "consensus:info,*:error"')
         self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
-        self.wait(lambda: '"_msg": "Catchup by replaying consensus messages"' in Path(self.log.name).read_text())
+        # The first Comet, writing to the supervisor's own stdout, may have printed the same
+        # records: wait for the observer itself, not for the log.
+        self.wait(lambda: self.channel_reply("observe")["replay"]["attempt"] == 1)
         self.assertEqual(self.channel_reply("observe")["replay"],
                          dict(attempt=1, open=True, height=7, tainted=False, repaired=False))
         with records.open("a") as out:
             out.write(json.dumps(dict(level="info", module="consensus", _msg="Replay: Done")) + "\n")
-        self.wait(lambda: Path(self.log.name).read_text().count('"_msg": "Replay: Done"') == 2)
-        self.assertEqual(self.channel_reply("observe")["replay"]["open"], False)
+        self.wait(lambda: self.channel_reply("observe")["replay"]["open"] is False)
+        self.assertIn('{"level": "info", "module": "consensus", "_msg": "Replay: Done"}', Path(self.log.name).read_text())
         self.assertEqual(Path(self.log.name).read_text().count("etna_supervisor_log_observer_disabled"), 1)
+
+    def test_log_observer_prerequisites_are_checked_at_every_comet_start(self):
+        """START-10-6: the observer's prerequisites are checked again at every Comet start. A
+        config.toml that leaves the JSON format while the pair runs turns the observer off for
+        the next start: the supervisor reports the failed setting, gives that Comet no pipe and
+        the channel reports no replay, so observer-dependent signing stays closed (RECOV-8.2-2)."""
+        self.restart_over_settings('log_format = "json"')
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+        self.wait(lambda: "replay" in self.channel_reply("observe"))
+        log = lambda: Path(self.log.name).read_text(errors="replace")
+        reported = log().count("etna_supervisor_log_observer_disabled")
+        (self.home / "config/config.toml").write_text(self.base_config + 'log_format = "plain"\n' + VALIDATOR_P2P)
+        self.publish(1, self.session)
+        self.wait(lambda: self.starts() == 3 and len(self.signers()) == 3)
+        self.wait(lambda: log().count("etna_supervisor_log_observer_disabled: log_format is ['plain']") == reported + 1)
+        self.assertIsNone(self.channel_reply()["comet"]["replay"])
+        self.assertIn("is unavailable", self.channel_reply("observe")["error"])
 
     def test_torn_wal_tail_restarts_the_pair_after_the_stock_repair(self):
         """RECOV-8.2-2 vector 2.l: when the startup check finds a torn tail after all bound input,
@@ -1501,6 +1520,27 @@ class UnixSupervisorTests(SupervisorLifecycle, unittest.TestCase):
         self.assertEqual(self.proc.wait(timeout=10), 1)
         self.assertIn("the deployment manifest pins (CONS-3.1-1)", Path(self.log.name).read_text(errors="replace"))
         self.assertEqual((self.starts(), len(self.signers())), (2, 2))
+        self.assertFalse(any(self.alive(signer["pid"]) for signer in self.signers()))
+
+    def test_comet_runs_the_sealed_copy_it_hashed(self):
+        """Every Comet start execs the sealed copy of the executable that its digest check hashed,
+        through the copy's descriptor, never the path again (CONS-3.1-1): the stub, a script,
+        names that descriptor as itself, at the first start and after a guarded restart."""
+        self.publish(1, self.session)
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+        for comet in self.comets():
+            self.assertRegex(comet["script"], r"^/proc/self/fd/\d+$")
+
+    def test_comet_config_is_checked_again_before_every_comet_start(self):
+        """The effective Comet configuration is read and checked again before every Comet start,
+        not only when the supervisor starts (START-10-6): a pinned setting moved in config.toml
+        while the pair runs stops the next start before any child runs, naming the setting, and
+        signing stays closed."""
+        (self.home / "config/config.toml").write_text(self.base_config + "[blocksync]\nadaptive_sync = true\n" + VALIDATOR_P2P)
+        self.publish(1, self.session)
+        self.assertEqual(self.proc.wait(timeout=10), 1)
+        self.assertIn("requires CometBFT blocksync.adaptive_sync false", Path(self.log.name).read_text(errors="replace"))
+        self.assertEqual((self.starts(), len(self.signers())), (1, 1))
         self.assertFalse(any(self.alive(signer["pid"]) for signer in self.signers()))
 
     def test_missed_first_connection_restarts_the_pair_without_a_latch(self):
@@ -1824,7 +1864,10 @@ class LauncherPathTests(unittest.TestCase):
             (home / "config/config.toml").write_text('priv_validator_laddr = ""\n')
             proc = subprocess.run(launcher, env=env, capture_output=True, timeout=30)
             self.assertEqual(proc.returncode, 0, proc.stderr)
-            self.assertEqual(argv.read_text().splitlines(), [str(stub), "start", "--home", str(home)])
+            # The shell runs the sealed copy the launcher hashed, which it names as its script.
+            started = argv.read_text().splitlines()
+            self.assertRegex(started[0], r"^/proc/self/fd/\d+$")
+            self.assertEqual(started[1:], ["start", "--home", str(home)])
             argv.unlink()
             (home / "config/config.toml").write_text('priv_validator_laddr = "tcp://127.0.0.1:26659"\n')
             proc = subprocess.run(launcher, env=env, capture_output=True, timeout=30)
@@ -2117,15 +2160,16 @@ class SupervisorUnitTests(unittest.TestCase):
         runtime = object.__new__(module.Supervisor)
         runtime.home, runtime.unix_run = Path("/private/runtime"), None
         runtime.comet_command, runtime.comet_listener = ["/cometbft", "start"], "unix:///private/runtime/run/signer.sock"
-        runtime.child_options = lambda: {}
+        runtime.child_options = lambda: dict(pass_fds=())
         runtime.observer_reason, runtime.preflight = "log observer disabled", None
         for current_uid, current_gid, uid, gid, expected in [
                 (501, 20, 501, 20, {}),
                 (0, 0, 10001, 10001, dict(user=10001, group=10001, extra_groups=[])),
                 (501, 20, 10001, 10001, dict(user=10001, group=10001, extra_groups=[]))]:
             with self.subTest(current_uid=current_uid, uid=uid), patch.dict(os.environ, {"ETNA_COMET_UID":str(uid), "ETNA_COMET_GID":str(gid)}), patch.object(module.os, "geteuid", return_value=current_uid), patch.object(module.os, "getegid", return_value=current_gid), patch.object(module.subprocess, "Popen") as spawn:
-                runtime.start_comet("00112233445566778899aabbccddeeff")
-                self.assertEqual(spawn.call_args.kwargs, dict(cwd=runtime.home, **expected))
+                runtime.start_comet("00112233445566778899aabbccddeeff", 7)
+                self.assertEqual(spawn.call_args.kwargs, dict(executable="/proc/self/fd/7", cwd=runtime.home,
+                                                              pass_fds=(7,), **expected))
 
     def test_consensus_log_level_follows_stock_parsing(self):
         module = supervisor_module("etna_log_level")
