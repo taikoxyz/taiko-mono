@@ -380,10 +380,78 @@ func TestStockHandshakeStopsOnTheFirstBlockAndTheRepairResumesIt(t *testing.T) {
 		t.Fatalf("the stock handshake still stops after the repair: %v", err)
 	}
 
-	// A rerun only checks, under a fresh store instance ID.
+	// A rerun only checks, and changes nothing, the store instance ID included.
 	again, _, err := f.repair(t, home, serve(t, f.app), "")
-	if err != nil || again.Applied != "already_repaired" || again.AppHash != want.AppHash || again.StoreInstance == want.StoreInstance {
+	if err != nil || again.Applied != "already_repaired" || again.AppHash != want.AppHash || again.StoreInstance != "" || readInstance(t, home) != want.StoreInstance {
 		t.Fatalf("rerun %+v: %v", again, err)
+	}
+}
+
+// The repair replaces the store instance ID only once every check passed and immediately before
+// it changes the stores (RECOV-8.2-2): a refusal, whatever its cause, and a rerun that only checks
+// leave the ID the home had, so they never fence the signer needlessly.
+func TestRepairWritesTheStoreInstanceOnlyWhenItChangesTheStores(t *testing.T) {
+	const prior = "0123456789abcdef0123456789abcdef"
+	withInstance := func(t *testing.T, home string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(home, "data", StoreInstanceFile), []byte(prior+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	other := newFirstBlockFixture(t, 4, 3, "another-envelope")
+	contradicting, err := encodeFirstBlock(other.block, other.commit, other.vals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name    string
+		signers int
+		setup   func(*firstBlockFixture, string)
+		peer    func(*testing.T) string
+		want    string
+	}{
+		{name: "uncertified", signers: 2, want: "does not certify"},
+		{name: "app at another height", signers: 3, setup: func(f *firstBlockFixture, _ string) {
+			f.app.committed, f.app.committedHash = 5, bytes.Repeat([]byte{0x33}, 32)
+		}, want: "first-block contradiction"},
+		{name: "another certified block", signers: 3, peer: func(t *testing.T) string { return writeExport(t, contradicting) }, want: "first-block contradiction"},
+		{name: "not the first-block failure", signers: 3, setup: func(f *firstBlockFixture, home string) {
+			f.withStores(t, home, func(_ sm.Store, blocks *bs.BlockStore) {
+				next := &types.Block{Header: f.block.Header}
+				next.Height, next.LastCommit = firstHeight+1, f.commit
+				parts, err := next.MakePartSet(types.BlockPartSizeBytes)
+				if err != nil {
+					t.Fatal(err)
+				}
+				blocks.SaveBlock(next, parts, &types.Commit{Height: firstHeight + 1, BlockID: types.BlockID{Hash: next.Hash(), PartSetHeader: parts.Header()}, Signatures: f.commit.Signatures})
+			})
+		}, want: "not the first-block failure"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFirstBlockFixture(t, 4, tc.signers, "certified-envelope")
+			home := f.home(t, true)
+			withInstance(t, home)
+			if tc.setup != nil {
+				tc.setup(f, home)
+			}
+			peer := ""
+			if tc.peer != nil {
+				peer = tc.peer(t)
+			}
+			if _, _, err := f.repair(t, home, serve(t, f.app), peer); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("got %v, want %q", err, tc.want)
+			}
+			if got := readInstance(t, home); got != prior {
+				t.Fatalf("a refused repair replaced the store instance ID with %s", got)
+			}
+		})
+	}
+	f := newFirstBlockFixture(t, 4, 3, "certified-envelope")
+	home := f.home(t, true)
+	withInstance(t, home)
+	report, _, err := f.repair(t, home, serve(t, f.app), "")
+	if err != nil || report.StoreInstance == prior || report.StoreInstance != readInstance(t, home) {
+		t.Fatalf("a repair that changed the stores reported %+v (%v), ID %s", report, err, readInstance(t, home))
 	}
 }
 

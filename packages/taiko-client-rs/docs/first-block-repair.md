@@ -37,9 +37,7 @@ never runs consensus or signs, and the official executable starts only on the re
    ```
 
    It refuses a home whose stores CometBFT holds open, an existing backup path and one inside
-   `data/`. It copies `data/` to `--backup` and syncs the copy, then writes a fresh store
-   instance ID (`data/etna-store-instance`), so the signer fences through the last height its
-   key signed until a committed chain covers it (RECOV-8.2-2). It reads the first block and its
+   `data/`. It copies `data/` to `--backup` and syncs the copy. It reads the first block and its
    seen commit from the block store and checks them against the home's fixed genesis: the
    chain_id and height, an empty evidence list, and a commit holding more than 2/3 of the
    genesis committee's power for the block's full BlockID (block hash and part set). If the
@@ -47,8 +45,10 @@ never runs consensus or signs, and the official executable starts only on the re
    block with a commit that does (see [Committee-wide crash](#committee-wide-crash)). It then
    asks the app for its committed boundary and, before it writes anything, refuses an app at
    another height and an app at the first height whose kept FinalizeBlock response is missing or
-   carries another app hash. Only then does it write: a peer's commit, if it needs one, becomes
-   the seen commit, and the block is applied as the stock handshake would have had its height
+   carries another app hash. Only then does it write: first a fresh store instance ID
+   (`data/etna-store-instance`), so the signer fences through the last height its key signed
+   until a committed chain covers it (RECOV-8.2-2); then a peer's commit, if it needs one, as
+   the seen commit; and then the block is applied as the stock handshake would have had its height
    check used `initial_height`: with the app at 0, InitChain from the genesis and stock
    `ApplyBlock`, so the app runs FinalizeBlock and Commit and executes the block on its EL; with
    the app already at the first height, stock's replay of the kept response. If the state store
@@ -57,7 +57,7 @@ never runs consensus or signs, and the official executable starts only on the re
    block and a seen commit that certifies it) and the app's Info at the first height, and prints
    one JSON line naming the height, the BlockID, the app hash, `"source"` (`local`, `peer` or
    `peer_commit`), `"applied"` (`executed`, `replayed` or `already_repaired`), the backup and the
-   new store instance ID.
+   new store instance ID (empty when the run changed nothing).
 
 4. Start the supervisor. Comet's handshake finds its state, its block store and the app at the
    first height and resumes stock operation from the next one.
@@ -66,13 +66,13 @@ Exit 2 is an authenticated contradiction: a peer's certified first block that di
 stored one, an app hash that differs from the kept response, a FinalizeBlock result that
 differs from the kept one, or an app at another height. Stop and investigate; keep the signers
 fenced and every store. Exit 1 is any other failure, such as a commit that does not certify the
-block, a missing kept response or an unreachable app. A refusal leaves the stores as stock left
-them (the backup and the new instance ID aside); a failure after the first write, such as an app
+block, a missing kept response or an unreachable app. A refusal leaves the stores and their
+store instance ID as stock left them (the backup aside); a failure after the first write, such as an app
 that stops during InitChain or Commit, leaves the certified block and its certificate in the
 block store, and stock's write order tells the rerun whether to execute or replay the block. Fix
 the cause and rerun with a new `--backup` path. A rerun after the state was saved only checks
-(`already_repaired`); given a peer export, it also replaces a seen commit that does not certify
-the block.
+(`already_repaired`) and keeps the store instance ID; given a peer export, it also replaces a
+seen commit that does not certify the block, under a fresh ID.
 
 ## Committee-wide crash
 

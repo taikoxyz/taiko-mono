@@ -88,7 +88,8 @@ type RepairReport struct {
 	Applied string `json:"applied"`
 	// Backup is the preserved copy of the original data directory.
 	Backup string `json:"backup"`
-	// StoreInstance is the fresh store instance ID.
+	// StoreInstance is the fresh store instance ID this run wrote before it changed the stores;
+	// empty when it changed nothing ("already_repaired" with the stored seen commit).
 	StoreInstance string `json:"store_instance"`
 }
 
@@ -143,13 +144,15 @@ func ExportFirstBlock(home string) (item Block, err error) {
 
 // RepairFirstBlock repairs a home stopped by the first-block crash; see the file comment. In
 // order: it refuses a home whose genesis starts at height 1 (stock replays that block) and one
-// whose stores CometBFT holds open; copies data/ to Backup and syncs the copy; writes a fresh
-// store instance ID; classifies the stores, recovers and verifies the certified block and asks
-// the app for its committed boundary, refusing before anything changes; writes the block store
-// (a peer's block, or a peer's commit over a damaged seen commit); applies the block; and reads
-// back the state, the block store and the app's Info. A failure leaves stores a rerun resumes
-// from: the block store already holds the certified block and its certificate, and stock's own
-// write order (the kept response before Commit, the state after it) tells executed from replayed.
+// whose stores CometBFT holds open; copies data/ to Backup and syncs the copy; classifies the
+// stores, recovers and verifies the certified block and asks the app for its committed boundary,
+// refusing before anything changes; writes a fresh store instance ID if it will change the
+// stores; writes the block store (a peer's block, or a peer's commit over a damaged seen commit);
+// applies the block; and reads back the state, the block store and the app's Info. A refusal
+// leaves the stores and their instance ID as they were. A later failure leaves stores a rerun
+// resumes from: the block store already holds the certified block and its certificate, and
+// stock's own write order (the kept response before Commit, the state after it) tells executed
+// from replayed.
 func RepairFirstBlock(o RepairOptions) (report RepairReport, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -172,11 +175,7 @@ func RepairFirstBlock(o RepairOptions) (report RepairReport, err error) {
 	if err = preserve(data, o.Backup); err != nil {
 		return RepairReport{}, err
 	}
-	instance, err := writeStoreInstance(data)
-	if err != nil {
-		return RepairReport{}, err
-	}
-	report = RepairReport{Height: height, Backup: o.Backup, StoreInstance: instance}
+	report = RepairReport{Height: height, Backup: o.Backup}
 
 	options := &opt.Options{ErrorIfMissing: true}
 	stateDB, err := dbm.NewGoLevelDBWithOpts("state", data, options)
@@ -253,6 +252,14 @@ func RepairFirstBlock(o RepairOptions) (report RepairReport, err error) {
 		return RepairReport{}, contradiction("the app reports committed height %d; a generation starting at %d can only be at 0 or %d", info.LastBlockHeight, height, height)
 	}
 
+	// Every check passed. A repair that changes the stores gives them a fresh instance ID first,
+	// so the signer fences through the last height its key signed (RECOV-8.2-2); one that only
+	// checks an applied block leaves the ID the earlier run wrote.
+	if source != "local" || report.Applied != "already_repaired" {
+		if report.StoreInstance, err = writeStoreInstance(data); err != nil {
+			return RepairReport{}, err
+		}
+	}
 	// The block store first, so a later failure reruns from a block store that holds the
 	// certified block and its certificate: the whole block from a peer, as stock SaveBlock would
 	// have saved it, or the peer's verified commit as the seen commit stock consensus rebuilds
