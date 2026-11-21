@@ -87,6 +87,8 @@ pub(crate) struct MockL1State {
     /// `(inbox, value)`: what the EtnaInbox `inbox` answers to `etnaForkTime()` at any
     /// canonical hash (`call_at`); any other call is unavailable.
     pub(crate) etna_fork_time: Option<(Address, u64)>,
+    /// `(contract, calldata) -> return data`: further `call_at` answers at any canonical hash.
+    pub(crate) call_answers: BTreeMap<(Address, Bytes), Bytes>,
     /// When set, every proof read whose slots include this slot fails with this error, as an
     /// L1 node that serves the anchor slots but not yet the slot 285 landing record.
     pub(crate) proof_fail_slot: Option<(B256, L1Error)>,
@@ -311,7 +313,11 @@ impl L1Source for MockL1 {
             {
                 Ok(U256::from(value).to_be_bytes::<32>().to_vec().into())
             }
-            _ => Err(L1Error::Rpc(format!("mock L1: no call answer from {address}"))),
+            _ => state
+                .call_answers
+                .get(&(address, input))
+                .cloned()
+                .ok_or_else(|| L1Error::Rpc(format!("mock L1: no call answer from {address}"))),
         }
     }
 

@@ -459,7 +459,10 @@ every member's compressed 33-byte public key and voting power, total voting powe
 stake in TAIKO base units, and the committee
 config hash required by Inbox initialization. A cutoff after the L1 node's `finalized` block
 is refused, as the initialization fixes it irreversibly, and so is a cutoff at which no entry is eligible: initializing with it would leave the chain
-without validators. `--json` prints each member's effective stake as a decimal string. Its top-level fields are
+without validators. The registry's `minStake()`, `l2ChainId()` and `inbox()`, read at the proving
+block, must equal the chain parameters' `min_stake`, L2 chain id and Inbox: Inbox initialization
+uses the registry's own `minStake` in the committee config hash (spec START-10-14), so a record
+computed with other parameters is refused with both values named. `--json` prints each member's effective stake as a decimal string. Its top-level fields are
 `record_hash`, `committee_config_hash`, `record`, `members`, `selected_eff_stake`, `proving_block`. The record has
 `target_epoch`, `cutoff_l1_block`, `checkpoint_index`, `set_hash`, `total_power`; each member has
 `pubkey`, `eff_stake`, `power`. Logs go to

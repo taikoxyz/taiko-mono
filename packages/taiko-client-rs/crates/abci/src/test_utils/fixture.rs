@@ -209,11 +209,14 @@ impl Fixture {
         }
     }
 
-    /// An L1 whose canonical, finalized block `L1_0` is the witness header over `l1_state`.
+    /// An L1 whose canonical, finalized block `L1_0` is the witness header over `l1_state`, and
+    /// whose staking registry answers the configuration getters with the fixture's parameters
+    /// ([`answer_registry_config`]).
     pub(crate) fn l1(&self) -> MockL1 {
         let l1 = MockL1::new(self.genesis.l1_0);
         l1.insert_header(self.witness.l1_header.clone());
         l1.state().states.insert(self.genesis.l1_0, self.l1_state.clone());
+        answer_registry_config(&l1, &self.params);
         l1
     }
 
@@ -481,6 +484,27 @@ pub(crate) fn validator_updates(members: &[Member]) -> Vec<crate::wire::Validato
             power: vote::Power::try_from(m.power).expect("power fits i64"),
         })
         .collect()
+}
+
+/// Makes `l1`'s staking registry at `params.registry` answer `minStake()`, `l2ChainId()` and
+/// `inbox()` with `params`' values, as a registry deployed for them does.
+pub(crate) fn answer_registry_config(l1: &MockL1, params: &ChainParams) {
+    use alloy_sol_types::{SolValue, sol};
+    sol! {
+        function minStake() external view returns (uint256);
+        function l2ChainId() external view returns (uint64);
+        function inbox() external view returns (address);
+    }
+    use alloy_sol_types::SolCall;
+    let answers = [
+        (minStakeCall {}.abi_encode(), params.min_stake.abi_encode()),
+        (l2ChainIdCall {}.abi_encode(), params.l2_chain_id.abi_encode()),
+        (inboxCall {}.abi_encode(), params.inbox.abi_encode()),
+    ];
+    let mut state = l1.state();
+    for (input, output) in answers {
+        state.call_answers.insert((params.registry, input.into()), output.into());
+    }
 }
 
 /// A stand-in for the local chain's committed EL block `number` above genesis, for tests that
