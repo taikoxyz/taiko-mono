@@ -1261,11 +1261,53 @@ class UnixSupervisorTests(SupervisorLifecycle, unittest.TestCase):
         self.assertEqual(report, dict(height=5, repair=True, binding=dict(marker=4, predecessor="ab" * 32, wal_length=100, wal_sha256="cd" * 32),
                                       startup=dict(marker=4, predecessor="ab" * 32, wal_length=120, wal_sha256="cd" * 32)))
 
+    def stop_on_precommit(self):
+        """Run the operator's stop-on-precommit command against the running supervisor."""
+        return subprocess.Popen([sys.executable, str(ROOT / "script/etna_validator.py"), "stop-on-precommit",
+                                 "--timeout", "20"], env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def replayable_signer_state(self):
+        """A signer state whose last signature, at height 5, carries a replay binding."""
+        self.state.write_text(json.dumps(dict(height="5", replay=dict(
+            marker="4", predecessor="ab" * 32, wal_length="10", wal_sha256="00" * 32))))
+
+    def test_stop_on_precommit_refuses_when_replay_could_not_confirm_it(self):
+        """RECOV-8.2-2: the stop arms only if the upgraded node could confirm the precommit by
+        same-height replay. With the log observer off, stores the startup check cannot read, or a
+        last signature without a replay binding, the supervisor refuses with the reason: the
+        command exits 1, nothing is armed, the request is withdrawn and the pair keeps running."""
+        for settings, replayable, reason in (
+                ("", True, "the log observer is off (log_format is ['plain']"),
+                ('log_format = "json"\ndb_backend = "pebbledb"', True, "reads only goleveldb stores"),
+                ('log_format = "json"', False, "last signature carries no replay binding")):
+            with self.subTest(reason=reason):
+                starts = self.starts() + 1
+                self.restart_over_settings(settings)
+                self.wait(lambda: self.starts() == starts and len(self.signers()) == starts)
+                if replayable:
+                    self.replayable_signer_state()
+                else:
+                    self.state.write_text("authoritative HRS")
+                command = self.stop_on_precommit()
+                output, error = command.communicate(timeout=20)
+                self.assertEqual(command.returncode, 1, error)
+                self.assertRegex(error.decode(), r"^etna supervisor: stop-on-precommit refused: .*" + re.escape(reason))
+                self.assertEqual(output, b"")
+                self.assertEqual(self.channel_reply("stop")["stop"], False)
+                self.assertFalse((self.store / "supervisor/stop-on-precommit").exists())
+                self.assertRegex(Path(self.log.name).read_text(), "etna_supervisor_stop_on_precommit_refused: .*" + re.escape(reason))
+                self.assertIsNone(self.proc.poll())
+                self.assertEqual(self.starts(), starts)
+
     def test_stop_on_precommit_for_a_planned_upgrade(self):
         """START-10.1-14b, RECOV-8.2-2: the operator's stop-on-precommit command arms the signer
-        through the channel; once the signer reports that its gate closed after a precommit, the
-        supervisor waits for Comet to record and send it, stops Comet and then the signer, prints
-        the outcome through the command and stays quiescent without restarting the pair."""
+        through the channel, while the log observer follows Comet and the signer's last signature
+        carries a replay binding; once the signer reports that its gate closed after a precommit,
+        the supervisor waits for Comet to record and send it, stops Comet and then the signer,
+        prints the outcome through the command and stays quiescent without restarting the pair."""
+        self.restart_over_settings('log_format = "json"')
+        self.wait(lambda: self.starts() == 2 and len(self.signers()) == 2)
+        self.replayable_signer_state()
         command = subprocess.Popen([sys.executable, str(ROOT / "script/etna_validator.py"), "stop-on-precommit",
                                     "--timeout", "20"], env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
@@ -1281,11 +1323,12 @@ class UnixSupervisorTests(SupervisorLifecycle, unittest.TestCase):
                 command.wait()
         self.assertEqual(command.returncode, 0, error)
         self.assertEqual(json.loads(output), dict(stopped=True, height=5, round=1))
+        # The first pair stopped with its supervisor; the second for the upgrade, Comet first.
         lifecycle = (self.root / "lifecycle").read_text().splitlines()
-        self.assertEqual(lifecycle, ["comet_reaped", "signer_stopped"])
+        self.assertEqual(lifecycle, ["comet_reaped", "signer_stopped"] * 2)
         self.assertFalse((self.store / "supervisor/stop-on-precommit").exists())
         time.sleep(1)
-        self.assertEqual((self.starts(), len(self.signers())), (1, 1))
+        self.assertEqual((self.starts(), len(self.signers())), (2, 2))
         self.assertIsNone(self.proc.poll())
         self.assertIn("etna_supervisor_stopped_for_upgrade", Path(self.log.name).read_text())
         self.assertFalse((self.store / "validator-supervisor.halted").exists())

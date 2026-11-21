@@ -91,10 +91,12 @@ func stoppedComet(t *testing.T, data string, height int64) []byte {
 //     the precommit is signed during the replay, bound to the startup prefix (2.k, 12.a).
 //  3. After another crash, stock falls through on a replay error: the saved precommit requested
 //     again live cannot confirm, and the signer persists the floor 6 (2.j).
-//  4. At H6 the operator's stop-on-precommit command arms the signer for a planned ruleset
-//     upgrade (START-10.1-14b): the live prevote signs, the precommit is persisted and returned
-//     as the last signature, every later request is refused, and the supervisor then stops the
-//     pair, which the command reports.
+//  4. At H6 the operator's stop-on-precommit command for a planned ruleset upgrade
+//     (START-10.1-14b) is refused while the live prevote carries no replay binding (block 5 is
+//     not known yet). Once Comet commits block 5, the next prevote carries one, the command arms
+//     the signer, the precommit is persisted with its binding and returned as the last
+//     signature, every later request is refused, and the supervisor then stops the pair, which
+//     the command reports.
 func TestSupervisedSameHeightReplay(t *testing.T) {
 	python, err := exec.LookPath("python3")
 	if err != nil {
@@ -284,10 +286,47 @@ while True:
 		t.Fatalf("floor %s", fields["floor"])
 	}
 
-	// 4. The stop on a precommit for a planned upgrade.
+	// 4. The stop on a precommit for a planned upgrade, refused while same-height replay could
+	// not confirm the precommit after the upgrade.
 	eligible.Store(6)
 	if _, remote := released(signerExchange(t, conn, heightVote(tm.PrevoteType, 6, 1))); remote != nil {
 		t.Fatalf("live prevote at H6: %v", remote)
+	}
+	if replayOf() != nil {
+		t.Fatal("the prevote at H6 has a replay binding before block 5 is known")
+	}
+	refused := exec.Command(python, "../../script/etna_validator.py", "stop-on-precommit", "--timeout", "20")
+	refused.Env = environment
+	if output, err := refused.CombinedOutput(); err == nil || !bytes.Contains(output, []byte("carries no replay binding")) {
+		t.Fatalf("stop-on-precommit armed without a replay binding: %v %s", err, output)
+	}
+	// Comet commits block 5: its WAL marks the end of the height and its log names the block.
+	if wal, err = cs.NewWAL(filepath.Join(home, "data", "cs.wal", "wal")); err != nil {
+		t.Fatal(err)
+	}
+	if err = wal.Start(); err != nil {
+		t.Fatal(err)
+	}
+	if err = wal.WriteSync(cs.EndHeightMessage{Height: 5}); err != nil {
+		t.Fatal(err)
+	}
+	if err = wal.Stop(); err != nil {
+		t.Fatal(err)
+	}
+	wal.Wait()
+	block5 := strings.Repeat("55", 32)
+	consensusLog(3, map[string]any{"_msg": "finalizing commit of block", "height": 5, "hash": block5})
+	waitFor("the observer did not follow the commit of block 5", func() bool {
+		contents, _ := os.ReadFile(logs.Name())
+		return bytes.Contains(contents, []byte(block5))
+	})
+	bound := heightVote(tm.PrevoteType, 6, 1)
+	bound.GetSignVoteRequest().Vote.Round = 1
+	if _, remote := released(signerExchange(t, conn, bound)); remote != nil {
+		t.Fatalf("live prevote at H6 round 1: %v", remote)
+	}
+	if binding := replayOf(); binding == nil || binding["marker"] != "5" || !strings.EqualFold(binding["predecessor"].(string), block5) {
+		t.Fatalf("the prevote at H6 round 1 is not bound to block 5: %v", binding)
 	}
 	stop := exec.Command(python, "../../script/etna_validator.py", "stop-on-precommit", "--timeout", "20")
 	stop.Env = environment
@@ -300,7 +339,9 @@ while True:
 		contents, _ := os.ReadFile(logs.Name())
 		return bytes.Contains(contents, []byte("etna_supervisor_stop_on_precommit_armed"))
 	})
-	precommit, remote := released(signerExchange(t, conn, heightVote(tm.PrecommitType, 6, 1)))
+	armed := heightVote(tm.PrecommitType, 6, 1)
+	armed.GetSignVoteRequest().Vote.Round = 1
+	precommit, remote := released(signerExchange(t, conn, armed))
 	if remote != nil || len(precommit) == 0 {
 		t.Fatalf("the armed precommit was refused: %v", remote)
 	}
@@ -310,11 +351,11 @@ while True:
 	if err := stop.Wait(); err != nil {
 		t.Fatalf("stop-on-precommit: %v %s", err, stopErrors.String())
 	}
-	if strings.TrimSpace(output.String()) != `{"stopped": true, "height": 6, "round": 0}` {
+	if strings.TrimSpace(output.String()) != `{"stopped": true, "height": 6, "round": 1}` {
 		t.Fatalf("stop outcome %q", output.String())
 	}
-	if fields := signed(readFile(t, state)); string(fields["height"]) != `"6"` || string(fields["step"]) != "3" {
-		t.Fatalf("the last signature is not the precommit: %s/%s", fields["height"], fields["step"])
+	if fields := signed(readFile(t, state)); string(fields["height"]) != `"6"` || string(fields["step"]) != "3" || replayOf()["marker"] != "5" {
+		t.Fatalf("the last signature is not the bound precommit: %s/%s %v", fields["height"], fields["step"], replayOf())
 	}
 	time.Sleep(500 * time.Millisecond)
 	if len(lines(starts)) != 3 || len(lines(pids)) != 3 {

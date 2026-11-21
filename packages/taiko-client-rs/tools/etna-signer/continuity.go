@@ -380,8 +380,8 @@ func (p *guardedPV) SignVote(chain string, vote *tm.Vote) error {
 }
 
 // armStop arms the stop on a precommit (START-10.1-14b, RECOV-8.2-2). Under the signing lock, so
-// it serializes with every request: when the last signature already is a precommit, the gate
-// closes at once.
+// it serializes with every request: when the last signature already is a precommit with a replay
+// binding, the gate closes at once.
 func (p *guardedPV) armStop() (bool, int64, int32) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -390,7 +390,7 @@ func (p *guardedPV) armStop() (bool, int64, int32) {
 		p.logger.Info("signer_stop_on_precommit_armed", "last_height", p.state.Height, "last_round", p.state.Round, "last_step", p.state.Step)
 	}
 	if !p.closed && p.state.signed() && p.state.Step == stepPrecommit {
-		p.closed = true
+		p.closeAfterPrecommit(stepPrecommit)
 	}
 	if p.closed && !p.reported {
 		p.reported = true
@@ -400,12 +400,22 @@ func (p *guardedPV) armStop() (bool, int64, int32) {
 }
 
 // closeAfterPrecommit closes an armed gate after a precommit was persisted and is being
-// returned. The caller holds mu.
+// returned, or was already the last signature when the stop was armed, but only once that
+// precommit carries a replay binding: the upgraded node confirms the precommit it stopped on by
+// same-height replay, and one without a binding would fence its height at the restart, which,
+// with every validator stopped at the same undecided height, could leave that height without
+// enough signers until governance recovery (RECOV-8.2-2). Without one the signer keeps signing
+// until a precommit has one. The caller holds mu.
 func (p *guardedPV) closeAfterPrecommit(step int8) {
-	if p.stopArmed && step == stepPrecommit && !p.closed {
-		p.closed = true
-		p.logger.Info("signer_stopped_after_precommit", "height", p.state.Height, "round", p.state.Round)
+	if !p.stopArmed || step != stepPrecommit || p.closed {
+		return
 	}
+	if p.state.Replay == nil {
+		p.logger.Info("signer_stop_deferred", "height", p.state.Height, "round", p.state.Round, "reason", "the precommit has no replay binding; the stop waits for a precommit that has one")
+		return
+	}
+	p.closed = true
+	p.logger.Info("signer_stopped_after_precommit", "height", p.state.Height, "round", p.state.Round)
 }
 
 // stoppedAfter hands a new closure to the gate once.

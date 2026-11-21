@@ -185,9 +185,11 @@ REPLAY_COMMIT = "finalizing commit of block"
 # Restarts of the pair after a stock repair of a torn WAL tail that the startup check found.
 MAX_REPAIR_RESTARTS = 3
 # The planned ruleset upgrade during a pause (START-10.1-14b, RECOV-8.2-2): the operator's request
-# file in the run directory arms the signer to stop on a precommit; once the signer reports that
-# its gate closed after one, the supervisor waits STOP_GRACE seconds for Comet to record and send
-# that precommit, stops the pair, writes the outcome beside the request and stays quiescent.
+# file in the run directory arms the signer to stop on a precommit, unless same-height replay could
+# not confirm that precommit after the upgrade (stop_refusal), in which case the outcome names the
+# reason and nothing is armed; once the signer reports that its gate closed after one, the
+# supervisor waits STOP_GRACE seconds for Comet to record and send that precommit, stops the pair,
+# writes the outcome beside the request and stays quiescent.
 STOP_REQUEST = "stop-on-precommit"
 STOP_DONE = "stop-on-precommit.done"
 STOP_GRACE = 2.0
@@ -1364,30 +1366,59 @@ class Supervisor:
             self.record_unsafe_signer(self.unsafe_reason() + "\n")
         print("etna_supervisor_halted: operator repair required", flush=True)
 
+    def stop_refusal(self):
+        """Why the stop on a precommit must not arm now, or None (RECOV-8.2-2). After the upgrade
+        the restarted pair has to confirm the precommit the signer stopped on by same-height
+        replay; one it cannot confirm fences that height, and with every validator stopped at the
+        same undecided height, too many fenced validators leave it undecided until governance
+        recovery. That replay needs the log observer following the running Comet, stores the
+        startup check reads (goleveldb), and replay bindings on the signer's signatures, which the
+        last one shows (the predecessor's #ENDHEIGHT marker and block hash were known). The signer
+        itself also closes only after a precommit that carries a binding."""
+        comet, observer = self.comet, getattr(self, "observer", None)
+        if self.observer_reason is not None:
+            return f"the log observer is off ({self.observer_reason})"
+        if comet is None or comet.poll() is not None or observer is None or observer.closed:
+            return "the log observer does not follow a running Comet"
+        if self.read_setting("db_backend") != "goleveldb":
+            return "the startup replay check reads only goleveldb stores"
+        if self.signed_binding() is None:
+            return ("the signer's last signature carries no replay binding (its predecessor's #ENDHEIGHT "
+                    "marker or block hash was unknown), so a restart could not confirm a precommit")
+        return None
+
+    def stop_outcome(self, outcome):
+        """Publish the stop's outcome beside the request, atomically, and withdraw the request."""
+        temporary = self.run_dir / f".{STOP_DONE}.{secrets.token_hex(8)}"
+        temporary.write_text(json.dumps(outcome) + "\n")
+        os.replace(temporary, self.run_dir / STOP_DONE)
+        (self.run_dir / STOP_REQUEST).unlink(missing_ok=True)
+
     def stop_for_upgrade(self):
-        """Arm the stop on a precommit once the operator's request appears, and once the signer
-        reported its gate closed after one and the grace passed, stop the pair for good. True
-        while the supervisor stays quiescent for the upgrade."""
+        """Arm the stop on a precommit once the operator's request appears, unless stop_refusal
+        refuses it, and once the signer reported its gate closed after one and the grace passed,
+        stop the pair for good. True while the supervisor stays quiescent for the upgrade."""
         if getattr(self, "stopped_for_upgrade", False):
             return True
         if getattr(self, "run_dir", None) is None:
             return False
         request = self.run_dir / STOP_REQUEST
         if not getattr(self, "stop_armed", False) and request.exists():
+            refusal = self.stop_refusal()
+            if refusal is not None:
+                print(f"etna_supervisor_stop_on_precommit_refused: {refusal}; nothing is armed (RECOV-8.2-2)", flush=True)
+                self.stop_outcome(dict(stopped=False, refused=refusal))
+                return False
             self.stop_armed = True
-            print("etna_supervisor_stop_on_precommit_armed: the signer stops after its next precommit, "
-                  "or at once if its last signature is one (START-10.1-14b)", flush=True)
+            print("etna_supervisor_stop_on_precommit_armed: the signer stops after its next precommit that "
+                  "carries a replay binding, or at once if its last signature is one (START-10.1-14b)", flush=True)
         reached = getattr(self, "stop_reached", None)
         if reached is None or time.monotonic() - reached[2] < STOP_GRACE:
             return False
         if self.halt_if_unsafe(self.stop()):
             return True
         self.stopped_for_upgrade = True
-        outcome = dict(stopped=True, height=reached[0], round=reached[1])
-        temporary = self.run_dir / f".{STOP_DONE}.{secrets.token_hex(8)}"
-        temporary.write_text(json.dumps(outcome) + "\n")
-        os.replace(temporary, self.run_dir / STOP_DONE)
-        request.unlink(missing_ok=True)
+        self.stop_outcome(dict(stopped=True, height=reached[0], round=reached[1]))
         print(f"etna_supervisor_stopped_for_upgrade: the signer's last signature is the precommit at height "
               f"{reached[0]} round {reached[1]}; Comet and the signer are stopped. Upgrade, then restart the "
               "supervisor", flush=True)
@@ -1510,7 +1541,9 @@ class Supervisor:
 def request_stop_on_precommit(timeout):
     """`etna_validator.py stop-on-precommit [--timeout S]`, with the supervisor's environment:
     arm the running supervisor's signer to stop on a precommit for a planned ruleset upgrade
-    during a pause (START-10.1-14b), wait until it stopped the pair, and print the outcome."""
+    during a pause (START-10.1-14b), wait until it stopped the pair, and print the outcome. A
+    supervisor that refuses to arm (stop_refusal) answers with the reason, and the command exits 1
+    with nothing armed."""
     run_dir = Path(os.environ.get("ETNA_SUPERVISOR_RUN_DIR", str(Path(os.environ["ETNA_APP_STORE"]) / "supervisor")))
     request, done = run_dir / STOP_REQUEST, run_dir / STOP_DONE
     done.unlink(missing_ok=True)
@@ -1519,7 +1552,12 @@ def request_stop_on_precommit(timeout):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if done.exists():
-            print(done.read_text().strip(), flush=True)
+            outcome = done.read_text().strip()
+            if json.loads(outcome).get("stopped") is not True:
+                print(f"etna supervisor: stop-on-precommit refused: {json.loads(outcome).get('refused')}",
+                      file=sys.stderr)
+                return 1
+            print(outcome, flush=True)
             return 0
         time.sleep(.2)
     print(f"etna supervisor: no precommit within {timeout:g}s; the stop stays armed until the supervisor restarts",
