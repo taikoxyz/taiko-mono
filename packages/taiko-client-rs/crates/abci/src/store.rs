@@ -162,15 +162,24 @@ impl AppState {
         self.committees.get(&self.active_committee_epoch(height)?)
     }
 
-    /// Drops obsolete records while retaining the set still active at `keep_from_epoch`.
-    /// A discarded pre-recovery switch does not make the initial R set obsolete.
+    /// Drops the records below the set active at the first height of epoch `keep_from_epoch`
+    /// that lies above the generation's origin, keeping that set and every later one.
+    /// `FinalizeBlock` passes `t − 1` at the switch to `t`, whose outgoing set still signs
+    /// S(t) + 1 = H(t) − 1 (COMM-4.3-13). When the origin (the Etna start S, or a recovery's c)
+    /// lies inside epoch `t − 1`, the switch into it was not this generation's and the outgoing
+    /// set is the initial one: at S that is committee 0, not record `t − 1`, which was never
+    /// derived (vector 9.d). On `u64` overflow nothing is dropped.
     pub fn prune_committees(&mut self, keep_from_epoch: u64) {
-        let keep = self
+        let first_above_origin = self
             .schedule()
             .checked_h_first(keep_from_epoch)
-            .and_then(|height| self.active_committee_epoch(height))
-            .unwrap_or(keep_from_epoch);
-        self.committees = self.committees.split_off(&keep);
+            .zip(self.origin_height().checked_add(1))
+            .map(|(first, after_origin)| first.max(after_origin));
+        if let Some(keep) =
+            first_above_origin.and_then(|height| self.active_committee_epoch(height))
+        {
+            self.committees = self.committees.split_off(&keep);
+        }
     }
 }
 
@@ -1133,6 +1142,86 @@ mod tests {
         assert_eq!(s.committees[&2], committee(2));
         s.prune_committees(10);
         assert!(s.committees.is_empty());
+    }
+
+    /// Walks every height from `origin + 1` through at least three rotations above the origin,
+    /// applying `FinalizeBlock`'s insertion of committee `t` and `prune_committees(t − 1)` at every
+    /// switch S(t) = H(t) − 2, and checks that the set each height needs is known and is the
+    /// one the schedule names, computed here from the definitions: the latest `t` with
+    /// H(t) <= h whose switch lies above the origin, else the initial set (committee 0 at the
+    /// Etna start S, floor(c / L) after a recovery at c). `base` is [`state`] and `sets[e]` is
+    /// [`committee`]`(e)`, built once: key derivation dominates the walk otherwise.
+    fn walk_rotations(
+        base: &AppState,
+        sets: &[CommitteeState],
+        epoch_len: u64,
+        origin: u64,
+        recovery: bool,
+    ) {
+        let mut s = base.clone();
+        s.genesis.epoch_len = epoch_len;
+        let initial = if recovery { origin / epoch_len } else { 0 };
+        let set = |epoch: u64| sets[usize::try_from(epoch).unwrap()].clone();
+        if recovery {
+            s.generation = 1;
+            s.recovery = Some(RecoveryOrigin {
+                generation: 1,
+                height: origin,
+                l1_number: s.genesis.l1_0,
+                l1_timestamp: 0,
+                el_hash: B256::ZERO,
+                state_root: B256::ZERO,
+                comet_hash: B256::ZERO,
+                forced_cursor: 0,
+                committee: set(initial),
+            });
+        } else {
+            s.genesis.genesis_height = origin;
+        }
+        s.committees = BTreeMap::from([(initial, set(initial))]);
+        let schedule = s.schedule();
+        let h_first = |t: u64| 1 + t * epoch_len;
+        let expected = |h: u64| {
+            (1..)
+                .take_while(|&t| h_first(t) <= h)
+                .filter(|&t| h_first(t) - 2 > origin)
+                .last()
+                .unwrap_or(initial)
+        };
+        // `origin + 1` lies in epoch `origin / L`; four more switches include three above it.
+        let end = h_first(origin / epoch_len + 4);
+        let ctx = |h: u64| format!("L={epoch_len} origin={origin} recovery={recovery} h={h}");
+        for h in origin + 1..=end {
+            let active = s.committee_at(h).map(|c| c.record.target_epoch);
+            if active != Some(expected(h)) {
+                panic!("{}: active {active:?}, expected {}", ctx(h), expected(h));
+            }
+            if let Some(t) = schedule.switch_target(h) {
+                s.committees.insert(t, set(t));
+                s.prune_committees(t - 1);
+                assert!(s.committees.len() <= 2, "{}: {:?}", ctx(h), s.committees.keys());
+            }
+        }
+    }
+
+    /// COMM-4.3-9/13/15: the first rotation above the origin keeps the initial set signing
+    /// S(t) + 1, for every Etna start S and recovery origin c up to 4L with L in 3..=12, and up
+    /// to 2700 with L = 900 (vector 9.d is S = 1000, which halted at 1800 when the pruning fell
+    /// back to dropping committee 0).
+    #[test]
+    fn every_height_after_the_origin_has_its_committee_through_three_rotations() {
+        let base = state();
+        let sets: Vec<_> = (0..=8).map(committee).collect();
+        for epoch_len in 3..=12 {
+            for origin in 0..=4 * epoch_len {
+                walk_rotations(&base, &sets, epoch_len, origin, false);
+                walk_rotations(&base, &sets, epoch_len, origin, true);
+            }
+        }
+        for origin in 1..=2700 {
+            walk_rotations(&base, &sets, 900, origin, false);
+            walk_rotations(&base, &sets, 900, origin, true);
+        }
     }
 
     /// COMM-4.3-13 (13.g) and PROOF-6.2-32 (32.d): a rotation that keeps every key and power

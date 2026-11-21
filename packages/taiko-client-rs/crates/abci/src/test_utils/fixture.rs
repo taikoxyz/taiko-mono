@@ -145,7 +145,7 @@ impl Fixture {
     pub(crate) fn build(spec: GenesisSpec) -> Self {
         let params = spec.params.clone();
 
-        let el_chain = el_chain();
+        let el_chain = el_chain(spec.genesis_height);
         let b_star = el_chain.last().expect("the EL chain holds the Etna start block");
         let genesis = GenesisRecord {
             committee_config_hash: committee::committee_config_hash(&params),
@@ -490,9 +490,10 @@ pub(crate) fn committed_block(number: u64) -> Header {
     Header { number, extra_data: Bytes::from_static(b"committed"), ..Header::default() }
 }
 
-/// An EL genesis header with a base fee and zk gas (difficulty).
-pub(crate) fn el_chain() -> Vec<Header> {
-    vec![Header {
+/// The EL chain up to the Etna start `s`: a genesis header with a base fee and zk gas
+/// (difficulty) at `s = 0`, else that header as block `s − 1` and its child `s`, two seconds later.
+pub(crate) fn el_chain(s: u64) -> Vec<Header> {
+    let genesis = Header {
         beneficiary: Address::repeat_byte(0xfe),
         state_root: B256::with_last_byte(1),
         number: 0,
@@ -502,7 +503,19 @@ pub(crate) fn el_chain() -> Vec<Header> {
         base_fee_per_gas: Some(10_000_000),
         difficulty: U256::from(243_000),
         ..Header::default()
-    }]
+    };
+    if s == 0 {
+        return vec![genesis];
+    }
+    let parent = Header { number: s - 1, ..genesis };
+    let start = Header {
+        number: s,
+        parent_hash: parent.hash_slow(),
+        timestamp: parent.timestamp + 2,
+        state_root: B256::with_last_byte(2),
+        ..parent.clone()
+    };
+    vec![parent, start]
 }
 
 /// The `InitChain` request CometBFT sends for `doc`.

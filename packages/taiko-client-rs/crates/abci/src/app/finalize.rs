@@ -755,7 +755,9 @@ impl Backoff {
 /// before validator updates, a different record already known for its epoch being a
 /// [`AbciError::SafetyHalt`]. At the switch height to epoch `t`, `h_first(t) − 2` (CometBFT applies
 /// updates two heights later), updates compare the actually active set to set `t`. Pruning keeps
-/// that outgoing set even when recovery discarded a global epoch's switch; other heights emit none.
+/// that outgoing set, which signs S(t) + 1, even when it is the initial set because the switch
+/// into epoch `t − 1` preceded the Etna start S or a recovery's c
+/// ([`AppState::prune_committees`]); other heights emit none.
 fn next_state(
     state: &AppState,
     v: &Validated,
