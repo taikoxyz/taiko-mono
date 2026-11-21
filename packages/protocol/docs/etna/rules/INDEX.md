@@ -10,15 +10,15 @@
 | -------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------- |
 | MODEL-1-1      | rule       | Proof completeness: every valid block within EL and 3.4 size limits is provable                                                                     | 1       | [1](vectors/1.md#model-1-1)           |
 | MODEL-1-2      | rule       | Proof completeness: each block is provable on its own within one landing's two proofs                                                               | 1       | [1](vectors/1.md#model-1-2)           |
-| MODEL-1-3      | rule       | land, saveForcedInclusion and the registry are unaffected by pause                                                                                  | 1       | [1](vectors/1.md#model-1-3)           |
-| COMP-2-1       | rule       | Validator: registry stake, consensus key, stock CometBFT, checkpoint-trust gate                                                                     | 2       | [2](vectors/2.md#comp-2-1)            |
+| MODEL-1-3      | rule       | land and saveForcedInclusion are unaffected by pause                                                                                                | 1       | [1](vectors/1.md#model-1-3)           |
+| COMP-2-1       | rule       | Validator: L2 stake, consensus key, stock CometBFT, checkpoint-trust gate                                                                           | 2       | [2](vectors/2.md#comp-2-1)            |
 | COMP-2-2       | retired    | Full node: CometBFT, ABCI app and alethia-reth with no signing key                                                                                  | 2       | [2](vectors/2.md#comp-2-2)            |
 | COMP-2-2a      | rule       | EL-only settled-state backend: finalized imports, matched-checkpoint serving, no app trust                                                          | 2       | [2](vectors/2.md#comp-2-2a)           |
 | COMP-2-2b      | rule       | Full node: authenticated prefix import or replay, validate subsequent blocks                                                                        | 2       | [2](vectors/2.md#comp-2-2b)           |
 | COMP-2-3       | rule       | Lander: permissionless batch builder and land caller, no protocol reward                                                                            | 2       | [2](vectors/2.md#comp-2-3)            |
 | COMP-2-4       | rule       | Prover: produces two proofs per batch                                                                                                               | 2       | [2](vectors/2.md#comp-2-4)            |
-| COMP-2-5       | rule       | EtnaInbox: genesis parameters, land, checkpoints, FI queue, rules schedule and recovery                                                             | 2       | [2](vectors/2.md#comp-2-5)            |
-| COMP-2-6       | rule       | EtnaStakingRegistry: stake, exits, slashing, forfeiture and checkpoints                                                                             | 2       | [2](vectors/2.md#comp-2-6)            |
+| COMP-2-5       | rule       | EtnaInbox: genesis parameters, fallback key set and threshold, land, checkpoints, FI queue, rules schedule and recovery                             | 2       | [2](vectors/2.md#comp-2-5)            |
+| COMP-2-6       | rule       | EtnaStaking (L2): stake, seats, exits, slashing, missed-signature penalties, forfeiture and the candidate snapshot                                  | 2       | [2](vectors/2.md#comp-2-6)            |
 | COMP-2-7       | rule       | SignalService: stores the Inbox's checkpoints (and Unzen's at or below S) for the bridge                                                            | 2       | [2](vectors/2.md#comp-2-7)            |
 | CONS-3.1-1     | rule       | Stock CometBFT v0.40.0; stock proposer, timeout, lock and BlockID behavior                                                                          | 3.1     | [3.1](vectors/3.1.md#cons-31-1)       |
 | CONS-3.1-2     | rule       | Proposer selection, timeouts, locking and BlockID use stock behavior; not forked                                                                    | 3.1     | [3.1](vectors/3.1.md#cons-31-2)       |
@@ -554,48 +554,64 @@
 | START-10.1-14f | rule       | Ruleset selection, refusal and stop ship from launch in nodes and both guests                                                                       | 10.1    | [10.1](vectors/10.1.md#start-101-14f) |
 | START-10.1-14g | rule       | Client, EL and both guests pass a ruleset's shared vectors, incl. a landing across rulesTime                                                        | 10.1    | [10.1](vectors/10.1.md#start-101-14g) |
 | START-10.1-15  | retired    | Define and test acceptance ranges, switching transaction and rollback plan                                                                          | 10.1    | —                                     |
-| PARAM-11-1     | rule       | Node-splitting parameters come only from L1, the 10.1 schedule or the client; local config cannot                                                   | 11      | [11](vectors/11.md#param-11-1)        |
+| PARAM-11-1     | rule       | Node-splitting parameters come only from L1, the L2 staking contract, the 10.1 schedule or the client; local config cannot                          | 11      | [11](vectors/11.md#param-11-1)        |
 | PARAM-11-2     | rule       | Table values are references only; deployment follows L1 and section 10                                                                              | 11      | [11](vectors/11.md#param-11-2)        |
-| PARAM-11-3     | rule       | assignedPower is computed under 4.3, not from node-local configuration                                                                              | 11      | [11](vectors/11.md#param-11-3)        |
-| PARAM-11-4     | rule       | L and genesisCutoff: L chosen independently of U; reference values                                                                                  | 11      | [11](vectors/11.md#param-11-4)        |
+| PARAM-11-3     | rule       | Voting power is computed under 4.3, not from node-local configuration                                                                               | 11      | [11](vectors/11.md#param-11-3)        |
+| PARAM-11-4     | retired    | L and genesisCutoff: L chosen independently of U; reference values                                                                                  | 11      | —                                     |
 | PARAM-11-5     | rule       | forcedInclusionDelay above 0; maxAnchorAge at least 1152 s and above finality                                                                       | 11      | [11](vectors/11.md#param-11-5)        |
 | PARAM-11-6     | rule       | maxBatchBlocks at least 1 and calldata-bounded; fee/threshold above 0                                                                               | 11      | [11](vectors/11.md#param-11-6)        |
-| PARAM-11-7     | rule       | vp_unit, minStake, n_max: direct power; vp_unit at least 867,361,738                                                                                | 11      | [11](vectors/11.md#param-11-7)        |
+| PARAM-11-6a    | rule       | fallbackKeys: 1 to 128 distinct compressed keys, strictly ascending; Inbox storage changed only by the DAO                                          | 11      | [11](vectors/11.md#param-11-6a)       |
+| PARAM-11-6b    | rule       | minTotalStake: any uint256 in Inbox storage changed only by the DAO; above the supply, the fallback key set signs                                   | 11      | [11](vectors/11.md#param-11-6b)       |
+| PARAM-11-7     | rule       | vp_unit, minStake, n_max: L2 staking immutables; n_max at most 128, vp_unit at least 867,361,738, minStake × n_max at least 10^27                   | 11      | [11](vectors/11.md#param-11-7)        |
+| PARAM-11-7a    | rule       | missLimit: 1 to 65,535, above the consecutive misses of an honest validator                                                                         | 11      | [11](vectors/11.md#param-11-7a)       |
+| PARAM-11-7b    | rule       | missSlashBps: above 0 and at most 10000                                                                                                             | 11      | [11](vectors/11.md#param-11-7b)       |
 | PARAM-11-8     | rule       | U: 1 at most U at most 262,144; target 151,200                                                                                                      | 11      | [11](vectors/11.md#param-11-8)        |
 | PARAM-11-9     | retired    | K: 1 to 6; K worst-case blocks provable in one landing two proofs                                                                                   | 11      | [11](vectors/11.md#param-11-9)        |
 | PARAM-11-10    | retired    | EL/zk-gas parameter changes need a coordinated client upgrade                                                                                       | 11      | —                                     |
 | PARAM-11-10a   | rule       | EL/zk-gas parameter changes are rule upgrades (10.1)                                                                                                | 11      | [11](vectors/11.md#param-11-10a)      |
-| PARAM-11-11    | rule       | Registry immutables: minStake, withdrawalDelay, slashBountyBps, slashSink, l2ChainId                                                                | 11      | [11](vectors/11.md#param-11-11)       |
+| PARAM-11-11    | rule       | L2 staking immutables: withdrawalDelay at least U + 2 + the evidence window, slashBountyBps, slashSink, L1 chain id, Inbox proxy                    | 11      | [11](vectors/11.md#param-11-11)       |
 | PARAM-11-12    | rule       | forfeitBps: 0 to 10000; proceeds to slashSink; no extra delay                                                                                       | 11      | [11](vectors/11.md#param-11-12)       |
-| PARAM-11-12a   | rule       | Unzen Inbox, ETNA_FORK_TIME, Etna L2 SignalService implementation; nonzero when switching                                                           | 11      | [11](vectors/11.md#param-11-12a)      |
+| PARAM-11-12a   | rule       | Unzen Inbox, ETNA_FORK_TIME, built-in L2 SignalService and EtnaStaking implementations; nonzero when switching                                      | 11      | [11](vectors/11.md#param-11-12a)      |
 | PARAM-11-12b   | rule       | PROPOSE_MARGIN and FI_MARGIN bounds for the Unzen Inbox cutoff                                                                                      | 11      | [11](vectors/11.md#param-11-12b)      |
-| PARAM-11-13    | rule       | Activation, exit, withdrawal and top-up readiness use L1 block numbers; re-evaluated before an L1 slot-time fork                                    | 11      | [11](vectors/11.md#param-11-13)       |
-| PARAM-11-14    | rule       | Authorization deadlines use L1 block.timestamp in Unix seconds                                                                                      | 11      | [11](vectors/11.md#param-11-14)       |
-| PARAM-11-15    | rule       | Evaluate withdrawalDelay against the fastest lawful withdrawal path                                                                                 | 11      | [11](vectors/11.md#param-11-15)       |
+| PARAM-11-13    | rule       | withdrawalDelay counts L2 blocks: it follows the L2 block time and stops during a halt                                                              | 11      | [11](vectors/11.md#param-11-13)       |
+| PARAM-11-14    | rule       | Authorization deadlines are Unix seconds: recover against L1, forfeit against L2 block.timestamp                                                    | 11      | [11](vectors/11.md#param-11-14)       |
+| PARAM-11-15    | rule       | The evidence window covers a report's forced inclusion and the rollback; withdrawalDelay against the forfeiture path                                | 11      | [11](vectors/11.md#param-11-15)       |
 | PARAM-11-16    | rule       | Publish and exercise the response budget; no reaction time guaranteed                                                                               | 11      | [11](vectors/11.md#param-11-16)       |
 | LIMIT-12-1     | limitation | No wall-clock FI deadline; maxAnchorAge bounds only anchor age                                                                                      | 12      | [12](vectors/12.md)                   |
-| LIMIT-12-2     | limitation | Unavailable quorum, stale authorizations and missing audit evidence can prolong a halt                                                              | 12      | [12](vectors/12.md)                   |
-| LIMIT-12-3     | limitation | Double-sign slashing is same-round only; cross-round amnesia is not covered                                                                         | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-2     | limitation | Unavailable quorum: the DAO's threshold-and-recovery steps; stale authorizations and missing audit evidence can prolong a halt                      | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-3     | limitation | Double-sign slashing is same-round only; offline penalties are automatic only while blocks are produced                                             | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-4     | limitation | Operations depend on DAO funding; landing has no protocol revenue                                                                                   | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-5     | limitation | Dependence on L1 finality; production pauses without a finalized anchor                                                                             | 12      | [12](vectors/12.md)                   |
-| LIMIT-12-6     | limitation | Empty committee; recovery cannot create quorum from nothing                                                                                         | 12      | [12](vectors/12.md)                   |
-| LIMIT-12-7     | limitation | No rotation power-change limit; the top n_max by stake is selected                                                                                  | 12      | [12](vectors/12.md)                   |
-| LIMIT-12-8     | limitation | Refunds depend on settlement and the post-confirmation evidence window                                                                              | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-5a    | limitation | The fallback key set must stay online, or one drop below the threshold halts consensus                                                              | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-6     | retired    | Empty committee; recovery cannot create quorum from nothing                                                                                         | 12      | —                                     |
+| LIMIT-12-7     | limitation | No power-change limit; every seated bond signs two blocks after the snapshot that holds it                                                          | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-8     | limitation | Refunds wait for the withdrawal delay in L2 blocks, which a halt stops                                                                              | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-9     | limitation | The switching network waits for the final Unzen proof before production                                                                             | 12      | [12](vectors/12.md#limit-12-9)        |
 | LIMIT-12-10    | retired    | The upgrade activation mechanism is not fully designed yet                                                                                          | 12      | —                                     |
 | LIMIT-12-10a   | rule       | L1 forks that change fields or the state commitment need upgrades and new images before they activate; slot-time and gas forks need a re-check      | 12      | [12](vectors/12.md#limit-12-10a)      |
-| LIMIT-12-11    | limitation | Registry capacity: 4096 slots; minStake keeps full-stake bonds from holding every slot; a full registry in a halt                                   | 12      | [12](vectors/12.md)                   |
-| LIMIT-12-12    | limitation | No automatic gradual-offline handling; power is not reduced                                                                                         | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-11    | limitation | Seat count: at most n_max seats; minStake × n_max ≥ the fixed supply assumes L2 holds no more TAIKO                                                 | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-11a   | limitation | No automatic penalty during a halt; responsibility is left to DAO forfeiture                                                                        | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-12    | retired    | No automatic gradual-offline handling; power is not reduced                                                                                         | 12      | —                                     |
 | LIMIT-12-13    | limitation | secp256k1eth is new; added only in CometBFT v0.40.0                                                                                                 | 12      | [12](vectors/12.md)                   |
-| LIMIT-12-14    | limitation | Registration admission bounds; the vp_unit bound only prevents overflow                                                                             | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-14    | limitation | Registration admission bounds; minStake is large, and a seat signs only in a usable candidate                                                       | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-15    | limitation | Private consensus-history availability; blobs only reconstruct the settled EL                                                                       | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-16    | limitation | Overlapping proofs provide short-landing protection, pending acceptance                                                                             | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-17    | limitation | Resource and latency figures await validation                                                                                                       | 12      | [12](vectors/12.md)                   |
-| LIMIT-12-18    | limitation | Economic security and discretionary forfeiture; 1/3 can halt consensus                                                                              | 12      | [12](vectors/12.md)                   |
-| LIMIT-12-19    | limitation | Slashed members keep their voting power until a committee that excludes them takes effect                                                           | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-18    | limitation | Economic security and discretionary forfeiture; 1/3 can halt consensus with no automatic penalty                                                    | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-19    | limitation | Slashed members keep their voting power for two blocks                                                                                              | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-20    | limitation | Blanking does not stop resubmission of the same forced inclusion bytes                                                                              | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-21    | limitation | Upgrades depend on the DAO and on validators upgrading in time                                                                                      | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-22    | limitation | The stock evidence pool is unbounded and cannot be switched off; accepted, with mitigations and alerts                                              | 12      | [12](vectors/12.md#limit-12-22)       |
+| LIMIT-12-23    | limitation | The fallback key set has no stake; the chain then runs on keys the DAO chose                                                                        | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-24    | limitation | Proposers choose whose precommits count; colluders can trigger missed-signature penalties                                                           | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-25    | limitation | Staking operations in the unsettled suffix can be discarded by recovery, up to U blocks                                                             | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-26    | limitation | Mode switches have no hysteresis; each replaces the whole validator set                                                                             | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-27    | limitation | The DAO can force the fallback key set and change the committee rules by upgrade                                                                    | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-28    | limitation | Stake is TAIKO bridged to L2; bridging it back depends on landing                                                                                   | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-29    | limitation | A failing block-start call keeps the block valid; the fallback key set signs and penalties stop                                                     | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-30    | limitation | Double-sign reports can be delayed; forced inclusion has no wall-clock deadline                                                                     | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-31    | limitation | Honest refusals to sign count as misses                                                                                                             | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-32    | limitation | The signing set can change at every block; a landing proof may verify a 128-signature commit per block                                              | 12      | [12](vectors/12.md)                   |
 | ENC-A-1        | rule       | APP_VERSION=1, versioned domain tags V1, envelope/payload prefix 0x06                                                                               | A       | [A](vectors/A.md#enc-a-1)             |
 | ENC-A-2        | rule       | Config is four words (128 bytes)                                                                                                                    | A       | [A](vectors/A.md#enc-a-2)             |
 | ENC-A-3        | rule       | Slot 285 holds three words                                                                                                                          | A       | [A](vectors/A.md#enc-a-3)             |
@@ -724,8 +740,8 @@
 
 | Section | IDs | Vectors | Review questions |
 | ------- | --- | ------- | ---------------- |
-| 1       | 3   | 13      | 4                |
-| 2       | 8   | 31      | 3                |
+| 1       | 3   | 12      | 4                |
+| 2       | 8   | 36      | 3                |
 | 3.1     | 17  | 124     | 5                |
 | 3.2     | 13  | 69      | 2                |
 | 3.3     | 7   | 43      | 4                |
@@ -754,8 +770,8 @@
 | 9.1     | 10  | 39      | 3                |
 | 10      | 26  | 189     | 7                |
 | 10.1    | 24  | 119     | 1                |
-| 11      | 16  | 64      | 6                |
-| 12      | 19  | 3       | 6                |
+| 11      | 20  | 100     | 4                |
+| 12      | 32  | 6       | 5                |
 | A       | 58  | 330     | 3                |
 | B       | 28  | 140     | 5                |
 | C       | 12  | 28      | 5                |
