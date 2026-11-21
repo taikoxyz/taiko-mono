@@ -2,7 +2,7 @@
 
 **Non-normative.** Rule text lives in [SPEC.md](../../SPEC.md). Appendix B states a layout; a vector here takes a claimed layout or a piece of data and says whether it is the layout the text states. Where the text states a requirement but **not the consequence of violating it**, the vector says "violates STOR-B-n" and does not name an outcome. Anything undetermined has no vector; it is listed under "Not covered" and raised in [review/B.md](../review/B.md).
 
-`accept` means the claimed layout or data is the one Appendix B states. `reject` means it contradicts the text. Appendix B names an enforcement consequence only once — "Writing a value wider than its field reverts" (STOR-B-25) — so only that vector says `reverts`; every other reject is a violation whose consequence is [Q-B-4](../review/B.md#q-b-4).
+`accept` means the claimed layout or data is the one Appendix B states. `reject` means it contradicts the text. Appendix B names one enforcement consequence of its own — "Writing a value wider than its field reverts" (STOR-B-25) — so only those vectors say `reverts`. It also restates one from 4.3: a snapshot seat record with a nonzero unused bit makes the candidate unusable (STOR-B-21a, COMM-4.3-8). Every other reject is a violation whose consequence is [Q-B-4](../review/B.md#q-b-4), unless the row cites the rule that states one.
 
 ## STOR-B-1
 
@@ -15,11 +15,11 @@
 
 ## STOR-B-2
 
-| Vector     | Claimed layout or data                                            | Expected                                 |
-| ---------- | ----------------------------------------------------------------- | ---------------------------------------- |
-| 2.a accept | 268 holds `recoveryGeneration`, 269 holds `committeeConfigHash`   | matches                                  |
-| 2.b reject | 269 holds `recoveryGeneration`, 268 holds `committeeConfigHash`   | violates STOR-B-2                        |
-| 2.c reject | `committeeConfigHash` alone at 268, `recoveryGeneration` unplaced | violates STOR-B-2 (both slots are named) |
+| Vector     | Claimed layout or data                                   | Expected                                 |
+| ---------- | -------------------------------------------------------- | ---------------------------------------- |
+| 2.a accept | 268 holds `recoveryGeneration`, 269 holds `configHash`   | matches                                  |
+| 2.b reject | 269 holds `recoveryGeneration`, 268 holds `configHash`   | violates STOR-B-2                        |
+| 2.c reject | `configHash` alone at 268, `recoveryGeneration` unplaced | violates STOR-B-2 (both slots are named) |
 
 ## STOR-B-3
 
@@ -31,18 +31,25 @@
 
 ## STOR-B-4
 
-| Vector     | Claimed layout or data                                                                                     | Expected          |
-| ---------- | ---------------------------------------------------------------------------------------------------------- | ----------------- |
-| 4.a accept | 272 packs `[genesisHeight, L1_0, L]` with genesisHeight = S, 273 holds the start's hash, 274 its stateRoot | matches           |
-| 4.b reject | 273 holds the start's stateRoot, 274 the start's hash                                                      | violates STOR-B-4 |
-| 4.c reject | the start's hash stored at 272 beside the packed start word                                                | violates STOR-B-4 |
+| Vector     | Claimed layout or data                                                                                  | Expected                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| 4.a accept | 272 packs `[genesisHeight, L1_0]` with genesisHeight = S, 273 holds the start's hash, 274 its stateRoot | matches                                          |
+| 4.b reject | 273 holds the start's stateRoot, 274 the start's hash                                                   | violates STOR-B-4                                |
+| 4.c reject | the start's hash stored at 272 beside the packed start word                                             | violates STOR-B-4                                |
+| 4.d reject | 272 packs a third nonzero field above `L1_0`                                                            | violates STOR-B-4 (and STOR-B-24)                |
+| 4.e reject | 272 is nonzero after Inbox initialization and before the start write                                    | violates STOR-B-4 ("written by the start write") |
 
 ## STOR-B-5
 
-| Vector     | Claimed layout or data                                         | Expected          |
-| ---------- | -------------------------------------------------------------- | ----------------- |
-| 5.a accept | 278 holds committee 0's record hash, 279 holds `genesisCutoff` | matches           |
-| 5.b reject | 278 holds `genesisCutoff`, 279 the record hash                 | violates STOR-B-5 |
+| Vector     | Claimed layout or data                                                                                     | Expected                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 5.a accept | 278 holds `fallbackKeysHash` and 279 holds `minTotalStake`, both set at Inbox initialization               | matches                                                                      |
+| 5.b reject | 278 holds `minTotalStake`, 279 the hash                                                                    | violates STOR-B-5                                                            |
+| 5.c accept | an anchor witness proves 278 and 279                                                                       | matches ("part of every anchor witness")                                     |
+| 5.d reject | an anchor witness omits 278 or 279                                                                         | violates STOR-B-5 and ENC-A-25a; consequence — [Q-A-4](../review/A.md#q-a-4) |
+| 5.e reject | 279 changes in a call other than Inbox initialization or `setMinTotalStake`                                | violates STOR-B-5 ("changed only by")                                        |
+| 5.f accept | the list `getFallbackKeys()` returns hashes under ENC-A-36a to the value of 278                            | matches                                                                      |
+| 5.g reject | a guest accepts a fallback key list whose hash under ENC-A-36a differs from the 278 that its anchor proves | violates STOR-B-5 and COMM-4.3-3a                                            |
 
 ## STOR-B-6
 
@@ -65,13 +72,13 @@
 
 ## STOR-B-8
 
-| Vector     | Claimed layout or data                                                    | Expected                           |
-| ---------- | ------------------------------------------------------------------------- | ---------------------------------- |
-| 8.a accept | 283 is never read, written or reused; 284 holds `activeCommitteeSnapshot` | matches                            |
-| 8.b accept | immediately after Inbox initialization, 284 equals `genesisCutoff`        | matches                            |
-| 8.c reject | a node reads 283 as proof input                                           | violates STOR-B-8                  |
-| 8.d reject | 284 initialized to 0                                                      | violates STOR-B-8                  |
-| 8.e reject | 283 reused for a later parameter                                          | violates STOR-B-8 ("no ... reuse") |
+| Vector     | Claimed layout or data                         | Expected                           |
+| ---------- | ---------------------------------------------- | ---------------------------------- |
+| 8.a accept | 283 and 284 are never read, written or reused  | matches                            |
+| 8.c reject | a node reads 283 as proof input                | violates STOR-B-8                  |
+| 8.d reject | a value written to 284 at Inbox initialization | violates STOR-B-8                  |
+| 8.e reject | 283 reused for a later parameter               | violates STOR-B-8 ("no ... reuse") |
+| 8.f reject | an anchor witness or a guest reads 284         | violates STOR-B-8                  |
 
 ## STOR-B-9
 
@@ -114,13 +121,16 @@
 
 | Vector      | Claimed layout or data                                                                                                  | Expected                                                     |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| 13.a accept | per generation, three consecutive uint256 words from the mapping base: startHeight, l1BlockNumber, l1Timestamp          | matches                                                      |
+| 13.a accept | per generation, four consecutive words from the mapping base: startHeight, l1BlockNumber, l1Timestamp, fallbackKeysHash | matches                                                      |
 | 13.b accept | generation 0 has a record, written under 8.4                                                                            | matches ("Includes generation 0")                            |
-| 13.c reject | a gap between the three words (l1Timestamp not at base+2)                                                               | violates STOR-B-13                                           |
-| 13.d reject | a record written without the height, block and timestamp range checks (for example startHeight past the L+1<2^48 bound) | violates STOR-B-13                                           |
+| 13.c reject | a gap between the words (l1Timestamp not at base+2, or fallbackKeysHash not at base+3)                                  | violates STOR-B-13                                           |
+| 13.d reject | a record written without the height, block and timestamp range checks                                                   | violates STOR-B-13                                           |
 | 13.e reject | a cached latest origin read instead of the per-generation record                                                        | violates STOR-B-13                                           |
 | 13.f reject | the current generation's origin record added to the ordinary anchor witness                                             | violates STOR-B-13                                           |
 | 13.g reject | an existing generation's record overwritten by a later recovery                                                         | violates STOR-B-13 (fixed per generation; 8.4: written once) |
+| 13.h accept | `setFallbackKeys` stores the hash F2 in 278, then a recovery writes generation 1's record                               | the record's fourth word is F2                               |
+| 13.i reject | a later `setFallbackKeys` changes the fourth word of generation 1's record                                              | violates STOR-B-13 (fixed per generation)                    |
+| 13.j reject | the record has three words, without fallbackKeysHash                                                                    | violates STOR-B-13 ("four consecutive words")                |
 
 ## STOR-B-14
 
@@ -158,11 +168,12 @@
 
 ## STOR-B-17
 
-| Vector      | Claimed layout or data                                    | Expected           |
-| ----------- | --------------------------------------------------------- | ------------------ |
-| 17.a accept | 283, 286, 287, 288, 289 and 291 are never read or written | matches            |
-| 17.b reject | a replay path reads 289                                   | violates STOR-B-17 |
-| 17.c reject | a write to 286                                            | violates STOR-B-17 |
+| Vector      | Claimed layout or data                                         | Expected           |
+| ----------- | -------------------------------------------------------------- | ------------------ |
+| 17.a accept | 283, 284, 286, 287, 288, 289 and 291 are never read or written | matches            |
+| 17.b reject | a replay path reads 289                                        | violates STOR-B-17 |
+| 17.c reject | a write to 286                                                 | violates STOR-B-17 |
+| 17.d reject | an exit or withdrawal path reads or writes 284                 | violates STOR-B-17 |
 
 ## STOR-B-18
 
@@ -183,149 +194,103 @@
 
 ## STOR-B-20
 
-| Vector      | Claimed layout or data                                                           | Expected           |
-| ----------- | -------------------------------------------------------------------------------- | ------------------ |
-| 20.a accept | registry storage is rooted at R, the ERC-7201 base slot of `taiko.etna.registry` | matches            |
-| 20.b reject | registry storage rooted at the base slot of a different namespace id             | violates STOR-B-20 |
-| 20.c reject | R set to an arbitrary constant unrelated to that namespace                       | violates STOR-B-20 |
+| Vector      | Claimed layout or data                                                                                                                                                                                          | Expected                                                                 |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 20.a accept | the staking storage that nodes and guests read is rooted at T = `keccak256(abi.encode(uint256(keccak256("taiko.etna.staking")) - 1)) & ~bytes32(uint256(0xff))`, the ERC-7201 base slot of `taiko.etna.staking` | T = `0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e00` |
+| 20.b reject | that storage is rooted at the base slot of a different namespace id                                                                                                                                             | violates STOR-B-20                                                       |
+| 20.c reject | T is set to an arbitrary constant unrelated to that namespace                                                                                                                                                   | violates STOR-B-20                                                       |
+| 20.d reject | the namespace lives in an L1 contract                                                                                                                                                                           | violates STOR-B-20 (the L2 staking contract)                             |
 
 ## STOR-B-21
 
-| Vector      | Claimed layout or data                                                                       | Expected                                      |
-| ----------- | -------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| 21.a accept | checkpoint word 1 packs `l1Block` and `count`; word 2 is `entriesRoot`                       | matches                                       |
-| 21.b accept | entry words: `ckX`, `effStake`, then packed `ckPrefix`, `activeFromL1` and `exitEffectiveL1` | matches                                       |
-| 21.c reject | `entriesRoot` in checkpoint word 1                                                           | violates STOR-B-21                            |
-| 21.d reject | `ckX` in the third entry word                                                                | violates STOR-B-21                            |
-| 21.e reject | a node reads the top-ups or forfeitures namespace to derive a committee                      | violates STOR-B-21 ("only two things")        |
-| 21.f reject | `entries` is indexed by bond id rather than slot number                                      | violates STOR-B-21 ("indexed by slot number") |
+T is the base slot of 20.a.
+
+| Vector      | Claimed layout or data                                                                      | Expected                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 21.a accept | `snapshotHeight` at T with every bit at or above bit 48 zero; `snapshotTotalStake` at T + 1 | matches                                                                                                          |
+| 21.b accept | snapshot seat record 5                                                                      | word 1 at T + 13, word 2 at T + 14                                                                               |
+| 21.c accept | snapshot seat record 127                                                                    | word 1 at T + 257 = `0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f01`, word 2 at T + 258      |
+| 21.d accept | n_max = 64                                                                                  | nodes and guests still read all 128 records, from T + 3 to T + 258 ("whatever n_max is")                         |
+| 21.e reject | a node reads only the first n_max records                                                   | violates STOR-B-21 and COMM-4.3-3                                                                                |
+| 21.f accept | the key-to-seat element for `ckAddr` = `0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf`         | at `keccak256(abi.encode(ckAddr, T + 2))` = `0x5aed0c9b66e2d0fa057ebed89e910688ada65f4c543b321333450c21264ccf27` |
+| 21.g reject | a record's word 1 is the packed word and word 2 is `ckX`                                    | violates STOR-B-21                                                                                               |
+| 21.h reject | a node reads miss counts, forfeiture flags or bond records to decide the candidate          | violates STOR-B-21 ("only these words")                                                                          |
+| 21.i reject | a node decides H's candidate from the records in H's parent's post-state                    | violates STOR-B-21 and COMM-4.3-3                                                                                |
+| 21.j reject | a node sets block H's missBitmap from the key-to-seat mapping in H's own post-state         | violates STOR-B-21 and STAKE-4.2-5                                                                               |
+
+## STOR-B-21a
+
+| Vector       | Claimed layout or data                                                                                                                                    | Expected                                                                                                     |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 21a.a accept | both words of record s are zero                                                                                                                           | seat s is empty                                                                                              |
+| 21a.b accept | record s has word 1 = `0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798` and word 2 = `0x3d09002`, that is ckPrefix 2 and power 250,000 | a member with the key `(0x02, word 1)` and power 250,000                                                     |
+| 21a.c reject | the record of 21a.b with bit 72 of word 2 also set, just above `power`                                                                                    | the candidate is not usable (COMM-4.3-8)                                                                     |
+| 21a.d accept | word 1 is nonzero and word 2 is zero                                                                                                                      | a member with ckPrefix 0, so the candidate is not usable (COMM-4.3-4)                                        |
+| 21a.e reject | the contract leaves a nonzero record at s = n_max                                                                                                         | violates STOR-B-21a ("keeps the records at or above n_max zero"); nodes and guests still read it as a member |
+| 21a.f reject | a node skips a nonzero record because its seat number is at or above n_max                                                                                | violates STOR-B-21a ("any other record is a member") and COMM-4.3-3                                          |
+
+## STOR-B-21b
+
+| Vector       | Claimed layout or data                                                                         | Expected                                                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 21b.a accept | a bond registers in block X and takes seat 5                                                   | in X's post-state its key maps to `0x0501` (holdsSeat 1, seat 5); T, T + 1 and the records are as X's `onBlockStart` left them |
+| 21b.b reject | a `topUp` or `requestExit` transaction rewrites a snapshot seat record or `snapshotTotalStake` | violates STOR-B-21b and STAKE-4.2-7                                                                                            |
+| 21b.c accept | the bond of 21b.a requests an exit in block Y                                                  | in Y's post-state its key maps to 0                                                                                            |
+| 21b.d reject | the key-to-seat mapping changes only at the next `onBlockStart`                                | violates STOR-B-21b ("updates it in that call")                                                                                |
+| 21b.e accept | a key no bond registered, or the key of a withdrawn bond                                       | maps to 0                                                                                                                      |
+| 21b.f reject | after the bond of 21b.a releases seat 5, its key maps to `0x0500` (holdsSeat 0, seat 5 kept)   | violates STOR-B-21b ("maps to 0")                                                                                              |
 
 ## STOR-B-22
 
-| Vector      | Claimed layout or data                                                     | Expected           |
-| ----------- | -------------------------------------------------------------------------- | ------------------ |
-| 22.a accept | an entry's `exitEffectiveL1` is 2^48 − 1                                   | no exit is set     |
-| 22.b reject | `exitEffectiveL1` = 2^48 − 1 treated as an exit effective at that block    | violates STOR-B-22 |
-| 22.c reject | an entry with `exitEffectiveL1` = 2^48 − 1 counted as exiting in selection | violates STOR-B-22 |
+| Vector      | Claimed layout or data                                                | Expected                                   |
+| ----------- | --------------------------------------------------------------------- | ------------------------------------------ |
+| 22.a accept | an issued bond's `exitHeight` is 2^48 − 1                             | no exit is set                             |
+| 22.b reject | `exitHeight` = 2^48 − 1 is treated as an exit set at that L2 height   | violates STOR-B-22                         |
+| 22.c accept | default storage at an unissued id, with `exitHeight` 0                | neither a bond nor an exit (STAKE-4.1-13a) |
+| 22.d reject | an unissued id's zero `exitHeight` is read as an exit set at height 0 | violates STOR-B-22                         |
 
 ## STOR-B-23
 
-| Vector      | Claimed layout or data                                                                              | Expected           |
-| ----------- | --------------------------------------------------------------------------------------------------- | ------------------ |
-| 23.a accept | slot 272: `genesisHeight` in the least-significant 48 bits, `L1_0` next, `L` next                   | matches            |
-| 23.b accept | slot 285 word 1: parentHeight c in the least-significant field, then generation, then head          | matches            |
-| 23.c reject | slot 272 with `L` in the least-significant 48 bits                                                  | violates STOR-B-23 |
-| 23.d reject | slot 285 word 1 with `head` in the least-significant field                                          | violates STOR-B-23 |
-| 23.e accept | slot 293: `activeRules` in the least-significant 48 bits, then `nextRules`, `rulesTime`, `stopTime` | matches            |
-| 23.f reject | slot 293 with `stopTime` in the least-significant 48 bits                                           | violates STOR-B-23 |
+| Vector      | Claimed layout or data                                                                              | Expected                                                                    |
+| ----------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 23.a accept | slot 272: `genesisHeight` in the least-significant 48 bits, `L1_0` next                             | matches                                                                     |
+| 23.b accept | slot 285 word 1: parentHeight c in the least-significant field, then generation, then head          | matches                                                                     |
+| 23.c reject | slot 272 with `L1_0` in the least-significant 48 bits                                               | violates STOR-B-23                                                          |
+| 23.d reject | slot 285 word 1 with `head` in the least-significant field                                          | violates STOR-B-23                                                          |
+| 23.e accept | slot 293: `activeRules` in the least-significant 48 bits, then `nextRules`, `rulesTime`, `stopTime` | matches                                                                     |
+| 23.f reject | slot 293 with `stopTime` in the least-significant 48 bits                                           | violates STOR-B-23                                                          |
+| 23.g accept | a key whose bond holds seat 5                                                                       | its key-to-seat value is `0x0501`: holdsSeat in bits 0–7, seat in bits 8–15 |
+| 23.h accept | record word 2 for ckPrefix 3 and power 250,000                                                      | `0x3d09003`: ckPrefix in bits 0–7, power in bits 8–71                       |
+| 23.i reject | record word 2 with `power` in the least-significant bits and `ckPrefix` above it                    | violates STOR-B-23                                                          |
 
 ## STOR-B-24
 
-| Vector      | Claimed layout or data                                                                    | Expected           |
-| ----------- | ----------------------------------------------------------------------------------------- | ------------------ |
-| 24.a accept | a packed word with `ckPrefix` in 8 bits and 48-bit fields above it, unused high bits zero | matches            |
-| 24.b accept | a 48-bit field holding 2^48 − 1 with no bits above it                                     | matches            |
-| 24.c reject | a 16-bit `ckPrefix` field                                                                 | violates STOR-B-24 |
-| 24.d reject | nonzero bits above the highest used field                                                 | violates STOR-B-24 |
+| Vector      | Claimed layout or data                                                                           | Expected           |
+| ----------- | ------------------------------------------------------------------------------------------------ | ------------------ |
+| 24.a accept | record word 2 with `ckPrefix` in 8 bits, `power` in the 64 bits above it and the other bits zero | matches            |
+| 24.b accept | a 48-bit field holding 2^48 − 1 with no bits above it                                            | matches            |
+| 24.c reject | a 16-bit `ckPrefix` field                                                                        | violates STOR-B-24 |
+| 24.d reject | nonzero bits above the highest used field                                                        | violates STOR-B-24 |
+| 24.e accept | a key-to-seat value with holdsSeat and seat in 8 bits each and every bit from bit 16 up zero     | matches            |
+| 24.f reject | `power` stored in a 48-bit field                                                                 | violates STOR-B-24 |
 
 ## STOR-B-25
 
-| Vector      | Claimed layout or data                                  | Expected         |
-| ----------- | ------------------------------------------------------- | ---------------- |
-| 25.a accept | writing 2^48 − 1 into a 48-bit field                    | succeeds         |
-| 25.b reject | writing 2^48 into a 48-bit field                        | reverts (stated) |
-| 25.c reject | writing a 256-bit value into the 8-bit `ckPrefix` field | reverts (stated) |
-
-## STOR-B-26
-
-| Vector      | Claimed layout or data                                                   | Expected                                                                                 |
-| ----------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| 26.a accept | `exitConfirmedAtL1` is 0                                                 | not confirmed                                                                            |
-| 26.b accept | `exitConfirmedAtL1` is the L1 block of the first successful confirmation | confirmed                                                                                |
-| 26.c reject | `exitConfirmedAtL1` = 0 treated as confirmed                             | violates STOR-B-26                                                                       |
-| 26.d reject | the confirmation stored in the entry's three words                       | violates STOR-B-26 (separate namespace)                                                  |
-| 26.e accept | registration issues a fresh bond N after earlier calls naming N reverted | confirmation mapping is 0; unissued ids could not acquire a confirmation (STAKE-4.1-13a) |
-
-## STOR-B-27
-
-| Vector      | Claimed layout or data                                               | Expected           |
-| ----------- | -------------------------------------------------------------------- | ------------------ |
-| 27.a accept | `confirmExit` writes only into the exit-confirmations namespace      | matches            |
-| 27.b accept | withdrawal clears the confirmation                                   | matches            |
-| 27.c reject | `confirmExit` creates a registry checkpoint or changes `entriesRoot` | violates STOR-B-27 |
-| 27.d reject | after withdrawal the confirmation remains                            | violates STOR-B-27 |
-| 27.e reject | `confirmExit` writes a `regLeaf` entry                               | violates STOR-B-27 |
-
-## STOR-B-28
-
-| Vector      | Claimed layout or data                                                                 | Expected           |
-| ----------- | -------------------------------------------------------------------------------------- | ------------------ |
-| 28.a accept | the owner is written at registration to `taiko.etna.registry.owners`, keyed by bond id | matches            |
-| 28.b accept | the owner entry is cleared at withdrawal                                               | matches            |
-| 28.c reject | the owner stored in the entry's three words                                            | violates STOR-B-28 |
-| 28.d reject | the owner not cleared at withdrawal                                                    | violates STOR-B-28 |
-
-## STOR-B-29
-
-| Vector      | Claimed layout or data                                 | Expected           |
-| ----------- | ------------------------------------------------------ | ------------------ |
-| 29.a accept | changing only the owner leaves `entriesRoot` unchanged | matches            |
-| 29.b reject | an owner change alters `entriesRoot`                   | violates STOR-B-29 |
-| 29.c reject | a node reads the owners mapping to derive a committee  | violates STOR-B-29 |
-
-## STOR-B-30
-
-| Vector      | Claimed layout or data                                                                                                                                       | Expected           |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ |
-| 30.a accept | mapping at the namespace base keyed by uint256 bondId; uint256 `pendingTopUp` at the element; uint48 `topUpReadyAtL1` in the next word with unused bits zero | matches            |
-| 30.b reject | `topUpReadyAtL1` packed into the same word as `pendingTopUp`                                                                                                 | violates STOR-B-30 |
-| 30.c reject | nonzero unused bits in the ready word                                                                                                                        | violates STOR-B-30 |
-| 30.d reject | the mapping keyed by an address or bytes32 instead of uint256 bondId                                                                                         | violates STOR-B-30 |
-
-## STOR-B-31
-
-| Vector      | Claimed layout or data                                | Expected           |
-| ----------- | ----------------------------------------------------- | ------------------ |
-| 31.a accept | withdrawal clears `pendingTopUp` and `topUpReadyAtL1` | matches            |
-| 31.b reject | `pendingTopUp` nonzero after withdrawal               | violates STOR-B-31 |
-| 31.c reject | `topUpReadyAtL1` set after withdrawal                 | violates STOR-B-31 |
-
-## STOR-B-32
-
-| Vector      | Claimed layout or data                                                                  | Expected                                |
-| ----------- | --------------------------------------------------------------------------------------- | --------------------------------------- |
-| 32.a accept | `forfeited[bondId]` is false before any forfeiture                                      | matches                                 |
-| 32.b accept | true after a forfeiture, and still true after withdrawal and slot reuse                 | matches ("never cleared")               |
-| 32.c reject | withdrawal or slot reuse clears the flag                                                | violates STOR-B-32                      |
-| 32.d reject | a value other than 0 or 1 in the flag                                                   | violates STOR-B-32                      |
-| 32.e accept | old bond id 0 has flag true, new bond id 2 occupies slot 0 and has never been forfeited | flag 0 remains true and flag 2 is false |
-
-## STOR-B-33
-
-| Vector      | Claimed layout or data                                                                           | Expected           |
-| ----------- | ------------------------------------------------------------------------------------------------ | ------------------ |
-| 33.a accept | a `topUp` that only sets `pendingTopUp` creates no checkpoint and leaves `entriesRoot` unchanged | matches            |
-| 33.b reject | `pendingTopUp` included in `regLeaf` or `entriesRoot`                                            | violates STOR-B-33 |
-| 33.c reject | a checkpoint written because of a pending change that alters no field of the entry in a slot     | violates STOR-B-33 |
-| 33.d reject | a guest reads the top-ups or forfeitures namespace                                               | violates STOR-B-33 |
-
-## STOR-B-34
-
-| Vector      | Claimed layout or data                                                                | Expected           |
-| ----------- | ------------------------------------------------------------------------------------- | ------------------ |
-| 34.a accept | after the verifier-failure rollback the flags equal their pre-failure values          | matches            |
-| 34.b reject | the rollback clears a flag                                                            | violates STOR-B-34 |
-| 34.c reject | the rollback restores an older flag snapshot that differs from the pre-failure values | violates STOR-B-34 |
+| Vector      | Claimed layout or data                                       | Expected         |
+| ----------- | ------------------------------------------------------------ | ---------------- |
+| 25.a accept | writing 2^48 − 1 into a 48-bit field                         | succeeds         |
+| 25.b reject | writing 2^48 into a 48-bit field                             | reverts (stated) |
+| 25.c reject | writing a 256-bit value into the 8-bit `ckPrefix` field      | reverts (stated) |
+| 25.d reject | writing a power of 2^64 into a record's 64-bit `power` field | reverts (stated) |
 
 ## Not covered
 
 Everything below is a question, not a vector. Each has an entry in [review/B.md](../review/B.md).
 
-| Rule                   | Gap                                                                                                                                                                                   | Question                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| STOR-B-9, STOR-B-13    | the storage-key derivation for the 285 landing record and the 290 origin record (mapping element base, and whether its four (285) or three (290) words are consecutive) is not stated | [Q-B-1](../review/B.md#q-b-1) |
-| all sections           | slots that the table does not list (259–267, 275–277, 293 and above) have no stated disposition                                                                                       | [Q-B-2](../review/B.md#q-b-2) |
-| STOR-B-24, STOR-B-25   | read-side handling of a packed word whose fields exceed their width or whose unused bits are nonzero                                                                                  | [Q-B-3](../review/B.md#q-b-3) |
-| STOR-B-16 to STOR-B-22 | consequence of a layout violation that states no consequence                                                                                                                          | [Q-B-4](../review/B.md#q-b-4) |
-| STOR-B-9               | whether "never pruned" is a requirement with an enforcement path or an operational promise                                                                                            | [Q-B-5](../review/B.md#q-b-5) |
-| delivery sentences     | "Validate the concrete layout ... through layout checks and shared vectors" and "Validate these namespaces ... with shared layout vectors" are un-numbered                            | [Q-A-5](../review/A.md#q-a-5) |
+| Rule                             | Gap                                                                                                                                                                                   | Question                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| STOR-B-9, STOR-B-13              | the storage-key derivation for the 285 landing record and the 290 origin record (mapping element base, and whether its three (285) or four (290) words are consecutive) is not stated | [Q-B-1](../review/B.md#q-b-1) |
+| all sections                     | slots that the table does not list (259–267, 275–277, 294 and above) have no stated disposition                                                                                       | [Q-B-2](../review/B.md#q-b-2) |
+| STOR-B-21b, STOR-B-24, STOR-B-25 | read-side handling of an Inbox packed word or a key-to-seat value whose fields exceed their width or whose unused bits are nonzero                                                    | [Q-B-3](../review/B.md#q-b-3) |
+| STOR-B-16 to STOR-B-22           | consequence of a layout violation that states no consequence                                                                                                                          | [Q-B-4](../review/B.md#q-b-4) |
+| STOR-B-9                         | whether "never pruned" is a requirement with an enforcement path or an operational promise                                                                                            | [Q-B-5](../review/B.md#q-b-5) |

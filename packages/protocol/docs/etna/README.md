@@ -58,7 +58,7 @@ The Etna block-production and validation rules are in
 | [11. Parameters](SPEC.md#11-parameters)                                                    | Parameter sources, constraints and reference values                                                   |
 | [12. Known limitations and open items](SPEC.md#12-known-limitations-and-open-items)        | All 22 limitations and open items                                                                     |
 | [Appendix A: Encodings](SPEC.md#appendix-a-encodings)                                      | Domains, encodings, ABI and reference examples                                                        |
-| [Appendix B: L1 storage layout](SPEC.md#appendix-b-l1-storage-layout)                      | Inbox and registry slots, packing and namespaces                                                      |
+| [Appendix B: Storage layout](SPEC.md#appendix-b-storage-layout)                            | Inbox and registry slots, packing and namespaces                                                      |
 | [Appendix C: Operating funding](SPEC.md#appendix-c-operating-funding-and-cost-assumptions) | DAO operating funding and worst-case cost assumptions                                                 |
 | [Acceptance and launch checklist](ACCEPTANCE.md)                                           | Resource, latency and recovery acceptance, shared vectors, launch gate, checkpoint snapshot sync (§7) |
 

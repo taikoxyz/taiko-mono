@@ -727,11 +727,11 @@ A block's timestamp is never earlier than its anchor's (3.2) and at most `maxAnc
 
 ## Appendix A: Encodings
 
-**[ENC-A-1]** **Versions**: APP_VERSION=1, and every versioned domain tag is V1; the outer envelope/payload prefix is 0x06. **[ENC-A-2]** Config has seven words/224 bytes; CommitteeRecord has five fields. **[ENC-A-3]** Slot 285 has three words (appendix B). **[ENC-A-4a]** Changing clients or registering an image does not activate new rules; only the 10.1 schedule selects a block's ruleset, and guest-image acceptance is the verifier's accepted set (6.2).
+**[ENC-A-1]** **Versions**: APP_VERSION=1, and every versioned domain tag is V1; the outer envelope/payload prefix is 0x06. **[ENC-A-2]** Config has four words/128 bytes. **[ENC-A-3]** Slot 285 has three words (appendix B). **[ENC-A-4a]** Changing clients or registering an image does not activate new rules; only the 10.1 schedule selects a block's ruleset, and guest-image acceptance is the verifier's accepted set (6.2).
 
 **Shared vectors**: every encoding, interface, storage layout and boundary condition needs accept/reject vectors shared by nodes, contracts and both guests; the list is in [Etna Acceptance and Launch Checklist](ACCEPTANCE.md).
 
-**[ENC-A-5]** Protocol hashes are keccak256 over `abi.encode`, with domain tags as right-zero-padded `bytes32` ASCII; the exceptions are the inner nodes of `entriesRoot` (plain concatenation) and the blob hash list and the cut leaf list (`abi.encodePacked`). Every formula below writes its tag as `bytes32("...")`: a tag is one static word and is never encoded as a dynamic string.
+**[ENC-A-5]** Protocol hashes are keccak256 over `abi.encode`, with domain tags as right-zero-padded `bytes32` ASCII; the exceptions are the blob hash list and the cut leaf list (`abi.encodePacked`). Every formula below writes its tag as `bytes32("...")`: a tag is one static word and is never encoded as a dynamic string.
 
 ```txt
 // [ENC-A-6]
@@ -744,7 +744,7 @@ chain_id    = "etna-" + base64url_no_padding(chainDomain)  // raw 32-byte digest
   // [ENC-A-9]
   // inbox is the EtnaInbox proxy address; generation starts at 0 and never wraps or decreases
 // [ENC-A-10]
-extraData  = 0x64 || uint48_be(generation) || uint48_be(anchorNumber)   // 13 bytes
+extraData  = 0x64 || uint48_be(generation) || uint48_be(anchorNumber) || uint128_be(missBitmap)   // 29 bytes
 // [ENC-A-10a]
 baseFee    = min(max(raw, minBaseFee), 1 gwei)          // EIP-4396 for block b; p is b's parent, g is p's parent; every division floors
   target   = p.gasLimit / 2                                                        // ELASTICITY_MULTIPLIER = 2
@@ -758,31 +758,34 @@ baseFee    = min(max(raw, minBaseFee), 1 gwei)          // EIP-4396 for block b;
   //   the operating block interval (3.1) and applies to every Etna block, S + 1 included; Unzen blocks used 2 s
 // [ENC-A-10b]
 mixHash    = keccak256(abi.encode(bytes32(p.difficulty), uint256(b.number)))       // 2 words, 64 bytes; p.difficulty as a big-endian word
+// [ENC-A-10c]
+missBitmap bit of seat s = (missBitmap >> s) & 1        // s in [0, 128); seat 0 is the low bit of extraData[28], the last byte, and seat 127 the high bit of extraData[13]
+  // 3.4 states which bits a block sets, and 4.2 what onBlockStart does with them
+// [ENC-A-10d]
+onBlockStart calldata = 0xea987592 || abi.encode(uint48(generation), uint128(missBitmap))   // 4 + 2 * 32 = 68 bytes
+  // 0xea987592 = bytes4(keccak256("onBlockStart(uint48,uint128)")); generation and missBitmap are the block's own extraData fields,
+  //   each one 32-byte big-endian word with zero high bits (standard ABI encoding); no other bytes follow
 
 // [ENC-A-11]
-envelope   = 0x06 || rlp([block, anchor, committee, forced])
+envelope   = 0x06 || rlp([block, anchor, forced])
   // [ENC-A-12]
   block     = [elHeader, [tx, ...]]                    // tx: RLP byte string of its EIP-2718 encoding, legacy included
   // [ENC-A-13]
   anchor    = [] or [[rawL1Header, inboxWitness]]       // rawL1Header: byte string holding the L1 header's raw RLP, decoded per 3.3
-  // [ENC-A-14]
-  committee = [] or [[record, registryWitness, [entry, ...]]]
   // [ENC-A-15]
   forced    = [] or [[index, entryWitness, tx]]         // tx may be empty; if nonempty its hash must match; required for skips
   // [ENC-A-16]
   // Strict decoding (identical for nodes and guests; any violation makes the proposal invalid): the envelope is exactly 0x06 plus one RLP list, with no trailing bytes;
   // [ENC-A-17]
-  // every list has exactly the items above, and anchor/committee/forced are empty or hold exactly one item; integers use minimal big-endian encoding, 0 is the empty string, no leading zeros;
+  // every list has exactly the items above, and anchor/forced are empty or hold exactly one item; integers use minimal big-endian encoding, 0 is the empty string, no leading zeros;
   // [ENC-A-18]
   // fixed-length byte strings (hashes, stateRoots, slots) have exactly their length (slots 32 bytes, addresses 20 bytes); no extra items or unknown fields
   // [ENC-A-19]
-  // Field types: hashes, stateRoots and slots are 32-byte strings and addresses 20-byte strings; RegistryEntry.ckX is a 32-byte string (leading zeros kept), ckPrefix and the other numbers are integers;
+  // Field types: hashes, stateRoots and slots are 32-byte strings and addresses 20-byte strings; all other numbers are integers;
   // [ENC-A-20]
-  // storage values always use minimal integer encoding, including slots that hold hashes; RLP length prefixes must also be minimal; an empty slot's entry has all-zero fields;
+  // storage values always use minimal integer encoding, including slots that hold hashes; RLP length prefixes must also be minimal;
   // [ENC-A-21]
-  // AccountWitness.address must be the expected contract: the Inbox for anchor and forced witnesses, the registry for the committee witness
-  // [ENC-A-22]
-  // committee-witness account/storage proofs are always verified under this block's anchor stateRoot (new or inherited), i.e. parentBeaconBlockRoot (4.3)
+  // AccountWitness.address must be the expected contract: the Inbox for anchor and forced witnesses
 
 // [ENC-A-23]
 payload    = 0x06 || zlib(rlp([[elHeader, [tx, ...]], ...]))   // each item is the envelope's block item, a list encoded once
@@ -804,16 +807,10 @@ blob       = fe[0] || fe[1] || ... || fe[4095]          // Unzen's blob encoding
 // [ENC-A-24]
 AccountWitness  = [address, nonce, balance, storageRoot, codeHash, accountProof, [[slot, value, proof], ...]]
   // [ENC-A-25a]
-  Prove exactly in order: anchor [268, 270, 271, 281, 293]; forced entry [base,base+1], base=keccak256(abi.encode(i,280));
-  // [ENC-A-26]
-  registry snapshot [R, cp(i), cp(i) + 1], plus cp(i + 1) if i + 1 < length, where cp(i) = keccak256(R) + 2i
+  Prove exactly in order: anchor [268, 270, 271, 278, 279, 281, 293]; forced entry [base,base+1], base=keccak256(abi.encode(i,280));
   // [ENC-A-26a]
   // accountProof and each storage proof are exactly the ordered MPT path from the root to the leaf (or to the node proving absence), with no extra nodes;
   // value uses minimal big-endian encoding (0 is the empty string) and equals the proven value; the account fields match the account RLP in the proof
-// [ENC-A-27]
-CommitteeRecord = [targetEpoch, cutoffL1Block, checkpointIndex, setHash, totalPower]
-// [ENC-A-28]
-RegistryEntry   = [ckPrefix, ckX, effStake, activeFromL1, exitEffectiveL1]
 ```
 
 ```txt
@@ -868,40 +865,34 @@ cutHash     = keccak256(abi.encode(bytes32("ETNA_LAND_CUTS_V1"),
 
 // [ENC-A-35]
 statement = keccak256(abi.encode(
-  bytes32("TAIKO_ETNA_LAND_V1"), l1ChainId, l2ChainId, inbox, registry,
-  generation, parentHeight, parentHash, parentCometHash, committeeConfigHash,
+  bytes32("TAIKO_ETNA_LAND_V1"), l1ChainId, l2ChainId, inbox,
+  generation, parentHeight, parentHash, parentCometHash, configHash,
   lastHeight, lastBlockHash, lastCometHash, lastStateRoot,
   l1ReferenceBlockNumber, l1ReferenceBlockHash, keccak256(abi.encodePacked(blobHashes)),
-  forcedInclusionHeadBefore, forcedInclusionHeadAfter, activeCommitteeSnapshot,
-  cutHash))  // 21 static ABI words, 672 bytes
+  forcedInclusionHeadBefore, forcedInclusionHeadAfter, cutHash))  // 19 static ABI words, 608 bytes
   // parentHeight/hash/CometHash and headBefore are taken at proof origin p
 ```
 
 ```txt
 // [ENC-A-36]
-committeeConfigHash = keccak256(abi.encode(bytes32("ETNA_PARENT_ANCHOR_V1"), l2ChainId, registry,
-  vp_unit, minStake, n_max, U))  // 7 words, 224 bytes
+configHash = keccak256(abi.encode(bytes32("ETNA_CONFIG_V1"), l2ChainId, staking, U))  // 4 words, 128 bytes
+  // staking is the address of the EtnaStaking proxy on L2 (4.1); l2ChainId, staking and U take one word each
 
-// [ENC-A-37]
-regLeaf(j)  = keccak256(abi.encode(bytes32("ETNA_REG_ENTRY_V1"), j, ckPrefix, ckX, effStake, activeFromL1,
-                exitEffectiveL1))  // 7 words, 224 bytes; j is the slot number (0..4095), never the bond id
-// [ENC-A-38]
-entriesRoot = 0 when count = 0. Otherwise take regLeaf(j) as leaf j for each j from 0 through count - 1, including the all-zero entry fields of interior empty slots.
-  // Pad this leaf list on the right with bytes32(0) to the smallest power of two >= count. One leaf gives its own root; inner nodes are keccak256(left || right).
+// [ENC-A-36a]
+FallbackKey      = (uint8 ckPrefix, bytes32 ckX)
+fallbackKeysHash = keccak256(abi.encode(bytes32("ETNA_FALLBACK_KEYS_V1"), keys))
+  // keys is a FallbackKey[] of 1 to 128 entries in strictly ascending order of the 33-byte big-endian value
+  //   ckPrefix ‖ ckX, each a valid compressed public key (COMM-4.3-18)
+  // standard ABI encoding: two head words (tag, offset), then the array's length and two words per key, so n keys
+  //   take 3 + 2n words: 160 bytes for one key, 8,288 bytes for 128
+// [ENC-A-36b]
+// The fallback key set signs as one validator per key, each with voting power 1, so n keys have total power n
+//   (COMM-4.3-8b, COMM-4.3-9); a key's validator address is its secp256k1eth address (CONS-3.1-3)
 
-// [ENC-A-39]
-setKey(ck)  = keccak256(abi.encode(bytes32("ETNA_SET_KEY_V1"), l2ChainId, ckPrefix, ckX))  // 4 words, 128 bytes
-// [ENC-A-39a]
-setHash     = keccak256(abi.encode(bytes32("ETNA_SET_V1"), l2ChainId, k, members))
-  // members is a SetMember[] holding the selected members in ascending set-key order (4.3):
-  //   SetMember = (uint8 ckPrefix, bytes32 ckX, uint256 effStake, uint64 assignedPower)
-  // standard ABI encoding: four head words (tag, l2ChainId, k, offset), then the array's length and four
-  //   words per member; one hash commits the whole set, and no rule proves a single member against it
-// [ENC-A-42]
-record      = keccak256(abi.encode(bytes32("ETNA_COMMITTEE_V1"), l2ChainId, targetEpoch, cutoffL1Block,
-                checkpointIndex, setHash, totalPower))  // 7 words, 224 bytes
-// [ENC-A-42a]
-k           = targetEpoch + 1
+// [ENC-A-36c]
+SeatMember = (uint8 seat, uint8 ckPrefix, bytes32 ckX, uint64 power)
+  // snapshot() returns the occupied snapshot seat records as SeatMember entries in ascending seat order (STAKE-4.2-7);
+  //   it is a convenience view, and nodes and guests read the records of appendix B instead (COMM-4.3-3)
 ```
 
 ```txt
@@ -925,7 +916,8 @@ cv = [0x08 varint type]                                 // 1 = prevote, 2 = prec
   //   not sign: only the key holder can have signed them
 // [ENC-A-46]
 signer   = ecrecover(keccak256(voteSignBytes), V + 27, R, S)   // 65-byte R‖S‖V, V ∈ {0,1}, S ≤ n/2
-// register(bytes publicKey, uint256 amount, bytes popSig)
+
+// L2 staking contract: register(bytes publicKey, uint256 amount, bytes popSig) returns (uint256 bondId)
 // [ENC-A-47]
 // publicKey is exactly 33 raw bytes: ckPrefix (0x02/0x03) || uint256_be(ckX).
 // [ENC-A-48]
@@ -942,80 +934,75 @@ ckY      = y0 if (y0 mod 2) == (ckPrefix - 2) else p - y0
 // [ENC-A-49]
 ckAddr   = keccak256(uint256_be(ckX) || uint256_be(ckY))[12:]
 // The 0x04 uncompressed prefix is not hashed. Require nonzero matching PoP recovery.
-// Store ckPrefix/ckX only. slashDoubleSign(bondId,voteA,voteB) looks the recovered address up in the lifetime
-// ckAddr mapping and requires this bond; it does not decompress the key again.
+// Store ckPrefix/ckX only. slashDoubleSign(bondId, voteA, voteB) requires bondForKey(recovered address) to return
+// (true, bondId) (STAKE-4.1-33); it does not decompress the key again.
 
 // [ENC-A-49a]
 registerDigest  = keccak256(0x1901 || domainSeparator ||
                     keccak256(abi.encode(keccak256("Register(address owner)"), owner)))
-domainSeparator = EIP-712 domain: name "EtnaStakingRegistry", version "1", chainId = L1 chain id, verifyingContract = registry
+domainSeparator = EIP-712 domain: name "EtnaStaking", version "1", chainId = L2 chain id, verifyingContract = EtnaStaking
 // [ENC-A-50]
 // popSig: exactly 65 bytes R || S || V; V in {0,1}, 0 < R < n, 0 < S <= n/2.
 popSigner = ecrecover(registerDigest, V + 27, R, S)
 require popSigner != address(0) and popSigner == ckAddr
 
 // Recovery call: recover(expectedGeneration, expectedC, expectedRecoveryNonce, validUntil,
-//                        uint256[] exclusions, uint256[] fiToClear, uint48 rules)
+//                        uint256[] fiToClear, uint48 rules)
 // Schedule calls (10.1), Inbox owner only: scheduleRules(uint48 expectedGeneration, uint48 rules, uint48 time), scheduleStop(uint48 expectedGeneration, uint48 time)
 // Event: RulesScheduleUpdated(uint256 value), the new slot 293 value packed as in appendix B, emitted by scheduleRules, scheduleStop and recover
-// [ENC-A-51]
-// exclusions = permanently issued uint256 bond ids in strictly increasing order.
 // [ENC-A-52]
 // invalidateRecoveryNonce(uint256 expectedRecoveryNonce): Inbox owner only.
 // [ENC-A-53]
-// recoveryNonce is uint256; validUntil is uint256 L1 Unix seconds.
-// Registry: topUp(uint256 bondId, uint256 amount); activateTopUp(uint256 bondId).
+// recoveryNonce is uint256; recover's validUntil is uint256 L1 Unix seconds.
 // [ENC-A-54]
-// Registry: forfeit(uint256 bondId, bytes32 incidentId, uint256 validUntil).
+// L2 staking contract: topUp(uint256 bondId, uint256 amount); forfeit(uint256 bondId, bytes32 incidentId, uint256 validUntil).
+// forfeit's validUntil is uint256 Unix seconds, compared with the L2 block.timestamp (FORF-4.4-6).
 // [ENC-A-55]
-// forfeit is registry-owner-only, once per issued bondId; no forfeiture nonce or revocation.
-// Events: TopUpDeposited(bondId, amount, readyAtL1), TopUpActivated(bondId, amount),
+// forfeit is callable only by the staking contract's owner, once per issued bondId; no forfeiture nonce or revocation.
+// Events: TopUpDeposited(bondId, amount),
 //         Forfeited(bondId, incidentId, balanceBefore, penalty),
 //         RecoveryNonceInvalidated(oldNonce, newNonce).
-// Event identifiers/amounts/nonces are uint256; readyAtL1 is uint48; incidentId is bytes32.
-// Registry lookups (external view):
+// Event identifiers/amounts/nonces are uint256; incidentId is bytes32.
+// Staking contract lookups (external view):
 // bondForKey(address ckAddr) returns (bool registered, uint256 bondId);
-// bondInSlot(uint256 slot) returns (bool occupied, uint256 bondId);
-// slotOfBond(uint256 bondId) returns (bool holdsSlot, uint256 slot).
-// An unused key, an empty slot or a bond that holds no slot returns (false, 0), respectively.
-// slotOfBond also returns (false, 0) for an unissued id; this read-only result does not issue a bond.
-// bondInSlot requires slot < 4096; otherwise it reverts.
-// After withdrawal bondForKey still returns (true, bondId), while slotOfBond returns (false, 0).
+// seatOfBond(uint256 bondId) returns (bool holdsSeat, uint8 seat);
+// bondInSeat(uint8 seat) returns (bool occupied, uint256 bondId);
+// snapshot() returns (uint48 height, uint256 totalStake, SeatMember[] members).
+// An unused key, a bond that holds no seat or an empty seat returns (false, 0), respectively.
+// seatOfBond also returns (false, 0) for an unissued id; this read-only result does not issue a bond.
+// bondInSeat also returns (false, 0) for a seat number at or above n_max.
+// After withdrawal bondForKey still returns (true, bondId), while seatOfBond returns (false, 0).
 // Only the Inbox owner may call recover; require all three expected values and validUntil (8.3).
 ```
 
-## Appendix B: L1 storage layout
+## Appendix B: Storage layout
 
 | `EtnaInbox` slot               | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **[STOR-B-1]** 258             | Initialization status (3 after initialization); not in the anchor witness                                                                                                                                                                                                                                                                                                                                                                                |
-| **[STOR-B-2]** 268 / 269       | `recoveryGeneration` / `committeeConfigHash`                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **[STOR-B-2]** 268 / 269       | `recoveryGeneration` / `configHash`                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **[STOR-B-3]** 270 / 271       | `lastCheckpoint` height / hash                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| **[STOR-B-4]** 272 / 273 / 274 | `[genesisHeight, L1_0, L]` with genesisHeight = S / the Etna start's hash / its stateRoot; L is written at initialization and the rest by the start write; slot 273 is nonzero exactly when the start is written (START-10-5b)                                                                                                                                                                                                                           |
-| **[STOR-B-5]** 278 / 279       | Committee 0 record hash / `genesisCutoff`                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **[STOR-B-4]** 272 / 273 / 274 | `[genesisHeight, L1_0]` with genesisHeight = S / the Etna start's hash / its stateRoot, all three written by the start write; slot 273 is nonzero exactly when the start is written (START-10-5b)                                                                                                                                                                                                                                                        |
+| **[STOR-B-5]** 278 / 279       | `fallbackKeysHash` (appendix A) / `minTotalStake`, both set at Inbox initialization, changed only by `setFallbackKeys` and `setMinTotalStake` (COMM-4.3-18) and part of every anchor witness. The `fallbackKeys` list itself, which `getFallbackKeys()` returns, is other Inbox storage that no witness proves; nodes and guests check a list against slot 278 (COMM-4.3-3a)                                                                             |
 | **[STOR-B-6]** 280 / 281       | Forced inclusion queue (two words per entry: `txHash`; packed timestamp and L1 block number, with the remaining bits zero and unused. No charge is stored. `txHash` changes only when governance recovery in section 8 overwrites it with `keccak256("")`) / `head`, `tail`                                                                                                                                                                              |
 | **[STOR-B-7]** 282             | `forcedInclusionDelay`, `maxAnchorAge` (seconds)                                                                                                                                                                                                                                                                                                                                                                                                         |
-| **[STOR-B-8]** 283 / 284       | Reserved: no reads, writes or reuse / activeCommitteeSnapshot (set to genesisCutoff at Inbox initialization)                                                                                                                                                                                                                                                                                                                                             |
+| **[STOR-B-8]** 283 / 284       | Reserved: no reads, writes or reuse / Reserved: no reads, writes or reuse                                                                                                                                                                                                                                                                                                                                                                                |
 | **[STOR-B-9]** 285             | landing mapping, lastHeight → three words: word 1 packs actual parentHeight=c, generation and head; words 2/3 are EL/Comet hashes. The start write records S with parent = S, generation 0, head 0, EL hash = the start's hash and Comet hash 0. Retain original recovery-origin records; proof origin p never replaces actual parent. Historical parent links and old-p records serve overlapping proofs and public reconstruction and are never pruned |
 | **[STOR-B-10]** 286 / 287      | Reserved: no reads, writes or reuse                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **[STOR-B-11]** 288            | Reserved: no reads, writes or reuse                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **[STOR-B-12]** 289            | Reserved: no reads, writes or reuse                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **[STOR-B-13]** 290            | Fixed per-generation origin mapping: (startHeight,l1BlockNumber,l1Timestamp), each a uint256 word with height/block/timestamp range checks; store three consecutive words from the mapping base keyed by generation. Includes generation 0 under 8.4, with no latest cache and no ordinary anchor-witness addition                                                                                                                                       |
+| **[STOR-B-13]** 290            | Fixed per-generation origin mapping: (startHeight,l1BlockNumber,l1Timestamp,fallbackKeysHash), the first three each a uint256 word with height/block/timestamp range checks and the fourth the value of slot 278 when the record is written; store four consecutive words from the mapping base keyed by generation. Includes generation 0 under 8.4, with no latest cache and no ordinary anchor-witness addition                                       |
 | **[STOR-B-14]** 291            | Reserved: no reads, writes or reuse                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **[STOR-B-15]** 292            | uint256 recoveryNonce, initially 0; monotonically increased under 8.3, including verifier-failure rollback; not part of ordinary anchor witnesses                                                                                                                                                                                                                                                                                                        |
 | **[STOR-B-15a]** 293           | Rules schedule (10.1): packed `activeRules`, `nextRules`, `rulesTime`, `stopTime`; 0 at initialization (ruleset 0, nothing scheduled, no stop); written only by `scheduleRules`, `scheduleStop` and `recover`; part of every anchor witness                                                                                                                                                                                                              |
 
-**[STOR-B-16]** Nodes verify the latest checkpoint under 3.3/3.4, its slot 285 record under section 9, and slot 290 for startup, recovery and proving under 8.4. **[STOR-B-17]** Reserved slots 283, 286–289 and 291 are neither read nor written. Slot 284 serves exit confirmation; 285 retains the history needed for overlapping proofs and reconstruction.
+**[STOR-B-16]** Nodes verify the latest checkpoint under 3.3/3.4, its slot 285 record under section 9, and slot 290 for startup, recovery and proving under 8.4. **[STOR-B-17]** Reserved slots 283, 284, 286–289 and 291 are neither read nor written; 285 retains the history needed for overlapping proofs and reconstruction.
 
 **[STOR-B-18]** For recovery, Inbox stores only the authorization nonce for invalidation, with no recovery queue or scheduling records (8.3); the rules schedule in slot 293 is separate (10.1). **[STOR-B-19]** Provide shared vectors for the layout and interfaces; other layouts are neither decoded nor migrated in place.
 
-**[STOR-B-20]** The registry uses the ERC-7201 namespace `taiko.etna.registry` with base slot R. **[STOR-B-21]** Nodes read only two things: `checkpoints` at `R` (two words each: packed `l1Block` and `count`, then `entriesRoot`) (STAKE-4.1-36 defines count) and `entries` at `R + 1`, indexed by slot number (three words each: `ckX`, `effStake`, packed `ckPrefix`/`activeFromL1`/`exitEffectiveL1`). Bond records, which keep each bond's fields whether or not it holds a slot, and the slot, bond and key lookups of STAKE-4.1-4 and STAKE-4.1-13a are other registry storage that nodes do not read. **[STOR-B-22]** exitEffectiveL1 = 2\^48 − 1 means no exit is set for an issued bond; default storage at an unissued id denotes neither a bond nor an exit (STAKE-4.1-13a).
+**[STOR-B-20]** The L2 staking contract `EtnaStaking` keeps the storage that nodes and guests read under the ERC-7201 namespace `taiko.etna.staking`, with base slot T. **[STOR-B-21]** Nodes and guests read only these words of it: `snapshotHeight` at T (a uint48, other bits zero); `snapshotTotalStake` at T + 1; the key-to-seat mapping at T + 2, whose element for a `ckAddr` is at `keccak256(abi.encode(ckAddr, T + 2))` and packs [holdsSeat (8 bits), seat (8 bits)]; and the 128 snapshot seat records, record s at T + 3 + 2s and T + 4 + 2s for every s from 0 to 127 whatever n_max is, whose word 1 is `ckX` and whose word 2 packs [ckPrefix (8 bits), power (64 bits)] with the other bits zero. They read `snapshotHeight`, `snapshotTotalStake` and the records from block H's post-state to decide H's candidate (COMM-4.3-3), and the key-to-seat mapping from a block's parent's post-state to set the block's missBitmap (STAKE-4.2-5). Bond records, the storage behind `bondForKey`, `seatOfBond` and `bondInSeat`, the seats' miss counts and the forfeiture flags are other staking storage that nodes and guests do not read. **[STOR-B-21a]** A snapshot seat record whose two words are both zero is an empty seat; any other record is a member, subject to COMM-4.3-4 and COMM-4.3-8, and a nonzero bit in its word 2 outside `ckPrefix` and `power` makes the candidate unusable (COMM-4.3-8). The contract keeps the records at or above n_max zero. **[STOR-B-21b]** Only `onBlockStart` writes T, T + 1 and the snapshot seat records (STAKE-4.2-7). The key-to-seat mapping is live (STAKE-4.1-14d): every entry point that takes or releases a seat updates it in that call, so a block's post-state shows the seats as the block's transactions left them. A key whose bond holds seat s maps to holdsSeat = 1 and seat = s; any other key, registered or not, maps to 0. **[STOR-B-22]** `exitHeight` = 2\^48 − 1 means no exit is set for an issued bond; default storage at an unissued id denotes neither a bond nor an exit (STAKE-4.1-13a).
 
-**[STOR-B-23]** **Packed words**: where this appendix packs several fields into one word (Inbox slots 272, 281, 282 and 293, the second word of each 280 entry and the first word of 285; the registry's first checkpoint word and third entry word), the fields are laid out in the listed order from the least-significant bit. **[STOR-B-24]** ckPrefix takes 8 bits and every other field 48 bits; unused high bits are zero. **[STOR-B-25]** Writing a value wider than its field reverts.
-
-**[STOR-B-26]** Exit confirmations use a separate ERC-7201 namespace, `taiko.etna.registry.exit-confirmations`, mapping bond id to `exitConfirmedAtL1` (0 means not confirmed). Initialize it to 0 on registration; an unissued id cannot acquire a confirmation (STAKE-4.1-13a). **[STOR-B-27]** This does not use the entry layout, enter regLeaf/entriesRoot or create a registry checkpoint; clear it on withdrawal. **[STOR-B-28]** The owner lives in a separate namespace, `taiko.etna.registry.owners`, indexed by bond id: written at registration and cleared on withdrawal. **[STOR-B-29]** It also stays out of entriesRoot, and nodes do not read it. Validate the concrete layout, including slot 290, through layout checks and shared vectors.
-
-**[STOR-B-30]** Top-ups use ERC-7201 namespace `taiko.etna.registry.top-ups`: a mapping at its base keyed by uint256 bondId, with uint256 pendingTopUp at the mapping element and uint48 topUpReadyAtL1 in the next word (unused bits zero). **[STOR-B-31]** Clear both on withdrawal. **[STOR-B-32]** Lifetime forfeiture flags use namespace `taiko.etna.registry.forfeitures`, a mapping at its base from uint256 bondId to bool forfeited (initially false; stored as 0 or 1 and never cleared). **[STOR-B-33]** Neither namespace enters regLeaf/entriesRoot or is read by nodes/guests; only changes to fields of the entry in a slot affect registry checkpoints (STAKE-4.1-36). **[STOR-B-34]** Preserve flags through verifier-failure rollback. Validate these namespaces and Inbox slot 292 with shared layout vectors.
+**[STOR-B-23]** **Packed words**: where this appendix packs several fields into one word (Inbox slots 272, 281, 282 and 293, the second word of each 280 entry and the first word of 285; the staking contract's key-to-seat values at T + 2 and the second word of each snapshot seat record), the fields are laid out in the listed order from the least-significant bit. **[STOR-B-24]** ckPrefix, holdsSeat and seat take 8 bits, power 64 bits and every other field 48 bits; unused high bits are zero. **[STOR-B-25]** Writing a value wider than its field reverts.
 
 ## Appendix C: Operating funding and cost assumptions
 
