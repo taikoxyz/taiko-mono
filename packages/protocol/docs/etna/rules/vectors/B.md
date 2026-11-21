@@ -2,7 +2,7 @@
 
 **Non-normative.** Rule text lives in [SPEC.md](../../SPEC.md). Appendix B states a layout; a vector here takes a claimed layout or a piece of data and says whether it is the layout the text states. Where the text states a requirement but **not the consequence of violating it**, the vector says "violates STOR-B-n" and does not name an outcome. Anything undetermined has no vector; it is listed under "Not covered" and raised in [review/B.md](../review/B.md).
 
-`accept` means the claimed layout or data is the one Appendix B states. `reject` means it contradicts the text. Appendix B names one enforcement consequence of its own — "Writing a value wider than its field reverts" (STOR-B-25) — so only those vectors say `reverts`. It also restates one from 4.3: a snapshot seat record with a nonzero unused bit makes the candidate unusable (STOR-B-21a, COMM-4.3-8). Every other reject is a violation whose consequence is [Q-B-4](../review/B.md#q-b-4), unless the row cites the rule that states one.
+`accept` means the claimed layout or data is the one Appendix B states. `reject` means it contradicts the text. Appendix B names one enforcement consequence of its own — "Writing a value wider than its field reverts" (STOR-B-25) — so only those vectors say `reverts`. It also restates two from 4.3: a snapshot seat record with a nonzero unused bit (STOR-B-21a, COMM-4.3-8), and a `snapshotHeight` word with a bit set at or above bit 48 (STOR-B-21, COMM-4.3-3a), make the candidate unusable. Every other reject is a violation whose consequence is [Q-B-4](../review/B.md#q-b-4), unless the row cites the rule that states one.
 
 ## STOR-B-1
 
@@ -205,18 +205,20 @@
 
 T is the base slot of 20.a.
 
-| Vector      | Claimed layout or data                                                                      | Expected                                                                                                         |
-| ----------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| 21.a accept | `snapshotHeight` at T with every bit at or above bit 48 zero; `snapshotTotalStake` at T + 1 | matches                                                                                                          |
-| 21.b accept | snapshot seat record 5                                                                      | word 1 at T + 13, word 2 at T + 14                                                                               |
-| 21.c accept | snapshot seat record 127                                                                    | word 1 at T + 257 = `0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f01`, word 2 at T + 258      |
-| 21.d accept | n_max = 64                                                                                  | nodes and guests still read all 128 records, from T + 3 to T + 258 ("whatever n_max is")                         |
-| 21.e reject | a node reads only the first n_max records                                                   | violates STOR-B-21 and COMM-4.3-3                                                                                |
-| 21.f accept | the key-to-seat element for `ckAddr` = `0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf`         | at `keccak256(abi.encode(ckAddr, T + 2))` = `0x5aed0c9b66e2d0fa057ebed89e910688ada65f4c543b321333450c21264ccf27` |
-| 21.g reject | a record's word 1 is the packed word and word 2 is `ckX`                                    | violates STOR-B-21                                                                                               |
-| 21.h reject | a node reads miss counts, forfeiture flags or bond records to decide the candidate          | violates STOR-B-21 ("only these words")                                                                          |
-| 21.i reject | a node decides H's candidate from the records in H's parent's post-state                    | violates STOR-B-21 and COMM-4.3-3                                                                                |
-| 21.j reject | a node sets block H's missBitmap from the key-to-seat mapping in H's own post-state         | violates STOR-B-21 and STAKE-4.2-5                                                                               |
+| Vector      | Claimed layout or data                                                                      | Expected                                                                                                                                  |
+| ----------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 21.a accept | `snapshotHeight` at T with every bit at or above bit 48 zero; `snapshotTotalStake` at T + 1 | matches                                                                                                                                   |
+| 21.k reject | at H, the word at T has bit 48 set and its low 48 bits equal H                              | the candidate is not usable: "a word with any of those bits set never equals H and makes the candidate unusable" (STOR-B-21, COMM-4.3-3a) |
+| 21.l reject | a node or guest masks the word at T to its low 48 bits before comparing it with H           | violates STOR-B-21 ("in all 256 bits without masking") and COMM-4.3-3a                                                                    |
+| 21.b accept | snapshot seat record 5                                                                      | word 1 at T + 13, word 2 at T + 14                                                                                                        |
+| 21.c accept | snapshot seat record 127                                                                    | word 1 at T + 257 = `0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19f01`, word 2 at T + 258                               |
+| 21.d accept | n_max = 64                                                                                  | nodes and guests still read all 128 records, from T + 3 to T + 258 ("whatever n_max is")                                                  |
+| 21.e reject | a node reads only the first n_max records                                                   | violates STOR-B-21 and COMM-4.3-3                                                                                                         |
+| 21.f accept | the key-to-seat element for `ckAddr` = `0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf`         | at `keccak256(abi.encode(ckAddr, T + 2))` = `0x5aed0c9b66e2d0fa057ebed89e910688ada65f4c543b321333450c21264ccf27`                          |
+| 21.g reject | a record's word 1 is the packed word and word 2 is `ckX`                                    | violates STOR-B-21                                                                                                                        |
+| 21.h reject | a node reads miss counts, forfeiture flags or bond records to decide the candidate          | violates STOR-B-21 ("only these words")                                                                                                   |
+| 21.i reject | a node decides H's candidate from the records in H's parent's post-state                    | violates STOR-B-21 and COMM-4.3-3                                                                                                         |
+| 21.j reject | a node sets block H's missBitmap from the key-to-seat mapping in H's own post-state         | violates STOR-B-21 and STAKE-4.2-5                                                                                                        |
 
 ## STOR-B-21a
 
