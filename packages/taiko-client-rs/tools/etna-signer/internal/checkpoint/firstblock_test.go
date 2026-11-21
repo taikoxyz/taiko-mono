@@ -48,8 +48,10 @@ type firstBlockApp struct {
 	committedHash []byte
 	pending       []byte
 	// salt changes the FinalizeBlock result, standing for an app that answers differently.
-	salt  string
-	calls []string
+	salt string
+	// failInitChain makes that many InitChain calls fail, as an app that stops mid-repair.
+	failInitChain int
+	calls         []string
 }
 
 func (a *firstBlockApp) record(call string) {
@@ -78,6 +80,12 @@ func (a *firstBlockApp) Info(context.Context, *abci.RequestInfo) (*abci.Response
 
 func (a *firstBlockApp) InitChain(context.Context, *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
 	a.record("InitChain")
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.failInitChain > 0 {
+		a.failInitChain--
+		return nil, errors.New("the app stopped")
+	}
 	return &abci.ResponseInitChain{AppHash: a.genesisHash}, nil
 }
 
@@ -464,6 +472,228 @@ func TestRepairInstallsTheCertifiedBlockFromAPeerExport(t *testing.T) {
 	if err = f.stockHandshake(t, home, f.app); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// damaged is commit with its first signature corrupted: it still decodes and names the same
+// BlockID, but no longer certifies it.
+func damaged(commit *types.Commit) *types.Commit {
+	broken := commit.Clone()
+	broken.Signatures[0].Signature = append([]byte(nil), broken.Signatures[0].Signature...)
+	broken.Signatures[0].Signature[3] ^= 0xff
+	return broken
+}
+
+// stockLastCommit reconstructs home's LastCommit from its seen commit as stock consensus does
+// when it starts above the handshake (votesFromSeenCommit), returning its panic or quorum error.
+func (f *firstBlockFixture) stockLastCommit(t *testing.T, home string) (err error) {
+	t.Helper()
+	f.withStores(t, home, func(states sm.Store, blocks *bs.BlockStore) {
+		state, e := states.Load()
+		if e != nil {
+			t.Fatal(e)
+		}
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("stock LastCommit reconstruction panicked: %v", r)
+			}
+		}()
+		seen := blocks.LoadSeenCommit(state.LastBlockHeight)
+		if seen == nil {
+			err = errors.New("no seen commit")
+			return
+		}
+		if !seen.ToVoteSet(state.ChainID, state.LastValidators).HasTwoThirdsMajority() {
+			err = errors.New("the seen commit has no +2/3")
+		}
+	})
+	return err
+}
+
+// writeExport writes item as a peer export file.
+func writeExport(t *testing.T, item Block) string {
+	t.Helper()
+	export := filepath.Join(t.TempDir(), "first-block.json")
+	raw, _ := json.Marshal(item)
+	if err := os.WriteFile(export, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return export
+}
+
+// The stored block's seen commit is damaged while a peer's export certifies the same BlockID:
+// the repair installs the peer's verified commit as the seen commit before it touches the app,
+// so the block it applies carries a certificate stock consensus can rebuild its LastCommit from
+// (CONS-3.1-9). Before that, nothing runs: without the export it refuses with no app call.
+func TestRepairInstallsAVerifiedPeerCommitOverADamagedSeenCommit(t *testing.T) {
+	f := newFirstBlockFixture(t, 4, 3, "certified-envelope")
+	item, err := ExportFirstBlock(f.home(t, true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	export := writeExport(t, item)
+	home := f.home(t, false)
+	f.withStores(t, home, func(_ sm.Store, blocks *bs.BlockStore) {
+		blocks.SaveBlock(f.block, f.parts, damaged(f.commit))
+	})
+	if _, _, err = f.repair(t, home, serve(t, f.app), ""); err == nil || !strings.Contains(err.Error(), "does not certify") {
+		t.Fatalf("applied a block whose seen commit does not certify it: %v", err)
+	}
+	if calls := f.app.callLog(); len(calls) != 0 {
+		t.Fatalf("app calls %v", calls)
+	}
+	original := tree(t, filepath.Join(home, "data"))
+
+	report, backup, err := f.repair(t, home, serve(t, f.app), export)
+	if err != nil || report.Source != "peer_commit" || report.Applied != "executed" || report.BlockID.Hash != hexBytes(f.id.Hash) {
+		t.Fatalf("got %+v, %v", report, err)
+	}
+	if got := tree(t, backup); fmt.Sprint(got) != fmt.Sprint(original) {
+		t.Fatal("the backup is not the original data directory with its damaged seen commit")
+	}
+	f.withStores(t, home, func(_ sm.Store, blocks *bs.BlockStore) {
+		if !sameCommit(blocks.LoadSeenCommit(firstHeight), f.commit) {
+			t.Fatal("the seen commit is not the peer's verified commit")
+		}
+	})
+	if err = f.stockHandshake(t, home, f.app); err != nil {
+		t.Fatal(err)
+	}
+	if err = f.stockLastCommit(t, home); err != nil {
+		t.Fatal(err)
+	}
+	if again, _, err := f.repair(t, home, serve(t, f.app), ""); err != nil || again.Applied != "already_repaired" || again.Source != "local" {
+		t.Fatalf("rerun %+v: %v", again, err)
+	}
+}
+
+// A home an earlier run left with the first block applied but a seen commit that does not
+// certify it (the app and EL committed, so the block cannot be applied again) converges: a rerun
+// with a peer export of the same certified block installs its commit as the seen commit and
+// checks everything else.
+func TestRepairRerunConvergesOnAnAppliedBlockWithADamagedSeenCommit(t *testing.T) {
+	f := newFirstBlockFixture(t, 4, 3, "certified-envelope")
+	item, err := ExportFirstBlock(f.home(t, true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	home := f.home(t, true)
+	if _, _, err = f.repair(t, home, serve(t, f.app), ""); err != nil {
+		t.Fatal(err)
+	}
+	f.withStores(t, home, func(_ sm.Store, blocks *bs.BlockStore) {
+		if err := blocks.SaveSeenCommit(firstHeight, damaged(f.commit)); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if err = f.stockLastCommit(t, home); err == nil {
+		t.Fatal("stock consensus accepts the damaged seen commit")
+	}
+	f.app.resetCalls()
+	if _, _, err = f.repair(t, home, serve(t, f.app), ""); err == nil || !strings.Contains(err.Error(), "does not certify") {
+		t.Fatalf("accepted a damaged seen commit: %v", err)
+	}
+	report, _, err := f.repair(t, home, serve(t, f.app), writeExport(t, item))
+	if err != nil || report.Applied != "already_repaired" || report.Source != "peer_commit" {
+		t.Fatalf("got %+v, %v", report, err)
+	}
+	if calls := f.app.callLog(); len(calls) != 0 {
+		t.Fatalf("app calls %v on an applied block", calls)
+	}
+	if err = f.stockHandshake(t, home, f.app); err != nil {
+		t.Fatal(err)
+	}
+	if err = f.stockLastCommit(t, home); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Every check that can refuse runs before the first store write or app call: an app at another
+// height, an app that committed without a kept response and a peer export whose commit does not
+// certify its block leave the stores and the app as they were, and a state that names the first
+// block over an empty block store is not the first-block failure. A failure after the first write
+// (the app stops in InitChain after the peer's block was saved) converges on a rerun, which finds
+// the certified block in the block store.
+func TestRepairRefusesBeforeItWritesAndConvergesAfterALaterFailure(t *testing.T) {
+	f := newFirstBlockFixture(t, 4, 3, "certified-envelope")
+	item, err := ExportFirstBlock(f.home(t, true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	export := writeExport(t, item)
+	unchanged := func(home string) {
+		t.Helper()
+		if h, _, store := f.stored(t, home); h != 0 || store != 0 {
+			t.Fatalf("a refused repair changed the stores: state %d, block store %d", h, store)
+		}
+		if calls := f.app.callLog(); len(calls) != 0 {
+			t.Fatalf("a refused repair called the app: %v", calls)
+		}
+	}
+	for _, tc := range []struct {
+		name      string
+		committed int64
+		want      string
+	}{
+		{"app at another height", 5, "first-block contradiction"},
+		{"app committed without a kept response", firstHeight, "kept no FinalizeBlock response"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := f.home(t, false)
+			f.app.committed, f.app.committedHash = tc.committed, bytes.Repeat([]byte{0x33}, 32)
+			defer func() { f.app.committed, f.app.committedHash = 0, nil }()
+			if _, _, err := f.repair(t, home, serve(t, f.app), export); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("got %v, want %q", err, tc.want)
+			}
+			unchanged(home)
+		})
+	}
+	t.Run("uncertified peer export", func(t *testing.T) {
+		home := f.home(t, false)
+		broken := item
+		raw, _ := damaged(f.commit).ToProto().Marshal()
+		broken.Commit = hexBytes(raw)
+		if _, _, err := f.repair(t, home, serve(t, f.app), writeExport(t, broken)); err == nil || !strings.Contains(err.Error(), "peer export's commit does not certify") {
+			t.Fatalf("applied an uncertified peer export: %v", err)
+		}
+		unchanged(home)
+	})
+	t.Run("state at the first height over an empty block store", func(t *testing.T) {
+		home := f.home(t, false)
+		f.withStores(t, home, func(states sm.Store, _ *bs.BlockStore) {
+			state := f.state.Copy()
+			state.LastBlockHeight, state.LastBlockID, state.LastValidators = firstHeight, f.id, state.Validators.Copy()
+			if err := states.Save(state); err != nil {
+				t.Fatal(err)
+			}
+		})
+		if _, _, err := f.repair(t, home, serve(t, f.app), export); err == nil || !strings.Contains(err.Error(), "not the first-block failure") {
+			t.Fatalf("got %v", err)
+		}
+		if _, _, store := f.stored(t, home); store != 0 || len(f.app.callLog()) != 0 {
+			t.Fatal("a refused repair changed the block store or called the app")
+		}
+	})
+	t.Run("the app stops after the block was saved", func(t *testing.T) {
+		home := f.home(t, false)
+		f.app.failInitChain = 1
+		if _, _, err := f.repair(t, home, serve(t, f.app), export); err == nil || !strings.Contains(err.Error(), "InitChain") {
+			t.Fatalf("got %v", err)
+		}
+		if h, _, store := f.stored(t, home); h != 0 || store != firstHeight {
+			t.Fatalf("state %d, block store %d after the stopped app", h, store)
+		}
+		f.app.resetCalls()
+		report, _, err := f.repair(t, home, serve(t, f.app), "")
+		if err != nil || report.Source != "local" || report.Applied != "executed" {
+			t.Fatalf("rerun %+v: %v", report, err)
+		}
+		if err = f.stockHandshake(t, home, f.app); err != nil {
+			t.Fatal(err)
+		}
+		if err = f.stockLastCommit(t, home); err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 // Only a block that more than 2/3 of the genesis committee certified, for the full BlockID, is

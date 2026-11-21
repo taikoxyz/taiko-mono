@@ -176,15 +176,22 @@ signer fenced, and the app (`taiko-client abci`) serving `--app`. In order, it:
    block store holds no block, from `--peer-export`, and checks them against the
    home's genesis: canonical protobuf, chain_id and `initial_height`, no evidence
    (CONS-3.1-10), and a commit with more than 2/3 of the genesis committee's
-   power for the full BlockID (stock `VerifyCommit`). A peer block that differs
-   from the stored one is a contradiction (exit 2);
-4. asks the app for `Info` and applies the block with the stock handshake's own
-   steps: at app height 0, InitChain from the genesis (the state is saved as stock
-   saves it) and stock `BlockExecutor.ApplyBlock` against the app, so the app runs
+   power for the full BlockID (stock `VerifyCommit`). A peer export must certify
+   its block. When the stored seen commit does not certify the stored block, a
+   peer export of the same BlockID supplies the commit (`"source": "peer_commit"`);
+   without one the repair stops. A certified peer block that differs from the
+   stored one is a contradiction (exit 2);
+4. asks the app for `Info` and, before it writes anything, refuses an app at
+   another height (exit 2) and an app at the first height without a kept
+   FinalizeBlock response carrying the app's own app hash. It then writes the
+   block store: a peer's block through stock `SaveBlock`, or a peer's commit as the
+   seen commit (stock's `SC:h` key, synced), from which stock consensus rebuilds
+   its LastCommit. It applies the block with the stock handshake's own steps: at
+   app height 0, InitChain from the genesis (the state is saved as stock saves it)
+   and stock `BlockExecutor.ApplyBlock` against the app, so the app runs
    FinalizeBlock and Commit and executes the block on its EL; at the first height
-   (the app committed before the crash), stock's mock-app replay of the
-   FinalizeBlock response the state store kept, which must carry the app's own
-   app hash. A FinalizeBlock result that differs from a kept response is refused
+   (the app committed before the crash), stock's mock-app replay of the kept
+   response. A FinalizeBlock result that differs from a kept response is refused
    before stock saves anything (exit 2);
 5. reads back the state (the first height and BlockID), the block store (the
    block and a certifying seen commit) and the app's `Info` (the first height and
@@ -202,12 +209,16 @@ signer fenced, and the app (`taiko-client abci`) serving `--app`. In order, it:
 }
 ```
 
-`applied` is `executed`, `replayed` (the kept response) or `already_repaired`
-(a rerun after success, which only checks). Exit 0 means the home is repaired
-and stock CometBFT's handshake finds its state, block store and app at the
-first height. Exit 1 is any other failure; the stores are as stock left them,
-apart from the backup and the instance ID, so the operator fixes the cause and
-reruns with a new `--backup`. Only goleveldb stores at the stock default `db_dir`,
+`source` is `local`, `peer` or `peer_commit`. `applied` is `executed`,
+`replayed` (the kept response) or `already_repaired` (a rerun after the state
+was saved, which only checks, apart from installing a peer's commit over a
+damaged seen commit). Exit 0 means the home is repaired and stock CometBFT's
+handshake finds its state, block store and app at the first height. Exit 1 is
+any other failure. A refusal leaves the stores as stock left them, apart from
+the backup and the instance ID; a failure after the block store was written
+leaves the certified block and its certificate there, and stock's own write
+order tells a rerun whether to execute or replay. Either way the operator fixes
+the cause and reruns with a new `--backup`. Only goleveldb stores at the stock default `db_dir`,
 `<home>/data`, are supported.
 
 `export-first-block` prints the certified first block of a stopped home as one

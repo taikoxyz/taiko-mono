@@ -13,9 +13,11 @@ package checkpoint
 // check used initial_height: InitChain if the app is at height 0, then stock BlockExecutor
 // ApplyBlock over the app's ABCI socket (FinalizeBlock and Commit on the real app, which aligns
 // its EL), or, when the app already committed the block, over the FinalizeBlock response the
-// state store kept, as stock's mock-app replay does. Stock code saves the response and the state;
-// the block store, its seen commit and the WAL stay as they were. It never runs consensus,
-// never signs and never accepts another block for the height.
+// state store kept, as stock's mock-app replay does. Stock code saves the response and the state.
+// The block store changes only to receive the certified block from a peer, or a peer's commit for
+// the same BlockID as the seen commit when the stored one does not certify the block; the WAL
+// stays as it was. It never runs consensus, never signs and never accepts another block for the
+// height.
 
 import (
 	"bytes"
@@ -77,7 +79,9 @@ type RepairReport struct {
 	// AppHash is the app hash after the block, which the state, the next header and the app's
 	// Info carry.
 	AppHash string `json:"app_hash"`
-	// Source is "local" (the node's own block store) or "peer" (installed from PeerExport).
+	// Source is "local" (the node's own block store), "peer" (installed from PeerExport) or
+	// "peer_commit" (the node's own block, with PeerExport's commit installed as its seen commit
+	// because the stored one does not certify it).
 	Source string `json:"source"`
 	// Applied is "executed" (the real app ran FinalizeBlock and Commit), "replayed" (the app had
 	// committed the block; the kept response was replayed) or "already_repaired".
@@ -140,10 +144,12 @@ func ExportFirstBlock(home string) (item Block, err error) {
 // RepairFirstBlock repairs a home stopped by the first-block crash; see the file comment. In
 // order: it refuses a home whose genesis starts at height 1 (stock replays that block) and one
 // whose stores CometBFT holds open; copies data/ to Backup and syncs the copy; writes a fresh
-// store instance ID; recovers and verifies the certified block; asks the app for its committed
-// boundary; applies the block; and reads back the state, the block store and the app's Info.
-// A failure before the state is saved leaves the stores as stock left them (the instance ID
-// and the backup aside); a rerun resumes from wherever stock's own write order stopped.
+// store instance ID; classifies the stores, recovers and verifies the certified block and asks
+// the app for its committed boundary, refusing before anything changes; writes the block store
+// (a peer's block, or a peer's commit over a damaged seen commit); applies the block; and reads
+// back the state, the block store and the app's Info. A failure leaves stores a rerun resumes
+// from: the block store already holds the certified block and its certificate, and stock's own
+// write order (the kept response before Commit, the state after it) tells executed from replayed.
 func RepairFirstBlock(o RepairOptions) (report RepairReport, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -192,10 +198,16 @@ func RepairFirstBlock(o RepairOptions) (report RepairReport, err error) {
 	if state.ChainID != genesis.ChainID || state.InitialHeight != height {
 		return RepairReport{}, errors.New("the state store belongs to another genesis")
 	}
+	if state.LastBlockHeight != 0 && state.LastBlockHeight != height {
+		return RepairReport{}, fmt.Errorf("the stock state is at height %d, not at 0 or the first height %d: this is not the first-block failure", state.LastBlockHeight, height)
+	}
 
 	record, source, err := certifiedFirstBlock(genesis, vals, blocks, o.PeerExport)
 	if err != nil {
 		return RepairReport{}, err
+	}
+	if state.LastBlockHeight == height && source == "peer" {
+		return RepairReport{}, fmt.Errorf("the stock state names block %d but the block store holds none: this is not the first-block failure", height)
 	}
 	report.Source = source
 	report.BlockID = BlockID{Hash: hexBytes(record.id.Hash), Parts: PartSet{Total: record.id.PartSetHeader.Total, Hash: hexBytes(record.id.PartSetHeader.Hash)}}
@@ -217,53 +229,67 @@ func RepairFirstBlock(o RepairOptions) (report RepairReport, err error) {
 		return RepairReport{}, fmt.Errorf("app Info: %w", err)
 	}
 
-	switch state.LastBlockHeight {
-	case height:
-		// A rerun after the state was saved: only check that everything agrees.
+	// Decide everything that can refuse before anything changes: the app's committed boundary
+	// and, for an app that committed the block, the kept response stock replays.
+	var kept *abci.ResponseFinalizeBlock
+	switch {
+	case state.LastBlockHeight == height:
+		// A rerun after the state was saved: the read-back below checks the app.
 		report.Applied = "already_repaired"
-	case 0:
-		if blocks.Height() == 0 {
-			// The peer path: install the certified block as stock SaveBlock would have.
-			blocks.SaveBlock(record.block, record.parts, record.commit)
+	case info.LastBlockHeight == 0:
+		report.Applied = "executed"
+		// A response kept from a FinalizeBlock before the crash, if any, which the app's new
+		// result must equal.
+		kept, _ = stateStore.LoadLastFinalizeBlockResponse(height)
+	case info.LastBlockHeight == height:
+		report.Applied = "replayed"
+		if kept, err = stateStore.LoadLastFinalizeBlockResponse(height); err != nil {
+			return RepairReport{}, fmt.Errorf("the app committed block %d but the state store kept no FinalizeBlock response for it: %w", height, err)
 		}
-		// As the stock handshake: the app version is set from Info while no block is committed.
-		state.Version.Consensus.App = info.AppVersion
-		switch info.LastBlockHeight {
-		case 0:
-			if state, err = initChain(ctx, consensus, genesis, state, stateStore); err != nil {
-				return RepairReport{}, err
-			}
-			kept, _ := stateStore.LoadLastFinalizeBlockResponse(height)
-			executor := sm.NewBlockExecutor(stateStore, logger, sameAsKept{consensus, kept}, &mempool.NopMempool{}, sm.EmptyEvidencePool{}, blocks)
-			if state, err = executor.ApplyBlock(state, record.id, record.block); err != nil {
-				return RepairReport{}, err
-			}
-			report.Applied = "executed"
-		case height:
-			kept, e := stateStore.LoadLastFinalizeBlockResponse(height)
-			if e != nil {
-				return RepairReport{}, fmt.Errorf("the app committed block %d but the state store kept no FinalizeBlock response for it: %w", height, e)
-			}
-			if !bytes.Equal(kept.AppHash, info.LastBlockAppHash) {
-				return RepairReport{}, contradiction("the app reports app hash %X at %d, the kept FinalizeBlock response %X", info.LastBlockAppHash, height, kept.AppHash)
-			}
-			replay, e := keptResponseApp(kept)
-			if e != nil {
-				return RepairReport{}, e
-			}
-			executor := sm.NewBlockExecutor(stateStore, logger, replay, &mempool.NopMempool{}, sm.EmptyEvidencePool{}, blocks)
-			if state, err = executor.ApplyBlock(state, record.id, record.block); err != nil {
-				return RepairReport{}, err
-			}
-			report.Applied = "replayed"
-		default:
-			return RepairReport{}, contradiction("the app reports committed height %d; a generation starting at %d can only be at 0 or %d", info.LastBlockHeight, height, height)
+		if !bytes.Equal(kept.AppHash, info.LastBlockAppHash) {
+			return RepairReport{}, contradiction("the app reports app hash %X at %d, the kept FinalizeBlock response %X", info.LastBlockAppHash, height, kept.AppHash)
 		}
 	default:
-		return RepairReport{}, fmt.Errorf("the stock state is at height %d, not at 0 or the first height %d: this is not the first-block failure", state.LastBlockHeight, height)
+		return RepairReport{}, contradiction("the app reports committed height %d; a generation starting at %d can only be at 0 or %d", info.LastBlockHeight, height, height)
 	}
 
-	// Read back what stock's handshake will see, then the app's own boundary.
+	// The block store first, so a later failure reruns from a block store that holds the
+	// certified block and its certificate: the whole block from a peer, as stock SaveBlock would
+	// have saved it, or the peer's verified commit as the seen commit stock consensus rebuilds
+	// its LastCommit from.
+	switch source {
+	case "peer":
+		blocks.SaveBlock(record.block, record.parts, record.commit)
+	case "peer_commit":
+		if err = saveSeenCommit(blockDB, record.commit); err != nil {
+			return RepairReport{}, err
+		}
+	}
+	switch report.Applied {
+	case "executed":
+		// As the stock handshake: the app version is set from Info while no block is committed.
+		state.Version.Consensus.App = info.AppVersion
+		if state, err = initChain(ctx, consensus, genesis, state, stateStore); err != nil {
+			return RepairReport{}, err
+		}
+		executor := sm.NewBlockExecutor(stateStore, logger, sameAsKept{consensus, kept}, &mempool.NopMempool{}, sm.EmptyEvidencePool{}, blocks)
+		if _, err = executor.ApplyBlock(state, record.id, record.block); err != nil {
+			return RepairReport{}, err
+		}
+	case "replayed":
+		state.Version.Consensus.App = info.AppVersion
+		replay, e := keptResponseApp(kept)
+		if e != nil {
+			return RepairReport{}, e
+		}
+		executor := sm.NewBlockExecutor(stateStore, logger, replay, &mempool.NopMempool{}, sm.EmptyEvidencePool{}, blocks)
+		if _, err = executor.ApplyBlock(state, record.id, record.block); err != nil {
+			return RepairReport{}, err
+		}
+	}
+
+	// Read back what stock's handshake and consensus will see, then the app's own boundary. A
+	// fresh BlockStore reads the database, not the seen commit cached before the repair.
 	saved, err := stateStore.Load()
 	if err != nil {
 		return RepairReport{}, err
@@ -271,8 +297,9 @@ func RepairFirstBlock(o RepairOptions) (report RepairReport, err error) {
 	if saved.LastBlockHeight != height || !saved.LastBlockID.Equals(record.id) {
 		return RepairReport{}, errors.New("the saved state does not name the certified first block")
 	}
-	meta, seen := blocks.LoadBlockMeta(height), blocks.LoadSeenCommit(height)
-	if blocks.Height() != height || meta == nil || !meta.BlockID.Equals(record.id) || seen == nil {
+	stored := bs.NewBlockStore(blockDB)
+	meta, seen := stored.LoadBlockMeta(height), stored.LoadSeenCommit(height)
+	if stored.Height() != height || meta == nil || !meta.BlockID.Equals(record.id) || seen == nil {
 		return RepairReport{}, errors.New("the block store does not hold the certified first block and its seen commit")
 	}
 	if err = vals.VerifyCommit(genesis.ChainID, record.id, height, seen); err != nil {
@@ -314,14 +341,26 @@ func firstBlockGenesis(home string) (*types.GenesisDoc, *types.ValidatorSet, err
 	return genesis, set, nil
 }
 
-// certifiedFirstBlock returns the first block and its commit, from the block store or, when it
-// holds none, the peer export, and checks it: canonical bytes, no evidence (CONS-3.1-10), the
-// genesis chain_id and initial height, and a commit holding more than 2/3 of the genesis
-// committee's power for its full BlockID. A peer block that differs from the stored one is a
-// contradiction: two certified blocks at one height.
+// certifiedFirstBlock returns the first block and the commit the repair applies it with, and
+// where they come from: "local" (the block store's block and seen commit), "peer" (the peer
+// export, when the block store holds no block) or "peer_commit" (the block store's block with
+// the peer export's commit, when the stored seen commit does not certify it). Each block is checked: canonical bytes, no evidence (CONS-3.1-10), the genesis
+// chain_id and initial height, and a commit holding more than 2/3 of the genesis committee's
+// power for its full BlockID. A certified peer block that differs from the stored one is a
+// contradiction: two blocks at one height, which is never resolved by taking either.
 func certifiedFirstBlock(genesis *types.GenesisDoc, vals *types.ValidatorSet, blocks *bs.BlockStore, peer string) (*blockRecord, string, error) {
 	height := genesis.InitialHeight
+	certify := func(what string, record *blockRecord) error {
+		if b := record.block; b.ChainID != genesis.ChainID || b.Height != height {
+			return fmt.Errorf("the %s block %s/%d is not the first block of %s/%d", what, b.ChainID, b.Height, genesis.ChainID, height)
+		}
+		if err := vals.VerifyCommit(genesis.ChainID, record.id, height, record.commit); err != nil {
+			return fmt.Errorf("the %s commit does not certify the first block under the genesis committee: %w", what, err)
+		}
+		return nil
+	}
 	var local, remote *blockRecord
+	var localErr error
 	switch stored := blocks.Height(); {
 	case stored == height && blocks.Base() == height:
 		block, meta, seen := blocks.LoadBlock(height), blocks.LoadBlockMeta(height), blocks.LoadSeenCommit(height)
@@ -338,6 +377,9 @@ func certifiedFirstBlock(genesis *types.GenesisDoc, vals *types.ValidatorSet, bl
 		if !local.id.Equals(meta.BlockID) {
 			return nil, "", errors.New("the stored block does not hash to its stored BlockID")
 		}
+		// A seen commit that does not certify the stored block is damaged: only a peer's
+		// commit for the same BlockID can stand in for it.
+		localErr = certify("stored", local)
 	case stored == 0:
 	default:
 		return nil, "", fmt.Errorf("the block store spans %d..%d, not the generation's first block %d alone: this is not the first-block failure", blocks.Base(), stored, height)
@@ -357,30 +399,38 @@ func certifiedFirstBlock(genesis *types.GenesisDoc, vals *types.ValidatorSet, bl
 		if !bytes.Equal(remote.set.Hash(), vals.Hash()) {
 			return nil, "", errors.New("peer export: its validators are not the genesis committee")
 		}
+		if err = certify("peer export's", remote); err != nil {
+			return nil, "", err
+		}
 	}
-	record, source := local, "local"
 	switch {
 	case local == nil && remote == nil:
 		return nil, "", fmt.Errorf("the block store holds no block at %d: stock CometBFT handshakes from this store; supply --peer-export only to apply a block the committee already decided", height)
 	case local == nil:
-		record, source = remote, "peer"
+		return remote, "peer", nil
 	case remote != nil && !remote.id.Equals(local.id):
 		return nil, "", contradiction("the peer export's first block %X differs from the stored one %X", remote.id.Hash, local.id.Hash)
+	case localErr == nil:
+		return local, "local", nil
+	case remote == nil:
+		return nil, "", fmt.Errorf("%w; supply --peer-export with a peer's export of the same block to install its certificate", localErr)
 	}
-	b := record.block
-	if b.ChainID != genesis.ChainID || b.Height != height {
-		return nil, "", fmt.Errorf("block %s/%d is not the first block of %s/%d", b.ChainID, b.Height, genesis.ChainID, height)
+	// The stored seen commit does not certify the stored block, while the peer's commit
+	// certifies the same BlockID: the block is applied with that commit, which becomes the
+	// stored seen commit (the original stays in the backup).
+	repaired := *local
+	repaired.commit = remote.commit
+	return &repaired, "peer_commit", nil
+}
+
+// saveSeenCommit writes commit as the seen commit of its height under stock SaveSeenCommit's key
+// and encoding, with a synced write: stock consensus rebuilds its LastCommit from it.
+func saveSeenCommit(db dbm.DB, commit *types.Commit) error {
+	raw, err := commit.ToProto().Marshal()
+	if err != nil {
+		return err
 	}
-	if err := vals.VerifyCommit(genesis.ChainID, record.id, height, record.commit); err != nil {
-		if source == "local" && remote != nil {
-			// The stored seen commit is damaged but the peer's certifies the same BlockID.
-			if err = vals.VerifyCommit(genesis.ChainID, record.id, height, remote.commit); err == nil {
-				return record, source, nil
-			}
-		}
-		return nil, "", fmt.Errorf("the %s commit does not certify the first block under the genesis committee: %w", source, err)
-	}
-	return record, source, nil
+	return db.SetSync(seenCommitKey(commit.Height), raw)
 }
 
 // encodeFirstBlock writes a block, its commit and the genesis keys and powers as one
