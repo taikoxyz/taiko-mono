@@ -15,7 +15,15 @@ export async function deployTaikoAnchor(
     config: Config,
     result: Result,
 ): Promise<Result> {
-    const { contractOwner, l1ChainId, chainId, seedAccounts } = config;
+    const { contractOwner, l1ChainId, usesBeaconRoots, chainId, seedAccounts } =
+        config;
+
+    // The SignalService's `usesBeaconRoots` immutable: false keeps checkpoints as its only root
+    // source, and a new Etna network needs true (Etna SPEC START-10-5). The immutable is a bool,
+    // patched as a 32-byte word 0 or 1, so anything but a boolean is refused.
+    if (typeof usesBeaconRoots !== "boolean") {
+        throw new Error("genesis config: usesBeaconRoots must be a boolean");
+    }
 
     const alloc: any = {};
 
@@ -42,6 +50,7 @@ export async function deployTaikoAnchor(
     const contractConfigs: any = await generateContractConfigs(
         contractOwner,
         l1ChainId,
+        usesBeaconRoots,
         chainId,
         config.contractAddresses,
         config.param1559,
@@ -117,6 +126,7 @@ export async function deployTaikoAnchor(
 async function generateContractConfigs(
     contractOwner: string,
     l1ChainId: number,
+    usesBeaconRoots: boolean,
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
@@ -221,7 +231,7 @@ async function generateContractConfigs(
     );
     const signalServiceReferencesMap: any = getImmutableReference(
         "SignalService",
-        ["_authorizedSyncer", "_remoteSignalService"],
+        ["_authorizedSyncer", "_remoteSignalService", "usesBeaconRoots"],
     );
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
@@ -587,6 +597,13 @@ async function generateContractConfigs(
                         id: signalServiceReferencesMap._remoteSignalService.id,
                         value: ethers.utils.hexZeroPad(remoteSignalService, 32),
                     },
+                    {
+                        id: signalServiceReferencesMap.usesBeaconRoots.id,
+                        value: ethers.utils.hexZeroPad(
+                            usesBeaconRoots ? "0x01" : "0x00",
+                            32,
+                        ),
+                    },
                 ]),
                 addressMap,
             ),
@@ -617,6 +634,13 @@ async function generateContractConfigs(
             address: addressMap.TaikoAnchorImpl,
             deployedBytecode: linkContractLibs(
                 replaceImmutableValues(contractArtifacts.TaikoAnchorImpl, [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.TaikoAnchorImpl,
+                            32,
+                        ),
+                    },
                     {
                         id: taikoAnchorReferencesMap.checkpointStore.id,
                         value: ethers.utils.hexZeroPad(

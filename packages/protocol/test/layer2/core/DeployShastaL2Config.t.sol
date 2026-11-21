@@ -1,0 +1,270 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import { DeployShastaL2Contracts } from "script/layer2/DeployShastaL2Contracts.s.sol";
+import { DeployShastaL2Hoodi } from "script/layer2/DeployShastaL2Hoodi.s.sol";
+import { DeployShastaL2Mainnet } from "script/layer2/DeployShastaL2Mainnet.s.sol";
+import { Anchor } from "src/layer2/core/Anchor.sol";
+import { EtnaSignalServiceUpgradeGuard } from "src/layer2/etna/EtnaSignalServiceUpgradeGuard.sol";
+import { LibL2HoodiAddrs } from "src/layer2/hoodi/LibL2HoodiAddrs.sol";
+import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
+import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { SignalService } from "src/shared/signal/SignalService.sol";
+import { CommonTest } from "test/shared/CommonTest.sol";
+import { LegacySignalService } from "test/shared/signal/LegacySignalService.sol";
+
+interface IDeploymentConfigLoader {
+    function loadConfig() external view returns (DeployShastaL2Contracts.DeploymentConfig memory);
+}
+
+contract MainnetConfigLoader is DeployShastaL2Mainnet {
+    function loadConfig() external view returns (DeploymentConfig memory) {
+        return _loadConfig();
+    }
+
+    function validateConfig(DeploymentConfig memory _config) external view {
+        _validateConfig(_config);
+    }
+
+    function deploy(DeploymentConfig memory _config) external returns (address, address) {
+        return _deploy(_config);
+    }
+}
+
+contract HoodiConfigLoader is DeployShastaL2Hoodi {
+    function loadConfig() external view returns (DeploymentConfig memory) {
+        return _loadConfig();
+    }
+}
+
+contract TestDeployShastaL2Config is CommonTest {
+    address private constant _BEACON_ROOTS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
+    address private constant _SYSTEM_ADDRESS = 0xffffFFFfFFffffffffffffffFfFFFfffFFFfFFfE;
+    /// @dev Runtime code of the canonical EIP-4788 contract, as deployed on Ethereum mainnet.
+    bytes private constant _BEACON_ROOTS_CODE =
+        hex"3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500";
+
+    /// @dev The configuration takes no fork time: no L2 contract holds it (vector 5.ab), so the
+    /// loader needs no `ETNA_FORK_TIME`.
+    function test_loadConfig_PreservesPauserAndRejectsMissingVersionedPauser() external {
+        IDeploymentConfigLoader mainnet =
+            IDeploymentConfigLoader(address(new MainnetConfigLoader()));
+        IDeploymentConfigLoader hoodi = IDeploymentConfigLoader(address(new HoodiConfigLoader()));
+
+        _checkLoader(mainnet, LibL2Addrs.SIGNAL_SERVICE);
+        _checkLoader(hoodi, LibL2HoodiAddrs.HOODI_SIGNAL_SERVICE);
+        assertEq(mainnet.loadConfig().l2ChainId, LibNetwork.TAIKO_MAINNET, "mainnet L2");
+        assertEq(hoodi.loadConfig().l2ChainId, LibNetwork.TAIKO_HOODI, "Hoodi L2");
+    }
+
+    /// @dev The script runs only on its own L2, against proxies with code, and only when the live
+    /// Anchor already saves into the configured SignalService for the configured L1. Otherwise a
+    /// run on the wrong network deploys a SignalService whose syncer is not that network's Anchor.
+    function test_validateConfig_RejectsWrongNetworkAndWiring() external {
+        MainnetConfigLoader loader = new MainnetConfigLoader();
+        DeployShastaL2Contracts.DeploymentConfig memory config = _liveConfig();
+        loader.validateConfig(config);
+
+        config.l2ChainId = LibNetwork.TAIKO_MAINNET;
+        vm.expectRevert(bytes("Wrong L2 chain"));
+        loader.validateConfig(config);
+
+        config = _liveConfig();
+        config.l2SignalService = makeAddr("codeless");
+        vm.expectRevert(bytes("L2_SIGNAL_SERVICE has no code"));
+        loader.validateConfig(config);
+
+        config = _liveConfig();
+        config.anchorProxy = makeAddr("codeless");
+        vm.expectRevert(bytes("ANCHOR_PROXY has no code"));
+        loader.validateConfig(config);
+
+        // The live Anchor saves into another SignalService.
+        config = _liveConfig();
+        config.l2SignalService = address(new Anchor(ICheckpointStore(address(1)), 1));
+        vm.expectRevert(bytes("ANCHOR_PROXY checkpoint store mismatch"));
+        loader.validateConfig(config);
+
+        // The live Anchor trusts another L1.
+        config = _liveConfig();
+        config.l1ChainId = uint64(LibNetwork.ETHEREUM_HOODI);
+        vm.expectRevert(bytes("ANCHOR_PROXY L1 chain id mismatch"));
+        loader.validateConfig(config);
+
+        // A proxy whose implementation has neither getter.
+        config = _liveConfig();
+        vm.etch(config.anchorProxy, hex"5f5ff3");
+        vm.expectRevert(bytes("Live getter unreadable"));
+        loader.validateConfig(config);
+    }
+
+    /// @dev The SignalService implementation accepts checkpoints only from the Anchor proxy and
+    /// has `usesBeaconRoots` true (vector 5.v), proves against the L1 SignalService and accepts no
+    /// checkpoint in an Etna block. A wrong syncer would make every Unzen `anchorV4` revert once
+    /// the DAO message installs it; a wrong remote would make every L1 to L2 proof fail. The
+    /// script also deploys the upgrade guard the L2 message calls.
+    function test_deploy_WiresSignalServiceToAnchorAndBeaconRoots() external {
+        MainnetConfigLoader loader = new MainnetConfigLoader();
+        DeployShastaL2Contracts.DeploymentConfig memory config =
+            DeployShastaL2Contracts.DeploymentConfig({
+                l1ChainId: 1,
+                l1SignalService: makeAddr("l1SignalService"),
+                l2SignalService: makeAddr("l2SignalService"),
+                anchorProxy: makeAddr("anchorProxy"),
+                signalServicePauser: Alice,
+                l2ChainId: uint64(block.chainid)
+            });
+        (address impl, address guard) = loader.deploy(config);
+        assertEq(
+            guard.codehash,
+            keccak256(type(EtnaSignalServiceUpgradeGuard).runtimeCode),
+            "upgrade guard"
+        );
+        SignalService signalService = SignalService(impl);
+        assertTrue(signalService.usesBeaconRoots(), "usesBeaconRoots");
+        assertEq(signalService.VERSION(), 1, "VERSION");
+        assertEq(signalService.pauser(), Alice, "pauser");
+        address signalServiceImpl = address(signalService);
+        // The remote has no getter; the runtime embeds it as an immutable word.
+        assertTrue(_embeds(signalServiceImpl.code, config.l1SignalService), "remote");
+        assertFalse(_embeds(signalServiceImpl.code, config.l2SignalService), "not the L2 one");
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
+        });
+        vm.expectRevert(SignalService.SS_UNAUTHORIZED.selector);
+        vm.prank(config.l2SignalService);
+        signalService.saveCheckpoint(checkpoint);
+        // A block before Etna: its own EIP-4788 root is zero.
+        vm.etch(_BEACON_ROOTS, _BEACON_ROOTS_CODE);
+        _recordBeaconRoot(1_800_000_000, bytes32(0));
+        vm.prank(config.anchorProxy);
+        signalService.saveCheckpoint(checkpoint);
+        assertEq(signalService.getCheckpoint(1).stateRoot, checkpoint.stateRoot, "saved");
+        // An Etna block: its own EIP-4788 root is the anchor block's state root.
+        _recordBeaconRoot(1_800_000_012, bytes32(uint256(2)));
+        vm.prank(config.anchorProxy);
+        vm.expectRevert(SignalService.SS_CHECKPOINTS_CLOSED.selector);
+        signalService.saveCheckpoint(checkpoint);
+    }
+
+    /// @dev A valid configuration on this chain: a SignalService with code and a live Anchor that
+    /// saves into it for L1 chain 1.
+    function _liveConfig()
+        private
+        returns (DeployShastaL2Contracts.DeploymentConfig memory config_)
+    {
+        address l2SignalService = makeAddr("l2SignalService");
+        vm.etch(l2SignalService, hex"00");
+        Anchor liveAnchor = new Anchor(ICheckpointStore(l2SignalService), 1);
+        config_ = DeployShastaL2Contracts.DeploymentConfig({
+            l1ChainId: 1,
+            l1SignalService: makeAddr("l1SignalService"),
+            l2SignalService: l2SignalService,
+            anchorProxy: address(liveAnchor),
+            signalServicePauser: address(0),
+            l2ChainId: uint64(block.chainid)
+        });
+    }
+
+    /// @dev Records `_root` for `_timestamp` the way the EIP-4788 system call does.
+    function _recordBeaconRoot(uint64 _timestamp, bytes32 _root) private {
+        vm.warp(_timestamp);
+        vm.prank(_SYSTEM_ADDRESS);
+        (bool ok,) = _BEACON_ROOTS.call(abi.encode(_root));
+        assertTrue(ok, "beacon root not recorded");
+    }
+
+    /// @dev Whether `_code` contains `_value` as a left-padded 32-byte word, the form an immutable
+    /// address takes in a runtime.
+    function _embeds(bytes memory _code, address _value) private pure returns (bool) {
+        bytes32 target = bytes32(uint256(uint160(_value)));
+        for (uint256 i; i + 32 <= _code.length; ++i) {
+            bytes32 word;
+            assembly {
+                word := mload(add(add(_code, 0x20), i))
+            }
+            if (word == target) return true;
+        }
+        return false;
+    }
+
+    function _checkLoader(IDeploymentConfigLoader _loader, address _signalService) private {
+        // An address without code would answer every getter with nothing, which reads as zero.
+        vm.etch(_signalService, "");
+        _expectLoaderRevert(_loader);
+
+        SignalService implementation = new SignalService(address(this), address(1), Alice, true);
+        vm.etch(_signalService, address(implementation).code);
+        _expectPauser(_loader, _signalService, Alice);
+
+        // A versioned implementation must expose its immutable pauser, even when it is zero.
+        implementation = new SignalService(address(this), address(1), address(0), true);
+        vm.etch(_signalService, address(implementation).code);
+        _expectPauser(_loader, _signalService, address(0));
+        vm.mockCall(_signalService, abi.encodeWithSignature("pauser()"), "");
+        _expectLoaderRevert(_loader);
+        vm.clearMockedCalls();
+        vm.mockCallRevert(_signalService, abi.encodeWithSignature("pauser()"), "");
+        _expectLoaderRevert(_loader);
+        vm.clearMockedCalls();
+
+        // The genuine historical implementation has neither pauser nor VERSION getters.
+        LegacySignalService legacy = new LegacySignalService(address(this), address(1));
+        vm.etch(_signalService, address(legacy).code);
+        _expectPauser(_loader, _signalService, address(0));
+
+        // Unknown selectors may return empty bytes successfully or revert without data.
+        vm.etch(_signalService, hex"5f5ff3");
+        _expectPauser(_loader, _signalService, address(0));
+        vm.etch(_signalService, hex"5f5ffd");
+        _expectPauser(_loader, _signalService, address(0));
+
+        // With no pauser data, any nonempty VERSION response must fail, including bad ABI.
+        vm.etch(_signalService, hex"5f5ff3");
+        vm.mockCall(_signalService, abi.encodeWithSignature("VERSION()"), abi.encode(uint256(1)));
+        _expectLoaderRevert(_loader);
+        vm.clearMockedCalls();
+        vm.mockCall(_signalService, abi.encodeWithSignature("VERSION()"), hex"01");
+        _expectLoaderRevert(_loader);
+        vm.clearMockedCalls();
+        vm.mockCall(_signalService, abi.encodeWithSignature("VERSION()"), new bytes(33));
+        _expectLoaderRevert(_loader);
+        vm.clearMockedCalls();
+        vm.mockCallRevert(_signalService, abi.encodeWithSignature("VERSION()"), hex"01");
+        _expectLoaderRevert(_loader);
+        vm.clearMockedCalls();
+
+        // Nonempty malformed or reverting pauser responses cannot erase pause authority.
+        vm.etch(_signalService, hex"6001600052601f6000f3");
+        _expectLoaderRevert(_loader);
+        vm.etch(_signalService, hex"600160005260216000f3");
+        _expectLoaderRevert(_loader);
+        vm.etch(_signalService, hex"600160005260206000fd");
+        _expectLoaderRevert(_loader);
+        vm.etch(_signalService, hex"5f5ff3");
+        vm.mockCall(
+            _signalService, abi.encodeWithSignature("pauser()"), abi.encode(uint256(1) << 160)
+        );
+        _expectLoaderRevert(_loader);
+        vm.clearMockedCalls();
+    }
+
+    function _expectPauser(
+        IDeploymentConfigLoader _loader,
+        address _signalService,
+        address _pauser
+    )
+        private
+        view
+    {
+        DeployShastaL2Contracts.DeploymentConfig memory config = _loader.loadConfig();
+        assertEq(config.signalServicePauser, _pauser, "existing pauser was not preserved");
+        assertEq(config.l2SignalService, _signalService);
+    }
+
+    function _expectLoaderRevert(IDeploymentConfigLoader _loader) private {
+        vm.expectRevert();
+        _loader.loadConfig();
+    }
+}

@@ -153,7 +153,7 @@ The bound leaves headroom within the 130,044 bytes one blob carries: compressing
 - **[STAKE-4.1-25]** **Exit confirmation and withdrawal**: `exitEffectiveL1` determines selection eligibility, not the start of the evidence clock. **[STAKE-4.1-26]** Anyone may call `confirmExit(bondId)`: the bond must have been issued, the entry must have an exit set (requestExit, slashing, forfeiture or exclusion list) and must not be withdrawn, and the Inbox must have `activeCommitteeSnapshot ≥ exitEffectiveL1`. The first successful call records the current L1 block as `exitConfirmedAtL1`. Repeated calls are idempotent and must not postpone the clock.
 - **[STAKE-4.1-27]** `withdraw(bondId, to)`: requires an issued, unwithdrawn bond with a confirmed exit and the current block number ≥ `exitConfirmedAtL1 + withdrawalDelay`. When `balance > 0`, only the owner may call it, and all remaining effStake and pendingTopUp are paid to `to`; when `balance = 0`, anyone may call it, with no payment. **[STAKE-4.1-28]** Withdrawal zeros the bond's balance and its slot's entry, leaving the slot empty; it clears the bond's owner, confirmation, pending amount and top-up ready block, and records the bond as withdrawn. It keeps the bond's id and issued status, key, lifetime `ckAddr` registration, `exitEffectiveL1` and lifetime forfeiture flag keyed by bond id (4.4), so later recovery exclusions can still authenticate the bond and preserve its earlier exit. Confirmation requires that a landed committee no longer includes the stake, so a full evidence window starts only after that; a prolonged halt cannot consume it in advance. **[STAKE-4.1-29]** `activeCommitteeSnapshot` never decreases (the only exception, the section 8 verifier-failure rollback, also re-checks every exit confirmation against the restored snapshot), so withdrawal does not re-check it.
 - **[STAKE-4.1-30]** The owner cannot be changed after registration; an operator that may need to change custody should register from a contract (such as a multisig), which then becomes the owner. Consensus keys cannot be rotated in place: to change keys, request an exit, withdraw, and register again with the new key. If a key leaks, the owner should request an exit at once; until the exit completes, the leaked key can still be used to double-sign and get the entry slashed.
-- **[STAKE-4.1-31]** `slashDoubleSign(bondId, voteA, voteB)`: callable by anyone. Each vote gives its type, height, round, block id (hash and part set header; all zero for nil), timestamp (the vote's own int64 seconds and int32 nanoseconds, so that a vote timestamped before 1970 is covered; appendix A), uint48 generation and 65-byte signature. The caller cannot choose an Inbox, chain id or deployment tag.
+- **[STAKE-4.1-31]** `slashDoubleSign(bondId, voteA, voteB)`: callable by anyone. Each vote gives its type, height, round, block id (hash and part set header; both hashes empty and total zero for nil; each hash is empty or exactly 32 bytes, including all-zero bytes), timestamp (the vote's own int64 seconds and int32 nanoseconds, so that a vote timestamped before 1970 is covered; appendix A), uint48 generation and 65-byte signature. The caller cannot choose an Inbox, chain id or deployment tag.
 
 <details>
 <summary>Details: double-sign evidence checks and slashing</summary>
@@ -900,14 +900,15 @@ voteSignBytes = uvarint(len(cv)) || cv                  // same as CometBFT Vote
 cv = [0x08 varint type]                                 // 1 = prevote, 2 = precommit
   || [0x11 int64_le(height)]                            // 8 bytes little-endian
   || [0x19 int64_le(round)]
-  || [0x22 len blockId]                                 // omitted for a nil vote (hash, total, partsHash all zero)
+  || [0x22 len blockId]                                 // omitted for a nil vote (both hashes empty, total zero)
   || 0x2a len timestamp                                 // always written
   || 0x32 len chainId                                   // exact 48-byte chain_id computed above
   blockId   = [0x0a len hash] || 0x12 len psh
   psh       = [0x08 varint total] || [0x12 len partsHash]
   timestamp = [0x08 varint seconds] || [0x10 varint nanos]
   // [ENC-A-45]
-  // fields in [ ] are omitted when zero or empty; len is a uvarint length prefix
+  // numeric fields in [ ] are omitted when zero; hash fields only when empty; len is a uvarint length prefix
+  // a present hash is exactly 32 bytes, including all-zero bytes, which must not be treated as empty
   // seconds is an int64 and nanos an int32; a varint encodes the value's 64-bit two's complement, as protobuf does,
   //   so a negative value, such as the seconds of a time before 1970, takes ten bytes; every int64 and int32
   //   value is encoded this way, with no range check, including timestamps that stock CometBFT itself would

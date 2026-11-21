@@ -1,5 +1,64 @@
 # Changelog
 
+## Unreleased
+
+- Etna (BREAKING, spec on main 360262975, #22422): `SignalService` takes a fourth constructor argument,
+  `bool usesBeaconRoots`: false on L1, true on L2. No contract holds the Etna fork time. With it
+  true, `saveCheckpoint` accepts a checkpoint only in a block whose own EIP-4788 root reads as zero:
+  every block before Etna and none from Etna on, and a failed read rejects. Proof roots resolve from
+  a checkpoint first and otherwise from EIP-4788 (`blockId` an Etna block's L2 timestamp), so
+  checkpoints saved before the fork stay provable after it. Missing roots revert
+  `SS_CHECKPOINT_NOT_FOUND`; `SS_INVALID_BLOCK_ID` and `SS_STATE_ROOT_NOT_FOUND` are removed. The new
+  `EtnaSignalServiceUpgradeGuard` and `LibEtnaReadinessL2Message` guard and build the readiness
+  proposal's L2 message. The L2 deploy scripts and the genesis config (`usesBeaconRoots`) take no
+  fork time. The `Anchor` is unchanged, and the switching L1 SignalService accepts checkpoints only
+  from the Etna Inbox, which forwards the Unzen Inbox's until the start write.
+- Etna (BREAKING): the switch tooling checks code identity. `BuildEtnaSwitchProposals` and
+  `BuildEtnaReadinessL2Message` rebuild the L1 and L2 SignalService implementations' runtime code
+  from the expected syncer, remote, pauser and `usesBeaconRoots` (with UUPS `__self` set from the
+  artifact's immutable references, `script/shared/LibRebuiltCode.sol`) and require it byte for
+  byte, and require both guards to hold exactly this build's code; the L2 builder now runs against
+  L2 and also reads `ANCHOR_PROXY` and `L1_SIGNAL_SERVICE`. `EtnaSwitchGuard.checkL1SignalService`
+  and `EtnaSignalServiceUpgradeGuard.checkAfterUpgrade` take the implementation's expected code
+  hash and revert `UnexpectedCodeHash` on any other code.
+- Etna (BREAKING): `EtnaSwitchGuard.checkDeadline` takes the batch's `FI_MARGIN` and reverts
+  `ProposalLeadNotAboveFiMargin` unless `PROPOSAL_LEAD` exceeds it, so the scheduling batch reverts
+  on chain at or after `ETNA_FORK_TIME - FI_MARGIN` (vector 5d.f); `checkPostponement` takes the
+  whole new schedule and applies the same rule to it.
+- Etna (BREAKING): `EtnaSwitchGuard.checkPostponement` also takes the Unzen Inbox's and the
+  EtnaInbox's current implementations, which `BuildEtnaSwitchProposals` reads when it builds the
+  batch, and reverts `UnexpectedImplementation` if either proxy has been upgraded since, so a
+  postponement cannot silently roll back another upgrade.
+- Etna (BREAKING): `setOrigin(uint48 s)` is permissionless. It reads the upgraded Unzen Inbox's new
+  `proposeCutoff()` (`InboxWithEtnaCutoffs`) and `getCoreState()` and takes the start's hash and
+  state root from the SignalService checkpoint at S; the `originWriter` immutable and getter are
+  removed from `IEtnaInbox.Config`, and `land` no longer reads the Unzen Inbox. The checkpoint
+  forwarder reverts at every height once the start is written (`ForwardingClosed` replaces
+  `CheckpointAboveStart`; `StartCheckpointMismatch` is removed; `NotSwitching`,
+  `ProposalsNotClosed`, `CommitteeSnapshotRegressed`, `RecoveryCapacityExceeded`,
+  `InvalidRecoveryCapacity` and `UnissuedExclusion` are new).
+- Etna (BREAKING): `land` rejects an `activeCommitteeSnapshot` below the stored one before proof
+  verification. `init` reads the registry's `minStake()` (new in `IEtnaStakingRegistry`) for the
+  committee config hash's fifth word and requires `minStake >= vp_unit` and K = min(4096,
+  floor(10^27 / minStake)) <= F, the new `Config.recoveryCapacity` (131 for this bytecode, the
+  largest count whose recovery fits 2^24 on the DAO's costliest path, the Emergency Multisig's
+  `execute`, measured on a mainnet fork by `EtnaRecoveryDaoPathGas.t.sol`); `CommitteeConfig.sMin`
+  and `ETNA_S_MIN` are removed and the devnet default minimum stake is 7,600,000 TAIKO.
+- Etna (BREAKING): `recover` takes `uint256[] exclusions`, strictly increasing issued bond ids
+  (`IEtnaInbox.Exclusion` and the entry keys in `Recovered` are removed); `scheduleRules` and
+  `scheduleStop` take `expectedGeneration` first; the registry's `forfeit(bondId, incidentId,
+  validUntil)`, `forfeited(uint256 bondId)`, `Forfeited(bondId, incidentId, balanceBefore,
+  penalty)` and `forceExit(bondId)` drop the entry key, and `validateExclusion`,
+  `EntryKeyMismatch` and `LibEtnaKeys.entryKey` are removed. `slashDoubleSign` checks the
+  recovered signer through the lifetime key lookup instead of decompressing the stored key.
+- Etna (BREAKING): the registry checkpoint `count` is 0 or one plus the highest occupied slot and
+  shrinks on withdrawal (`LibEntriesTree.truncate`); `entryCount()` and `entriesRoot()` follow it.
+- Etna (BREAKING): the shared vectors move to schema 9 (setHash, minStake in the config hash, the
+  count rule, bond-id forfeiture flags and the new ABIs).
+- Fix Etna double-sign evidence encoding for present all-zero BlockID hashes. Vote hashes now use
+  `bytes` of length 0 or 32, changing the `slashDoubleSign` ABI; clients must refresh it and the
+  shared vectors.
+
 ## [3.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v3.0.0...taiko-alethia-protocol-v3.1.0) (2026-07-01)
 
 > Released from the `taiko-alethia-protocol-v3.0.0` branch (tag: [`taiko-alethia-protocol-v3.1.0`](https://github.com/taikoxyz/taiko-mono/releases/tag/taiko-alethia-protocol-v3.1.0)). This release consists of the security hardening and recovery changes made in response to the June 2026 mainnet incident.

@@ -255,3 +255,8 @@ For upgradeable contracts:
 ---
 
 **Note**: For monorepo-wide guidance, see root `/CLAUDE.md`
+
+## Etna
+
+`contracts/layer1/etna/README.md` maps the Etna contracts to the Etna specification and lists the
+commands that test them; `testdata/etna_vectors/README.md` explains how to regenerate the vectors.
