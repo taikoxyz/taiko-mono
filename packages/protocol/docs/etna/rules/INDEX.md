@@ -93,7 +93,7 @@
 | STAKE-4.1-14a  | rule       | Admission takes the lowest-numbered empty seat; minStake × n_max >= 10^27; no empty seat reverts the call                                           | 4.1     | [4.1](vectors/4.1.md#stake-41-14a)    |
 | STAKE-4.1-14b  | retired    | A displaced bond leaves its slot; its exit becomes min(old, current block)                                                                          | 4.1     | [4.1](vectors/4.1.md#stake-41-14b)    |
 | STAKE-4.1-14c  | rule       | A penalty below minStake releases the seat but sets no exit; a top-up restores it                                                                   | 4.1     | [4.1](vectors/4.1.md#stake-41-14c)    |
-| STAKE-4.1-14d  | rule       | seatOfBond and bondInSeat return presence flags; (false, 0) means absent                                                                            | 4.1     | [4.1](vectors/4.1.md#stake-41-14d)    |
+| STAKE-4.1-14d  | rule       | seatOfBond, bondInSeat and the key-to-seat mapping are live; (false, 0) means absent                                                                | 4.1     | [4.1](vectors/4.1.md#stake-41-14d)    |
 | STAKE-4.1-14e  | rule       | Power = floor(effStake / vp_unit); vp_unit >= 867,361,738 and minStake >= vp_unit                                                                   | 4.1     | [4.1](vectors/4.1.md#stake-41-14e)    |
 | STAKE-4.1-15   | rule       | topUp is owner-only; issued, unwithdrawn, no exit, amount > 0                                                                                       | 4.1     | [4.1](vectors/4.1.md#stake-41-15)     |
 | STAKE-4.1-16   | rule       | topUp adds to effStake at once and rejects overflow                                                                                                 | 4.1     | [4.1](vectors/4.1.md#stake-41-16)     |
@@ -109,7 +109,7 @@
 | STAKE-4.1-26   | retired    | confirmExit conditions, first-call record and idempotence                                                                                           | 4.1     | —                                     |
 | STAKE-4.1-27   | rule       | withdraw needs block.number >= exitHeight + withdrawalDelay; the two balance branches                                                               | 4.1     | [4.1](vectors/4.1.md#stake-41-27)     |
 | STAKE-4.1-28   | rule       | Withdrawal zeros funds and clears the owner; keeps issued status, key registration, exitHeight and forfeiture flag                                  | 4.1     | [4.1](vectors/4.1.md#stake-41-28)     |
-| STAKE-4.1-28a  | rule       | withdrawalDelay counts L2 blocks and is at least U + 2 + the evidence window                                                                        | 4.1     | [4.1](vectors/4.1.md#stake-41-28a)    |
+| STAKE-4.1-28a  | rule       | withdrawalDelay counts L2 blocks and is at least U + 2 + the evidence window; candidate-member signatures, except after a rollback                  | 4.1     | [4.1](vectors/4.1.md#stake-41-28a)    |
 | STAKE-4.1-29   | retired    | activeCommitteeSnapshot never decreases; no re-check                                                                                                | 4.1     | —                                     |
 | STAKE-4.1-30   | rule       | Owner is immutable; keys cannot rotate in place                                                                                                     | 4.1     | [4.1](vectors/4.1.md#stake-41-30)     |
 | STAKE-4.1-31   | rule       | slashDoubleSign is permissionless; vote tuple; fixed domain                                                                                         | 4.1     | [4.1](vectors/4.1.md#stake-41-31)     |
@@ -126,19 +126,19 @@
 | STAKE-4.2-2    | retired    | Epoch t starts at H(t)=1+t\*L; block h maps to floor((h-1)/L)                                                                                       | 4.2     | —                                     |
 | STAKE-4.2-3    | retired    | Epochs follow L2 height only; maxAnchorAge bounds anchors                                                                                           | 4.2     | —                                     |
 | STAKE-4.2-4    | rule       | onBlockStart: system caller only; stores generation; three steps in order                                                                           | 4.2     | [4.2](vectors/4.2.md#stake-42-4)      |
-| STAKE-4.2-5    | rule       | Bit 1 adds a miss to an occupied seat, bit 0 resets it; empty seats are ignored                                                                     | 4.2     | [4.2](vectors/4.2.md#stake-42-5)      |
+| STAKE-4.2-5    | rule       | Bit 1 adds a miss to an occupied seat, bit 0 resets it; bits come from the parent's live seat mapping; empty seats are ignored                      | 4.2     | [4.2](vectors/4.2.md#stake-42-5)      |
 | STAKE-4.2-6    | rule       | At missLimit, deduct ceil(effStake × missSlashBps / 10000) to slashSink and reset; below minStake releases the seat                                 | 4.2     | [4.2](vectors/4.2.md#stake-42-6)      |
-| STAKE-4.2-7    | rule       | Candidate snapshot: members, total stake, hash and height; written only by onBlockStart                                                             | 4.2     | [4.2](vectors/4.2.md#stake-42-7)      |
+| STAKE-4.2-7    | rule       | Candidate snapshot: 128 seat records, total stake and height, written only by onBlockStart; records at or above n_max zero                          | 4.2     | [4.2](vectors/4.2.md#stake-42-7)      |
 | STAKE-4.2-8    | rule       | Work bounded by n_max seats; the worst case fits the 30,000,000 gas limit                                                                           | 4.2     | [4.2](vectors/4.2.md#stake-42-8)      |
 | COMM-4.3-1     | rule       | One rule for every generation: origin keys sign o+1 and o+2, then H decides H+2                                                                     | 4.3     | [4.3](vectors/4.3.md#comm-43-1)       |
 | COMM-4.3-2     | retired    | Verify complete entries and root at the snapshot checkpoint                                                                                         | 4.3     | —                                     |
-| COMM-4.3-3     | rule       | The candidate is the snapshot H's onBlockStart stored                                                                                               | 4.3     | [4.3](vectors/4.3.md#comm-43-3)       |
+| COMM-4.3-3     | rule       | The candidate is H's snapshot, read from all 128 seat records, not snapshot()                                                                       | 4.3     | [4.3](vectors/4.3.md#comm-43-3)       |
 | COMM-4.3-3a    | rule       | Usable: written at H, a valid set, total stake >= minTotalStake of H's anchor                                                                       | 4.3     | [4.3](vectors/4.3.md#comm-43-3a)      |
 | COMM-4.3-4     | rule       | Member keys are valid and distinct                                                                                                                  | 4.3     | [4.3](vectors/4.3.md#comm-43-4)       |
 | COMM-4.3-5     | retired    | Empty slots are zero, ineligible and ignored                                                                                                        | 4.3     | —                                     |
 | COMM-4.3-6     | retired    | Sort by effStake, break ties by set key, take n_max                                                                                                 | 4.3     | —                                     |
-| COMM-4.3-7     | rule       | Member power is the snapshot's floor(effStake / vp_unit), used as stored                                                                            | 4.3     | [4.3](vectors/4.3.md#comm-43-7)       |
-| COMM-4.3-8     | rule       | Valid set: 1 to 128 members, power >= 1, total <= MAX; otherwise not usable                                                                         | 4.3     | [4.3](vectors/4.3.md#comm-43-8)       |
+| COMM-4.3-7     | rule       | Member power is the record's floor(effStake / vp_unit), used as stored                                                                              | 4.3     | [4.3](vectors/4.3.md#comm-43-7)       |
+| COMM-4.3-8     | rule       | Valid set: 1 to 128 members, power >= 1, total <= MAX, unused record bits zero; otherwise not usable                                                | 4.3     | [4.3](vectors/4.3.md#comm-43-8)       |
 | COMM-4.3-8a    | rule       | If TAIKO supply increases, choose vp_unit for the new supply and upgrade the staking contract first                                                 | 4.3     | [4.3](vectors/4.3.md#comm-43-8a)      |
 | COMM-4.3-8b    | rule       | A usable candidate signs H+2; otherwise the fallback key set, power 1 each                                                                          | 4.3     | [4.3](vectors/4.3.md#comm-43-8b)      |
 | COMM-4.3-8c    | rule       | Fallback keys are not staked; a double sign is slashable only through a bond with the same key                                                      | 4.3     | [4.3](vectors/4.3.md#comm-43-8c)      |
@@ -716,9 +716,9 @@
 | 3.2     | 12  | 51      | 4                |
 | 3.3     | 7   | 39      | 4                |
 | 3.4     | 17  | 80      | 6                |
-| 4.1     | 35  | 166     | 2                |
-| 4.2     | 5   | 33      | 0                |
-| 4.3     | 17  | 72      | 1                |
+| 4.1     | 35  | 169     | 2                |
+| 4.2     | 5   | 38      | 0                |
+| 4.3     | 17  | 76      | 0                |
 | 4.4     | 20  | 79      | 3                |
 | 5.1     | 3   | 10      | 2                |
 | 5.2     | 9   | 31      | 4                |
