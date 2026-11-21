@@ -344,7 +344,7 @@
 | RECOV-8-1      | rule       | Liveness pause loses no blocks                                                                                                                      | 8       | [8](vectors/8.md#recov-8-1)           |
 | RECOV-8-2      | rule       | Governance recovery discards the suffix above c                                                                                                     | 8       | [8](vectors/8.md#recov-8-2)           |
 | RECOV-8-3      | rule       | Liveness pause: process runs, auto-resumes, loses no blocks                                                                                         | 8       | [8](vectors/8.md#recov-8-3)           |
-| RECOV-8-4      | rule       | Liveness-pause causes: stale anchor, back-pressure, bytes, unsupported ruleset                                                                      | 8       | [8](vectors/8.md#recov-8-4)           |
+| RECOV-8-4      | rule       | Liveness-pause causes: stale anchor, back-pressure, bytes, fallback key list, unsupported ruleset                                                   | 8       | [8](vectors/8.md#recov-8-4)           |
 | RECOV-8-5      | rule       | Lagging or unreachable local L1 node is a liveness pause; an anchor not yet finalized locally: ProcessProposal rejects, FinalizeBlock waits         | 8       | [8](vectors/8.md#recov-8-5)           |
 | RECOV-8-6      | rule       | Unparsable canonical anchor header: reject, retry, upgrade                                                                                          | 8       | [8](vectors/8.md#recov-8-6)           |
 | RECOV-8-7      | rule       | ABCI: never return error; Query/snapshots return codes or empty                                                                                     | 8       | [8](vectors/8.md#recov-8-7)           |
@@ -464,7 +464,7 @@
 | SYNC-9-3       | rule       | Checkpoint fence: proven lastCheckpoint.hash passed to the EL as finalized                                                                          | 9       | [9](vectors/9.md#sync-9-3)            |
 | SYNC-9-4       | rule       | Startup and signer sessions start untrusted; authenticate latest checkpoint                                                                         | 9       | [9](vectors/9.md#sync-9-4)            |
 | SYNC-9-5       | rule       | Trust requires an exact match of EL and CometBFT hashes at that height; EL hash only at the generation's origin                                     | 9       | [9](vectors/9.md#sync-9-5)            |
-| SYNC-9-5a      | rule       | Switching network: S is the last Unzen block (derived or lastFinalizedBlockHash); stateRoot, L2 SignalService, fork time match                      | 9       | [9](vectors/9.md#sync-9-5a)           |
+| SYNC-9-5a      | rule       | Switching network: S is the last Unzen block (derived or lastFinalizedBlockHash); stateRoot, L2 SignalService and EtnaStaking, fork time match      | 9       | [9](vectors/9.md#sync-9-5a)           |
 | SYNC-9-5b      | retired    | Validator-state mismatch at the trust target: safety halt; a verifier failure if the landed value is wrong                                          | 9       | [9](vectors/9.md#sync-9-5b)           |
 | SYNC-9-5c      | rule       | The app computes the validator state per height and commits it in app_hash; stock stored-set lookup is not a source                                 | 9       | [9](vectors/9.md#sync-9-5c)           |
 | SYNC-9-6       | rule       | After trust, every anchor change checks the new lastCheckpoint per 3.4                                                                              | 9       | [9](vectors/9.md#sync-9-6)            |
@@ -478,43 +478,43 @@
 | SYNC-9-13      | rule       | Persist sign bytes and signature; exact and timestamp-only stock retries                                                                            | 9       | [9](vectors/9.md#sync-9-13)           |
 | SYNC-9-14      | rule       | Restart needs no operator and resets no state; listed cases excluded                                                                                | 9       | [9](vectors/9.md#sync-9-14)           |
 | SYNC-9-15      | rule       | Bridges and public RPC must read the app's trust status, not catching_up                                                                            | 9       | [9](vectors/9.md#sync-9-15)           |
-| SYNC-9-16      | rule       | Node requirements: L1 headers to L1_0, eth_getProof history and FI logs                                                                             | 9       | [9](vectors/9.md#sync-9-16)           |
+| SYNC-9-16      | rule       | Node requirements: L1 headers to L1_0, anchor-witness proofs, FI logs and every fallbackKeys list an anchor or origin record proves                 | 9       | [9](vectors/9.md#sync-9-16)           |
 | SYNC-9.1-1     | rule       | Complete CometBFT recovery and proving require the listed original material                                                                         | 9.1     | [9.1](vectors/9.1.md#sync-91-1)       |
 | SYNC-9.1-2     | rule       | Archives must retain them; blobs or an EL snapshot alone are insufficient                                                                           | 9.1     | [9.1](vectors/9.1.md#sync-91-2)       |
 | SYNC-9.1-3     | rule       | Private keys are not historical archive data; signing state follows 8.2                                                                             | 9.1     | [9.1](vectors/9.1.md#sync-91-3)       |
-| SYNC-9.1-4     | rule       | Recovery authenticates origin, c hashes, R snapshot, then reselects under 4.3                                                                       | 9.1     | [9.1](vectors/9.1.md#sync-91-4)       |
-| SYNC-9.1-5     | rule       | Committees follow authenticated switches; import takes priorities from the validator state in header(s)'s app_hash                                  | 9.1     | [9.1](vectors/9.1.md#sync-91-5)       |
+| SYNC-9.1-4     | rule       | Recovery authenticates the origin record and c's hashes; the origin record's fallback keys sign the first two blocks                                | 9.1     | [9.1](vectors/9.1.md#sync-91-4)       |
+| SYNC-9.1-5     | rule       | Later sets follow 4.3 from rebuilt L2 state and authenticated anchors; import takes priorities from the validator state in header(s)'s app_hash     | 9.1     | [9.1](vectors/9.1.md#sync-91-5)       |
 | SYNC-9.1-6     | rule       | Missing material leaves the node untrusted; contradictions halt under section 9                                                                     | 9.1     | [9.1](vectors/9.1.md#sync-91-6)       |
-| SYNC-9.1-7     | rule       | Anyone may submit verifiable same-round conflicting votes directly to L1                                                                            | 9.1     | [9.1](vectors/9.1.md#sync-91-7)       |
-| SYNC-9.1-8     | rule       | Retention and submission are independent of the local pool's age limits                                                                             | 9.1     | [9.1](vectors/9.1.md#sync-91-8)       |
+| SYNC-9.1-7     | rule       | Anyone may submit same-round conflicting votes to slashDoubleSign in an L2 transaction, directly or by forced inclusion                             | 9.1     | [9.1](vectors/9.1.md#sync-91-7)       |
+| SYNC-9.1-8     | rule       | Retention and submission are independent of the local pool's age limits and track the withdrawal delay                                              | 9.1     | [9.1](vectors/9.1.md#sync-91-8)       |
 | SYNC-9.1-9     | limitation | Retention does not guarantee observation of every conflicting vote                                                                                  | 9.1     | [9.1](vectors/9.1.md#sync-91-9)       |
 | SYNC-9.1-10    | rule       | Different BlockIDs across rounds are not automatically double signing                                                                               | 9.1     | [9.1](vectors/9.1.md#sync-91-10)      |
-| START-10-1     | rule       | Step 1: deploy the Inbox proxy, the registry with that proxy fixed, register                                                                        | 10      | [10](vectors/10.md#start-10-1)        |
-| START-10-2     | rule       | Step 2: pick a past genesisCutoff; committee 0 record hash and config hash                                                                          | 10      | [10](vectors/10.md#start-10-2)        |
-| START-10-3     | rule       | Step 3: EIP-4788/2935 in genesis or on L2 before the L2 SignalService upgrade; base-fee share 100                                                   | 10      | [10](vectors/10.md#start-10-3)        |
-| START-10-4     | rule       | Step 4: the Etna start S; block 0 on a new network, the last Unzen block otherwise                                                                  | 10      | [10](vectors/10.md#start-10-4)        |
-| START-10-5     | rule       | Step 5: SignalService, Inbox initialization, treasury, recovery state, new-network start                                                            | 10      | [10](vectors/10.md#start-10-5)        |
+| START-10-1     | rule       | Step 1: deploy the Inbox proxy, then EtnaStaking with that proxy fixed, in the L2 genesis or before the fork; register on L2                        | 10      | [10](vectors/10.md#start-10-1)        |
+| START-10-2     | retired    | Step 2: pick a past genesisCutoff; committee 0 record hash and config hash                                                                          | 10      | —                                     |
+| START-10-3     | rule       | Step 2: EIP-4788/2935 in genesis or on L2 before the L2 SignalService upgrade; base-fee share 100                                                   | 10      | [10](vectors/10.md#start-10-3)        |
+| START-10-4     | rule       | Step 3: the Etna start S; block 0 on a new network, the last Unzen block otherwise                                                                  | 10      | [10](vectors/10.md#start-10-4)        |
+| START-10-5     | rule       | Step 4: SignalService, Inbox initialization with fallbackKeys and minTotalStake, treasury, recovery state, new-network start                        | 10      | [10](vectors/10.md#start-10-5)        |
 | START-10-5a    | rule       | Permissionless one-time switching start after fork time and proposal closure                                                                        | 10      | [10](vectors/10.md#start-10-5a)       |
-| START-10-5b    | rule       | Start write: slots 272–274, generation-0 origin, lastCheckpoint, slot 285; FI opens                                                                 | 10      | [10](vectors/10.md#start-10-5b)       |
+| START-10-5b    | rule       | Start write: slots 272–274, generation-0 origin with slot 278's fallbackKeysHash, lastCheckpoint, slot 285; FI opens                                | 10      | [10](vectors/10.md#start-10-5b)       |
 | START-10-5c    | rule       | Switching start write preserves the proven checkpoint and fixes S                                                                                   | 10      | [10](vectors/10.md#start-10-5c)       |
 | START-10-5d    | rule       | Switching network: Unzen Inbox stops propose and forced inclusion before ETNA_FORK_TIME; prove saves through the Inbox                              | 10      | [10](vectors/10.md#start-10-5d)       |
-| START-10-6     | rule       | Step 6: CometBFT genesis after the start write is final; guarded startup; pinned CometBFT settings; validator P2P only with listed nodes            | 10      | [10](vectors/10.md#start-10-6)        |
-| START-10-7     | rule       | Deployment constraints: L at least 3 and L+1 below 2^48                                                                                             | 10      | [10](vectors/10.md#start-10-7)        |
-| START-10-8     | rule       | Initialization rejects a current or future genesisCutoff; cutoff is at or after the first registry checkpoint                                       | 10      | [10](vectors/10.md#start-10-8)        |
+| START-10-6     | rule       | Step 5: CometBFT genesis after the start write is final; guarded startup; pinned CometBFT settings; validator P2P only with listed nodes            | 10      | [10](vectors/10.md#start-10-6)        |
+| START-10-7     | retired    | Deployment constraints: L at least 3 and L+1 below 2^48                                                                                             | 10      | —                                     |
+| START-10-8     | retired    | Initialization rejects a current or future genesisCutoff; cutoff is at or after the first registry checkpoint                                       | 10      | —                                     |
 | START-10-9     | rule       | forcedInclusionDelay above 0; maxAnchorAge at least 1152 s                                                                                          | 10      | [10](vectors/10.md#start-10-9)        |
 | START-10-10    | rule       | 1 at most U at most 262,144; target U=151,200                                                                                                       | 10      | [10](vectors/10.md#start-10-10)       |
-| START-10-11    | rule       | S and L1_0 below 2^48; 1 at most n_max at most 4096                                                                                                 | 10      | [10](vectors/10.md#start-10-11)       |
-| START-10-12    | rule       | vp_unit at least 867,361,738, minStake at least vp_unit, 4096 × minStake above 10^27                                                                | 10      | [10](vectors/10.md#start-10-12)       |
-| START-10-13    | rule       | Use positive activation and exit delays                                                                                                             | 10      | [10](vectors/10.md#start-10-13)       |
-| START-10-14    | rule       | Inbox checks recovery capacity and commits the shared configuration                                                                                 | 10      | [10](vectors/10.md#start-10-14)       |
+| START-10-11    | rule       | S and L1_0 below 2^48; 1 at most n_max at most 128                                                                                                  | 10      | [10](vectors/10.md#start-10-11)       |
+| START-10-12    | rule       | vp_unit at least 867,361,738, minStake at least vp_unit, minStake × n_max at least 10^27                                                            | 10      | [10](vectors/10.md#start-10-12)       |
+| START-10-13    | rule       | missLimit 1 to 65,535, missSlashBps above 0 and at most 10000, withdrawalDelay at least U + 2 + the evidence window                                 | 10      | [10](vectors/10.md#start-10-13)       |
+| START-10-14    | rule       | Inbox initialization writes the config hash over l2ChainId, the staking address and U; nodes and guests check it                                    | 10      | [10](vectors/10.md#start-10-14)       |
 | START-10-15    | rule       | Appendix A's chain_id is exactly 48 ASCII bytes                                                                                                     | 10      | [10](vectors/10.md#start-10-15)       |
 | START-10-16    | retired    | Wrong immutables need a new Inbox/genesis; the registry must be repointed                                                                           | 10      | —                                     |
 | START-10-16a   | rule       | Wrong deployment-core parameters need a new Inbox/genesis; others a structural upgrade, or a pre-start implementation upgrade                       | 10      | [10](vectors/10.md#start-10-16a)      |
 | START-10-17    | rule       | Old signing state is not reset                                                                                                                      | 10      | [10](vectors/10.md#start-10-17)       |
-| START-10-18    | rule       | Pin maxBatchBlocks and bound gas for atomic quorum recovery                                                                                         | 10      | [10](vectors/10.md#start-10-18)       |
+| START-10-18    | rule       | Pin maxBatchBlocks at least 1                                                                                                                       | 10      | [10](vectors/10.md#start-10-18)       |
 | START-10-19    | rule       | Do not claim readiness before the launch gate passes                                                                                                | 10      | [10](vectors/10.md#start-10-19)       |
-| START-10-20    | rule       | Initial genesis: chain_id, height S + 1, L1_0 time, committee 0, app_state                                                                          | 10      | [10](vectors/10.md#start-10-20)       |
-| START-10-21    | rule       | Consensus params: block size from n_max, zero block evidence bytes, short off-chain gossip age limits                                               | 10      | [10](vectors/10.md#start-10-21)       |
+| START-10-20    | rule       | Initial genesis: chain_id, height S + 1, L1_0 time, the origin record's fallback keys at power 1, app_state                                         | 10      | [10](vectors/10.md#start-10-20)       |
+| START-10-21    | rule       | Consensus params: block size for 128 validators, zero block evidence bytes, short off-chain gossip age limits                                       | 10      | [10](vectors/10.md#start-10-21)       |
 | START-10-22    | rule       | Initial state: anchor L1_0, FI cursor 0, checkpoint (S, start hash)                                                                                 | 10      | [10](vectors/10.md#start-10-22)       |
 | START-10-23    | rule       | The generator writes an empty parameter-update authority                                                                                            | 10      | [10](vectors/10.md#start-10-23)       |
 | START-10-24    | rule       | In-place migration unsupported; no state deletion to bypass version checks                                                                          | 10      | [10](vectors/10.md#start-10-24)       |
@@ -745,15 +745,15 @@
 | 7.1     | 13  | 47      | 6                |
 | 7.2     | 13  | 66      | 10               |
 | 7.3     | 5   | 20      | 5                |
-| 8       | 52  | 179     | 10               |
+| 8       | 52  | 180     | 10               |
 | 8.1     | 12  | 62      | 6                |
 | 8.2     | 6   | 34      | 3                |
 | 8.3     | 19  | 49      | 6                |
 | 8.4     | 15  | 45      | 5                |
-| 9       | 16  | 75      | 6                |
-| 9.1     | 10  | 31      | 4                |
-| 10      | 24  | 97      | 5                |
-| 10.1    | 24  | 113     | 1                |
+| 9       | 19  | 141     | 8                |
+| 9.1     | 10  | 39      | 3                |
+| 10      | 26  | 189     | 7                |
+| 10.1    | 24  | 119     | 1                |
 | 11      | 16  | 64      | 6                |
 | 12      | 19  | 3       | 6                |
 | A       | 58  | 330     | 3                |
