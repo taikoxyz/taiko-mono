@@ -31,6 +31,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/BurntSushi/toml"
 	dbm "github.com/cometbft/cometbft-db"
 	abcicli "github.com/cometbft/cometbft/abci/client"
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -327,9 +328,13 @@ func RepairFirstBlock(o RepairOptions) (report RepairReport, err error) {
 	return report, nil
 }
 
-// firstBlockGenesis reads the home's fixed genesis and its committee. Only a generation whose
-// initial_height is above 1 has the first-block failure.
+// firstBlockGenesis reads the home's fixed genesis and its committee, once its Comet config is
+// known to keep the stores this tool reads. Only a generation whose initial_height is above 1 has
+// the first-block failure.
 func firstBlockGenesis(home string) (*types.GenesisDoc, *types.ValidatorSet, error) {
+	if err := requireStockStores(home); err != nil {
+		return nil, nil, err
+	}
 	genesis, err := types.GenesisDocFromFile(filepath.Join(home, "config", "genesis.json"))
 	if err != nil {
 		return nil, nil, err
@@ -346,6 +351,45 @@ func firstBlockGenesis(home string) (*types.GenesisDoc, *types.ValidatorSet, err
 		return nil, nil, fmt.Errorf("genesis validators: %w", err)
 	}
 	return genesis, set, nil
+}
+
+// requireStockStores refuses a home whose CometBFT config keeps its stores anywhere but where this
+// tool reads them: goleveldb databases in <home>/data, the stock db_backend and db_dir. Viper reads
+// config keys case-insensitively, so every spelling counts, and a relative db_dir is rooted at the
+// home as stock rootify does. A home without config.toml has the stock defaults, which stock
+// CometBFT writes into it on its next start. CMT_* overrides belong to the environment Comet
+// starts in, which the supervisor and the full-node launcher check.
+func requireStockStores(home string) error {
+	path := filepath.Join(home, "config", "config.toml")
+	raw, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var config map[string]any
+	if err = toml.Unmarshal(raw, &config); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	data := filepath.Join(home, "data")
+	for key, value := range config {
+		text, _ := value.(string)
+		switch strings.ToLower(key) {
+		case "db_backend":
+			if text != "goleveldb" {
+				return fmt.Errorf("%s sets %s = %v: only goleveldb stores are supported", path, key, value)
+			}
+		case "db_dir":
+			if !filepath.IsAbs(text) {
+				text = filepath.Join(home, text)
+			}
+			if filepath.Clean(text) != data {
+				return fmt.Errorf("%s sets %s = %v: only the stock default db_dir, %s, is supported", path, key, value, data)
+			}
+		}
+	}
+	return nil
 }
 
 // certifiedFirstBlock returns the first block and the commit the repair applies it with, and

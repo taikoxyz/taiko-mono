@@ -865,3 +865,66 @@ func TestRepairRefusesARunningCometAndAnUnusableBackup(t *testing.T) {
 		t.Fatalf("app calls %v", calls)
 	}
 }
+
+// The offline tools read goleveldb stores in <home>/data only. A home whose config.toml keeps its
+// stores elsewhere (another db_dir, absolute or relative, in any key spelling) or in another
+// backend is refused before anything is read, copied or written; the stock default, spelled out
+// or implied by a config without the keys or by no config.toml at all, is accepted.
+func TestFirstBlockToolsRefuseStoresOutsideTheStockDefault(t *testing.T) {
+	f := newFirstBlockFixture(t, 1, 1, "certified-envelope")
+	for _, tc := range []struct {
+		config string
+		want   string
+	}{
+		{`db_dir = "elsewhere"`, "only the stock default db_dir"},
+		{`DB_Dir = "elsewhere"`, "only the stock default db_dir"},
+		{`db_dir = "/srv/comet/data"`, "only the stock default db_dir"},
+		{`db_dir = ""`, "only the stock default db_dir"},
+		{`db_dir = 7`, "only the stock default db_dir"},
+		{"db_dir = \"data\"\nDB_DIR = \"other\"", "only the stock default db_dir"},
+		{`db_backend = "pebbledb"`, "only goleveldb stores"},
+		{`DB_BACKEND = "pebbledb"`, "only goleveldb stores"},
+		{`db_backend = = "goleveldb"`, "config.toml"},
+	} {
+		t.Run(tc.config, func(t *testing.T) {
+			home := f.home(t, true)
+			if err := os.WriteFile(filepath.Join(home, "config/config.toml"), []byte(tc.config+"\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ExportFirstBlock(home); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("export: %v", err)
+			}
+			_, backup, err := f.repair(t, home, serve(t, f.app), "")
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("repair: %v", err)
+			}
+			if _, e := os.Lstat(backup); !errors.Is(e, os.ErrNotExist) {
+				t.Fatalf("a refused repair wrote its backup: %v", e)
+			}
+			if h, _, _ := f.stored(t, home); h != 0 || len(f.app.callLog()) != 0 {
+				t.Fatal("a refused repair changed the stores or called the app")
+			}
+		})
+	}
+	for _, config := range []string{"", "moniker = \"a\"\n[p2p]\npex = false", `db_dir = "data"`, `db_dir = "./data"`, `db_backend = "goleveldb"`} {
+		t.Run("accepted "+config, func(t *testing.T) {
+			home := f.home(t, true)
+			if err := os.WriteFile(filepath.Join(home, "config/config.toml"), []byte(config+"\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ExportFirstBlock(home); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+	t.Run("absolute stock path", func(t *testing.T) {
+		home := f.home(t, true)
+		config := fmt.Sprintf("db_dir = %q\n", filepath.Join(home, "data"))
+		if err := os.WriteFile(filepath.Join(home, "config/config.toml"), []byte(config), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ExportFirstBlock(home); err != nil {
+			t.Fatal(err)
+		}
+	})
+}

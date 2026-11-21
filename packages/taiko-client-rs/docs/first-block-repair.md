@@ -29,7 +29,8 @@ never runs consensus or signs, and the official executable starts only on the re
 2. Start the EL and the app (`taiko-client abci`) as usual. The app aligns its EL with its own
    committed boundary, the generation origin or the first block if its Commit completed, before
    it opens the ABCI socket.
-3. Run, on the stopped home (goleveldb stores at the default `db_dir`, `data/`):
+3. Run, on the stopped home (goleveldb stores at the default `db_dir`, `data/`; the repair reads
+   `config/config.toml` and refuses another `db_backend` or `db_dir`):
 
    ```sh
    etna-comet-import repair-first-block --home /var/lib/etna/comet-g1 \

@@ -219,8 +219,15 @@ any other failure. A refusal leaves the stores and their instance ID as stock
 left them, apart from the backup; a failure after the block store was written
 leaves the certified block and its certificate there, and stock's own write
 order tells a rerun whether to execute or replay. Either way the operator fixes
-the cause and reruns with a new `--backup`. Only goleveldb stores at the stock default `db_dir`,
-`<home>/data`, are supported.
+the cause and reruns with a new `--backup`.
+
+Both commands read only goleveldb stores at the stock default `db_dir`,
+`<home>/data`. They read `<home>/config/config.toml` first and refuse, before
+reading, copying or writing anything, a `db_backend` other than `goleveldb` or a
+`db_dir` that does not resolve to `<home>/data` (in any key spelling; a relative
+one is rooted at the home, as stock does). A home without `config.toml` has the
+stock defaults. `CMT_*` overrides are not visible to an offline tool: do not set
+them for these settings.
 
 `export-first-block` prints the certified first block of a stopped home as one
 `blocks.jsonl` line: the original block, its own-height commit (C:h if the node

@@ -108,7 +108,7 @@ pub struct Inputs {
     #[arg(long)]
     pub comet_helper: PathBuf,
     /// Stock Comet `config.toml`, copied verbatim to `ready/comet/config/config.toml`. Its
-    /// `db_backend` must be absent or `goleveldb`.
+    /// `db_backend` must be absent or `goleveldb`, and its `db_dir` absent or `data`.
     #[arg(long)]
     pub comet_config: PathBuf,
 }
@@ -343,18 +343,22 @@ pub async fn import(own: &Own, inputs: &Inputs, root: &Path) -> R<Value> {
     status(root)
 }
 
-/// Read the stock Comet config to install. Checkpoint stores are GoLevelDB; CometBFT reads its
-/// keys case-insensitively, so every spelling of `db_backend` must name it.
+/// Read the stock Comet config to install. Checkpoint stores are GoLevelDB in `<home>/data`, the
+/// stock `db_dir`; CometBFT reads its keys case-insensitively, so every spelling of `db_backend`
+/// and `db_dir` must name them.
 fn comet_config(path: &Path) -> R<Vec<u8>> {
     let bytes = read(path, 1 << 20)?;
     let table: toml::Table = std::str::from_utf8(&bytes)
         .ok()
         .and_then(|text| text.parse().ok())
         .ok_or_else(|| bad("invalid Comet config TOML"))?;
-    if table.iter().any(|(key, value)| {
-        key.eq_ignore_ascii_case("db_backend") && value.as_str() != Some("goleveldb")
-    }) {
-        return Err(bad("checkpoint import requires db_backend = \"goleveldb\""));
+    for (key, value) in &table {
+        if key.eq_ignore_ascii_case("db_backend") && value.as_str() != Some("goleveldb") {
+            return Err(bad("checkpoint import requires db_backend = \"goleveldb\""));
+        }
+        if key.eq_ignore_ascii_case("db_dir") && value.as_str() != Some("data") {
+            return Err(bad("checkpoint import requires db_dir = \"data\", the stock default"));
+        }
     }
     Ok(bytes)
 }
@@ -592,6 +596,11 @@ mod tests {
             // CometBFT reads config keys case-insensitively.
             ("DB_Backend = \"memdb\"\n", false),
             ("db_backend = = \"goleveldb\"\n", false),
+            // The stores are installed in `<home>/data`, where stock `db_dir` puts them.
+            ("db_dir = \"data\"\n", true),
+            ("db_dir = \"elsewhere\"\n", false),
+            ("DB_DIR = \"/srv/comet/data\"\n", false),
+            ("db_dir = 7\n", false),
         ] {
             fs::write(&path, body).unwrap();
             match comet_config(&path) {
