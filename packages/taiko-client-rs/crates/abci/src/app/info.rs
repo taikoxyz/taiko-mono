@@ -56,7 +56,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if handshake && let Some(state) = &self.state {
             // CometBFT compares this with the stored and replayed headers' AppHash; on a
             // mismatch it stops, and the operator compares these values (SYNC-9-5c).
-            let report = super::AppHashReport::of(state, None);
+            let report = super::AppHashReport::of(state);
             tracing::info!(%report, "handshake Info answers the committed app hash");
         }
         let (last_block_height, last_block_app_hash) = match &self.state {

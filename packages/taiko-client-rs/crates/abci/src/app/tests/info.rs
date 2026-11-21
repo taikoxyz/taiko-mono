@@ -668,35 +668,36 @@ fn saved_state_rejects_old_and_unknown_protocol_versions() {
 }
 
 /// SYNC-9-5c: the handshake `Info` reports the committed head's height, app hash, local EL hash
-/// and validator-state hash, whose app hash is the one it answers, so an operator facing a
-/// header AppHash mismatch in CometBFT can compare them; a header AppHash, where known, is
-/// reported beside them and flags the mismatch.
+/// and validator-state hash, whose app hash is the one it answers, and `Commit` the same values
+/// for every committed height, so an operator facing a header AppHash mismatch in CometBFT,
+/// whose refusal names the header's AppHash beside the app's, can compare them.
 #[tokio::test]
 async fn handshake_info_reports_the_app_hash_and_its_preimages() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let state = app.state().unwrap().clone();
-    let report = crate::app::AppHashReport::of(&state, None);
+    let report = crate::app::AppHashReport::of(&state);
     assert_eq!(report.height, state.last_height);
     assert_eq!(report.el_hash, state.parent.hash);
     assert_eq!(report.val_state_hash, state.val_state.hash());
     assert_eq!(report.app_hash.as_slice(), crate::app::app_hash(&state).as_bytes());
-    assert!(!report.mismatched());
 
     app.connections().bump();
     let logs = crate::test_utils::LogCapture::start();
     info(&mut app).await.unwrap();
     let line = logs.at("INFO").into_iter().find(|line| line.contains("handshake Info"));
     let line = line.unwrap_or_else(|| panic!("no report: {}", logs.text()));
-    for value in [report.app_hash, report.el_hash, report.val_state_hash] {
+    assert!(line.contains(&report.to_string()), "{line}");
+
+    let logs = crate::test_utils::LogCapture::start();
+    super::proposal::step(&mut app).await;
+    let committed = crate::app::AppHashReport::of(app.state().unwrap());
+    assert_eq!(committed.height, report.height + 1);
+    let line = logs.at("INFO").into_iter().find(|line| line.contains("block committed"));
+    let line = line.unwrap_or_else(|| panic!("no commit report: {}", logs.text()));
+    for value in [committed.app_hash, committed.el_hash, committed.val_state_hash] {
         assert!(line.contains(&value.to_string()), "{line}");
     }
-    assert!(line.contains("header AppHash unknown"), "{line}");
-
-    let header = Some(B256::repeat_byte(0x11));
-    let reported = crate::app::AppHashReport::of(&state, header);
-    assert!(reported.mismatched());
-    assert!(reported.to_string().contains(&B256::repeat_byte(0x11).to_string()));
-    assert!(!crate::app::AppHashReport::of(&state, Some(report.app_hash)).mismatched());
+    assert!(line.contains(&format!("height={}", committed.height)), "{line}");
 }

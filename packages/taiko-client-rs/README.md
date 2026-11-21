@@ -127,7 +127,11 @@ stored proposers (spec appendix A). The app computes that state with stock Comet
 per-height arithmetic from the validator updates it returns. Landing records hold no validator
 state, and checkpoint trust compares only the landed EL and Comet hashes (spec SYNC-9-5). Stock
 CometBFT compares each header's app_hash with its own app's, so a block whose app_hash commits
-another validator state stops this node's consensus without a process exit (spec SYNC-9-5c). The
+another validator state stops this node's consensus without a process exit (spec SYNC-9-5c).
+CometBFT's refusal names the header's AppHash beside the app's (`wrong Block.Header.AppHash.
+Expected <app's>, got <header's>`, or `... does not match AppHash after replay` in the
+handshake); the app's `block committed` log line for the height below that header, and the
+handshake `Info`'s for the head, give its app hash, local EL hash and validator-state hash. The
 ABCI query `/val_state/<height>`, with a decimal height, returns the raw state encoding at any
 height from one below the checkpoint the committed anchor proves (never below the generation's
 start height) through the head. Do not substitute CometBFT's `/validators` RPC: away from the

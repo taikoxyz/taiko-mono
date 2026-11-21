@@ -274,7 +274,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 tracing::warn!(%error, floor, "could not prune committed validator records");
             }
         }
-        let report = super::AppHashReport::of(pending, None);
+        let report = super::AppHashReport::of(pending);
         tracing::info!(
             height = report.height,
             hash = %report.el_hash,

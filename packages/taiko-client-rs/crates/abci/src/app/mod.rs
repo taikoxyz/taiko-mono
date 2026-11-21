@@ -1016,23 +1016,27 @@ fn cometbft_height(h: u64) -> Height {
 /// validator state after that head, which [`App::new`] and every transition keep at the same
 /// height.
 fn app_hash(state: &AppState) -> AppHash {
-    let report = AppHashReport::of(state, None);
+    let report = AppHashReport::of(state);
     AppHash::try_from(report.app_hash.to_vec()).expect("any byte string is a valid AppHash")
 }
 
-/// What an operator compares when a header's AppHash differs from the one this app returned
-/// for its parent (SYNC-9-5c): stock CometBFT then stops consensus, or block sync stalls, while
-/// the process keeps running, so the app reports the height, the header's AppHash where it
-/// knows it, its own app hash and that hash's preimages, the local EL hash and the hash of the
-/// validator state after that height. `Commit` logs one for every committed height and the
-/// handshake `Info` for the committed head; `/val_state/<height>` serves the validator-state
-/// preimage to compare where the cause is not visible from the hashes.
+/// The values an operator compares when a header's AppHash differs from the one this app
+/// returned for its parent (SYNC-9-5c): the height, the app's own app hash, and that hash's
+/// preimages, the local EL hash and the hash of the validator state after that height. `Commit`
+/// logs them for every committed height and the handshake `Info` for the committed head;
+/// `/val_state/<height>` serves the validator-state preimage itself, to compare with another
+/// node's where the cause is not visible from the hashes.
+///
+/// The header's AppHash is not here: no ABCI 2.0 request carries it, and stock CometBFT makes the
+/// comparison itself. Its refusal names both hashes, the app's first: `wrong Block.Header.AppHash.
+/// Expected <app's>, got <header's>` for a proposal (prevote nil), a decided block (consensus
+/// stops while the process keeps running) or a block-synced one (the peer is dropped), and
+/// `... does not match AppHash after replay. Got <app's>, expected <CometBFT's stored one>` in
+/// the handshake.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct AppHashReport {
     /// The committed height whose state the app hash commits.
     pub height: u64,
-    /// The AppHash a header carries for `height`, where known; `None` when only CometBFT saw it.
-    pub header_app_hash: Option<B256>,
     /// The app's own app hash for `height`.
     pub app_hash: B256,
     /// The local EL block hash at `height`.
@@ -1042,36 +1046,25 @@ pub struct AppHashReport {
 }
 
 impl AppHashReport {
-    /// The report of `state`'s head, with the header's AppHash where known.
-    pub fn of(state: &AppState, header_app_hash: Option<B256>) -> Self {
+    /// The report of `state`'s head.
+    pub fn of(state: &AppState) -> Self {
         let val_state_hash = state.val_state.hash();
         Self {
             height: state.last_height,
-            header_app_hash,
             app_hash: crate::valstate::app_hash(state.parent.hash, val_state_hash),
             el_hash: state.parent.hash,
             val_state_hash,
         }
     }
-
-    /// Whether a known header AppHash differs from the app's own.
-    pub fn mismatched(&self) -> bool {
-        self.header_app_hash.is_some_and(|header| header != self.app_hash)
-    }
 }
 
 impl std::fmt::Display for AppHashReport {
-    /// One line naming every compared value.
+    /// One line naming every value.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "height {}: header AppHash ", self.height)?;
-        match self.header_app_hash {
-            Some(header) => write!(f, "{header}")?,
-            None => f.write_str("unknown")?,
-        }
         write!(
             f,
-            ", app hash {}, local EL hash {}, validator-state hash {}",
-            self.app_hash, self.el_hash, self.val_state_hash
+            "height {}: app hash {}, local EL hash {}, validator-state hash {}",
+            self.height, self.app_hash, self.el_hash, self.val_state_hash
         )
     }
 }
