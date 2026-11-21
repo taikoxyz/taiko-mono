@@ -39,14 +39,15 @@ Raised by: DeepSeek-V4.1-Flash (dantaik)
 
 **Read-side validation of packed words**
 
-**Text.** "ckPrefix, holdsSeat and seat take 8 bits, power 64 bits and every other field 48 bits; unused high bits are zero. Writing a value wider than its field reverts." And STOR-B-21b: "A key whose bond holds seat s maps to holdsSeat = 1 and seat = s; any other key, registered or not, maps to 0."
+**Text.** "ckPrefix, holdsSeat and seat take 8 bits, power 64 bits and every other field 48 bits; unused high bits are zero. Writing a value wider than its field reverts."
 
-**Why it matters.** The rule governs writes and states that unused high bits are zero, but the reader is not told what to do with a word whose high bits are nonzero or whose field exceeds its width: reject it, mask it, or assume it cannot happen. The write-side revert makes the state unreachable through this Inbox, but not through an upgraded or replaced one, and a guest reading a witness has to choose. The choices differ observably on a crafted witness, and the appendix states a layout that a reader must be able to validate. For the snapshot seat records the text now answers this: a nonzero unused bit makes the candidate unusable (STOR-B-21a, COMM-4.3-8). The staking contract's key-to-seat values, from which 3.4 sets a block's missBitmap (STAKE-4.2-5), have no such rule: an upgraded contract can store holdsSeat = 1 with a seat of 128 or more, which has no bit in missBitmap, a holdsSeat other than 0 or 1, or nonzero bits from bit 16 up, and nodes and guests must agree on which bit, if any, such a key's missing precommit sets.
+**Why it matters.** The rule governs writes and states that unused high bits are zero, but the reader is not told what to do with a word whose high bits are nonzero or whose field exceeds its width: reject it, mask it, or assume it cannot happen. The write-side revert makes the state unreachable through this Inbox, but not through an upgraded or replaced one, and a guest reading a witness has to choose. The choices differ observably on a crafted witness, and the appendix states a layout that a reader must be able to validate. For the staking contract's words the text now answers this: a nonzero unused bit in a snapshot seat record makes the candidate unusable (STOR-B-21a, COMM-4.3-8), and a key-to-seat value that is not well formed gives its key no seat when 3.4 sets a block's missBitmap (CONS-3.4-7a). The Inbox's packed words have no such rule.
 
-**Would close it.** State the reader's obligation — for example, that a packed Inbox word with nonzero unused bits, or a field wider than its declared width, makes the witness invalid, and that a key-to-seat value other than 0 or holdsSeat = 1 with a seat below 128 and the other bits zero maps the key to no seat.
+**Would close it.** State the reader's obligation — for example, that a packed Inbox word with nonzero unused bits, or a field wider than its declared width, makes the witness invalid.
 
 Raised by: DeepSeek-V4.1-Flash (dantaik)
 Raised by: Claude Opus 5.5 (davidtaikocha) (amended: the staking contract's key-to-seat values; the seat records are answered by COMM-4.3-8)
+Raised by: Claude Opus 5.5 (davidtaikocha) (amended: CONS-3.4-7a settles the key-to-seat values; only the Inbox's packed words remain)
 
 ## Q-B-4
 

@@ -22,26 +22,26 @@
 | COMP-2-7       | rule       | SignalService: stores the Inbox's checkpoints (and Unzen's at or below S) for the bridge                                                            | 2       | [2](vectors/2.md#comp-2-7)            |
 | CONS-3.1-1     | rule       | Stock CometBFT v0.40.0; stock proposer, timeout, lock and BlockID behavior                                                                          | 3.1     | [3.1](vectors/3.1.md#cons-31-1)       |
 | CONS-3.1-2     | rule       | Proposer selection, timeouts, locking and BlockID use stock behavior; not forked                                                                    | 3.1     | [3.1](vectors/3.1.md#cons-31-2)       |
-| CONS-3.1-3     | rule       | Consensus key format: secp256k1eth, keccak256, 65-byte low-s signature, address                                                                     | 3.1     | [3.1](vectors/3.1.md#cons-31-3)       |
+| CONS-3.1-3     | rule       | Consensus key format: secp256k1eth, keccak256, 65-byte low-s signature, address; candidate and fallback-key voting power                            | 3.1     | [3.1](vectors/3.1.md#cons-31-3)       |
 | CONS-3.1-4     | rule       | chain_id and chainDomain construction, exactly 48 ASCII bytes, recomputed by all                                                                    | 3.1     | [3.1](vectors/3.1.md#cons-31-4)       |
 | CONS-3.1-5     | rule       | Domain separation by generation and deployment; same height is not a double sign                                                                    | 3.1     | [3.1](vectors/3.1.md#cons-31-5)       |
 | CONS-3.1-6     | rule       | Mempool nop; user transactions arrive over EL devp2p into the proposer's txpool                                                                     | 3.1     | [3.1](vectors/3.1.md#cons-31-6)       |
 | CONS-3.1-7     | rule       | CometBFT height equals EL block number from S + 1; Data.Txs holds one envelope                                                                      | 3.1     | [3.1](vectors/3.1.md#cons-31-7)       |
 | CONS-3.1-8     | rule       | ABCI responses: app_hash is appHash (EL hash and validator state); fixed ExecTxResult fields                                                        | 3.1     | [3.1](vectors/3.1.md#cons-31-8)       |
 | CONS-3.1-9     | rule       | App version and Info height, ruleset from the 10.1 schedule, immutable consensus params, node-local trust metadata                                  | 3.1     | [3.1](vectors/3.1.md#cons-31-9)       |
-| CONS-3.1-10    | rule       | Empty block evidence; pending-evidence store cleared at every start; L1 double-sign slashing                                                        | 3.1     | [3.1](vectors/3.1.md#cons-31-10)      |
-| CONS-3.1-11    | rule       | Pinned alethia-reth feature set and engine API methods used to drive it                                                                             | 3.1     | [3.1](vectors/3.1.md#cons-31-11)      |
+| CONS-3.1-10    | rule       | Empty block evidence; pending-evidence store cleared at every start; double-sign slashing only through the L2 staking contract                      | 3.1     | [3.1](vectors/3.1.md#cons-31-10)      |
+| CONS-3.1-11    | rule       | Pinned alethia-reth feature set, including the block-start staking call, and engine API methods used to drive it                                    | 3.1     | [3.1](vectors/3.1.md#cons-31-11)      |
 | CONS-3.1-12    | rule       | Pinned ZK Gas rules; L2_BLOCK_ZK_GAS_LIMIT independent of EVM gas                                                                                   | 3.1     | [3.1](vectors/3.1.md#cons-31-12)      |
 | CONS-3.1-13    | rule       | Candidate-build discard: full rollback; discarded transactions pay nothing                                                                          | 3.1     | [3.1](vectors/3.1.md#cons-31-13)      |
 | CONS-3.1-14    | rule       | Pool-only policy; FI at position 0 is never skipped for remembered overflows                                                                        | 3.1     | [3.1](vectors/3.1.md#cons-31-14)      |
 | CONS-3.1-15    | rule       | Committed block: every listed transaction executes; none may be silently dropped                                                                    | 3.1     | [3.1](vectors/3.1.md#cons-31-15)      |
 | CONS-3.1-16    | rule       | EVM revert/OOG included and charged; no zk-gas-to-charged-gas conversion                                                                            | 3.1     | [3.1](vectors/3.1.md#cons-31-16)      |
 | CONS-3.1-17    | rule       | eth_call/eth_estimateGas: full block zk budget and explicit zk-limit errors                                                                         | 3.1     | [3.1](vectors/3.1.md#cons-31-17)      |
-| CONS-3.2-1     | rule       | Header determinism: all fields except beneficiary derive from chain state                                                                           | 3.2     | [3.2](vectors/3.2.md#cons-32-1)       |
+| CONS-3.2-1     | rule       | Header determinism: all fields except beneficiary derive from chain state and the block's LastCommit                                                | 3.2     | [3.2](vectors/3.2.md#cons-32-1)       |
 | CONS-3.2-2     | rule       | number and parentHash: height and hash of the committed parent                                                                                      | 3.2     | [3.2](vectors/3.2.md#cons-32-2)       |
 | CONS-3.2-3     | rule       | timestamp: max(parent.timestamp + 1, floor(BFT time), anchor.timestamp)                                                                             | 3.2     | [3.2](vectors/3.2.md#cons-32-3)       |
 | CONS-3.2-4     | rule       | beneficiary: proposer choice, not checked; fees paid at L2 execution                                                                                | 3.2     | [3.2](vectors/3.2.md#cons-32-4)       |
-| CONS-3.2-5     | rule       | extraData: 13 bytes, 100 percent base-fee share, generation and anchor number                                                                       | 3.2     | [3.2](vectors/3.2.md#cons-32-5)       |
+| CONS-3.2-5     | rule       | extraData: 29 bytes, 100 percent base-fee share, generation, anchor number and missBitmap                                                           | 3.2     | [3.2](vectors/3.2.md#cons-32-5)       |
 | CONS-3.2-6     | rule       | parentBeaconBlockRoot: anchor L1 stateRoot written into EIP-4788                                                                                    | 3.2     | [3.2](vectors/3.2.md#cons-32-6)       |
 | CONS-3.2-7     | rule       | gasLimit: chain constant L2_BLOCK_GAS_LIMIT                                                                                                         | 3.2     | [3.2](vectors/3.2.md#cons-32-7)       |
 | CONS-3.2-8     | rule       | baseFeePerGas: 0.025 gwei at block 1 when S = 0, otherwise EIP-4396 with clamps                                                                     | 3.2     | [3.2](vectors/3.2.md#cons-32-8)       |
@@ -49,10 +49,11 @@
 | CONS-3.2-10    | rule       | Other header fields: empty withdrawals, zero blob gas, empty requests and ommers                                                                    | 3.2     | [3.2](vectors/3.2.md#cons-32-10)      |
 | CONS-3.2-11    | rule       | difficulty accumulates only included transactions' zk gas                                                                                           | 3.2     | [3.2](vectors/3.2.md#cons-32-11)      |
 | CONS-3.2-12    | rule       | Block-start system processing is not rolled back with an aborted transaction                                                                        | 3.2     | [3.2](vectors/3.2.md#cons-32-12)      |
+| CONS-3.2-13    | rule       | onBlockStart call after the EIP-4788/2935 writes: system caller, 30,000,000 gas, uncounted, no fee; a failure changes nothing                       | 3.2     | [3.2](vectors/3.2.md#cons-32-13)      |
 | CONS-3.3-1     | rule       | Every block has an anchor, carried as a witness or inherited from the parent                                                                        | 3.3     | [3.3](vectors/3.3.md#cons-33-1)       |
 | CONS-3.3-2     | rule       | Anchor witness presence: required on generation start and anchor moves                                                                              | 3.3     | [3.3](vectors/3.3.md#cons-33-2)       |
 | CONS-3.3-3     | retired    | Anchor witness proves recoveryGeneration, lastCheckpoint and FI queue bounds                                                                        | 3.3     | —                                     |
-| CONS-3.3-3a    | rule       | Anchor witness proves recoveryGeneration, lastCheckpoint, FI queue bounds and the rules schedule                                                    | 3.3     | [3.3](vectors/3.3.md#cons-33-3a)      |
+| CONS-3.3-3a    | rule       | Anchor witness proves recoveryGeneration, lastCheckpoint, fallbackKeysHash, minTotalStake, FI queue bounds and the rules schedule                   | 3.3     | [3.3](vectors/3.3.md#cons-33-3a)      |
 | CONS-3.3-4     | rule       | Proposer anchor: max(parent's anchor, local finalized); a generation's first block uses finalized                                                   | 3.3     | [3.3](vectors/3.3.md#cons-33-4)       |
 | CONS-3.3-5     | rule       | ProcessProposal anchor checks; later finality cannot expire a proposal                                                                              | 3.3     | [3.3](vectors/3.3.md#cons-33-5)       |
 | CONS-3.3-6     | rule       | rawL1Header: RLP bounds and four positional fields; other items uninterpreted                                                                       | 3.3     | [3.3](vectors/3.3.md#cons-33-6)       |
@@ -63,7 +64,8 @@
 | CONS-3.4-4     | rule       | Anchor does not regress below the parent's anchor (first block: none) or the L1 origin                                                              | 3.4     | [3.4](vectors/3.4.md#cons-34-4)       |
 | CONS-3.4-5     | rule       | Generation: recomputed chain_id matches; larger supersedes, smaller rejects                                                                         | 3.4     | [3.4](vectors/3.4.md#cons-34-5)       |
 | CONS-3.4-6     | rule       | Back-pressure: height minus proven checkpoint height at most U                                                                                      | 3.4     | [3.4](vectors/3.4.md#cons-34-6)       |
-| CONS-3.4-7     | rule       | Committee witness at S(t) with proofs under S(t)'s anchor root                                                                                      | 3.4     | [3.4](vectors/3.4.md#cons-34-7)       |
+| CONS-3.4-7     | retired    | Committee witness at S(t) with proofs under S(t)'s anchor root                                                                                      | 3.4     | —                                     |
+| CONS-3.4-7a    | rule       | missBitmap: bit s for each validator of the parent's set missing from LastCommit whose parent key-to-seat value is seat s                           | 3.4     | [3.4](vectors/3.4.md#cons-34-7a)      |
 | CONS-3.4-8     | rule       | Header matches 3.2 field by field and anchor freshness within maxAnchorAge                                                                          | 3.4     | [3.4](vectors/3.4.md#cons-34-8)       |
 | CONS-3.4-9     | rule       | Forced inclusion rules of section 7 apply                                                                                                           | 3.4     | [3.4](vectors/3.4.md#cons-34-9)       |
 | CONS-3.4-10    | rule       | newPayload VALID and final body exactly the retained transactions                                                                                   | 3.4     | [3.4](vectors/3.4.md#cons-34-10)      |
@@ -176,7 +178,7 @@
 | FORF-4.4-19    | rule       | Atomic ordering, reentrancy rejection and event fields                                                                                              | 4.4     | [4.4](vectors/4.4.md#forf-44-19)      |
 | FORF-4.4-20    | rule       | Forfeit must precede lawful withdrawal; check the remaining stake; forfeit after a planned recovery                                                 | 4.4     | [4.4](vectors/4.4.md#forf-44-20)      |
 | FORF-4.4-21    | rule       | A forfeited bond never holds a seat again; recovery discards forfeitures in the discarded suffix                                                    | 4.4     | [4.4](vectors/4.4.md#forf-44-21)      |
-| DATA-5.1-1     | rule       | Envelope = 0x06 \|\| rlp([block, anchor, committee, forced])                                                                                        | 5.1     | [5.1](vectors/5.1.md#data-51-1)       |
+| DATA-5.1-1     | rule       | Envelope = 0x06 \|\| rlp([block, anchor, forced])                                                                                                   | 5.1     | [5.1](vectors/5.1.md#data-51-1)       |
 | DATA-5.1-2     | rule       | The CometBFT header's data_hash commits to the envelope                                                                                             | 5.1     | [5.1](vectors/5.1.md#data-51-2)       |
 | DATA-5.1-3     | rule       | The envelope never goes to L1                                                                                                                       | 5.1     | [5.1](vectors/5.1.md#data-51-3)       |
 | DATA-5.2-1     | rule       | Each batch uses 1-6 blobs                                                                                                                           | 5.2     | [5.2](vectors/5.2.md#data-52-1)       |
@@ -186,7 +188,7 @@
 | DATA-5.2-5     | rule       | One zlib stream, no dictionary, 64 MiB total and 124,000 B per executionBlock                                                                       | 5.2     | [5.2](vectors/5.2.md#data-52-5)       |
 | DATA-5.2-6     | rule       | RLP encodings are canonical and round-trip; any conforming zlib stream is accepted                                                                  | 5.2     | [5.2](vectors/5.2.md#data-52-6)       |
 | DATA-5.2-7     | rule       | Blocks are contiguous, hash-linked and end at the checkpoint                                                                                        | 5.2     | [5.2](vectors/5.2.md#data-52-7)       |
-| DATA-5.2-8     | rule       | Private proof inputs: unpublished data and guest equality                                                                                           | 5.2     | [5.2](vectors/5.2.md#data-52-8)       |
+| DATA-5.2-8     | rule       | Private proof inputs: unpublished data, including each block's LastCommit, and guest equality                                                       | 5.2     | [5.2](vectors/5.2.md#data-52-8)       |
 | DATA-5.2-9     | rule       | DA recovery: archived blobs plus starting state suffice                                                                                             | 5.2     | [5.2](vectors/5.2.md#data-52-9)       |
 | DATA-5.3-1     | retired    | Reconstruction uses only public inputs                                                                                                              | 5.3     | [5.3](vectors/5.3.md#data-53-1)       |
 | DATA-5.3-1a    | rule       | All ELs may use snapshots; app nodes choose fixed-genesis replay or authenticated import                                                            | 5.3     | [5.3](vectors/5.3.md#data-53-1a)      |
@@ -202,7 +204,7 @@
 | DATA-5.3-9     | retired    | Archive authentication; private history is separate                                                                                                 | 5.3     | [5.3](vectors/5.3.md#data-53-9)       |
 | DATA-5.3-9a    | rule       | Continuous public snapshot-to-latest path; separate app history and detection limits                                                                | 5.3     | [5.3](vectors/5.3.md#data-53-9a)      |
 | DATA-5.4-1     | rule       | Current-generation checkpoint and fixed-origin trust root                                                                                           | 5.4     | [5.4](vectors/5.4.md#data-54-1)       |
-| DATA-5.4-2     | rule       | Authenticate the gossip, anchor and committee window, EL ancestors and the s+1/s+2 committees                                                       | 5.4     | [5.4](vectors/5.4.md#data-54-2)       |
+| DATA-5.4-2     | rule       | Authenticate the gossip and anchor window and EL ancestors; s+1 set from header(s), s+2 set under 4.3 from the state at s                           | 5.4     | [5.4](vectors/5.4.md#data-54-2)       |
 | DATA-5.4-3     | rule       | Derive priorities and proposers from header(s)'s app_hash; rebuild app metadata and stock stores of the window                                      | 5.4     | [5.4](vectors/5.4.md#data-54-3)       |
 | DATA-5.4-4     | rule       | Post-s state as stock state sync installs it, EL canonical indexes max(o,s-U+1)..s                                                                  | 5.4     | [5.4](vectors/5.4.md#data-54-4)       |
 | DATA-5.4-5     | rule       | Durable import; reject bad candidates, safety-halt on authenticated contradictions                                                                  | 5.4     | [5.4](vectors/5.4.md#data-54-5)       |
@@ -719,18 +721,18 @@
 | ------- | --- | ------- | ---------------- |
 | 1       | 3   | 13      | 4                |
 | 2       | 8   | 31      | 3                |
-| 3.1     | 17  | 95      | 7                |
-| 3.2     | 12  | 51      | 4                |
-| 3.3     | 7   | 39      | 4                |
-| 3.4     | 17  | 80      | 6                |
+| 3.1     | 17  | 124     | 5                |
+| 3.2     | 13  | 69      | 2                |
+| 3.3     | 7   | 43      | 4                |
+| 3.4     | 17  | 105     | 5                |
 | 4.1     | 35  | 169     | 2                |
 | 4.2     | 5   | 38      | 0                |
 | 4.3     | 17  | 76      | 0                |
 | 4.4     | 20  | 79      | 3                |
-| 5.1     | 3   | 10      | 2                |
-| 5.2     | 9   | 31      | 4                |
-| 5.3     | 10  | 62      | 4                |
-| 5.4     | 8   | 40      | 2                |
+| 5.1     | 3   | 11      | 2                |
+| 5.2     | 9   | 35      | 1                |
+| 5.3     | 10  | 71      | 5                |
+| 5.4     | 8   | 82      | 2                |
 | 6.1     | 13  | 52      | 4                |
 | 6.2     | 48  | 180     | 14               |
 | 6.3     | 14  | 51      | 3                |
