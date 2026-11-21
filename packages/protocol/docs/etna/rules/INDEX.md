@@ -220,11 +220,11 @@
 | LAND-6.1-7     | rule       | Leaves are exactly those of the heights strictly inside (p,h)                                                                                       | 6.1     | [6.1](vectors/6.1.md#land-61-7)       |
 | LAND-6.1-8     | rule       | The leaf at c matches the current checkpoint record                                                                                                 | 6.1     | [6.1](vectors/6.1.md#land-61-8)       |
 | LAND-6.1-8a    | rule       | Start write authenticates the closed Unzen tip and its checkpoint at S                                                                              | 10      | [10](vectors/10.md#land-61-8a)        |
-| LAND-6.1-9     | rule       | Atomic update: checkpoint, snapshot, FI head, slot 285, SignalService                                                                               | 6.1     | [6.1](vectors/6.1.md#land-61-9)       |
+| LAND-6.1-9     | rule       | Atomic update: checkpoint, FI head, slot 285, SignalService                                                                                         | 6.1     | [6.1](vectors/6.1.md#land-61-9)       |
 | LAND-6.1-10    | rule       | Reference Solidity lists every check; the checks are normative                                                                                      | 6.1     | [6.1](vectors/6.1.md#land-61-10)      |
 | LAND-6.1-11    | rule       | All checks precede any state change                                                                                                                 | 6.1     | [6.1](vectors/6.1.md#land-61-11)      |
 | LAND-6.1-12    | rule       | The leaf checks precede proof verification                                                                                                          | 6.1     | [6.1](vectors/6.1.md#land-61-12)      |
-| LAND-6.1-13    | rule       | Interface: land signature, LandInput's eight fields, cutLeaf/cutHash                                                                                | 6.1     | [6.1](vectors/6.1.md#land-61-13)      |
+| LAND-6.1-13    | rule       | Interface: land signature, LandInput's seven fields, cutLeaf/cutHash                                                                                | 6.1     | [6.1](vectors/6.1.md#land-61-13)      |
 | PROOF-6.2-1    | rule       | The verifier is an Inbox immutable                                                                                                                  | 6.2     | [6.2](vectors/6.2.md#proof-62-1)      |
 | PROOF-6.2-2    | rule       | land only calls verifyProof and does not check the implementation                                                                                   | 6.2     | [6.2](vectors/6.2.md#proof-62-2)      |
 | PROOF-6.2-3    | rule       | Mainnet's ZkRequiredVerifier contract; separate verifier instances on a switching network                                                           | 6.2     | [6.2](vectors/6.2.md#proof-62-3)      |
@@ -235,15 +235,18 @@
 | PROOF-6.2-8    | rule       | parentHeight/parentHash and headBefore are taken at proof origin p                                                                                  | 6.2     | [6.2](vectors/6.2.md#proof-62-8)      |
 | PROOF-6.2-9    | rule       | Both sub-proofs authenticate the same statement, including cutHash                                                                                  | 6.2     | [6.2](vectors/6.2.md#proof-62-9)      |
 | PROOF-6.2-10   | rule       | The proof stays valid when p is not the latest checkpoint at execution                                                                              | 6.2     | [6.2](vectors/6.2.md#proof-62-10)     |
-| PROOF-6.2-11   | rule       | Inbox and registry storage holds under authenticated L1 roots                                                                                       | 6.2     | [6.2](vectors/6.2.md#proof-62-11)     |
-| PROOF-6.2-12   | rule       | Derive signing and pending committees via 4.3 with authenticated inputs                                                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-12)     |
-| PROOF-6.2-13   | rule       | Ordinary path: parentHash to D(t), at most L+2 historical headers                                                                                   | 6.2     | [6.2](vectors/6.2.md#proof-62-13)     |
-| PROOF-6.2-14   | rule       | Every proof authenticates the fixed origin record; recovery also c and R                                                                            | 6.2     | [6.2](vectors/6.2.md#proof-62-14)     |
+| PROOF-6.2-11   | rule       | Inbox storage holds under authenticated L1 roots; configHash opens per appendix A                                                                   | 6.2     | [6.2](vectors/6.2.md#proof-62-11)     |
+| PROOF-6.2-12   | rule       | Every validator set follows 4.3 from authenticated post-states and anchors; fallback key lists checked against fallbackKeysHash                     | 6.2     | [6.2](vectors/6.2.md#proof-62-12)     |
+| PROOF-6.2-12a  | rule       | The set that signs p+1: origin record up to o+2, else header(p)'s next_validators_hash                                                              | 6.2     | [6.2](vectors/6.2.md#proof-62-12a)    |
+| PROOF-6.2-12b  | rule       | The set that signs p+2: origin record at p = o, else 4.3 from p's post-state and p's anchor                                                         | 6.2     | [6.2](vectors/6.2.md#proof-62-12b)    |
+| PROOF-6.2-12c  | rule       | The set that signs p, for p+1's missBitmap: header(p)'s validators_hash; none at p = o                                                              | 6.2     | [6.2](vectors/6.2.md#proof-62-12c)    |
+| PROOF-6.2-13   | retired    | Ordinary path: parentHash to D(t), at most L+2 historical headers                                                                                   | 6.2     | —                                     |
+| PROOF-6.2-14   | rule       | Every proof authenticates the fixed origin record; recovery also c; first two sets from the origin record                                           | 6.2     | [6.2](vectors/6.2.md#proof-62-14)     |
 | PROOF-6.2-15   | rule       | Comet headers link by last_block_id; first header has empty last_block_id                                                                           | 6.2     | [6.2](vectors/6.2.md#proof-62-15)     |
-| PROOF-6.2-16   | rule       | Every block's schedule is verified; commit signatures for the last block each committee signs                                                       | 6.2     | [6.2](vectors/6.2.md#proof-62-16)     |
-| PROOF-6.2-17   | rule       | Commit of h and of each committee's last block: one round's precommits for the BlockID, >2/3 power, distinct signers, secp256k1eth, chain_id        | 6.2     | [6.2](vectors/6.2.md#proof-62-17)     |
-| PROOF-6.2-18   | rule       | validators_hash and next_validators_hash match the activation schedule                                                                              | 6.2     | [6.2](vectors/6.2.md#proof-62-18)     |
-| PROOF-6.2-19   | rule       | A numeric epoch alone cannot authorize a committee                                                                                                  | 6.2     | [6.2](vectors/6.2.md#proof-62-19)     |
+| PROOF-6.2-16   | rule       | Sets verified for every block; commits for h and each block before a set change; worst case a 128-signature commit per block                        | 6.2     | [6.2](vectors/6.2.md#proof-62-16)     |
+| PROOF-6.2-17   | rule       | Commit of h and of each block before a set change: one round's precommits for the BlockID, >2/3 power, distinct signers, secp256k1eth, chain_id     | 6.2     | [6.2](vectors/6.2.md#proof-62-17)     |
+| PROOF-6.2-18   | rule       | validators_hash and next_validators_hash commit the sets 4.3 gives                                                                                  | 6.2     | [6.2](vectors/6.2.md#proof-62-18)     |
+| PROOF-6.2-19   | rule       | A height or generation number alone cannot authorize a validator set                                                                                | 6.2     | [6.2](vectors/6.2.md#proof-62-19)     |
 | PROOF-6.2-20   | rule       | Envelopes match data_hash; witnesses satisfy sections 3 and 7                                                                                       | 6.2     | [6.2](vectors/6.2.md#proof-62-20)     |
 | PROOF-6.2-21   | rule       | Execution runs from parentHash to the last block, equal to the payload                                                                              | 6.2     | [6.2](vectors/6.2.md#proof-62-21)     |
 | PROOF-6.2-22   | rule       | Nodes, EL and both guests share pinned zk-gas rules and validate the full list                                                                      | 6.2     | [6.2](vectors/6.2.md#proof-62-22)     |
@@ -254,10 +257,11 @@
 | PROOF-6.2-27   | rule       | An empty singleton result caused by the zk limit is included                                                                                        | 6.2     | [6.2](vectors/6.2.md#proof-62-27)     |
 | PROOF-6.2-28   | rule       | Discarded trial work counts in the proof; no final difficulty or fees                                                                               | 6.2     | [6.2](vectors/6.2.md#proof-62-28)     |
 | PROOF-6.2-29   | rule       | Each block has extraData[0] = 100                                                                                                                   | 6.2     | [6.2](vectors/6.2.md#proof-62-29)     |
-| PROOF-6.2-30   | rule       | activeCommitteeSnapshot is the selection snapshot governing lastHeight                                                                              | 6.2     | [6.2](vectors/6.2.md#proof-62-30)     |
-| PROOF-6.2-31   | rule       | Pending committees, terminal anchor and reference block are not substitutes                                                                         | 6.2     | [6.2](vectors/6.2.md#proof-62-31)     |
-| PROOF-6.2-32   | rule       | Report R until the first new-generation rotation activates, including with unchanged powers and keys                                                | 6.2     | [6.2](vectors/6.2.md#proof-62-32)     |
-| PROOF-6.2-33   | rule       | Reference ancestry or the authenticated settled header for a historical ordinary rotation root                                                      | 6.2     | [6.2](vectors/6.2.md#proof-62-33)     |
+| PROOF-6.2-29a  | rule       | missBitmap equals CONS-3.4-7a's value: LastCommit authenticated by LastCommitHash, flags only, T+2 words in the witness                             | 6.2     | [6.2](vectors/6.2.md#proof-62-29a)    |
+| PROOF-6.2-30   | retired    | activeCommitteeSnapshot is the selection snapshot governing lastHeight                                                                              | 6.2     | —                                     |
+| PROOF-6.2-31   | retired    | Pending committees, terminal anchor and reference block are not substitutes                                                                         | 6.2     | —                                     |
+| PROOF-6.2-32   | retired    | Report R until the first new-generation rotation activates, including with unchanged powers and keys                                                | 6.2     | —                                     |
+| PROOF-6.2-33   | rule       | Reference ancestry for every anchor and L1 root, except p's anchor root, authenticated by p's EL header                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-33)     |
 | PROOF-6.2-34   | rule       | Headers decoded per 3.3; links compare keccak256 of raw bytes with parentHash                                                                       | 6.2     | [6.2](vectors/6.2.md#proof-62-34)     |
 | PROOF-6.2-35   | rule       | 4096 canonical elements per blob; KZG commitment bound to blobHashes[i]                                                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-35)     |
 | PROOF-6.2-36   | rule       | Guest may recompute C or verify a KZG proof of equivalence                                                                                          | 6.2     | [6.2](vectors/6.2.md#proof-62-36)     |
@@ -273,11 +277,11 @@
 | PROOF-6.2-45   | rule       | Every block in (p,h] satisfies anchor, committee, FI and EL rules, and the commit rule where it applies                                             | 6.2     | [6.2](vectors/6.2.md#proof-62-45)     |
 | PROOF-6.2-45a  | rule       | Each block is checked under its anchor's ruleset and planned stop; otherwise no proof                                                               | 6.2     | [6.2](vectors/6.2.md#proof-62-45a)    |
 | PROOF-6.2-46   | rule       | Origin p is authenticated by its slot 285 record, not verified on its own                                                                           | 6.2     | [6.2](vectors/6.2.md#proof-62-46)     |
-| PROOF-6.2-46a  | rule       | At p = S on a switching network, the guest checks the Etna L2 SignalService implementation                                                          | 6.2     | [6.2](vectors/6.2.md#proof-62-46a)    |
-| PROOF-6.2-47   | rule       | Inherited anchor: guest verifies its raw header and Inbox proofs against p+1                                                                        | 6.2     | [6.2](vectors/6.2.md#proof-62-47)     |
-| BATCH-6.3-1    | rule       | A batch may end at any height and may cross epochs                                                                                                  | 6.3     | [6.3](vectors/6.3.md#batch-63-1)      |
-| BATCH-6.3-2    | rule       | Handover heights may fall inside a batch or at its end; a recovery start is a checkpoint                                                            | 6.3     | [6.3](vectors/6.3.md#batch-63-2)      |
-| BATCH-6.3-3    | rule       | Use the actual schedule rather than avoiding a problematic cut                                                                                      | 6.3     | [6.3](vectors/6.3.md#batch-63-3)      |
+| PROOF-6.2-46a  | rule       | At p = S on a switching network, the guest checks the Etna L2 SignalService and EtnaStaking implementations                                         | 6.2     | [6.2](vectors/6.2.md#proof-62-46a)    |
+| PROOF-6.2-47   | rule       | Above o, the guest always takes p's anchor witness, verified against p's header, and against p+1 when inherited                                     | 6.2     | [6.2](vectors/6.2.md#proof-62-47)     |
+| BATCH-6.3-1    | rule       | A batch may end at any height                                                                                                                       | 6.3     | [6.3](vectors/6.3.md#batch-63-1)      |
+| BATCH-6.3-2    | rule       | A change of signing set may fall inside a batch or at its end; a recovery start is a checkpoint                                                     | 6.3     | [6.3](vectors/6.3.md#batch-63-2)      |
+| BATCH-6.3-3    | rule       | Use the sets 4.3 actually gives rather than avoiding a problematic cut                                                                              | 6.3     | [6.3](vectors/6.3.md#batch-63-3)      |
 | BATCH-6.3-4    | rule       | l1ReferenceBlockNumber may be any recent L1 block                                                                                                   | 6.3     | [6.3](vectors/6.3.md#batch-63-4)      |
 | BATCH-6.3-5    | rule       | After a long outage old anchors must still be authenticated within budget                                                                           | 6.3     | [6.3](vectors/6.3.md#batch-63-5)      |
 | BATCH-6.3-6    | rule       | Reference-header chain bound: 131,072 headers (~18 days at 12 s)                                                                                    | 6.3     | [6.3](vectors/6.3.md#batch-63-6)      |
@@ -295,7 +299,7 @@
 | BACKP-6.4-3    | rule       | U is a circuit breaker for settlement failure, not normal pacing                                                                                    | 6.4     | [6.4](vectors/6.4.md#backp-64-3)      |
 | BACKP-6.4-4    | rule       | The target deployment uses U = 151,200 (about 7 days at 4 s blocks)                                                                                 | 6.4     | [6.4](vectors/6.4.md#backp-64-4)      |
 | BACKP-6.4-5    | rule       | 4 s blocks and <=20 min between landings are targets, not validity rules                                                                            | 6.4     | [6.4](vectors/6.4.md#backp-64-5)      |
-| BACKP-6.4-6    | rule       | U and the epoch length L do not constrain each other                                                                                                | 6.4     | [6.4](vectors/6.4.md#backp-64-6)      |
+| BACKP-6.4-6    | retired    | U and the epoch length L do not constrain each other                                                                                                | 6.4     | —                                     |
 | BACKP-6.4-7    | rule       | A landing stall permits at most U further blocks                                                                                                    | 6.4     | [6.4](vectors/6.4.md#backp-64-7)      |
 | BACKP-6.4-8    | rule       | L1 inclusion alone does not release the pause                                                                                                       | 6.4     | [6.4](vectors/6.4.md#backp-64-8)      |
 | BACKP-6.4-9    | rule       | U is fixed at deployment, not overridable by local node configuration                                                                               | 6.4     | [6.4](vectors/6.4.md#backp-64-9)      |
@@ -303,7 +307,7 @@
 | BACKP-6.4-11   | rule       | Exception: section 8 verifier-failure rollback accounting                                                                                           | 6.4     | [6.4](vectors/6.4.md#backp-64-11)     |
 | BACKP-6.4-12   | rule       | L1 finality lag brings the pause forward; never authorizes exceeding U                                                                              | 6.4     | [6.4](vectors/6.4.md#backp-64-12)     |
 | BACKP-6.4-13   | rule       | Raising U raises max discard; recovery discards only unsettleable blocks; consequences at the target U                                              | 6.4     | [6.4](vectors/6.4.md#backp-64-13)     |
-| BACKP-6.4-14   | rule       | Publish L and its nominal epoch duration; not a wall-clock guarantee                                                                                | 6.4     | [6.4](vectors/6.4.md#backp-64-14)     |
+| BACKP-6.4-14   | retired    | Publish L and its nominal epoch duration; not a wall-clock guarantee                                                                                | 6.4     | —                                     |
 | BACKP-6.4-15   | rule       | Acceptance gate before using the target configuration                                                                                               | 6.4     | [6.4](vectors/6.4.md#backp-64-15)     |
 | BACKP-6.4-16   | rule       | Do not omit latest-checkpoint checks, non-finalized anchors, remove a proof...                                                                      | 6.4     | [6.4](vectors/6.4.md#backp-64-16)     |
 | FI-7.1-1       | rule       | saveForcedInclusion: 8,192-byte cap (longer reverts), fee formula, overpayment refund                                                               | 7.1     | [7.1](vectors/7.1.md#fi-71-1)         |
@@ -686,7 +690,7 @@
 | STOR-B-18      | rule       | For recovery, Inbox stores only the nonce: no queue or scheduling; slot 293 is separate                                                             | B       | [B](vectors/B.md#stor-b-18)           |
 | STOR-B-19      | rule       | Other layouts are neither decoded nor migrated in place                                                                                             | B       | [B](vectors/B.md#stor-b-19)           |
 | STOR-B-20      | rule       | Staking contract on L2 uses ERC-7201 namespace taiko.etna.staking with base slot T                                                                  | B       | [B](vectors/B.md#stor-b-20)           |
-| STOR-B-21      | rule       | Nodes and guests read only T, T+1, the key-to-seat mapping at T+2 and the 128 seat records                                                          | B       | [B](vectors/B.md#stor-b-21)           |
+| STOR-B-21      | rule       | Nodes and guests read only T, T+1, the key-to-seat mapping at T+2 and the 128 seat records, apart from the proxy's implementation slot at S         | B       | [B](vectors/B.md#stor-b-21)           |
 | STOR-B-21a     | rule       | Seat records: both words zero is an empty seat; nonzero unused bits make the candidate unusable                                                     | B       | [B](vectors/B.md#stor-b-21a)          |
 | STOR-B-21b     | rule       | Only onBlockStart writes T, T+1 and the records; the key-to-seat mapping is live, 0 without a seat                                                  | B       | [B](vectors/B.md#stor-b-21b)          |
 | STOR-B-22      | rule       | exitHeight = 2^48 - 1 means no exit is set                                                                                                          | B       | [B](vectors/B.md#stor-b-22)           |
@@ -733,10 +737,10 @@
 | 5.2     | 9   | 35      | 1                |
 | 5.3     | 10  | 71      | 5                |
 | 5.4     | 8   | 82      | 2                |
-| 6.1     | 13  | 52      | 4                |
-| 6.2     | 48  | 180     | 14               |
-| 6.3     | 14  | 51      | 3                |
-| 6.4     | 16  | 60      | 4                |
+| 6.1     | 13  | 54      | 4                |
+| 6.2     | 49  | 223     | 10               |
+| 6.3     | 14  | 52      | 3                |
+| 6.4     | 14  | 54      | 4                |
 | 7.1     | 13  | 47      | 6                |
 | 7.2     | 13  | 64      | 10               |
 | 7.3     | 5   | 20      | 5                |
@@ -752,5 +756,5 @@
 | 11      | 16  | 64      | 6                |
 | 12      | 19  | 3       | 6                |
 | A       | 58  | 330     | 3                |
-| B       | 28  | 139     | 5                |
+| B       | 28  | 140     | 5                |
 | C       | 12  | 28      | 5                |
