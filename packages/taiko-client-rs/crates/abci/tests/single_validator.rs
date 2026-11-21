@@ -27,7 +27,7 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
     // Check the native validator set before the first epoch switch.
     let status = devnet.cmt_status(0).await?;
     let key = devnet.keys()[0].pubkey();
-    assert_eq!(status.validators, vec![CmtValidator { pubkey: key, power: 4_700_000_000_000_000 }]);
+    assert_eq!(status.validators, vec![CmtValidator { pubkey: key, power: 7_600_000_000_000_000 }]);
 
     // Two EIP-1559 transfers into reth 0's pool; the EL selects them when the app builds.
     let l2 = devnet.l2_provider(0);
@@ -74,7 +74,7 @@ async fn single_validator_produces_blocks_by_the_header_rules() -> anyhow::Resul
     let mut prev_anchor = devnet.genesis().l1_0;
     // The one validator keeps its key and power, so no rotation returns an update (COMM-4.3-13)
     // and the validator state after h is the genesis one advanced h times.
-    let mut val_state = abci::valstate::ValState::genesis(0, &[(key, 4_700_000_000_000_000)])?;
+    let mut val_state = abci::valstate::ValState::genesis(0, &[(key, 7_600_000_000_000_000)])?;
     for h in 1..=head {
         let block =
             l2.get_block_by_number(BlockNumberOrTag::Number(h)).await?.context("missing block")?;

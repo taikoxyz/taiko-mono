@@ -14,7 +14,7 @@ fn devnet() -> ChainParams {
         ..ChainParams::builtin(CHAIN).unwrap()
     }
 }
-/// `n` fixture stake units of 4,700,000 TAIKO ([`crate::test_utils::stake_unit`]).
+/// `n` fixture stake units of 7,600,000 TAIKO ([`crate::test_utils::stake_unit`]).
 fn ether(n: u64) -> U256 {
     U256::from(n) * crate::test_utils::stake_unit()
 }

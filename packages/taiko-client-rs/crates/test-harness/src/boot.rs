@@ -47,10 +47,10 @@ pub(crate) const RETH_CMD: &str = "./alethia-reth node --chain /genesis.json --d
     --http.addr 0.0.0.0 --http.api eth,net,debug --authrpc.addr 0.0.0.0 \
     --authrpc.jwtsecret /jwt.hex --disable-discovery";
 
-/// Effective stake of every planted validator: 4,700,000 TAIKO, the devnet registry's minStake
-/// (START-10-12 needs `4096 × minStake > 10^27`); 4.7 × 10^15 voting power at the devnet
+/// Effective stake of every planted validator: 7,600,000 TAIKO, the devnet registry's minStake
+/// (START-10-12 needs `4096 × minStake > 10^27`); 7.6 × 10^15 voting power at the devnet
 /// `vp_unit`.
-pub(crate) const VALIDATOR_STAKE: u128 = 4_700_000_000_000_000_000_000_000;
+pub(crate) const VALIDATOR_STAKE: u128 = 7_600_000_000_000_000_000_000_000;
 
 /// Deadline for a container's RPC to come up.
 pub(crate) const RPC_TIMEOUT: Duration = Duration::from_secs(90);

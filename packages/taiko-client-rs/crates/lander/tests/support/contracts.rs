@@ -39,15 +39,15 @@ sol!(
 sol!(TestERC20, "../../crates/lander/tests/fixtures/contracts/TestERC20.json");
 sol!(MockUnzenInbox, "../../crates/lander/tests/fixtures/contracts/MockUnzenInbox.json");
 
-/// Each fixture bond's stake and the registry's `minStake`: 4,700,000 TAIKO, the devnet
+/// Each fixture bond's stake and the registry's `minStake`: 7,600,000 TAIKO, the devnet
 /// default (`DEFAULT_REGISTRY_MIN_STAKE`) and the built-in `min_stake`. The registry constructor
 /// requires `4096 * minStake > 10^27` (more than 244,140.625 TAIKO). The default devnet power
-/// mapping gives each entry 4.7 * 10^15 voting power.
-pub const STAKE: u128 = 4_700_000 * 10u128.pow(18);
+/// mapping gives each entry 7.6 * 10^15 voting power.
+pub const STAKE: u128 = 7_600_000 * 10u128.pow(18);
 /// The Inbox's recovery capacity F: the devnet deployment default (`DEFAULT_RECOVERY_CAPACITY`),
 /// the measured largest exclusion count whose worst-case `recover` fits the L1 per-transaction gas
-/// cap. `init` requires `K = floor(10^27 / minStake) <= F` (START-10-14), 212 at [`STAKE`].
-pub const RECOVERY_CAPACITY: u16 = 212;
+/// cap. `init` requires `K = floor(10^27 / minStake) <= F` (START-10-14), 131 at [`STAKE`].
+pub const RECOVERY_CAPACITY: u16 = 131;
 /// The devnet chain id accepted by builtin client configuration.
 pub const L2_CHAIN_ID: u64 = 167001;
 /// Accelerated canonical epoch: D(1)=12, S(1)=13, H(1)=15.
