@@ -40,13 +40,19 @@ contract EtnaSwitchGuard {
     }
 
     /// @notice Runs after the L1 SignalService upgrade (SWITCH.md section 3, action 2): reverts
-    /// unless `_signalService` uses `_expectedImpl` and reports `usesBeaconRoots()` false. With the
-    /// flag set on L1, every `saveCheckpoint` would read L1's own EIP-4788 roots and revert.
+    /// unless `_signalService` uses `_expectedImpl`, whose runtime code hashes to
+    /// `_expectedCodeHash`, and reports `usesBeaconRoots()` false. The syncer and remote are
+    /// immutables without getters; the builder computes the hash from the implementation rebuilt
+    /// with the expected syncer, remote, pauser and flag, so the batch itself rejects any other
+    /// code. With the flag set on L1, every `saveCheckpoint` would read L1's own EIP-4788 roots and
+    /// revert.
     /// @param _signalService The L1 SignalService proxy.
     /// @param _expectedImpl The SignalService implementation the batch installs.
+    /// @param _expectedCodeHash `keccak256` of that implementation's runtime code.
     function checkL1SignalService(
         address _signalService,
-        address _expectedImpl
+        address _expectedImpl,
+        bytes32 _expectedCodeHash
     )
         external
         view
@@ -54,6 +60,7 @@ contract EtnaSwitchGuard {
         require(
             EssentialContract(_signalService).impl() == _expectedImpl, UnexpectedImplementation()
         );
+        require(_expectedImpl.codehash == _expectedCodeHash, UnexpectedCodeHash());
         require(!SignalService(_signalService).usesBeaconRoots(), BeaconRootsUsed());
     }
 
@@ -161,6 +168,7 @@ contract EtnaSwitchGuard {
     error ProposalLeadMissed();
     error ProposeCutoffMismatch();
     error StartAlreadyWritten();
+    error UnexpectedCodeHash();
     error UnexpectedImplementation();
     error UnzenForkTimeMismatch();
     error UnzenInboxMismatch();

@@ -300,6 +300,7 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         _setTrust("UNZEN", "", "", vm.toString(_UNZEN_SCHEDULED_R0), "");
         vm.setEnv("UNZEN_RISC0_UNTRUST", vm.toString(_UNZEN_LEGACY_R0));
         _setTrust("ETNA", "", vm.toString(_ETNA_SGX), vm.toString(_ETNA_R0), vm.toString(_ETNA_SP1));
+        _assertIdentitiesRefused(_proxy, _signalImpl);
 
         Controller.Action[] memory actions = _proposals.schedulingActions();
         assertEq(actions.length, 11);
@@ -309,6 +310,13 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         assertEq(actions[2].target, address(signalService));
         assertEq(actions[2].data, abi.encodeCall(UUPSUpgradeable.upgradeTo, (_signalImpl)));
         assertEq(actions[3].target, _guard);
+        assertEq(
+            actions[3].data,
+            abi.encodeCall(
+                EtnaSwitchGuard.checkL1SignalService,
+                (address(signalService), _signalImpl, _signalImpl.codehash)
+            )
+        );
         assertEq(actions[4].target, _proxy);
         assertEq(actions[4].data, _switch.ownerUpgradeCall(_implementation));
         assertEq(actions[10].target, _guard);
@@ -331,6 +339,20 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         vm.expectRevert(BuildEtnaSwitchProposals.ScheduleTooLate.selector);
         _proposals.schedulingActions();
         assertTrue(vm.revertToState(snapshot));
+
+        // The guard pins the implementation's code hash: a batch that names the installed address
+        // with another hash reverts as a whole.
+        bytes memory pinned = actions[3].data;
+        actions[3].data = abi.encodeCall(
+            EtnaSwitchGuard.checkL1SignalService,
+            (address(signalService), _signalImpl, keccak256("other code"))
+        );
+        vm.warp(_FORK_TIME - _LEAD);
+        _expectGuardRevert(EtnaSwitchGuard.UnexpectedCodeHash.selector);
+        _execute(actions);
+        assertEq(signalService.impl(), signalImpl);
+        assertTrue(vm.revertToState(snapshot));
+        actions[3].data = pinned;
 
         vm.warp(_FORK_TIME - _LEAD);
         _execute(actions);
@@ -358,6 +380,31 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         _proposals.readinessActions();
         vm.expectRevert(BuildEtnaSwitchProposals.ScheduleAlreadyInstalled.selector);
         _proposals.schedulingActions();
+    }
+
+    /// @dev The scheduling builder compares the L1 SignalService implementation's runtime code with
+    /// one rebuilt from the expected syncer, remote, pauser and flag, which have no getters, and
+    /// the guard's code with this build's: each other identity is refused.
+    function _assertIdentitiesRefused(address _proxy, address _signalImpl) private {
+        address remote = _switch.l2SignalServiceAddress(_L2_CHAIN_ID);
+        address pauser = signalService.pauser();
+        address[4] memory wrong = [
+            address(new SignalService(Bob, remote, pauser, false)),
+            address(new SignalService(_proxy, Carol, pauser, false)),
+            address(new SignalService(_proxy, remote, Bob, false)),
+            address(new SignalService(_proxy, remote, pauser, true))
+        ];
+        for (uint256 i; i < wrong.length; ++i) {
+            vm.setEnv("SIGNAL_SERVICE_IMPLEMENTATION", vm.toString(wrong[i]));
+            vm.expectRevert(DeployEtnaSwitch.SwitchIdentityMismatch.selector);
+            _proposals.schedulingActions();
+        }
+        vm.setEnv("SIGNAL_SERVICE_IMPLEMENTATION", vm.toString(_signalImpl));
+
+        vm.setEnv("SWITCH_GUARD", vm.toString(_signalImpl));
+        vm.expectRevert(DeployEtnaSwitch.SwitchIdentityMismatch.selector);
+        _proposals.schedulingActions();
+        vm.setEnv("SWITCH_GUARD", vm.toString(_guard));
     }
 
     /// @dev Once the proposal has executed, the live Unzen Inbox reports the Etna Inbox, and a

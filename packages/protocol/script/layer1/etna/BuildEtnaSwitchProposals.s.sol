@@ -5,6 +5,7 @@ import { DeployEtnaSwitch } from "./DeployEtnaSwitch.s.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { console2 } from "forge-std/src/console2.sol";
+import { LibRebuiltCode } from "script/shared/LibRebuiltCode.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { InboxWithEtnaCutoffs } from "src/layer1/core/impl/InboxWithEtnaCutoffs.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
@@ -59,6 +60,8 @@ library LibEtnaSwitchActions {
         address signalService;
         /// @notice Its L1 implementation: syncer the EtnaInbox, `usesBeaconRoots` false.
         address signalServiceImpl;
+        /// @notice `keccak256` of that implementation's runtime code, which the guard pins.
+        bytes32 signalServiceCodeHash;
         /// @notice The EtnaInbox proxy, on its bootstrap implementation.
         address etnaInbox;
         /// @notice The switching EtnaInbox implementation.
@@ -112,8 +115,8 @@ library LibEtnaSwitchActions {
     }
 
     /// @dev Returns `[guard.checkDeadline, UnzenInbox.upgradeTo(cutoff), SignalService.upgradeTo,
-    /// guard.checkL1SignalService, EtnaInbox.upgradeToAndCall(impl, init), Unzen trust...,
-    /// Etna trust..., guard.checkSchedule]`.
+    /// guard.checkL1SignalService(proxy, impl, codehash), EtnaInbox.upgradeToAndCall(impl, init),
+    /// Unzen trust..., Etna trust..., guard.checkSchedule]`.
     /// @param _s The scheduling inputs.
     /// @return actions_ The actions, in execution order.
     function schedulingActions(Scheduling memory _s)
@@ -136,7 +139,8 @@ library LibEtnaSwitchActions {
         actions_[3] = _action(
             _s.guard,
             abi.encodeCall(
-                EtnaSwitchGuard.checkL1SignalService, (_s.signalService, _s.signalServiceImpl)
+                EtnaSwitchGuard.checkL1SignalService,
+                (_s.signalService, _s.signalServiceImpl, _s.signalServiceCodeHash)
             )
         );
         actions_[4] = _action(
@@ -324,7 +328,8 @@ contract BuildEtnaSwitchProposals is DeployEtnaSwitch {
         s_.proposalLead = _proposalLead(s_.schedule);
         s_.unzenInbox = vm.envAddress("UNZEN_INBOX");
         s_.unzenInboxImpl = vm.envAddress("UNZEN_INBOX_IMPLEMENTATION");
-        s_.signalServiceImpl = _signalServiceImplementation(s_.signalService);
+        (s_.signalServiceImpl, s_.signalServiceCodeHash) =
+            _signalServiceImplementation(s_.signalService);
         s_.etnaInboxImpl = _etnaImplementation(config);
         s_.etnaInit = _initCall();
         s_.unzenTrust = _trustChanges("UNZEN", unzen.proofVerifier);
@@ -365,14 +370,13 @@ contract BuildEtnaSwitchProposals is DeployEtnaSwitch {
         p_.etnaTrust = _trustChanges("ETNA", config.proofVerifier);
     }
 
-    /// @dev Reads SWITCH_GUARD and requires this build's `EtnaSwitchGuard` code, which has no
-    /// immutables.
+    /// @dev Reads SWITCH_GUARD and requires exactly this build's `EtnaSwitchGuard` code, which has
+    /// no immutables.
     /// @return guard_ The guard.
     function _guard() private returns (address guard_) {
         guard_ = vm.envAddress("SWITCH_GUARD");
         require(
-            guard_.code.length != 0 && guard_.codehash == address(new EtnaSwitchGuard()).codehash,
-            SwitchIdentityMismatch()
+            LibRebuiltCode.matches(guard_, address(new EtnaSwitchGuard())), SwitchIdentityMismatch()
         );
     }
 
@@ -412,23 +416,29 @@ contract BuildEtnaSwitchProposals is DeployEtnaSwitch {
         require(IEtnaInbox(_etnaInbox).etnaForkTime() == schedule_.etnaForkTime, ScheduleMismatch());
     }
 
-    /// @dev Reads SIGNAL_SERVICE_IMPLEMENTATION and requires the L1 configuration: `VERSION` 1,
-    /// `usesBeaconRoots` false and the live proxy's pauser. Its syncer and remote have no getter;
-    /// `deploySignalServiceImplementation` fixes them.
+    /// @dev Reads SIGNAL_SERVICE_IMPLEMENTATION and requires exactly this build's `SignalService` in
+    /// its L1 configuration, the one `deploySignalServiceImplementation` creates: the EtnaInbox
+    /// proxy as syncer, the L2 SignalService of L2_CHAIN_ID as remote, the live proxy's pauser and
+    /// `usesBeaconRoots` false. The syncer and remote have no getters, so the implementation's
+    /// runtime code is compared with a reference built from those arguments.
     /// @param _signalService The L1 SignalService proxy.
     /// @return impl_ The implementation.
+    /// @return codeHash_ `keccak256` of its runtime code.
     function _signalServiceImplementation(address _signalService)
         private
-        view
-        returns (address impl_)
+        returns (address impl_, bytes32 codeHash_)
     {
         impl_ = vm.envAddress("SIGNAL_SERVICE_IMPLEMENTATION");
-        require(
-            impl_.code.length != 0 && SignalService(impl_).VERSION() == 1
-                && !SignalService(impl_).usesBeaconRoots()
-                && SignalService(impl_).pauser() == _signalPauser(_signalService),
-            SwitchIdentityMismatch()
+        address expected = address(
+            new SignalService(
+                _etnaProxy(),
+                l2SignalServiceAddress(_envUint64("L2_CHAIN_ID")),
+                _signalPauser(_signalService),
+                false
+            )
         );
+        require(LibRebuiltCode.matches(impl_, expected), SwitchIdentityMismatch());
+        codeHash_ = impl_.codehash;
     }
 
     /// @dev Reads ETNA_INBOX_IMPLEMENTATION and requires it to report exactly `_config`.

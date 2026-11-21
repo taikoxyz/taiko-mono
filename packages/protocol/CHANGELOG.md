@@ -13,6 +13,14 @@
   proposal's L2 message. The L2 deploy scripts and the genesis config (`usesBeaconRoots`) take no
   fork time. The `Anchor` is unchanged, and the switching L1 SignalService accepts checkpoints only
   from the Etna Inbox, which forwards the Unzen Inbox's until the start write.
+- Etna (BREAKING): the switch tooling checks code identity. `BuildEtnaSwitchProposals` and
+  `BuildEtnaReadinessL2Message` rebuild the L1 and L2 SignalService implementations' runtime code
+  from the expected syncer, remote, pauser and `usesBeaconRoots` (with UUPS `__self` set from the
+  artifact's immutable references, `script/shared/LibRebuiltCode.sol`) and require it byte for
+  byte, and require both guards to hold exactly this build's code; the L2 builder now runs against
+  L2 and also reads `ANCHOR_PROXY` and `L1_SIGNAL_SERVICE`. `EtnaSwitchGuard.checkL1SignalService`
+  and `EtnaSignalServiceUpgradeGuard.checkAfterUpgrade` take the implementation's expected code
+  hash and revert `UnexpectedCodeHash` on any other code.
 - Etna (BREAKING): `setOrigin(uint48 s)` is permissionless. It reads the upgraded Unzen Inbox's new
   `proposeCutoff()` (`InboxWithEtnaCutoffs`) and `getCoreState()` and takes the start's hash and
   state root from the SignalService checkpoint at S; the `originWriter` immutable and getter are

@@ -37,12 +37,24 @@ contract EtnaSignalServiceUpgradeGuard {
         if (!ok || ret.length != 32 || abi.decode(ret, (bytes32)) != 0) revert NotBeforeEtna();
     }
 
-    /// @notice Reverts unless `_proxy` uses `_expectedImpl` and that implementation reports
-    /// `usesBeaconRoots()` true.
+    /// @notice Reverts unless `_proxy` uses `_expectedImpl`, whose runtime code hashes to
+    /// `_expectedCodeHash`, and that implementation reports `usesBeaconRoots()` true. The syncer and
+    /// remote are immutables without getters; the builder computes the hash from the
+    /// implementation rebuilt with the expected syncer, remote, pauser and flag, so the batch
+    /// itself rejects any other code.
     /// @param _proxy The L2 `SignalService` proxy.
     /// @param _expectedImpl The Etna L2 `SignalService` implementation.
-    function checkAfterUpgrade(address _proxy, address _expectedImpl) external view {
+    /// @param _expectedCodeHash `keccak256` of that implementation's runtime code.
+    function checkAfterUpgrade(
+        address _proxy,
+        address _expectedImpl,
+        bytes32 _expectedCodeHash
+    )
+        external
+        view
+    {
         if (EssentialContract(_proxy).impl() != _expectedImpl) revert UnexpectedImplementation();
+        if (_expectedImpl.codehash != _expectedCodeHash) revert UnexpectedCodeHash();
         if (!SignalService(_proxy).usesBeaconRoots()) revert BeaconRootsUnused();
     }
 
@@ -53,5 +65,6 @@ contract EtnaSignalServiceUpgradeGuard {
     error BeaconRootsCodeMismatch();
     error BeaconRootsUnused();
     error NotBeforeEtna();
+    error UnexpectedCodeHash();
     error UnexpectedImplementation();
 }

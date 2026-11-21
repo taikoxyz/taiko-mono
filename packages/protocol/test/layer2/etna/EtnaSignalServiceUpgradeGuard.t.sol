@@ -2,7 +2,10 @@
 pragma solidity ^0.8.26;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { LibEtnaReadinessL2Message } from "script/layer2/etna/BuildEtnaReadinessL2Message.s.sol";
+import {
+    BuildEtnaReadinessL2Message,
+    LibEtnaReadinessL2Message
+} from "script/layer2/etna/BuildEtnaReadinessL2Message.s.sol";
 import { Anchor } from "src/layer2/core/Anchor.sol";
 import { EtnaSignalServiceUpgradeGuard } from "src/layer2/etna/EtnaSignalServiceUpgradeGuard.sol";
 import { DelegateController } from "src/layer2/governance/DelegateController.sol";
@@ -100,9 +103,74 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
         assertEq(
             actions[2].data,
             abi.encodeCall(
-                EtnaSignalServiceUpgradeGuard.checkAfterUpgrade, (tSignalService, etnaImpl)
+                EtnaSignalServiceUpgradeGuard.checkAfterUpgrade,
+                (tSignalService, etnaImpl, etnaImpl.codehash)
             )
         );
+    }
+
+    // ---------------------------------------------------------------
+    // The checking builder
+    // ---------------------------------------------------------------
+
+    /// @dev The builder accepts the implementation `DeployShastaL2Contracts` deploys and returns
+    /// `buildActions` with its code hash.
+    function test_buildChecked_ReturnsTheMessageForTheDeployedImplementation() external {
+        Controller.Action[] memory actions =
+            new BuildEtnaReadinessL2Message().buildChecked(_inputs());
+        assertEq(
+            keccak256(abi.encode(actions)), keccak256(abi.encode(_actions(preEtnaImpl, etnaImpl)))
+        );
+    }
+
+    /// @dev The syncer and remote have no getter; the builder compares the implementation's code
+    /// with one rebuilt from the expected arguments, so each wrong immutable is refused.
+    function test_buildChecked_RevertWhen_TheImplementationHasAnotherSyncer() external {
+        _expectImplementationRefused(
+            address(new SignalService(Bob, l1SignalService, address(0), true))
+        );
+    }
+
+    function test_buildChecked_RevertWhen_TheImplementationHasAnotherRemote() external {
+        _expectImplementationRefused(
+            address(new SignalService(address(tAnchor), Bob, address(0), true))
+        );
+    }
+
+    function test_buildChecked_RevertWhen_TheImplementationHasAnotherPauser() external {
+        _expectImplementationRefused(
+            address(new SignalService(address(tAnchor), l1SignalService, Bob, true))
+        );
+    }
+
+    function test_buildChecked_RevertWhen_TheImplementationDoesNotUseBeaconRoots() external {
+        _expectImplementationRefused(
+            address(new SignalService(address(tAnchor), l1SignalService, address(0), false))
+        );
+    }
+
+    function test_buildChecked_RevertWhen_TheGuardIsNotThisBuildsGuard() external {
+        BuildEtnaReadinessL2Message.Inputs memory inputs = _inputs();
+        inputs.guard = preEtnaImpl;
+        BuildEtnaReadinessL2Message builder = new BuildEtnaReadinessL2Message();
+        vm.expectRevert(BuildEtnaReadinessL2Message.UpgradeGuardMismatch.selector);
+        builder.buildChecked(inputs);
+    }
+
+    function test_buildChecked_RevertWhen_TheProxyUsesAnotherImplementation() external {
+        BuildEtnaReadinessL2Message.Inputs memory inputs = _inputs();
+        inputs.preEtnaImpl = etnaImpl;
+        BuildEtnaReadinessL2Message builder = new BuildEtnaReadinessL2Message();
+        vm.expectRevert(BuildEtnaReadinessL2Message.PreEtnaImplementationMismatch.selector);
+        builder.buildChecked(inputs);
+    }
+
+    function test_buildChecked_RevertWhen_TheAnchorSavesElsewhere() external {
+        BuildEtnaReadinessL2Message.Inputs memory inputs = _inputs();
+        inputs.anchor = address(guard);
+        BuildEtnaReadinessL2Message builder = new BuildEtnaReadinessL2Message();
+        vm.expectRevert(BuildEtnaReadinessL2Message.AnchorMismatch.selector);
+        builder.buildChecked(inputs);
     }
 
     function test_beaconRootsCodeHash_IsTheCanonicalEip4788RuntimeHash() external view {
@@ -233,6 +301,20 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
         );
     }
 
+    /// @dev The upgrade installs the expected address, but the postcondition pins another code
+    /// hash than the one the implementation holds.
+    function test_readinessMessage_RevertWhen_TheImplementationHasAnotherCodeHash()
+        external
+        onTaiko
+    {
+        _unzenBlock(UNZEN_TIME);
+        address otherSyncer = address(new SignalService(Bob, l1SignalService, address(0), true));
+        Controller.Action[] memory actions = LibEtnaReadinessL2Message.buildActions(
+            address(guard), tSignalService, preEtnaImpl, etnaImpl, otherSyncer.codehash
+        );
+        _expectRetriable(actions, EtnaSignalServiceUpgradeGuard.UnexpectedCodeHash.selector);
+    }
+
     /// @dev Upgrading before the precondition runs makes the precondition fail.
     function test_readinessMessage_RevertWhen_TheActionsAreReordered() external onTaiko {
         _unzenBlock(UNZEN_TIME);
@@ -277,8 +359,29 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
         returns (Controller.Action[] memory)
     {
         return LibEtnaReadinessL2Message.buildActions(
-            address(guard), tSignalService, _preEtnaImpl, _etnaImpl
+            address(guard), tSignalService, _preEtnaImpl, _etnaImpl, _etnaImpl.codehash
         );
+    }
+
+    /// @dev The builder's inputs for this deployment.
+    function _inputs() private view returns (BuildEtnaReadinessL2Message.Inputs memory) {
+        return BuildEtnaReadinessL2Message.Inputs({
+            guard: address(guard),
+            signalService: tSignalService,
+            preEtnaImpl: preEtnaImpl,
+            etnaImpl: etnaImpl,
+            anchor: address(tAnchor),
+            l1SignalService: l1SignalService
+        });
+    }
+
+    /// @dev The builder refuses `_impl` as the Etna implementation.
+    function _expectImplementationRefused(address _impl) private {
+        BuildEtnaReadinessL2Message.Inputs memory inputs = _inputs();
+        inputs.etnaImpl = _impl;
+        BuildEtnaReadinessL2Message builder = new BuildEtnaReadinessL2Message();
+        vm.expectRevert(BuildEtnaReadinessL2Message.SignalServiceImplementationMismatch.selector);
+        builder.buildChecked(inputs);
     }
 
     /// @dev Expects the batch to revert with `_error`, through the `DelegateController`'s own

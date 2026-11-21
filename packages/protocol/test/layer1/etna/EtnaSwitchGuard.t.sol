@@ -62,12 +62,24 @@ contract EtnaSwitchGuardTest is InboxTestBase {
     // ---------------------------------------------------------------
 
     function test_checkL1SignalService_AcceptsTheL1Implementation() external view {
-        _guard.checkL1SignalService(address(signalService), signalService.impl());
+        address impl = signalService.impl();
+        _guard.checkL1SignalService(address(signalService), impl, impl.codehash);
     }
 
     function test_checkL1SignalService_RevertWhen_UnexpectedImplementation() external {
+        address impl = signalService.impl();
         vm.expectRevert(EtnaSwitchGuard.UnexpectedImplementation.selector);
-        _guard.checkL1SignalService(address(signalService), address(_etna));
+        _guard.checkL1SignalService(address(signalService), address(_etna), impl.codehash);
+    }
+
+    /// @dev The installed implementation is the expected address, but its code is not the one the
+    /// builder rebuilt: here, another syncer.
+    function test_checkL1SignalService_RevertWhen_UnexpectedCodeHash() external {
+        address impl = signalService.impl();
+        address otherSyncer =
+            address(new SignalService(Bob, REMOTE_SIGNAL_SERVICE, address(0), false));
+        vm.expectRevert(EtnaSwitchGuard.UnexpectedCodeHash.selector);
+        _guard.checkL1SignalService(address(signalService), impl, otherSyncer.codehash);
     }
 
     function test_checkL1SignalService_RevertWhen_UsesBeaconRoots() external {
@@ -75,7 +87,7 @@ contract EtnaSwitchGuardTest is InboxTestBase {
             address(new SignalService(address(_etna), REMOTE_SIGNAL_SERVICE, address(0), true));
         signalService.upgradeTo(impl);
         vm.expectRevert(EtnaSwitchGuard.BeaconRootsUsed.selector);
-        _guard.checkL1SignalService(address(signalService), impl);
+        _guard.checkL1SignalService(address(signalService), impl, impl.codehash);
     }
 
     // ---------------------------------------------------------------
