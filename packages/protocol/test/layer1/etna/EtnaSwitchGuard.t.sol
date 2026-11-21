@@ -6,6 +6,7 @@ import { InboxWithEtnaCutoffs } from "src/layer1/core/impl/InboxWithEtnaCutoffs.
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaSwitchGuard } from "src/layer1/etna/switch/EtnaSwitchGuard.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { InboxTestBase } from "test/layer1/core/inbox/InboxTestBase.sol";
 
@@ -24,6 +25,9 @@ contract EtnaSwitchGuardTest is InboxTestBase {
     uint48 private constant _NEW_FORK_TIME = 1_005_000;
     /// @dev The new lead is exactly available one second before B.
     uint48 private constant _NEW_LEAD = _NEW_FORK_TIME - (_DEADLINE - 1);
+    /// @dev The EIP-1967 implementation slot.
+    bytes32 private constant _IMPLEMENTATION_SLOT =
+        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
     /// @dev Slot 273: the start block hash, zero until the start write.
     bytes32 private constant _START_HASH_SLOT = bytes32(uint256(273));
 
@@ -170,6 +174,45 @@ contract EtnaSwitchGuardTest is InboxTestBase {
         _checkPostponement(_schedule(), _NEW_FORK_TIME, _NEW_LEAD, _DEADLINE);
     }
 
+    /// @dev An upgrade of either proxy after the batch was built, even one keeping the schedule,
+    /// makes the batch revert instead of rolling it back.
+    function test_checkPostponement_RevertWhen_AProxyUsesAnotherImplementation() external {
+        vm.warp(_DEADLINE - 1);
+        EtnaSwitchGuard.Schedule memory next = _schedule();
+        next.etnaForkTime = _NEW_FORK_TIME;
+        address unzenImpl = EssentialContract(address(inbox)).impl();
+        address etnaImpl = EssentialContract(address(_etna)).impl();
+        _guard.checkPostponement(
+            address(inbox),
+            address(_etna),
+            _schedule(),
+            next,
+            _NEW_LEAD,
+            _DEADLINE,
+            unzenImpl,
+            etnaImpl
+        );
+
+        _installCutoffs(_FORK_TIME, address(_etna));
+        vm.expectRevert(EtnaSwitchGuard.UnexpectedImplementation.selector);
+        _guard.checkPostponement(
+            address(inbox),
+            address(_etna),
+            _schedule(),
+            next,
+            _NEW_LEAD,
+            _DEADLINE,
+            unzenImpl,
+            etnaImpl
+        );
+
+        unzenImpl = EssentialContract(address(inbox)).impl();
+        vm.expectRevert(EtnaSwitchGuard.UnexpectedImplementation.selector);
+        _guard.checkPostponement(
+            address(inbox), address(_etna), _schedule(), next, _NEW_LEAD, _DEADLINE, unzenImpl, Bob
+        );
+    }
+
     /// @dev Vector 5d.f for the replacement cutoffs: the new lead must exceed the new FI margin,
     /// so the batch also executes before the new forced-inclusion cutoff.
     function test_checkPostponement_RevertWhen_NewLeadNotAboveTheNewFiMargin() external {
@@ -248,7 +291,22 @@ contract EtnaSwitchGuardTest is InboxTestBase {
     {
         EtnaSwitchGuard.Schedule memory next = _schedule();
         next.etnaForkTime = _newForkTime;
-        _guard.checkPostponement(address(inbox), address(_etna), _old, next, _newLead, _deadline);
+        _guard.checkPostponement(
+            address(inbox),
+            address(_etna),
+            _old,
+            next,
+            _newLead,
+            _deadline,
+            _implementationOf(address(inbox)),
+            _implementationOf(address(_etna))
+        );
+    }
+
+    /// @dev Reads the EIP-1967 implementation slot with a cheatcode, so a pending `expectRevert`
+    /// still applies to the guard call.
+    function _implementationOf(address _proxy) private view returns (address) {
+        return address(uint160(uint256(vm.load(_proxy, _IMPLEMENTATION_SLOT))));
     }
 
     function _schedule() private pure returns (EtnaSwitchGuard.Schedule memory) {

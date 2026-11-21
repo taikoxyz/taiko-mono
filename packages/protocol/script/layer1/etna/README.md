@@ -137,18 +137,19 @@ earlier installed cutoff, and implementations that keep every live configuration
 schedule. Choose `B = min(C, oldForkTime - rolloutBudget)` as SWITCH.md section 7 describes. The
 actions are:
 
-| #    | Target        | Call                                                                                        |
-| ---- | ------------- | ------------------------------------------------------------------------------------------- |
-| 0    | guard         | `checkPostponement(UNZEN_INBOX, INBOX_PROXY, oldSchedule, newSchedule, newProposalLead, B)` |
-| 1    | Unzen Inbox   | `upgradeTo(UNZEN_INBOX_IMPLEMENTATION)`                                                     |
-| 2    | EtnaInbox     | `upgradeTo(ETNA_INBOX_IMPLEMENTATION)`                                                      |
-| 3…   | sub-verifiers | the `UNZEN_*` then `ETNA_*` trust changes the new schedule needs                            |
-| last | guard         | `checkSchedule(UNZEN_INBOX, INBOX_PROXY, newSchedule)`                                      |
+| #    | Target        | Call                                                                                                             |
+| ---- | ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 0    | guard         | `checkPostponement(UNZEN_INBOX, INBOX_PROXY, oldSchedule, newSchedule, newProposalLead, B, unzenImpl, etnaImpl)` |
+| 1    | Unzen Inbox   | `upgradeTo(UNZEN_INBOX_IMPLEMENTATION)`                                                                          |
+| 2    | EtnaInbox     | `upgradeTo(ETNA_INBOX_IMPLEMENTATION)`                                                                           |
+| 3…   | sub-verifiers | the `UNZEN_*` then `ETNA_*` trust changes the new schedule needs                                                 |
+| last | guard         | `checkSchedule(UNZEN_INBOX, INBOX_PROXY, newSchedule)`                                                           |
 
 There is no L2 action: no L2 contract holds the fork time. The batch reverts, leaving the old
-schedule in force, after the start write, when the live schedule is not the one it names, at or
-after B, or without the new lead. Keep the Unzen verifier able to prove every Unzen block through
-the new tip, including blocks at and after the old fork time.
+schedule in force, after the start write, when the live schedule is not the one it names, when
+either proxy no longer uses the implementation the builder read (so it cannot roll back a later
+upgrade), at or after B, or without the new lead. Keep the Unzen verifier able to prove every Unzen
+block through the new tip, including blocks at and after the old fork time.
 
 ## EtnaSwitchGuard
 
@@ -167,11 +168,13 @@ proposeMargin, uint48 fiMargin)`.
   `ForcedInclusionCutoffMismatch` unless the EtnaInbox names the Unzen Inbox and both hold the
   schedule's fork time with the Unzen `proposeCutoff()` and `FI_CUTOFF()` its margins before it;
   `CheckpointPathMismatch` unless the Unzen Inbox's `getConfig().signalService` is the EtnaInbox.
-- `checkPostponement(unzenInbox, etnaInbox, old, new, newProposalLead, deadline)`, the last two
-  `uint48`: `StartAlreadyWritten` once `etnaStart()` has a hash, the `checkSchedule` errors for
-  `old`, `PostponementDeadlinePassed` unless `block.timestamp < deadline`, `DeadlineAfterCutoff` if
-  the deadline is after the earlier of `old`'s cutoffs, then `ForkTimeNotLater`,
-  `ProposalLeadNotAboveFiMargin` and `ProposalLeadMissed` for the new schedule.
+- `checkPostponement(unzenInbox, etnaInbox, old, new, newProposalLead, deadline, unzenImpl, etnaImpl)`,
+  `newProposalLead` and `deadline` `uint48`: `StartAlreadyWritten` once `etnaStart()` has a hash,
+  the `checkSchedule` errors for `old`, `UnexpectedImplementation` unless both proxies' `impl()`
+  are still `unzenImpl` and `etnaImpl`, `PostponementDeadlinePassed` unless
+  `block.timestamp < deadline`, `DeadlineAfterCutoff` if the deadline is after the earlier of
+  `old`'s cutoffs, then `ForkTimeNotLater`, `ProposalLeadNotAboveFiMargin` and
+  `ProposalLeadMissed` for the new schedule.
 
 ## Cutoffs and retained state
 

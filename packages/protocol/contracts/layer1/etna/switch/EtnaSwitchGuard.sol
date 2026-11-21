@@ -92,24 +92,30 @@ contract EtnaSwitchGuard {
     }
 
     /// @notice The postponement batch's first action (SWITCH.md section 7): reverts unless the
-    /// Etna start is unwritten, the live schedule is exactly `_old`, `block.timestamp < _deadline`,
-    /// the deadline is no later than the earlier of `_old`'s two cutoffs, `_new`'s fork time is
-    /// later than `_old`'s, `_newProposalLead > _new.fiMargin` and
+    /// Etna start is unwritten, the live schedule is exactly `_old`, both proxies still use the
+    /// implementations the batch was built against, `block.timestamp < _deadline`, the deadline is
+    /// no later than the earlier of `_old`'s two cutoffs, `_new`'s fork time is later than
+    /// `_old`'s, `_newProposalLead > _new.fiMargin` and
     /// `block.timestamp <= _new.etnaForkTime - _newProposalLead`, so the batch also executes before
-    /// the new forced-inclusion cutoff (vector 5d.f).
+    /// the new forced-inclusion cutoff (vector 5d.f). Pinning the implementations keeps the batch
+    /// from silently rolling back an upgrade that executed after it was built.
     /// @param _unzenInbox The Unzen Inbox proxy.
     /// @param _etnaInbox The EtnaInbox proxy.
     /// @param _old The installed schedule the batch replaces.
     /// @param _new The schedule the batch installs.
     /// @param _newProposalLead The `PROPOSAL_LEAD` the new fork time must keep.
     /// @param _deadline B, the batch's exclusive inclusion deadline.
+    /// @param _currentUnzenImpl The Unzen Inbox proxy's implementation the batch replaces.
+    /// @param _currentEtnaImpl The EtnaInbox proxy's implementation the batch replaces.
     function checkPostponement(
         address _unzenInbox,
         address _etnaInbox,
         Schedule calldata _old,
         Schedule calldata _new,
         uint48 _newProposalLead,
-        uint48 _deadline
+        uint48 _deadline,
+        address _currentUnzenImpl,
+        address _currentEtnaImpl
     )
         external
         view
@@ -117,6 +123,11 @@ contract EtnaSwitchGuard {
         (, bytes32 startHash) = IEtnaInbox(_etnaInbox).etnaStart();
         require(startHash == 0, StartAlreadyWritten());
         _checkSchedule(_unzenInbox, _etnaInbox, _old);
+        require(
+            EssentialContract(_unzenInbox).impl() == _currentUnzenImpl
+                && EssentialContract(_etnaInbox).impl() == _currentEtnaImpl,
+            UnexpectedImplementation()
+        );
         require(block.timestamp < _deadline, PostponementDeadlinePassed());
         uint256 maxMargin = _old.fiMargin > _old.proposeMargin ? _old.fiMargin : _old.proposeMargin;
         require(uint256(_deadline) + maxMargin <= _old.etnaForkTime, DeadlineAfterCutoff());

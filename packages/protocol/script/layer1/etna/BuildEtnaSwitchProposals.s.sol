@@ -14,6 +14,7 @@ import { Risc0Verifier } from "src/layer1/verifiers/Risc0Verifier.sol";
 import { SP1Verifier } from "src/layer1/verifiers/SP1Verifier.sol";
 import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 import { ComposeVerifier } from "src/layer1/verifiers/compose/ComposeVerifier.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
@@ -88,10 +89,14 @@ library LibEtnaSwitchActions {
         uint48 deadline;
         /// @notice The Unzen Inbox proxy.
         address unzenInbox;
+        /// @notice Its current implementation, which the batch replaces and the guard pins.
+        address currentUnzenInboxImpl;
         /// @notice Its new `InboxWithEtnaCutoffs` implementation.
         address unzenInboxImpl;
         /// @notice The EtnaInbox proxy.
         address etnaInbox;
+        /// @notice Its current implementation, which the batch replaces and the guard pins.
+        address currentEtnaInboxImpl;
         /// @notice Its new implementation.
         address etnaInboxImpl;
         /// @notice The Unzen verifier changes the new schedule needs.
@@ -153,9 +158,9 @@ library LibEtnaSwitchActions {
         actions_[next] = _scheduleCheck(_s.guard, _s.unzenInbox, _s.etnaInbox, _s.schedule);
     }
 
-    /// @dev Returns `[guard.checkPostponement, UnzenInbox.upgradeTo(cutoff),
-    /// EtnaInbox.upgradeTo(impl), Unzen trust..., Etna trust..., guard.checkSchedule]`. No L2
-    /// action: no L2 contract holds the fork time.
+    /// @dev Returns `[guard.checkPostponement(..., current implementations),
+    /// UnzenInbox.upgradeTo(cutoff), EtnaInbox.upgradeTo(impl), Unzen trust..., Etna trust...,
+    /// guard.checkSchedule]`. No L2 action: no L2 contract holds the fork time.
     /// @param _p The postponement inputs.
     /// @return actions_ The actions, in execution order.
     function postponementActions(Postponement memory _p)
@@ -174,7 +179,9 @@ library LibEtnaSwitchActions {
                     _p.oldSchedule,
                     _p.newSchedule,
                     _p.newProposalLead,
-                    _p.deadline
+                    _p.deadline,
+                    _p.currentUnzenInboxImpl,
+                    _p.currentEtnaInboxImpl
                 )
             )
         );
@@ -270,7 +277,8 @@ library LibEtnaSwitchActions {
 /// - `postponementActions()`: the new ETNA_FORK_TIME, PROPOSE_MARGIN and FI_MARGIN, PROPOSAL_LEAD
 ///   for the new fork time, POSTPONEMENT_DEADLINE (B: later than now and no later than the
 ///   earlier installed cutoff), SWITCH_GUARD, the new UNZEN_INBOX_IMPLEMENTATION and
-///   ETNA_INBOX_IMPLEMENTATION, and the trust changes. The old schedule is read from L1.
+///   ETNA_INBOX_IMPLEMENTATION, and the trust changes. The old schedule and both proxies' current
+///   implementations, which the batch pins, are read from L1.
 /// Trust changes are optional comma-separated bytes32 lists named
 /// `<UNZEN|ETNA>_<SGX_GETH|SGX_RETH|RISC0|SP1>_<TRUST|UNTRUST>`: MRENCLAVEs for `setMrEnclave`,
 /// RISC0 image ids for `setImageIdTrusted` and SP1 program keys for `setProgramTrusted` on the
@@ -350,6 +358,8 @@ contract BuildEtnaSwitchProposals is DeployEtnaSwitch {
         );
         p_.guard = _guard();
         p_.unzenInbox = vm.envAddress("UNZEN_INBOX");
+        p_.currentUnzenInboxImpl = EssentialContract(p_.unzenInbox).impl();
+        p_.currentEtnaInboxImpl = EssentialContract(p_.etnaInbox).impl();
         p_.oldSchedule = _liveSchedule(p_.unzenInbox, p_.etnaInbox);
         p_.newSchedule = _schedule();
         p_.newProposalLead = _proposalLead(p_.newSchedule);

@@ -25,6 +25,10 @@
   `ProposalLeadNotAboveFiMargin` unless `PROPOSAL_LEAD` exceeds it, so the scheduling batch reverts
   on chain at or after `ETNA_FORK_TIME - FI_MARGIN` (vector 5d.f); `checkPostponement` takes the
   whole new schedule and applies the same rule to it.
+- Etna (BREAKING): `EtnaSwitchGuard.checkPostponement` also takes the Unzen Inbox's and the
+  EtnaInbox's current implementations, which `BuildEtnaSwitchProposals` reads when it builds the
+  batch, and reverts `UnexpectedImplementation` if either proxy has been upgraded since, so a
+  postponement cannot silently roll back another upgrade.
 - Etna (BREAKING): `setOrigin(uint48 s)` is permissionless. It reads the upgraded Unzen Inbox's new
   `proposeCutoff()` (`InboxWithEtnaCutoffs`) and `getCoreState()` and takes the start's hash and
   state root from the SignalService checkpoint at S; the `originWriter` immutable and getter are

@@ -517,6 +517,10 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         _execute(postponement);
         assertTrue(vm.revertToState(snapshot));
 
+        // An upgrade of either proxy after the batch was built, even one keeping the schedule,
+        // makes the batch revert instead of rolling it back.
+        _assertPinsImplementations(_proxy, postponement);
+
         // 5d.j: from the freshly scheduled state, preserving the Inbox state.
         vm.prank(address(_dao));
         etna.invalidateRecoveryNonce(0);
@@ -551,6 +555,55 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         assertEq(etna.generationStartHeight(), _unzenTip);
         vm.expectRevert(DeployEtnaSwitch.SwitchAlreadyStarted.selector);
         _switch.ownerUpgradeCall(laterImpl);
+    }
+
+    /// @dev Upgrades the Unzen Inbox, then separately the EtnaInbox, to a fresh implementation
+    /// with the installed configuration and schedule, and requires `_postponement`, built before,
+    /// to revert at its first action and change nothing.
+    function _assertPinsImplementations(
+        address _proxy,
+        Controller.Action[] memory _postponement
+    )
+        private
+    {
+        address unzenImpl = _unzenImplementation();
+        address etnaImpl = EssentialContract(_proxy).impl();
+        IInbox.Config memory unzenConfig = inbox.getConfig();
+        address[2] memory proxies = [address(inbox), _proxy];
+        address[2] memory replacements = [
+            address(new InboxWithEtnaCutoffs(unzenConfig, _FORK_TIME, _PROPOSE_MARGIN, _FI_MARGIN)),
+            address(new EtnaInbox(_etnaConfig(etnaImpl)))
+        ];
+        for (uint256 i; i < proxies.length; ++i) {
+            uint256 snapshot = vm.snapshotState();
+            vm.prank(address(_dao));
+            UUPSUpgradeable(proxies[i]).upgradeTo(replacements[i]);
+            _expectGuardRevert(EtnaSwitchGuard.UnexpectedImplementation.selector);
+            _execute(_postponement);
+            assertEq(EssentialContract(proxies[i]).impl(), replacements[i]);
+            assertEq(EtnaInbox(_proxy).etnaForkTime(), _FORK_TIME);
+            assertTrue(vm.revertToState(snapshot));
+        }
+        assertEq(_unzenImplementation(), unzenImpl);
+        assertEq(EssentialContract(_proxy).impl(), etnaImpl);
+    }
+
+    /// @dev An EtnaInbox implementation's immutable configuration.
+    function _etnaConfig(address _impl) private view returns (IEtnaInbox.Config memory) {
+        EtnaInbox etna = EtnaInbox(_impl);
+        return IEtnaInbox.Config({
+            proofVerifier: etna.proofVerifier(),
+            signalService: etna.signalService(),
+            stakingRegistry: etna.stakingRegistry(),
+            l2ChainId: etna.l2ChainId(),
+            maxBatchBlocks: etna.maxBatchBlocks(),
+            forcedInclusionFeeInGwei: etna.forcedInclusionFeeInGwei(),
+            forcedInclusionFeeDoubleThreshold: etna.forcedInclusionFeeDoubleThreshold(),
+            protocolFeeRecipient: etna.protocolFeeRecipient(),
+            unzenInbox: etna.unzenInbox(),
+            etnaForkTime: etna.etnaForkTime(),
+            recoveryCapacity: etna.recoveryCapacity()
+        });
     }
 
     /// @dev Deploys the cutoff and Etna implementations of a postponement to `_forkTime`.
