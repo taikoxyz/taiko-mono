@@ -40,7 +40,7 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// SignalService address for L2_CHAIN_ID (`l2SignalServiceAddress`), because the L1
 /// SignalService fixes it as an immutable.
 /// `deployRegistry()`: INBOX_PROXY; TAIKO_TOKEN; REGISTRY_MIN_STAKE in token base units, above
-/// 10^27 / 4096 (STAKE-4.1-14a), which defaults to `DEFAULT_REGISTRY_MIN_STAKE` (4,700,000
+/// 10^27 / 4096 (STAKE-4.1-14a), which defaults to `DEFAULT_REGISTRY_MIN_STAKE` (7,600,000
 /// TAIKO) if unset, empty or zero; `init` later requires K = min(4096, floor(10^27 / minStake)) to
 /// be at most the Inbox's recovery capacity F (START-10-14), and the registry's minStake is the
 /// fifth word of the committee config hash;
@@ -58,7 +58,7 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// least 867,361,738 and at most the registry's minStake), ETNA_N_MAX (in [1, 4096]) and
 /// ETNA_UNSETTLED_LIMIT (U, in [1, 65,536]); FORCED_INCLUSION_DELAY (seconds, non-zero);
 /// MAX_ANCHOR_AGE (seconds, at least 1152, START-10-9); and the optional RECOVERY_CAPACITY (F, in
-/// [1, 4096]), which defaults to `DEFAULT_RECOVERY_CAPACITY` (212) if unset, empty or zero. F is a
+/// [1, 4096]), which defaults to `DEFAULT_RECOVERY_CAPACITY` (131) if unset, empty or zero. F is a
 /// gas measurement of this bytecode (START-10-18): a larger value claims recovery lists that do
 /// not fit the L1 transaction cap.
 /// The script checks only SIGNAL_SERVICE's and ETNA_PROOF_VERIFIER's code, L1_CHAIN_ID and
@@ -75,19 +75,23 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// @custom:security-contact security@taiko.xyz
 contract DeployEtnaDevnet is Script {
     /// @notice The registry's minimum stake when REGISTRY_MIN_STAKE is unset, empty or zero:
-    /// 4,700,000 TAIKO. It is above the 10^27 / 4096 bound (STAKE-4.1-14a) and bounds the eligible
-    /// bonds at K = min(4096, floor(10^27 / minStake)) = 212, the default recovery capacity, which
-    /// `init` requires (START-10-14).
-    uint256 public constant DEFAULT_REGISTRY_MIN_STAKE = 4_700_000 ether;
+    /// 7,600,000 TAIKO, the round value above floor(10^27 / 132) + 1 base units (about 7,575,758
+    /// TAIKO). It is above the 10^27 / 4096 bound (STAKE-4.1-14a) and bounds the eligible bonds at
+    /// K = min(4096, floor(10^27 / minStake)) = 131, the default recovery capacity, which `init`
+    /// requires (START-10-14).
+    uint256 public constant DEFAULT_REGISTRY_MIN_STAKE = 7_600_000 ether;
 
     /// @notice The Inbox's recovery capacity F when RECOVERY_CAPACITY is unset, empty or zero: the
     /// largest number of exclusions for which the worst-case ordinary `recover` (every exclusion a
     /// registered bond spread across a full registry, one forced inclusion to clear and a ruleset
-    /// installed), executed through the DAO controller, fits EIP-7825's 2^24 per-transaction gas
-    /// cap (START-10-18). `EtnaInboxRecoveryCapacityGasTest` measures it for this bytecode: 212
-    /// fits and 213 does not. Re-measure it before an upgrade of this path or a change in the L1
-    /// gas schedule.
-    uint16 public constant DEFAULT_RECOVERY_CAPACITY = 212;
+    /// installed) fits EIP-7825's 2^24 per-transaction gas cap on the DAO's costliest execution
+    /// path (START-10-18): the Emergency Multisig's `execute`, which carries the actions in
+    /// calldata, stores them in an optimistic plugin proposal and executes it through the Aragon
+    /// DAO and `MainnetDAOController` in one transaction, with a metadata URI of up to 128 bytes.
+    /// `EtnaRecoveryDaoPathGas.t.sol` measures it on a mainnet fork for this bytecode: 131 needs a
+    /// gas limit of 16,694,489 and 132 needs more than 2^24. Re-measure it before an upgrade of
+    /// this path, of the DAO stack or a change in the L1 gas schedule.
+    uint16 public constant DEFAULT_RECOVERY_CAPACITY = 131;
 
     // ---------------------------------------------------------------
     // External & Public Functions

@@ -167,9 +167,9 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertFalse(IEtnaInbox(deployed.inbox()).isInitialized(), "Inbox not initialized yet");
         assertEq(deployed.l2ChainId(), L2_CHAIN_ID, "L2 chain id");
         assertEq(deployed.forfeitBps(), FORFEIT_BPS, "explicit forfeiture rate");
-        assertEq(_deployment.DEFAULT_REGISTRY_MIN_STAKE(), 4_700_000 ether, "devnet default");
+        assertEq(_deployment.DEFAULT_REGISTRY_MIN_STAKE(), 7_600_000 ether, "devnet default");
         // START-10-14: the default minimum stake bounds K at the default recovery capacity F.
-        assertEq(_deployment.DEFAULT_RECOVERY_CAPACITY(), 212, "default F");
+        assertEq(_deployment.DEFAULT_RECOVERY_CAPACITY(), 131, "default F");
         assertEq(
             uint256(10 ** 27) / _deployment.DEFAULT_REGISTRY_MIN_STAKE(),
             _deployment.DEFAULT_RECOVERY_CAPACITY(),

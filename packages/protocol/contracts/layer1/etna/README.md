@@ -122,18 +122,28 @@ matching stock CometBFT's protobuf encoding.
 
 ### Recovery capacity F
 
-F is 212 for this bytecode, the deploy scripts' default (`DeployEtnaDevnet.DEFAULT_RECOVERY_CAPACITY`).
-`EtnaInboxRecoveryCapacityGasTest` runs the worst-case ordinary recovery through a
-`MainnetDAOController` that owns the Inbox: every slot held, F exclusions spread evenly over the
-4,096 bonds (every one a registered bond in its own slot without an exit, which maximizes the entries
-tree nodes written), one forced inclusion to clear and ruleset 1 installed over an all-zero slot 293. Counting the 21,000 intrinsic gas and the larger of EIP-7623's calldata floor and the standard
-calldata cost plus execution, 212 exclusions need 16,718,165 gas before refunds and 213 need
-16,787,608, above EIP-7825's 2^24 = 16,777,216. Because `init` requires K <= F, a deployment with
-F = 212 needs minStake >= floor(10^27 / 213) + 1 base units (about 4,694,836 TAIKO); the scripts
-default minStake to 4,700,000 TAIKO, K = 212. The governor or timelock that calls the controller
-adds its own overhead, which the 59,051 gas of headroom must cover; measure the deployed DAO path and
-re-establish F before an upgrade of this path or a change in the L1 gas schedule (START-10-18,
-section 12 item 10).
+F is 131 for this bytecode, the deploy scripts' default (`DeployEtnaDevnet.DEFAULT_RECOVERY_CAPACITY`).
+The worst-case ordinary recovery holds every slot, F exclusions spread evenly over the 4,096 bonds
+(every one a registered bond in its own slot without an exit, which maximizes the entries tree
+nodes written), one forced inclusion to clear and ruleset 1 installed over an all-zero slot 293.
+`EtnaRecoveryDaoPathGas.t.sol` sends it on a mainnet fork (block 26,460,000; set `L1_FORK_URL`)
+through the live Aragon DAO, its optimistic token voting plugin, the Standard and Emergency
+Multisigs and `MainnetDAOController`, and bisects the smallest gas limit with which each top-level
+transaction succeeds. That limit is well above the gas the transaction uses: a call forwards at
+most 63/64 of the caller's gas (EIP-150), and the Inbox runs up to nine nested calls below the
+transaction. The costliest path is the Emergency Multisig's `execute`, which carries the actions in
+calldata, stores them in a plugin proposal and executes them in the same transaction: with a
+128-byte metadata URI, 131 exclusions need a gas limit of 16,694,489 (14,929,805 gas used before
+refunds), 82,727 below EIP-7825's 2^24 = 16,777,216, and 132 need 16,797,618. On the standard path,
+`createProposal` and the approval that forwards the proposal need 3,768,322 and 4,288,326, and the
+plugin's `execute` after the veto period and the timelock needs 12,809,783 (it would fit 181
+exclusions). The same recovery sent straight to the controller needs 11,596,041 (it would fit 202).
+Because `init` requires K <= F, a deployment with F = 131 needs minStake >= floor(10^27 / 132) + 1
+base units (about 7,575,758 TAIKO); the scripts default minStake to 7,600,000 TAIKO, K = 131. A
+recovery proposal's metadata URI must stay within 128 bytes. `EtnaInboxRecoveryCapacityGasTest` is
+the fast regression without a fork: the controller-only transaction at F must fit 2^24 less the
+extra gas the emergency path measured. Re-establish F before an upgrade of this path or of the DAO
+stack, or a change in the L1 gas schedule (START-10-18, section 12 item 10).
 
 `land`, `recover`, `invalidateRecoveryNonce`, `setOrigin`, `scheduleRules`, `scheduleStop`,
 `saveForcedInclusion` and `sweepProtocolFees` share one reentrancy lock and reject callbacks from
@@ -242,8 +252,8 @@ combination covering the required rulesets throughout (START-10.1-6c).
   TAIKO token no registry call can reach the Inbox, so this check never fires in practice.
 - The registry's `minStake` is the one stake threshold: registration, committee eligibility
   (COMM-4.3-3) and the config hash's fifth word all use it. The constructor requires `minStake`
-  above 10^27 / 4096 base units (STAKE-4.1-14a), and the deploy script defaults it to 4,700,000
-  TAIKO so that K <= F = 212.
+  above 10^27 / 4096 base units (STAKE-4.1-14a), and the deploy script defaults it to 7,600,000
+  TAIKO so that K <= F = 131.
 - `activationDelay`, `exitDelay` and `withdrawalDelay` are each in [1, 2^32), so an oversized
   delay cannot make every registration or exit request revert.
 - `maxBatchBlocks` is in [1, 12,951]. A landing of B blocks carries B − 1 leaves, and 12,951 is
@@ -286,8 +296,8 @@ L1 never decodes the statement's preimage.
 `script/layer1/etna/DeployEtnaDevnet.s.sol` deploys a new network in the owner-initialized order
 (the Inbox proxy on its bootstrap with the L1 SignalService, the registry, then the owner's
 `upgradeToAndCall` with `init`), with zero `unzenInbox` and `etnaForkTime` and the recovery
-capacity F (default 212, `RECOVERY_CAPACITY`); its NatSpec lists every environment variable. The
-registry's `REGISTRY_MIN_STAKE` defaults to 4,700,000 TAIKO, so that K = min(4096,
+capacity F (default 131, `RECOVERY_CAPACITY`); its NatSpec lists every environment variable. The
+registry's `REGISTRY_MIN_STAKE` defaults to 7,600,000 TAIKO, so that K = min(4096,
 floor(10^27 / minStake)) <= F as `init` requires. Run from `packages/protocol`:
 
 ```bash
@@ -425,6 +435,14 @@ python3 -m unittest discover -s ../../testdata/etna_vectors -p 'test_vectors.py'
 The full-capacity gas suites (`EtnaInboxRecoveryCapacityGasTest`, `EtnaInboxRecoverFullRegistryGasTest`,
 `EtnaStakingRegistryFullCap*`, `EtnaStakingRegistrySoleLastSlotWithdrawalGasTest`) prefill all
 4,096 slots and take longer than the rest.
+
+The DAO path capacity tests skip without an L1 archive RPC. With one they assert F and F + 1;
+the larger block gas limit also lets them log each transaction's exact required gas limit:
+
+```bash
+L1_FORK_URL=<l1 archive rpc> FOUNDRY_BLOCK_GAS_LIMIT=2000000000 FOUNDRY_PROFILE=layer1 \
+  forge test --match-path test/layer1/etna/EtnaRecoveryDaoPathGas.t.sol -vv
+```
 
 `testdata/etna_vectors/README.md` explains how to regenerate the vectors.
 

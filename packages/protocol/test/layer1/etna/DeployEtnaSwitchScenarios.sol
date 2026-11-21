@@ -48,8 +48,8 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
     uint48 private constant _LATER_FORK_TIME = 1_020_000;
     uint48 private constant _LATER_DEADLINE = 1_009_000;
     uint256 private constant _VALIDATOR_KEY = 0xC0A;
-    /// @dev Bounds K at the scripts' default recovery capacity F = 212 (START-10-14).
-    uint256 private constant _MIN_STAKE = 4_700_000 ether;
+    /// @dev Bounds K at the scripts' default recovery capacity F = 131 (START-10-14).
+    uint256 private constant _MIN_STAKE = 7_600_000 ether;
     uint256 private constant _EPOCH_LEN = 5;
     bytes32 private constant _COMMITTEE_RECORD_HASH = bytes32(uint256(123));
 

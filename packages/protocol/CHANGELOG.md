@@ -24,9 +24,10 @@
 - Etna (BREAKING): `land` rejects an `activeCommitteeSnapshot` below the stored one before proof
   verification. `init` reads the registry's `minStake()` (new in `IEtnaStakingRegistry`) for the
   committee config hash's fifth word and requires `minStake >= vp_unit` and K = min(4096,
-  floor(10^27 / minStake)) <= F, the new `Config.recoveryCapacity` (212 for this bytecode, measured
-  by `EtnaInboxRecoveryCapacityGasTest`); `CommitteeConfig.sMin` and `ETNA_S_MIN` are removed and
-  the devnet default minimum stake is 4,700,000 TAIKO.
+  floor(10^27 / minStake)) <= F, the new `Config.recoveryCapacity` (131 for this bytecode, the
+  largest count whose recovery fits 2^24 on the DAO's costliest path, the Emergency Multisig's
+  `execute`, measured on a mainnet fork by `EtnaRecoveryDaoPathGas.t.sol`); `CommitteeConfig.sMin`
+  and `ETNA_S_MIN` are removed and the devnet default minimum stake is 7,600,000 TAIKO.
 - Etna (BREAKING): `recover` takes `uint256[] exclusions`, strictly increasing issued bond ids
   (`IEtnaInbox.Exclusion` and the entry keys in `Recovered` are removed); `scheduleRules` and
   `scheduleStop` take `expectedGeneration` first; the registry's `forfeit(bondId, incidentId,

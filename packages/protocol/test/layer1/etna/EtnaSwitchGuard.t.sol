@@ -236,7 +236,7 @@ contract EtnaSwitchGuardTest is InboxTestBase {
                 protocolFeeRecipient: Emma,
                 unzenInbox: _unzenInbox,
                 etnaForkTime: _forkTime,
-                recoveryCapacity: 212
+                recoveryCapacity: 131
             })
         );
     }

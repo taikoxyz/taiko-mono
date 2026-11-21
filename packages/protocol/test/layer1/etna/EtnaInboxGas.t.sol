@@ -274,22 +274,211 @@ contract EtnaInboxRecoverFullRegistryGasTest is EtnaInboxFullRegistryGasBase {
     }
 }
 
-/// @title EtnaInboxRecoveryCapacityGasTest
-/// @notice START-10-18: the worst-case ordinary `recover` with F exclusions, every one a real
-/// registered bond holding a slot and without an exit, one forced inclusion to clear and ruleset 1
-/// installed over an all-zero slot 293 (a zero-to-nonzero write), executed by the DAO's
-/// `MainnetDAOController` that owns the Inbox, fits EIP-7825's 2^24 per-transaction gas cap before
-/// refunds. The registry holds all 4,096 slots, so every path through the entries
-/// tree has 13 levels, and the excluded bonds are spread evenly across the slots, which maximizes
-/// the tree nodes the exclusions write. The transaction's cost is its intrinsic 21,000, plus the
-/// larger of EIP-7623's calldata floor (10 gas per token) and the standard calldata cost (4 gas
-/// per token) plus the measured execution of `execute`, which runs cold and includes the cold
-/// access to the controller that a real transaction prepays. F is the deploy scripts' default
-/// `DEFAULT_RECOVERY_CAPACITY`; F + 1 exclusions no longer fit, so F is the largest capacity this
-/// bytecode supports.
-contract EtnaInboxRecoveryCapacityGasTest is EtnaInboxFullRegistryGasBase {
+/// @title EtnaRecoveryCapacityGasBase
+/// @notice The START-10-18 capacity measurement shared by `EtnaInboxRecoveryCapacityGasTest` below
+/// and the mainnet-fork DAO path tests in `EtnaRecoveryDaoPathGas.t.sol`. The recovery is the
+/// worst-case ordinary `recover` at c = 6: exclusions that are all real registered bonds holding a
+/// slot and without an exit, spread evenly over the 4,096 slots, which maximizes the entries tree
+/// nodes they write (every path has 13 levels), one forced inclusion to clear, and ruleset 1
+/// installed over an all-zero slot 293 (a zero-to-nonzero write).
+/// @dev A transaction fits when it succeeds with EIP-7825's 2^24 gas limit. That limit must exceed
+/// the gas the transaction uses: a call forwards at most 63/64 of the caller's remaining gas
+/// (EIP-150), so every frame above the Inbox holds back 1/64 of what the frames below it still
+/// need. A probe runs the transaction's top-level call with exactly the execution budget a gas
+/// limit leaves after the intrinsic cost (21,000 plus 4 gas per calldata token), in a frame that
+/// then reverts, so it leaves no state change and no warm account or slot behind; every probe and
+/// the final send start cold, as a real transaction does, because `setUp` is a separate
+/// transaction. EIP-7623's floor (21,000 plus 10 gas per token) must also fit. Foundry's isolation
+/// mode, which runs a call as a real transaction, agrees at the controller-only boundary: 202
+/// exclusions succeed with a 2^24 gas limit and 203 do not, as the bisection finds. Bisecting the
+/// exact required gas limit takes about 26 probes of up to 2^25 gas each, more than the suite's
+/// 80M block gas limit, so it runs only with `FOUNDRY_BLOCK_GAS_LIMIT=2000000000`; the pass/fail
+/// checks need two transactions' worth and always run.
+abstract contract EtnaRecoveryCapacityGasBase is EtnaInboxFullRegistryGasBase {
     /// @dev EIP-7825's per-transaction gas cap.
-    uint256 private constant _TX_GAS_CAP = 2 ** 24;
+    uint256 internal constant TX_GAS_CAP = 2 ** 24;
+
+    /// @dev The gas the test needs left to bisect a gas limit.
+    uint256 private constant _BISECTION_GAS = 28 * 2 * TX_GAS_CAP;
+
+    /// @notice Calls `_to` with `_data` and exactly `_gas` as `_from`, then reverts with whether
+    /// the call succeeded.
+    /// @dev Called by this contract only. The revert undoes the call's state changes and warm
+    /// accesses.
+    function probeCall(
+        address _from,
+        address _to,
+        bytes calldata _data,
+        uint256 _gas
+    )
+        external
+    {
+        require(msg.sender == address(this), "self only");
+        vm.prank(_from);
+        (bool ok,) = _to.call{ gas: _gas }(_data);
+        bytes memory outcome = abi.encode(ok);
+        assembly ("memory-safe") {
+            revert(add(outcome, 32), mload(outcome))
+        }
+    }
+
+    /// @dev The default recovery capacity F of the deploy scripts.
+    function _F() internal returns (uint256) {
+        return new DeployEtnaDevnet().DEFAULT_RECOVERY_CAPACITY();
+    }
+
+    /// @dev `abi.encode` of the controller actions of the recovery with `_count` exclusions: the
+    /// bytes `MainnetDAOController.execute` takes.
+    function _recoveryActionData(uint256 _count) internal view returns (bytes memory) {
+        uint256[] memory exclusionList = new uint256[](_count);
+        for (uint256 i; i < _count; ++i) {
+            exclusionList[i] = i * CAPACITY / _count;
+            if (i != 0) require(exclusionList[i] > exclusionList[i - 1], "strictly increasing");
+        }
+        uint256[] memory blanks = new uint256[](1);
+        blanks[0] = 2;
+        Controller.Action[] memory actions = new Controller.Action[](1);
+        actions[0] = Controller.Action({
+            target: inboxProxy,
+            value: 0,
+            data: abi.encodeCall(
+                EtnaInbox.recover, (0, 6, 0, type(uint256).max, exclusionList, blanks, 1)
+            )
+        });
+        return abi.encode(actions);
+    }
+
+    /// @dev Whether the transaction from `_from` calling `_to` with `_data` succeeds with a
+    /// gas limit of `TX_GAS_CAP - _margin`.
+    function _fitsWithMargin(
+        address _from,
+        address _to,
+        bytes memory _data,
+        uint256 _margin
+    )
+        internal
+        returns (bool)
+    {
+        uint256 tokens = _tokens(_data);
+        if (21_000 + 10 * tokens + _margin > TX_GAS_CAP) return false;
+        return _succeeds(_from, _to, _data, TX_GAS_CAP - _margin - 21_000 - 4 * tokens);
+    }
+
+    /// @dev Logs the smallest gas limit with which the transaction succeeds and its distance from
+    /// 2^24, when the test has the gas to bisect it.
+    function _logRequiredGasLimit(
+        string memory _label,
+        address _from,
+        address _to,
+        bytes memory _data
+    )
+        internal
+    {
+        if (gasleft() < _BISECTION_GAS) {
+            emit log(string.concat(_label, ": exact gas limit needs FOUNDRY_BLOCK_GAS_LIMIT"));
+            return;
+        }
+        uint256 low;
+        uint256 high = 2 * TX_GAS_CAP;
+        require(_succeeds(_from, _to, _data, high), "fails with 2^25 gas");
+        while (high - low > 1) {
+            uint256 mid = (low + high) / 2;
+            if (_succeeds(_from, _to, _data, mid)) high = mid;
+            else low = mid;
+        }
+        uint256 gasLimit = _withIntrinsic(_data, high);
+        emit log_named_uint(string.concat(_label, "_gas_limit"), gasLimit);
+        if (gasLimit <= TX_GAS_CAP) {
+            emit log_named_uint(string.concat(_label, "_headroom"), TX_GAS_CAP - gasLimit);
+        } else {
+            emit log_named_uint(string.concat(_label, "_excess"), gasLimit - TX_GAS_CAP);
+        }
+    }
+
+    /// @dev Sends the transaction with a 2^24 gas limit, requires it to succeed and logs its gas
+    /// before refunds. The measured execution includes the 2,600 gas cold access to `_to` that a
+    /// real transaction prepays.
+    function _send(
+        string memory _label,
+        address _from,
+        address _to,
+        bytes memory _data
+    )
+        internal
+    {
+        uint256 budget = TX_GAS_CAP - 21_000 - 4 * _tokens(_data);
+        vm.prank(_from);
+        uint256 gasBefore = gasleft();
+        (bool ok,) = _to.call{ gas: budget }(_data);
+        uint256 execution = gasBefore - gasleft();
+        require(ok, "the transaction reverted");
+        emit log_named_uint(string.concat(_label, "_tx_gas"), _withIntrinsic(_data, execution));
+    }
+
+    /// @dev Checks the recovery with `_count` exclusions took effect.
+    function _assertRecovered(uint256 _count) internal view {
+        assertEq(_inbox().recoveryGeneration(), 1, "recovered");
+        uint256 last = (_count - 1) * CAPACITY / _count;
+        assertEq(registry.entryAt(last).exitEffectiveL1, block.number, "last bond forced out");
+        assertEq(_inbox().getForcedInclusion(2).txHash, keccak256(""), "blanked");
+    }
+
+    /// @dev Runs one probe of `probeCall`.
+    function _succeeds(
+        address _from,
+        address _to,
+        bytes memory _data,
+        uint256 _gas
+    )
+        private
+        returns (bool ok_)
+    {
+        try this.probeCall(_from, _to, _data, _gas) {
+            revert("probe returned");
+        } catch (bytes memory outcome) {
+            require(outcome.length == 32, "probe failed");
+            ok_ = abi.decode(outcome, (bool));
+        }
+    }
+
+    /// @dev The gas a transaction with calldata `_data` and `_execution` gas of execution is
+    /// charged before refunds: the intrinsic cost plus execution, or EIP-7623's floor.
+    function _withIntrinsic(
+        bytes memory _data,
+        uint256 _execution
+    )
+        private
+        pure
+        returns (uint256)
+    {
+        uint256 tokens = _tokens(_data);
+        uint256 standard = 21_000 + 4 * tokens + _execution;
+        uint256 floor = 21_000 + 10 * tokens;
+        return standard > floor ? standard : floor;
+    }
+
+    /// @dev EIP-7623 calldata tokens: one per zero byte, four per nonzero byte.
+    function _tokens(bytes memory _data) private pure returns (uint256 tokens_) {
+        for (uint256 i; i < _data.length; ++i) {
+            tokens_ += _data[i] == 0 ? 1 : 4;
+        }
+    }
+}
+
+/// @title EtnaInboxRecoveryCapacityGasTest
+/// @notice The capacity recovery sent straight to a `MainnetDAOController` that owns the Inbox: a
+/// fast regression without a fork. It is not the binding START-10-18 measurement. The DAO reaches
+/// the controller only through its Aragon plugins, whose extra frames, storage and calldata
+/// `EtnaRecoveryDaoPathGas.t.sol` measures on a mainnet fork, where F is the largest count that
+/// fits and F + 1 does not. This test requires the controller-only transaction at F to fit 2^24
+/// less the extra gas the costliest DAO path measured there, so a change to the Inbox or registry
+/// that would push the DAO path past the cap fails here too, to within the small part of that
+/// extra that scales with the call depth.
+contract EtnaInboxRecoveryCapacityGasTest is EtnaRecoveryCapacityGasBase {
+    /// @dev The gas limit the Emergency Multisig's `execute` of the recovery with F = 131
+    /// exclusions needs (16,694,489) less what the controller-only transaction needs (11,596,041),
+    /// measured at mainnet block 26,460,000.
+    uint256 private constant _DAO_PATH_EXTRA = 5_098_448;
 
     /// @dev The DAO executor that owns the Inbox.
     MainnetDAOController internal controller;
@@ -310,62 +499,18 @@ contract EtnaInboxRecoveryCapacityGasTest is EtnaInboxFullRegistryGasBase {
         _assertQueue(1, LEAN_FORCED_INCLUSIONS);
     }
 
-    function test_gas_RecoverAtRecoveryCapacityFitsTheTransactionCap() external {
-        uint256 txGas = _measureCapacity(_F());
-        emit log_named_uint("recover_at_capacity_tx_gas", txGas);
-        assertLe(txGas, _TX_GAS_CAP, "F exclusions and one blank fit 2^24");
-    }
-
-    function test_gas_RecoverAboveRecoveryCapacityExceedsTheTransactionCap() external {
-        uint256 txGas = _measureCapacity(_F() + 1);
-        emit log_named_uint("recover_above_capacity_tx_gas", txGas);
-        assertGt(txGas, _TX_GAS_CAP, "F + 1 exclusions do not fit 2^24");
-    }
-
-    /// @dev The default recovery capacity F of the deploy scripts.
-    function _F() private returns (uint256) {
-        return new DeployEtnaDevnet().DEFAULT_RECOVERY_CAPACITY();
-    }
-
-    /// @dev Has the controller execute `recover` at c = 6 with `_count` exclusions spread evenly
-    /// over the 4,096 bonds, queue entry 2 blanked and ruleset 1, and returns the transaction's gas
-    /// before refunds.
-    function _measureCapacity(uint256 _count) private returns (uint256 txGas_) {
-        uint256[] memory exclusionList = new uint256[](_count);
-        for (uint256 i; i < _count; ++i) {
-            exclusionList[i] = i * CAPACITY / _count;
-            if (i != 0) assertGt(exclusionList[i], exclusionList[i - 1], "strictly increasing");
-        }
-        uint256[] memory blanks = new uint256[](1);
-        blanks[0] = 2;
-        Controller.Action[] memory actions = new Controller.Action[](1);
-        actions[0] = Controller.Action({
-            target: inboxProxy,
-            value: 0,
-            data: abi.encodeCall(
-                EtnaInbox.recover, (0, 6, 0, type(uint256).max, exclusionList, blanks, 1)
-            )
-        });
-        bytes memory actionData = abi.encode(actions);
-        bytes memory txData = abi.encodeCall(MainnetDAOController.execute, (actionData));
-        MainnetDAOController target = controller;
-
-        uint256 gasBefore = gasleft();
-        target.execute(actionData);
-        uint256 execution = gasBefore - gasleft();
-
-        uint256 tokens;
-        for (uint256 i; i < txData.length; ++i) {
-            tokens += txData[i] == 0 ? 1 : 4;
-        }
-        uint256 standard = 4 * tokens + execution;
-        uint256 floor = 10 * tokens;
-        txGas_ = 21_000 + (standard > floor ? standard : floor);
-
-        assertEq(_inbox().recoveryGeneration(), 1, "recovered");
-        uint256 last = exclusionList[_count - 1];
-        assertEq(registry.entryAt(last).exitEffectiveL1, block.number, "last bond forced out");
-        assertEq(_inbox().getForcedInclusion(2).txHash, keccak256(""), "blanked");
+    function test_gas_RecoverAtRecoveryCapacityThroughTheController() external {
+        uint256 count = _F();
+        bytes memory txData =
+            abi.encodeCall(MainnetDAOController.execute, (_recoveryActionData(count)));
+        address target = address(controller);
+        _logRequiredGasLimit("controller_at_capacity", address(this), target, txData);
+        assertTrue(
+            _fitsWithMargin(address(this), target, txData, _DAO_PATH_EXTRA),
+            "fits 2^24 with the DAO path's extra gas"
+        );
+        _send("controller_at_capacity", address(this), target, txData);
+        _assertRecovered(count);
     }
 }
 
