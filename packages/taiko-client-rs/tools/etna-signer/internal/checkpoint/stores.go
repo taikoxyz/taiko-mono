@@ -372,10 +372,11 @@ func fullSetHeight(height, lastChanged int64) bool {
 	return height == lastChanged || height%100000 == 0
 }
 
-// validatorsKey and blockCommitKey are the pinned stock keys of state/store.go and
-// store/store.go.
+// validatorsKey, blockCommitKey and seenCommitKey are the pinned stock keys of state/store.go
+// and store/store.go.
 func validatorsKey(height int64) []byte  { return []byte(fmt.Sprintf("validatorsKey:%d", height)) }
 func blockCommitKey(height int64) []byte { return []byte(fmt.Sprintf("C:%d", height)) }
+func seenCommitKey(height int64) []byte  { return []byte(fmt.Sprintf("SC:%d", height)) }
 
 func openReadOnly(home, name string) (*dbm.GoLevelDB, error) {
 	return dbm.NewGoLevelDBWithOpts(name, filepath.Join(home, "data"), &opt.Options{ReadOnly: true, ErrorIfMissing: true})

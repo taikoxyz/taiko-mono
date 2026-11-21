@@ -97,7 +97,7 @@ taiko-client abci-import import --l1.http http://127.0.0.1:8545 --l2.chain-id 16
 ```
 
 - `--el-chain` is the operator-selected EL chain JSON of the **original deployment**, including when Etna starts at a nonzero S or the selected generation is a recovery. The helper derives the original block-zero identity from this configuration; the Inbox's start hash H\* identifies the block at S separately.
-- `--comet-config` is the stock `config.toml`. It is copied verbatim to `ready/comet/config/config.toml`. Its `db_backend` must be absent or `goleveldb`. Set listeners, peers and any `priv_validator_laddr` here.
+- `--comet-config` is the stock `config.toml`. It is copied verbatim to `ready/comet/config/config.toml`. Its `db_backend` must be absent or `goleveldb` and its `db_dir` absent or `data`, the stock default: the imported stores are goleveldb databases in `<home>/data`. Set listeners, peers and any `priv_validator_laddr` here.
 - No input may lie inside `--root`.
 
 `--root` is dedicated to this import: every run replaces `ROOT/stage`. Run `import` as root or as the owner of ROOT, which it must chmod when it publishes; another user fails only at that last step. `import` creates ROOT and any missing parent with mode 0700, so create the parents yourself first, searchable by the Comet UID (see Run the imported node). It then runs these steps:

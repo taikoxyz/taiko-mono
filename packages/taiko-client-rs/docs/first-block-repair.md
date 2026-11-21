@@ -29,7 +29,8 @@ never runs consensus or signs, and the official executable starts only on the re
 2. Start the EL and the app (`taiko-client abci`) as usual. The app aligns its EL with its own
    committed boundary, the generation origin or the first block if its Commit completed, before
    it opens the ABCI socket.
-3. Run, on the stopped home (goleveldb stores at the default `db_dir`, `data/`):
+3. Run, on the stopped home (goleveldb stores at the default `db_dir`, `data/`; the repair reads
+   `config/config.toml` and refuses another `db_backend` or `db_dir`):
 
    ```sh
    etna-comet-import repair-first-block --home /var/lib/etna/comet-g1 \
@@ -37,23 +38,27 @@ never runs consensus or signs, and the official executable starts only on the re
    ```
 
    It refuses a home whose stores CometBFT holds open, an existing backup path and one inside
-   `data/`. It copies `data/` to `--backup` and syncs the copy, then writes a fresh store
-   instance ID (`data/etna-store-instance`), so the signer fences through the last height its
-   key signed until a committed chain covers it (RECOV-8.2-2). It reads the first block and its
+   `data/`. It copies `data/` to `--backup` and syncs the copy. It reads the first block and its
    seen commit from the block store and checks them against the home's fixed genesis: the
    chain_id and height, an empty evidence list, and a commit holding more than 2/3 of the
-   genesis committee's power for the block's full BlockID (block hash and part set). It then
-   asks the app for its committed boundary and applies the block as the stock handshake would
-   have had its height check used `initial_height`: with the app at 0, InitChain from the
-   genesis and stock `ApplyBlock`, so the app runs FinalizeBlock and Commit and executes the
-   block on its EL; with the app already at the first height, stock's replay of the
-   FinalizeBlock response the state store kept, which must carry the app's own app hash. If the
-   state store kept a response, a new FinalizeBlock result must equal it. Stock code saves the
-   response and the state; the block store, its seen commit and the WAL stay as they are. It
-   finally reads back the state, the block store and the app's Info at the first height, and
-   prints one JSON line naming the height, the BlockID, the app hash, `"source"` (`local` or
-   `peer`), `"applied"` (`executed`, `replayed` or `already_repaired`), the backup and the new
-   store instance ID.
+   genesis committee's power for the block's full BlockID (block hash and part set). If the
+   stored seen commit does not certify the block, it stops unless `--peer-export` holds the same
+   block with a commit that does (see [Committee-wide crash](#committee-wide-crash)). It then
+   asks the app for its committed boundary and, before it writes anything, refuses an app at
+   another height and an app at the first height whose kept FinalizeBlock response is missing or
+   carries another app hash. Only then does it write: first a fresh store instance ID
+   (`data/etna-store-instance`), so the signer fences through the last height its key signed
+   until a committed chain covers it (RECOV-8.2-2); then a peer's commit, if it needs one, as
+   the seen commit; and then the block is applied as the stock handshake would have had its height
+   check used `initial_height`: with the app at 0, InitChain from the genesis and stock
+   `ApplyBlock`, so the app runs FinalizeBlock and Commit and executes the block on its EL; with
+   the app already at the first height, stock's replay of the kept response. If the state store
+   kept a response, a new FinalizeBlock result must equal it. Stock code saves the response and
+   the state; the WAL stays as it is. It finally reads back the state, the block store (the
+   block and a seen commit that certifies it) and the app's Info at the first height, and prints
+   one JSON line naming the height, the BlockID, the app hash, `"source"` (`local`, `peer` or
+   `peer_commit`), `"applied"` (`executed`, `replayed` or `already_repaired`), the backup and the
+   new store instance ID (empty when the run changed nothing).
 
 4. Start the supervisor. Comet's handshake finds its state, its block store and the app at the
    first height and resumes stock operation from the next one.
@@ -62,9 +67,13 @@ Exit 2 is an authenticated contradiction: a peer's certified first block that di
 stored one, an app hash that differs from the kept response, a FinalizeBlock result that
 differs from the kept one, or an app at another height. Stop and investigate; keep the signers
 fenced and every store. Exit 1 is any other failure, such as a commit that does not certify the
-block, a missing kept response or an unreachable app; the stores are as stock left them (the
-backup and the new instance ID aside), so fix the cause and rerun with a new `--backup` path.
-A rerun after success only checks (`already_repaired`).
+block, a missing kept response or an unreachable app. A refusal leaves the stores and their
+store instance ID as stock left them (the backup aside); a failure after the first write, such as an app
+that stops during InitChain or Commit, leaves the certified block and its certificate in the
+block store, and stock's write order tells the rerun whether to execute or replay the block. Fix
+the cause and rerun with a new `--backup` path. A rerun after the state was saved only checks
+(`already_repaired`) and keeps the store instance ID; given a peer export, it also replaces a
+seen commit that does not certify the block, under a fresh ID.
 
 ## Committee-wide crash
 
@@ -81,7 +90,9 @@ The export is one `blocks.jsonl` line (the original block, its own-height commit
 keys and powers), and only a block the genesis committee certified is exported. Give the same
 file to every affected node. A node whose block store is empty installs exactly that block with
 `repair-first-block ... --peer-export first-block.json`. A node that holds a block may pass the
-export too: the repair refuses one that differs from its own (exit 2). Restart the validators
+export too: the repair refuses one that differs from its own (exit 2), and when the node's own
+seen commit does not certify its block, it installs the export's commit as the seen commit
+(`"source": "peer_commit"`). Restart the validators
 only after enough of them, with more than 2/3 of the power, hold the block and its state. If no node retained the block and a
 certificate for it, keep the signers fenced: the height cannot be decided again, and the
 chain proceeds only through another governance recovery (spec section 8).

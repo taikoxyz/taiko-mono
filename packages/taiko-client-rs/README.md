@@ -152,13 +152,19 @@ the upgraded node can confirm on replay:
 
 1. With the supervisor running, and the same environment, run
    `python3 script/etna_validator.py stop-on-precommit` (`--timeout S`, 600 s by default). It writes
-   `stop-on-precommit` into the supervisor's run directory. The supervisor arms the signer through
-   its channel: the signer keeps signing prevotes, persists and returns its next precommit (nil or
-   block) as its last signature and then refuses every later request; if its last signature
-   already is a precommit, the gate closes at once under the same signing lock. Once the signer
-   reports the closing precommit, the supervisor waits 2 s for Comet to record and send it, stops
-   Comet and then the signer, writes the outcome to `stop-on-precommit.done` and stays alive and
-   quiescent (`etna_supervisor_stopped_for_upgrade`). The command prints that outcome, for example
+   `stop-on-precommit` into the supervisor's run directory. The supervisor arms the signer only if
+   step 3 can confirm the precommit it stops on: the log observer follows the running Comet
+   (`log_format = "json"`, below), the stores are goleveldb, and the signer's last signature
+   carries a replay binding (its predecessor's `#ENDHEIGHT` marker and block hash were known).
+   Otherwise it writes `{"stopped": false, "refused": "<reason>"}`, withdraws the request, arms
+   nothing and keeps the pair running, and the command prints the reason and exits 1: fix the
+   cause and run it again. Armed, the signer keeps signing prevotes, persists and returns its next
+   precommit (nil or block) that carries a replay binding as its last signature and then refuses
+   every later request; if its last signature already is such a precommit, the gate closes at
+   once under the same signing lock. A precommit without a binding does not close it. Once the
+   signer reports the closing precommit, the supervisor waits 2 s for Comet to record and send it,
+   stops Comet and then the signer, writes the outcome to `stop-on-precommit.done` and stays alive
+   and quiescent (`etna_supervisor_stopped_for_upgrade`). The command prints that outcome, for example
    `{"stopped": true, "height": 1205, "round": 3}`, and exits 0; on its timeout it exits 1 and the
    stop stays armed until the supervisor restarts.
 2. Stop the supervisor, install the upgraded app, signer and supervisor, and start them again
@@ -613,7 +619,10 @@ or config opening differs.
    evaluated exactly is refused, and so are a `CMTHOME`/`TMHOME` that would move Comet off
    `ETNA_COMET_HOME` and an explicit Comet argv (`ETNA_COMET_COMMAND_JSON`) that sets any of these
    settings, `db_dir`, `db_backend`, `node_key_file` or `priv_validator_laddr` by flag. Keep the
-   values in `config.toml`.
+   values in `config.toml`. The supervisor reads `config.toml` and `genesis.json` again and repeats
+   every check before each Comet start, not only when it starts, since Comet reads its files
+   afresh each time; a start that fails a check stops the supervisor (exit 1, naming the setting)
+   before any child of that start runs, so signing stays closed until the operator fixes it.
 
 4. **Start alethia-reth** with Etna active and the agreed L2 genesis allocation (devnet example):
 
@@ -682,10 +691,12 @@ committing those values to the Inbox.
    (`log_level = "info"`, the stock default, or for example `consensus:info,*:error`) and use
    goleveldb stores. The supervisor then gives Comet's stdout a pipe it owns and forwards every
    line to its own stdout, and before every start runs `etna-signer wal-preflight` and
-   `comet-head` as the Comet UID against the stopped stores and WAL. With another log
-   configuration it reports `etna_supervisor_log_observer_disabled` at startup and every restart
-   fences the last signed height: a restart of every validator at the same undecided height then
-   stalls that height until governance recovery.
+   `comet-head` as the Comet UID against the stopped stores and WAL. It checks these settings,
+   with their `CMT_*` and argv overrides, again before every Comet start (START-10-6). A start
+   with another log configuration reports `etna_supervisor_log_observer_disabled` with the failed
+   setting and keeps observer-dependent signing closed: that restart fences the last signed
+   height, and `stop-on-precommit` refuses to arm. A restart of every validator at the same
+   undecided height then stalls that height until governance recovery.
 
    The host supervisor requires Bash and Python 3.11+ (`tomllib`); the production image
    includes Python, the signer, this supervisor and stock Comet v0.40.0 (source
@@ -698,7 +709,11 @@ committing those values to the Inbox.
    `cometbft/cometbft:v0.40.0@sha256:0703fb88…` (platform manifest `sha256:53421974…`) and checks
    its sha256 `5fbb1bf5…`; the supervisor checks the digest again before every Comet start, since
    a reported version string alone does not identify the build (the official executable also
-   reports `0.39.0+0880b4d`). Upstream published no arm64 executable for v0.40.0: the GitHub
+   reports `0.39.0+0880b4d`). It copies the executable into a sealed memfd, hashing the bytes as
+   it copies them, and execs that copy (`/proc/self/fd/<n>`), so the bytes it hashed are the bytes
+   that run: a later write to the file or a rename over its path cannot reach them. This needs
+   Linux with an executable memfd (`vm.memfd_noexec` below 2); the copy, about 40 MB for the
+   official executable, stays in memory while that Comet runs. Upstream published no arm64 executable for v0.40.0: the GitHub
    release has no assets, and the official linux/arm64 image holds the same x86-64 executable.
    The arm64 image therefore keeps an unmodified source build only for development, and the
    supervisor refuses to start a validator on linux/arm64, naming that reason. `ETNA_COMET_MANIFEST`
@@ -734,9 +749,10 @@ committing those values to the Inbox.
    unregistered local identity, through `python3 /app/script/start_etna_full_node.py` with
    `ETNA_COMET_HOME` set. That launcher refuses a `priv_validator_laddr`, holds a writer lease
    beside the home and makes the supervisor's two pre-start checks (`script/etna_comet_guard.py`)
-   before it execs Comet: the executable's sha256 must be the one the deployment manifest pins
-   (CONS-3.1-1), and the pending-evidence store below is deleted (CONS-3.1-10). It execs the
-   exact file it hashed.
+   before it execs Comet, after it reads and checks `config.toml` under that lease: the
+   executable's sha256 must be the one the deployment manifest pins (CONS-3.1-1), and the
+   pending-evidence store below is deleted (CONS-3.1-10). It execs the sealed copy it hashed,
+   as the supervisor does.
 
    Every time it starts Comet, with Comet stopped, the supervisor (and the full-node launcher,
    under its writer lease) deletes the node's pending-evidence store, `<db_dir>/evidence.db` (stock goleveldb or pebbledb; `data/evidence.db`

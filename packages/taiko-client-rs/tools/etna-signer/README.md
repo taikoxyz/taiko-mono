@@ -384,13 +384,18 @@ recovery install and restore therefore never reset or lower the signer's state (
 ### Stop on a precommit for a planned upgrade
 
 For a planned ruleset upgrade during a pause at an undecided height (START-10.1-14b), the operator
-runs `etna_validator.py stop-on-precommit` (package README). The signer learns that the stop is
-armed on its next request and from a poll every 250 ms. Under its signing lock it then keeps
-signing until a precommit, nil or block, which it persists and returns as its last signature and
-after which it refuses every request, its own retry included; when its last signature already is
-a precommit it closes at once. It reports the closing precommit (`stopped`), and only then does
-the supervisor stop Comet. After the upgrade, the restarted pair confirms that precommit under
-Same-height replay before it signs anything higher at that height.
+runs `etna_validator.py stop-on-precommit` (package README). The supervisor arms the stop only if
+the restarted pair could confirm the precommit under Same-height replay: the log observer follows
+the running Comet, the stores are goleveldb, and the signer's last signature carries a replay
+binding; otherwise the command reports the reason and nothing is armed. The signer learns that
+the stop is armed on its next request and from a poll every 250 ms. Under its signing lock it then
+keeps signing until a precommit, nil or block, that carries a replay binding, which it persists
+and returns as its last signature and after which it refuses every request, its own retry
+included; when its last signature already is such a precommit it closes at once. A precommit
+whose binding is `null` leaves the gate open (`signer_stop_deferred`): a restart would fence its
+height. It reports the closing precommit (`stopped`), and only then does the supervisor stop
+Comet. After the upgrade, the restarted pair confirms that precommit under Same-height replay
+before it signs anything higher at that height.
 
 ### Same-height replay
 
@@ -441,9 +446,10 @@ every request at H the signer asks `observe`, which consumes every record alread
 process); `Replay: Done` ends it; the WAL corruption and repair records, `error on catchup replay;
 proceeding to start state anyway` and `CONSENSUS FAILURE!!!` cancel it and taint the process. The
 records exist only when stock replays its WAL, which it skips after block or state sync, so an
-open attempt also shows that this start synced nothing. Any other configuration is reported once
-at startup (`etna_supervisor_log_observer_disabled: ...`) and keeps the observer off: every
-restart then fences H (START-10-6).
+open attempt also shows that this start synced nothing. The supervisor checks these settings again
+before every Comet start; any other configuration is reported at that start
+(`etna_supervisor_log_observer_disabled: ...`, naming the failed setting) and keeps the observer
+off for it: that restart fences H and the stop on a precommit is refused (START-10-6).
 
 **Admission.** In a replay session at H, inside the open attempt for H:
 

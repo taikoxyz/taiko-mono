@@ -2,17 +2,21 @@
 
 The official executable only (CONS-3.1-1): the deployment manifest (comet-manifest.json beside
 script/, or ETNA_COMET_MANIFEST) pins the executable's sha256 for each supported platform, and a
-reported version string alone does not identify the build. A launcher hashes the executable it
-is about to exec and refuses any other.
+reported version string alone does not identify the build. A launcher copies the executable into
+a sealed memfd, hashing the bytes it copies, refuses any other digest and execs that memfd, so the
+bytes it hashed are the bytes that start: no rename over the path or write to the file in between
+reaches them.
 
 An empty pending-evidence store at every start (CONS-3.1-10, LIMIT-12-22): no block commits
 evidence, so the stock pool is bounded only by expiry, and neither age limit advances while no
 block commits. With CometBFT stopped, the launcher deletes <db_dir>/evidence.db and nothing
 else; the WAL, block, state, app/EL and signer stores stay.
 
-start_etna_full_node.py loads this module by path; the validator supervisor keeps its own copy
-of the same checks.
+start_etna_full_node.py and the validator supervisor (etna_validator.py) load this module by
+path.
 """
+import errno
+import fcntl
 import hashlib
 import json
 import os
@@ -31,6 +35,12 @@ COMET_SOURCE_COMMIT = "0880b4d378f347ab16e54ec677ff50d803f37d62"
 COMET_DB_BACKENDS = ("goleveldb", "pebbledb")
 # Settings read here, by Viper path, with their stock defaults.
 READ_SETTINGS = {"db_dir": "data", "db_backend": "goleveldb"}
+# memfd_create's MFD_EXEC (Linux 6.3), which keeps a memfd executable under vm.memfd_noexec = 1;
+# older kernels refuse the flag, and their memfds are executable.
+MFD_EXEC = getattr(os, "MFD_EXEC", 0x10)
+# The seals that freeze a memfd's contents for good.
+EXECUTABLE_SEALS = (getattr(fcntl, "F_SEAL_SEAL", 0) | getattr(fcntl, "F_SEAL_SHRINK", 0)
+                    | getattr(fcntl, "F_SEAL_GROW", 0) | getattr(fcntl, "F_SEAL_WRITE", 0))
 
 
 def comet_platform():
@@ -62,10 +72,29 @@ def load_manifest():
     return manifest
 
 
-def check_comet_executable(manifest, name):
-    """The resolved path of executable `name` (a path, or a name looked up on PATH) when its
-    digest is the one the manifest pins for this platform; anything else is refused. The caller
-    execs exactly the returned path, so the file hashed is the file started."""
+def executable_path(descriptor):
+    """The path that execs the open file `descriptor` itself, never a name resolved again."""
+    return f"/proc/self/fd/{descriptor}"
+
+
+def sealed_memfd():
+    """A fresh close-on-exec memfd that can be sealed and executed."""
+    flags = os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING
+    try:
+        return os.memfd_create("cometbft", flags | MFD_EXEC)
+    except OSError as error:
+        if error.errno != errno.EINVAL:
+            raise
+        return os.memfd_create("cometbft", flags)
+
+
+def sealed_comet_executable(manifest, name):
+    """An open, sealed in-memory copy of executable `name` (a path, or a name looked up on PATH)
+    whose digest is the one the manifest pins for this platform; anything else is refused. The
+    copy is hashed as it is written and sealed against writes, shrinking and growth before the
+    digest is compared, and the caller execs it through executable_path, passing the descriptor
+    to the child: the bytes hashed are exactly the bytes started. Needs Linux memfd_create, the
+    only platform the manifest supports, and an executable memfd (vm.memfd_noexec below 2)."""
     platform = comet_platform()
     entry = manifest["platforms"].get(platform)
     if not isinstance(entry, dict) or not isinstance(entry.get("sha256"), str) or len(entry["sha256"]) != 64:
@@ -75,11 +104,32 @@ def check_comet_executable(manifest, name):
     if found is None:
         raise ValueError(f"CometBFT executable {name} not found")
     executable = Path(found).resolve(strict=True)
-    digest = sha256_file(executable)
-    if digest != entry["sha256"]:
-        raise ValueError(f"CometBFT executable {executable} has sha256 {digest}, not the {platform} digest "
-                         f"{entry['sha256']} the deployment manifest pins (CONS-3.1-1)")
-    return executable
+    if not hasattr(os, "memfd_create") or not EXECUTABLE_SEALS:
+        raise ValueError(f"starting exactly the hashed CometBFT executable needs Linux memfd_create and sealing, "
+                         f"not available on {platform} (CONS-3.1-1)")
+    source = os.open(executable, os.O_RDONLY | os.O_CLOEXEC)
+    try:
+        if not stat.S_ISREG(os.fstat(source).st_mode):
+            raise ValueError(f"CometBFT executable {executable} is not a regular file")
+        sealed = sealed_memfd()
+        try:
+            digest = hashlib.sha256()
+            while chunk := os.read(source, 1 << 20):
+                digest.update(chunk)
+                view = memoryview(chunk)
+                while view:
+                    view = view[os.write(sealed, view):]
+            fcntl.fcntl(sealed, fcntl.F_ADD_SEALS, EXECUTABLE_SEALS)
+        except BaseException:
+            os.close(sealed)
+            raise
+    finally:
+        os.close(source)
+    if digest.hexdigest() != entry["sha256"]:
+        os.close(sealed)
+        raise ValueError(f"CometBFT executable {executable} has sha256 {digest.hexdigest()}, not the {platform} "
+                         f"digest {entry['sha256']} the deployment manifest pins (CONS-3.1-1)")
+    return sealed
 
 
 def config_values(config):

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Start stock Comet as a full node (sentries included), retaining its writer lease across exec.
 
-An imported store starts like any other. Before every start, holding the writer lease and so
-with no Comet running on the home, the launcher checks the executable's digest against the
-deployment manifest (CONS-3.1-1) and deletes the pending-evidence store, and nothing else
-(CONS-3.1-10, LIMIT-12-22), as the validator supervisor does (etna_comet_guard.py).
+An imported store starts like any other. Every start is one run of this launcher: holding the
+writer lease, and so with no Comet running on the home, it reads and checks the Comet config,
+copies the executable into a sealed memfd whose digest must be the one the deployment manifest
+pins (CONS-3.1-1), deletes the pending-evidence store, and nothing else (CONS-3.1-10,
+LIMIT-12-22), and execs exactly that memfd, as the validator supervisor does
+(etna_comet_guard.py).
 """
 import fcntl
 import importlib.util
@@ -51,10 +53,6 @@ def main():
     guard = comet_guard()
     identity = comet_identity()
     home = Path(os.environ["ETNA_COMET_HOME"]).resolve(strict=True)
-    config = tomllib.loads((home / "config/config.toml").read_text())
-    if config.get("priv_validator_laddr", ""):
-        raise ValueError("full-node startup refuses validator configuration")
-    evidence = guard.evidence_store(home, guard.config_values(config))
     manifest = guard.load_manifest()
     parent = home.parent.stat()
     if parent.st_mode & 0o022 or parent.st_uid not in (0, os.geteuid()):
@@ -67,13 +65,20 @@ def main():
         raise ValueError("invalid full-node writer lease")
     fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     os.set_inheritable(fd, True)
-    # The lease is held: no Comet this launcher started runs on the home.
+    # The lease is held: no Comet this launcher started runs on the home. Everything Comet reads
+    # at start is checked now, right before the exec.
+    config = tomllib.loads((home / "config/config.toml").read_text())
+    if config.get("priv_validator_laddr", ""):
+        raise ValueError("full-node startup refuses validator configuration")
+    evidence = guard.evidence_store(home, guard.config_values(config))
     binary = os.environ.get("ETNA_COMET_BIN", "cometbft")
-    executable = guard.check_comet_executable(manifest, binary)
+    executable = guard.sealed_comet_executable(manifest, binary)
     guard.remove_pending_evidence(evidence, "etna_full_node")
     assume_comet_identity(*identity)
     os.chdir(home)
-    os.execv(executable, [binary, "start", "--home", str(home)])
+    # Comet inherits the sealed copy it runs from, as an interpreter would need for a script.
+    os.set_inheritable(executable, True)
+    os.execv(guard.executable_path(executable), [binary, "start", "--home", str(home)])
 
 
 if __name__ == "__main__":

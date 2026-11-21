@@ -3,6 +3,7 @@ module github.com/taikoxyz/taiko-mono/packages/taiko-client-rs/tools/etna-signer
 go 1.27.2
 
 require (
+	github.com/BurntSushi/toml v1.6.0
 	github.com/cometbft/cometbft v0.40.0
 	github.com/cometbft/cometbft-db v0.14.1
 	github.com/libp2p/go-libp2p v0.47.0

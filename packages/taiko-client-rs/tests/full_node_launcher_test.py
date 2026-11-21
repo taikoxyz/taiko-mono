@@ -114,6 +114,32 @@ class FullNodeLauncherTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("CometBFT executable cometbft not found", proc.stderr)
 
+    def test_the_sealed_copy_is_the_one_executed(self):
+        """The executable is copied into a sealed memfd as it is hashed, and the copy is what
+        runs: a write to the file in place, or another file renamed over its path, after the
+        check reaches neither, and the copy refuses every write (CONS-3.1-1)."""
+        guard = guard_module()
+        sealed = guard.sealed_comet_executable(json.loads(self.manifest.read_text()), str(self.stub))
+        try:
+            self.stub.write_text(self.stub.read_text().replace("printf", "echo rewritten >> /dev/null; printf"))
+            replacement = self.stub.with_name("replacement")
+            replacement.write_text(f'#!/bin/sh\necho substituted >> "{self.starts}"\n')
+            replacement.chmod(0o700)
+            os.replace(replacement, self.stub)
+            with self.assertRaises(PermissionError):
+                os.write(sealed, b"#")
+            self.assertEqual(fcntl.fcntl(sealed, fcntl.F_GET_SEALS) & guard.EXECUTABLE_SEALS, guard.EXECUTABLE_SEALS)
+            subprocess.run(["cometbft", "start", "--home", str(self.home)], executable=guard.executable_path(sealed),
+                           pass_fds=(sealed,), check=True, timeout=30)
+        finally:
+            os.close(sealed)
+        self.assertEqual(self.started(), [f"absent start --home {self.home}"])
+        # A file whose digest is not the pinned one is refused, and no copy of it is left open.
+        before = len(os.listdir("/proc/self/fd"))
+        with self.assertRaisesRegex(ValueError, "the deployment manifest pins"):
+            guard.sealed_comet_executable(json.loads(self.manifest.read_text()), str(self.stub))
+        self.assertEqual(len(os.listdir("/proc/self/fd")), before)
+
     def test_pending_evidence_store_is_deleted_before_every_start(self):
         """With no Comet on the home, every start deletes <db_dir>/evidence.db and nothing else:
         the WAL, block and state stores and their neighbours stay (CONS-3.1-10 vectors 10.f/10.g)."""

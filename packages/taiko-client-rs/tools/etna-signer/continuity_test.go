@@ -821,16 +821,55 @@ func TestReplaySessionNeedsTheSavedBinding(t *testing.T) {
 	})
 }
 
-// armedSession is a session whose supervisor has armed the stop on a precommit and records the
-// signer's stop reports.
+// armedSession is a session whose supervisor has armed the stop on a precommit, records the
+// signer's stop reports and computes live replay bindings, so the precommits it signs can be
+// confirmed by same-height replay.
 func armedSession(t *testing.T, signer *guardedPV, eligible *atomic.Uint64) (*session, *stopLog) {
 	t.Helper()
 	s := sessionFor(t, signer, testComet(), eligible)
 	stops := &stopLog{}
-	reporter := reporting(testComet())
+	reporter := bound(testComet())
 	reporter.armed, reporter.stops = true, stops
 	s.g.supervisor = reporter
 	return s, stops
+}
+
+// bound is a supervisor that reports proc and the live replay binding testBinding(40).
+func bound(proc cometProcess) staticReporter {
+	reporter := reporting(proc)
+	binding := testBinding(40)
+	reporter.binding = &binding
+	return reporter
+}
+
+// An armed stop closes only after a precommit that same-height replay can confirm after the
+// upgrade (RECOV-8.2-2): a precommit signed while the supervisor cannot compute its replay
+// binding, as the last signature at arming or a fresh one, leaves the gate open, and the next
+// precommit that carries a binding closes it.
+func TestStopOnPrecommitWaitsForAReplayablePrecommit(t *testing.T) {
+	signer, key, state := filePV(t)
+	var eligible atomic.Uint64
+	eligible.Store(1)
+	sessionFor(t, signer, testComet(), &eligible).signs(vote(tm.PrecommitType, 0, 1, 100))
+	s, stops := armedSession(t, signer, &eligible)
+	unbound := reporting(testComet())
+	unbound.armed, unbound.stops = true, stops
+	s.g.supervisor = unbound
+	if closed, _, _ := signer.armStop(); closed {
+		t.Fatal("arming closed on a last precommit without a replay binding")
+	}
+	s.signs(vote(tm.PrecommitType, 1, 1, 100))
+	if stops.String() != "" || persisted(t, key, state).Replay != nil {
+		t.Fatalf("closed after a precommit without a replay binding: %v", stops)
+	}
+	reporter := bound(testComet())
+	reporter.armed, reporter.stops = true, stops
+	s.g.supervisor = reporter
+	s.signs(vote(tm.PrecommitType, 2, 1, 100))
+	if got := persisted(t, key, state); stops.String() != "1/2" || got.Replay == nil || got.Round != 2 {
+		t.Fatalf("stop reports %v after a bound precommit, state %+v", stops, got)
+	}
+	s.refuses(vote(tm.PrevoteType, 3, 1, 100), "stopped after its precommit")
 }
 
 // START-10.1-14b, RECOV-8.2-2 vector 2.p: armed for a planned ruleset upgrade after the old app
@@ -868,7 +907,9 @@ func TestStopOnPrecommitWhenThePrecommitIsAlreadyLast(t *testing.T) {
 	signer, _, _ := filePV(t)
 	var eligible atomic.Uint64
 	eligible.Store(1)
-	sessionFor(t, signer, testComet(), &eligible).signs(vote(tm.PrecommitType, 0, 1, 100))
+	first := sessionFor(t, signer, testComet(), &eligible)
+	first.g.supervisor = bound(testComet())
+	first.signs(vote(tm.PrecommitType, 0, 1, 100))
 	s, stops := armedSession(t, signer, &eligible)
 	go s.g.pollStop(signer, 10*time.Millisecond)
 	defer s.g.closeTransports()
