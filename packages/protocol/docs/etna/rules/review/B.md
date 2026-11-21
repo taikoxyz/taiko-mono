@@ -22,6 +22,7 @@ Under the convention in [../README.md](../README.md), a statement with an ID is 
 
 Raised by: DeepSeek-V4.1-Flash (dantaik)
 Raised by: Claude Fable 5.2 (davidtaikocha) (amended: slot 285 has three words)
+Raised by: Claude Opus 5.5 (davidtaikocha) (amended: slot 290 has four words, the fourth `fallbackKeysHash`; STOR-B-21's key-to-seat derivation is the model)
 
 ## Q-B-2
 

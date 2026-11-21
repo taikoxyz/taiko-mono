@@ -9,9 +9,10 @@
 | ID             | Type       | Title                                                                                                                                               | Section | Vectors                               |
 | -------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------- |
 | MODEL-1-1      | rule       | Proof completeness: every valid block within EL and 3.4 size limits is provable                                                                     | 1       | [1](vectors/1.md#model-1-1)           |
-| MODEL-1-2      | rule       | Proof completeness: each block is provable on its own within one landing's two proofs                                                               | 1       | [1](vectors/1.md#model-1-2)           |
+| MODEL-1-2      | rule       | Proof completeness: each block provable alone in one landing's two proofs, counting its singleton trial and both 30M-gas block-start calls          | 1       | [1](vectors/1.md#model-1-2)           |
 | MODEL-1-3      | rule       | land and saveForcedInclusion are unaffected by pause                                                                                                | 1       | [1](vectors/1.md#model-1-3)           |
 | COMP-2-1       | rule       | Validator: L2 stake, consensus key, stock CometBFT, checkpoint-trust gate                                                                           | 2       | [2](vectors/2.md#comp-2-1)            |
+| COMP-2-1a      | rule       | Fallback key holder: DAO-assigned keys, no stake, the validator stack and guarded signer, always online                                             | 2       | [2](vectors/2.md#comp-2-1a)           |
 | COMP-2-2       | retired    | Full node: CometBFT, ABCI app and alethia-reth with no signing key                                                                                  | 2       | [2](vectors/2.md#comp-2-2)            |
 | COMP-2-2a      | rule       | EL-only settled-state backend: finalized imports, matched-checkpoint serving, no app trust                                                          | 2       | [2](vectors/2.md#comp-2-2a)           |
 | COMP-2-2b      | rule       | Full node: authenticated prefix import or replay, validate subsequent blocks                                                                        | 2       | [2](vectors/2.md#comp-2-2b)           |
@@ -49,7 +50,7 @@
 | CONS-3.2-10    | rule       | Other header fields: empty withdrawals, zero blob gas, empty requests and ommers                                                                    | 3.2     | [3.2](vectors/3.2.md#cons-32-10)      |
 | CONS-3.2-11    | rule       | difficulty accumulates only included transactions' zk gas                                                                                           | 3.2     | [3.2](vectors/3.2.md#cons-32-11)      |
 | CONS-3.2-12    | rule       | Block-start system processing is not rolled back with an aborted transaction                                                                        | 3.2     | [3.2](vectors/3.2.md#cons-32-12)      |
-| CONS-3.2-13    | rule       | onBlockStart call after the EIP-4788/2935 writes: system caller, 30,000,000 gas, uncounted, no fee; a failure changes nothing                       | 3.2     | [3.2](vectors/3.2.md#cons-32-13)      |
+| CONS-3.2-13    | rule       | onBlockStart call after the EIP-4788/2935 writes: system caller, 30,000,000 gas, uncounted, no fee, no receipt; a failure changes nothing           | 3.2     | [3.2](vectors/3.2.md#cons-32-13)      |
 | CONS-3.3-1     | rule       | Every block has an anchor, carried as a witness or inherited from the parent                                                                        | 3.3     | [3.3](vectors/3.3.md#cons-33-1)       |
 | CONS-3.3-2     | rule       | Anchor witness presence: required on generation start and anchor moves                                                                              | 3.3     | [3.3](vectors/3.3.md#cons-33-2)       |
 | CONS-3.3-3     | retired    | Anchor witness proves recoveryGeneration, lastCheckpoint and FI queue bounds                                                                        | 3.3     | —                                     |
@@ -121,6 +122,7 @@
 | STAKE-4.1-35   | rule       | Membership or a seat is not proven; lower-height re-sign is not double                                                                              | 4.1     | [4.1](vectors/4.1.md#stake-41-35)     |
 | STAKE-4.1-36   | retired    | One final checkpoint per L1 block changing a slot, with count through the highest occupied slot                                                     | 4.1     | —                                     |
 | STAKE-4.1-37   | rule       | L1 chain id and Inbox proxy address are immutables used to recompute chain_id                                                                       | 4.1     | [4.1](vectors/4.1.md#stake-41-37)     |
+| STAKE-4.1-37a  | rule       | Staking token: immutable token, the bridged L2 TAIKO token; stake moves only in it and counts at face value                                         | 4.1     | [4.1](vectors/4.1.md#stake-41-37a)    |
 | STAKE-4.1-38   | retired    | Before init, exit/slash/forfeit fail but registration works                                                                                         | 4.1     | —                                     |
 | STAKE-4.1-39   | retired    | Exclusion recovery can move exitEffectiveL1 to recoverySnapshot                                                                                     | 4.1     | —                                     |
 | STAKE-4.1-40   | rule       | Upgradeable proxy owned by the DAO's L2 execution address                                                                                           | 4.1     | [4.1](vectors/4.1.md#stake-41-40)     |
@@ -140,7 +142,7 @@
 | COMM-4.3-5     | retired    | Empty slots are zero, ineligible and ignored                                                                                                        | 4.3     | —                                     |
 | COMM-4.3-6     | retired    | Sort by effStake, break ties by set key, take n_max                                                                                                 | 4.3     | —                                     |
 | COMM-4.3-7     | rule       | Member power is the record's floor(effStake / vp_unit), used as stored                                                                              | 4.3     | [4.3](vectors/4.3.md#comm-43-7)       |
-| COMM-4.3-8     | rule       | Valid set: 1 to 128 members, power >= 1, total <= MAX, unused record bits zero; otherwise not usable                                                | 4.3     | [4.3](vectors/4.3.md#comm-43-8)       |
+| COMM-4.3-8     | rule       | Valid set: 1 to 128 members, power >= 1, exact total (no 64-bit wrap) <= MAX, unused record bits zero; otherwise not usable                         | 4.3     | [4.3](vectors/4.3.md#comm-43-8)       |
 | COMM-4.3-8a    | rule       | If TAIKO supply increases, choose vp_unit for the new supply and upgrade the staking contract first                                                 | 4.3     | [4.3](vectors/4.3.md#comm-43-8a)      |
 | COMM-4.3-8b    | rule       | A usable candidate signs H+2; otherwise the fallback key set, power 1 each                                                                          | 4.3     | [4.3](vectors/4.3.md#comm-43-8b)      |
 | COMM-4.3-8c    | rule       | Fallback keys are not staked; a double sign is slashable only through a bond with the same key                                                      | 4.3     | [4.3](vectors/4.3.md#comm-43-8c)      |
@@ -570,6 +572,7 @@
 | PARAM-11-10    | retired    | EL/zk-gas parameter changes need a coordinated client upgrade                                                                                       | 11      | —                                     |
 | PARAM-11-10a   | rule       | EL/zk-gas parameter changes are rule upgrades (10.1)                                                                                                | 11      | [11](vectors/11.md#param-11-10a)      |
 | PARAM-11-11    | rule       | L2 staking immutables: withdrawalDelay at least U + 2 + the evidence window, slashBountyBps, slashSink, L1 chain id, Inbox proxy                    | 11      | [11](vectors/11.md#param-11-11)       |
+| PARAM-11-11a   | rule       | token: the bridged L2 TAIKO token; the stake parameters assume L1 backing and the fixed supply                                                      | 11      | [11](vectors/11.md#param-11-11a)      |
 | PARAM-11-12    | rule       | forfeitBps: 0 to 10000; proceeds to slashSink; no extra delay                                                                                       | 11      | [11](vectors/11.md#param-11-12)       |
 | PARAM-11-12a   | rule       | Unzen Inbox, ETNA_FORK_TIME, built-in L2 SignalService and EtnaStaking implementations; nonzero when switching                                      | 11      | [11](vectors/11.md#param-11-12a)      |
 | PARAM-11-12b   | rule       | PROPOSE_MARGIN and FI_MARGIN bounds for the Unzen Inbox cutoff                                                                                      | 11      | [11](vectors/11.md#param-11-12b)      |
@@ -607,8 +610,8 @@
 | LIMIT-12-25    | limitation | Staking operations in the unsettled suffix can be discarded by recovery, up to U blocks                                                             | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-26    | limitation | Mode switches have no hysteresis; each replaces the whole validator set                                                                             | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-27    | limitation | The DAO can force the fallback key set and change the committee rules by upgrade                                                                    | 12      | [12](vectors/12.md)                   |
-| LIMIT-12-28    | limitation | Stake is TAIKO bridged to L2; bridging it back depends on landing                                                                                   | 12      | [12](vectors/12.md)                   |
-| LIMIT-12-29    | limitation | A failing block-start call keeps the block valid; the fallback key set signs and penalties stop                                                     | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-28    | limitation | Stake is TAIKO bridged to L2: bridging back depends on landing; unbacked L2 TAIKO can capture or fill the seats                                     | 12      | [12](vectors/12.md)                   |
+| LIMIT-12-29    | limitation | A failing block-start call keeps the block valid; the fallback key set signs, penalties stop; the call's proving cost is unmetered                  | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-30    | limitation | Double-sign reports can be delayed; forced inclusion has no wall-clock deadline                                                                     | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-31    | limitation | Honest refusals to sign count as misses                                                                                                             | 12      | [12](vectors/12.md)                   |
 | LIMIT-12-32    | limitation | The signing set can change at every block; a landing proof may verify a 128-signature commit per block                                              | 12      | [12](vectors/12.md)                   |
@@ -740,15 +743,15 @@
 
 | Section | IDs | Vectors | Review questions |
 | ------- | --- | ------- | ---------------- |
-| 1       | 3   | 12      | 4                |
-| 2       | 8   | 36      | 3                |
+| 1       | 3   | 13      | 4                |
+| 2       | 9   | 41      | 3                |
 | 3.1     | 17  | 124     | 5                |
-| 3.2     | 13  | 69      | 2                |
+| 3.2     | 13  | 71      | 3                |
 | 3.3     | 7   | 43      | 4                |
 | 3.4     | 17  | 105     | 5                |
-| 4.1     | 35  | 169     | 2                |
+| 4.1     | 36  | 173     | 2                |
 | 4.2     | 5   | 38      | 0                |
-| 4.3     | 17  | 76      | 0                |
+| 4.3     | 17  | 78      | 0                |
 | 4.4     | 20  | 79      | 3                |
 | 5.1     | 3   | 11      | 2                |
 | 5.2     | 9   | 35      | 1                |
@@ -768,9 +771,9 @@
 | 8.4     | 15  | 45      | 5                |
 | 9       | 19  | 141     | 8                |
 | 9.1     | 10  | 39      | 3                |
-| 10      | 26  | 189     | 7                |
+| 10      | 26  | 192     | 7                |
 | 10.1    | 24  | 119     | 1                |
-| 11      | 20  | 100     | 4                |
+| 11      | 21  | 103     | 4                |
 | 12      | 32  | 6       | 5                |
 | A       | 58  | 330     | 3                |
 | B       | 28  | 140     | 5                |
