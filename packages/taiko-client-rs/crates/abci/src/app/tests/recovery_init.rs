@@ -191,18 +191,31 @@ async fn recovery_init_accepts_zero_origin_without_changing_deployment_genesis()
 }
 
 /// The EL and Comet hashes of the retained landing at c > 0 in [`recovery_fixture`].
-fn retained(w: &RecoveryWitness) -> [B256; 2] {
+pub(super) fn retained(w: &RecoveryWitness) -> [B256; 2] {
     [w.el_header.hash_slow(), B256::repeat_byte(0xcc)]
 }
 
-/// Changes only the current observation; immutable R evidence stays intact. The checkpoint
-/// `height` gets the EL hash `hash`, and a `height` above the origin a three-word landing
-/// record with the EL and Comet hashes `[hash, comet]`; at the origin the retained record
-/// stays.
-fn checkpoint(
+/// [`checkpoint_at`] the finalized L1 block 120.
+pub(super) fn checkpoint(
     fx: &Fixture,
     l1: &MockL1,
     w: &RecoveryWitness,
+    height: u64,
+    hashes: [B256; 2],
+    generation: u64,
+) {
+    checkpoint_at(fx, l1, w, 120, height, hashes, generation);
+}
+
+/// Changes only the current observation, at the L1 block `number` it makes final; immutable R
+/// evidence stays intact. The checkpoint `height` gets the EL hash `hash`, and a `height` above
+/// the origin a three-word landing record with the EL and Comet hashes `[hash, comet]`; at the
+/// origin the retained record stays.
+pub(super) fn checkpoint_at(
+    fx: &Fixture,
+    l1: &MockL1,
+    w: &RecoveryWitness,
+    number: u64,
     height: u64,
     [hash, comet]: [B256; 2],
     generation: u64,
@@ -233,8 +246,8 @@ fn checkpoint(
     let mut accounts = filler_accounts();
     accounts.push((fx.params.inbox, 1, U256::ZERO, B256::repeat_byte(1), words));
     accounts.push(registry_account(fx.params.registry, &fx.registry));
-    l1.insert_block(l1_header(120, Fixture::l1_timestamp(120)), TestState::new(accounts));
-    l1.set_finalized(120);
+    l1.insert_block(l1_header(number, Fixture::l1_timestamp(number)), TestState::new(accounts));
+    l1.set_finalized(number);
 }
 
 #[tokio::test]
@@ -252,9 +265,12 @@ async fn recovery_init_origin_trust_uses_retained_boundary_without_fabricating_c
     assert!(app.trust.snapshot().is_ready());
     assert_eq!(app.store.load_comet_hash(6).unwrap(), None);
     assert_eq!(app.state().unwrap().last_comet_hash, B256::ZERO);
-    checkpoint(&fx, app.l1(), &w, 6, retained(&w), 2);
-    assert!(matches!(app.refresh_trust().await, Err(AbciError::SafetyHalt(_))));
+    // A later generation in the own finalized view revokes the running node's trust and the
+    // process keeps running (RECOV-8-15).
+    checkpoint_at(&fx, app.l1(), &w, 121, 6, retained(&w), 2);
+    app.refresh_trust().await.expect("a revocation keeps the process running");
     assert!(!app.trust.snapshot().is_ready());
+    assert!(app.status().unwrap().superseded);
 }
 
 #[tokio::test]
