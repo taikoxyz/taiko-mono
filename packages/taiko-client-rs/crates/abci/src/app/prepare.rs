@@ -1,7 +1,7 @@
 //! `PrepareProposal`: authenticate the L1 witnesses, build a valid minimum proposal, then try
 //! to include optional transactions within the remaining time and size limits.
 
-use std::{future::Future, sync::PoisonError};
+use std::future::Future;
 
 use crate::wire::{request, response};
 use alloy_consensus::Transaction;
@@ -335,11 +335,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// The L1 block the block at `height` on top of `state` anchors at (CONS-3.3-4): the newer of
     /// the parent's anchor and the own `finalized` block, except that for up to
-    /// [`AppOptions::anchor_hold`](super::AppOptions) after the own L1 first shows a block newer
+    /// [`AppOptions::anchor_hold`](super::AppOptions) after the own L1 first showed a block newer
     /// than the parent's anchor as finalized the proposer keeps the parent's anchor, so that
-    /// validators whose view is slightly behind do not reject the proposal (RECOV-8-5). It holds
-    /// only while the parent's anchor keeps the block fresh and within back-pressure, and never
-    /// at a generation's first block, which carries a witness of the own finalized head.
+    /// validators whose view is slightly behind do not reject the proposal (RECOV-8-5). That
+    /// instant is the first read of the own L1 showing it, by the trust worker on its regular
+    /// cadence or any handler ([`OwnL1`](super::OwnL1)), whether or not this node proposed
+    /// since, so the hold ends `anchor_hold` after the first proposers saw the block, not
+    /// `anchor_hold` after each proposer's own turn. It holds only while the parent's anchor
+    /// keeps the block fresh and within back-pressure, and never at a generation's first block,
+    /// which carries a witness of the own finalized head.
     fn anchor_to_propose(
         &self,
         state: &AppState,
@@ -351,13 +355,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if finalized <= parent.number || state.origin_height().checked_add(1) == Some(height) {
             return parent.number.max(finalized);
         }
-        let first_seen = {
-            let mut seen = self.anchor_seen.lock().unwrap_or_else(PoisonError::into_inner);
-            match *seen {
-                Some((anchor, at)) if anchor == parent.number => at,
-                _ => seen.insert((parent.number, tokio::time::Instant::now())).1,
-            }
-        };
+        // `finalized` was read through the own L1 just now, so a sighting above the parent
+        // exists; without one the hold starts now.
+        let first_seen =
+            self.l1.first_finalized_above(parent.number).unwrap_or_else(tokio::time::Instant::now);
         let timestamp = rules::block_timestamp(state.parent.timestamp, bft_secs, parent.timestamp);
         let usable = rules::check_anchor_freshness(
             timestamp,

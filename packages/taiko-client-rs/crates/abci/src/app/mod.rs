@@ -48,6 +48,8 @@ mod finalize;
 mod info;
 /// The `InitChain` handler.
 mod init;
+/// The own L1 source, noting when its finalized head first showed each number.
+mod own_l1;
 /// Completed proposal reads retained across timed-out rounds at the same height.
 mod preparation_cache;
 /// The `PrepareProposal` handler.
@@ -70,6 +72,7 @@ use committee_cache::{CachedCommittee, CommitteePrefetch};
 pub(crate) use switch::etnaForkTimeCall;
 
 pub use info::{CHECK_TX_LOG, CODE_REJECTED};
+pub use own_l1::OwnL1;
 pub use validate::{
     ChainContext, CommitteeLookup, Rejection, Validated, WitnessKind, check_execution_size,
     validate_block,
@@ -130,8 +133,10 @@ pub struct AppOptions {
     pub prepare_timeout: Duration,
     /// How long the proposer keeps its parent's anchor after its own L1 node first shows a
     /// newer block as finalized, so that validators whose view is slightly behind do not
-    /// reject the proposal (CONS-3.3-4, RECOV-8-5). Proposer policy only: no validity rule
-    /// depends on it. Zero moves the anchor at once.
+    /// reject the proposal (CONS-3.3-4, RECOV-8-5). It counts from the first read of the own L1
+    /// that showed the newer block, by any handler or the trust worker (about once a second),
+    /// not from this node's first proposal on that anchor ([`OwnL1`]). Proposer policy only: no
+    /// validity rule depends on it. Zero moves the anchor at once.
     pub anchor_hold: Duration,
 }
 
@@ -315,10 +320,10 @@ impl From<ElSyncError> for AbciError {
 /// The ABCI++ application over an L1 source `L` and an execution engine `E`.
 #[derive(Debug)]
 pub struct App<L: L1Source, E: Engine> {
-    /// The node's own L1 view. `FinalizeBlock` and replay read no L1 state through it (blocks
-    /// carry their L1 facts); they only confirm a block's anchor header when the block was never
-    /// judged here ([`App::confirm_anchor`]).
-    l1: Arc<L>,
+    /// The node's own L1 view, noting its finalized answers for the anchor hold. `FinalizeBlock`
+    /// and replay read no L1 state through it (blocks carry their L1 facts); they only confirm a
+    /// block's anchor header when the block was never judged here ([`App::confirm_anchor`]).
+    l1: Arc<OwnL1<L>>,
     /// The execution engine.
     engine: Arc<E>,
     /// The chain parameters (validated).
@@ -387,9 +392,6 @@ pub struct App<L: L1Source, E: Engine> {
     switch_origin: Option<crate::switch::SwitchOrigin>,
     /// The pause of a ready session's latest-checkpoint reads after failed ones.
     follow_backoff: trust::FollowBackoff,
-    /// The parent anchor the proposer last saw a newer own-finalized L1 block above, and when it
-    /// first did ([`AppOptions::anchor_hold`]).
-    anchor_seen: Mutex<Option<(u64, tokio::time::Instant)>>,
     /// Revokes shared authorization on worker destruction, including panic/cancellation.
     _trust_lifetime: trust::TrustLifetime,
 }
@@ -569,7 +571,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
         let trust = trust::TrustHandle::new(state.as_ref())?;
         let app = Self {
-            l1: Arc::new(l1),
+            l1: Arc::new(OwnL1::new(l1)),
             engine: Arc::new(engine),
             params,
             store,
@@ -591,7 +593,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
             trust,
             switch_origin: None,
             follow_backoff: trust::FollowBackoff::default(),
-            anchor_seen: Mutex::default(),
         };
         app.publish_state_metrics();
         Ok(app)
@@ -624,8 +625,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.el_reconciled_epoch == Some(self.connections.current())
     }
 
-    /// The node's own L1 source.
-    pub fn l1(&self) -> &L {
+    /// The node's own L1 source, which derefs to `L`.
+    pub fn l1(&self) -> &OwnL1<L> {
         &self.l1
     }
 

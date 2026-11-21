@@ -1044,7 +1044,9 @@ committing those values to the Inbox.
   RECOV-8-5); a decided block's `FinalizeBlock` waits for it instead. The proposer keeps its
   parent's anchor for `--anchor.hold` seconds (default 12, one L1 slot) after its own L1 first
   shows a newer finalized block, while that anchor keeps the block fresh and within
-  back-pressure, so validators slightly behind do not reject the proposal (CONS-3.3-4).
+  back-pressure, so validators slightly behind do not reject the proposal (CONS-3.3-4). The
+  hold counts from the first read that showed it, which the checkpoint trust worker makes
+  about once a second on every node, not from the node's own turn to propose.
 - Checkpoint fence: `FinalizeBlock` passes the `lastCheckpoint.hash` proven by the block's
   anchor as forkchoice `finalized`. alethia-reth rejects a head that does not descend from it
   with `-38002` (invalid forkchoice state), and the app stops with a safety halt. With

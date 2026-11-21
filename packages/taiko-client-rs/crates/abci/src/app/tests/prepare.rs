@@ -271,6 +271,57 @@ async fn proposer_holds_the_parent_anchor_briefly_after_finality_advances() {
     assert_eq!(env.anchor.map(|w| w.l1_header), Some(header));
 }
 
+/// CONS-3.3-4: the hold counts from the first time this node's own L1 showed a block above the
+/// committed anchor as finalized, read by the trust worker on every node whether or not it
+/// proposes, not from the node's first proposal on that anchor. A validator whose turn comes
+/// more than `anchor_hold` after its own L1 showed the block moves the anchor at its first
+/// proposal; one that saw it less than `anchor_hold` ago keeps the parent's anchor until
+/// `anchor_hold` after that first sighting, which a later, higher finalized block does not
+/// restart. (`proposer_holds_the_parent_anchor_briefly_after_finality_advances` covers a first
+/// sighting inside `PrepareProposal`.)
+#[tokio::test(start_paused = true)]
+async fn the_anchor_hold_counts_from_the_own_l1_sighting_not_the_proposers_turn() {
+    let fx = Fixture::genesis(1);
+    let hold = Duration::from_secs(12);
+    // A node past its generation's first block, whose committed anchor is L1_0.
+    async fn after_first_block(
+        fx: &Fixture,
+        dir: &Path,
+        hold: Duration,
+    ) -> App<MockL1, MockEngine> {
+        let mut app = initialized(fx, dir).await;
+        step(&mut app).await;
+        app.opts.anchor_hold = hold;
+        app
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = after_first_block(&fx, dir.path(), hold).await;
+    let header = fx.advance_l1(app.l1(), 70, &fx.inbox, &fx.registry);
+    app.l1().state().calls.clear();
+    app.refresh_trust().await.unwrap();
+    assert_eq!(app.l1().calls().first(), Some(&L1Call::Finalized), "the trust worker's read");
+    tokio::time::advance(hold + Duration::from_secs(1)).await;
+    let env = propose(&mut app).await;
+    assert_eq!(env.anchor.map(|w| w.l1_header), Some(header), "the first proposal moves");
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = after_first_block(&fx, dir.path(), hold).await;
+    let parent_anchor = app.state().unwrap().anchor.number;
+    fx.advance_l1(app.l1(), 70, &fx.inbox, &fx.registry);
+    app.refresh_trust().await.unwrap();
+    tokio::time::advance(Duration::from_secs(5)).await;
+    let later = fx.advance_l1(app.l1(), 80, &fx.inbox, &fx.registry);
+    for wait in [0, 6] {
+        tokio::time::advance(Duration::from_secs(wait)).await;
+        let env = propose(&mut app).await;
+        assert!(env.anchor.is_none(), "{wait}: within the hold of the first sighting");
+        assert_eq!(decode_extra_data(&env.block.header.extra_data).unwrap().2, parent_anchor);
+    }
+    tokio::time::advance(Duration::from_secs(1)).await;
+    let env = propose(&mut app).await;
+    assert_eq!(env.anchor.map(|w| w.l1_header), Some(later), "12 s after it, to the newest");
+}
+
 #[tokio::test]
 async fn proposer_never_anchors_below_the_parent() {
     let fx = Fixture::genesis(1);
@@ -510,7 +561,7 @@ async fn restart_rediscovers_the_committee_witness_from_own_l1() {
 
     let App { l1, engine, params, store, opts, .. } = app;
     let mut restarted = App::new(
-        Arc::try_unwrap(l1).expect("sole L1 owner"),
+        Arc::try_unwrap(l1).expect("sole L1 owner").into_inner(),
         Arc::try_unwrap(engine).expect("sole EL owner"),
         params,
         store,
