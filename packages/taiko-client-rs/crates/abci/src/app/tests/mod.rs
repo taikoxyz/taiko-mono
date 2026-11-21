@@ -25,6 +25,7 @@ mod process;
 mod proposal;
 mod recovery_init;
 mod recovery_schedule;
+mod recovery_trust;
 mod rules_schedule;
 mod startup_alignment;
 mod val_state;

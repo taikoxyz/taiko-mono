@@ -9,10 +9,12 @@
 //! checkpoint target that session knows. The sequential app worker moves it:
 //!
 //! - **acquiring**: every app start and every `begin_session` (one per signer-to-Comet connection)
-//!   starts here, untrusted (SYNC-9-4). The worker reads the Inbox's latest checkpoint (slots
+//!   starts here, untrusted (SYNC-9-4). A recovery generation's session first authenticates its
+//!   retained recovery evidence once in the own finalized L1 view: the bootstrap, R and the
+//!   historical anchor (RECOV-8.4-2). The worker reads the Inbox's latest checkpoint (slots
 //!   270/271) and `recoveryGeneration` (slot 268) at the own finalized L1 block. Missing data stays
-//!   here and retries; an authenticated contradiction is a safety halt (SYNC-9-7), a different
-//!   generation included (RECOV-8-16).
+//!   here and retries, an own L1 below a recovery's R included; an authenticated contradiction is a
+//!   safety halt (SYNC-9-7), a different generation included (RECOV-8-16).
 //! - **catching_up**: a target is pending. The committed chain is below it, so signing stays closed
 //!   until it gets there, or the comparison has not finished: the local EL hash at the target
 //!   height first, then the slot 285 record read at the same finalized L1 block, retried there
@@ -23,8 +25,8 @@
 //!   (SYNC-9-5a) and the generation is current. The worker keeps following the own finalized L1
 //!   view: a checkpoint above the matched one, read there or proven by a proposal's anchor
 //!   (CONS-3.4-16), makes the session pending again; one at or below it needs no comparison; an
-//!   unavailable read keeps the result (RECOV-8-5). Only a ready snapshot names an
-//!   `eligible_height`.
+//!   unavailable read keeps the result (RECOV-8-5). A recovery generation follows the same way and
+//!   does not repeat its evidence check. Only a ready snapshot names an `eligible_height`.
 //! - **halted**: terminal for the process. A contradiction found before the session first matched
 //!   is a safety halt and the process exits (SYNC-9-7). Once a session has matched, a hash that
 //!   conflicts with a newer checkpoint (SYNC-9-6a, CONS-3.4-16) or a larger `recoveryGeneration`
@@ -37,7 +39,7 @@ use std::{
     time::Duration,
 };
 
-use alloy_primitives::{Address, B256};
+use alloy_primitives::{Address, B256, Bytes, U256};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Notify;
 
@@ -46,12 +48,12 @@ use crate::{
     engine::Engine,
     envelope::AnchorWitness,
     l1::{
-        L1Source, OwnFinality, RawL1Header,
+        L1Error, L1Source, OwnFinality, RawL1Header,
         layout::{inbox, word_u48},
         own_finality, verify_account_witness, verify_anchor_witness,
     },
     store::AppState,
-    types::AnchorState,
+    types::{AccountWitness, AnchorState},
 };
 
 /// First pause of the latest-checkpoint reads of a ready session after one failed; it doubles
@@ -199,6 +201,9 @@ struct SessionProgress {
     matched: Option<u64>,
     /// Own finalized L1 number whose Inbox slots this session read last.
     observed_l1: Option<u64>,
+    /// Whether this session authenticated a recovery generation's retained evidence
+    /// ([`App::recheck_recovery`]); set before its first match, so following never repeats it.
+    recovery_checked: bool,
 }
 
 impl TrustSnapshot {
@@ -404,13 +409,15 @@ impl TrustHandle {
     }
 
     /// Closes authorization while retrying recovery inputs, preserving the signer's session
-    /// and authenticated checkpoint floor. Only a later verification may publish readiness.
+    /// and authenticated checkpoint floor. Only a later verification, which authenticates a
+    /// recovery's evidence again, may publish readiness.
     pub(super) fn await_authentication(&self, reason: String) {
         let mut state = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
         let snapshot = &mut state.snapshot;
         if snapshot.phase != TrustPhase::Halted {
             snapshot.phase = TrustPhase::Acquiring;
             snapshot.progress.matched = None;
+            snapshot.progress.recovery_checked = false;
             snapshot.reason = Some(bounded_reason(reason));
         }
         snapshot.settle();
@@ -590,11 +597,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// Performs one bounded trust attempt: authentication of a closed session, or one step of
-    /// following the own finalized L1 view for a ready one (see the module docs). Network or
-    /// history unavailability stays closed, or keeps a ready result. An error [`classify`]
-    /// calls [`ErrorClass::Contradiction`] halts (SYNC-9-7); any other is published as the
-    /// retry reason. A conflict found while following revokes trust and the process keeps
-    /// running.
+    /// following the own finalized L1 view for a ready one (see the module docs), in every
+    /// generation alike. Network or history unavailability stays closed, or keeps a ready
+    /// result. An error [`classify`] calls [`ErrorClass::Contradiction`] halts (SYNC-9-7); any
+    /// other is published as the retry reason. A conflict or a larger generation found while
+    /// following revokes trust and the process keeps running.
     pub(crate) async fn refresh_trust(&mut self) -> Result<(), AbciError> {
         let mut snapshot = self.trust.snapshot();
         if snapshot.phase == TrustPhase::Halted ||
@@ -630,19 +637,16 @@ impl<L: L1Source, E: Engine> App<L, E> {
             }
             Err(error) if classify(&error) == ErrorClass::Contradiction => {
                 let error = contradiction_halt(error);
-                // A stale result cannot halt or authorize a newer session. A later Inbox
-                // generation is one such halt (RECOV-8-16): it keeps only the generic fatal
-                // record, which makes the next start refuse.
+                // A stale result cannot halt or authorize a newer session. A startup or
+                // signer-session check that finds a later Inbox generation is one such halt
+                // (RECOV-8-16): it keeps only the generic fatal record, which makes the next
+                // start refuse.
                 if self.trust.revoke_if_session(&snapshot.session_id, error.to_string()) {
                     self.store.record_fatal(&error.to_string())?;
                     return Err(error);
                 }
             }
             Err(error) => {
-                if self.state.as_ref().is_some_and(|s| s.recovery.is_some()) {
-                    snapshot.phase = TrustPhase::Acquiring;
-                    snapshot.progress.matched = None;
-                }
                 snapshot.reason = Some(bounded_reason(error.to_string()));
                 self.trust.publish(snapshot);
             }
@@ -682,11 +686,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
     }
 
-    /// One attempt: re-check recovery evidence, read the latest checkpoint at the own finalized
-    /// L1 block, then compare the session's target with the committed chain.
+    /// One attempt: check a recovery generation's evidence once per session, read the latest
+    /// checkpoint at the own finalized L1 block, then compare the session's target with the
+    /// committed chain.
     async fn try_trust(&self, snapshot: &mut TrustSnapshot) -> Result<Outcome, AbciError> {
-        if self.state.as_ref().is_some_and(|s| s.recovery.is_some()) {
+        if !snapshot.progress.recovery_checked &&
+            self.state.as_ref().is_some_and(|s| s.recovery.is_some())
+        {
             self.recheck_recovery(snapshot).await?;
+            snapshot.progress.recovery_checked = true;
         }
         let following = snapshot.following();
         match self.observe_latest(snapshot).await {
@@ -793,8 +801,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
         Ok(Outcome::Publish)
     }
 
-    /// Re-authenticates a recovery generation's evidence: the bootstrap, R's canonicality and
-    /// the historical anchor's finality, in the own finalized L1 view.
+    /// Re-authenticates a recovery generation's evidence for a new session (RECOV-8.4-2): the
+    /// bootstrap, R's canonicality and the historical anchor's finality, in the own finalized L1
+    /// view, each L1 read within its own deadline ([`ReadBounded`]). The evidence is immutable
+    /// once final, so a following session does not repeat this (SYNC-9-6a).
     async fn recheck_recovery(&self, snapshot: &mut TrustSnapshot) -> Result<(), AbciError> {
         let bootstrap = self
             .store
@@ -816,19 +826,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
             forced_cursor: origin.forced_cursor,
             committee_hash: origin.committee.record.set_hash,
         });
-        within("trust recovery origin", self.opts.l1_timeout, async {
-            crate::recovery::check_recovery_canonicality(self.l1(), &self.params, &witness)
-                .await
-                .map_err(AbciError::Recovery)
-        })
-        .await?;
-        match within(
-            "trust historical anchor finality",
-            self.opts.l1_timeout,
-            own_finality(self.l1(), anchor.number, anchor.hash),
-        )
-        .await?
-        {
+        let l1 = ReadBounded { l1: self.l1.clone(), limit: self.opts.l1_timeout };
+        crate::recovery::check_recovery_canonicality(&l1, &self.params, &witness)
+            .await
+            .map_err(AbciError::Recovery)?;
+        match own_finality(&l1, anchor.number, anchor.hash).await? {
             OwnFinality::Canonical => Ok(()),
             OwnFinality::NotFinal { .. } => {
                 Err(AbciError::TrustControl("historical anchor is not final in own L1".into()))
@@ -928,10 +930,27 @@ impl<L: L1Source, E: Engine> App<L, E> {
         // A recovery keeps its origin's older landing record. Authenticate supersession from
         // the own-finalized Inbox before interpreting that record in the old generation.
         if let Some(state) = &self.state &&
-            facts.recovery_generation > state.generation
+            facts.recovery_generation != state.generation
         {
+            if facts.recovery_generation > state.generation {
+                self.confirm_target_header(&header).await?;
+                return Ok(Observation::Superseded(facts.recovery_generation));
+            }
+            // Below R the Inbox still shows the generation this one recovered: the own L1 is
+            // behind, as when it lags or after a failover to a node that is (SYNC-9-7). From R on
+            // the generation never decreases.
+            if let Some(origin) = &state.recovery &&
+                number < origin.l1_number
+            {
+                return Err(AbciError::TrustControl(format!(
+                    "own finalized L1 {number} precedes the recovery block {}; waiting",
+                    origin.l1_number
+                )));
+            }
             self.confirm_target_header(&header).await?;
-            return Ok(Observation::Superseded(facts.recovery_generation));
+            return Err(AbciError::SafetyHalt(
+                "own finalized Inbox generation is below this chain's".into(),
+            ));
         }
         if facts.last_checkpoint_hash.is_zero() ||
             i64::try_from(facts.last_checkpoint_height).is_err()
@@ -1228,6 +1247,79 @@ fn check_identity(state: &AppState, target: &CheckpointTarget) -> Result<(), Abc
 fn names_pruned_history(state: Option<&AppState>, height: u64) -> bool {
     state
         .is_some_and(|state| state.origin_height() < height && height < state.comet_history_floor())
+}
+
+/// The own L1 with every single read bounded by `limit`, the deadline of one L1 operation
+/// ([`AppOptions::l1_timeout`](super::AppOptions::l1_timeout)), for a check that makes several
+/// reads in sequence. An elapsed deadline is an [`L1Error::Rpc`]: missing data.
+struct ReadBounded<L> {
+    /// The own L1.
+    l1: Arc<L>,
+    /// The deadline of each read.
+    limit: Duration,
+}
+
+impl<L> ReadBounded<L> {
+    /// Runs the L1 read `read`, named `what`, within the deadline.
+    async fn bound<T>(
+        &self,
+        what: &str,
+        read: impl Future<Output = Result<T, L1Error>>,
+    ) -> Result<T, L1Error> {
+        tokio::time::timeout(self.limit, read).await.unwrap_or_else(|_| {
+            Err(L1Error::Rpc(format!("{what} timed out after {:?}", self.limit)))
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl<L: L1Source> L1Source for ReadBounded<L> {
+    async fn finalized_number(&self) -> Result<u64, L1Error> {
+        self.bound("finalized L1 number", self.l1.finalized_number()).await
+    }
+
+    async fn canonical_hash(&self, number: u64) -> Result<B256, L1Error> {
+        self.bound("canonical L1 hash", self.l1.canonical_hash(number)).await
+    }
+
+    async fn header(&self, number: u64) -> Result<RawL1Header, L1Error> {
+        self.bound("L1 header", self.l1.header(number)).await
+    }
+
+    async fn account_witness(
+        &self,
+        address: Address,
+        slots: &[B256],
+        block: u64,
+    ) -> Result<AccountWitness, L1Error> {
+        self.bound("L1 account proof", self.l1.account_witness(address, slots, block)).await
+    }
+
+    async fn finalized_unzen_hash(
+        &self,
+        inbox: Address,
+        hash: B256,
+    ) -> Result<Option<B256>, L1Error> {
+        self.bound("Unzen finalized hash", self.l1.finalized_unzen_hash(inbox, hash)).await
+    }
+
+    async fn call_at(&self, address: Address, input: Bytes, hash: B256) -> Result<Bytes, L1Error> {
+        self.bound("L1 call", self.l1.call_at(address, input, hash)).await
+    }
+
+    async fn forced_transaction(
+        &self,
+        inbox: Address,
+        index: u64,
+        l1_block: u64,
+    ) -> Result<Bytes, L1Error> {
+        self.bound("L1 forced transaction", self.l1.forced_transaction(inbox, index, l1_block))
+            .await
+    }
+
+    async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error> {
+        self.bound("L1 storage word", self.l1.storage_at(address, slot, block)).await
+    }
 }
 
 /// Revokes the independently cloned handle when its sole app owner is dropped.
