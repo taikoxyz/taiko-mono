@@ -1,5 +1,277 @@
 # Changelog
 
+## Unreleased
+
+### Etna specification alignment (#22422)
+
+- **BREAKING:** the consensus parameters follow START-10-21: `block.max_bytes` = 1,572,864 + 4,096 × n_max (2,097,152 at n_max = 128), no gas limit, evidence age limits of 16 blocks and 3 min, and zero evidence bytes in every block (CONS-3.1-10). The initial and recovery genesis, InitChain, the recovery plan check and checkpoint import (the header consensus hash and the per-block byte bound) take them from the deployment's n_max, and import windows follow the shorter age limits. Older geneses are refused. `etna-comet-import install` takes the authenticated `--n-max` and refuses a genesis with other parameters.
+- A rotation's FinalizeBlock returns only the difference from the set in force (COMM-4.3-13): a leaver at power 0, a new member or changed power at its new power, and no entry for an unchanged key and power. Stock CometBFT reaches the same validator state, so valStateHash is unchanged.
+- A generation-zero chain whose Etna start S lies at or above H(t − 1) for its first rotation S(t), with t ≥ 2, no longer halts one height after that rotation (COMM-4.3-9/13, vector 9.d: S = 1000, L = 900 halted at 1800 with `committee_unknown`). `FinalizeBlock`'s pruning at S(t) kept record t − 1, never derived because S(t − 1) ≤ S, and dropped committee 0, which still signs S(t) + 1; `AppState::prune_committees` now keeps the set active at the first height of epoch t − 1 above the origin. Recovery origins were not affected: their initial target floor(c / L) is that epoch.
+- **BREAKING:** the committee record commits its members with one ABI hash, `setHash = keccak256(abi.encode(bytes32("ETNA_SET_V1"), l2ChainId, k, SetMember[]))` (ENC-A-39a), instead of the tagged Merkle set root, so every record hash changes. `CommitteeRecord::set_root` is now `set_hash`, also in the persisted app state, lander journals, recovery plans and the `abci-committee-record --json` report. App state moves to schema 21 and lander journals to schema 20; older ones are refused.
+- **BREAKING:** Etna headers derive their EIP-4396 base fee with a 4 s block-time target (ENC-A-10a), for every Etna block including S + 1; Unzen derivation keeps alethia-reth's 2 s. `protocol` adds `ETNA_BLOCK_TIME_TARGET` and `calculate_next_etna_block_eip4396_base_fee_for_parent`. The execution engine must apply the same target.
+- **BREAKING:** the selection minimum is the registry's immutable `minStake` (COMM-4.3-3, START-10-12/14): `ChainParams::s_min` is now `min_stake`, eligibility is `effStake >= min_stake`, the committee config hash takes it as its fifth word, and `validate` requires `min_stake >= vp_unit` and `4096 × min_stake > 10^27`. The chain-config TOML key `s_min` and the recovery plan's `deployment.s_min` are now `min_stake`; old keys are refused. The devnet built-in minimum is 7,600,000 TAIKO, the devnet registry default (`DEFAULT_REGISTRY_MIN_STAKE`, so K = floor(10^27 / minStake) = 131 fits the recovery capacity F = 131 measured through the deployed DAO), and the unit, real-contract and Docker fixtures stake at least that per validator.
+- `abci-committee-record` (`abci::build_committee_record`) refuses to compute a record unless the staking registry's `minStake()`, `l2ChainId()` and `inbox()`, read by `eth_call` at the proving block's hash, equal the chain parameters' `min_stake`, L2 chain id and Inbox (START-10-14, PARAM-11-7/11): Inbox initialization reads the registry's own `minStake` into the committee config hash, so a record derived with another minimum would not be the one nodes derive. The error names the getter and both values.
+- Registry witnesses follow COMM-4.3-2 and ENC-A-38: a checkpoint count above 4096 and a nonempty entry list ending in an empty slot are refused, interior empty slots are the all-zero entry, and the count can shrink after withdrawal (STAKE-4.1-36). `RegistryEntry::is_empty_slot` and `committee::MAX_REGISTRY_SLOTS` are new in abci and etna-core.
+
+### Checkpoint trust, signing gate and anchor finality (Etna specification #22422)
+
+- A trusted node follows the Inbox's latest checkpoint and `recoveryGeneration` in its own finalized L1 view, whether or not a proposal adopts them (SYNC-9-6a). A checkpoint above the last matched one, read there or proven by a proposal's or a committed block's anchor, makes trust `catching_up` until the node has reached it and its EL hash and slot 285 record (read at the same finalized L1 block, retried there while unavailable) match; a match restores trust without an operator. A conflicting EL or Comet hash, or a larger generation, revokes trust at once: `/trust` reports `halted`, nothing more is signed, the process keeps running and the generic fatal record makes the next start refuse. An unavailable latest-checkpoint read keeps the matched result, and pauses those reads for 1 s doubling up to 30 s; a failed read never clears a pending target.
+- Trust compares the EL hash alone while the latest checkpoint is the generation's origin (S or a recovery origin c) and both hashes from the first landing on (SYNC-9-5, RECOV-8.4-14a). The EL hash is compared as soon as the node holds the target height, so a startup mismatch halts even while the slot 285 record is unavailable.
+- **BREAKING:** the trust snapshot (`/trust` and the private control socket, schema still 1) gains `eligible_height`, set exactly while `ready` to the durable committed boundary plus one (SYNC-9-10), and `target.comet_hash` is `null` until the slot 285 record is read; `target` also carries `forced_head`.
+- **BREAKING:** on a switching network every trust grant checks that `fork_timestamp` equals the switching EtnaInbox's immutable `etnaForkTime()`, read by `eth_call` at the finalized L1 block's hash (SYNC-9-5a). The L2 SignalService `beaconRootsFrom()` check and `Engine::beacon_roots_from` are removed.
+- CONS-3.4-16: a proposal whose anchor proves a checkpoint above the parent leaves trust catching up until the chain reaches it, and one whose hash conflicts at a held height revokes trust. The proposer no longer falls back to its parent's anchor on such a checkpoint: it proposes nothing, and `abci_proposal_fallbacks_total{reason="checkpoint_conflict"}` is no longer counted.
+- `ProcessProposal` rejects at once an anchor its own L1 node has not finalized, including when that node is unreachable or times out, instead of waiting (CONS-3.3-5, RECOV-8-5); a decided block's `FinalizeBlock` still waits. The proposer keeps its parent's anchor for `--anchor.hold` (`ABCI_ANCHOR_HOLD`, default 12 s; `AppOptions::anchor_hold`) after its own L1 first shows a newer finalized block, while that anchor stays fresh and within back-pressure (CONS-3.3-4).
+- The anchor hold counts from the first read of the node's own L1 that showed a finalized block above the committed anchor, by the checkpoint trust worker (about once a second on every node, validator or full node) or any handler, instead of from this node's first `PrepareProposal` on that anchor. Every proposer used to hold again at its own first turn, so with round-robin proposers the anchor moved only after about one block per validator (some 8.5 min with 128 validators at 4 s), bounded by `maxAnchorAge`, which delayed forced inclusions. The app holds its L1 source as `abci::app::OwnL1`, which notes each finalized answer and derefs to the source; `App::l1` returns it.
+- The app worker checks a newly begun signer session or a newly pending target before its next queued request, so a session the signer begins before Comet's handshake `Info` is verified before stock replays a refused step (SYNC-9-12).
+- The app establishes the boundary it reports before it opens its ABCI socket, independently of `Info` and every later CometBFT callback (CONS-3.1-9): with signing closed, it re-executes the committed blocks the EL lacks from its retained execution bodies and checks the EL's canonical hash at the committed head (and an imported store's execution floor). Missing material is reported with the height that lacks it (the new `AbciError::ExecutionInputMissing`, the trust reason and the log) and retried without opening the socket; a contradiction is a safety halt that records fatal evidence and runs the halt hook before CometBFT can connect (`ServerError::Alignment`). Stock CometBFT keeps retrying its ABCI dial meanwhile. The handshake `Info` of each later connection set still reconciles as a defense. `AbciHandler::align_before_serving` is new.
+- `Commit` and the handshake `Info` log the height, app hash, local EL hash and validator-state hash (`abci::AppHashReport`), what an operator compares with a header AppHash after CometBFT stops on a mismatch (SYNC-9-5c).
+- `AppHashReport` drops `header_app_hash` and `mismatched()`, which were always unknown and false outside tests: no ABCI 2.0 request carries a header's AppHash. Stock CometBFT compares it itself and its refusal names it beside the app's (`wrong Block.Header.AppHash. Expected <app's>, got <header's>`, or `... does not match AppHash after replay` in the handshake); the report keeps the height, app hash, local EL hash and validator-state hash, and `/val_state/<height>` the preimage to compare (SYNC-9-5c).
+- A recovery generation follows checkpoint trust as generation zero does (SYNC-9-6a). Each signer session authenticates the retained recovery evidence (the bootstrap, R and the historical anchor in the own finalized L1 view) once, before its first match, with every L1 read under its own `l1_timeout`, instead of on every 1 s tick with nine L1 reads, seven of them under one shared deadline. A ready recovery node therefore makes only the follow path's reads (one while its finalized block is unchanged), keeps its matched result and signing open while its own L1 fails, times out or lags (6a.g, RECOV-8-5), and revokes trust while the process keeps running when its finalized view shows a larger `recoveryGeneration`, also after such a failure (RECOV-8-15). Before, any failed recheck closed signing and dropped the session to `acquiring`, and a larger generation seen while ready halted the process. A startup or signer-session check that finds a larger generation still halts (RECOV-8-16). An own L1 finalized below R keeps the session acquiring instead of halting on the older generation it shows there; at or after R, a generation below this chain's is a safety halt.
+
+### Guarded signer and supervisor for the Etna specification #22422
+
+- The signer accepts only `unix://` and stock `noise://<comet-peer-id>@<ip>:<port>` transports and refuses bare `tcp://` (START-10-6). Noise pins both peer IDs: Comet's listener pins the signer's transport key, and the signer pins the libp2p ID of Comet's persistent node key. `etna-signer transport-keygen --transport-key P` creates the transport key and prints its peer ID; serving with Noise takes `--transport-key`. The supervisor derives both IDs from `ETNA_SIGNER_TRANSPORT_KEY` and `<comet-home>/config/node_key.json`, and requires a Unix `run/` of mode 0700.
+- The signer always connects to Comet promptly and answers PubKey and Ping while trust is closed; `--await-trust` is removed. A connection whose session the app cannot begin is exposed without one, and its first signing request begins it. A pending trust decision is held for at most 3.5 s, polling every 100 ms (SYNC-9-6a), so a restarted Comet's replayed step is signed once the fresh session passes; a halted app, another chain ID and another height are refused at once (SYNC-9-12).
+- Ready trust replies carry `eligible_height`, the only height the app admits for signing: the one after its durable committed boundary, `initial_height` before the first commit, or s + 1 after a 5.4 import at s. The signer refuses every other height, and a ready reply without it, before FilePV changes the HRS (SYNC-9-10). The app must add this field to its trust snapshot.
+- The supervisor restarts the signer and Comet together after a refusal once trust is Ready, and again after another refusal; a crashed signer restarts with its pair. A Comet that exits before the signer connected, as after a missed 3 s accept of the first GetPubKey, is started again with the same signer state and no latch. A session the app replaced no longer restarts Comet.
+- Validators must run `p2p.pex = false`, `p2p.max_num_inbound_peers = 0`, `p2p.unconditional_peer_ids` equal to `ETNA_P2P_INBOUND_PEER_IDS`, no seeds or seed mode, `rpc.unsafe = false` and the stock (non-libp2p) switch (START-10-6, LIMIT-12-2). Every pinned setting is checked at its effective values: each config.toml spelling, every `CMT_*` override and no Comet argv flag; a `CMTHOME`/`TMHOME` off the configured home is refused.
+- The supervisor deletes the pending-evidence store, `<db_dir>/evidence.db`, with Comet stopped before every Comet start, and nothing else (CONS-3.1-10, LIMIT-12-22).
+- The full-node launcher `script/start_etna_full_node.py`, which sentries use too, makes the same two checks before it execs Comet, holding its writer lease: the executable's sha256 must be the one `comet-manifest.json` (or `ETNA_COMET_MANIFEST`) pins for the platform (CONS-3.1-1), and `<db_dir>/evidence.db`, and nothing else, is deleted (CONS-3.1-10, LIMIT-12-22). It execs the exact file it hashed. The shared checks live in `script/etna_comet_guard.py`, which the image and the recovery runtime stage beside the launcher; an `ETNA_COMET_MANIFEST` is now required wherever a full node runs a non-official build.
+- The supervisor reads and checks the effective Comet configuration (`config.toml`, the Comet argv, the `CMT_*` environment, the genesis chain ID and the signer transport) again before every Comet start, not only at its own startup; a failed check stops it before any child of that start runs (START-10-6). The supervisor and the full-node launcher copy the Comet executable into a sealed memfd while hashing it and exec that copy, so the bytes checked against the manifest digest are the bytes that run; before, both hashed the file and then exec'd its path again. This needs Linux with an executable memfd. The launcher now reads `config.toml` under its writer lease, and the supervisor shares the executable and pending-evidence checks with it (`script/etna_comet_guard.py`) (CONS-3.1-1).
+- Validators run the official CometBFT v0.40.0 executable (CONS-3.1-1). `comet-manifest.json` pins, for linux/amd64, `/usr/bin/cometbft` of `cometbft/cometbft:v0.40.0` (index `sha256:0703fb88…`, platform manifest `sha256:53421974…`) by its sha256 `5fbb1bf5…`, with the source commit, build recipe, flags and enforced configuration; the image copies that executable and the supervisor checks its digest before every Comet start (`ETNA_COMET_MANIFEST` names another manifest). linux/arm64 is unsupported for validators: upstream's release has no assets and its arm64 image holds the same x86-64 executable, so the arm64 image keeps a development source build that the supervisor refuses. `script/build_stock_comet.sh` copies the official executable on linux/amd64 and otherwise writes a test manifest for its source build.
+
+### Signer continuity (Etna specification #22422)
+
+- **BREAKING:** the signer state is schema 2 (RECOV-8.2-1/2): stock FilePV's HRS fields plus, in the same file and the same atomic write, `schema`, `chain_id`, the bound `store_instance`, the height `floor` and the last signature's `replay` binding. `init-state` writes the unsigned schema-2 state. The stock FilePV state of earlier signers and every other schema are refused with exit 3, without migration. The signer applies stock FilePV's HRS rules through stock `CheckHRS`, sign bytes and extension signing (checked against stock FilePV request for request) and writes the state itself, still under the durable inflight marker, so a step still costs four fsyncs.
+- **BREAKING:** `etna-signer` requires `--supervisor-socket`: the supervisor's private channel in its run directory (`ETNA_SUPERVISOR_RUN_DIR`, default `<app-store>/supervisor`, mode 0700), authenticated both ways by kernel peer credentials (RECOV-8.2-2, START-10-6). Over it the supervisor reports the Comet process it started (PID and kernel start time) and the home's store instance ID; on a Unix transport the signer checks that the connection's listener is that process.
+- Every Comet home carries a store instance ID in `data/etna-store-instance` (32 lowercase hex characters, mode 0600). The supervisor writes a fresh one before starting a home without one, `etna-comet-import install` and `abci-import` write one into every imported home, and `abci-recover install` into every recovered generation's home (it keeps its own on an interrupted rerun).
+- For a key that has signed at H, the first signing request of a session with a changed or absent store binding, or with a Comet process other than the one this signer last admitted (any restart of the pair), durably raises the minimum signable height to H + 1 before anything is signed; it never decreases and refuses proposals, nil votes and retries alike, without restarting Comet. A never-used key binds to the store instance first. A restart on the same store instance resumes the last signed height only through a confirmed same-height replay (below).
+- Same-height replay (RECOV-8.2-2, SYNC-9-12/13): every fresh signature records its replay binding (the predecessor's `#ENDHEIGHT` marker, the predecessor block hash and the length and SHA-256 of the flushed WAL bytes after the marker), which the supervisor computes with `etna-signer wal-binding` run as the Comet UID; the signer never reads Comet's files. Before each pair start the supervisor checks the saved binding against the stopped stores and WAL with stock `SearchForEndHeight` and the stock decoder (`etna-signer wal-preflight`, `comet-head`, goleveldb stores only) and pins the startup prefix. In the replay that its log observer sees opening, the request repeating the saved vote (stock's timestamp-only retry included) gets the saved signature and confirms it, and higher HRS at that height are then signed and bound to the startup prefix. Without confirmation fresh signing at that height stays closed; an unconfirmed request outside the replay, a missing marker, a damaged prefix or other stores raise the floor. A torn WAL tail after the bound input keeps the height closed while stock repairs it, and the supervisor then restarts the pair. Independent confirmation of a restored round and lock is not implemented: after a proposal, the height stays closed.
+- `etna_validator.py stop-on-precommit [--timeout S]` arms the running supervisor's signer for a planned ruleset upgrade during a pause (START-10.1-14b, RECOV-8.2-2): the signer persists and returns its next precommit, nil or block, as its last signature and refuses every later request, or closes at once when its last signature already is a precommit; the supervisor then stops Comet and the signer, records the outcome in `stop-on-precommit.done` and stays quiescent. The supervisor channel gains the `stop` and `stopped` ops.
+- `stop-on-precommit` refuses to arm unless the upgraded node could confirm the precommit by same-height replay: the log observer follows the running Comet, the stores are goleveldb and the signer's last signature carries a replay binding. A refusal is written to `stop-on-precommit.done` as `{"stopped": false, "refused": …}`, the command exits 1 and nothing is armed. An armed signer closes only after a precommit that carries a replay binding; one without keeps the gate open (`signer_stop_deferred`). The observer's prerequisites are checked, and a failure reported, at every Comet start (START-10-6, RECOV-8.2-2, START-10.1-14b).
+- The supervisor's log observer (START-10-6) needs `log_format = "json"` and the consensus module at Info, without argv overrides: it then owns a fresh pipe for each Comet process's stdout, forwards every line to its own stdout and follows `Catchup by replaying consensus messages`, `Replay: Done` and the WAL repair and replay-error records. Any other setting is reported at startup as `etna_supervisor_log_observer_disabled` and keeps same-height replay closed, so every restart fences the last signed height.
+
+### Contracts, execution engine and switch for #22422
+
+- **BREAKING:** pin the protocol to #22286 at `78cc12fb0` and regenerate the lander artifacts, the SignalService binding (`usesBeaconRoots` replaces `beaconRootsFrom`) and the shared vectors, now schema 9; the vector tests refuse schema 8. The real-contract fixtures follow the new ABI: the EtnaInbox `Config` drops `originWriter` and adds `recoveryCapacity` (the devnet default F = 131), `CommitteeConfig` drops `sMin`, `recover` takes strictly increasing bond ids as exclusions, `scheduleRules` and `scheduleStop` take the expected generation first, `forfeit` takes a bond id and the SignalService constructor takes `bool usesBeaconRoots`. The vector tests check ENC-A-39a set hashes and the registry checkpoint sequence whose count shrinks after withdrawal.
+- The Etna start is written once (START-10-5c): corrected switching starts are gone. Generation zero's origin must name S, every recovery witness must show the deployment's start, hash and state root unchanged, and a recovery at c = S starts from the start write's own anchor. A recovery in the start write's L1 block, whose deployment proof at `L1_0` already shows the next generation, is accepted.
+- The lander builds the first landing from S without reading the Unzen Inbox: the permissionless start write `setOrigin(S)` already requires closed, fully proven Unzen proposals (START-10-5a, LAND-6.1-8a), and `land` no longer checks Unzen state. Checkpoint import at s = S still compares the SignalService checkpoint at S with the start record (DATA-5.3-4). The [handoff runbook](docs/unzen-etna-handoff.md#writing-the-etna-start) shows the start write as `cast send … 'setOrigin(uint48)' S` from any account.
+- Pin alethia-reth to #248 at `ad58432` (a 4 s EIP-4396 target for every Etna block, base-fee sharing 100). `protocol` re-exports its `ETNA_BLOCK_TIME_TARGET` and `SHASTA_BLOCK_TIME_TARGET` and takes the target from its `block_time_target`. The Dockerfile's EL source build, the default EL image tag, the EL import helper and the Docker harness's EL inputs follow.
+- `abci-recover install` also refuses a validator template without the P2P pins (START-10-6, LIMIT-12-2): `p2p.pex = false` and `p2p.max_num_inbound_peers = 0` set explicitly, and no seeds, seed mode, unsafe RPC or libp2p switch.
+- The Docker harness connects each validator's signer over Noise (`noise://<signer-peer-id>@…`, one `transport-keygen` key per validator) instead of bare `tcp://`, writes the validator P2P settings with the other validators as the only, unconditional, inbound peers and passes them as `ETNA_P2P_INBOUND_PEER_IDS`. Its supervisors check Comet against a test `ETNA_COMET_MANIFEST`: one pinning the `/bin/sh` container wrapper in Docker mode, and `script/build_stock_comet.sh`'s for a native source build.
+
+### Checkpoint import for the Etna specification #22422
+
+- Checkpoint import refuses evidence in the window: every Comet block has an empty evidence list (CONS-3.1-10), so a window block whose header commits evidence is an authenticated contradiction once the landed chain links it and halts the import, and one off the landed chain rejects the package (DATA-5.4-2/5). `etna-comet-import` refuses a window block with evidence too. The window rule is unchanged under the new limits: every height within 16 blocks or 3 min of s, by Comet header times, the latest anchor carrier and the committee switch and derivation heights, ending at the origin or at a w past both limits.
+- `etna-comet-import install` creates the evidence database empty and no longer records committed-evidence markers or runs a temporary stock pool. It writes s's own commit under the block-commit key C:s as well as the seen commit SC:s, so stock light-client evidence verification at height s finds its signed header. Every full validator set it stores, historical ones included, must pass stock `ValidateBasic`, store a member as proposer and survive a protobuf round trip. Before publication it checks, at every window height, stock `LoadBlockMeta`, `LoadBlockCommit` and the validator lookup against the authenticated header and time, the height's own commit and its set, stock `LoadValidators` at every stored full set and every height still inside the evidence age limits, and an empty evidence database (DATA-5.4-3). The import package format is unchanged at schema 2.
+- `etna-comet-import repair-first-block` repairs a home whose stock handshake stops on a generation's first block when `initial_height` is above 1 (CONS-3.1-9): run offline with Comet stopped, the signer fenced and the app serving `--app`, it copies `data/` to `--backup`, verifies the stored block and seen commit (or a `--peer-export` from `export-first-block`) against the genesis chain_id, height, empty evidence and more than 2/3 of the genesis committee's power for the full BlockID, writes a fresh `data/etna-store-instance` and applies exactly that block with the stock handshake's own steps (InitChain and `ApplyBlock` against the app, or the replay of the kept FinalizeBlock response when the app already committed). It never accepts another block for the height; a contradiction exits 2. The runbook covers the single-node and committee-wide cases (`docs/first-block-repair.md`).
+- `repair-first-block` no longer applies the first block with a damaged seen commit: when the stored seen commit does not certify the stored block, a `--peer-export` commit for the same BlockID that does is installed as the seen commit (`"source": "peer_commit"`), and without one the repair stops. Every refusal (store shape, certificate, the app's height and kept response) now precedes the first store write and app call; a failure after the first write leaves a block store that a rerun completes from, and a rerun after the state was saved also replaces a damaged seen commit from a peer export (CONS-3.1-9).
+- `repair-first-block` writes the fresh store instance ID only after every check passed and immediately before it changes the stores, so a refused repair and a rerun that only checks no longer fence the signer; its report's `store_instance` is empty when the run changed nothing (RECOV-8.2-2).
+- `repair-first-block` and `export-first-block` read `<home>/config/config.toml` and refuse, before touching anything, a `db_backend` other than `goleveldb` or a `db_dir` that does not resolve to `<home>/data`, in any key spelling; `abci-import` refuses a `--comet-config` whose `db_dir` is not absent or `data`, as it already did for `db_backend`. The Go module adds `github.com/BurntSushi/toml` v1.6.0, the version CometBFT v0.40.0 pins.
+- `etna-comet-import verify-export` compares the stored proposers of the stock snapshot's `Validators` and `NextValidators` in full (key, power and priority), not only their addresses (DATA-5.4-8).
+
+### Etna specification simplification (#22412)
+
+- `app_hash` is appHash(blockHash, valStateHash): the block's EL hash and the CometBFT validator state after it (CONS-3.1-8, ENC-A-29b). InitChain, FinalizeBlock, Info, every genesis document and an imported node's stock stores use it; proof-side block checks no longer compare it with the parent EL hash (PROOF-6.2-42).
+- Checkpoint trust compares only the EL and Comet hashes of the three-word slot 285 record (SYNC-9-5); it no longer compares or waits for a landed validator state.
+- Landings end at any height above their parent: the statement has 21 words (672 bytes), `LandInput` has 8 fields, and the cut list holds one four-word leaf per height in (p, h), none when h = p+1. A competing landing at c is checked at leaf c−p−1.
+- The batch cap is min(`--max-blocks`, `maxBatchBlocks`) with no rounding, and any U in 1..=65,536 is accepted.
+- `scheduleStop` takes one `uint48` time, and a planned stop refuses every block whose parent's timestamp is at or after it, at any height.
+- The app records the validator state at every committed height and keeps the records from one height below the trust checkpoint; `/val_state/<h>` answers any retained height. The lander no longer queries it and drops `lander_validator_state_mismatches_total`.
+- Checkpoint import takes the validator-state preimage after s − 1, checks it against header(s)'s app_hash and validator hashes, and applies block s's updates once (DATA-5.4-3). Packages use schema 2; export reads `/val_state/<s−1>` or the archive, which now keeps every height.
+- Registry reads follow lowest-empty-slot admission (STAKE-4.1-14a).
+- Pin the protocol to `7cd9606af6` and regenerate the lander artifacts and the schema-8 shared vectors. The conformance record maps the specification at `2e6763e21b`.
+- Bump the app state from schema 19 to 20 and lander journals from 18 to 19.
+- etna-core: `verify_body_at_origin`, `verify_structure` and `verify_structure_at_origin` drop the `parent_el_hash` parameter, and `GRID_INTERVAL` and `GenesisRecord::is_grid_height` are removed (from abci too). Callers must adapt.
+
+### Exact landings for the import producer check
+
+- `taiko-client lander --land-to <HEIGHT>` lands exactly one batch from the latest checkpoint to HEIGHT through the normal selection, leaves and journal, without the batch collection wait, and exits 0 once that landing is confirmed. It exits nonzero when the latest checkpoint is or becomes at or above HEIGHT, when HEIGHT lies more than the batch cap above it, when the blocks do not fit one batch, or on a signal. It has no environment variable.
+- `etna-comet-import snapshot-height --comet-state-dir DIR` prints the height x of a stopped stock state snapshot as JSON. An import producer lands x + 1 with `--land-to` and exports that checkpoint, so its snapshot is exactly at s − 1 (DATA-5.4-8, [procedure](docs/checkpoint-import.md#stock-snapshot-for-the-producer-check)). `verify-export` names both heights when the snapshot is at another height.
+
+### Recovery from a settled chain that differs from the node's own
+
+- Recovery InitChain points the EL at c's authenticated hash, as at the Etna start, before it compares c. An EL that holds another block at c or at c − 1, or none, is missing data: InitChain waits with trust closed and retries, instead of halting, until the EL serves the settled blocks (RECOV-8.1-7, RECOV-8.1-8, SYNC-9-7). An EL that rejects that hash, accepts it and keeps serving another block, or answers the read of c with a header of another height or hash still halts.
+- `abci-recover prepare` reports an EL without the settled block at c as a missing prerequisite that names c and the landing's EL hash and points to the runbook, instead of invalid evidence. The lander waits on the same condition as a temporary failure. The [runbook](docs/governance-recovery.md#take-the-settled-el-state-at-c) describes how a node takes the settled EL state at c.
+- abci: `RecoveryError::OriginNotHeld` is new, and `authenticate_recovery_with_headers` readers return `Option<Header>`. Callers must adapt.
+
+### Switch checks and node requirements
+
+- A nonzero Etna start without a `[switch]` configuration keeps checkpoint trust closed at every checkpoint, not only while the latest checkpoint is S: without it the node cannot check its own fork time against the built-in L2 SignalService implementation's `beaconRootsFrom()` (SYNC-9-5a). Before, trust opened after the first landing without that check.
+- The [handoff runbook](docs/unzen-etna-handoff.md) and README now state two node requirements on a switching network: alethia-reth must run with exactly the client's Etna time, which no RPC reports, and until the first landing is final every `--l2.http` endpoint of the app and the lander must serve `eth_getProof` at S (reth's `--rpc.eth-proof-window` is 0 by default; use at least `unsettled_limit` blocks plus a margin, or an archive endpoint) (SYNC-9-16).
+
+### Protocol artifact alignment
+
+- Align the ABI/artifact provenance with the published switch contracts in PR #22286, which closes the L2 checkpoint store with `beaconRootsFrom` and removes `SignalServiceL1`. The protocol pin, first at `4c6424bc`, now follows #22412 (above).
+- Regenerate Inbox, Anchor, PreconfWhitelist and SignalService bindings with workspace Alloy; remove the retired, unused LookaheadStore binding.
+- Reproduction checks now include the legacy generated bindings. This alignment changes neither signed journals nor persisted app state.
+
+### Unzen driver and Etna handoff
+
+- Restore the Unzen sync/derivation driver and its CLI, protocol/RPC dependencies and generated bindings.
+- Add `etna-handoff` to drain finalized Unzen derivation before serving Etna ABCI at S+1.
+- Add authenticated nonzero ABCI starts with committee 0 and the unchanged global epoch schedule.
+- Authenticate the switch with the L2 SignalService proxy's implementation slot at S, and check before every trust grant that the built-in implementation's `beaconRootsFrom()` equals the configured fork time (SYNC-9-5a). The `[switch]` key `anchor_implementation` is now `signal_service_implementation`.
+- Add the shared `--engine-control-dir` Engine writer lease. Mount the same directory for every local controller of one EL.
+- Pin alethia-reth to PR #248 head `53f33b70` with OP Reth `op-v2.7.0-1`.
+- Support nonzero-S landing, cut leaves and overlaps above S, committee 0 bootstrap and authenticated Unzen ancestry.
+- Retain the first landing's raw L2 SignalService implementation witness for the proof backend.
+- Support nonzero-S checkpoint import/export, deriving the original EL block-zero identity from the operator-selected runtime chainspec.
+- Bump lander journals from schema 16 to 18 for the additional private proof witness, the L2 SignalService implementation proof at S. Older journals, including schema 17's Anchor witness, are refused without migration; resolve outstanding signed transactions with the compatible lander before upgrading.
+
+
+### ⚠ BREAKING CHANGES
+
+Etna is unlaunched, so start a fresh devnet: the app state (schema 21), validator-state records,
+lander journals (20), checkpoint import packages (schema 2), private trust control (schema 1)
+and the signer's state layout are new, and older stores are refused, never migrated
+(START-10-24). Regenerate older geneses with `abci-genesis`: InitChain and `etna-comet-import`
+refuse CometBFT's default evidence limits (START-10-21).
+
+- The lander's `--max-blobs` (`LANDER_MAX_BLOBS`) and the app's `--l1.archive`
+  (`ABCI_L1_ARCHIVE`) are removed. A removed flag is now an unknown argument, so a deployment
+  that still passes it crash-loops; a removed environment variable is ignored. The lander uses
+  one to six blobs per landing (cap fixed at six), and the own L1 node serves the committee
+  history a validator needs (SYNC-9-16).
+- `etna-signer` serves one chain_id and requires `--chain-id`, `--priv-key`,
+  `--priv-state <state-dir>/<chain_id>.json` and `--domains-log`; the authority-root flags are
+  gone. Before the first start, run `etna-signer init-domains-log` once per key, and
+  `etna-signer init-state` once per chain_id with the signer stopped, again for every recovered
+  generation's new chain_id. Nothing else creates signing state (RECOV-8.2-1). Exit codes are 0
+  (signal stop), 1 (configuration, transport or lock error), 2 (Go panic; no signature released)
+  and 3 (signing state lost or uncertain, RECOV-8.2-3). See the
+  [signer README](tools/etna-signer/README.md).
+- `/trust` and `/status` no longer report `trust_ready` or `syncing`. Read readiness from `phase`
+  (`/trust` and private trust control) or `trust_phase` (`/status`); only `ready` is ready
+  (SYNC-9-15).
+- `abci-import export`, `import` and `status` replace the multi-step import. `import` publishes
+  ordinary `ROOT/ready/{app,comet,el}` stores, which the plain `abci`, EL and Comet processes
+  run. `prepare`, `install`, `run-app`, `check-runtime` and the JSON `--profile` are gone.
+- `abci-recover prepare`, `install` and `status` replace `activate`. The operator stops and
+  starts services; nothing in the client fences them (RECOV-8.2-6).
+- The validator supervisor needs `ETNA_PRIV_STATE_DIR` and `ETNA_DOMAINS_LOG`. In Unix-socket mode
+  (a `unix://` `priv_validator_laddr`) it also needs an existing `<comet-home>/run/` owned by the
+  Comet UID; TCP mode needs no `run/`. It restarts a signer that exits on its own (0, 1, 2 or a
+  signal) without a fence (SYNC-9-12, SYNC-9-14). Five such exits within 600 s latch, and so
+  do exit 3, a `<state>.uncertain` fence and a signer it had to SIGKILL on stop. These three also
+  leave `validator-supervisor.signer-unsafe` in the app store and `<chain_id>.signer-unsafe`
+  beside the domains log, which the supervisor and the signer refuse until an operator repair;
+  a new app store never clears them (RECOV-8.2-3). Before stock FilePV writes, each signing
+  step makes `<state>.inflight`, naming the kernel boot, durable (four fsyncs per step in all).
+  A signer that dies during a step leaves it; a restart on the same boot refuses it with exit 3,
+  and one after a reboot ignores it.
+- The lander stops on any canonical revert at confirmation depth, out-of-gas included; a
+  restart rebuilds from the current checkpoint. The `--max-batch-wait` timer lives in memory, so
+  a restart starts the wait again.
+- Upgrade the app, the supervisor and `etna-signer` together. Private trust control has one
+  schema, whose replies always carry `recovery_origin` (null for generation zero), and the signer
+  and the supervisor read readiness only from `phase`. In a mixed deployment the signer refuses
+  to sign or trust control fails closed.
+- Two configurations that started before are now refused at start. `etna-signer` rejects a
+  `--trust-timeout` above 2 s with exit 1 (it accepted up to 10 s; SYNC-9-11), and the validator
+  supervisor and `abci-recover install` refuse a validator `config.toml` whose
+  `[blocksync] adaptive_sync`, `[consensus] double_sign_check_height` or
+  `[consensus] block_time_tolerance` differs from its stock default (`false`, `0`, 60 s), naming
+  the setting (START-10-6). An imported store also re-checks that the own EL serves the block and
+  state at `execution_floor` at every CometBFT handshake, not once per app process, so that state
+  must stay readable across Comet restarts.
+- Metric and reason names follow the Etna spec's terms; update dashboards and alerts. The counter
+  `abci_proposals_empty_total` is now `abci_proposals_placeholder_total`. In the `reason` label
+  of `abci_process_rejected_total` and in `/status` `halt_reason`, `empty_proposal` is now
+  `placeholder_proposal` and `landing_capacity` is now `block_size_bound`.
+  The `trigger` field of the lander's "batch collection threshold reached" log line is now
+  `back-pressure` where it was `backpressure`.
+
+### Features
+
+- Add authenticated bounded-window checkpoint import for fresh Etna generations and governance
+  recovery. `abci-import export` collects a package from an archive node; `import`
+  authenticates it against the node's own finalized L1 (DATA-5.4-2), installs the stock Comet,
+  EL and app stores into a private stage and publishes them by one rename, and a rerun discards
+  an interrupted stage (DATA-5.4-5); `status` reports on an import root. See the
+  [checkpoint import runbook](docs/checkpoint-import.md).
+- Verify imported validator signing and subsequent landing from both latest and older checkpoints,
+  cold forced-inclusion replay, and native finalized ancestry beyond the BLOCKHASH window.
+  Measure signed import windows, which the latest anchor bounds, with
+  `just checkpoint-import-resources`.
+- Derive the future validator sets, priorities and stored proposers from the authenticated
+  s − 1 preimage, distinguish authenticated contradictions from incomplete input or subprocess
+  failures, and retain an optional immutable preimage archive beyond live record pruning.
+- Verify historical committee witnesses under the switch block's own anchor root while keeping
+  the derivation parent's selected snapshot, including pending committees and recovery.
+- Track the CometBFT validator state. The app computes stock CometBFT v0.40.0's validator
+  sets, proposer priorities and stored proposers with its per-height arithmetic, records them at
+  the generation's start and at every committed height in an immutable, checksummed
+  `val-state-{height}.bin`, records the validator updates of every epoch switch height in
+  `val-updates-{height}.bin`, and serves the state as the ABCI query `/val_state/<height>`.
+  Below the height before the trust checkpoint it keeps the newest valid state record as the
+  recompute base; a missing or corrupt record (set aside as `.corrupt`) is recomputed from an
+  earlier record and the updates since (SYNC-9-5c). The app commits the state in its `app_hash`
+  (CONS-3.1-8); landings do not carry it.
+- Align with protocol `35e2f8f19` and the Etna specification of that time: authenticate slot 293,
+  enforce ruleset selection/refusal and planned stops, and retain fixed recovery origins
+  across later schedule writes. Reproduce schema-6 vectors and the updated recovery ABI.
+- Read registry entries by slot independently of permanent bond IDs, including slot reuse;
+  reject older app and lander stores without modifying their signed state.
+- Add L1-authenticated governance recovery for validators and full nodes with usable local EL
+  origin state. `abci-recover prepare` authenticates generation N, its origin c, R and the
+  reselected committee on the node's own finalized L1 and writes a private plan file; `install`
+  writes a fresh Comet home and an empty app directory; `status` summarizes a plan offline.
+  Recovery keeps the registered key, every older chain_id's HRS state, old Comet history and
+  immutable pending lander bytes, and the new generation's chain_id gets its own HRS state from
+  `etna-signer init-state` (RECOV-8.2-5). See the [recovery runbook](docs/governance-recovery.md).
+  The lander still uses dummy proofs; real proving, public EL snapshot
+  distribution and production deployment acceptance are outside this change.
+- Keep one stock HRS state per full chain_id in the signer, listed in a domains log on another
+  volume, so a lost state or log is refused with exit 3 instead of looking like a fresh start.
+  The log records chain IDs, never heights: restoring signing state from a backup stays
+  undetectable and forbidden (RECOV-8.2-1, RECOV-8.2-6).
+
+### Bug Fixes
+
+- Re-pin the [conformance record](docs/etna-conformance.md) to the Etna specification at
+  `d18357214fab30ea512ae9858a11699806d72ba1` (protocol #22348; superseded by `2e6763e21b`,
+  #22412, above) and align with it. `Info`
+  re-checks the EL at every CometBFT handshake, the first `Info` on each new set of ABCI
+  connections, so a CometBFT restart under a running app never sees a height the EL does not
+  hold (CONS-3.1-9). `etna-signer --trust-timeout` is at most 2 s, so a refusal is answered
+  within 4 s, before CometBFT's fixed 5 s signer read timeout, and CometBFT gives up instead of
+  retrying it (SYNC-9-11). Non-stock CometBFT validator settings are refused (START-10-6); see
+  the breaking changes above.
+- Replace empty derivation sources with a single default block before and after Unzen,
+  matching the clarified source validation rules in protocol #22335. Regenerate contract
+  fixtures and shared vectors from the protocol revision enforcing the strict bounty bound.
+- Take the first recovered committee switch's registry snapshot at the fixed R across proposal
+  deadlines. One background discovery, which PrepareProposal starts or joins, reads switch
+  witnesses from the own L1, so a slow read never has to fit inside one proposal round; a
+  verified witness is held in memory, and a restarted node discovers it again (SYNC-9-16).
+- Authenticate proposal anchors before caching committee witnesses, and distinguish unavailable
+  advisory L1 lookups from invalid anchor witnesses while keeping conservative publication
+  urgency. The lander keeps its remembered tip anchor when a newer own-L1 lookup is unavailable.
+- Persist the FilePV state file and its parent directory before returning any signature,
+  cached HRS retries included (SYNC-9-13). A failed fsync withholds the signature, refuses every
+  later request, writes the `<state>.uncertain` fence and exits 3; the fence refuses every
+  restart, and the supervisor latches (RECOV-8.2-3).
+- Restart Comet over its stale signer socket without CAP_FOWNER: every signer and Comet start
+  meets at a fresh `<comet-home>/run/signer-<16 hex>.sock`.
+- Start Comet together with a restarted signer while the app has not run InitChain, which only
+  Comet can trigger, instead of waiting forever for trust.
+- Recovery InitChain also requires the EL to serve the origin's state and waits with trust
+  closed while it is missing, instead of reporting Ready and halting on the first block.
+- Halt when the own L1's registry proof fails under its own state root, in committee-witness
+  discovery or in a re-proof under the candidate anchor (SYNC-9-7); a peer's failing proof still
+  only rejects its proposal. A background discovery's own-L1 integrity failure is kept and halts
+  whichever handler sees it first, not only a waiting proposer.
+- Treat an own-EL block that does not hash to the requested hash during startup and trust,
+  such as in the recovery origin-state and import floor probes, as a contradiction that halts.
+- A failed own-L1 registry proof halts only when the own L1 holds its anchor final; an endpoint
+  that does not, as after a failover to one that is behind, pauses as missing data.
+- Trust waits, instead of halting, while the own L1's finalized block precedes the Inbox's genesis
+  L1_0 and the Inbox it reads is still empty, before InitChain and after it.
+- Delete committed Comet block IDs below the committed anchor's checkpoint, which trust never
+  reads, so the app directory stays within `unsettled_limit + 1` of them instead of growing one
+  file per height until the volume runs out of inodes; trust re-acquires a checkpoint below it.
+
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.2.0...taiko-alethia-client-rs-v2.3.0) (2026-09-28)
 
 

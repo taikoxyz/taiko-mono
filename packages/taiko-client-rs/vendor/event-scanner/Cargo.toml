@@ -1,0 +1,91 @@
+# Vendored production manifest; see PROVENANCE.md for the upstream source and local changes.
+#
+# When uploading crates to the registry Cargo will automatically
+# "normalize" Cargo.toml files for maximal compatibility
+# with all versions of Cargo and also rewrite `path` dependencies
+# to registry (e.g., crates.io) dependencies.
+#
+# If you are reading this file be aware that the original Cargo.toml
+# will likely look very different (and much more reasonable).
+# See Cargo.toml.orig for the original contents.
+
+[package]
+edition = "2024"
+name = "event-scanner"
+version = "1.1.2"
+authors = ["OpenZeppelin"]
+build = false
+exclude = [
+    ".github/",
+    ".vscode/",
+    ".config/",
+    ".cargo/",
+    "benches/",
+    "tests/",
+    "bin/generate_dump.rs",
+]
+publish = true
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "Event Scanner is a library for scanning events from any EVM-based blockchain."
+documentation = "https://docs.rs/event-scanner"
+readme = "README.md"
+keywords = [
+    "evm",
+    "ethereum",
+    "blockchain",
+    "events",
+    "alloy",
+]
+categories = [
+    "asynchronous",
+    "web-programming",
+    "web-programming::websocket",
+    "cryptography::cryptocurrencies",
+]
+license = "MIT"
+repository = "https://github.com/OpenZeppelin/Event-Scanner"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[features]
+http-subscription = ["robust-provider/http-subscription"]
+tracing = ["dep:tracing"]
+
+[lib]
+name = "event_scanner"
+path = "src/lib.rs"
+
+[dependencies.alloy]
+version = "2.4.2"
+default-features = false
+
+[dependencies.futures]
+version = "0.3.31"
+default-features = false
+
+[dependencies.robust-provider]
+version = "1.0.2"
+
+[dependencies.thiserror]
+version = "2.0.17"
+
+[dependencies.tokio]
+version = "1.48"
+features = ["rt-multi-thread"]
+
+[dependencies.tokio-stream]
+version = "0.1.17"
+default-features = false
+
+[dependencies.tracing]
+version = "0.1"
+optional = true
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"

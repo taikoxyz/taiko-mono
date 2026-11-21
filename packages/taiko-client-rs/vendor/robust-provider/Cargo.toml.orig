@@ -1,0 +1,50 @@
+[package]
+name = "robust-provider"
+description = "Robust Provider is a library for creating resilient RPC providers for EVM-based blockchains with automatic retries and failover support."
+authors = ["OpenZeppelin"]
+license = "MIT"
+edition = "2024"
+repository = "https://github.com/OpenZeppelin/Robust-Provider"
+version = "1.0.2"
+categories = [
+    "asynchronous",
+    "web-programming",
+    "web-programming::websocket",
+    "cryptography::cryptocurrencies",
+]
+keywords = ["evm", "ethereum", "blockchain", "rpc", "alloy"]
+exclude = [".github/", ".vscode/", ".config/", ".cargo/", "benches/", "tests/"]
+documentation = "https://docs.rs/robust-provider"
+
+[workspace.lints.clippy]
+pedantic = "warn"
+all = "warn"
+
+[dependencies]
+alloy = { version = "1.1.2", features = ["pubsub", "json-rpc"] }
+tokio = "1.48"
+backon = "1.6.0"
+tokio-stream = "0.1.17"
+thiserror = "2.0.17"
+tokio-util = "0.7.17"
+
+tracing = { version = "0.1", optional = true }
+serde_json = "1.0.149"
+
+[dev-dependencies]
+anyhow = "1.0"
+alloy = { version = "1.1.2", features = ["node-bindings", "provider-ws"] }
+test-log = { version = "0.2.18", features = ["trace"] }
+
+[package.metadata.docs.rs]
+all-features = true
+
+[features]
+tracing = ["dep:tracing"]
+http-subscription = []
+
+[profile.release]
+lto = "thin"
+panic = "abort"
+codegen-units = 1
+strip = true

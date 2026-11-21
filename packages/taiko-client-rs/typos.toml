@@ -4,7 +4,6 @@ extend-exclude = [
   "target",
   "Cargo.toml",
   "Cargo.lock",
-  "crates/bindings",
 ]
 
 [default]

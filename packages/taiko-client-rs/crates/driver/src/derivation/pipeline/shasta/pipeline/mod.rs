@@ -295,6 +295,15 @@ where
     Ok(bundle)
 }
 
+/// Authenticated parent that bounds replay independently of mutable execution metadata.
+#[derive(Clone)]
+pub(crate) struct ReplayParent {
+    /// Proposal whose terminal hash was authenticated by finalized Inbox state.
+    pub(crate) proposal_id: u64,
+    /// Exact local execution block carrying that authenticated terminal hash.
+    pub(crate) block: RpcBlock<TxEnvelope>,
+}
+
 /// Shasta-specific derivation pipeline.
 ///
 /// The pipeline consumes proposal logs emitted by the Shasta inbox, resolves the
@@ -315,6 +324,8 @@ pub struct ShastaDerivationPipeline {
     chain_id: u64,
     /// Initial proposal id used when bootstrapping event sync.
     initial_proposal_id: U256,
+    /// Proof-authenticated parent used for the first proposal after a recovery boundary.
+    replay_parent: Option<ReplayParent>,
 }
 
 impl ShastaDerivationPipeline {
@@ -349,7 +360,14 @@ impl ShastaDerivationPipeline {
             min_base_fee_to_clamp,
             chain_id,
             initial_proposal_id,
+            replay_parent: None,
         })
+    }
+
+    /// Install a proof-authenticated replay parent before starting any proposal processing.
+    pub(crate) fn with_replay_parent(mut self, parent: Option<ReplayParent>) -> Self {
+        self.replay_parent = parent;
+        self
     }
 
     /// Load the parent L2 block used as context when constructing payload attributes.
@@ -364,6 +382,11 @@ impl ShastaDerivationPipeline {
     ) -> Result<RpcBlock<TxEnvelope>, DerivationError> {
         tracing::Span::current().record("proposal_id", proposal_id);
         let parent_proposal_id = proposal_id.saturating_sub(1);
+        if let Some(parent) = &self.replay_parent &&
+            parent.proposal_id == parent_proposal_id
+        {
+            return Ok(parent.block.clone());
+        }
         if parent_proposal_id == 0 {
             info!(proposal_id, "using genesis block as parent for first proposal");
             return self
@@ -530,15 +553,6 @@ impl ShastaDerivationPipeline {
         applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let ShastaProposalBundle { meta, sources, .. } = manifest;
-        if meta.proposal_id < self.initial_proposal_id.to() {
-            info!(
-                proposal_id = meta.proposal_id,
-                initial_proposal_id = ?self.initial_proposal_id,
-                "skipping proposal below initial proposal id"
-            );
-            DriverMetrics::event_proposals_skipped_total().inc();
-            return Ok(Vec::new());
-        }
         info!(
             proposal_id = meta.proposal_id,
             origin_block = meta.origin_block_number,
@@ -585,6 +599,16 @@ impl ShastaDerivationPipeline {
 
         if proposal_id == 0 {
             info!(proposal_id, "skipping proposal with zero id");
+            DriverMetrics::event_proposals_skipped_total().inc();
+            return Ok(Vec::new());
+        }
+
+        if proposal_id < self.initial_proposal_id.to() {
+            info!(
+                proposal_id = proposal_id,
+                initial_proposal_id = ?self.initial_proposal_id,
+                "skipping proposal below initial proposal id"
+            );
             DriverMetrics::event_proposals_skipped_total().inc();
             return Ok(Vec::new());
         }
@@ -958,6 +982,7 @@ mod tests {
             min_base_fee_to_clamp: min_base_fee_for_chain(TAIKO_MAINNET_CHAIN_ID),
             chain_id: TAIKO_MAINNET_CHAIN_ID,
             initial_proposal_id: U256::ZERO,
+            replay_parent: None,
         };
 
         let mut parent_block = RpcBlock::<TxEnvelope>::default();

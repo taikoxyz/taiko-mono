@@ -2,6 +2,7 @@
 
 use std::{
     collections::{HashSet, VecDeque},
+    path::Path,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -36,11 +37,15 @@ use super::{
     confirmed_sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot},
     contract_rpc_error,
     error::EngineSubmissionError,
+    handoff::CompletedProposal,
     is_finalized_block_not_found, is_historical_state_unavailable,
 };
 use crate::{
     config::DriverConfig,
-    derivation::{DerivationError, ShastaDerivationPipeline},
+    derivation::{
+        DerivationError, ShastaDerivationPipeline, pipeline::shasta::pipeline::ReplayParent,
+    },
+    driver::UnzenOrigin,
     error::DriverError,
     metrics::DriverMetrics,
     production::{
@@ -207,6 +212,14 @@ struct EventStreamStartPoint {
     bootstrap_confirmed_tip: u64,
     /// Whether L1 reported a finalized block during bootstrap.
     l1_finality_seen: bool,
+}
+
+/// Resume point plus an optional independently authenticated parent for stale-table recovery.
+struct HandoffReplayStart {
+    /// Inclusive scanner and proposal replay boundaries.
+    start: EventStreamStartPoint,
+    /// Exact finalized proof block, bypassing stale batch-map parent resolution.
+    parent: Option<ReplayParent>,
 }
 
 /// Decide whether a confirmed-sync probe is still needed.
@@ -979,9 +992,10 @@ impl EventSyncer {
         &self,
         router: Arc<AsyncMutex<ProductionRouter>>,
         logs: Vec<Log>,
-    ) -> Result<(), SyncError> {
+    ) -> Result<Option<CompletedProposal>, SyncError> {
         debug!(log_batch_size = logs.len(), "processing proposal log batch");
 
+        let mut completed = None;
         for log in logs {
             let proposal_id = Proposed::decode_raw_log(log.topics(), log.data().data.as_ref())
                 .map(|event| event.id.to::<u64>())
@@ -1017,7 +1031,7 @@ impl EventSyncer {
             let syncer = self;
             let router = router.clone();
             let proposal_log = log.clone();
-            let processing = RetryIf::spawn(
+            let processing = RetryIf::start(
                 retry_strategy,
                 move || {
                     let router = router.clone();
@@ -1081,6 +1095,17 @@ impl EventSyncer {
             };
 
             if let Some(last_outcome) = outcomes.last() {
+                // This evidence is emitted only after the whole serialized proposal call
+                // returns, never from EL's per-block batch/head metadata.
+                if let Some(l1_number) = log.block_number {
+                    completed = Some(CompletedProposal {
+                        proposal_id,
+                        l1_number,
+                        l1_hash: block_hash,
+                        height: last_outcome.block_number(),
+                        hash: last_outcome.block_hash(),
+                    });
+                }
                 DriverMetrics::event_last_canonical_block_number()
                     .set(last_outcome.block_number() as f64);
             }
@@ -1095,7 +1120,7 @@ impl EventSyncer {
             DriverMetrics::event_last_canonical_proposal_id().set(proposal_id as f64);
             DriverMetrics::event_derived_blocks_total().inc_by(outcomes.len() as u64);
         }
-        Ok(())
+        Ok(completed)
     }
 
     /// Construct a new event syncer from the provided configuration and RPC client.
@@ -1662,6 +1687,202 @@ impl EventSyncer {
 }
 
 impl EventSyncer {
+    /// Preserve same-branch resume, or bound stale-origin recovery by finalized proof history.
+    /// Without a local proof block, walk backward to a locally derived canonical L1 prefix.
+    async fn handoff_replay_start(
+        &self,
+        fork_timestamp: u64,
+    ) -> Result<HandoffReplayStart, SyncError> {
+        let Some(finalized) = self.finalized_l1_snapshot().await? else {
+            return Ok(HandoffReplayStart {
+                start: EventStreamStartPoint {
+                    anchor_block_number: self.activation_block_number().await?,
+                    initial_proposal_id: 0,
+                    bootstrap_confirmed_tip: 0,
+                    l1_finality_seen: false,
+                },
+                parent: None,
+            });
+        };
+        let head_origin = self.rpc.head_l1_origin().await?;
+        if let Some(origin) = &head_origin &&
+            let (Some(height), Some(hash)) = (origin.l1_block_height, origin.l1_block_hash) &&
+            let Ok(height) = u64::try_from(height)
+        {
+            let canonical = self
+                .rpc
+                .l1_provider
+                .get_block_by_number(BlockNumberOrTag::Number(height))
+                .await
+                .map_err(RpcClientError::from)?;
+            if canonical.is_some_and(|block| block.header.hash == hash) {
+                let local_head =
+                    self.rpc.l2_provider.get_block_number().await.map_err(RpcClientError::from)?;
+                let resume_height =
+                    u64::try_from(origin.block_id).unwrap_or(local_head).min(local_head);
+                // A build FCU can persist N before block N is imported. Resolve an actual
+                // canonical block directly, never the ahead-of-import batch mapping.
+                if let Some(block) = self
+                    .rpc
+                    .l2_provider
+                    .get_block_by_number(BlockNumberOrTag::Number(resume_height))
+                    .full()
+                    .await
+                    .map_err(RpcClientError::from)?
+                {
+                    let block = block.map_transactions(|tx: RpcTransaction| tx.into());
+                    if block.header.number != resume_height ||
+                        block.header.inner.hash_slow() != block.header.hash
+                    {
+                        return Err(SyncError::InvalidEtnaHandoff(
+                            "canonical resume header is internally inconsistent",
+                        ));
+                    }
+                    if resume_height == 0 || block.header.extra_data.len() == 7 {
+                        let proposal_id = decode_anchor_proposal_id(&block)?;
+                        if proposal_id <= finalized.finalized_safe_proposal_id {
+                            return Ok(HandoffReplayStart {
+                                start: EventStreamStartPoint {
+                                    anchor_block_number: self
+                                        .decode_anchor_block_number(
+                                            &block,
+                                            *self.rpc.shasta.anchor.address(),
+                                        )
+                                        .await?,
+                                    initial_proposal_id: proposal_id,
+                                    bootstrap_confirmed_tip: resume_height,
+                                    l1_finality_seen: true,
+                                },
+                                parent: None,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        let core = self
+            .rpc
+            .shasta
+            .inbox
+            .getCoreState()
+            .block(BlockId::Hash(RpcBlockHash {
+                block_hash: finalized.block_hash,
+                require_canonical: Some(true),
+            }))
+            .call()
+            .await
+            .map_err(RpcClientError::from)?;
+        let proof_id = core.lastFinalizedProposalId.to::<u64>();
+        if proof_id < finalized.finalized_safe_proposal_id &&
+            !core.lastFinalizedBlockHash.is_zero() &&
+            let Some(block) = self
+                .rpc
+                .l2_provider
+                .get_block_by_hash(core.lastFinalizedBlockHash)
+                .full()
+                .await
+                .map_err(RpcClientError::from)?
+        {
+            let block = block.map_transactions(|tx: RpcTransaction| tx.into());
+            if block.header.hash != core.lastFinalizedBlockHash ||
+                block.header.inner.hash_slow() != core.lastFinalizedBlockHash ||
+                block.header.timestamp >= fork_timestamp ||
+                (proof_id != 0 &&
+                    (block.header.extra_data.len() != 7 ||
+                        alethia_reth_primitives::decode_shasta_proposal_id(
+                            &block.header.extra_data,
+                        ) != Some(proof_id)))
+            {
+                return Err(SyncError::InvalidEtnaHandoff(
+                    "local proof checkpoint contradicts finalized Inbox history",
+                ));
+            }
+            let anchor_block_number =
+                self.decode_anchor_block_number(&block, *self.rpc.shasta.anchor.address()).await?;
+            let height = block.header.number;
+            return Ok(HandoffReplayStart {
+                start: EventStreamStartPoint {
+                    anchor_block_number,
+                    initial_proposal_id: proof_id.saturating_add(1),
+                    bootstrap_confirmed_tip: height,
+                    l1_finality_seen: true,
+                },
+                parent: Some(ReplayParent { proposal_id: proof_id, block }),
+            });
+        }
+        let local_head =
+            self.rpc.l2_provider.get_block_number().await.map_err(RpcClientError::from)?;
+        let mut height = head_origin
+            .as_ref()
+            .and_then(|origin| u64::try_from(origin.block_id).ok())
+            .map_or(local_head, |height| height.min(local_head));
+        // Cache source canonicality while walking blocks from the same proposal. This path is
+        // only used for stale/missing origins; normal startup never scans historical EL blocks.
+        let mut source_canonicality = std::collections::HashMap::new();
+        while height != 0 {
+            if let Some(origin) = self.rpc.l1_origin_by_id(U256::from(height)).await? &&
+                let (Some(number), Some(hash)) = (origin.l1_block_height, origin.l1_block_hash) &&
+                let Ok(number) = u64::try_from(number)
+            {
+                let canonical = if let Some(canonical) = source_canonicality.get(&(number, hash)) {
+                    *canonical
+                } else {
+                    let canonical = self
+                        .rpc
+                        .l1_provider
+                        .get_block_by_number(BlockNumberOrTag::Number(number))
+                        .await
+                        .map_err(RpcClientError::from)?
+                        .is_some_and(|block| block.header.hash == hash);
+                    source_canonicality.insert((number, hash), canonical);
+                    canonical
+                };
+                if canonical &&
+                    number <= finalized.block_number &&
+                    let Some(block) = self
+                        .rpc
+                        .l2_provider
+                        .get_block_by_number(BlockNumberOrTag::Number(height))
+                        .full()
+                        .await
+                        .map_err(RpcClientError::from)?
+                {
+                    let block = block.map_transactions(|tx: RpcTransaction| tx.into());
+                    if block.header.hash == origin.l2_block_hash &&
+                        block.header.inner.hash_slow() == block.header.hash &&
+                        block.header.extra_data.len() == 7
+                    {
+                        let proposal_id = decode_anchor_proposal_id(&block)?;
+                        return Ok(HandoffReplayStart {
+                            start: EventStreamStartPoint {
+                                anchor_block_number: self
+                                    .decode_anchor_block_number(
+                                        &block,
+                                        *self.rpc.shasta.anchor.address(),
+                                    )
+                                    .await?,
+                                initial_proposal_id: proposal_id,
+                                bootstrap_confirmed_tip: height,
+                                l1_finality_seen: true,
+                            },
+                            parent: None,
+                        });
+                    }
+                }
+            }
+            height -= 1;
+        }
+        Ok(HandoffReplayStart {
+            start: EventStreamStartPoint {
+                anchor_block_number: self.activation_block_number().await?,
+                initial_proposal_id: 0,
+                bootstrap_confirmed_tip: 0,
+                l1_finality_seen: true,
+            },
+            parent: None,
+        })
+    }
+
     /// Resolve the activation block number by converting the inbox activation timestamp through
     /// the beacon endpoint.
     async fn activation_block_number(&self) -> Result<u64, SyncError> {
@@ -1741,10 +1962,44 @@ fn decode_anchor_call(
 
 #[async_trait::async_trait]
 impl SyncStage for EventSyncer {
-    /// Start the event syncer.
-    #[instrument(skip(self), name = "event_syncer_run")]
+    /// Follow Unzen proposals indefinitely with the configured ingress mode.
     async fn run(&self) -> Result<(), SyncError> {
-        let start_point = self.event_stream_start_block().await?;
+        self.run_inner(None, None).await.map(|_| ())
+    }
+}
+
+impl EventSyncer {
+    /// Wait for a finalized closing Inbox snapshot and return its confirmed canonical L2 origin.
+    /// The caller constructs this syncer with preconfirmation ingress disabled.
+    pub(crate) async fn run_until_etna(
+        &self,
+        fork_timestamp: u64,
+        receipt_path: &Path,
+    ) -> Result<UnzenOrigin, SyncError> {
+        if self.cfg.preconfirmation_enabled {
+            return Err(SyncError::Other(anyhow!(
+                "Etna handoff requires disabled preconfirmation ingress"
+            )));
+        }
+        self.run_inner(Some(fork_timestamp), Some(receipt_path)).await?.ok_or_else(|| {
+            SyncError::Other(anyhow!("Unzen event loop ended without a closed origin"))
+        })
+    }
+
+    /// Run one serial event loop, optionally polling finalized closure between proposal batches.
+    #[instrument(skip(self), name = "event_syncer_run")]
+    async fn run_inner(
+        &self,
+        fork_timestamp: Option<u64>,
+        receipt_path: Option<&Path>,
+    ) -> Result<Option<UnzenOrigin>, SyncError> {
+        let mut completed = None;
+        let replay = if let Some(fork_timestamp) = fork_timestamp {
+            self.handoff_replay_start(fork_timestamp).await?
+        } else {
+            HandoffReplayStart { start: self.event_stream_start_block().await?, parent: None }
+        };
+        let start_point = replay.start;
         let anchor_block_number = start_point.anchor_block_number;
         let initial_proposal_id = start_point.initial_proposal_id;
         let start_tag = BlockNumberOrTag::Number(anchor_block_number);
@@ -1765,7 +2020,8 @@ impl SyncStage for EventSyncer {
             self.blob_source.clone(),
             U256::from(initial_proposal_id),
         )
-        .await?;
+        .await?
+        .with_replay_parent(replay.parent);
         let derivation = Arc::new(derivation_pipeline);
         let router = self.build_router(derivation.clone());
 
@@ -1854,6 +2110,28 @@ impl SyncStage for EventSyncer {
             probe_retry.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
             loop {
+                if let (Some(fork_timestamp), Some(receipt_path)) = (fork_timestamp, receipt_path) {
+                    match super::handoff::try_etna_origin(
+                        &self.rpc,
+                        fork_timestamp,
+                        receipt_path,
+                        completed.as_ref(),
+                    )
+                    .await
+                    {
+                        Ok(Some(origin)) => {
+                            self.close_preconf_ingress(&router).await;
+                            return Ok(Some(origin));
+                        }
+                        Ok(None) => {}
+                        Err(
+                            error @ (SyncError::InvalidEtnaHandoff(_) | SyncError::EtnaReceipt(_)),
+                        ) => return Err(error),
+                        Err(error) => {
+                            warn!(%error, "finalized Unzen closure is unavailable; keeping Etna handoff closed")
+                        }
+                    }
+                }
                 let message = tokio::select! {
                     message = stream.next() => {
                         let Some(message) = message else {
@@ -1861,7 +2139,7 @@ impl SyncStage for EventSyncer {
                         };
                         message
                     }
-                    _ = probe_retry.tick(), if should_probe_confirmed_sync(
+                    _ = probe_retry.tick(), if fork_timestamp.is_some() || should_probe_confirmed_sync(
                         self.cfg.preconfirmation_enabled,
                         preconf_ingress_spawned,
                         self.preconf_ingress_ready.load(Ordering::Acquire),
@@ -1890,7 +2168,10 @@ impl SyncStage for EventSyncer {
                             );
                         }
                         let processed_logs = logs.clone();
-                        self.process_log_batch(router.clone(), logs).await?;
+                        if let Some(proposal) = self.process_log_batch(router.clone(), logs).await?
+                        {
+                            completed = Some(proposal);
+                        }
                         processed_proposal_logs.record_processed(&processed_logs);
                         scanner_reconnect_state.mark_successful_batch();
                     }
@@ -2012,7 +2293,7 @@ mod tests {
         production::{BlockProductionPath, ProductionRouter},
         test_support::{
             MockProductionPath, mock_client_with_asserters, mock_client_with_l1_asserter,
-            sample_derivation_source, sample_payload,
+            sample_derivation_source, sample_engine_outcome, sample_payload,
         },
     };
 
@@ -2753,7 +3034,10 @@ mod tests {
         .await;
 
         assert!(
-            matches!(result, Ok(Ok(()))),
+            matches!(result, Ok(Ok(Some(completed)))
+                if completed.proposal_id == 2 && completed.l1_number == 2 &&
+                    completed.l1_hash == B256::from([0x12; 32]) && completed.height == 2 &&
+                    completed.hash == sample_engine_outcome(2).block_hash()),
             "orphaned log should be skipped so a later log in the same batch still processes",
         );
         assert_eq!(path.seen_tx_hashes(), vec![orphaned_tx_hash, later_tx_hash]);
@@ -2804,7 +3088,10 @@ mod tests {
         .await;
 
         assert!(
-            matches!(result, Ok(Ok(()))),
+            matches!(result, Ok(Ok(Some(completed)))
+                if completed.proposal_id == 1 && completed.l1_number == 1 &&
+                    completed.l1_hash == retry_block_hash && completed.height == 1 &&
+                    completed.hash == sample_engine_outcome(1).block_hash()),
             "recheck rpc errors should keep the log retryable until a later attempt succeeds",
         );
         assert_eq!(path.seen_tx_hashes(), vec![retry_tx_hash, retry_tx_hash]);

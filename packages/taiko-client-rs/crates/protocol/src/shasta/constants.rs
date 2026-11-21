@@ -10,10 +10,13 @@ pub use alethia_reth_chainspec::{
     TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
 };
 use alethia_reth_consensus::eip4396::{
-    BASE_FEE_MAX_CHANGE_DENOMINATOR, BLOCK_TIME_TARGET, ELASTICITY_MULTIPLIER,
-    MAINNET_MIN_BASE_FEE, MAX_BASE_FEE, MAX_GAS_TARGET_PERCENT, MIN_BASE_FEE,
-    SHASTA_INITIAL_BASE_FEE,
+    BASE_FEE_MAX_CHANGE_DENOMINATOR, ELASTICITY_MULTIPLIER, MAINNET_MIN_BASE_FEE, MAX_BASE_FEE,
+    MAX_GAS_TARGET_PERCENT, MIN_BASE_FEE, SHASTA_INITIAL_BASE_FEE, block_time_target,
 };
+/// Etna's EIP-4396 block-time target in seconds (ENC-A-10a), alethia-reth's: the base fee of
+/// every Etna block, S + 1 included, adjusts for a 4 s operating interval, while Shasta and
+/// Unzen blocks keep [`SHASTA_BLOCK_TIME_TARGET`] of 2 s.
+pub use alethia_reth_consensus::eip4396::{ETNA_BLOCK_TIME_TARGET, SHASTA_BLOCK_TIME_TARGET};
 use alloy_eips::eip4844::BYTES_PER_BLOB;
 use alloy_hardforks::ForkCondition;
 
@@ -105,7 +108,9 @@ pub const fn min_base_fee_for_chain(chain_id: u64) -> u64 {
 /// Owns the wrapper logic shared by every fetching call site: a genesis parent yields
 /// [`SHASTA_INITIAL_BASE_FEE`], the parent block time is `parent_timestamp -
 /// grandparent_timestamp`, and a non-genesis parent missing `base_fee_per_gas` yields `None`
-/// for the caller to map into its own error type.
+/// for the caller to map into its own error type. This is the Shasta and Unzen rule with
+/// [`SHASTA_BLOCK_TIME_TARGET`]; Etna blocks use
+/// [`calculate_next_etna_block_eip4396_base_fee_for_parent`].
 pub fn calculate_next_block_eip4396_base_fee_for_parent(
     parent_number: u64,
     parent_gas_limit: u64,
@@ -115,17 +120,67 @@ pub fn calculate_next_block_eip4396_base_fee_for_parent(
     grandparent_timestamp: u64,
     min_base_fee_to_clamp: u64,
 ) -> Option<u64> {
+    eip4396_base_fee_for_parent(
+        parent_number,
+        parent_gas_limit,
+        parent_gas_used,
+        parent_timestamp,
+        parent_base_fee_per_gas,
+        grandparent_timestamp,
+        min_base_fee_to_clamp,
+        block_time_target(false),
+    )
+}
+
+/// [`calculate_next_block_eip4396_base_fee_for_parent`] for an Etna block (ENC-A-10a): the same
+/// formula with the [`ETNA_BLOCK_TIME_TARGET`] of 4 s, applied to every Etna block including
+/// S + 1, whose parent is the last Unzen block. Block 1 of a network starting at S = 0 is still
+/// fixed at [`SHASTA_INITIAL_BASE_FEE`].
+pub fn calculate_next_etna_block_eip4396_base_fee_for_parent(
+    parent_number: u64,
+    parent_gas_limit: u64,
+    parent_gas_used: u64,
+    parent_timestamp: u64,
+    parent_base_fee_per_gas: Option<u64>,
+    grandparent_timestamp: u64,
+    min_base_fee_to_clamp: u64,
+) -> Option<u64> {
+    eip4396_base_fee_for_parent(
+        parent_number,
+        parent_gas_limit,
+        parent_gas_used,
+        parent_timestamp,
+        parent_base_fee_per_gas,
+        grandparent_timestamp,
+        min_base_fee_to_clamp,
+        block_time_target(true),
+    )
+}
+
+/// The shared parent-header wrapper of both EIP-4396 rules, for `block_time_target` seconds.
+#[allow(clippy::too_many_arguments)]
+fn eip4396_base_fee_for_parent(
+    parent_number: u64,
+    parent_gas_limit: u64,
+    parent_gas_used: u64,
+    parent_timestamp: u64,
+    parent_base_fee_per_gas: Option<u64>,
+    grandparent_timestamp: u64,
+    min_base_fee_to_clamp: u64,
+    block_time_target: u64,
+) -> Option<u64> {
     if parent_number == 0 {
         return Some(SHASTA_INITIAL_BASE_FEE);
     }
 
-    Some(calculate_next_block_eip4396_base_fee_from_parent_values(
+    Some(eip4396_base_fee(
         parent_number,
         parent_gas_limit,
         parent_gas_used,
         parent_timestamp.saturating_sub(grandparent_timestamp),
         parent_base_fee_per_gas?,
         min_base_fee_to_clamp,
+        block_time_target,
     ))
 }
 
@@ -133,6 +188,7 @@ pub fn calculate_next_block_eip4396_base_fee_for_parent(
 ///
 /// This mirrors alethia-reth's calculation while accepting raw values, so callers using the
 /// workspace's Alloy 1 header type do not need to depend on alethia-reth's Alloy 2 header trait.
+/// It uses [`SHASTA_BLOCK_TIME_TARGET`], the Shasta and Unzen rule.
 pub fn calculate_next_block_eip4396_base_fee_from_parent_values(
     parent_number: u64,
     parent_gas_limit: u64,
@@ -141,13 +197,35 @@ pub fn calculate_next_block_eip4396_base_fee_from_parent_values(
     parent_base_fee_per_gas: u64,
     min_base_fee_to_clamp: u64,
 ) -> u64 {
+    eip4396_base_fee(
+        parent_number,
+        parent_gas_limit,
+        parent_gas_used,
+        parent_block_time,
+        parent_base_fee_per_gas,
+        min_base_fee_to_clamp,
+        block_time_target(false),
+    )
+}
+
+/// EIP-4396 from parent-header values for a `block_time_target` of that many seconds; every
+/// division floors.
+fn eip4396_base_fee(
+    parent_number: u64,
+    parent_gas_limit: u64,
+    parent_gas_used: u64,
+    parent_block_time: u64,
+    parent_base_fee_per_gas: u64,
+    min_base_fee_to_clamp: u64,
+    block_time_target: u64,
+) -> u64 {
     if parent_number == 0 {
         return SHASTA_INITIAL_BASE_FEE;
     }
 
     let parent_base_gas_target = parent_gas_limit / ELASTICITY_MULTIPLIER;
     let parent_adjusted_gas_target = min(
-        parent_base_gas_target * parent_block_time / BLOCK_TIME_TARGET,
+        parent_base_gas_target * parent_block_time / block_time_target,
         parent_gas_limit * MAX_GAS_TARGET_PERCENT / 100,
     );
     let mut base_fee = parent_base_fee_per_gas;
@@ -285,6 +363,37 @@ mod tests {
                 Err(ForkConfigError::UnsupportedChainId(error_chain_id))
                     if error_chain_id == chain_id
             ));
+        }
+    }
+
+    /// ENC-A-10a: the Etna rule targets 4 s and the Shasta/Unzen rule keeps alethia-reth's
+    /// 2 s, so one 4 s parent interval at the gas target holds the Etna fee (10a.a) and lowers the
+    /// Unzen one; block 1 of a network starting at 0 is fixed in both.
+    #[test]
+    fn etna_base_fee_targets_four_seconds_and_unzen_keeps_two() {
+        use super::{
+            ETNA_BLOCK_TIME_TARGET, MAINNET_MIN_BASE_FEE, SHASTA_BLOCK_TIME_TARGET,
+            SHASTA_INITIAL_BASE_FEE, block_time_target,
+            calculate_next_block_eip4396_base_fee_for_parent,
+            calculate_next_etna_block_eip4396_base_fee_for_parent,
+        };
+        /// A parent-header base-fee rule.
+        type Rule = fn(u64, u64, u64, u64, Option<u64>, u64, u64) -> Option<u64>;
+        assert_eq!((ETNA_BLOCK_TIME_TARGET, SHASTA_BLOCK_TIME_TARGET), (4, 2));
+        assert_eq!((block_time_target(true), block_time_target(false)), (4, 2));
+        let fee = |f: Rule, parent| {
+            f(parent, 30_000_000, 15_000_000, 104, Some(100_000_000), 100, MAINNET_MIN_BASE_FEE)
+        };
+        assert_eq!(
+            fee(calculate_next_etna_block_eip4396_base_fee_for_parent, 7),
+            Some(100_000_000)
+        );
+        assert_eq!(fee(calculate_next_block_eip4396_base_fee_for_parent, 7), Some(88_750_000));
+        for f in [
+            calculate_next_etna_block_eip4396_base_fee_for_parent,
+            calculate_next_block_eip4396_base_fee_for_parent,
+        ] {
+            assert_eq!(fee(f, 0), Some(SHASTA_INITIAL_BASE_FEE));
         }
     }
 

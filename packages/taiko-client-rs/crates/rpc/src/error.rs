@@ -24,6 +24,10 @@ pub enum RpcClientError {
     #[error("provider error: {0}")]
     Provider(String),
 
+    /// Contract call failure.
+    #[error("contract error: {0}")]
+    Contract(String),
+
     /// Typed RPC error from the transport stack.
     #[error("RPC error: {0}")]
     Rpc(#[from] TransportError),
@@ -32,9 +36,18 @@ pub enum RpcClientError {
     #[error("RPC error: {0}")]
     RpcMessage(String),
 
-    /// Contract error
-    #[error("contract error: {0}")]
-    Contract(String),
+    /// The execution engine does not advertise every Engine API method the client calls.
+    #[error(
+        "the execution engine does not serve {missing:?} (it advertises {advertised:?}); this \
+         client calls only engine_forkchoiceUpdatedV3, engine_getPayloadV5 and \
+         engine_newPayloadV4, so it needs an alethia-reth release with the Osaka Engine API"
+    )]
+    EngineMethodsUnsupported {
+        /// Required methods missing from the engine's list.
+        missing: Vec<&'static str>,
+        /// Methods the engine advertised through `engine_exchangeCapabilities`.
+        advertised: Vec<String>,
+    },
 
     /// Generic error
     #[error(transparent)]
@@ -66,7 +79,7 @@ mod tests {
 
     #[test]
     fn test_error_display() {
-        let err = RpcClientError::JwtSecretReadFailed("/path/to/jwt.hex".to_string());
-        assert_eq!(err.to_string(), "failed to read JWT secret from /path/to/jwt.hex");
+        let err = RpcClientError::RpcMessage("eth_chainId failed".to_string());
+        assert_eq!(err.to_string(), "RPC error: eth_chainId failed");
     }
 }

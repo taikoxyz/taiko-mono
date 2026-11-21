@@ -105,33 +105,18 @@
         },
         {
           "type": "toml",
-          "path": "crates/bindings/Cargo.toml",
-          "jsonpath": "$.package.version"
-        },
-        {
-          "type": "toml",
           "path": "Cargo.lock",
           "jsonpath": "$.package[?(@.name.value == \"taiko-client\" && !@.source)].version"
         },
         {
           "type": "toml",
           "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value == \"bindings\" && !@.source)].version"
+          "jsonpath": "$.package[?(@.name.value == \"abci\" && !@.source)].version"
         },
         {
           "type": "toml",
           "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value == \"driver\" && !@.source)].version"
-        },
-        {
-          "type": "toml",
-          "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value == \"whitelist-preconfirmation-driver\" && !@.source)].version"
-        },
-        {
-          "type": "toml",
-          "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value == \"proposer\" && !@.source)].version"
+          "jsonpath": "$.package[?(@.name.value == \"lander\" && !@.source)].version"
         },
         {
           "type": "toml",

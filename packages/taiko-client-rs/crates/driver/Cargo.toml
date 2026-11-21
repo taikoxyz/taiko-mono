@@ -16,13 +16,14 @@ alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
-alloy-rpc-types-engine-2 = { workspace = true }
 alloy-sol-types = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 event-scanner = { workspace = true }
 once_cell = { workspace = true }
 prometheus = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-retry = { workspace = true }
@@ -43,7 +44,6 @@ alloy-signer-local = { workspace = true }
 alloy-transport = { workspace = true }
 anyhow = { workspace = true }
 flate2 = { workspace = true }
-proposer = { path = "../proposer" }
 secp256k1 = { workspace = true }
 serde_json = { workspace = true }
 serial_test = { workspace = true }
