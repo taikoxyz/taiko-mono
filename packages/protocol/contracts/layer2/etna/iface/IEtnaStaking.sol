@@ -160,7 +160,7 @@ interface IEtnaStaking {
 
     /// @notice Emitted when a bond is withdrawn.
     /// @param bondId The bond id.
-    /// @param to The recipient of the stake.
+    /// @param to The recipient of the stake; the zero address when nothing is paid.
     /// @param amount The stake paid out; zero for a bond without balance.
     event Withdrawn(uint256 indexed bondId, address indexed to, uint256 amount);
 
@@ -263,7 +263,7 @@ interface IEtnaStaking {
     /// effStake, clears the owner and marks the bond withdrawn, keeping its id, key, lifetime key
     /// registration, exit height and forfeiture flag.
     /// @param _bondId The bond id.
-    /// @param _to The recipient of the stake.
+    /// @param _to The recipient of the stake; unused when nothing is paid.
     function withdraw(uint256 _bondId, address _to) external;
 
     /// @notice Slashes a bond's whole stake for a same-round double sign (spec 4.1).

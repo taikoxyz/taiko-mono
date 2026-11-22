@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import { IEtnaStaking } from "./iface/IEtnaStaking.sol";
+import { LibCometVote } from "./libs/LibCometVote.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -265,7 +266,7 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
 
         bond.exitHeight = uint48(block.number);
         emit ExitRequested(_bondId, block.number);
-        if (bond.holdsSeat) emit SeatReleased(_bondId, _releaseSeat($, bond));
+        if (bond.holdsSeat) emit SeatReleased(_bondId, _releaseSeat($, bond, _ckAddrOf(bond)));
     }
 
     /// @inheritdoc IEtnaStaking
@@ -296,15 +297,86 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
     }
 
     /// @inheritdoc IEtnaStaking
-    /// @dev Not implemented yet: always reverts `InvalidVote`.
-    function slashDoubleSign(uint256, Vote calldata, Vote calldata) external pure {
-        revert InvalidVote();
+    /// @dev Checks in order: both votes' ranges, the double sign, the generation, issuance,
+    /// withdrawal, the stake and the signatures. Reads no Inbox state and takes no Inbox lock:
+    /// the Inbox enters only as the immutable the chain domain binds, so votes signed before the
+    /// Inbox was initialized are evidence too. The bounty and the rest are paid last, and a zero
+    /// bounty makes no transfer.
+    function slashDoubleSign(
+        uint256 _bondId,
+        Vote calldata _voteA,
+        Vote calldata _voteB
+    )
+        external
+        nonReentrant
+    {
+        Vote memory a = _voteA;
+        Vote memory b = _voteB;
+        LibCometVote.checkRanges(a);
+        LibCometVote.checkRanges(b);
+        require(
+            a.voteType == b.voteType && a.height == b.height && a.round == b.round
+                && a.generation == b.generation && !LibCometVote.sameBlockId(a, b),
+            NotDoubleSign()
+        );
+        StakingStorage storage $ = _stakingStorage();
+        require(a.generation <= $.lastGeneration, FutureGeneration());
+        Bond storage bond = _unwithdrawnBond($, _bondId);
+        uint256 slashed = bond.effStake;
+        require(slashed != 0, NothingToSlash());
+
+        // The L1 chain id comes first and the L2 chain id, this chain's, second.
+        bytes memory cometChainId = LibCometVote.chainId(
+            LibCometVote.chainDomain(l1ChainId, block.chainid, inbox, a.generation)
+        );
+        address signer = _voteSigner(a, cometChainId);
+        require(
+            _voteSigner(b, cometChainId) == signer && $.keyBond[signer] == _bondId + 1,
+            LibEtnaKeys.InvalidSignature()
+        );
+
+        bond.effStake = 0;
+        _forceExit(bond);
+        uint256 bounty = Math.mulDiv(slashed, slashBountyBps, _BPS);
+        emit DoubleSignSlashed(
+            _bondId, msg.sender, slashed, bounty, a.generation, a.height, a.round, a.voteType
+        );
+        // Registration mapped the signer, the bond's key address, to this bond, so the seat is
+        // released without decompressing the stored key.
+        if (bond.holdsSeat) emit SeatReleased(_bondId, _releaseSeat($, bond, signer));
+
+        if (bounty != 0) IERC20(token).safeTransfer(msg.sender, bounty);
+        IERC20(token).safeTransfer(slashSink, slashed - bounty);
     }
 
     /// @inheritdoc IEtnaStaking
-    /// @dev Not implemented yet: always reverts `NothingToForfeit`.
-    function forfeit(uint256, bytes32, uint256) external pure {
-        revert NothingToForfeit();
+    /// @dev Checks in order: issuance, withdrawal, the flag, the deadline and the stake. The
+    /// balance, the flag, the exit and the seat change before the penalty is paid.
+    function forfeit(
+        uint256 _bondId,
+        bytes32 _incidentId,
+        uint256 _validUntil
+    )
+        external
+        onlyOwner
+        nonReentrant
+    {
+        StakingStorage storage $ = _stakingStorage();
+        Bond storage bond = _unwithdrawnBond($, _bondId);
+        require(!$.forfeited[_bondId], AlreadyForfeited());
+        require(block.timestamp <= _validUntil, AuthorizationExpired());
+        uint256 balance = bond.effStake;
+        require(balance != 0, NothingToForfeit());
+
+        // forfeitBps <= 10,000, so the penalty never exceeds the balance.
+        uint256 penalty = Math.mulDiv(balance, forfeitBps, _BPS, Math.Rounding.Up);
+        bond.effStake = balance - penalty;
+        $.forfeited[_bondId] = true;
+        _forceExit(bond);
+        emit Forfeited(_bondId, _incidentId, balance, penalty);
+        if (bond.holdsSeat) emit SeatReleased(_bondId, _releaseSeat($, bond, _ckAddrOf(bond)));
+
+        IERC20(token).safeTransfer(slashSink, penalty);
     }
 
     /// @inheritdoc IEtnaStaking
@@ -509,10 +581,12 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
     /// key-to-seat word (to zero) and the seat's miss count. Emits nothing.
     /// @param $ The staking storage.
     /// @param _bond The bond, which holds a seat.
+    /// @param _ckAddr The bond's consensus key address.
     /// @return seat_ The seat released.
     function _releaseSeat(
         StakingStorage storage $,
-        Bond storage _bond
+        Bond storage _bond,
+        address _ckAddr
     )
         private
         returns (uint8 seat_)
@@ -520,7 +594,7 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
         seat_ = _bond.seat;
         $.occupied &= ~uint128(uint256(1) << seat_);
         delete $.seatBond[seat_];
-        delete $.keySeat[_ckAddrOf(_bond)];
+        delete $.keySeat[_ckAddr];
         delete $.missCounts[seat_];
         _bond.holdsSeat = false;
         _bond.seat = 0;
@@ -557,7 +631,7 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
             effStake -= penalty;
             bond.effStake = effStake;
             total_ += penalty;
-            if (effStake < minStake) _releaseSeat($, bond);
+            if (effStake < minStake) _releaseSeat($, bond, _ckAddrOf(bond));
         }
     }
 
@@ -586,8 +660,36 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
         $.snapshotHeight = block.number;
     }
 
+    /// @dev Sets a bond's exit height to min(exitHeight, block.number): an exit at the current
+    /// block if none is set, and an earlier exit kept.
+    /// @param _bond The bond.
+    function _forceExit(Bond storage _bond) private {
+        // exitHeight <= 2^48 - 1, so a block number below it fits in 48 bits.
+        if (block.number < _bond.exitHeight) _bond.exitHeight = uint48(block.number);
+    }
+
+    /// @dev Returns the address that signed a vote: the signer of keccak256 of its sign bytes
+    /// under `_cometChainId`. Reverts with `LibEtnaKeys.InvalidSignature` as
+    /// `LibEtnaKeys.recoverSigner` does.
+    /// @param _vote The vote.
+    /// @param _cometChainId The CometBFT chain id the vote must be signed under.
+    /// @return The signer, never zero.
+    function _voteSigner(
+        Vote memory _vote,
+        bytes memory _cometChainId
+    )
+        private
+        pure
+        returns (address)
+    {
+        return LibEtnaKeys.recoverSigner(
+            keccak256(LibCometVote.signBytes(_vote, _cometChainId)), _vote.signature
+        );
+    }
+
     /// @dev Returns a bond's consensus key address, decompressing its stored key. Registration
-    /// validated the key, so this cannot revert.
+    /// validated the key, so this reverts only for lack of gas, such as a modexp precompile call
+    /// that runs out of it, never for the key itself.
     /// @param _bond The bond.
     /// @return The key address.
     function _ckAddrOf(Bond storage _bond) private view returns (address) {
