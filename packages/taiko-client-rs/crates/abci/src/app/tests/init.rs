@@ -10,15 +10,13 @@ use super::{
     *,
 };
 use crate::{
-    committee::{self, CommitteeError, VerifiedWitness},
     engine::PayloadVerdict,
     genesis::GenesisError,
     l1::{RawL1Header, witness::WitnessError},
     rules::{RuleViolation, chain_id_for},
-    schedule::Schedule,
     test_utils::{
-        EngineCall, GenesisSpec, L1Call, MockEngine, TestState, committee_witness, edit_l1_header,
-        filler_accounts, inbox_account, l1_header, powers, registry_account,
+        EngineCall, GenesisSpec, L1Call, MockEngine, TestState, edit_l1_header, fallback_list,
+        filler_accounts, inbox_account, l1_header, test_key, validator_updates,
     },
     valstate::{ValState, app_hash},
 };
@@ -48,8 +46,8 @@ async fn init_chain_persists_the_verified_genesis_state() {
     );
 }
 
-/// CONS-3.1-8, ENC-A-29b.e: InitChain answers appHash(o), the origin's EL hash with CometBFT's
-/// genesis validator state of the `e_0` committee at o, not the EL hash alone (29b.b).
+/// InitChain answers appHash(o), the origin's EL hash with CometBFT's genesis validator state of
+/// the origin keys at o, not the EL hash alone.
 #[tokio::test]
 async fn init_chain_returns_the_app_hash_of_the_origin_and_its_genesis_validator_state() {
     let fx = Fixture::genesis(3);
@@ -59,7 +57,7 @@ async fn init_chain_returns_the_app_hash_of_the_origin_and_its_genesis_validator
     let resp = init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
 
     let origin = fx.genesis.genesis_height;
-    let genesis = ValState::genesis(origin, &powers(&fx.members)).unwrap();
+    let genesis = ValState::genesis(origin, &fx.fallback_keys.validator_set()).unwrap();
     let expected = app_hash(fx.genesis_hash(), genesis.hash());
     assert_eq!(resp.app_hash.as_bytes(), expected.as_slice());
     assert_ne!(resp.app_hash.as_bytes(), fx.genesis_hash().as_slice());
@@ -91,64 +89,85 @@ async fn init_chain_latches_malformed_own_engine_reply_during_genesis_sync() {
     assert!(dir.path().join("fatal-evidence.txt").is_file());
 }
 
-/// Genesis derives at explicit snapshot 63; entries active from 62 remain inactive at 59.
+/// The genesis validators, and so the set that signs S + 1 and S + 2, are the keys of the list
+/// whose hash generation 0's origin record holds, each at power 1; the state keeps the list.
+/// InitChain reads no list from L1: the request's validators name it, and the origin record
+/// accepts it only under its hash.
 #[tokio::test]
-async fn the_genesis_committee_is_derived_at_the_genesis_cutoff() {
-    let fx = Fixture::build(GenesisSpec::eligible_at_explicit_genesis_snapshot(2));
-    let (l1_0, genesis_cutoff) = (fx.genesis.l1_0, fx.genesis.genesis_cutoff);
-    assert_eq!((l1_0, genesis_cutoff), (64, 63));
-    assert!(fx.registry.checkpoints[0].1.iter().all(|e| e.active_from_l1 == 62));
-    // At explicit snapshot 59 the registry mutation checkpoint is the same, but no
-    // entry is active yet.
-    let earlier = 59;
-    assert_eq!(
-        VerifiedWitness::verify(
-            fx.witness.l1_header.state_root(),
-            earlier,
-            &fx.params,
-            fx.witness.committee.clone(),
-            Schedule::E0
-        )
-        .err(),
-        Some(CommitteeError::Empty)
-    );
-
+async fn init_chain_validators_are_the_origin_keys_at_power_one() {
+    let fx = Fixture::genesis(4);
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
-    let resp = init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
-    assert!(resp.validators.is_empty());
+    init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
     let state = app.state().expect("initialized");
     assert_eq!(state, &fx.expected_state());
-    assert_eq!(fx.record.cutoff_l1_block, genesis_cutoff);
-    let mut pubkeys: Vec<crate::key::ConsensusKey> = fx.members.iter().map(|m| m.pubkey).collect();
-    let mut expected: Vec<crate::key::ConsensusKey> =
-        fx.registry.checkpoints[0].1.iter().map(|e| e.consensus_key().unwrap()).collect();
-    expected.sort_by_key(|pubkey| committee::set_key(fx.params.l2_chain_id, *pubkey));
-    assert_eq!(pubkeys, expected);
-    // The derived committee is the set that signs the first block.
-    let mut signing: Vec<crate::key::ConsensusKey> =
-        state.val_state.current.entries.iter().map(|e| e.key).collect();
+    let mut signing: Vec<_> = state
+        .val_state
+        .current
+        .entries
+        .iter()
+        .map(|e| (e.key, u64::try_from(e.power).unwrap()))
+        .collect();
     signing.sort();
-    pubkeys.sort();
-    assert_eq!(signing, pubkeys);
+    assert_eq!(signing, fx.fallback_keys.validator_set());
+    assert!(fx.fallback_keys.validator_set().iter().all(|(_, power)| *power == 1));
+    let mut next: Vec<_> = state
+        .val_state
+        .next
+        .entries
+        .iter()
+        .map(|e| (e.key, u64::try_from(e.power).unwrap()))
+        .collect();
+    next.sort();
+    assert_eq!(next, signing, "the origin keys sign the second block too");
+    assert_eq!(state.fallback_keys.get(&fx.fallback_keys.hash()), Some(&fx.fallback_keys));
+    assert!(
+        !app.l1()
+            .calls()
+            .iter()
+            .any(|c| matches!(c, L1Call::CallAt { .. } | L1Call::InboxLogs { .. })),
+        "{:?}",
+        app.l1().calls()
+    );
 }
 
-/// The Inbox's `genesisCutoff` must lie before `L1_0`.
+/// The validators must be exactly the origin keys, each once at power 1: a key at power 2, a
+/// missing key, an extra key and another valid list at power 1, whose hash the origin record
+/// does not hold, are all refused, without any state.
 #[tokio::test]
-async fn a_genesis_cutoff_not_before_l1_0_is_rejected() {
-    for genesis_cutoff in [64, 65] {
-        let fx = Fixture::build(GenesisSpec { genesis_cutoff, ..GenesisSpec::new(2) });
+async fn init_chain_refuses_power_two_missing_extra_and_another_hash() {
+    let fx = Fixture::genesis(3);
+    let mut power_two = fx.request.clone();
+    power_two.validators[1].power = vote::Power::from(2u32);
+    let mut missing = fx.request.clone();
+    missing.validators.pop();
+    let mut extra = fx.request.clone();
+    extra.validators.extend(validator_updates(&[(test_key(9), 1)]));
+    let mut another = fx.request.clone();
+    let other = fallback_list(&[4, 5, 6]);
+    assert_ne!(other.hash(), fx.fallback_keys.hash());
+    another.validators = validator_updates(&other.validator_set());
+    for (case, req) in
+        [("power two", power_two), ("missing", missing), ("extra", extra), ("another", another)]
+    {
         let dir = tempfile::tempdir().unwrap();
         let mut app = fx.app(dir.path());
-        let err = init_chain(&mut app, fx.request.clone()).await.expect_err("cutoff at L1_0");
-        assert!(
-            matches!(&err, AbciError::Genesis(GenesisError::Witness(e)) if matches!(e.as_ref(),
-                WitnessError::GenesisCutoffNotBeforeInitialization { genesis_cutoff: c, l1_0: 64 }
-                if *c == genesis_cutoff)),
-            "{err:?}"
-        );
+        let err = init_chain(&mut app, req).await.expect_err(case);
+        assert!(matches!(err, AbciError::GenesisValidatorsMismatch(_)), "{case}: {err:?}");
         assert_not_initialized(&app, dir.path());
     }
+}
+
+/// An origin list of 128 keys, the most a list holds, starts the chain on all of them.
+#[tokio::test]
+async fn init_chain_accepts_128_keys() {
+    let fx = Fixture::genesis(128);
+    assert_eq!(fx.fallback_keys.keys().len(), 128);
+    let dir = tempfile::tempdir().unwrap();
+    let app = initialized(&fx, dir.path()).await;
+    let state = app.state().expect("initialized");
+    assert_eq!(state.val_state.current.entries.len(), 128);
+    assert_eq!(state, &fx.expected_state());
 }
 
 #[tokio::test]
@@ -169,7 +188,6 @@ async fn genesis_at_block_zero_has_a_zero_grandparent_timestamp() {
     let state = app.state().expect("initialized");
     assert_eq!(state.last_height, 0);
     assert_eq!(state.parent.grandparent_timestamp, 0);
-    assert_eq!(state.schedule().h0(), 1);
     assert_eq!(state, &fx.expected_state());
 }
 
@@ -257,16 +275,15 @@ async fn re_sent_init_chain_after_a_crash_in_block_one_returns_the_same_app_hash
 #[tokio::test]
 async fn init_chain_records_the_genesis_validator_state() {
     use crate::{
-        recovery::verify_recovery_witness,
-        store::Record,
-        test_utils::{powers, recovery_fixture},
+        recovery::verify_recovery_witness, store::Record, test_utils::recovery_fixture,
         valstate::ValState,
     };
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let origin = fx.genesis.genesis_height;
-    let genesis = Record::Valid(ValState::genesis(origin, &powers(&fx.members)).unwrap());
+    let genesis =
+        Record::Valid(ValState::genesis(origin, &fx.fallback_keys.validator_set()).unwrap());
     assert_eq!(app.store.load_val_state(origin).unwrap(), genesis);
     let path = dir.path().join(format!("val-state-{origin}.bin"));
     let recorded = std::fs::read(&path).unwrap();
@@ -470,14 +487,6 @@ async fn genesis_header_must_be_the_initialization_block() {
 }
 
 #[tokio::test]
-async fn epoch_length_is_independent_of_unsettled_limit() {
-    let fx = Fixture::build(GenesisSpec { epoch_len: 3, ..GenesisSpec::new(2) });
-    let dir = tempfile::tempdir().unwrap();
-    let app = initialized(&fx, dir.path()).await;
-    assert_eq!(app.state().unwrap().schedule().h_first(1), 4);
-}
-
-#[tokio::test]
 async fn chain_id_generation_must_match_the_inbox() {
     let mut fx = Fixture::genesis(2);
     fx.request.chain_id = chain_id_for(&fx.params, 1).unwrap();
@@ -644,15 +653,12 @@ async fn genesis_state_root_must_match_the_authenticated_el_genesis() {
     fx.inbox.genesis.as_mut().unwrap().genesis_state_root = fx.genesis.genesis_state_root;
     let mut accounts = filler_accounts();
     accounts.push(inbox_account(fx.params.inbox, &fx.inbox));
-    accounts.push(registry_account(fx.params.registry, &fx.registry));
     let state = TestState::new(accounts);
     let mut header = l1_header(fx.genesis.l1_0, Fixture::l1_timestamp(fx.genesis.l1_0));
     header.state_root = state.state_root();
     let mut witness = fx.witness.clone();
     witness.l1_header = RawL1Header::from(&header);
     witness.inbox = state.witness(fx.params.inbox, &crate::l1::layout::inbox::genesis_slots());
-    witness.committee =
-        committee_witness(&state, fx.params.registry, &fx.registry, 0, fx.record.clone());
     fx.l1_state = state;
     fx.set_witness(witness);
 
@@ -664,59 +670,36 @@ async fn genesis_state_root_must_match_the_authenticated_el_genesis() {
     assert_not_initialized(&app, dir.path());
 }
 
+/// An origin record naming a list the request's validators do not hash to is refused; the
+/// genesis witness, not the request, fixes the list.
 #[tokio::test]
-async fn committee_record_hash_must_match_committee_e0() {
+async fn origin_record_naming_another_list_is_refused() {
     let fx = Fixture::build(GenesisSpec {
-        committee_e0: Some(B256::repeat_byte(0xc0)),
+        origin_hash: Some(B256::repeat_byte(0xc0)),
         ..GenesisSpec::new(3)
     });
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
-    let err = init_chain(&mut app, fx.request.clone()).await.expect_err("record hash mismatch");
-    assert!(
-        matches!(err, AbciError::Genesis(GenesisError::CommitteeRecordMismatch { recorded, .. }) if recorded == B256::repeat_byte(0xc0)),
-        "{err:?}"
-    );
+    let err = init_chain(&mut app, fx.request.clone()).await.expect_err("another origin hash");
+    assert!(matches!(err, AbciError::GenesisValidatorsMismatch(_)), "{err:?}");
     assert_not_initialized(&app, dir.path());
 }
 
 #[tokio::test]
-async fn committee_witness_claiming_another_record_is_rejected() {
-    let mut fx = Fixture::genesis(3);
-    let mut witness = fx.witness.clone();
-    witness.committee.record.total_power += 1;
-    fx.set_witness(witness);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = fx.app(dir.path());
-    let err = init_chain(&mut app, fx.request.clone()).await.expect_err("record mismatch");
-    assert!(
-        matches!(&err, AbciError::Genesis(GenesisError::Committee(e)) if matches!(e.as_ref(), CommitteeError::RecordMismatch { .. })),
-        "{err:?}"
-    );
-    assert_not_initialized(&app, dir.path());
-}
-
-#[tokio::test]
-async fn genesis_validators_must_equal_the_committee() {
+async fn genesis_validators_must_equal_the_origin_keys() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
 
-    let mut wrong_power = fx.request.clone();
-    wrong_power.validators[1].power = vote::Power::try_from(fx.members[1].power + 1).unwrap();
-    let mut missing = fx.request.clone();
-    missing.validators.pop();
-    let mut extra = fx.request.clone();
-    extra.validators.extend(crate::test_utils::validator_updates(&[crate::types::Member {
-        pubkey: crate::test_utils::key_from_seed(B256::repeat_byte(0xab)),
-        ..fx.members[0].clone()
-    }]));
     let mut duplicate = fx.request.clone();
     duplicate.validators[2] = duplicate.validators[0];
     let mut empty = fx.request.clone();
     empty.validators.clear();
+    let mut too_many = fx.request.clone();
+    too_many.validators =
+        validator_updates(&(1..=129).map(|seed| (test_key(seed), 1)).collect::<Vec<_>>());
 
-    for req in [wrong_power, missing, extra, duplicate, empty] {
+    for req in [duplicate, empty, too_many] {
         let err = init_chain(&mut app, req).await.expect_err("validators mismatch");
         assert!(matches!(err, AbciError::GenesisValidatorsMismatch(_)), "{err:?}");
     }
@@ -807,12 +790,47 @@ async fn el_serving_another_block_after_sync_is_a_safety_halt() {
     assert_not_initialized(&app, dir.path());
 }
 
+/// The Inbox's configuration hash in slot 269 must be the one of the built-in L2 chain id,
+/// staking proxy and U: a node whose built-in staking address is another refuses to start, at
+/// InitChain and on a stored state.
 #[tokio::test]
-async fn genesis_rejects_a_different_committee_config_opening() {
+async fn startup_refuses_a_builtin_staking_address_that_misses_slot_269() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    drop(initialized(&fx, dir.path()).await);
+    let mut wrong = fx.clone();
+    wrong.params.staking = Address::repeat_byte(0x5a);
+    let (proven, local) = (fx.genesis.config_hash, wrong.params.config_hash());
+    assert_ne!(proven, local);
+    let empty = tempfile::tempdir().unwrap();
+    let mut app = wrong.app(empty.path());
+    let err = init_chain(&mut app, fx.request.clone()).await.unwrap_err();
+    assert!(
+        matches!(err, AbciError::Genesis(GenesisError::ConfigMismatch { local: l, proven: p })
+            if l == local && p == proven),
+        "{err:?}"
+    );
+    assert_not_initialized(&app, empty.path());
+    let error = App::new(
+        wrong.l1(),
+        wrong.engine(),
+        wrong.params.clone(),
+        Store::volatile(dir.path().into()),
+        crate::test_utils::test_options(),
+    )
+    .expect_err("another staking address opened the stored state");
+    assert!(
+        matches!(&error, AbciError::StoredState(message) if message.contains("configuration hash")),
+        "{error:?}"
+    );
+}
+
+#[tokio::test]
+async fn genesis_rejects_a_different_unsettled_limit() {
     let mut fx = Fixture::genesis(2);
-    let proven = fx.genesis.committee_config_hash;
+    let proven = fx.genesis.config_hash;
     fx.params.unsettled_limit -= 6;
-    let local = committee::committee_config_hash(&fx.params);
+    let local = fx.params.config_hash();
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
     let err = init_chain(&mut app, fx.request.clone()).await.unwrap_err();
@@ -841,7 +859,7 @@ async fn lost_state_rejects_old_app_zero_genesis_before_replay() {
 async fn genesis_and_restart_authenticate_chain_specific_back_pressure_parameters() {
     let params =
         ChainParams::builtin(167001).unwrap().with_overrides("unsettled_limit = 24").unwrap();
-    let fx = Fixture::build(GenesisSpec { params, epoch_len: 28, ..GenesisSpec::new(2) });
+    let fx = Fixture::build(GenesisSpec { params, ..GenesisSpec::new(2) });
     let dir = tempfile::tempdir().unwrap();
     let app = initialized(&fx, dir.path()).await;
     let expected = app.state().unwrap().clone();
@@ -874,7 +892,7 @@ async fn genesis_and_restart_authenticate_chain_specific_back_pressure_parameter
         .expect_err("wrong back-pressure configuration opened stored state");
         assert!(
             matches!(error, AbciError::StoredState(message)
-            if message.contains("configuration opening")),
+            if message.contains("configuration hash")),
             "a {case} unsettled limit opened persisted state"
         );
     }

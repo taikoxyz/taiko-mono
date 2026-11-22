@@ -141,7 +141,7 @@ async fn recovery_init_preserves_stock_zero_height_handshake() {
     inbox.recovery_generation = 1;
     inbox.forced_inclusion_head = 3;
     inbox.forced_inclusion_tail = 3;
-    fx.advance_l1(app.l1(), 111, &inbox, &fx.registry);
+    fx.advance_l1(app.l1(), 111, &inbox);
     let env = propose(&mut app).await;
     assert!(env.anchor.as_ref().unwrap().l1_header.number() >= 100);
     assert_eq!(env.block.header.base_fee_per_gas, Some(5_000_000));
@@ -225,7 +225,7 @@ pub(super) fn checkpoint_at(
 ) {
     use crate::{
         l1::layout::inbox,
-        test_utils::{TestState, filler_accounts, l1_header, registry_account},
+        test_utils::{TestState, filler_accounts, l1_header},
     };
     use alloy_primitives::U256;
     let mut words: Vec<_> = w.recovery_inbox.storage.iter().map(|p| (p.slot, p.value)).collect();
@@ -248,7 +248,6 @@ pub(super) fn checkpoint_at(
     }
     let mut accounts = filler_accounts();
     accounts.push((fx.params.inbox, 1, U256::ZERO, B256::repeat_byte(1), words));
-    accounts.push(registry_account(fx.params.registry, &fx.registry));
     l1.insert_block(l1_header(number, Fixture::l1_timestamp(number)), TestState::new(accounts));
     l1.set_finalized(number);
 }

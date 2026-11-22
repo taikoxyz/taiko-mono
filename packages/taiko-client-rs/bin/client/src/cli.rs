@@ -2,16 +2,16 @@
 //!
 //! This module provides the main CLI structure and command dispatch logic.
 //! It parses command-line arguments using `clap` and routes to the appropriate
-//! subcommand handler (`abci`, `abci-genesis`, `abci-committee-record` or `lander`), which then
+//! subcommand handler (`abci`, `abci-genesis` or `lander`, among others), which then
 //! runs until it finishes or the process receives SIGINT or SIGTERM.
 
 use std::{future::Future, time::Duration};
 
 use crate::{
     commands::{
-        abci::AbciSubCommand, abci_committee_record::AbciCommitteeRecordSubCommand,
-        abci_genesis::AbciGenesisSubCommand, abci_recover::AbciRecoverSubCommand,
-        driver::DriverSubCommand, etna_handoff::EtnaHandoffSubCommand, lander::LanderSubCommand,
+        abci::AbciSubCommand, abci_genesis::AbciGenesisSubCommand,
+        abci_recover::AbciRecoverSubCommand, driver::DriverSubCommand,
+        etna_handoff::EtnaHandoffSubCommand, lander::LanderSubCommand,
     },
     error::{CliError, Result},
 };
@@ -40,8 +40,6 @@ pub enum Commands {
     Lander(Box<LanderSubCommand>),
     /// Write the CometBFT genesis.json of the Etna PoS chain from the L1 genesis record.
     AbciGenesis(Box<AbciGenesisSubCommand>),
-    /// Compute the committeeRecordHash an Etna genesis takes for a genesis cutoff.
-    AbciCommitteeRecord(Box<AbciCommitteeRecordSubCommand>),
 }
 
 #[derive(Parser, Clone, Debug)]
@@ -69,7 +67,6 @@ impl Cli {
             }
             Commands::Lander(cmd) => Self::run_until_shutdown(cmd.run()),
             Commands::AbciGenesis(cmd) => Self::run_one_shot(cmd.run()),
-            Commands::AbciCommitteeRecord(cmd) => Self::run_one_shot(cmd.run()),
         }
     }
 
@@ -94,7 +91,7 @@ impl Cli {
     }
 
     /// Run an output-producing command, reporting interruption as failure rather than
-    /// successful completion with a missing genesis file or committee report.
+    /// successful completion with a missing genesis file.
     fn run_one_shot<F>(fut: F) -> Result<()>
     where
         F: Future<Output = Result<()>>,

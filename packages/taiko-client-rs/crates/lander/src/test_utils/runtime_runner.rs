@@ -267,14 +267,6 @@ impl LandingSource for MockL1 {
     async fn starting_inbox_witness(&self, _: &AnchorState) -> Result<abci::AnchorWitness> {
         unreachable!()
     }
-    async fn committee_witness(
-        &self,
-        _: &AnchorState,
-        _: u64,
-        _: u64,
-    ) -> Result<abci::CommitteeWitness> {
-        unreachable!("runner mock never derives a committee")
-    }
     async fn fallback_keys(
         &self,
         _: B256,
@@ -889,11 +881,11 @@ async fn partial_or_full_checkpoint_after_dropped_send_never_spends_a_new_nonce(
 }
 
 #[tokio::test]
-async fn changed_checkpoint_committee_config_stops_before_signing() {
+async fn changed_checkpoint_config_hash_stops_before_signing() {
     let fixture = Fixture::new();
     let mut runner = fixture.runner();
     runner.step().await.unwrap();
-    fixture.control.lock().unwrap().snapshot.committee_config_hash = B256::ZERO;
+    fixture.control.lock().unwrap().snapshot.config_hash = B256::ZERO;
     assert!(matches!(runner.step().await, Err(LanderError::Safety(_))));
     let control = fixture.control.lock().unwrap();
     assert_eq!(control.signs, 0);

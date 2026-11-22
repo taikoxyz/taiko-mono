@@ -189,8 +189,8 @@ impl Run {
             .checked_sub(1)
             .and_then(|step| ahead.get(step.min(ahead.len().saturating_sub(1))).copied());
         let anchor = moved.unwrap_or(state.anchor.number);
-        // `H_0` carries an anchor witness even for an inherited anchor.
-        let anchor_witness = (moved.is_some() || height == state.schedule().h0())
+        // The generation's first block carries an anchor witness even for an inherited anchor.
+        let anchor_witness = (moved.is_some() || height == state.origin_height() + 1)
             .then(|| self.fx.anchor_witness(self.hot.l1(), anchor));
 
         let cursor = state.forced_cursor;
@@ -439,7 +439,7 @@ fn plant_anchors(fx: &Fixture, l1: &MockL1, entries: &[Entry]) {
             })
             .collect();
         inbox.forced_inclusion_tail = inbox.forced_inclusion_queue.len() as u64;
-        fx.advance_l1(l1, number, &inbox, &fx.registry);
+        fx.advance_l1(l1, number, &inbox);
     }
 }
 

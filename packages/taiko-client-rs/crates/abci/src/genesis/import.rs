@@ -1,39 +1,34 @@
 //! Pure bootstrap verification shared by `InitChain` and offline checkpoint import.
 
-use std::collections::BTreeMap;
-
 use alloy_primitives::{Address, B256};
 use tendermint::Time;
 
 use super::{
     AppStateJson, BootstrapWitness, GenesisConsensusParams, GenesisDoc, GenesisError,
-    GenesisValidator, decode_bootstrap_state, genesis_time, verify_committee, verify_context,
+    GenesisValidator, decode_bootstrap_state, genesis_time, verify_context,
 };
 use crate::{
-    AnchorState, ChainParams, CommitteeState, GenesisRecord, RawL1Header,
+    AnchorState, ChainParams, GenesisRecord, RawL1Header,
     fallback::FallbackKeys,
     key::ConsensusKey,
     recovery::{RecoveryError, RecoveryOrigin, VerifiedRecovery, recovery_anchor, verify_recovery},
     rules::chain_id_for,
     store::{AppState, STATE_SCHEMA_VERSION},
-    types::{Member, ParentInfo},
+    types::ParentInfo,
     valstate::ValState,
 };
 
 /// Pure bootstrap facts; callers must independently check every retained header against own L1.
 #[derive(Debug)]
 pub struct VerifiedGenesis {
-    /// Immutable deployment and epoch configuration.
+    /// Immutable deployment configuration.
     pub genesis: GenesisRecord,
     /// Initialization or recovery R anchor used as the new generation's floor.
     pub anchor: AnchorState,
-    /// Generation zero's independently derived initial committee; `None` for a recovery
-    /// generation, which starts on its origin's fallback keys.
-    pub committee: Option<CommitteeState>,
-    /// A recovery generation's origin fallback key list, the one whose hash the origin record
-    /// holds: the evidence proves only that hash, so the list is `None` until
-    /// [`VerifiedGenesis::with_fallback_keys`] supplies it. Always `None` at generation zero.
-    pub fallback_keys: Option<FallbackKeys>,
+    /// The fallback key list whose hash the generation's origin record holds: its keys sign the
+    /// generation's first two blocks, each at power 1. The evidence proves only that hash; the
+    /// list is the caller's, accepted only under it.
+    pub fallback_keys: FallbackKeys,
     /// Fixed recovery origin; never a moving latest checkpoint.
     pub recovery: Option<RecoveryOrigin>,
     /// The Inbox proxy the witness proves (`params.inbox`).
@@ -42,7 +37,7 @@ pub struct VerifiedGenesis {
     pub l1_headers: Vec<RawL1Header>,
 }
 
-/// The CometBFT genesis fields the bootstrap evidence determines (START-10-20, RECOV-8.4-7/9):
+/// The CometBFT genesis fields the bootstrap evidence and the origin fallback key list determine:
 /// `InitChain` compares its request with them, and import the whole original document.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GenesisExpectation {
@@ -52,48 +47,43 @@ pub struct GenesisExpectation {
     pub initial_height: u64,
     /// The timestamp of `L1_0`, or of R for a recovery generation.
     pub genesis_time: Time,
-    /// Generation zero's initial committee, exactly the genesis validators (keys and powers).
-    /// `None` for a recovery generation: its genesis validators are the keys of the list whose
-    /// hash the origin record holds, each at power 1, which only that list determines.
-    pub validators: Option<Vec<Member>>,
+    /// The genesis validators: the keys of the origin fallback key list in list order, each at
+    /// voting power 1.
+    pub validators: Vec<(ConsensusKey, u64)>,
 }
 
-/// Verifies bootstrap evidence once, without I/O: generation zero's Inbox witness, schedule and
-/// committee 0 at `genesisCutoff`; or a recovery witness (fixed origin, R observation and the
-/// deployment context, once) that embeds R as its finalized observation, with R's anchor as the
-/// floor. Returns the verified facts and the genesis fields they determine.
+/// Verifies bootstrap evidence once, without I/O, and binds `fallback_keys` to it: generation
+/// zero's Inbox witness at `L1_0`, whose origin record's fourth word must be the list's hash; or
+/// a recovery witness (fixed origin, R observation and the deployment context, once) that embeds
+/// R as its finalized observation, with R's anchor as the floor, whose origin record must hold
+/// the list's hash. A list with another hash is [`GenesisError::FallbackKeysMismatch`]. Returns
+/// the verified facts and the genesis fields they determine.
 ///
 /// This grants no finality: callers authenticate `l1_headers` against their own L1 and acquire
-/// the origin's EL parent (and a recovery's historical anchor and origin fallback key list)
-/// before [`VerifiedGenesis::origin_state`].
+/// the origin's EL parent (and a recovery's historical anchor) before
+/// [`VerifiedGenesis::origin_state`].
 pub fn verify_bootstrap(
     witness: &BootstrapWitness,
     params: &ChainParams,
+    fallback_keys: FallbackKeys,
 ) -> Result<(VerifiedGenesis, GenesisExpectation), GenesisError> {
     let chain_id = |generation| {
         chain_id_for(params, generation)
             .map_err(|e| GenesisError::UnsupportedRecovery(e.to_string()))
     };
-    match witness {
+    let (verified, generation, genesis_time) = match witness {
         BootstrapWitness::Initial(w) => {
             let context = verify_context(&w.l1_header, &w.inbox, params)?;
-            let committee = verify_committee(&context, &w.committee, params)?;
-            let expected = GenesisExpectation {
-                chain_id: chain_id(0)?,
-                initial_height: context.genesis.genesis_height + 1,
-                genesis_time: genesis_time(w.l1_header.timestamp())?,
-                validators: Some(committee.members.clone()),
-            };
+            check_origin_list(&fallback_keys, context.fallback_keys_hash)?;
             let verified = VerifiedGenesis {
                 genesis: context.genesis,
                 anchor: context.anchor,
-                committee: Some(committee),
-                fallback_keys: None,
+                fallback_keys,
                 recovery: None,
                 inbox: params.inbox,
                 l1_headers: vec![w.l1_header.clone()],
             };
-            Ok((verified, expected))
+            (verified, 0, genesis_time(w.l1_header.timestamp())?)
         }
         BootstrapWitness::Recovery(w) => {
             let VerifiedRecovery { origin, context, .. } = verify_recovery(w, params)?;
@@ -103,25 +93,36 @@ pub fn verify_bootstrap(
                 )
                 .into());
             }
+            check_origin_list(&fallback_keys, origin.fallback_keys_hash)?;
             let anchor = recovery_anchor(w, params)?;
-            let expected = GenesisExpectation {
-                chain_id: chain_id(origin.generation)?,
-                initial_height: origin.height + 1,
-                genesis_time: genesis_time(origin.l1_timestamp)?,
-                validators: None,
-            };
+            let generation = origin.generation;
+            let time = genesis_time(origin.l1_timestamp)?;
             let verified = VerifiedGenesis {
                 genesis: context.genesis,
                 anchor,
-                committee: None,
-                fallback_keys: None,
+                fallback_keys,
                 recovery: Some(origin),
                 inbox: params.inbox,
                 l1_headers: vec![w.genesis.l1_header.clone(), w.recovery_header.clone()],
             };
-            Ok((verified, expected))
+            (verified, generation, time)
         }
+    };
+    let expected = GenesisExpectation {
+        chain_id: chain_id(generation)?,
+        initial_height: verified.origin_height() + 1,
+        genesis_time,
+        validators: verified.initial_set(),
+    };
+    Ok((verified, expected))
+}
+
+/// Requires `keys` to be the list whose hash an origin record holds, `expected`.
+fn check_origin_list(keys: &FallbackKeys, expected: B256) -> Result<(), GenesisError> {
+    if keys.hash() != expected {
+        return Err(GenesisError::FallbackKeysMismatch { got: keys.hash(), expected });
     }
+    Ok(())
 }
 
 impl VerifiedGenesis {
@@ -136,42 +137,10 @@ impl VerifiedGenesis {
         self.recovery.as_ref().map_or(self.genesis.genesis_hash, |origin| origin.el_hash)
     }
 
-    /// A recovery generation's facts with its origin fallback key list `keys`, which must hash
-    /// to the origin record's `fallbackKeysHash` ([`GenesisError::FallbackKeysMismatch`]).
-    /// Generation zero takes no list here ([`GenesisError::UnsupportedRecovery`]).
-    pub fn with_fallback_keys(mut self, keys: FallbackKeys) -> Result<Self, GenesisError> {
-        let Some(origin) = &self.recovery else {
-            return Err(GenesisError::UnsupportedRecovery(
-                "generation zero starts on its committee, not on a fallback key list".into(),
-            ));
-        };
-        if keys.hash() != origin.fallback_keys_hash {
-            return Err(GenesisError::FallbackKeysMismatch {
-                got: keys.hash(),
-                expected: origin.fallback_keys_hash,
-            });
-        }
-        self.fallback_keys = Some(keys);
-        Ok(self)
-    }
-
-    /// The set that signs the generation's first two blocks, keys with their powers: generation
-    /// zero's committee, or a recovery generation's origin fallback keys, each at power 1.
-    /// [`GenesisError::FallbackKeysUnavailable`] for a recovery whose list has not been supplied
-    /// ([`VerifiedGenesis::with_fallback_keys`]).
-    pub fn initial_set(&self) -> Result<Vec<(ConsensusKey, u64)>, GenesisError> {
-        match (&self.recovery, &self.fallback_keys, &self.committee) {
-            (None, _, Some(committee)) => {
-                Ok(committee.members.iter().map(|m| (m.pubkey, m.power)).collect())
-            }
-            (Some(_), Some(keys), _) => Ok(keys.validator_set()),
-            (Some(origin), None, _) => {
-                Err(GenesisError::FallbackKeysUnavailable(origin.fallback_keys_hash))
-            }
-            (None, _, None) => {
-                Err(GenesisError::UnsupportedRecovery("generation zero has no committee".into()))
-            }
-        }
+    /// The set that signs the generation's first two blocks, keys with their powers: the origin
+    /// fallback keys in list order, each at power 1.
+    pub fn initial_set(&self) -> Vec<(ConsensusKey, u64)> {
+        self.fallback_keys.validator_set()
     }
 
     /// The `AppState` the generation starts from at its origin, for `InitChain` and import alike
@@ -183,8 +152,8 @@ impl VerifiedGenesis {
     /// ([`VerifiedBootstrap::anchor`](crate::recovery::VerifiedBootstrap::anchor)), never R. The
     /// state holds the origin's forced inclusion cursor, CometBFT's genesis validator state of
     /// the initial set ([`VerifiedGenesis::initial_set`]) at the origin height, which fails
-    /// exactly where CometBFT would refuse the set, and, for a recovery, the origin fallback key
-    /// list in its cache of lists by hash.
+    /// exactly where CometBFT would refuse the set, and the origin fallback key list in its
+    /// cache of lists by hash.
     pub fn origin_state(
         &self,
         chain_id: String,
@@ -192,7 +161,6 @@ impl VerifiedGenesis {
         anchor: AnchorState,
     ) -> Result<AppState, GenesisError> {
         let height = self.origin_height();
-        let validators = self.initial_set()?;
         Ok(AppState {
             schema_version: STATE_SCHEMA_VERSION,
             app_version: crate::app::APP_VERSION,
@@ -206,32 +174,28 @@ impl VerifiedGenesis {
             parent,
             anchor,
             forced_cursor: self.recovery.as_ref().map_or(0, |origin| origin.forced_cursor),
-            val_state: ValState::genesis(height, &validators)?,
-            fallback_keys: self
-                .fallback_keys
-                .iter()
-                .map(|keys| (keys.hash(), keys.clone()))
-                .collect::<BTreeMap<_, _>>(),
+            val_state: ValState::genesis(height, &self.initial_set())?,
+            fallback_keys: [(self.fallback_keys.hash(), self.fallback_keys.clone())].into(),
             execution_floor: None,
         })
     }
 }
 
-/// The fallback key list a recovery genesis document names: the keys of its `validators`, in
-/// ascending order. The document's exact form, each key once at power 1 in list order, is left
-/// to the comparison with the document the list determines. `None` when the keys do not form a
-/// list (none, more than 128, or one twice).
-fn document_fallback_keys(validators: &[GenesisValidator]) -> Option<FallbackKeys> {
-    let mut keys: Vec<_> = validators.iter().map(|validator| validator.pub_key.0).collect();
+/// The fallback key list a set of genesis validators names: their keys, in ascending order.
+/// Their powers and order are left to the comparison with what the list determines. `None` when
+/// the keys do not form a list (none, more than 128, or one twice).
+pub(crate) fn named_fallback_keys(
+    keys: impl IntoIterator<Item = ConsensusKey>,
+) -> Option<FallbackKeys> {
+    let mut keys: Vec<_> = keys.into_iter().collect();
     keys.sort();
     FallbackKeys::new(keys).ok()
 }
 
 /// Reconstructs and compares the complete original stock genesis document from its witnesses:
 /// [`verify_bootstrap`] and an exact comparison of every field with the expected document.
-/// A recovery document's validators name its origin fallback key list, which is accepted only
-/// when it hashes to the origin record's `fallbackKeysHash`
-/// ([`VerifiedGenesis::with_fallback_keys`]); the returned facts carry it.
+/// The document's validators name its origin fallback key list, which is accepted only when it
+/// hashes to the origin record's `fallbackKeysHash`; the returned facts carry it.
 /// This performs no I/O and grants no finality or authority; callers authenticate `l1_headers`.
 pub fn verify_original_genesis(
     doc: &GenesisDoc,
@@ -239,29 +203,27 @@ pub fn verify_original_genesis(
 ) -> Result<VerifiedGenesis, GenesisError> {
     let encoded = serde_json::to_vec(&doc.app_state).expect("genesis app state serializes");
     let witness = decode_bootstrap_state(&encoded)?;
-    let (mut verified, expected) = verify_bootstrap(&witness, params)?;
-    if verified.recovery.is_some() {
-        let keys = document_fallback_keys(&doc.validators).ok_or_else(|| {
+    let keys = named_fallback_keys(doc.validators.iter().map(|validator| validator.pub_key.0))
+        .ok_or_else(|| {
             GenesisError::UnsupportedRecovery(
-                "recovery genesis validators are not a fallback key list".into(),
+                "genesis validators are not a fallback key list".into(),
             )
         })?;
-        verified = verified.with_fallback_keys(keys)?;
-    }
-    let validators = verified.initial_set()?;
+    let (verified, expected) = verify_bootstrap(&witness, params, keys)?;
     let expected = GenesisDoc {
         genesis_time: expected.genesis_time.to_rfc3339(),
         chain_id: expected.chain_id,
         initial_height: expected.initial_height.to_string(),
         consensus_params: GenesisConsensusParams::etna(params.n_max),
-        validators: validators
+        validators: expected
+            .validators
             .iter()
             .map(|(key, power)| GenesisValidator::new(*key, *power))
             .collect(),
         app_hash: super::genesis_app_hash(
             verified.origin_height(),
             verified.origin_hash(),
-            &validators,
+            &expected.validators,
         )?,
         app_state: match &witness {
             BootstrapWitness::Initial(w) => AppStateJson::from(w),
@@ -285,7 +247,7 @@ mod tests {
         let mut doc = super::super::GenesisDoc::assemble(
             &fx.witness,
             fx.request.chain_id.clone(),
-            &fx.members,
+            &fx.fallback_keys.validator_set(),
             fx.params.n_max,
         )
         .unwrap();
@@ -311,7 +273,7 @@ mod tests {
         let doc = GenesisDoc::assemble(
             &fx.witness,
             fx.request.chain_id.clone(),
-            &fx.members,
+            &fx.fallback_keys.validator_set(),
             fx.params.n_max,
         )
         .unwrap();

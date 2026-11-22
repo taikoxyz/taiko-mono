@@ -27,11 +27,8 @@ pub(crate) fn request() -> ProofRequest {
     let (params, committee, keys) = super::consensus::committee(&[3, 3, 3], 0);
     request.batch.snapshot.inbox = params.inbox;
     request.batch.snapshot.registry = params.registry;
-    request.batch.snapshot.committee_config_hash = abci::committee::committee_config_hash(&params);
-    request.batch.snapshot.genesis.committee_config_hash =
-        request.batch.snapshot.committee_config_hash;
-    request.batch.snapshot.genesis_committee_record_hash =
-        abci::committee::record_hash(params.l2_chain_id, &committee.state.record);
+    request.batch.snapshot.config_hash = params.config_hash();
+    request.batch.snapshot.genesis.config_hash = request.batch.snapshot.config_hash;
     let mut blocks = Vec::new();
     let mut parent = request.batch.snapshot.checkpoint_hash;
     for height in 1..=12 {

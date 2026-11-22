@@ -155,13 +155,9 @@ async fn checkpoint_trust_mismatch_during_intact_comet_replay_never_signs_or_com
 /// holding its consensus mutex. The behind peer takes the existing real key+state by reference.
 /// Its local voting power causes stock Comet to enter consensus early, exercising commit gossip.
 async fn catch_up_with_local_voting_power(validators: usize, initial: usize) -> Result<()> {
-    let mut devnet = Devnet::start(DevnetSpec {
-        validators,
-        initial_validators: initial,
-        epoch_len: 100,
-        ..Default::default()
-    })
-    .await?;
+    let mut devnet =
+        Devnet::start(DevnetSpec { validators, fallback_keys: initial, ..Default::default() })
+            .await?;
     let observer = validators - 1;
     devnet.wait_for_height(observer, 2, WAIT).await?;
     devnet.node_stop(observer).await?;

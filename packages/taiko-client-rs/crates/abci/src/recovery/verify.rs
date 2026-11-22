@@ -3,7 +3,7 @@
 use super::{RECOVERY_WITNESS_VERSION, RecoveryError, RecoveryOrigin, RecoveryWitness};
 use crate::{
     AccountWitness, ChainParams, GenesisError,
-    genesis::{GenesisContext, verify_committee, verify_deployment_context},
+    genesis::{GenesisContext, verify_deployment_context},
     l1::{
         RawL1Header,
         layout::{inbox, word_u48},
@@ -216,7 +216,6 @@ pub(crate) fn verify_recovery(
             }
             other => invalid(other),
         })?;
-    verify_committee(&context, &w.genesis.committee, params).map_err(invalid)?;
     let final_origin = observation(&w.finalized_header, &w.finalized_inbox, w, params)?;
     let origin = observation(&w.recovery_header, &w.recovery_inbox, w, params)?;
     if origin != final_origin ||

@@ -565,7 +565,7 @@ async fn a_begun_session_is_checked_before_the_next_queued_request() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = fx.app(dir.path());
     app.handle(Request::InitChain(fx.request.clone())).await.unwrap();
-    fx.plant_l1_block(app.l1(), 100, &fx.inbox, &fx.registry);
+    fx.plant_l1_block(app.l1(), 100, &fx.inbox);
     app.l1().set_finalized(100);
     app.l1().state().delay = Some(Duration::from_millis(20));
     let trust = app.trust_handle();

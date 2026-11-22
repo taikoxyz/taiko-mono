@@ -164,13 +164,12 @@ pub struct LandingSnapshot {
     pub forced_inclusion_head: u64,
     /// Forced inclusion queue `tail` (slot 281, bits 48–95): the next free entry index.
     pub forced_inclusion_tail: u64,
-    /// Authenticated genesis and epoch parameters, including the genesis cutoff and the forced
-    /// inclusion configuration.
+    /// Authenticated genesis record, with the configuration hash and the forced inclusion
+    /// configuration.
     pub genesis: GenesisRecord,
-    /// Authenticated deployment configuration commitment.
-    pub committee_config_hash: B256,
-    /// Genesis-only bootstrap record commitment, stored directly at slot 278.
-    pub genesis_committee_record_hash: B256,
+    /// The configuration hash (slot 269) over the L2 chain id, the `EtnaStaking` proxy and U,
+    /// the genesis record's, which the built-in values open.
+    pub config_hash: B256,
     /// Raw canonical header authenticating every snapshot storage field.
     #[serde(with = "rlp_serde")]
     pub l1_header: RawL1Header,
@@ -595,6 +594,7 @@ mod tests {
         let fixture = Fixture::new(0, 2);
         let mut params = fixture.params.clone();
         params.switch = Some(abci::SwitchConfig {
+            staking_implementation: alloy_primitives::Address::repeat_byte(0x56),
             unzen_inbox: Address::repeat_byte(0x41),
             fork_timestamp: FORK,
             signal_service_implementation: implementation,

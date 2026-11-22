@@ -14,7 +14,6 @@ use crate::{
 };
 
 pub mod abci;
-pub mod abci_committee_record;
 pub mod abci_genesis;
 pub mod abci_import;
 pub mod abci_recover;

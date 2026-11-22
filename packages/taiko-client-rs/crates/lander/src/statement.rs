@@ -70,7 +70,7 @@ pub fn preimage(
         input.parentHeight.to_be_bytes::<32>(),
         snapshot.checkpoint_hash.0,
         snapshot.checkpoint_comet_hash.0,
-        snapshot.committee_config_hash.0,
+        snapshot.config_hash.0,
         input.lastHeight.to_be_bytes::<32>(),
         input.lastBlockHash.0,
         input.lastCometHash.0,
@@ -118,7 +118,7 @@ mod tests {
         snapshot.checkpoint_height = vectors::u64_at(&path("parent_height"));
         snapshot.checkpoint_hash = vectors::b256_at(&path("parent_hash"));
         snapshot.checkpoint_comet_hash = vectors::b256_at(&path("parent_comet_hash"));
-        snapshot.committee_config_hash = vectors::b256_at(&path("committee_config_hash"));
+        snapshot.config_hash = vectors::b256_at(&path("committee_config_hash"));
         snapshot.forced_inclusion_head = vectors::u64_at(&path("forced_inclusion_head_before"));
         let input = LandInput {
             parentHeight: vectors::u256_at(&path("parent_height")),
@@ -381,7 +381,7 @@ mod tests {
                 6 => input.parentHeight ^= U256::from(1),
                 7 => snapshot.checkpoint_hash[0] ^= 1,
                 8 => snapshot.checkpoint_comet_hash[0] ^= 1,
-                9 => snapshot.committee_config_hash[0] ^= 1,
+                9 => snapshot.config_hash[0] ^= 1,
                 10 => input.lastHeight ^= U256::from(1),
                 11 => input.lastBlockHash[0] ^= 1,
                 12 => input.lastCometHash[0] ^= 1,

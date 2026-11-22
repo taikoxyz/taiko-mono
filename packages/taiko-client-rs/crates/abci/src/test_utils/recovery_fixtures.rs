@@ -82,13 +82,13 @@ fn regenerate_cli_recovery_fixtures() {
 }
 
 /// Rebuilds `recovery.json` from `recovery_fixture(1, 6, 1)` when a committed value or a proven
-/// slot list changes (a committee record or set hash, the registry minimum, the stakes, the
-/// recovery or genesis slots). L1 blocks 64 (`L1_0`), 100 (R) and 110 (finalized) are the
-/// fixture's; 120 adds a later landing at 18 and 130 also raises the recovery generation to 2,
-/// both on the state of 110. Each account keeps the slot list the old file proves, and the Inbox
-/// also proves the genesis, recovery and anchor slots, so every read the CLI tests make stays
-/// served; the proofs must cover the whole state. The file also carries the origin fallback key
-/// list, which the CLI tests' L1 answers `getFallbackKeys()` with.
+/// slot list changes (the configuration hash, an origin record, the recovery or genesis slots).
+/// L1 blocks 64 (`L1_0`), 100 (R) and 110 (finalized) are the fixture's; 120 adds a later landing
+/// at 18 and 130 also raises the recovery generation to 2, both on the state of 110. Each
+/// account the state still holds keeps the slot list the old file proves, and the Inbox also
+/// proves the genesis, recovery and anchor slots, so every read the CLI tests make stays served;
+/// the proofs must cover the whole state. The file also carries the origin fallback key list,
+/// which the CLI tests' L1 answers `getFallbackKeys()` with.
 #[test]
 #[ignore = "manual fixture regeneration"]
 fn rebuild_cli_recovery_fixture() {
@@ -127,6 +127,11 @@ fn rebuild_cli_recovery_fixture() {
                 .as_array()
                 .unwrap()
                 .iter()
+                .filter(|account| {
+                    let address: Address =
+                        serde_json::from_value(account["address"].clone()).unwrap();
+                    state.has_account(address)
+                })
                 .map(|account| {
                     let address: Address =
                         serde_json::from_value(account["address"].clone()).unwrap();
@@ -184,6 +189,7 @@ fn rebuild_cli_recovery_fixture() {
             "min_stake": p.min_stake,
             "n_max": p.n_max,
             "registry": p.registry,
+            "staking": p.staking,
             "unsettled_limit": p.unsettled_limit,
             "vp_unit": p.vp_unit,
         },

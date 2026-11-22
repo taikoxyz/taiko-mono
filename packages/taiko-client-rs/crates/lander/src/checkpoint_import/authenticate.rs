@@ -35,7 +35,7 @@ pub async fn select_export<L: L1Source + ?Sized>(
         canonical(l1, header).await?;
     }
     let origin = fixed.origin_height();
-    if height < origin || height > abci::schedule::UINT48_MAX {
+    if height < origin || height > abci::UINT48_MAX {
         return Err(candidate("invalid export checkpoint selection"))
     }
     // verify_original_genesis validated the versioned recovery frame and complete original
@@ -366,7 +366,7 @@ where
     // FinalizeBlock returns: none, as every height returns an empty list. The generation's
     // initial set therefore still signs s + 1 and s + 2.
     let after = before.advance(&[]).map_err(safety)?;
-    let initial = fixed.initial_set().map_err(candidate)?;
+    let initial = fixed.initial_set();
     for set in [&after.current, &after.next] {
         if !same_powers(set, &initial) {
             return Err(safety(

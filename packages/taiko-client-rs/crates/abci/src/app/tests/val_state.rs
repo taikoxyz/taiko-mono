@@ -19,7 +19,7 @@ use crate::{
     app::{CODE_REJECTED, info::recompute_val_state},
     key::ConsensusKey,
     store::{Record, StoreError},
-    test_utils::{powers, test_key},
+    test_utils::test_key,
     valstate::ValState,
 };
 
@@ -42,7 +42,7 @@ async fn init_chain_sets_the_genesis_validator_state() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let app = initialized(&fx, dir.path()).await;
-    let expected = ValState::genesis(0, &powers(&fx.members)).unwrap();
+    let expected = ValState::genesis(0, &fx.fallback_keys.validator_set()).unwrap();
     let state = app.state().unwrap();
     assert_eq!(state.val_state, expected);
     assert_eq!(state.val_state.height, state.last_height);
@@ -97,7 +97,7 @@ async fn finalize_block_advances_with_the_returned_updates() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = replica(&fx, &source, dir.path()).await;
 
-    let mut reference = ValState::genesis(0, &powers(&fx.members)).unwrap();
+    let mut reference = ValState::genesis(0, &fx.fallback_keys.validator_set()).unwrap();
     for (req, expected) in &decided {
         let height = req.height.value();
         let response = finalize(&mut app, req.clone()).await.unwrap();
@@ -117,7 +117,8 @@ async fn finalize_block_advances_with_the_returned_updates() {
             .iter()
             .map(|e| (e.key, u64::try_from(e.power).unwrap()))
             .collect();
-        let genesis: BTreeMap<ConsensusKey, u64> = powers(&fx.members).into_iter().collect();
+        let genesis: BTreeMap<ConsensusKey, u64> =
+            fx.fallback_keys.validator_set().into_iter().collect();
         assert_eq!(signing, genesis, "the set signing {}", height + 1);
     }
     assert_eq!(reference.current.entries.len(), 3, "the genesis set signs");

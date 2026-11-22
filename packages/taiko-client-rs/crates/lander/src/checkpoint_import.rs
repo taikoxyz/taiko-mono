@@ -41,10 +41,11 @@ pub enum ImportError {
     Safety(String),
 }
 
-/// The only supported [`ImportPackage::schema`]. Version 2 carries the validator-state
-/// preimage for s − 1 (DATA-5.4-3, DATA-5.4-8); version 1's preimage at s is refused, with no
+/// The only supported [`ImportPackage::schema`]. Version 3 carries a genesis whose witness is the
+/// `L1_0` header and Inbox proof alone and whose validators are the origin fallback keys at
+/// power 1, with the validator-state preimage for s − 1; versions 1 and 2 are refused, with no
 /// migration.
-pub const IMPORT_SCHEMA: u32 = 2;
+pub const IMPORT_SCHEMA: u32 = 3;
 
 /// Version-two metadata; block payloads are supplied separately as a streaming iterator.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -186,7 +187,7 @@ fn validate_selected_landing(
     // An absent future record cannot yet be distinguished from a landing awaiting finality.
     // A populated historical record above the rolled-back frontier is already disqualified.
     if record.height > latest &&
-        record.height <= abci::schedule::UINT48_MAX &&
+        record.height <= abci::UINT48_MAX &&
         record.parent_height == 0 &&
         record.generation == 0 &&
         record.forced_cursor == 0 &&

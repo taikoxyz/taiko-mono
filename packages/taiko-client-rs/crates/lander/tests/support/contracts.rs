@@ -5,8 +5,8 @@
 #![allow(clippy::too_many_arguments)]
 
 use abci::{
-    ChainParams, CommitteeState, GenesisRecord, RegistryEntry, Snapshot,
-    committee::{committee_config_hash, derive, record_hash},
+    ChainParams, CommitteeRecord, CommitteeState, GenesisRecord, Member, RegistryEntry,
+    fallback::FallbackKeys,
 };
 use alloy::{
     rpc::types::{TransactionReceipt, TransactionRequest},
@@ -71,6 +71,8 @@ pub struct ContractFixture {
     pub genesis: GenesisRecord,
     pub parent_header: Header,
     pub committee: CommitteeState,
+    /// Generation 0's origin fallback key list, the registered keys: its hash is at slot 278.
+    pub fallback_keys: FallbackKeys,
     pub entry: RegistryEntry,
     pub keys: Vec<ValidatorKey>,
     pub signer_storage: tempfile::TempDir,
@@ -271,8 +273,9 @@ impl ContractFixture {
             (Some(unzen_inbox), Some(fork_after)) => Some(abci::SwitchConfig {
                 unzen_inbox,
                 fork_timestamp: now + fork_after,
-                // L1-side scenarios read no L2 SignalService implementation.
+                // L1-side scenarios read no L2 SignalService or staking implementation.
                 signal_service_implementation: Address::repeat_byte(0x5e),
+                staking_implementation: Address::repeat_byte(0x5f),
             }),
             _ => None,
         };
@@ -286,12 +289,24 @@ impl ContractFixture {
             switch: switch.clone(),
             ..ChainParams::builtin(L2_CHAIN_ID)?
         };
-        let snapshot = Snapshot {
-            checkpoint_index: count as u64 - 1,
-            l1_block: cutoff,
-            entries: entries.clone(),
+        // The registered keys are generation 0's fallback keys, each at power 1. The pinned
+        // contracts predate fallback keys: their `committeeRecordHash` lands at slot 278, so it
+        // takes the list's hash.
+        let mut origin_keys: Vec<_> = keys.iter().map(|key| key.pubkey()).collect();
+        origin_keys.sort();
+        let fallback_keys = FallbackKeys::new(origin_keys)?;
+        let members: Vec<Member> = fallback_keys
+            .keys()
+            .iter()
+            .map(|key| Member { pubkey: *key, eff_stake: U256::ZERO, power: 1 })
+            .collect();
+        let record = CommitteeRecord {
+            target_epoch: 0,
+            cutoff_l1_block: cutoff,
+            checkpoint_index: 0,
+            set_hash: B256::ZERO,
+            total_power: members.len() as u64,
         };
-        let (record, members) = derive(&snapshot, cutoff, 0, &params)?;
         let committee = CommitteeState { record, members };
         let l2 = StandaloneReth::start().await?;
         let parent_header = l2
@@ -366,7 +381,7 @@ impl ContractFixture {
             genesisStateRoot: start_root,
             epochLenL2: U256::from(epoch_len),
             genesisCutoff: U256::from(cutoff),
-            committeeRecordHash: record_hash(L2_CHAIN_ID, &committee.record),
+            committeeRecordHash: fallback_keys.hash(),
             committeeConfig: IEtnaInbox::CommitteeConfig {
                 vpUnit: params.vp_unit,
                 nMax: U256::from(params.n_max),
@@ -387,13 +402,11 @@ impl ContractFixture {
         )
         .await?;
         let genesis = GenesisRecord {
-            committee_config_hash: committee_config_hash(&params),
+            config_hash: params.config_hash(),
             genesis_height: 0,
             l1_0: initialized.block_number.context("owner init block")?,
-            epoch_len,
             genesis_hash: start_hash,
             genesis_state_root: start_root,
-            genesis_cutoff: cutoff,
             forced_inclusion_delay: FORCED_INCLUSION_DELAY,
             max_anchor_age: MAX_ANCHOR_AGE,
         };
@@ -411,6 +424,7 @@ impl ContractFixture {
             genesis,
             parent_header,
             committee,
+            fallback_keys,
             entry: entries[0].clone(),
             keys,
             signer_storage,

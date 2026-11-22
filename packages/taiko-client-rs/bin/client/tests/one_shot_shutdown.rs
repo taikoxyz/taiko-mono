@@ -6,16 +6,13 @@ use tokio::{io::AsyncReadExt, net::TcpListener};
 /// A cancelled output-producing command must not look like a successful empty report.
 #[tokio::test]
 async fn interrupted_one_shot_commands_exit_unsuccessfully() -> Result<()> {
-    for command in ["abci-genesis", "abci-committee-record"] {
+    for command in ["abci-genesis"] {
         for signal in ["-INT", "-TERM"] {
             let listener = TcpListener::bind("127.0.0.1:0").await?;
             let endpoint = format!("http://{}", listener.local_addr()?);
             let chain_id = protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID.to_string();
             let mut process = tokio::process::Command::new(env!("CARGO_BIN_EXE_taiko-client"));
             process.args([command, "--l1.http", &endpoint, "--l2.chain-id", &chain_id]);
-            if command == "abci-committee-record" {
-                process.args(["--genesis-cutoff", "1"]);
-            }
             let child =
                 process.stdout(Stdio::piped()).stderr(Stdio::piped()).kill_on_drop(true).spawn()?;
             let (mut connection, _) =

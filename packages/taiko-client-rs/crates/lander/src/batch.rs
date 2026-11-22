@@ -6,12 +6,7 @@ use abci::engine::{
 };
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
-use abci::{
-    AnchorState, ChainParams, ParentInfo, Schedule,
-    committee::{record_hash, verify_committee_witness_at_cutoff},
-    fallback::FallbackKeys,
-    rules,
-};
+use abci::{AnchorState, ChainParams, ParentInfo, fallback::FallbackKeys, rules};
 use alloy_primitives::{Address, B256, U256, aliases::U48};
 use async_trait::async_trait;
 use tokio::sync::Mutex;
@@ -120,7 +115,8 @@ struct BatchStart {
     /// The generation's initial set, which signs every height until per-height set decisions
     /// land.
     validators: Validators,
-    /// The L1 cutoff of the initial set's snapshot, the active committee snapshot of the batch.
+    /// The L1 block the initial set is fixed at (`L1_0` or R), the active committee snapshot
+    /// of the batch.
     initial_cutoff: u64,
 }
 
@@ -133,7 +129,7 @@ struct CheckpointIdentity {
     l2_chain_id: u64,
     /// Inbox proxy authenticating the checkpoint and deployment commitments.
     inbox: Address,
-    /// Registry whose historical proofs derive generation zero's initial committee.
+    /// Configured staking registry, which the statement still binds.
     registry: Address,
     /// Recovery generation carried by the execution history and BFT chain id.
     generation: u64,
@@ -147,10 +143,8 @@ struct CheckpointIdentity {
     comet_hash: B256,
     /// Complete genesis configuration, including forced inclusion and anchor age rules.
     genesis: abci::GenesisRecord,
-    /// Deployment's authenticated committee derivation configuration.
-    committee_config_hash: B256,
-    /// Bootstrap commitment independently checked by the starting Inbox proof.
-    bootstrap_hash: B256,
+    /// The deployment's authenticated configuration hash.
+    config_hash: B256,
 }
 
 impl CheckpointIdentity {
@@ -167,8 +161,7 @@ impl CheckpointIdentity {
             hash: snapshot.checkpoint_hash,
             comet_hash: snapshot.checkpoint_comet_hash,
             genesis: snapshot.genesis.clone(),
-            committee_config_hash: snapshot.committee_config_hash,
-            bootstrap_hash: snapshot.genesis_committee_record_hash,
+            config_hash: snapshot.config_hash,
         }
     }
 }
@@ -393,19 +386,15 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         if snapshot.l2_chain_id != self.params.l2_chain_id ||
             snapshot.inbox != self.params.inbox ||
             snapshot.registry != self.params.registry ||
-            snapshot.genesis.genesis_cutoff >= snapshot.genesis.l1_0 ||
             snapshot.genesis.genesis_hash.is_zero() ||
             snapshot.genesis.genesis_state_root.is_zero() ||
-            snapshot.committee_config_hash.is_zero() ||
+            snapshot.config_hash != self.params.config_hash() ||
             snapshot.checkpoint_hash.is_zero()
         {
             return Err(LanderError::Configuration(
                 "landing snapshot identity/genesis contradicts chain parameters".into(),
             ));
         }
-        Schedule::from_genesis(&snapshot.genesis)
-            .validate()
-            .map_err(|e| LanderError::Configuration(e.to_string()))?;
         Ok(())
     }
 
@@ -564,62 +553,37 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     }
 
     /// The generation's initial set, which signs every height until per-height set decisions
-    /// land, and the L1 block it is fixed at. A recovery generation's set is the keys of the
-    /// fallback key list whose hash its origin record holds, each at power 1, fixed at R: the
-    /// batch's starting proof `starting`, under `anchor`, proves that hash, which must be the
-    /// snapshot's authenticated origin's, and the list is obtained by it at R
-    /// ([`BatchBuilder::fallback_list`]). So no root but the batch's own anchors authenticates
-    /// the set. Generation zero's is the bootstrap committee, derived from its registry witness
-    /// at the genesis cutoff under `anchor`'s root and checked against the bootstrap record hash.
+    /// land, and the L1 block it is fixed at: the keys of the fallback key list whose hash the
+    /// generation's origin record holds, each at power 1. The batch's starting proof, under
+    /// `anchor`, proves that hash, `origin_hash` ([`crate::l1::verify_starting_inbox`]); a
+    /// recovery's must be the snapshot's authenticated origin's. So no root but the batch's own
+    /// anchors authenticates the set. The list is obtained by its hash
+    /// ([`BatchBuilder::fallback_list`]) at R for a recovery generation, whose set is fixed at R,
+    /// and at the batch's anchor, a block at or after `L1_0`, at generation zero, whose set is
+    /// fixed at `L1_0`.
     async fn initial_set(
         &self,
         snapshot: &LandingSnapshot,
         anchor: &AnchorState,
-        starting: &abci::AnchorWitness,
+        origin_hash: B256,
     ) -> Result<(Validators, u64)> {
-        if let Some(origin) = &snapshot.recovery {
-            let slot = abci::l1::layout::inbox::origin_slots(origin.generation)[3];
-            let proven = starting
-                .inbox
-                .storage
-                .iter()
-                .find(|proof| proof.slot == slot)
-                .map(|proof| B256::from(proof.value));
-            if proven != Some(origin.fallback_keys_hash) {
-                return Err(LanderError::Safety(
-                    "starting proof's origin fallbackKeysHash contradicts the recovery origin"
-                        .into(),
-                ));
+        let ((at, at_number), fixed_at) = match &snapshot.recovery {
+            Some(origin) => {
+                if origin_hash != origin.fallback_keys_hash {
+                    return Err(LanderError::Safety(
+                        "starting proof's origin fallbackKeysHash contradicts the recovery origin"
+                            .into(),
+                    ));
+                }
+                let r = recovery_anchor(snapshot)?;
+                ((r.hash, r.number), origin.l1_number)
             }
-            let r = recovery_anchor(snapshot)?;
-            let keys = self.fallback_list(origin.fallback_keys_hash, r.hash, r.number).await?;
-            let validators = Validators::from_powers(&keys.validator_set())
-                .map_err(|e| LanderError::Safety(e.to_string()))?;
-            return Ok((validators, origin.l1_number));
-        }
-        let cutoff = snapshot.genesis.genesis_cutoff;
-        if anchor.number < cutoff {
-            return Err(LanderError::Safety(
-                "committee proving root predates authenticated derivation snapshot".into(),
-            ));
-        }
-        let witness = self.l1.committee_witness(anchor, cutoff, Schedule::E0).await?;
-        let (record, members) = verify_committee_witness_at_cutoff(
-            anchor.state_root,
-            cutoff,
-            &self.params,
-            &witness,
-            Schedule::E0,
-        )
-        .map_err(|e| LanderError::Safety(e.to_string()))?;
-        if record_hash(self.params.l2_chain_id, &record) != snapshot.genesis_committee_record_hash {
-            return Err(LanderError::Safety(
-                "derived genesis committee differs from bootstrap".into(),
-            ));
-        }
-        let validators =
-            Validators::from_members(&members).map_err(|e| LanderError::Safety(e.to_string()))?;
-        Ok((validators, record.cutoff_l1_block))
+            None => ((anchor.hash, anchor.number), snapshot.genesis.l1_0),
+        };
+        let keys = self.fallback_list(origin_hash, at, at_number).await?;
+        let validators = Validators::from_powers(&keys.validator_set())
+            .map_err(|e| LanderError::Safety(e.to_string()))?;
+        Ok((validators, fixed_at))
     }
 
     /// The fallback key list whose hash is `hash`, from the cache of lists already obtained or
@@ -747,10 +711,10 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         }
 
         let starting_inbox_witness = self.l1.starting_inbox_witness(&anchor).await?;
-        let (genesis, bootstrap) =
+        let (genesis, origin_hash) =
             crate::l1::verify_starting_inbox(&starting_inbox_witness, &anchor, self.params.inbox)?;
         if genesis != snapshot.genesis ||
-            bootstrap != snapshot.genesis_committee_record_hash ||
+            snapshot.config_hash != genesis.config_hash ||
             anchor.inbox.recovery_generation != snapshot.generation ||
             anchor.number < genesis.l1_0
         {
@@ -758,8 +722,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 "starting genesis/config proof contradicts snapshot".into(),
             ));
         }
-        let (validators, initial_cutoff) =
-            self.initial_set(snapshot, &anchor, &starting_inbox_witness).await?;
+        let (validators, initial_cutoff) = self.initial_set(snapshot, &anchor, origin_hash).await?;
         if at_origin {
             let (hash, root) = snapshot.recovery.as_ref().map_or(
                 (snapshot.genesis.genesis_hash, snapshot.genesis.genesis_state_root),
@@ -1418,7 +1381,7 @@ mod tests {
         max_batch_blocks: AtomicU64,
         history_reads: AtomicUsize,
         inbox_reads: AtomicUsize,
-        committee_reads: AtomicUsize,
+        list_reads: AtomicUsize,
         parent_reads: AtomicUsize,
         status_reads: AtomicUsize,
         block_reads: AtomicUsize,
@@ -1437,7 +1400,7 @@ mod tests {
                 max_batch_blocks: AtomicU64::new(MAX_BATCH_BLOCKS),
                 history_reads: AtomicUsize::new(0),
                 inbox_reads: AtomicUsize::new(0),
-                committee_reads: AtomicUsize::new(0),
+                list_reads: AtomicUsize::new(0),
                 parent_reads: AtomicUsize::new(0),
                 status_reads: AtomicUsize::new(0),
                 block_reads: AtomicUsize::new(0),
@@ -1527,16 +1490,6 @@ mod tests {
             self.fixture().starting_inbox_witness(anchor).await
         }
 
-        async fn committee_witness(
-            &self,
-            anchor: &AnchorState,
-            snapshot_number: u64,
-            epoch: u64,
-        ) -> Result<abci::CommitteeWitness> {
-            self.committee_reads.fetch_add(1, Ordering::Relaxed);
-            self.fixture().committee_witness(anchor, snapshot_number, epoch).await
-        }
-
         async fn fallback_keys(
             &self,
             hash: B256,
@@ -1544,6 +1497,7 @@ mod tests {
             at_number: u64,
             from_block: u64,
         ) -> Result<abci::fallback::FallbackKeys> {
+            self.list_reads.fetch_add(1, Ordering::Relaxed);
             self.fixture().fallback_keys(hash, at, at_number, from_block).await
         }
 
@@ -1743,10 +1697,10 @@ mod tests {
         b.validate_checkpoint(&snapshot).await.unwrap();
         b.observe(&snapshot).await.unwrap();
         b.prepare(snapshot.clone()).await.unwrap().unwrap();
-        // One start: the grandparent header and the initial committee, read once.
+        // One start: the grandparent header and the origin key list, read once.
         assert_eq!(source.history_reads.load(Ordering::Relaxed), 1);
         assert_eq!(source.inbox_reads.load(Ordering::Relaxed), 1);
-        assert_eq!(source.committee_reads.load(Ordering::Relaxed), 1);
+        assert_eq!(source.list_reads.load(Ordering::Relaxed), 1);
         assert_eq!(source.parent_reads.load(Ordering::Relaxed), 3);
         assert_eq!(source.status_reads.load(Ordering::Relaxed), 3);
 
@@ -1765,7 +1719,7 @@ mod tests {
         b.validate_checkpoint(&source.fixture().snapshot).await.unwrap();
         assert_eq!(source.history_reads.load(Ordering::Relaxed), 1);
         assert_eq!(source.inbox_reads.load(Ordering::Relaxed), 1);
-        assert_eq!(source.committee_reads.load(Ordering::Relaxed), 1);
+        assert_eq!(source.list_reads.load(Ordering::Relaxed), 1);
     }
 
     #[tokio::test]
@@ -1795,8 +1749,8 @@ mod tests {
         b.validate_checkpoint(&source.fixture().snapshot).await.unwrap();
         assert_eq!(source.history_reads.load(Ordering::Relaxed), 2);
         assert_eq!(source.inbox_reads.load(Ordering::Relaxed), 2);
-        // Each start reads the initial committee once.
-        assert_eq!(source.committee_reads.load(Ordering::Relaxed), 2);
+        // The origin key list is read once by its hash, whatever start needs it.
+        assert_eq!(source.list_reads.load(Ordering::Relaxed), 1);
         b.validate_checkpoint(&source.fixture().snapshot).await.unwrap();
         assert_eq!(source.history_reads.load(Ordering::Relaxed), 2);
     }
@@ -1816,7 +1770,7 @@ mod tests {
     }
 
     /// The start a checkpoint retains holds the generation's initial set, whatever descendants
-    /// an observation read, and its snapshot is the genesis cutoff.
+    /// an observation read: generation zero's origin keys, each at power 1, fixed at `L1_0`.
     #[tokio::test]
     async fn the_retained_start_holds_the_initial_set() {
         let source = TrackingSource::new(Fixture::new(18, 30));
@@ -1826,8 +1780,52 @@ mod tests {
         b.observe(&snapshot).await.unwrap();
         let start = b.checkpoint(&snapshot).await.unwrap();
         assert_eq!(start.validators.hash(), source.fixture().committees[&0].validators.hash());
-        assert_eq!(start.initial_cutoff, snapshot.genesis.genesis_cutoff);
-        assert_eq!(source.committee_reads.load(Ordering::Relaxed), 1);
+        assert_eq!(start.initial_cutoff, snapshot.genesis.l1_0);
+        assert_eq!(source.list_reads.load(Ordering::Relaxed), 1);
+    }
+
+    /// Generation zero's initial set is the list whose hash its origin record holds, each key at
+    /// power 1, not the one slot 278 names after a later `setFallbackKeys`: the list comes by
+    /// the origin's hash, which the batch's starting proof carries.
+    #[tokio::test]
+    async fn initial_set_is_the_origin_list_at_power_one() {
+        let fixture = Fixture::new(18, 30);
+        let expected = Validators::from_powers(&fixture.origin_keys.validator_set()).unwrap();
+        assert!(fixture.origin_keys.validator_set().iter().all(|(_, power)| *power == 1));
+        let source = TrackingSource::new(fixture);
+        let snapshot = source.fixture().snapshot.clone();
+        let start = source.builder(1).checkpoint(&snapshot).await.unwrap();
+        assert_eq!(start.validators.hash(), expected.hash());
+        assert_eq!(start.validators.total_voting_power(), 2);
+    }
+
+    /// The batch takes generation zero's origin hash from origin word 4 of its starting proof,
+    /// never from slot 278: after a later `setFallbackKeys` moved slot 278 to another list, the
+    /// starting proof still names the origin list, whose keys form the initial set.
+    #[tokio::test]
+    async fn snapshot_takes_the_origin_hash_from_origin_word_4() {
+        use abci::l1::layout::inbox;
+        let other = crate::test_utils::consensus::fallback_keys(&[
+            crate::test_utils::consensus::SigningKey::from_slice(&[7; 32]).unwrap(),
+        ]);
+        let mut fixture = Fixture::new(18, 30);
+        fixture.fallback_lists.insert(other.hash(), other.clone());
+        let origin = fixture.origin_keys.clone();
+        let number = fixture.anchors[&18].number;
+        let (witness, anchor) = fixture
+            .starting_witness_with_inbox_words(number, [(inbox::slot(278), other.hash().into())]);
+        assert_eq!(anchor.inbox.fallback_keys_hash, other.hash());
+        let (_, origin_hash) =
+            crate::l1::verify_starting_inbox(&witness, &anchor, fixture.params.inbox).unwrap();
+        assert_eq!(origin_hash, origin.hash());
+
+        let snapshot = fixture.snapshot.clone();
+        let source = TrackingSource::new(fixture);
+        let (validators, fixed_at) =
+            source.builder(1).initial_set(&snapshot, &anchor, origin_hash).await.unwrap();
+        let expected = Validators::from_powers(&origin.validator_set()).unwrap();
+        assert_eq!(validators.hash(), expected.hash());
+        assert_eq!(fixed_at, snapshot.genesis.l1_0);
     }
 
     /// A recovery generation's initial set is the origin record's fallback keys, each at power
@@ -1906,7 +1904,7 @@ mod tests {
             match mutation {
                 0 => changed.generation += 1,
                 1 => changed.genesis.max_anchor_age += 1,
-                2 => changed.genesis_committee_record_hash = alloy_primitives::B256::ZERO,
+                2 => changed.config_hash = alloy_primitives::B256::ZERO,
                 _ => unreachable!(),
             }
             assert!(matches!(b.checkpoint(&changed).await, Err(LanderError::Safety(_))));
@@ -2096,12 +2094,12 @@ mod tests {
         ));
     }
 
-    /// The initial set signs every height, so the active committee snapshot is its genesis
-    /// cutoff (1) at any cut, across what the global schedule called switches.
+    /// The initial set signs every height, so the active committee snapshot is the L1 block it
+    /// is fixed at, `L1_0` (10), at any cut.
     #[tokio::test]
     async fn terminal_active_committee_snapshot_is_the_initial_sets() {
         use alloy::sol_types::SolValue;
-        for (checkpoint, tip, expected) in [(0, 6, 1), (6, 12, 1), (12, 18, 1), (18, 24, 1)] {
+        for (checkpoint, tip, expected) in [(0, 6, 10), (6, 12, 10), (12, 18, 10), (18, 24, 10)] {
             let fixture = Arc::new(Fixture::with_epoch(checkpoint, tip, 0, 12));
             let request = builder(fixture.clone(), limits((tip - checkpoint) as usize))
                 .prepare(fixture.snapshot.clone())
@@ -2361,7 +2359,7 @@ mod tests {
         let request = builder(fixture, limits(6)).prepare(snapshot).await.unwrap().unwrap();
         assert_eq!(request.batch.blocks.len(), 6);
         assert_eq!(request.batch.input.lastHeight, 6);
-        assert_eq!(request.batch.input.activeCommitteeSnapshot, 1);
+        assert_eq!(request.batch.input.activeCommitteeSnapshot, 10);
         assert_eq!(request.batch.input.l1ReferenceBlockNumber, 14);
         assert_eq!(request.batch.parent_anchor.number, 10);
         assert!(request.batch.anchors.iter().all(|anchor| anchor.number == 10));
@@ -2502,7 +2500,9 @@ mod tests {
     }
 
     /// CometBFT's `/commit` for a height can carry precommits that block `h + 1`'s canonical
-    /// `last_commit` lacks; both certificates must independently satisfy quorum.
+    /// `last_commit` lacks; both certificates must independently satisfy quorum. With the two
+    /// origin keys at power 1 each, a canonical `last_commit` without one of them is no quorum,
+    /// and the batch is refused although height 25's `/commit` holds both precommits.
     #[tokio::test]
     async fn canonical_last_commit_is_verified_independently_of_the_seen_commit() {
         let mut fixture = Fixture::new(24, 30);
@@ -2514,8 +2514,6 @@ mod tests {
             .iter()
             .position(|validator| validator.pub_key == pubkey)
             .unwrap();
-        // Height 25's `/commit` has the power-1 member's precommit; block 26's `last_commit`
-        // omits it, which leaves 3 of 4 power, still a quorum.
         let seen = &fixture.blocks[&25].commit;
         assert!(matches!(
             seen.signatures[slot],
@@ -2532,23 +2530,13 @@ mod tests {
         ));
 
         let fixture = Arc::new(fixture);
-        let batch = builder(fixture.clone(), limits(6))
+        let error = builder(fixture.clone(), limits(6))
             .prepare(fixture.snapshot.clone())
             .await
-            .unwrap()
-            .unwrap()
-            .batch;
-        assert_eq!(batch.input.lastHeight, 30);
-        let reference = alloy_primitives::keccak256(&batch.reference_headers[0]);
-        assert_eq!(
-            batch.statement_hash,
-            statement::hash(
-                &batch.snapshot,
-                &batch.input,
-                reference,
-                &batch.blobs.versioned_hashes,
-                &batch.leaves
-            )
+            .expect_err("a canonical last_commit without quorum");
+        assert!(
+            matches!(&error, LanderError::Safety(message) if message.contains("insufficient commit power 1/2")),
+            "{error}"
         );
     }
 
@@ -2756,14 +2744,14 @@ mod tests {
                 .unwrap()
                 .unwrap();
             assert_eq!(request.batch.input.lastHeight, last);
-            let (genesis, bootstrap) = crate::l1::verify_starting_inbox(
+            let (genesis, origin_hash) = crate::l1::verify_starting_inbox(
                 &request.batch.starting_inbox_witness,
                 &request.batch.parent_anchor,
                 fixture.params.inbox,
             )
             .unwrap();
             assert_eq!(genesis, request.batch.snapshot.genesis);
-            assert_eq!(bootstrap, request.batch.snapshot.genesis_committee_record_hash);
+            assert_eq!(origin_hash, fixture.origin_keys.hash());
             let headers = request
                 .batch
                 .reference_headers
@@ -2797,33 +2785,20 @@ mod tests {
                 )
                 .is_err()
             );
-            assert_eq!(request.batch.input.activeCommitteeSnapshot, 1);
+            assert_eq!(request.batch.input.activeCommitteeSnapshot, 10);
         }
     }
 
     #[tokio::test]
-    async fn registry_address_root_entries_and_snapshot_config_mutations_are_rejected() {
+    async fn snapshot_config_mutations_are_rejected() {
         for mutation in 0..4 {
-            let mut fixture = Fixture::new(24, 30);
-            fixture.witness_mutation = Some(mutation);
-            let fixture = Arc::new(fixture);
-            assert!(
-                matches!(
-                    builder(fixture.clone(), limits(6)).prepare(fixture.snapshot.clone()).await,
-                    Err(LanderError::Safety(_))
-                ),
-                "registry mutation {mutation}"
-            );
-        }
-        for mutation in 0..5 {
             let fixture = Arc::new(Fixture::new(24, 30));
             let mut snapshot = fixture.snapshot.clone();
             match mutation {
-                0 => snapshot.committee_config_hash = alloy_primitives::B256::ZERO,
-                1 => snapshot.genesis.epoch_len += 1,
-                2 => snapshot.genesis.genesis_cutoff += 1,
+                0 => snapshot.config_hash = alloy_primitives::B256::ZERO,
+                1 => snapshot.genesis.config_hash = alloy_primitives::B256::ZERO,
+                2 => snapshot.genesis.l1_0 += 1,
                 3 => snapshot.inbox_witness.address = alloy_primitives::Address::ZERO,
-                4 => snapshot.genesis_committee_record_hash = alloy_primitives::B256::ZERO,
                 _ => unreachable!(),
             }
             assert!(

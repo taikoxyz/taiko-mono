@@ -31,7 +31,6 @@ use crate::{
     l1::{L1Error, L1Source},
     metrics::{AbciMetrics, set_u64},
     rules::{RuleViolation, check_chain_id},
-    schedule::ScheduleError,
     server::ConnectionEpoch,
     store::{AppState, STATE_SCHEMA_VERSION, Store, StoreError},
 };
@@ -220,10 +219,6 @@ pub enum AbciError {
         /// The genesis header's hash.
         hash: B256,
     },
-    /// The genesis record's schedule violates the epoch-length bounds
-    /// ([`Schedule::validate`](crate::schedule::Schedule::validate)).
-    #[error(transparent)]
-    Schedule(#[from] ScheduleError),
     /// A CometBFT `chain_id` differs from this chain's 48-byte `etna-` deployment-domain digest.
     #[error(transparent)]
     ChainId(#[from] RuleViolation),
@@ -484,10 +479,10 @@ pub(super) fn contradiction_halt(error: AbciError) -> AbciError {
 impl<L: L1Source, E: Engine> App<L, E> {
     /// Creates the app, validating `params` and loading any persisted state from `store`.
     ///
-    /// A loaded state must be consistent with `params` and with itself: its schedule must pass
-    /// [`Schedule::validate`](crate::schedule::Schedule::validate) and equal the one derived from
-    /// its genesis record, its Inbox must match the account
-    /// authenticated at genesis, its `chain_id` must name `params.l2_chain_id` and its
+    /// A loaded state must be consistent with `params` and with itself: its genesis
+    /// configuration hash must be the built-in one ([`ChainParams::config_hash`]), its Inbox
+    /// must match the account authenticated at genesis, its `chain_id` must name
+    /// `params.l2_chain_id` and its
     /// generation, its last height must equal its parent's number and its validator
     /// state's height and fit a CometBFT height, and an execution floor must lie above the
     /// generation's origin and at or below the last height. These local consistency checks do not
@@ -857,8 +852,7 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
             params.inbox, state.inbox
         )));
     }
-    state.schedule().validate()?;
-    if state.genesis.genesis_height > crate::schedule::UINT48_MAX ||
+    if state.genesis.genesis_height > etna_core::params::UINT48_MAX ||
         state.last_height < state.genesis.genesis_height
     {
         return Err(AbciError::StoredState("invalid Etna start height".into()));
@@ -887,9 +881,9 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
         )));
     }
     check_chain_id(&state.chain_id, params, state.generation)?;
-    if state.genesis.committee_config_hash != crate::committee::committee_config_hash(params) {
+    if state.genesis.config_hash != params.config_hash() {
         return Err(AbciError::StoredState(
-            "committee configuration opening differs from genesis".into(),
+            "the built-in configuration hash differs from the genesis one".into(),
         ));
     }
     if state.parent.number != state.last_height {
@@ -1034,9 +1028,7 @@ mod classify_tests {
     use alloy_primitives::Address;
 
     use super::*;
-    use crate::{
-        genesis::GenesisError, l1::L1HeaderError, recovery::RecoveryError, schedule::ScheduleError,
-    };
+    use crate::{genesis::GenesisError, l1::L1HeaderError, recovery::RecoveryError};
 
     /// Every error the startup tables and the trust table named before they were merged, and
     /// the own-L1 and recovery classes P6 settled (integrity vs transport, `Unavailable` vs
@@ -1162,7 +1154,6 @@ mod classify_tests {
             (AbciError::Uninitialized("FinalizeBlock"), Other),
             (AbciError::AlreadyInitialized, Other),
             (GenesisError::UnsupportedRecovery("x".into()).into(), Other),
-            (ScheduleError::EpochTooShort { epoch_len: 1 }.into(), Other),
             (RuleViolation::UnsupportedRuleset { rules: 9 }.into(), Other),
             (AbciError::InitialHeight { got: 2, expected: 1 }, Other),
             (

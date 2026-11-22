@@ -8,8 +8,7 @@ use std::{
 };
 
 use abci::{
-    ChainParams, GenesisRecord, RegistryEntry, RpcL1Source, Schedule, Snapshot, build_genesis,
-    committee::{self, record_hash},
+    ChainParams, GenesisRecord, RpcL1Source, build_genesis, fallback::FallbackKeys,
     l1::layout::inbox::ETNA_ACTIVE,
 };
 use alloy_eips::BlockNumberOrTag;
@@ -27,7 +26,7 @@ use crate::{
     keys::{ValidatorKey, node_keys, validator_keys},
     l1::finalized_number,
     lander::{Lander, LanderCtx},
-    planter::{InboxValues, Planter, registry_entry},
+    planter::{InboxValues, Planter},
     signer::{CometLaunch, SignerNode, signer_transport_keygen},
     wait::wait_until,
 };
@@ -46,11 +45,6 @@ const ANVIL_CMD: &str = "--host 0.0.0.0 --block-time 1 --slots-in-an-epoch 1 --g
 pub(crate) const RETH_CMD: &str = "./alethia-reth node --chain /genesis.json --devnet-etna-timestamp 0 --http \
     --http.addr 0.0.0.0 --http.api eth,net,debug --authrpc.addr 0.0.0.0 \
     --authrpc.jwtsecret /jwt.hex --disable-discovery";
-
-/// Effective stake of every planted validator: 7,600,000 TAIKO, the devnet registry's minStake
-/// (START-10-12 needs `4096 × minStake > 10^27`); 7.6 × 10^15 voting power at the devnet
-/// `vp_unit`.
-pub(crate) const VALIDATOR_STAKE: u128 = 7_600_000_000_000_000_000_000_000;
 
 /// Deadline for a container's RPC to come up.
 pub(crate) const RPC_TIMEOUT: Duration = Duration::from_secs(90);
@@ -94,8 +88,8 @@ pub(crate) struct Booted {
 ///
 /// 1. anvil and one alethia-reth per validator, waiting for their RPCs;
 /// 2. the chain parameters for alethia-reth's chain id with a legal direct unsettled limit U;
-/// 3. the setter contracts, then registry checkpoint 0 (the first `initial_validators` keys) in an
-///    L1 block `c` and the initialized Inbox, with `genesisCutoff = c`, in a later block `L1_0`;
+/// 3. the setter contract, then the initialized Inbox in an L1 block `L1_0`, whose fallback key
+///    list, the first `fallback_keys` keys, signs the first blocks at power 1;
 /// 4. once `L1_0` is final, the CometBFT genesis via `abci::build_genesis`;
 /// 5. one app per validator, listening before CometBFT starts;
 /// 6. one CometBFT node per validator, waiting for their RPCs;
@@ -174,24 +168,18 @@ pub(crate) async fn boot(
     };
     params.validate()?;
 
-    // 3. L1 state: registry checkpoint 0 in block c, then the initialized Inbox in block L1_0 > c.
+    // 3. L1 state: the initialized Inbox in block L1_0.
     let keys = validator_keys(n);
-    let planter = Planter::new(l1.clone(), params.inbox, params.registry);
+    let planter = Planter::new(l1.clone(), params.inbox);
     planter.install().await?;
-    let entries: Vec<_> = keys[..spec.initial_validators]
-        .iter()
-        .map(|k| registry_entry(k.pubkey(), U256::from(VALIDATOR_STAKE)))
-        .collect();
+    let mut origin_keys: Vec<_> = keys[..spec.fallback_keys].iter().map(|k| k.pubkey()).collect();
+    origin_keys.sort();
+    let fallback_keys = FallbackKeys::new(origin_keys)?;
     let genesis =
-        plant_genesis(&planter, &params, spec, &entries, (genesis_hash, genesis_state_root))
+        plant_genesis(&planter, &params, spec, &fallback_keys, (genesis_hash, genesis_state_root))
             .await?;
     let l1_0 = genesis.l1_0;
-    tracing::info!(
-        l1_0,
-        genesis_cutoff = genesis.genesis_cutoff,
-        %genesis_hash,
-        "genesis planted"
-    );
+    tracing::info!(l1_0, %genesis_hash, fallback_keys = %fallback_keys.hash(), "genesis planted");
 
     // 4. Genesis, once L1_0 is final.
     wait_until("L1 finalized >= L1_0", RPC_TIMEOUT, POLL, || async {
@@ -316,52 +304,37 @@ async fn genesis_block(l2: &RootProvider) -> Result<(B256, B256)> {
     Ok((block.header.hash, block.header.state_root))
 }
 
-/// Plants registry checkpoint 0 with `entries` into an L1 block `c`, then the initialized Inbox
-/// (genesis record over the L2 genesis `(hash, state root)`, `lastCheckpoint = (0, genesis
-/// hash)`, generation 0, `genesisCutoff = c`, `genesisCommitteeRecordHash` derived at `c`, and
-/// the spec's forced inclusion delay and maximum anchor age; the forced inclusion queue stays
-/// empty) into a later block `L1_0`, as the initializing DAO proposal names a cutoff before the
-/// block it lands in. Returns the genesis record.
+/// Plants the initialized Inbox into an L1 block `L1_0`: the genesis record over the L2 genesis
+/// `(hash, state root)`, `lastCheckpoint = (0, genesis hash)`, generation 0, the fallback key list
+/// `fallback_keys` at slot 278 and in generation 0's origin record, a minimum total stake of
+/// 2^256 − 1 (no candidate is usable, so the fallback keys sign), and the spec's forced
+/// inclusion delay and maximum anchor age; the forced inclusion queue stays empty. Returns the
+/// genesis record.
 async fn plant_genesis(
     planter: &Planter,
     params: &ChainParams,
     spec: &DevnetSpec,
-    entries: &[RegistryEntry],
+    fallback_keys: &FallbackKeys,
     (genesis_hash, genesis_state_root): (B256, B256),
 ) -> Result<GenesisRecord> {
     let mut next = planter.next_block().await?;
-    let genesis_cutoff = next.number();
-    let index = next.write_registry_checkpoint(entries).await?;
-    ensure!(index == 0, "the registry already holds {index} checkpoints");
-    let mined = next.commit().await?;
-    ensure!(
-        mined == genesis_cutoff,
-        "checkpoint 0 landed in L1 block {mined}, not {genesis_cutoff}"
-    );
-
-    let mut next = planter.next_block().await?;
     let l1_0 = next.number();
-    ensure!(l1_0 > genesis_cutoff, "L1_0 {l1_0} is not after the genesis cutoff {genesis_cutoff}");
     let genesis = GenesisRecord {
-        committee_config_hash: committee::committee_config_hash(params),
+        config_hash: params.config_hash(),
         genesis_height: 0,
         l1_0,
-        epoch_len: spec.epoch_len,
         genesis_hash,
         genesis_state_root,
-        genesis_cutoff,
         forced_inclusion_delay: spec.forced_inclusion_delay,
         max_anchor_age: spec.max_anchor_age,
     };
-    let snapshot =
-        Snapshot { checkpoint_index: 0, l1_block: genesis_cutoff, entries: entries.to_vec() };
-    let (record, _) = committee::derive(&snapshot, genesis_cutoff, Schedule::E0, params)?;
     next.plant_inbox(&InboxValues {
         status: Some(ETNA_ACTIVE),
         recovery_generation: Some(0),
         last_checkpoint: Some((0, genesis_hash)),
         genesis: Some(genesis.clone()),
-        genesis_committee_hash: Some(record_hash(params.l2_chain_id, &record)),
+        fallback_keys: Some(fallback_keys.clone()),
+        min_total_stake: Some(U256::MAX),
         ..Default::default()
     })
     .await?;

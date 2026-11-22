@@ -10,10 +10,7 @@ use crate::{
     config::SwitchConfig,
     envelope::EtnaEnvelope,
     l1::{L1Error, layout::inbox},
-    test_utils::{
-        InboxStorage, L1Call, TestState, filler_accounts, inbox_account, l1_header,
-        registry_account,
-    },
+    test_utils::{InboxStorage, L1Call, TestState, filler_accounts, inbox_account, l1_header},
 };
 use alloy_primitives::{Address, B256, U256};
 
@@ -45,7 +42,7 @@ fn target(app: &App<MockL1, MockEngine>, fx: &Fixture, height: u64, hash: B256) 
         },
         ..fx.inbox.clone()
     };
-    fx.plant_l1_block(app.l1(), 100, &inbox, &fx.registry);
+    fx.plant_l1_block(app.l1(), 100, &inbox);
     app.l1().set_finalized(100);
 }
 
@@ -213,7 +210,7 @@ async fn checkpoint_proof_root_canonical_status_and_generation_are_authenticated
         if case == 2 {
             inbox.recovery_generation += 1;
         }
-        fx.plant_l1_block(app.l1(), 100, &inbox, &fx.registry);
+        fx.plant_l1_block(app.l1(), 100, &inbox);
         app.l1().set_finalized(100);
         if case == 3 {
             app.l1().state().canonical_script.push_back(Ok(B256::repeat_byte(9)));
@@ -243,7 +240,7 @@ async fn a_newer_checkpoint_replaces_the_pending_target_until_matched() {
         last_checkpoint_comet_hash: B256::repeat_byte(8),
         ..fx.inbox.clone()
     };
-    fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
+    fx.plant_l1_block(app.l1(), 101, &inbox);
     app.l1().set_finalized(101);
     app.refresh_trust().await.unwrap();
     // The latest known target is the one a complete match must reach (SYNC-9-6a).
@@ -419,7 +416,7 @@ async fn higher_generation_proposal_revokes_even_without_finalize_error() {
     assert!(app.trust.snapshot().is_ready());
     let mut inbox = fx.inbox.clone();
     inbox.recovery_generation = 1;
-    fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
+    fx.plant_l1_block(app.l1(), 101, &inbox);
     app.l1().set_finalized(101);
     let before = store_files(dir.path());
     let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 101)));
@@ -444,7 +441,7 @@ async fn generation_zero_startup_supersession_records_generic_fatal() {
     let before = store_files(dir.path());
     let mut app = fx.app(dir.path());
     let inbox = InboxStorage { recovery_generation: 1, ..fx.inbox.clone() };
-    fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
+    fx.plant_l1_block(app.l1(), 101, &inbox);
     app.l1().set_finalized(101);
     assert!(matches!(app.refresh_trust().await, Err(AbciError::SafetyHalt(_))));
     assert_eq!(app.trust.snapshot().phase, TrustPhase::Halted);
@@ -497,7 +494,7 @@ async fn refreshed_lower_checkpoint_never_downgrades_pinned_target() {
     let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
     commit(&mut app).await.unwrap();
-    fx.plant_l1_block(app.l1(), 101, &fx.inbox, &fx.registry);
+    fx.plant_l1_block(app.l1(), 101, &fx.inbox);
     app.l1().set_finalized(101);
     app.refresh_trust().await.unwrap();
     assert!(!app.trust.snapshot().is_ready());
@@ -512,7 +509,7 @@ async fn reconnect_never_forgets_an_authenticated_unreached_checkpoint() {
     target(&app, &fx, 2, B256::repeat_byte(8));
     app.refresh_trust().await.unwrap();
     assert!(!app.trust.snapshot().is_ready());
-    fx.plant_l1_block(app.l1(), 101, &fx.inbox, &fx.registry);
+    fx.plant_l1_block(app.l1(), 101, &fx.inbox);
     app.l1().set_finalized(101);
     app.trust.begin_session();
     app.refresh_trust().await.unwrap();
@@ -543,10 +540,12 @@ async fn own_finality_before_the_inbox_genesis_waits_instead_of_halting() {
         forced_inclusion_tail: 0,
         forced_inclusion_queue: vec![],
         genesis: None,
-        genesis_committee_hash: None,
+        origin_fallback_keys_hash: B256::ZERO,
+        fallback_keys_hash: B256::ZERO,
+        min_total_stake: U256::ZERO,
     };
     let behind = |app: &App<MockL1, MockEngine>| {
-        fx.plant_l1_block(app.l1(), early, &empty, &fx.registry);
+        fx.plant_l1_block(app.l1(), early, &empty);
         app.l1().set_finalized(early);
     };
     let waits = |app: &App<MockL1, MockEngine>, when: &str| {
@@ -578,7 +577,7 @@ async fn own_finality_before_the_inbox_genesis_waits_instead_of_halting() {
     let mut app = fx.app(dir.path());
     target(&app, &fx, 0, fx.genesis_hash());
     init_chain(&mut app, fx.request.clone()).await.unwrap();
-    fx.plant_l1_block(app.l1(), 100, &empty, &fx.registry);
+    fx.plant_l1_block(app.l1(), 100, &empty);
     app.l1().set_finalized(100);
     let result = app.refresh_trust().await;
     assert!(matches!(&result, Err(AbciError::SafetyHalt(_))), "{result:?}");
@@ -744,7 +743,7 @@ async fn an_unavailable_record_is_retried_at_the_pinned_l1_block() {
     assert_eq!(snapshot.phase, TrustPhase::CatchingUp);
     assert!(snapshot.reason.unwrap().contains("slot 285 record at L1 block 66"));
     // A newer finalized block with the same checkpoint does not move the pinned read.
-    fx.plant_l1_block(app.l1(), 67, &landed(&app, &fx, 2 * LANDED), &fx.registry);
+    fx.plant_l1_block(app.l1(), 67, &landed(&app, &fx, 2 * LANDED));
     app.l1().state().proof_fail_slot = None;
     app.refresh_trust().await.unwrap();
     assert_ready_at(&app, 2 * LANDED);
@@ -777,7 +776,7 @@ async fn a_conflicting_newer_checkpoint_revokes_trust_while_the_process_keeps_ru
         } else {
             inbox.last_checkpoint_comet_hash = B256::repeat_byte(0xc5);
         }
-        fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+        fx.advance_l1(app.l1(), 66, &inbox);
         app.refresh_trust().await.expect("a revocation keeps the process running");
         let snapshot = app.trust.snapshot();
         assert_eq!(snapshot.phase, TrustPhase::Halted, "EL conflict {el_conflict}");
@@ -806,12 +805,7 @@ async fn a_startup_el_mismatch_halts_while_the_record_is_unavailable() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     commit_to(&mut app, &fx, LANDED).await;
-    fx.advance_l1(
-        app.l1(),
-        66,
-        &fx.inbox_at_checkpoint(LANDED, B256::repeat_byte(0xc4)),
-        &fx.registry,
-    );
+    fx.advance_l1(app.l1(), 66, &fx.inbox_at_checkpoint(LANDED, B256::repeat_byte(0xc4)));
     let record = inbox::landing_record_slots(LANDED)[0];
     app.l1().state().proof_fail_slot = Some((record, L1Error::Rpc("record unavailable".into())));
     let result = app.refresh_trust().await;
@@ -837,7 +831,7 @@ async fn a_larger_generation_in_the_finalized_view_revokes_a_ready_node() {
     assert!(app.trust.snapshot().is_ready());
     let mut inbox = fx.inbox.clone();
     inbox.recovery_generation += 1;
-    fx.advance_l1(app.l1(), 101, &inbox, &fx.registry);
+    fx.advance_l1(app.l1(), 101, &inbox);
     app.refresh_trust().await.expect("a revocation keeps the process running");
     let snapshot = app.trust.snapshot();
     assert_eq!(snapshot.phase, TrustPhase::Halted);
@@ -906,12 +900,7 @@ async fn proposal_checkpoints_above_the_parent_pend_and_conflicting_ones_revoke(
     assert_ready_at(&app, LANDED);
     assert!(app.store.fatal_evidence().unwrap().is_none());
 
-    fx.advance_l1(
-        app.l1(),
-        101,
-        &fx.inbox_at_checkpoint(LANDED - 2, B256::repeat_byte(0xc4)),
-        &fx.registry,
-    );
+    fx.advance_l1(app.l1(), 101, &fx.inbox_at_checkpoint(LANDED - 2, B256::repeat_byte(0xc4)));
     let conflicting = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 101)));
     assert_eq!(super::proposal::rejected(&mut app, &conflicting).await, "checkpoint_conflict");
     let snapshot = app.trust.snapshot();
@@ -934,6 +923,7 @@ async fn switching_trust_checks_the_fork_time_at_a_later_checkpoint() {
         unzen_inbox: Address::with_last_byte(1),
         fork_timestamp,
         signal_service_implementation: implementation,
+        staking_implementation: Address::with_last_byte(0x56),
     });
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
@@ -1153,7 +1143,7 @@ async fn authenticated_genesis_landing_requires_zero_comet_hash() {
     let mut app = initialized(&fx, dir.path()).await;
     let inbox =
         InboxStorage { last_checkpoint_comet_hash: B256::repeat_byte(0x77), ..fx.inbox.clone() };
-    fx.plant_l1_block(app.l1(), 100, &inbox, &fx.registry);
+    fx.plant_l1_block(app.l1(), 100, &inbox);
     app.l1().set_finalized(100);
     assert!(matches!(app.refresh_trust().await, Err(AbciError::SafetyHalt(_))));
     assert!(!app.trust.snapshot().is_ready());
@@ -1199,7 +1189,7 @@ async fn committed_comet_history_is_required_and_survives_restart() {
         last_checkpoint_comet_hash: B256::repeat_byte(0xaa),
         ..landed(&restarted, &fx, LANDED)
     };
-    fx.plant_l1_block(restarted.l1(), 101, &inbox, &fx.registry);
+    fx.plant_l1_block(restarted.l1(), 101, &inbox);
     restarted.l1().set_finalized(101);
     assert!(matches!(restarted.refresh_trust().await, Err(AbciError::SafetyHalt(_))));
     assert!(restarted.store.fatal_evidence().unwrap().is_some());
@@ -1227,7 +1217,7 @@ async fn decided_comet_hash_mismatch_halts_before_settle_even_when_el_matches() 
         last_checkpoint_comet_hash: B256::repeat_byte(0xaa),
         ..fx.inbox.clone()
     };
-    fx.plant_l1_block(app.l1(), 100, &inbox, &fx.registry);
+    fx.plant_l1_block(app.l1(), 100, &inbox);
     app.l1().set_finalized(100);
     app.refresh_trust().await.unwrap();
     let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
@@ -1260,7 +1250,7 @@ fn landed(app: &App<MockL1, MockEngine>, fx: &Fixture, height: u64) -> InboxStor
 /// Plants L1 block `number` landing the committed `height` (see [`landed`]), and makes it
 /// final.
 fn finalize_landing(app: &App<MockL1, MockEngine>, fx: &Fixture, number: u64, height: u64) {
-    fx.advance_l1(app.l1(), number, &landed(app, fx, height), &fx.registry);
+    fx.advance_l1(app.l1(), number, &landed(app, fx, height));
 }
 
 /// A checkpoint below the committed anchor's names pruned Comet history: while own finality
@@ -1301,7 +1291,7 @@ async fn pinned_target_below_the_comet_history_floor_is_reacquired() {
         last_checkpoint_comet_hash: B256::from_slice(req.hash.as_bytes()),
         ..fx.inbox_at_checkpoint(LANDED, env.block.header.hash_slow())
     };
-    fx.advance_l1(app.l1(), 65, &inbox, &fx.registry);
+    fx.advance_l1(app.l1(), 65, &inbox);
     app.refresh_trust().await.unwrap();
     let pinned = app.trust.snapshot().target.unwrap().height;
     assert_eq!(pinned, LANDED, "pinned above the head");
@@ -1330,7 +1320,7 @@ fn finalize_inbox_with_word(
     let mut account = inbox_account(fx.params.inbox, inbox);
     account.4.push((slot, word));
     let mut accounts = filler_accounts();
-    accounts.extend([account, registry_account(fx.params.registry, &fx.registry)]);
+    accounts.push(account);
     app.l1().insert_block(l1_header(100, Fixture::l1_timestamp(100)), TestState::new(accounts));
     app.l1().set_finalized(100);
 }
@@ -1410,7 +1400,7 @@ async fn pinned_target_changing_only_the_comet_hash_is_rejected() {
             last_checkpoint_comet_hash: B256::repeat_byte(0x5a),
             ..landed(&app, &fx, LANDED)
         };
-        fx.advance_l1(app.l1(), 101, &changed, &fx.registry);
+        fx.advance_l1(app.l1(), 101, &changed);
         if reconnect {
             app.trust.begin_session();
         }

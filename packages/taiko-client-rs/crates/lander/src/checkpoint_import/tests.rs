@@ -192,6 +192,28 @@ async fn import_accepts_preimage_for_s_minus_1() {
     assert_eq!(imported.state().last_height, 6);
 }
 
+/// A package of schema 2, whose generation-zero genesis carried a registry committee, is
+/// refused as a candidate before anything is authenticated, as is schema 1; schema 3 imports.
+#[tokio::test]
+async fn package_schema_2_is_refused() {
+    let fx = std::sync::Arc::new(Fixture::new(6, 6));
+    let honest = import_package(&fx, 6).await;
+    assert_eq!(IMPORT_SCHEMA, 3);
+    for schema in [1, 2, 4] {
+        let old = ImportPackage { schema, ..honest.clone() };
+        let result =
+            authenticate_import(&old, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone()))
+                .await;
+        assert!(
+            matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("schema")),
+            "schema {schema}"
+        );
+    }
+    authenticate_import(&honest, frames(&fx, 6).into_iter(), &fx.params, &OwnL1(fx.clone()))
+        .await
+        .unwrap();
+}
+
 /// DATA-5.4-5: a preimage that does not give header(s)'s app_hash, including the old schema's
 /// state after s, is an invalid candidate, as is the old schema itself.
 #[tokio::test]

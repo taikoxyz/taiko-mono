@@ -7,8 +7,6 @@
 //! [`InboxStorage`] packs Inbox facts and forced inclusion queue entries into storage words
 //! exactly as [`crate::l1::layout`] lays them out, and [`anchor_witness`] /
 //! [`genesis_inbox_witness`] turn it into witnesses with real proofs.
-//! [`RegistryStorage`] does the same for the staking registry's checkpoints (and the last
-//! checkpoint's entries), and [`committee_witness`] proves one checkpoint of it.
 //!
 //! [`MockL1`] and [`MockEngine`] are in-memory
 //! [`L1Source`](crate::l1::source::L1Source) and [`Engine`](crate::engine::Engine)
@@ -29,17 +27,10 @@ use alloy_trie::{
 };
 
 use crate::{
-    committee::{entries_root, snapshot_slots},
     envelope::AnchorWitness,
     forced::ForcedEntry,
-    l1::{
-        header::RawL1Header,
-        layout::{inbox, registry},
-    },
-    types::{
-        AccountWitness, AnchorState, CommitteeRecord, CommitteeWitness, GenesisRecord, InboxFacts,
-        RegistryEntry, StorageProof,
-    },
+    l1::{header::RawL1Header, layout::inbox},
+    types::{AccountWitness, GenesisRecord, StorageProof},
 };
 
 /// A complete, consistent genesis (L1 state, witness, EL chain, `InitChain` request).
@@ -52,9 +43,8 @@ mod recovery_fixtures;
 pub(crate) mod vectors;
 
 pub(crate) use fixture::{
-    Fixture, GenesisSpec, abci_consensus_params, answer_registry_config, committed_block,
-    init_chain_request, powers, recovery_fallback_keys, recovery_fixture, recovery_fixture_at,
-    test_options, validator_updates,
+    Fixture, GenesisSpec, abci_consensus_params, committed_block, init_chain_request,
+    recovery_fallback_keys, recovery_fixture, recovery_fixture_at, test_options, validator_updates,
 };
 pub(crate) use mocks::{EngineCall, L1Call, MockEngine, MockL1, simple_block};
 
@@ -235,19 +225,26 @@ pub(crate) struct InboxStorage {
     /// Entries of the forced inclusion `queue` mapping (slot 280), each written at its own
     /// `index` with its transaction hash and packed metadata; independent of the tail.
     pub(crate) forced_inclusion_queue: Vec<ForcedEntry>,
-    /// Slots 272–274, `genesis_cutoff` in slot 279 (`uint64` at bits 0–63) and the forced
-    /// inclusion delay and maximum anchor age in slot 282 (`uint64`s at bits 0–63 and 64–127);
-    /// `None` leaves them empty (not yet initialized).
+    /// The configuration hash (slot 269), slots 272–274 and the forced inclusion delay and
+    /// maximum anchor age in slot 282 (`uint48`s at bits 0–47 and 48–95), with generation 0's
+    /// origin record (slot 290), whose fourth word is `origin_fallback_keys_hash`; `None` leaves
+    /// them empty (not yet initialized).
     pub(crate) genesis: Option<GenesisRecord>,
-    /// The bootstrap committee hash at plain slot 278.
-    pub(crate) genesis_committee_hash: Option<B256>,
+    /// The fourth word of generation 0's origin record, written with `genesis`: the
+    /// `fallbackKeysHash` slot 278 held at the start write.
+    pub(crate) origin_fallback_keys_hash: B256,
+    /// Slot 278, `fallbackKeysHash`, a whole `bytes32`.
+    pub(crate) fallback_keys_hash: B256,
+    /// Slot 279, `minTotalStake`, a whole `uint256`.
+    pub(crate) min_total_stake: U256,
 }
 
 impl InboxStorage {
     /// An Inbox right after genesis: `ETNA_ACTIVE`, generation 0, last checkpoint = the
-    /// Etna start block (S, the start hash), an empty forced inclusion queue and
-    /// `committee[e_0] = committee_e0`.
-    pub(crate) fn genesis(genesis: GenesisRecord, committee_e0: B256) -> Self {
+    /// Etna start block (S, the start hash), an empty forced inclusion queue, slot 278 and the
+    /// origin record's fourth word both `fallback_keys_hash`, and a minimum total stake of
+    /// 2^256 − 1, which makes no candidate usable.
+    pub(crate) fn genesis(genesis: GenesisRecord, fallback_keys_hash: B256) -> Self {
         Self {
             status: inbox::ETNA_ACTIVE,
             recovery_generation: 0,
@@ -258,7 +255,9 @@ impl InboxStorage {
             forced_inclusion_tail: 0,
             forced_inclusion_queue: vec![],
             genesis: Some(genesis),
-            genesis_committee_hash: Some(committee_e0),
+            origin_fallback_keys_hash: fallback_keys_hash,
+            fallback_keys_hash,
+            min_total_stake: U256::MAX,
         }
     }
 
@@ -275,6 +274,8 @@ impl InboxStorage {
                 U256::from(self.forced_inclusion_head) |
                     (U256::from(self.forced_inclusion_tail) << 48),
             ),
+            (inbox::slot(inbox::FALLBACK_KEYS_HASH), self.fallback_keys_hash.into()),
+            (inbox::slot(inbox::MIN_TOTAL_STAKE), self.min_total_stake),
         ];
         let landing = inbox::landing_record_slots(self.last_checkpoint_height);
         slots.extend([
@@ -293,25 +294,20 @@ impl InboxStorage {
                 (origins[0], U256::from(a.genesis_height)),
                 (origins[1], U256::from(a.l1_0)),
                 (origins[2], U256::from(1_760_000_000u64 + 12 * a.l1_0)),
+                (origins[3], self.origin_fallback_keys_hash.into()),
             ]);
 
-            let packed = U256::from(a.genesis_height) |
-                (U256::from(a.l1_0) << 48) |
-                (U256::from(a.epoch_len) << 96);
+            let packed = U256::from(a.genesis_height) | (U256::from(a.l1_0) << 48);
             slots.extend([
                 (inbox::slot(inbox::GENESIS_PACKED), packed),
                 (inbox::slot(inbox::START_BLOCK_HASH), a.genesis_hash.into()),
                 (inbox::slot(inbox::START_STATE_ROOT), a.genesis_state_root.into()),
-                (inbox::slot(inbox::GENESIS_CUTOFF), U256::from(a.genesis_cutoff)),
-                (inbox::slot(inbox::COMMITTEE_CONFIG_HASH), a.committee_config_hash.into()),
+                (inbox::slot(inbox::CONFIG_HASH), a.config_hash.into()),
                 (
                     inbox::slot(inbox::FORCED_INCLUSION_CONFIG),
                     U256::from(a.forced_inclusion_delay) | (U256::from(a.max_anchor_age) << 48),
                 ),
             ]);
-        }
-        if let Some(hash) = self.genesis_committee_hash {
-            slots.push((inbox::slot(inbox::GENESIS_COMMITTEE_HASH), hash.into()));
         }
         // Each queue entry: its `txHash` word and the `timestamp | l1Block << 48` metadata word.
         for entry in &self.forced_inclusion_queue {
@@ -374,22 +370,19 @@ pub(crate) fn tx_signer() -> alloy::signers::local::PrivateKeySigner {
         .expect("signing key")
 }
 
-/// A sample genesis record with every field distinct and non-zero (the genesis cutoff is the
-/// block before `L1_0`; forced inclusion delay 1 h, maximum anchor age 2 h).
+/// A sample genesis record with the devnet configuration hash and every other field distinct
+/// and non-zero but the start height (forced inclusion delay 1 h, maximum anchor age 2 h).
 pub(crate) fn sample_genesis_record() -> GenesisRecord {
     GenesisRecord {
-        committee_config_hash: crate::committee::committee_config_hash(
-            &crate::config::ChainParams::builtin(
-                protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
-            )
-            .unwrap(),
-        ),
+        config_hash: crate::config::ChainParams::builtin(
+            protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
+        )
+        .unwrap()
+        .config_hash(),
         genesis_height: 0,
         l1_0: 64,
-        epoch_len: 20,
         genesis_hash: B256::repeat_byte(0x48),
         genesis_state_root: B256::repeat_byte(0x53),
-        genesis_cutoff: 63,
         forced_inclusion_delay: 3_600,
         max_anchor_age: 7_200,
     }
@@ -407,27 +400,6 @@ pub(crate) fn l1_header(number: u64, timestamp: u64) -> Header {
         gas_used: 21_000,
         base_fee_per_gas: Some(7),
         ..Header::default()
-    }
-}
-
-/// The anchor at L1 block `number` with state root `state_root` (hash, timestamp and Inbox facts
-/// neutral): all a committee witness is verified against.
-pub(crate) fn anchor_at(number: u64, state_root: B256) -> AnchorState {
-    AnchorState {
-        number,
-        hash: B256::ZERO,
-        state_root,
-        timestamp: 0,
-        inbox: InboxFacts {
-            rules_schedule: alloy_primitives::U256::ZERO,
-            recovery_generation: 0,
-            last_checkpoint_height: 0,
-            last_checkpoint_hash: B256::ZERO,
-            forced_inclusion_head: 0,
-            forced_inclusion_tail: 0,
-            fallback_keys_hash: B256::ZERO,
-            min_total_stake: U256::ZERO,
-        },
     }
 }
 
@@ -516,115 +488,6 @@ fn inbox_state(inbox_address: Address, storage: &InboxStorage) -> TestState {
     let mut accounts = filler_accounts();
     accounts.push(inbox_account(inbox_address, storage));
     TestState::new(accounts)
-}
-
-/// The staking registry's storage as [`crate::l1::layout::registry`] lays it out, before
-/// packing into words.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct RegistryStorage {
-    /// `checkpoints[i] = (l1Block, entries)`, in index order; `count = entries.len()` and
-    /// `entriesRoot = entries_root(entries)`.
-    pub(crate) checkpoints: Vec<(u64, Vec<RegistryEntry>)>,
-}
-
-impl RegistryStorage {
-    /// The `(slot, word)` pairs of this storage: `checkpoints.length` at `R`, then per
-    /// checkpoint the packed `l1Block | count << 48` word and `entriesRoot`, then the live
-    /// `entries` array (see `layout::registry`) holding the LAST checkpoint's entries:
-    /// `entries.length` at `R + 1` and per entry its key x coordinate, `effStake` and packed
-    /// `ckPrefix | activeFromL1 << 8 | exitEffectiveL1 << 56` words. Zero words are included
-    /// (the trie drops them, so they read back through exclusion proofs).
-    ///
-    /// A state built from this storage is the registry as of the last checkpoint's L1 block, so
-    /// a proposer reading entries there sees the last checkpoint's snapshot. Tests that need an
-    /// earlier checkpoint's entries in storage must build one state per L1 block (a storage
-    /// holding only the checkpoints up to that one).
-    pub(crate) fn slots(&self) -> Vec<(B256, U256)> {
-        let mut slots = vec![(registry::length_slot(), U256::from(self.checkpoints.len()))];
-        for (i, (l1_block, entries)) in self.checkpoints.iter().enumerate() {
-            let [head, root] = registry::checkpoint_slots(i as u64);
-            let count = u32::try_from(entries.len()).expect("checkpoint count fits uint32");
-            slots.push((head, U256::from(*l1_block) | (U256::from(count) << 48)));
-            slots.push((root, entries_root(entries).into()));
-        }
-        let entries = self.checkpoints.last().map(|(_, entries)| entries.as_slice()).unwrap_or(&[]);
-        slots.push((registry::entries_length_slot(), U256::from(entries.len())));
-        for (j, entry) in entries.iter().enumerate() {
-            let [pubkey, stake, packed] = registry::entry_slots(j as u64);
-            slots.push((pubkey, entry.ck_x.into()));
-            slots.push((stake, entry.eff_stake));
-            slots.push((
-                packed,
-                U256::from(entry.ck_prefix) |
-                    (U256::from(entry.active_from_l1) << 8) |
-                    (U256::from(entry.exit_effective_l1) << 56),
-            ));
-        }
-        slots
-    }
-}
-
-/// The [`AccountSpec`] of a staking registry at `address` holding `storage`.
-pub(crate) fn registry_account(address: Address, storage: &RegistryStorage) -> AccountSpec {
-    (address, 1, U256::ZERO, keccak256(b"etna registry code"), storage.slots())
-}
-
-/// A committee witness claiming `record` for checkpoint `index` of the registry at `registry` in
-/// `state` (which must hold `storage` there).
-///
-/// Proves `committee::snapshot_slots(index, has_next)` with `has_next = index + 1 <
-/// checkpoints.len()`, and carries the entries of `checkpoints[index]` (none if `index` is out
-/// of range). `record.checkpoint_index` is left as given.
-pub(crate) fn committee_witness(
-    state: &TestState,
-    registry: Address,
-    storage: &RegistryStorage,
-    index: u64,
-    record: CommitteeRecord,
-) -> CommitteeWitness {
-    let len = storage.checkpoints.len() as u64;
-    let has_next = index.checked_add(1).is_some_and(|next| next < len);
-    let entries = usize::try_from(index)
-        .ok()
-        .and_then(|i| storage.checkpoints.get(i))
-        .map(|(_, entries)| entries.clone())
-        .unwrap_or_default();
-    CommitteeWitness {
-        record,
-        registry: state.witness(registry, &snapshot_slots(index, has_next)),
-        entries,
-    }
-}
-
-/// The fixtures' stake unit: the devnet registry's `minStake`, 7,600,000 TAIKO, above the
-/// `10^27 / 4096` floor of START-10-12.
-pub(crate) fn stake_unit() -> U256 {
-    U256::from(7_600_000u64) * U256::from(10u64).pow(U256::from(18u64))
-}
-
-/// The fixtures' `vp_unit`: one [`stake_unit`] gives 10^9 voting power, so a fixture member's
-/// power is its stake in stake units times 10^9.
-pub(crate) fn fixture_vp_unit() -> U256 {
-    stake_unit() / U256::from(1_000_000_000u64)
-}
-
-/// `n` registry entries that are eligible at any cutoff below `2^48 - 1` under the fixture
-/// parameters: deterministic, distinct keys [`test_key`]`(i + 1)`, stake `(i + 1)` stake units
-/// ([`stake_unit`]), active from L1 block 0 and no exit (`exitEffectiveL1` is the `uint48`
-/// maximum).
-pub(crate) fn sample_entries(n: usize) -> Vec<RegistryEntry> {
-    (0..n)
-        .map(|i| {
-            let pubkey = test_key(i as u64 + 1);
-            RegistryEntry {
-                ck_prefix: pubkey.prefix(),
-                ck_x: pubkey.x(),
-                eff_stake: U256::from(i + 1) * stake_unit(),
-                active_from_l1: 0,
-                exit_effective_l1: (1 << 48) - 1,
-            }
-        })
-        .collect()
 }
 
 /// Captures every log line emitted on the current thread while alive (a `#[tokio::test]` runs its
@@ -800,18 +663,11 @@ mod tests {
     #[test]
     fn inbox_storage_packing_decodes_back() {
         let genesis = GenesisRecord {
-            committee_config_hash: crate::committee::committee_config_hash(
-                &crate::config::ChainParams::builtin(
-                    protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
-                )
-                .unwrap(),
-            ),
+            config_hash: B256::repeat_byte(0xa5),
             genesis_height: ((1u64 << 48) - 1),
             l1_0: 0x0304_0506_0708,
-            epoch_len: 1,
             genesis_hash: B256::repeat_byte(0xa1),
             genesis_state_root: B256::repeat_byte(0xa2),
-            genesis_cutoff: ((1u64 << 48) - 1) - 2,
             forced_inclusion_delay: ((1u64 << 48) - 1) - 3,
             max_anchor_age: ((1u64 << 48) - 1) - 4,
         };
@@ -825,7 +681,9 @@ mod tests {
             forced_inclusion_tail: (1 << 48) - 1,
             forced_inclusion_queue: vec![],
             genesis: Some(genesis.clone()),
-            genesis_committee_hash: Some(B256::repeat_byte(0xa4)),
+            origin_fallback_keys_hash: B256::repeat_byte(0xa4),
+            fallback_keys_hash: B256::repeat_byte(0xa6),
+            min_total_stake: U256::MAX - U256::from(1),
         };
         let slots = storage.slots();
         let at = |n| word(&slots, inbox::slot(n));
@@ -839,44 +697,38 @@ mod tests {
         assert_eq!(word_u48(head_tail, 0), (1 << 48) - 2);
         assert_eq!(word_u48(head_tail, 48), (1 << 48) - 1);
         assert_eq!(head_tail >> 96, U256::ZERO);
+        assert_eq!(B256::from(at(inbox::FALLBACK_KEYS_HASH)), B256::repeat_byte(0xa6));
+        assert_eq!(at(inbox::MIN_TOTAL_STAKE), U256::MAX - U256::from(1));
 
         let packed = at(inbox::GENESIS_PACKED);
         assert_eq!(word_u48(packed, 0), genesis.genesis_height);
         assert_eq!(word_u48(packed, 48), genesis.l1_0);
-        assert_eq!(word_u48(packed, 96), genesis.epoch_len);
-        assert_eq!(packed >> 192, U256::ZERO);
+        assert_eq!(packed >> 96, U256::ZERO);
         assert_eq!(B256::from(at(inbox::START_BLOCK_HASH)), genesis.genesis_hash);
         assert_eq!(B256::from(at(inbox::START_STATE_ROOT)), genesis.genesis_state_root);
-        assert_eq!(word_u64(at(inbox::GENESIS_CUTOFF), 0), genesis.genesis_cutoff);
-        assert_eq!(at(inbox::GENESIS_CUTOFF) >> 64, U256::ZERO);
+        assert_eq!(B256::from(at(inbox::CONFIG_HASH)), genesis.config_hash);
         let forced_config = at(inbox::FORCED_INCLUSION_CONFIG);
         assert_eq!(word_u48(forced_config, 0), genesis.forced_inclusion_delay);
         assert_eq!(word_u48(forced_config, 48), genesis.max_anchor_age);
         assert_eq!(forced_config >> 96, U256::ZERO);
 
+        let origin = inbox::origin_slots(0).map(|slot| word(&slots, slot));
         assert_eq!(
-            B256::from(word(&slots, inbox::slot(inbox::GENESIS_COMMITTEE_HASH))),
-            B256::repeat_byte(0xa4)
+            inbox::decode_origin_record(origin).map(|record| record.fallback_keys_hash),
+            Some(B256::repeat_byte(0xa4))
         );
-        assert_eq!(slots.len(), 5 + 3 + 3 + 6 + 1);
+        assert_eq!(slots.len(), 7 + 3 + 4 + 5);
     }
 
     /// Hand-written storage words (as a Solidity contract would write them) equal the packing.
     #[test]
     fn inbox_storage_packing_matches_hand_written_words() {
         let genesis = GenesisRecord {
-            committee_config_hash: crate::committee::committee_config_hash(
-                &crate::config::ChainParams::builtin(
-                    protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
-                )
-                .unwrap(),
-            ),
+            config_hash: B256::repeat_byte(0x44),
             genesis_height: 0x11,
             l1_0: 0x2222,
-            epoch_len: 0x33_3333,
             genesis_hash: B256::repeat_byte(0x55),
             genesis_state_root: B256::repeat_byte(0x66),
-            genesis_cutoff: 0x2221,
             forced_inclusion_delay: 0x0e10,
             max_anchor_age: 0x1c20,
         };
@@ -889,8 +741,7 @@ mod tests {
             forced_inclusion_head: 0x03,
             forced_inclusion_tail: 0x09,
             forced_inclusion_queue: vec![],
-            genesis: Some(genesis),
-            genesis_committee_hash: None,
+            ..InboxStorage::genesis(genesis, B256::repeat_byte(0x99))
         };
         let slots = storage.slots();
         let at = |n| B256::from(word(&slots, inbox::slot(n)));
@@ -909,11 +760,7 @@ mod tests {
         );
         assert_eq!(
             at(inbox::GENESIS_PACKED),
-            b256!("0000000000000000000000000000000000333333000000002222000000000011")
-        );
-        assert_eq!(
-            at(inbox::GENESIS_CUTOFF),
-            b256!("0000000000000000000000000000000000000000000000000000000000002221")
+            b256!("0000000000000000000000000000000000000000000000002222000000000011")
         );
         assert_eq!(
             at(inbox::FORCED_INCLUSION_HEAD_TAIL),
@@ -923,7 +770,9 @@ mod tests {
             at(inbox::FORCED_INCLUSION_CONFIG),
             b256!("0000000000000000000000000000000000000000000000001c20000000000e10")
         );
-        assert_eq!(slots.len(), 5 + 3 + 3 + 6);
+        assert_eq!(at(inbox::FALLBACK_KEYS_HASH), B256::repeat_byte(0x99));
+        assert_eq!(at(inbox::MIN_TOTAL_STAKE), B256::repeat_byte(0xff));
+        assert_eq!(slots.len(), 7 + 3 + 4 + 5);
     }
 
     /// A queue entry packs into its two slots like Solidity writes `queue[i]`.
@@ -952,13 +801,12 @@ mod tests {
     fn inbox_storage_without_genesis_leaves_genesis_slots_out() {
         let storage = InboxStorage {
             genesis: None,
-            genesis_committee_hash: None,
             ..InboxStorage::genesis(sample_genesis_record(), B256::ZERO)
         };
         let slots: Vec<B256> = storage.slots().into_iter().map(|(s, _)| s).collect();
         assert_eq!(
             slots,
-            [258u64, 268, 270, 271, 281]
+            [258u64, 268, 270, 271, 281, 278, 279]
                 .map(inbox::slot)
                 .into_iter()
                 .chain(inbox::landing_record_slots(0))
@@ -975,105 +823,17 @@ mod tests {
         assert_eq!(storage.last_checkpoint_height, genesis.genesis_height);
         assert_eq!(storage.last_checkpoint_hash, genesis.genesis_hash);
         assert_eq!((storage.forced_inclusion_head, storage.forced_inclusion_tail), (0, 0));
-        assert_eq!(storage.genesis_committee_hash, Some(B256::repeat_byte(0x99)));
+        assert_eq!(storage.origin_fallback_keys_hash, B256::repeat_byte(0x99));
+        assert_eq!(storage.fallback_keys_hash, B256::repeat_byte(0x99));
+        assert_eq!(storage.min_total_stake, U256::MAX);
     }
 
-    /// Pack, then decode with the layout readers: length, l1Block, count and entriesRoot.
-    #[test]
-    fn registry_storage_packing_decodes_back() {
-        let storage = RegistryStorage {
-            checkpoints: vec![(((1u64 << 48) - 1), sample_entries(3)), (7, vec![])],
-        };
-        let slots = storage.slots();
-        // length + 2 words per checkpoint + entries.length (the last checkpoint has no entries).
-        assert_eq!(slots.len(), 1 + 2 * 2 + 1);
-        assert_eq!(word(&slots, registry::length_slot()), U256::from(2));
-        assert_eq!(word(&slots, registry::entries_length_slot()), U256::ZERO);
-
-        let [head0, root0] = registry::checkpoint_slots(0);
-        assert_eq!(word_u48(word(&slots, head0), 0), ((1u64 << 48) - 1));
-        assert_eq!(word_u48(word(&slots, head0), 48), 3);
-        assert_eq!(word(&slots, head0) >> 96, U256::ZERO);
-        assert_eq!(B256::from(word(&slots, root0)), entries_root(&sample_entries(3)));
-
-        let [head1, root1] = registry::checkpoint_slots(1);
-        assert_eq!(word(&slots, head1), U256::from(7));
-        assert_eq!(word(&slots, root1), U256::ZERO);
-    }
-
-    /// The entries array holds the LAST checkpoint's entries, packed per `layout::registry`.
-    #[test]
-    fn registry_storage_packs_the_last_checkpoint_entries() {
-        let mut last = sample_entries(3);
-        last[1].active_from_l1 = 0x0102;
-        last[1].exit_effective_l1 = 0x0304;
-        let storage =
-            RegistryStorage { checkpoints: vec![(5, sample_entries(5)), (9, last.clone())] };
-        let slots = storage.slots();
-        assert_eq!(slots.len(), 1 + 2 * 2 + 1 + 3 * 3);
-        assert_eq!(word(&slots, registry::entries_length_slot()), U256::from(3));
-
-        for (j, entry) in last.iter().enumerate() {
-            let [pubkey, stake, packed] = registry::entry_slots(j as u64);
-            assert_eq!(B256::from(word(&slots, pubkey)), entry.ck_x);
-            assert_eq!(word(&slots, stake), entry.eff_stake);
-
-            let packed = word(&slots, packed);
-            assert_eq!(crate::l1::layout::word_u48(packed, 8), entry.active_from_l1);
-            assert_eq!(crate::l1::layout::word_u48(packed, 56), entry.exit_effective_l1);
-            assert_eq!(crate::l1::layout::word_u8(packed, 0), entry.ck_prefix);
-        }
-        assert!(slots.iter().all(|(slot, _)| *slot != registry::entry_slots(3)[0]));
-
-        assert_eq!(
-            B256::from(word(&slots, registry::entry_slots(1)[2])),
-            b256!("0000000000000000000000000000000000000000000000030400000000010202")
-        );
-    }
-
-    /// The planters write the registry checkpoint and entry words and the forced inclusion
-    /// queue words at the slots, offsets and widths of the shared layout vectors
-    /// (`testdata/etna_vectors`), which the contracts check against their own storage. The
-    /// node's entry and queue readers are tested against these planters, so they decode the
-    /// contracts' layout.
+    /// The planter writes the forced inclusion queue words at the slots, offsets and widths of
+    /// the shared layout vectors (`testdata/etna_vectors`), which the contracts check against
+    /// their own storage. The node's queue reader is tested against this planter, so it decodes
+    /// the contracts' layout.
     #[test]
     fn planters_write_the_shared_layout() {
-        let entry = RegistryEntry {
-            ck_prefix: crate::test_utils::key_from_seed(B256::repeat_byte(0x5a)).prefix(),
-            ck_x: crate::test_utils::key_from_seed(B256::repeat_byte(0x5a)).x(),
-            eff_stake: U256::MAX - U256::from(1),
-            active_from_l1: ((1u64 << 48) - 1) - 1,
-            exit_effective_l1: 0x0304_0506_0708,
-        };
-        let storage =
-            RegistryStorage { checkpoints: vec![(((1u64 << 48) - 1) - 7, vec![entry.clone()])] };
-        let slots = storage.slots();
-        let head = vectors::b256_at("/layout/registry/checkpoint_slots/0/slots/0");
-        assert_eq!(vectors::u64_at("/layout/registry/checkpoint_slots/0/index"), 0);
-        assert_eq!(
-            word(&slots, head),
-            vectors::pack(
-                "/layout/registry/packing/checkpoint_word1",
-                &[("l1_block", U256::from(((1u64 << 48) - 1) - 7)), ("count", U256::from(1))]
-            )
-        );
-        assert_eq!(vectors::u64_at("/layout/registry/entry_slots/0/index"), 0);
-        let [pubkey, stake, packed] = [0, 1, 2]
-            .map(|w| vectors::b256_at(&format!("/layout/registry/entry_slots/0/slots/{w}")));
-        assert_eq!(B256::from(word(&slots, pubkey)), entry.ck_x);
-        assert_eq!(word(&slots, stake), entry.eff_stake);
-        assert_eq!(
-            word(&slots, packed),
-            vectors::pack(
-                "/layout/registry/packing/entry_word3",
-                &[
-                    ("active_from_l1", U256::from(entry.active_from_l1)),
-                    ("exit_effective_l1", U256::from(entry.exit_effective_l1)),
-                    ("ck_prefix", U256::from(entry.ck_prefix)),
-                ]
-            )
-        );
-
         let queued = ForcedEntry {
             index: 7,
             tx_hash: B256::repeat_byte(0x77),
@@ -1101,46 +861,6 @@ mod tests {
                 ]
             )
         );
-    }
-
-    #[test]
-    fn committee_witness_proves_the_next_checkpoint_only_when_it_exists() {
-        let address = Address::repeat_byte(0xe8);
-        let storage =
-            RegistryStorage { checkpoints: vec![(10, sample_entries(1)), (20, sample_entries(2))] };
-        let state = TestState::new(vec![registry_account(address, &storage)]);
-        let record = CommitteeRecord {
-            target_epoch: 1,
-            cutoff_l1_block: 0,
-            checkpoint_index: 0,
-            set_hash: B256::ZERO,
-            total_power: 0,
-        };
-
-        let first = committee_witness(&state, address, &storage, 0, record.clone());
-        let slots: Vec<B256> = first.registry.storage.iter().map(|p| p.slot).collect();
-        assert_eq!(slots, snapshot_slots(0, true));
-        assert_eq!(first.entries, sample_entries(1));
-
-        let last = committee_witness(&state, address, &storage, 1, record.clone());
-        let slots: Vec<B256> = last.registry.storage.iter().map(|p| p.slot).collect();
-        assert_eq!(slots, snapshot_slots(1, false));
-        assert_eq!(last.entries, sample_entries(2));
-
-        let beyond = committee_witness(&state, address, &storage, (1u64 << 48) - 1, record);
-        assert_eq!(beyond.registry.storage.len(), 3);
-        assert!(beyond.entries.is_empty());
-    }
-
-    #[test]
-    fn sample_entries_are_distinct_and_deterministic() {
-        let entries = sample_entries(4);
-        assert_eq!(entries, sample_entries(4));
-        assert_eq!(entries[..2], sample_entries(2)[..]);
-        let pubkeys: std::collections::BTreeSet<_> =
-            entries.iter().map(|e| e.consensus_key().unwrap()).collect();
-        assert_eq!(pubkeys.len(), 4);
-        assert_eq!(entries[3].eff_stake, U256::from(4) * stake_unit());
     }
 
     #[test]

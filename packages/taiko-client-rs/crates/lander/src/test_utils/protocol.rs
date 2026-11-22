@@ -11,13 +11,11 @@ use alloy_primitives::{Address, B256, U256};
 
 pub(crate) fn request() -> ProofRequest {
     let genesis = GenesisRecord {
-        committee_config_hash: B256::repeat_byte(3),
+        config_hash: B256::repeat_byte(3),
         genesis_height: 0,
         l1_0: 10,
-        epoch_len: 20,
         genesis_hash: B256::repeat_byte(1),
         genesis_state_root: B256::repeat_byte(2),
-        genesis_cutoff: 9,
         forced_inclusion_delay: 3_600,
         max_anchor_age: 7_200,
     };
@@ -55,8 +53,7 @@ pub(crate) fn request() -> ProofRequest {
                 forced_inclusion_head: 0,
                 forced_inclusion_tail: 0,
                 genesis,
-                committee_config_hash: B256::repeat_byte(3),
-                genesis_committee_record_hash: B256::repeat_byte(6),
+                config_hash: B256::repeat_byte(3),
                 l1_header: abci::RawL1Header::from(&Header::default()),
                 inbox_witness: abci::AccountWitness {
                     address: alloy_primitives::Address::ZERO,

@@ -8,11 +8,9 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use abci::{
-    AppState, ChainParams, GenesisRecord, RegistryEntry, Schedule, Status, store::STATE_FILE,
-};
+use abci::{AppState, ChainParams, GenesisRecord, Status, store::STATE_FILE};
 use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::{B256, U256};
+use alloy_primitives::B256;
 use alloy_provider::{Provider, RootProvider};
 use anyhow::{Context, Result, anyhow, ensure};
 use rpc::client::{DEFAULT_HTTP_TIMEOUT, connect_http_with_timeout};
@@ -22,13 +20,13 @@ use url::Url;
 
 use crate::{
     app::AppNode,
-    boot::{POLL, RPC_TIMEOUT, RethNode, VALIDATOR_STAKE, boot},
+    boot::{POLL, RPC_TIMEOUT, RethNode, boot},
     cometbft::{CmtClient, CmtStatus},
     docker::{DockerEnv, docker},
     keys::ValidatorKey,
     l1::set_interval_mining,
     lander::Lander,
-    planter::{Planter, registry_entry},
+    planter::Planter,
     signer::SignerNode,
     wait::{Fatal, wait_until},
 };
@@ -38,11 +36,10 @@ use crate::{
 pub struct DevnetSpec {
     /// Validator keys generated (and nodes started); `>= 1`.
     pub validators: usize,
-    /// How many of the first keys form the genesis committee `e_0`; `1..=validators`.
-    pub initial_validators: usize,
-    /// `L`: epoch length in L2 blocks.
-    pub epoch_len: u64,
-    /// Direct unsettled block limit U, a positive multiple of six.
+    /// How many of the first keys form the Inbox's fallback key list, whose keys sign the first
+    /// blocks at power 1; `1..=validators`.
+    pub fallback_keys: usize,
+    /// Direct unsettled block limit U.
     pub unsettled_limit: u64,
     /// CometBFT `timeout_commit`, in milliseconds.
     pub timeout_commit_ms: u64,
@@ -53,13 +50,12 @@ pub struct DevnetSpec {
 }
 
 impl Default for DevnetSpec {
-    /// One validator, `L = 20`, direct `U = 12`, 1 s commits,
+    /// One validator, its key the one fallback key, direct `U = 12`, 1 s commits,
     /// forced inclusion delay 1 h, maximum anchor age 2 h, fake lander advancing checkpoints.
     fn default() -> Self {
         Self {
             validators: 1,
-            initial_validators: 1,
-            epoch_len: 20,
+            fallback_keys: 1,
             unsettled_limit: 12,
             timeout_commit_ms: 1000,
             forced_inclusion_delay: 3_600,
@@ -79,8 +75,8 @@ impl DevnetSpec {
     fn validate(&self) -> Result<()> {
         ensure!(self.validators >= 1, "a devnet needs at least one validator");
         ensure!(
-            (1..=self.validators).contains(&self.initial_validators),
-            "initial_validators must be in 1..={}",
+            (1..=self.validators).contains(&self.fallback_keys),
+            "fallback_keys must be in 1..={}",
             self.validators
         );
         Ok(())
@@ -110,7 +106,7 @@ pub struct Devnet {
     reth: Vec<RethNode>,
     /// anvil provider.
     l1: RootProvider,
-    /// The validator keys (the first `initial_validators` form `e_0`).
+    /// The validator keys (the first `fallback_keys` form the fallback key list).
     keys: Vec<ValidatorKey>,
     /// The chain parameters the apps run with.
     params: ChainParams,
@@ -188,19 +184,9 @@ impl Devnet {
         &self.genesis
     }
 
-    /// The chain's epoch schedule.
-    pub fn schedule(&self) -> Schedule {
-        Schedule::from_genesis(&self.genesis)
-    }
-
-    /// The validator keys; the first `initial_validators` form the genesis committee.
+    /// The validator keys; the first `fallback_keys` form the Inbox's fallback key list.
     pub fn keys(&self) -> &[ValidatorKey] {
         &self.keys
-    }
-
-    /// The registry entry the devnet plants for validator `i` (7,600,000 TAIKO, always active).
-    pub fn registry_entry(&self, i: usize) -> RegistryEntry {
-        registry_entry(self.keys[i].pubkey(), U256::from(VALIDATOR_STAKE))
     }
 
     /// A provider for anvil.

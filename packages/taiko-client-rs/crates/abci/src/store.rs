@@ -1,7 +1,7 @@
 //! The persisted app state and its atomic file store.
 //!
 //! [`AppState`] is everything `FinalizeBlock` needs besides the envelope and the EL: the chain
-//! identity, the genesis record and schedule, the committed parent, its anchor facts, the forced
+//! identity, the genesis record, the committed parent, its anchor facts, the forced
 //! inclusion cursor and CometBFT's validator state. `Commit` persists it
 //! with [`Store::save`]: the JSON is written to `abci-state.json.tmp`, fsynced, renamed over
 //! `abci-state.json` and the directory fsynced, so a crash leaves either the old or the new
@@ -23,7 +23,6 @@ use crate::{
     fallback::FallbackKeys,
     key::ConsensusKey,
     recovery::RecoveryOrigin,
-    schedule::Schedule,
     types::{AnchorState, CommitteeRecord, GenesisRecord, Member, ParentInfo},
     valstate::ValState,
 };
@@ -101,8 +100,8 @@ pub struct AppState {
     /// required field: a state file without it is refused (no migration).
     pub val_state: ValState,
     /// The fallback key lists the node holds, keyed by their hash, each hashing to its key, so
-    /// a list is obtained from the own L1 once. A recovery generation starts with its origin
-    /// record's list. A required field: a state file without it is refused (no migration).
+    /// a list is obtained from the own L1 once. Every generation starts with its origin record's
+    /// list. A required field: a state file without it is refused (no migration).
     pub fallback_keys: BTreeMap<B256, FallbackKeys>,
 }
 
@@ -119,11 +118,6 @@ pub struct ExecutionFloor {
 }
 
 impl AppState {
-    /// Derives the epoch schedule from the canonical genesis record.
-    pub fn schedule(&self) -> Schedule {
-        Schedule::from_genesis(&self.genesis)
-    }
-
     /// The fixed global L2 boundary preceding this generation's first block.
     pub fn origin_height(&self) -> u64 {
         self.recovery.as_ref().map_or(self.genesis.genesis_height, |origin| origin.height)
@@ -745,43 +739,17 @@ mod tests {
     use alloy_primitives::{B256, U256};
     use std::fs;
 
-    fn record(epoch: u64) -> CommitteeRecord {
-        CommitteeRecord {
-            target_epoch: epoch,
-            cutoff_l1_block: 100 + epoch,
-            checkpoint_index: epoch,
-            set_hash: B256::repeat_byte(epoch as u8 + 1),
-            total_power: 3_000_000_000,
-        }
-    }
-
-    fn committee(epoch: u64) -> CommitteeState {
-        CommitteeState {
-            record: record(epoch),
-            members: (1..=3u8)
-                .map(|i| Member {
-                    pubkey: crate::test_utils::key_from_seed(B256::repeat_byte(i)),
-                    eff_stake: U256::from(1_000_000_000_000_000_000u128),
-                    power: 1_000_000_000,
-                })
-                .collect(),
-        }
-    }
-
     fn state() -> AppState {
         let genesis = GenesisRecord {
-            committee_config_hash: crate::committee::committee_config_hash(
-                &crate::config::ChainParams::builtin(
-                    protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
-                )
-                .unwrap(),
-            ),
+            config_hash: crate::config::ChainParams::builtin(
+                protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
+            )
+            .unwrap()
+            .config_hash(),
             genesis_height: 0,
             l1_0: 1_000,
-            epoch_len: 20,
             genesis_hash: B256::repeat_byte(0x66),
             genesis_state_root: B256::repeat_byte(0x77),
-            genesis_cutoff: 990,
             forced_inclusion_delay: 3_600,
             max_anchor_age: 7_200,
         };
@@ -822,8 +790,11 @@ mod tests {
                 },
             },
             forced_cursor: 3,
-            val_state: ValState::genesis(105, &crate::test_utils::powers(&committee(0).members))
-                .unwrap(),
+            val_state: ValState::genesis(
+                105,
+                &crate::test_utils::fallback_list(&[1, 2, 3]).validator_set(),
+            )
+            .unwrap(),
             fallback_keys: [crate::test_utils::fallback_list(&[1, 2])]
                 .into_iter()
                 .map(|keys| (keys.hash(), keys))

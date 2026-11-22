@@ -108,7 +108,7 @@ async fn checkpoint_conflicts_count_as_refusals_not_fallbacks() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let inbox = fx.inbox_at_checkpoint(3, alloy_primitives::B256::repeat_byte(0xc4));
-    fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+    fx.advance_l1(app.l1(), 66, &inbox);
     let fallbacks =
         || AbciMetrics::proposal_fallbacks().with_label_values(&["checkpoint_conflict"]).get();
     let (fallen_back, conflicts) = (fallbacks(), rejected("checkpoint_conflict"));

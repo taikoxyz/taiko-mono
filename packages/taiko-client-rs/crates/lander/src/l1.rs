@@ -1,11 +1,10 @@
 //! Hash-pinned Inbox reads and authentication of the reference's L1 header chain.
 
 use abci::{
-    AccountWitness, AnchorState, ChainParams, CommitteeWitness, GenesisRecord, Schedule,
+    AccountWitness, AnchorState, ChainParams, GenesisRecord,
     envelope::AnchorWitness,
     fallback::{FallbackKeys, fetch_fallback_keys},
     l1::{
-        fetch::build_committee_witness_at_cutoff,
         header::RawL1Header,
         layout::{inbox, word_u48, word_u64},
         mpt::verify_account_witness,
@@ -102,15 +101,9 @@ pub trait LandingSource: Send + Sync {
         snapshot: &LandingSnapshot,
         parent: &ParentContext,
     ) -> Result<AnchorState>;
-    /// Prove genesis/config/bootstrap and all consumed Inbox anchor facts under the parent root.
+    /// Prove genesis/config, the anchor generation's origin record and all consumed Inbox anchor
+    /// facts under the parent root.
     async fn starting_inbox_witness(&self, anchor: &AnchorState) -> Result<AnchorWitness>;
-    /// Discover a registry witness under the given authenticated anchor, never a committee hint.
-    async fn committee_witness(
-        &self,
-        anchor: &AnchorState,
-        snapshot_number: u64,
-        epoch: u64,
-    ) -> Result<CommitteeWitness>;
     /// The fallback key list whose hash is `hash`, as the Inbox stored it, read at the L1 block
     /// with hash `at` and number `at_number`, the block that stored it or a later one; the log
     /// scan reaches down to `from_block` ([`abci::fallback::fetch_fallback_keys`]). The list
@@ -474,29 +467,6 @@ impl LandingSource for RpcLandingSource {
         Ok(AnchorWitness { l1_header, inbox })
     }
 
-    /// Historical discovery remains untrusted until the builder verifies its root and record.
-    async fn committee_witness(
-        &self,
-        anchor: &AnchorState,
-        snapshot_number: u64,
-        epoch: u64,
-    ) -> Result<CommitteeWitness> {
-        build_committee_witness_at_cutoff(
-            &self.anchors,
-            &self.params,
-            anchor.number,
-            snapshot_number,
-            epoch,
-        )
-        .await
-        .map_err(|error| match error {
-            abci::l1::FetchError::L1(abci::l1::source::L1Error::Rpc(_)) => {
-                LanderError::Temporary("committee discovery: L1 RPC failure".into())
-            }
-            error => LanderError::Temporary(format!("committee discovery: {error}")),
-        })
-    }
-
     /// Runs [`fetch_fallback_keys`] on the own L1 endpoint. Its failures are the node's own L1:
     /// [`LanderError::Temporary`], naming only the hash, as RPC errors can carry endpoint
     /// credentials.
@@ -578,7 +548,7 @@ impl LandingSource for RpcLandingSource {
             !initialized ||
             chain != snapshot.l2_chain_id ||
             registry != snapshot.registry ||
-            config != snapshot.committee_config_hash
+            config != snapshot.config_hash
         {
             return Err(LanderError::Configuration(
                 "Inbox V1 deployment/configuration mismatch".into(),
@@ -674,8 +644,8 @@ pub(crate) async fn verify_start_checkpoint<L: AnchorSource + ?Sized>(
     Ok(())
 }
 
-/// Complete fixed Inbox slots authenticating schedule, configuration, bootstrap, checkpoint and
-/// the forced inclusion queue's head/tail and configuration.
+/// Complete fixed Inbox slots authenticating the start, configuration, generation 0's origin
+/// record, checkpoint and the forced inclusion queue's head/tail and configuration.
 pub fn snapshot_slots() -> Vec<B256> {
     let mut slots = inbox::genesis_slots();
     slots.extend(inbox::anchor_slots());
@@ -724,7 +694,7 @@ pub(crate) fn decode_snapshot(
         verify_account_witness(raw.state_root(), &witness, &snapshot_landing_slots(height))
             .map_err(|e| LanderError::Safety(format!("Inbox snapshot proof: {e}")))?;
     let word = |slot| storage.get(inbox::slot(slot)).expect("verified snapshot slot");
-    let (genesis, _, bootstrap) = verify_genesis_inbox(
+    let (genesis, _, _) = verify_genesis_inbox(
         raw.state_root(),
         &project_witness(&witness, &inbox::genesis_slots()),
         params.inbox,
@@ -738,9 +708,11 @@ pub(crate) fn decode_snapshot(
         }
         _ => LanderError::Configuration(format!("Inbox genesis record is invalid: {e}")),
     })?;
-    let config = genesis.committee_config_hash;
-    if config != abci::committee::committee_config_hash(params) || config.is_zero() {
-        return Err(LanderError::Configuration("Inbox committee config opening mismatch".into()));
+    if genesis.config_hash != params.config_hash() {
+        return Err(LanderError::Configuration(
+            "Inbox configuration hash differs from the built-in chain id, staking proxy and U"
+                .into(),
+        ));
     }
     if genesis.genesis_state_root.is_zero() {
         return Err(LanderError::Configuration("Inbox genesis record is invalid".into()));
@@ -755,9 +727,6 @@ pub(crate) fn decode_snapshot(
             "snapshot packed checkpoint height sets reserved bits".into(),
         ));
     }
-    Schedule::from_genesis(&genesis)
-        .validate()
-        .map_err(|e| LanderError::Configuration(format!("Inbox epoch parameters: {e}")))?;
     let head_tail = word(inbox::FORCED_INCLUSION_HEAD_TAIL);
     let generation = word_u48(word(inbox::RECOVERY_GENERATION), 0);
     // The three-word slot 285 record (STOR-B-9). A landing may end at any height (LAND-6.1-5),
@@ -800,9 +769,8 @@ pub(crate) fn decode_snapshot(
         checkpoint_comet_hash: record.comet_hash,
         forced_inclusion_head: word_u48(head_tail, 0),
         forced_inclusion_tail: word_u48(head_tail, 48),
+        config_hash: genesis.config_hash,
         genesis,
-        committee_config_hash: config,
-        genesis_committee_record_hash: bootstrap,
         l1_header: raw,
         inbox_witness: witness,
     })
@@ -810,10 +778,12 @@ pub(crate) fn decode_snapshot(
 
 /// Authenticate the complete starting Inbox proof, then project exact existing verifier slot sets.
 ///
-/// The full proof must include checkpoint facts as well as genesis/config/bootstrap. Its raw
-/// header and decoded anchor facts must equal the consumed parent anchor; no latest snapshot can
-/// substitute for this ancestor. Projection preserves the strict slot-set checks of both verifiers.
-/// The slot set includes the anchor generation's fixed origin record ([`starting_slots`]).
+/// The full proof must include checkpoint facts as well as genesis/config. Its raw header and
+/// decoded anchor facts must equal the consumed parent anchor; no latest snapshot can substitute
+/// for this ancestor. Projection preserves the strict slot-set checks of both verifiers. The slot
+/// set includes the anchor generation's fixed origin record ([`starting_slots`]). Returns the
+/// genesis record and the fourth word of that origin record, the `fallbackKeysHash` of the list
+/// whose keys sign the generation's first two blocks.
 pub fn verify_starting_inbox(
     witness: &AnchorWitness,
     anchor: &AnchorState,
@@ -826,9 +796,17 @@ pub fn verify_starting_inbox(
     verify_account_witness(anchor.state_root, &witness.inbox, &slots)
         .map_err(|e| LanderError::Safety(format!("starting Inbox proof: {e}")))?;
     let genesis_proof = project_witness(&witness.inbox, &inbox::genesis_slots());
-    let (genesis, _, bootstrap) =
+    let (genesis, _, _) =
         abci::l1::witness::verify_genesis_inbox(anchor.state_root, &genesis_proof, inbox_address)
             .map_err(|e| LanderError::Safety(format!("starting genesis proof: {e}")))?;
+    let origin_slot = inbox::origin_slots(anchor.inbox.recovery_generation)[3];
+    let origin_hash = witness
+        .inbox
+        .storage
+        .iter()
+        .find(|proof| proof.slot == origin_slot)
+        .map(|proof| B256::from(proof.value))
+        .expect("full slot set was verified");
     let anchor_proof = AnchorWitness {
         l1_header: witness.l1_header.clone(),
         inbox: project_witness(&witness.inbox, &inbox::anchor_slots()),
@@ -838,7 +816,7 @@ pub fn verify_starting_inbox(
     if verified != *anchor {
         return Err(LanderError::Safety("starting proof contradicts consumed parent anchor".into()));
     }
-    Ok((genesis, bootstrap))
+    Ok((genesis, origin_hash))
 }
 
 /// Project a previously authenticated complete proof in exactly the verifier's required order.
@@ -880,18 +858,7 @@ pub fn authenticate_snapshot(snapshot: &LandingSnapshot, params: &ChainParams) -
             let (authenticated, genesis) =
                 abci::recovery::verify_recovery_deployment(&witness, params)
                     .map_err(recovery_error)?;
-            let bootstrap_slot = inbox::slot(inbox::GENESIS_COMMITTEE_HASH);
-            let bootstrap: B256 = witness
-                .genesis
-                .inbox
-                .storage
-                .iter()
-                .find(|p| p.slot == bootstrap_slot)
-                .expect("verified genesis proof")
-                .value
-                .into();
             if genesis != snapshot.genesis ||
-                bootstrap != snapshot.genesis_committee_record_hash ||
                 &authenticated != origin ||
                 origin.generation != snapshot.generation ||
                 origin.height > snapshot.checkpoint_height ||

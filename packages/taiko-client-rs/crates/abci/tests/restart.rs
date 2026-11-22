@@ -36,7 +36,8 @@ async fn validator_set(
 async fn first_switch_restart_and_state_loss_recover_on_one_devnet() -> anyhow::Result<()> {
     let started = Instant::now();
     let mut devnet = Devnet::start(DevnetSpec::default()).await?;
-    let h = devnet.schedule().h_first(1);
+    // A height well past the first two blocks, where the removed epoch schedule switched.
+    let h = 21;
     devnet.wait_for_height(0, (h + 5).max(26), Duration::from_secs(90)).await?;
 
     // 1. The genesis validator signs alone past h; no epoch mapping exists or is written.

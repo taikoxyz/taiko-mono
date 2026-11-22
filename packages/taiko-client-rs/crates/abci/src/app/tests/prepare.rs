@@ -83,7 +83,7 @@ async fn prepare_proposes_nothing_past_its_overall_deadline() {
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     // The anchor moves, so the proposer reads the finalized number, a header and a proof.
     let inbox = fx.inbox_with(fx.genesis.genesis_height + 3);
-    fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+    fx.advance_l1(app.l1(), 66, &inbox);
     let overall = app.opts.prepare_timeout;
     assert_eq!(overall, Duration::from_secs(2), "the default overall deadline");
     let per_read = overall / 2 + Duration::from_millis(1);
@@ -188,7 +188,7 @@ async fn proposer_anchors_at_the_own_finalized_block() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
-    let header = fx.advance_l1(app.l1(), 70, &fx.inbox, &fx.registry);
+    let header = fx.advance_l1(app.l1(), 70, &fx.inbox);
     assert_eq!(app.l1().state().finalized, 70);
 
     let env = propose(&mut app).await;
@@ -217,7 +217,7 @@ async fn proposer_proposes_nothing_on_a_finalized_checkpoint_off_the_local_chain
         let dir = tempfile::tempdir().unwrap();
         let mut app = mid_epoch(&fx, dir.path(), 5).await;
         assert_eq!(app.state().unwrap().last_height, 5);
-        fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+        fx.advance_l1(app.l1(), 66, &inbox);
         let logs = crate::test_utils::LogCapture::start();
         let req = prepare_req(next_height(&app), bft_time(&app));
         let txs = prepare(&mut app, req).await;
@@ -246,7 +246,7 @@ async fn proposer_holds_the_parent_anchor_briefly_after_finality_advances() {
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     app.opts.anchor_hold = Duration::from_secs(12);
     let parent_anchor = app.state().unwrap().anchor.number;
-    let header = fx.advance_l1(app.l1(), 70, &fx.inbox, &fx.registry);
+    let header = fx.advance_l1(app.l1(), 70, &fx.inbox);
     for wait in [0, 6, 5] {
         tokio::time::advance(Duration::from_secs(wait)).await;
         let env = propose(&mut app).await;
@@ -266,7 +266,7 @@ async fn proposer_holds_the_parent_anchor_briefly_after_finality_advances() {
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     app.opts.anchor_hold = Duration::from_secs(12);
     set_anchor_age(&mut app, fx.genesis.max_anchor_age + 1);
-    let header = fx.advance_l1(app.l1(), 66, &fx.inbox, &fx.registry);
+    let header = fx.advance_l1(app.l1(), 66, &fx.inbox);
     let env = propose(&mut app).await;
     assert_eq!(env.anchor.map(|w| w.l1_header), Some(header));
 }
@@ -296,7 +296,7 @@ async fn the_anchor_hold_counts_from_the_own_l1_sighting_not_the_proposers_turn(
     }
     let dir = tempfile::tempdir().unwrap();
     let mut app = after_first_block(&fx, dir.path(), hold).await;
-    let header = fx.advance_l1(app.l1(), 70, &fx.inbox, &fx.registry);
+    let header = fx.advance_l1(app.l1(), 70, &fx.inbox);
     app.l1().state().calls.clear();
     app.refresh_trust().await.unwrap();
     assert_eq!(app.l1().calls().first(), Some(&L1Call::Finalized), "the trust worker's read");
@@ -307,10 +307,10 @@ async fn the_anchor_hold_counts_from_the_own_l1_sighting_not_the_proposers_turn(
     let dir = tempfile::tempdir().unwrap();
     let mut app = after_first_block(&fx, dir.path(), hold).await;
     let parent_anchor = app.state().unwrap().anchor.number;
-    fx.advance_l1(app.l1(), 70, &fx.inbox, &fx.registry);
+    fx.advance_l1(app.l1(), 70, &fx.inbox);
     app.refresh_trust().await.unwrap();
     tokio::time::advance(Duration::from_secs(5)).await;
-    let later = fx.advance_l1(app.l1(), 80, &fx.inbox, &fx.registry);
+    let later = fx.advance_l1(app.l1(), 80, &fx.inbox);
     for wait in [0, 6] {
         tokio::time::advance(Duration::from_secs(wait)).await;
         let env = propose(&mut app).await;
@@ -327,7 +327,7 @@ async fn proposer_never_anchors_below_the_parent() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    fx.plant_l1_block(app.l1(), 66, &fx.inbox, &fx.registry);
+    fx.plant_l1_block(app.l1(), 66, &fx.inbox);
     let anchor = fx.anchor_state(app.l1(), 66);
     jump(&mut app, fx.genesis.genesis_height + 5, anchor);
     assert_eq!(app.l1().state().finalized, fx.genesis.l1_0, "own L1 lags behind");
@@ -357,7 +357,7 @@ async fn failing_pre_checks_propose_nothing() {
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let mut inbox = fx.inbox.clone();
     inbox.status = 2;
-    fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+    fx.advance_l1(app.l1(), 66, &inbox);
     assert!(propose(&mut app).await.anchor.is_some());
 }
 
@@ -373,7 +373,7 @@ async fn prepare_halts_when_finalized_anchor_is_too_old() {
     assert!(app.engine().calls().iter().all(|c| !matches!(c, EngineCall::BuildBlock { .. })));
 
     // L1 finality resumes: block 66 is 24 s newer than the stale anchor 64.
-    let header = fx.advance_l1(app.l1(), 66, &fx.inbox, &fx.registry);
+    let header = fx.advance_l1(app.l1(), 66, &fx.inbox);
     let env = propose(&mut app).await;
     assert_eq!(env.anchor.as_ref().map(|w| &w.l1_header), Some(&header));
     assert_eq!(app.halt, None);
@@ -386,7 +386,7 @@ async fn a_header_of_another_l1_block_is_not_proposed_on() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
-    let header = fx.advance_l1(app.l1(), 66, &fx.inbox_with(1_003), &fx.registry);
+    let header = fx.advance_l1(app.l1(), 66, &fx.inbox_with(1_003));
     let other = crate::test_utils::edit_l1_header(&header, |h| h.number = 67);
     app.l1().state().headers.insert(66, other);
 
@@ -407,7 +407,7 @@ async fn superseded_generation_stops_proposing() {
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let mut inbox = fx.inbox.clone();
     inbox.recovery_generation = 1;
-    fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+    fx.advance_l1(app.l1(), 66, &inbox);
 
     assert_eq!(refused(&mut app).await, "superseded");
     assert!(app.superseded);
@@ -440,7 +440,7 @@ async fn prepare_fetches_anchor_header_and_proof_concurrently() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
-    fx.advance_l1(app.l1(), 66, &fx.inbox, &fx.registry);
+    fx.advance_l1(app.l1(), 66, &fx.inbox);
     app.l1().state().delay = Some(Duration::from_millis(750));
     let started = tokio::time::Instant::now();
     let env = propose(&mut app).await;
@@ -462,7 +462,7 @@ fn plant_input(fx: &Fixture, app: &App<MockL1, MockEngine>, tx: Bytes, due: bool
         l1_block: 66,
     }];
     app.l1().state().forced_transactions.insert((fx.params.inbox, 0, 66), tx);
-    fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+    fx.advance_l1(app.l1(), 66, &inbox);
 }
 
 #[tokio::test]
@@ -778,13 +778,11 @@ async fn pending_junk_preimage_is_omitted_from_proposal_data() {
 #[tokio::test]
 async fn preparation_proposer_change_rebuilds_for_payout_and_reuses_raw_proofs() {
     use super::proposal::plant_due_entry;
-    use crate::test_utils::sample_entries;
+    use crate::test_utils::test_key;
     use alloy_primitives::Address;
     for recipient in [Address::ZERO, Address::repeat_byte(0x88)] {
         let mut spec = GenesisSpec::new(3);
-        let entries = sample_entries(3);
         spec.params.fee_recipient = recipient;
-        spec.entries = Some(entries.clone());
         let fx = Fixture::build(spec);
         let dir = tempfile::tempdir().unwrap();
         let mut app = mid_epoch(&fx, dir.path(), 3).await;
@@ -794,9 +792,7 @@ async fn preparation_proposer_change_rebuilds_for_payout_and_reuses_raw_proofs()
         app.l1().state().calls.clear();
         let before = app.engine().calls().len();
         let mut req = prepare_req(next_height(&app), bft_time(&app));
-        req.proposer_address = tendermint::account::Id::new(
-            entries[1].consensus_key().unwrap().address().into_array(),
-        );
+        req.proposer_address = tendermint::account::Id::new(test_key(2).address().into_array());
         let txs = prepare(&mut app, req).await;
         assert_eq!(txs.len(), 1);
         let again = EtnaEnvelope::decode(&txs[0]).unwrap();
@@ -833,12 +829,10 @@ async fn preparation_proposer_change_rebuilds_for_payout_and_reuses_raw_proofs()
 #[tokio::test(start_paused = true)]
 async fn preparation_proposer_change_reuses_cancelled_authenticated_io() {
     use super::proposal::plant_due_entry;
-    use crate::test_utils::sample_entries;
+    use crate::test_utils::test_key;
     use alloy_primitives::Address;
     let mut spec = GenesisSpec::new(3);
-    let entries = sample_entries(3);
     spec.params.fee_recipient = Address::repeat_byte(0x88);
-    spec.entries = Some(entries.clone());
     let fx = Fixture::build(spec);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 3).await;
@@ -859,8 +853,7 @@ async fn preparation_proposer_change_reuses_cancelled_authenticated_io() {
     app.l1().state().delay = None;
     app.l1().state().calls.clear();
     let mut req = prepare_req(next_height(&app), bft_time(&app));
-    req.proposer_address =
-        tendermint::account::Id::new(entries[1].consensus_key().unwrap().address().into_array());
+    req.proposer_address = tendermint::account::Id::new(test_key(2).address().into_array());
     let txs = prepare(&mut app, req).await;
     assert_eq!(txs.len(), 1);
     let env = EtnaEnvelope::decode(&txs[0]).unwrap();
@@ -886,7 +879,7 @@ async fn review_own_l1_invalid_mpt_proof_halts_durably() {
     let mut app = initialized(&fx, dir.path()).await;
     app.refresh_trust().await.unwrap();
     assert!(app.trust.snapshot().is_ready());
-    fx.advance_l1(app.l1(), 66, &fx.inbox, &fx.registry);
+    fx.advance_l1(app.l1(), 66, &fx.inbox);
     let mut proof = fx.anchor_witness(app.l1(), 66).inbox;
     proof.storage[0].value += alloy_primitives::U256::from(1);
     app.l1().state().proof_override = Some(proof);

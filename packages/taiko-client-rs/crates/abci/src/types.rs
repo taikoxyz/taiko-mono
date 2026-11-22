@@ -1,9 +1,8 @@
 //! Plain data shared across the `abci` modules. No I/O.
 //!
-//! The witness-carried types ([`StorageProof`], [`AccountWitness`], [`RegistryEntry`],
-//! [`CommitteeRecord`], [`CommitteeWitness`]) travel inside block envelopes or the genesis and
-//! recovery witnesses and therefore have an RLP encoding (each is an RLP list of its fields in
-//! declaration order). Everything here is also serde-serializable
+//! The witness-carried types ([`StorageProof`], [`AccountWitness`]) travel inside block
+//! envelopes or the genesis and recovery witnesses and therefore have an RLP encoding (each is an
+//! RLP list of its fields in declaration order). Everything here is also serde-serializable
 //! so it can be persisted in `AppState` and exposed through ABCI queries.
 
 use alloy_primitives::{Address, B256, Bytes, U256};
@@ -87,8 +86,8 @@ impl RegistryEntry {
     }
 }
 
-/// The committee record for one target epoch, as deterministically derived from a fixed L1 snapshot
-/// ([`committee::record_hash`](crate::committee::record_hash)).
+/// The committee record for one target epoch, as a registry snapshot derived it. Nothing
+/// derives or verifies one any more; the registry types go with the registry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
 #[serde(deny_unknown_fields)]
 pub struct CommitteeRecord {
@@ -99,27 +98,10 @@ pub struct CommitteeRecord {
     pub cutoff_l1_block: u64,
     /// Index `i` of that registry checkpoint in `checkpoints[]`.
     pub checkpoint_index: u64,
-    /// Set hash ([`set_hash`](crate::committee::set_hash)) over the members, with `l2ChainId` =
-    /// the L2 EVM chain id (ENC-A-39a).
+    /// Set hash over the members, with `l2ChainId` = the L2 EVM chain id.
     pub set_hash: B256,
     /// Sum of the members' voting power; at most `(2^63 - 1) / 8` (CometBFT's total-power cap).
     pub total_power: u64,
-}
-
-/// A registry witness of one committee: the record, the staking-registry proofs and the
-/// snapshot's entries. The genesis witness carries generation zero's initial committee in it; no
-/// recovery witness or block envelope carries one.
-///
-/// RLP: `[record, registry, entries]`. The registry proofs verify against the state root of the
-/// witness's own L1 header.
-#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
-pub struct CommitteeWitness {
-    /// The committee record the witness opens.
-    pub record: CommitteeRecord,
-    /// EIP-1186 proof of the staking-registry account and its snapshot slots.
-    pub registry: AccountWitness,
-    /// The registry entries of the snapshot checkpoint, in index order.
-    pub entries: Vec<RegistryEntry>,
 }
 
 /// One committee member, derived from an eligible registry entry.
@@ -165,37 +147,9 @@ pub struct InboxFacts {
     pub min_total_stake: U256,
 }
 
-/// The Etna genesis record read from the Inbox (the compatibility `activation` slots 272–274), with
-/// the genesis committee's snapshot cutoff (slot 279) and the forced inclusion configuration
-/// (slot 282). Unknown fields are refused, so a record saved with a removed parameter is not
-/// silently migrated.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct GenesisRecord {
-    /// Authenticated slot-269 derivation configuration hash; required for persisted state.
-    pub committee_config_hash: B256,
-    /// Etna start height S: zero on a fresh network, the last Unzen height on a switching network.
-    pub genesis_height: u64,
-    /// `L1_0`: L1 block number of initialization; the minimum anchor of every block.
-    pub l1_0: u64,
-    /// `L`: epoch length in L2 blocks (validated `>= 3`; independent of the unsettled limit U).
-    pub epoch_len: u64,
-    /// The start hash: the L2 block hash of the Etna start block (height S).
-    pub genesis_hash: B256,
-    /// The start state root: the L2 state root of the Etna start block. Not the spec's S, which
-    /// is the start height ([`GenesisRecord::genesis_height`]).
-    pub genesis_state_root: B256,
-    /// `genesisCutoff`: the snapshot cutoff `C` of the genesis committee `e_0`, an L1 block
-    /// number; validated `< l1_0`. Genesis names it explicitly before `L1_0` is known.
-    /// Runtime epochs select the committed derivation parent anchor instead.
-    pub genesis_cutoff: u64,
-    /// `forcedInclusionDelay` (`D`, slot 282 bits 0–47), in seconds: an entry is due once an
-    /// anchor's timestamp reaches its own plus `D`. Validated positive with no upper bound.
-    pub forced_inclusion_delay: u64,
-    /// `maxAnchorAge` (`M`, slot 282 bits 48–95), in seconds: a block's timestamp may exceed
-    /// its anchor's by at most `M`. Validated `>= 1152`.
-    pub max_anchor_age: u64,
-}
+/// The Etna genesis record read from the Inbox: the configuration hash (slot 269), the start
+/// write (slots 272–274) and the forced inclusion configuration (slot 282).
+pub use etna_core::types::GenesisRecord;
 
 /// The L1 anchor a block uses: the L1 header facts plus the Inbox facts proven at it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -342,24 +296,27 @@ mod tests {
         json_round_trip(&inbox_facts());
     }
 
+    /// The genesis record is etna-core's: the configuration hash, the start write and the
+    /// forced inclusion configuration, and a record saved with a removed field is refused.
     #[test]
     fn genesis_record_json_round_trips() {
-        json_round_trip(&GenesisRecord {
-            committee_config_hash: crate::committee::committee_config_hash(
-                &crate::config::ChainParams::builtin(
-                    protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
-                )
-                .unwrap(),
-            ),
+        let record = GenesisRecord {
+            config_hash: crate::config::ChainParams::builtin(
+                protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID,
+            )
+            .unwrap()
+            .config_hash(),
             genesis_height: 0,
             l1_0: 100,
-            epoch_len: 20,
             genesis_hash: B256::repeat_byte(0x66),
             genesis_state_root: B256::repeat_byte(0x77),
-            genesis_cutoff: 99,
             forced_inclusion_delay: 3_600,
             max_anchor_age: 7_200,
-        });
+        };
+        json_round_trip(&record);
+        let mut json = serde_json::to_value(&record).unwrap();
+        json["epoch_len"] = 20.into();
+        assert!(serde_json::from_value::<GenesisRecord>(json).is_err());
     }
 
     #[test]

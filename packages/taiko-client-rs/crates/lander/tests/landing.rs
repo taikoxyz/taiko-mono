@@ -117,16 +117,13 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     let mut chain = FixtureChain::new(&fixture).await?;
     chain.extend(&fixture, 6).await?;
     let first = chain.prepare(&fixture, 6, SidecarMode::Eip7594).await?;
-    assert_eq!(first.batch.input.activeCommitteeSnapshot, fixture.genesis.genesis_cutoff);
+    assert_eq!(first.batch.input.activeCommitteeSnapshot, fixture.genesis.l1_0);
     fixture.expect_statement(first.batch.statement_hash).await?;
     let signed = sign(&fixture, &first).await?;
     assert_landed(&fixture, &first, &signed).await?;
-    // Land exactly D, then mutate the registry after the immutable derivation snapshot.
-    let schedule = abci::Schedule::from_genesis(&fixture.genesis);
-    let (derivation_height, switch_height, activation_height) = (12, 13, 15);
-    assert_eq!(schedule.derivation_parent_height(1), Some(derivation_height));
-    assert_eq!(schedule.switch_target(switch_height), Some(1));
-    assert_eq!(schedule.h_first(1), activation_height);
+    // Land at the height the removed epoch schedule derived its first switch at, then mutate the
+    // registry: no signing set follows it.
+    let (derivation_height, switch_height) = (12, 13);
     mine_l1_blocks(&fixture.anvil.provider, 3).await?;
     chain.extend(&fixture, derivation_height).await?;
     let derivation = chain.prepare(&fixture, derivation_height, SidecarMode::Eip7594).await?;
@@ -162,7 +159,7 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
         assert!(chain.anchors[usize::try_from(switch_height)?].number >= exit_block);
         let next = chain.prepare(&fixture, last, SidecarMode::Eip7594).await?;
         assert_eq!(next.batch.input.lastHeight, last);
-        assert_eq!(next.batch.input.activeCommitteeSnapshot, fixture.genesis.genesis_cutoff);
+        assert_eq!(next.batch.input.activeCommitteeSnapshot, fixture.genesis.l1_0);
         fixture.expect_statement(next.batch.statement_hash).await?;
         assert_landed(&fixture, &next, &sign(&fixture, &next).await?).await?;
     }
@@ -265,7 +262,7 @@ async fn lander_rejecting_verifier_rolls_back_checkpoint_signal_and_committees()
             None
         )
         .await?,
-        abci::committee::record_hash(fixture.params.l2_chain_id, &fixture.committee.record)
+        fixture.fallback_keys.hash()
     );
     assert!(
         view(
@@ -392,7 +389,68 @@ async fn lander_statement_mismatch_is_refused_before_broadcast() -> Result<()> {
             None
         )
         .await?,
-        abci::committee::record_hash(fixture.params.l2_chain_id, &fixture.committee.record)
+        fixture.fallback_keys.hash()
     );
     fixture.anvil.stop().await
+}
+
+/// A planned stop on the real contracts ends consensus after the first late block.
+#[tokio::test]
+#[ignore = "docker"]
+async fn authenticated_planned_stop_ends_real_consensus_after_the_first_late_block() -> Result<()> {
+    use abci::{RpcL1Source, l1::source::L1Source};
+    use test_harness::{ContractConsensus, anvil_request};
+    let f = ContractFixture::deploy_config(1, 120, 6).await?;
+    let p = &f.anvil.provider;
+    let owner = dev_signer().address();
+    let now = p
+        .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
+        .await?
+        .context("L1 head")?
+        .header
+        .timestamp;
+    let stop_time = now + f.genesis.max_anchor_age + 10;
+    transact(
+        p,
+        owner,
+        f.inbox,
+        EtnaInbox::scheduleStopCall {
+            _expectedGeneration: Default::default(),
+            _time: stop_time.try_into()?,
+        }
+        .abi_encode(),
+    )
+    .await?;
+    anvil_request::<serde_json::Value>(
+        p,
+        "evm_setNextBlockTimestamp",
+        serde_json::json!([stop_time]),
+    )
+    .await?;
+    mine_l1_blocks(p, 4).await?;
+    let source = RpcL1Source::new(p.clone());
+    let number = source.finalized_number().await?;
+    let anchor = abci::l1::verify_anchor_witness(
+        &abci::AnchorWitness {
+            l1_header: source.header(number).await?,
+            inbox: source
+                .account_witness(f.inbox, &abci::l1::layout::inbox::anchor_slots(), number)
+                .await?,
+        },
+        f.inbox,
+    )?;
+    assert_eq!(abci::l1::layout::word_u48(anchor.inbox.rules_schedule, 144), stop_time);
+    let dirs = vec![f.signer_storage.path().join("0")];
+    let consensus =
+        ContractConsensus::start(f.anvil.http.clone(), &f.l2, f.params.clone(), dirs).await?;
+    // Block 1's finalized anchor is mined at or after `stopTime`, so block 1's timestamp is too,
+    // and the planned stop refuses its successor at any height.
+    consensus.wait_for_height(1).await?;
+    let first = f.l2.provider.get_block_by_number(1.into()).await?.context("L2 block 1")?;
+    assert!(first.header.timestamp >= stop_time);
+    // Three ordinary one-second commit intervals: a node ignoring the stop would pass height 1.
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    assert_eq!(consensus.cmt.latest_height().await?, 1);
+    consensus.stop().await?;
+    Ok(())
 }

@@ -1,18 +1,19 @@
 //! Etna client conformance: the historical Lean model's decisions on client block rules.
 //!
 //! The Etna formal PR (#22292) generates rule-level vectors from the model's executable
-//! definitions (`Forced.step`, `Consensus.activeAt`/`ElectionValid`, `BlockValidity.HeaderValid`/
-//! `AnchorValid`) and documents their schema (`etna-client-conformance-1`) in
+//! definitions (`Forced.step`, `BlockValidity.HeaderValid`/`AnchorValid`) and documents their
+//! schema (`etna-client-conformance-1`) in
 //! `testdata/etna_conformance/README.md` there. This crate runs its own copy,
 //! `tests/fixtures/etna_conformance/*.json`, which adds only `provenance.formalCommit`, the pushed
 //! formal commit it was generated at. The fixture README records the exact source and scope:
-//! these historical families do not establish conformance to the latest Etna specification.
-//! Current registry admission vectors exercise contract transactions, outside this harness.
-//! Refresh it from `formal/etna` of that commit with
+//! these historical families do not establish conformance to the latest Etna specification. The
+//! committee schedule family is gone with the registry and its epochs: every signing set now
+//! comes from the candidate snapshot or the fallback keys. Refresh the files from `formal/etna`
+//! of that commit with
 //!
 //! ```text
 //! lake exe etna-vectors --write <this crate>/tests/fixtures/etna_conformance \
-//!   --families forced_step,schedule,block_rules,block_size --provenance <formal commit>
+//!   --families forced_step,block_rules,block_size --provenance <formal commit>
 //! ```
 //!
 //! and never edit the files by hand. They record only what the model decides. Each test runs
@@ -33,42 +34,32 @@
 //!   `FinalizeBlock` does. The node-local checks (L1 finality, the local checkpoint fence,
 //!   `newPayload`) are not run: the model's verdict leaves them out too (its `NodeValid` adds
 //!   them).
-//! - `schedule` places every registry checkpoint of a context in one L1 registry state, proves each
-//!   checkpoint with a real witness, keeps the ones [`committee::verify_snapshot`] accepts at the
-//!   cutoff (the latest checkpoint at or before it) and derives the committee with
-//!   [`committee::derive`]: together the checks of `verify_committee_witness_at_cutoff`. The cutoff
-//!   is `genesisCutoff` for epoch 0 (genesis), otherwise the larger of D(t)'s committed anchor and
-//!   `L1_0`, as the model's schedule places it.
 //!
 //! The harness maps the model's abstract values to concrete client inputs:
 //! - transaction kinds to concrete, really signed bytes ([`tx_bytes`]), checked against the file's
 //!   kind table; the model's "canonical" is the client's [`decode_eligible`];
-//! - registry key atoms to valid secp256k1 consensus keys whose set-key order is the atoms' order;
-//!   atom 0 is a released slot's all-zero entry;
 //! - an anchor number above `uint48` has no `extraData` encoding, so such a header carries its low
 //!   48 bits;
 //! - the vectors' `staleHeartbeat` and `content` inputs, which the model ignores, are ignored here
-//!   too: the client has no heartbeat rule and bounds the uncompressed block;
-//! - some vectors set U = 1 and `vp_unit` = 1,000, outside the deployment bounds that
-//!   `ChainParams::validate` enforces; the rules under test read the parameters directly, so the
-//!   harness overrides them without validating.
+//!   too: the client has no heartbeat rule and bounds the uncompressed block; so is their
+//!   `epochLen`, as the client has no epochs;
+//! - some vectors set U = 1, a value `ChainParams::validate` accepts; the rules under test read the
+//!   parameters directly, so the harness overrides them without validating.
 
 use std::{collections::BTreeMap, sync::OnceLock};
 
 use abci::{
-    AccountWitness, AnchorState, AnchorWitness, ChainParams, CommitteeRecord, CommitteeWitness,
-    Engine, EngineError, EtnaEnvelope, ExecutionBlock, ForcedWitness, GenesisRecord, InboxFacts,
-    ParentInfo, RawL1Header, RegistryEntry, Schedule, StorageProof,
+    AccountWitness, AnchorState, AnchorWitness, ChainParams, Engine, EngineError, EtnaEnvelope,
+    ExecutionBlock, ForcedWitness, GenesisRecord, InboxFacts, ParentInfo, RawL1Header,
+    StorageProof,
     app::{ChainContext, Rejection, validate_block},
-    committee::{self, CommitteeError, set_key},
-    committee_config_hash,
     engine::{
         PayloadVerdict, PoolSelection,
         forced::{ForcedBuildContext, ForcedBuildError, verify_forced},
     },
     forced::{self, decode_eligible},
     key::ConsensusKey,
-    l1::layout::{inbox, registry},
+    l1::layout::inbox,
     rules::RuleViolation,
 };
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
@@ -133,7 +124,6 @@ fn document(family: &str) -> &'static Value {
     let files = FILES.get_or_init(|| {
         [
             ("forced_step", include_str!("fixtures/etna_conformance/forced_step.json")),
-            ("schedule", include_str!("fixtures/etna_conformance/schedule.json")),
             ("block_rules", include_str!("fixtures/etna_conformance/block_rules.json")),
             ("block_size", include_str!("fixtures/etna_conformance/block_size.json")),
         ]
@@ -361,9 +351,6 @@ impl L1State {
 // Blocks on a committed chain, judged by `validate_block`.
 // ---------------------------------------------------------------------------------------------
 
-/// `2^48 - 1`: the registry's "no exit" and the widest `uint48`.
-const NO_EXIT: u64 = (1 << 48) - 1;
-
 /// What an anchor L1 block holds: its header facts and the Inbox words it proves.
 #[derive(Clone)]
 struct AnchorFacts {
@@ -382,9 +369,9 @@ impl AnchorFacts {
         Self { number, timestamp, checkpoint_height, generation, tail: 0, queue: BTreeMap::new() }
     }
 
-    /// The L1 state at this anchor: the Inbox's anchor slots and queue, and the registry with
-    /// the proposer's single checkpoint ([`proposer_registry`]). The fallback keys hash and the
-    /// minimum total stake use every bit of their words; the rules the vectors vary read neither.
+    /// The L1 state at this anchor: the Inbox's anchor slots and queue. The fallback keys hash
+    /// and the minimum total stake use every bit of their words; the rules the vectors vary read
+    /// neither.
     fn l1_state(&self) -> L1State {
         let mut words = BTreeMap::from([
             (inbox::slot(inbox::RECOVERY_GENERATION), U256::from(self.generation)),
@@ -399,8 +386,7 @@ impl AnchorFacts {
             words.insert(hash_slot, U256::from_be_bytes(hash.0));
             words.insert(metadata_slot, U256::from(*timestamp) | (U256::from(*l1_block) << 48));
         }
-        let p = params();
-        L1State(BTreeMap::from([(p.inbox, words), (p.registry, proposer_registry().0)]))
+        L1State(BTreeMap::from([(params().inbox, words)]))
     }
 
     /// The raw L1 header of this anchor over `state_root`.
@@ -451,31 +437,6 @@ fn proposer_key() -> ConsensusKey {
     ConsensusKey::from_slice(secret.public_key().to_encoded_point(true).as_bytes()).expect("key")
 }
 
-/// The registry every anchor state holds: one checkpoint (at L1 block 1) with the proposer's
-/// entry, at the minimum stake and never exiting. Returns its storage words and the entries.
-fn proposer_registry() -> (BTreeMap<B256, U256>, Vec<RegistryEntry>) {
-    let key = proposer_key();
-    let entries = vec![RegistryEntry {
-        ck_prefix: key.prefix(),
-        ck_x: key.x(),
-        eff_stake: params().min_stake,
-        active_from_l1: 0,
-        exit_effective_l1: NO_EXIT,
-    }];
-    (registry_words(&[(1, entries.clone())]), entries)
-}
-
-/// The registry storage words of `checkpoints` (`(l1Block, entries)`, oldest first).
-fn registry_words(checkpoints: &[(u64, Vec<RegistryEntry>)]) -> BTreeMap<B256, U256> {
-    let mut words = BTreeMap::from([(registry::length_slot(), U256::from(checkpoints.len()))]);
-    for (i, (l1_block, entries)) in checkpoints.iter().enumerate() {
-        let [head, root] = registry::checkpoint_slots(i as u64);
-        words.insert(head, U256::from(*l1_block) | (U256::from(entries.len()) << 48));
-        words.insert(root, U256::from_be_bytes(committee::entries_root(entries).0));
-    }
-    words
-}
-
 /// The 29-byte `extraData` `[fee share | generation (uint48) | anchor (uint48) | missBitmap
 /// (uint128)]` with an empty `missBitmap`, as every signer of the parent signed; a value above
 /// `uint48` keeps its low 48 bits (no header can encode it).
@@ -491,7 +452,6 @@ fn extra_data(fee_share: u8, generation: u64, anchor: u64) -> Bytes {
 struct BlockCase {
     /// The chain's recovery generation.
     generation: u64,
-    epoch_len: u64,
     /// `L1_0`, the generation's L1 origin.
     l1_0: u64,
     max_anchor_age: u64,
@@ -526,7 +486,6 @@ impl BlockCase {
     fn ordinary(anchor_timestamp: u64) -> Self {
         Self {
             generation: 0,
-            epoch_len: 10,
             l1_0: 100,
             max_anchor_age: 7200,
             delay: 3600,
@@ -613,13 +572,11 @@ impl BlockCase {
     fn judge(&self) -> Result<abci::app::Validated, Rejection> {
         let params = self.params();
         let genesis = GenesisRecord {
-            committee_config_hash: committee_config_hash(&params),
+            config_hash: params.config_hash(),
             genesis_height: 0,
             l1_0: self.l1_0,
-            epoch_len: self.epoch_len,
             genesis_hash: B256::repeat_byte(0x0e),
             genesis_state_root: B256::repeat_byte(0x0f),
-            genesis_cutoff: self.l1_0.saturating_sub(1),
             forced_inclusion_delay: self.delay,
             max_anchor_age: self.max_anchor_age,
         };
@@ -885,163 +842,6 @@ async fn forced_step_vectors() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// schedule: `Schedule`, `committee::verify_snapshot` and `committee::derive` against
-// `Consensus.activeAt`/`ElectionValid`.
-// ---------------------------------------------------------------------------------------------
-
-/// Key atoms 1..=63 map to valid consensus keys (of private keys 1..=63) in ascending set-key
-/// order, so the client's set-key order is the model's key order.
-fn key_table() -> &'static (BTreeMap<u64, ConsensusKey>, BTreeMap<ConsensusKey, u64>) {
-    static TABLE: OnceLock<(BTreeMap<u64, ConsensusKey>, BTreeMap<ConsensusKey, u64>)> =
-        OnceLock::new();
-    TABLE.get_or_init(|| {
-        let mut keys: Vec<ConsensusKey> = (1..=63u64)
-            .map(|i| {
-                let secret = k256::SecretKey::from_slice(B256::from(U256::from(i)).as_slice())
-                    .expect("private key");
-                ConsensusKey::from_slice(secret.public_key().to_encoded_point(true).as_bytes())
-                    .expect("consensus key")
-            })
-            .collect();
-        keys.sort_by_key(|k| set_key(TAIKO_DEVNET_CHAIN_ID, *k));
-        let forward: BTreeMap<u64, ConsensusKey> =
-            keys.into_iter().enumerate().map(|(i, k)| (i as u64 + 1, k)).collect();
-        let back = forward.iter().map(|(a, k)| (*k, *a)).collect();
-        (forward, back)
-    })
-}
-
-/// The registry entry of a context's entry: key atom 0 is a released slot (all zero).
-fn registry_entry(e: &Value) -> RegistryEntry {
-    let (ck_prefix, ck_x) = match u64_of(&e["key"]) {
-        0 => (0, B256::ZERO),
-        atom => {
-            let key = key_table().0[&atom];
-            (key.prefix(), key.x())
-        }
-    };
-    RegistryEntry {
-        ck_prefix,
-        ck_x,
-        eff_stake: U256::from(u64_of(&e["stake"])),
-        active_from_l1: u64_of(&e["activeFrom"]),
-        exit_effective_l1: u64_of(&e["exitAt"]),
-    }
-}
-
-/// The client's committee for block `height` of context `c`: the epoch and switch arithmetic of
-/// `Schedule`, the cutoff the client uses for that epoch, the one registry checkpoint whose
-/// witness `verify_snapshot` accepts at that cutoff, and `committee::derive`. The `targetEpoch`
-/// and `cutoff` of a failed election are the epoch and cutoff it was derived for.
-fn schedule_client(c: &Value, height: u64) -> Decision {
-    let schedule = Schedule {
-        l1_0: u64_of(&c["originBlock"]),
-        epoch_len: u64_of(&c["epochLen"]),
-        genesis_cutoff: u64_of(&c["genesisCutoff"]),
-    };
-    let params = ChainParams {
-        vp_unit: U256::from(u64_of(&c["unit"])),
-        min_stake: U256::from(u64_of(&c["minimum"])),
-        n_max: u64_of(&c["nMax"]) as usize,
-        ..params()
-    };
-    let epoch = schedule.epoch_of(height);
-    let cutoff = match schedule.derivation_parent_height(epoch) {
-        None => schedule.genesis_cutoff,
-        Some(parent) => u64_of(&c["archive"][parent as usize]).max(schedule.l1_0),
-    };
-    let checkpoints: Vec<(u64, Vec<RegistryEntry>)> = c["snapshots"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|s| {
-            let entries = s["entries"].as_array().unwrap().iter().map(registry_entry).collect();
-            (u64_of(&s["block"]), entries)
-        })
-        .collect();
-    let state = L1State(BTreeMap::from([(params.registry, registry_words(&checkpoints))]));
-    let root = state.root();
-    let mut accepted = Vec::new();
-    for (i, (_, entries)) in checkpoints.iter().enumerate() {
-        let has_next = i + 1 < checkpoints.len();
-        let witness = CommitteeWitness {
-            record: CommitteeRecord {
-                target_epoch: epoch,
-                cutoff_l1_block: cutoff,
-                checkpoint_index: i as u64,
-                set_hash: B256::ZERO,
-                total_power: 0,
-            },
-            registry: state
-                .witness(params.registry, &committee::snapshot_slots(i as u64, has_next)),
-            entries: entries.clone(),
-        };
-        match committee::verify_snapshot(root, params.registry, &witness, cutoff) {
-            Ok(snapshot) => accepted.push(snapshot),
-            Err(
-                CommitteeError::CheckpointAfterCutoff { .. } |
-                CommitteeError::NextCheckpointNotAfterCutoff { .. },
-            ) => {}
-            Err(other) => return Err(format!("checkpoint {i} witness rejected: {other}")),
-        }
-    }
-    if accepted.len() > 1 {
-        return Err(format!("{} checkpoints verify at cutoff {cutoff}", accepted.len()));
-    }
-    let switch = schedule.switch_target(height).map_or(Value::Null, Value::from);
-    let derived =
-        accepted.first().map(|snapshot| committee::derive(snapshot, cutoff, epoch, &params));
-    Ok(match derived {
-        Some(Ok((record, members))) => json!({
-            "targetEpoch": record.target_epoch,
-            "cutoff": record.cutoff_l1_block,
-            "valid": true,
-            "members": members
-                .iter()
-                .map(|m| json!({
-                    "key": key_table().1[&m.pubkey],
-                    "stake": m.eff_stake.to::<u64>(),
-                    "power": m.power,
-                }))
-                .collect::<Vec<_>>(),
-            "switchTarget": switch,
-        }),
-        _ => json!({
-            "targetEpoch": epoch,
-            "cutoff": cutoff,
-            "valid": false,
-            "members": [],
-            "switchTarget": switch,
-        }),
-    })
-}
-
-/// A valid committee is judged on everything; an invalid one has no members to compare.
-fn schedule_keys(expect: &Value) -> Vec<String> {
-    let keys = all_keys(expect);
-    if expect["valid"] == true {
-        keys
-    } else {
-        keys.into_iter().filter(|k| k != "members").collect()
-    }
-}
-
-#[test]
-fn schedule_vectors() {
-    let doc = document("schedule");
-    let contexts: BTreeMap<&str, &Value> = doc["contexts"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|c| (c["name"].as_str().unwrap(), c))
-        .collect();
-    run_family("schedule", schedule_keys, |v| {
-        let input = &v["input"];
-        schedule_client(contexts[input["context"].as_str().unwrap()], u64_of(&input["height"]))
-    });
-}
-
-// ---------------------------------------------------------------------------------------------
 // block_rules: `validate_block` against `HeaderValid ∧ AnchorValid`.
 // ---------------------------------------------------------------------------------------------
 
@@ -1065,7 +865,6 @@ fn block_rules_client(input: &Value) -> Decision {
     };
     let case = BlockCase {
         generation: u64_of(&input["chainGeneration"]),
-        epoch_len: u64_of(&input["epochLen"]),
         l1_0: u64_of(&input["origin"]),
         max_anchor_age: u64_of(&input["maxAnchorAge"]),
         unsettled: u64_of(&input["unsettled"]),

@@ -1,11 +1,17 @@
 //! Chain parameters of the Etna PoS chain and their optional TOML override.
 
-use alloy_primitives::{Address, U256, address};
+use alloy_primitives::{Address, B256, U256, address};
 use protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID;
 use serde::{Deserialize, Deserializer, de};
 
 /// The largest committee size accepted by the registry discovery and consensus bounds.
 pub const MAX_N_MAX: usize = 4096;
+
+pub use etna_core::params::MAX_UNSETTLED_LIMIT;
+
+/// The devnet's (167001) `EtnaStaking` proxy on L2, `getConstantAddress(167001, 10003)`: the
+/// chain id's decimal digits, zero padding, then `10003`, as the devnet L2 genesis predeploys it.
+pub const DEVNET_STAKING: Address = address!("1670010000000000000000000000000000010003");
 
 /// Deployment constants for authenticating an Unzen to Etna switch (SPEC PARAM-11-12a).
 /// Production networks compile these values into their chain parameters; private devnets may
@@ -22,6 +28,10 @@ pub struct SwitchConfig {
     /// Etna L2 SignalService implementation built into the client for the L2 chain id: the L2
     /// SignalService proxy's EIP-1967 slot holds it at S (SYNC-9-5a, PARAM-11-12a).
     pub signal_service_implementation: Address,
+    /// `EtnaStaking` implementation built into the client for the L2 chain id: the EIP-1967
+    /// implementation slot of the staking proxy that the configuration hash commits holds it at
+    /// the start.
+    pub staking_implementation: Address,
 }
 
 /// Per-chain constants consumed by consensus.
@@ -33,10 +43,13 @@ pub struct ChainParams {
     pub inbox: Address,
     /// `ETNA_REGISTRY`: L1 address of the staking registry.
     pub registry: Address,
+    /// Address of the `EtnaStaking` proxy on L2, built into the client for the L2 chain id; the
+    /// configuration hash in slot 269 commits it ([`ChainParams::config_hash`]).
+    pub staking: Address,
     /// Full L1 chain identifier used to bind the Comet signing domain.
     pub l1_chain_id: U256,
-    /// U, the authenticated unsettled-block limit: the maximum unsettled depth in L2 blocks,
-    /// independent of epoch length.
+    /// U, the unsettled-block limit: the maximum unsettled depth in L2 blocks, in
+    /// `1..=`[`MAX_UNSETTLED_LIMIT`]; the configuration hash commits it.
     pub unsettled_limit: u64,
     /// Local execution beneficiary chosen by this proposer; not committee authentication data.
     pub fee_recipient: Address,
@@ -83,15 +96,15 @@ pub enum ConfigError {
         /// The consensus constant whose override differed from its built-in value.
         parameter: &'static str,
     },
-    /// A switch requires a nonzero Unzen Inbox, fork timestamp and L2 SignalService
-    /// implementation.
+    /// A switch requires a nonzero Unzen Inbox, fork timestamp, L2 SignalService
+    /// implementation and staking implementation.
     #[error(
-        "switch configuration requires nonzero Unzen Inbox, fork timestamp and L2 SignalService \
-         implementation"
+        "switch configuration requires nonzero Unzen Inbox, fork timestamp, L2 SignalService \
+         implementation and staking implementation"
     )]
     InvalidSwitch,
-    /// U must lie within the protocol unsettled-depth bounds (BACKP-6.4-2).
-    #[error("unsettled_limit must be in 1..=65536")]
+    /// U must lie within the protocol unsettled-depth bounds, `1..=`[`MAX_UNSETTLED_LIMIT`].
+    #[error("unsettled_limit must be in 1..={MAX_UNSETTLED_LIMIT}")]
     InvalidUnsettledLimit,
     /// Voting power units must respect the token-supply safety bound.
     #[error("vp_unit must be at least 867361738 base units")]
@@ -130,17 +143,20 @@ pub enum ConfigError {
 impl ChainParams {
     /// Built-in parameters for `l2_chain_id`.
     ///
-    /// Only the devnet (`TAIKO_DEVNET_CHAIN_ID`) is configured; mainnet, Hoodi and every other
-    /// chain return [`ConfigError::NotConfigured`] until their Etna PoS values exist.
-    /// The returned parameters pass [`ChainParams::validate`].
+    /// Only the devnet (`TAIKO_DEVNET_CHAIN_ID`, 167001) is configured, with its `EtnaStaking`
+    /// proxy at [`DEVNET_STAKING`] and U = 151,200; mainnet (167000), Hoodi (167013) and every
+    /// other chain return [`ConfigError::NotConfigured`] until their Etna PoS values exist, so
+    /// Etna cannot start on a chain without a built-in staking address. The returned parameters
+    /// pass [`ChainParams::validate`].
     pub fn builtin(l2_chain_id: u64) -> Result<Self, ConfigError> {
         match l2_chain_id {
             TAIKO_DEVNET_CHAIN_ID => Ok(Self {
                 l2_chain_id,
                 inbox: address!("00000000000000000000000000000000E7A10001"),
                 registry: address!("00000000000000000000000000000000E7A10002"),
+                staking: DEVNET_STAKING,
                 l1_chain_id: U256::from(1),
-                unsettled_limit: 3600,
+                unsettled_limit: 151_200,
                 fee_recipient: Address::ZERO,
                 vp_unit: U256::from(1_000_000_000u64),
                 // The registry default of the devnet deployment (`DEFAULT_REGISTRY_MIN_STAKE`):
@@ -175,6 +191,7 @@ impl ChainParams {
         }
         self.inbox = o.inbox.unwrap_or(self.inbox);
         self.registry = o.registry.unwrap_or(self.registry);
+        self.staking = o.staking.unwrap_or(self.staking);
         self.l1_chain_id = o.l1_chain_id.map_or(self.l1_chain_id, |v| v.0);
         self.unsettled_limit = o.unsettled_limit.unwrap_or(self.unsettled_limit);
         self.fee_recipient = o.fee_recipient.unwrap_or(self.fee_recipient);
@@ -192,24 +209,31 @@ impl ChainParams {
         Ok(self)
     }
 
-    /// Returns the directly authenticated unsettled-block limit U in L2 blocks, independent of L.
+    /// Returns the unsettled-block limit U, in L2 blocks.
     pub fn unsettled_limit(&self) -> u64 {
         self.unsettled_limit
     }
 
-    /// Checks the unsettled-depth bounds, token-supply voting-power safety, committee capacity,
-    /// positive block gas limit, `min_stake >= vp_unit` and `4096 × min_stake > 10^27`
-    /// (START-10-12). Returns the first invalid deployment
-    /// parameter.
+    /// The configuration hash of this chain's L2 chain id, staking proxy and U, which Inbox
+    /// initialization writes in slot 269 and every node and guest checks
+    /// ([`config_hash`](etna_core::params::config_hash)).
+    pub fn config_hash(&self) -> B256 {
+        etna_core::params::config_hash(self.l2_chain_id, self.staking, self.unsettled_limit)
+    }
+
+    /// Checks a switch's nonzero deployment constants, the unsettled-depth bounds, token-supply
+    /// voting-power safety, committee capacity, positive block gas limit, `min_stake >= vp_unit`
+    /// and `4096 × min_stake > 10^27`. Returns the first invalid deployment parameter.
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.switch.as_ref().is_some_and(|switch| {
             switch.unzen_inbox.is_zero() ||
                 switch.fork_timestamp == 0 ||
-                switch.signal_service_implementation.is_zero()
+                switch.signal_service_implementation.is_zero() ||
+                switch.staking_implementation.is_zero()
         }) {
             return Err(ConfigError::InvalidSwitch);
         }
-        if !(1..=65_536).contains(&self.unsettled_limit) {
+        if !(1..=MAX_UNSETTLED_LIMIT).contains(&self.unsettled_limit) {
             return Err(ConfigError::InvalidUnsettledLimit);
         }
         if self.vp_unit < U256::from(867_361_738) {
@@ -247,6 +271,8 @@ struct Overrides {
     inbox: Option<Address>,
     /// See [`ChainParams::registry`].
     registry: Option<Address>,
+    /// See [`ChainParams::staking`].
+    staking: Option<Address>,
     /// See [`ChainParams::l1_chain_id`].
     l1_chain_id: Option<U256String>,
     /// See [`ChainParams::unsettled_limit`].
@@ -300,8 +326,80 @@ mod tests {
     fn defaults_and_direct_u_are_valid() {
         let p = devnet();
         p.validate().unwrap();
-        assert_eq!(p.unsettled_limit(), 3600);
+        assert_eq!(p.unsettled_limit(), 151_200);
         assert_eq!(p.n_max, 128);
+    }
+    /// The devnet's built-in staking proxy is `getConstantAddress(167001, 10003)`: the chain
+    /// id's decimal digits, zero padding to 40 hex digits, then `10003`.
+    #[test]
+    fn devnet_builtin_staking_is_the_constant_address() {
+        let expected = address!("1670010000000000000000000000000000010003");
+        assert_eq!(devnet().staking, expected);
+        assert_eq!(DEVNET_STAKING, expected);
+        let digits = format!("{TAIKO_DEVNET_CHAIN_ID}");
+        let constant = format!("{digits}{}10003", "0".repeat(40 - digits.len() - 5));
+        assert_eq!(alloy_primitives::hex::encode(expected), constant);
+    }
+    /// Mainnet and Hoodi have no built-in Etna parameters, so no staking address either.
+    #[test]
+    fn mainnet_and_hoodi_are_not_configured() {
+        for chain in [167_000, 167_013] {
+            assert!(
+                matches!(
+                    ChainParams::builtin(chain),
+                    Err(ConfigError::NotConfigured { chain_id }) if chain_id == chain
+                ),
+                "{chain}"
+            );
+        }
+    }
+    /// The configuration hash commits the built-in L2 chain id, staking proxy and U.
+    #[test]
+    fn config_hash_uses_the_builtin_staking_address() {
+        let p = devnet();
+        let expected = alloy_primitives::b256!(
+            "ce98efd6a337c78d7b268a407f9cd0dbfeee0e8724f07bc924087437497b4650"
+        );
+        assert_eq!(
+            etna_core::params::config_hash(p.l2_chain_id, p.staking, p.unsettled_limit),
+            expected
+        );
+        assert_eq!(
+            etna_core::params::config_hash(
+                167_001,
+                address!("1670010000000000000000000000000000010003"),
+                151_200
+            ),
+            expected
+        );
+        assert_eq!(p.config_hash(), expected);
+        assert_ne!(ChainParams { staking: Address::repeat_byte(1), ..p }.config_hash(), expected);
+    }
+    /// A devnet override may name another staking proxy; the configuration hash follows it.
+    #[test]
+    fn staking_override_replaces_the_builtin_proxy() {
+        let p = devnet()
+            .with_overrides("staking = '0x2222222222222222222222222222222222222222'")
+            .unwrap();
+        assert_eq!(p.staking, Address::repeat_byte(0x22));
+        assert_ne!(p.config_hash(), devnet().config_hash());
+        assert!(devnet().with_overrides("staking = '0x1234'").is_err());
+    }
+    /// U is any integer from 1 to 262,144.
+    #[test]
+    fn config_u_bounds() {
+        for limit in [1, 262_144] {
+            ChainParams { unsettled_limit: limit, ..devnet() }.validate().unwrap();
+        }
+        for limit in [0, 262_145] {
+            assert!(
+                matches!(
+                    ChainParams { unsettled_limit: limit, ..devnet() }.validate(),
+                    Err(ConfigError::InvalidUnsettledLimit)
+                ),
+                "U={limit}"
+            );
+        }
     }
     #[test]
     fn overrides_authenticate_u_and_accept_full_l1_chain_id() {
@@ -380,7 +478,8 @@ mod tests {
     #[test]
     fn switch_table_refuses_the_old_anchor_implementation_key() {
         let table = "[switch]\nunzen_inbox = '0x0000000000000000000000000000000000000001'\n\
-                     fork_timestamp = 1800000000\n";
+                     fork_timestamp = 1800000000\n\
+                     staking_implementation = '0x0000000000000000000000000000000000000003'\n";
         let new_key =
             "signal_service_implementation = '0x0000000000000000000000000000000000000002'";
         let old_key = "anchor_implementation = '0x0000000000000000000000000000000000000002'";
@@ -398,6 +497,29 @@ mod tests {
             assert!(ChainParams::builtin(chain).is_err());
         }
     }
+    /// The `[switch]` table names the staking implementation the proxy must hold at the start:
+    /// the key is required, and a zero address is an invalid switch.
+    #[test]
+    fn switch_table_requires_a_staking_implementation() {
+        let table = "[switch]\nunzen_inbox = '0x0000000000000000000000000000000000000001'\n\
+                     fork_timestamp = 1800000000\n\
+                     signal_service_implementation = '0x0000000000000000000000000000000000000002'\n";
+        let missing = devnet().with_overrides(table).unwrap_err();
+        assert!(missing.to_string().contains("staking_implementation"), "{missing}");
+        let p = devnet()
+            .with_overrides(&format!(
+                "{table}staking_implementation = '0x0000000000000000000000000000000000000003'"
+            ))
+            .unwrap();
+        assert_eq!(p.switch.as_ref().unwrap().staking_implementation, Address::with_last_byte(3));
+        p.validate().unwrap();
+        let zero = devnet()
+            .with_overrides(&format!(
+                "{table}staking_implementation = '0x0000000000000000000000000000000000000000'"
+            ))
+            .unwrap();
+        assert!(matches!(zero.validate(), Err(ConfigError::InvalidSwitch)));
+    }
 }
 
 #[cfg(test)]
@@ -406,13 +528,13 @@ mod v1_deployment_bounds {
     #[test]
     fn unsettled_limit_and_voting_power_deployment_bounds() {
         let base = ChainParams::builtin(TAIKO_DEVNET_CHAIN_ID).unwrap();
-        for limit in [0, 65_537, u64::MAX] {
+        for limit in [0, 262_145, u64::MAX] {
             assert!(
                 ChainParams { unsettled_limit: limit, ..base.clone() }.validate().is_err(),
                 "U={limit}"
             );
         }
-        for limit in [1, 5, 6, 7, 3600, 65_536] {
+        for limit in [1, 5, 6, 7, 3600, 65_536, 65_537, 151_200, 262_144] {
             assert!(
                 ChainParams { unsettled_limit: limit, ..base.clone() }.validate().is_ok(),
                 "U={limit}"

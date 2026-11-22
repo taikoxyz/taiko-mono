@@ -54,7 +54,7 @@ fn safety_halt(result: Result<response::FinalizeBlock, AbciError>) -> String {
 async fn anchor_moving(fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
     let app = mid_epoch(fx, dir, 5).await;
     let inbox = fx.inbox_with(fx.genesis.genesis_height + 3);
-    fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+    fx.advance_l1(app.l1(), 66, &inbox);
     app
 }
 
@@ -293,8 +293,8 @@ async fn finalized_head_advance_keeps_hot_and_cold_finalization_identical() {
     assert_eq!(hot.state(), cold.state());
     assert!(cold.verdicts.is_empty());
 
-    fx.advance_l1(hot.l1(), 10_066, &fx.inbox, &fx.registry);
-    fx.advance_l1(cold.l1(), 10_066, &fx.inbox, &fx.registry);
+    fx.advance_l1(hot.l1(), 10_066, &fx.inbox);
+    fx.advance_l1(cold.l1(), 10_066, &fx.inbox);
     let out = finalize(&mut hot, finalize_req(&req)).await.expect("hot finalizes");
     assert_eq!(finalize(&mut cold, finalize_req(&req)).await.expect("cold finalizes"), out);
     assert_eq!(hot.pending, cold.pending, "independent replay derives the same next state");
@@ -350,7 +350,7 @@ async fn finalize_updates_parent_and_anchor() {
 
     // A moved anchor replaces the anchor facts.
     let inbox = fx.inbox_at_checkpoint(h0, expected.parent.hash);
-    fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+    fx.advance_l1(app.l1(), 66, &inbox);
     step(&mut app).await;
     assert_eq!(app.state().unwrap().anchor, fx.anchor_state(app.l1(), 66));
 }
@@ -371,7 +371,7 @@ async fn forkchoice_finalizes_the_anchored_checkpoint() {
     // A moved anchor whose checkpoint is H_0 finalizes H_0.
     let h0 = env.block.header.hash_slow();
     let inbox = fx.inbox_at_checkpoint(env.block.header.number, h0);
-    fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+    fx.advance_l1(app.l1(), 66, &inbox);
     let before = app.engine().calls().len();
     let env = step(&mut app).await;
     let hash = env.block.header.hash_slow();
@@ -722,7 +722,7 @@ async fn cold_finalize_halts_on_an_anchor_off_its_own_l1_chain() {
     // The node's own L1 finalized a different block 66.
     let mut node = mid_epoch(&fx, node_dir.path(), 5).await;
     let other = fx.inbox_with(fx.genesis.genesis_height + 4);
-    let canonical = fx.advance_l1(node.l1(), 66, &other, &fx.registry);
+    let canonical = fx.advance_l1(node.l1(), 66, &other);
     assert_ne!(canonical.hash(), env.anchor.as_ref().unwrap().l1_header.hash());
 
     let before = node.engine().calls().len();
@@ -928,7 +928,7 @@ async fn cold_finalize_halts_on_an_anchored_checkpoint_conflicting_with_the_loca
         let height = inbox.last_checkpoint_height;
         let dir = tempfile::tempdir().unwrap();
         let mut app = mid_epoch(&fx, dir.path(), 5).await;
-        fx.advance_l1(app.l1(), number, &inbox, &fx.registry);
+        fx.advance_l1(app.l1(), number, &inbox);
         let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), number)));
         let req =
             finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
@@ -951,7 +951,7 @@ async fn cold_finalize_waits_until_the_el_serves_the_checkpoint_block() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
-    fx.advance_l1(app.l1(), 66, &fx.inbox_with(3), &fx.registry);
+    fx.advance_l1(app.l1(), 66, &fx.inbox_with(3));
     let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)));
     let req =
         finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
@@ -1438,7 +1438,7 @@ pub(super) async fn multi_height_run(
             let state = app.state().unwrap();
             let mut inbox = fx.inbox_with(state.last_height);
             inbox.last_checkpoint_hash = state.parent.hash;
-            fx.advance_l1(app.l1(), l1_0 + k, &inbox, &fx.registry);
+            fx.advance_l1(app.l1(), l1_0 + k, &inbox);
         }
         let env = propose(&mut app).await;
         assert_eq!(env.block.header.number, h0 + k);

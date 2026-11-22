@@ -1,10 +1,10 @@
 //! Normative L1 Inbox and staking-registry storage slots. No I/O.
 //!
-//! Inbox activation authenticates status, generation, schedule, genesis cutoff, configuration
-//! hash, the single genesis committee hash and the forced inclusion delay and maximum anchor
-//! age. Runtime anchors prove generation, checkpoint height/hash, the fallback keys hash, the
-//! minimum total stake, the forced inclusion queue's head/tail and the rules schedule; no
-//! future committee mapping exists.
+//! Inbox activation authenticates status, generation, the start write, the configuration hash,
+//! the forced inclusion delay and maximum anchor age, and generation 0's origin record, whose
+//! fourth word names the fallback key list that signs the first two blocks. Runtime anchors
+//! prove generation, checkpoint height/hash, the fallback keys hash, the minimum total stake, the
+//! forced inclusion queue's head/tail and the rules schedule.
 //!
 //! Registry checkpoints must be strictly increasing and complete, with a checkpoint in every
 //! changing L1 block. Discovery reads historical entries before the next checkpoint and then
@@ -26,8 +26,8 @@ pub mod inbox {
     pub const LAST_CHECKPOINT_HEIGHT: u64 = 270;
     /// `lastCheckpoint.blockHash`: `bytes32`.
     pub const LAST_CHECKPOINT_HASH: u64 = 271;
-    /// Activation record, packed: `genesisHeight` (the Etna start S, bits 0–47), `l1Block` (L1_0,
-    /// bits 48–95), `epochLenL2` (L, bits 96–143); higher bits are reserved.
+    /// Activation record, packed: `genesisHeight` (the Etna start S, bits 0–47) and `l1Block`
+    /// (L1_0, bits 48–95); bits from 96 up are reserved.
     pub const GENESIS_PACKED: u64 = 272;
     /// Etna start record: Solidity `startBlockHash`, the start hash (the Etna start block's hash),
     /// `bytes32`.
@@ -35,8 +35,9 @@ pub mod inbox {
     /// Etna start record: Solidity `startStateRoot`, the start state root (the Etna start block's
     /// state root), `bytes32`.
     pub const START_STATE_ROOT: u64 = 274;
-    /// Authenticated parent-anchor derivation configuration hash.
-    pub const COMMITTEE_CONFIG_HASH: u64 = 269;
+    /// The configuration hash over the L2 chain id, the `EtnaStaking` proxy and U, which
+    /// initialization writes and every node checks against its built-in values.
+    pub const CONFIG_HASH: u64 = 269;
     /// `fallbackKeysHash`, a whole `bytes32`: the hash of the DAO's fallback key list, set at
     /// initialization and replaced only by `setFallbackKeys`. Every anchor witness proves it.
     pub const FALLBACK_KEYS_HASH: u64 = 278;
@@ -44,13 +45,6 @@ pub mod inbox {
     /// a usable candidate, set at initialization and replaced only by `setMinTotalStake`. Every
     /// anchor witness proves it; 2^256 − 1 makes no candidate usable.
     pub const MIN_TOTAL_STAKE: u64 = 279;
-    /// Slot [`FALLBACK_KEYS_HASH`] as the genesis witness still reads it: the single bootstrap
-    /// committee record hash.
-    pub const GENESIS_COMMITTEE_HASH: u64 = FALLBACK_KEYS_HASH;
-    /// Slot [`MIN_TOTAL_STAKE`] as the genesis witness still reads it: `genesisCutoff`,
-    /// `uint48`, bits 0–47, the snapshot cutoff (an L1 block before `L1_0`) of the genesis
-    /// committee.
-    pub const GENESIS_CUTOFF: u64 = MIN_TOTAL_STAKE;
     /// The forced inclusion `queue` mapping (`LibForcedInclusion.Storage.queue`), keyed by entry
     /// index; see [`forced_inclusion_entry_slots`].
     pub const FORCED_INCLUSION_QUEUE: u64 = 280;
@@ -60,9 +54,6 @@ pub mod inbox {
     /// Genesis forced inclusion configuration: `forcedInclusionDelay` (`uint48` seconds, bits
     /// 0–47) and `maxAnchorAge` (`uint48` seconds, bits 48–95).
     pub const FORCED_INCLUSION_CONFIG: u64 = 282;
-    /// Proof-bound active committee snapshot: `uint64` L1 block number, bits 0–63.
-    #[cfg(test)]
-    pub const ACTIVE_COMMITTEE_SNAPSHOT: u64 = 284;
     /// Checkpoint landing records, keyed by endpoint height, three words each (STOR-B-9); see
     /// [`landing_record_slots`] and [`LandingRecord`].
     pub const LANDINGS: u64 = 285;
@@ -190,17 +181,18 @@ pub mod inbox {
 
     /// The words Inbox initialization fixes for good, which every recovery observation must still
     /// show as the proof at `L1_0` does: the genesis slots ([`genesis_slots`]) except the
-    /// generation, which recovery advances, and `fallbackKeysHash` and `minTotalStake`, which
-    /// `setFallbackKeys` and `setMinTotalStake` replace at any time.
+    /// generation, which recovery advances. The genesis slots hold neither `fallbackKeysHash`
+    /// nor `minTotalStake`, which `setFallbackKeys` and `setMinTotalStake` replace at any time.
     pub fn deployment_slots() -> Vec<B256> {
-        let mutable = [RECOVERY_GENERATION, FALLBACK_KEYS_HASH, MIN_TOTAL_STAKE].map(slot);
-        genesis_slots().into_iter().filter(|word| !mutable.contains(word)).collect()
+        let generation = slot(RECOVERY_GENERATION);
+        genesis_slots().into_iter().filter(|word| *word != generation).collect()
     }
 
     /// Exact slot order for a recovery observation: the deployment facts
     /// ([`deployment_slots`]), the anchor slots ([`anchor_slots`], from which R's anchor is
-    /// projected, so `fallbackKeysHash` and `minTotalStake` are read there as R's values), the
-    /// generation's fixed origin record and the retained landing at `height`.
+    /// projected; they hold `fallbackKeysHash` and `minTotalStake`, which the deployment facts do
+    /// not, so both are read there as R's values), the generation's fixed origin record and the
+    /// retained landing at `height`.
     pub fn recovery_slots(generation: u64, height: u64) -> Vec<B256> {
         let mut slots = deployment_slots();
         slots.extend(anchor_slots());
@@ -234,8 +226,11 @@ pub mod inbox {
         .to_vec()
     }
 
-    /// Genesis status, generation, schedule, cutoff, bootstrap committee, configuration, forced
-    /// inclusion configuration and generation 0's four-word origin record.
+    /// The genesis witness's slots, in this order: status, generation, the start write's packed
+    /// record, hash and state root, the configuration hash, the forced inclusion configuration
+    /// and generation 0's four-word origin record. Slots 278 and 279 are not among them: both
+    /// change after initialization, and the origin record's fourth word fixes the keys that sign
+    /// the first two blocks.
     pub fn genesis_slots() -> Vec<B256> {
         let mut slots = [
             STATUS,
@@ -243,9 +238,7 @@ pub mod inbox {
             GENESIS_PACKED,
             START_BLOCK_HASH,
             START_STATE_ROOT,
-            GENESIS_CUTOFF,
-            GENESIS_COMMITTEE_HASH,
-            COMMITTEE_CONFIG_HASH,
+            CONFIG_HASH,
             FORCED_INCLUSION_CONFIG,
         ]
         .map(slot)
@@ -390,20 +383,22 @@ mod tests {
             let constant = match name.as_str() {
                 "initialization_status" => inbox::STATUS,
                 "recovery_generation" => inbox::RECOVERY_GENERATION,
-                "committee_config_hash" => inbox::COMMITTEE_CONFIG_HASH,
+                "committee_config_hash" => inbox::CONFIG_HASH,
                 "last_checkpoint_height" => inbox::LAST_CHECKPOINT_HEIGHT,
                 "last_checkpoint_hash" => inbox::LAST_CHECKPOINT_HASH,
                 "genesis_packed" => inbox::GENESIS_PACKED,
                 "genesis_block_hash" => inbox::START_BLOCK_HASH,
                 "genesis_state_root" => inbox::START_STATE_ROOT,
-                "genesis_committee_record_hash" => inbox::GENESIS_COMMITTEE_HASH,
-                "genesis_cutoff" => inbox::GENESIS_CUTOFF,
+                // The shared vectors still name slots 278 and 279 by their registry-era meaning.
+                "genesis_committee_record_hash" => inbox::FALLBACK_KEYS_HASH,
+                "genesis_cutoff" => inbox::MIN_TOTAL_STAKE,
                 "forced_inclusion_queue" => inbox::FORCED_INCLUSION_QUEUE,
                 "forced_inclusion_head_tail" => inbox::FORCED_INCLUSION_HEAD_TAIL,
                 "forced_inclusion_config" => inbox::FORCED_INCLUSION_CONFIG,
                 "landings" => inbox::LANDINGS,
                 "origins" => inbox::ORIGINS,
-                "active_committee_snapshot" => inbox::ACTIVE_COMMITTEE_SNAPSHOT,
+                // Slot 284 is gone from the Inbox; the node reads it nowhere.
+                "active_committee_snapshot" => continue,
                 // Governance authorization state is deliberately absent from node witnesses.
                 "recovery_nonce" => 292,
                 "rules_schedule" => inbox::RULES_SCHEDULE,
@@ -479,10 +474,25 @@ mod tests {
         }
     }
 
+    /// The genesis witness proves status, generation, the start write, the configuration hash,
+    /// the forced inclusion configuration and generation 0's four origin words, in that order,
+    /// and neither slot 278 nor slot 279.
+    #[test]
+    fn genesis_slots_exclude_278_and_279() {
+        let mut expected = [258, 268, 272, 273, 274, 269, 282].map(inbox::slot).to_vec();
+        expected.extend(inbox::origin_slots(0));
+        assert_eq!(inbox::genesis_slots(), expected);
+        for slot in [inbox::FALLBACK_KEYS_HASH, inbox::MIN_TOTAL_STAKE] {
+            assert!(!inbox::genesis_slots().contains(&inbox::slot(slot)), "{slot}");
+        }
+        assert_eq!(inbox::CONFIG_HASH, 269);
+    }
+
     /// A recovery observation proves the deployment facts, then the anchor slots, the
     /// generation's origin record and the retained landing. The generation and slots 278 and 279
     /// are mutable: they are anchor slots and never deployment facts, which recovery compares
-    /// with the proof at `L1_0`.
+    /// with the proof at `L1_0`. Slots 278 and 279 are in the recovery slots only as anchor
+    /// slots, from which R's anchor is projected.
     #[test]
     fn recovery_slots_keep_the_mutable_words_out_of_the_deployment_facts() {
         let deployment = inbox::deployment_slots();
@@ -491,6 +501,7 @@ mod tests {
         {
             assert!(!deployment.contains(&inbox::slot(mutable)), "{mutable}");
             assert!(inbox::anchor_slots().contains(&inbox::slot(mutable)), "{mutable}");
+            assert!(inbox::recovery_slots(2, 6).contains(&inbox::slot(mutable)), "{mutable}");
         }
         assert!(deployment.iter().all(|word| inbox::genesis_slots().contains(word)));
         assert!(deployment.contains(&inbox::origin_slots(0)[3]));

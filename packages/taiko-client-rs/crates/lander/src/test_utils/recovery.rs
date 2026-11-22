@@ -1,4 +1,4 @@
-//! Recovery fixtures with real Inbox/registry proofs and native Comet signatures.
+//! Recovery fixtures with real Inbox proofs and native Comet signatures.
 use super::*;
 use crate::{
     batch::{BatchBuilder, BatchBuilderConfig, BatchSource},
@@ -29,48 +29,29 @@ fn builder(f: Arc<Fixture>) -> BatchBuilder<Fixture, Fixture> {
 }
 
 /// The fallback key list generation two's origin record holds the hash of: the keys of the
-/// fixture's two signers, which sign every height of the generation, each at power 1.
+/// fixture's two signers, which sign every height of the generation, each at power 1. It is
+/// generation zero's origin list too.
 pub(crate) fn origin_keys() -> abci::fallback::FallbackKeys {
-    let mut keys = [1u8, 2].map(|seed| public_key(&SigningKey::from_slice(&[seed; 32]).unwrap()));
-    keys.sort();
-    abci::fallback::FallbackKeys::new(keys.to_vec()).unwrap()
+    fallback_keys(&[1u8, 2].map(|seed| SigningKey::from_slice(&[seed; 32]).unwrap()))
 }
 
 /// Retains generation-zero c=6 and starts generation two at c+1, using R=20.
 pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     let mut f = Fixture::with_epoch(6, 6, 0, length);
     let genesis = f.snapshot.genesis.clone();
-    let schedule = Schedule::from_genesis(&genesis);
-    let entries = f.registry_entries();
-    let genesis_committee = f.committee_witness(&f.anchors[&0], 1, 0).await.unwrap();
     let genesis_witness = abci::GenesisWitness {
         l1_header: f.l1_headers[&10].clone(),
         inbox: f.states[&10].witness(f.params.inbox, &inbox::genesis_slots()),
-        committee: genesis_committee,
     };
     let old_el = f.headers[&6].clone();
     let old_comet = f.snapshot.checkpoint_comet_hash;
     let epoch = 6 / length;
-    let old_committees = f.committees.clone();
     // The origin keys, each at power 1, sign every height after c. The set takes every slot
     // the fixture's committees are keyed by, so every committee the tests index is the set that
-    // signs the generation; its record only fills the fixture type, as no rule reads a record of
-    // a recovery set.
+    // signs the generation.
     let keys = origin_keys();
-    let (record, _) = derive(
-        &Snapshot { checkpoint_index: 0, l1_block: 1, entries: entries.clone() },
-        20,
-        epoch,
-        &f.params,
-    )
-    .unwrap();
-    let members = keys
-        .keys()
-        .iter()
-        .map(|key| abci::Member { pubkey: *key, eff_stake: U256::ZERO, power: 1 })
-        .collect();
-    let origin_set = FixtureCommittee::new(CommitteeState { record, members });
-    for e in 0..=schedule.epoch_of(tip + 2).max(epoch + 2) {
+    let origin_set = FixtureCommittee::fallback(&keys);
+    for e in 0..=((tip + 1) / length).max(epoch + 2) {
         f.committees.insert(e, origin_set.clone());
     }
     f.val_states = replay_val_states((6, &origin_set.state), tip);
@@ -78,9 +59,8 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     let state_at = |height: u64, hash: B256, comet: B256| {
         let base = state_with_queue(
             &f.params,
-            &entries,
+            &f.origin_keys,
             (height, hash, comet),
-            &old_committees,
             &genesis,
             &Queue { head: 0, tail: 0, entries: vec![] },
         );
@@ -113,7 +93,7 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     let r_state = state_at(6, old_el.hash_slow(), old_comet);
     let r_header = l1_header(20, &r_state, B256::repeat_byte(19));
     let empty = Queue { head: 0, tail: 0, entries: vec![] };
-    let words = fallback_words(&f.params, &old_committees, &genesis);
+    let words = fallback_words(&f.origin_keys);
     let mut r_anchor = anchor(&r_header, 6, old_el.hash_slow(), &empty, words);
     r_anchor.inbox.recovery_generation = 2;
     let witness = abci::recovery::RecoveryWitness {

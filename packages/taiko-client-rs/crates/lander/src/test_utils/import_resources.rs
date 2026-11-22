@@ -94,14 +94,8 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> T {
 // Build one real MPT observation and connect its header to the preceding observation.
 fn observe(fx: &mut Fixture, n: u64, time: u64, endpoint: (u64, B256, B256)) -> AnchorState {
     let queue = Queue { head: 0, tail: 0, entries: vec![] };
-    let state = state_with_queue(
-        &fx.params,
-        &fx.registry_entries(),
-        endpoint,
-        &fx.committees,
-        &fx.snapshot.genesis,
-        &queue,
-    );
+    let state =
+        state_with_queue(&fx.params, &fx.origin_keys, endpoint, &fx.snapshot.genesis, &queue);
     // Include a prior landing in the slot-285 record. Its history is represented
     // by the own-finalized MPT observation, outside this bounded consensus fixture.
     let mut accounts =
@@ -124,7 +118,7 @@ fn observe(fx: &mut Fixture, n: u64, time: u64, endpoint: (u64, B256, B256)) -> 
         .into(),
     )
     .unwrap();
-    let words = fallback_words(&fx.params, &fx.committees, &fx.snapshot.genesis);
+    let words = fallback_words(&fx.origin_keys);
     let a = anchor(&raw, endpoint.0, endpoint.1, &queue, words);
     fx.states.insert(n, state);
     fx.l1_headers.insert(n, raw);
@@ -144,7 +138,7 @@ async fn generate(dir: &Path, s: u64, period: u64) {
     fx.headers.insert(0, original.header);
     fx.snapshot.genesis.genesis_hash = original.hash;
     fx.snapshot.genesis.genesis_state_root = original.state_root;
-    fx.snapshot.genesis.committee_config_hash = committee_config_hash(&fx.params);
+    fx.snapshot.genesis.config_hash = fx.params.config_hash();
     fx.snapshot.genesis.max_anchor_age = 3_000_000;
     fx.l1_headers.clear();
     fx.states.clear();

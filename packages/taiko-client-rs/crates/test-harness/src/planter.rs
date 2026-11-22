@@ -1,11 +1,10 @@
-//! The planter: writes Etna Inbox and staking-registry state into anvil following
-//! `abci::l1::layout` (the Inbox slots, the registry checkpoints and its live `entries` array).
+//! The planter: writes Etna Inbox state into anvil following `abci::l1::layout`.
 //!
 //! Writes are real transactions, not `anvil_setStorageAt`: anvil stores block `n`'s historical
 //! state when it starts mining block `n + 1`, so an out-of-band `anvil_setStorageAt` made in
 //! between leaks into block `n`'s state, and `eth_getProof` / `eth_getStorageAt` at `n` then
 //! disagree with `n`'s header `stateRoot`. [`Planter::install`] therefore places a tiny
-//! storage-setter contract ([`setter_code`]) at both addresses once, before the genesis block,
+//! storage-setter contract ([`setter_code`]) at the Inbox address once, before the genesis block,
 //! and every later write is a transaction to it from anvil's first dev account.
 //!
 //! anvil also keeps every zero `SSTORE` as an explicit zero leaf, so zeros are never written:
@@ -17,11 +16,7 @@
 
 use std::{sync::Arc, time::Duration};
 
-use abci::{
-    GenesisRecord, RegistryEntry,
-    committee::entries_root,
-    l1::layout::{inbox, registry},
-};
+use abci::{GenesisRecord, fallback::FallbackKeys, l1::layout::inbox};
 use alloy::sol_types::SolCall;
 use alloy_eips::{BlockId, BlockNumberOrTag};
 alloy::sol!(InboxSetter, "contracts/InboxSetter.json");
@@ -79,16 +74,15 @@ pub struct InboxValues {
     pub last_checkpoint: Option<(u64, B256)>,
     /// Native Comet hash in the checkpoint landing record.
     pub checkpoint_comet_hash: Option<B256>,
-    /// The genesis record (slots 272–274) with its `genesisCutoff` (slot 279) and forced
-    /// inclusion configuration (slot 282).
+    /// The genesis record: the start write (slots 272–274, `S | L1_0 << 48` in 272), the
+    /// configuration hash (slot 269), the forced inclusion configuration (slot 282) and
+    /// generation 0's origin start height and L1 block (slot 290).
     pub genesis: Option<GenesisRecord>,
-    /// The bootstrap committee record hash at plain slot 278, as the genesis witness reads it.
-    pub genesis_committee_hash: Option<B256>,
-    /// `fallbackKeysHash` at slot 278, as anchor witnesses prove it; written after
-    /// `genesis_committee_hash`, so it wins when both are set.
-    pub fallback_keys_hash: Option<B256>,
-    /// `minTotalStake` at slot 279, the whole word, as anchor witnesses prove it; written after
-    /// the genesis record's `genesisCutoff`, so it wins when both are set.
+    /// The fallback key list whose hash is written whole at slot 278, as anchor witnesses prove
+    /// it, and, with `genesis`, as generation 0's origin record's fourth word, which the start
+    /// write takes from slot 278.
+    pub fallback_keys: Option<FallbackKeys>,
+    /// `minTotalStake` at slot 279, the whole word, as anchor witnesses prove it.
     pub min_total_stake: Option<U256>,
 }
 
@@ -113,25 +107,24 @@ impl InboxValues {
             }
         }
         if let Some(a) = &self.genesis {
-            let packed = U256::from(a.genesis_height) |
-                (U256::from(a.l1_0) << 48) |
-                (U256::from(a.epoch_len) << 96);
+            let packed = U256::from(a.genesis_height) | (U256::from(a.l1_0) << 48);
+            let origin = inbox::origin_slots(0);
             w.push((slot(inbox::GENESIS_PACKED), packed));
-            w.push((inbox::origin_slots(0)[1], U256::from(a.l1_0)));
+            w.push((origin[0], U256::from(a.genesis_height)));
+            w.push((origin[1], U256::from(a.l1_0)));
+            if let Some(keys) = &self.fallback_keys {
+                w.push((origin[3], keys.hash().into()));
+            }
             w.push((slot(inbox::START_BLOCK_HASH), a.genesis_hash.into()));
             w.push((slot(inbox::START_STATE_ROOT), a.genesis_state_root.into()));
-            w.push((slot(inbox::GENESIS_CUTOFF), U256::from(a.genesis_cutoff)));
-            w.push((slot(inbox::COMMITTEE_CONFIG_HASH), a.committee_config_hash.into()));
+            w.push((slot(inbox::CONFIG_HASH), a.config_hash.into()));
             w.push((
                 slot(inbox::FORCED_INCLUSION_CONFIG),
                 U256::from(a.forced_inclusion_delay) | (U256::from(a.max_anchor_age) << 48),
             ));
         }
-        if let Some(hash) = self.genesis_committee_hash {
-            w.push((slot(inbox::GENESIS_COMMITTEE_HASH), hash.into()));
-        }
-        if let Some(hash) = self.fallback_keys_hash {
-            w.push((slot(inbox::FALLBACK_KEYS_HASH), hash.into()));
+        if let Some(keys) = &self.fallback_keys {
+            w.push((slot(inbox::FALLBACK_KEYS_HASH), keys.hash().into()));
         }
         if let Some(value) = self.min_total_stake {
             w.push((slot(inbox::MIN_TOTAL_STAKE), value));
@@ -140,47 +133,32 @@ impl InboxValues {
     }
 }
 
-/// A native registry entry active from L1 block zero and never exiting.
-pub fn registry_entry(pubkey: abci::key::ConsensusKey, eff_stake: U256) -> RegistryEntry {
-    RegistryEntry {
-        ck_prefix: pubkey.prefix(),
-        ck_x: pubkey.x(),
-        eff_stake,
-        active_from_l1: 0,
-        exit_effective_l1: (1 << 48) - 1,
-    }
-}
-
-/// Writes Inbox and registry storage into anvil (see the module docs).
+/// Writes Inbox storage into anvil (see the module docs).
 #[derive(Clone, Debug)]
 pub struct Planter {
     /// The anvil provider.
     l1: RootProvider,
     /// The Inbox address.
     inbox: Address,
-    /// The staking registry address.
-    registry: Address,
     /// Serializes [`NextBlock`] sections (pause / write / mine / resume).
     mining: Arc<Mutex<()>>,
 }
 
 impl Planter {
-    /// A planter writing the Inbox at `inbox` and the registry at `registry` through `l1`.
-    pub fn new(l1: RootProvider, inbox: Address, registry: Address) -> Self {
-        Self { l1, inbox, registry, mining: Arc::new(Mutex::new(())) }
+    /// A planter writing the Inbox at `inbox` through `l1`.
+    pub fn new(l1: RootProvider, inbox: Address) -> Self {
+        Self { l1, inbox, mining: Arc::new(Mutex::new(())) }
     }
 
-    /// Places [`setter_code`] at the Inbox and registry addresses (`anvil_setCode`, out of band)
-    /// and mines one block so the code is in place before any planted state.
+    /// Places [`setter_code`] at the Inbox address (`anvil_setCode`, out of band) and mines one
+    /// block so the code is in place before any planted state.
     pub async fn install(&self) -> Result<()> {
-        for address in [self.inbox, self.registry] {
-            anvil_request::<serde_json::Value>(
-                &self.l1,
-                "anvil_setCode",
-                json!([address, setter_code()]),
-            )
-            .await?;
-        }
+        anvil_request::<serde_json::Value>(
+            &self.l1,
+            "anvil_setCode",
+            json!([self.inbox, setter_code()]),
+        )
+        .await?;
         mine_l1_blocks(&self.l1, 1).await
     }
 
@@ -279,38 +257,6 @@ impl Planter {
             .block_id(BlockId::latest())
             .await
             .with_context(|| format!("reading {address} slot {slot}"))
-    }
-
-    /// The registry writes appending checkpoint `(l1_block, entries)` after the latest block's
-    /// `checkpoints.length` and replacing the entries array; returns them with the checkpoint
-    /// index.
-    async fn registry_writes(
-        &self,
-        l1_block: u64,
-        entries: &[RegistryEntry],
-    ) -> Result<(u64, Vec<(B256, U256)>)> {
-        let length = self.word(self.registry, registry::length_slot()).await?;
-        let index = u64::try_from(length).context("checkpoints.length exceeds u64")?;
-        let count = u32::try_from(entries.len()).context("too many entries")?;
-        let [head, root] = registry::checkpoint_slots(index);
-        let mut w = vec![
-            (head, U256::from(l1_block) | (U256::from(count) << 48)),
-            (root, entries_root(entries).into()),
-            (registry::length_slot(), U256::from(index + 1)),
-            (registry::entries_length_slot(), U256::from(entries.len())),
-        ];
-        for (j, e) in entries.iter().enumerate() {
-            let [pubkey, stake, packed] = registry::entry_slots(j as u64);
-            w.push((pubkey, e.ck_x.into()));
-            w.push((stake, e.eff_stake));
-            w.push((
-                packed,
-                U256::from(e.ck_prefix) |
-                    (U256::from(e.active_from_l1) << 8) |
-                    (U256::from(e.exit_effective_l1) << 56),
-            ));
-        }
-        Ok((index, w))
     }
 
     /// Sends one setter transaction writing `writes` to `to`; `None` when there is nothing to
@@ -414,15 +360,6 @@ impl NextBlock {
         Ok(())
     }
 
-    /// Queues a new registry checkpoint `(number(), entries)` and the replaced entries array
-    /// into the block; returns the checkpoint index. At most one per section.
-    pub async fn write_registry_checkpoint(&mut self, entries: &[RegistryEntry]) -> Result<u64> {
-        let (index, writes) = self.planter.registry_writes(self.number, entries).await?;
-        let tx = self.planter.submit(self.planter.registry, &writes).await?;
-        self.sent.extend(tx);
-        Ok(index)
-    }
-
     /// Mines the block, checks every queued transaction landed in it, and resumes interval
     /// mining (1 s); returns the block number.
     pub async fn commit(mut self) -> Result<u64> {
@@ -509,71 +446,68 @@ mod tests {
         assert!(InboxValues::default().writes().is_empty());
     }
 
-    /// The two words every anchor witness proves are written whole, after the genesis words of
-    /// the same slots, which they replace.
+    /// Slot 279 is written whole, as every anchor witness proves it.
     #[test]
-    fn inbox_values_write_the_anchor_words_whole_and_last() {
-        let v = InboxValues {
-            fallback_keys_hash: Some(B256::repeat_byte(0xff)),
-            min_total_stake: Some(U256::MAX),
-            ..Default::default()
-        };
-        assert_eq!(v.writes(), vec![(inbox::slot(278), U256::MAX), (inbox::slot(279), U256::MAX)]);
-        let genesis = GenesisRecord {
-            committee_config_hash: B256::repeat_byte(9),
-            genesis_height: 1,
-            l1_0: 2,
-            epoch_len: 3,
-            genesis_hash: B256::repeat_byte(5),
-            genesis_state_root: B256::repeat_byte(6),
-            genesis_cutoff: 7,
-            forced_inclusion_delay: 10,
-            max_anchor_age: 11,
-        };
-        let v = InboxValues {
-            genesis: Some(genesis),
-            genesis_committee_hash: Some(B256::repeat_byte(8)),
-            ..v
-        };
-        let writes = v.writes();
-        assert_eq!(
-            writes[writes.len() - 2..],
-            [(inbox::slot(278), U256::MAX), (inbox::slot(279), U256::MAX)]
-        );
+    fn inbox_values_write_the_minimum_total_stake_whole() {
+        let v = InboxValues { min_total_stake: Some(U256::MAX), ..Default::default() };
+        assert_eq!(v.writes(), vec![(inbox::slot(279), U256::MAX)]);
     }
 
+    /// The one-key list of the compressed public key of private key 1.
+    fn k1_list() -> FallbackKeys {
+        let k1 = abci::key::ConsensusKey::from_slice(&alloy_primitives::hex!(
+            "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+        ))
+        .unwrap();
+        FallbackKeys::new(vec![k1]).unwrap()
+    }
+
+    /// A fallback key list writes its hash at slot 278: the one-key list of the spec's key K1
+    /// hashes to the spec's vector.
     #[test]
-    fn inbox_values_write_the_genesis_with_its_cutoff_and_forced_inclusion_config() {
+    fn fallback_keys_write_the_hash_vector() {
+        let v = InboxValues { fallback_keys: Some(k1_list()), ..Default::default() };
+        let expected = alloy_primitives::b256!(
+            "9dd1f7298a08cbe8d9579af09f0c713fc35137e6c534a74f8c439b63252f046f"
+        );
+        assert_eq!(v.writes(), vec![(inbox::slot(278), expected.into())]);
+    }
+
+    /// The genesis record writes the start write (`S | L1_0 << 48` at slot 272), generation 0's
+    /// origin start height, L1 block and, with a fallback key list, its hash as the fourth origin
+    /// word, the start hash and state root, the configuration hash and the forced inclusion
+    /// configuration; the list's hash also goes to slot 278.
+    #[test]
+    fn inbox_values_write_the_genesis_with_its_origin_and_forced_inclusion_config() {
         let genesis = GenesisRecord {
-            committee_config_hash: B256::repeat_byte(9),
+            config_hash: B256::repeat_byte(9),
             genesis_height: 1,
             l1_0: 2,
-            epoch_len: 3,
             genesis_hash: B256::repeat_byte(5),
             genesis_state_root: B256::repeat_byte(6),
-            genesis_cutoff: 7,
             forced_inclusion_delay: 10,
             max_anchor_age: 11,
         };
+        let keys = k1_list();
         let v = InboxValues {
             genesis: Some(genesis),
-            genesis_committee_hash: Some(B256::repeat_byte(8)),
+            fallback_keys: Some(keys.clone()),
             ..Default::default()
         };
-        // Current IEtnaInbox.GenesisRecord packs three uint48 values. Generation zero's
-        // Origin separately records the same L1 initialization block at mapping slot 290.
-        let packed = U256::from(1u64) | U256::from(2u64) << 48 | U256::from(3u64) << 96;
+        let packed = U256::from(1u64) | U256::from(2u64) << 48;
+        let origin = inbox::origin_slots(0);
         assert_eq!(
             v.writes(),
             vec![
                 (inbox::slot(272), packed),
-                (inbox::origin_slots(0)[1], U256::from(2u64)),
+                (origin[0], U256::from(1u64)),
+                (origin[1], U256::from(2u64)),
+                (origin[3], keys.hash().into()),
                 (inbox::slot(273), U256::from_be_bytes([5; 32])),
                 (inbox::slot(274), U256::from_be_bytes([6; 32])),
-                (inbox::slot(279), U256::from(7u64)),
                 (inbox::slot(269), U256::from_be_bytes([9; 32])),
                 (inbox::slot(282), U256::from(10u64) | U256::from(11u64) << 48),
-                (inbox::slot(inbox::GENESIS_COMMITTEE_HASH), U256::from_be_bytes([8; 32])),
+                (inbox::slot(278), keys.hash().into()),
             ]
         );
     }

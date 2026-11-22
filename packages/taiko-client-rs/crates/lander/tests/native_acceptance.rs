@@ -118,13 +118,6 @@ async fn recover_landed_execution(
 async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> Result<()> {
     test_harness::init_tracing();
     let f = ContractFixture::deploy_validators(4).await?;
-    abci::build_committee_record(
-        &abci::RpcL1Source::new(f.anvil.provider.clone()),
-        &f.params,
-        f.genesis.genesis_cutoff,
-        None,
-    )
-    .await?;
     let p = &f.anvil.provider;
     let l2 = &f.l2.provider;
     set_interval_mining(p, 1).await?;
@@ -173,11 +166,8 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
     c.wait_for_height(fi_height + 1).await?;
     assert_eq!(c.cmt.envelope(fi_height).await?.block.transactions[0].as_ref(), raw);
     c.wait_for_height(18.max(fi_height + 1)).await?;
-    // The genesis set signs every height, past the first epoch's start of the global schedule.
-    assert_eq!(
-        c.cmt.validators(Some(f.genesis.epoch_len + 1)).await?,
-        c.cmt.validators(Some(1)).await?
-    );
+    // The origin keys sign every height, past where the removed epoch schedule switched.
+    assert_eq!(c.cmt.validators(Some(15)).await?, c.cmt.validators(Some(1)).await?);
     let trust_path = c.app_dir(0).join("checkpoint-trust.sock");
     let before_timeout = trust_timeout::observe(&trust_path).await?;
     let old_session = before_timeout["session_id"].as_str().context("pre-timeout session")?;

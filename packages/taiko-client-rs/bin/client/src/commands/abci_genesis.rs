@@ -23,17 +23,16 @@ use crate::{
 )]
 pub struct AbciGenesisSubCommand {
     /// HTTP RPC endpoint of the L1 node; it must serve `eth_getProof` and `eth_getStorageAt`
-    /// at the initialization L1 block and back to the Inbox's `genesisCutoff` (the registry
-    /// entries are read at the newest block that still holds the genesis snapshot, which can
-    /// be as old as `genesisCutoff`). The cutoff is fixed when the initializing DAO proposal
-    /// is written, well before the genesis block, so in practice this is an archive node.
+    /// at the initialization L1 block, and the fallback key list whose hash generation 0's
+    /// origin record holds: `getFallbackKeys()` there, or else the list's `FallbackKeysUpdated`
+    /// log at or below it.
     #[clap(
         long = "l1.http",
         required = true,
         value_parser = http_url,
-        help = "HTTP RPC endpoint of an L1 node serving eth_getProof and eth_getStorageAt from \
-                the initialization L1 block back to the Inbox's genesisCutoff, which the initializing DAO \
-                proposal fixed well before it (in practice an archive node)"
+        help = "HTTP RPC endpoint of an L1 node serving eth_getProof and eth_getStorageAt at the \
+                initialization L1 block, and the origin fallback key list there \
+                (getFallbackKeys() or its FallbackKeysUpdated log)"
     )]
     pub l1_http: Url,
     /// The L2 chain id whose built-in chain parameters apply; no L2 node is contacted.

@@ -1,7 +1,9 @@
-//! Genuine trie/proof fixtures for immutable batch assembly, signed by the generation's initial
-//! committee at every height.
+//! Genuine trie/proof fixtures for immutable batch assembly, signed by the generation's origin
+//! fallback keys, each at power 1, at every height.
 
-use super::consensus::{FixtureCommittee, SigningKey, pair_with_envelope, parameters, public_key};
+use super::consensus::{
+    FixtureCommittee, SigningKey, fallback_keys, pair_with_envelope, parameters,
+};
 use crate::{
     comet::{CometSource, CometStatus},
     error::{LanderError, Result},
@@ -9,14 +11,12 @@ use crate::{
     types::{CertifiedBlock, LandingSnapshot},
 };
 use abci::{
-    AccountWitness, AnchorState, AnchorWitness, ChainParams, CommitteeState, CommitteeWitness,
-    EtnaEnvelope, ExecutionBlock, ForcedWitness, GenesisRecord, InboxFacts, ParentInfo,
-    RawL1Header, RegistryEntry, Schedule, StorageProof,
-    committee::{
-        Snapshot, committee_config_hash, derive, entries_root, record_hash, snapshot_slots,
-    },
+    AccountWitness, AnchorState, AnchorWitness, ChainParams, CommitteeState, EtnaEnvelope,
+    ExecutionBlock, ForcedWitness, GenesisRecord, InboxFacts, ParentInfo, RawL1Header,
+    StorageProof,
+    fallback::FallbackKeys,
     forced::ForcedEntry,
-    l1::layout::{inbox, registry},
+    l1::layout::inbox,
     rules::{self, HeaderInputs},
     valstate::ValState,
 };
@@ -148,8 +148,10 @@ pub struct Fixture {
     pub anchors: BTreeMap<u64, AnchorState>,
     pub headers: BTreeMap<u64, Header>,
     pub l1_headers: BTreeMap<u64, RawL1Header>,
+    /// The fallback key list generation 0's origin record and slot 278 hold the hash of; its
+    /// keys sign every height of the generation, each at power 1.
+    pub origin_keys: FallbackKeys,
     pub mismatch_statement: AtomicBool,
-    pub witness_mutation: Option<u8>,
     pub starting_proof_mutation: Option<u8>,
     pub parent_anchor_override: Option<AnchorState>,
     /// The validator state after each height from the generation origin on, replayed
@@ -213,36 +215,30 @@ struct Queue {
 }
 
 /// The fixture's L1 state: the Inbox with last checkpoint `(height, hash)` and its three-word
-/// landing record (`endpoint`: height, EL and Comet hashes), the genesis record
-/// `genesis` and the forced inclusion queue `queue` (slots 280–281), and the registry holding
-/// `entries`.
+/// landing record (`endpoint`: height, EL and Comet hashes), the genesis record `genesis`, the
+/// fallback key list `fallback` (slot 278 and generation 0's origin record, with a minimum total
+/// stake of 2^256 − 1 in slot 279) and the forced inclusion queue `queue` (slots 280–281).
 fn state_with_queue(
     params: &ChainParams,
-    entries: &[RegistryEntry],
+    fallback: &FallbackKeys,
     endpoint: (u64, B256, B256),
-    committees: &BTreeMap<u64, FixtureCommittee>,
     genesis: &GenesisRecord,
     queue: &Queue,
 ) -> State {
     let (height, hash, comet_hash) = endpoint;
+    let (fallback_keys_hash, min_total_stake) = fallback_words(fallback);
     let mut slots = vec![
         (inbox::slot(inbox::STATUS), U256::from(3)),
         (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(height)),
         (inbox::slot(inbox::LAST_CHECKPOINT_HASH), hash.into()),
-        (
-            inbox::slot(inbox::GENESIS_COMMITTEE_HASH),
-            record_hash(params.l2_chain_id, &committees[&0].state.record).into(),
-        ),
+        (inbox::slot(inbox::FALLBACK_KEYS_HASH), fallback_keys_hash.into()),
+        (inbox::slot(inbox::MIN_TOTAL_STAKE), min_total_stake),
     ];
     slots.extend([
-        (inbox::slot(inbox::COMMITTEE_CONFIG_HASH), genesis.committee_config_hash.into()),
-        (
-            inbox::slot(inbox::GENESIS_PACKED),
-            U256::from(genesis.l1_0) << 48 | U256::from(genesis.epoch_len) << 96,
-        ),
+        (inbox::slot(inbox::CONFIG_HASH), genesis.config_hash.into()),
+        (inbox::slot(inbox::GENESIS_PACKED), U256::from(genesis.l1_0) << 48),
         (inbox::slot(inbox::START_BLOCK_HASH), genesis.genesis_hash.into()),
         (inbox::slot(inbox::START_STATE_ROOT), genesis.genesis_state_root.into()),
-        (inbox::slot(inbox::GENESIS_CUTOFF), U256::from(genesis.genesis_cutoff)),
         (
             inbox::slot(inbox::FORCED_INCLUSION_CONFIG),
             U256::from(genesis.forced_inclusion_delay) | U256::from(genesis.max_anchor_age) << 48,
@@ -257,6 +253,7 @@ fn state_with_queue(
         (origin[0], U256::ZERO),
         (origin[1], U256::from(genesis.l1_0)),
         (origin[2], U256::from(genesis.l1_0)),
+        (origin[3], fallback_keys_hash.into()),
     ]);
     let landing = inbox::landing_record_slots(height);
     slots.extend([
@@ -271,18 +268,7 @@ fn state_with_queue(
             (metadata, U256::from(entry.timestamp) | (U256::from(entry.l1_block) << 48)),
         ]);
     }
-    let checkpoint = registry::checkpoint_slots(0);
-    State::new(vec![
-        (params.inbox, slots),
-        (
-            params.registry,
-            vec![
-                (registry::length_slot(), U256::from(1)),
-                (checkpoint[0], U256::from(1) | (U256::from(entries.len()) << 48)),
-                (checkpoint[1], entries_root(entries).into()),
-            ],
-        ),
-    ])
+    State::new(vec![(params.inbox, slots)])
 }
 
 /// Forced inclusion entries planted into a fixture's L1 states, and the L2 heights whose blocks
@@ -357,17 +343,10 @@ fn forced_transaction(index: u64) -> (Bytes, B256) {
 }
 
 /// The words `(fallback keys hash, minimum total stake)` that anchor witnesses prove at slots 278
-/// and 279 of a [`state_with_queue`] state over `committees` and `genesis`: the bootstrap
-/// committee hash and the genesis cutoff it writes there.
-fn fallback_words(
-    params: &ChainParams,
-    committees: &BTreeMap<u64, FixtureCommittee>,
-    genesis: &GenesisRecord,
-) -> (B256, U256) {
-    (
-        record_hash(params.l2_chain_id, &committees[&0].state.record),
-        U256::from(genesis.genesis_cutoff),
-    )
+/// and 279 of a [`state_with_queue`] state over `fallback`: the list's hash and 2^256 − 1, which
+/// makes no candidate usable.
+fn fallback_words(fallback: &FallbackKeys) -> (B256, U256) {
+    (fallback.hash(), U256::MAX)
 }
 
 /// The anchor a witness of `raw` proves: last checkpoint `(height, hash)`, the queue's head and
@@ -500,6 +479,41 @@ impl Fixture {
         self.snapshot.recovery_witness = recovery_witness;
         self.states.insert(number, state);
     }
+    /// The starting proof and the anchor of a new L1 block above every other whose Inbox is the
+    /// state of block `number` with `words` written over it, as after a later setter call; the
+    /// block joins the fixture's L1.
+    pub fn starting_witness_with_inbox_words(
+        &mut self,
+        number: u64,
+        words: impl IntoIterator<Item = (B256, U256)>,
+    ) -> (AnchorWitness, AnchorState) {
+        let mut accounts = self.states[&number].accounts.clone();
+        accounts.get_mut(&self.params.inbox).unwrap().0.extend(words);
+        let state = State::new(
+            accounts
+                .into_iter()
+                .map(|(address, (slots, _))| (address, slots.into_iter().collect()))
+                .collect(),
+        );
+        let next = *self.l1_headers.last_key_value().unwrap().0 + 1;
+        let raw = l1_header(next, &state, self.l1_headers[&(next - 1)].hash());
+        let anchor = abci::l1::verify_anchor_witness(
+            &AnchorWitness {
+                l1_header: raw.clone(),
+                inbox: state.witness(self.params.inbox, &inbox::anchor_slots()),
+            },
+            self.params.inbox,
+        )
+        .unwrap();
+        let witness = AnchorWitness {
+            l1_header: raw.clone(),
+            inbox: state.witness(self.params.inbox, &crate::l1::starting_slots(0)),
+        };
+        self.l1_headers.insert(next, raw);
+        self.states.insert(next, state);
+        (witness, anchor)
+    }
+
     /// Replant exact Inbox words under a new authenticated root for decoder boundary tests.
     pub fn snapshot_with_inbox_words(
         &self,
@@ -538,13 +552,12 @@ impl Fixture {
     ) -> LandingSnapshot {
         let state = state_with_queue(
             &self.params,
-            &self.registry_entries(),
+            &self.origin_keys,
             (
                 self.snapshot.checkpoint_height,
                 self.snapshot.checkpoint_hash,
                 self.snapshot.checkpoint_comet_hash,
             ),
-            &self.committees,
             &genesis,
             &Queue { head, tail, entries: Vec::new() },
         );
@@ -564,19 +577,6 @@ impl Fixture {
         }
     }
 
-    fn registry_entries(&self) -> Vec<RegistryEntry> {
-        [1u8, 2]
-            .into_iter()
-            .enumerate()
-            .map(|(index, seed)| RegistryEntry {
-                ck_prefix: public_key(&SigningKey::from_slice(&[seed; 32]).unwrap()).prefix(),
-                ck_x: public_key(&SigningKey::from_slice(&[seed; 32]).unwrap()).x(),
-                eff_stake: U256::from(if index == 0 { 3 } else { 1 }) * self.params.vp_unit,
-                active_from_l1: 1,
-                exit_effective_l1: u64::MAX,
-            })
-            .collect()
-    }
     pub fn new(checkpoint: u64, tip: u64) -> Self {
         Self::with_calldata(checkpoint, tip, 0)
     }
@@ -705,61 +705,33 @@ impl Fixture {
             ..Default::default()
         };
         let genesis = GenesisRecord {
-            committee_config_hash: committee_config_hash(&params),
+            config_hash: params.config_hash(),
             genesis_height: 0,
             l1_0: 10,
-            epoch_len,
-            genesis_cutoff: 1,
             genesis_hash: genesis_header.hash_slow(),
             genesis_state_root: genesis_header.state_root,
             forced_inclusion_delay: plan.delay,
             max_anchor_age,
         };
-        let schedule = Schedule::from_genesis(&genesis);
         let keys = vec![
             SigningKey::from_slice(&[1; 32]).unwrap(),
             SigningKey::from_slice(&[2; 32]).unwrap(),
         ];
-        let entries = keys
-            .iter()
-            .enumerate()
-            .map(|(index, key)| RegistryEntry {
-                ck_prefix: public_key(key).prefix(),
-                ck_x: public_key(key).x(),
-                eff_stake: U256::from(if index == 0 { 3 } else { 1 }) * params.vp_unit,
-                // Both members are eligible at the genesis cutoff, so the initial set that
-                // signs every height holds both, at powers 3 and 1.
-                active_from_l1: 1,
-                exit_effective_l1: u64::MAX,
-            })
-            .collect::<Vec<_>>();
-        let snapshot = Snapshot { checkpoint_index: 0, l1_block: 1, entries: entries.clone() };
-        let mut committees = BTreeMap::new();
-        for epoch in 0..=schedule.epoch_of(tip + 1).max(3) {
-            let cutoff = if epoch == 0 {
-                genesis.genesis_cutoff
-            } else if epochs.advances {
-                anchor_number(schedule.derivation_parent_height(epoch).unwrap())
-            } else if epoch == 1 {
-                11
-            } else {
-                12
-            };
-            let (record, members) = derive(&snapshot, cutoff, epoch, &params).unwrap();
-            committees.insert(epoch, FixtureCommittee::new(CommitteeState { record, members }));
-        }
+        // Both keys are generation 0's origin fallback keys, so the set that signs every height
+        // holds both, each at power 1.
+        let origin_keys = fallback_keys(&keys);
+        let committees = BTreeMap::from([(0, FixtureCommittee::fallback(&origin_keys))]);
         let val_states = replay_val_states((0, &committees[&0].state), tip);
         let planted = plan.planted();
         let genesis_state = state_with_queue(
             &params,
-            &entries,
+            &origin_keys,
             (0, genesis.genesis_hash, B256::ZERO),
-            &committees,
             &genesis,
             &plan.queue(&planted, 10, 0),
         );
         let raw10 = l1_header(10, &genesis_state, B256::repeat_byte(9));
-        let words = fallback_words(&params, &committees, &genesis);
+        let words = fallback_words(&origin_keys);
         let anchor10 = anchor(&raw10, 0, genesis.genesis_hash, &plan.queue(&planted, 10, 0), words);
         let mut cursor = 0;
         let mut states = BTreeMap::from([(10, genesis_state)]);
@@ -791,7 +763,7 @@ impl Fixture {
             if !l1_headers.contains_key(&number) {
                 let state = state_with_queue(
                     &params,
-                    &entries,
+                    &origin_keys,
                     (
                         cp,
                         epochs.checkpoint_hash.unwrap_or_else(|| headers[&cp].hash_slow()),
@@ -799,7 +771,6 @@ impl Fixture {
                             B256::from_slice(pair.block.header.hash().as_bytes())
                         }),
                     ),
-                    &committees,
                     &genesis,
                     &plan.queue(&planted, number, cp),
                 );
@@ -941,7 +912,7 @@ impl Fixture {
         let snapshot_queue = plan.queue(&planted, snapshot_number, checkpoint);
         let snapshot_state = state_with_queue(
             &params,
-            &entries,
+            &origin_keys,
             (
                 checkpoint,
                 headers[&checkpoint].hash_slow(),
@@ -949,7 +920,6 @@ impl Fixture {
                     B256::from_slice(pair.block.header.hash().as_bytes())
                 }),
             ),
-            &committees,
             &genesis,
             &snapshot_queue,
         );
@@ -975,11 +945,7 @@ impl Fixture {
                 }),
             forced_inclusion_head: snapshot_queue.head,
             forced_inclusion_tail: snapshot_queue.tail,
-            committee_config_hash: genesis.committee_config_hash,
-            genesis_committee_record_hash: record_hash(
-                params.l2_chain_id,
-                &committees[&0].state.record,
-            ),
+            config_hash: genesis.config_hash,
             l1_header: snapshot_header,
             inbox_witness: snapshot_state
                 .witness(params.inbox, &crate::l1::snapshot_landing_slots(checkpoint)),
@@ -994,13 +960,13 @@ impl Fixture {
             anchors,
             headers,
             l1_headers,
+            fallback_lists: BTreeMap::from([(origin_keys.hash(), origin_keys.clone())]),
+            origin_keys,
             mismatch_statement: AtomicBool::new(false),
-            witness_mutation: None,
             starting_proof_mutation: None,
             parent_anchor_override: None,
             val_states,
             val_state_answers: BTreeMap::new(),
-            fallback_lists: BTreeMap::new(),
             fallback_reads: AtomicUsize::new(0),
             states,
         }
@@ -1113,27 +1079,6 @@ impl LandingSource for Fixture {
             _ => {}
         }
         Ok(AnchorWitness { l1_header: self.l1_headers[&anchor.number].clone(), inbox: witness })
-    }
-    async fn committee_witness(
-        &self,
-        anchor: &AnchorState,
-        _snapshot_number: u64,
-        epoch: u64,
-    ) -> Result<CommitteeWitness> {
-        let mut witness = CommitteeWitness {
-            record: self.committees[&epoch].state.record.clone(),
-            registry: self.states[&anchor.number]
-                .witness(self.params.registry, &snapshot_slots(0, false)),
-            entries: self.registry_entries(),
-        };
-        match self.witness_mutation {
-            Some(0) => witness.registry.address = Address::ZERO,
-            Some(1) => witness.registry.storage_root = B256::ZERO,
-            Some(2) => witness.entries[0].eff_stake += U256::from(1),
-            Some(3) => witness.record.cutoff_l1_block += 1,
-            _ => {}
-        }
-        Ok(witness)
     }
     /// The served list with hash `hash`, at an L1 block of the fixture's.
     async fn fallback_keys(
@@ -1544,79 +1489,23 @@ mod readiness {
     }
 }
 
-/// Exercises the former settlement-size boundary through real MPT and signature verifiers.
+/// Exercises the former settlement-size boundary through the signature verifier: 301 members at
+/// unit power, more than any signing set now holds, still certify with 201 commits, not 200.
 #[test]
-fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
+fn authenticates_301_unit_power_members_through_comet_certificate() {
     use super::consensus::{committee, pair};
     use crate::{
         native::CommitSig,
         validate::{ValidationError, verify_commit},
     };
-    use abci::committee::{CommitteeError, verify_committee_witness_at_cutoff, verify_snapshot};
     use std::collections::BTreeSet;
 
     const COUNT: usize = 301;
     const CHAIN_ID: &str = "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4";
-    let (params, _, keys) = committee(&[1; COUNT], 0);
-    let entries = keys
-        .iter()
-        .map(|key| RegistryEntry {
-            ck_prefix: public_key(key).prefix(),
-            ck_x: public_key(key).x(),
-            eff_stake: params.vp_unit,
-            active_from_l1: 1,
-            exit_effective_l1: u64::MAX,
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(entries.len(), COUNT);
+    let (_, authenticated, keys) = committee(&[1; COUNT], 0);
     assert_eq!(keys.len(), COUNT);
-    assert_eq!(
-        entries.iter().map(|entry| entry.consensus_key().unwrap()).collect::<BTreeSet<_>>().len(),
-        COUNT
-    );
-    assert_eq!(
-        entries
-            .iter()
-            .map(|entry| entry.consensus_key().unwrap().address())
-            .collect::<BTreeSet<_>>()
-            .len(),
-        COUNT
-    );
-    let snapshot = Snapshot { checkpoint_index: 0, l1_block: 1, entries: entries.clone() };
-    let (record, expected_members) = derive(&snapshot, 1, 0, &params).unwrap();
-    let checkpoint = registry::checkpoint_slots(0);
-    let state = State::new(vec![(
-        params.registry,
-        vec![
-            (registry::length_slot(), U256::from(1)),
-            (checkpoint[0], U256::from(1) | (U256::from(COUNT) << 48)),
-            (checkpoint[1], entries_root(&entries).into()),
-        ],
-    )]);
-    let witness = CommitteeWitness {
-        record: record.clone(),
-        registry: state.witness(params.registry, &snapshot_slots(0, false)),
-        entries,
-    };
-    assert!(!witness.registry.account_proof.is_empty());
-    assert_eq!(verify_snapshot(state.root, params.registry, &witness, 1).unwrap(), snapshot);
-    let (verified_record, members) =
-        verify_committee_witness_at_cutoff(state.root, 1, &params, &witness, 0).unwrap();
-    assert_eq!(verified_record, record);
-    assert_eq!(members, expected_members);
-    assert_eq!(members.len(), COUNT);
-    assert_eq!(members.iter().map(|member| member.pubkey).collect::<BTreeSet<_>>().len(), COUNT);
-    let authenticated = FixtureCommittee::new(CommitteeState { record: verified_record, members });
     assert_eq!(authenticated.validators.validators().len(), COUNT);
     assert_eq!(authenticated.validators.total_voting_power(), 301);
-
-    // The member beyond the old 300-member boundary is covered by the proven payout root.
-    let mut tampered = witness.clone();
-    tampered.entries[COUNT - 1].ck_x = B256::repeat_byte(0x88);
-    assert!(matches!(
-        verify_committee_witness_at_cutoff(state.root, 1, &params, &tampered, 0),
-        Err(CommitteeError::EntriesRootMismatch { .. })
-    ));
 
     let mut block = pair(1, B256::ZERO, &authenticated, &keys, None);
     assert_eq!(block.commit.signatures.len(), COUNT);
@@ -1660,11 +1549,8 @@ pub(crate) async fn import_package(
             &abci::l1::layout::inbox::genesis_slots(),
             fx.snapshot.genesis.l1_0,
         ),
-        committee: fx
-            .committee_witness(&fx.anchors[&0], fx.snapshot.genesis.genesis_cutoff, 0)
-            .await
-            .unwrap(),
     };
+    let validators = fx.origin_keys.validator_set();
     let genesis = GenesisDoc {
         genesis_time: tendermint::Time::from_unix_timestamp(
             witness.l1_header.timestamp() as i64,
@@ -1675,23 +1561,12 @@ pub(crate) async fn import_package(
         chain_id: abci::rules::chain_id_for(&fx.params, 0).unwrap(),
         initial_height: "1".into(),
         consensus_params: abci::genesis::GenesisConsensusParams::etna(fx.params.n_max),
-        validators: fx.committees[&0]
-            .state
-            .members
+        validators: validators
             .iter()
-            .map(abci::genesis::GenesisValidator::from_member)
+            .map(|(key, power)| abci::genesis::GenesisValidator::new(*key, *power))
             .collect(),
-        app_hash: abci::genesis::genesis_app_hash(
-            0,
-            fx.snapshot.genesis.genesis_hash,
-            &fx.committees[&0]
-                .state
-                .members
-                .iter()
-                .map(|m| (m.pubkey, m.power))
-                .collect::<Vec<_>>(),
-        )
-        .unwrap(),
+        app_hash: abci::genesis::genesis_app_hash(0, fx.snapshot.genesis.genesis_hash, &validators)
+            .unwrap(),
         app_state: abci::genesis::AppStateJson::from(&witness),
     };
     ImportPackage {

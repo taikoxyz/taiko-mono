@@ -12,10 +12,7 @@ use serde::{Deserialize, Serialize};
 use tendermint::Time;
 
 use super::{AppStateJson, GenesisError, GenesisWitness};
-use crate::{
-    types::Member,
-    valstate::{ValState, ValStateError, app_hash},
-};
+use crate::valstate::{ValState, ValStateError, app_hash};
 
 /// The CometBFT `genesis.json` of an Etna chain.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -30,9 +27,8 @@ pub struct GenesisDoc {
     pub initial_height: String,
     /// The consensus parameters ([`GenesisConsensusParams::etna`]).
     pub consensus_params: GenesisConsensusParams,
-    /// The generation's initial set: generation zero's committee in set-key order, derived at
-    /// the genesis cutoff; a recovery generation's origin fallback keys in list order, each at
-    /// power 1.
+    /// The generation's initial set: the keys of the fallback key list whose hash the
+    /// generation's origin record holds, in list order, each at power 1.
     pub validators: Vec<GenesisValidator>,
     /// appHash(o) of the origin o (CONS-3.1-8, ENC-A-29b.e): the start hash or ELHash(c) with the
     /// genesis validator state of `validators` at o, uppercase hex for stock Comet JSON
@@ -230,11 +226,6 @@ impl GenesisValidator {
             name: String::new(),
         }
     }
-
-    /// The genesis validator of committee member `m`: its native key and mapped power.
-    pub fn from_member(m: &Member) -> Self {
-        Self::new(m.pubkey, m.power)
-    }
 }
 
 /// Upper-case hex of the native key's full 20-byte Ethereum address.
@@ -256,16 +247,16 @@ pub fn genesis_app_hash(
 
 impl GenesisDoc {
     /// The genesis document of a verified genesis: `w` as `app_state` (its `L1_0` timestamp as
-    /// `genesis_time`), `chain_id`, `initial_height` and the committee `members` (set-key order)
-    /// as validators, with [`GenesisConsensusParams::etna`] for committee cap `n_max` and
+    /// `genesis_time`), `chain_id`, `initial_height` and `validators`, keys with their powers in
+    /// the given order, with [`GenesisConsensusParams::etna`] for committee cap `n_max` and
     /// appHash(S) of the start hash and their genesis validator state ([`genesis_app_hash`]).
     ///
     /// Fails with [`GenesisError::GenesisTime`] when the `L1_0` timestamp is not a valid
-    /// CometBFT time, and with [`GenesisError::ValidatorSet`] when CometBFT refuses `members`.
+    /// CometBFT time, and with [`GenesisError::ValidatorSet`] when CometBFT refuses the set.
     pub(crate) fn assemble(
         w: &GenesisWitness,
         chain_id: String,
-        members: &[Member],
+        validators: &[(ConsensusKey, u64)],
         n_max: usize,
     ) -> Result<Self, GenesisError> {
         let genesis_time = genesis_time(w.l1_header.timestamp())?;
@@ -285,12 +276,11 @@ impl GenesisDoc {
             chain_id,
             initial_height: (start_height + 1).to_string(),
             consensus_params: GenesisConsensusParams::etna(n_max),
-            validators: members.iter().map(GenesisValidator::from_member).collect(),
-            app_hash: genesis_app_hash(
-                start_height,
-                start_hash,
-                &members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>(),
-            )?,
+            validators: validators
+                .iter()
+                .map(|(key, power)| GenesisValidator::new(*key, *power))
+                .collect(),
+            app_hash: genesis_app_hash(start_height, start_hash, validators)?,
             app_state: AppStateJson::from(w),
         })
     }
@@ -304,7 +294,7 @@ impl GenesisDoc {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::{Fixture, edit_l1_header, powers, test_key};
+    use crate::test_utils::{Fixture, edit_l1_header, test_key};
     #[test]
     fn validator_identity_is_full_ethereum_address() {
         let k = ConsensusKey::from_slice(&alloy_primitives::hex!(
@@ -316,8 +306,13 @@ mod tests {
     #[test]
     fn json_preserves_stock_parameters_and_genesis_app_hash() {
         let fx = Fixture::genesis(2);
-        let doc = GenesisDoc::assemble(&fx.witness, fx.request.chain_id.clone(), &fx.members, 128)
-            .unwrap();
+        let doc = GenesisDoc::assemble(
+            &fx.witness,
+            fx.request.chain_id.clone(),
+            &fx.fallback_keys.validator_set(),
+            128,
+        )
+        .unwrap();
         let value = serde_json::to_value(&doc).unwrap();
         assert_eq!(
             value["consensus_params"]["validator"]["pub_key_types"],
@@ -325,7 +320,9 @@ mod tests {
         );
         assert_eq!(value["consensus_params"]["version"]["app"], "1");
         assert_eq!(value["consensus_params"]["block"]["max_bytes"], "2097152");
-        let genesis = ValState::genesis(fx.genesis.genesis_height, &powers(&fx.members)).unwrap();
+        let genesis =
+            ValState::genesis(fx.genesis.genesis_height, &fx.fallback_keys.validator_set())
+                .unwrap();
         assert_eq!(
             doc.app_hash,
             alloy_primitives::hex::encode_upper(app_hash(fx.genesis.genesis_hash, genesis.hash()))
@@ -368,20 +365,25 @@ mod tests {
     }
     #[test]
     fn validator_power_and_order_are_preserved() {
-        let members = [
-            Member { pubkey: test_key(9), eff_stake: alloy_primitives::U256::from(1), power: 7 },
-            Member { pubkey: test_key(1), eff_stake: alloy_primitives::U256::from(1), power: 8 },
-        ];
-        let vals = members.iter().map(GenesisValidator::from_member).collect::<Vec<_>>();
-        assert_eq!(vals[0].pub_key.0, members[0].pubkey);
-        assert_eq!(vals[1].power, "8");
+        let fx = Fixture::genesis(1);
+        let validators = [(test_key(9), 7), (test_key(1), 8)];
+        let doc =
+            GenesisDoc::assemble(&fx.witness, "c".into(), &validators, fx.params.n_max).unwrap();
+        assert_eq!(doc.validators[0].pub_key.0, test_key(9));
+        assert_eq!(doc.validators[0].power, "7");
+        assert_eq!(doc.validators[1].power, "8");
     }
     #[test]
     fn genesis_time_out_of_range_is_rejected() {
         let mut fx = Fixture::genesis(1);
         fx.witness.l1_header = edit_l1_header(&fx.witness.l1_header, |h| h.timestamp = u64::MAX);
         assert!(matches!(
-            GenesisDoc::assemble(&fx.witness, "c".into(), &fx.members, fx.params.n_max),
+            GenesisDoc::assemble(
+                &fx.witness,
+                "c".into(),
+                &fx.fallback_keys.validator_set(),
+                fx.params.n_max
+            ),
             Err(GenesisError::GenesisTime(u64::MAX))
         ));
     }

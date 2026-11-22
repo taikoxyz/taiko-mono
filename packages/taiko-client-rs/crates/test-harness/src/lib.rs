@@ -45,7 +45,7 @@ pub use genesis::{EtnaGenesis, StandaloneReth};
 pub use keys::{NodeKey, ValidatorKey, node_keys, validator_keys};
 pub use l1::{anvil_request, block_number, finalized_number, mine_l1_blocks, set_interval_mining};
 pub use l2::{DEV_KEY, anchor_of, dev_signer, extra_data_of, send_transfer, sign_transfer};
-pub use planter::{InboxValues, NextBlock, PlantedEntry, Planter, registry_entry};
+pub use planter::{InboxValues, NextBlock, PlantedEntry, Planter};
 pub use signer::{
     init_signer_domains_log, init_signer_state, signer_binary, signer_domains_log, signer_hrs,
     supervisor_command,

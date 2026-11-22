@@ -26,6 +26,8 @@ pub struct Deployment {
     pub inbox: Address,
     /// Authenticated registry address.
     pub registry: Address,
+    /// The `EtnaStaking` proxy on L2, which the configuration hash commits.
+    pub staking: Address,
     /// Full 256-bit L1 chain identifier.
     pub l1_chain_id: U256,
     /// Maximum unsettled depth in L2 blocks.
@@ -48,6 +50,7 @@ impl From<&ChainParams> for Deployment {
             l2_chain_id: p.l2_chain_id,
             inbox: p.inbox,
             registry: p.registry,
+            staking: p.staking,
             l1_chain_id: p.l1_chain_id,
             unsettled_limit: p.unsettled_limit,
             fee_recipient: p.fee_recipient,
@@ -66,6 +69,7 @@ impl Deployment {
             l2_chain_id: self.l2_chain_id,
             inbox: self.inbox,
             registry: self.registry,
+            staking: self.staking,
             l1_chain_id: self.l1_chain_id,
             unsettled_limit: self.unsettled_limit,
             fee_recipient: self.fee_recipient,

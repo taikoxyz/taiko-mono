@@ -14,10 +14,10 @@ use test_harness::{Devnet, DevnetSpec, anchor_of, finalized_number, wait_until};
 #[ignore = "docker"]
 async fn an_epoch_boundary_does_not_wait_for_l1() -> anyhow::Result<()> {
     let started = Instant::now();
-    let spec = DevnetSpec { epoch_len: 20, unsettled_limit: 18, ..Default::default() };
+    let spec = DevnetSpec { unsettled_limit: 18, ..Default::default() };
     let devnet = Devnet::start(spec.clone()).await?;
-    let schedule = devnet.schedule();
-    let boundary = schedule.h_first(1);
+    // The height the removed 20-block epoch schedule switched at; nothing switches there now.
+    let boundary = 21;
     let l1 = devnet.l1();
     let l2 = devnet.l2_provider(0);
 

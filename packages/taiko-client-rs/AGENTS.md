@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-- `bin/client/` hosts the CLI entry point (`abci`, `abci-genesis`, `abci-committee-record`, `abci-recover`, `abci-import`, `lander`); keep orchestration light and delegate protocol logic to the crates.
+- `bin/client/` hosts the CLI entry point (`abci`, `abci-genesis`, `abci-recover`, `abci-import`, `lander`); keep orchestration light and delegate protocol logic to the crates.
 - `crates/abci` is the ABCI++ application of the Etna PoS chain (CometBFT + `taiko-client abci` + alethia-reth). Keep `envelope`, `rules`, `schedule`, `committee` and `forced` (the forced inclusion rule) free of I/O so they can later move unchanged into a no_std crate for the guest. The envelope is version 6; validators enforce forced inclusion and anchor freshness per block.
 - `crates/lander` authenticates CometBFT batches and historical committee ancestry, builds V6 blobs and the twenty-three-word V1 statement, obtains a proof through a trait (dummy `0x00` only), and durably submits nonpayable `land(input, leaves, proof)`. Fees and payouts are not consensus inputs. Never replace an outstanding nonce automatically.
 - `crates/protocol` holds shared protocol helpers; `crates/rpc` holds the Engine API / JWT provider helpers. FI bytes are authenticated calldata from exact-block admission events. Document shared traits whenever exposing cross-crate APIs.

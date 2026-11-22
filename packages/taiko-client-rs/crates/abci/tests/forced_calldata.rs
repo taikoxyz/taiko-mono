@@ -237,7 +237,6 @@ async fn deploy_fixture(d: &Devnet) -> Result<Address> {
 async fn forced_invalid_skip_keeps_mempool() -> Result<()> {
     let mut d = Devnet::start(DevnetSpec {
         forced_inclusion_delay: 2,
-        epoch_len: 200,
         unsettled_limit: 180,
         ..Default::default()
     })

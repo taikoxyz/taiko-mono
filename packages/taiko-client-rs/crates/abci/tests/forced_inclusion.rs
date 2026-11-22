@@ -209,7 +209,6 @@ async fn stale_l1_finality_pauses_and_resumes_l2() -> anyhow::Result<()> {
     const FRESHNESS_TIMEOUT: Duration = Duration::from_secs(300);
     let started = Instant::now();
     let spec = DevnetSpec {
-        epoch_len: 2_000,
         unsettled_limit: 1_800,
         timeout_commit_ms: 1,
         max_anchor_age: 1_152,

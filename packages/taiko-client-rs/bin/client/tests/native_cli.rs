@@ -60,19 +60,17 @@ async fn help_lists_every_command() {
     let help = run(&["--help"]).await;
     assert!(help.status.success());
     let help = String::from_utf8(help.stdout).unwrap();
-    for command in ["abci", "abci-genesis", "abci-committee-record", "lander"] {
+    for command in ["abci", "abci-genesis", "lander"] {
         assert!(help.contains(command));
     }
+    assert!(!help.contains("abci-committee-record"), "the registry-era command is gone");
 }
 
 #[tokio::test]
 async fn both_bootstrap_commands_accept_full_l1_id_before_authenticated_state_reads() {
-    for command in ["abci-genesis", "abci-committee-record"] {
+    for command in ["abci-genesis"] {
         let rpc = rpc("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").await;
-        let mut args = vec![command, "--l1.http", &rpc.url, "--l2.chain-id", "167001"];
-        if command == "abci-committee-record" {
-            args.extend(["--genesis-cutoff", "0"]);
-        }
+        let args = vec![command, "--l1.http", &rpc.url, "--l2.chain-id", "167001"];
         let output = run(&args).await;
         assert!(!output.status.success(), "fixture has no initialized Inbox or final block");
         let methods = rpc.methods.lock().unwrap();
@@ -168,9 +166,9 @@ async fn explicit_l1_domain_mismatch_refuses_bootstrap_before_contract_reads() {
     let dir = tempfile::tempdir().unwrap();
     let config = dir.path().join("chain.toml");
     std::fs::write(&config, "l1_chain_id = '1'\n").unwrap();
-    for command in ["abci-genesis", "abci-committee-record"] {
+    for command in ["abci-genesis"] {
         endpoint.methods.lock().unwrap().clear();
-        let mut args = vec![
+        let args = vec![
             command,
             "--l1.http",
             &endpoint.url,
@@ -179,9 +177,6 @@ async fn explicit_l1_domain_mismatch_refuses_bootstrap_before_contract_reads() {
             "--chain-config",
             config.to_str().unwrap(),
         ];
-        if command == "abci-committee-record" {
-            args.extend(["--genesis-cutoff", "0"]);
-        }
         let result = run(&args).await;
         assert!(!result.status.success());
         assert!(

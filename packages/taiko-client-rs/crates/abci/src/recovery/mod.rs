@@ -205,7 +205,7 @@ mod tests {
         assert!(authenticate_recovery(&l1, &fx.engine(), &fx.params, 3).await.is_err());
         let mut storage = fx.inbox_with(18);
         storage.recovery_generation = 3;
-        fx.advance_l1(&l1, 120, &storage, &fx.registry);
+        fx.advance_l1(&l1, 120, &storage);
         assert!(matches!(
             check_recovery_canonicality(&l1, &fx.params, &w).await,
             Err(RecoveryError::Superseded { requested: 2, current: 3 })
@@ -218,13 +218,12 @@ mod tests {
         w: &RecoveryWitness,
         changes: &[(B256, U256)],
     ) -> crate::test_utils::TestState {
-        use crate::test_utils::{TestState, filler_accounts, registry_account};
+        use crate::test_utils::{TestState, filler_accounts};
         let mut words: Vec<_> =
             w.finalized_inbox.storage.iter().map(|p| (p.slot, p.value)).collect();
         words.extend_from_slice(changes);
         let mut accounts = filler_accounts();
         accounts.push((fx.params.inbox, 1, U256::ZERO, B256::repeat_byte(1), words));
-        accounts.push(registry_account(fx.params.registry, &fx.registry));
         TestState::new(accounts)
     }
 
@@ -454,9 +453,6 @@ mod tests {
         w.genesis.l1_header =
             l1.insert_block(l1_header(64, Fixture::l1_timestamp(64)), state.clone());
         w.genesis.inbox = state.witness(fx.params.inbox, &inbox::genesis_slots());
-        let registry_slots: Vec<_> =
-            w.genesis.committee.registry.storage.iter().map(|p| p.slot).collect();
-        w.genesis.committee.registry = state.witness(fx.params.registry, &registry_slots);
         w.recovery_header = w.genesis.l1_header.clone();
         w.recovery_inbox = state.witness(fx.params.inbox, &inbox::recovery_slots(1, 0));
         w.finalized_header =

@@ -56,16 +56,16 @@ asks the app's private control socket before every signature (see
 
 ## Project structure
 
-| Path                   | Description                                                                                                          |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-committee-record`, `abci-recover`, `abci-import`, `lander`) |
-| `crates/lander/`       | Permissionless batch/blob construction, proof trait and durable L1 submission                                        |
-| `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                                                         |
-| `crates/protocol/`     | Shared helpers: blob coder, mix hash, Etna `extraData`, EIP-4396 base fee                                            |
-| `crates/rpc/`          | Engine API and JWT helpers                                                                                           |
-| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and calldata admission fixtures                                        |
-| `script/`              | Maintenance scripts (artifact generation, signer builds)                                                             |
-| `tests/`               | The integration test entrypoint and the test JWT secret                                                              |
+| Path                   | Description                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| `bin/client/`          | The `taiko-client` binary (`abci`, `abci-genesis`, `abci-recover`, `abci-import`, `lander`) |
+| `crates/lander/`       | Permissionless batch/blob construction, proof trait and durable L1 submission               |
+| `crates/abci/`         | The ABCI++ application of the Etna PoS chain                                                |
+| `crates/protocol/`     | Shared helpers: blob coder, mix hash, Etna `extraData`, EIP-4396 base fee                   |
+| `crates/rpc/`          | Engine API and JWT helpers                                                                  |
+| `crates/test-harness/` | Docker devnet (anvil, alethia-reth, CometBFT) and calldata admission fixtures               |
+| `script/`              | Maintenance scripts (artifact generation, signer builds)                                    |
+| `tests/`               | The integration test entrypoint and the test JWT secret                                     |
 
 ## Fresh deployment
 
@@ -428,51 +428,23 @@ imports no snapshots and retains the dummy-proof development scope.
 Reads the Ethereum-final genesis record from L1 and writes the CometBFT `genesis.json`
 (48-byte `etna-` deployment-domain chain id, initial height 1, native validator set and the genesis
 witness in `app_state`). It never invents values; `InitChain` re-verifies everything. The genesis
-committee is the staking registry's snapshot at the Inbox's explicit `genesisCutoff`: the initializing DAO proposal names
-that past L1 block explicitly, as it is written before the initialization block is known.
-Genesis verification also checks the stored committee config hash against
-the local parameters. The genesis record carries the forced inclusion delay and `maxAnchorAge`
-proven from Inbox slot 282; a zero delay or `maxAnchorAge < 1152` is refused.
+validators are the keys of the fallback key list whose hash generation 0's origin record holds,
+each at voting power 1, in ascending order: `abci-genesis` obtains that list at the initialization
+block by its hash (`getFallbackKeys()` there, or else the list's `FallbackKeysUpdated` log at or
+below it), and `InitChain` accepts the validators only when their list hashes to the origin
+record's `fallbackKeysHash`. Genesis verification also checks the configuration hash in Inbox slot
+269 against the built-in L2 chain id, `EtnaStaking` proxy and U. The genesis record carries the
+forced inclusion delay and `maxAnchorAge` proven from Inbox slot 282; a zero delay or
+`maxAnchorAge < 1152` is refused.
 
-| Flag             | Description                                                                           |
-| ---------------- | ------------------------------------------------------------------------------------- |
-| `--l1.http`      | L1 node serving state from the initialization block back to `genesisCutoff` (archive) |
-| `--l2.chain-id`  | L2 chain id selecting the built-in chain parameters (no L2 node is contacted)         |
-| `--chain-config` | Optional TOML overriding the built-in chain parameters (devnet only)                  |
-| `--out`          | Path of the `genesis.json` to write (default: standard output)                        |
+| Flag             | Description                                                                    |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `--l1.http`      | L1 node serving the initialization block's state, or the origin key list's log |
+| `--l2.chain-id`  | L2 chain id selecting the built-in chain parameters (no L2 node is contacted)  |
+| `--chain-config` | Optional TOML overriding the built-in chain parameters (devnet only)           |
+| `--out`          | Path of the `genesis.json` to write (default: standard output)                 |
 
-### `abci-committee-record`
-
-Computes, before the initialization, the `committeeRecordHash` that `EtnaInbox::init` takes for a chosen
-`genesisCutoff`: the hash of the genesis committee derived from the staking registry's snapshot
-at that L1 block exactly as `InitChain` will derive it (spec section 4.3, Committee derivation).
-The snapshot is read and proven at a later L1
-block, the proving block, and the derived committee is verified against it before anything is
-printed. Run it while writing the initializing DAO proposal; anyone can rerun it to check the
-proposal's hash.
-
-| Flag               | Description                                                                          |
-| ------------------ | ------------------------------------------------------------------------------------ |
-| `--l1.http`        | L1 node serving state from the proving block back to `--genesis-cutoff`, HTTP(S)     |
-| `--l2.chain-id`    | L2 chain id selecting the built-in chain parameters (no L2 node is contacted)        |
-| `--chain-config`   | Optional TOML overriding the built-in chain parameters (devnet only)                 |
-| `--genesis-cutoff` | The initialization's `genesisCutoff`, an L1 block at or before `finalized`, required |
-| `--at`             | The proving block, after the cutoff (default: the L1 node's `finalized` block)       |
-| `--json`           | Print the report as JSON instead of plain text                                       |
-
-The report gives the record hash, the cutoff, the snapshot's checkpoint index, the proving block,
-every member's compressed 33-byte public key and voting power, total voting power, selected effective
-stake in TAIKO base units, and the committee
-config hash required by Inbox initialization. A cutoff after the L1 node's `finalized` block
-is refused, as the initialization fixes it irreversibly, and so is a cutoff at which no entry is eligible: initializing with it would leave the chain
-without validators. The registry's `minStake()`, `l2ChainId()` and `inbox()`, read at the proving
-block, must equal the chain parameters' `min_stake`, L2 chain id and Inbox: Inbox initialization
-uses the registry's own `minStake` in the committee config hash (spec START-10-14), so a record
-computed with other parameters is refused with both values named. `--json` prints each member's effective stake as a decimal string. Its top-level fields are
-`record_hash`, `committee_config_hash`, `record`, `members`, `selected_eff_stake`, `proving_block`. The record has
-`target_epoch`, `cutoff_l1_block`, `checkpoint_index`, `set_hash`, `total_power`; each member has
-`pubkey`, `eff_stake`, `power`. Logs go to
-standard error.
+### Launch acceptance
 
 For launch acceptance (SPEC 4.1/4.4/11 and ACCEPTANCE 4), pin an independent `C_CAP_MIN`,
 conservative per-TAIKO `P_REF` in the same currency, price source, haircut, expiry, review frequency
@@ -498,19 +470,13 @@ invalidate forfeiture authorization. Estimate recovery economics before authoriz
 finalized R, including activated top-ups. Economic shortfalls or expired valuation require alerts,
 public disclosure and replenishment, without adding a signing, rotation or recovery veto.
 
-```sh
-taiko-client abci-committee-record --l1.http http://l1-node:8545 --l2.chain-id 167001 \
-  --genesis-cutoff 400000
-```
-
 ## Run a validator
 
-The walkthrough assumes the Etna Inbox on L1 is initialized and the validator's native secp256k1eth consensus
-key is registered in the staking registry snapshot the genesis committee is derived from. The
-initialization's `committeeRecordHash` was computed with `abci-committee-record` at the initialization's
-`genesisCutoff`, and its committee config hash matches the node's parameters; `abci-genesis` and
-`InitChain` re-derive the same committee and refuse a genesis whose stored genesis committee hash
-or config opening differs.
+The walkthrough assumes the Etna Inbox on L1 is initialized with a fallback key list that holds
+the validator's native secp256k1eth consensus key, and that its configuration hash matches the
+node's built-in parameters; `abci-genesis` and `InitChain` take the genesis validators from the
+list whose hash generation 0's origin record holds and refuse a genesis whose configuration hash
+differs.
 
 1. **Build the genesis** from L1 (every node must use the same file):
 
@@ -933,9 +899,8 @@ committing those values to the Inbox.
 - **Proposers** fetch calldata admission events from `--l1.http` using exact-block `eth_getLogs`.
   Keep old logs available for still-pending queue entries; no FI expiry permits deleting them.
   Voters and cold replay use envelope-carried bytes and proofs instead of fetching admission logs.
-- `abci-genesis` reads the initialization block and the registry entries back to the Inbox's
-  `genesisCutoff`. That block is fixed when the initializing DAO proposal is written, well before
-  the initialization block, so in practice `abci-genesis` needs an archive node.
+- `abci-genesis` reads the initialization block and the origin fallback key list there; a node
+  without that block's state gives the list from its `FallbackKeysUpdated` log instead.
 
 ### Restarts
 

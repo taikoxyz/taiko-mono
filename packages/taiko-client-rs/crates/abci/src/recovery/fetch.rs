@@ -6,23 +6,15 @@ use super::{
     verify_recovery_witness,
 };
 use crate::{
-    ChainParams, Engine, FetchError, GenesisWitness, L1Source,
+    ChainParams, Engine, GenesisWitness, L1Source,
     l1::{
-        OwnFinality, build_committee_witness_at_cutoff, header_at,
+        OwnFinality, header_at,
         layout::{inbox, word_u48},
         own_finality_at,
     },
 };
 use alloy_consensus::Header;
 use alloy_primitives::U256;
-
-/// Classifies registry acquisition errors without treating malformed discovery as unavailable.
-fn fetch_error(error: FetchError) -> RecoveryError {
-    match error {
-        FetchError::L1(e) => e.into(),
-        _ => invalid(error),
-    }
-}
 
 /// Reads an EL header without building, executing payloads or changing forkchoice.
 async fn el_header<E: Engine + ?Sized>(
@@ -102,18 +94,15 @@ where
     }
     let l1_header = header_at(l1, l1_0).await?;
     let genesis_inbox = l1.account_witness(params.inbox, &inbox::genesis_slots(), l1_0).await?;
-    let context = crate::genesis::verify_deployment_context(&l1_header, &genesis_inbox, params)
-        .map_err(|e| match e {
+    crate::genesis::verify_deployment_context(&l1_header, &genesis_inbox, params).map_err(|e| {
+        match e {
             crate::GenesisError::ConfigMismatch { local, proven } => {
                 RecoveryError::ConfigMismatch { local, proven }
             }
             other => invalid(other),
-        })?;
-    let genesis_committee =
-        build_committee_witness_at_cutoff(l1, params, l1_0, context.genesis.genesis_cutoff, 0)
-            .await
-            .map_err(fetch_error)?;
-    let genesis = GenesisWitness { l1_header, inbox: genesis_inbox, committee: genesis_committee };
+        }
+    })?;
+    let genesis = GenesisWitness { l1_header, inbox: genesis_inbox };
     // Authenticate current generation and fixed R before fetching its history or EL headers.
     let mut w = RecoveryWitness {
         version: RECOVERY_WITNESS_VERSION,

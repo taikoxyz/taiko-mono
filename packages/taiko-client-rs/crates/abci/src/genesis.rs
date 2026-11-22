@@ -2,18 +2,16 @@
 //! `abci-genesis` builder that reads it from L1.
 //!
 //! `genesis.json`'s `app_state` is the JSON object `{"witness": "0x<hex>"}`, where the hex string
-//! is the RLP of a [`GenesisWitness`]: the raw `L1_0` header, the Inbox proofs of the genesis
-//! slots, `genesisCutoff` and `genesisCommitteeRecordHash`, and the committee witness of epoch
-//! `e_0`. `InitChain` decodes it with [`decode_bootstrap_state`] and re-verifies every fact against
-//! the node's own L1; nothing in it is trusted.
+//! is the RLP of a [`GenesisWitness`]: the raw `L1_0` header and the Inbox proofs of the genesis
+//! slots, generation 0's origin record among them. `InitChain` decodes it with
+//! [`decode_bootstrap_state`] and re-verifies every fact against the node's own L1; nothing in it
+//! is trusted. The genesis validators are the keys of the fallback key list whose hash the origin
+//! record's fourth word holds, each at power 1; the list is accepted only under that hash.
 //!
-//! [`build_genesis`] reads the Ethereum-final genesis record and the `e_0` committee from the
-//! node's own L1, checks them as `InitChain` will, and assembles the whole CometBFT v0.40
-//! [`GenesisDoc`]. The codec here performs no I/O; the builder reads L1 through [`L1Source`].
-//!
-//! Before Inbox initialization, [`build_committee_record`] computes from the registry the
-//! `committeeRecordHash` (`genesisCommitteeRecordHash`) that `EtnaInbox::init` takes for a chosen
-//! `genesisCutoff`, derived exactly as `InitChain` later derives the genesis committee.
+//! [`build_genesis`] reads the Ethereum-final genesis record from the node's own L1, checks it
+//! as `InitChain` will, obtains the origin fallback key list by its hash, and assembles the whole
+//! CometBFT v0.40 [`GenesisDoc`]. The codec here performs no I/O; the builder reads L1 through
+//! [`L1Source`].
 //!
 //! [`L1Source`]: crate::l1::L1Source
 
@@ -22,10 +20,8 @@ use alloy_rlp::{Decodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    committee::CommitteeError,
-    l1::{FetchError, L1Error, WitnessError, header::RawL1Header, layout::inbox},
-    schedule::ScheduleError,
-    types::{AccountWitness, CommitteeWitness},
+    l1::{L1Error, WitnessError, header::RawL1Header, layout::inbox},
+    types::AccountWitness,
     valstate::ValStateError,
 };
 
@@ -33,15 +29,11 @@ use crate::{
 mod build;
 /// The CometBFT v0.40 `genesis.json` document.
 mod doc;
-/// The `abci-committee-record` builder: the genesis's `committeeRecordHash`.
-mod record;
-/// Shared pure verification of the genesis context and initial committee.
+/// Shared pure verification of the genesis context.
 mod verify;
 
 pub(crate) use doc::genesis_time;
-pub(crate) use verify::{
-    GenesisContext, verify_committee, verify_context, verify_deployment_context,
-};
+pub(crate) use verify::{GenesisContext, verify_context, verify_deployment_context};
 
 pub use build::build_genesis;
 pub use doc::{
@@ -50,21 +42,17 @@ pub use doc::{
     GenesisValidator, MAX_BLOCK_MAX_BYTES, ValidatorParams, VersionParams, block_max_bytes,
     genesis_app_hash, validator_address,
 };
-pub use record::{CommitteeRecordError, GenesisCommitteeRecord, build_committee_record};
 
 /// Everything `InitChain` verifies to start the chain, carried in the genesis `app_state`.
 ///
-/// RLP: `[l1_header, inbox, committee]`, where `l1_header` is a byte string holding the raw
-/// header RLP (as in the envelope's anchor witness).
+/// RLP: `[l1_header, inbox]`, where `l1_header` is a byte string holding the raw header RLP (as
+/// in the envelope's anchor witness).
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
 pub struct GenesisWitness {
-    /// The raw L1 header of block `L1_0`; its `stateRoot` is the root of both proofs.
+    /// The raw L1 header of block `L1_0`; its `stateRoot` is the root of the proof.
     pub l1_header: RawL1Header,
     /// EIP-1186 proof of the Inbox account and `layout::inbox::genesis_slots()`, in slot order.
     pub inbox: AccountWitness,
-    /// The committee witness of epoch `e_0` (target epoch 0, snapshot cutoff = the Inbox's
-    /// `genesisCutoff`), proven against the same `stateRoot`.
-    pub committee: CommitteeWitness,
 }
 
 /// Disjoint initialization evidence for the deployment or a governance-created generation.
@@ -129,10 +117,11 @@ pub enum GenesisError {
     /// Unsupported bootstrap encoding, or recovery evidence passed to the generation-zero path.
     #[error("unsupported recovery: {0}")]
     UnsupportedRecovery(String),
-    /// The local committee parameters do not open the authenticated Inbox configuration.
-    #[error("committee configuration hash {local} differs from authenticated {proven}")]
+    /// The built-in L2 chain id, staking proxy and U do not open the configuration hash the
+    /// Inbox holds in slot 269.
+    #[error("configuration hash {local} differs from the authenticated {proven}")]
     ConfigMismatch {
-        /// Hash of the local derivation parameters.
+        /// [`ChainParams::config_hash`](crate::ChainParams::config_hash) of the local values.
         local: B256,
         /// Configuration hash proven under the genesis header.
         proven: B256,
@@ -177,27 +166,6 @@ pub enum GenesisError {
         /// `L1_0` from the record proven at that block.
         proven: u64,
     },
-    /// The genesis record's schedule violates the epoch-length bounds
-    /// ([`Schedule::validate`](crate::Schedule::validate)).
-    #[error(transparent)]
-    Schedule(#[from] ScheduleError),
-    /// The `e_0` committee witness could not be built from L1 (boxed, as the error is large).
-    #[error("e_0 committee discovery failed: {0}")]
-    Fetch(Box<FetchError>),
-    /// The built `e_0` committee witness does not verify (boxed, as the error is large).
-    #[error("e_0 committee witness rejected: {0}")]
-    Committee(Box<CommitteeError>),
-    /// The committee derived from the registry is not the one recorded at
-    /// `genesisCommitteeRecordHash`.
-    #[error(
-        "derived committee record hash {derived} differs from genesisCommitteeRecordHash = {recorded}"
-    )]
-    CommitteeRecordMismatch {
-        /// `record_hash` of the derived committee record.
-        derived: B256,
-        /// The record hash proven at `genesisCommitteeRecordHash`.
-        recorded: B256,
-    },
     /// The `L1_0` timestamp (Unix seconds) is not a valid CometBFT genesis time.
     #[error("L1_0 timestamp {0} is not a valid genesis time")]
     GenesisTime(u64),
@@ -205,8 +173,8 @@ pub enum GenesisError {
     /// the genesis `app_hash` to commit.
     #[error("the genesis validators are not a CometBFT validator set: {0}")]
     ValidatorSet(#[from] ValStateError),
-    /// A recovery generation's fallback key list hashes to another value than the
-    /// `fallbackKeysHash` of its origin record.
+    /// A generation's fallback key list hashes to another value than the `fallbackKeysHash` of
+    /// its origin record.
     #[error("fallback key list hashes to {got}, the origin record holds {expected}")]
     FallbackKeysMismatch {
         /// The supplied list's hash.
@@ -214,10 +182,15 @@ pub enum GenesisError {
         /// The origin record's `fallbackKeysHash`.
         expected: B256,
     },
-    /// A recovery generation's initial set was asked for before its origin fallback key list,
-    /// the one with this hash, was supplied.
-    #[error("the origin fallback key list {0} has not been obtained")]
-    FallbackKeysUnavailable(B256),
+    /// The own L1 gave no fallback key list with this hash, the one generation zero's origin
+    /// record holds; the reason says what was tried.
+    #[error("the origin fallback key list {hash} is unavailable: {reason}")]
+    FallbackKeysUnavailable {
+        /// The origin record's `fallbackKeysHash`.
+        hash: B256,
+        /// What the own L1 answered.
+        reason: String,
+    },
     /// Recovery bootstrap evidence is unavailable, superseded or invalid; it keeps its own
     /// class, so `InitChain` retries or halts on it as on any recovery evidence.
     #[error(transparent)]
@@ -228,20 +201,6 @@ impl From<WitnessError> for GenesisError {
     /// Boxes `e` into [`GenesisError::Witness`].
     fn from(e: WitnessError) -> Self {
         Self::Witness(Box::new(e))
-    }
-}
-
-impl From<FetchError> for GenesisError {
-    /// Boxes `e` into [`GenesisError::Fetch`].
-    fn from(e: FetchError) -> Self {
-        Self::Fetch(Box::new(e))
-    }
-}
-
-impl From<CommitteeError> for GenesisError {
-    /// Boxes `e` into [`GenesisError::Committee`].
-    fn from(e: CommitteeError) -> Self {
-        Self::Committee(Box::new(e))
     }
 }
 
@@ -264,7 +223,7 @@ mod tests {
     use super::*;
     use crate::{
         test_utils::{l1_header, raw_with_future_fields},
-        types::{CommitteeRecord, RegistryEntry, StorageProof},
+        types::StorageProof,
     };
     use alloy_consensus::Header;
     use alloy_primitives::{Address, B256, U256, bytes, keccak256};
@@ -292,23 +251,6 @@ mod tests {
                 ..l1_header(64, 1_000)
             }),
             inbox: account(1),
-            committee: CommitteeWitness {
-                record: CommitteeRecord {
-                    target_epoch: 0,
-                    cutoff_l1_block: 64,
-                    checkpoint_index: 2,
-                    set_hash: B256::repeat_byte(0x77),
-                    total_power: 10_000_000_000,
-                },
-                registry: account(2),
-                entries: vec![RegistryEntry {
-                    ck_prefix: crate::test_utils::key_from_seed(B256::repeat_byte(0xed)).prefix(),
-                    ck_x: crate::test_utils::key_from_seed(B256::repeat_byte(0xed)).x(),
-                    eff_stake: U256::from(10).pow(U256::from(19)),
-                    active_from_l1: 0,
-                    exit_effective_l1: u64::MAX,
-                }],
-            },
         }
     }
 
@@ -333,17 +275,25 @@ mod tests {
         assert_eq!(hex[2..], alloy_primitives::hex::encode(alloy_rlp::encode(&w)));
     }
 
+    /// The RLP list of `items`, each already encoded.
+    fn rlp_list(items: &[Vec<u8>]) -> Vec<u8> {
+        let payload = items.concat();
+        let mut list = Vec::new();
+        alloy_rlp::Header { list: true, payload_length: payload.len() }.encode(&mut list);
+        list.extend(payload);
+        list
+    }
+
+    /// The genesis witness is the RLP list of exactly two items, the `L1_0` header and the Inbox
+    /// proof; a list with a third item, as the witness carried a committee before, is refused.
     #[test]
-    fn witness_is_the_rlp_list_of_its_three_fields() {
+    fn genesis_witness_has_two_items() {
         let w = witness();
-        let mut fields = Vec::new();
-        alloy_rlp::Encodable::encode(&w.l1_header, &mut fields);
-        alloy_rlp::Encodable::encode(&w.inbox, &mut fields);
-        alloy_rlp::Encodable::encode(&w.committee, &mut fields);
-        let mut expected = Vec::new();
-        alloy_rlp::Header { list: true, payload_length: fields.len() }.encode(&mut expected);
-        expected.extend(fields);
-        assert_eq!(alloy_rlp::encode(&w), expected);
+        let items = [alloy_rlp::encode(&w.l1_header), alloy_rlp::encode(&w.inbox)];
+        assert_eq!(alloy_rlp::encode(&w), rlp_list(&items));
+        let third = [items[0].clone(), items[1].clone(), alloy_rlp::encode(account(2))];
+        let json = serde_json::to_vec(&AppStateJson { witness: rlp_list(&third).into() }).unwrap();
+        assert!(matches!(decode_bootstrap_state(&json), Err(GenesisError::Rlp(_))));
     }
 
     /// The `L1_0` header travels as one RLP byte string of its raw bytes, so a header of an L1
@@ -412,4 +362,5 @@ mod tests {
 
 /// Pure bootstrap verification shared by `InitChain` and offline import.
 mod import;
+pub(crate) use import::named_fallback_keys;
 pub use import::{GenesisExpectation, VerifiedGenesis, verify_bootstrap, verify_original_genesis};

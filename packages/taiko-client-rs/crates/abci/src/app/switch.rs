@@ -228,6 +228,7 @@ mod tests {
             unzen_inbox: Address::with_last_byte(1),
             fork_timestamp,
             signal_service_implementation: implementation,
+            staking_implementation: Address::with_last_byte(0x56),
         });
         let origin = SwitchOrigin {
             l1_number: fx.witness.l1_header.number(),

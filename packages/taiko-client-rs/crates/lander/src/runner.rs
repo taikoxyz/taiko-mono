@@ -682,9 +682,7 @@ fn overlapping_frontier(
     {
         return Ok(false);
     }
-    if current.genesis != prepared.genesis ||
-        current.committee_config_hash != prepared.committee_config_hash
-    {
+    if current.genesis != prepared.genesis || current.config_hash != prepared.config_hash {
         return Err(LanderError::Safety("landing genesis/config identity changed".into()));
     }
     if current.checkpoint_height == prepared.checkpoint_height {

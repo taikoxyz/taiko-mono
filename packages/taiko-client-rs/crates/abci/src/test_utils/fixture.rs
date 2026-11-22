@@ -1,18 +1,17 @@
 //! A complete, mutually consistent genesis for app tests.
 //!
-//! [`Fixture::build`] plants an initialized Inbox and a staking registry (one checkpoint, by
-//! default written at the genesis cutoff, holding `n_validators` eligible entries) in an L1
-//! [`TestState`], derives the `e_0` committee from it at the genesis cutoff, records its hash at
-//! `genesisCommitteeRecordHash`, builds the EL chain up to the Etna start block, and assembles
-//! the genesis witness and the CometBFT `InitChain` request that start the chain.
-//! [`Fixture::l1`] and [`Fixture::engine`] serve that L1 and EL; [`Fixture::expected_state`] is
-//! the `AppState` a correct `InitChain` persists.
+//! [`Fixture::build`] plants an initialized Inbox in an L1 [`TestState`], whose generation 0
+//! origin record and slot 278 hold the hash of a fallback key list of `n_validators` keys,
+//! serves that list through the Inbox's `getFallbackKeys()`, builds the EL chain up to the Etna
+//! start block, and assembles the genesis witness and the CometBFT `InitChain` request (the
+//! list's keys, each at power 1) that start the chain. [`Fixture::l1`] and [`Fixture::engine`]
+//! serve that L1 and EL; [`Fixture::expected_state`] is the `AppState` a correct `InitChain`
+//! persists.
 //!
 //! For proposal tests, [`Fixture::plant_l1_block`] and [`Fixture::advance_l1`] add later L1
-//! blocks with updated Inbox/registry storage to a [`MockL1`], [`Fixture::anchor_witness`] and
-//! [`Fixture::anchor_state`] read them back as an anchor, [`Fixture::forced_witness`] proves a
-//! forced inclusion queue entry there, and [`Fixture::committee`] derives a later epoch's
-//! committee from the genesis snapshot.
+//! blocks with updated Inbox storage to a [`MockL1`], [`Fixture::anchor_witness`] and
+//! [`Fixture::anchor_state`] read them back as an anchor, and [`Fixture::forced_witness`] proves
+//! a forced inclusion queue entry there.
 
 use crate::wire::request::InitChain;
 use std::path::Path;
@@ -22,91 +21,63 @@ use alloy_primitives::{Address, B256, Bytes, U256};
 use tendermint::{Time, block::Height, vote};
 
 use super::{
-    InboxStorage, MockEngine, MockL1, RegistryStorage, TestState, committee_witness,
-    filler_accounts, inbox_account, l1_header, registry_account, sample_entries,
+    InboxStorage, MockEngine, MockL1, TestState, fallback_list, filler_accounts, inbox_account,
+    l1_header, serve_fallback_keys,
 };
 use crate::{
     app::{App, AppOptions},
-    committee::{self, Snapshot},
     config::ChainParams,
     envelope::{AnchorWitness, ForcedWitness},
+    fallback::FallbackKeys,
     genesis::{GenesisWitness, encode_app_state},
+    key::ConsensusKey,
     l1::{header::RawL1Header, layout::inbox, verify_anchor_witness},
     rules::chain_id_for,
-    schedule::Schedule,
     store::{AppState, Store},
-    types::{
-        AnchorState, CommitteeRecord, GenesisRecord, InboxFacts, Member, ParentInfo, RegistryEntry,
-    },
+    types::{AnchorState, GenesisRecord, InboxFacts, ParentInfo},
     valstate::ValState,
 };
 
 /// The knobs of a [`Fixture`]; [`GenesisSpec::new`] gives a valid default.
 #[derive(Clone, Debug)]
 pub(crate) struct GenesisSpec {
-    /// Number of registry entries, all eligible (see [`sample_entries`]).
+    /// Number of origin fallback keys: the [`test_key`](super::test_key)s of seeds
+    /// `1..=n_validators`.
     pub(crate) n_validators: usize,
-    /// Overrides the genesis registry entries (default: `sample_entries(n_validators)`).
-    pub(crate) entries: Option<Vec<RegistryEntry>>,
     /// The Etna start S, the start block's L2 block number.
     pub(crate) genesis_height: u64,
     /// `L1_0`, the genesis's L1 block number.
     pub(crate) l1_0: u64,
-    /// `genesisCutoff`, the `e_0` snapshot cutoff.
-    pub(crate) genesis_cutoff: u64,
-    /// The L1 block the registry checkpoint is written at (default: the genesis cutoff).
-    pub(crate) checkpoint_l1_block: Option<u64>,
-    /// `L`, the epoch length in L2 blocks.
-    pub(crate) epoch_len: u64,
     /// `forcedInclusionDelay`, in seconds.
     pub(crate) forced_inclusion_delay: u64,
     /// `maxAnchorAge`, in seconds.
     pub(crate) max_anchor_age: u64,
     /// The Inbox's `recoveryGeneration`; the `chain_id` uses the same generation.
     pub(crate) recovery_generation: u64,
-    /// Overrides `genesisCommitteeRecordHash` on L1 (default: the derived record's hash).
-    pub(crate) committee_e0: Option<B256>,
+    /// Overrides the fourth word of generation 0's origin record on L1 (default: the origin
+    /// list's hash).
+    pub(crate) origin_hash: Option<B256>,
     /// The chain parameters (default: devnet).
     pub(crate) params: ChainParams,
 }
 
 impl GenesisSpec {
-    /// A valid genesis with `n_validators` validators: `S = 0`, `L1_0 = 64`, genesis cutoff
-    /// 63, `L = 20`, forced inclusion delay 1 h, maximum anchor age 2 h, generation 0, devnet
-    /// parameters.
+    /// A valid genesis with `n_validators` origin fallback keys: `S = 0`, `L1_0 = 64`, forced
+    /// inclusion delay 1 h, maximum anchor age 2 h, generation 0, devnet parameters with U = 12.
     pub(crate) fn new(n_validators: usize) -> Self {
         Self {
             n_validators,
-            entries: None,
             genesis_height: 0,
             l1_0: 64,
-            genesis_cutoff: 63,
-            checkpoint_l1_block: None,
-            epoch_len: 20,
             forced_inclusion_delay: 3_600,
             max_anchor_age: 7_200,
             recovery_generation: 0,
-            committee_e0: None,
+            origin_hash: None,
             params: ChainParams {
                 unsettled_limit: 12,
-                vp_unit: super::fixture_vp_unit(),
                 ..ChainParams::builtin(protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID).unwrap()
             },
         }
-    }
-
-    /// A genesis at explicit snapshot 63 with entries active from 62 and parent `L1_0 = 64`.
-    /// An earlier explicit snapshot 59 has no active entries; runtime snapshots use the parent.
-    pub(crate) fn eligible_at_explicit_genesis_snapshot(n_validators: usize) -> Self {
-        let mut spec = Self::new(n_validators);
-        spec.checkpoint_l1_block = Some(58);
-        spec.entries = Some(
-            sample_entries(n_validators)
-                .into_iter()
-                .map(|e| RegistryEntry { active_from_l1: 62, ..e })
-                .collect(),
-        );
-        spec
     }
 }
 
@@ -119,16 +90,12 @@ pub(crate) struct Fixture {
     pub(crate) genesis: GenesisRecord,
     /// The Inbox storage at `L1_0`.
     pub(crate) inbox: InboxStorage,
-    /// The registry storage at `L1_0`: one checkpoint (by default at the genesis cutoff).
-    pub(crate) registry: RegistryStorage,
-    /// The L1 state at `L1_0` (filler accounts, Inbox, registry).
+    /// The L1 state at `L1_0` (filler accounts, Inbox).
     pub(crate) l1_state: TestState,
     /// The genesis witness (its `l1_header` is the raw block `L1_0` with `l1_state`'s root).
     pub(crate) witness: GenesisWitness,
-    /// The derived `e_0` committee record.
-    pub(crate) record: CommitteeRecord,
-    /// The derived `e_0` members (set-key order).
-    pub(crate) members: Vec<Member>,
+    /// The origin fallback key list: its keys, each at power 1, are the genesis validators.
+    pub(crate) fallback_keys: FallbackKeys,
     /// The EL's canonical chain: `[S − 1, S]` (just `[S]` when `S = 0`), S the Etna start.
     pub(crate) el_chain: Vec<Header>,
     /// The `InitChain` request CometBFT sends for this genesis.
@@ -148,38 +115,29 @@ impl Fixture {
         let el_chain = el_chain(spec.genesis_height);
         let b_star = el_chain.last().expect("the EL chain holds the Etna start block");
         let genesis = GenesisRecord {
-            committee_config_hash: committee::committee_config_hash(&params),
+            config_hash: params.config_hash(),
             genesis_height: spec.genesis_height,
             l1_0: spec.l1_0,
-            epoch_len: spec.epoch_len,
             genesis_hash: b_star.hash_slow(),
             genesis_state_root: b_star.state_root,
-            genesis_cutoff: spec.genesis_cutoff,
             forced_inclusion_delay: spec.forced_inclusion_delay,
             max_anchor_age: spec.max_anchor_age,
         };
 
-        let entries = spec.entries.clone().unwrap_or_else(|| sample_entries(spec.n_validators));
-        let checkpoint_l1_block = spec.checkpoint_l1_block.unwrap_or(spec.genesis_cutoff);
-        let registry = RegistryStorage { checkpoints: vec![(checkpoint_l1_block, entries)] };
-        let (record, members) =
-            genesis_committee(&params, &registry, spec.genesis_cutoff, Schedule::E0);
-        let committee_e0 = spec
-            .committee_e0
-            .unwrap_or_else(|| committee::record_hash(params.l2_chain_id, &record));
-
+        let seeds: Vec<u64> = (1..=spec.n_validators as u64).collect();
+        let fallback_keys = fallback_list(&seeds);
         let inbox = InboxStorage {
             recovery_generation: spec.recovery_generation,
-            ..InboxStorage::genesis(genesis.clone(), committee_e0)
+            origin_fallback_keys_hash: spec.origin_hash.unwrap_or(fallback_keys.hash()),
+            ..InboxStorage::genesis(genesis.clone(), fallback_keys.hash())
         };
-        let l1_state = l1_state_with(&params, &inbox, &registry);
+        let l1_state = l1_state_with(&params, &inbox);
 
         let mut header = l1_header(spec.l1_0, Self::l1_timestamp(spec.l1_0));
         header.state_root = l1_state.state_root();
         let witness = GenesisWitness {
             l1_header: RawL1Header::from(&header),
             inbox: l1_state.witness(params.inbox, &inbox::genesis_slots()),
-            committee: committee_witness(&l1_state, params.registry, &registry, 0, record.clone()),
         };
 
         let request = InitChain {
@@ -190,33 +148,21 @@ impl Fixture {
             .expect("valid genesis time"),
             chain_id: chain_id_for(&params, spec.recovery_generation).unwrap(),
             consensus_params: consensus_params(params.n_max),
-            validators: validator_updates(&members),
+            validators: validator_updates(&fallback_keys.validator_set()),
             app_state_bytes: encode_app_state(&witness).into(),
             initial_height: Height::from(1u32),
         };
 
-        Self {
-            params,
-            genesis,
-            inbox,
-            registry,
-            l1_state,
-            witness,
-            record,
-            members,
-            el_chain,
-            request,
-        }
+        Self { params, genesis, inbox, l1_state, witness, fallback_keys, el_chain, request }
     }
 
     /// An L1 whose canonical, finalized block `L1_0` is the witness header over `l1_state`, and
-    /// whose staking registry answers the configuration getters with the fixture's parameters
-    /// ([`answer_registry_config`]).
+    /// whose Inbox answers `getFallbackKeys()` with the origin list.
     pub(crate) fn l1(&self) -> MockL1 {
         let l1 = MockL1::new(self.genesis.l1_0);
         l1.insert_header(self.witness.l1_header.clone());
         l1.state().states.insert(self.genesis.l1_0, self.l1_state.clone());
-        answer_registry_config(&l1, &self.params);
+        serve_fallback_keys(&l1, self.params.inbox, &self.fallback_keys);
         l1
     }
 
@@ -259,7 +205,7 @@ impl Fixture {
     }
 
     /// The genesis Inbox storage with the last checkpoint moved to `last_checkpoint_height`
-    /// with the bootstrap committee unchanged. Its hash is the local chain's block there in tests
+    /// and the fallback keys unchanged. Its hash is the local chain's block there in tests
     /// that move the committed state with `jump`: the start hash at the Etna start S, a
     /// [`committed_block`] above it.
     pub(crate) fn inbox_with(&self, last_checkpoint_height: u64) -> InboxStorage {
@@ -271,8 +217,8 @@ impl Fixture {
         self.inbox_at_checkpoint(last_checkpoint_height, hash)
     }
 
-    /// The genesis Inbox storage with the last checkpoint moved to `(height, hash)` with the
-    /// bootstrap committee unchanged.
+    /// The genesis Inbox storage with the last checkpoint moved to `(height, hash)` and the
+    /// fallback keys unchanged.
     pub(crate) fn inbox_at_checkpoint(&self, height: u64, hash: B256) -> InboxStorage {
         let mut inbox = self.inbox.clone();
         inbox.last_checkpoint_height = height;
@@ -280,29 +226,22 @@ impl Fixture {
         inbox
     }
 
-    /// Plants L1 block `number` holding `inbox` and `registry` (plus the filler accounts) as
-    /// canonical in `l1`, without moving its finalized block; returns the stored raw header.
+    /// Plants L1 block `number` holding `inbox` (plus the filler accounts) as canonical in `l1`,
+    /// without moving its finalized block; returns the stored raw header.
     pub(crate) fn plant_l1_block(
         &self,
         l1: &MockL1,
         number: u64,
         inbox: &InboxStorage,
-        registry: &RegistryStorage,
     ) -> RawL1Header {
-        let state = l1_state_with(&self.params, inbox, registry);
+        let state = l1_state_with(&self.params, inbox);
         l1.insert_block(l1_header(number, Self::l1_timestamp(number)), state)
     }
 
     /// Plants L1 block `number` (see [`Fixture::plant_l1_block`]) and moves `l1`'s finalized
     /// block to it, so that it is final: a proposer then anchors there.
-    pub(crate) fn advance_l1(
-        &self,
-        l1: &MockL1,
-        number: u64,
-        inbox: &InboxStorage,
-        registry: &RegistryStorage,
-    ) -> RawL1Header {
-        let header = self.plant_l1_block(l1, number, inbox, registry);
+    pub(crate) fn advance_l1(&self, l1: &MockL1, number: u64, inbox: &InboxStorage) -> RawL1Header {
+        let header = self.plant_l1_block(l1, number, inbox);
         l1.set_finalized(number);
         header
     }
@@ -383,14 +322,19 @@ impl Fixture {
                     last_checkpoint_hash: self.genesis.genesis_hash,
                     forced_inclusion_head: 0,
                     forced_inclusion_tail: 0,
-                    fallback_keys_hash: self.inbox.genesis_committee_hash.unwrap_or_default(),
-                    min_total_stake: U256::from(self.genesis.genesis_cutoff),
+                    // The genesis witness proves neither slot 278 nor 279: the genesis anchor
+                    // names the origin list and makes no candidate usable.
+                    fallback_keys_hash: self.inbox.origin_fallback_keys_hash,
+                    min_total_stake: U256::MAX,
                 },
             },
             forced_cursor: 0,
-            val_state: ValState::genesis(self.genesis.genesis_height, &powers(&self.members))
-                .expect("the e_0 committee is a CometBFT validator set"),
-            fallback_keys: Default::default(),
+            val_state: ValState::genesis(
+                self.genesis.genesis_height,
+                &self.fallback_keys.validator_set(),
+            )
+            .expect("the origin keys are a CometBFT validator set"),
+            fallback_keys: [(self.fallback_keys.hash(), self.fallback_keys.clone())].into(),
             execution_floor: None,
         }
     }
@@ -420,71 +364,24 @@ impl Fixture {
     }
 }
 
-/// The committee of `target_epoch` derived from `registry`'s first checkpoint (the genesis
-/// snapshot) at `cutoff`.
-fn genesis_committee(
-    params: &ChainParams,
-    registry: &RegistryStorage,
-    cutoff: u64,
-    target_epoch: u64,
-) -> (CommitteeRecord, Vec<Member>) {
-    let (l1_block, entries) = registry.checkpoints[0].clone();
-    let snapshot = Snapshot { checkpoint_index: 0, l1_block, entries };
-    committee::derive(&snapshot, cutoff, target_epoch, params)
-        .expect("the genesis snapshot derives a committee")
-}
-
-/// The L1 state at `params`' addresses: the filler accounts, the Inbox holding `inbox` and the
-/// staking registry holding `registry`.
-pub(crate) fn l1_state_with(
-    params: &ChainParams,
-    inbox: &InboxStorage,
-    registry: &RegistryStorage,
-) -> TestState {
+/// The L1 state at `params`' addresses: the filler accounts and the Inbox holding `inbox`.
+pub(crate) fn l1_state_with(params: &ChainParams, inbox: &InboxStorage) -> TestState {
     let mut accounts = filler_accounts();
     accounts.push(inbox_account(params.inbox, inbox));
-    accounts.push(registry_account(params.registry, registry));
     TestState::new(accounts)
 }
 
-/// The `(key, power)` validators of `members`, in member order, as [`ValState::genesis`]
-/// takes them.
-///
-/// [`ValState::genesis`]: crate::valstate::ValState::genesis
-pub(crate) fn powers(members: &[Member]) -> Vec<(crate::key::ConsensusKey, u64)> {
-    members.iter().map(|m| (m.pubkey, m.power)).collect()
-}
-
-/// The CometBFT validator updates of `members` (Ed25519 key, power), in member order.
-pub(crate) fn validator_updates(members: &[Member]) -> Vec<crate::wire::ValidatorUpdate> {
-    members
+/// The CometBFT validator updates of `validators` (key, power), in the given order.
+pub(crate) fn validator_updates(
+    validators: &[(ConsensusKey, u64)],
+) -> Vec<crate::wire::ValidatorUpdate> {
+    validators
         .iter()
-        .map(|m| crate::wire::ValidatorUpdate {
-            pub_key: m.pubkey,
-            power: vote::Power::try_from(m.power).expect("power fits i64"),
+        .map(|(key, power)| crate::wire::ValidatorUpdate {
+            pub_key: *key,
+            power: vote::Power::try_from(*power).expect("power fits i64"),
         })
         .collect()
-}
-
-/// Makes `l1`'s staking registry at `params.registry` answer `minStake()`, `l2ChainId()` and
-/// `inbox()` with `params`' values, as a registry deployed for them does.
-pub(crate) fn answer_registry_config(l1: &MockL1, params: &ChainParams) {
-    use alloy_sol_types::{SolValue, sol};
-    sol! {
-        function minStake() external view returns (uint256);
-        function l2ChainId() external view returns (uint64);
-        function inbox() external view returns (address);
-    }
-    use alloy_sol_types::SolCall;
-    let answers = [
-        (minStakeCall {}.abi_encode(), params.min_stake.abi_encode()),
-        (l2ChainIdCall {}.abi_encode(), params.l2_chain_id.abi_encode()),
-        (inboxCall {}.abi_encode(), params.inbox.abi_encode()),
-    ];
-    let mut state = l1.state();
-    for (input, output) in answers {
-        state.call_answers.insert((params.registry, input.into()), output.into());
-    }
 }
 
 /// A stand-in for the local chain's committed EL block `number` above genesis, for tests that
@@ -577,7 +474,7 @@ pub(crate) fn abci_consensus_params(
 }
 
 /// The fallback key list the origin record of every [`recovery_fixture`] holds the hash of: the
-/// keys of the fixture's two registry entries, so the fixture's proposer is one of them.
+/// keys of the old generation's two origin keys, so the fixture's proposer is one of them.
 pub(crate) fn recovery_fallback_keys() -> crate::fallback::FallbackKeys {
     super::fallback_list(&[1, 2])
 }
@@ -600,7 +497,6 @@ pub(crate) fn recovery_fixture_at(
     r_generation: u64,
     r: u64,
 ) -> (Fixture, MockL1, MockEngine, crate::recovery::RecoveryWitness) {
-    use super::registry_account;
     use crate::recovery::{RECOVERY_WITNESS_VERSION, RecoveryWitness};
     let fx = Fixture::build(GenesisSpec::new(2));
     let l1 = fx.l1();
@@ -656,7 +552,6 @@ pub(crate) fn recovery_fixture_at(
             U256::from(current);
         let mut accounts = filler_accounts();
         accounts.push((fx.params.inbox, 1, U256::ZERO, B256::repeat_byte(1), words));
-        accounts.push(registry_account(fx.params.registry, &fx.registry));
         TestState::new(accounts)
     };
     let r_state = state_for(r_generation);
@@ -690,33 +585,21 @@ pub(crate) fn test_options() -> AppOptions {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{committee::verify_committee_witness_at_cutoff, l1::witness::verify_genesis_inbox};
+    use crate::l1::witness::verify_genesis_inbox;
 
     #[test]
     fn fixture_witness_verifies_against_its_own_l1_state() {
         let fx = Fixture::genesis(3);
         let root = fx.witness.l1_header.state_root();
         assert_eq!(root, fx.l1_state.state_root());
-        let (genesis, facts, committee_e0) =
+        let (genesis, facts, origin) =
             verify_genesis_inbox(root, &fx.witness.inbox, fx.params.inbox).expect("inbox verifies");
         assert_eq!(genesis, fx.genesis);
         assert_eq!(facts.recovery_generation, 0);
-        assert_eq!(committee_e0, committee::record_hash(fx.params.l2_chain_id, &fx.record));
-        assert_eq!(
-            verify_committee_witness_at_cutoff(
-                root,
-                fx.genesis.genesis_cutoff,
-                &fx.params,
-                &fx.witness.committee,
-                0
-            ),
-            Ok((fx.record.clone(), fx.members.clone()))
-        );
-        assert_eq!(fx.genesis.genesis_cutoff, fx.genesis.l1_0 - 1);
-        assert_eq!(fx.record.cutoff_l1_block, fx.genesis.genesis_cutoff);
-        assert_eq!(fx.registry.checkpoints, vec![(fx.genesis.genesis_cutoff, sample_entries(3))]);
-        assert_eq!(fx.members.len(), 3);
-        assert_eq!(fx.request.validators.len(), 3);
+        assert_eq!(origin.fallback_keys_hash, fx.fallback_keys.hash());
+        assert_eq!(fx.fallback_keys, fallback_list(&[1, 2, 3]));
+        assert_eq!(fx.request.validators, validator_updates(&fx.fallback_keys.validator_set()));
+        assert!(fx.request.validators.iter().all(|v| v.power.value() == 1));
         assert_eq!(fx.request.initial_height.value(), fx.genesis.genesis_height + 1);
     }
 }

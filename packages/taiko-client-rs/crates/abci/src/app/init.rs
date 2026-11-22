@@ -2,7 +2,6 @@
 //! then persist the initial [`AppState`].
 
 use crate::wire::{request, response};
-use std::collections::BTreeMap;
 
 use alloy_consensus::Header;
 
@@ -16,13 +15,14 @@ use crate::{
     fallback::FallbackKeys,
     genesis::{
         BootstrapWitness, GenesisConsensusParams, GenesisError, GenesisExpectation,
-        decode_bootstrap_state, verify_bootstrap,
+        decode_bootstrap_state, named_fallback_keys, verify_bootstrap,
     },
+    key::ConsensusKey,
     l1::{L1Source, OwnFinality, own_finality},
     recovery::{RecoveryBootstrap, RecoveryWitness, VerifiedBootstrap, recovery_parent},
     rules::RuleViolation,
     store::AppState,
-    types::{GenesisRecord, Member, ParentInfo},
+    types::{GenesisRecord, ParentInfo},
 };
 
 impl<L: L1Source, E: Engine> App<L, E> {
@@ -83,7 +83,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 genesis_height = state.genesis.genesis_height,
                 origin_hash = %origin_hash,
                 l1_0 = state.genesis.l1_0,
-                genesis_cutoff = state.genesis.genesis_cutoff,
                 validators = req.validators.len(),
                 "chain initialized"
             );
@@ -98,28 +97,46 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Verifies an `InitChain` request and returns the state it starts.
     ///
-    /// In order: decodes the `app_state` witness; verifies it once with [`verify_bootstrap`]
-    /// (generation zero: the Inbox witness at `L1_0`, the schedule and the `e_0` committee at
-    /// `genesisCutoff` with its record hash; recovery: the fixed origin, R's observation and the
-    /// deployment context, embedding R as the finalized observation); requires the request's
-    /// time, canonical consensus parameters, `chain_id`, initial height and, at generation zero,
-    /// validators to be exactly the ones that evidence determines ([`check_request`]); then
-    /// acquires the inputs the evidence leaves to the own L1 and EL. At generation zero: the
-    /// `L1_0` header must be final and canonical in the own L1 view, and the EL must serve the
-    /// Etna start block with the start hash and the start state root (EL sync if needed). For a
-    /// recovery, the inputs come from [`App::recovery_inputs`], retried here while unavailable,
-    /// and include the fallback key list whose hash the origin record holds: the request's
-    /// validators must be exactly its keys, each at power 1 ([`check_fallback_validators`]). The
-    /// state is
+    /// In order: decodes the `app_state` witness; takes the fallback key list the request's
+    /// validators name ([`named_fallback_keys`]) and verifies the evidence once with it
+    /// ([`verify_bootstrap`]: generation zero's Inbox witness at `L1_0`, whose origin record's
+    /// fourth word must be the list's hash; or a recovery's fixed origin, R's observation and the
+    /// deployment context, embedding R as the finalized observation, whose origin record must
+    /// hold the list's hash); requires the request's time, canonical consensus parameters,
+    /// `chain_id`, initial height and validators, each key of the origin list exactly once at
+    /// power 1, to be exactly the ones that evidence determines ([`check_request`]); then acquires
+    /// the inputs the evidence leaves to the own L1 and EL. At generation zero: the `L1_0` header
+    /// must be final and canonical in the own L1 view, and the EL must serve the Etna start block
+    /// with the start hash and the start state root (EL sync if needed). For a recovery, the
+    /// inputs come from [`App::recovery_inputs`], retried here while unavailable, and include the
+    /// origin fallback key list obtained from the own L1, which the request's validators must
+    /// name exactly ([`check_fallback_validators`]). The state is
     /// [`VerifiedGenesis::origin_state`](crate::genesis::VerifiedGenesis::origin_state), as for
     /// an import at the origin: `last = (S, start hash)` with the `L1_0` anchor, or c with its
     /// historical anchor; the origin's forced inclusion cursor; CometBFT's genesis validator
-    /// state of the initial set at the origin height; and a recovery's origin key list. A
-    /// recovery's immutable bootstrap sidecar is durable before this returns, so before the
-    /// state is published.
+    /// state of the origin keys at the origin height; and the origin key list. A recovery's
+    /// immutable bootstrap sidecar is durable before this returns, so before the state is
+    /// published.
     async fn verify_genesis(&self, req: &request::InitChain) -> Result<AppState, AbciError> {
         let witness = decode_bootstrap_state(&req.app_state_bytes)?;
-        let (verified, expected) = verify_bootstrap(&witness, &self.params)?;
+        let keys =
+            named_fallback_keys(req.validators.iter().map(|v| v.pub_key)).ok_or_else(|| {
+                AbciError::GenesisValidatorsMismatch(
+                    "the validators are not a fallback key list: none, more than 128, or a key \
+                 listed twice"
+                        .into(),
+                )
+            })?;
+        let (verified, expected) =
+            verify_bootstrap(&witness, &self.params, keys).map_err(|error| match error {
+                GenesisError::FallbackKeysMismatch { got, expected } => {
+                    AbciError::GenesisValidatorsMismatch(format!(
+                        "the validators' fallback key list {got} is not the origin record's \
+                         {expected}"
+                    ))
+                }
+                error => error.into(),
+            })?;
         check_request(req, &expected, &self.params)?;
         let chain_id = req.chain_id.clone();
         let BootstrapWitness::Recovery(w) = &witness else {
@@ -162,7 +179,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         };
         check_fallback_validators(&req.validators, &history.fallback_keys)?;
         let state = verified
-            .with_fallback_keys(history.fallback_keys)?
             .origin_state(chain_id, recovery_parent(w), history.anchor)
             .map_err(not_a_validator_set)?;
         self.store.save_recovery_bootstrap(&bootstrap)?;
@@ -350,10 +366,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
 }
 
 /// Requires the request's representable fields to be exactly the ones its bootstrap evidence
-/// determines (START-10-20/21, RECOV-8.4-7/9), in this order: the genesis time, the canonical
-/// consensus parameters, the `chain_id`, the initial height and, when the evidence determines
-/// them (generation zero's committee), the validators. A recovery generation's validators are
-/// checked once its origin fallback key list is obtained ([`check_fallback_validators`]).
+/// and origin fallback key list determine, in this order: the genesis time, the canonical
+/// consensus parameters, the `chain_id`, the initial height and the validators, the list's keys
+/// each at power 1 ([`check_validators`]).
 fn check_request(
     req: &request::InitChain,
     expected: &GenesisExpectation,
@@ -381,40 +396,39 @@ fn check_request(
             expected: expected.initial_height,
         });
     }
-    match &expected.validators {
-        Some(members) => check_validators(&req.validators, members),
-        None => Ok(()),
-    }
+    check_validators(&req.validators, &expected.validators)
 }
 
-/// Requires the genesis validators to be exactly `members`: the same native secp256k1eth keys with
-/// the same powers, in any order, without duplicates.
+/// Requires the genesis validators to be exactly `expected`: the same native secp256k1eth keys
+/// with the same powers, in any order, without duplicates.
 fn check_validators(
     validators: &[crate::wire::ValidatorUpdate],
-    members: &[Member],
+    expected: &[(ConsensusKey, u64)],
 ) -> Result<(), AbciError> {
     let mismatch = AbciError::GenesisValidatorsMismatch;
-    let mut genesis = BTreeMap::new();
+    let mut genesis = std::collections::BTreeMap::new();
     for v in validators {
         let pubkey = v.pub_key;
         if genesis.insert(pubkey, v.power.value()).is_some() {
             return Err(mismatch(format!("validator {pubkey} is listed twice")));
         }
     }
-    for m in members {
-        match genesis.remove(&m.pubkey) {
-            Some(power) if power == m.power => {}
+    for (key, expected) in expected {
+        match genesis.remove(key) {
+            Some(power) if power == *expected => {}
             Some(power) => {
                 return Err(mismatch(format!(
-                    "validator {} has power {power}, the committee gives {}",
-                    m.pubkey, m.power
+                    "validator {key} has power {power}, the origin fallback key list gives \
+                     {expected}"
                 )));
             }
-            None => return Err(mismatch(format!("committee member {} is missing", m.pubkey))),
+            None => return Err(mismatch(format!("origin fallback key {key} is missing"))),
         }
     }
     match genesis.keys().next() {
-        Some(extra) => Err(mismatch(format!("validator {extra} is not a committee member"))),
+        Some(extra) => {
+            Err(mismatch(format!("validator {extra} is not in the origin fallback key list")))
+        }
         None => Ok(()),
     }
 }

@@ -165,11 +165,8 @@ impl EtnaHandoffSubCommand {
 fn retryable_genesis(error: &abci::GenesisError) -> bool {
     match error {
         abci::GenesisError::L1(error) => !error.is_integrity_failure(),
-        abci::GenesisError::InitializationNotFinal { .. } => true,
-        abci::GenesisError::Fetch(error) => match error.as_ref() {
-            abci::l1::FetchError::L1(error) => !error.is_integrity_failure(),
-            _ => false,
-        },
+        abci::GenesisError::InitializationNotFinal { .. } |
+        abci::GenesisError::FallbackKeysUnavailable { .. } => true,
         _ => false,
     }
 }

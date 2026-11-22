@@ -7,17 +7,16 @@
 //! inside the block as a raw L1 header plus EIP-1186 proofs, so replay reads no L1 state; it only
 //! confirms that a moved anchor header is final and canonical in the node's own L1.
 //!
-//! The `types`, `config`, `schedule`, `envelope`, `l1::header`, `l1::layout`, `l1::mpt`,
-//! `l1::witness`, `committee`, `forced`, `rules`, `valstate` and `engine::convert` modules and
-//! the genesis `app_state` codec perform no I/O; `l1::source`, `l1::forced_tx`, `engine` and
-//! `elsync` hold the L1 and execution-engine adapters, `l1::fetch` (the initial committee's
-//! registry witness), `fallback` (fallback key lists by hash) and the genesis builder read L1
-//! through them, `app` answers CometBFT's ABCI requests on top of them, and `server` serves the
-//! app on CometBFT's ABCI socket.
+//! The `types`, `config`, `envelope`, `l1::header`, `l1::layout`, `l1::mpt`, `l1::witness`,
+//! `committee`, `forced`, `rules`, `valstate` and `engine::convert` modules and the genesis
+//! `app_state` codec perform no I/O; `l1::source`, `l1::forced_tx`, `engine` and `elsync` hold
+//! the L1 and execution-engine adapters, `fallback` (fallback key lists by hash) and the genesis
+//! builder read L1 through them, `app` answers CometBFT's ABCI requests on top of them, and
+//! `server` serves the app on CometBFT's ABCI socket.
 
 /// The ABCI++ application: request dispatch and the per-method handlers.
 pub mod app;
-/// Committee derivation from staking-registry snapshots, set hashes and record hashes.
+/// The signing set decision and validator updates, from the portable Etna rules.
 pub mod committee;
 /// Chain parameters (built-in per L2 chain id, optional TOML override).
 pub mod config;
@@ -44,8 +43,6 @@ pub mod ownership;
 pub mod recovery;
 /// Header derivation and block-validity predicates.
 pub mod rules;
-/// Epoch schedule derived from the L1 genesis record.
-pub mod schedule;
 /// The tower-abci socket server: one sequential app worker behind CometBFT's four connections.
 pub mod server;
 /// The persisted app state and its atomic file store.
@@ -63,12 +60,14 @@ pub(crate) mod test_utils;
 #[cfg(test)]
 mod proptests;
 
+/// `type(uint48).max`: the largest generation, L2 height and anchor L1 block number the
+/// protocol encodes.
+pub use etna_core::params::UINT48_MAX;
 /// The deployment signing domain, the validated secp256k1eth consensus identities and the
 /// stock CometBFT v0.40.0 validator-state arithmetic, from the portable Etna rules.
 pub use etna_core::{domain, key, valstate};
 
 pub use app::{AbciError, App, AppHashReport, AppOptions, Status};
-pub use committee::{CommitteeError, Snapshot, committee_config_hash};
 pub use config::{ChainParams, ConfigError, SwitchConfig};
 pub use elsync::{ElSyncError, ensure_block};
 pub use engine::{
@@ -79,13 +78,12 @@ pub use envelope::{
     single_envelope,
 };
 pub use genesis::{
-    AppStateJson, BootstrapWitness, CommitteeRecordError, GenesisCommitteeRecord, GenesisDoc,
-    GenesisError, GenesisValidator, GenesisWitness, build_committee_record, build_genesis,
-    decode_bootstrap_state,
+    AppStateJson, BootstrapWitness, GenesisDoc, GenesisError, GenesisValidator, GenesisWitness,
+    build_genesis, decode_bootstrap_state,
 };
 pub use l1::{
-    FetchError, L1Error, L1HeaderError, L1Source, OwnFinality, RawL1Header, RpcL1Source,
-    build_committee_witness_at_cutoff, header_at, own_finality,
+    L1Error, L1HeaderError, L1Source, OwnFinality, RawL1Header, RpcL1Source, header_at,
+    own_finality,
 };
 pub use metrics::AbciMetrics;
 pub use recovery::{
@@ -93,7 +91,6 @@ pub use recovery::{
     check_recovery_canonicality, verify_recovery_witness,
 };
 pub use rules::{ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation};
-pub use schedule::{Schedule, ScheduleError};
 pub use server::{
     AbciHandler, AppService, ConnectionEpoch, ExitProcess, HaltHook, ListenAddr,
     SAFETY_HALT_EXIT_CODE, ServerError, serve, serve_with,
@@ -101,6 +98,6 @@ pub use server::{
 pub use store::{AppState, CommitteeState, ExecutionFloor, Store, StoreError};
 pub use switch::{SwitchOrigin, l2_signal_service_address};
 pub use types::{
-    AccountWitness, AnchorState, CommitteeRecord, CommitteeWitness, GenesisRecord, InboxFacts,
-    Member, ParentInfo, RegistryEntry, StorageProof,
+    AccountWitness, AnchorState, CommitteeRecord, GenesisRecord, InboxFacts, Member, ParentInfo,
+    RegistryEntry, StorageProof,
 };

@@ -21,8 +21,7 @@ use crate::{
     l1::verify_anchor_witness,
     rules,
     test_utils::{
-        GenesisSpec, InboxStorage, L1Call, committed_block, sample_entries, sample_transactions,
-        simple_block,
+        InboxStorage, L1Call, committed_block, sample_transactions, simple_block, test_key,
     },
     types::{AnchorState, ParentInfo},
 };
@@ -32,7 +31,7 @@ pub(super) const MAX_TX_BYTES: i64 = 22_020_096;
 
 /// The authenticated first fixture registry key's CometBFT address.
 pub(super) fn proposer() -> account::Id {
-    account::Id::new(sample_entries(1)[0].consensus_key().unwrap().address().into_array())
+    account::Id::new(test_key(1).address().into_array())
 }
 
 /// A `PrepareProposal` request for `height` at BFT time `time` (Unix seconds).
@@ -375,7 +374,7 @@ pub(super) fn plant_entries(
         blobs.push(blob);
     }
     inbox.forced_inclusion_tail = inbox.forced_inclusion_queue.len() as u64;
-    fx.advance_l1(l1, number, &inbox, &fx.registry);
+    fx.advance_l1(l1, number, &inbox);
     blobs
 }
 
@@ -431,7 +430,7 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
 
     // L1 finalizes block 66, where the checkpoint has advanced to H_0: the anchor moves.
     let inbox = fx.inbox_at_checkpoint(h0.number, h0.hash_slow());
-    let header = fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
+    let header = fx.advance_l1(app.l1(), 66, &inbox);
     let env = propose(&mut app).await;
     let anchor = env.anchor.as_ref().expect("a moved anchor carries its witness");
     assert_eq!(anchor.l1_header, header);
@@ -493,44 +492,39 @@ async fn min_total_stake_max_is_decoded_unmasked_and_inherited() {
     assert_eq!(stored.anchor, anchor);
 }
 
-#[tokio::test]
-async fn restart_rejects_a_changed_committee_config_opening() {
+/// A stored state whose genesis configuration hash is not the one of the node's built-in L2
+/// chain id, staking proxy and U is refused at startup and left as it is, without migration:
+/// a state written under another staking address, and a state carrying the hash of the removed
+/// registry-era configuration.
+#[test]
+fn stored_state_with_another_config_hash_is_refused() {
     let fx = Fixture::genesis(2);
-    let dir = tempfile::tempdir().unwrap();
-    let _app = initialized(&fx, dir.path()).await;
-    let mut params = fx.params.clone();
-    params.n_max += 1;
-    assert!(matches!(
-        App::new(
+    let other_staking =
+        ChainParams { staking: alloy_primitives::Address::repeat_byte(0x22), ..fx.params.clone() };
+    let registry_era =
+        alloy_primitives::b256!("af72a8cac328b7a82ec9c449fb39aecc89a196de580f512cc40f0e1d8a6ad2fa");
+    for config_hash in [other_staking.config_hash(), registry_era] {
+        let mut state = fx.expected_state();
+        state.genesis.config_hash = config_hash;
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::volatile(dir.path().to_path_buf());
+        store.save(&state).unwrap();
+        let file = dir.path().join(crate::store::STATE_FILE);
+        let before = std::fs::read(&file).unwrap();
+        let result = App::new(
             fx.l1(),
             fx.engine(),
-            params,
-            Store::volatile(dir.path().to_path_buf()),
-            crate::test_utils::test_options()
-        ),
-        Err(AbciError::StoredState(_))
-    ));
-}
-
-#[test]
-fn persisted_fixed_cutoff_config_is_rejected_without_migration() {
-    let mut spec = GenesisSpec::new(2);
-    spec.params.registry = alloy_primitives::Address::repeat_byte(0x22);
-    spec.params.unsettled_limit = 36;
-    let fx = Fixture::build(spec);
-    let mut state = fx.expected_state();
-    // Independent ethers eleven-word vector: same remaining fields, old grid10/lag20.
-    state.genesis.committee_config_hash =
-        alloy_primitives::b256!("af72a8cac328b7a82ec9c449fb39aecc89a196de580f512cc40f0e1d8a6ad2fa");
-    let dir = tempfile::tempdir().unwrap();
-    let store = Store::volatile(dir.path().to_path_buf());
-    store.save(&state).unwrap();
-    let file = dir.path().join(crate::store::STATE_FILE);
-    let before = std::fs::read(&file).unwrap();
-    let result =
-        App::new(fx.l1(), fx.engine(), fx.params.clone(), store, crate::test_utils::test_options());
-    assert!(matches!(result, Err(AbciError::StoredState(_))));
-    assert_eq!(std::fs::read(file).unwrap(), before);
+            fx.params.clone(),
+            store,
+            crate::test_utils::test_options(),
+        );
+        assert!(
+            matches!(&result, Err(AbciError::StoredState(message))
+                if message.contains("configuration hash")),
+            "{config_hash}"
+        );
+        assert_eq!(std::fs::read(file).unwrap(), before);
+    }
 }
 
 /// No handler may accept a proposer outside the set that signs the block.

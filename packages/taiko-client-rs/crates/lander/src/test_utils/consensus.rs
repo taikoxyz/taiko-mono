@@ -2,8 +2,7 @@
 
 use abci::{
     ChainParams, CommitteeRecord, CommitteeState, EtnaEnvelope, ExecutionBlock, Member,
-    committee::{set_hash, set_key},
-    key::ConsensusKey,
+    fallback::FallbackKeys, key::ConsensusKey,
 };
 pub use alloy::signers::k256::ecdsa::SigningKey;
 use alloy_consensus::Header;
@@ -39,10 +38,11 @@ pub fn parameters() -> ChainParams {
     params
 }
 
-/// A fixture's committee: its record and members, and the validator set they sign as.
+/// A fixture's signing set: its members with their powers, and the validator set they sign as.
+/// The record carries nothing the lander checks.
 #[derive(Clone, Debug)]
 pub struct FixtureCommittee {
-    /// The record and the members in set-key order.
+    /// A record and the members, in key order.
     pub state: CommitteeState,
     /// The members' CometBFT validator set.
     pub validators: Validators,
@@ -54,6 +54,31 @@ impl FixtureCommittee {
         let validators = Validators::from_members(&state.members).unwrap();
         Self { state, validators }
     }
+
+    /// The set of the fallback key list `keys`: each key at power 1, as a generation's origin
+    /// keys sign its first blocks.
+    pub fn fallback(keys: &FallbackKeys) -> Self {
+        let members = keys
+            .keys()
+            .iter()
+            .map(|key| Member { pubkey: *key, eff_stake: U256::ZERO, power: 1 })
+            .collect::<Vec<_>>();
+        let record = CommitteeRecord {
+            target_epoch: 0,
+            cutoff_l1_block: 0,
+            checkpoint_index: 0,
+            set_hash: B256::ZERO,
+            total_power: members.len() as u64,
+        };
+        Self::new(CommitteeState { record, members })
+    }
+}
+
+/// The fallback key list of the public keys of `keys`, in ascending order.
+pub fn fallback_keys(keys: &[SigningKey]) -> FallbackKeys {
+    let mut keys: Vec<_> = keys.iter().map(public_key).collect();
+    keys.sort();
+    FallbackKeys::new(keys).unwrap()
 }
 
 /// A committee of one member per power, keyed by domain-separated full-width indices, its
@@ -105,12 +130,12 @@ fn committee_with_keys(
             power: *power,
         })
         .collect::<Vec<_>>();
-    members.sort_by_key(|member| set_key(params.l2_chain_id, member.pubkey));
+    members.sort_by_key(|member| member.pubkey);
     let record = CommitteeRecord {
         target_epoch: epoch,
         cutoff_l1_block: 1,
         checkpoint_index: 0,
-        set_hash: set_hash(params.l2_chain_id, epoch + 1, &members),
+        set_hash: B256::ZERO,
         total_power: powers.iter().sum(),
     };
     let committee = FixtureCommittee::new(CommitteeState { record, members });

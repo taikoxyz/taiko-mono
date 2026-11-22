@@ -268,9 +268,6 @@ impl FixtureChain {
         let state = source.header(p.get_block_number().await?).await?;
         let pin = Some(BlockId::hash_canonical(state.hash()));
         let checkpoint = view(p, fixture.inbox, EtnaInbox::lastCheckpointCall {}, pin).await?;
-        let config = view(p, fixture.inbox, EtnaInbox::committeeConfigHashCall {}, pin).await?;
-        let bootstrap =
-            view(p, fixture.inbox, EtnaInbox::genesisCommitteeRecordHashCall {}, pin).await?;
         let inbox_witness = source
             .account_witness(
                 fixture.inbox,
@@ -310,8 +307,7 @@ impl FixtureChain {
             forced_inclusion_head: word_u48(head_tail, 0),
             forced_inclusion_tail: word_u48(head_tail, 48),
             genesis: fixture.genesis.clone(),
-            committee_config_hash: config,
-            genesis_committee_record_hash: bootstrap,
+            config_hash: fixture.genesis.config_hash,
             l1_header: state,
             inbox_witness,
         };
@@ -508,14 +504,6 @@ impl LandingSource for FixtureLanding {
         anchor: &AnchorState,
     ) -> lander::error::Result<abci::AnchorWitness> {
         self.rpc.starting_inbox_witness(anchor).await
-    }
-    async fn committee_witness(
-        &self,
-        anchor: &AnchorState,
-        snapshot_number: u64,
-        epoch: u64,
-    ) -> lander::error::Result<abci::CommitteeWitness> {
-        self.rpc.committee_witness(anchor, snapshot_number, epoch).await
     }
     async fn fallback_keys(
         &self,

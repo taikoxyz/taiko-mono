@@ -19,7 +19,7 @@ pub struct RecoveryWitness {
     pub version: u64,
     /// Explicit requested nonzero deployment generation, bounded to 48 bits.
     pub generation: u64,
-    /// Original generation-zero deployment and committee evidence, never rewritten.
+    /// Original generation-zero deployment evidence, never rewritten.
     pub genesis: GenesisWitness,
     /// Own-L1 finalized observation header.
     pub finalized_header: RawL1Header,

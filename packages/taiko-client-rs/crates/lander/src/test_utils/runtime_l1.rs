@@ -42,23 +42,6 @@ fn public_rpc_and_wrapped_anchor_errors_never_render_endpoint_credentials() {
     }
 }
 
-#[tokio::test]
-async fn committee_discovery_errors_never_render_wrapped_rpc_credentials() {
-    let sensitive = "https://alice:password@example.invalid/private-key-path?api_key=secret";
-    let provider = rpc(move |_| json!({"__rpc_error":{"code":-32603,"message":sensitive}})).await;
-    let fixture = crate::test_utils::consensus_mpt::Fixture::new(18, 30);
-    let source =
-        RpcLandingSource::new(provider.provider.clone(), provider.provider.clone(), fixture.params);
-    let proving_anchor = anchor(&fixture.snapshot.l1_header);
-    let error =
-        source.committee_witness(&proving_anchor, proving_anchor.number, 1).await.unwrap_err();
-    assert!(error.is_retryable());
-    assert!(!provider.requests.lock().unwrap().is_empty());
-    for secret in ["alice", "password", "private-key-path", "api_key", "secret"] {
-        assert!(!error.to_string().contains(secret), "committee error exposed {secret}");
-    }
-}
-
 /// A fallback key list the L1 endpoint cannot give, as `getFallbackKeys()` fails on pruned
 /// state and no log holds it or the log query fails, is the node's own L1 fault:
 /// [`LanderError::Temporary`], never `Safety`, and it renders no endpoint detail.
@@ -224,18 +207,15 @@ fn snapshot(headers: &BTreeMap<u64, RawL1Header>) -> LandingSnapshot {
         forced_inclusion_head: 0,
         forced_inclusion_tail: 0,
         genesis: GenesisRecord {
-            committee_config_hash: B256::repeat_byte(3),
+            config_hash: B256::repeat_byte(3),
             genesis_height: 0,
             l1_0: 10,
-            epoch_len: 20,
             genesis_hash: B256::repeat_byte(1),
             genesis_state_root: B256::repeat_byte(2),
-            genesis_cutoff: 9,
             forced_inclusion_delay: 3_600,
             max_anchor_age: 7_200,
         },
-        committee_config_hash: B256::repeat_byte(3),
-        genesis_committee_record_hash: B256::repeat_byte(6),
+        config_hash: B256::repeat_byte(3),
         l1_header: headers[&20].clone(),
         inbox_witness: abci::AccountWitness {
             address: params.inbox,
@@ -674,10 +654,7 @@ fn nonzero_etna_start_requires_switch_configuration() {
     let g = &fixture.snapshot.genesis;
     let landing = inbox::landing_record_slots(start);
     let planted = fixture.snapshot_with_inbox_words([
-        (
-            inbox::slot(inbox::GENESIS_PACKED),
-            U256::from(start) | (U256::from(g.l1_0) << 48) | (U256::from(g.epoch_len) << 96),
-        ),
+        (inbox::slot(inbox::GENESIS_PACKED), U256::from(start) | (U256::from(g.l1_0) << 48)),
         (inbox::origin_slots(0)[0], U256::from(start)),
         (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(start)),
         (landing[0], U256::from(start)),
@@ -702,6 +679,7 @@ fn nonzero_etna_start_requires_switch_configuration() {
         unzen_inbox: alloy_primitives::Address::repeat_byte(0x41),
         fork_timestamp: 100,
         signal_service_implementation: alloy_primitives::Address::repeat_byte(0x42),
+        staking_implementation: alloy_primitives::Address::repeat_byte(0x43),
     });
     let decoded = decode(&configured).unwrap();
     assert_eq!(decoded.genesis.genesis_height, start);
@@ -902,7 +880,7 @@ async fn v1_deployment_reads_only_checked_getters_and_max_batch_blocks() {
     let advanced = crate::test_utils::consensus_mpt::Fixture::new(18, 30);
     let mode = Arc::new(AtomicU8::new(0));
     let control = mode.clone();
-    let config = fixture.snapshot.committee_config_hash;
+    let config = fixture.snapshot.config_hash;
     let registry = fixture.params.registry;
     let chain_id = fixture.params.l2_chain_id;
     let hash_a = fixture.snapshot.l1_block_hash;
@@ -1069,6 +1047,7 @@ fn switch_case() -> (BTreeMap<u64, RawL1Header>, LandingSnapshot, ChainParams, S
         unzen_inbox: alloy_primitives::Address::repeat_byte(0x41),
         fork_timestamp: 200,
         signal_service_implementation: alloy_primitives::Address::repeat_byte(0x42),
+        staking_implementation: alloy_primitives::Address::repeat_byte(0x43),
     });
     let genesis = &snapshot.genesis;
     let l1 = SwitchL1 {
