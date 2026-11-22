@@ -5,6 +5,55 @@ project. [Tracking issue #22355](https://github.com/taikoxyz/taiko-mono/issues/2
 is its GitHub entry point. Historical batch plans and reports retain their
 original measurements; they are not current completion checklists.
 
+## Current formal-stage closure
+
+Direct user authorization on2026-11-22 replaces fixed-size batches with
+continuous completion of the feasible formal-review stage. Earlier groups,
+including Z01-Z07, remain complete at their stated source versions.
+[Design](../../docs/superpowers/specs/2026-11-22-etna-formal-stage-closure-design.md)
+and [plan](../../docs/superpowers/plans/2026-11-22-etna-formal-stage-closure.md)
+define the current work. This is review/tooling work; no production, SPEC,
+Notion or live-system change is authorized.
+
+| Deliverable | Current status | Completion boundary |
+| --- | --- | --- |
+| CLOSURE-1 current-source correspondence | COMPLETE selected source-review scope | Audit exact360 SPEC/ACCEPTANCE/SWITCH and every changed consumer obligation; preserve four historical bundles, all old claims and frozenf556 evidence; independent source/behavior gates |
+| CLOSURE-2 full terminal producer | COMPLETE selected historical entrypoint | Diagnose the retained nested-unshare failure and exercise actual smoke/full normal/fault/restoration with original capture, isolation and cache-lease checks; preserve INCONCLUSIVE if external runtime policy prevents a complete execution |
+| CLOSURE-3 accumulated closeout | COMPLETE local gates; publication receipt in PR | Full exact-outcome gate, current-main regression, source/behavior review and honest disposition of every remaining dependency; existing draft publication and readback |
+
+The master inventory below has30 distinct obligations: five selected COMPLETE,
+seven OPEN and18 WAITING. COMPLETE entries do not establish changed360 behavior.
+V01/V03 are ongoing verification practices. The other OPEN items retain
+unfinished wider bounds or concrete runtime integration dependencies; all19
+archived searches remain INCONCLUSIVE. This stage cannot close an absent real
+STF/guest/client/App/EL/importer, measured operating budget or archive service
+by adding a document hash or another finite model.
+
+## Source360 runtime dependencies
+
+These fourteen version-specific rows regroup the master obligation index below;
+they are not fourteen completed checks or an additive work counter. The exact
+ledger is [source_revision_obligations.json](conformance/source_revision_obligations.json),
+with direct normative references in [SOURCE_CORRESPONDENCE](SOURCE_CORRESPONDENCE.md).
+The original eleven f556 entries remain unchanged in their separate scope.
+
+| Source360 row | Status | Concrete next dependency |
+| --- | --- | --- |
+| Y01 | WAITING | Actual generation-bound scheduling and persisted-precommit upgrade/replay admission |
+| Y02 | WAITING | Actual complete recovery audit, issued exclusions and atomic DAO transaction |
+| Y03 | WAITING | Real guest range/certificate/snapshot activation and recovery-ancestry checks |
+| Y04 | WAITING | Current permanent-bond forfeiture/slashing ABI, accounting and withdrawal/rollback races |
+| Y05 | WAITING | Canonical snapshot/minStake, ABI setHash and actual app/guest selection |
+| Y06 | WAITING | Complete authenticated app/EL/Comet/evidence import and durable publication; a historical stock CLI cannot close it |
+| Y07 | WAITING | Current zero-block-evidence admission, stopped pool cleanup and measured running-halt response |
+| STOCK_DEPLOYMENT | WAITING | Pinned installed artifact/config and actual supervisor/WAL/EL reconciliation |
+| SWITCH | WAITING | Proven L2 readiness, separate L1 scheduling, L1-only postponement and full switch rehearsal |
+| PUBLIC_HISTORY | WAITING | Independent archive restore after blob expiry with actual recovery/proof/landing |
+| RESOURCES | WAITING | Complete F/K recovery gas, worst legal proofs/batches, landing net rate and operating budgets |
+| CHECKPOINT_TRUST | WAITING | Continuous finalized target/generation monitoring and immediate shared trust revocation/restoration |
+| SIGNER_SESSION | WAITING | Authenticated connection lifecycle, full-domain/next-height admission and supervisor restart |
+| ENCODINGS | WAITING | Shared actual EL/guest canonical RLP/zlib/blob/setHash/fee/certificate vectors |
+
 ## Baseline and completion rules
 
 Baseline: published draft [PR #22387](https://github.com/taikoxyz/taiko-mono/pull/22387),
@@ -22,8 +71,9 @@ or executable input requires a correspondence review before reusing evidence. A 
 binds only canonical historical authority and the exact reviewed9c832234 SPEC
 (blob033f7ffd/SHA7875c103) for selected historical/bounded programs. The
 [clause-by-clause review](conformance/SPEC_CORRESPONDENCE.md) explicitly leaves
-new SignalService migration/root-resolution and every-target local fork-time
-checks unverified under D01 WAITING. The prior991e06f6 provider design and older
+the historical9c SignalService migration/root-resolution and every-target
+fork-time obligations unverified. Current D01 WAITING acceptance is the source360
+master/composition rows and SOURCE_CORRESPONDENCE.md;9c instructions are archival. The prior991e06f6 provider design and older
 b796/53877 review are historical, not additional accepted runtime identities. Unknown future document bytes
 remain rejected; this metadata proves neither general equivalence nor ancestry.
 
@@ -46,12 +96,14 @@ That source-only review does not authorize earlier product claims against f556.
 
 At the Z batch closing review, actual main advanced to
 `3602629758beb653423a23608fd1960810efcfac` ([PR #22422](https://github.com/taikoxyz/taiko-mono/pull/22422)).
-Its changed checkpoint trust, encodings and L1-only fork scheduling require
-a new correspondence assessment. Z01–Z07 retain f556, and the unchanged
-classifier refuses the new document bytes. The eleven WAITING entries above
-are f556 obligations, not a reviewed inventory for this newer source.
+Its changed checkpoint trust, encodings and L1-only fork scheduling required
+a new correspondence assessment at that closing checkpoint. The subsequent
+[exact source360 review](SOURCE_CORRESPONDENCE.md) is complete as source metadata:
+old four bundles, all claims and f556 obligations are preserved, while the new
+scope contains fourteen WAITING runtime obligations. Z01–Z07 retain f556 and
+receive no source360 execution or model-conformance credit.
 
-## Current Z01–Z07 current-rule batch
+## Completed Z01–Z07 current-rule batch
 
 After Y01–Y07, the user directly authorized continuation of the established
 seven-task cadence. The [current-rule design](../../docs/superpowers/specs/2026-11-20-etna-current-rule-interleavings-design.md)
@@ -85,16 +137,17 @@ are COMPLETE. First draft publication `d3b052e5e` and full PR/issue readbacks
 are complete; the closing receipt preserves the same tested behavioral bytes.
 The [group gate](REPORT.md#z01z07-final-gate-and-source-version-boundary)
 records756 ordinary checks in each supported context and110 standalone checks;
-actual360 retains45 baseline source-compatibility failures, with none added by
+the original Z closing actual360 merge retained45 baseline source-compatibility failures, with none added by
 the final batch. It is not a green current-main merge.
 No eighth starts automatically. Hourly feedback-first checks continue.
 
 The per-item actual-main checks for Z01–Z06 used f556 while it was main.
-The final actual360 merge has a separate source-compatibility limit; it does
-not inherit their green status. Next correspondence work is OPEN and unstarted:
-review all changed360 clauses, including checkpoint trust, encodings and the
-L1-only switch schedule, before selecting revised models or runtime obligations.
-The f556 L2-getter/replacement results must not be relabeled as current360 coverage.
+The final Z actual360 merge had a separate source-compatibility limit and did
+not inherit their green status. The later source-only correspondence at
+`fa41c30a1326eb36fe9ac9d1d7e4e4399ed19785` closes that document-recognition
+assessment and records the changed clauses and current dependencies. Fresh
+ordinary760-case cohorts pass under both360 andf556. The f556 L2-getter/replacement
+results remain historical; all fourteen source360 runtime obligations stay WAITING.
 
 ## Completed Y01–Y07 boundary-composition batch
 
@@ -113,7 +166,7 @@ retain the frozen bounds, independent gates and explicit runtime premises.
 | Y03 | Full ordered rule range and lossless software pause | COMPLETE selected code `9585e3fff`, public API repair `491aa3e94`; fixed origin/first context and independent5-positive/76-negative gate passed. |
 | Y04 | Actual funded pending forfeiture component | COMPLETE selected code `ee18ad8e1`; closed15, actual pending-debit/deadline faults/restoration and independent full raw audits passed. |
 | Y05 | Positional registry snapshots and final-R selection | COMPLETE selected code `6164ec9dc`, closure repair `491aa3e94`; corrected safety613 generated/281 distinct/queue0, both R7 orders and omitted-open-guard control/restoration passed; old289-state result retained as historical. |
-| Y06 | Actual terminal seen-commit reconstruction | COMPLETE selected component `41e3cfe5d`, shared ownership repair `491aa3e94`; actual canonical-path dummy cancellation/lease/capture gates passed; full real-Go producer integration INCONCLUSIVE. |
+| Y06 | Actual terminal seen-commit reconstruction | COMPLETE selected component `41e3cfe5d`, shared ownership repair `491aa3e94`; actual canonical-path dummy cancellation/lease/capture gates passed; full real-Go producer integration subsequently completed by the formal-stage closeout, with exact historical2e676/stock0880 scope. |
 | Y07 | Native evidence lifecycle and import markers | COMPLETE selected code `9d79f35fc`: compile,26 consumer checks, genuine host smoke/full0/1/0,13 independent v6 receipts,7 native controls and4-positive/46-negative unchanged-output metadata controls passed. Independent final documentation and normal-publication head/body readbacks passed; see the Y07 publication receipt. |
 
 [Y01 evidence](REPORT.md#y01-same-domain-timestamp-safety-projection) records two
@@ -169,10 +222,15 @@ separately in [prefix repairs](REPORT.md#y-prefix-final-review-repairs).
 actual public-input cases, independent A/B reopened stores and fresh successor
 validation, both actual source/input controls and exact restoration. Independent
 complete protobuf/signature/metadata checks passed. Full `run_profile` and
-`require_capture` integration remains INCONCLUSIVE; its nested namespace failed
+`require_capture` integration was INCONCLUSIVE at that checkpoint; its nested namespace failed
 before Go, and actual single-namespace component receipts are not relabeled as
 that launch. Synthetic app version17/stock parameters require separate Etna
 client validation. Candidate/main merge each passed601 ordinary checks at delivery.
+The subsequent [complete producer run](conformance/COMET_TERMINAL.md#complete-producer-execution-2026-11-22)
+closes that selected entrypoint: smoke1 plus normal/fault/restored6 each,
+actual canonical capture readback and independent raw/crypto verification. It
+retains product2e676 and stock0880; source360 Y06 import stays WAITING.
+
 Y01–Y06 selected deliveries are repaired at code `491aa3e94`. Actual canonical
 ownership gates use disposable dummy writers and do not close the real-Go
 integration gap. The repair candidate/main merge each pass611 ordinary checks
@@ -261,7 +319,7 @@ Setup failure, skipped work, empty output and timeout never count as a pass.
 | E01 | M01 + M04 + M12 / WAITING client/EL/guest interfaces                                     | Run shared canonical encoding, consensus-key, proof-of-possession and vote-signature vectors across every consumer under ACCEPTANCE section 3. Compare exact byte encodings, hashes, address/key mapping and domain separation; reject malformed/noncanonical inputs. Include actual secp256k1eth mapping and retain public fixture provenance. N01/N02 add the selected genuine secp256k1eth public corpus through actual Go and Solidity APIs with input binding. Client/EL/guest correspondence and authenticated derivation remain WAITING.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | E02 | M06 + M07 / WAITING EL/guest interfaces                                                  | Run unified zk-gas behavioral vectors under ACCEPTANCE section 1 item 6 and CONS-3.1-12 through CONS-3.1-17: EVM revert/OOG versus zk discard, uint64 arithmetic overflow, exact/over limits, nested precompiles, the first crossing atomic operation, FI singleton counterfactual and full nonce/authorization/log/receipt/fee rollback. Require matching EL/guest results on legal worst segments; resource measurements alone do not close semantic equivalence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | O01 | M04 + M07 + M08 / WAITING launch and operating manifest                                  | Validate ACCEPTANCE section 4 on the actual initial and finalized-R committees: positive unexpired capital/price inputs and owners, selected-stake and integer-power capital thresholds, every member and known common controller strictly below 1/3, actual online quorum and periodic revaluation. Authorization estimates do not reserve a recovery committee. Test shortfall alerts/disclosure/replenishment without inventing a capital veto on recovery/rotation/signing. Separately verify funded operators and sustained worst-case proving/blob/landing/archive/on-call budgets under COST-C-1 through COST-C-12, including low load, discarded work and retries; measured estimates alone do not establish funding.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| D01 | SignalService + Inbox + client/guest / WAITING implementation and deployment             | Pin all shared L1/L2 immutables and single-syncer roles, including beaconRootsFrom=0 on L1 and prescribed switching/new-network L2 values; every SignalService reads no Inbox state. Verify Unzen prove forwards unchanged checkpoints through the Etna Inbox, only its configured Unzen caller is accepted, heights above S reject after the start write, and forwarding has no extra failure path. Verify L2 checkpoint closure, local uint48 checkpoint bounds versus full uint64 EIP-4788 timestamps, and uncached proof refusal on call errors, zero roots, missing/wrong return data or missing/overwritten EIP-4788 entries without checkpoint fallback; cached signals still work after expiry. Authenticate the built-in SignalService implementation at S in client/guest; at EVERY switching-network trust target including late snapshot joins compare its beaconRootsFrom against the node's actual fork time/overrides using authenticated L2 state and the implementation address. Verify single-proxy upgrade final-check refusal/retry and guest-before-upgrade order. Distinguish L1 VERSION/cache/checkpoint continuity from L2 flat-to-VERSION reset: old flat contents stay unreadable, dual-layout guests prove parent checkpoints, legitimate signals re-prove and relayers retry, and no rollback revives flat cache/checkpoints. Source: START-10-5/5a/5c/5d, PROOF-6.2-46a, SYNC-9-5a/16, PARAM-11-12a and ANCHORLESS4/8 at9c832234. Historical89 consumers do not close this WAITING item; cross-link U03/Q02. |
+| D01 | SignalService + Inbox + client/guest / WAITING implementation and deployment             | Source360 authoritative acceptance: pin shared L1/L2 source, layout, all immutables and single-syncer roles, with usesBeaconRoots=false on L1 and true on L2; every SignalService reads no Inbox state. The Etna Inbox accepts only its configured Unzen caller, forwards each accepted checkpoint unchanged while slot273 is zero, and rejects EVERY forwarded height (below, at and above S) once slot273 is nonzero; no other failure path beyond these checks and SignalService's own. Verify L2 checkpoint closure in every Etna block. Resolve a saved checkpoint first; only when none exists for the proof blockId consult EIP-4788. Reject an unresolved zero root, failed call, missing/wrong return data or missing/overwritten EIP-4788 entry, while accepting a valid saved checkpoint without requiring a live EIP-4788 entry. Keep local uint48 checkpoint bounds separate from the full uint64 timestamp path; compare rootHash and verify account/storage proofs against the same resolved root. Cached signals still work after root expiry. Authenticate the built-in L2 SignalService implementation at S in client/guest when checking the switching start; once a proof from S has landed, a later/pruned join need not reacquire S's header or Unzen chain. Separately, at EVERY switching-network trust target, including late snapshot joins after the first landing, compare the node's actual fork time including local overrides against the switching Inbox's immutable in its own finalized L1 view. No L2 contract holds a fork time or exposes a fork-time getter. Verify single-proxy upgrade final-check refusal/retry and guest-before-upgrade order. Distinguish L1 VERSION/cache/checkpoint continuity from L2 flat-to-VERSION reset: old flat contents stay unreadable, both guests in every proof combination read versioned parent checkpoints then flat when empty, legitimate signals re-prove and relayers retry, and no rollback revives flat cache/checkpoints. Source: START-10-5/5b/5c/5d, PROOF-6.2-46a, SYNC-9-5a/16, PARAM-11-12a, ACCEPTANCE §8.2/§8.5 and ANCHORLESS §4/§8 at3602629758beb653423a23608fd1960810efcfac. Older9c acceptance below is archival only; historical89 consumers do not close D01. Cross-link U03/Q02. |
 
 ## Required composition matrix
 
@@ -281,7 +339,18 @@ an intended-failure control, and explicit implementation correspondence status.
 | Snapshot import, stock store restart/handshake and next-block execution             | C02, C03, I02, I03 | Stock persistent/handshake checks plus eventual complete App/EL/consensus replay; APIs alone do not close the combined row.                                                                                                                                                                                                                                                                |
 | Canonical encodings and key/signature domains across client, EL, guests and L1      | E01, K01, S01      | Exact shared bytes and authenticated identities agree; malformed/noncanonical vectors reject at the intended consumer boundary.                                                                                                                                                                                                                                                            |
 | zk-gas crossing/discard, FI trials and proof-backed atomic rollback                 | E02, F01, P02      | EL/guest outcomes and complete rolled-back effects agree, including expensive valid segment acceptance.                                                                                                                                                                                                                                                                                    |
-| Shared SignalService fork configuration, Unzen forwarding and proof-root resolution | D01, U03, Q02, S01 | Same-code L1/L2 immutables/single-syncer roles/no Inbox reads; L1 forwarding/cutoff refusal/retry; L2 checkpoint closure and full-width EIP-4788 lookup refusing uncached errors/missing/zero without fallback; authenticated identity at S and every-target local fork-time check; L1 VERSION continuity versus L2 namespace reset, dual-layout guest order/reproof and no flat rollback. |
+| Shared SignalService fork configuration, Unzen forwarding and proof-root resolution | D01, U03, Q02, S01 | Source360 same-code L1/L2 immutables/single-syncer/no Inbox reads, usesBeaconRoots=false/true; before-start forwarding by configured Unzen caller and EVERY-height refusal once slot273 is nonzero; L2 checkpoint closure; saved-checkpoint-first root resolution then full-width EIP-4788 only if absent, refusing unresolved zero/errors/missing entries while preserving valid saved roots and cached signals after EIP expiry; separate implementation authentication at S and EVERY-target actual node fork time/override vs finalized L1 Inbox immutable (no L2 getter), including late/pruned joins; L1 VERSION continuity vs L2 namespace reset, dual-layout guest order/reproof and no flat rollback. |
+
+### Historical9c D01 acceptance (archival only)
+
+The following retained9c832234 acceptance is provenance for the earlier scoped
+review and report. It is superseded by the active source360 D01 master row and
+composition row above; it is not an instruction for current implementations.
+In particular, its L2 beaconRootsFrom comparison, post-start height qualification
+and proof-root fallback wording do not apply to source360.
+
+> Pin all shared L1/L2 immutables and single-syncer roles, including beaconRootsFrom=0 on L1 and prescribed switching/new-network L2 values; every SignalService reads no Inbox state. Verify Unzen prove forwards unchanged checkpoints through the Etna Inbox, only its configured Unzen caller is accepted, heights above S reject after the start write, and forwarding has no extra failure path. Verify L2 checkpoint closure, local uint48 checkpoint bounds versus full uint64 EIP-4788 timestamps, and uncached proof refusal on call errors, zero roots, missing/wrong return data or missing/overwritten EIP-4788 entries without checkpoint fallback; cached signals still work after expiry. Authenticate the built-in SignalService implementation at S in client/guest; at EVERY switching-network trust target including late snapshot joins compare its beaconRootsFrom against the node's actual fork time/overrides using authenticated L2 state and the implementation address. Verify single-proxy upgrade final-check refusal/retry and guest-before-upgrade order. Distinguish L1 VERSION/cache/checkpoint continuity from L2 flat-to-VERSION reset: old flat contents stay unreadable, dual-layout guests prove parent checkpoints, legitimate signals re-prove and relayers retry, and no rollback revives flat cache/checkpoints. Source: START-10-5/5a/5c/5d, PROOF-6.2-46a, SYNC-9-5a/16, PARAM-11-12a and ANCHORLESS4/8 at9c832234. Historical89 consumers do not close this WAITING item; cross-link U03/Q02.
+
 
 ## Archived-search disposition
 
@@ -542,7 +611,8 @@ O02 selected actual-handler evidence is recorded in
 [the report](REPORT.md#o02-stock-handler-refusal-and-cached-retry).
 A real long-receipt collector defect was found and repaired during independent
 source review. The [merge-target SPEC feedback repair](REPORT.md#merge-target-spec-correspondence-feedback)
-updates D01's pending acceptance to the new design; it does not close D01 or
+updated D01's then-pending9c acceptance, now retained as archival provenance;
+the source360 master/composition rows supersede those instructions. It did not close D01 or
 change the other 29 remaining acceptance requirements.
 
 O03 selected evidence is recorded in [the report](REPORT.md#o03-held-zero-displacement-and-late-withdrawal). Every action binds both the named projection and the existing full bounded raw observer; real off-path source writes are detected. R01 remains OPEN for full-capacity and authentic recovery/runtime correspondence.

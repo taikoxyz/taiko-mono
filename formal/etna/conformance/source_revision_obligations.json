@@ -213,6 +213,7 @@
             "COMM-4.3-3",
             "COMM-4.3-4",
             "COMM-4.3-5",
+            "COMM-4.3-10",
             "COMM-4.3-13",
             "START-10-8",
             "START-10-12",
@@ -220,7 +221,7 @@
             "ENC-A-39a",
             "ENC-A-42"
           ],
-          "scope": "Canonical positional snapshots and shared immutable minStake, complete ABI setHash and committee record, validator-update difference from the actual S+1 signing set, snapshot activation despite empty updates, and initialization strictly after genesisCutoff. Z04 covers only its frozen f556 projection and does not implement the new selected-set commitment.",
+          "scope": "Canonical positional snapshots and shared immutable minStake, complete ABI setHash and committee record, validator-update difference from the set signing the selection-specific S(t)+1 = H(t)-1, with S(t)=H(t)-2, not the fixed Etna start S+1, snapshot activation despite empty updates, and initialization strictly after genesisCutoff. Z04 covers only its frozen f556 projection and does not implement the new selected-set commitment. Acceptance includes a second rotation after membership has changed, computing additions/removals against that rotation's actual signing set.",
           "status": "WAITING"
         },
         {
@@ -337,6 +338,8 @@
         {
           "id": "ENCODINGS",
           "ruleIds": [
+            "CONS-3.2-8",
+            "CONS-3.2-9",
             "ENC-A-5",
             "ENC-A-10a",
             "ENC-A-10b",
@@ -354,7 +357,7 @@
             "DATA-5.2-6",
             "PROOF-6.2-17"
           ],
-          "scope": "Shared fixed hex vectors against actual EL/guest decoders: static bytes32 tags, one nested executionBlock RLP encoding, transaction byte strings, 124000-byte execution blocks, one complete bounded zlib stream with alternate valid compression accepted, exact Unzen version0 blob packing and strict padding, ABI setHash/committee records, four-second EIP-4396 and mixHash from S+1, and exact round/type/full-BlockID certificates. Documents and pure projections are not runtime conformance.",
+          "scope": "Shared fixed hex vectors against actual EL/guest decoders: static bytes32 tags, one nested executionBlock RLP encoding, transaction byte strings, 124000-byte execution blocks, one complete bounded zlib stream with alternate valid compression accepted, exact Unzen version0 blob packing and strict padding, ABI setHash/committee records, new-network (S=0) block 1 fixed at 0.025 gwei (25000000 wei), EIP-4396 with the four-second target for every other block including switching (S>0) S+1 using Unzen parent and grandparent, independent two-word ABI mixHash from parent.difficulty and height, and exact round/type/full-BlockID certificates. Documents and pure projections are not runtime conformance.",
           "status": "WAITING"
         }
       ]

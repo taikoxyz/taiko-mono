@@ -10,7 +10,7 @@ LATEST_SOURCE_BUNDLE = "3602629758beb653423a23608fd1960810efcfac"
 # Explicit reviewed source-only scopes; product qualification is separate.
 SOURCE_REVIEW_BUNDLES = ("f556fa94186b0ab604573e8d3a4c4d4fa835dc84", LATEST_SOURCE_BUNDLE)
 SOURCE_REVISION_PATH = Path(__file__).resolve().with_name("source_revision_obligations.json")
-SOURCE_REVISION_SHA256 = "186c78c1b6d20b3e4adff7eddcaef06993d16d1637bfdee5450960ce54a6db5d"
+SOURCE_REVISION_SHA256 = "f1e7562026a099f6beabc4ff8c8f59f1c6cb0f1997b3c9a3e01e88b3a6a8ef4d"
 DOCUMENT_PATHS = tuple("packages/protocol/docs/etna/" + name
                        for name in ("SPEC.md", "ACCEPTANCE.md", "SWITCH.md"))
 

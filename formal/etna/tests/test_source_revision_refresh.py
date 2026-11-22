@@ -110,13 +110,13 @@ class SourceRevisionRefresh(unittest.TestCase):
         required = {
             "Y02": {"RECOV-8-38", "RECOV-8-39"},
             "Y03": {"LAND-6.1-6", "LAND-6.1-10", "RECOV-8-27", "PROOF-6.2-17", "PROOF-6.2-32"},
-            "Y05": {"COMM-4.3-3", "ENC-A-39a", "ENC-A-42", "COMM-4.3-13"},
+            "Y05": {"COMM-4.3-3", "ENC-A-39a", "ENC-A-42", "COMM-4.3-10", "COMM-4.3-13"},
             "Y06": {"DATA-5.4-3", "DATA-5.4-5"},
             "Y07": {"DATA-5.4-3", "DATA-5.4-5", "RECOV-8.4-7"},
             "STOCK_DEPLOYMENT": {"CONS-3.1-9"},
             "CHECKPOINT_TRUST": {"SYNC-9-5", "SYNC-9-6a"},
             "SIGNER_SESSION": {"START-10-6", "SYNC-9-10", "RECOV-8.2-2"},
-            "ENCODINGS": {"ENC-A-23b", "ENC-A-23c", "ENC-A-39a", "ENC-A-42"},
+            "ENCODINGS": {"CONS-3.2-8", "CONS-3.2-9", "ENC-A-10a", "ENC-A-10b", "ENC-A-23b", "ENC-A-23c", "ENC-A-39a", "ENC-A-42"},
             "SWITCH": {"START-10-5", "START-10-5d", "SYNC-9-5a"},
         }
         for name, rules in required.items():

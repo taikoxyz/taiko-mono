@@ -3,16 +3,20 @@
 These standard-library Python models check selected rules in the three-document
 Etna bundle at `f556fa94186b0ab604573e8d3a4c4d4fa835dc84`. They supplement
 historical TLA+/native evidence; they do not update its correspondence or turn
-source review into runtime conformance. The current source-only ledger retains
-all eleven WAITING implementation obligations.
+source review into runtime conformance. The frozen f556 source-only ledger retains
+all eleven WAITING implementation obligations. The separately reviewed source360
+ledger has fourteen WAITING obligations and grants these models no new credit.
 
 During the closing review, main advanced to
 `3602629758beb653423a23608fd1960810efcfac` in
 [PR #22422](https://github.com/taikoxyz/taiko-mono/pull/22422). Its documents
 change checkpoint trust, encodings and fork scheduling, including removal of
 the L2 fork-time getter. These models retain the exact earlier f556 rules;
-they do not establish correspondence to 360262975. The unchanged source
-classifier refuses the new bundle rather than granting it execution credit.
+they do not establish correspondence to 360262975. The subsequent
+[source correspondence review](../SOURCE_CORRESPONDENCE.md) recognizes the exact
+new bundle as source-only metadata and preserves all older claims. In particular,
+Z06's L2 getter and Z07's replacement/acknowledgment assumptions are superseded;
+recognition never grants their results current-source conformance.
 
 The authorized group is Z01–Z07. Each module has its own semantics; only the
 bounded explorer and source-identity utility are shared. Snapshot encoding also
@@ -80,17 +84,29 @@ must retain these outcomes; they do not promise automatic recovery or timely
 bridge/proof availability. Production, EVM rollback, cryptography, proving,
 client/signer integration and deployment readiness remain outside these checks.
 
-## Current-main compatibility
+## Source recognition and historical compatibility
 
 The closing regression uses three distinct document contexts. Both the frozen
 f556 snapshot and the historical d183 checkout pass756 ordinary checks,
 570/166/20, with no failures, errors or skips. All seven authored suites also
 pass separately,110 tests in total.
 
-The actual360 effective merge remains unreviewed and does not pass the broad
-regression: two failures and43 errors across the main/conformance cohorts.
-All45 failed observations match the no-Z baseline on the same main after
-normalizing only random temporary-directory names. The batch's additional
-unknown-source test error was fixed without changing the classifier. The
-source refusal is retained; a new correspondence assessment is OPEN. The
-existing draft is not merge-ready on that newer source.
+At the original Z closing head, the actual360 effective merge was unreviewed
+and failed the broad regression: two failures and43 errors across the
+main/conformance cohorts. All45 observations matched the no-Z baseline on the
+same main. That historical result and its retained logs remain unchanged.
+
+The later source360 review at `fa41c30a1326eb36fe9ac9d1d7e4e4399ed19785`
+adds exact three-document recognition and an independent source-only ledger.
+Fresh ordinary checks pass760 in each actual360 and frozenf556 context,
+574/166/20, with zero failures, errors or skips. An independent probe exercises
+144 acceptance/refusal cases, including genuine raw mixed-document inputs,
+unchanged historical objects and continued product/Z rejection of source360.
+All45 original compatibility observations have an explicit disposition in the
+stage report. The single-SPEC historical guard still rejects source360.
+
+These results establish tooling compatibility and source/evidence boundaries.
+They do not qualify source360 implementations, retag the seven f556 models,
+complete the fourteen source360 runtime obligations, or establish merge readiness.
+The separate [historical full terminal producer](../conformance/COMET_TERMINAL.md#complete-producer-execution-2026-11-22)
+now passes its selected entrypoint; source360 app/import acceptance remains WAITING.

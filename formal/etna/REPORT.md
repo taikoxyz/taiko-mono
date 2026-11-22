@@ -7520,3 +7520,245 @@ no additional runtime or current360 correspondence credit follows. All three
 plan gates are now completed against actual local and remote evidence. The
 authorized seven-item group is complete; return to feedback-only hourly checks
 after closing publication, without starting an eighth or reopening old batches.
+
+## Formal-stage closeout: current-source correspondence (2026-11-22)
+
+The user authorized continuous completion of the feasible review stage rather
+than another fixed seven-item group. All older groups remain complete at their
+original versions. The new [design](../../docs/superpowers/specs/2026-11-22-etna-formal-stage-closure-design.md)
+and [plan](../../docs/superpowers/plans/2026-11-22-etna-formal-stage-closure.md)
+cover current-source correspondence, the outstanding complete terminal producer
+entrypoint, and accumulated evidence/worklist closeout. No production, SPEC,
+Notion, deployment or signing action is part of this stage.
+
+### Current-source review and evidence boundaries
+
+Commit `fa41c30a1326eb36fe9ac9d1d7e4e4399ed19785` adds the exact source360
+three-document identity and [complete correspondence](SOURCE_CORRESPONDENCE.md).
+This is source-review metadata, not protocol or runtime qualification. Product
+qualification remains2e676; Z01-Z07 remainf556. Every older bundle and claim is
+unchanged, including the f556 eleven-obligation scope. The independently
+reviewed source360 scope records fourteen WAITING runtime obligations, null
+evidence and NOT_EVALUATED execution. Unknown or mixed document bytes still
+refuse, and the historical single-SPEC guard still rejects source360.
+
+The clause/consumer audit covers continuous finalized checkpoint/generation
+monitoring and pending trust, EL-only generation origins, authenticated signer
+sessions and durable next-height admission, strict RLP/zlib/blob/setHash encoding,
+empty-update snapshot activation, F/K recovery capacity, accepted running-halt
+and rollback limits, and the separate L2 readiness then L1-only switch schedule.
+In particular, Z06/Z07 old L2 getter/replacement/ack assumptions are superseded
+for current attribution. Their bytes and historical results are preserved.
+
+All45 original failed observations now have a specific disposition:33 exact
+three-document refusals are admitted only after source review;9 missing workspace
+hash-table entries and2 outer expectations now recognize the fifth bundle; the
+remaining single-SPEC refusal stays a refusal and its negative expectation is
+updated. No historical correspondence, model/config, implementation pin or
+product claim was loosened to make the new source appear equivalent.
+
+### Verification and findings
+
+Fresh ordinary suites in actual360 and frozenf556 contexts each pass760 tests:
+574 main,166 conformance,20 sensitivity; zero failures, errors or skips. The
+focused source suites pass28 tests. A separate genuine two-bundle probe passes70
+cases using the original raw document streams.
+
+Before seeing the author's report, an independent verifier froze its own Git
+object exports and oracle. Its original baseline92 cases and candidate144 cases
+pass in read-only, Git-free, offline namespaces. The candidate checks cover all
+five exact raw bundles, unchanged old objects/claims/f556 scope, product/Z refusal
+of source360, every byte/mixed/missing/extra/type boundary, and malformed or
+promoted ledgers even with a deliberately recomputed outer file pin.
+
+An actual source-guard mutation then disabled only the inner execution-credit
+refusal. The frozen independent probe failed semantically on a rehashed f556
+PASS scope while selecting the latest revision; it did not stop at a syntax,
+import or file-integrity error. Restoring the exact original source and complete
+968-file snapshot restored all144 passes. This demonstrates that the selected
+control detects a real false-acceptance path; it is not a protocol defect.
+
+Independent source review read the full normative delta, every named consumer,
+actual complete patch and failure paths. It verified the exact three Git blobs,
+all older objects and every direct rule reference. Root and reviewer found two
+document attribution errors: an incorrect seven-module list and a PARAM-11-12
+reference that should be12a/12b. Both were corrected, and the reporting reviewer
+rechecked its finding. No unresolved material source or behavioral finding
+remains for this source-review tooling scope.
+
+### Accumulated finite regression
+
+A fresh offline effective360 snapshot, tree
+`446b680aa84495ec341975cd629040e6c3d6e68c`, ran all493 default TLC configurations.
+Every exact expected result matched:133 EXPECT:PASS cases and360 designated
+named invariant counterexamples, including negative controls and reachability
+witnesses. A separate raw-log pass checked all493 original logs, statuses,
+named violations, state counts, configuration hashes and unchanged input bytes.
+Results JSON SHA-256:
+`b90dfca587b160946edeec2bf15a8b9f36056627e7ba0d22954fe67814c54a35`.
+These remain historical finite-model regressions, not source360 protocol proof.
+
+The current rule checker passes643 live markers/index entries,35 retired IDs,
+assets, links and tables. Its migration-purity check is explicitly skipped
+without a base revision. No normative document or rule asset is changed by this
+stage; all exact source360 inputs remain pinned. Native producer and whole-stage
+publication outcomes are recorded separately below when established.
+
+### Complete terminal producer entrypoint
+
+The fresh full canonical entrypoint now succeeds under its exact historical
+scope: stock CometBFT `0880b4d378f347ab16e54ec677ff50d803f37d62`, product-review
+workspace `2e6763e21bc236cfcda6011d164b32040f9e0c8d`, source manifest
+`627740822b699685abb2ef71de349e72e76298a808231e86bd86772682c6080c`.
+No canonical producer or native fixture code was changed to obtain this result.
+The old failed and split-component records are preserved.
+
+A supported OCI outer environment lets the unchanged canonical driver establish
+its own inner namespace, proc, chroot and final capability drop. Prior attempts
+failed first at the tool's Docker socket restriction, then Docker's default
+unshare policy, then a fresh proc mount with inherited masked paths. Their exact
+raw errors remain INCONCLUSIVE; none was relabelled a native outcome. The later
+container-scoped prerequisites were reviewed independently before execution.
+The precise OEM kernel branch was not traced; the mask explanation is a
+source-supported inference, and the final actual primitive result is observed.
+
+The successful packet metadata SHA-256 is
+`82c67be86896bd17491e8ce03d1c013de0426dbbc5d6795ec9313ca3ad8a27f8`.
+Its outer nonroot process has zero effective/permitted/inheritable/ambient
+capabilities and only the reviewed three setup capabilities in its bounding
+set. The unchanged inner chain actually reports every capability set zero,
+no-new-privileges and default seccomp active, only loopback and no host
+home/root/Git/socket path. Read-only Git-free inputs and separate exact product
+documents remain pinned; only buildcache/output are persistent writable binds.
+The [component reproduction notes](conformance/COMET_TERMINAL.md#complete-producer-execution-2026-11-22)
+record the local runtime prerequisites and their scope.
+
+Actual canonical smoke completes1 leaf, followed by normal6, pinned source-fault6
+and restored6. Native return codes are0/0/1/0; cleanup-confirmed leased supervisor
+codes are200/200/201/200, with no timeout. The full CLI actually reads its smoke
+through `require_capture`. A separate original canonical audit rereads all four
+actual captures, including a separately journalled exact private fault
+reapplication/restoration for the mutant audit; auditReturncode is0.
+
+An independent verifier froze its raw oracle before Go output existed, then
+checks the fresh19 receipt leaves and all18 full crypto/database/header terms.
+Both A and B reconstruct in the stock constructor; parent-A VerifyCommit and
+ValidateBlock reject B normally. The exact expected-BlockID guard deletion makes
+only B's two verifiers accept and changes evidenceChecks0 to1; all public signed
+terms and the other five receipts stay fixed. Four precise constructor refusals
+remain. All six restored protocol receipts equal the normal receipts byte-for-byte.
+The four whole Go streams have different elapsed-event fields; no claim of
+whole-stream byte equality is made.
+
+All1659 original upstream files, both retained private source copies, six pinned
+Go tools, staged file hashes/inodes, original/mutant manifest identities and the
+same physical cache/lock are verified before/after. The source is restored on
+the same inode. The OCI process exits0/PID0; only its exact owner-labelled
+container/image are removed; final owner queries are empty. Actual lifecycle
+records and all inputs pass an independent readback.
+
+The private diagnostic wrapper initially omitted Docker's `label=` filter key,
+which root's static review missed. Actual execution exposed the invalid filter.
+Root independently checked and removed only the stopped resources with that
+exact owner, then confirmed empty sets. The private wrapper was repaired with a
+RED/GREEN command-construction regression and subsequently exercised correct
+cleanup against the real daemon. This is a validation-tool finding, not a change
+to the protocol. Independent policy review and actual fresh raw verification
+remain separate from the author's checks.
+
+This closes the advertised historical full producer entrypoint that was formerly
+INCONCLUSIVE. It does not close source360 Y06 complete authenticated import,
+real app/EL/evidence publication, deployed configuration or proof generation.
+Fresh forced cancellation was not injected in this packet; prior lease tests
+and their abrupt-death limits retain their original scope. The fourteen current
+runtime obligations and all19 archived searches retain WAITING/INCONCLUSIVE.
+
+
+## Final whole-stage source-review repair
+
+Independent final review identified four material acceptance-description errors
+and one source locator error. Checked each against frozen source360 SPEC and
+the actual360 ANCHORLESS text before changing the source-only records. Current
+D01 master and composition acceptance now require L1/L2 usesBeaconRoots=false/true,
+saved-checkpoint-first root resolution with EIP-4788 only if absent, EVERY-height
+forwarding refusal after slot273 becomes nonzero, and a separate every-target
+node actual fork-time/override comparison against the finalized L1 Inbox immutable.
+Implementation authentication at S remains distinct. The old9c D01 instructions
+are retained explicitly as archival provenance; width/layout/cache/dual-guest
+migration requirements remain.
+
+The source360 Y05 obligation now uses the selection-specific S(t)+1=H(t)-1,
+with S(t)=H(t)-2, and requires a second rotation after membership changed. Current
+fee acceptance explicitly fixes new-network block1 (S=0) at0.025gwei, or25000000wei;
+every other block follows the four-second EIP-4396 formula, including switching
+S+1 (S>0) with Unzen parent/grandparent, and mixHash retains its independent
+two-word ABI rule. Missing startup material leaves signing fenced while the node
+reports the missing height and retries acquisition outside the handshake; a
+contradiction stops startup. The storage-read sketch locator is corrected to
+§6.1 after LAND-6.1-10–13. Direct source references and the exact new ledger pin
+were updated. No fee, rotation, bridge or supervisor implementation was added.
+
+All four old bundles, the complete claim inventory, frozen f556 scope and all
+model/config/producer bytes remain unchanged. The existing direct-rule test
+first failed on missing COMM-4.3-10 and CONS-3.2-8/9 references; it exercises
+metadata coverage, not English semantics. Fresh ordinary and source-boundary
+verification and independent semantic re-review are required for these corrected
+bytes. Historical native V4 remains attributed to its original watched-source
+hashes; because current_spec.py's exact ledger pin changed, it cannot be relabelled
+as a run over this repair. The fourteen source360 runtime obligations remain
+WAITING and the19 archived searches remain INCONCLUSIVE.
+
+Fresh offline isolated verification of the repaired acceptance/ledger bytes
+passed all59 focused checks (28 source boundaries and31 archive dispositions).
+The complete ordinary suites passed574 main,166 conformance and20 sensitivity
+checks in each of actual360 and frozenf556 contexts,760 per context, with zero
+failures, errors or skips. The four-old-bundle/complete-claim objects and frozen
+f556 canonical scope were independently compared with the original base; only
+the separate360 obligations changed. These metadata/ordinary checks do not prove
+the English acceptance requirements or a runtime implementation; the original
+finding agent must re-read the corrected source semantics before publication.
+
+### Final corrected-input closeout
+
+The original final reviewer re-read all four P2 and one P3 against the frozen
+normative source and marked every finding ADDRESSED, with no new fix-scope
+finding. A fresh unchanged independent boundary probe passes144 cases over the
+corrected bytes. The classifier differs only in its exact ledger hash literal;
+its final SHA-256 is
+`f47d295a260824162e93cc6c738ee3fd194e4a6e33f20adf03b8f2ebced18774`,
+and the final source-only ledger SHA-256 is
+`f1e7562026a099f6beabc4ff8c8f59f1c6cb0f1997b3c9a3e01e88b3a6a8ef4d`.
+All original objects and model/config inputs remain unchanged.
+
+Because the native producer watches that code file, a fresh V5 execution uses
+the corrected input rather than transferring V4 credit. The already reviewed
+wrapper and OCI policy are identical; only eight canonical payload files and
+fresh output/runtime locations differ. V5 metadata SHA-256 is
+`8c7e7fe14cc928134b8772d95700b83952d883dcbb1654bbd3e69f6727841110`.
+Actual smoke/full/canonical capture audit again pass1/6/6/6 leaves, exit0,
+no timeout, restored source, unchanged physical lease/tool identities and empty
+owner resources after exited0/PID0. Both actual watched dictionaries bind the
+final classifier hash above.
+
+The independent verifier runs the unchanged frozen raw/crypto audit over these
+fresh V5 streams once, passes all19 receipt leaves/18 full terms, and independently
+confirms exact mutation differences, restored receipt bytes, all1659 source files,
+source/cache/lock identities and final cleanup. Its final report SHA-256 is
+`ad9ddcc26d71ad79da6e58537a7237019332c5265e99a0e4330812cc96eea482`.
+This closes only the historical stock0880/product2e676 entrypoint; source360
+runtime acceptance stays WAITING.
+
+The remaining master obligations, current fourteen runtime dependencies and
+nineteen archived INCONCLUSIVE outcomes are explicit in WORKLIST. V01/V03 remain
+ongoing practices, and wider unexhausted bounds are not promoted. The final
+review found errors in verification instructions and metadata, not an observed
+protocol implementation defect. Raw identity/refusal tests do not establish
+that an English source summary preserves every boundary case: source-level
+counterexamples at the second rotation, new-network block1, unavailable inputs
+and saved-root lookup were essential to this final repair.
+
+Local evidence is complete at this snapshot. The subsequent exact commit,
+normal draft push, owned-prefix preservation and hosted CI readbacks are recorded
+in the PR/issue status and monitor receipt after publication; no hosted success
+is predicted by this report. The worktree and raw evidence remain available for
+review. No production/SPEC/Notion/dependency/live/signing/merge/ready change occurred.
