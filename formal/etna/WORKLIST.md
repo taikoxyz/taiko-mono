@@ -5,6 +5,30 @@ project. [Tracking issue #22355](https://github.com/taikoxyz/taiko-mono/issues/2
 is its GitHub entry point. Historical batch plans and reports retain their
 original measurements; they are not current completion checklists.
 
+## Current L2 staking draft review
+
+Direct continuation on2026-11-22 reviews unmerged PR22425 at
+`69e26df443e9b5a0f05127d4179e4833fc95823c`, based on360262975.
+The [source/evidence disposition](L2_STAKING_REVIEW.md),
+[design](../../docs/superpowers/specs/2026-11-22-etna-l2-staking-review-design.md)
+and [plan](../../docs/superpowers/plans/2026-11-22-etna-l2-staking-review.md)
+keep this draft separate from the completed source360 closure below.
+The existing runtime classifier, five document bundles, claim inventory,
+source-only ledgers and old models/configs are unchanged.
+
+| Deliverable | Stage | Boundary |
+| --- | --- | --- |
+| L2R-1 source and interfaces | COMPLETE selected source review |70 verified changed blobs; two independent scoped source reviews; no confirmed normal-model defect. |
+| L2R-2 draft-only boundary bank | COMPLETE selected conditional model | Snapshot/miss/seat/first-two/fallback/H+2/X+3 and commit-boundary checks; conditional symbolic inputs, no runtime or quorum-reachability credit. |
+| L2R-3 accumulated review/publication | COMPLETE local gates; publication receipt in PR |26 directed checks,19 independent checks and4 fault/restorations;786 regressions each360/f556; final integration review and exact draft publication receipts. |
+
+The exceptional verifier-repair identity obligation remains unverified and
+non-blocking, outside the normal sound-verifier model. Concrete staking/EL/guest,
+128-record authentication, real128-to-128 Comet updates, proof cost, governance
+message delivery and operating/history budgets remain dependencies. The14
+source360 runtime WAITING rows and19 archived INCONCLUSIVE searches are retained;
+this draft bank is not an additive whole-protocol completion count.
+
 ## Current formal-stage closure
 
 Direct user authorization on2026-11-22 replaces fixed-size batches with

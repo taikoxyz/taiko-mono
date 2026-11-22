@@ -7762,3 +7762,33 @@ normal draft push, owned-prefix preservation and hosted CI readbacks are recorde
 in the PR/issue status and monitor receipt after publication; no hosted success
 is predicted by this report. The worktree and raw evidence remain available for
 review. No production/SPEC/Notion/dependency/live/signing/merge/ready change occurred.
+
+
+## L2 staking draft source review and boundary bank
+
+Direct continuation after the source360 closure targets unmerged PR22425 at
+`69e26df443e9b5a0f05127d4179e4833fc95823c`.
+[L2_STAKING_REVIEW.md](L2_STAKING_REVIEW.md) pins the five core documents,
+records the70-blob source readback, independent source reviews, proof-origin
+and timing assessment, exceptional-repair identity obligation and unchanged
+historical evidence boundaries. The draft remains outside the unchanged
+runtime/workspace classifier. The new `draft_rules` bank is a conditional
+symbolic projection, with no cryptographic, EL, storage-proof, actual Comet,
+production-unit quotient, runtime or full-protocol verification credit.
+
+A model input-coverage error was found after the initial23/17 checks passed:
+empty seats may retain historical counters. Genuine RED exposed the constructor
+rejection and invented exit reset; the two-line behavioral repair passed25
+regressions and19 independent checks, both normally and under optimization.
+Four actual private-copy semantic faults and their exact restorations were
+independently verified. The closing26th numerical quorum-feasible trace passed
+normally and under optimization at unchanged model606. The full supported-source
+cohorts passed786 each (600/166/20), zero failures/errors/skips, in supported360
+andf556 document contexts, and actual draft69 bytes remained refused by the old
+runtime classifier. The initial signal-cleanup failures came from the temporary
+caller's omitted inner signal reset; causal probes and fresh complete runs are
+recorded in L2_STAKING_REVIEW.md. No cleanup code or timeout was changed. The
+existing493 exact TLC run retains its historical regression scope; its
+models/configs and runner were not changed by this increment. Normal push,
+body preservation and new-head CI receipts are recorded externally after the
+immutable closing commit; no external result is predicted here.
