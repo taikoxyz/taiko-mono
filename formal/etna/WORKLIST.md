@@ -5,6 +5,25 @@ project. [Tracking issue #22355](https://github.com/taikoxyz/taiko-mono/issues/2
 is its GitHub entry point. Historical batch plans and reports retain their
 original measurements; they are not current completion checklists.
 
+## Current unsigned vote wire conformance
+
+Direct user continuation selects an unsigned stock-library comparison at the
+same unmerged178d7a7a draft. [Source/evidence report](VOTE_WIRE_CONFORMANCE.md),
+[design](../../docs/superpowers/specs/2026-11-22-etna-vote-wire-conformance-design.md)
+and [plan](../../docs/superpowers/plans/2026-11-22-etna-vote-wire-conformance.md)
+preserve the completed quorum and earlier stages below.
+
+| Deliverable | Stage | Boundary |
+| --- | --- | --- |
+| VW-1 independent source and corpus | COMPLETE selected source scope |29 hand-derived raw byte vectors/29 native expectations frozen before implementation; stock source and full787-file timestamp dependency identified. |
+| VW-2 encoder and unsigned native lane | SELECTED BEHAVIOR VERIFIED |29 literal raw wires; actual unsigned smoke/full23 bytes/2 panics after timestamp rejection/4 rejection-only (six rejections total);13 focused normal/-O, independent29/29/73 and six semantic faults/restorations. Independent actual29-row readback and331 row/event refusal controls per mode passed. |
+| VW-3 accumulated review/publication | IN PROGRESS | Independent source/whole-stage review and817 ordinary checks each360/f556 passed. Existing draft/new-head CI/artifact readbacks remain; completion is recorded in the monitor ledger after immutable commit. |
+
+This lane distinguishes raw encoding from native Timestamp representation,
+BlockID shape, vote admission, signatures and real consensus. It adds no runtime
+admission for178 and changes none of the14 source360 WAITING/19 archived
+INCONCLUSIVE dispositions or the wider30-obligation index.
+
 ## Current quorum-constrained draft review
 
 The user directly authorized continuation after the selected69 review. This

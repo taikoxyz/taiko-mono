@@ -7829,3 +7829,29 @@ Independent whole-stage review passed the nine-file candidate and evidence
 limits. Two non-blocking report summaries were clarified for switching-network
 deployment versus new-network genesis, and bitmap coverage through s inclusive.
 The original protocol source, old model and all runtime claims remain unchanged.
+
+## Unsigned vote wire continuation
+
+Direct continuation fixes design178d7a7a and stock Comet0880b4d3. The
+[new report](VOTE_WIRE_CONFORMANCE.md) records29 independent literal raw wires
+and29 separate native expectation rows, both frozen before implementation.
+The expected split is23 actual stock byte comparisons, two scoped marshal
+panic probes and four raw timestamp rows that stop after native rejection.
+Existing signed-fixture zero sentinels retain their historical meaning.
+The exact timestamp dependency's787 expanded files matched its pinned archive
+h1; native execution must recheck those files, source1659 and SDK/tool/module/
+physical lease identities. Root observed a real one-test RED, empty output
+versus the full64-byte nil wire, zero errors. The implementation passes13 focused
+checks normally/optimized; an independent bridge matches29 full raw wires and
+29 projections, refusing73 invalid inputs in each mode. Six private semantic
+faults fail the intended assertion and all exact restorations pass. Witnessed
+actual smoke/full calls pass with23 stock byte matches, two marshal panics and
+four rejection-only observations (six total native Timestamp rejections);
+there are no skipped Go tests.
+Fresh360/f556 ordinary suites each pass817 checks (624/173/20). Cache locking
+requires the operator's established physical pair; capture consistency is not
+signed origin attestation. Independent actual29-row capture readback and331
+row/event mutations in each mode pass. Independent whole-stage review passed
+all15 files; its non-blocking timestamp count wording was clarified. External
+publication/CI receipts belong to the monitor ledger after immutable commit.
+No keys, signatures, node/EL engines or deployed protocol were exercised.

@@ -1,0 +1,573 @@
+{
+  "design": "178d7a7a66b14305c2f6467ae77163f93dd677cf",
+  "comet": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+  "gogoproto": "v1.7.2",
+  "chainId": "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
+  "description": "Frozen independent field assembly. Empty hash strings denote zero-length bytes, 64 zero digits denote 32 bytes. Input addresses and signatures are absent; shape classifications describe selected fields only. Serializer-only H/R controls are not claims about stake policy. No implementation or native code was executed.",
+  "nonWireControls": [
+    {
+      "reason": "length 1/31/33 on either hash",
+      "stock": "CanonicalizeBlockID panics",
+      "stake": "STAKE-4.1-31 rejects"
+    },
+    {
+      "reason": "round outside [-2147483648,2147483647]",
+      "stock": "unrepresentable in native pb.Vote; direct CanonicalVote is a different API"
+    }
+  ],
+  "vectors": [
+    {
+      "id": "nil-epoch",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 63,
+      "wireBytes": 64,
+      "wireHex": "3f08021101000000000000002a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "passes shape",
+      "domain": "stake wire"
+    },
+    {
+      "id": "nil-prevote",
+      "input": {
+        "type": 1,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 63,
+      "wireBytes": 64,
+      "wireHex": "3f08011101000000000000002a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "passes shape",
+      "domain": "stake wire"
+    },
+    {
+      "id": "nil-empty-slices",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "0",
+        "nanos": 0,
+        "hashBacking": "nonnil-empty",
+        "partsHashBacking": "nonnil-empty"
+      },
+      "bodyBytes": 63,
+      "wireBytes": 64,
+      "wireHex": "3f08021101000000000000002a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "passes shape",
+      "domain": "stake wire"
+    },
+    {
+      "id": "zero32-hash-only",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "0000000000000000000000000000000000000000000000000000000000000000",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 101,
+      "wireBytes": 102,
+      "wireHex": "65080211010000000000000022240a20000000000000000000000000000000000000000000000000000000000000000012002a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "incomplete BlockID",
+      "domain": "stake wire"
+    },
+    {
+      "id": "zero32-parts-only",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "0000000000000000000000000000000000000000000000000000000000000000",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 101,
+      "wireBytes": 102,
+      "wireHex": "65080211010000000000000022241222122000000000000000000000000000000000000000000000000000000000000000002a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "incomplete BlockID",
+      "domain": "stake wire"
+    },
+    {
+      "id": "total-only",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 1,
+        "partsHashHex": "",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 69,
+      "wireBytes": 70,
+      "wireHex": "4508021101000000000000002204120208012a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "incomplete BlockID",
+      "domain": "stake wire"
+    },
+    {
+      "id": "both-zero32-total0",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "0000000000000000000000000000000000000000000000000000000000000000",
+        "total": 0,
+        "partsHashHex": "0000000000000000000000000000000000000000000000000000000000000000",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 135,
+      "wireBytes": 137,
+      "wireHex": "8701080211010000000000000022460a2000000000000000000000000000000000000000000000000000000000000000001222122000000000000000000000000000000000000000000000000000000000000000002a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "incomplete BlockID",
+      "domain": "stake wire"
+    },
+    {
+      "id": "both-zero32-total1",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "0000000000000000000000000000000000000000000000000000000000000000",
+        "total": 1,
+        "partsHashHex": "0000000000000000000000000000000000000000000000000000000000000000",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 137,
+      "wireBytes": 139,
+      "wireHex": "8901080211010000000000000022480a20000000000000000000000000000000000000000000000000000000000000000012240801122000000000000000000000000000000000000000000000000000000000000000002a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "passes shape",
+      "domain": "stake wire"
+    },
+    {
+      "id": "mixed-zero32-complete",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "abababababababababababababababababababababababababababababababab",
+        "total": 1,
+        "partsHashHex": "0000000000000000000000000000000000000000000000000000000000000000",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 137,
+      "wireBytes": 139,
+      "wireHex": "8901080211010000000000000022480a20abababababababababababababababababababababababababababababababab12240801122000000000000000000000000000000000000000000000000000000000000000002a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "passes shape",
+      "domain": "stake wire"
+    },
+    {
+      "id": "epoch-heightzero",
+      "input": {
+        "type": 2,
+        "height": "0",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 54,
+      "wireBytes": 55,
+      "wireHex": "3608022a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "height <= 0",
+      "domain": "serializer only"
+    },
+    {
+      "id": "minus-one-height-round",
+      "input": {
+        "type": 2,
+        "height": "-1",
+        "round": -1,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 72,
+      "wireBytes": 73,
+      "wireHex": "48080211ffffffffffffffff19ffffffffffffffff2a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "height <= 0, round < 0",
+      "domain": "serializer only"
+    },
+    {
+      "id": "min-height-min-round",
+      "input": {
+        "type": 2,
+        "height": "-9223372036854775808",
+        "round": -2147483648,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 72,
+      "wireBytes": 73,
+      "wireHex": "4808021100000000000000801900000080ffffffff2a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "height <= 0, round < 0",
+      "domain": "serializer only"
+    },
+    {
+      "id": "max-height-round",
+      "input": {
+        "type": 2,
+        "height": "9223372036854775807",
+        "round": 2147483647,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 72,
+      "wireBytes": 73,
+      "wireHex": "48080211ffffffffffffff7f19ffffff7f000000002a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "passes shape",
+      "domain": "stake wire"
+    },
+    {
+      "id": "negative-round",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": -1,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 72,
+      "wireBytes": 73,
+      "wireHex": "48080211010000000000000019ffffffffffffffff2a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "round < 0",
+      "domain": "serializer only"
+    },
+    {
+      "id": "unknown-zero-type",
+      "input": {
+        "type": 0,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 61,
+      "wireBytes": 62,
+      "wireHex": "3d1101000000000000002a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "invalid vote type",
+      "domain": "serializer only, STAKE-4.1-32 rejects"
+    },
+    {
+      "id": "unknown-type3",
+      "input": {
+        "type": 3,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "0",
+        "nanos": 0
+      },
+      "bodyBytes": 63,
+      "wireBytes": 64,
+      "wireHex": "3f08031101000000000000002a00323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "invalid vote type",
+      "domain": "serializer only, STAKE-4.1-32 rejects"
+    },
+    {
+      "id": "minus-one-second",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "-1",
+        "nanos": 0
+      },
+      "bodyBytes": 74,
+      "wireBytes": 75,
+      "wireHex": "4a08021101000000000000002a0b08ffffffffffffffffff01323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "passes shape",
+      "domain": "stake wire"
+    },
+    {
+      "id": "minimum-stock-seconds",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "-62135596800",
+        "nanos": 0
+      },
+      "bodyBytes": 74,
+      "wireBytes": 75,
+      "wireHex": "4a08021101000000000000002a0b088092b8c398feffffff01323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "passes shape",
+      "domain": "stake wire"
+    },
+    {
+      "id": "maximum-stock-time",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "253402300799",
+        "nanos": 999999999
+      },
+      "bodyBytes": 76,
+      "wireBytes": 77,
+      "wireHex": "4c08021101000000000000002a0d08ff82d1ffaf0710ff93ebdc03323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "passes shape",
+      "domain": "stake wire"
+    },
+    {
+      "id": "seconds-below-stock",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "-62135596801",
+        "nanos": 0
+      },
+      "bodyBytes": 74,
+      "wireBytes": 75,
+      "wireHex": "4a08021101000000000000002a0b08ff91b8c398feffffff01323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "time representable by Go; VoteSignBytes panics on marshal",
+      "stockVoteShape": "timestamp omitted from Vote.ValidateBasic",
+      "domain": "raw Etna only"
+    },
+    {
+      "id": "seconds-above-stock",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "253402300800",
+        "nanos": 0
+      },
+      "bodyBytes": 70,
+      "wireBytes": 71,
+      "wireHex": "4608021101000000000000002a07088083d1ffaf07323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "time representable by Go; VoteSignBytes panics on marshal",
+      "stockVoteShape": "timestamp omitted from Vote.ValidateBasic",
+      "domain": "raw Etna only"
+    },
+    {
+      "id": "negative-nanos",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "0",
+        "nanos": -1
+      },
+      "bodyBytes": 74,
+      "wireBytes": 75,
+      "wireHex": "4a08021101000000000000002a0b10ffffffffffffffffff01323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "raw input rejected by StdTimeUnmarshal; time.Unix(0,-1) instead produces (-1,999999999)",
+      "stockVoteShape": "timestamp omitted from Vote.ValidateBasic",
+      "domain": "raw Etna only"
+    },
+    {
+      "id": "nanos-at-billion",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "0",
+        "nanos": 1000000000
+      },
+      "bodyBytes": 69,
+      "wireBytes": 70,
+      "wireHex": "4508021101000000000000002a06108094ebdc03323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "raw input rejected by StdTimeUnmarshal; time.Unix(0,1000000000) instead produces (1,0)",
+      "stockVoteShape": "timestamp omitted from Vote.ValidateBasic",
+      "domain": "raw Etna only"
+    },
+    {
+      "id": "normalized-negative-nanos",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "-1",
+        "nanos": 999999999
+      },
+      "bodyBytes": 80,
+      "wireBytes": 81,
+      "wireHex": "5008021101000000000000002a1108ffffffffffffffffff0110ff93ebdc03323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "passes shape",
+      "domain": "stake wire"
+    },
+    {
+      "id": "normalized-billion-nanos",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "1",
+        "nanos": 0
+      },
+      "bodyBytes": 65,
+      "wireBytes": 66,
+      "wireHex": "4108021101000000000000002a020801323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "passes shape",
+      "domain": "stake wire"
+    },
+    {
+      "id": "raw-min",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "-9223372036854775808",
+        "nanos": -2147483648
+      },
+      "bodyBytes": 85,
+      "wireBytes": 86,
+      "wireHex": "5508021101000000000000002a1608808080808080808080011080808080f8ffffffff01323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "outside stock timestamp domain",
+      "stockVoteShape": "timestamp omitted from Vote.ValidateBasic",
+      "domain": "raw Etna only"
+    },
+    {
+      "id": "raw-max",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 0,
+        "hashHex": "",
+        "total": 0,
+        "partsHashHex": "",
+        "seconds": "9223372036854775807",
+        "nanos": 2147483647
+      },
+      "bodyBytes": 79,
+      "wireBytes": 80,
+      "wireHex": "4f08021101000000000000002a1008ffffffffffffffff7f10ffffffff07323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "outside stock timestamp domain",
+      "stockVoteShape": "timestamp omitted from Vote.ValidateBasic",
+      "domain": "raw Etna only"
+    },
+    {
+      "id": "body-127-total-127",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 1,
+        "hashHex": "0000000000000000000000000000000000000000000000000000000000000000",
+        "total": 127,
+        "partsHashHex": "",
+        "seconds": "-1",
+        "nanos": 16384
+      },
+      "bodyBytes": 127,
+      "wireBytes": 128,
+      "wireHex": "7f080211010000000000000019010000000000000022260a2000000000000000000000000000000000000000000000000000000000000000001202087f2a0f08ffffffffffffffffff0110808001323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "incomplete BlockID",
+      "domain": "stake wire"
+    },
+    {
+      "id": "body-128-total-128",
+      "input": {
+        "type": 2,
+        "height": "1",
+        "round": 1,
+        "hashHex": "0000000000000000000000000000000000000000000000000000000000000000",
+        "total": 128,
+        "partsHashHex": "",
+        "seconds": "-1",
+        "nanos": 16384
+      },
+      "bodyBytes": 128,
+      "wireBytes": 130,
+      "wireHex": "8001080211010000000000000019010000000000000022270a20000000000000000000000000000000000000000000000000000000000000000012030880012a0f08ffffffffffffffffff0110808001323065746e612d724666566667796a6250317a456c756649334873716172387a545f712d73326e5f66423734625779765034",
+      "stockVoteSignBytes": "same",
+      "stockVoteShape": "incomplete BlockID",
+      "domain": "stake wire"
+    }
+  ]
+}

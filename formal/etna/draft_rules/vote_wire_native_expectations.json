@@ -1,0 +1,56 @@
+{
+  "schema": "etna-vote-wire-native-expectations-1",
+  "design": "178d7a7a66b14305c2f6467ae77163f93dd677cf",
+  "comet": "0880b4d378f347ab16e54ec677ff50d803f37d62",
+  "gogoproto": "v1.7.2",
+  "handOracle": {
+    "filename": "etna-vote-wire-oracle.json",
+    "sha256": "8081a5acbdbcc0f98bad5f3b26155ba202379a20705764e7e1a735032c9ab58f"
+  },
+  "sourceReview": {
+    "filename": "etna-vote-wire-source-review.md",
+    "sha256": "cc8ed4f3b021649b3028cb1d32d99d00d71a973c23487c3dbfa6cc33551ec7fb"
+  },
+  "sources": {
+    "timestampAccepted": "cosmos/gogoproto types/timestamp.go:61,88 TimestampFromProto validates original fields; ignore time return on error",
+    "marshal": "CometBFT types/vote.go:152 VoteSignBytes; types/canonical.go:18,57; proto/tendermint/types/canonical.pb.go:590; gogoproto types/timestamp_gogo.go:60,75",
+    "block": "CometBFT types/block.go:1508,1514,1544 BlockIDFromProto, IsZero, IsComplete; types/part_set.go:129 IsZero"
+  },
+  "notes": [
+    "Source-only predictions; no native calls here. stockVoteShape in the hand oracle is source inference. No signatures, verified votes, commits or slashes.",
+    "Each non-null wireHex is an RFC 6901 JSON Pointer into handOracle. Verify the matching id. No output wire is expected after panic or deliberate skip.",
+    "For attempted invalid-second cases only, reconstruct using time.Unix(seconds,0) and check its fields equal the original. Bound panic recovery to the VoteSignBytes call. False panicked with false marshalAttempted denotes a skip, not a successful call.",
+    "BlockIDFromProto is independently checked for every row, even when timestamp conversion rejected. Its error is unexpected for every row."
+  ],
+  "rows": [
+    {"id":"nil-epoch","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/0/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"nil-prevote","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/1/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"nil-empty-slices","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/2/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"zero32-hash-only","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/3/wireHex","blockIdIsZero":false,"blockIdComplete":false},
+    {"id":"zero32-parts-only","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/4/wireHex","blockIdIsZero":false,"blockIdComplete":false},
+    {"id":"total-only","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/5/wireHex","blockIdIsZero":false,"blockIdComplete":false},
+    {"id":"both-zero32-total0","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/6/wireHex","blockIdIsZero":false,"blockIdComplete":false},
+    {"id":"both-zero32-total1","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/7/wireHex","blockIdIsZero":false,"blockIdComplete":true},
+    {"id":"mixed-zero32-complete","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/8/wireHex","blockIdIsZero":false,"blockIdComplete":true},
+    {"id":"epoch-heightzero","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/9/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"minus-one-height-round","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/10/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"min-height-min-round","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/11/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"max-height-round","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/12/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"negative-round","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/13/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"unknown-zero-type","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/14/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"unknown-type3","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/15/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"minus-one-second","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/16/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"minimum-stock-seconds","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/17/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"maximum-stock-time","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/18/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"seconds-below-stock","timestampAccepted":false,"marshalAttempted":true,"panicked":true,"wireHex":null,"blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"seconds-above-stock","timestampAccepted":false,"marshalAttempted":true,"panicked":true,"wireHex":null,"blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"negative-nanos","timestampAccepted":false,"marshalAttempted":false,"panicked":false,"wireHex":null,"blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"nanos-at-billion","timestampAccepted":false,"marshalAttempted":false,"panicked":false,"wireHex":null,"blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"normalized-negative-nanos","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/23/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"normalized-billion-nanos","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/24/wireHex","blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"raw-min","timestampAccepted":false,"marshalAttempted":false,"panicked":false,"wireHex":null,"blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"raw-max","timestampAccepted":false,"marshalAttempted":false,"panicked":false,"wireHex":null,"blockIdIsZero":true,"blockIdComplete":false},
+    {"id":"body-127-total-127","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/27/wireHex","blockIdIsZero":false,"blockIdComplete":false},
+    {"id":"body-128-total-128","timestampAccepted":true,"marshalAttempted":true,"panicked":false,"wireHex":"/vectors/28/wireHex","blockIdIsZero":false,"blockIdComplete":false}
+  ]
+}

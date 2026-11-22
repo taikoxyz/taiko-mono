@@ -117,3 +117,26 @@ the committing round. Even continuous power-compatible traces establish no
 cryptographic validity, stock locking/message behavior, global reachability,
 unconditional liveness or production readiness. Actual results, exact finite
 bounds and independent reviews are in [the report](../L2_QUORUM_REVIEW.md).
+
+## Unsigned vote wire extension at178
+
+The `vote_wire.py` encoder and frozen `vote_wire_vectors.json`
+cover raw canonical field bytes, preserving empty versus32-zero hashes and
+raw int64/int32 timestamp values. `vote_wire_native_expectations.json` keeps
+the narrower stock Timestamp domain separate. Its original provenance
+filenames are descriptive; `vote_wire_sources.json` selects the actual inputs.
+This source/build map also pins the full gogoproto dependency manifest and the
+existing stock SDK/module profile solely for unsigned library comparison.
+
+The native Go observation producer receives only the projected raw fields,
+never literal expected bytes or result flags. `run_vote_wire.py` owns the
+guarded offline smoke/full lane and exact event/receipt comparison. Actual
+observations (23 exact stock bytes, two marshal panics and four native
+rejection-only observations; six Timestamp rejections total), execution status and portable invocation are recorded
+in [the report](../VOTE_WIRE_CONFORMANCE.md). All29 raw full wires match an
+independent pre-implementation oracle. The shared cache requires its established
+operator-supplied physical lock; smoke custody is local consistency, not signed
+origin. No wire-format
+success establishes signatures, vote admission, slash execution, a trusted
+deployment or actual protocol liveness. Old fixture normalization and all old
+proof/runtime claims remain unchanged.

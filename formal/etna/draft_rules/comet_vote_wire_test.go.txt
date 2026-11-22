@@ -1,0 +1,145 @@
+package votewire_test
+
+import (
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"os"
+	"testing"
+	"time"
+
+	pb "github.com/cometbft/cometbft/proto/tendermint/types"
+	"github.com/cometbft/cometbft/types"
+	gogotypes "github.com/cosmos/gogoproto/types"
+)
+
+type voteInput struct {
+	Type             int32  `json:"type"`
+	Height           int64  `json:"height,string"`
+	Round            int32  `json:"round"`
+	HashHex          string `json:"hashHex"`
+	Total            uint32 `json:"total"`
+	PartsHashHex     string `json:"partsHashHex"`
+	Seconds          int64  `json:"seconds,string"`
+	Nanos            int32  `json:"nanos"`
+	HashBacking      string `json:"hashBacking"`
+	PartsHashBacking string `json:"partsHashBacking"`
+}
+
+type observation struct {
+	ID                string  `json:"id"`
+	TimestampAccepted bool    `json:"timestampAccepted"`
+	MarshalAttempted  bool    `json:"marshalAttempted"`
+	Panicked          bool    `json:"panicked"`
+	WireHex           *string `json:"wireHex"`
+	BlockIDIsZero     bool    `json:"blockIdIsZero"`
+	BlockIDComplete   bool    `json:"blockIdComplete"`
+}
+
+func rawHash(t *testing.T, encoded, backing string) []byte {
+	t.Helper()
+	if backing == "nonnil-empty" && encoded == "" {
+		return []byte{}
+	}
+	if backing != "" {
+		t.Fatal("unexpected hash backing")
+	}
+	if encoded == "" {
+		return nil
+	}
+	data, err := hex.DecodeString(encoded)
+	if err != nil || len(data) != 32 {
+		t.Fatal("invalid hash")
+	}
+	return data
+}
+
+// The only recoverable operation is the stock serializer call itself.
+func marshalVote(chain string, vote *pb.Vote) (wire []byte, panicked bool) {
+	defer func() {
+		if recover() != nil {
+			panicked = true
+		}
+	}()
+	return types.VoteSignBytes(chain, vote), false
+}
+
+func observe(t *testing.T, chain, id string, input voteInput) observation {
+	t.Helper()
+	vote := pb.Vote{
+		Type: pb.SignedMsgType(input.Type), Height: input.Height, Round: input.Round,
+		BlockID: pb.BlockID{
+			Hash: rawHash(t, input.HashHex, input.HashBacking),
+			PartSetHeader: pb.PartSetHeader{
+				Total: input.Total, Hash: rawHash(t, input.PartsHashHex, input.PartsHashBacking),
+			},
+		},
+	}
+	block, err := types.BlockIDFromProto(&vote.BlockID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	timestamp, err := gogotypes.TimestampFromProto(&gogotypes.Timestamp{
+		Seconds: input.Seconds, Nanos: input.Nanos,
+	})
+	row := observation{ID: id, TimestampAccepted: err == nil,
+		BlockIDIsZero: block.IsZero(), BlockIDComplete: block.IsComplete()}
+	if err != nil {
+		// These two adjacent out-of-calendar seconds remain representable in Go time.
+		// The other invalid pairs have no lossless native timestamp comparison.
+		if input.Nanos != 0 || (input.Seconds != -62135596801 && input.Seconds != 253402300800) {
+			return row
+		}
+		timestamp = time.Unix(input.Seconds, 0).UTC()
+	}
+	if timestamp.Unix() != input.Seconds || timestamp.Nanosecond() != int(input.Nanos) {
+		t.Fatal("timestamp changed before serialization")
+	}
+	vote.Timestamp = timestamp
+	row.MarshalAttempted = true
+	var wire []byte
+	if row.TimestampAccepted {
+		wire = types.VoteSignBytes(chain, &vote)
+	} else {
+		wire, row.Panicked = marshalVote(chain, &vote)
+	}
+	if !row.Panicked {
+		encoded := hex.EncodeToString(wire)
+		row.WireHex = &encoded
+	}
+	return row
+}
+
+func TestEtnaVoteWire(t *testing.T) {
+	file, err := os.Open("inputs.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	var input struct {
+		Schema  string `json:"schema"`
+		ChainID string `json:"chainId"`
+		Rows    []struct {
+			ID    string    `json:"id"`
+			Input voteInput `json:"input"`
+		} `json:"rows"`
+	}
+	decoder := json.NewDecoder(file)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&input); err != nil {
+		t.Fatal(err)
+	}
+	if decoder.Decode(new(any)) != io.EOF || input.Schema != "etna-vote-wire-inputs-1" || len(input.Rows) == 0 {
+		t.Fatal("invalid projected input")
+	}
+	for _, sample := range input.Rows {
+		t.Run(sample.ID, func(t *testing.T) {
+			row := observe(t, input.ChainID, sample.ID, sample.Input)
+			data, err := json.Marshal(row)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("receipt=%s", data)
+		})
+	}
+}
