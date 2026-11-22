@@ -107,6 +107,9 @@ pub(crate) struct MockL1State {
     pub(crate) logs: Vec<MockLog>,
     /// When set, every `inbox_logs` query fails with this error.
     pub(crate) log_fail: Option<L1Error>,
+    /// Extra delay of every `inbox_logs` query, as an L1 node answering each bounded log range
+    /// slowly.
+    pub(crate) log_delay: Option<Duration>,
     /// When set, every proof read whose slots include this slot fails with this error, as an
     /// L1 node that serves the anchor slots but not yet the slot 285 landing record.
     pub(crate) proof_fail_slot: Option<(B256, L1Error)>,
@@ -369,6 +372,10 @@ impl L1Source for MockL1 {
     ) -> Result<Vec<Bytes>, L1Error> {
         let _call = InFlight::new(self);
         self.pause().await;
+        let delay = self.state().log_delay;
+        if let Some(delay) = delay {
+            tokio::time::sleep(delay).await;
+        }
         let state = self.record(L1Call::InboxLogs { inbox, topic0, topic1, from, to })?;
         if let Some(error) = &state.log_fail {
             return Err(error.clone());

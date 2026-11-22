@@ -16,7 +16,9 @@ pub use genesis::{
     RECOVERY_BOOTSTRAP_VERSION, RecoveryBootstrap, VerifiedBootstrap, build_recovery_genesis,
     recovery_parent,
 };
-pub(crate) use genesis::{recovery_anchor, recovery_bootstrap};
+pub(crate) use genesis::{
+    bootstrap_from, historical_anchor, origin_fallback_keys, recovery_anchor,
+};
 pub use types::{RECOVERY_WITNESS_VERSION, RecoveryError, RecoveryOrigin, RecoveryWitness};
 pub(crate) use verify::{VerifiedRecovery, verify_recovery};
 pub use verify::{verify_recovery_deployment, verify_recovery_witness};

@@ -584,11 +584,21 @@ pub(crate) fn recovery_fallback_keys() -> crate::fallback::FallbackKeys {
 
 /// A proof-backed recovery with retained old-generation landing and a later checkpoint. The
 /// origin record holds the hash of [`recovery_fallback_keys`], which the L1's
-/// `getFallbackKeys()` returns.
+/// `getFallbackKeys()` returns. R is L1 block 100 and the finalized block 110.
 pub(crate) fn recovery_fixture(
     generation: u64,
     c: u64,
     r_generation: u64,
+) -> (Fixture, MockL1, MockEngine, crate::recovery::RecoveryWitness) {
+    recovery_fixture_at(generation, c, r_generation, 100)
+}
+
+/// [`recovery_fixture`] with R at L1 block `r` (at least 100) and the finalized block `r + 10`.
+pub(crate) fn recovery_fixture_at(
+    generation: u64,
+    c: u64,
+    r_generation: u64,
+    r: u64,
 ) -> (Fixture, MockL1, MockEngine, crate::recovery::RecoveryWitness) {
     use super::registry_account;
     use crate::recovery::{RECOVERY_WITNESS_VERSION, RecoveryWitness};
@@ -630,8 +640,8 @@ pub(crate) fn recovery_fixture(
     let mut words = storage.slots();
     words.extend(inbox::origin_slots(generation).into_iter().zip([
         U256::from(c),
-        U256::from(100),
-        U256::from(Fixture::l1_timestamp(100)),
+        U256::from(r),
+        U256::from(Fixture::l1_timestamp(r)),
         keys.hash().into(),
     ]));
     words.extend(inbox::landing_record_slots(c).into_iter().zip([
@@ -650,12 +660,11 @@ pub(crate) fn recovery_fixture(
         TestState::new(accounts)
     };
     let r_state = state_for(r_generation);
-    let recovery_header =
-        l1.insert_block(l1_header(100, Fixture::l1_timestamp(100)), r_state.clone());
+    let recovery_header = l1.insert_block(l1_header(r, Fixture::l1_timestamp(r)), r_state.clone());
     let final_state = state_for(generation);
     let finalized_header =
-        l1.insert_block(l1_header(110, Fixture::l1_timestamp(110)), final_state.clone());
-    l1.set_finalized(110);
+        l1.insert_block(l1_header(r + 10, Fixture::l1_timestamp(r + 10)), final_state.clone());
+    l1.set_finalized(r + 10);
     let witness = RecoveryWitness {
         version: RECOVERY_WITNESS_VERSION,
         generation,

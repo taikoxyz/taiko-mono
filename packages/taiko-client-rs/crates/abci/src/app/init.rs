@@ -8,7 +8,7 @@ use alloy_consensus::Header;
 
 use super::{
     AbciError, App, ErrorClass, app_hash, at_generation_origin, classify, contradiction_halt,
-    finalize::Backoff, within,
+    finalize::Backoff, trust::ReadBounded, within,
 };
 use crate::{
     ChainParams,
@@ -192,20 +192,23 @@ impl<L: L1Source, E: Engine> App<L, E> {
         }
     }
 
-    /// One bounded recovery acquisition attempt; unavailable history is retried by InitChain.
+    /// One recovery acquisition attempt, every L1 step bounded; unavailable history is retried
+    /// by InitChain.
     ///
     /// Reauthenticates the retained headers, the current generation and the fixed origin in
     /// the own finalized L1 view ([`check_recovery_canonicality`]); takes the historical anchor
     /// and the origin fallback key list from the immutable sidecar a previous attempt stored
     /// (which must retain `w` exactly, with its anchor still final and canonical, and the list
-    /// whose hash the origin record holds) or fetches both from the own L1
-    /// ([`recovery_bootstrap`]); then points the EL at c's authenticated hash
-    /// ([`App::sync_el_to`]) and requires it to serve c and its parent exactly as `w`
-    /// authenticates them, and c's state. Returns the sidecar to store and what its verification
-    /// authenticates.
+    /// whose hash the origin record holds) or fetches both from the own L1: the anchor
+    /// ([`historical_anchor`]) within one deadline, the list ([`origin_fallback_keys`]) with a
+    /// deadline on each of its reads, as its log scan can take many; then points the EL at c's
+    /// authenticated hash ([`App::sync_el_to`]) and requires it to serve c and its parent
+    /// exactly as `w` authenticates them, and c's state. Returns the sidecar to store and what
+    /// its verification authenticates.
     ///
     /// [`check_recovery_canonicality`]: crate::recovery::check_recovery_canonicality
-    /// [`recovery_bootstrap`]: crate::recovery::recovery_bootstrap
+    /// [`historical_anchor`]: crate::recovery::historical_anchor
+    /// [`origin_fallback_keys`]: crate::recovery::origin_fallback_keys
     async fn recovery_inputs(
         &self,
         w: &RecoveryWitness,
@@ -248,12 +251,18 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 (bootstrap, history)
             }
             None => {
-                within(
+                let anchor = within(
                     "recovery historical anchor",
                     self.opts.l1_timeout,
-                    crate::recovery::recovery_bootstrap(self.l1(), &self.params, w),
+                    crate::recovery::historical_anchor(self.l1(), &self.params, w),
                 )
-                .await?
+                .await?;
+                // A list stored long before R may come only from many log queries: each L1 read
+                // has its own deadline and the acquisition none, so a deep scan completes. A
+                // read that times out or fails is missing data, retried by InitChain.
+                let l1 = ReadBounded { l1: self.l1.clone(), limit: self.opts.l1_timeout };
+                let keys = crate::recovery::origin_fallback_keys(&l1, &self.params, w).await?;
+                crate::recovery::bootstrap_from(&self.params, w, anchor, keys)?
             }
         };
         // An EL holding another block at c, or none, takes the settled block there in place of

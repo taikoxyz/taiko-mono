@@ -174,17 +174,28 @@ pub(crate) fn recovery_anchor(
     .map_err(invalid)
 }
 
-/// Fetches historical c provenance without confusing it with the R floor for new blocks, and
-/// the fallback key list the origin record names, and returns the sidecar with what its
-/// verification authenticates.
-/// c=S has no Etna header anchor and uses the immutable deployment context explicitly. The list
-/// is the one whose hash the origin record holds, obtained by that hash at R
-/// ([`fetch_fallback_keys`]); one the own L1 cannot give is unavailable input.
+/// Fetches historical c provenance without confusing it with the R floor for new blocks
+/// ([`historical_anchor`]), and the fallback key list the origin record names
+/// ([`origin_fallback_keys`]), and returns the sidecar with what its verification authenticates
+/// ([`bootstrap_from`]).
 pub(crate) async fn recovery_bootstrap<L: L1Source + ?Sized>(
     l1: &L,
     params: &ChainParams,
     witness: &super::RecoveryWitness,
 ) -> Result<(RecoveryBootstrap, VerifiedBootstrap), RecoveryError> {
+    let anchor = historical_anchor(l1, params, witness).await?;
+    let fallback_keys = origin_fallback_keys(l1, params, witness).await?;
+    bootstrap_from(params, witness, anchor, fallback_keys)
+}
+
+/// The anchor witness RLP of the historical anchor c inherited, final and canonical in the own
+/// L1, or `None` at c = S, which has no Etna header anchor and uses the immutable deployment
+/// context explicitly. A few reads, which a caller may bound together.
+pub(crate) async fn historical_anchor<L: L1Source + ?Sized>(
+    l1: &L,
+    params: &ChainParams,
+    witness: &super::RecoveryWitness,
+) -> Result<Option<alloy_primitives::Bytes>, RecoveryError> {
     let start = witness
         .genesis
         .inbox
@@ -211,8 +222,21 @@ pub(crate) async fn recovery_bootstrap<L: L1Source + ?Sized>(
         let inbox = l1.account_witness(params.inbox, &inbox::anchor_slots(), number).await?;
         Some(alloy_rlp::encode(crate::AnchorWitness { l1_header: header, inbox }).into())
     };
-    // Discovery only: the sidecar's verification below authenticates this word and requires
-    // the list to hash to it.
+    Ok(anchor)
+}
+
+/// The fallback key list whose hash the origin record holds, obtained by that hash at R
+/// ([`fetch_fallback_keys`]); one the own L1 cannot give, or a failed read, is unavailable
+/// input. A list stored long before R, which a node without archive state at R gives only
+/// from its logs, can take many log queries, so a caller bounds each read, never the whole
+/// acquisition.
+pub(crate) async fn origin_fallback_keys<L: L1Source + ?Sized>(
+    l1: &L,
+    params: &ChainParams,
+    witness: &super::RecoveryWitness,
+) -> Result<FallbackKeys, RecoveryError> {
+    // Discovery only: the sidecar's verification authenticates this word and requires the list
+    // to hash to it ([`bootstrap_from`]).
     let hash_slot = inbox::origin_slots(witness.generation)[3];
     let hash = witness
         .recovery_inbox
@@ -222,9 +246,19 @@ pub(crate) async fn recovery_bootstrap<L: L1Source + ?Sized>(
         .map(|proof| alloy_primitives::B256::from(proof.value))
         .ok_or_else(|| invalid("missing origin fallbackKeysHash slot"))?;
     let r = &witness.recovery_header;
-    let fallback_keys = fetch_fallback_keys(l1, params.inbox, hash, r.hash(), r.number(), 0)
+    fetch_fallback_keys(l1, params.inbox, hash, r.hash(), r.number(), 0)
         .await
-        .map_err(|error| RecoveryError::Unavailable(error.to_string()))?;
+        .map_err(|error| RecoveryError::Unavailable(error.to_string()))
+}
+
+/// The sidecar of `witness` with the historical `anchor` and the origin `fallback_keys`, and
+/// what its verification authenticates.
+pub(crate) fn bootstrap_from(
+    params: &ChainParams,
+    witness: &super::RecoveryWitness,
+    anchor: Option<alloy_primitives::Bytes>,
+    fallback_keys: FallbackKeys,
+) -> Result<(RecoveryBootstrap, VerifiedBootstrap), RecoveryError> {
     let bootstrap = RecoveryBootstrap {
         version: RECOVERY_BOOTSTRAP_VERSION,
         witness: alloy_rlp::encode(witness).into(),

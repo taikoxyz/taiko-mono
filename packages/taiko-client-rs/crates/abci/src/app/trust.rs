@@ -1253,11 +1253,11 @@ fn names_pruned_history(state: Option<&AppState>, height: u64) -> bool {
 /// The own L1 with every single read bounded by `limit`, the deadline of one L1 operation
 /// ([`AppOptions::l1_timeout`](super::AppOptions::l1_timeout)), for a check that makes several
 /// reads in sequence. An elapsed deadline is an [`L1Error::Rpc`]: missing data.
-struct ReadBounded<L> {
+pub(super) struct ReadBounded<L> {
     /// The own L1.
-    l1: Arc<L>,
+    pub(super) l1: Arc<L>,
     /// The deadline of each read.
-    limit: Duration,
+    pub(super) limit: Duration,
 }
 
 impl<L> ReadBounded<L> {

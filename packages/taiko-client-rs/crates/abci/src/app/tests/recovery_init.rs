@@ -464,6 +464,86 @@ async fn recovery_init_chain_refuses_a_list_with_another_hash() {
     .await;
 }
 
+/// A node without archive state at R cannot answer `getFallbackKeys()` there, so a list stored
+/// long before R comes only from its logs, found many bounded log queries below R. Each L1 read
+/// has its own deadline and the acquisition none: InitChain completes on the origin keys,
+/// although the scan takes far longer than one read's deadline.
+#[tokio::test(start_paused = true)]
+async fn recovery_init_obtains_an_old_origin_list_from_logs_far_below_r() {
+    use crate::{
+        fallback::FALLBACK_KEYS_UPDATED, l1::L1Error, test_utils::recovery_fixture_at,
+        valstate::ValState,
+    };
+    use std::time::Duration;
+    let (fx, l1, engine, w) = recovery_fixture_at(1, 6, 1, 200_000);
+    let keys = recovery_fallback_keys();
+    l1.state().call_fail = Some(L1Error::Rpc("missing trie node".into()));
+    l1.insert_log(
+        70,
+        fx.params.inbox,
+        [FALLBACK_KEYS_UPDATED, keys.hash()],
+        keys.abi_encode().into(),
+    );
+    // Each log query takes one second, within a read's deadline; the scan needs twenty.
+    l1.state().log_delay = Some(Duration::from_secs(1));
+    let opts = crate::test_utils::test_options();
+    assert!(opts.l1_timeout > Duration::from_secs(1));
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), opts);
+    let started = tokio::time::Instant::now();
+    tokio::time::timeout(
+        Duration::from_secs(600),
+        init_chain(&mut app, request(&document(&fx, &w))),
+    )
+    .await
+    .expect("InitChain completes on a deep log scan")
+    .unwrap();
+    assert!(started.elapsed() >= Duration::from_secs(20));
+    assert_eq!(app.l1().log_ranges().len(), 20);
+    assert_eq!(app.l1().log_ranges().last(), Some(&(1, 10_000)));
+    let state = app.state().unwrap();
+    assert_eq!(state.val_state, ValState::genesis(6, &keys.validator_set()).unwrap());
+    assert_eq!(state.fallback_keys.get(&keys.hash()), Some(&keys));
+    assert_eq!(app.store.load_recovery_bootstrap().unwrap().unwrap().fallback_keys, keys);
+}
+
+/// A list read that outlasts its deadline is missing data, never an acceptance: InitChain stays
+/// pending with trust closed and nothing stored, and completes on the origin keys once the own
+/// L1 answers in time.
+#[tokio::test(start_paused = true)]
+async fn recovery_init_waits_while_a_list_read_times_out() {
+    use crate::{fallback::FALLBACK_KEYS_UPDATED, l1::L1Error, test_utils::recovery_fixture_at};
+    use std::time::Duration;
+    let (fx, l1, engine, w) = recovery_fixture_at(1, 6, 1, 30_000);
+    let keys = recovery_fallback_keys();
+    l1.state().call_fail = Some(L1Error::Rpc("missing trie node".into()));
+    l1.insert_log(
+        70,
+        fx.params.inbox,
+        [FALLBACK_KEYS_UPDATED, keys.hash()],
+        keys.abi_encode().into(),
+    );
+    let opts = crate::test_utils::test_options();
+    l1.state().log_delay = Some(opts.l1_timeout + Duration::from_secs(1));
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), opts);
+    let trust = app.trust_handle();
+    let req = request(&document(&fx, &w));
+    let waiting =
+        tokio::time::timeout(Duration::from_secs(120), init_chain(&mut app, req.clone())).await;
+    assert!(waiting.is_err(), "a timed-out list read must keep InitChain pending: {waiting:?}");
+    assert!(app.store.load().unwrap().is_none());
+    assert!(app.store.load_recovery_bootstrap().unwrap().is_none());
+    assert!(app.store.fatal_evidence().unwrap().is_none(), "a slow L1 is not a halt");
+    assert!(!trust.snapshot().is_ready());
+    app.l1().state().log_delay = None;
+    tokio::time::timeout(Duration::from_secs(120), init_chain(&mut app, req))
+        .await
+        .expect("InitChain completes once the reads answer in time")
+        .unwrap();
+    assert_eq!(app.state().unwrap().fallback_keys.get(&keys.hash()), Some(&keys));
+}
+
 /// A recovery discards every validator update the old generation returned that had not taken
 /// effect: whatever the old generation's last heights returned, c + 1 and c + 2
 /// are signed by the origin record's fallback keys, each at power 1, and the generation's own
