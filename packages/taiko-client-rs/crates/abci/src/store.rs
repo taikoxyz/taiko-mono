@@ -20,6 +20,7 @@ use alloy_primitives::{Address, B256, keccak256};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    committee::SignerSource,
     fallback::FallbackKeys,
     key::ConsensusKey,
     recovery::RecoveryOrigin,
@@ -94,6 +95,12 @@ pub struct AppState {
     /// [`AppState::val_state`]; it is empty at a generation's origin, whose first block has no
     /// LastCommit. A required field: a state file without it is refused (no migration).
     pub parent_signers: Vec<ValEntry>,
+    /// Where the sets that sign `last_height + 1` and `last_height + 2` come from, in that
+    /// order: [`AppState::val_state`]'s current and next sets. Both are
+    /// [`SignerSource::Fallback`] at a generation's origin, whose fallback keys sign its first
+    /// two blocks; `FinalizeBlock(H)` shifts the pair by one and records the source of the set it
+    /// decided for H + 2. A required field: a state file without it is refused (no migration).
+    pub signer_sources: [SignerSource; 2],
     /// The fallback key lists the node holds, keyed by their hash, each hashing to its key, so
     /// a list is obtained from the own L1 once. Every generation starts with its origin record's
     /// list. A required field: a state file without it is refused (no migration).
@@ -794,6 +801,7 @@ mod tests {
                 &crate::test_utils::fallback_list(&[1, 2, 3]).validator_set(),
             )
             .unwrap(),
+            signer_sources: [SignerSource::Fallback, SignerSource::Candidate],
             fallback_keys: [crate::test_utils::fallback_list(&[1, 2])]
                 .into_iter()
                 .map(|keys| (keys.hash(), keys))
@@ -995,6 +1003,21 @@ mod tests {
         assert_eq!(serde_json::from_value::<AppState>(json).unwrap(), s);
     }
 
+    /// The two signer sources are saved by name, the set signing `last_height + 1` first; any
+    /// other name or count does not load.
+    #[test]
+    fn signer_sources_are_saved_by_name() {
+        let s = state();
+        let json = serde_json::to_value(&s).unwrap();
+        assert_eq!(json["signer_sources"], serde_json::json!(["fallback", "candidate"]));
+        for refused in [serde_json::json!(["fallback"]), serde_json::json!(["fallback", "staked"])]
+        {
+            let mut json = json.clone();
+            json["signer_sources"] = refused;
+            assert!(serde_json::from_value::<AppState>(json).is_err());
+        }
+    }
+
     #[test]
     fn load_rejects_a_state_missing_a_required_field() {
         let dir = tempfile::tempdir().unwrap();
@@ -1011,6 +1034,7 @@ mod tests {
             ("", "forced_cursor"),
             ("", "val_state"),
             ("", "parent_signers"),
+            ("", "signer_sources"),
             ("", "fallback_keys"),
             ("/genesis", "forced_inclusion_delay"),
             ("/genesis", "max_anchor_age"),

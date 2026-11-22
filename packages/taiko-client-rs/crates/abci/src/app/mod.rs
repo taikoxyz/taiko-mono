@@ -312,8 +312,10 @@ impl From<ElSyncError> for AbciError {
 #[derive(Debug)]
 pub struct App<L: L1Source, E: Engine> {
     /// The node's own L1 view, noting its finalized answers for the anchor hold. `FinalizeBlock`
-    /// and replay read no L1 state through it (blocks carry their L1 facts); they only confirm a
-    /// block's anchor header when the block was never judged here ([`App::confirm_anchor`]).
+    /// and replay read no L1 state through it (blocks carry their L1 facts) but to confirm a
+    /// block's anchor header when the block was never judged here ([`App::confirm_anchor`]) and
+    /// to fetch a fallback key list the node does not hold, accepted only under the hash the
+    /// block's anchor proves.
     l1: Arc<OwnL1<L>>,
     /// The execution engine.
     engine: Arc<E>,

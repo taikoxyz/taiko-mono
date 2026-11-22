@@ -1,9 +1,9 @@
 //! In-memory [`L1Source`], [`Engine`] implementations for tests.
 //!
 //! All record every call ([`L1Call`], [`EngineCall`], [`BlobCall`]) so tests can assert which I/O
-//! a handler performed (e.g. that `FinalizeBlock` reads no L1 state), and expose their state
-//! behind a mutex ([`MockL1::state`], [`MockEngine::state`]) for
-//! scripting.
+//! a handler performed (e.g. that `FinalizeBlock` reads the staking words only at the executed
+//! block's hash), and expose their state behind a mutex ([`MockL1::state`],
+//! [`MockEngine::state`]) for scripting.
 
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
@@ -18,6 +18,7 @@ use alloy_consensus::{
 use alloy_eips::{BlockNumberOrTag, eip2718::Encodable2718, eip7685::EMPTY_REQUESTS_HASH};
 use alloy_primitives::{Address, B64, B256, Bytes, U256, keccak256};
 use async_trait::async_trait;
+use etna_core::staking::StakingWords;
 
 use super::TestState;
 use crate::{
@@ -578,6 +579,21 @@ impl MockEngine {
     /// Sets the word at `slot` of `address` in the post-state of block `hash`.
     pub(crate) fn set_storage(&self, hash: B256, address: Address, slot: B256, value: U256) {
         self.state().storage.entry(hash).or_default().insert((address, slot), value);
+    }
+
+    /// Sets the candidate snapshot `words` of the staking contract `staking` in the post-state
+    /// of block `hash`: `snapshotHeight`, `snapshotTotalStake` and all 128 seat records, at
+    /// their slots. The words hold whether the block has been executed or not, and executing it
+    /// leaves them as they are.
+    pub(crate) fn set_staking_words(&self, hash: B256, staking: Address, words: &StakingWords) {
+        let values = [words.snapshot_height, words.total_stake]
+            .into_iter()
+            .chain(words.records.iter().flatten().copied());
+        let mut state = self.state();
+        let storage = state.storage.entry(hash).or_default();
+        for (slot, value) in etna_core::staking::snapshot_slots().into_iter().zip(values) {
+            storage.insert((staking, slot), value);
+        }
     }
 
     /// Adds `header` to the known (not canonical) blocks.

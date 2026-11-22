@@ -64,6 +64,9 @@ pub(crate) struct GenesisSpec {
     /// Overrides the fourth word of generation 0's origin record on L1 (default: the origin
     /// list's hash).
     pub(crate) origin_hash: Option<B256>,
+    /// Overrides the origin fallback key list (default: the keys of seeds `1..=n_validators`,
+    /// whose count then no longer matters).
+    pub(crate) origin_keys: Option<FallbackKeys>,
     /// The chain parameters (default: devnet).
     pub(crate) params: ChainParams,
 }
@@ -80,6 +83,7 @@ impl GenesisSpec {
             max_anchor_age: 7_200,
             recovery_generation: 0,
             origin_hash: None,
+            origin_keys: None,
             params: ChainParams {
                 unsettled_limit: 12,
                 ..ChainParams::builtin(protocol::shasta::constants::TAIKO_DEVNET_CHAIN_ID).unwrap()
@@ -132,7 +136,7 @@ impl Fixture {
         };
 
         let seeds: Vec<u64> = (1..=spec.n_validators as u64).collect();
-        let fallback_keys = fallback_list(&seeds);
+        let fallback_keys = spec.origin_keys.clone().unwrap_or_else(|| fallback_list(&seeds));
         let inbox = InboxStorage {
             recovery_generation: spec.recovery_generation,
             origin_fallback_keys_hash: spec.origin_hash.unwrap_or(fallback_keys.hash()),
@@ -342,6 +346,7 @@ impl Fixture {
             )
             .expect("the origin keys are a CometBFT validator set"),
             parent_signers: Vec::new(),
+            signer_sources: [crate::committee::SignerSource::Fallback; 2],
             fallback_keys: [(self.fallback_keys.hash(), self.fallback_keys.clone())].into(),
             execution_floor: None,
         }

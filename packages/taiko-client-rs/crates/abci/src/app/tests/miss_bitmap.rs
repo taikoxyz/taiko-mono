@@ -125,15 +125,22 @@ fn bitmap_of(env: &EtnaEnvelope) -> u128 {
     rules::decode_extra_data(&env.block.header.extra_data).expect("Etna extraData").miss_bitmap
 }
 
-/// The storage reads `app`'s EL answered: the block hash and the slots of each.
+/// The storage reads `app`'s EL answered but those of candidate snapshot words, which
+/// `FinalizeBlock` makes at the decided block's own hash once it has executed: the block hash and
+/// the slots of each.
 fn storage_reads(
     app: &App<MockL1, MockEngine>,
 ) -> Vec<(alloy_primitives::B256, Vec<alloy_primitives::B256>)> {
+    let snapshot = snapshot_slots();
     app.engine()
         .calls()
         .into_iter()
         .filter_map(|call| match call {
-            EngineCall::StorageAt { hash, slots, .. } => Some((hash, slots)),
+            EngineCall::StorageAt { hash, slots, .. }
+                if !slots.iter().all(|slot| snapshot.contains(slot)) =>
+            {
+                Some((hash, slots))
+            }
             _ => None,
         })
         .collect()

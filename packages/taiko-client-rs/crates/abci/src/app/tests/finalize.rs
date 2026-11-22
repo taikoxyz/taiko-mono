@@ -5,6 +5,7 @@
 use std::time::Duration;
 
 use alloy_primitives::B256;
+use etna_core::staking::{snapshot_height_slot, snapshot_total_stake_slot};
 use tendermint::{AppHash, Hash, abci::Code};
 
 use super::{
@@ -39,6 +40,14 @@ pub(super) fn updates_of(resp: &response::FinalizeBlock) -> Vec<(crate::key::Con
 /// The engine calls `app` made after the first `from` ones.
 fn engine_calls_since(app: &App<MockL1, MockEngine>, from: usize) -> Vec<EngineCall> {
     app.engine().calls()[from..].to_vec()
+}
+
+/// The read of the candidate snapshot's two header words in the post-state of block `hash`,
+/// which `FinalizeBlock` makes once the block is the EL's head. Under the fixture's minimum total
+/// stake of 2^256 − 1 they rule the candidate out, so the seat records are not read.
+pub(super) fn staking_read(app: &App<MockL1, MockEngine>, hash: B256) -> EngineCall {
+    let slots = vec![snapshot_height_slot(), snapshot_total_stake_slot()];
+    EngineCall::StorageAt { address: app.params.staking, slots, hash }
 }
 
 /// Expects a safety halt; returns its message.
@@ -98,7 +107,10 @@ async fn finalize_after_process_uses_the_cached_verdict() {
     let checkpoint = fx.inbox_with(fx.genesis.genesis_height + 3).last_checkpoint_hash;
     assert_eq!(
         engine_calls_since(&app, before),
-        [EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: checkpoint }],
+        [
+            EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: checkpoint },
+            staking_read(&app, hash),
+        ],
         "the cached verdict was executed already: no second newPayload"
     );
     assert!(app.l1().calls().is_empty(), "a cached verdict needs no L1 call");
@@ -175,6 +187,7 @@ async fn the_verdict_cache_is_bounded_and_an_evicted_block_still_finalizes() {
             EngineCall::HeaderByNumber(fx.genesis.genesis_height + 3),
             EngineCall::NewPayload(hash),
             EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: checkpoint },
+            staking_read(&app, hash),
         ],
         "re-validated, its checkpoint ancestry checked and executed, as on a cold start"
     );
@@ -205,6 +218,7 @@ async fn finalize_without_process_revalidates_and_executes() {
             EngineCall::HeaderByNumber(fx.genesis.genesis_height + 3),
             EngineCall::NewPayload(hash),
             EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: checkpoint },
+            staking_read(&validator, hash),
         ],
         "the moved anchor's checkpoint is checked against the local chain before execution"
     );
@@ -270,6 +284,7 @@ async fn cold_finalize_points_an_el_missing_the_checkpoint_block_at_the_committe
             EngineCall::HeaderByNumber(checkpoint_height),
             EngineCall::NewPayload(hash),
             EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: checkpoint },
+            staking_read(&validator, hash),
         ],
         "missing, nudge fails; missing, nudge backfills; then checked and executed"
     );
@@ -367,7 +382,7 @@ async fn forkchoice_finalizes_the_anchored_checkpoint() {
     let env = step(&mut app).await;
     let hash = env.block.header.hash_slow();
     let fcu = EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: fx.genesis_hash() };
-    assert_eq!(engine_calls_since(&app, before).last(), Some(&fcu));
+    assert!(engine_calls_since(&app, before).ends_with(&[fcu, staking_read(&app, hash)]));
 
     // A moved anchor whose checkpoint is H_0 finalizes H_0.
     let h0 = env.block.header.hash_slow();
@@ -377,7 +392,7 @@ async fn forkchoice_finalizes_the_anchored_checkpoint() {
     let env = step(&mut app).await;
     let hash = env.block.header.hash_slow();
     let fcu = EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: h0 };
-    assert_eq!(engine_calls_since(&app, before).last(), Some(&fcu));
+    assert!(engine_calls_since(&app, before).ends_with(&[fcu, staking_read(&app, hash)]));
 }
 
 #[tokio::test]
@@ -505,6 +520,7 @@ async fn transient_el_error_replies_are_retried_until_the_block_finalizes() {
             fcu.clone(),
             fcu.clone(),
             fcu,
+            staking_read(&app, hash),
         ]
     );
     assert_eq!(app.pending.as_ref().map(|s| s.parent.hash), Some(hash));
@@ -582,7 +598,7 @@ async fn forkchoice_syncing_after_a_cached_verdict_resends_the_payload() {
     let fcu = EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized: fx.genesis_hash() };
     assert_eq!(
         engine_calls_since(&app, before),
-        [fcu.clone(), EngineCall::NewPayload(hash), fcu],
+        [fcu.clone(), EngineCall::NewPayload(hash), fcu, staking_read(&app, hash)],
         "SYNCING on the forkchoice re-sends the payload first"
     );
     assert_eq!(
@@ -1024,9 +1040,18 @@ async fn a_syncing_payload_is_followed_by_a_forkchoice_nudge() {
     let before = app.engine().calls().len();
     finalize(&mut app, req.clone()).await.expect("finalizes once the EL is ready");
     let payload = EngineCall::NewPayload(hash);
+    let read = staking_read(&app, hash);
     assert_eq!(
         engine_calls_since(&app, before),
-        [payload.clone(), fcu.clone(), payload.clone(), fcu.clone(), payload.clone(), fcu.clone()]
+        [
+            payload.clone(),
+            fcu.clone(),
+            payload.clone(),
+            fcu.clone(),
+            payload.clone(),
+            fcu.clone(),
+            read.clone(),
+        ]
     );
 
     // A nudge the EL answers VALID (it caught up meanwhile) settles the block.
@@ -1037,7 +1062,7 @@ async fn a_syncing_payload_is_followed_by_a_forkchoice_nudge() {
     }
     let before = app.engine().calls().len();
     finalize(&mut app, req).await.expect("finalizes on the nudge");
-    assert_eq!(engine_calls_since(&app, before), [payload, fcu]);
+    assert_eq!(engine_calls_since(&app, before), [payload, fcu, read]);
 }
 
 /// A forkchoice nudge that itself fails (a transport error, its deadline) is not reported as
@@ -1198,7 +1223,7 @@ async fn cold_inclusion_needs_no_skip_probe() {
     finalize(&mut app, req).await.unwrap();
     assert!(matches!(
         &app.engine().calls()[before..],
-        [EngineCall::NewPayload(_), EngineCall::Forkchoice { .. }]
+        [EngineCall::NewPayload(_), EngineCall::Forkchoice { .. }, EngineCall::StorageAt { .. }]
     ));
     assert_eq!(app.pending.as_ref().unwrap().forced_cursor, 1);
 }
@@ -1302,7 +1327,8 @@ async fn replay_validates_inclusion_without_admission_log_reads() {
     let first = finalize(&mut app, req.clone()).await.expect("finalizes");
     let calls = engine_calls_since(&app, before);
     assert!(
-        matches!(calls.as_slice(), [EngineCall::Forkchoice { head, .. }] if *head == hash),
+        matches!(calls.as_slice(), [EngineCall::Forkchoice { head, .. }, read]
+            if *head == hash && *read == staking_read(&app, hash)),
         "the cached verdict was rebuilt and executed already: {calls:?}"
     );
 
@@ -1328,11 +1354,13 @@ async fn replay_validates_inclusion_without_admission_log_reads() {
         "only the moved anchor is confirmed in the own L1"
     );
     let calls = engine_calls_since(&app, before);
-    let [EngineCall::NewPayload(executed), EngineCall::Forkchoice { head, .. }] = calls.as_slice()
+    let [EngineCall::NewPayload(executed), EngineCall::Forkchoice { head, .. }, read] =
+        calls.as_slice()
     else {
         panic!("ordinary execution only: {calls:?}");
     };
     assert_eq!((*executed, *head), (hash, hash));
+    assert_eq!(*read, staking_read(&app, hash));
     commit(&mut app).await.expect("commits");
     let state = app.state().unwrap();
     assert_eq!((state.parent.hash, state.forced_cursor), (hash, 1));
@@ -1706,11 +1734,14 @@ async fn hot_canonical_skip_matches_cold_replay_and_persists_after_commit() {
     let hash = env.block.header.hash_slow();
     assert_eq!(
         engine_calls_since(&hot, before),
-        [EngineCall::Forkchoice {
-            head: hash,
-            safe: B256::ZERO,
-            finalized: fx.inbox.last_checkpoint_hash,
-        }],
+        [
+            EngineCall::Forkchoice {
+                head: hash,
+                safe: B256::ZERO,
+                finalized: fx.inbox.last_checkpoint_hash,
+            },
+            staking_read(&hot, hash),
+        ],
         "hot Finalize must use ProcessProposal's cached consumption without rebuilding"
     );
     assert!(hot.verdicts.get(&req.hash).is_none());

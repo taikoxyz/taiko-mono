@@ -3,22 +3,29 @@
 //! `FinalizeBlock` is deterministic: it judges a decided block on its envelope, the committed
 //! [`AppState`] and the EL, never a beacon (every L1 fact a block consumes travels in the block,
 //! the forced transaction bytes included), so a node replaying after a crash or block-syncing
-//! derives the same response and state as one that voted. The one L1 read is for a block this
-//! node never judged whose envelope moves the anchor: its own L1 must have finalized that very
-//! header ([`App::confirm_anchor`]), so a block-synced history cannot carry a forged L1 header and
-//! with it a forged Inbox checkpoint, and that anchor's `lastCheckpoint` must name a block of the
+//! derives the same response and state as one that voted. For a block this node never judged
+//! whose envelope moves the anchor, its own L1 must have finalized that very header
+//! ([`App::confirm_anchor`]), so a block-synced history cannot carry a forged L1 header and with
+//! it a forged Inbox checkpoint, and that anchor's `lastCheckpoint` must name a block of the
 //! local chain ([`App::confirm_checkpoint`]). A decided block that fails a deterministic check,
 //! whose anchor is off the own L1 chain or settles another history, that the EL rejects, or whose
 //! `next_validators_hash` or LastCommit contradicts the validator-state replica is a safety halt:
 //! the process exits and an operator must investigate. A cold block's `missBitmap` reads the
 //! key-to-seat words at the committed parent's hash, never at the decided block's, so a replay
-//! reads the same words wherever the EL head has moved. The derived state stays pending until
-//! `Commit` persists it.
+//! reads the same words wherever the EL head has moved.
+//!
+//! Once the block has executed and is the EL's head, its post-state and anchor decide the set
+//! that signs two heights later ([`App::decide_signers`]): the staking words are read at the
+//! block's own hash, and a fallback key list the node does not hold yet is taken from its own L1
+//! only under the hash the anchor proves. The response returns the validator updates from the
+//! set that signs the next height to that set. The derived state stays pending until `Commit`
+//! persists it.
 
 use crate::wire::{request, response};
 use std::{fmt, future::Future, time::Duration};
 
-use alloy_primitives::{B256, Bytes};
+use alloy_primitives::{B256, Bytes, U256};
+use etna_core::staking::StakingWords;
 use tendermint::{
     abci::{Code, types::ExecTxResult},
     block::Height,
@@ -35,12 +42,14 @@ use super::{
     validate::{Rejection, Validated, validate_block},
 };
 use crate::{
-    engine::{Engine, EngineError, PayloadVerdict},
+    committee::{self, SignerSet, SignerSource},
+    engine::{Engine, EngineError, PayloadVerdict, staking::staking_words},
     envelope::{EtnaEnvelope, single_envelope},
-    l1::{L1Source, OwnFinality, RawL1Header, own_finality},
+    fallback::{FallbackKeys, fetch_fallback_keys},
+    l1::{L1Source, OwnFinality, RawL1Header, ReadBounded, own_finality},
     metrics::AbciMetrics,
     store::AppState,
-    types::ParentInfo,
+    types::{AnchorState, ParentInfo},
 };
 
 impl<L: L1Source, E: Engine> App<L, E> {
@@ -51,8 +60,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// committed state (see [`Verdicts`](super::Verdicts)). Without one (crash replay, block sync,
     /// an evicted verdict) the block is validated cold ([`App::validate_cold`]). The candidate
     /// executes through `newPayload` and becomes the forkchoice head; singleton evidence never
-    /// becomes the head. State stays pending until `Commit`. Invalid decisions halt; temporary EL
-    /// failures retry.
+    /// becomes the head. Then, and only then, the block's post-state and anchor decide the set
+    /// that signs `height + 2` ([`App::decide_signers`]), whose difference to the replica's next
+    /// set the response returns; the replica advances with exactly those updates. State stays
+    /// pending until `Commit`. Invalid decisions halt; temporary EL and L1 failures retry.
     ///
     /// An imported store's first request may be this one rather than `Info`: its startup
     /// reconciliation, with the execution floor check, then runs first
@@ -86,27 +97,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
             None => (self.validate_cold(state, &req, height).await?, true),
         };
         let mut next = next_state(state, &validated, height);
-        // Every height returns an update list; the signing set does not change yet, so it is
-        // empty.
-        let updates: ValidatorUpdates = Vec::new();
-        // CometBFT applies exactly the updates this response returns; a change set it would
-        // refuse halts it, so the replica halts first. The set that signed this height is the
-        // one the next block's LastCommit lists.
-        next.parent_signers = state.val_state.current.entries.clone();
-        next.val_state = state
-            .val_state
-            .advance(&updates)
-            .map_err(|error| safety_halt(height, "validator_state", error))?;
         next.last_comet_hash = match req.hash {
             tendermint::Hash::Sha256(hash) => B256::from(hash),
             tendermint::Hash::None => {
                 return Err(AbciError::SafetyHalt("decided Comet hash is absent".into()))
             }
         };
-        let validator_updates = updates
-            .iter()
-            .map(|&update| validator_update(height, update))
-            .collect::<Result<Vec<_>, _>>()?;
 
         let hash = next.parent.hash;
         self.check_trust_candidate(height, hash, next.last_comet_hash)?;
@@ -114,12 +110,36 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.settle(height, &validated, finalized).await?;
         self.store.save_execution_block(&validated.block)?;
 
+        // The block is the EL's head now: its post-state and anchor decide the set that signs
+        // height + 2, and the response returns how it differs from the set that signs
+        // height + 1, the replica's next set, as stock CometBFT applies the updates at
+        // height + 2. CometBFT applies exactly the updates this response returns; a change set
+        // it would refuse halts it, so the replica halts first. The set that signed this height
+        // is the one the next block's LastCommit lists.
+        let (signers, fetched) = self.decide_signers(&next, height).await?;
+        if let Some(keys) = fetched {
+            next.fallback_keys.insert(keys.hash(), keys);
+        }
+        let updates =
+            committee::validator_updates(&state.val_state.next.members(), &signers.members);
+        next.parent_signers = state.val_state.current.entries.clone();
+        next.val_state = state
+            .val_state
+            .advance(&updates)
+            .map_err(|error| safety_halt(height, "validator_state", error))?;
+        next.signer_sources = [state.signer_sources[1], signers.source];
+        let validator_updates = updates
+            .iter()
+            .map(|&update| validator_update(height, update))
+            .collect::<Result<Vec<_>, _>>()?;
+
         tracing::debug!(
             height,
             %hash,
             anchor = next.anchor.number,
             forced = ?validated.forced,
             cold,
+            source = ?signers.source,
             validator_updates = validator_updates.len(),
             "block finalized"
         );
@@ -227,6 +247,94 @@ impl<L: L1Source, E: Engine> App<L, E> {
                         error.label(),
                         format!("the parent's key-to-seat words cannot be read: {error}"),
                     ));
+                }
+            }
+        }
+    }
+
+    /// The set that signs `height + 2`, decided once the block at `height` is the EL's head, and
+    /// the fallback key list fetched for it when `next`, the state after the block, held none
+    /// under the hash the block's anchor proves.
+    ///
+    /// The candidate is the snapshot the block's block-start call stored, read from the
+    /// block's post-state at its hash ([`App::decided_staking_words`]); it signs when it is
+    /// usable under the minimum total stake the block's anchor proves
+    /// ([`committee::usable_candidate`]). Otherwise the fallback key list whose hash that anchor
+    /// proves signs, each key at power 1: the one held under that hash, else the one the own L1
+    /// serves for it ([`App::decided_fallback_keys`]). The words serve this decision alone: the
+    /// empty records of a read that skipped them are never kept or shown as a seat table.
+    async fn decide_signers(
+        &self,
+        next: &AppState,
+        height: u64,
+    ) -> Result<(SignerSet, Option<FallbackKeys>), AbciError> {
+        let facts = &next.anchor.inbox;
+        let words =
+            self.decided_staking_words(next.parent.hash, height, facts.min_total_stake).await?;
+        if let Some(members) = committee::usable_candidate(height, &words, facts.min_total_stake) {
+            return Ok((SignerSet { source: SignerSource::Candidate, members }, None));
+        }
+        let (keys, fetched) = match next.fallback_keys.get(&facts.fallback_keys_hash) {
+            Some(keys) => (keys.validator_set(), None),
+            None => {
+                let keys = self.decided_fallback_keys(height, &next.anchor).await;
+                (keys.validator_set(), Some(keys))
+            }
+        };
+        Ok((SignerSet { source: SignerSource::Fallback, members: keys }, fetched))
+    }
+
+    /// The candidate snapshot in the post-state of the block `hash` at `height`, whose anchor
+    /// proves the minimum total stake `min_total_stake` ([`staking_words`]), read at that hash
+    /// within the engine deadline, so a replay reads the same words wherever the EL head has
+    /// moved. A retryable engine error or an elapsed deadline waits with the [`Backoff`]
+    /// schedule, logging the failure; it never stands for a snapshot. Any other engine error,
+    /// such as a malformed reply, is a safety halt.
+    async fn decided_staking_words(
+        &self,
+        hash: B256,
+        height: u64,
+        min_total_stake: U256,
+    ) -> Result<StakingWords, AbciError> {
+        let limit = self.opts.engine_timeout;
+        let mut backoff = Backoff::new(DECIDED_BLOCK, height);
+        loop {
+            let read =
+                staking_words(self.engine(), self.params.staking, hash, height, min_total_stake);
+            let reason = match tokio::time::timeout(limit, read).await {
+                Ok(Ok(words)) => return Ok(words),
+                Ok(Err(error)) if error.is_retryable() => error.to_string(),
+                Ok(Err(error)) => {
+                    return Err(safety_halt(
+                        height,
+                        "staking_words",
+                        format!("the staking snapshot of block {hash} cannot be read: {error}"),
+                    ));
+                }
+                Err(_) => format!("timed out after {limit:?}"),
+            };
+            backoff.wait(STAKING_WORD_READ, &reason).await;
+        }
+    }
+
+    /// The fallback key list whose hash `anchor`, the anchor of the block at `height`, proves,
+    /// from the own L1 ([`fetch_fallback_keys`]): `getFallbackKeys()` at the anchor's hash, else
+    /// the Inbox's logs scanned down from the anchor, each L1 read within its own deadline.
+    /// While the list cannot be obtained, for want of a matching list or through any L1 error,
+    /// the block waits with the [`Backoff`] schedule, logging why: a node-local fault, never a
+    /// halt and never another set.
+    async fn decided_fallback_keys(&self, height: u64, anchor: &AnchorState) -> FallbackKeys {
+        let hash = anchor.inbox.fallback_keys_hash;
+        let l1 = ReadBounded { l1: self.l1.clone(), limit: self.opts.l1_timeout };
+        let mut backoff = Backoff::new(DECIDED_BLOCK, height);
+        loop {
+            match fetch_fallback_keys(&l1, self.params.inbox, hash, anchor.hash, anchor.number, 0)
+                .await
+            {
+                Ok(keys) => return keys,
+                Err(error) => {
+                    let reason = format!("fallback key list {hash}: {error}");
+                    backoff.wait(FALLBACK_KEYS_FETCH, &reason).await;
                 }
             }
         }
@@ -662,6 +770,12 @@ pub(super) const DECIDED_BLOCK: &str = "the decided block";
 /// What [`App::decided_miss_bitmap`] retries, for its logs.
 const SEAT_WORD_READ: &str = "seat word read";
 
+/// What [`App::decided_staking_words`] retries, for its logs.
+const STAKING_WORD_READ: &str = "staking word read";
+
+/// What [`App::decided_fallback_keys`] retries, for its logs.
+const FALLBACK_KEYS_FETCH: &str = "fallback key list fetch";
+
 /// Minimum continuous suspicion interval before repeated L1 disagreements justify a halt.
 const ANCHOR_OFF_CHAIN_WINDOW: Duration = Duration::from_secs(5);
 
@@ -780,8 +894,8 @@ impl Backoff {
     }
 }
 
-/// The state after committing `v` at `height` on top of `state`, before its validator state
-/// advances.
+/// The state after committing `v` at `height` on top of `state`, before the set that signs
+/// `height + 2` is decided and its validator state advances.
 ///
 /// The parent becomes the block's header summary (its grandparent timestamp the old parent's)
 /// and the anchor the block's; the forced inclusion cursor advances by one when the block
@@ -810,9 +924,6 @@ fn next_state(state: &AppState, v: &Validated, height: u64) -> AppState {
     }
     next
 }
-
-/// The `(pubkey, power)` validator updates a height returns, in response order.
-type ValidatorUpdates = Vec<(crate::key::ConsensusKey, u64)>;
 
 /// The CometBFT validator update setting `pubkey`'s power to `power` (0 removes it).
 ///

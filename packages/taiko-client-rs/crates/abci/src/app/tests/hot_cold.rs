@@ -27,6 +27,7 @@ use proptest::prelude::*;
 use tempfile::TempDir;
 
 use super::{
+    finalize::staking_read,
     proposal::{bft_time, commit, finalize, finalize_req, process, process_req},
     *,
 };
@@ -289,7 +290,10 @@ impl Run {
         let calls = self.hot.engine().calls();
         prop_assert_eq!(
             &calls[before..],
-            &[EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized }][..],
+            &[
+                EngineCall::Forkchoice { head: hash, safe: B256::ZERO, finalized },
+                staking_read(&self.hot, hash),
+            ][..],
             "height {}: hot FinalizeBlock neither probes nor executes",
             height
         );

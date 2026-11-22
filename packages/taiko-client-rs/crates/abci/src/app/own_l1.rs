@@ -28,7 +28,7 @@ const MAX_SIGHTINGS: usize = 64;
 ///
 /// The app reads the own L1 only through it: the checkpoint trust worker about once a second
 /// on every node, validator or full node (SYNC-9-6a), `ProcessProposal`'s finality checks, the
-/// committee-witness discovery and `PrepareProposal`. So the proposer's anchor hold counts from
+/// fallback key list fetches and `PrepareProposal`. So the proposer's anchor hold counts from
 /// the first time this node's own L1 showed a block above the committed anchor as finalized,
 /// whether or not the node has proposed since ([`OwnL1::first_finalized_above`]). It derefs to
 /// `L`.

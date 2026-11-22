@@ -483,7 +483,9 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
 
 /// The DAO's emergency setting, `minTotalStake` = 2^256 − 1, reaches the facts of the anchor
 /// that proves it in all 256 bits, as does an all-ones fallback keys hash; a block that keeps
-/// that anchor inherits both, and so does the committed state a restart reads back.
+/// that anchor inherits the minimum, and so does the committed state a restart reads back. The
+/// blocks' anchor names the origin list, as no list hashes to all ones and the fallback keys
+/// sign under that minimum.
 #[tokio::test]
 async fn min_total_stake_max_is_decoded_unmasked_and_inherited() {
     use crate::{
@@ -493,21 +495,30 @@ async fn min_total_stake_max_is_decoded_unmasked_and_inherited() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 6).await;
-    let mut account = inbox_account(fx.params.inbox, &fx.inbox);
-    account.4.extend([
-        (inbox::slot(inbox::FALLBACK_KEYS_HASH), U256::MAX),
-        (inbox::slot(inbox::MIN_TOTAL_STAKE), U256::MAX),
-    ]);
-    let mut accounts = filler_accounts();
-    accounts.push(account);
-    let state = TestState::new(accounts);
+    let state_with = |fallback_keys_hash: U256| {
+        let mut account = inbox_account(fx.params.inbox, &fx.inbox);
+        account.4.extend([
+            (inbox::slot(inbox::FALLBACK_KEYS_HASH), fallback_keys_hash),
+            (inbox::slot(inbox::MIN_TOTAL_STAKE), U256::MAX),
+        ]);
+        let mut accounts = filler_accounts();
+        accounts.push(account);
+        TestState::new(accounts)
+    };
+    let all_ones = state_with(U256::MAX);
     let header = l1_header(66, Fixture::l1_timestamp(66));
+    let witness = anchor_witness_in(&all_ones, fx.params.inbox, header.clone());
+    let anchor = verify_anchor_witness(&witness, fx.params.inbox).unwrap();
+    assert_eq!(anchor.inbox.min_total_stake, U256::MAX);
+    assert_eq!(anchor.inbox.fallback_keys_hash, B256::repeat_byte(0xff));
+
+    let state = state_with(fx.fallback_keys.hash().into());
     app.l1().insert_block(header.clone(), state.clone());
     app.l1().set_finalized(66);
     let witness = anchor_witness_in(&state, fx.params.inbox, header);
     let anchor = verify_anchor_witness(&witness, fx.params.inbox).unwrap();
     assert_eq!(anchor.inbox.min_total_stake, U256::MAX);
-    assert_eq!(anchor.inbox.fallback_keys_hash, B256::repeat_byte(0xff));
+    assert_eq!(anchor.inbox.fallback_keys_hash, fx.fallback_keys.hash());
 
     let env = hand_envelope(&app, Some(witness));
     let (resp, req) = judge(&mut app, &env).await;
