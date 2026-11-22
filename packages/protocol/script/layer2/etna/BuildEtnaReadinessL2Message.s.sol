@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { LibEtnaStakingEnv } from "./LibEtnaStakingEnv.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { Script } from "forge-std/src/Script.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import { LibRebuiltCode } from "script/shared/LibRebuiltCode.sol";
 import { EtnaSignalServiceUpgradeGuard } from "src/layer2/etna/EtnaSignalServiceUpgradeGuard.sol";
+import { EtnaStaking } from "src/layer2/etna/EtnaStaking.sol";
+import { IEtnaStaking } from "src/layer2/etna/iface/IEtnaStaking.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
@@ -69,7 +73,7 @@ library LibEtnaReadinessL2Message {
 /// `DelegateController.dryrun` takes and that follow the 8-byte execution ID in
 /// `onMessageInvocation`, after checking every input against L2. It broadcasts nothing; the
 /// reference contracts its checks create exist only in the script's local EVM. Run it against
-/// the L2 with the `layer2` profile.
+/// the L2 with the `layer2` profile and the build that deployed `EtnaStaking`.
 ///
 /// Required environment variables:
 /// - UPGRADE_GUARD: the deployed `EtnaSignalServiceUpgradeGuard`, exactly this build's code
@@ -78,11 +82,23 @@ library LibEtnaReadinessL2Message {
 /// - ETNA_SIGNAL_SERVICE_IMPL: the implementation `DeployShastaL2Contracts` deployed
 /// - ANCHOR_PROXY: the `Anchor` proxy, whose checkpoint store is L2_SIGNAL_SERVICE
 /// - L1_SIGNAL_SERVICE: the L1 `SignalService` proxy
+/// - ETNA_STAKING and ETNA_STAKING_IMPL: the `EtnaStaking` proxy and implementation that
+///   `DeployEtnaStaking` deployed, the addresses the EL, the nodes and both guests build in
+/// - ETNA_STAKING_OWNER: the proxy's owner, the DAO's execution address on L2; nonzero
+/// - ETNA_UNSETTLED_LIMIT: U, the `unsettledLimit()` of the Etna Inbox implementation that the
+///   scheduling proposal installs, in [1, 262,144]
+/// - EVIDENCE_WINDOW_BLOCKS: the double-sign evidence window, in L2 blocks; nonzero
+/// - the `EtnaStaking` configuration, which `LibEtnaStakingEnv` reads; its INBOX_PROXY is the
+///   Etna Inbox proxy on L1
 /// ETNA_SIGNAL_SERVICE_IMPL must hold exactly this build's `SignalService` constructed as
 /// `DeployShastaL2Contracts` does: syncer ANCHOR_PROXY, remote L1_SIGNAL_SERVICE, the live
 /// proxy's pauser and `usesBeaconRoots` true. The syncer and remote have no getters, so its runtime
 /// code is compared with a reference built from those arguments, and the message's postcondition
-/// pins the code hash on chain.
+/// pins the code hash on chain. ETNA_STAKING must hold the stock `ERC1967Proxy` code, its
+/// EIP-1967 slot ETNA_STAKING_IMPL, and its owner ETNA_STAKING_OWNER with no ownership transfer
+/// pending; ETNA_STAKING_IMPL must hold exactly this build's `EtnaStaking` constructed with the
+/// configuration, compared in the same way, and its `withdrawalDelay` must be at least
+/// U + 2 + EVIDENCE_WINDOW_BLOCKS. These checks add no action to the message.
 /// @custom:security-contact security@taiko.xyz
 contract BuildEtnaReadinessL2Message is Script {
     /// @notice The message's inputs.
@@ -99,7 +115,26 @@ contract BuildEtnaReadinessL2Message is Script {
         address anchor;
         /// @notice The L1 `SignalService` proxy, the implementation's expected remote.
         address l1SignalService;
+        /// @notice The `EtnaStaking` proxy.
+        address etnaStaking;
+        /// @notice The `EtnaStaking` implementation the proxy uses.
+        address etnaStakingImpl;
+        /// @notice The proxy's expected owner, the DAO's execution address on L2.
+        address etnaStakingOwner;
+        /// @notice The configuration the implementation must be constructed with.
+        IEtnaStaking.Config etnaStakingConfig;
+        /// @notice U, the Etna Inbox's maximum number of unsettled L2 blocks.
+        uint256 unsettledLimit;
+        /// @notice The double-sign evidence window, in L2 blocks.
+        uint256 evidenceWindowBlocks;
     }
+
+    /// @dev The ERC-1967 implementation slot.
+    bytes32 private constant _IMPLEMENTATION_SLOT =
+        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+
+    /// @dev The largest U the Etna Inbox accepts.
+    uint256 private constant _MAX_UNSETTLED_LIMIT = 262_144;
 
     function run() external {
         Inputs memory inputs = Inputs({
@@ -108,7 +143,13 @@ contract BuildEtnaReadinessL2Message is Script {
             preEtnaImpl: vm.envAddress("PRE_ETNA_SIGNAL_SERVICE_IMPL"),
             etnaImpl: vm.envAddress("ETNA_SIGNAL_SERVICE_IMPL"),
             anchor: vm.envAddress("ANCHOR_PROXY"),
-            l1SignalService: vm.envAddress("L1_SIGNAL_SERVICE")
+            l1SignalService: vm.envAddress("L1_SIGNAL_SERVICE"),
+            etnaStaking: vm.envAddress("ETNA_STAKING"),
+            etnaStakingImpl: vm.envAddress("ETNA_STAKING_IMPL"),
+            etnaStakingOwner: vm.envAddress("ETNA_STAKING_OWNER"),
+            etnaStakingConfig: LibEtnaStakingEnv.readConfig(),
+            unsettledLimit: vm.envUint("ETNA_UNSETTLED_LIMIT"),
+            evidenceWindowBlocks: vm.envUint("EVIDENCE_WINDOW_BLOCKS")
         });
         Controller.Action[] memory actions = buildChecked(inputs);
         for (uint256 i; i < actions.length; ++i) {
@@ -127,6 +168,7 @@ contract BuildEtnaReadinessL2Message is Script {
         public
         returns (Controller.Action[] memory actions_)
     {
+        _checkEtnaStaking(_inputs);
         require(
             LibRebuiltCode.matches(_inputs.guard, address(new EtnaSignalServiceUpgradeGuard())),
             UpgradeGuardMismatch()
@@ -159,6 +201,48 @@ contract BuildEtnaReadinessL2Message is Script {
             _inputs.preEtnaImpl,
             _inputs.etnaImpl,
             _inputs.etnaImpl.codehash
+        );
+    }
+
+    /// @dev Checks the `EtnaStaking` deployment that the EL, the nodes and both guests build in:
+    /// the stock proxy code, the implementation in the proxy's EIP-1967 slot, the owner with no
+    /// transfer pending, the withdrawal delay against U and the evidence window, and the
+    /// implementation's code and immutables. U is an Etna Inbox value that no L2 contract holds,
+    /// so it is an input. The code comparison, the costliest check, runs last.
+    /// @param _inputs The message's inputs.
+    function _checkEtnaStaking(Inputs memory _inputs) private {
+        address proxy = _inputs.etnaStaking;
+        require(
+            keccak256(proxy.code) == keccak256(type(ERC1967Proxy).runtimeCode),
+            EtnaStakingProxyMismatch()
+        );
+        require(
+            vm.load(proxy, _IMPLEMENTATION_SLOT)
+                == bytes32(uint256(uint160(_inputs.etnaStakingImpl))),
+            EtnaStakingImplementationMismatch()
+        );
+        // `init` replaces a zero owner, so only an uninitialized proxy has owner zero.
+        require(
+            _inputs.etnaStakingOwner != address(0)
+                && EtnaStaking(proxy).owner() == _inputs.etnaStakingOwner
+                && EtnaStaking(proxy).pendingOwner() == address(0),
+            EtnaStakingOwnerMismatch()
+        );
+        uint256 limit = _inputs.unsettledLimit;
+        require(limit != 0 && limit <= _MAX_UNSETTLED_LIMIT, InvalidUnsettledLimit());
+        require(_inputs.evidenceWindowBlocks != 0, ZeroEvidenceWindow());
+        uint256 delay = _inputs.etnaStakingConfig.withdrawalDelay;
+        // U + 2 cannot overflow, being at most 262,146.
+        require(
+            delay >= limit + 2 && delay - limit - 2 >= _inputs.evidenceWindowBlocks,
+            WithdrawalDelayTooShort()
+        );
+        // The rebuilt code holds every immutable, so the delay checked above is the deployed one.
+        require(
+            LibRebuiltCode.matches(
+                _inputs.etnaStakingImpl, address(new EtnaStaking(_inputs.etnaStakingConfig))
+            ),
+            EtnaStakingImplementationMismatch()
         );
     }
 
@@ -199,7 +283,13 @@ contract BuildEtnaReadinessL2Message is Script {
     // ---------------------------------------------------------------
 
     error AnchorMismatch();
+    error EtnaStakingImplementationMismatch();
+    error EtnaStakingOwnerMismatch();
+    error EtnaStakingProxyMismatch();
+    error InvalidUnsettledLimit();
     error PreEtnaImplementationMismatch();
     error SignalServiceImplementationMismatch();
     error UpgradeGuardMismatch();
+    error WithdrawalDelayTooShort();
+    error ZeroEvidenceWindow();
 }

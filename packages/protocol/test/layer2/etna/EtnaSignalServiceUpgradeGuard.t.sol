@@ -6,8 +6,11 @@ import {
     BuildEtnaReadinessL2Message,
     LibEtnaReadinessL2Message
 } from "script/layer2/etna/BuildEtnaReadinessL2Message.s.sol";
+import { DeployEtnaStaking } from "script/layer2/etna/DeployEtnaStaking.s.sol";
 import { Anchor } from "src/layer2/core/Anchor.sol";
 import { EtnaSignalServiceUpgradeGuard } from "src/layer2/etna/EtnaSignalServiceUpgradeGuard.sol";
+import { EtnaStaking } from "src/layer2/etna/EtnaStaking.sol";
+import { IEtnaStaking } from "src/layer2/etna/iface/IEtnaStaking.sol";
 import { DelegateController } from "src/layer2/governance/DelegateController.sol";
 import { Bridge } from "src/shared/bridge/Bridge.sol";
 import { IBridge } from "src/shared/bridge/IBridge.sol";
@@ -24,7 +27,8 @@ import { LegacySignalService } from "test/shared/signal/LegacySignalService.sol"
 /// `DelegateController`. It upgrades a real `SignalService` proxy on the pre-Etna (flat layout)
 /// implementation, whose syncer is a real `Anchor` proxy, with the canonical EIP-4788 contract
 /// etched. Every failed check reverts the whole batch: the message stays retriable and the proxy
-/// keeps its implementation.
+/// keeps its implementation. The checking builder also verifies an `EtnaStaking` deployment that
+/// `DeployEtnaStaking` makes through the CREATE2 factory, owned by the `DelegateController`.
 contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
     uint64 private constant UNZEN_TIME = 1_800_000_000;
     uint64 private constant ETNA_TIME = 1_800_000_012;
@@ -39,9 +43,23 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
     /// @dev Answers every call with 32 zero bytes: a nonzero, non-canonical runtime whose read
     /// alone would pass.
     bytes private constant ZERO_ROOT_CODE = hex"5f5f5260205ff3";
+    /// @dev The runtime code of the CREATE2 factory at `CREATE2_FACTORY`
+    /// (0x4e59b44847b379578588920cA78FbF26c0B4956C), through which `DeployEtnaStaking` deploys.
+    bytes private constant CREATE2_FACTORY_CODE =
+        hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3";
+    /// @dev The ERC-1967 implementation slot.
+    bytes32 private constant IMPLEMENTATION_SLOT =
+        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+    /// @dev U, the Inbox's maximum number of unsettled L2 blocks, and the double-sign evidence
+    /// window, in L2 blocks. The staking withdrawal delay, 302,402, is exactly U + 2 + the window.
+    uint256 private constant UNSETTLED_LIMIT = 151_200;
+    uint256 private constant EVIDENCE_WINDOW = 151_200;
 
     address private daoController = randAddress();
     address private l1SignalService = randAddress();
+    address private etnaInbox = randAddress();
+    address private stakingToken = randAddress();
+    address private slashSink = randAddress();
 
     Bridge private tBridge;
     DelegateController private tDelegateController;
@@ -50,6 +68,8 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
     address private preEtnaImpl;
     address private etnaImpl;
     EtnaSignalServiceUpgradeGuard private guard;
+    address private tEtnaStaking;
+    address private etnaStakingImpl;
     uint64 private messageId;
 
     function setUpOnEthereum() internal override {
@@ -76,6 +96,15 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
         etnaImpl = address(new SignalService(address(tAnchor), l1SignalService, address(0), true));
         guard = new EtnaSignalServiceUpgradeGuard();
         vm.etch(BEACON_ROOTS, BEACON_ROOTS_CODE);
+        vm.etch(CREATE2_FACTORY, CREATE2_FACTORY_CODE);
+        (etnaStakingImpl, tEtnaStaking) = new DeployEtnaStaking()
+            .deploy(
+                _etnaStakingConfig(),
+                address(tDelegateController),
+                bytes32(0),
+                UNSETTLED_LIMIT,
+                EVIDENCE_WINDOW
+            );
         vm.chainId(ethereumChainId);
     }
 
@@ -113,9 +142,10 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
     // The checking builder
     // ---------------------------------------------------------------
 
-    /// @dev The builder accepts the implementation `DeployShastaL2Contracts` deploys and returns
-    /// `buildActions` with its code hash.
-    function test_buildChecked_ReturnsTheMessageForTheDeployedImplementation() external {
+    /// @dev The builder accepts the implementation `DeployShastaL2Contracts` deploys and the
+    /// `EtnaStaking` deployment `DeployEtnaStaking` makes, and returns `buildActions` with the
+    /// implementation's code hash: checking `EtnaStaking` adds no action.
+    function test_buildChecked_ReturnsTheMessageWithAVerifiedEtnaStaking() external {
         Controller.Action[] memory actions =
             new BuildEtnaReadinessL2Message().buildChecked(_inputs());
         assertEq(
@@ -171,6 +201,92 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
         BuildEtnaReadinessL2Message builder = new BuildEtnaReadinessL2Message();
         vm.expectRevert(BuildEtnaReadinessL2Message.AnchorMismatch.selector);
         builder.buildChecked(inputs);
+    }
+
+    /// @dev The `EtnaStaking` address holds no code, or code other than the stock
+    /// `ERC1967Proxy`: here the implementation's, as if the implementation were named as the
+    /// proxy.
+    function test_buildChecked_RevertWhen_EtnaStakingProxyCodeIsNotTheProxy() external {
+        BuildEtnaReadinessL2Message.Inputs memory inputs = _inputs();
+        inputs.etnaStaking = Bob;
+        _expectBuilderRevert(inputs, BuildEtnaReadinessL2Message.EtnaStakingProxyMismatch.selector);
+
+        vm.etch(tEtnaStaking, etnaStakingImpl.code);
+        _expectBuilderRevert(
+            _inputs(), BuildEtnaReadinessL2Message.EtnaStakingProxyMismatch.selector
+        );
+    }
+
+    /// @dev The proxy's EIP-1967 slot does not hold the expected implementation, although both
+    /// implementations hold this build's code with the expected configuration.
+    function test_buildChecked_RevertWhen_EtnaStakingImplementationSlotDiffers() external {
+        address sameBuild = address(new EtnaStaking(_etnaStakingConfig()));
+        BuildEtnaReadinessL2Message.Inputs memory inputs = _inputs();
+        inputs.etnaStakingImpl = sameBuild;
+        _expectBuilderRevert(
+            inputs, BuildEtnaReadinessL2Message.EtnaStakingImplementationMismatch.selector
+        );
+
+        vm.store(tEtnaStaking, IMPLEMENTATION_SLOT, bytes32(uint256(uint160(sameBuild))));
+        _expectBuilderRevert(
+            _inputs(), BuildEtnaReadinessL2Message.EtnaStakingImplementationMismatch.selector
+        );
+    }
+
+    /// @dev The proxy uses an implementation built with another Inbox or another withdrawal
+    /// delay. The builder compares the implementation's code with one rebuilt from the expected
+    /// configuration, so each wrong immutable is refused.
+    function test_buildChecked_RevertWhen_EtnaStakingImmutablesDiffer() external {
+        IEtnaStaking.Config memory config = _etnaStakingConfig();
+        config.inbox = Bob;
+        _expectEtnaStakingImplementationRefused(config);
+
+        config = _etnaStakingConfig();
+        config.withdrawalDelay += 1;
+        _expectEtnaStakingImplementationRefused(config);
+    }
+
+    /// @dev The proxy has another owner, has an ownership transfer pending, or was never
+    /// initialized while the expected owner is zero.
+    function test_buildChecked_RevertWhen_EtnaStakingOwnerDiffersOrPending() external {
+        BuildEtnaReadinessL2Message.Inputs memory inputs = _inputs();
+        inputs.etnaStakingOwner = Bob;
+        _expectBuilderRevert(inputs, BuildEtnaReadinessL2Message.EtnaStakingOwnerMismatch.selector);
+
+        inputs = _inputs();
+        inputs.etnaStaking = address(new ERC1967Proxy(etnaStakingImpl, ""));
+        inputs.etnaStakingOwner = address(0);
+        _expectBuilderRevert(inputs, BuildEtnaReadinessL2Message.EtnaStakingOwnerMismatch.selector);
+
+        vm.prank(address(tDelegateController));
+        EtnaStaking(tEtnaStaking).transferOwnership(Bob);
+        assertEq(EtnaStaking(tEtnaStaking).owner(), address(tDelegateController));
+        _expectBuilderRevert(
+            _inputs(), BuildEtnaReadinessL2Message.EtnaStakingOwnerMismatch.selector
+        );
+    }
+
+    /// @dev The implementation's withdrawal delay, 302,402, is exactly U + 2 + the evidence
+    /// window with both 151,200, so one block more of either is refused, and so are a U outside
+    /// [1, 262,144] and a zero evidence window.
+    function test_buildChecked_RevertWhen_EtnaStakingWithdrawalDelayIsBelowTheBound() external {
+        BuildEtnaReadinessL2Message.Inputs memory inputs = _inputs();
+        inputs.unsettledLimit = UNSETTLED_LIMIT + 1;
+        _expectBuilderRevert(inputs, BuildEtnaReadinessL2Message.WithdrawalDelayTooShort.selector);
+
+        inputs = _inputs();
+        inputs.evidenceWindowBlocks = EVIDENCE_WINDOW + 1;
+        _expectBuilderRevert(inputs, BuildEtnaReadinessL2Message.WithdrawalDelayTooShort.selector);
+
+        inputs = _inputs();
+        inputs.unsettledLimit = 0;
+        _expectBuilderRevert(inputs, BuildEtnaReadinessL2Message.InvalidUnsettledLimit.selector);
+        inputs.unsettledLimit = 262_145;
+        _expectBuilderRevert(inputs, BuildEtnaReadinessL2Message.InvalidUnsettledLimit.selector);
+
+        inputs = _inputs();
+        inputs.evidenceWindowBlocks = 0;
+        _expectBuilderRevert(inputs, BuildEtnaReadinessL2Message.ZeroEvidenceWindow.selector);
     }
 
     function test_beaconRootsCodeHash_IsTheCanonicalEip4788RuntimeHash() external view {
@@ -371,7 +487,32 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
             preEtnaImpl: preEtnaImpl,
             etnaImpl: etnaImpl,
             anchor: address(tAnchor),
-            l1SignalService: l1SignalService
+            l1SignalService: l1SignalService,
+            etnaStaking: tEtnaStaking,
+            etnaStakingImpl: etnaStakingImpl,
+            etnaStakingOwner: address(tDelegateController),
+            etnaStakingConfig: _etnaStakingConfig(),
+            unsettledLimit: UNSETTLED_LIMIT,
+            evidenceWindowBlocks: EVIDENCE_WINDOW
+        });
+    }
+
+    /// @dev The `EtnaStaking` configuration of this deployment: the reference parameters, a
+    /// stand-in address for the bridged TAIKO token and an Etna Inbox proxy on L1.
+    function _etnaStakingConfig() private view returns (IEtnaStaking.Config memory) {
+        return IEtnaStaking.Config({
+            token: stakingToken,
+            l1ChainId: ethereumChainId,
+            inbox: etnaInbox,
+            minStake: 7_812_500 ether,
+            vpUnit: 1e9,
+            nMax: 128,
+            missLimit: 3600,
+            missSlashBps: 1000,
+            withdrawalDelay: 302_402,
+            slashBountyBps: 1000,
+            slashSink: slashSink,
+            forfeitBps: 1000
         });
     }
 
@@ -382,6 +523,30 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
         BuildEtnaReadinessL2Message builder = new BuildEtnaReadinessL2Message();
         vm.expectRevert(BuildEtnaReadinessL2Message.SignalServiceImplementationMismatch.selector);
         builder.buildChecked(inputs);
+    }
+
+    /// @dev Points the `EtnaStaking` proxy at an implementation built with `_config`; the builder,
+    /// given that implementation and this deployment's configuration, refuses it.
+    function _expectEtnaStakingImplementationRefused(IEtnaStaking.Config memory _config) private {
+        address impl = address(new EtnaStaking(_config));
+        vm.store(tEtnaStaking, IMPLEMENTATION_SLOT, bytes32(uint256(uint160(impl))));
+        BuildEtnaReadinessL2Message.Inputs memory inputs = _inputs();
+        inputs.etnaStakingImpl = impl;
+        _expectBuilderRevert(
+            inputs, BuildEtnaReadinessL2Message.EtnaStakingImplementationMismatch.selector
+        );
+    }
+
+    /// @dev The builder refuses `_inputs_` with `_error`.
+    function _expectBuilderRevert(
+        BuildEtnaReadinessL2Message.Inputs memory _inputs_,
+        bytes4 _error
+    )
+        private
+    {
+        BuildEtnaReadinessL2Message builder = new BuildEtnaReadinessL2Message();
+        vm.expectRevert(_error);
+        builder.buildChecked(_inputs_);
     }
 
     /// @dev Expects the batch to revert with `_error`, through the `DelegateController`'s own
