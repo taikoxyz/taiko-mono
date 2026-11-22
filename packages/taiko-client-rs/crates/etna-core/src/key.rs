@@ -26,7 +26,8 @@ impl ConsensusKey {
         Ok(Self(raw))
     }
 
-    /// SEC1 parity prefix (2 or 3), for the canonical registry ABI.
+    /// SEC1 parity prefix (2 or 3): the `ckPrefix` of a staking contract seat record and of a
+    /// fallback key.
     pub const fn prefix(self) -> u8 {
         self.0.0[0]
     }
@@ -114,7 +115,8 @@ impl core::fmt::Display for ConsensusKey {
     }
 }
 
-/// Stock JSON public key, separate from the hexadecimal registry representation.
+/// Stock JSON public key (key type and base64 bytes), separate from the 0x-prefixed hex JSON
+/// form of [`ConsensusKey`] that fallback key lists use.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "PublicKeyJson", into = "PublicKeyJson")]
 pub struct CometPublicKey(
