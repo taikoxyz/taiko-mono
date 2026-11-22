@@ -51,5 +51,5 @@ mod test_utils;
 pub mod types;
 /// Stock native validator protobuf and commitments.
 pub mod validator;
-/// Stock per-height validator-state transitions and canonical preimages.
+/// Stock per-height validator-state transitions, canonical preimages and the app hash.
 pub mod valstate;

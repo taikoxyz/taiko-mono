@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -52,11 +53,13 @@ type rpcRebuild struct {
 	BulkProposer   int    `json:"bulk_proposer"`
 }
 
-// vcase is one named sequence of steps.
+// vcase is one named sequence of steps. ValidatorsHash is the stock ValidatorSet.Hash() of the
+// genesis set, recorded for a case without updates, where every set has that hash.
 type vcase struct {
-	Name       string      `json:"name"`
-	Steps      []step      `json:"steps"`
-	RPCRebuild *rpcRebuild `json:"rpc_rebuild,omitempty"`
+	Name           string      `json:"name"`
+	Steps          []step      `json:"steps"`
+	RPCRebuild     *rpcRebuild `json:"rpc_rebuild,omitempty"`
+	ValidatorsHash string      `json:"validators_hash,omitempty"`
 }
 
 func must(err error) {
@@ -65,17 +68,36 @@ func must(err error) {
 	}
 }
 
-// pool[s] is the public key of GenPrivKeySecp256k1Eth(32 repetitions of byte s), s in 1..255.
-// The key table lists them in seed order, so key index s-1 is seed s.
+// byteSeeds is the number of seeds whose secret repeats one byte. The random cases draw from
+// these seeds only.
+const byteSeeds = 255
+
+// maxSetMembers is the largest set that signs an Etna block.
+const maxSetMembers = 128
+
+// pool[s] is the public key of GenPrivKeySecp256k1Eth(secret(s)), s in 1..256, so seeds 1..128
+// and 129..256 are two disjoint sets of maxSetMembers keys. The key table lists them in seed
+// order, so key index s-1 is seed s.
 var (
-	pool     [256]crypto.PubKey
+	pool     [byteSeeds + 2]crypto.PubKey
 	keyTable []string
 	keyIndex = map[string]int{}
 )
 
+// secret is 32 repetitions of byte s for s in 1..255, and the 32-byte big-endian encoding of s
+// for s = 256.
+func secret(s int) []byte {
+	if s <= byteSeeds {
+		return bytes.Repeat([]byte{byte(s)}, 32)
+	}
+	out := make([]byte, 32)
+	binary.BigEndian.PutUint64(out[24:], uint64(s))
+	return out
+}
+
 func init() {
 	for s := 1; s < len(pool); s++ {
-		pool[s] = secp256k1eth.GenPrivKeySecp256k1Eth(bytes.Repeat([]byte{byte(s)}, 32)).PubKey()
+		pool[s] = secp256k1eth.GenPrivKeySecp256k1Eth(secret(s)).PubKey()
 		keyHex := hex.EncodeToString(pool[s].Bytes())
 		keyIndex[keyHex] = len(keyTable)
 		keyTable = append(keyTable, keyHex)
@@ -152,6 +174,31 @@ func validatorUpdates(old, new []member) []update {
 	if same {
 		return []update{}
 	}
+	return sortedUpdates(byKey)
+}
+
+// diffUpdates is the difference alone, as committee::validator_updates returns it: a key that
+// leaves at power 0, a new key or a changed power at its new power and no unchanged member,
+// sorted by compressed key. A key in both committees at different powers is re-weighted by one
+// entry, never removed.
+func diffUpdates(old, new []member) []update {
+	byKey := map[string]int64{}
+	for _, m := range old {
+		byKey[upd(m.seed, 0).KeyHex] = 0
+	}
+	for _, m := range new {
+		byKey[upd(m.seed, 0).KeyHex] = m.power
+	}
+	for _, m := range old {
+		if key := upd(m.seed, 0).KeyHex; byKey[key] == m.power {
+			delete(byKey, key)
+		}
+	}
+	return sortedUpdates(byKey)
+}
+
+// sortedUpdates lists byKey's updates sorted by compressed key.
+func sortedUpdates(byKey map[string]int64) []update {
 	keys := make([]string, 0, len(byKey))
 	for key := range byKey {
 		keys = append(keys, key)
@@ -411,6 +458,62 @@ func namedCases() []vcase {
 	c.idle(3)
 	cases = append(cases, c.done("full_replacement"))
 
+	// The cases below record the difference alone at each height, as FinalizeBlock returns it.
+	// One member re-weighted at each of ten consecutive heights.
+	current := []member{{1, 10}, {2, 20}, {3, 30}, {4, 40}}
+	c = start(0, current...)
+	for h := 1; h <= 10; h++ {
+		next := slices.Clone(current)
+		next[(h-1)%len(next)].power = 5 + 13*int64(h)
+		updates := diffUpdates(current, next)
+		if len(updates) != 1 {
+			panic("not one re-weight")
+		}
+		c.apply(updates)
+		current = next
+	}
+	cases = append(cases, c.done("per_block_diff_ten_heights"))
+
+	// A mode switch between two disjoint sets of the maximum size: seeds 1..128 at power 1, as
+	// fallback keys sign, then seeds 129..256 through one list of 128 removals and 128 additions.
+	first := make([]member, maxSetMembers)
+	second := make([]member, maxSetMembers)
+	for i := range maxSetMembers {
+		first[i] = member{i + 1, 1}
+		second[i] = member{maxSetMembers + i + 1, 1 + int64(i*37%100)}
+	}
+	c = start(0, first...)
+	c.idle(2)
+	c.apply(diffUpdates(first, second))
+	c.idle(2)
+	cases = append(cases, c.done("replace_128_with_128_other_keys"))
+
+	// Key 1 signs at power 1 among four fallback keys, then at 250,000 as the only seat key:
+	// one list re-weights it and removes the other three.
+	fallback := []member{{1, 1}, {2, 1}, {3, 1}, {4, 1}}
+	c = start(0, fallback...)
+	c.idle(1)
+	c.apply(diffUpdates(fallback, []member{{1, 250_000}}))
+	c.idle(2)
+	cases = append(cases, c.done("fallback_key_reweighted_as_seat_key"))
+
+	// maxSetMembers members at MaxTotalVotingPower: member i (seed i + 1) has power
+	// 2^53 + (i mod 64) - 32 for i < 127 and member 127 the rest, 2^53 + 94, so equal powers
+	// come in pairs ordered by address.
+	maximum := make([]member, maxSetMembers)
+	var sum int64
+	for i := range maxSetMembers - 1 {
+		maximum[i] = member{i + 1, 1<<53 + int64(i%64) - 32}
+		sum += maximum[i].power
+	}
+	maximum[maxSetMembers-1] = member{maxSetMembers, maxTotal - sum}
+	c = start(0, maximum...)
+	hash := "0x" + hex.EncodeToString(c.cur.Hash())
+	c.idle(3)
+	maxCase := c.done("maximum_128_members")
+	maxCase.ValidatorsHash = hash
+	cases = append(cases, maxCase)
+
 	cases = append(cases, rpcRebuildDiverges())
 
 	failures := []struct {
@@ -451,9 +554,9 @@ func priorityDiff(vals *types.ValidatorSet) int64 {
 // fuzz draws the random parts of the vectors from one seeded generator.
 type fuzz struct{ *rand.Rand }
 
-// committee draws distinct pool keys with powers 1..100.
+// committee draws distinct keys of the byte seeds with powers 1..100.
 func (f fuzz) committee(lo, hi int) []member {
-	perm := f.Perm(len(pool) - 1)
+	perm := f.Perm(byteSeeds)
 	out := make([]member, lo+f.IntN(hi-lo+1))
 	for i := range out {
 		out[i] = member{perm[i] + 1, 1 + f.Int64N(100)}
@@ -481,7 +584,7 @@ func (f fuzz) next(old []member) []member {
 	if len(out) == 0 && adds == 0 {
 		adds = 1
 	}
-	for _, s := range f.Perm(len(pool) - 1) {
+	for _, s := range f.Perm(byteSeeds) {
 		if adds == 0 {
 			break
 		}

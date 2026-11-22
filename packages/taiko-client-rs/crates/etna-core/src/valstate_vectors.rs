@@ -11,10 +11,8 @@ use serde_json::Value;
 
 use super::{ValEntry, ValSet, ValState};
 use crate::{
-    committee,
-    key::ConsensusKey,
-    test_utils::{test_key, vectors::at},
-    validator::ValidatorUpdate,
+    comet::validators::Validators, committee, key::ConsensusKey, params::MAX_SET_MEMBERS,
+    test_utils::vectors::at, validator::ValidatorUpdate,
 };
 
 fn number(value: &Value) -> u64 {
@@ -86,14 +84,10 @@ fn abi_preimage(state: &ValState) -> Vec<u8> {
     ))
 }
 
-fn members(set: &ValSet) -> Vec<(ConsensusKey, u64)> {
-    set.entries.iter().map(|entry| (entry.key, entry.power.try_into().unwrap())).collect()
-}
-
 // Apply the actual validator update builder and native ABCI key/power codec. Both the stock
 // inputs and the ABCI list are the difference from the set in force.
 fn abci_updates(previous: &ValSet, recorded: &ValSet) -> Vec<(ConsensusKey, u64)> {
-    committee::validator_updates(&members(previous), &members(recorded))
+    committee::validator_updates(&previous.members(), &recorded.members())
         .into_iter()
         .map(|(pub_key, power)| {
             let update = ValidatorUpdate { pub_key, power: power.try_into().unwrap() };
@@ -175,54 +169,34 @@ fn shared_stock_chains_replay_every_abci_validator_state() {
     assert_eq!(checked, 79);
 }
 
-// Catches full-size power/address ordering and priority arithmetic at MaxTotalVotingPower.
+// Catches full-size power/address ordering and priority arithmetic at MaxTotalVotingPower, at
+// the 128-member bound of every set that signs. Every set row comes from stock NewValidatorSet
+// and updateState, the native hash from stock ValidatorSet.Hash(), and the preimage from Alloy's
+// ABI encoder.
 #[test]
-fn shared_stock_max_committee_replays_both_recorded_hashes() {
-    let fixture = at("/val_state_chains/max_committee");
-    let size = number(&fixture["size"]) as usize;
-    let first: U256 = fixture["first_private_key"].as_str().unwrap().parse().unwrap();
-    let first: u64 = first.try_into().unwrap();
-    let mut genesis = (0..size)
-        .map(|index| (test_key(first - 1 + index as u64), (1_u64 << 48) + (index % 64) as u64 - 32))
-        .collect::<Vec<_>>();
-    genesis.last_mut().unwrap().1 = number(&fixture["total_power"]) -
-        genesis[..size - 1].iter().map(|(_, power)| power).sum::<u64>();
-    assert_eq!(genesis.last().unwrap().1, number(&fixture["last_member_power"]));
-    let keys: BTreeMap<_, _> =
-        genesis.iter().enumerate().map(|(index, (key, _))| (format!("m{index}"), *key)).collect();
-    let keys: BTreeMap<_, _> = keys.iter().map(|(name, key)| (name.as_str(), *key)).collect();
-    let mut state = ValState::genesis(number(&fixture["start_height"]), &genesis).unwrap();
-    for (index, recorded) in fixture["states"].as_array().unwrap().iter().enumerate() {
+fn stock_maximum_committee_replays_at_max_total_power() {
+    let vectors = super::tests::vectors();
+    let case = vectors.case("maximum_128_members");
+    let genesis = super::tests::updates(&vectors.keys, &case.steps[0]);
+    assert_eq!(genesis.len(), MAX_SET_MEMBERS);
+    assert_eq!(genesis.iter().map(|(_, power)| power).sum::<u64>(), committee::MAX_TOTAL_POWER);
+    let stock_hash = case.validators_hash.unwrap();
+    let native = Validators::from_members(&genesis).unwrap();
+    assert_eq!(B256::from_slice(native.hash().as_bytes()), stock_hash);
+    let mut state = ValState::genesis(0, &genesis).unwrap();
+    for (index, step) in case.steps.iter().enumerate() {
         if index > 0 {
             state = state.advance(&[]).unwrap();
         }
-        assert_eq!(state.height, number(&recorded["height"]));
-        assert_eq!(state.hash(), recorded["hash"].as_str().unwrap().parse::<B256>().unwrap());
+        assert_eq!(state, super::tests::expected(&vectors.keys, step), "step {index}");
         let preimage = state.encode();
-        assert_eq!(preimage.len(), number(&recorded["preimage_bytes"]) as usize);
+        assert_eq!(preimage.len(), 32 * (8 + 4 * 2 * MAX_SET_MEMBERS));
         assert_eq!(preimage, abi_preimage(&state));
-        for (name, set) in [("current", &state.current), ("next", &state.next)] {
-            // Stock v0.40.0 types.NewValidatorSet(genesis).Hash(), independently computed
-            // from this fixture's 4096 private scalars/powers; priority increments retain it.
-            assert_eq!(
-                set.validators_hash().unwrap(),
-                alloy_primitives::b256!(
-                    "b3e07311372bda118c862e32a3f1a5f0a2f3dc4033b8d68212906881f48dac0c"
-                )
-            );
-            let proposer = number(&recorded[format!("{name}_proposer")]) as usize;
-            assert_eq!(set.proposer, proposer);
-            for (side, actual) in [("head", &set.entries[..3]), ("tail", &set.entries[size - 3..])]
-            {
-                let expected = recorded_set(
-                    &recorded[format!("{name}_{side}")],
-                    &Value::String("0".into()),
-                    &keys,
-                );
-                assert_eq!(actual, expected.entries);
-            }
+        for set in [&state.current, &state.next] {
+            assert_eq!(set.validators_hash().unwrap(), stock_hash, "step {index}");
         }
     }
+    assert_eq!(state.height, 3);
 }
 
 // Catches accidental hashing of priorities/proposer and a cached hash surviving add/remove or

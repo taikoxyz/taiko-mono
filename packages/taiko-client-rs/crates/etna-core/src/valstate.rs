@@ -14,6 +14,9 @@
 //! [`ValState::encode`] is the state's ENC-A-29a preimage, [`ValState::hash`] its
 //! `valStateHash` and [`ValState::decode`] the inverse of `encode`.
 //!
+//! [`app_hash`] commits an EL block hash and a [`ValState::hash`] in the `app_hash` the app
+//! returns, and [`comet_order`] lists a set's members in CometBFT's set order.
+//!
 //! The app computes this state and commits it in `app_hash` (CONS-3.1-8, SYNC-9-5c). A landing
 //! statement does not hold it and the guests do not compute it (PROOF-6.2-42).
 //!
@@ -23,6 +26,8 @@
 //! [`ValState::encode`]: crate::valstate::ValState::encode
 //! [`ValState::hash`]: crate::valstate::ValState::hash
 //! [`ValState::decode`]: crate::valstate::ValState::decode
+//! [`app_hash`]: crate::valstate::app_hash
+//! [`comet_order`]: crate::valstate::comet_order
 
 use crate::{
     committee::{tag, word},
@@ -44,6 +49,9 @@ const PRIORITY_WINDOW_SIZE_FACTOR: i64 = 2;
 
 /// `bytes32("ETNA_VAL_STATE_V1")`: the domain tag of the validator-state preimage.
 const VAL_STATE_TAG: B256 = tag(b"ETNA_VAL_STATE_V1");
+
+/// `bytes32("ETNA_APP_HASH_V1")`: the domain tag of the app hash.
+const APP_HASH_TAG: B256 = tag(b"ETNA_APP_HASH_V1");
 
 /// The preimage's head words: the tag, the height, and an offset and a proposer index per set.
 const HEAD_WORDS: usize = 6;
@@ -74,6 +82,11 @@ pub struct ValSet {
 }
 
 impl ValSet {
+    /// The keys and voting powers of the set, in its CometBFT order.
+    pub fn members(&self) -> Vec<(ConsensusKey, u64)> {
+        self.entries.iter().map(|entry| (entry.key, entry.power as u64)).collect()
+    }
+
     /// The stock native keys/powers commitment used by Comet header validator hashes.
     /// This excludes proposer priorities and the stored proposer index. Entries must retain
     /// the canonical order established by genesis, changesets or [`ValState::decode`].
@@ -245,6 +258,28 @@ impl ValState {
         }
         Ok(state)
     }
+}
+
+/// The `app_hash` the app returns after committing a height x, which header x + 1 carries as
+/// its AppHash: `keccak256(abi.encode(bytes32("ETNA_APP_HASH_V1"), blockHash(x),
+/// valStateHash(x)))`, three words, from x's EL block hash and the [`ValState::hash`] of the
+/// state after x.
+pub fn app_hash(block_hash: B256, val_state_hash: B256) -> B256 {
+    keccak256([APP_HASH_TAG.as_slice(), block_hash.as_slice(), val_state_hash.as_slice()].concat())
+}
+
+/// `members` in CometBFT's set order, voting power descending and then address ascending, each
+/// at proposer priority 0: the order in which `NewValidatorSet` holds them, before any proposer
+/// round. Refuses what `NewValidatorSet` refuses: a repeated key, a power of zero, a power that
+/// is negative as int64 or above `MaxTotalVotingPower`, or a total above it.
+pub fn comet_order(members: &[(ConsensusKey, u64)]) -> Result<Vec<ValEntry>, ValStateError> {
+    let mut set = ValidatorSet::default();
+    set.update_with_change_set(members, false)?;
+    Ok(set
+        .validators
+        .into_iter()
+        .map(|v| ValEntry { key: v.key, power: v.power, priority: 0 })
+        .collect())
 }
 
 /// What stock CometBFT's `LoadValidators` rebuilds for a height `steps` blocks after the one
@@ -674,20 +709,29 @@ mod tests {
 
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
-    struct Vectors {
+    pub(super) struct Vectors {
         source: String,
-        /// The fixture keys of seeds 1..255 (stock `GenPrivKeySecp256k1Eth`), so index i is
+        /// The fixture keys of seeds 1..256 (stock `GenPrivKeySecp256k1Eth`), so index i is
         /// seed i + 1.
-        keys: Vec<ConsensusKey>,
+        pub(super) keys: Vec<ConsensusKey>,
         cases: Vec<Case>,
+    }
+
+    impl Vectors {
+        /// The case called `name`.
+        pub(super) fn case(&self, name: &str) -> &Case {
+            self.cases.iter().find(|case| case.name == name).unwrap()
+        }
     }
 
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
-    struct Case {
+    pub(super) struct Case {
         name: String,
-        steps: Vec<Step>,
+        pub(super) steps: Vec<Step>,
         rpc_rebuild: Option<RpcRebuild>,
+        /// Stock `ValidatorSet.Hash()` of the genesis set, for a case without updates.
+        pub(super) validators_hash: Option<B256>,
     }
 
     /// The state after one height, or the stock Go error its updates raise. `updates` holds
@@ -695,7 +739,7 @@ mod tests {
     /// items in set order, `key` indexing [`Vectors::keys`].
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
-    struct Step {
+    pub(super) struct Step {
         updates: String,
         height: Option<u64>,
         current: Option<String>,
@@ -717,7 +761,7 @@ mod tests {
         bulk_proposer: usize,
     }
 
-    fn vectors() -> Vectors {
+    pub(super) fn vectors() -> Vectors {
         serde_json::from_str(include_str!("../testdata/cometbft-v0.40-valstate/vectors.json"))
             .unwrap()
     }
@@ -736,7 +780,7 @@ mod tests {
     }
 
     /// Go's int64 powers reach the `u64` API as the same 64 bits (`negative_power` holds -1).
-    fn updates(keys: &[ConsensusKey], step: &Step) -> Vec<(ConsensusKey, u64)> {
+    pub(super) fn updates(keys: &[ConsensusKey], step: &Step) -> Vec<(ConsensusKey, u64)> {
         items(&step.updates)
             .into_iter()
             .map(|[k, power]| (keys[k as usize], power as u64))
@@ -753,7 +797,7 @@ mod tests {
         }
     }
 
-    fn expected(keys: &[ConsensusKey], step: &Step) -> ValState {
+    pub(super) fn expected(keys: &[ConsensusKey], step: &Step) -> ValState {
         ValState {
             height: step.height.unwrap(),
             current: set(keys, step.current.as_ref().unwrap(), step.current_proposer.unwrap()),
@@ -823,6 +867,10 @@ mod tests {
             "priority_ties",
             "near_max_total",
             "full_replacement",
+            "per_block_diff_ten_heights",
+            "replace_128_with_128_other_keys",
+            "fallback_key_reweighted_as_seat_key",
+            "maximum_128_members",
             "rpc_rebuild_diverges",
             "duplicate_update",
             "remove_unknown",
@@ -875,7 +923,7 @@ mod tests {
     #[test]
     fn rpc_rebuild_is_not_the_live_state() {
         let vectors = vectors();
-        let case = vectors.cases.iter().find(|c| c.name == "rpc_rebuild_diverges").unwrap();
+        let case = vectors.case("rpc_rebuild_diverges");
         let rpc = case.rpc_rebuild.as_ref().unwrap();
         assert_eq!(rpc.step, rpc.change_step + rpc.blocks);
         assert!(!case.steps[rpc.change_step].updates.is_empty());
@@ -888,6 +936,92 @@ mod tests {
         assert_eq!(bulk.len(), live_priorities.len());
         assert_ne!(bulk, live_priorities, "seed {}: the rebuild matches the live state", rpc.seed);
         assert!(rpc.bulk_proposer < bulk.len());
+    }
+
+    /// The cases that record the difference alone hold, at each height, exactly what
+    /// `committee::validator_updates` returns from the set in force to the recorded next set, so
+    /// stock CometBFT reached the recorded state from the decider's own list. A key in both sets
+    /// is re-weighted by one entry, never removed, and a full replacement is one list.
+    #[test]
+    fn per_block_cases_record_the_decider_updates() {
+        let vectors = vectors();
+        let keys = &vectors.keys;
+        let switch = |name: &str| {
+            let steps = &vectors.case(name).steps[1..];
+            updates(keys, steps.iter().find(|step| !step.updates.is_empty()).unwrap())
+        };
+        for name in [
+            "per_block_diff_ten_heights",
+            "replace_128_with_128_other_keys",
+            "fallback_key_reweighted_as_seat_key",
+        ] {
+            for (index, pair) in vectors.case(name).steps.windows(2).enumerate() {
+                let (before, after) = (expected(keys, &pair[0]), expected(keys, &pair[1]));
+                assert_eq!(
+                    crate::committee::validator_updates(
+                        &before.next.members(),
+                        &after.next.members()
+                    ),
+                    updates(keys, &pair[1]),
+                    "{name} at step {}",
+                    index + 1
+                );
+            }
+        }
+        let reweighted = switch("fallback_key_reweighted_as_seat_key");
+        assert_eq!(reweighted.len(), 4);
+        assert!(reweighted.contains(&(keys[0], 250_000)));
+        assert!(reweighted.iter().all(|&(key, power)| key == keys[0] || power == 0));
+        let replaced = switch("replace_128_with_128_other_keys");
+        assert_eq!(replaced.len(), 256);
+        assert_eq!(replaced.iter().filter(|(_, power)| *power == 0).count(), 128);
+    }
+
+    /// [`comet_order`] lists the 128 genesis members of the maximum case, given in seed order or
+    /// reversed, in the order stock `NewValidatorSet` holds them, each at priority 0, and refuses
+    /// a repeated key.
+    #[test]
+    fn comet_order_matches_stock_set_order() {
+        let vectors = vectors();
+        let genesis = &vectors.case("maximum_128_members").steps[0];
+        let stock: Vec<ValEntry> = expected(&vectors.keys, genesis)
+            .current
+            .entries
+            .into_iter()
+            .map(|entry| ValEntry { priority: 0, ..entry })
+            .collect();
+        let mut members = updates(&vectors.keys, genesis);
+        assert_eq!(members.len(), 128);
+        assert_ne!(members, ValSet { entries: stock.clone(), proposer: 0 }.members());
+        assert_eq!(comet_order(&members), Ok(stock.clone()));
+        members.reverse();
+        assert_eq!(comet_order(&members), Ok(stock));
+        let [key, other] = [vectors.keys[0], vectors.keys[1]];
+        assert_eq!(
+            comet_order(&[(key, 1), (other, 3), (key, 2)]),
+            Err(ValStateError::Duplicate { key })
+        );
+    }
+
+    /// The spec's appHash vector: the EL block hash `0x11…11` and the valStateHash of the spec's
+    /// two-member state at height 6, the tag and the two hashes encoded as three words.
+    #[test]
+    fn app_hash_is_three_words() {
+        let block_hash = B256::repeat_byte(0x11);
+        let val_state_hash = alloy_primitives::b256!(
+            "368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b"
+        );
+        let app_tag = hex!("45544e415f4150505f484153485f563100000000000000000000000000000000");
+        let preimage = [&app_tag[..], block_hash.as_slice(), val_state_hash.as_slice()].concat();
+        assert_eq!(preimage.len(), 96);
+        assert_eq!(app_hash(block_hash, val_state_hash), keccak256(&preimage));
+        assert_eq!(
+            app_hash(block_hash, val_state_hash),
+            alloy_primitives::b256!(
+                "381ceb5a317bd34b0b19b9972191a994c384b4873a3694cfd46cb155c7d8b451"
+            )
+        );
+        assert_ne!(app_hash(val_state_hash, block_hash), app_hash(block_hash, val_state_hash));
     }
 
     /// The entry priorities of `set`, in entry order.
