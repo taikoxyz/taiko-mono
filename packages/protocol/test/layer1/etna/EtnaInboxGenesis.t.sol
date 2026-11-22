@@ -241,7 +241,13 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
 
     function test_init_WritesAppendixBInitialValues() external {
         uint256 l1Block = block.number;
+        IEtnaInbox.FallbackKey[] memory keys = _defaultInitParams().fallbackKeys;
+        bytes32 keysHash = keccak256(abi.encode(bytes32("ETNA_FALLBACK_KEYS_V1"), keys));
 
+        vm.expectEmit(inboxProxy);
+        emit IEtnaInbox.FallbackKeysUpdated(keysHash, keys);
+        vm.expectEmit(inboxProxy);
+        emit IEtnaInbox.MinTotalStakeUpdated(_defaultInitParams().minTotalStake);
         vm.expectEmit(inboxProxy);
         emit IEtnaInbox.EtnaInitialized(_DEFAULT_CONFIG_HASH, ETNA_STAKING, UNSETTLED_LIMIT);
         vm.expectEmit(inboxProxy);
@@ -257,8 +263,11 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(_load(GENESIS_PACKED_SLOT) >> 96, 0, "272: every bit from 96 up is zero");
         assertEq(bytes32(_load(GENESIS_BLOCK_HASH_SLOT)), GENESIS_BLOCK_HASH, "273");
         assertEq(bytes32(_load(GENESIS_STATE_ROOT_SLOT)), GENESIS_STATE_ROOT, "274");
-        assertEq(_load(278), 0, "278");
-        assertEq(_load(279), 0, "279");
+        assertEq(_load(FALLBACK_KEYS_SLOT), keys.length, "275: the list's length");
+        assertEq(bytes32(_load(278)), keysHash, "278");
+        assertEq(bytes32(_load(278)), IEtnaInbox(inboxProxy).fallbackKeysHash(), "278 view");
+        assertEq(_load(279), _defaultInitParams().minTotalStake, "279");
+        assertEq(_load(279), IEtnaInbox(inboxProxy).minTotalStake(), "279 view");
         assertEq(_load(FORCED_INCLUSION_HEAD_TAIL_SLOT), 0, "281");
         assertEq(_load(FORCED_INCLUSION_CONFIG_SLOT), 3600 | 7200 << 48, "282");
         assertEq(_load(RESERVED_SLOT_284), 0, "284");
@@ -266,7 +275,8 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         // (slot 293) included.
         for (uint256 slot = 251; slot < 301; ++slot) {
             if (slot == INITIALIZATION_STATUS_SLOT || slot == CONFIG_HASH_SLOT) continue;
-            if (slot >= LAST_CHECKPOINT_HASH_SLOT && slot <= GENESIS_STATE_ROOT_SLOT) continue;
+            if (slot >= LAST_CHECKPOINT_HASH_SLOT && slot <= FALLBACK_KEYS_SLOT) continue;
+            if (slot == FALLBACK_KEYS_HASH_SLOT || slot == MIN_TOTAL_STAKE_SLOT) continue;
             if (slot == FORCED_INCLUSION_CONFIG_SLOT) continue;
             assertEq(_load(slot), 0, string.concat("slot ", vm.toString(slot)));
         }
@@ -291,6 +301,7 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(origin.startHeight, 0, "origins(0).startHeight");
         assertEq(origin.l1BlockNumber, l1Block, "origins(0).l1BlockNumber");
         assertEq(origin.l1Timestamp, block.timestamp, "origins(0).l1Timestamp");
+        assertEq(origin.fallbackKeysHash, keysHash, "origins(0).fallbackKeysHash");
         assertEq(inbox.generationStartHeight(), 0, "generationStartHeight");
         assertTrue(inbox.isInitialized(), "isInitialized");
         (uint48 startHeight, bytes32 startHash) = inbox.etnaStart();
@@ -365,13 +376,42 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
     function test_init_RevertWhen_InitialOriginIsDirty() external {
         for (uint256 generation; generation < 2; ++generation) {
             uint256 originSlot = uint256(keccak256(abi.encode(generation, ORIGINS_SLOT)));
-            for (uint256 i; i < 3; ++i) {
+            for (uint256 i; i < 4; ++i) {
                 vm.store(inboxProxy, bytes32(originSlot + i), bytes32(uint256(1)));
                 vm.expectRevert(bytes4(keccak256("DirtyInitialState()")));
                 _upgradeAndInit(inboxImpl, _defaultInitParams());
                 vm.store(inboxProxy, bytes32(originSlot + i), 0);
             }
         }
+    }
+
+    /// @dev The whole slot 272 word must be zero, not only its two 48-bit fields: a stale bit above
+    /// them, which the start write would not clear, rejects the initialization.
+    function test_init_RevertWhen_StartWordPaddingIsDirty() external {
+        uint256[3] memory bits = [uint256(96), 200, 255];
+        for (uint256 i; i < bits.length; ++i) {
+            vm.store(inboxProxy, bytes32(GENESIS_PACKED_SLOT), bytes32(uint256(1) << bits[i]));
+            vm.expectRevert(bytes4(keccak256("DirtyInitialState()")));
+            _upgradeAndInit(inboxImpl, _defaultInitParams());
+        }
+        vm.store(inboxProxy, bytes32(GENESIS_PACKED_SLOT), 0);
+        _upgradeAndInit(inboxImpl, _defaultInitParams());
+        assertEq(_load(GENESIS_PACKED_SLOT) >> 96, 0, "272: every bit from 96 up is zero");
+    }
+
+    /// @dev A nonzero fallback key list length (slot 275), fallback key hash (slot 278) or
+    /// `minTotalStake` (slot 279) before `init` is not fresh Etna state.
+    function test_init_RevertWhen_InitialFallbackStateIsDirty() external {
+        uint256[3] memory slots =
+            [FALLBACK_KEYS_SLOT, FALLBACK_KEYS_HASH_SLOT, MIN_TOTAL_STAKE_SLOT];
+        for (uint256 i; i < slots.length; ++i) {
+            vm.store(inboxProxy, bytes32(slots[i]), bytes32(uint256(1)));
+            vm.expectRevert(bytes4(keccak256("DirtyInitialState()")));
+            _upgradeAndInit(inboxImpl, _defaultInitParams());
+            vm.store(inboxProxy, bytes32(slots[i]), 0);
+        }
+        _upgradeAndInit(inboxImpl, _defaultInitParams());
+        assertTrue(IEtnaInbox(inboxProxy).isInitialized(), "clean state initializes");
     }
 
     function test_init_RevertWhen_ForcedInclusionDelayZeroOrWide() external {
@@ -442,6 +482,9 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(_load(CONFIG_HASH_SLOT), 0, "269");
         assertEq(_load(LAST_CHECKPOINT_HASH_SLOT), 0, "271");
         assertEq(_load(GENESIS_PACKED_SLOT), 0, "272");
+        assertEq(_load(FALLBACK_KEYS_SLOT), 0, "275");
+        assertEq(_load(FALLBACK_KEYS_HASH_SLOT), 0, "278");
+        assertEq(_load(MIN_TOTAL_STAKE_SLOT), 0, "279");
         assertEq(IEtnaInbox(inboxProxy).landings(0).elHash, 0, "landings(0)");
         assertEq(IEtnaInbox(inboxProxy).origins(0).l1BlockNumber, 0, "origins(0)");
         assertEq(uint8(_load(0)), 1, "initializer version");
@@ -504,6 +547,12 @@ contract EtnaInboxGenesisTest is EtnaInboxTestBase {
         assertEq(inbox.configHash(), _DEFAULT_CONFIG_HASH, "config hash");
         assertEq(inbox.forcedInclusionDelay(), _params.forcedInclusionDelay, "delay");
         assertEq(inbox.maxAnchorAge(), _params.maxAnchorAge, "max anchor age");
+        assertEq(inbox.minTotalStake(), _params.minTotalStake, "minTotalStake");
+        assertEq(
+            inbox.fallbackKeysHash(),
+            keccak256(abi.encode(bytes32("ETNA_FALLBACK_KEYS_V1"), _params.fallbackKeys)),
+            "fallback key hash"
+        );
         vm.revertToState(fresh);
     }
 

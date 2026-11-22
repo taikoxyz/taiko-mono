@@ -138,6 +138,9 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
     uint256 private constant _TIMESTAMP_STEP = 12;
     uint256 private constant _FORCED_INCLUSION_DELAY = 3600;
     uint256 private constant _MAX_ANCHOR_AGE = 7200;
+    /// @dev The X of K1, the compressed key of private key 1, whose prefix is 0x02.
+    bytes32 private constant _K1_X =
+        0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798;
     uint256 private constant _REFERENCE_HASH = 7;
     /// @dev The genesis block hash and state root atoms (`elAtom 0 0`, `rootAtom 0 0`).
     uint256 private constant _GENESIS_HASH = 10_000;
@@ -343,10 +346,16 @@ contract EtnaConformanceTest is Test, EtnaTestConstants {
             .upgradeToAndCall(address(inboxImpl), abi.encodeCall(EtnaInbox.init, (_initParams())));
     }
 
+    /// @dev Neither family reads the fallback key set or `minTotalStake`, so the Inbox gets the
+    /// one-key list [K1] and a zero threshold.
     function _initParams() private pure returns (IEtnaInbox.InitParams memory) {
+        IEtnaInbox.FallbackKey[] memory keys = new IEtnaInbox.FallbackKey[](1);
+        keys[0] = IEtnaInbox.FallbackKey({ ckPrefix: 0x02, ckX: _K1_X });
         return IEtnaInbox.InitParams({
             genesisBlockHash: bytes32(_GENESIS_HASH),
             genesisStateRoot: bytes32(_GENESIS_ROOT),
+            fallbackKeys: keys,
+            minTotalStake: 0,
             forcedInclusionDelay: _FORCED_INCLUSION_DELAY,
             maxAnchorAge: _MAX_ANCHOR_AGE
         });

@@ -25,8 +25,10 @@ pragma solidity ^0.8.26;
 //   _configHash                    | bytes32                                            | Slot: 269  | Offset: 0    | Bytes: 32  
 //   _lastCheckpoint                | struct IEtnaInbox.LandedCheckpoint                 | Slot: 270  | Offset: 0    | Bytes: 64  
 //   _genesis                       | struct IEtnaInbox.GenesisRecord                    | Slot: 272  | Offset: 0    | Bytes: 96  
-//   __reserved275                  | uint256[3]                                         | Slot: 275  | Offset: 0    | Bytes: 96  
-//   __reserved278                  | uint256[2]                                         | Slot: 278  | Offset: 0    | Bytes: 64  
+//   _fallbackKeys                  | struct IEtnaInbox.FallbackKey[]                    | Slot: 275  | Offset: 0    | Bytes: 32  
+//   __reserved276                  | uint256[2]                                         | Slot: 276  | Offset: 0    | Bytes: 64  
+//   _fallbackKeysHash              | bytes32                                            | Slot: 278  | Offset: 0    | Bytes: 32  
+//   _minTotalStake                 | uint256                                            | Slot: 279  | Offset: 0    | Bytes: 32  
 //   _forcedInclusions              | struct LibEtnaForcedInclusion.Storage              | Slot: 280  | Offset: 0    | Bytes: 64  
 //   _forcedInclusionConfig         | struct EtnaInbox.ForcedInclusionConfig             | Slot: 282  | Offset: 0    | Bytes: 32  
 //   __reserved283                  | uint256[2]                                         | Slot: 283  | Offset: 0    | Bytes: 64  

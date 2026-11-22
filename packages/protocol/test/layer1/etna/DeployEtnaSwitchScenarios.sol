@@ -51,6 +51,13 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
     address private constant _ETNA_STAKING = address(0xE7A5);
     /// @dev U, set explicitly rather than taken from the scripts' default.
     uint64 private constant _UNSETTLED_LIMIT = 64;
+    /// @dev The initial fallback keys K1 and K2, the compressed keys of private keys 1 and 2, as
+    /// ETNA_FALLBACK_KEYS lists them, and the initial `minTotalStake`.
+    bytes private constant _FALLBACK_KEY_1 =
+        hex"0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
+    bytes private constant _FALLBACK_KEY_2 =
+        hex"02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5";
+    uint256 private constant _MIN_TOTAL_STAKE = 50_000_000 ether;
 
     /// @dev Unzen images: trusted before the readiness proposal, the readiness images that read
     /// both checkpoint layouts, and the ones the scheduling and postponement batches pin.
@@ -379,6 +386,14 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
             )
         );
         _assertStartUnwritten(etna);
+        IEtnaInbox.FallbackKey[] memory keys = etna.getFallbackKeys();
+        assertEq(keys.length, 2);
+        assertEq(abi.encodePacked(keys[0].ckPrefix, keys[0].ckX), _FALLBACK_KEY_1);
+        assertEq(abi.encodePacked(keys[1].ckPrefix, keys[1].ckX), _FALLBACK_KEY_2);
+        assertEq(
+            etna.fallbackKeysHash(), keccak256(abi.encode(bytes32("ETNA_FALLBACK_KEYS_V1"), keys))
+        );
+        assertEq(etna.minTotalStake(), _MIN_TOTAL_STAKE);
         assertEq(inbox.getConfig().signalService, _proxy);
         assertEq(InboxWithEtnaCutoffs(address(inbox)).proposeCutoff(), _FORK_TIME - 12);
         assertTrue(Risc0Verifier(_unzenSubs[2]).isImageTrusted(_UNZEN_SCHEDULED_R0));
@@ -790,6 +805,11 @@ contract DeployEtnaSwitchScenarios is InboxTestBase {
         vm.setEnv("ETNA_STAKING", vm.toString(_ETNA_STAKING));
         vm.setEnv("MAX_BATCH_BLOCKS", "1000");
         vm.setEnv("ETNA_UNSETTLED_LIMIT", vm.toString(_UNSETTLED_LIMIT));
+        vm.setEnv(
+            "ETNA_FALLBACK_KEYS",
+            string.concat(vm.toString(_FALLBACK_KEY_1), ",", vm.toString(_FALLBACK_KEY_2))
+        );
+        vm.setEnv("ETNA_MIN_TOTAL_STAKE", vm.toString(_MIN_TOTAL_STAKE));
         vm.setEnv("FORCED_INCLUSION_DELAY", "1200");
         vm.setEnv("MAX_ANCHOR_AGE", "1152");
         vm.setEnv("FORCED_INCLUSION_FEE_GWEI", "10000000");

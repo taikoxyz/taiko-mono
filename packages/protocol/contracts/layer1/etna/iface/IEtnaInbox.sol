@@ -3,8 +3,8 @@ pragma solidity ^0.8.26;
 
 /// @title IEtnaInbox
 /// @notice The L1 Inbox of an Etna PoS chain: it records the Etna start S, lands proven batches
-/// that end at any height above the checkpoint, keeps the forced inclusion queue and the rules
-/// schedule and runs governance recovery.
+/// that end at any height above the checkpoint, keeps the forced inclusion queue, the rules
+/// schedule, the DAO fallback key set and `minTotalStake`, and runs governance recovery.
 /// @dev Section numbers refer to the Etna specification. S is block 0 on a new network and the last
 /// Unzen block on a network that switches from Unzen. Nodes, guests and landers read the storage
 /// layout of spec appendix B (slots 258-293) with EIP-1186 proofs; each struct names the slots it
@@ -47,6 +47,16 @@ interface IEtnaInbox {
         uint64 unsettledLimit;
     }
 
+    /// @notice A DAO fallback key (spec 4.3, appendix A): a secp256k1 consensus key in SEC1
+    /// compressed form, `ckPrefix ‖ ckX`, which signs with voting power 1 whenever the staking
+    /// candidate is not usable.
+    struct FallbackKey {
+        /// @notice The SEC1 prefix: 0x02 for an even Y, 0x03 for an odd Y.
+        uint8 ckPrefix;
+        /// @notice The X coordinate, big-endian and below the field prime.
+        bytes32 ckX;
+    }
+
     /// @notice The inputs of `init` (spec 10 step 5).
     struct InitParams {
         /// @notice The hash of L2 block 0 on a new network, non-zero; zero on a switching network,
@@ -55,6 +65,10 @@ interface IEtnaInbox {
         /// @notice The state root of L2 block 0 on a new network, non-zero; zero on a switching
         /// network.
         bytes32 genesisStateRoot;
+        /// @notice The initial fallback key list, checked as `setFallbackKeys` checks it.
+        FallbackKey[] fallbackKeys;
+        /// @notice The initial `minTotalStake`; any value.
+        uint256 minTotalStake;
         /// @notice The forced inclusion delay in seconds, in [1, 2^48) (spec 7.2).
         uint256 forcedInclusionDelay;
         /// @notice The maximum anchor age in seconds, in [1152, 2^48) (spec 3.4).
@@ -141,12 +155,13 @@ interface IEtnaInbox {
         bytes32 cometHash;
     }
 
-    /// @notice The fixed per-generation origin record (slot 290 mapping, three words: startHeight,
-    /// l1BlockNumber, l1Timestamp; spec 8.4).
+    /// @notice The fixed per-generation origin record (slot 290 mapping, four words: startHeight,
+    /// l1BlockNumber, l1Timestamp, fallbackKeysHash; spec 8.4).
     /// @dev "Origin" has two other uses in this interface: the proof origin `p` of `land`
     /// (`LandInput.parentHeight`) and `setOrigin`, which performs the start write.
-    /// Generation 0 is (S, L1_0, L1_0's timestamp), written by the start write; a recovery
-    /// generation is (c, R.number, R.timestamp). Written once; every field is below 2^48.
+    /// Generation 0 is (S, L1_0, L1_0's timestamp, slot 278 at the start write), written by the
+    /// start write; a recovery generation is (c, R.number, R.timestamp, slot 278 at R). Written
+    /// once; the first three fields are below 2^48.
     struct Origin {
         /// @notice The checkpoint height `c` the generation starts from.
         uint256 startHeight;
@@ -154,6 +169,9 @@ interface IEtnaInbox {
         uint256 l1BlockNumber;
         /// @notice The timestamp of that L1 block.
         uint256 l1Timestamp;
+        /// @notice The fallback key hash (slot 278) when the record was written: the keys that
+        /// sign the generation's first two blocks, whatever the list is later.
+        bytes32 fallbackKeysHash;
     }
 
     /// @notice A forced inclusion queue entry (slot 280 mapping, two words; spec 7.1); the second
@@ -183,6 +201,15 @@ interface IEtnaInbox {
     /// @param blockHash The EL block hash of S.
     /// @param stateRoot The state root of S.
     event StartWritten(uint256 height, bytes32 blockHash, bytes32 stateRoot);
+
+    /// @notice Emitted by `setFallbackKeys` and by `init` (appendix A).
+    /// @param fallbackKeysHash The new fallback key hash (slot 278).
+    /// @param keys The stored list.
+    event FallbackKeysUpdated(bytes32 indexed fallbackKeysHash, FallbackKey[] keys);
+
+    /// @notice Emitted by `setMinTotalStake` and by `init` (appendix A).
+    /// @param value The new `minTotalStake` (slot 279).
+    event MinTotalStakeUpdated(uint256 value);
 
     /// @notice Emitted by every successful `scheduleRules`, `scheduleStop` and `recover`.
     /// @param value The new slot 293 word, packed as in `RulesSchedule`.
@@ -223,12 +250,14 @@ interface IEtnaInbox {
     /// @param checkpointHeight `c`, the checkpoint the generation starts from.
     /// @param l1BlockNumber The number of the execution block `R`.
     /// @param l1Timestamp The timestamp of `R`.
+    /// @param fallbackKeysHash The fallback key hash the new origin record holds.
     /// @param fiToClear The blanked forced inclusion indices, strictly increasing.
     event Recovered(
         uint48 indexed newGeneration,
         uint256 checkpointHeight,
         uint256 l1BlockNumber,
         uint256 l1Timestamp,
+        bytes32 fallbackKeysHash,
         uint256[] fiToClear
     );
 
@@ -239,10 +268,12 @@ interface IEtnaInbox {
     /// @notice Initializes the Inbox (spec 10 step 5).
     /// @dev Only the owner, by upgrading the proxy from its bootstrap implementation. Validates the
     /// spec 10 deployment constraints it can check: forcedInclusionDelay in [1, 2^48),
-    /// maxAnchorAge in [1152, 2^48) and block.number and block.timestamp below 2^48. Stores the
-    /// config hash (slot 269), keccak256 of the four words bytes32("ETNA_CONFIG_V1"), l2ChainId,
-    /// etnaStaking and unsettledLimit (appendix A), and emits `EtnaInitialized`; generation, nonce
-    /// and rules schedule stay 0.
+    /// maxAnchorAge in [1152, 2^48) and block.number and block.timestamp below 2^48, and checks
+    /// the fallback key list as `setFallbackKeys` does. Stores the list and its hash and emits
+    /// `FallbackKeysUpdated`, then stores `minTotalStake` and emits `MinTotalStakeUpdated`, as
+    /// the two setters do. Stores the config hash (slot 269), keccak256 of the four words
+    /// bytes32("ETNA_CONFIG_V1"), l2ChainId, etnaStaking and unsettledLimit (appendix A), and
+    /// emits `EtnaInitialized`; generation, nonce and rules schedule stay 0.
     /// On a new network (`unzenInbox() == address(0)`) the genesis hash and state root must be
     /// non-zero, and the same call performs the start write with S = 0 (see `setOrigin`) and
     /// saves the block-0 SignalService checkpoint. On a switching network both must be zero and
@@ -266,9 +297,10 @@ interface IEtnaInbox {
     /// and block.number and block.timestamp below 2^48 (`ValueOverflow`). A failing read reverts
     /// the call. The start write takes the hash and state root from that checkpoint and sets slot
     /// 272 to (S, L1_0 = block.number), slots 273/274 to them, origins[0] = (S, L1_0,
-    /// block.timestamp), the checkpoint to (S, hash) and landings[S] = (S, 0, 0, hash, 0), closes
-    /// the checkpoint forwarder, opens the forced inclusion queue and emits `StartWritten`. It
-    /// leaves the SignalService checkpoint at S untouched. A new-network Inbox reverts every call.
+    /// block.timestamp, fallbackKeysHash()), the checkpoint to (S, hash) and landings[S] =
+    /// (S, 0, 0, hash, 0), closes the checkpoint forwarder, opens the forced inclusion queue and
+    /// emits `StartWritten`. It leaves the SignalService checkpoint at S untouched. A new-network
+    /// Inbox reverts every call.
     /// @param _s The Etna start S, the last Unzen block.
     function setOrigin(uint48 _s) external;
 
@@ -333,10 +365,10 @@ interface IEtnaInbox {
     /// block.timestamp each below 2^48 (`ValueOverflow`); fiToClear strictly increasing within
     /// [head, tail). All of these are checked before any write, and the call makes no external
     /// call. Each listed queue entry's txHash becomes keccak256(""). With R = block.number, it
-    /// increments the generation, writes origins[generation] = (c, R, block.timestamp) once
-    /// (`OriginAlreadyWritten` if that record already exists) and emits `Recovered`. It then
-    /// clears the planned stop and, for a non-zero _rules, sets activeRules = nextRules = _rules
-    /// and rulesTime = 0, and emits `RulesScheduleUpdated`.
+    /// increments the generation, writes origins[generation] = (c, R, block.timestamp,
+    /// fallbackKeysHash()) once (`OriginAlreadyWritten` if that record already exists) and emits
+    /// `Recovered`. It then clears the planned stop and, for a non-zero _rules, sets activeRules =
+    /// nextRules = _rules and rulesTime = 0, and emits `RulesScheduleUpdated`.
     /// The checkpoint, its landing record and the queue head are kept.
     /// @param _expectedGeneration The recovery generation the call was authorized for.
     /// @param _expectedC The checkpoint height the call was authorized for.
@@ -385,6 +417,25 @@ interface IEtnaInbox {
     /// @param _time The stop time, or 0 for no stop.
     function scheduleStop(uint48 _expectedGeneration, uint48 _time) external;
 
+    /// @notice Replaces the DAO fallback key set (spec 4.3).
+    /// @dev Owner only after initialization, under the Inbox lock and unaffected by pause; it takes
+    /// no generation and applies at once. Requires 1 to 128 keys (`InvalidFallbackKeys`), each a
+    /// valid compressed public key (the key library's `InvalidPublicKey`), in strictly ascending
+    /// order of the 33-byte big-endian value `ckPrefix ‖ ckX`, prefix first, so no key repeats
+    /// (`InvalidFallbackKeys`). Stores the list and its hash (slot 278), keccak256 of the ABI
+    /// encoding of bytes32("ETNA_FALLBACK_KEYS_V1") and the list (appendix A), and emits
+    /// `FallbackKeysUpdated`. Origin records already written keep the hash they hold.
+    /// @param _keys The new list.
+    function setFallbackKeys(FallbackKey[] calldata _keys) external;
+
+    /// @notice Sets `minTotalStake`, the total stake a staking candidate needs to sign instead of
+    /// the fallback key set (spec 4.3).
+    /// @dev Owner only after initialization, under the Inbox lock and unaffected by pause; it takes
+    /// no generation and applies at once. Stores any value in slot 279 and emits
+    /// `MinTotalStakeUpdated`; 2^256 - 1 makes no staking candidate usable.
+    /// @param _value The new threshold in token base units.
+    function setMinTotalStake(uint256 _value) external;
+
     /// @notice Invalidates all unexecuted recovery authorizations carrying the current nonce.
     /// @dev Owner only after initialization, under the Inbox lock. Requires an exact nonce and
     /// increments it without wrapping. Landing does not change it.
@@ -430,6 +481,19 @@ interface IEtnaInbox {
     /// @return The rules schedule; zero at initialization.
     function rulesSchedule() external view returns (RulesSchedule memory);
 
+    /// @notice Returns the stored fallback key list (slot 275), which no anchor witness proves;
+    /// nodes and guests check a list against `fallbackKeysHash()`.
+    /// @return The list; empty before initialization.
+    function getFallbackKeys() external view returns (FallbackKey[] memory);
+
+    /// @notice Returns the fallback key hash (slot 278, appendix A).
+    /// @return The hash of `getFallbackKeys()`; zero before initialization.
+    function fallbackKeysHash() external view returns (bytes32);
+
+    /// @notice Returns `minTotalStake` (slot 279).
+    /// @return The threshold in token base units; zero before initialization.
+    function minTotalStake() external view returns (uint256);
+
     /// @notice Returns the forced inclusion delay in seconds (slot 282, bits 0-47).
     /// @return The forced inclusion delay; zero before initialization.
     function forcedInclusionDelay() external view returns (uint48);
@@ -444,7 +508,7 @@ interface IEtnaInbox {
     function landings(uint256 _height) external view returns (Landing memory);
 
     /// @notice Returns the fixed per-generation origin record (slot 290): startHeight,
-    /// l1BlockNumber and l1Timestamp.
+    /// l1BlockNumber, l1Timestamp and fallbackKeysHash.
     /// @param _generation The recovery generation.
     /// @return The origin; all zero if the generation has not started.
     function origins(uint256 _generation) external view returns (Origin memory);
@@ -637,4 +701,7 @@ interface IEtnaInbox {
     error FiIndexOutOfRange();
     /// @notice The entry point does not accept ETH.
     error EtherNotAccepted();
+    /// @notice The fallback key list has no key or more than 128, or its keys are not in strictly
+    /// ascending order of `ckPrefix ‖ ckX`.
+    error InvalidFallbackKeys();
 }

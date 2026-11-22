@@ -10,8 +10,8 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 
 /// @title EtnaInboxHandler
 /// @notice Drives the Etna Inbox through forced inclusion saves, landings, governance
-/// recoveries, fee sweeps, force-sent ETH and L1 time, and keeps an independent model of the
-/// state each action must leave behind.
+/// recoveries, fallback key and `minTotalStake` changes, fee sweeps, force-sent ETH and L1 time,
+/// and keeps an independent model of the state each action must leave behind.
 /// @dev Every landing and recovery is valid or broken in exactly one named way. The handler
 /// predicts the outcome, success or the exact revert data, and records a violation when the Inbox
 /// disagrees. It checks only what an action changes outside the model (the saver's refund, the
@@ -29,7 +29,8 @@ contract EtnaInboxHandler is CommonBase {
         Records,
         Generations,
         Fees,
-        Queue
+        Queue,
+        FallbackKeys
     }
 
     /// @dev The deployment the handler drives and the model parameters it derives the expected
@@ -46,6 +47,11 @@ contract EtnaInboxHandler is CommonBase {
         bytes32 configHash;
         bytes32 genesisBlockHash;
         bytes32 genesisStateRoot;
+        /// @dev The list and threshold `init` stored.
+        IEtnaInbox.FallbackKey[] fallbackKeys;
+        uint256 minTotalStake;
+        /// @dev The keys `setFallbackKeys` draws from, sorted as the Inbox requires.
+        IEtnaInbox.FallbackKey[] keyPool;
     }
 
     /// @dev The honest chain at a height: EL hash, Comet hash, forced inclusion cursor and state
@@ -139,6 +145,7 @@ contract EtnaInboxHandler is CommonBase {
     uint256 internal constant MAX_BLOBS = 6;
     uint256 internal constant HEIGHT_LIMIT = 2 ** 48;
     bytes32 internal constant BLANK_TX_HASH = keccak256("");
+    bytes32 internal constant FALLBACK_KEYS_TAG = bytes32("ETNA_FALLBACK_KEYS_V1");
 
     // ---------------------------------------------------------------
     // Configuration
@@ -158,6 +165,7 @@ contract EtnaInboxHandler is CommonBase {
     address[] internal _senders;
     address[] internal _landers;
     address internal immutable _sweeper;
+    IEtnaInbox.FallbackKey[] internal _keyPool;
 
     // ---------------------------------------------------------------
     // Ghost state
@@ -171,7 +179,12 @@ contract EtnaInboxHandler is CommonBase {
 
     uint48 public ghostGeneration;
     uint256 public ghostRecoveryNonce;
+    /// @dev Every written origin record, its fourth word the fallback key hash when it was written.
     mapping(uint256 generation => IEtnaInbox.Origin) internal _origins;
+
+    IEtnaInbox.FallbackKey[] internal _fallbackKeys;
+    bytes32 public ghostFallbackKeysHash;
+    uint256 public ghostMinTotalStake;
 
     uint48 public ghostHead;
     uint48 public ghostTail;
@@ -204,6 +217,8 @@ contract EtnaInboxHandler is CommonBase {
     mapping(uint256 defect => uint256) public rejectedRecoveries;
     uint256 public sweeps;
     uint256 public forcedTransfers;
+    uint256 public fallbackKeyUpdates;
+    uint256 public minTotalStakeUpdates;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -229,6 +244,11 @@ contract EtnaInboxHandler is CommonBase {
             _landers.push(vm.addr(0xe7a1a0 + i));
         }
         _sweeper = vm.addr(0xe7a5ee);
+        for (uint256 i; i < _deployment.keyPool.length; ++i) {
+            _keyPool.push(_deployment.keyPool[i]);
+        }
+        _storeGhostFallbackKeys(_deployment.fallbackKeys);
+        ghostMinTotalStake = _deployment.minTotalStake;
 
         _checkpoints.push(0);
         _records[0].elHash = _deployment.genesisBlockHash;
@@ -239,7 +259,10 @@ contract EtnaInboxHandler is CommonBase {
             stateRoot: _deployment.genesisStateRoot
         });
         _origins[0] = IEtnaInbox.Origin({
-            startHeight: 0, l1BlockNumber: block.number, l1Timestamp: block.timestamp
+            startHeight: 0,
+            l1BlockNumber: block.number,
+            l1Timestamp: block.timestamp,
+            fallbackKeysHash: ghostFallbackKeysHash
         });
     }
 
@@ -348,6 +371,40 @@ contract EtnaInboxHandler is CommonBase {
         }
     }
 
+    /// @notice The owner replaces the fallback key list with a nonempty subset of the key pool, one
+    /// to eight keys in pool order, which is sorted.
+    function setFallbackKeys(uint256 _seed) external {
+        uint256 mask = 1 + _seed % (2 ** _keyPool.length - 1);
+        uint256 count;
+        for (uint256 i; i < _keyPool.length; ++i) {
+            count += (mask >> i) & 1;
+        }
+        IEtnaInbox.FallbackKey[] memory keys = new IEtnaInbox.FallbackKey[](count);
+        uint256 n;
+        for (uint256 i; i < _keyPool.length; ++i) {
+            if ((mask >> i) & 1 == 1) keys[n++] = _keyPool[i];
+        }
+
+        vm.prank(owner);
+        try inbox.setFallbackKeys(keys) {
+            _storeGhostFallbackKeys(keys);
+            ++fallbackKeyUpdates;
+        } catch (bytes memory reason) {
+            _checkRevert(Property.FallbackKeys, "", reason, "setFallbackKeys");
+        }
+    }
+
+    /// @notice The owner sets `minTotalStake` to any value.
+    function setMinTotalStake(uint256 _value) external {
+        vm.prank(owner);
+        try inbox.setMinTotalStake(_value) {
+            ghostMinTotalStake = _value;
+            ++minTotalStakeUpdates;
+        } catch (bytes memory reason) {
+            _checkRevert(Property.FallbackKeys, "", reason, "setMinTotalStake");
+        }
+    }
+
     /// @notice Anyone sweeps the Inbox's whole balance to the treasury.
     function sweep() external {
         uint256 amount = address(inbox).balance;
@@ -406,6 +463,10 @@ contract EtnaInboxHandler is CommonBase {
 
     function savedAt(uint256 _index) external view returns (SavedInclusion memory) {
         return _saved[_index];
+    }
+
+    function ghostFallbackKeys() external view returns (IEtnaInbox.FallbackKey[] memory) {
+        return _fallbackKeys;
     }
 
     // ---------------------------------------------------------------
@@ -1011,14 +1072,15 @@ contract EtnaInboxHandler is CommonBase {
         (_attempt.fiToClear[0], _attempt.fiToClear[1]) = (index, index);
     }
 
-    /// @dev Starts the next generation at c with origin (c, R, R's timestamp) and blanks the listed
-    /// entries.
+    /// @dev Starts the next generation at c with origin (c, R, R's timestamp, the current fallback
+    /// key hash) and blanks the listed entries.
     function _recordRecovery(RecoveryAttempt memory _attempt) internal {
         uint48 generation = ghostGeneration + 1;
         _origins[generation] = IEtnaInbox.Origin({
             startHeight: _attempt.expectedC,
             l1BlockNumber: block.number,
-            l1Timestamp: block.timestamp
+            l1Timestamp: block.timestamp,
+            fallbackKeysHash: ghostFallbackKeysHash
         });
         ghostGeneration = generation;
         ++ghostRecoveryNonce;
@@ -1032,6 +1094,15 @@ contract EtnaInboxHandler is CommonBase {
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
+
+    /// @dev Replaces the model's fallback key list and its hash (appendix A).
+    function _storeGhostFallbackKeys(IEtnaInbox.FallbackKey[] memory _keys) internal {
+        delete _fallbackKeys;
+        for (uint256 i; i < _keys.length; ++i) {
+            _fallbackKeys.push(_keys[i]);
+        }
+        ghostFallbackKeysHash = keccak256(abi.encode(FALLBACK_KEYS_TAG, _keys));
+    }
 
     function _checkRevert(
         Property _property,
@@ -1064,7 +1135,8 @@ contract EtnaInboxHandler is CommonBase {
 
     function _violate(Property _property, string memory _reason) internal {
         if (violations[_property]++ != 0) return;
-        string[5] memory names = ["checkpoint", "records", "generations", "fees", "queue"];
+        string[6] memory names =
+            ["checkpoint", "records", "generations", "fees", "queue", "fallback keys"];
         firstViolation[_property] = string.concat(names[uint8(_property)], ": ", _reason);
     }
 

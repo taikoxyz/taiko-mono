@@ -10,6 +10,7 @@ import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
+import { EtnaTestKeys } from "test/shared/etna/EtnaTestKeys.sol";
 
 /// @notice A `land` proof verifier that accepts every proof until it is told to reject.
 /// @dev `verifyProof` is a view; tests observe its statement hash with `vm.expectCall`.
@@ -62,6 +63,11 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
     uint256 internal constant GENESIS_PACKED_SLOT = 272;
     uint256 internal constant GENESIS_BLOCK_HASH_SLOT = 273;
     uint256 internal constant GENESIS_STATE_ROOT_SLOT = 274;
+    /// @dev The fallback key list: its length here, its entries two words each from
+    /// keccak256(275).
+    uint256 internal constant FALLBACK_KEYS_SLOT = 275;
+    uint256 internal constant FALLBACK_KEYS_HASH_SLOT = 278;
+    uint256 internal constant MIN_TOTAL_STAKE_SLOT = 279;
     uint256 internal constant FORCED_INCLUSION_QUEUE_SLOT = 280;
     uint256 internal constant FORCED_INCLUSION_HEAD_TAIL_SLOT = 281;
     uint256 internal constant FORCED_INCLUSION_CONFIG_SLOT = 282;
@@ -95,6 +101,19 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
     bytes32 internal constant GENESIS_STATE_ROOT = keccak256("Etna L2 genesis state");
     uint256 internal constant FORCED_INCLUSION_DELAY = 1 hours;
     uint256 internal constant MAX_ANCHOR_AGE = 2 hours;
+    /// @dev The only default fallback key, K1: the compressed key of private key 1.
+    uint8 internal constant K1_PREFIX = 0x02;
+    bytes32 internal constant K1_X =
+        0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798;
+    /// @dev The default `minTotalStake`: 100,000,000 TAIKO in base units, nonzero so that slot
+    /// 279 shows the write.
+    uint256 internal constant MIN_TOTAL_STAKE = 100_000_000 ether;
+
+    /// @dev The domain tag of the fallback key hash (appendix A).
+    bytes32 internal constant FALLBACK_KEYS_TAG = bytes32("ETNA_FALLBACK_KEYS_V1");
+    /// @dev The fallback key hash of the default list [K1], the specification's literal.
+    bytes32 internal constant DEFAULT_FALLBACK_KEYS_HASH =
+        0x9dd1f7298a08cbe8d9579af09f0c713fc35137e6c534a74f8c439b63252f046f;
 
     MockLandProofVerifier internal landVerifier;
     address internal inboxProxy;
@@ -192,14 +211,70 @@ abstract contract EtnaInboxTestBase is CommonTest, EtnaTestConstants {
         });
     }
 
-    /// @dev The genesis inputs: the block-0 hash and state root, a one-hour forced inclusion delay
-    /// and a two-hour maximum anchor age.
+    /// @dev The genesis inputs: the block-0 hash and state root, the fallback key list [K1],
+    /// `MIN_TOTAL_STAKE`, a one-hour forced inclusion delay and a two-hour maximum anchor age.
     function _defaultInitParams() internal pure returns (IEtnaInbox.InitParams memory) {
         return IEtnaInbox.InitParams({
             genesisBlockHash: GENESIS_BLOCK_HASH,
             genesisStateRoot: GENESIS_STATE_ROOT,
+            fallbackKeys: _defaultFallbackKeys(),
+            minTotalStake: MIN_TOTAL_STAKE,
             forcedInclusionDelay: FORCED_INCLUSION_DELAY,
             maxAnchorAge: MAX_ANCHOR_AGE
         });
+    }
+
+    /// @dev The default fallback key list, [K1].
+    function _defaultFallbackKeys() internal pure returns (IEtnaInbox.FallbackKey[] memory keys_) {
+        keys_ = new IEtnaInbox.FallbackKey[](1);
+        keys_[0] = IEtnaInbox.FallbackKey({ ckPrefix: K1_PREFIX, ckX: K1_X });
+    }
+
+    /// @dev The fallback keys of the private keys `_pks`, in the given order.
+    function _keys(uint256[] memory _pks) internal returns (IEtnaInbox.FallbackKey[] memory keys_) {
+        keys_ = new IEtnaInbox.FallbackKey[](_pks.length);
+        for (uint256 i; i < _pks.length; ++i) {
+            (keys_[i].ckPrefix, keys_[i].ckX) = EtnaTestKeys.fallbackKey(_pks[i]);
+        }
+    }
+
+    /// @dev The fallback keys of the private keys 1 to `_count`, sorted ascending by the 33-byte
+    /// value `ckPrefix ‖ ckX`, as `setFallbackKeys` requires.
+    function _sortedKeys(uint256 _count) internal returns (IEtnaInbox.FallbackKey[] memory keys_) {
+        uint256[] memory pks = new uint256[](_count);
+        for (uint256 i; i < _count; ++i) {
+            pks[i] = i + 1;
+        }
+        keys_ = _keys(pks);
+        for (uint256 i = 1; i < _count; ++i) {
+            IEtnaInbox.FallbackKey memory key = keys_[i];
+            uint256 j = i;
+            while (j != 0 && _sortsAfter(keys_[j - 1], key)) {
+                keys_[j] = keys_[j - 1];
+                --j;
+            }
+            keys_[j] = key;
+        }
+    }
+
+    /// @dev Whether `_a` sorts after `_b` by the 33-byte value `ckPrefix ‖ ckX`.
+    function _sortsAfter(
+        IEtnaInbox.FallbackKey memory _a,
+        IEtnaInbox.FallbackKey memory _b
+    )
+        internal
+        pure
+        returns (bool)
+    {
+        return _a.ckPrefix > _b.ckPrefix || (_a.ckPrefix == _b.ckPrefix && _a.ckX > _b.ckX);
+    }
+
+    /// @dev The fallback key hash of `_entries` (appendix A).
+    function _fallbackKeysHash(IEtnaInbox.FallbackKey[] memory _entries)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(FALLBACK_KEYS_TAG, _entries));
     }
 }

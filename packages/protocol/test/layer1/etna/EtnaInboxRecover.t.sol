@@ -69,16 +69,24 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
 
         assertEq(_inbox().recoveryGeneration(), 1, "generation");
         assertEq(_inboxWord(RECOVERY_GENERATION_SLOT), bytes32(uint256(1)), "slot 268");
-        _assertOrigin(1, 12, 50, 1000);
+        _assertOrigin(1, 12, 50, 1000, DEFAULT_FALLBACK_KEYS_HASH);
         assertEq(_inbox().generationStartHeight(), 12, "generationStartHeight");
-        _assertOrigin(0, origin0.startHeight, origin0.l1BlockNumber, origin0.l1Timestamp);
-        _assertOrigin(2, 0, 0, 0);
+        _assertOrigin(
+            0,
+            origin0.startHeight,
+            origin0.l1BlockNumber,
+            origin0.l1Timestamp,
+            origin0.fallbackKeysHash
+        );
+        assertEq(origin0.fallbackKeysHash, DEFAULT_FALLBACK_KEYS_HASH, "origins(0) holds [K1]");
+        _assertOrigin(2, 0, 0, 0, 0);
     }
 
     /// @dev Lean `recovery_preserves_settled_prefix`: with a blanking, recovery keeps the
     /// checkpoint, every landing record, the queue pointers, the SignalService checkpoints, the
-    /// genesis words and the Inbox's ETH. The only Inbox slots it writes are 268, the nonce,
-    /// origins(1), the blanked entry's txHash and the rules schedule.
+    /// genesis words, the fallback key state and the Inbox's ETH. The only Inbox slots it writes
+    /// are 268, the nonce, the four words of origins(1), the blanked entry's txHash and the rules
+    /// schedule.
     function test_recover_PreservesSettledState() external {
         _land(0, 6);
         _land(6, 12);
@@ -108,15 +116,14 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
                 uint256 slot = uint256(s.slot);
                 assertTrue(
                     slot == RECOVERY_GENERATION_SLOT || slot == RECOVERY_NONCE_SLOT
-                        || slot == _originSlot(1) || slot == _originSlot(1) + 1
-                        || slot == _originSlot(1) + 2 || slot == _queueSlot(2)
-                        || slot == RULES_SCHEDULE_SLOT,
+                        || (slot >= _originSlot(1) && slot <= _originSlot(1) + 3)
+                        || slot == _queueSlot(2) || slot == RULES_SCHEDULE_SLOT,
                     string.concat("unexpected Inbox write to slot ", vm.toString(s.slot))
                 );
                 ++writes;
             }
         }
-        assertEq(writes, 7, "seven Inbox writes including the nonce and the rules schedule");
+        assertEq(writes, 8, "eight Inbox writes including the nonce and the rules schedule");
     }
 
     // ---------------------------------------------------------------
@@ -176,7 +183,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _expectRecoverRevert(0, 0, _indices(2, 1), mismatch);
 
         _recover(0, 6, noIndices);
-        _assertOrigin(1, 6, _LEAN_R, _LEAN_R_TIMESTAMP);
+        _assertOrigin(1, 6, _LEAN_R, _LEAN_R_TIMESTAMP, DEFAULT_FALLBACK_KEYS_HASH);
     }
 
     /// @dev RECOV-8.3-3: expectedC need only equal the current c, at any height; generation 1
@@ -184,7 +191,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     function test_recover_acceptsAnyExpectedC() external {
         _land(0, 7);
         _recover(0, 7, _noIndices());
-        _assertOrigin(1, 7, _LEAN_R, _LEAN_R_TIMESTAMP);
+        _assertOrigin(1, 7, _LEAN_R, _LEAN_R_TIMESTAMP, DEFAULT_FALLBACK_KEYS_HASH);
         assertEq(_inbox().generationStartHeight(), 7, "start height");
 
         _land(7, 8);
@@ -198,7 +205,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         uint256[] memory noIndices = _noIndices();
 
         _recover(0, 0, noIndices);
-        _assertOrigin(1, 0, _LEAN_R, _LEAN_R_TIMESTAMP);
+        _assertOrigin(1, 0, _LEAN_R, _LEAN_R_TIMESTAMP, DEFAULT_FALLBACK_KEYS_HASH);
 
         vm.roll(_LEAN_R2);
         vm.warp(_LEAN_R2_TIMESTAMP);
@@ -206,8 +213,8 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
 
         _recover(1, 0, noIndices);
         assertEq(_inbox().recoveryGeneration(), 2, "generation 2");
-        _assertOrigin(2, 0, _LEAN_R2, _LEAN_R2_TIMESTAMP);
-        _assertOrigin(1, 0, _LEAN_R, _LEAN_R_TIMESTAMP);
+        _assertOrigin(2, 0, _LEAN_R2, _LEAN_R2_TIMESTAMP, DEFAULT_FALLBACK_KEYS_HASH);
+        _assertOrigin(1, 0, _LEAN_R, _LEAN_R_TIMESTAMP, DEFAULT_FALLBACK_KEYS_HASH);
         assertEq(_inbox().generationStartHeight(), 0, "same start height");
     }
 
@@ -261,12 +268,12 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
 
         _recover(last - 1, 0, _noIndices());
         assertEq(_inbox().recoveryGeneration(), last, "generation 2^48 - 1");
-        _assertOrigin(last, 0, _LEAN_R, _LEAN_R_TIMESTAMP);
+        _assertOrigin(last, 0, _LEAN_R, _LEAN_R_TIMESTAMP, DEFAULT_FALLBACK_KEYS_HASH);
 
         bytes4 overflow = IEtnaInbox.ValueOverflow.selector;
         _expectRecoverRevert(last, 0, _noIndices(), overflow);
         _expectRecoverRevert(last, 0, _indices(0), overflow);
-        _assertOrigin(_TWO_POW_48, 0, 0, 0);
+        _assertOrigin(_TWO_POW_48, 0, 0, 0, 0);
     }
 
     /// @dev RECOV-8.4-4: an origin record is written once. If an upgrade wrote the next
@@ -277,10 +284,11 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         _storeInboxWord(slot, bytes32(uint256(6)));
         _storeInboxWord(slot + 1, bytes32(uint256(7)));
         _storeInboxWord(slot + 2, bytes32(uint256(8)));
+        _storeInboxWord(slot + 3, bytes32(uint256(9)));
 
         _expectRecoverRevert(0, 0, _indices(0), IEtnaInbox.OriginAlreadyWritten.selector);
         assertEq(_inbox().recoveryGeneration(), 0, "generation kept");
-        _assertOrigin(1, 6, 7, 8);
+        _assertOrigin(1, 6, 7, 8, bytes32(uint256(9)));
     }
 
     /// @dev Origin timestamps must fit 48 bits: at 2^48 recovery reverts with nothing written,
@@ -291,7 +299,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
 
         vm.warp(_TWO_POW_48 - 1);
         _recover(0, 0, _indices(0));
-        _assertOrigin(1, 0, _LEAN_R, _TWO_POW_48 - 1);
+        _assertOrigin(1, 0, _LEAN_R, _TWO_POW_48 - 1, DEFAULT_FALLBACK_KEYS_HASH);
     }
 
     /// @dev R must fit 48 bits: at block 2^48 recovery reverts with nothing written; at
@@ -302,7 +310,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
 
         vm.roll(_TWO_POW_48 - 1);
         _recover(0, 0, _indices(0));
-        _assertOrigin(1, 0, _TWO_POW_48 - 1, _LEAN_R_TIMESTAMP);
+        _assertOrigin(1, 0, _TWO_POW_48 - 1, _LEAN_R_TIMESTAMP, DEFAULT_FALLBACK_KEYS_HASH);
     }
 
     /// @dev Before `init` the proxy on the `EtnaInbox` implementation rejects the owner's
@@ -539,10 +547,14 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     // ---------------------------------------------------------------
 
     /// @dev The owner recovers with `_generation` and `_c` expected, expecting
-    /// `Recovered(_generation + 1, _c, block.number, block.timestamp, _fiToClear)`.
+    /// `Recovered(_generation + 1, _c, block.number, block.timestamp, fallbackKeysHash(),
+    /// _fiToClear)`.
     function _recover(uint48 _generation, uint256 _c, uint256[] memory _fiToClear) private {
+        bytes32 keysHash = _inbox().fallbackKeysHash();
         vm.expectEmit(inboxProxy);
-        emit IEtnaInbox.Recovered(_generation + 1, _c, block.number, block.timestamp, _fiToClear);
+        emit IEtnaInbox.Recovered(
+            _generation + 1, _c, block.number, block.timestamp, keysHash, _fiToClear
+        );
         vm.prank(_inbox().owner());
         _inbox()
             .recover(
@@ -605,7 +617,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         uint256 generation = _inbox().recoveryGeneration();
         uint256 c = _inbox().lastCheckpoint().height;
         (, uint48 tail) = _inbox().getForcedInclusionState();
-        words_ = new bytes32[](16 + tail);
+        words_ = new bytes32[](18 + tail);
         uint256 n;
         words_[n++] = _inboxWord(RECOVERY_GENERATION_SLOT);
         words_[n++] = _inboxWord(RECOVERY_NONCE_SLOT);
@@ -613,12 +625,11 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         words_[n++] = _inboxWord(LAST_CHECKPOINT_HEIGHT_SLOT);
         words_[n++] = _inboxWord(LAST_CHECKPOINT_HASH_SLOT);
         words_[n++] = _inboxWord(FORCED_INCLUSION_HEAD_TAIL_SLOT);
-        for (uint256 w; w < 3; ++w) {
+        for (uint256 w; w < 4; ++w) {
             words_[n++] = _inboxWord(_originSlot(generation) + w);
             words_[n++] = _inboxWord(_originSlot(generation + 1) + w);
             words_[n++] = _inboxWord(_landingSlot(c) + w);
         }
-        words_[n++] = _inboxWord(_landingSlot(c) + 3);
         for (uint256 i; i < tail; ++i) {
             words_[n++] = _inboxWord(_queueSlot(i));
         }
@@ -627,7 +638,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     /// @dev The settled state with the chain landed to 12: slots 258-284 except the generation,
     /// landings 0, 6 and 12, origins(0) and the SignalService checkpoints at 0, 6 and 12.
     function _settledWords() private view returns (bytes32[] memory words_) {
-        words_ = new bytes32[](26 + 9 + 9 + 3);
+        words_ = new bytes32[](26 + 9 + 9 + 4);
         uint256 n;
         for (uint256 slot = INITIALIZATION_STATUS_SLOT; slot <= RESERVED_SLOT_284; ++slot) {
             if (slot != RECOVERY_GENERATION_SLOT) {
@@ -643,7 +654,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
             words_[n++] = saved.blockHash;
             words_[n++] = saved.stateRoot;
         }
-        for (uint256 w; w < 3; ++w) {
+        for (uint256 w; w < 4; ++w) {
             words_[n++] = _inboxWord(_originSlot(0) + w);
         }
         assertEq(n, words_.length, "settled words");
@@ -654,12 +665,13 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         return uint256(keccak256(abi.encode(_index, FORCED_INCLUSION_QUEUE_SLOT)));
     }
 
-    /// @dev Checks `origins(_generation)` through the getter and its three raw slot 290 words.
+    /// @dev Checks `origins(_generation)` through the getter and its four raw slot 290 words.
     function _assertOrigin(
         uint256 _generation,
         uint256 _startHeight,
         uint256 _l1BlockNumber,
-        uint256 _l1Timestamp
+        uint256 _l1Timestamp,
+        bytes32 _fallbackKeysHash
     )
         private
         view
@@ -668,10 +680,12 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(origin.startHeight, _startHeight, "origin startHeight");
         assertEq(origin.l1BlockNumber, _l1BlockNumber, "origin l1BlockNumber");
         assertEq(origin.l1Timestamp, _l1Timestamp, "origin l1Timestamp");
+        assertEq(origin.fallbackKeysHash, _fallbackKeysHash, "origin fallbackKeysHash");
         uint256 slot = _originSlot(_generation);
         assertEq(uint256(_inboxWord(slot)), _startHeight, "slot 290 word 1");
         assertEq(uint256(_inboxWord(slot + 1)), _l1BlockNumber, "slot 290 word 2");
         assertEq(uint256(_inboxWord(slot + 2)), _l1Timestamp, "slot 290 word 3");
+        assertEq(_inboxWord(slot + 3), _fallbackKeysHash, "slot 290 word 4");
     }
 
     function _assertForcedInclusion(

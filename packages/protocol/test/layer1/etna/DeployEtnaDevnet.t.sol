@@ -67,6 +67,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _RevertWhen_SignalServiceHasNoCode();
         _RevertWhen_UnsettledLimitInvalid();
         _RevertWhen_OptionalVariableMalformed();
+        _initCallReadsFallbackKeysAndMinTotalStake();
     }
 
     modifier withEnvironment() {
@@ -78,7 +79,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
 
     /// @dev Sets every variable the script reads. `ETNA_UNSETTLED_LIMIT` is empty, which the
     /// script reads as unset; `INBOX_PROXY` and `SIGNAL_SERVICE` are zero until a scenario
-    /// deploys the proxy.
+    /// deploys the proxy. The fallback keys and `minTotalStake` are `_defaultInitParams()`'s.
     function _setEnvironment() private {
         vm.setEnv("PRIVATE_KEY", vm.toString(_DEPLOYER_PK));
         vm.setEnv("CONTRACT_OWNER", vm.toString(address(0)));
@@ -101,6 +102,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setEnv("PROTOCOL_FEE_RECIPIENT", vm.toString(PROTOCOL_FEE_RECIPIENT));
         vm.setEnv("GENESIS_BLOCK_HASH", vm.toString(GENESIS_BLOCK_HASH));
         vm.setEnv("GENESIS_STATE_ROOT", vm.toString(GENESIS_STATE_ROOT));
+        vm.setEnv("ETNA_FALLBACK_KEYS", _hexKey(_defaultFallbackKeys()[0]));
+        vm.setEnv("ETNA_MIN_TOTAL_STAKE", vm.toString(MIN_TOTAL_STAKE));
         vm.setEnv("FORCED_INCLUSION_DELAY", vm.toString(FORCED_INCLUSION_DELAY));
         vm.setEnv("MAX_ANCHOR_AGE", vm.toString(MAX_ANCHOR_AGE));
     }
@@ -331,9 +334,40 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         );
     }
 
+    /// @dev `init`'s fallback key list comes from ETNA_FALLBACK_KEYS, comma-separated 33-byte
+    /// compressed keys in hex, and its threshold from ETNA_MIN_TOTAL_STAKE; an entry of 32 bytes
+    /// reverts.
+    function _initCallReadsFallbackKeysAndMinTotalStake() private withEnvironment {
+        uint256[] memory pks = new uint256[](2);
+        (pks[0], pks[1]) = (1, 2);
+        IEtnaInbox.FallbackKey[] memory keys = _keys(pks);
+        vm.setEnv("ETNA_FALLBACK_KEYS", string.concat(_hexKey(keys[0]), ",", _hexKey(keys[1])));
+        vm.setEnv("ETNA_MIN_TOTAL_STAKE", "1000000000000000000000000000");
+
+        IEtnaInbox.InitParams memory params = _defaultInitParams();
+        params.fallbackKeys = keys;
+        params.minTotalStake = 1e27;
+        address impl = address(0x1234);
+        bytes memory initCall = abi.encodeCall(EtnaInbox.init, (params));
+        assertEq(
+            _deployment.ownerInitCall(impl),
+            abi.encodeCall(EtnaInbox.upgradeToAndCall, (impl, initCall)),
+            "[K1, K2] and 10^27"
+        );
+
+        vm.setEnv("ETNA_FALLBACK_KEYS", string.concat(_hexKey(keys[0]), ",", vm.toString(K1_X)));
+        vm.expectRevert(DeployEtnaDevnet.InvalidFallbackKeyLength.selector);
+        _deployment.ownerInitCall(impl);
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
+
+    /// @dev The 33-byte compressed form `ckPrefix ‖ ckX` of `_key` in 0x-prefixed hex.
+    function _hexKey(IEtnaInbox.FallbackKey memory _key) private pure returns (string memory) {
+        return vm.toString(abi.encodePacked(_key.ckPrefix, _key.ckX));
+    }
 
     /// @dev Runs the first deployment step, the Inbox proxy with its SignalService, and exports
     /// both addresses.
@@ -422,6 +456,9 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(_inbox.configHash(), _configHash(), "config hash");
         assertEq(_inbox.forcedInclusionDelay(), FORCED_INCLUSION_DELAY, "forced inclusion delay");
         assertEq(_inbox.maxAnchorAge(), MAX_ANCHOR_AGE, "maximum anchor age");
+        assertEq(_inbox.fallbackKeysHash(), DEFAULT_FALLBACK_KEYS_HASH, "fallback keys [K1]");
+        assertEq(_inbox.origins(0).fallbackKeysHash, DEFAULT_FALLBACK_KEYS_HASH, "origins(0)");
+        assertEq(_inbox.minTotalStake(), MIN_TOTAL_STAKE, "minTotalStake");
         ICheckpointStore.Checkpoint memory checkpoint = _signals.getCheckpoint(0);
         assertEq(checkpoint.blockHash, GENESIS_BLOCK_HASH, "block-0 checkpoint hash");
         assertEq(checkpoint.stateRoot, GENESIS_STATE_ROOT, "block-0 checkpoint root");

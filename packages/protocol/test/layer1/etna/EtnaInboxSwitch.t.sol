@@ -36,7 +36,7 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         for (uint256 w; w < 4; ++w) {
             assertEq(_inboxWord(_landingSlot(0) + w), 0, "landings(0)");
         }
-        for (uint256 w; w < 3; ++w) {
+        for (uint256 w; w < 4; ++w) {
             assertEq(_inboxWord(_originSlot(0) + w), 0, "origins(0)");
         }
         _assertStart(0, 0);
@@ -103,8 +103,9 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
     /// 8, last finalized 7, tip H) and the checkpoint (H, R) at S, Carol, an unrelated caller,
     /// latches S at exactly `FORK_TIME` in L1 block B. The start write takes H and R from the
     /// checkpoint and writes slot 272 = (1000, B), slots 273/274, origins(0) = (1000, B,
-    /// FORK_TIME), the checkpoint (1000, H) and landings(1000) = (1000, 0, 0, H, 0); it leaves the
-    /// SignalService checkpoint untouched and opens the forced inclusion queue at head 0.
+    /// FORK_TIME, slot 278), the checkpoint (1000, H) and landings(1000) = (1000, 0, 0, H, 0); it
+    /// leaves the SignalService checkpoint untouched and opens the forced inclusion queue at
+    /// head 0.
     function test_setOrigin_LatchesTheFinalizedUnzenTip() external {
         _finalizeUnzen();
         vm.warp(FORK_TIME);
@@ -131,6 +132,8 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         assertEq(origin.startHeight, S, "origin height");
         assertEq(origin.l1BlockNumber, b, "L1_0");
         assertEq(origin.l1Timestamp, FORK_TIME, "origin timestamp");
+        assertEq(origin.fallbackKeysHash, _inboxWord(FALLBACK_KEYS_HASH_SLOT), "origin word 4");
+        assertEq(_inboxWord(_originSlot(0) + 3), DEFAULT_FALLBACK_KEYS_HASH, "slot 278 at S");
         assertEq(_inbox().generationStartHeight(), S, "generationStartHeight");
         _assertCheckpoint(S, _startHash());
         _assertLanding(S, _record(S, 0, 0, S));
@@ -140,6 +143,20 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         vm.deal(Alice, 1 ether);
         _saveForcedInclusions(1);
         _assertQueue(0, 1);
+    }
+
+    /// @dev The origin record's fourth word is slot 278 at the start write, not at `init`: keys
+    /// the owner sets between the two are the ones generation 0's record holds.
+    function test_setOrigin_RecordsTheFallbackKeysHashAtTheStartWrite() external {
+        IEtnaInbox.FallbackKey[] memory keys = _sortedKeys(3);
+        _inbox().setFallbackKeys(keys);
+        bytes32 keysHash = _fallbackKeysHash(keys);
+        assertTrue(keysHash != DEFAULT_FALLBACK_KEYS_HASH, "a new list");
+
+        _writeStart();
+
+        assertEq(_inbox().origins(0).fallbackKeysHash, keysHash, "origins(0).fallbackKeysHash");
+        assertEq(_inboxWord(_originSlot(0) + 3), keysHash, "origin word 4");
     }
 
     /// @dev 5a.b: one second before the fork the call reverts, even with the tip proven.

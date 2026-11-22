@@ -7,6 +7,7 @@ import { LibEtnaForcedInclusion } from "../libs/LibEtnaForcedInclusion.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { LibEtnaKeys } from "src/shared/etna/LibEtnaKeys.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
@@ -19,9 +20,10 @@ import "./EtnaInbox_Layout.sol"; // DO NOT DELETE
 /// calls `init`. On a new network `init` also writes the Etna start at block 0; on a switching
 /// network anyone writes it later with `setOrigin`, once the Unzen Inbox's proposals are closed
 /// and fully proven. Storage follows spec appendix B
-/// exactly: its named slots 258, 268-274, 280-282, 285, 290, 292 and 293 sit where it lists them,
-/// reserved slots 283, 284, 286-289 and 291 are never read or written, and slots 251-257, 259-267
-/// and 275-279 are unused.
+/// exactly: its named slots 258, 268-274, 278-282, 285, 290, 292 and 293 sit where it lists them,
+/// the fallback key list that `getFallbackKeys` returns, which no anchor witness proves, is the
+/// dynamic array at slot 275, reserved slots 283, 284, 286-289 and 291 are never read or written,
+/// and slots 251-257, 259-267, 276 and 277 are unused.
 /// @custom:security-contact security@taiko.xyz
 // solhint-disable-next-line max-states-count
 contract EtnaInbox is IEtnaInbox, EssentialContract {
@@ -81,6 +83,12 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
 
     /// @dev The domain tag of the config hash (appendix A).
     bytes32 private constant _CONFIG_TAG = bytes32("ETNA_CONFIG_V1");
+
+    /// @dev The domain tag of the fallback key hash (appendix A).
+    bytes32 private constant _FALLBACK_KEYS_TAG = bytes32("ETNA_FALLBACK_KEYS_V1");
+
+    /// @dev The maximum number of fallback keys (spec 4.3).
+    uint256 private constant _MAX_FALLBACK_KEYS = 128;
 
     /// @dev The minimum `maxAnchorAge` in seconds (spec 10).
     uint256 private constant _MIN_MAX_ANCHOR_AGE = 1152;
@@ -182,11 +190,17 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev Slots 272-274: the start record.
     GenesisRecord private _genesis;
 
-    /// @dev Slots 275-277: reserved.
-    uint256[3] private __reserved275;
+    /// @dev Slot 275: the fallback key list, two words per key from keccak256(275).
+    FallbackKey[] private _fallbackKeys;
 
-    /// @dev Slots 278-279: unused.
-    uint256[2] private __reserved278;
+    /// @dev Slots 276-277: unused.
+    uint256[2] private __reserved276;
+
+    /// @dev Slot 278: the fallback key hash (appendix A).
+    bytes32 private _fallbackKeysHash;
+
+    /// @dev Slot 279: `minTotalStake`.
+    uint256 private _minTotalStake;
 
     /// @dev Slots 280-281: the forced inclusion queue and its packed head and tail.
     LibEtnaForcedInclusion.Storage private _forcedInclusions;
@@ -275,6 +289,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     function init(InitParams calldata _params) external reinitializer(2) onlyOwner {
         _validateInitialState();
         _validateInitParams(_params);
+        _checkFallbackKeys(_params.fallbackKeys);
 
         bytes32 hash = keccak256(
             abi.encode(_CONFIG_TAG, uint256(l2ChainId), etnaStaking, uint256(unsettledLimit))
@@ -285,6 +300,9 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         _forcedInclusionConfig = ForcedInclusionConfig({
             delay: uint48(_params.forcedInclusionDelay), maxAnchorAge: uint48(_params.maxAnchorAge)
         });
+        _storeFallbackKeys(_params.fallbackKeys);
+        _minTotalStake = _params.minTotalStake;
+        emit MinTotalStakeUpdated(_params.minTotalStake);
 
         emit EtnaInitialized(hash, etnaStaking, unsettledLimit);
 
@@ -455,12 +473,17 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         for (uint256 i; i < _fiToClear.length; ++i) {
             _forcedInclusions.queue[_fiToClear[i]].txHash = _BLANK_TX_HASH;
         }
+        bytes32 keysHash = _fallbackKeysHash;
         _recoveryGeneration = newGeneration;
         _recoveryNonce = nextNonce;
-        _origins[newGeneration] =
-            Origin({ startHeight: c, l1BlockNumber: block.number, l1Timestamp: block.timestamp });
+        _origins[newGeneration] = Origin({
+            startHeight: c,
+            l1BlockNumber: block.number,
+            l1Timestamp: block.timestamp,
+            fallbackKeysHash: keysHash
+        });
 
-        emit Recovered(newGeneration, c, block.number, block.timestamp, _fiToClear);
+        emit Recovered(newGeneration, c, block.number, block.timestamp, keysHash, _fiToClear);
         _setRulesSchedule(schedule);
     }
 
@@ -518,6 +541,20 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @inheritdoc IEtnaInbox
+    function setFallbackKeys(FallbackKey[] calldata _keys) external onlyOwner nonReentrant {
+        require(_initStatus == INITIALIZED_STATUS, NotInitialized());
+        _checkFallbackKeys(_keys);
+        _storeFallbackKeys(_keys);
+    }
+
+    /// @inheritdoc IEtnaInbox
+    function setMinTotalStake(uint256 _value) external onlyOwner nonReentrant {
+        require(_initStatus == INITIALIZED_STATUS, NotInitialized());
+        _minTotalStake = _value;
+        emit MinTotalStakeUpdated(_value);
+    }
+
+    /// @inheritdoc IEtnaInbox
     function invalidateRecoveryNonce(uint256 _expectedRecoveryNonce)
         external
         onlyOwner
@@ -568,6 +605,21 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @inheritdoc IEtnaInbox
     function rulesSchedule() external view returns (RulesSchedule memory) {
         return _rulesSchedule;
+    }
+
+    /// @inheritdoc IEtnaInbox
+    function getFallbackKeys() external view returns (FallbackKey[] memory) {
+        return _fallbackKeys;
+    }
+
+    /// @inheritdoc IEtnaInbox
+    function fallbackKeysHash() external view returns (bytes32) {
+        return _fallbackKeysHash;
+    }
+
+    /// @inheritdoc IEtnaInbox
+    function minTotalStake() external view returns (uint256) {
+        return _minTotalStake;
     }
 
     /// @inheritdoc IEtnaInbox
@@ -733,7 +785,7 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     }
 
     /// @dev The start write. Writes slot 272 as (S, L1_0 = block.number), slots 273/274,
-    /// generation 0's origin (S, L1_0, block.timestamp), the checkpoint (S, hash) and
+    /// generation 0's origin (S, L1_0, block.timestamp, slot 278), the checkpoint (S, hash) and
     /// landings[S] = (S, 0, 0, hash, 0), and emits `StartWritten`. Callers check that S,
     /// block.number and block.timestamp fit 48 bits.
     /// @param _height The Etna start S.
@@ -748,7 +800,10 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
             startStateRoot: _stateRoot
         });
         _origins[0] = Origin({
-            startHeight: _height, l1BlockNumber: block.number, l1Timestamp: block.timestamp
+            startHeight: _height,
+            l1BlockNumber: block.number,
+            l1Timestamp: block.timestamp,
+            fallbackKeysHash: _fallbackKeysHash
         });
         _lastCheckpoint = LandedCheckpoint({ height: s, blockHash: _blockHash });
         _landings[_height] =
@@ -984,17 +1039,22 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
     /// @dev Rejects finite preexisting Etna state before initializing a bootstrap proxy. This
     /// does not prove every mapping entry empty: deployment provenance and DAO control must
     /// exclude arbitrary historic writes by earlier implementations. Reserved slots are never
-    /// read.
+    /// read. Slot 272 is compared as a whole word: the start write stores its two fields without
+    /// clearing the bits above them, which appendix B requires to be zero.
     function _validateInitialState() private view {
+        uint256 startWord;
+        assembly ("memory-safe") {
+            startWord := sload(_genesis.slot)
+        }
         require(
             _initStatus == 0 && _recoveryGeneration == 0 && _configHash == 0
-                && _lastCheckpoint.height == 0 && _lastCheckpoint.blockHash == 0
-                && _genesis.genesisHeight == 0 && _genesis.l1Block == 0
+                && _lastCheckpoint.height == 0 && _lastCheckpoint.blockHash == 0 && startWord == 0
                 && _genesis.startBlockHash == 0 && _genesis.startStateRoot == 0,
             DirtyInitialState()
         );
         require(
-            _forcedInclusions.head == 0 && _forcedInclusions.tail == 0
+            _fallbackKeys.length == 0 && _fallbackKeysHash == 0 && _minTotalStake == 0
+                && _forcedInclusions.head == 0 && _forcedInclusions.tail == 0
                 && _forcedInclusionConfig.delay == 0 && _forcedInclusionConfig.maxAnchorAge == 0
                 && _recoveryNonce == 0 && _rulesSchedule.activeRules == 0
                 && _rulesSchedule.nextRules == 0 && _rulesSchedule.rulesTime == 0
@@ -1004,10 +1064,45 @@ contract EtnaInbox is IEtnaInbox, EssentialContract {
         for (uint256 generation; generation < 2; ++generation) {
             Origin storage origin = _origins[generation];
             require(
-                origin.startHeight == 0 && origin.l1BlockNumber == 0 && origin.l1Timestamp == 0,
+                origin.startHeight == 0 && origin.l1BlockNumber == 0 && origin.l1Timestamp == 0
+                    && origin.fallbackKeysHash == 0,
                 DirtyInitialState()
             );
         }
+    }
+
+    /// @dev Spec 4.3: 1 to 128 keys, each a valid compressed public key, in strictly ascending
+    /// order of the 33-byte big-endian value `ckPrefix ‖ ckX`, which compares the prefix first and
+    /// X only between equal prefixes. Strict order makes the list and its hash unique.
+    /// @param _keys The fallback key list.
+    function _checkFallbackKeys(FallbackKey[] calldata _keys) private view {
+        uint256 count = _keys.length;
+        require(count != 0 && count <= _MAX_FALLBACK_KEYS, InvalidFallbackKeys());
+        for (uint256 i; i < count; ++i) {
+            FallbackKey calldata key = _keys[i];
+            LibEtnaKeys.decompress(key.ckPrefix, key.ckX);
+            if (i == 0) continue;
+            FallbackKey calldata previous = _keys[i - 1];
+            require(
+                key.ckPrefix > previous.ckPrefix
+                    || (key.ckPrefix == previous.ckPrefix && key.ckX > previous.ckX),
+                InvalidFallbackKeys()
+            );
+        }
+    }
+
+    /// @dev Replaces the stored fallback key list with `_keys`, stores its hash (appendix A) and
+    /// emits `FallbackKeysUpdated`. The caller has checked the list.
+    /// @param _keys The fallback key list.
+    function _storeFallbackKeys(FallbackKey[] calldata _keys) private {
+        delete _fallbackKeys;
+        for (uint256 i; i < _keys.length; ++i) {
+            FallbackKey calldata key = _keys[i];
+            _fallbackKeys.push(FallbackKey({ ckPrefix: key.ckPrefix, ckX: key.ckX }));
+        }
+        bytes32 hash = keccak256(abi.encode(_FALLBACK_KEYS_TAG, _keys));
+        _fallbackKeysHash = hash;
+        emit FallbackKeysUpdated(hash, _keys);
     }
 
     /// @dev Narrows `_value` to a 48-bit storage field (appendix B).

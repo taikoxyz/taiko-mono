@@ -41,20 +41,22 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// ETNA_PROOF_VERIFIER, which must have code; L1_CHAIN_ID, which must equal this chain's id;
 /// L2_CHAIN_ID; MAX_BATCH_BLOCKS (in [1, 12,952]); FORCED_INCLUSION_FEE_GWEI and
 /// FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD (non-zero); PROTOCOL_FEE_RECIPIENT (the DAO treasury,
-/// non-zero); GENESIS_BLOCK_HASH and GENESIS_STATE_ROOT (L2 block 0); FORCED_INCLUSION_DELAY
-/// (seconds, non-zero); MAX_ANCHOR_AGE (seconds, at least 1152); and the optional
-/// ETNA_UNSETTLED_LIMIT (U, in [1, 262,144]), which defaults to `DEFAULT_UNSETTLED_LIMIT`
-/// (151,200) if unset, empty or zero. ETNA_STAKING and U are the config hash's third and fourth
-/// words, so the L2 genesis must use the same values.
+/// non-zero); GENESIS_BLOCK_HASH and GENESIS_STATE_ROOT (L2 block 0); ETNA_FALLBACK_KEYS, the
+/// initial DAO fallback key list as comma-separated 33-byte compressed keys in hex, 1 to 128 of
+/// them in strictly ascending order; ETNA_MIN_TOTAL_STAKE (token base units, any uint256);
+/// FORCED_INCLUSION_DELAY (seconds, non-zero); MAX_ANCHOR_AGE (seconds, at least 1152); and the
+/// optional ETNA_UNSETTLED_LIMIT (U, in [1, 262,144]), which defaults to
+/// `DEFAULT_UNSETTLED_LIMIT` (151,200) if unset, empty or zero. ETNA_STAKING and U are the config
+/// hash's third and fourth words, so the L2 genesis must use the same values.
 /// The script checks only SIGNAL_SERVICE's and ETNA_PROOF_VERIFIER's code, L1_CHAIN_ID,
-/// REMOTE_SIGNAL_SERVICE and ETNA_STAKING itself; the constructors and `init` check the other
-/// bounds listed above, so a logged owner call is validated when the owner sends it. Nothing on
-/// chain checks the rest, which the operator must ensure: MAX_ANCHOR_AGE above the L1 finality
-/// delay (spec 11), which is three epochs (1152 s on Ethereum) plus the deployment's allowance for
-/// slots missed at an epoch boundary and for nodes' delay in importing the finalization, so on
-/// Ethereum 1152 s itself is too low; genesis values that match the L2 genesis; and nodes and
-/// guests using the same configuration. A verifier that accepts every proof is for ephemeral
-/// devnets only.
+/// REMOTE_SIGNAL_SERVICE, ETNA_STAKING and the length of each ETNA_FALLBACK_KEYS entry itself;
+/// the constructors and `init` check the other bounds listed above, so a logged owner call is
+/// validated when the owner sends it. Nothing on chain checks the rest, which the operator must
+/// ensure: MAX_ANCHOR_AGE above the L1 finality delay (spec 11), which is three epochs (1152 s on
+/// Ethereum) plus the deployment's allowance for slots missed at an epoch boundary and for nodes'
+/// delay in importing the finalization, so on Ethereum 1152 s itself is too low; genesis values
+/// that match the L2 genesis; and nodes and guests using the same configuration. A verifier that
+/// accepts every proof is for ephemeral devnets only.
 /// @custom:security-contact security@taiko.xyz
 contract DeployEtnaDevnet is Script {
     /// @notice U, the maximum number of unsettled L2 blocks, when ETNA_UNSETTLED_LIMIT is unset,
@@ -225,10 +227,29 @@ contract DeployEtnaDevnet is Script {
         IEtnaInbox.InitParams memory params = IEtnaInbox.InitParams({
             genesisBlockHash: genesisHash,
             genesisStateRoot: genesisRoot,
+            fallbackKeys: _fallbackKeys(),
+            minTotalStake: vm.envUint("ETNA_MIN_TOTAL_STAKE"),
             forcedInclusionDelay: vm.envUint("FORCED_INCLUSION_DELAY"),
             maxAnchorAge: vm.envUint("MAX_ANCHOR_AGE")
         });
         return abi.encodeCall(EtnaInbox.init, (params));
+    }
+
+    /// @dev Reads ETNA_FALLBACK_KEYS, comma-separated 33-byte compressed keys `prefix ‖ X` in hex,
+    /// in the given order. `init` checks the count, the keys and their order.
+    /// @return keys_ The fallback key list.
+    function _fallbackKeys() internal view returns (IEtnaInbox.FallbackKey[] memory keys_) {
+        bytes[] memory encoded = vm.envBytes("ETNA_FALLBACK_KEYS", ",");
+        keys_ = new IEtnaInbox.FallbackKey[](encoded.length);
+        for (uint256 i; i < encoded.length; ++i) {
+            bytes memory key = encoded[i];
+            require(key.length == 33, InvalidFallbackKeyLength());
+            bytes32 x;
+            assembly ("memory-safe") {
+                x := mload(add(key, 33))
+            }
+            keys_[i] = IEtnaInbox.FallbackKey({ ckPrefix: uint8(key[0]), ckX: x });
+        }
     }
 
     /// @dev Reads the block-zero identity for a new chain; switching deployments leave it unwritten.
@@ -295,4 +316,6 @@ contract DeployEtnaDevnet is Script {
     error ProofVerifierHasNoCode();
     /// @notice SIGNAL_SERVICE has no code.
     error SignalServiceHasNoCode();
+    /// @notice An ETNA_FALLBACK_KEYS entry is not 33 bytes.
+    error InvalidFallbackKeyLength();
 }

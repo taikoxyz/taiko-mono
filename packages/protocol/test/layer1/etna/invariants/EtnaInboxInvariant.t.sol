@@ -9,8 +9,9 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title EtnaInboxInvariantTest
 /// @notice Landings, landing records, recovery generations, the fee balance, the forced
-/// inclusion queue and the reserved slots under random sequences of saves, landings, recoveries,
-/// sweeps, force-sent ETH and L1 time.
+/// inclusion queue, the fallback key state and the reserved slots under random sequences of
+/// saves, landings, recoveries, fallback key and `minTotalStake` changes, sweeps, force-sent ETH
+/// and L1 time.
 /// @dev Foundry runs a separate campaign per invariant function and asserts only that function
 /// in it, so every invariant also asserts that the handler saw no violation of any kind.
 /// The Inbox lands at most 64 blocks per batch, so landings reach back over several checkpoints.
@@ -65,11 +66,14 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
                 forcedInclusionFeeDoubleThreshold: FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD,
                 configHash: configHash,
                 genesisBlockHash: GENESIS_BLOCK_HASH,
-                genesisStateRoot: GENESIS_STATE_ROOT
+                genesisStateRoot: GENESIS_STATE_ROOT,
+                fallbackKeys: _defaultFallbackKeys(),
+                minTotalStake: MIN_TOTAL_STAKE,
+                keyPool: _sortedKeys(8)
             })
         );
 
-        bytes4[] memory selectors = new bytes4[](7);
+        bytes4[] memory selectors = new bytes4[](9);
         selectors[0] = EtnaInboxHandler.saveForcedInclusion.selector;
         selectors[1] = EtnaInboxHandler.land.selector;
         selectors[2] = EtnaInboxHandler.recover.selector;
@@ -77,6 +81,8 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         selectors[4] = EtnaInboxHandler.forceEther.selector;
         selectors[5] = EtnaInboxHandler.advanceBlocks.selector;
         selectors[6] = EtnaInboxHandler.invalidateRecoveryNonce.selector;
+        selectors[7] = EtnaInboxHandler.setFallbackKeys.selector;
+        selectors[8] = EtnaInboxHandler.setMinTotalStake.selector;
         targetContract(address(handler));
         targetSelector(FuzzSelector({ addr: address(handler), selectors: selectors }));
         // Foundry refunds a call's unused gas to its sender, so a fuzzed sender that happened to
@@ -215,16 +221,52 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         assertEq(inbox.getCurrentForcedInclusionFee(), fee, "fee follows the pending count");
     }
 
-    /// @notice 6. The reserved slots 251-257, 259-267, 275-277, 283, 284, 286-289 and 291 stay
-    /// zero.
+    /// @notice 6. The unused and reserved slots 251-257, 259-267, 276, 277, 283, 284, 286-289 and
+    /// 291 stay zero.
     function invariant_reservedSlotsStayZero() external view {
         _assertModelHeld();
         _assertZero(251, 257);
         _assertZero(259, 267);
-        _assertZero(275, 277);
+        _assertZero(276, 277);
         _assertZero(RESERVED_SLOT_283, RESERVED_SLOT_284);
         _assertZero(RESERVED_SLOT_286, RESERVED_SLOT_289);
         _assertZero(RESERVED_SLOT_291, RESERVED_SLOT_291);
+    }
+
+    /// @notice 7. Slot 278 is the hash (appendix A) of the list `getFallbackKeys()` returns, which
+    /// is the model's last list with its length in slot 275; slot 279 is the model's last
+    /// `minTotalStake`.
+    function invariant_slot278IsTheHashOfTheStoredList() external view {
+        _assertModelHeld();
+        IEtnaInbox.FallbackKey[] memory stored = inbox.getFallbackKeys();
+        assertEq(abi.encode(stored), abi.encode(handler.ghostFallbackKeys()), "the model's list");
+        bytes32 hash = keccak256(abi.encode(FALLBACK_KEYS_TAG, stored));
+        assertEq(_word(FALLBACK_KEYS_HASH_SLOT), hash, "slot 278 hashes the stored list");
+        assertEq(inbox.fallbackKeysHash(), hash, "fallbackKeysHash()");
+        assertEq(hash, handler.ghostFallbackKeysHash(), "the model's hash");
+        assertEq(uint256(_word(FALLBACK_KEYS_SLOT)), stored.length, "slot 275 length");
+        assertEq(uint256(_word(MIN_TOTAL_STAKE_SLOT)), handler.ghostMinTotalStake(), "slot 279");
+        assertEq(inbox.minTotalStake(), handler.ghostMinTotalStake(), "minTotalStake()");
+    }
+
+    /// @notice 8. Every written origin record keeps, in its fourth word, the fallback key hash of
+    /// the moment it was written, whatever lists the owner set since.
+    function invariant_originsKeepTheirFallbackKeysHash() external view {
+        _assertModelHeld();
+        uint48 generation = inbox.recoveryGeneration();
+        for (uint256 g; g <= generation; ++g) {
+            bytes32 recorded = handler.originAt(g).fallbackKeysHash;
+            assertTrue(recorded != 0, "a written record holds a hash");
+            uint256 slot = uint256(keccak256(abi.encode(g, ORIGINS_SLOT)));
+            assertEq(_word(slot + 3), recorded, "slot 290 word 4");
+            assertEq(inbox.origins(g).fallbackKeysHash, recorded, "origins(g).fallbackKeysHash");
+        }
+    }
+
+    /// @notice 9. The reserved slot 284 stays zero.
+    function invariant_slot284StaysZero() external view {
+        _assertModelHeld();
+        assertEq(_word(RESERVED_SLOT_284), bytes32(0), "slot 284");
     }
 
     /// @dev Asserts that the handler recorded no broken property and no call whose outcome
@@ -264,7 +306,7 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         assertEq(_word(slot + 3), 0, "no slot 285 word 4");
     }
 
-    /// @dev Checks a generation's origin through the getter and its three slot 290 words.
+    /// @dev Checks a generation's origin through the getter and its four slot 290 words.
     function _assertOrigin(
         uint256 _generation,
         IEtnaInbox.Origin memory _expected
@@ -276,10 +318,12 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         assertEq(origin.startHeight, _expected.startHeight, "origin startHeight");
         assertEq(origin.l1BlockNumber, _expected.l1BlockNumber, "origin l1BlockNumber");
         assertEq(origin.l1Timestamp, _expected.l1Timestamp, "origin l1Timestamp");
+        assertEq(origin.fallbackKeysHash, _expected.fallbackKeysHash, "origin fallbackKeysHash");
         uint256 slot = uint256(keccak256(abi.encode(_generation, ORIGINS_SLOT)));
         assertEq(uint256(_word(slot)), _expected.startHeight, "slot 290 word 1");
         assertEq(uint256(_word(slot + 1)), _expected.l1BlockNumber, "slot 290 word 2");
         assertEq(uint256(_word(slot + 2)), _expected.l1Timestamp, "slot 290 word 3");
+        assertEq(_word(slot + 3), _expected.fallbackKeysHash, "slot 290 word 4");
     }
 
     /// @dev Asserts that Inbox slots `_first` through `_last` hold zero.
