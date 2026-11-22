@@ -1,7 +1,6 @@
 //! Bounded RPC fixtures and owned real-client processes for Docker landing scenarios.
 
 use std::{
-    collections::BTreeMap,
     fs::File,
     path::{Path, PathBuf},
     process::{ExitStatus, Stdio},
@@ -12,7 +11,6 @@ use std::{
     time::Duration,
 };
 
-use abci::CommitteeState;
 use alloy_consensus::Header;
 use anyhow::{Context, Result, bail, ensure};
 use axum::{
@@ -39,7 +37,6 @@ pub struct RpcData {
     pub chain_id: String,
     pub blocks: Vec<CertifiedBlock>,
     pub headers: Vec<Header>,
-    pub committees: BTreeMap<u64, CommitteeState>,
     /// The validator-state preimage after each height, indexed by height; `/val_state/<height>`
     /// answers it at any committed height, as the app does.
     pub val_states: Vec<Vec<u8>>,
@@ -137,16 +134,10 @@ async fn rpc(State(state): State<RpcState>, Json(request): Json<Value>) -> Respo
         }
         "abci_query" => {
             let path = params["path"].as_str().unwrap_or_default();
-            let answer = if let Some(height) = path.strip_prefix("/val_state/") {
-                height.parse::<usize>().ok().and_then(|height| data.val_states.get(height).cloned())
-            } else {
-                path.strip_prefix("/committee/")
-                    .and_then(|epoch| epoch.parse::<u64>().ok())
-                    .and_then(|epoch| data.committees.get(&epoch))
-                    .map(|committee| {
-                        serde_json::to_vec(committee).expect("committee serialization")
-                    })
-            };
+            let answer = path
+                .strip_prefix("/val_state/")
+                .and_then(|height| height.parse::<usize>().ok())
+                .and_then(|height| data.val_states.get(height).cloned());
             Some(match answer {
                 Some(bytes) => json!({"response":{"code":0,"value":STANDARD.encode(bytes)}}),
                 None => json!({"response":{"code":1,"log":"fixture app rejects the query"}}),

@@ -345,12 +345,12 @@ pub fn decode_extra_data(bytes: &[u8]) -> Result<ExtraData, RuleViolation> {
     Ok(extra)
 }
 
-/// Checks that the certified proposer belongs to the active native committee.
-pub fn is_committee_proposer(
-    members: &[crate::types::Member],
+/// Whether the certified `proposer` is a member of `signers`, the set that signs the block.
+pub fn is_validator(
+    signers: &[crate::valstate::ValEntry],
     proposer: tendermint::account::Id,
 ) -> bool {
-    members.iter().any(|member| member.pubkey.address().as_slice() == proposer.as_bytes())
+    signers.iter().any(|entry| entry.key.address().as_slice() == proposer.as_bytes())
 }
 
 /// Derives the consensus-chosen header fields of height `i.height`.

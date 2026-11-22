@@ -5,8 +5,8 @@
 use std::sync::LazyLock;
 
 use abci::{
-    AccountWitness, AnchorWitness, CommitteeRecord, CommitteeWitness, EtnaEnvelope, ExecutionBlock,
-    ForcedWitness, RawL1Header, RegistryEntry, StorageProof,
+    AccountWitness, AnchorWitness, EtnaEnvelope, ExecutionBlock, ForcedWitness, RawL1Header,
+    StorageProof,
 };
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B64, B256, Bloom, Bytes, U256};
@@ -121,30 +121,6 @@ fn anchor_witness() -> impl Strategy<Value = AnchorWitness> {
         .prop_map(|(header, inbox)| AnchorWitness { l1_header: RawL1Header::from(&header), inbox })
 }
 
-/// A committee witness with an arbitrary record, registry witness and up to three entries.
-fn committee_witness() -> impl Strategy<Value = CommitteeWitness> {
-    let record = (uint(), uint(), uint(), hash(), uint()).prop_map(
-        |(target_epoch, cutoff, index, set_hash, total_power)| CommitteeRecord {
-            target_epoch,
-            cutoff_l1_block: cutoff,
-            checkpoint_index: index,
-            set_hash,
-            total_power,
-        },
-    );
-    let entry = (hash(), word(), uint(), uint()).prop_map(
-        |(pubkey, eff_stake, active_from_l1, exit_effective_l1)| RegistryEntry {
-            ck_prefix: 2,
-            ck_x: pubkey,
-            eff_stake,
-            active_from_l1,
-            exit_effective_l1,
-        },
-    );
-    (record, account_witness(), vec(entry, 0..=3))
-        .prop_map(|(record, registry, entries)| CommitteeWitness { record, registry, entries })
-}
-
 /// A forced inclusion witness whose transaction is short arbitrary bytes or pseudo-random bytes
 /// of up to the 8192-byte limit.
 fn forced_witness() -> impl Strategy<Value = ForcedWitness> {
@@ -165,20 +141,13 @@ fn forced_witness() -> impl Strategy<Value = ForcedWitness> {
 pub(crate) fn envelope_with(
     transactions: impl Strategy<Value = Vec<Vec<u8>>>,
 ) -> impl Strategy<Value = EtnaEnvelope> {
-    (
-        el_header(),
-        transactions,
-        option::of(anchor_witness()),
-        option::of(committee_witness()),
-        option::of(forced_witness()),
-    )
-        .prop_map(|(header, transactions, anchor, committee, forced)| EtnaEnvelope {
+    (el_header(), transactions, option::of(anchor_witness()), option::of(forced_witness()))
+        .prop_map(|(header, transactions, anchor, forced)| EtnaEnvelope {
             block: ExecutionBlock {
                 header,
                 transactions: transactions.into_iter().map(Bytes::from).collect(),
             },
             anchor,
-            committee,
             forced,
         })
 }

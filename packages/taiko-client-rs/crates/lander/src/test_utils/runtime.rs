@@ -49,7 +49,6 @@ pub(crate) fn request() -> ProofRequest {
     request.batch.leaves = leaves(&blocks);
     request.batch.anchors = vec![request.batch.parent_anchor.clone(); blocks.len()];
     request.batch.blocks = blocks;
-    request.batch.committees = vec![committee.state];
     let reference = RawL1Header::from(&Header { number: 15, ..Default::default() });
     request.batch.reference_headers = vec![reference.raw().clone()];
     let payload = codec::encode(&request.batch.blocks, &limits()).unwrap();

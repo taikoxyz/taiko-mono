@@ -2,14 +2,13 @@
 //!
 //! [`AppState`] is everything `FinalizeBlock` needs besides the envelope and the EL: the chain
 //! identity, the genesis record and schedule, the committed parent, its anchor facts, the forced
-//! inclusion cursor, the known committees and CometBFT's validator state. `Commit` persists it
+//! inclusion cursor and CometBFT's validator state. `Commit` persists it
 //! with [`Store::save`]: the JSON is written to `abci-state.json.tmp`, fsynced, renamed over
 //! `abci-state.json` and the directory fsynced, so a crash leaves either the old or the new
 //! state, never a torn file.
 
 use std::{
     borrow::Cow,
-    collections::BTreeMap,
     fmt,
     fs::{self, File},
     io::{self, Write},
@@ -37,8 +36,8 @@ pub const STATE_FILE: &str = "abci-state.json";
 /// interrupted save and is discarded by [`Store::load`].
 pub const TMP_FILE: &str = "abci-state.json.tmp";
 
-/// One epoch's committee: its record (as deterministically derived from a fixed L1 snapshot) and
-/// members.
+/// A generation's initial committee: its record (as deterministically derived from a fixed L1
+/// snapshot) and members, as the genesis and recovery witnesses authenticate it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommitteeState {
     /// The committee record of the epoch.
@@ -48,7 +47,7 @@ pub struct CommitteeState {
 }
 
 /// The one [`AppState`] schema; a state file of any other schema is refused, never migrated.
-pub const STATE_SCHEMA_VERSION: u32 = 21;
+pub const STATE_SCHEMA_VERSION: u32 = 22;
 
 /// The app's committed state, persisted at every `Commit`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -95,8 +94,6 @@ pub struct AppState {
     /// may consume only entry `forced_cursor`. A required field: a state file without it is
     /// refused (no migration).
     pub forced_cursor: u64,
-    /// Authenticated active and pending committee records, keyed by their actual target epochs.
-    pub committees: BTreeMap<u64, CommitteeState>,
     /// CometBFT's validator state after `last_height` (its `height` is `last_height`): the
     /// generation's genesis state, advanced by every committed height's validator updates. A
     /// required field: a state file without it is refused (no migration).
@@ -142,45 +139,6 @@ impl AppState {
     pub fn anchor_floor(&self) -> u64 {
         self.recovery.as_ref().map_or(self.genesis.l1_0, |origin| origin.l1_number)
     }
-
-    /// Target epoch of the authenticated initial committee, on the unchanged global schedule.
-    pub fn initial_committee_epoch(&self) -> u64 {
-        self.recovery.as_ref().map_or(Schedule::E0, |origin| origin.height / self.genesis.epoch_len)
-    }
-
-    /// The target epoch of the committee active at `height`, preserving generation-zero set 0.
-    pub fn active_committee_epoch(&self, height: u64) -> Option<u64> {
-        self.schedule().active_committee_epoch_with_initial(
-            height,
-            self.origin_height(),
-            self.initial_committee_epoch(),
-        )
-    }
-
-    /// The actually active authenticated set; missing in-generation rotations never fall back.
-    pub fn committee_at(&self, height: u64) -> Option<&CommitteeState> {
-        self.committees.get(&self.active_committee_epoch(height)?)
-    }
-
-    /// Drops the records below the set active at the first height of epoch `keep_from_epoch`
-    /// that lies above the generation's origin, keeping that set and every later one.
-    /// `FinalizeBlock` passes `t − 1` at the switch to `t`, whose outgoing set still signs
-    /// S(t) + 1 = H(t) − 1 (COMM-4.3-13). When the origin (the Etna start S, or a recovery's c)
-    /// lies inside epoch `t − 1`, the switch into it was not this generation's and the outgoing
-    /// set is the initial one: at S that is committee 0, not record `t − 1`, which was never
-    /// derived (vector 9.d). On `u64` overflow nothing is dropped.
-    pub fn prune_committees(&mut self, keep_from_epoch: u64) {
-        let first_above_origin = self
-            .schedule()
-            .checked_h_first(keep_from_epoch)
-            .zip(self.origin_height().checked_add(1))
-            .map(|(first, after_origin)| first.max(after_origin));
-        if let Some(keep) =
-            first_above_origin.and_then(|height| self.active_committee_epoch(height))
-        {
-            self.committees = self.committees.split_off(&keep);
-        }
-    }
 }
 
 /// Why the state could not be loaded or saved.
@@ -219,7 +177,7 @@ pub enum StoreError {
     /// Replaying the origin or a committed height produced a different validator state.
     #[error("conflicting durable validator state at height {0}")]
     ValStateConflict(u64),
-    /// Replaying a committed switch height produced different validator updates.
+    /// Replaying a committed height produced different validator updates.
     #[error("conflicting durable validator updates at height {0}")]
     ValUpdatesConflict(u64),
     /// An immutable recovery bootstrap already exists with different evidence.
@@ -367,8 +325,8 @@ impl Store {
         self.save_framed(VAL_STATE_RECORD, state.height, found, state, || Ok(state.encode()))
     }
 
-    /// Reads the validator updates recorded for the committed switch height `height`: the
-    /// `(key, power)` changes its `FinalizeBlock` returned, possibly none (SYNC-9-5c).
+    /// Reads the validator updates recorded for the committed height `height`: the
+    /// `(key, power)` changes its `FinalizeBlock` returned, possibly none.
     ///
     /// The record `val-updates-{height}.bin` is framed like a validator-state record,
     /// `keccak256(body) ‖ body`, the body the JSON object of its `height` and `updates` (no
@@ -385,9 +343,9 @@ impl Store {
         })
     }
 
-    /// Durably records `updates` as the immutable validator updates of the switch height
-    /// `height` before the AppState of that height is published. Every switch height has one,
-    /// an empty list included, so a lost record is missing data, never "no change".
+    /// Durably records `updates` as the immutable validator updates of the height `height`
+    /// before the AppState of that height is published. Every height has one, an empty list
+    /// included, so a lost record is missing data, never "no change".
     ///
     /// An equal valid record succeeds unchanged; a valid record of other updates is
     /// [`StoreError::ValUpdatesConflict`] and is kept. A corrupt record is renamed to
@@ -688,7 +646,7 @@ const VAL_STATE_FILE: HeightFile = HeightFile { prefix: "val-state-", suffix: ".
 /// `val-state-{height}.bin.corrupt`.
 const VAL_STATE_SET_ASIDE: HeightFile = HeightFile { prefix: "val-state-", suffix: ".bin.corrupt" };
 
-/// The switch heights' [`frame`]d validator-update records: `val-updates-{height}.bin`.
+/// Every committed height's [`frame`]d validator-update records: `val-updates-{height}.bin`.
 const VAL_UPDATES_FILE: HeightFile = HeightFile { prefix: "val-updates-", suffix: ".bin" };
 
 /// Corrupt validator-update records set aside by [`Store::save_val_updates`]:
@@ -725,12 +683,12 @@ const VAL_UPDATES_RECORD: FramedRecord = FramedRecord {
     conflict: StoreError::ValUpdatesConflict,
 };
 
-/// The body of a validator-update record: the switch height and the `(key, power)` updates
-/// its `FinalizeBlock` returned, in response order.
+/// The body of a validator-update record: the height and the `(key, power)` updates its
+/// `FinalizeBlock` returned, in response order.
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ValUpdates<'a> {
-    /// The switch height.
+    /// The height.
     height: u64,
     /// The validator updates.
     updates: Cow<'a, [(ConsensusKey, u64)]>,
@@ -856,7 +814,6 @@ mod tests {
                 },
             },
             forced_cursor: 3,
-            committees: (0..4).map(|e| (e, committee(e))).collect(),
             val_state: ValState::genesis(105, &crate::test_utils::powers(&committee(0).members))
                 .unwrap(),
             execution_floor: None,
@@ -1057,7 +1014,7 @@ mod tests {
             ("", "execution_floor"),
             ("", "inbox"),
             ("", "last_comet_hash"),
-            ("/committees/0/members/0", "pubkey"),
+            ("/val_state/current/entries/0", "key"),
             ("", "forced_cursor"),
             ("", "val_state"),
             ("/genesis", "forced_inclusion_delay"),
@@ -1085,7 +1042,7 @@ mod tests {
         store.save(&s).expect("first save");
         s.last_height += 1;
         s.parent.number += 1;
-        s.committees.remove(&0);
+        s.forced_cursor += 1;
         store.save(&s).expect("second save");
         assert_eq!(store.load().expect("loads"), Some(s));
     }
@@ -1130,116 +1087,6 @@ mod tests {
             let err = store.load().expect_err("corrupt file must not load");
             assert!(matches!(err, StoreError::Corrupt { .. }), "{err:?}");
         }
-    }
-
-    #[test]
-    fn prune_committees_drops_epochs_below_the_bound() {
-        let mut s = state();
-        s.prune_committees(0);
-        assert_eq!(s.committees.keys().copied().collect::<Vec<_>>(), [0, 1, 2, 3]);
-        s.prune_committees(2);
-        assert_eq!(s.committees.keys().copied().collect::<Vec<_>>(), [2, 3]);
-        assert_eq!(s.committees[&2], committee(2));
-        s.prune_committees(10);
-        assert!(s.committees.is_empty());
-    }
-
-    /// Walks every height from `origin + 1` through at least three rotations above the origin,
-    /// applying `FinalizeBlock`'s insertion of committee `t` and `prune_committees(t − 1)` at every
-    /// switch S(t) = H(t) − 2, and checks that the set each height needs is known and is the
-    /// one the schedule names, computed here from the definitions: the latest `t` with
-    /// H(t) <= h whose switch lies above the origin, else the initial set (committee 0 at the
-    /// Etna start S, floor(c / L) after a recovery at c). `base` is [`state`] and `sets[e]` is
-    /// [`committee`]`(e)`, built once: key derivation dominates the walk otherwise.
-    fn walk_rotations(
-        base: &AppState,
-        sets: &[CommitteeState],
-        epoch_len: u64,
-        origin: u64,
-        recovery: bool,
-    ) {
-        let mut s = base.clone();
-        s.genesis.epoch_len = epoch_len;
-        let initial = if recovery { origin / epoch_len } else { 0 };
-        let set = |epoch: u64| sets[usize::try_from(epoch).unwrap()].clone();
-        if recovery {
-            s.generation = 1;
-            s.recovery = Some(RecoveryOrigin {
-                generation: 1,
-                height: origin,
-                l1_number: s.genesis.l1_0,
-                l1_timestamp: 0,
-                el_hash: B256::ZERO,
-                state_root: B256::ZERO,
-                comet_hash: B256::ZERO,
-                forced_cursor: 0,
-                committee: set(initial),
-            });
-        } else {
-            s.genesis.genesis_height = origin;
-        }
-        s.committees = BTreeMap::from([(initial, set(initial))]);
-        let schedule = s.schedule();
-        let h_first = |t: u64| 1 + t * epoch_len;
-        let expected = |h: u64| {
-            (1..)
-                .take_while(|&t| h_first(t) <= h)
-                .filter(|&t| h_first(t) - 2 > origin)
-                .last()
-                .unwrap_or(initial)
-        };
-        // `origin + 1` lies in epoch `origin / L`; four more switches include three above it.
-        let end = h_first(origin / epoch_len + 4);
-        let ctx = |h: u64| format!("L={epoch_len} origin={origin} recovery={recovery} h={h}");
-        for h in origin + 1..=end {
-            let active = s.committee_at(h).map(|c| c.record.target_epoch);
-            if active != Some(expected(h)) {
-                panic!("{}: active {active:?}, expected {}", ctx(h), expected(h));
-            }
-            if let Some(t) = schedule.switch_target(h) {
-                s.committees.insert(t, set(t));
-                s.prune_committees(t - 1);
-                assert!(s.committees.len() <= 2, "{}: {:?}", ctx(h), s.committees.keys());
-            }
-        }
-    }
-
-    /// COMM-4.3-9/13/15: the first rotation above the origin keeps the initial set signing
-    /// S(t) + 1, for every Etna start S and recovery origin c up to 4L with L in 3..=12, and up
-    /// to 2700 with L = 900 (vector 9.d is S = 1000, which halted at 1800 when the pruning fell
-    /// back to dropping committee 0).
-    #[test]
-    fn every_height_after_the_origin_has_its_committee_through_three_rotations() {
-        let base = state();
-        let sets: Vec<_> = (0..=8).map(committee).collect();
-        for epoch_len in 3..=12 {
-            for origin in 0..=4 * epoch_len {
-                walk_rotations(&base, &sets, epoch_len, origin, false);
-                walk_rotations(&base, &sets, epoch_len, origin, true);
-            }
-        }
-        for origin in 1..=2700 {
-            walk_rotations(&base, &sets, 900, origin, false);
-            walk_rotations(&base, &sets, 900, origin, true);
-        }
-    }
-
-    /// COMM-4.3-13 (13.g) and PROOF-6.2-32 (32.d): a rotation that keeps every key and power
-    /// returns no validator update, yet its record and selection snapshot govern from H(t) on,
-    /// not before and not one height later.
-    #[test]
-    fn an_unchanged_rotation_activates_its_record_and_snapshot_at_h_t() {
-        let mut s = state();
-        let (outgoing, incoming) = (committee(2), committee(3));
-        assert!(
-            crate::committee::validator_updates(&outgoing.members, &incoming.members).is_empty()
-        );
-        assert_ne!(outgoing.record.cutoff_l1_block, incoming.record.cutoff_l1_block);
-        s.committees = BTreeMap::from([(2, outgoing.clone()), (3, incoming.clone())]);
-        let h = s.schedule().h_first(3);
-        assert_eq!(s.committee_at(h - 1), Some(&outgoing));
-        assert_eq!(s.committee_at(h), Some(&incoming));
-        assert_eq!(s.committee_at(h).unwrap().record.cutoff_l1_block, 103);
     }
 }
 

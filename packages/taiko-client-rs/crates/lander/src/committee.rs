@@ -1,28 +1,11 @@
-//! CometBFT validator sets of committees derived from authenticated registry snapshots.
+//! Authenticated CometBFT validator sets: the signature slots a certificate is verified against.
 
 use abci::{
-    CommitteeState,
+    Member,
     key::{ConsensusKey, KeyError},
+    valstate::ValEntry,
 };
 use tendermint::{Hash, account::Id};
-
-/// A committee with validated member commitment and a reconstructed CometBFT validator set.
-#[derive(Clone, Debug)]
-pub struct AuthenticatedCommittee {
-    /// The exact full record and its members in canonical set-key order.
-    pub state: CommitteeState,
-    /// CometBFT orders its validators by descending power then ascending address.
-    pub validators: Validators,
-    /// Registry proof and authenticated derivation parent retained for independent derivation.
-    pub provenance: Option<crate::types::CommitteeContext>,
-}
-
-impl AsRef<CommitteeState> for AuthenticatedCommittee {
-    /// The committee record and members the validator set was built from.
-    fn as_ref(&self) -> &CommitteeState {
-        &self.state
-    }
-}
 
 /// Native validator metadata in the exact ordered certificate slot.
 #[derive(Clone, Debug)]
@@ -31,7 +14,7 @@ pub struct Validator {
     pub address: Id,
     /// Authorized native key, validated by the core key type.
     pub pub_key: ConsensusKey,
-    /// Positive voting power admitted by the committee record.
+    /// Positive voting power of the member.
     voting_power: u64,
 }
 impl Validator {
@@ -53,7 +36,7 @@ pub struct Validators {
 impl Validators {
     /// Build native commit slots from previously power-bounded members. Only keys/powers enter
     /// this representation; callers authenticate it against each native header before use.
-    pub(crate) fn from_members(members: &[abci::Member]) -> Result<Self, KeyError> {
+    pub fn from_members(members: &[Member]) -> Result<Self, KeyError> {
         let mut validators = members
             .iter()
             .map(|member| Validator {
@@ -80,16 +63,17 @@ impl Validators {
     pub fn total_voting_power(&self) -> u64 {
         self.total
     }
-}
-
-impl AuthenticatedCommittee {
-    /// Builds the CometBFT validator set of a committee that
-    /// [`abci::committee::verify_committee_witness_at_cutoff`] derived, which already guarantees
-    /// its epoch, member order, stake/power mapping, totals and set hash. Fails only on a voting
-    /// power outside CometBFT's `int64` range.
-    pub fn new(state: CommitteeState) -> Result<Self, KeyError> {
-        let validators = Validators::from_members(&state.members)?;
-        Ok(Self { state, validators, provenance: None })
+    /// The set as CometBFT entries in its order, each at proposer priority 0 (the order
+    /// `NewValidatorSet` holds them in): the signers a block's certified proposer is looked up in.
+    pub fn entries(&self) -> Vec<ValEntry> {
+        self.members
+            .iter()
+            .map(|v| ValEntry {
+                key: v.pub_key,
+                power: i64::try_from(v.voting_power).expect("a set's power fits CometBFT's int64"),
+                priority: 0,
+            })
+            .collect()
     }
 }
 
@@ -108,5 +92,15 @@ mod tests {
             valid.validators.hash(),
             tendermint::Hash::Sha256(abci::wire::validators_hash(&members).unwrap().0)
         );
+    }
+
+    /// The entries keep the slot order and are the set `comet_order` builds from the members.
+    #[test]
+    fn entries_are_the_comet_order_of_the_members() {
+        let (_, valid, _) = committee(&[1, 5, 3], 0);
+        let members = valid.state.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>();
+        assert_eq!(valid.validators.entries(), abci::valstate::comet_order(&members).unwrap());
+        let keys = valid.validators.validators().iter().map(|v| v.pub_key).collect::<Vec<_>>();
+        assert_eq!(valid.validators.entries().iter().map(|e| e.key).collect::<Vec<_>>(), keys);
     }
 }

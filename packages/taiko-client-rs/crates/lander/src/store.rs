@@ -14,7 +14,7 @@ use std::{
 };
 
 /// Journal schema version; any other version is refused with its file unchanged (START-10-24).
-const JOURNAL_VERSION: u8 = 20;
+const JOURNAL_VERSION: u8 = 21;
 /// Hard allocation bound before reading or decoding an untrusted journal.
 pub(crate) const MAX_JOURNAL_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -326,8 +326,9 @@ mod tests {
         assert_eq!(names, ["lander.lock"]);
     }
 
-    /// A journal of any other schema, here a real Pending job signed at nonce 7, is refused and
-    /// kept byte for byte, nonce included: no migration and no temporary rewrite.
+    /// A journal of another schema, here the previous one (20) holding a real Pending job signed
+    /// at nonce 7, is refused and kept byte for byte, nonce included: no migration and no
+    /// temporary rewrite.
     #[tokio::test]
     async fn other_journal_version_is_refused_intact() {
         use crate::test_utils::runtime::{request, signed};
@@ -343,7 +344,7 @@ mod tests {
         };
         let state =
             JournalState::Pending { job: Box::new(ProvedJob { request, proof }), transaction };
-        let version = JOURNAL_VERSION + 1;
+        let version = 20;
         let bytes = serde_json::to_vec(
             &serde_json::json!({ "version": version, "identity": id, "state": state }),
         )

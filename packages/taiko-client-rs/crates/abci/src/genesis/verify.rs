@@ -6,11 +6,10 @@ use super::GenesisError;
 use crate::{
     committee::{record_hash, verify_committee_witness_at_cutoff},
     config::ChainParams,
-    envelope::CommitteeWitness,
     l1::{RawL1Header, verify_genesis_inbox, witness::anchor_state},
     schedule::Schedule,
     store::CommitteeState,
-    types::{AccountWitness, AnchorState, GenesisRecord},
+    types::{AccountWitness, AnchorState, CommitteeWitness, GenesisRecord},
 };
 
 /// Authenticated bootstrap facts, before the epoch-0 committee has been verified.

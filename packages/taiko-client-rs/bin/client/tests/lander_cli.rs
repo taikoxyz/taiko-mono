@@ -29,11 +29,6 @@ fn rpc_data(chain: &FixtureChain) -> RpcData {
         chain_id: chain.chain_id.clone(),
         blocks: chain.blocks.clone(),
         headers: chain.headers.clone(),
-        committees: chain
-            .committees
-            .iter()
-            .map(|(epoch, committee)| (*epoch, committee.state.clone()))
-            .collect(),
         val_states: chain.val_states.iter().map(abci::valstate::ValState::encode).collect(),
     }
 }
@@ -397,7 +392,7 @@ async fn lander_cli_submits_at_minimum_or_timeout_and_restarts_wait_after_sigkil
 
 #[tokio::test]
 #[ignore = "docker"]
-async fn lander_cli_flushes_back_pressure_and_committee_witnesses_before_deadline() -> Result<()> {
+async fn lander_cli_flushes_back_pressure_before_deadline() -> Result<()> {
     let fixture = ContractFixture::deploy_config(1, 12, 15).await?;
     let result = async {
         let mut chain = FixtureChain::new(&fixture).await?;
@@ -428,31 +423,10 @@ async fn lander_cli_flushes_back_pressure_and_committee_witnesses_before_deadlin
         wait_checkpoint_before(&fixture, &mut process, 12, Duration::from_secs(15)).await?;
         ensure!(process.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
         assert_key_absent(&process);
-        // The unlanded switch at height 12 triggers useful settlement at depth 2.
-        mine_l1_blocks(&fixture.anvil.provider, 3).await?;
-        let switch_height = 18;
-        chain.extend(&fixture, switch_height).await?;
-        rpc.replace(rpc_data(&chain)).await;
-        let mut process = CliProcess::spawn(
-            Path::new(CLIENT),
-            &args,
-            directory.path().join("batch-epoch.log"),
-            &[("--min-blocks", "12"), ("--max-batch-wait", "3600")],
-        )?;
-        // Only two blocks remain, including the fixed-cutoff committee witness.
-        wait_checkpoint_before(&fixture, &mut process, switch_height, Duration::from_secs(15))
-            .await?;
         ensure!(
-            fixture.checkpoint().await? ==
-                (switch_height, chain.headers[usize::try_from(switch_height)?].hash_slow()),
-            "urgent checkpoint differs"
-        );
-        ensure!(
-            fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 3,
+            fixture.anvil.provider.get_transaction_count(sender).await? == nonce + 2,
             "urgent flush consumed extra nonces"
         );
-        ensure!(process.signal(libc::SIGTERM).await?.success(), "SIGTERM should exit cleanly");
-        assert_key_absent(&process);
         Ok(())
     }
     .await;
@@ -495,7 +469,6 @@ async fn lander_cli_checks_engine_before_opening_journal_or_running() -> Result<
             chain_id: "unused-before-engine".into(),
             blocks: Vec::new(),
             headers: Vec::new(),
-            committees: Default::default(),
             val_states: Vec::new(),
         })
         .await?;

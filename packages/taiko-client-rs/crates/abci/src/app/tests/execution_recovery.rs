@@ -398,7 +398,6 @@ fn forced_skip_after_loss(fx: &Fixture, app: &App<MockL1, MockEngine>) -> crate:
     let envelope = super::proposal::hand_forced_envelope(
         app,
         Some(fx.anchor_witness(app.l1(), 66)),
-        None,
         fx.forced_witness(app.l1(), 66, 0, tx),
         protocol::shasta::encode_transactions(&[]),
     );

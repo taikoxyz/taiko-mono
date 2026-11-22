@@ -15,7 +15,7 @@
 //! committee from the genesis snapshot.
 
 use crate::wire::request::InitChain;
-use std::{collections::BTreeMap, path::Path};
+use std::path::Path;
 
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256};
@@ -34,7 +34,7 @@ use crate::{
     l1::{header::RawL1Header, layout::inbox, verify_anchor_witness},
     rules::chain_id_for,
     schedule::Schedule,
-    store::{AppState, CommitteeState, Store},
+    store::{AppState, Store},
     types::{
         AnchorState, CommitteeRecord, GenesisRecord, InboxFacts, Member, ParentInfo, RegistryEntry,
     },
@@ -343,25 +343,6 @@ impl Fixture {
         verify_anchor_witness(&w, self.params.inbox).expect("planted anchor")
     }
 
-    /// The schedule of the fixture's genesis record.
-    pub(crate) fn schedule(&self) -> Schedule {
-        Schedule::from_genesis(&self.genesis)
-    }
-
-    /// Derives `target_epoch` using the fixture registry: explicit genesis cutoff for epoch zero,
-    /// genesis parent anchor for later epochs.
-    /// Later checkpoint scenarios construct and authenticate their own witness instead.
-    pub(crate) fn committee(&self, target_epoch: u64) -> CommitteeState {
-        let cutoff = if target_epoch == Schedule::E0 {
-            self.genesis.genesis_cutoff
-        } else {
-            self.genesis.l1_0
-        };
-        let (record, members) =
-            genesis_committee(&self.params, &self.registry, cutoff, target_epoch);
-        CommitteeState { record, members }
-    }
-
     /// The `AppState` a correct `InitChain` persists for this genesis.
     pub(crate) fn expected_state(&self) -> AppState {
         let b_star = self.el_chain.last().expect("the EL chain holds the Etna start block");
@@ -405,10 +386,6 @@ impl Fixture {
                 },
             },
             forced_cursor: 0,
-            committees: BTreeMap::from([(
-                Schedule::E0,
-                CommitteeState { record: self.record.clone(), members: self.members.clone() },
-            )]),
             val_state: ValState::genesis(self.genesis.genesis_height, &powers(&self.members))
                 .expect("the e_0 committee is a CometBFT validator set"),
             execution_floor: None,

@@ -523,7 +523,6 @@ mod tests {
                     transactions: vec![vec![0; size].into()],
                 },
                 anchor: None,
-                committee: None,
                 forced: None,
             };
             let pair = consensus::pair_with_envelope(envelope, &committee, &keys, blocks.last());

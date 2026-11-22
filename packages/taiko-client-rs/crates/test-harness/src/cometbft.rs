@@ -2,9 +2,7 @@
 
 use std::{fs, os::unix::fs::DirBuilderExt, path::Path, time::Duration};
 
-use abci::{
-    CommitteeState, EtnaEnvelope, Status, key::ConsensusKey, single_envelope, valstate::ValEntry,
-};
+use abci::{EtnaEnvelope, Status, key::ConsensusKey, single_envelope, valstate::ValEntry};
 use alloy_primitives::{B256, Bytes};
 use anyhow::{Context, Result, bail, ensure};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
@@ -284,14 +282,6 @@ impl CmtClient {
     pub async fn abci_status(&self) -> Result<Status> {
         let bytes = self.abci_query("/status").await?.context("the app rejected /status")?;
         Ok(serde_json::from_slice(&bytes)?)
-    }
-
-    /// The app's committee of `epoch`, if it knows one.
-    pub async fn committee(&self, epoch: u64) -> Result<Option<CommitteeState>> {
-        match self.abci_query(&format!("/committee/{epoch}")).await? {
-            Some(bytes) => Ok(Some(serde_json::from_slice(&bytes)?)),
-            None => Ok(None),
-        }
     }
 
     /// The validator addresses (upper-case hex, as [`ValidatorKey::address`]) whose precommit

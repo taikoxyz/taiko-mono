@@ -168,7 +168,6 @@ fn retryable_genesis(error: &abci::GenesisError) -> bool {
         abci::GenesisError::InitializationNotFinal { .. } => true,
         abci::GenesisError::Fetch(error) => match error.as_ref() {
             abci::l1::FetchError::L1(error) => !error.is_integrity_failure(),
-            abci::l1::FetchError::Timeout(_) => true,
             _ => false,
         },
         _ => false,

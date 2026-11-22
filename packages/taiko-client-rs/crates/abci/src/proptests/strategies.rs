@@ -13,10 +13,10 @@ use alloy_primitives::{Address, B64, B256, Bloom, Bytes, Signature, TxKind, U256
 use proptest::{collection::vec, option, prelude::*};
 
 use crate::{
-    envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope, ExecutionBlock},
+    envelope::{AnchorWitness, EtnaEnvelope, ExecutionBlock},
     forced::{ForcedWitness, MAX_FORCED_TX_BYTES},
     l1::header::RawL1Header,
-    types::{AccountWitness, CommitteeRecord, RegistryEntry, StorageProof},
+    types::{AccountWitness, StorageProof},
 };
 
 /// A `u64` of uniformly random bit length (0 to 64).
@@ -181,40 +181,6 @@ pub(super) fn account_witness() -> impl Strategy<Value = AccountWitness> {
         })
 }
 
-/// A committee record with arbitrary fields.
-pub(super) fn committee_record() -> impl Strategy<Value = CommitteeRecord> {
-    (uint(), uint(), uint(), hash(), uint()).prop_map(
-        |(target_epoch, cutoff_l1_block, checkpoint_index, set_hash, total_power)| {
-            CommitteeRecord {
-                target_epoch,
-                cutoff_l1_block,
-                checkpoint_index,
-                set_hash,
-                total_power,
-            }
-        },
-    )
-}
-
-/// Arbitrary canonical field encodings; derivation separately validates curve membership.
-fn registry_entry() -> impl Strategy<Value = RegistryEntry> {
-    (any::<u8>(), hash(), word(), uint(), uint()).prop_map(
-        |(ck_prefix, ck_x, eff_stake, active_from_l1, exit_effective_l1)| RegistryEntry {
-            ck_prefix,
-            ck_x,
-            eff_stake,
-            active_from_l1,
-            exit_effective_l1,
-        },
-    )
-}
-
-/// A committee witness: an arbitrary record, registry account witness and up to six entries.
-pub(super) fn committee_witness() -> impl Strategy<Value = CommitteeWitness> {
-    (committee_record(), account_witness(), vec(registry_entry(), 0..=6))
-        .prop_map(|(record, registry, entries)| CommitteeWitness { record, registry, entries })
-}
-
 /// The bytes of a forced transaction, at most `max` long: short arbitrary bytes, pseudo-random
 /// bytes of any length, or exactly `max` of them.
 pub(super) fn forced_tx(max: usize) -> impl Strategy<Value = Bytes> {
@@ -246,22 +212,12 @@ fn execution_block() -> impl Strategy<Value = ExecutionBlock> {
 
 /// An envelope: an arbitrary execution block, and each witness absent or arbitrary.
 pub(super) fn envelope() -> impl Strategy<Value = EtnaEnvelope> {
-    (
-        execution_block(),
-        option::of(anchor_witness()),
-        option::of(committee_witness()),
-        option::of(forced_witness()),
-    )
-        .prop_map(|(block, anchor, committee, forced)| EtnaEnvelope {
-            block,
-            anchor,
-            committee,
-            forced,
-        })
+    (execution_block(), option::of(anchor_witness()), option::of(forced_witness()))
+        .prop_map(|(block, anchor, forced)| EtnaEnvelope { block, anchor, forced })
 }
 
 /// An envelope-shaped body under the right version byte that rarely decodes: a valid execution
-/// block followed by three arbitrary items, each an empty list, a list of one or two arbitrary
+/// block followed by two arbitrary items, each an empty list, a list of one or two arbitrary
 /// items, or a single arbitrary item.
 pub(super) fn envelope_shaped_bytes() -> impl Strategy<Value = Vec<u8>> {
     let optional = || {
@@ -272,8 +228,8 @@ pub(super) fn envelope_shaped_bytes() -> impl Strategy<Value = Vec<u8>> {
             rlp_item(2),
         ]
     };
-    (execution_block(), optional(), optional(), optional()).prop_map(|(block, a, b, c)| {
-        let body = rlp_list(&[alloy_rlp::encode(&block), a, b, c]);
+    (execution_block(), optional(), optional()).prop_map(|(block, a, b)| {
+        let body = rlp_list(&[alloy_rlp::encode(&block), a, b]);
         [vec![crate::envelope::ENVELOPE_VERSION], body].concat()
     })
 }

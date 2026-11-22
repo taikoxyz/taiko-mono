@@ -260,7 +260,6 @@ async fn generate(dir: &Path, s: u64, period: u64) {
             EtnaEnvelope {
                 block: ExecutionBlock { header: el.clone(), transactions: vec![] },
                 anchor: witness,
-                committee: None,
                 forced: None,
             },
             &fx.committees[&0],

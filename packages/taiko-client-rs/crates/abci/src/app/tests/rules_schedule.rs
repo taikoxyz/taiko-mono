@@ -50,8 +50,8 @@ async fn inherited_schedule_is_enforced_and_unknown_rules_pause_cold_finalize() 
     let mut app = mid_epoch(&fx, dir.path(), 6).await;
     let witness = install_schedule(&fx, &app, U256::from(1) << 48);
     let anchor = crate::l1::verify_anchor_witness(&witness, fx.params.inbox).unwrap();
-    jump(&mut app, 6, anchor, &[]);
-    let env = hand_envelope(&app, None, None);
+    jump(&mut app, 6, anchor);
+    let env = hand_envelope(&app, None);
     let (verdict, req) = judge(&mut app, &env).await;
     assert_eq!(verdict, response::ProcessProposal::Reject);
     assert_eq!(app.halt.as_deref(), Some("unsupported_ruleset"));
@@ -73,7 +73,7 @@ async fn decided_planned_stop_violation_is_a_safety_halt() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 6).await;
     let witness = install_schedule(&fx, &app, U256::from(1) << 144);
-    let env = hand_envelope(&app, Some(witness), None);
+    let env = hand_envelope(&app, Some(witness));
     let (_, req) = judge(&mut app, &env).await;
     assert!(
         matches!(finalize(&mut app, finalize_req(&req)).await, Err(AbciError::SafetyHalt(message)) if message.contains("planned stop"))
@@ -88,7 +88,7 @@ async fn unsupported_rules_do_not_mask_a_forged_anchor_during_cold_finalize() {
     let mut app = mid_epoch(&fx, dir.path(), 6).await;
     let mut witness = install_schedule(&fx, &app, U256::from(1) << 48);
     witness.l1_header = crate::test_utils::edit_l1_header(&witness.l1_header, |h| h.gas_used += 1);
-    let env = hand_envelope(&app, Some(witness), None);
+    let env = hand_envelope(&app, Some(witness));
     let (_, req) = judge(&mut app, &env).await;
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(20),

@@ -24,12 +24,6 @@ async fn governance_recovery_command_produces_and_lands() -> Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
-async fn governance_recovery_l7_keeps_the_global_epoch_schedule() -> Result<()> {
-    checkpoint_roundtrip(7, false, false).await
-}
-
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "docker"]
 async fn governance_recovery_l6_blanks_fi_and_lands_epoch_boundary() -> Result<()> {
     checkpoint_roundtrip(6, true, false).await
 }
@@ -607,10 +601,10 @@ async fn standby_recovery(clear_fi: bool) -> Result<()> {
         wait_checkpoint(&f, &mut lander, 6).await?;
         lander.stop().await?;
         c.wait_for_height(13).await?;
-        // Blockstore publication precedes ABCI Commit; the pending set is queryable only
-        // after the app has durably committed S(1)=13, not merely published that block.
+        // Blockstore publication precedes ABCI Commit: wait until the app has durably committed
+        // 13, not merely published that block.
         let committed = test_harness::wait_until(
-            "old app committed switch height 13",
+            "old app committed height 13",
             std::time::Duration::from_secs(120),
             std::time::Duration::from_millis(100),
             || async {
@@ -619,19 +613,13 @@ async fn standby_recovery(clear_fi: bool) -> Result<()> {
             },
         )
         .await?;
-        ensure!(committed < 15, "old committee activated before fixture isolation");
-        // D(1)=12 and S(1)=13 have derived the old pending set; H(1)=15 has not activated it.
-        let old_pending = c.cmt.committee(1).await?.context("old pending epoch-one committee")?;
-        assert_eq!(old_pending.record.target_epoch, 1);
-        assert_eq!(old_pending.members[0].pubkey, f.keys[active].pubkey());
-        eprintln!("old pending committee observed: committed={committed}, target_epoch=1");
+        ensure!(committed < 15, "the old chain moved past the fixture's isolation height");
         for index in 0..2 {
             c.stop_node(index).await?;
         }
         let retained: abci::store::AppState =
             serde_json::from_slice(&fs::read(c.app_dir(0).join(abci::store::STATE_FILE))?)?;
-        ensure!((13..15).contains(&retained.last_height), "old pending fixture height changed");
-        assert_eq!(retained.committees.get(&1), Some(&old_pending));
+        ensure!((13..15).contains(&retained.last_height), "old fixture height changed");
         let archives = (0..2)
             .map(|i| {
                 let path = c.signing_state_path(i);
@@ -656,10 +644,6 @@ async fn standby_recovery(clear_fi: bool) -> Result<()> {
         let validators = peer.validators(Some(7)).await?;
         assert_eq!(validators.len(), 1);
         assert_eq!(validators[0].pubkey, f.keys[standby].pubkey());
-        assert!(
-            peer.committee(1).await?.is_none(),
-            "old pending committee must not survive InitChain"
-        );
         wait_checkpoint(&f, &mut node, 12).await?;
         mine_l1_blocks(&f.anvil.provider, 3).await?;
         use lander::l1::LandingSource;

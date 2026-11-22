@@ -25,7 +25,6 @@ async fn init_chain_publishes_the_genesis_head() {
     let app = initialized(&fx, dir.path()).await;
     let status = app.status().unwrap();
     assert_eq!(AbciMetrics::head().get(), i64::try_from(status.head).unwrap());
-    assert_eq!(AbciMetrics::epoch().get(), 0);
     assert_eq!(AbciMetrics::generation().get(), 0);
     assert_eq!(AbciMetrics::unsettled_depth().get(), 0);
 }
@@ -57,7 +56,6 @@ async fn a_committed_round_counts_and_publishes_the_new_head() {
     assert_eq!(AbciMetrics::l1_finality_lag().get(), 0);
     let status = app.status().unwrap();
     assert_eq!(AbciMetrics::head().get(), i64::try_from(status.head).unwrap());
-    assert_eq!(AbciMetrics::epoch().get(), i64::try_from(status.epoch).unwrap());
     assert_eq!(AbciMetrics::generation().get(), i64::try_from(status.generation).unwrap());
     assert_eq!(
         AbciMetrics::unsettled_depth().get(),
@@ -121,7 +119,7 @@ async fn checkpoint_conflicts_count_as_refusals_not_fallbacks() {
     assert_eq!(AbciMetrics::proposals_placeholder().get(), placeholders + 1);
     assert_eq!(fallbacks(), fallen_back);
 
-    let env = super::proposal::hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
+    let env = super::proposal::hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)));
     assert_eq!(judge(&mut app, &env).await.0, response::ProcessProposal::Reject);
     assert_eq!(rejected("checkpoint_conflict"), conflicts + 1);
     assert_eq!(AbciMetrics::halted().get(), 1);

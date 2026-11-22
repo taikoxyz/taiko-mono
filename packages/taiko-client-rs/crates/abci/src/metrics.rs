@@ -66,11 +66,6 @@ impl AbciMetrics {
         &METRICS.head
     }
 
-    /// `abci_epoch`: the epoch of the committed head.
-    pub fn epoch() -> &'static IntGauge {
-        &METRICS.epoch
-    }
-
     /// `abci_generation`: the recovery generation of the running chain.
     pub fn generation() -> &'static IntGauge {
         &METRICS.generation
@@ -145,8 +140,6 @@ struct Metrics {
     finalize_seconds: Histogram,
     /// See [`AbciMetrics::head`].
     head: IntGauge,
-    /// See [`AbciMetrics::epoch`].
-    epoch: IntGauge,
     /// See [`AbciMetrics::generation`].
     generation: IntGauge,
     /// See [`AbciMetrics::unsettled_depth`].
@@ -198,7 +191,6 @@ static METRICS: Lazy<Metrics> = Lazy::new(|| Metrics {
     process_seconds: histogram("abci_process_seconds", "ProcessProposal latency in seconds"),
     finalize_seconds: histogram("abci_finalize_seconds", "FinalizeBlock latency in seconds"),
     head: gauge("abci_head", "Last committed height"),
-    epoch: gauge("abci_epoch", "Epoch of the committed head"),
     generation: gauge("abci_generation", "Recovery generation of the running chain"),
     unsettled_depth: gauge(
         "abci_unsettled_depth",
@@ -273,7 +265,6 @@ mod tests {
             "abci_process_seconds",
             "abci_finalize_seconds",
             "abci_head",
-            "abci_epoch",
             "abci_generation",
             "abci_unsettled_depth",
             "abci_l1_finality_lag",

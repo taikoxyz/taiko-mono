@@ -46,12 +46,6 @@ impl<L> OwnL1<L> {
         Self { inner, sightings: Mutex::default() }
     }
 
-    /// The wrapped source, its sightings dropped: what a restarted process starts with.
-    #[cfg(test)]
-    pub(crate) fn into_inner(self) -> L {
-        self.inner
-    }
-
     /// Notes that the own L1 reported `number` as finalized now, unless it did before.
     fn note_finalized(&self, number: u64) {
         let mut seen = self.sightings.lock().unwrap_or_else(PoisonError::into_inner);

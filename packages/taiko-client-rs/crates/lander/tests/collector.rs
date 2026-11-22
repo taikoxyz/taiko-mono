@@ -1,7 +1,7 @@
 //! The production collector against stock CometBFT, independently of actual-contract landing.
 use std::time::Duration;
 
-use abci::{EtnaEnvelope, committee::record_hash, l1::layout::inbox};
+use abci::{EtnaEnvelope, Member};
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::U256;
 use alloy_provider::Provider;
@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use lander::{
     codec,
     comet::{CometSource, HttpCometSource},
-    committee::AuthenticatedCommittee,
+    committee::Validators,
     validate::{verify_commit, verify_structure},
 };
 use test_harness::{Devnet, DevnetSpec};
@@ -33,17 +33,15 @@ async fn lander_live_comet_collector_preserves_and_authenticates_certificates() 
         })?
     );
     assert!(status.height >= 5);
-    let committee = devnet.cmt(0).committee(0).await?.context("genesis committee")?;
-    let onchain = devnet
-        .l1()
-        .get_storage_at(
-            devnet.params().inbox,
-            U256::from_be_bytes(inbox::slot(inbox::GENESIS_COMMITTEE_HASH).0),
-        )
-        .await?;
-    let hash = record_hash(devnet.params().l2_chain_id, &committee.record);
-    assert_eq!(U256::from_be_bytes(hash.0), onchain);
-    let authenticated = AuthenticatedCommittee::new(committee)?;
+    // The genesis set signs every height.
+    let members = devnet
+        .cmt(0)
+        .validators(Some(1))
+        .await?
+        .into_iter()
+        .map(|v| Member { pubkey: v.pubkey, eff_stake: U256::ZERO, power: v.power })
+        .collect::<Vec<_>>();
+    let validators = Validators::from_members(&members)?;
     let genesis = devnet
         .l2_provider(0)
         .get_block_by_number(BlockNumberOrTag::Number(0))
@@ -69,7 +67,7 @@ async fn lander_live_comet_collector_preserves_and_authenticates_certificates() 
                 })
                 .all(|s| s.as_bytes().len() == 65)
         );
-        verify_commit(&pair.commit, &pair.block.header, &authenticated, &status.chain_id)?;
+        verify_commit(&pair.commit, &pair.block.header, &validators, &status.chain_id)?;
         let envelope = verify_structure(&pair, previous.as_ref(), height, parent)
             .with_context(|| format!("live block {height} structure"))?;
         assert_eq!(envelope, EtnaEnvelope::decode(&pair.block.data[0])?);
@@ -98,6 +96,5 @@ async fn lander_live_comet_collector_preserves_and_authenticates_certificates() 
         )?,
         published
     );
-    assert!(devnet.cmt(0).committee(1).await?.is_none(), "no committee witness exists by height 5");
     devnet.stop().await
 }

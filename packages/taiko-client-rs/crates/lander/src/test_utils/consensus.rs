@@ -1,8 +1,7 @@
 //! Genuine deterministic native secp256k1eth certificates used by consensus tests.
 
 use abci::{
-    AccountWitness, AnchorState, ChainParams, CommitteeRecord, CommitteeState, CommitteeWitness,
-    EtnaEnvelope, ExecutionBlock, InboxFacts, Member, RegistryEntry,
+    ChainParams, CommitteeRecord, CommitteeState, EtnaEnvelope, ExecutionBlock, Member,
     committee::{set_hash, set_key},
     key::ConsensusKey,
 };
@@ -19,7 +18,7 @@ use tendermint::{
 use tendermint_proto::{Protobuf, v0_38::types::CanonicalVote as RawVote};
 
 use crate::{
-    committee::AuthenticatedCommittee,
+    committee::Validators,
     native::{Block, Commit, CommitSig, RawBlock},
     types::CertifiedBlock,
     validate::{block_parts, commit_hash},
@@ -40,13 +39,26 @@ pub fn parameters() -> ChainParams {
     params
 }
 
-/// A committee of one member per power, keyed by domain-separated full-width indices, with
-/// registry entries in index order (bond id = index), active from L1 block 1 and staking
-/// their power, preserving the authenticated registry stake for epoch derivation.
-pub fn committee(
-    powers: &[u64],
-    epoch: u64,
-) -> (ChainParams, AuthenticatedCommittee, Vec<SigningKey>) {
+/// A fixture's committee: its record and members, and the validator set they sign as.
+#[derive(Clone, Debug)]
+pub struct FixtureCommittee {
+    /// The record and the members in set-key order.
+    pub state: CommitteeState,
+    /// The members' CometBFT validator set.
+    pub validators: Validators,
+}
+
+impl FixtureCommittee {
+    /// The committee `state` with the validator set its members sign as.
+    pub fn new(state: CommitteeState) -> Self {
+        let validators = Validators::from_members(&state.members).unwrap();
+        Self { state, validators }
+    }
+}
+
+/// A committee of one member per power, keyed by domain-separated full-width indices, its
+/// record at epoch `epoch` and cutoff L1 block 1.
+pub fn committee(powers: &[u64], epoch: u64) -> (ChainParams, FixtureCommittee, Vec<SigningKey>) {
     let keys = powers
         .iter()
         .enumerate()
@@ -67,7 +79,7 @@ pub fn committee(
 pub fn stock_go_committee(
     powers: &[u64],
     epoch: u64,
-) -> (ChainParams, AuthenticatedCommittee, Vec<SigningKey>) {
+) -> (ChainParams, FixtureCommittee, Vec<SigningKey>) {
     assert!(powers.len() <= usize::from(u8::MAX), "stock-Go fixture seed range");
     let keys = (1..=powers.len())
         .map(|index| SigningKey::from_slice(&[u8::try_from(index).unwrap(); 32]).unwrap())
@@ -81,7 +93,7 @@ fn committee_with_keys(
     epoch: u64,
     keys: Vec<SigningKey>,
     _stock_go: bool,
-) -> (ChainParams, AuthenticatedCommittee, Vec<SigningKey>) {
+) -> (ChainParams, FixtureCommittee, Vec<SigningKey>) {
     let mut params = parameters();
     params.n_max = params.n_max.max(powers.len());
     let mut members = keys
@@ -101,47 +113,7 @@ fn committee_with_keys(
         set_hash: set_hash(params.l2_chain_id, epoch + 1, &members),
         total_power: powers.iter().sum(),
     };
-    let entries = keys
-        .iter()
-        .zip(powers)
-        .map(|(key, power)| RegistryEntry {
-            ck_prefix: public_key(key).prefix(),
-            ck_x: public_key(key).x(),
-            eff_stake: U256::from(*power) * params.vp_unit,
-            active_from_l1: 1,
-            exit_effective_l1: u64::MAX,
-        })
-        .collect();
-    let registry = AccountWitness {
-        address: params.registry,
-        nonce: 0,
-        balance: U256::ZERO,
-        storage_root: B256::ZERO,
-        code_hash: B256::ZERO,
-        account_proof: vec![],
-        storage: vec![],
-    };
-    let anchor = AnchorState {
-        number: 1,
-        hash: B256::repeat_byte(1),
-        state_root: B256::repeat_byte(2),
-        timestamp: 1,
-        inbox: InboxFacts {
-            rules_schedule: alloy_primitives::U256::ZERO,
-            recovery_generation: 0,
-            last_checkpoint_height: 0,
-            last_checkpoint_hash: B256::ZERO,
-            forced_inclusion_head: 0,
-            forced_inclusion_tail: 0,
-        },
-    };
-    let mut committee =
-        AuthenticatedCommittee::new(CommitteeState { record: record.clone(), members }).unwrap();
-    committee.provenance = Some(crate::types::CommitteeContext {
-        anchor,
-        derivation_parent: None,
-        witness: CommitteeWitness { record, registry, entries },
-    });
+    let committee = FixtureCommittee::new(CommitteeState { record, members });
     (params, committee, keys)
 }
 
@@ -186,7 +158,7 @@ pub fn raw_block(block: &Block) -> RawBlock {
 pub fn pair(
     height: u64,
     parent: B256,
-    committee: &AuthenticatedCommittee,
+    committee: &FixtureCommittee,
     keys: &[SigningKey],
     previous: Option<&CertifiedBlock>,
 ) -> CertifiedBlock {
@@ -209,7 +181,6 @@ pub fn pair(
             transactions: vec![],
         },
         anchor: None,
-        committee: None,
         forced: None,
     };
     pair_with_envelope(envelope, committee, keys, previous)
@@ -217,7 +188,7 @@ pub fn pair(
 
 pub fn pair_with_envelope(
     envelope: EtnaEnvelope,
-    committee: &AuthenticatedCommittee,
+    committee: &FixtureCommittee,
     keys: &[SigningKey],
     previous: Option<&CertifiedBlock>,
 ) -> CertifiedBlock {
@@ -229,7 +200,7 @@ pub fn pair_with_envelope(
 /// Construct one stock-format native block, with a separately specified precommit time.
 pub fn timed_pair(
     envelope: EtnaEnvelope,
-    committee: &AuthenticatedCommittee,
+    committee: &FixtureCommittee,
     keys: &[SigningKey],
     previous: Option<&Commit>,
     time: Time,
@@ -276,13 +247,13 @@ pub fn timed_pair(
     pair
 }
 
-pub fn resign(pair: &mut CertifiedBlock, committee: &AuthenticatedCommittee, keys: &[SigningKey]) {
+pub fn resign(pair: &mut CertifiedBlock, committee: &FixtureCommittee, keys: &[SigningKey]) {
     resign_at(pair, committee, keys, pair.block.header.time)
 }
 
 pub fn resign_at(
     pair: &mut CertifiedBlock,
-    committee: &AuthenticatedCommittee,
+    committee: &FixtureCommittee,
     keys: &[SigningKey],
     timestamp: Time,
 ) {
@@ -297,7 +268,7 @@ pub fn resign_at(
 pub fn sign_commit(
     commit: &mut Commit,
     chain: &tendermint::chain::Id,
-    committee: &AuthenticatedCommittee,
+    committee: &FixtureCommittee,
     keys: &[SigningKey],
     timestamp: Time,
 ) {
@@ -335,7 +306,7 @@ pub fn sign_commit(
 
 pub fn nil_vote(
     pair: &CertifiedBlock,
-    committee: &AuthenticatedCommittee,
+    committee: &FixtureCommittee,
     keys: &[SigningKey],
     index: usize,
 ) -> CommitSig {

@@ -1,15 +1,15 @@
 //! The CometBFT validator-state replica: the genesis state `InitChain` builds, its advance by
 //! exactly the updates `FinalizeBlock` returns, its persistence across restarts, the records
-//! `InitChain` and `Commit` write (the origin's and every committed height's sidecar and the
-//! switch heights' update records), retention from the checkpoint's s − 1 on, the recompute of a
-//! lost record from them, and the `/val_state/<height>` query.
+//! `InitChain` and `Commit` write (the origin's and every committed height's sidecar and update
+//! record), retention from the checkpoint's s − 1 on, the recompute of a lost record from them,
+//! and the `/val_state/<height>` query.
 
 use std::collections::BTreeMap;
 
 use tendermint::abci::Code;
 
 use super::{
-    finalize::{multi_epoch_run, share_l1_chain, short_epochs, updates_of},
+    finalize::{RUN_HEIGHTS, multi_height_run, share_l1_chain, short_limit, updates_of},
     proposal::{
         bft_time, commit, finalize, finalize_req, judge, next_height, process_req, propose, step,
     },
@@ -19,7 +19,7 @@ use crate::{
     app::{CODE_REJECTED, info::recompute_val_state},
     key::ConsensusKey,
     store::{Record, StoreError},
-    test_utils::powers,
+    test_utils::{powers, test_key},
     valstate::ValState,
 };
 
@@ -86,62 +86,24 @@ async fn finalize_block_checks_the_decided_next_validator_hash_before_execution(
     }
 }
 
-/// A response's updates affect h+2; the decided h header still names the old h+1 set.
-#[tokio::test]
-async fn finalize_block_next_validator_hash_does_not_apply_its_own_updates_early() {
-    let fx = short_epochs();
-    let source_dir = tempfile::tempdir().unwrap();
-    let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
-    let switch = decided.iter().position(|(_, response)| !updates_of(response).is_empty()).unwrap();
-
-    for use_future_hash in [false, true] {
-        let dir = tempfile::tempdir().unwrap();
-        let mut app = replica(&fx, &source, dir.path()).await;
-        for (req, _) in &decided[..switch] {
-            finalize(&mut app, req.clone()).await.unwrap();
-            commit(&mut app).await.unwrap();
-        }
-        let (req, response) = &decided[switch];
-        let future = app.state().unwrap().val_state.advance(&updates_of(response)).unwrap();
-        let future_hash = tendermint::Hash::Sha256(future.next.validators_hash().unwrap().0);
-        assert_ne!(req.next_validators_hash, future_hash, "the switch changes keys/powers");
-        if use_future_hash {
-            let mut req = req.clone();
-            req.next_validators_hash = future_hash;
-            assert!(matches!(finalize(&mut app, req).await, Err(AbciError::SafetyHalt(_))));
-            assert!(app.pending.is_none());
-        } else {
-            finalize(&mut app, req.clone()).await.unwrap();
-            commit(&mut app).await.unwrap();
-            let (following, _) = &decided[switch + 1];
-            assert_eq!(following.next_validators_hash, future_hash);
-            finalize(&mut app, following.clone()).await.unwrap();
-        }
-    }
-}
-
-/// Across the switches of a multi-epoch run (one of which adds a validator), every
-/// FinalizeBlock advances the replica by exactly the validator updates it returns: at every
-/// height it equals a reference replay of the responses, and the set it holds as signing the
-/// next height is the committee active there.
+/// Across a multi-height run every FinalizeBlock advances the replica by exactly the validator
+/// updates it returns, the empty list: at every height it equals a reference replay of the
+/// responses, and the set it holds as signing the next height is still the genesis set.
 #[tokio::test]
 async fn finalize_block_advances_with_the_returned_updates() {
-    let fx = short_epochs();
+    let fx = short_limit();
     let source_dir = tempfile::tempdir().unwrap();
-    let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
+    let (source, decided) = multi_height_run(&fx, source_dir.path()).await;
     let dir = tempfile::tempdir().unwrap();
     let mut app = replica(&fx, &source, dir.path()).await;
 
     let mut reference = ValState::genesis(0, &powers(&fx.members)).unwrap();
-    let mut changes = vec![];
     for (req, expected) in &decided {
         let height = req.height.value();
         let response = finalize(&mut app, req.clone()).await.unwrap();
         assert_eq!(&response, expected, "height {height}");
         let updates = updates_of(&response);
-        if !updates.is_empty() {
-            changes.push(height);
-        }
+        assert!(updates.is_empty(), "height {height}");
         reference = reference.advance(&updates).unwrap();
         assert_eq!(app.pending.as_ref().unwrap().val_state, reference, "height {height}");
         commit(&mut app).await.unwrap();
@@ -155,13 +117,10 @@ async fn finalize_block_advances_with_the_returned_updates() {
             .iter()
             .map(|e| (e.key, u64::try_from(e.power).unwrap()))
             .collect();
-        let active = state.committee_at(height + 1).expect("the next height's committee");
-        let active: BTreeMap<ConsensusKey, u64> = powers(&active.members).into_iter().collect();
-        assert_eq!(signing, active, "the set signing {}", height + 1);
+        let genesis: BTreeMap<ConsensusKey, u64> = powers(&fx.members).into_iter().collect();
+        assert_eq!(signing, genesis, "the set signing {}", height + 1);
     }
-    let schedule = fx.schedule();
-    assert_eq!(changes, [schedule.h_first(2) - 2], "only the switch to 2 changes the set");
-    assert_eq!(reference.current.entries.len(), 4, "the fourth validator signs");
+    assert_eq!(reference.current.entries.len(), 3, "the genesis set signs");
     assert_eq!(source.state().unwrap().val_state, reference, "the proposer agrees");
 }
 
@@ -252,12 +211,12 @@ async fn val_state_survives_restart_and_sidecar_is_immutable() {
 
 /// The records a node keeps, as [`val_records_are_kept_from_the_checkpoint_minus_one`] tracks
 /// them: the validator states recorded so far (InitChain's origin state, then every committed
-/// height's) and the updates every committed switch height returned.
+/// height's) and the updates every committed height returned.
 #[derive(Default)]
 struct Written {
     /// The recorded validator states by height.
     states: BTreeMap<u64, ValState>,
-    /// The returned validator updates by switch height.
+    /// The returned validator updates by height.
     updates: BTreeMap<u64, Vec<(ConsensusKey, u64)>>,
 }
 
@@ -265,7 +224,7 @@ impl Written {
     /// Asserts that `app` keeps exactly the records retention leaves (SYNC-9-5c, DATA-5.4-8):
     /// the recorded states from the checkpoint's s − 1 (the height an import package at s needs)
     /// through `last_height`, from the origin while the checkpoint is the origin, and the updates
-    /// of the switch heights above s − 1.
+    /// of the heights above s − 1.
     fn assert_retained(&self, app: &App<MockL1, MockEngine>) {
         let state = app.state().unwrap();
         let (last, checkpoint) = (state.last_height, state.comet_history_floor());
@@ -296,21 +255,20 @@ impl Written {
     }
 }
 
-/// InitChain records the origin state and Commit the state at every committed height and the
-/// updates at every switch height, an empty list included. Retention keeps the records from the
+/// InitChain records the origin state and Commit the state and the updates at every committed
+/// height, an empty list included. Retention keeps the records from the
 /// checkpoint's s − 1 on, the preimage an import package at s carries (DATA-5.4-3, DATA-5.4-8),
 /// which is also the base the states above it are recomputed from: after every commit, on a
 /// replaying node and on the proposer alike, the sidecars on disk are exactly those of
-/// `[checkpoint − 1, last_height]` and the update records those of the switch heights above
+/// `[checkpoint − 1, last_height]` and the update records those of the heights above
 /// checkpoint − 1.
 #[tokio::test]
 async fn val_records_are_kept_from_the_checkpoint_minus_one() {
-    let fx = short_epochs();
+    let fx = short_limit();
     let source_dir = tempfile::tempdir().unwrap();
-    let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
+    let (source, decided) = multi_height_run(&fx, source_dir.path()).await;
     let dir = tempfile::tempdir().unwrap();
     let mut app = replica(&fx, &source, dir.path()).await;
-    let schedule = fx.schedule();
 
     let mut written = Written::default();
     let origin = app.state().unwrap();
@@ -323,16 +281,15 @@ async fn val_records_are_kept_from_the_checkpoint_minus_one() {
         let state = app.state().unwrap();
         let height = state.last_height;
         written.states.insert(height, state.val_state.clone());
-        if schedule.switch_target(height).is_some() {
-            written.updates.insert(height, updates_of(response));
-        }
+        written.updates.insert(height, updates_of(response));
         written.assert_retained(&app);
         checkpoints.push(state.comet_history_floor());
     }
-    assert_eq!(written.states.keys().copied().collect::<Vec<_>>(), (0..=15).collect::<Vec<_>>());
-    assert_eq!(written.updates.keys().copied().collect::<Vec<_>>(), [3, 7, 11, 15]);
+    let heights = (0..=RUN_HEIGHTS).collect::<Vec<_>>();
+    assert_eq!(written.states.keys().copied().collect::<Vec<_>>(), heights);
+    assert_eq!(written.updates.keys().copied().collect::<Vec<_>>(), heights[1..]);
     for (height, updates) in &written.updates {
-        assert_eq!(updates.is_empty(), *height != 7, "switch {height}");
+        assert!(updates.is_empty(), "height {height}");
     }
     checkpoints.dedup();
     assert!(
@@ -342,26 +299,16 @@ async fn val_records_are_kept_from_the_checkpoint_minus_one() {
     written.assert_retained(&source);
 }
 
-/// A crash after Commit wrote a switch height's records but before it saved the state makes
-/// CometBFT replay that height: FinalizeBlock and Commit over the reopened store derive the
-/// same records, whose re-save succeeds and leaves their bytes unchanged.
+/// A crash after Commit wrote a height's records but before it saved the state makes CometBFT
+/// replay that height: FinalizeBlock and Commit over the reopened store derive the same
+/// records, whose re-save succeeds and leaves their bytes unchanged.
 #[tokio::test]
 async fn replayed_commit_rewrites_identical_update_records() {
-    let fx = short_epochs();
+    let fx = short_limit();
     let source_dir = tempfile::tempdir().unwrap();
-    let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
-    let schedule = fx.schedule();
-    // The first switch height (no change) and the one adding a validator.
-    let switches = decided
-        .iter()
-        .enumerate()
-        .filter(|(_, (req, _))| schedule.switch_target(req.height.value()).is_some())
-        .map(|(index, _)| index)
-        .take(2)
-        .collect::<Vec<_>>();
-    assert_eq!(switches.len(), 2);
+    let (source, decided) = multi_height_run(&fx, source_dir.path()).await;
 
-    for switch in switches {
+    for switch in [2, 6] {
         let dir = tempfile::tempdir().unwrap();
         let mut app = replica(&fx, &source, dir.path()).await;
         for (req, _) in &decided[..switch] {
@@ -409,9 +356,9 @@ async fn replayed_commit_rewrites_identical_update_records() {
 /// s − 1 or above the head, though a valid sidecar is planted there, and a malformed number.
 #[tokio::test]
 async fn val_state_query_serves_any_retained_height() {
-    let fx = short_epochs();
+    let fx = short_limit();
     let source_dir = tempfile::tempdir().unwrap();
-    let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
+    let (source, decided) = multi_height_run(&fx, source_dir.path()).await;
     let dir = tempfile::tempdir().unwrap();
     let mut app = replica(&fx, &source, dir.path()).await;
 
@@ -478,7 +425,7 @@ async fn val_state_query_serves_any_retained_height() {
 }
 
 /// SYNC-9-5c: after a checkpoint import the record at s is the installed preimage, the base a
-/// later lost record is recomputed from.
+/// later lost record is recomputed from with the update records Commit writes above it.
 #[test]
 fn an_installed_import_record_is_the_recompute_base() {
     let fx = Fixture::genesis(1);
@@ -486,24 +433,115 @@ fn an_installed_import_record_is_the_recompute_base() {
     let dir = tempfile::tempdir().unwrap();
     let store = Store::volatile(dir.path().into());
     store.install_import(&state, None).unwrap();
+    for height in 13..=18 {
+        store.save_val_updates(height, &[]).unwrap();
+    }
     let expected = (13..=18).try_fold(state.val_state.clone(), |s, _| s.advance(&[])).unwrap();
-    assert_eq!(recompute_val_state(&store, 0, 18, |_| false), Ok(expected));
+    assert_eq!(recompute_val_state(&store, 0, 18), Ok(expected));
+}
+
+/// A store holding `ValState::genesis` of three keys at `base`, and empty update records for
+/// every height in `updates`.
+fn recompute_store(
+    base: u64,
+    updates: std::ops::RangeInclusive<u64>,
+) -> (tempfile::TempDir, Store, ValState) {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::volatile(dir.path().into());
+    let members = [(test_key(1), 10), (test_key(2), 20), (test_key(3), 30)];
+    let start = ValState::genesis(base, &members).unwrap();
+    store.save_val_state(&start).unwrap();
+    for height in updates {
+        store.save_val_updates(height, &[]).unwrap();
+    }
+    (dir, store, start)
+}
+
+/// Without a valid record below the height, from the generation's origin on, there
+/// is nothing to recompute from: missing data, an error naming the range.
+#[test]
+fn recompute_without_a_valid_starting_record_is_an_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::volatile(dir.path().into());
+    let error = recompute_val_state(&store, 0, 5).unwrap_err();
+    assert!(error.contains("no valid validator-state record below height 5"), "{error}");
+
+    // A record at the height itself is not below it.
+    let (_dir, store, _) = recompute_store(5, 6..=6);
+    let error = recompute_val_state(&store, 0, 5).unwrap_err();
+    assert!(error.contains("below height 5"), "{error}");
+}
+
+/// A valid record below the generation's origin belongs to an earlier generation and
+/// is no base: with the only valid record at 10 and the origin at 11 there is none, while the
+/// same store recomputes from it with the origin at 10.
+#[test]
+fn recompute_excludes_a_record_below_the_generation_origin() {
+    let (_dir, store, start) = recompute_store(10, 11..=13);
+    let error = recompute_val_state(&store, 11, 13).unwrap_err();
+    assert!(error.contains("below height 13 from the generation's origin 11"), "{error}");
+    let expected = (11..=13).try_fold(start, |state, _| state.advance(&[])).unwrap();
+    assert_eq!(recompute_val_state(&store, 10, 13), Ok(expected));
+}
+
+/// A corrupt record is no base; the newest valid record below it is, and the
+/// recompute advances from there through the corrupt height.
+#[test]
+fn recompute_skips_a_corrupt_newer_record_for_an_older_valid_one() {
+    let (dir, store, start) = recompute_store(10, 11..=14);
+    let newer = start.advance(&[]).unwrap().advance(&[]).unwrap();
+    assert_eq!(newer.height, 12);
+    store.save_val_state(&newer).unwrap();
+    std::fs::write(dir.path().join("val-state-12.bin"), b"corrupt").unwrap();
+    assert!(matches!(store.load_val_state(12).unwrap(), Record::Corrupt(_)));
+    let expected = (11..=14).try_fold(start, |state, _| state.advance(&[])).unwrap();
+    assert_eq!(recompute_val_state(&store, 0, 14), Ok(expected));
+}
+
+/// The update record of each height is applied at that height, a non-empty one
+/// changing the set: here one key leaves and another joins at 12.
+#[test]
+fn recompute_applies_a_non_empty_update_list_at_its_height() {
+    let (_dir, store, start) = recompute_store(10, 11..=13);
+    let updates = vec![(test_key(1), 0), (test_key(4), 40)];
+    std::fs::remove_file(store.directory().join("val-updates-12.bin")).unwrap();
+    store.save_val_updates(12, &updates).unwrap();
+    let expected = start.advance(&[]).unwrap().advance(&updates).unwrap().advance(&[]).unwrap();
+    let recomputed = recompute_val_state(&store, 0, 13).unwrap();
+    assert_eq!(recomputed, expected);
+    let next: Vec<ConsensusKey> = recomputed.next.entries.iter().map(|e| e.key).collect();
+    assert!(next.contains(&test_key(4)) && !next.contains(&test_key(1)), "{next:?}");
+}
+
+/// Every height records its validator updates, so a missing record at any height
+/// between the base and the target is missing data, not "no change", until it is back.
+#[test]
+fn recompute_needs_a_record_at_every_height() {
+    let (_dir, store, start) = recompute_store(10, 11..=14);
+    std::fs::remove_file(store.directory().join("val-updates-12.bin")).unwrap();
+    let error = recompute_val_state(&store, 0, 14).unwrap_err();
+    assert!(error.contains("the validator-update record of height 12 is missing"), "{error}");
+    // The heights below the gap still recompute.
+    assert_eq!(recompute_val_state(&store, 0, 11), Ok(start.advance(&[]).unwrap()));
+    store.save_val_updates(12, &[]).unwrap();
+    let expected = (11..=14).try_fold(start, |state, _| state.advance(&[])).unwrap();
+    assert_eq!(recompute_val_state(&store, 0, 14), Ok(expected));
 }
 
 /// SYNC-9-5c: a retained height whose record is missing or corrupt (junk, the bare preimage
 /// without its checksum, or the well-formed record of another height) answers the state
 /// recomputed from the base at the checkpoint's s − 1 and the update records since, and
 /// records it again byte for byte, a corrupt file set aside first (5c.i). Without an update
-/// record it needs, here the empty one of the switch to epoch 3 at the lost height itself, the
-/// state is missing data: refused and not recorded, until the update record is back (SYNC-9-7).
+/// record it needs, here the empty one at the lost height itself, the state is missing data:
+/// refused and not recorded, until the update record is back.
 #[tokio::test]
 async fn val_state_query_recomputes_lost_records_and_waits_without_their_inputs() {
-    let fx = short_epochs();
+    let fx = short_limit();
     let source_dir = tempfile::tempdir().unwrap();
-    let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
+    let (source, decided) = multi_height_run(&fx, source_dir.path()).await;
     let dir = tempfile::tempdir().unwrap();
     let mut app = replica(&fx, &source, dir.path()).await;
-    // The lost record is the switch height 11, between the base and the head.
+    // The lost record is height 11, between the base and the head.
     let (lost, head) = (11, 12);
     for (req, _) in decided.iter().take_while(|(req, _)| req.height.value() <= head) {
         finalize(&mut app, req.clone()).await.unwrap();
@@ -515,7 +553,6 @@ async fn val_state_query_recomputes_lost_records_and_waits_without_their_inputs(
     assert!(base < lost, "base {base}");
     assert!(matches!(app.store.load_val_state(base).unwrap(), Record::Valid(_)));
     assert_eq!(app.store.load_val_state(base - 1).unwrap(), Record::Missing, "pruned below");
-    assert_eq!(fx.schedule().switch_target(lost), Some(3));
     assert_eq!(app.store.load_val_updates(lost).unwrap(), Record::Valid(vec![]));
 
     let path = format!("/val_state/{lost}");
@@ -545,7 +582,7 @@ async fn val_state_query_recomputes_lost_records_and_waits_without_their_inputs(
     std::fs::remove_file(&sidecar).unwrap();
     std::fs::remove_file(dir.path().join(format!("val-updates-{lost}.bin"))).unwrap();
     let error = app.val_state_preimage(lost).expect_err("an update record is missing");
-    assert!(error.contains(&format!("switch height {lost}")), "{error}");
+    assert!(error.contains(&format!("record of height {lost} is missing")), "{error}");
     let answer = query(&mut app, &path).await;
     assert_eq!(answer.code, Code::from(CODE_REJECTED));
     assert!(answer.value.is_empty() && !answer.log.is_empty());

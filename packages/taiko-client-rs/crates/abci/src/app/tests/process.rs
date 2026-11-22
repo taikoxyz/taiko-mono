@@ -20,7 +20,7 @@ use crate::{
     forced::ForcedError,
     l1::L1Error,
     rules::RuleViolation,
-    test_utils::{edit_l1_header, sample_transactions},
+    test_utils::{edit_l1_header, sample_entries, sample_transactions},
 };
 
 /// One in-place header mutation.
@@ -48,7 +48,7 @@ async fn authenticated_rules_schedule_controls_proposal_admission() {
         app.l1().insert_block(header.clone(), state.clone());
         app.l1().set_finalized(66);
         let witness = anchor_witness_in(&state, fx.params.inbox, header);
-        let env = hand_envelope(&app, Some(witness), None);
+        let env = hand_envelope(&app, Some(witness));
         assert_eq!(rejected(&mut app, &env).await, label);
     }
 }
@@ -57,7 +57,7 @@ async fn authenticated_rules_schedule_controls_proposal_admission() {
 async fn plain(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, EtnaEnvelope) {
     let mut app = mid_epoch(fx, dir, 5).await;
     let env = propose(&mut app).await;
-    assert!(env.anchor.is_none() && env.committee.is_none());
+    assert!(env.anchor.is_none());
     (app, env)
 }
 
@@ -201,10 +201,10 @@ async fn anchor_regression_is_rejected() {
     let mut app = initialized(&fx, dir.path()).await;
     fx.advance_l1(app.l1(), 66, &fx.inbox, &fx.registry);
     let anchor = fx.anchor_state(app.l1(), 66);
-    jump(&mut app, fx.genesis.genesis_height + 5, anchor, &[]);
+    jump(&mut app, fx.genesis.genesis_height + 5, anchor);
 
     let witness = fx.anchor_witness(app.l1(), fx.genesis.l1_0);
-    let env = hand_envelope(&app, Some(witness), None);
+    let env = hand_envelope(&app, Some(witness));
     assert_eq!(
         validate(&app, &env).map(|_| ()),
         Err(Rejection::Rule(RuleViolation::AnchorRegressed { parent: 66, anchor: 64 }))
@@ -218,7 +218,7 @@ async fn anchor_not_final_is_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     fx.plant_l1_block(app.l1(), 66, &fx.inbox, &fx.registry); // canonical, not finalized
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)));
     assert!(validate(&app, &env).is_ok(), "deterministically valid");
     assert_eq!(rejected(&mut app, &env).await, "anchor_not_final");
 
@@ -338,7 +338,7 @@ async fn anchored_checkpoint_on_the_local_chain_is_accepted() {
         [(66, fx.genesis.genesis_height, vec![]), (67, 3, vec![3]), (68, parent, vec![])]
     {
         fx.advance_l1(app.l1(), number, &fx.inbox_with(checkpoint), &fx.registry);
-        let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), number)), None);
+        let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), number)));
         let before = app.engine().calls().len();
         let (resp, _) = judge(&mut app, &env).await;
         assert_eq!(resp, response::ProcessProposal::Accept, "checkpoint {checkpoint}");
@@ -357,7 +357,7 @@ async fn anchored_checkpoint_conflicting_with_the_local_chain_is_rejected() {
     let parent = app.state().unwrap().last_height;
 
     fx.advance_l1(app.l1(), 66, &fx.inbox_with(parent + 1), &fx.registry);
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)));
     assert!(validate(&app, &env).is_ok(), "deterministically valid");
     let before = app.engine().calls().len();
     assert_eq!(rejected(&mut app, &env).await, "checkpoint_above_parent");
@@ -366,7 +366,7 @@ async fn anchored_checkpoint_conflicting_with_the_local_chain_is_rejected() {
     for (number, height) in [(67, 3), (68, parent)] {
         let inbox = fx.inbox_at_checkpoint(height, B256::repeat_byte(0xc4));
         fx.advance_l1(app.l1(), number, &inbox, &fx.registry);
-        let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), number)), None);
+        let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), number)));
         let before = app.engine().calls().len();
         assert_eq!(rejected(&mut app, &env).await, "checkpoint_conflict", "height {height}");
         assert!(
@@ -411,7 +411,7 @@ async fn missing_required_witnesses_are_rejected() {
     let fx = Fixture::genesis(2);
     let dir = tempfile::tempdir().unwrap();
 
-    // H_0 requires both witnesses.
+    // H_0 requires its anchor witness.
     let mut app = initialized(&fx, dir.path()).await;
     let env = propose(&mut app).await;
     let mut bad = env.clone();
@@ -421,13 +421,6 @@ async fn missing_required_witnesses_are_rejected() {
         Err(Rejection::MissingWitness(WitnessKind::Anchor))
     );
     assert_eq!(rejected(&mut app, &bad).await, "missing_anchor_witness");
-    let switch = fx.schedule().h_first(1) - 2;
-    fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7), &fx.registry);
-    let anchor = fx.anchor_state(app.l1(), 66);
-    super::proposal::jump(&mut app, switch - 1, anchor, &[]);
-    let mut bad = propose(&mut app).await;
-    bad.committee = None;
-    assert_eq!(rejected(&mut app, &bad).await, "missing_committee_witness");
 
     // A moved anchor (per extraData) requires its witness.
     let other_dir = tempfile::tempdir().unwrap();
@@ -447,15 +440,56 @@ async fn unexpected_witnesses_are_rejected() {
     // An anchor witness that does not move the anchor, at a height that does not force one.
     let mut bad = env.clone();
     bad.anchor = Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0));
-    assert_eq!(rejected(&mut app, &bad).await, "unexpected_anchor_witness");
-
-    let mut bad = env.clone();
-    bad.committee = Some(fx.witness.committee.clone());
     assert_eq!(
         validate(&app, &bad).map(|_| ()),
-        Err(Rejection::UnexpectedWitness(WitnessKind::Committee))
+        Err(Rejection::UnexpectedWitness(WitnessKind::Anchor))
     );
-    assert_eq!(rejected(&mut app, &bad).await, "unexpected_committee_witness");
+    assert_eq!(rejected(&mut app, &bad).await, "unexpected_anchor_witness");
+}
+
+/// The certified proposer is looked up in the validator-state replica's current set, the set
+/// that signs the block: a key outside it is unknown, and the same key is accepted once the
+/// replica's current set holds it.
+#[tokio::test]
+async fn proposer_outside_the_replica_set_is_unknown() {
+    let fx = Fixture::genesis(2);
+    let dir = tempfile::tempdir().unwrap();
+    let (mut app, env) = plain(&fx, dir.path()).await;
+    let outsider = sample_entries(3)[2].consensus_key().unwrap();
+    let id = tendermint::account::Id::new(outsider.address().into_array());
+    let state = app.state().unwrap().clone();
+    assert!(state.val_state.current.entries.iter().all(|entry| entry.key != outsider));
+    let bft = bft_time(&app);
+    let check = |state: &crate::store::AppState| {
+        crate::app::validate_block(
+            &state.chain_context(),
+            &fx.params,
+            &env,
+            state.last_height + 1,
+            bft,
+            id,
+        )
+        .map(|_| ())
+    };
+    assert_eq!(check(&state), Err(Rejection::ProposerUnknown(id)));
+    let mut req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
+    req.proposer_address = id;
+    assert_eq!(process(&mut app, req.clone()).await, response::ProcessProposal::Reject);
+    assert_eq!(app.halt.as_deref(), Some("proposer_unknown"));
+
+    let mut admitted = state.clone();
+    let members = [(outsider, 1), (sample_entries(1)[0].consensus_key().unwrap(), 1)];
+    admitted.val_state = crate::valstate::ValState::genesis(state.last_height, &members).unwrap();
+    assert_eq!(check(&admitted), Ok(()));
+    app.state = Some(admitted);
+    let mut req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
+    req.proposer_address = id;
+    assert_eq!(
+        process(&mut app, req).await,
+        response::ProcessProposal::Accept,
+        "halt = {:?}",
+        app.halt
+    );
 }
 
 /// Back-pressure: `H − lastCheckpoint.height ≤ U`, the unsettled limit, inclusive.
@@ -475,7 +509,7 @@ async fn back_pressure_boundary() {
     // One more is over the limit.
     let other_dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, other_dir.path(), limit).await;
-    let env = hand_envelope(&app, None, None);
+    let env = hand_envelope(&app, None);
     assert_eq!(
         validate(&app, &env).map(|_| ()),
         Err(Rejection::Rule(RuleViolation::BackPressure { depth: limit + 1, limit }))
@@ -494,13 +528,13 @@ async fn stale_anchor_proposal_is_rejected() {
 
     // Exactly the maximum age.
     set_anchor_age(&mut app, max);
-    let env = hand_envelope(&app, None, None);
+    let env = hand_envelope(&app, None);
     let (resp, _) = judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 
     // One second older: every header field is derived, but the anchor is stale.
     set_anchor_age(&mut app, max + 1);
-    let env = hand_envelope(&app, None, None);
+    let env = hand_envelope(&app, None);
     assert_eq!(
         validate(&app, &env).map(|_| ()),
         Err(Rejection::Rule(RuleViolation::AnchorTooOld { age: max + 1, max }))
@@ -559,7 +593,7 @@ async fn ordinary_block_skipping_a_due_entry_is_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     let blob = plant_due_entry(&fx, app.l1(), 66, fx.inbox.clone());
-    let ordinary = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
+    let ordinary = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)));
 
     assert_eq!(
         validate(&app, &ordinary).map(|_| ()),
@@ -576,7 +610,7 @@ async fn ordinary_block_skipping_a_due_entry_is_rejected() {
     assert_eq!(rejected(&mut app, &peek).await, "forced_skip_invalid");
 
     let witness = fx.forced_witness(app.l1(), 66, 0, blob);
-    let forced = hand_forced_envelope(&app, ordinary.anchor, None, witness, sample_tx_list());
+    let forced = hand_forced_envelope(&app, ordinary.anchor, witness, sample_tx_list());
     assert_eq!(
         validate(&app, &forced).unwrap().decision,
         crate::forced::ForcedDecision::Included(0)
@@ -603,7 +637,6 @@ async fn due_low_fee_cap_skip_requires_a_completed_singleton() {
     let env = hand_forced_envelope(
         &app,
         Some(fx.anchor_witness(app.l1(), 66)),
-        None,
         witness,
         protocol::shasta::encode_transactions(&[]),
     );
@@ -630,7 +663,7 @@ async fn forced_block(fx: &Fixture, dir: &Path) -> (App<MockL1, MockEngine>, Etn
     let blob = plant_due_entry(fx, app.l1(), 66, fx.inbox.clone());
     let anchor = Some(fx.anchor_witness(app.l1(), 66));
     let witness = fx.forced_witness(app.l1(), 66, 0, blob);
-    let env = hand_forced_envelope(&app, anchor, None, witness, sample_tx_list());
+    let env = hand_forced_envelope(&app, anchor, witness, sample_tx_list());
     (app, env)
 }
 
@@ -690,7 +723,7 @@ async fn pending_entry_is_peeked_by_ordinary_blocks() {
         timestamp: Fixture::l1_timestamp(66) - fx.genesis.forced_inclusion_delay + 1,
     }];
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
-    let mut env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
+    let mut env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)));
     assert_eq!(rejected(&mut app, &env).await, "forced_inclusion");
 
     env.forced = Some(fx.forced_witness(app.l1(), 66, 0, Bytes::new()));
@@ -747,7 +780,7 @@ async fn superseded_generation_rejects_every_proposal() {
     inbox.recovery_generation = 1;
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
 
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)));
     assert_eq!(validate(&app, &env).map(|_| ()), Err(Rejection::Superseded { chain: 0, inbox: 1 }));
     assert_eq!(rejected(&mut app, &env).await, "superseded");
     assert!(app.superseded);
@@ -773,7 +806,7 @@ async fn superseding_anchor_must_be_final() {
     inbox.recovery_generation = 1;
     fx.plant_l1_block(app.l1(), 66, &inbox, &fx.registry);
 
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)));
     assert_eq!(rejected(&mut app, &env).await, "anchor_not_final");
     assert!(!app.superseded);
 }
@@ -899,7 +932,6 @@ async fn same_sender_nonce_replacement_and_later_position_cannot_skip_retained_f
         let env = hand_forced_envelope(
             &app,
             Some(fx.anchor_witness(app.l1(), 66)),
-            None,
             witness,
             protocol::shasta::encode_transactions(&txs),
         );
@@ -921,7 +953,6 @@ async fn missing_due_preimage_rejects_before_any_engine_call() {
     let env = hand_forced_envelope(
         &app,
         Some(fx.anchor_witness(app.l1(), 66)),
-        None,
         witness,
         protocol::shasta::encode_transactions(&[]),
     );
@@ -998,7 +1029,7 @@ async fn canonical_unsupported_anchor_rejects_process_but_finalize_waits() {
         let dir = tempfile::tempdir().unwrap();
         let mut app = initialized(&fx, dir.path()).await;
         let witness = fx.anchor_witness(app.l1(), fx.genesis.l1_0);
-        let env = hand_envelope(&app, Some(witness.clone()), None);
+        let env = hand_envelope(&app, Some(witness.clone()));
         let raw = list(&vec![vec![0x80]; 11]);
         let anchor =
             list(&[alloy_rlp::encode(Bytes::from(raw.clone())), alloy_rlp::encode(&witness.inbox)]);
@@ -1044,7 +1075,7 @@ async fn malformed_own_l1_reply_is_a_safety_halt_in_process_and_finalize() {
         let fx = Fixture::genesis(1);
         let dir = tempfile::tempdir().unwrap();
         let mut app = initialized(&fx, dir.path()).await;
-        let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+        let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)));
         let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
         app.l1()
             .state()
@@ -1069,7 +1100,6 @@ async fn review_singleton_incomplete_results_wait_without_consuming_cursor() {
     let env = hand_forced_envelope(
         &app,
         Some(fx.anchor_witness(app.l1(), 66)),
-        None,
         fx.forced_witness(app.l1(), 66, 0, tx),
         protocol::shasta::encode_transactions(&[]),
     );
@@ -1112,7 +1142,7 @@ async fn review_own_el_bad_reply_halts_durably_but_peer_proof_rejects() {
         let mut app = initialized(&fx, dir.path()).await;
         app.refresh_trust().await.unwrap();
         assert!(app.trust.snapshot().is_ready());
-        let mut env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+        let mut env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)));
         if own_el {
             app.engine()
                 .state()
@@ -1160,7 +1190,6 @@ async fn review_singleton_invalid_is_definitive_in_process_and_finalize() {
         let env = hand_forced_envelope(
             &app,
             Some(fx.anchor_witness(app.l1(), 66)),
-            None,
             fx.forced_witness(app.l1(), 66, 0, tx),
             protocol::shasta::encode_transactions(&[]),
         );

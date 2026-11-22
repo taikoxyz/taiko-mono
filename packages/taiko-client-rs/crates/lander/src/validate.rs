@@ -1,10 +1,10 @@
 //! Pure certificate, CometBFT body-commitment and Etna envelope validation.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use abci::{
-    AnchorState, ChainParams, CommitteeState, EtnaEnvelope, GenesisRecord, ParentInfo,
-    app::ChainContext, rules,
+    AnchorState, ChainParams, EtnaEnvelope, GenesisRecord, ParentInfo, app::ChainContext, rules,
+    valstate::ValEntry,
 };
 use alloy_primitives::B256;
 use prost::Message;
@@ -19,7 +19,7 @@ use tendermint_proto::{
 };
 
 use crate::{
-    committee::AuthenticatedCommittee,
+    committee::Validators,
     native::{Commit, CommitSig, RawBlock, evidence::Sum as RawEvidence},
     types::CertifiedBlock,
 };
@@ -51,8 +51,6 @@ pub struct BlockFacts {
     pub envelope: EtnaEnvelope,
     /// The block's own anchor, independently of a later landing reference.
     pub anchor: AnchorState,
-    /// A newly derived target committee only at its H-2 switch height.
-    pub derived: Option<CommitteeState>,
     /// Parent facts to consume when validating the next execution header.
     pub parent: ParentInfo,
     /// Provisional pure-rule decision for the parent's queue cursor. `NeedsSkip` requires
@@ -69,27 +67,12 @@ pub struct BlockFacts {
 /// length-delimited vote sign bytes. Nil votes are verified but contribute no block power.
 /// Absent slots contribute no power. Signatures must follow the authenticated validator order.
 /// Native stock secp256k1eth verification enforces low-S recoverable signatures and authorized
-/// Ethereum addresses; every future proof guest must preserve these exact checks.
+/// Ethereum addresses; every future proof guest must preserve these exact checks. The header's
+/// `validators_hash` must commit `validators`.
 pub fn verify_commit(
     commit: &Commit,
     header: &tendermint::block::Header,
-    committee: &AuthenticatedCommittee,
-    chain_id: &str,
-) -> Result<(), ValidationError> {
-    if committee.state.record.total_power != committee.validators.total_voting_power() {
-        return Err(ValidationError::Certificate(
-            "committee record and native total power differ".into(),
-        ));
-    }
-    verify_native_commit(commit, header, &committee.validators, chain_id)
-}
-
-/// Verify the native certificate against keys/powers bound by this header, independently of
-/// whether the registry switch choosing the historical set is inside the import window.
-pub(crate) fn verify_native_commit(
-    commit: &Commit,
-    header: &tendermint::block::Header,
-    validators: &crate::committee::Validators,
+    validators: &Validators,
     chain_id: &str,
 ) -> Result<(), ValidationError> {
     if header.version.app != abci::app::APP_VERSION {
@@ -294,7 +277,7 @@ pub fn verify_body_at_origin(
 /// Verifies one body's commitments plus its BFT ancestry against the preceding certificate.
 ///
 /// A previous pair may be absent only at height one. Certificate verification remains a
-/// separate operation using the independently authenticated epoch committee.
+/// separate operation using the independently authenticated signing set.
 pub fn verify_structure(
     pair: &CertifiedBlock,
     previous: Option<&CertifiedBlock>,
@@ -330,8 +313,8 @@ pub struct EnvelopeContext<'a> {
     pub bft_time_secs: u64,
     /// Original proposer from the certified CometBFT block header.
     pub proposer: tendermint::account::Id,
-    /// Authenticated committees by epoch, including the block's own epoch.
-    pub committees: &'a BTreeMap<u64, AuthenticatedCommittee>,
+    /// The set that signs the block, in CometBFT order.
+    pub signers: &'a [ValEntry],
     /// Execution facts of the authenticated parent.
     pub parent: &'a ParentInfo,
     /// Exact historic anchor consumed by that parent.
@@ -366,7 +349,7 @@ pub fn verify_envelope(
         parent: context.parent,
         anchor: context.parent_anchor,
         forced_cursor: context.forced_cursor,
-        committees: context.committees,
+        signers: context.signers,
     };
     let validated = abci::app::validate_block(
         &chain,
@@ -398,7 +381,6 @@ pub fn verify_envelope(
     Ok(BlockFacts {
         envelope,
         anchor: validated.anchor,
-        derived: validated.derived.map(|(_, committee)| committee),
         parent: next_parent,
         forced: validated.decision,
         expected: validated.expected,
@@ -408,7 +390,9 @@ pub fn verify_envelope(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::consensus::{self, committee, nil_vote, pair, raw_block};
+    use crate::test_utils::consensus::{
+        self, FixtureCommittee, committee, nil_vote, pair, raw_block,
+    };
     use tendermint::Time;
 
     #[test]
@@ -421,7 +405,7 @@ mod tests {
             verify_commit(
                 &pair.commit,
                 &pair.block.header,
-                &committee,
+                &committee.validators,
                 pair.block.header.chain_id.as_str()
             )
             .is_err()
@@ -435,7 +419,7 @@ mod tests {
         verify_commit(
             &block.commit,
             &block.block.header,
-            &committee,
+            &committee.validators,
             "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
         )
         .unwrap();
@@ -444,7 +428,7 @@ mod tests {
             verify_commit(
                 &block.commit,
                 &block.block.header,
-                &committee,
+                &committee.validators,
                 "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
             )
             .is_err()
@@ -483,7 +467,7 @@ mod tests {
                 verify_commit(
                     &changed.commit,
                     &changed.block.header,
-                    &committee,
+                    &committee.validators,
                     "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
                 )
                 .is_err()
@@ -498,7 +482,7 @@ mod tests {
         verify_commit(
             &block.commit,
             &block.block.header,
-            &committee,
+            &committee.validators,
             "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
         )
         .unwrap();
@@ -506,7 +490,7 @@ mod tests {
         verify_commit(
             &block.commit,
             &block.block.header,
-            &committee,
+            &committee.validators,
             "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
         )
         .unwrap();
@@ -515,7 +499,7 @@ mod tests {
         verify_commit(
             &nil_block.commit,
             &nil_block.block.header,
-            &committee,
+            &committee.validators,
             "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
         )
         .unwrap();
@@ -524,7 +508,7 @@ mod tests {
             verify_commit(
                 &nil_block.commit,
                 &nil_block.block.header,
-                &committee,
+                &committee.validators,
                 "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
             )
             .is_err()
@@ -534,7 +518,7 @@ mod tests {
             verify_commit(
                 &block.commit,
                 &block.block.header,
-                &committee,
+                &committee.validators,
                 "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
             )
             .is_err()
@@ -551,7 +535,7 @@ mod tests {
             verify_commit(
                 &block.commit,
                 &block.block.header,
-                &committee,
+                &committee.validators,
                 "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
             )
             .is_err()
@@ -562,7 +546,7 @@ mod tests {
             verify_commit(
                 &block.commit,
                 &block.block.header,
-                &committee,
+                &committee.validators,
                 "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
             )
             .is_err()
@@ -573,7 +557,7 @@ mod tests {
             verify_commit(
                 &block.commit,
                 &block.block.header,
-                &committee,
+                &committee.validators,
                 "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
             )
             .is_err()
@@ -582,7 +566,7 @@ mod tests {
             verify_commit(
                 &original.commit,
                 &original.block.header,
-                &committee,
+                &committee.validators,
                 "taiko-etna-167001-g1"
             )
             .is_err()
@@ -595,7 +579,7 @@ mod tests {
             verify_commit(
                 &block.commit,
                 &block.block.header,
-                &committee,
+                &committee.validators,
                 "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
             )
             .is_err()
@@ -608,7 +592,7 @@ mod tests {
             verify_commit(
                 &block.commit,
                 &block.block.header,
-                &committee,
+                &committee.validators,
                 "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4"
             )
             .is_err()
@@ -619,7 +603,7 @@ mod tests {
     /// `vote_type`, `round` and `block_id` at the commit's height.
     fn signed_slot(
         pair: &CertifiedBlock,
-        committee: &AuthenticatedCommittee,
+        committee: &FixtureCommittee,
         keys: &[consensus::SigningKey],
         index: usize,
         vote_type: Type,
@@ -663,7 +647,7 @@ mod tests {
         let (_, committee, keys) = committee(&[1, 1, 1], 0);
         let original = pair(1, B256::repeat_byte(9), &committee, &keys, None);
         let verify = |block: &CertifiedBlock| {
-            verify_commit(&block.commit, &block.block.header, &committee, CHAIN)
+            verify_commit(&block.commit, &block.block.header, &committee.validators, CHAIN)
         };
         verify(&original).unwrap();
         let id = original.commit.block_id;
@@ -738,11 +722,12 @@ mod tests {
         let genesis =
             |max_anchor_age| GenesisRecord { max_anchor_age, ..fixture.snapshot.genesis.clone() };
         let (fresh, stale) = (genesis(91), genesis(90));
+        let signers = fixture.committees[&0].validators.entries();
         let context = |genesis| EnvelopeContext {
             recovery: None,
             bft_time_secs: 101,
             proposer: fixture.blocks[&1].block.header.proposer_address,
-            committees: &fixture.committees,
+            signers: &signers,
             parent: &parent,
             parent_anchor: &fixture.anchors[&0],
             generation: 0,
@@ -779,11 +764,12 @@ mod tests {
         let envelope = EtnaEnvelope::decode(&fixture.blocks[&1].block.data[0]).unwrap();
         let original = fixture.blocks[&1].block.header.proposer_address;
         let genesis = GenesisRecord { max_anchor_age: 7200, ..fixture.snapshot.genesis.clone() };
+        let signers = fixture.committees[&0].validators.entries();
         let context = |proposer| EnvelopeContext {
             recovery: None,
             bft_time_secs: 101,
             proposer,
-            committees: &fixture.committees,
+            signers: &signers,
             parent: &parent,
             parent_anchor: &fixture.anchors[&0],
             generation: 0,
@@ -865,7 +851,7 @@ mod tests {
         verify_commit(
             &big.commit,
             &big.block.header,
-            &committee,
+            &committee.validators,
             "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
         )
         .unwrap();

@@ -26,19 +26,19 @@
 //! What runs, per family:
 //! - `block_rules`, `block_size` and `forced_step` build a whole envelope on a committed chain and
 //!   judge it with [`validate_block`], the deterministic validation `ProcessProposal`,
-//!   `FinalizeBlock` and the lander share: real raw L1 headers, EIP-1186 proofs of the Inbox (and,
-//!   at a switch height, of the registry) under them, the derived header fields and a committee
-//!   holding the certified proposer. `forced_step` then completes the decision with
-//!   [`verify_forced`] against an engine that builds the singleton from the attributes it is given,
-//!   as both handlers do, and advances the cursor as `FinalizeBlock` does. The node-local checks
-//!   (L1 finality, the local checkpoint fence, `newPayload`) are not run: the model's verdict
-//!   leaves them out too (its `NodeValid` adds them).
+//!   `FinalizeBlock` and the lander share: real raw L1 headers, EIP-1186 proofs of the Inbox under
+//!   them, the derived header fields and a signing set holding the certified proposer.
+//!   `forced_step` then completes the decision with [`verify_forced`] against an engine that builds
+//!   the singleton from the attributes it is given, as both handlers do, and advances the cursor as
+//!   `FinalizeBlock` does. The node-local checks (L1 finality, the local checkpoint fence,
+//!   `newPayload`) are not run: the model's verdict leaves them out too (its `NodeValid` adds
+//!   them).
 //! - `schedule` places every registry checkpoint of a context in one L1 registry state, proves each
 //!   checkpoint with a real witness, keeps the ones [`committee::verify_snapshot`] accepts at the
 //!   cutoff (the latest checkpoint at or before it) and derives the committee with
 //!   [`committee::derive`]: together the checks of `verify_committee_witness_at_cutoff`. The cutoff
-//!   is the one the client uses: `genesisCutoff` for epoch 0 (genesis), otherwise the larger of
-//!   D(t)'s committed anchor and `L1_0` (`validate_block`'s committee step).
+//!   is `genesisCutoff` for epoch 0 (genesis), otherwise the larger of D(t)'s committed anchor and
+//!   `L1_0`, as the model's schedule places it.
 //!
 //! The harness maps the model's abstract values to concrete client inputs:
 //! - transaction kinds to concrete, really signed bytes ([`tx_bytes`]), checked against the file's
@@ -56,9 +56,9 @@
 use std::{collections::BTreeMap, sync::OnceLock};
 
 use abci::{
-    AccountWitness, AnchorState, AnchorWitness, ChainParams, CommitteeRecord, CommitteeState,
-    CommitteeWitness, Engine, EngineError, EtnaEnvelope, ExecutionBlock, ForcedWitness,
-    GenesisRecord, InboxFacts, ParentInfo, RawL1Header, RegistryEntry, Schedule, StorageProof,
+    AccountWitness, AnchorState, AnchorWitness, ChainParams, CommitteeRecord, CommitteeWitness,
+    Engine, EngineError, EtnaEnvelope, ExecutionBlock, ForcedWitness, GenesisRecord, InboxFacts,
+    ParentInfo, RawL1Header, RegistryEntry, Schedule, StorageProof,
     app::{ChainContext, Rejection, validate_block},
     committee::{self, CommitteeError, set_key},
     committee_config_hash,
@@ -603,18 +603,6 @@ impl BlockCase {
         }
     }
 
-    /// The proposer's committee for `epoch` with its record at `cutoff`.
-    fn committee(&self, epoch: u64, cutoff: u64) -> CommitteeState {
-        let snapshot = committee::Snapshot {
-            checkpoint_index: 0,
-            l1_block: 1,
-            entries: proposer_registry().1,
-        };
-        let (record, members) = committee::derive(&snapshot, cutoff, epoch, &self.params())
-            .expect("the proposer's committee");
-        CommitteeState { record, members }
-    }
-
     /// Judges the block with [`validate_block`] on the committed chain the case describes.
     #[allow(clippy::result_large_err, reason = "validate_block's own result")]
     fn judge(&self) -> Result<abci::app::Validated, Rejection> {
@@ -630,22 +618,10 @@ impl BlockCase {
             forced_inclusion_delay: self.delay,
             max_anchor_age: self.max_anchor_age,
         };
-        let schedule = Schedule::from_genesis(&genesis);
         let (parent, parent_anchor) = (self.parent(), self.parent_anchor.anchor_state());
-        // The committee of the block's epoch holds the proposer; a switch height also derives
-        // the incoming committee at `max(parent anchor, L1_0)` under its own anchor's root.
-        let epoch = schedule.epoch_of(self.height);
-        let mut committees = BTreeMap::from([(epoch, self.committee(epoch, self.l1_0))]);
-        let committee = schedule.switch_target(self.height).map(|target| {
-            committees.entry(target - 1).or_insert_with(|| self.committee(target - 1, self.l1_0));
-            let cutoff = parent_anchor.number.max(self.l1_0);
-            let state = self.anchor.l1_state();
-            CommitteeWitness {
-                record: self.committee(target, cutoff).record,
-                registry: state.witness(params.registry, &committee::snapshot_slots(0, false)),
-                entries: proposer_registry().1,
-            }
-        });
+        // The set that signs the block holds the certified proposer.
+        let signers =
+            abci::valstate::comet_order(&[(proposer_key(), 1)]).expect("a one-member set");
         let chain = ChainContext {
             recovery: None,
             genesis: &genesis,
@@ -653,7 +629,7 @@ impl BlockCase {
             parent: &parent,
             anchor: &parent_anchor,
             forced_cursor: self.cursor,
-            committees: &committees,
+            signers: &signers,
         };
         let env = EtnaEnvelope {
             block: ExecutionBlock {
@@ -661,7 +637,6 @@ impl BlockCase {
                 transactions: self.transactions.clone(),
             },
             anchor: self.carries_anchor().then(|| self.anchor.witness()),
-            committee,
             forced: self.forced.clone(),
         };
         let proposer = tendermint::account::Id::new(proposer_key().address().into_array());

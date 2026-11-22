@@ -7,39 +7,35 @@
 //! in its steps (a)–(j). The app fills the context from its committed [`AppState`]
 //! ([`AppState::chain_context`]); the lander fills it from the chain it authenticates from L1
 //! and certified CometBFT blocks. [`check_candidate`] holds the witness steps (b)–(h):
-//! [`check_candidate_anchor`], the rules schedule, one verification of the committee witness
-//! ([`VerifiedWitness`](crate::committee::VerifiedWitness)) and [`finish_candidate`].
-//! `PrepareProposal` runs the same steps on its own anchor and an already verified witness
-//! before it asks the EL to build.
+//! [`check_candidate_anchor`] and the rules schedule. `PrepareProposal` runs the same steps on
+//! its own anchor before it asks the EL to build.
 //! All consensus handlers enforce the raw execution block RLP limit of 124000 bytes.
 //! The authenticated forced decision is completed by the shared asynchronous singleton checker
 //! before any handler advances the queue cursor. Ordinary execution remains independent.
 
-use std::{collections::BTreeMap, fmt};
+use std::fmt;
 
 use alloy_consensus::Header;
 use alloy_primitives::B256;
 use protocol::shasta::constants::min_base_fee_for_chain;
 
 use crate::{
-    committee::{CommitteeError, VerifiedWitness},
     config::ChainParams,
     engine::EngineError,
-    envelope::{AnchorWitness, CommitteeWitness, EnvelopeError, EtnaEnvelope, ExecutionBlock},
+    envelope::{AnchorWitness, EnvelopeError, EtnaEnvelope, ExecutionBlock},
     forced::{self, ForcedContext, ForcedDecision, ForcedError},
-    l1::{FetchError, L1Error, WitnessError, verify_anchor_witness},
+    l1::{L1Error, WitnessError, verify_anchor_witness},
     rules::{self, ExpectedHeader, GenerationCheck, HeaderInputs, RuleViolation},
-    schedule::Schedule,
-    store::{AppState, CommitteeState},
+    store::AppState,
     types::{AnchorState, GenesisRecord, ParentInfo},
+    valstate::ValEntry,
 };
 
 /// The committed chain a block is validated on top of: the facts both the app (from its
 /// [`AppState`]) and the lander (from L1 and certified CometBFT blocks) authenticate.
 #[derive(Clone, Copy)]
 pub struct ChainContext<'a> {
-    /// The genesis record: the epoch schedule, `L1_0`, `maxAnchorAge` and the forced inclusion
-    /// delay `D`.
+    /// The genesis record: `L1_0`, `maxAnchorAge` and the forced inclusion delay `D`.
     pub genesis: &'a GenesisRecord,
     /// The chain's recovery generation.
     pub generation: u64,
@@ -51,8 +47,8 @@ pub struct ChainContext<'a> {
     pub anchor: &'a AnchorState,
     /// The forced inclusion cursor after the parent: the queue entries the chain has consumed.
     pub forced_cursor: u64,
-    /// The committees known by epoch.
-    pub committees: &'a (dyn CommitteeLookup + Sync),
+    /// The set that signs this block, in CometBFT order.
+    pub signers: &'a [ValEntry],
 }
 
 impl ChainContext<'_> {
@@ -61,51 +57,15 @@ impl ChainContext<'_> {
         self.recovery.map_or(self.genesis.genesis_height, |origin| origin.height)
     }
 
-    /// Earliest L1 anchor/snapshot allowed in this generation.
+    /// Earliest L1 anchor allowed in this generation.
     pub fn anchor_floor(&self) -> u64 {
         self.recovery.map_or(self.genesis.l1_0, |origin| origin.l1_number)
-    }
-
-    /// The active target epoch, with committee 0 as generation zero's initial committee.
-    pub fn active_committee_epoch(&self, height: u64) -> Option<u64> {
-        let initial =
-            self.recovery.map_or(Schedule::E0, |origin| origin.height / self.genesis.epoch_len);
-        self.schedule().active_committee_epoch_with_initial(height, self.origin_height(), initial)
-    }
-
-    /// Committee required at this height, allowing only switches discarded by recovery.
-    pub fn committee_at(&self, height: u64) -> Option<&CommitteeState> {
-        self.committees.committee(self.active_committee_epoch(height)?)
-    }
-
-    /// The epoch schedule of the genesis record.
-    pub fn schedule(&self) -> Schedule {
-        Schedule::from_genesis(self.genesis)
-    }
-}
-
-/// Committees by epoch, as a [`ChainContext`] looks them up.
-pub trait CommitteeLookup {
-    /// The committee of `epoch`, if known.
-    fn committee(&self, epoch: u64) -> Option<&CommitteeState>;
-}
-
-impl<C: AsRef<CommitteeState>> CommitteeLookup for BTreeMap<u64, C> {
-    /// The map entry of `epoch`.
-    fn committee(&self, epoch: u64) -> Option<&CommitteeState> {
-        self.get(&epoch).map(AsRef::as_ref)
-    }
-}
-
-impl AsRef<CommitteeState> for CommitteeState {
-    /// The committee itself.
-    fn as_ref(&self) -> &CommitteeState {
-        self
     }
 }
 
 impl AppState {
-    /// The committed chain the next block extends, for [`validate_block`].
+    /// The committed chain the next block extends, for [`validate_block`]: its signers are the
+    /// validator-state replica's current set, the set that signs `last_height + 1`.
     pub fn chain_context(&self) -> ChainContext<'_> {
         ChainContext {
             genesis: &self.genesis,
@@ -114,7 +74,7 @@ impl AppState {
             parent: &self.parent,
             anchor: &self.anchor,
             forced_cursor: self.forced_cursor,
-            committees: &self.committees,
+            signers: &self.val_state.current.entries,
         }
     }
 }
@@ -132,8 +92,6 @@ pub struct Validated {
     pub block: ExecutionBlock,
     /// The block's anchor: proven by its witness, or the parent's when it carries none.
     pub anchor: AnchorState,
-    /// At switch height `H(t)-2`: the freshly derived incoming committee, keyed by target epoch.
-    pub derived: Option<(u64, CommitteeState)>,
     /// Pure authenticated decision, awaiting the shared singleton check if required.
     pub decision: ForcedDecision,
     /// Consensus-derived attributes reused by the asynchronous forced checker.
@@ -149,16 +107,13 @@ pub struct Validated {
 pub enum WitnessKind {
     /// The L1 anchor witness.
     Anchor,
-    /// The committee witness.
-    Committee,
 }
 
 impl fmt::Display for WitnessKind {
-    /// `anchor` or `committee`.
+    /// `anchor`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
             Self::Anchor => "anchor",
-            Self::Committee => "committee",
         })
     }
 }
@@ -170,9 +125,9 @@ impl fmt::Display for WitnessKind {
 /// [`validate_block`] yields only the deterministic variants on a decoded envelope; the ¹
 /// node-local ones (anchor finality, L1, engine, EL sync state, timeouts) and the handler-level
 /// ones ([`Rejection::Envelope`], [`Rejection::PlaceholderProposal`],
-/// [`Rejection::ChainSuperseded`], [`Rejection::PayloadInvalid`], [`Rejection::Registry`],
-/// [`Rejection::Oversize`], [`Rejection::BuiltHeader`], [`Rejection::BlockSizeBound`],
-/// [`Rejection::ForcedBuild`]) come from the handlers.
+/// [`Rejection::ChainSuperseded`], [`Rejection::PayloadInvalid`], [`Rejection::Oversize`],
+/// [`Rejection::BuiltHeader`], [`Rejection::BlockSizeBound`], [`Rejection::ForcedBuild`]) come
+/// from the handlers.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Rejection {
     /// The block's transactions are not exactly one well-formed envelope.
@@ -192,10 +147,6 @@ pub enum Rejection {
     /// An Inbox proof fetched from the own L1 failed authentication, unlike a peer witness.
     #[error("own L1 anchor proof rejected: {0}")]
     OwnWitness(#[source] WitnessError),
-    /// The committee witness does not verify, no committee can be derived from it, or a verified
-    /// one is offered for another root, cutoff or target epoch.
-    #[error("committee witness rejected: {0}")]
-    Committee(#[from] CommitteeError),
     /// The Inbox records a later recovery generation than the chain's: the chain is superseded.
     #[error("inbox recoveryGeneration {inbox} supersedes the chain generation {chain}")]
     Superseded {
@@ -213,10 +164,7 @@ pub enum Rejection {
     /// A witness the height must not carry is present.
     #[error("the block carries an unexpected {0} witness")]
     UnexpectedWitness(WitnessKind),
-    /// A switch height needs a committee the app does not hold.
-    #[error("no committee known for epoch {0}")]
-    CommitteeUnknown(u64),
-    /// The certified proposer is outside the block height's authenticated committee.
+    /// The certified proposer is outside the set that signs the block.
     #[error("unknown certified proposer {0}")]
     ProposerUnknown(tendermint::account::Id),
     /// ¹ The anchor L1 header is not final and canonical in the own L1 view.
@@ -256,10 +204,6 @@ pub enum Rejection {
     /// ¹ An external call exceeded its deadline.
     #[error("{0} timed out")]
     Timeout(&'static str),
-    /// The registry storage read while discovering a snapshot is unusable, or the background
-    /// discovery stopped without a result.
-    #[error("registry discovery failed: {0}")]
-    Registry(String),
     /// `PrepareProposal`: the envelope exceeds CometBFT's `max_tx_bytes`.
     #[error("envelope of {len} bytes exceeds max_tx_bytes {max}")]
     Oversize {
@@ -328,13 +272,9 @@ impl Rejection {
             Self::Rule(rule) => rule.label(),
             Self::Witness(_) => "anchor_witness",
             Self::OwnWitness(_) => "own_l1_witness",
-            Self::Committee(_) => "committee_witness",
             Self::Superseded { .. } | Self::ChainSuperseded => "superseded",
             Self::MissingWitness(WitnessKind::Anchor) => "missing_anchor_witness",
-            Self::MissingWitness(WitnessKind::Committee) => "missing_committee_witness",
             Self::UnexpectedWitness(WitnessKind::Anchor) => "unexpected_anchor_witness",
-            Self::UnexpectedWitness(WitnessKind::Committee) => "unexpected_committee_witness",
-            Self::CommitteeUnknown(_) => "committee_unknown",
             Self::ProposerUnknown(_) => "proposer_unknown",
             Self::AnchorNotFinal { .. } => "anchor_not_final",
             Self::AnchorOffChain { .. } => "anchor_off_chain",
@@ -344,7 +284,6 @@ impl Rejection {
             Self::PayloadSyncing => "payload_syncing",
             Self::LocalBlockMissing(_) => "local_block_missing",
             Self::Timeout(_) => "timeout",
-            Self::Registry(_) => "registry_discovery",
             Self::Oversize { .. } => "envelope_too_large",
             Self::BuiltHeader(_) => "built_header_mismatch",
             Self::Forced(_) => "forced_inclusion",
@@ -368,40 +307,16 @@ impl Rejection {
     }
 }
 
-impl From<FetchError> for Rejection {
-    /// Maps a failed committee-witness discovery onto the proposal reasons: L1 errors, timeouts,
-    /// unusable registry words and derivation failures keep their own labels.
-    fn from(e: FetchError) -> Self {
-        match e {
-            FetchError::L1(e) => Self::L1(e),
-            FetchError::Timeout(what) => Self::Timeout(what),
-            FetchError::Registry(reason) => Self::Registry(reason),
-            FetchError::Committee(e) => Self::Committee(e),
-        }
-    }
-}
-
-/// The witnesses of a block candidate and what its `extraData` claims; the input of
+/// The anchor witness of a block candidate and what its `extraData` claims; the input of
 /// [`check_candidate`].
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Candidate<'a> {
     /// The anchor witness, if the candidate carries one.
     pub(crate) anchor: Option<&'a AnchorWitness>,
-    /// The committee witness, if the candidate carries one.
-    pub(crate) committee: Option<&'a CommitteeWitness>,
     /// The generation in the candidate's `extraData`.
     pub(crate) extra_generation: u64,
     /// The anchor L1 block number in the candidate's `extraData`.
     pub(crate) extra_anchor: u64,
-}
-
-/// What [`check_candidate`] proves about a candidate's L1 view.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct CandidateFacts {
-    /// The candidate's anchor (proven, or inherited from the parent).
-    pub(crate) anchor: AnchorState,
-    /// The committee derived at a switch height, keyed by its target epoch.
-    pub(crate) derived: Option<(u64, CommitteeState)>,
 }
 
 /// Validates `env` as the block at `height` on top of `chain` (every check but the ¹ ones);
@@ -410,7 +325,9 @@ pub(crate) struct CandidateFacts {
 /// In order: the raw block size ([`check_execution_size`]); (a) `height == chain.parent.number +
 /// 1`, the header's number and parent hash;
 /// (b)–(h) [`check_candidate`] with the generation and anchor number decoded from the header's
-/// `extraData`; (i) the derived header ([`rules::expected_header`]), whose timestamp must keep
+/// `extraData`; (i) the certified proposer is in the set that signs the block
+/// ([`ChainContext::signers`]) and the derived header ([`rules::expected_header`]), whose
+/// timestamp must keep
 /// the anchor within the genesis `maxAnchorAge` ([`rules::check_anchor_freshness`]) and whose
 /// every field the header must carry ([`rules::check_header`]); (j) the forced inclusion rule
 /// ([`forced::check`]) on the committed cursor, the block's anchor (its own witness's or the
@@ -423,21 +340,6 @@ pub fn validate_block(
     bft_secs: u64,
     proposer: tendermint::account::Id,
 ) -> Result<Validated, Rejection> {
-    validate_proposal(chain, params, env, height, bft_secs, proposer)
-        .map(|(validated, _)| validated)
-}
-
-/// [`validate_block`], also returning the switch height's committee witness as it verified it,
-/// once, under the block's own anchor root at the committed snapshot block, so that
-/// `ProcessProposal` retains it without verifying it again.
-pub(crate) fn validate_proposal(
-    chain: &ChainContext<'_>,
-    params: &ChainParams,
-    env: &EtnaEnvelope,
-    height: u64,
-    bft_secs: u64,
-    proposer: tendermint::account::Id,
-) -> Result<(Validated, Option<VerifiedWitness>), Rejection> {
     check_execution_size(&env.block)?;
     let header = &env.block.header;
     if chain.parent.number.checked_add(1) != Some(height) {
@@ -446,31 +348,30 @@ pub(crate) fn validate_proposal(
     check_link(header, height, chain.parent.hash)?;
 
     let extra = rules::decode_extra_data(&header.extra_data)?;
-    let (facts, committee) = check_candidate(
+    let anchor = check_candidate(
         chain,
         params,
         height,
         bft_secs,
         &Candidate {
             anchor: env.anchor.as_ref(),
-            committee: env.committee.as_ref(),
             extra_generation: extra.generation,
             extra_anchor: extra.anchor,
         },
     )?;
 
-    let mut expected = expected_header(chain, params, height, &facts.anchor, bft_secs, proposer)?;
+    let mut expected = expected_header(chain, params, height, &anchor, bft_secs, proposer)?;
     expected.beneficiary = header.beneficiary;
     rules::check_anchor_freshness(
         expected.timestamp,
-        facts.anchor.timestamp,
+        anchor.timestamp,
         chain.genesis.max_anchor_age,
     )?;
     rules::check_header(header, &expected)?;
     let decision = forced::check(
         ForcedContext {
             cursor: chain.forced_cursor,
-            anchor: &facts.anchor,
+            anchor: &anchor,
             delay: chain.genesis.forced_inclusion_delay,
             inbox: params.inbox,
             l2_chain_id: params.l2_chain_id,
@@ -479,24 +380,23 @@ pub(crate) fn validate_proposal(
         env.forced.as_ref(),
         env.block.transactions.first().map(|tx| tx.as_ref()),
     )?;
-    let validated = Validated {
+    Ok(Validated {
         envelope_hash: alloy_primitives::keccak256(env.encode()),
         proposer,
         parent_cursor: chain.forced_cursor,
         block: env.block.clone(),
-        anchor: facts.anchor,
-        derived: facts.derived,
+        anchor,
         decision,
         expected,
         forced: None,
         executed: false,
-    };
-    Ok((validated, committee))
+    })
 }
 
 /// The derived header fields of the block at `height` on top of `chain` with `anchor` and BFT
 /// time `bft_secs` ([`rules::expected_header`]), with the chain's minimum base fee and the
-/// local fee recipient, after authenticating the certified proposer in this block's committee.
+/// local fee recipient, after authenticating the certified proposer in the set that signs the
+/// block ([`ChainContext::signers`]).
 pub(crate) fn expected_header(
     chain: &ChainContext<'_>,
     params: &ChainParams,
@@ -505,10 +405,7 @@ pub(crate) fn expected_header(
     bft_secs: u64,
     proposer: tendermint::account::Id,
 ) -> Result<ExpectedHeader, Rejection> {
-    let epoch = chain.schedule().epoch_of(height);
-    let required = chain.active_committee_epoch(height).unwrap_or(epoch);
-    let committee = chain.committee_at(height).ok_or(Rejection::CommitteeUnknown(required))?;
-    if !rules::is_committee_proposer(&committee.members, proposer) {
+    if !rules::is_validator(chain.signers, proposer) {
         return Err(Rejection::ProposerUnknown(proposer));
     }
     rules::expected_header(&HeaderInputs {
@@ -525,32 +422,28 @@ pub(crate) fn expected_header(
     .map_err(Into::into)
 }
 
-/// Steps (b)–(h) of [`validate_block`] on a candidate's witnesses and `extraData` claims:
-/// [`check_candidate_anchor`], the one verification of its committee witness
-/// ([`verify_candidate_committee`]), then [`finish_candidate`]. Also returns that verified
-/// witness.
+/// Steps (b)–(h) of [`validate_block`] on a candidate's anchor witness and `extraData` claims:
+/// [`check_candidate_anchor`], then the rules schedule at the block's timestamp. Returns the
+/// candidate's anchor (proven, or inherited from the parent).
 fn check_candidate(
     chain: &ChainContext<'_>,
     params: &ChainParams,
     height: u64,
     bft_secs: u64,
     c: &Candidate<'_>,
-) -> Result<(CandidateFacts, Option<VerifiedWitness>), Rejection> {
+) -> Result<AnchorState, Rejection> {
     let anchor = check_candidate_anchor(chain, params, height, c)?;
     rules::check_rules_schedule(
         anchor.inbox.rules_schedule,
         chain.parent,
         rules::block_timestamp(chain.parent.timestamp, bft_secs, anchor.timestamp),
     )?;
-    let committee = verify_candidate_committee(chain, params, height, c.committee, &anchor)?;
-    let facts = finish_candidate(chain, height, committee.as_ref(), anchor)?;
-    Ok((facts, committee))
+    Ok(anchor)
 }
 
 /// Authenticates a supplied anchor or inherits the parent's anchor, then checks anchor progress,
-/// generation and the authenticated unsettled-block limit before registry discovery.
-/// Anchor witnesses are forced on anchor moves and the generation's first height, independently
-/// of global switch heights.
+/// generation and the authenticated unsettled-block limit. Anchor witnesses are forced on anchor
+/// moves and the generation's first height.
 pub(crate) fn check_candidate_anchor(
     chain: &ChainContext<'_>,
     params: &ChainParams,
@@ -572,26 +465,6 @@ pub(crate) fn check_candidate_anchor(
         params.unsettled_limit(),
     )?;
     Ok(anchor)
-}
-
-/// Derives the incoming committee at switch height `H(t)-2` from its already verified witness
-/// ([`candidate_committee`]) and requires the outgoing local active committee to exist. No L1
-/// committee publication or checkpoint coverage of a prior derivation is required;
-/// back-pressure was already checked on the anchor.
-pub(crate) fn finish_candidate(
-    chain: &ChainContext<'_>,
-    height: u64,
-    committee: Option<&VerifiedWitness>,
-    anchor: AnchorState,
-) -> Result<CandidateFacts, Rejection> {
-    let derived = candidate_committee(chain, height, committee, &anchor)?;
-    if chain.schedule().switch_target(height).is_some() && chain.committee_at(height).is_none() {
-        let epoch = chain
-            .active_committee_epoch(height)
-            .unwrap_or_else(|| chain.schedule().epoch_of(height));
-        return Err(Rejection::CommitteeUnknown(epoch));
-    }
-    Ok(CandidateFacts { anchor, derived })
 }
 
 /// Step (a): the header's number is `height` and its parent hash is the committed `parent`.
@@ -622,68 +495,6 @@ fn candidate_anchor(
             Err(Rejection::UnexpectedWitness(WitnessKind::Anchor))
         }
         Some(w) => Ok(verify_anchor_witness(w, params.inbox)?),
-    }
-}
-
-/// The snapshot cutoff of a switch on top of `chain`: the committed parent's anchor number
-/// floored by the generation origin (COMM-4.3-11). At the first switch above S whose
-/// derivation parent D(t) is S, the synthetic start context supplies L1_0 instead of an Unzen
-/// anchor. The committee cache's
-/// [`snapshot_block`](super::committee_cache::snapshot_block) is this formula, so a witness it
-/// verified is one this check accepts.
-pub(super) fn snapshot_cutoff(chain: &ChainContext<'_>) -> u64 {
-    chain.anchor.number.max(chain.anchor_floor())
-}
-
-/// Verifies a candidate's raw committee witness, the one time it is verified: only at its switch
-/// height `H(t)-2`, under this block's own anchor `stateRoot` (COMM-4.3-12) at the
-/// [`snapshot_cutoff`] (COMM-4.3-11). A witness at any other height is refused unverified; a
-/// missing one is left to [`candidate_committee`].
-fn verify_candidate_committee(
-    chain: &ChainContext<'_>,
-    params: &ChainParams,
-    height: u64,
-    w: Option<&CommitteeWitness>,
-    anchor: &AnchorState,
-) -> Result<Option<VerifiedWitness>, Rejection> {
-    let Some(w) = w else { return Ok(None) };
-    let target = chain
-        .schedule()
-        .switch_target(height)
-        .ok_or(Rejection::UnexpectedWitness(WitnessKind::Committee))?;
-    let verified = VerifiedWitness::verify(
-        anchor.state_root,
-        snapshot_cutoff(chain),
-        params,
-        w.clone(),
-        target,
-    )?;
-    Ok(Some(verified))
-}
-
-/// Derives committee `t` only at its switch height `H(t)-2`, from a witness verified for exactly
-/// this block's own anchor `stateRoot`, the [`snapshot_cutoff`] and `t`; one verified for any
-/// other context is refused, never verified again. Non-switch heights forbid runtime committee
-/// witnesses.
-fn candidate_committee(
-    chain: &ChainContext<'_>,
-    height: u64,
-    w: Option<&VerifiedWitness>,
-    anchor: &AnchorState,
-) -> Result<Option<(u64, CommitteeState)>, Rejection> {
-    match (chain.schedule().switch_target(height), w) {
-        (None, None) => Ok(None),
-        (None, Some(_)) => Err(Rejection::UnexpectedWitness(WitnessKind::Committee)),
-        (Some(_), None) => Err(Rejection::MissingWitness(WitnessKind::Committee)),
-        (Some(target), Some(w)) => {
-            let (root, cutoff) = (anchor.state_root, snapshot_cutoff(chain));
-            if !w.verified_under(root, cutoff, target) {
-                return Err(
-                    CommitteeError::NotVerifiedUnder { root, cutoff, target_epoch: target }.into()
-                );
-            }
-            Ok(Some((target, w.committee().clone())))
-        }
     }
 }
 

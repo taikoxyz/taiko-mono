@@ -173,9 +173,11 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
     c.wait_for_height(fi_height + 1).await?;
     assert_eq!(c.cmt.envelope(fi_height).await?.block.transactions[0].as_ref(), raw);
     c.wait_for_height(18.max(fi_height + 1)).await?;
-    let epoch = c.cmt.committee(1).await?.context("native epoch 1")?;
-    assert_eq!(epoch.members.len(), 4);
-    assert_eq!(c.cmt.validators(Some(f.genesis.epoch_len + 1)).await?.len(), 4);
+    // The genesis set signs every height, past the first epoch's start of the global schedule.
+    assert_eq!(
+        c.cmt.validators(Some(f.genesis.epoch_len + 1)).await?,
+        c.cmt.validators(Some(1)).await?
+    );
     let trust_path = c.app_dir(0).join("checkpoint-trust.sock");
     let before_timeout = trust_timeout::observe(&trust_path).await?;
     let old_session = before_timeout["session_id"].as_str().context("pre-timeout session")?;

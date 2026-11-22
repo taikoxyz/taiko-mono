@@ -57,16 +57,10 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
             &f.params,
         )
         .unwrap();
-        f.committees
-            .insert(e, AuthenticatedCommittee::new(CommitteeState { record, members }).unwrap());
+        f.committees.insert(e, FixtureCommittee::new(CommitteeState { record, members }));
     }
-    f.val_states = replay_val_states(
-        &schedule,
-        &f.committees,
-        (6, &f.committees[&epoch].state),
-        tip,
-        |height| schedule.active_committee_epoch(height, 6).unwrap(),
-    );
+    // R's committee, the generation's initial set, signs every height after c.
+    f.val_states = replay_val_states((6, &f.committees[&epoch].state), tip);
     let state_at = |height: u64, hash: B256, comet: B256| {
         let base = state_with_queue(
             &f.params,
@@ -175,34 +169,21 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
             transactions_root: EMPTY_ROOT_HASH,
             ..Default::default()
         };
-        let active = schedule.active_committee_epoch(height, 6).unwrap();
         let envelope = EtnaEnvelope {
             block: ExecutionBlock { header: el.clone(), transactions: vec![] },
             anchor: (height <= 8).then(|| AnchorWitness {
                 l1_header: raw_anchor.clone(),
                 inbox: r_state.witness(f.params.inbox, &inbox::anchor_slots()),
             }),
-            committee: schedule.switch_target(height).map(|e| CommitteeWitness {
-                record: f.committees[&e].state.record.clone(),
-                registry: r_state.witness(f.params.registry, &snapshot_slots(0, false)),
-                entries: entries.clone(),
-            }),
             forced: None,
         };
-        let mut pair = pair_with_envelope(
-            envelope,
-            &f.committees[&active],
-            &keys,
-            f.blocks.get(&(height - 1)),
-        );
+        let mut pair =
+            pair_with_envelope(envelope, &f.committees[&epoch], &keys, f.blocks.get(&(height - 1)));
         pair.block.header.chain_id = rules::chain_id_for(&f.params, 2).unwrap().parse().unwrap();
-        pair.block.header.next_validators_hash = f.committees
-            [&schedule.active_committee_epoch(height + 1, 6).unwrap()]
-            .validators
-            .hash();
+        pair.block.header.next_validators_hash = f.committees[&epoch].validators.hash();
         // At c + 1 the parent state is generation two's genesis state (RECOV-8.4-7).
         pair.block.header.app_hash = app_hash(parent.hash_slow(), &f.val_states[&(height - 1)]);
-        super::super::consensus::resign(&mut pair, &f.committees[&active], &keys);
+        super::super::consensus::resign(&mut pair, &f.committees[&epoch], &keys);
         f.blocks.insert(height, pair);
         f.headers.insert(height, el);
         f.anchors.insert(height, a.clone());
@@ -240,9 +221,8 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     f
 }
 
-/// PROOF-6.2-30/32 (30.b, 32.a): from the recovery origin c = 6 the batch to 12 reports R (20),
-/// also for L = 6, where the first ordinary rotation (S(2) = 11) is already selected but its
-/// H(2) = 13 lies above lastHeight.
+/// From the recovery origin c = 6 the batch to 12 reports R (20) as the active committee
+/// snapshot: R's committee signs every height of the generation.
 #[tokio::test]
 async fn recovery_origin_uses_retained_boundary_and_r_committee() {
     for length in [6, 7, 8] {
@@ -258,7 +238,6 @@ async fn recovery_origin_uses_retained_boundary_and_r_committee() {
         assert_eq!(prepared.batch.input.activeCommitteeSnapshot, U256::from(20));
         assert!(prepared.batch.anchors.iter().all(|a| a.number >= 20));
         assert!(prepared.batch.blocks[0].block.last_commit.is_none());
-        assert!(prepared.batch.committee_witnesses.iter().all(|c| c.anchor.number >= 20));
     }
 }
 
@@ -297,15 +276,17 @@ async fn recovered_origin_binds_the_stored_parent_words() {
     }
 }
 
+/// A later checkpoint keeps the authenticated origin, and R's committee stays the active one
+/// through the heights the global schedule called switches.
 #[tokio::test]
-async fn recovery_later_checkpoint_and_epoch_crossing_keep_authenticated_origin() {
+async fn recovery_later_checkpoint_keeps_authenticated_origin_and_r_committee() {
     let mut terminal_leaves = BTreeMap::new();
     for (length, checkpoint) in [6, 7, 8].into_iter().flat_map(|l| [6, 12].map(|p| (l, p))) {
         let f = Arc::new(fixture(length, checkpoint, 18).await);
         let prepared = builder(f.clone()).prepare(f.snapshot.clone()).await.unwrap().unwrap();
         assert_eq!(prepared.batch.input.parentHeight, U256::from(checkpoint));
         assert_eq!(prepared.batch.input.lastHeight, U256::from(18));
-        assert_eq!(prepared.batch.input.activeCommitteeSnapshot, U256::from(21));
+        assert_eq!(prepared.batch.input.activeCommitteeSnapshot, U256::from(20));
         prepared.batch.verify_restored().unwrap();
         if checkpoint == 6 {
             terminal_leaves.insert(
@@ -328,14 +309,8 @@ async fn recovery_later_checkpoint_and_epoch_crossing_keep_authenticated_origin(
         }
         // The chain must reach its oldest consumed anchor; dropping that header is refused.
         let b = &prepared.batch;
-        let mut anchors = crate::batch::consumed_anchors(
-            &b.snapshot,
-            &b.parent_anchor,
-            &b.anchors,
-            b.committees.iter().map(|c| c.record.target_epoch),
-        )
-        .unwrap();
-        anchors.extend(b.committee_witnesses.iter().map(|context| context.anchor.clone()));
+        let anchors =
+            crate::batch::consumed_anchors(&b.snapshot, &b.parent_anchor, &b.anchors).unwrap();
         let headers = |raw: &[alloy_primitives::Bytes]| {
             raw.iter().map(|h| RawL1Header::from_raw(h.clone()).unwrap()).collect::<Vec<_>>()
         };
@@ -352,22 +327,20 @@ async fn recovery_later_checkpoint_and_epoch_crossing_keep_authenticated_origin(
     }
 }
 
-/// R joins the reference chain only while a batch uses recovery material: a proof from the
-/// origin c, or one that uses the committee selected from R's registry snapshot (PROOF-6.2-14,
-/// PROOF-6.2-30). Requiring it in every batch would make the generation unlandable once R falls
-/// more than the reference bound (BATCH-6.3-6, 131,072 headers) behind the finalized tip.
+/// R joins the reference chain only for a batch from the origin c: a later batch
+/// authenticates the fixed origin record under its own starting anchor. Requiring R in every
+/// batch would make the generation unlandable once R falls more than the reference bound
+/// (131,072 headers) behind the finalized tip.
 #[tokio::test]
-async fn recovery_root_is_consumed_only_while_recovery_material_is_used() {
-    // c = 6, R = 20, next anchor 21. At L = 8, ordinary epoch 1 was selected by the first
-    // recovered switch at 7, whose own proving anchor is R. Its provenance still consumes R
-    // at p = 12. The later batch from 18 uses only epoch 2 and later switches at anchor 21.
+async fn recovery_root_is_consumed_only_from_the_origin() {
+    // c = 6, R = 20, next anchor 21: blocks from 9 on inherit anchor 21.
     for (length, checkpoint, tip, uses_r) in [
         (6, 6, 18, true),
-        (6, 12, 18, true),
+        (6, 12, 18, false),
         (7, 6, 18, true),
-        (7, 12, 18, true),
+        (7, 12, 18, false),
         (8, 6, 18, true),
-        (8, 12, 18, true),
+        (8, 12, 18, false),
         (8, 18, 24, false),
     ] {
         let f = Arc::new(fixture(length, checkpoint, tip).await);

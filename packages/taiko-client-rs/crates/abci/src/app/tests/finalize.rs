@@ -1,16 +1,16 @@
 //! `FinalizeBlock` and `Commit`: verdict cache, cold-start re-validation,
-//! state transitions, validator-set switches, EL forkchoice and retries, safety halts,
-//! persistence, crash replay, determinism and a multi-epoch run.
+//! state transitions, validator updates, EL forkchoice and retries, safety halts,
+//! persistence, crash replay, determinism and a multi-height run.
 
-use std::{collections::BTreeMap, time::Duration};
+use std::time::Duration;
 
-use alloy_primitives::{B256, U256};
+use alloy_primitives::B256;
 use tendermint::{AppHash, Hash, abci::Code};
 
 use super::{
     proposal::{
         bft_time, commit, decide, finalize, finalize_req, hand_envelope, hand_forced_envelope,
-        judge, jump, mid_epoch, next_height, plant_due_entry, process, process_req, propose,
+        judge, mid_epoch, next_height, plant_due_entry, process, process_req, propose,
         sample_tx_list, set_anchor_age, step, validate, with_extra_transaction,
     },
     *,
@@ -21,14 +21,13 @@ use crate::{
         finalize::{Backoff, DECIDED_BLOCK},
         validate::{Rejection, Validated},
     },
-    committee::{self, Snapshot},
     engine::{EngineError, PayloadVerdict},
     envelope::EtnaEnvelope,
     forced::ForcedError,
     l1::{L1Error, RawL1Header},
-    store::{AppState, CommitteeState},
-    test_utils::{GenesisSpec, L1Call, LogCapture, RegistryStorage, l1_header, sample_entries},
-    types::{ParentInfo, RegistryEntry},
+    store::{AppState, Record},
+    test_utils::{GenesisSpec, L1Call, LogCapture, l1_header},
+    types::ParentInfo,
     valstate,
 };
 
@@ -137,7 +136,6 @@ async fn a_cached_verdict_is_reused_without_revalidation() {
         Some(&planted.anchor),
         "the planted verdict decides the pending state"
     );
-    assert!(app.decided_live, "a hit is a live decision");
     assert!(app.l1().calls().is_empty(), "a hit confirms no anchor in the own L1");
     assert!(app.verdicts.is_empty(), "the verdict is taken");
 }
@@ -309,13 +307,13 @@ async fn finalized_head_advance_keeps_hot_and_cold_finalization_identical() {
 }
 
 #[tokio::test]
-async fn finalize_updates_parent_anchor_and_committees() {
+async fn finalize_updates_parent_and_anchor() {
     let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     let h0 = fx.genesis.genesis_height + 1;
 
-    // H_0 = h_first(e_0): re-prove the launch anchor; committee 1 waits until H(1)-2.
+    // H_0: re-prove the launch anchor.
     let env = propose(&mut app).await;
     let (_, req) = judge(&mut app, &env).await;
     let before = app.state().unwrap().clone();
@@ -348,72 +346,13 @@ async fn finalize_updates_parent_anchor_and_committees() {
     assert_eq!(state.parent.hash, env.block.header.hash_slow());
     assert_eq!(state.parent.grandparent_timestamp, expected.parent.timestamp);
     assert_eq!(state.anchor, expected.anchor);
-    assert_eq!(state.committees, expected.committees);
+    assert_eq!(state.val_state.current.members(), expected.val_state.current.members());
 
     // A moved anchor replaces the anchor facts.
     let inbox = fx.inbox_at_checkpoint(h0, expected.parent.hash);
     fx.advance_l1(app.l1(), 66, &inbox, &fx.registry);
     step(&mut app).await;
     assert_eq!(app.state().unwrap().anchor, fx.anchor_state(app.l1(), 66));
-}
-
-/// The switch height to epoch 2 (`h_first(2) − 2`, as CometBFT applies updates two heights
-/// later) emits the exact updates, sorted by key: a removal, a power change and an addition, but
-/// not the member whose key and power stay the same (COMM-4.3-13, vector 13.f); committees below 1
-/// are pruned.
-#[tokio::test]
-async fn switch_height_emits_the_exact_updates_and_prunes() {
-    let fx = Fixture::genesis(3);
-    let params = &fx.params;
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let switch = app.state().unwrap().schedule().h_first(4) - 2;
-
-    let derive = |entries: Vec<RegistryEntry>, target| {
-        let cutoff = if target == 4 { 76 } else { 64 };
-        let snapshot = Snapshot {
-            checkpoint_index: u64::from(target == 4),
-            l1_block: if target == 4 { 71 } else { 63 },
-            entries,
-        };
-        let (record, members) = committee::derive(&snapshot, cutoff, target, params).unwrap();
-        CommitteeState { record, members }
-    };
-    let all = sample_entries(4);
-    let c1 = derive(all[..3].to_vec(), 3);
-    let mut next = all.clone();
-    next.remove(0); // validator 0 leaves
-    next[0].eff_stake *= U256::from(5); // validator 1 changes power; 2 stays; 3 joins
-    let c2 = derive(next.clone(), 4);
-
-    let landed = fx.inbox_with(switch - 5);
-    let changed = RegistryStorage { checkpoints: vec![(63, all[..3].to_vec()), (71, next)] };
-    fx.advance_l1(app.l1(), 76, &landed, &changed);
-    let anchor = fx.anchor_state(app.l1(), 76);
-    jump(&mut app, switch - 1, anchor, &[(3, c1.clone())]);
-    assert_eq!(app.state().unwrap().committees.keys().copied().collect::<Vec<_>>(), [0, 3]);
-
-    let env = propose(&mut app).await;
-    let (resp, req) = judge(&mut app, &env).await;
-    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
-    let out = finalize(&mut app, finalize_req(&req)).await.expect("finalizes");
-
-    let unit = 1_000_000_000u64; // 1 TAIKO / VP_UNIT
-    let expected: BTreeMap<crate::key::ConsensusKey, u64> = BTreeMap::from([
-        (all[0].consensus_key().unwrap(), 0),
-        (all[1].consensus_key().unwrap(), 10 * unit),
-        (all[3].consensus_key().unwrap(), 4 * unit),
-    ]);
-    assert_eq!(updates_of(&out), expected.into_iter().collect::<Vec<_>>());
-    assert_eq!(updates_of(&out), committee::validator_updates(&c1.members, &c2.members));
-    let pending = app.pending.as_ref().expect("pending state");
-    assert_eq!(pending.committees.keys().copied().collect::<Vec<_>>(), [3, 4], "0 is pruned");
-
-    // The heights around it emit nothing.
-    commit(&mut app).await.unwrap();
-    let env = propose(&mut app).await;
-    let (_, req) = judge(&mut app, &env).await;
-    assert!(decide(&mut app, &req).await.validator_updates.is_empty());
 }
 
 #[tokio::test]
@@ -758,7 +697,7 @@ async fn cold_finalize_of_stale_anchor_block_halts() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     set_anchor_age(&mut app, max + 1);
-    let env = hand_envelope(&app, None, None);
+    let env = hand_envelope(&app, None);
     let req =
         finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     let before = app.engine().calls().len();
@@ -964,7 +903,7 @@ async fn a_cold_block_without_an_anchor_witness_needs_no_l1() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
-    let env = hand_envelope(&app, None, None);
+    let env = hand_envelope(&app, None);
     let req =
         finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     {
@@ -990,7 +929,7 @@ async fn cold_finalize_halts_on_an_anchored_checkpoint_conflicting_with_the_loca
         let dir = tempfile::tempdir().unwrap();
         let mut app = mid_epoch(&fx, dir.path(), 5).await;
         fx.advance_l1(app.l1(), number, &inbox, &fx.registry);
-        let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), number)), None);
+        let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), number)));
         let req =
             finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
         let committed = app.state().cloned();
@@ -1013,7 +952,7 @@ async fn cold_finalize_waits_until_the_el_serves_the_checkpoint_block() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     fx.advance_l1(app.l1(), 66, &fx.inbox_with(3), &fx.registry);
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)), None);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 66)));
     let req =
         finalize_req(&process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]));
     let block = app.engine().state().chain.remove(&3).expect("the local chain holds block 3");
@@ -1024,30 +963,6 @@ async fn cold_finalize_waits_until_the_el_serves_the_checkpoint_block() {
     app.engine().state().chain.insert(3, block);
     finalize(&mut app, req).await.expect("finalizes once the EL serves the block");
     assert_eq!(app.pending.as_ref().map(|s| s.parent.hash), Some(env.block.header.hash_slow()));
-}
-
-/// Two different records for one epoch: a safety halt.
-#[tokio::test]
-async fn a_conflicting_committee_record_is_a_safety_halt() {
-    let fx = Fixture::genesis(2);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let switch = fx.schedule().h_first(1) - 2;
-    fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7), &fx.registry);
-    let parent = fx.anchor_state(app.l1(), 66);
-    jump(&mut app, switch - 1, parent, &[]);
-    let env = propose(&mut app).await; // switch derives committee 1
-    let (_, req) = judge(&mut app, &env).await;
-    let derived = app.verdicts.get(&req.hash).unwrap().derived.as_ref().unwrap().1.clone();
-    app.state.as_mut().unwrap().committees.insert(1, fx.committee(2));
-    let before = app.engine().calls().len();
-    let msg = safety_halt(finalize(&mut app, finalize_req(&req)).await);
-    assert!(msg.contains("epoch 1"), "{msg}");
-    assert_eq!(engine_calls_since(&app, before), [], "the EL is not touched");
-
-    // The same record again is no conflict.
-    app.state.as_mut().unwrap().committees.insert(1, derived);
-    finalize(&mut app, finalize_req(&req)).await.expect("an identical record is fine");
 }
 
 #[tokio::test(start_paused = true)]
@@ -1252,7 +1167,7 @@ fn forced_block_on(fx: &Fixture, app: &App<MockL1, MockEngine>) -> EtnaEnvelope 
     let blob = plant_due_entry(fx, app.l1(), 66, fx.inbox.clone());
     let anchor = Some(fx.anchor_witness(app.l1(), 66));
     let witness = fx.forced_witness(app.l1(), 66, 0, blob);
-    hand_forced_envelope(app, anchor, None, witness, sample_tx_list())
+    hand_forced_envelope(app, anchor, witness, sample_tx_list())
 }
 
 /// A mid-epoch app whose own L1 finalized block 66 holding one due entry, and the forced block
@@ -1444,7 +1359,7 @@ async fn forced_cursor_advances_after_a_forced_block_commits() {
     assert_eq!(stored.forced_cursor, 1);
 
     // The next block (cursor 1 == tail 1) is ordinary, carries no witness and keeps the cursor.
-    let next = hand_envelope(&app, None, None);
+    let next = hand_envelope(&app, None);
     let (resp, req) = judge(&mut app, &next).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
     decide(&mut app, &req).await;
@@ -1472,7 +1387,7 @@ async fn forced_cursor_survives_restart() {
     info(&mut app).await.expect("Info answers from the stored state");
     assert_eq!(app.state().unwrap().forced_cursor, 1);
 
-    let ordinary = hand_envelope(&app, None, None);
+    let ordinary = hand_envelope(&app, None);
     assert!(matches!(validate(&app, &ordinary), Ok(Validated { forced: None, .. })));
     let mut replayed = ordinary;
     replayed.forced = Some(again);
@@ -1493,42 +1408,37 @@ async fn finalize_before_init_chain_is_an_error() {
 }
 
 /// A genesis with `L = 4` and an unsettled limit of 1 (`D_MAX = 3`, `MARGIN_V = 2`).
-pub(super) fn short_epochs() -> Fixture {
+/// A three-validator fixture whose unsettled limit of 6 makes the checkpoint, and with it the
+/// retained validator records, rise during a [`multi_height_run`].
+pub(super) fn short_limit() -> Fixture {
     let mut spec = GenesisSpec::new(3);
-    spec.epoch_len = 4;
     spec.params.unsettled_limit = 6;
     Fixture::build(spec)
 }
 
-/// Drives `PrepareProposal → ProcessProposal → FinalizeBlock → Commit` for `3 L + 3` heights
-/// from `H_0` on a [`short_epochs`] fixture; returns the app and every decided height's
+/// The heights a [`multi_height_run`] decides.
+pub(super) const RUN_HEIGHTS: u64 = 15;
+
+/// Drives `PrepareProposal → ProcessProposal → FinalizeBlock → Commit` for [`RUN_HEIGHTS`]
+/// heights from `H_0` on a [`short_limit`] fixture; returns the app and every decided height's
 /// `FinalizeBlock` request and response.
 ///
-/// With a limit of 1 every height needs a new checkpoint, so before each height after `H_0` the
-/// own L1 finalizes one more block (`L1_0 + k`) whose Inbox records the last committed block as
-/// checkpoint; settlement advances only checkpoint facts. A fourth validator registers at
-/// L1 block `L1_0 + 2`. Committee 1 selects its earlier committed parent; committees 2 and 3
-/// include the fourth validator once their committed parent anchors cover the join.
-pub(super) async fn multi_epoch_run(
+/// Before each height after `H_0` the own L1 finalizes one more block (`L1_0 + k`) whose Inbox
+/// records the last committed block as checkpoint, so every later height moves the anchor;
+/// settlement advances only checkpoint facts.
+pub(super) async fn multi_height_run(
     fx: &Fixture,
     dir: &Path,
 ) -> (App<MockL1, MockEngine>, Vec<(request::FinalizeBlock, response::FinalizeBlock)>) {
     let mut app = initialized(fx, dir).await;
-    let (h0, l1_0) = (app.state().unwrap().schedule().h0(), fx.genesis.l1_0);
-    let joined = RegistryStorage {
-        checkpoints: vec![
-            (fx.genesis.genesis_cutoff, sample_entries(3)),
-            (l1_0 + 2, sample_entries(4)),
-        ],
-    };
+    let (h0, l1_0) = (fx.genesis.genesis_height + 1, fx.genesis.l1_0);
     let mut decided = vec![];
-    for k in 0..3 * fx.genesis.epoch_len + 3 {
+    for k in 0..RUN_HEIGHTS {
         if k > 0 {
             let state = app.state().unwrap();
             let mut inbox = fx.inbox_with(state.last_height);
             inbox.last_checkpoint_hash = state.parent.hash;
-            let registry = if k >= 2 { &joined } else { &fx.registry };
-            fx.advance_l1(app.l1(), l1_0 + k, &inbox, registry);
+            fx.advance_l1(app.l1(), l1_0 + k, &inbox, &fx.registry);
         }
         let env = propose(&mut app).await;
         assert_eq!(env.block.header.number, h0 + k);
@@ -1564,26 +1474,25 @@ fn only_anchor_confirmations(calls: &[L1Call]) -> bool {
 
 /// CONS-3.1-8, ENC-A-29b: FinalizeBlock at x answers appHash(x), x's EL block hash with the
 /// validator state after x, that is with the updates x returns applied (never the state before
-/// x, 29b.c), and once x is committed `Info` reports the same hash for x. The run crosses the
-/// validator-set switch.
+/// x, 29b.c), and once x is committed `Info` reports the same hash for x. Every height's
+/// validator-state advance changes the proposer priorities, so the hash before x never answers.
 #[tokio::test]
 async fn finalize_block_and_info_answer_the_app_hash_of_the_block_and_validator_state() {
-    let fx = short_epochs();
+    let fx = short_limit();
     let source_dir = tempfile::tempdir().unwrap();
-    let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
+    let (source, decided) = multi_height_run(&fx, source_dir.path()).await;
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     share_l1_chain(source.l1(), app.l1());
 
     let as_app_hash = |hash: B256| AppHash::try_from(hash.to_vec()).unwrap();
     let mut before = app.state().unwrap().val_state.clone();
-    let mut switched = false;
     for (req, _) in &decided {
         let height = req.height.value();
         let block_hash = EtnaEnvelope::decode(&req.txs[0]).unwrap().block.header.hash_slow();
         let response = finalize(&mut app, req.clone()).await.expect("finalizes");
         let updates = updates_of(&response);
-        switched |= !updates.is_empty();
+        assert!(updates.is_empty(), "height {height}");
         let after = before.advance(&updates).unwrap();
         let expected = as_app_hash(valstate::app_hash(block_hash, after.hash()));
         assert_eq!(response.app_hash, expected, "height {height}");
@@ -1595,114 +1504,45 @@ async fn finalize_block_and_info_answer_the_app_hash_of_the_block_and_validator_
         assert_eq!(committed.last_block_app_hash, expected, "height {height}");
         before = after;
     }
-    assert!(switched, "a height returns validator updates");
 }
 
+/// Every height returns an update list and Commit records it at that height, an empty list
+/// included, so a recompute never has to tell a lost record from "no change": over a run the
+/// store holds `val-updates-{h}` for every committed height h, each the empty list FinalizeBlock
+/// returned, and the signing set stays the genesis one.
 #[tokio::test]
-async fn multi_epoch_run_switches_the_validator_set_once() {
-    let fx = short_epochs();
-    let dir = tempfile::tempdir().unwrap();
-    let (app, decided) = multi_epoch_run(&fx, dir.path()).await;
-    let state = app.state().unwrap();
-    let schedule = state.schedule();
-    let h0 = schedule.h0();
-    assert_eq!(decided.len(), 15);
-    assert_eq!(state.last_height, h0 + 14);
-    assert_eq!(schedule.epoch_of(state.last_height), 3);
-
-    let c1 = fx.committee(1);
-    let c2 = state.committees[&3].clone();
-    assert_eq!(c1.members, fx.members, "committee 1 comes from the genesis snapshot");
-    assert_eq!(c2.members.len(), 4, "the fourth validator is in committee 3");
-    assert_eq!(state.committees[&4].members, c2.members);
-    assert_eq!(
-        state.committees.keys().copied().collect::<Vec<_>>(),
-        [3, 4],
-        "old committees are pruned"
-    );
-
-    // CometBFT's view of the validator set, updated by every response.
-    let mut set: BTreeMap<crate::key::ConsensusKey, u64> =
-        fx.members.iter().map(|m| (m.pubkey, m.power)).collect();
-    let mut changes = vec![];
-    for (req, resp) in &decided {
-        let height = req.height.value();
-        let block_hash = B256::from_slice(resp.app_hash.as_bytes());
-        assert_eq!(resp.tx_results.len(), 1);
-        assert_eq!(resp.tx_results[0].code, Code::Ok);
-        let updates = updates_of(resp);
-        match schedule.switch_target(height) {
-            Some(1) => {
-                assert_eq!(updates, committee::validator_updates(&fx.members, &c1.members))
-            }
-            Some(2) => {
-                assert_eq!(updates, committee::validator_updates(&c1.members, &c2.members));
-            }
-            Some(3) => {
-                assert_eq!(updates, committee::validator_updates(&c2.members, &c2.members))
-            }
-            other => assert!(updates.is_empty(), "height {height} (switch {other:?})"),
-        }
-        let before = set.clone();
-        for (key, power) in updates {
-            if power == 0 {
-                set.remove(&key);
-            } else {
-                set.insert(key, power);
-            }
-        }
-        if set != before {
-            changes.push(height);
-        }
-        assert_ne!(block_hash, B256::ZERO);
-    }
-    assert_eq!(changes, [schedule.h_first(2) - 2], "the set changes once, at the switch to 2");
-    let expected: BTreeMap<crate::key::ConsensusKey, u64> =
-        c2.members.iter().map(|m| (m.pubkey, m.power)).collect();
-    assert_eq!(set, expected);
-}
-
-/// Full-history replay requires only the outgoing set before a switch. The embedded switch
-/// witness authenticates the incoming set, which FinalizeBlock inserts before H+2 updates.
-/// The minimum allowed epoch length remains unchanged.
-#[tokio::test]
-async fn every_switch_height_finds_both_committees() {
-    let fx = short_epochs();
-    let dir = tempfile::tempdir().unwrap();
-    let (source, decided) = multi_epoch_run(&fx, dir.path()).await;
-
+async fn every_height_records_validator_updates() {
+    let fx = Fixture::genesis(3);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    share_l1_chain(source.l1(), app.l1());
-    let schedule = app.state().unwrap().schedule();
-    let mut switches = vec![];
-    for (req, _) in &decided {
+    let genesis = app.state().unwrap().val_state.clone();
+    let origin = fx.genesis.genesis_height;
+    assert_eq!(app.store.load_val_updates(origin).unwrap(), Record::Missing, "none at the origin");
+    for _ in 0..8 {
+        let env = propose(&mut app).await;
+        let (resp, req) = judge(&mut app, &env).await;
+        assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
         let height = req.height.value();
-        if let Some(t) = schedule.switch_target(height) {
-            let known: Vec<u64> = app.state().unwrap().committees.keys().copied().collect();
-            assert!(
-                known.contains(&(t - 1)) && !known.contains(&t),
-                "switch to {t} at {height} knows {known:?}"
-            );
-            assert!(schedule.h_first(t - 1) < height, "committee {t} is derived before its switch");
-            switches.push(t);
-        }
-        finalize(&mut app, req.clone()).await.expect("finalizes");
-        commit(&mut app).await.expect("commits");
-        if let Some(t) = schedule.switch_target(height) {
-            assert!(app.state().unwrap().committees.contains_key(&t));
-        }
+        let out = decide(&mut app, &req).await;
+        assert!(out.validator_updates.is_empty(), "height {height}");
+        let state = app.state().unwrap();
+        assert_eq!(state.comet_history_floor(), origin, "nothing is pruned yet");
+        assert_eq!(state.val_state.current.members(), genesis.current.members(), "{height}");
     }
-    assert_eq!(switches, [1, 2, 3, 4]);
+    let head = app.state().unwrap().last_height;
+    for height in origin + 1..=head {
+        assert_eq!(app.store.load_val_updates(height).unwrap(), Record::Valid(vec![]), "{height}");
+        assert!(dir.path().join(format!("val-updates-{height}.bin")).exists(), "{height}");
+    }
 }
 
 /// Two fresh apps finalizing the same decided requests (cold: no `ProcessProposal`) give the
 /// same responses and states as the app that proposed and processed them.
 #[tokio::test]
 async fn finalize_is_deterministic_across_fresh_apps() {
-    let fx = short_epochs();
+    let fx = short_limit();
     let dir = tempfile::tempdir().unwrap();
-    let (proposer, decided) = multi_epoch_run(&fx, dir.path()).await;
+    let (proposer, decided) = multi_height_run(&fx, dir.path()).await;
 
     let mut states: Vec<AppState> = vec![];
     for _ in 0..2 {
@@ -1720,13 +1560,13 @@ async fn finalize_is_deterministic_across_fresh_apps() {
     assert_eq!(Some(&states[0]), proposer.state());
 }
 
-/// Crash on both sides of Commit at each switch, including the joining-validator switch.
-/// Cold replay must preserve complete responses, updates, committees and canonical EL hashes.
+/// Crash on both sides of Commit at every fourth height. Cold replay must preserve complete
+/// responses, validator updates and canonical EL hashes.
 #[tokio::test]
-async fn switch_replay_survives_crashes_before_and_after_commit() {
-    let fx = short_epochs();
+async fn replay_survives_crashes_before_and_after_commit() {
+    let fx = short_limit();
     let source_dir = tempfile::tempdir().unwrap();
-    let (source, decided) = multi_epoch_run(&fx, source_dir.path()).await;
+    let (source, decided) = multi_height_run(&fx, source_dir.path()).await;
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
     share_l1_chain(source.l1(), app.l1());
@@ -1736,9 +1576,9 @@ async fn switch_replay_survives_crashes_before_and_after_commit() {
         share_l1_chain(source.l1(), &l1);
         l1
     };
-    let mut switches = Vec::new();
+    let mut crashes = Vec::new();
     for (req, expected) in &decided {
-        let target = fx.schedule().switch_target(req.height.value());
+        let crash = req.height.value() % 4 == 3;
         let committed = app.state().unwrap().clone();
         app.l1().state().calls.clear();
         let response = finalize(&mut app, req.clone()).await.unwrap();
@@ -1747,16 +1587,10 @@ async fn switch_replay_survives_crashes_before_and_after_commit() {
         let pending = app.pending.as_ref().unwrap().clone();
         let hash = pending.parent.hash;
         assert_eq!(app.engine().state().chain[&pending.last_height].hash_slow(), hash);
-        if let Some(target) = target {
-            switches.push(target);
-            assert!(!committed.committees.contains_key(&target));
-            assert!(pending.committees.contains_key(&target));
-            assert_eq!(response.validator_updates.is_empty(), target != 2);
-            if target == 2 {
-                assert_eq!(pending.committees[&target].members.len(), 4);
-                assert_eq!(committed.committees[&(target - 1)].members.len(), 3);
-            }
-            // The EL has executed the switch while the durable store still holds its parent.
+        if crash {
+            crashes.push(req.height.value());
+            assert!(response.validator_updates.is_empty());
+            // The EL has executed the block while the durable store still holds its parent.
             let engine = app.engine().reopen();
             drop(app);
             app = app_with(
@@ -1772,15 +1606,12 @@ async fn switch_replay_survives_crashes_before_and_after_commit() {
             assert_eq!(finalize(&mut app, req.clone()).await.unwrap(), response);
             assert_eq!(app.pending.as_ref(), Some(&pending));
             let calls = app.l1().calls();
-            assert!(
-                only_anchor_confirmations(&calls),
-                "switch replay reads no L1 state: {calls:?}"
-            );
+            assert!(only_anchor_confirmations(&calls), "replay reads no L1 state: {calls:?}");
         }
         commit(&mut app).await.unwrap();
         assert_eq!(app.state(), Some(&pending));
-        if target.is_some() {
-            // A crash after Commit reloads the incoming committee before the following height.
+        if crash {
+            // A crash after Commit reloads the committed state before the following height.
             let engine = app.engine().reopen();
             drop(app);
             app = app_with(
@@ -1795,7 +1626,7 @@ async fn switch_replay_survives_crashes_before_and_after_commit() {
             assert_eq!(app.engine().state().chain[&pending.last_height].hash_slow(), hash);
         }
     }
-    assert_eq!(switches, [1, 2, 3, 4]);
+    assert_eq!(crashes, [3, 7, 11, 15]);
 }
 
 /// Cold canonical skips must preserve the consumed cursor through crash replay and Commit.

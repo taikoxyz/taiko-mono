@@ -53,7 +53,7 @@ async fn an_epoch_boundary_does_not_wait_for_l1() -> anyhow::Result<()> {
         assert!(anchor <= frozen, "block {h}: anchor {anchor} above L1 finalized {frozen}");
     }
     let status = devnet.abci_status(0).await?;
-    assert!(status.epoch >= 1, "the chain entered epoch 1: {status:?}");
+    assert!(status.head >= past, "the chain passed the boundary: {status:?}");
     assert_eq!(devnet.app_halt(0), None);
 
     devnet.l1_resume().await?;

@@ -53,7 +53,7 @@ fn target(app: &App<MockL1, MockEngine>, fx: &Fixture, height: u64, hash: B256) 
 /// genesis anchor's witness, later ones inherit the committed anchor.
 fn next_envelope(app: &App<MockL1, MockEngine>, fx: &Fixture) -> EtnaEnvelope {
     let first = app.state().expect("initialized").last_height == 0;
-    hand_envelope(app, first.then(|| fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None)
+    hand_envelope(app, first.then(|| fx.anchor_witness(app.l1(), fx.genesis.l1_0)))
 }
 
 /// Commits blocks up to `height`, the first one anchored at the genesis L1 block.
@@ -165,7 +165,7 @@ async fn conflicting_decided_checkpoint_halts_before_settle_or_pending() {
     let mut app = initialized(&fx, dir.path()).await;
     target(&app, &fx, 1, B256::repeat_byte(7));
     app.refresh_trust().await.unwrap();
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)));
     let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     let before = app.engine().calls().len();
     let error = finalize(&mut app, finalize_req(&req)).await.unwrap_err();
@@ -262,7 +262,7 @@ async fn restart_checks_contiguous_ancestry_not_presence_of_genuine_checkpoint()
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)));
     let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     finalize(&mut app, finalize_req(&req)).await.unwrap();
     commit(&mut app).await.unwrap();
@@ -364,7 +364,7 @@ async fn failed_commit_never_authorizes_and_keeps_original_durable_head() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)));
     let hash = env.block.header.hash_slow();
     target(&app, &fx, 1, hash);
     app.refresh_trust().await.unwrap();
@@ -422,7 +422,7 @@ async fn higher_generation_proposal_revokes_even_without_finalize_error() {
     fx.plant_l1_block(app.l1(), 101, &inbox, &fx.registry);
     app.l1().set_finalized(101);
     let before = store_files(dir.path());
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 101)), None);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 101)));
     let (response, _) = super::proposal::judge(&mut app, &env).await;
     assert_eq!(response, response::ProcessProposal::Reject);
     assert!(app.superseded);
@@ -890,7 +890,7 @@ async fn proposal_checkpoints_above_the_parent_pend_and_conflicting_ones_revoke(
     assert_ready_at(&app, LANDED - 1);
     let env = next_envelope(&app, &fx);
     target(&app, &fx, LANDED, env.block.header.hash_slow());
-    let ahead = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 100)), None);
+    let ahead = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 100)));
     let logs = crate::test_utils::LogCapture::start();
     assert_eq!(super::proposal::rejected(&mut app, &ahead).await, "checkpoint_above_parent");
     assert!(logs.at("ERROR").iter().any(|line| line.contains("checkpoint_above_parent")));
@@ -912,7 +912,7 @@ async fn proposal_checkpoints_above_the_parent_pend_and_conflicting_ones_revoke(
         &fx.inbox_at_checkpoint(LANDED - 2, B256::repeat_byte(0xc4)),
         &fx.registry,
     );
-    let conflicting = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 101)), None);
+    let conflicting = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), 101)));
     assert_eq!(super::proposal::rejected(&mut app, &conflicting).await, "checkpoint_conflict");
     let snapshot = app.trust.snapshot();
     assert_eq!(snapshot.phase, TrustPhase::Halted);
@@ -1166,7 +1166,7 @@ async fn committed_comet_history_is_required_and_survives_restart() {
     let mut app = initialized(&fx, dir.path()).await;
     for i in 0..=LANDED {
         let anchor = (i == 0).then(|| fx.anchor_witness(app.l1(), fx.genesis.l1_0));
-        let env = hand_envelope(&app, anchor, None);
+        let env = hand_envelope(&app, anchor);
         let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
         finalize(&mut app, finalize_req(&req)).await.unwrap();
         assert!(app.store.load_comet_hash(req.height.value()).unwrap().is_none());
@@ -1220,7 +1220,7 @@ async fn decided_comet_hash_mismatch_halts_before_settle_even_when_el_matches() 
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)));
     let inbox = InboxStorage {
         last_checkpoint_height: 1,
         last_checkpoint_hash: env.block.header.hash_slow(),
@@ -1241,7 +1241,7 @@ async fn decided_comet_hash_mismatch_halts_before_settle_even_when_el_matches() 
 /// committed anchor); returns its Comet block ID.
 async fn commit_next(app: &mut App<MockL1, MockEngine>, fx: &Fixture, anchor: Option<u64>) -> B256 {
     let witness = anchor.map(|number| fx.anchor_witness(app.l1(), number));
-    let env = hand_envelope(app, witness, None);
+    let env = hand_envelope(app, witness);
     let req = process_req(app, next_height(app), bft_time(app), vec![env.encode()]);
     finalize(app, finalize_req(&req)).await.unwrap();
     commit(app).await.unwrap();

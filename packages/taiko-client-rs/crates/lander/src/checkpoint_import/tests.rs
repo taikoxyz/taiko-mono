@@ -82,7 +82,6 @@ fn app_hash_of(block_hash: B256, bytes: &[u8]) -> tendermint::AppHash {
 fn commit_terminal(fx: &mut Fixture, s: u64, before: &abci::valstate::ValState, next_hash: bool) {
     use crate::test_utils::consensus::{SigningKey, resign};
     let parent = fx.headers[&(s - 1)].hash_slow();
-    let epoch = Schedule::from_genesis(&fx.snapshot.genesis).epoch_of(s);
     let pair = fx.blocks.get_mut(&s).unwrap();
     pair.block.header.app_hash = crate::test_utils::consensus_mpt::app_hash(parent, before);
     if next_hash {
@@ -91,7 +90,7 @@ fn commit_terminal(fx: &mut Fixture, s: u64, before: &abci::valstate::ValState, 
     }
     resign(
         pair,
-        &fx.committees[&epoch],
+        &fx.committees[&0],
         &[SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()],
     );
     let comet = B256::from_slice(pair.block.header.hash().as_bytes());
@@ -136,9 +135,9 @@ fn frames(fx: &Fixture, height: u64) -> Vec<Result<WindowBlock, ImportError>> {
     (fx.snapshot.origin_height() + 1..=height)
         .map(|h| {
             let pair = &fx.blocks[&h];
-            let schedule = Schedule::from_genesis(&fx.snapshot.genesis);
-            let committee = &fx.committees
-                [&schedule.active_committee_epoch(h, fx.snapshot.origin_height()).unwrap()];
+            // The generation's initial set signs every height; every fixture committee holds
+            // the same members.
+            let committee = &fx.committees[&0];
             Ok(WindowBlock {
                 block: pair.raw_block.clone(),
                 commit: tendermint_proto::v0_38::types::Commit::from(pair.commit.clone())
@@ -223,16 +222,14 @@ async fn import_rejects_preimage_with_wrong_app_hash() {
     assert!(matches!(result, Err(ImportError::Candidate(ref m)) if m.contains("schema")));
 }
 
-/// Global review focus 4: at an s carrying a committee switch, the preimage for s - 1 verifies
-/// against header(s)'s app_hash, block s's updates apply once, to the set for s + 2, the derived
-/// sets for s + 1 and s + 2 match the window's, and the state after s is no valid preimage.
+/// At s the preimage for s - 1 verifies against header(s)'s app_hash, and block s's update
+/// list, the empty one, applies once: the state after s is the replay's, its current set is
+/// the one before s's next, and both its sets are the generation's initial set. The state after
+/// s is no valid preimage.
 #[tokio::test]
-async fn import_applies_switch_at_s_once() {
+async fn import_advances_s_once_with_no_updates() {
     let fx = std::sync::Arc::new(Fixture::with_epoch(12, 12, 0, 13));
-    let schedule = Schedule::from_genesis(&fx.snapshot.genesis);
-    assert_eq!(schedule.switch_target(12), Some(1));
     let before = &fx.val_states[&11];
-    assert_ne!(before.next, fx.val_states[&12].next, "s carries no validator change");
     let package = import_package(&fx, 12).await;
     let imported =
         authenticate_import(&package, frames(&fx, 12).into_iter(), &fx.params, &OwnL1(fx.clone()))
@@ -240,31 +237,21 @@ async fn import_applies_switch_at_s_once() {
             .unwrap();
     let after = &imported.state().val_state;
     assert_eq!(after, &fx.val_states[&12]);
-    // Applied exactly once: not skipped, and not to the set for s + 1, which is still the one
-    // before s.
-    assert!(
-        !abci::committee::validator_updates(
-            &fx.committees[&0].state.members,
-            &fx.committees[&1].state.members,
-        )
-        .is_empty()
-    );
-    assert_ne!(after, &before.advance(&[]).unwrap());
+    assert_eq!(after, &before.advance(&[]).unwrap());
     assert_eq!(after.current, before.next);
+    let initial = fx.committees[&0]
+        .state
+        .members
+        .iter()
+        .map(|m| (m.pubkey, m.power))
+        .collect::<std::collections::BTreeMap<_, _>>();
     for (h, set) in [(13, &after.current), (14, &after.next)] {
-        let epoch = schedule.active_committee_epoch(h, 0).unwrap();
-        let committee = &fx.committees[&epoch].state;
-        assert_eq!(imported.state().committees[&epoch], *committee, "height {h}");
         assert_eq!(
             set.entries
                 .iter()
                 .map(|e| (e.key, e.power as u64))
                 .collect::<std::collections::BTreeMap<_, _>>(),
-            committee
-                .members
-                .iter()
-                .map(|m| (m.pubkey, m.power))
-                .collect::<std::collections::BTreeMap<_, _>>(),
+            initial,
             "height {h}"
         );
     }
@@ -370,8 +357,9 @@ async fn origin_uses_fixed_genesis_without_old_consensus_parent() {
     assert_eq!(result.state().execution_floor, None);
 }
 
+/// The imported state after s is the replay's whatever the genesis epoch length.
 #[tokio::test]
-async fn landed_future_sets_match_replay_at_switch_following_and_epoch_start() {
+async fn imported_state_matches_replay_for_every_epoch_length() {
     for length in [11, 12, 13, 24] {
         let fx = std::sync::Arc::new(Fixture::with_epoch(12, 12, 0, length));
         let package = import_package(&fx, 12).await;
@@ -384,10 +372,6 @@ async fn landed_future_sets_match_replay_at_switch_following_and_epoch_start() {
         .await
         .unwrap();
         assert_eq!(imported.state().val_state, fx.val_states[&12], "epoch length {length}");
-        for h in [13, 14] {
-            let epoch = imported.state().schedule().active_committee_epoch(h, 0).unwrap();
-            assert_eq!(imported.state().committees[&epoch], fx.committees[&epoch].state);
-        }
     }
 }
 
@@ -416,8 +400,7 @@ async fn corrupt_bytes_reject_but_authenticated_envelope_contradiction_halts() {
 }
 
 /// The preimage for 11 that header(12) commits, its set for 13 included, so the derived state
-/// after 12 is authenticated; its keys/powers for 13 differ from the committee the window and
-/// own L1 derive there.
+/// after 12 is authenticated; its keys/powers for 13 differ from the generation's initial set.
 async fn contradicting_pending_set() -> (Fixture, ImportPackage) {
     let mut fx = Fixture::with_epoch(12, 12, 0, 13);
     let mut package = import_package(&fx, 12).await;
@@ -428,52 +411,15 @@ async fn contradicting_pending_set() -> (Fixture, ImportPackage) {
     (fx, package)
 }
 
-/// DATA-5.4-5: a committee derived under 4.3 whose keys and powers differ from the matching
-/// set derived under DATA-5.4-3 halts for safety.
+/// An authenticated validator state whose keys and powers differ from the generation's initial
+/// set, which signs every height, halts for safety.
 #[tokio::test]
-async fn independently_derived_pending_set_mismatch_is_authenticated_safety_error() {
+async fn pending_set_other_than_the_initial_set_is_authenticated_safety_error() {
     let (fx, package) = contradicting_pending_set().await;
     let fx = std::sync::Arc::new(fx);
     assert!(
-        matches!(authenticate_import(&package, frames(&fx, 12).into_iter(), &fx.params, &OwnL1(fx.clone())).await, Err(ImportError::Safety(ref message)) if message.contains("independently derived"))
+        matches!(authenticate_import(&package, frames(&fx, 12).into_iter(), &fx.params, &OwnL1(fx.clone())).await, Err(ImportError::Safety(ref message)) if message.contains("initial set"))
     );
-}
-
-#[tokio::test]
-async fn missing_required_committee_witness_halts_only_when_the_landed_chain_contains_it() {
-    for landed in [true, false] {
-        let mut fx = Fixture::with_epoch(18, 18, 0, 13);
-        let package = import_package(&fx, 18).await;
-        let switch = (1..=18)
-            .find(|height| {
-                Schedule::from_genesis(&fx.snapshot.genesis).switch_target(*height) == Some(1)
-            })
-            .unwrap();
-        let pair = fx.blocks.get_mut(&switch).unwrap();
-        let mut env = abci::EtnaEnvelope::decode(&pair.block.data[0]).unwrap();
-        assert!(env.committee.take().is_some());
-        pair.block.data[0] = env.encode().to_vec();
-        pair.block.header.data_hash = Some(crate::validate::data_hash(&pair.block.data));
-        relink_after(&mut fx, switch, if landed { 18 } else { switch });
-        let comet = B256::from_slice(fx.blocks[&18].block.header.hash().as_bytes());
-        fx.import_landings(&[(18, fx.headers[&18].hash_slow(), comet)]);
-        let fx = std::sync::Arc::new(fx);
-        let result = authenticate_import(
-            &package,
-            frames(&fx, 18).into_iter(),
-            &fx.params,
-            &OwnL1(fx.clone()),
-        )
-        .await;
-        if landed {
-            assert!(
-                matches!(result, Err(ImportError::Safety(ref message)) if message.contains("committee witness presence violates switch schedule")),
-                "{result:?}"
-            );
-        } else {
-            assert!(matches!(result, Err(ImportError::Candidate(_))), "{result:?}");
-        }
-    }
 }
 
 #[tokio::test]
@@ -496,7 +442,6 @@ async fn incomplete_stream_waits_and_successor_is_not_consumed_as_import_state()
 fn fast_blocks_require_more_than_height_limit_and_boundary_equality_is_not_expired() {
     let fx = Fixture::new(0, 1);
     let mut boundary = fx.blocks[&1].block.header.clone();
-    let schedule = Schedule { l1_0: 10, genesis_cutoff: 1, epoch_len: 1_000_000 };
     // At 12 s per block the 16-block limit binds (w = s - 17); at 1 s the 3 min limit does
     // (w = s - 181).
     for (seconds_per_block, w) in [(12, 199_983), (1, 199_819)] {
@@ -516,13 +461,7 @@ fn fast_blocks_require_more_than_height_limit_and_boundary_equality_is_not_expir
             w,
             &heights,
             Some(&boundary),
-            window::WindowContext {
-                origin: 0,
-                terminal: 200_000,
-                schedule: &schedule,
-                future: &[0, 0],
-                latest_anchor: 200_000,
-            },
+            window::WindowContext { origin: 0, terminal: 200_000, latest_anchor: 200_000 },
         )
         .unwrap();
         // One block shorter omits w + 1, whose evidence stock still accepts.
@@ -534,13 +473,7 @@ fn fast_blocks_require_more_than_height_limit_and_boundary_equality_is_not_expir
                 w + 1,
                 &heights[1..],
                 Some(&shorter),
-                window::WindowContext {
-                    origin: 0,
-                    terminal: 200_000,
-                    schedule: &schedule,
-                    future: &[0, 0],
-                    latest_anchor: 200_000
-                }
+                window::WindowContext { origin: 0, terminal: 200_000, latest_anchor: 200_000 }
             ),
             Err(ImportError::Unavailable(_))
         ));
@@ -549,13 +482,7 @@ fn fast_blocks_require_more_than_height_limit_and_boundary_equality_is_not_expir
                 w,
                 &heights,
                 None,
-                window::WindowContext {
-                    origin: 0,
-                    terminal: 200_000,
-                    schedule: &schedule,
-                    future: &[0, 0],
-                    latest_anchor: 200_000
-                }
+                window::WindowContext { origin: 0, terminal: 200_000, latest_anchor: 200_000 }
             ),
             Err(ImportError::Unavailable(_))
         ));
@@ -567,13 +494,7 @@ fn fast_blocks_require_more_than_height_limit_and_boundary_equality_is_not_expir
                 w,
                 &heights,
                 Some(&boundary),
-                window::WindowContext {
-                    origin: 0,
-                    terminal: 200_000,
-                    schedule: &schedule,
-                    future: &[0, 0],
-                    latest_anchor: 200_000
-                }
+                window::WindowContext { origin: 0, terminal: 200_000, latest_anchor: 200_000 }
             ),
             Err(ImportError::Unavailable(_))
         ));
@@ -1130,9 +1051,13 @@ fn header_floor_covers_blockhash_and_the_inherited_fence() {
     assert_eq!(header_floor(0, 6, 3600), 0);
 }
 
+/// The window reaches the latest anchor-witness block at or below s and every height still
+/// within an evidence age limit at s. With 4 s blocks and s = 500,000 the age limit keeps
+/// 499,955 (45 blocks, 180 s), so with a later anchor the shortest window starts after 499,954;
+/// with the latest anchor at 450,000 it starts after 449,999. One more leading block is still
+/// complete; one fewer is not.
 #[test]
-fn window_must_reach_required_heights_and_may_be_longer() {
-    let schedule = Schedule { l1_0: 10, genesis_cutoff: 1, epoch_len: 300_000 };
+fn window_reaches_the_latest_anchor_witness_and_the_evidence_age() {
     let fx = Fixture::new(0, 1);
     let time = |h: u64| tendermint::Time::from_unix_timestamp((h * 4) as i64, 0).unwrap();
     // The window (first - 1, s] as (height, time) pairs, starting at `first`.
@@ -1143,17 +1068,11 @@ fn window_must_reach_required_heights_and_may_be_longer() {
         boundary.time = time(w);
         boundary
     };
-    for (w, latest_anchor) in [(299_997u64, 450_000u64), (249_999, 250_000)] {
-        let ctx = || window::WindowContext {
-            origin: 0,
-            terminal: 500_000,
-            schedule: &schedule,
-            future: &[1, 1],
-            latest_anchor,
-        };
+    for (w, latest_anchor) in [(499_954u64, 499_990u64), (449_999, 450_000)] {
+        let ctx = || window::WindowContext { origin: 0, terminal: 500_000, latest_anchor };
         window::verify_complete_window(w, &heights_from(w + 1), Some(&boundary_at(w)), ctx())
             .unwrap();
-        // ACC 7.5 rejects only a shorter window: one more leading block is still complete.
+        // Only a shorter window is incomplete: one more leading block is still complete.
         window::verify_complete_window(w - 1, &heights_from(w), Some(&boundary_at(w - 1)), ctx())
             .unwrap();
         assert!(matches!(
@@ -1175,7 +1094,6 @@ fn window_must_reach_required_heights_and_may_be_longer() {
 /// A window one height longer is still complete; one height shorter remains incomplete.
 #[test]
 fn window_keeps_every_height_within_either_age_limit_including_equality() {
-    let schedule = Schedule { l1_0: 10, genesis_cutoff: 1, epoch_len: 1_000_000 };
     let fx = Fixture::new(0, 1);
     let s = 1802u64;
     for (seconds_per_block, shortest_w) in [(4u64, 1756u64), (12, 1785), (1, 1621)] {
@@ -1191,13 +1109,7 @@ fn window_keeps_every_height_within_either_age_limit_including_equality() {
                 w,
                 &heights,
                 Some(&boundary),
-                window::WindowContext {
-                    origin: 0,
-                    terminal: s,
-                    schedule: &schedule,
-                    future: &[0, 0],
-                    latest_anchor: s,
-                },
+                window::WindowContext { origin: 0, terminal: s, latest_anchor: s },
             )
         };
         check(shortest_w).unwrap();
@@ -1246,7 +1158,7 @@ async fn embedded_successor_commit_requires_native_validity_full_id_and_exact_or
                 crate::validate::verify_commit(
                     &mutated,
                     &prior.block.header,
-                    &fx.committees[&0],
+                    &fx.committees[&0].validators,
                     &package.genesis.chain_id,
                 )
                 .unwrap();
@@ -1302,7 +1214,7 @@ async fn terminal_own_commit_cannot_authenticate_a_publisher_changed_last_commit
     );
     assert_eq!(pair.block.header.hash(), landed_hash);
     assert_ne!(pair.commit.block_id.part_set_header, original_parts);
-    crate::validate::verify_native_commit(
+    crate::validate::verify_commit(
         &pair.commit,
         &pair.block.header,
         &fx.committees[&0].validators,
@@ -1784,7 +1696,7 @@ async fn review_ancillary_terminal_bytes_cannot_hide_proven_contradictions() {
 }
 
 #[tokio::test]
-async fn review_trailing_reader_failure_cannot_hide_derived_committee_contradiction() {
+async fn review_trailing_reader_failure_cannot_hide_an_initial_set_contradiction() {
     let (fx, package) = contradicting_pending_set().await;
     let fx = std::sync::Arc::new(fx);
     let input = frames(&fx, 12)
@@ -1792,10 +1704,7 @@ async fn review_trailing_reader_failure_cannot_hide_derived_committee_contradict
         .chain(std::iter::once(Err(ImportError::Unavailable("trailing source fault".into()))));
     let err =
         authenticate_import(&package, input, &fx.params, &OwnL1(fx.clone())).await.unwrap_err();
-    assert!(
-        matches!(err,ImportError::Safety(ref m) if m.contains("independently derived")),
-        "{err}"
-    );
+    assert!(matches!(err,ImportError::Safety(ref m) if m.contains("initial set")), "{err}");
 }
 
 #[tokio::test]
@@ -1808,7 +1717,6 @@ async fn review_recovery_first_consensus_block_refuses_old_generation_commit() {
         B256::from_slice(previous.block_id.hash.as_bytes()),
         fx.snapshot.recovery.as_ref().unwrap().comet_hash
     );
-    let schedule = Schedule::from_genesis(&fx.snapshot.genesis);
     for h in 7..=12 {
         let pair = fx.blocks.get_mut(&h).unwrap();
         pair.block.header.last_block_id = Some(previous.block_id);
@@ -1816,7 +1724,7 @@ async fn review_recovery_first_consensus_block_refuses_old_generation_commit() {
         pair.block.last_commit = Some(previous);
         resign(
             pair,
-            &fx.committees[&schedule.active_committee_epoch(h, 6).unwrap()],
+            &fx.committees[&0],
             &[SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()],
         );
         previous = pair.commit.clone();

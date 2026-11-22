@@ -4,10 +4,9 @@
 //!
 //! ```text
 //! envelope     = 0x06 || rlp(EtnaEnvelope)
-//! EtnaEnvelope = [ block, anchor, committee, forced ]
+//! EtnaEnvelope = [ block, anchor, forced ]
 //! block        = [ header, transactions ]   // EL header RLP, EIP-2718 tx bytes as opaque strings
 //! anchor       = [] | [ AnchorWitness ]     // empty list = absent
-//! committee    = [] | [ CommitteeWitness ]
 //! forced       = [] | [ ForcedWitness ]     // [ index, entry, tx ]
 //! ```
 //!
@@ -19,18 +18,13 @@ use alloy_consensus::Header;
 use alloy_primitives::Bytes;
 use alloy_rlp::{BufMut, Decodable, Encodable, RlpDecodable, RlpEncodable};
 
-use crate::{
-    l1::header::RawL1Header,
-    types::{AccountWitness, CommitteeRecord, RegistryEntry},
-};
+use crate::{l1::header::RawL1Header, types::AccountWitness};
 
 /// Leading version byte of every envelope.
 pub const ENVELOPE_VERSION: u8 = 6;
 
 /// Name of the optional `anchor` field, as carried by [`EnvelopeError::OptionalArity`].
 const ANCHOR_FIELD: &str = "anchor";
-/// Name of the optional `committee` field, as carried by [`EnvelopeError::OptionalArity`].
-const COMMITTEE_FIELD: &str = "committee";
 /// Name of the optional `forced` field, as carried by [`EnvelopeError::OptionalArity`].
 const FORCED_FIELD: &str = "forced";
 
@@ -59,34 +53,18 @@ pub struct AnchorWitness {
     pub inbox: AccountWitness,
 }
 
-/// The committee witness carried only at the target epoch's switch height `H(t)-2`.
-///
-/// RLP: `[record, registry, entries]`. The registry proofs verify against the switch block's own
-/// anchor `stateRoot`.
-#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
-pub struct CommitteeWitness {
-    /// The committee record the switch block claims for the incoming epoch.
-    pub record: CommitteeRecord,
-    /// EIP-1186 proof of the staking-registry account and its snapshot slots.
-    pub registry: AccountWitness,
-    /// The registry entries of the snapshot checkpoint, in index order.
-    pub entries: Vec<RegistryEntry>,
-}
-
 pub use crate::forced::ForcedWitness;
 
 /// The decoded block envelope: the execution block plus the optional L1 witnesses.
 ///
-/// Wire format: `0x06 || rlp([block, anchor, committee, forced])`, where each optional witness is
-/// an empty RLP list when absent and a one-element RLP list holding the witness when present.
+/// Wire format: `0x06 || rlp([block, anchor, forced])`, where each optional witness is an empty
+/// RLP list when absent and a one-element RLP list holding the witness when present.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EtnaEnvelope {
     /// The L2 execution block.
     pub block: ExecutionBlock,
     /// Present iff the block moves the anchor or is its generation's first block (spec 3.3).
     pub anchor: Option<AnchorWitness>,
-    /// Present iff the block is the target epoch's switch height H-2.
-    pub committee: Option<CommitteeWitness>,
     /// Present iff the forced inclusion queue holds an entry at the parent's cursor in the block
     /// anchor's state (see [`crate::forced::check`]).
     pub forced: Option<ForcedWitness>,
@@ -107,8 +85,8 @@ pub enum EnvelopeError {
     /// Bytes remain after the outer envelope list; the value is how many.
     #[error("{0} trailing bytes after the envelope")]
     TrailingBytes(usize),
-    /// An optional witness list (`anchor`, `committee` or `forced`, named by the value) holds
-    /// more than one element.
+    /// An optional witness list (`anchor` or `forced`, named by the value) holds more than one
+    /// element.
     #[error("optional envelope field `{0}` holds more than one element")]
     OptionalArity(&'static str),
     /// The CometBFT block does not carry exactly one transaction; the value is how many it has.
@@ -117,7 +95,7 @@ pub enum EnvelopeError {
 }
 
 impl EtnaEnvelope {
-    /// Encodes the envelope as `0x06 || rlp([block, anchor, committee, forced])`.
+    /// Encodes the envelope as `0x06 || rlp([block, anchor, forced])`.
     pub fn encode(&self) -> Bytes {
         let mut out = Vec::with_capacity(1 + Encodable::length(self));
         out.push(ENVELOPE_VERSION);
@@ -140,23 +118,20 @@ impl EtnaEnvelope {
         Ok(envelope)
     }
 
-    /// Length in bytes of the outer list's payload (the four encoded fields).
+    /// Length in bytes of the outer list's payload (the three encoded fields).
     fn payload_length(&self) -> usize {
         self.block.length() +
             optional_length(self.anchor.as_ref()) +
-            optional_length(self.committee.as_ref()) +
             optional_length(self.forced.as_ref())
     }
 
-    /// Decodes the RLP body `[block, anchor, committee, forced]`, advancing `buf` past the outer
-    /// list.
+    /// Decodes the RLP body `[block, anchor, forced]`, advancing `buf` past the outer list.
     fn decode_body(buf: &mut &[u8]) -> Result<Self, EnvelopeError> {
         let mut payload = alloy_rlp::Header::decode_bytes(buf, true)?;
         let payload_length = payload.len();
         let envelope = Self {
             block: ExecutionBlock::decode(&mut payload)?,
             anchor: decode_optional(&mut payload, ANCHOR_FIELD)?,
-            committee: decode_optional(&mut payload, COMMITTEE_FIELD)?,
             forced: decode_optional(&mut payload, FORCED_FIELD)?,
         };
         if !payload.is_empty() {
@@ -171,12 +146,11 @@ impl EtnaEnvelope {
 }
 
 impl Encodable for EtnaEnvelope {
-    /// Writes the RLP body `[block, anchor, committee, forced]` (without the version byte).
+    /// Writes the RLP body `[block, anchor, forced]` (without the version byte).
     fn encode(&self, out: &mut dyn BufMut) {
         alloy_rlp::Header { list: true, payload_length: self.payload_length() }.encode(out);
         self.block.encode(out);
         encode_optional(self.anchor.as_ref(), out);
-        encode_optional(self.committee.as_ref(), out);
         encode_optional(self.forced.as_ref(), out);
     }
 
@@ -188,7 +162,7 @@ impl Encodable for EtnaEnvelope {
 }
 
 impl Decodable for EtnaEnvelope {
-    /// Reads the RLP body `[block, anchor, committee, forced]` (without the version byte),
+    /// Reads the RLP body `[block, anchor, forced]` (without the version byte),
     /// advancing `buf` past it. An optional witness list with more than one element is reported as
     /// [`alloy_rlp::Error::Custom`] naming the field.
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
@@ -222,7 +196,6 @@ pub fn single_envelope(txs: &[Bytes]) -> Result<EtnaEnvelope, EnvelopeError> {
 fn optional_arity_message(field: &'static str) -> &'static str {
     match field {
         ANCHOR_FIELD => "optional envelope field `anchor` holds more than one element",
-        COMMITTEE_FIELD => "optional envelope field `committee` holds more than one element",
         FORCED_FIELD => "optional envelope field `forced` holds more than one element",
         _ => "optional envelope field holds more than one element",
     }
@@ -353,48 +326,14 @@ mod tests {
         AnchorWitness { l1_header: RawL1Header::from(&header(9_000)), inbox: account_witness(0xa1) }
     }
 
-    fn committee() -> CommitteeWitness {
-        CommitteeWitness {
-            record: CommitteeRecord {
-                target_epoch: 2,
-                cutoff_l1_block: 8_990,
-                checkpoint_index: 4,
-                set_hash: B256::repeat_byte(0x44),
-                total_power: 2_000_000,
-            },
-            registry: account_witness(0xb2),
-            entries: vec![
-                RegistryEntry {
-                    ck_prefix: crate::test_utils::key_from_seed(B256::repeat_byte(0x10)).prefix(),
-                    ck_x: crate::test_utils::key_from_seed(B256::repeat_byte(0x10)).x(),
-                    eff_stake: U256::from(10).pow(U256::from(21)),
-                    active_from_l1: 100,
-                    exit_effective_l1: u64::MAX,
-                },
-                RegistryEntry {
-                    ck_prefix: crate::test_utils::key_from_seed(B256::repeat_byte(0x20)).prefix(),
-                    ck_x: crate::test_utils::key_from_seed(B256::repeat_byte(0x20)).x(),
-                    eff_stake: U256::from(5) * U256::from(10).pow(U256::from(20)),
-                    active_from_l1: 200,
-                    exit_effective_l1: 9_500,
-                },
-            ],
-        }
-    }
-
     fn forced(tx: Bytes) -> ForcedWitness {
         ForcedWitness { index: 6, entry: account_witness(0xc3), tx }
     }
 
-    fn envelope(
-        anchor: Option<AnchorWitness>,
-        committee: Option<CommitteeWitness>,
-        forced: Option<ForcedWitness>,
-    ) -> EtnaEnvelope {
+    fn envelope(anchor: Option<AnchorWitness>, forced: Option<ForcedWitness>) -> EtnaEnvelope {
         EtnaEnvelope {
             block: ExecutionBlock { header: header(1_000), transactions: txs() },
             anchor,
-            committee,
             forced,
         }
     }
@@ -415,20 +354,18 @@ mod tests {
     #[test]
     fn round_trips_every_witness_combination() {
         for anchor in [None, Some(anchor())] {
-            for committee in [None, Some(committee())] {
-                // A forced witness with the tx, an empty invalid transaction input, or none.
-                for forced in [None, Some(forced(Bytes::new())), Some(forced(tx()))] {
-                    let env = envelope(anchor.clone(), committee.clone(), forced);
-                    let encoded = env.encode();
-                    assert_eq!(EtnaEnvelope::decode(&encoded), Ok(env));
-                }
+            // A forced witness with the tx, an empty invalid transaction input, or none.
+            for forced in [None, Some(forced(Bytes::new())), Some(forced(tx()))] {
+                let env = envelope(anchor.clone(), forced);
+                let encoded = env.encode();
+                assert_eq!(EtnaEnvelope::decode(&encoded), Ok(env));
             }
         }
     }
 
     #[test]
     fn encode_starts_with_version_byte() {
-        let env = envelope(Some(anchor()), None, Some(forced(tx())));
+        let env = envelope(Some(anchor()), Some(forced(tx())));
         let encoded = env.encode();
         assert_eq!(encoded[0], 0x06);
         assert_eq!(encoded.len(), 1 + alloy_rlp::encode(env).len());
@@ -436,19 +373,17 @@ mod tests {
 
     #[test]
     fn absent_witness_is_empty_list_and_present_is_one_element_list() {
-        let env = envelope(Some(anchor()), None, None);
+        let env = envelope(Some(anchor()), None);
         let expected = versioned(rlp_list(&[
             alloy_rlp::encode(&env.block),
             rlp_list(&[alloy_rlp::encode(anchor())]),
             rlp_list(&[]),
-            rlp_list(&[]),
         ]));
         assert_eq!(env.encode().to_vec(), expected);
 
-        let env = envelope(None, None, Some(forced(Bytes::new())));
+        let env = envelope(None, Some(forced(Bytes::new())));
         let expected = versioned(rlp_list(&[
             alloy_rlp::encode(&env.block),
-            rlp_list(&[]),
             rlp_list(&[]),
             rlp_list(&[alloy_rlp::encode(forced(Bytes::new()))]),
         ]));
@@ -457,7 +392,7 @@ mod tests {
 
     #[test]
     fn payout_activation_requires_envelope_v6() {
-        let encoded = envelope(None, None, None).encode();
+        let encoded = envelope(None, None).encode();
         assert_eq!(encoded[0], 6);
         let mut old = encoded.to_vec();
         old[0] = 5;
@@ -487,7 +422,7 @@ mod tests {
 
     #[test]
     fn decode_rejects_wrong_version() {
-        let mut encoded = envelope(None, None, None).encode().to_vec();
+        let mut encoded = envelope(None, None).encode().to_vec();
         for version in [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0xff] {
             encoded[0] = version;
             assert_eq!(EtnaEnvelope::decode(&encoded), Err(EnvelopeError::Version(version)));
@@ -496,7 +431,7 @@ mod tests {
 
     #[test]
     fn decode_rejects_malformed_rlp() {
-        let encoded = envelope(Some(anchor()), Some(committee()), Some(forced(tx()))).encode();
+        let encoded = envelope(Some(anchor()), Some(forced(tx()))).encode();
         // Version byte only.
         assert!(matches!(EtnaEnvelope::decode(&[ENVELOPE_VERSION]), Err(EnvelopeError::Rlp(_))));
         // Truncated body.
@@ -510,11 +445,11 @@ mod tests {
             Err(EnvelopeError::Rlp(alloy_rlp::Error::UnexpectedString))
         );
         // A string where an optional witness list belongs.
-        let env = envelope(None, None, None);
+        let env = envelope(None, None);
         let block = alloy_rlp::encode(&env.block);
         let empty = rlp_list(&[]);
-        for position in 1..=3 {
-            let mut items = vec![block.clone(), empty.clone(), empty.clone(), empty.clone()];
+        for position in 1..=2 {
+            let mut items = vec![block.clone(), empty.clone(), empty.clone()];
             items[position] = vec![0x80];
             assert_eq!(
                 EtnaEnvelope::decode(&versioned(rlp_list(&items))),
@@ -522,28 +457,52 @@ mod tests {
                 "optional field {position}"
             );
         }
-        // A fifth element in the outer list.
-        let body =
-            rlp_list(&[block.clone(), empty.clone(), empty.clone(), empty.clone(), vec![0x01]]);
+        // A fourth element in the outer list.
+        let body = rlp_list(&[block.clone(), empty.clone(), empty.clone(), vec![0x01]]);
         assert!(matches!(EtnaEnvelope::decode(&versioned(body)), Err(EnvelopeError::Rlp(_))));
-        // Only three elements in the outer list: a version-3 body under the version-6 byte.
-        let body = rlp_list(&[block, empty.clone(), empty]);
+        // Only two elements in the outer list.
+        let body = rlp_list(&[block, empty]);
         assert!(matches!(EtnaEnvelope::decode(&versioned(body)), Err(EnvelopeError::Rlp(_))));
         // A forced witness missing its transaction bytes.
         let short = rlp_list(&[alloy_rlp::encode(6u64), alloy_rlp::encode(account_witness(0xc3))]);
-        let body = rlp_list(&[
-            alloy_rlp::encode(&env.block),
-            rlp_list(&[]),
-            rlp_list(&[]),
-            rlp_list(&[short]),
-        ]);
+        let body = rlp_list(&[alloy_rlp::encode(&env.block), rlp_list(&[]), rlp_list(&[short])]);
         assert!(matches!(EtnaEnvelope::decode(&versioned(body)), Err(EnvelopeError::Rlp(_))));
+    }
+
+    /// The four-item body of the committee-witness era, `[block, anchor, committee, forced]`, is
+    /// not an envelope under the same version byte: the outer list holds an extra item.
+    #[test]
+    fn a_four_item_envelope_is_rejected() {
+        let env = envelope(Some(anchor()), Some(forced(tx())));
+        let empty = rlp_list(&[]);
+        for committee in [empty.clone(), rlp_list(&[rlp_list(&vec![vec![0x80]; 3])])] {
+            let body = rlp_list(&[
+                alloy_rlp::encode(&env.block),
+                rlp_list(&[alloy_rlp::encode(anchor())]),
+                committee,
+                rlp_list(&[alloy_rlp::encode(forced(tx()))]),
+            ]);
+            let bytes = versioned(body);
+            assert!(
+                matches!(EtnaEnvelope::decode(&bytes), Err(EnvelopeError::Rlp(_))),
+                "{:?}",
+                EtnaEnvelope::decode(&bytes)
+            );
+            assert!(matches!(single_envelope(&[bytes.into()]), Err(EnvelopeError::Rlp(_))));
+        }
+        // The same block with the empty committee list dropped is the three-item envelope.
+        let three = versioned(rlp_list(&[
+            alloy_rlp::encode(&env.block),
+            rlp_list(&[alloy_rlp::encode(anchor())]),
+            rlp_list(&[alloy_rlp::encode(forced(tx()))]),
+        ]));
+        assert_eq!(EtnaEnvelope::decode(&three), Ok(env));
     }
 
     /// A version-3 envelope (three fields, before forced inclusion) is refused by its version byte.
     #[test]
     fn decode_rejects_a_version_3_envelope() {
-        let env = envelope(Some(anchor()), None, None);
+        let env = envelope(Some(anchor()), None);
         let v3 = [
             vec![0x03],
             rlp_list(&[
@@ -559,39 +518,22 @@ mod tests {
 
     #[test]
     fn decode_rejects_trailing_bytes() {
-        let mut encoded = envelope(None, Some(committee()), None).encode().to_vec();
+        let mut encoded = envelope(Some(anchor()), None).encode().to_vec();
         encoded.extend_from_slice(&[0xc0, 0x00]);
         assert_eq!(EtnaEnvelope::decode(&encoded), Err(EnvelopeError::TrailingBytes(2)));
     }
 
     /// Bodies whose one optional field holds two elements, with the field's name.
-    fn bodies_with_two_element_optionals() -> [(Vec<u8>, &'static str); 3] {
-        let block = alloy_rlp::encode(envelope(None, None, None).block);
+    fn bodies_with_two_element_optionals() -> [(Vec<u8>, &'static str); 2] {
+        let block = alloy_rlp::encode(envelope(None, None).block);
         let twice = |item: Vec<u8>| rlp_list(&[item.clone(), item]);
         let empty = rlp_list(&[]);
         [
             (
-                rlp_list(&[
-                    block.clone(),
-                    twice(alloy_rlp::encode(anchor())),
-                    empty.clone(),
-                    empty.clone(),
-                ]),
+                rlp_list(&[block.clone(), twice(alloy_rlp::encode(anchor())), empty.clone()]),
                 "anchor",
             ),
-            (
-                rlp_list(&[
-                    block.clone(),
-                    empty.clone(),
-                    twice(alloy_rlp::encode(committee())),
-                    empty.clone(),
-                ]),
-                "committee",
-            ),
-            (
-                rlp_list(&[block, empty.clone(), empty, twice(alloy_rlp::encode(forced(tx())))]),
-                "forced",
-            ),
+            (rlp_list(&[block, empty, twice(alloy_rlp::encode(forced(tx())))]), "forced"),
         ]
     }
 
@@ -608,17 +550,12 @@ mod tests {
     /// An anchor witness whose L1 header bytes are not a header is a malformed envelope.
     #[test]
     fn decode_rejects_a_malformed_raw_l1_header() {
-        let env = envelope(None, None, None);
+        let env = envelope(None, None);
         let inbox = alloy_rlp::encode(account_witness(0xa1));
         // A 14-field list: one field short of a pre-London header.
         let short = rlp_list(&vec![vec![0x80]; 11]);
         let anchor = rlp_list(&[alloy_rlp::encode(Bytes::from(short)), inbox]);
-        let body = rlp_list(&[
-            alloy_rlp::encode(&env.block),
-            rlp_list(&[anchor]),
-            rlp_list(&[]),
-            rlp_list(&[]),
-        ]);
+        let body = rlp_list(&[alloy_rlp::encode(&env.block), rlp_list(&[anchor]), rlp_list(&[])]);
         assert_eq!(
             EtnaEnvelope::decode(&versioned(body)),
             Err(EnvelopeError::Rlp(alloy_rlp::Error::Custom("raw L1 header has too few fields")))
@@ -627,7 +564,7 @@ mod tests {
 
     #[test]
     fn rlp_decodable_matches_versioned_decode() {
-        let env = envelope(Some(anchor()), Some(committee()), Some(forced(tx())));
+        let env = envelope(Some(anchor()), Some(forced(tx())));
         let body = alloy_rlp::encode(&env);
         let mut buf = body.as_slice();
         assert_eq!(<EtnaEnvelope as Decodable>::decode(&mut buf), Ok(env));
@@ -636,7 +573,7 @@ mod tests {
 
     #[test]
     fn single_envelope_requires_exactly_one_tx() {
-        let env = envelope(Some(anchor()), None, None);
+        let env = envelope(Some(anchor()), None);
         let tx = env.encode();
         assert_eq!(single_envelope(&[]), Err(EnvelopeError::TxCount(0)));
         assert_eq!(single_envelope(std::slice::from_ref(&tx)), Ok(env));
@@ -651,12 +588,11 @@ mod tests {
         let env = EtnaEnvelope {
             block: ExecutionBlock { header: Header::default(), transactions: vec![] },
             anchor: None,
-            committee: None,
             forced: None,
         };
         let expected = hex!(
             "06"       // ENVELOPE_VERSION
-            "f901f7"   // envelope list
+            "f901f6"   // envelope list
             "f901f1"   // block list
             "f901ed"   // header list (Header::default(): 15 pre-London fields)
             "a00000000000000000000000000000000000000000000000000000000000000000" // parentHash
@@ -679,7 +615,6 @@ mod tests {
             "880000000000000000" // nonce
             "c0" // transactions: empty list
             "c0" // anchor: absent
-            "c0" // committee: absent
             "c0" // forced: absent
         );
         assert_eq!(env.encode().to_vec(), expected.to_vec());
@@ -690,7 +625,6 @@ mod tests {
     fn rlp_decodable_names_the_optional_field_with_more_than_one_element() {
         let messages = [
             "optional envelope field `anchor` holds more than one element",
-            "optional envelope field `committee` holds more than one element",
             "optional envelope field `forced` holds more than one element",
         ];
         for ((body, field), message) in
@@ -715,14 +649,12 @@ mod tests {
                 rlp_list(&[header.clone(), txs.to_vec()]),
                 rlp_list(&[]),
                 rlp_list(&[]),
-                rlp_list(&[]),
             ]))
         };
         let expected = |txs: Vec<Bytes>| {
             Ok(EtnaEnvelope {
                 block: ExecutionBlock { header: Header::default(), transactions: txs },
                 anchor: None,
-                committee: None,
                 forced: None,
             })
         };
@@ -746,8 +678,8 @@ mod tests {
     }
 
     /// This vector pins the consensus wire format of an envelope carrying every witness: the
-    /// field order of `ExecutionBlock`, `AnchorWitness`, `CommitteeWitness`, `ForcedWitness`,
-    /// `AccountWitness`, `StorageProof`, `CommitteeRecord` and `RegistryEntry`, the post-Prague
+    /// field order of `ExecutionBlock`, `AnchorWitness`, `ForcedWitness`, `AccountWitness` and
+    /// `StorageProof`, the post-Prague
     /// header fields, the anchor's L1 header as one byte string of its raw RLP (here with two
     /// fields alloy's header does not know), the forced witness's maximum-size transaction bytes as
     /// one byte string, and the one-element list wrapping a present witness. If it changes, the
@@ -854,35 +786,6 @@ mod tests {
                     }],
                 },
             }),
-            committee: Some(CommitteeWitness {
-                record: CommitteeRecord {
-                    target_epoch: 2,
-                    cutoff_l1_block: 0x23f0,
-                    checkpoint_index: 5,
-                    set_hash: B256::repeat_byte(0x44),
-                    total_power: 0x0f_4240,
-                },
-                registry: AccountWitness {
-                    address: address!("00000000000000000000000000000000e7a10002"),
-                    nonce: 2,
-                    balance: U256::from(0x05f5_e100),
-                    storage_root: B256::repeat_byte(0x21),
-                    code_hash: B256::repeat_byte(0x22),
-                    account_proof: vec![bytes!("e2a0ddee")],
-                    storage: vec![crate::types::StorageProof {
-                        slot: B256::with_last_byte(0x01),
-                        value: U256::ZERO,
-                        proof: vec![bytes!("e3a120ff")],
-                    }],
-                },
-                entries: vec![RegistryEntry {
-                    ck_prefix: crate::test_utils::key_from_seed(B256::repeat_byte(0x10)).prefix(),
-                    ck_x: crate::test_utils::key_from_seed(B256::repeat_byte(0x10)).x(),
-                    eff_stake: U256::from(10).pow(U256::from(21)),
-                    active_from_l1: 0x64,
-                    exit_effective_l1: u64::MAX,
-                }],
-            }),
             forced: Some(ForcedWitness {
                 index: 0x0203,
                 entry: AccountWitness {
@@ -924,40 +827,6 @@ mod tests {
             &string(&l1_header), // l1_header: the raw header as one byte string
             &inbox,              // inbox
         ]);
-        let record = list(&[
-            &hex!("02"),       // target_epoch
-            &hex!("8223f0"),   // cutoff_l1_block
-            &hex!("05"),       // checkpoint_index
-            &word(0x44),       // set_hash
-            &hex!("830f4240"), // total_power
-        ]);
-        let registry = list(&[
-            &hex!("9400000000000000000000000000000000e7a10002"), // address
-            &hex!("02"),                                         // nonce
-            &hex!("8405f5e100"),                                 // balance
-            &word(0x21),                                         // storage_root
-            &word(0x22),                                         // code_hash
-            &list(&[&hex!("84e2a0ddee")]),                       // account_proof: one node
-            &list(&[&list(&[
-                // storage: one StorageProof (an exclusion proof)
-                &[vec![0xa0], vec![0; 31], vec![0x01]].concat(), // slot 1
-                &hex!("80"),                                     // value: zero
-                &list(&[&hex!("84e3a120ff")]),                   // proof: one node
-            ])]),
-        ]);
-        let native = crate::test_utils::key_from_seed(B256::repeat_byte(0x10));
-        let entry = list(&[
-            &[native.prefix()],
-            &[vec![0xa0], native.x().as_slice().to_vec()].concat(),
-            &hex!("893635c9adc5dea00000"),
-            &hex!("64"),
-            &hex!("88ffffffffffffffff"),
-        ]);
-        let committee = list(&[
-            &record,          // record
-            &registry,        // registry
-            &list(&[&entry]), // entries: one RegistryEntry
-        ]);
         let entry = list(&[
             &hex!("9400000000000000000000000000000000e7a10001"), // address
             &hex!("03"),                                         // nonce
@@ -980,9 +849,8 @@ mod tests {
         ]);
         let expected = versioned(list(&[
             &block,
-            &list(&[&anchor]),    // anchor: present, a one-element list
-            &list(&[&committee]), // committee: present, a one-element list
-            &list(&[&forced]),    // forced: present, a one-element list
+            &list(&[&anchor]), // anchor: present, a one-element list
+            &list(&[&forced]), // forced: present, a one-element list
         ]));
 
         assert_eq!(hex::encode(env.encode()), hex::encode(&expected));

@@ -45,8 +45,7 @@ use crate::{
 const ANCHORS: [u64; 4] = [66, 67, 68, 69];
 
 /// The most blocks a scenario decides from `H_0`: with the block after a final canonical skip,
-/// every height stays below the first switch height and within the unsettled limit of its
-/// anchor's last checkpoint.
+/// every height stays within the unsettled limit of its anchor's last checkpoint.
 const MAX_BLOCKS: usize = 10;
 
 /// Generated scenarios per test run.
@@ -284,7 +283,6 @@ impl Run {
         let hot_out = bounded(finalize(&mut self.hot, decided.clone()))
             .await?
             .map_err(|e| fail(format!("height {height}: hot FinalizeBlock: {e}")))?;
-        prop_assert!(self.hot.decided_live, "height {}: hot reuses the verdict", height);
         let hash = block.env.block.header.hash_slow();
         let finalized = verdict.anchor.inbox.last_checkpoint_hash;
         let calls = self.hot.engine().calls();
@@ -304,7 +302,6 @@ impl Run {
         let cold_out = bounded(finalize(&mut self.cold, decided.clone()))
             .await?
             .map_err(|e| fail(format!("height {height}: cold FinalizeBlock: {e}")))?;
-        prop_assert!(!self.cold.decided_live, "height {}: cold re-validates", height);
         prop_assert_eq!(probes(&self.cold, before), probe.clone(), "height {}: cold probe", height);
         self.check_cold_l1_reads(block)?;
 
@@ -474,7 +471,7 @@ fn envelope(
     .expect("derivable header");
     let tx_list = protocol::shasta::encode_transactions(txs);
     let attrs = rules::payload_attributes(&expected, anchor_state.hash, Some(tx_list));
-    EtnaEnvelope { block: simple_block(state.parent.hash, &attrs), anchor, committee: None, forced }
+    EtnaEnvelope { block: simple_block(state.parent.hash, &attrs), anchor, forced }
 }
 
 /// What the EL builds for the singleton probe of the canonical skip `v`: the candidate's derived

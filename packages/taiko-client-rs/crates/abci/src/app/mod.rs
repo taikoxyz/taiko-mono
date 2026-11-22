@@ -14,7 +14,7 @@ use crate::wire::{Request, Response, response};
 use std::{
     collections::VecDeque,
     future::Future,
-    sync::{Arc, Mutex, MutexGuard, PoisonError},
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -38,8 +38,6 @@ use crate::{
 
 /// Checkpoint ancestry of anchor witnesses against the local chain.
 mod checkpoint;
-/// In-memory retention of independently verified committee witnesses.
-mod committee_cache;
 /// Recovery of committed execution payloads after an EL restart.
 mod execution_recovery;
 /// The `FinalizeBlock` and `Commit` handlers.
@@ -66,16 +64,13 @@ mod validate;
 #[cfg(test)]
 mod tests;
 
-use committee_cache::{CachedCommittee, CommitteePrefetch};
-
 #[cfg(test)]
 pub(crate) use switch::etnaForkTimeCall;
 
 pub use info::{CHECK_TX_LOG, CODE_REJECTED};
 pub use own_l1::OwnL1;
 pub use validate::{
-    ChainContext, CommitteeLookup, Rejection, Validated, WitnessKind, check_execution_size,
-    validate_block,
+    ChainContext, Rejection, Validated, WitnessKind, check_execution_size, validate_block,
 };
 
 /// The application name reported in `Info.data`.
@@ -165,8 +160,6 @@ pub struct Status {
     pub execution_floor: Option<u64>,
     /// Last committed height (== L2 block number); the Etna start S right after `InitChain`.
     pub head: u64,
-    /// Epoch of the head (`e_0` while the head is still the Etna start block).
-    pub epoch: u64,
     /// Recovery generation of the running chain.
     pub generation: u64,
     /// `lastCheckpoint.height` proven by the head's anchor.
@@ -337,26 +330,12 @@ pub struct App<L: L1Source, E: Engine> {
     /// The state `FinalizeBlock` derived for the decided block; persisted and made the
     /// committed state by `Commit`.
     pending: Option<AppState>,
-    /// The validator updates `FinalizeBlock` returned for the decided block when it is a switch
-    /// height (`None` elsewhere), set together with [`App::pending`]; `Commit` records them
-    /// before the state and clears them.
-    pending_val_updates: Option<Vec<(crate::key::ConsensusKey, u64)>>,
+    /// The validator updates `FinalizeBlock` returned for the decided block, an empty list
+    /// included, set together with [`App::pending`]; `Commit` records them before the state.
+    pending_val_updates: Vec<(crate::key::ConsensusKey, u64)>,
     /// The latest `ProcessProposal` ACCEPT verdicts (at most [`MAX_VERDICTS`]) by CometBFT block
     /// hash, which `FinalizeBlock` reuses without validating again; cleared at `Commit`.
     verdicts: Verdicts,
-    /// The last committee witness verified for switch height `H(t)-2`, by `PrepareProposal` (its
-    /// own), `ProcessProposal` (another proposer's) or the background discovery at the snapshot
-    /// block ([`App::prefetch_committee_witness`]), kept so that this node's proposals at that
-    /// height reuse it instead of reading the registry again. It lives in memory only: a restart
-    /// re-discovers it from the own L1 (SYNC-9-16). It is dropped once the committed state leaves
-    /// that context (another anchor or switch). Behind a mutex as the handlers run on `&self`.
-    committee_cache: Mutex<Option<CachedCommittee>>,
-    /// The background discovery of the upcoming switch height's committee witness at the
-    /// committed state's snapshot block, the only one this node runs: `Commit`,
-    /// `ProcessProposal` and `PrepareProposal` start it ([`App::prefetch_committee_witness`]),
-    /// and a proposal needing the witness joins it ([`App::discovered_committee_witness`]). It
-    /// runs on past any request's deadline; a committed state of another context drops it.
-    committee_prefetch: Mutex<Option<CommitteePrefetch>>,
     /// Bounded completed anchor, forced proof and authenticated transaction reads. Each successful
     /// stage survives an overall proposal timeout; root/hash keys prevent reuse for different
     /// facts. These reads are proposer-independent; expected headers, builds and singleton
@@ -364,9 +343,6 @@ pub struct App<L: L1Source, E: Engine> {
     preparation_cache: Arc<Mutex<preparation_cache::PreparationCache>>,
     /// One context-bound Prepare parent replay surviving cancellation of its waiting round.
     execution_repair: Mutex<Option<execution_recovery::OwnedExecutionRepair>>,
-    /// Whether the block `FinalizeBlock` last decided was judged here (its `ProcessProposal`
-    /// verdict was cached), rather than replayed or block-synced; gates `Commit`'s prefetches.
-    decided_live: bool,
     /// The label of the last proposal rejection or failed build (a liveness pause), reported by
     /// `/status`; a placeholder proposal does not replace a recorded label. Cleared by the next
     /// accepted or built proposal and by `Commit`.
@@ -515,18 +491,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// generation, its last height must equal its parent's number and its validator
     /// state's height and fit a CometBFT height, and an execution floor must lie above the
     /// generation's origin and at or below the last height. These local consistency checks do not
-    /// authenticate a coherently rewritten state file. Saved committees are not re-derived: one
-    /// that contradicts the decided chain halts `FinalizeBlock` (a different derived record at
-    /// its switch, a certified proposer outside it, or validator updates the replica refuses or
-    /// whose `next_validators_hash` disagrees). A wrong outgoing set at switch height S(t) whose
-    /// updates the replica accepts halts only at S(t)+1, after they were returned and committed:
-    /// CometBFT's NextValidators, the app's validator state and the immutable
-    /// `val-updates-{S(t)}.bin` record then all hold the wrong set. Repairing the state file alone
-    /// is not enough; repair is a fresh import (DATA-5.4-5) or clearing all three stores. A
-    /// validator's app store may also hold the supervisor's latch and signer-unsafe record: before
-    /// a validator runs on any new app store, the operator checks the old one for them and the
-    /// domains log's directory for the `<chain_id>.signer-unsafe` marker. Any of them is uncertain
-    /// signing state, resolved through governance, never by a new store (RECOV-8.2-3).
+    /// authenticate a coherently rewritten state file. The saved validator state is not
+    /// re-derived: one that contradicts the decided chain halts `FinalizeBlock` (a certified
+    /// proposer outside its current set, or a `next_validators_hash` that disagrees with its next
+    /// set). Repairing the state file alone is not enough; repair is a fresh checkpoint import or
+    /// clearing all three stores. A validator's app store may also hold the supervisor's latch
+    /// and signer-unsafe record: before a validator runs on any new app store, the operator
+    /// checks the old one for them and the domains log's directory for the
+    /// `<chain_id>.signer-unsafe` marker. Any of them is uncertain signing state, resolved
+    /// through governance, never by a new store.
     ///
     /// Forced inclusion uses authenticated calldata and requires no KZG initialization.
     pub fn new(
@@ -578,13 +551,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
             opts,
             state,
             pending: None,
-            pending_val_updates: None,
+            pending_val_updates: Vec::new(),
             verdicts: Verdicts::default(),
-            committee_cache: Mutex::default(),
-            committee_prefetch: Mutex::default(),
             preparation_cache: Arc::default(),
             execution_repair: Mutex::default(),
-            decided_live: false,
             halt: None,
             superseded: false,
             el_reconciled_epoch: None,
@@ -643,12 +613,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// The `/status` view of the app; `None` before `InitChain`.
     pub fn status(&self) -> Option<Status> {
         let state = self.state.as_ref()?;
-        let schedule = &state.schedule();
         let trust = self.trust.snapshot();
         Some(Status {
             execution_floor: state.execution_floor.map(|floor| floor.number),
             head: state.last_height,
-            epoch: schedule.epoch_of(state.last_height.max(schedule.h0())),
             generation: state.generation,
             last_checkpoint_height: state.anchor.inbox.last_checkpoint_height,
             anchor: state.anchor.number,
@@ -762,17 +730,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         AbciMetrics::halted().set(1);
     }
 
-    /// The committee-witness cache, which holds no invariant a panicking holder could break.
-    fn committee_cache(&self) -> MutexGuard<'_, Option<CachedCommittee>> {
-        self.committee_cache.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    /// The committee-witness prefetch slot, which holds no invariant a panicking holder could
-    /// break.
-    fn committee_prefetch(&self) -> MutexGuard<'_, Option<CommitteePrefetch>> {
-        self.committee_prefetch.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
     /// Makes the EL serve block `hash` at `number` ([`ensure_block`] within
     /// [`AppOptions::elsync_timeout`]).
     ///
@@ -800,12 +757,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
         AbciMetrics::halted().set(0);
     }
 
-    /// Publishes the committed state's head, epoch, generation and unsettled depth gauges
-    /// (no-op before `InitChain`).
+    /// Publishes the committed state's head, generation and unsettled depth gauges (no-op
+    /// before `InitChain`).
     fn publish_state_metrics(&self) {
         let Some(status) = self.status() else { return };
         set_u64(AbciMetrics::head(), status.head);
-        set_u64(AbciMetrics::epoch(), status.epoch);
         set_u64(AbciMetrics::generation(), status.generation);
         set_u64(
             AbciMetrics::unsettled_depth(),
@@ -918,12 +874,7 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
                 origin.generation != state.generation ||
                 origin.height > state.last_height ||
                 origin.l1_number < state.genesis.l1_0 ||
-                origin.committee.record.target_epoch != state.initial_committee_epoch() ||
-                origin.committee.record.cutoff_l1_block != origin.l1_number ||
-                state
-                    .committees
-                    .get(&state.initial_committee_epoch())
-                    .is_some_and(|set| *set != origin.committee) =>
+                origin.committee.record.cutoff_l1_block != origin.l1_number =>
         {
             return Err(AbciError::StoredState("inconsistent recovery origin".into()));
         }

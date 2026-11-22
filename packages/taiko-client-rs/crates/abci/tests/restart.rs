@@ -1,11 +1,11 @@
-//! Docker scenario on one single-validator devnet, whose phases each need a history past the first
-//! epoch switch:
+//! Docker scenario on one single-validator devnet, whose phases each run past the height the
+//! global schedule names as the first epoch's start:
 //!
-//! 1. the switch activated committee 1 from the committed parent anchor, with no committee
-//!    publication on L1;
+//! 1. the genesis validator still signs there alone, with no committee publication on L1;
 //! 2. stopping the `abci` app mid-chain and starting it again over the same store recovers through
 //!    the CometBFT handshake, leaving the L2 chain below the old head unchanged;
-//! 3. missing app state is reconstructed from the intact CometBFT history, including committees.
+//! 3. missing app state is reconstructed from the intact CometBFT history, its signing set
+//!    included.
 //!
 //! The "restart before the first block" path (a re-sent `InitChain` over a persisted genesis
 //! state) is not driven here: stopping the app between genesis and the first commit is racy
@@ -18,7 +18,6 @@ use std::{
 
 use abci::key::ConsensusKey;
 use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::B256;
 use alloy_provider::Provider;
 use anyhow::Context;
 use test_harness::{Devnet, DevnetSpec, wait_until};
@@ -37,34 +36,12 @@ async fn validator_set(
 async fn first_switch_restart_and_state_loss_recover_on_one_devnet() -> anyhow::Result<()> {
     let started = Instant::now();
     let mut devnet = Devnet::start(DevnetSpec::default()).await?;
-    let schedule = devnet.schedule();
-    let h = schedule.h_first(1);
-    // Include an autonomous switch in the persisted history before any crash.
+    let h = devnet.schedule().h_first(1);
     devnet.wait_for_height(0, (h + 5).max(26), Duration::from_secs(90)).await?;
 
-    // 1. The first switch derived committee 1 at the committed parent's anchor.
-    let committee = devnet.cmt(0).committee(1).await?.expect("switch derives committee 1");
-    let parent = devnet
-        .l2_provider(0)
-        .get_block_by_number(BlockNumberOrTag::Number(
-            schedule.derivation_parent_height(1).unwrap(),
-        ))
-        .await?
-        .expect("committed derivation parent");
-    let anchor = abci::rules::decode_extra_data(&parent.header.inner.extra_data)?.anchor;
-    assert_eq!(committee.record.cutoff_l1_block, anchor);
+    // 1. The genesis validator signs alone past h; no epoch mapping exists or is written.
+    assert_eq!(validator_set(&devnet, h).await?, validator_set(&devnet, 1).await?);
     assert_eq!(validator_set(&devnet, h).await?.len(), 1);
-    // Slot 278 remains the immutable genesis hash; no epoch mapping exists or is written.
-    let bootstrap = devnet
-        .planter()
-        .inbox_word(abci::l1::layout::inbox::slot(abci::l1::layout::inbox::GENESIS_COMMITTEE_HASH))
-        .await?;
-    let initial =
-        devnet.cmt(0).committee(0).await?.expect("genesis committee retained across first switch");
-    assert_eq!(
-        B256::from(bootstrap),
-        abci::committee::record_hash(devnet.params().l2_chain_id, &initial.record)
-    );
     for epoch in [1, 2, 3] {
         let legacy_mapping_slot = alloy_primitives::keccak256(
             [abci::l1::layout::inbox::slot(epoch), abci::l1::layout::inbox::slot(278)].concat(),
@@ -123,7 +100,7 @@ async fn first_switch_restart_and_state_loss_recover_on_one_devnet() -> anyhow::
     assert_eq!(devnet.app_halt(0), None);
     eprintln!("CometBFT height {height}, app head {} after {:?}", status.head, started.elapsed());
 
-    // 3. Lose the app state; replay reconstructs it, committees included.
+    // 3. Lose the app state; replay reconstructs it, its signing set included.
     let finalized = devnet
         .l2_provider(0)
         .get_block_by_number(BlockNumberOrTag::Finalized)
@@ -134,7 +111,7 @@ async fn first_switch_restart_and_state_loss_recover_on_one_devnet() -> anyhow::
     let (before, restored) = devnet.replay_after_state_loss(0).await?;
     assert!(restored.last_height >= before.last_height);
     assert_eq!(restored.genesis, before.genesis);
-    assert_eq!(restored.committees, before.committees);
+    assert_eq!(restored.val_state.current.members(), before.val_state.current.members());
     assert_eq!(restored.generation, before.generation);
     assert_eq!(devnet.app_halt(0), None);
     eprintln!("state-loss replay done after {:?}", started.elapsed());

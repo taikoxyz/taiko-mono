@@ -1,9 +1,9 @@
-//! Genuine trie/proof and epoch-changing fixtures for immutable batch assembly.
+//! Genuine trie/proof fixtures for immutable batch assembly, signed by the generation's initial
+//! committee at every height.
 
-use super::consensus::{SigningKey, pair_with_envelope, parameters, public_key};
+use super::consensus::{FixtureCommittee, SigningKey, pair_with_envelope, parameters, public_key};
 use crate::{
     comet::{CometSource, CometStatus},
-    committee::AuthenticatedCommittee,
     error::{LanderError, Result},
     l1::{Deployment, LandingSource, ParentContext},
     types::{CertifiedBlock, LandingSnapshot},
@@ -144,7 +144,7 @@ pub struct Fixture {
     pub params: ChainParams,
     pub snapshot: LandingSnapshot,
     pub blocks: BTreeMap<u64, CertifiedBlock>,
-    pub committees: BTreeMap<u64, AuthenticatedCommittee>,
+    pub committees: BTreeMap<u64, FixtureCommittee>,
     pub anchors: BTreeMap<u64, AnchorState>,
     pub headers: BTreeMap<u64, Header>,
     pub l1_headers: BTreeMap<u64, RawL1Header>,
@@ -168,27 +168,16 @@ pub fn app_hash(block_hash: B256, state: &ValState) -> tendermint::AppHash {
 }
 
 /// The validator states after heights `origin..=tip`, replayed as abci's app keeps them: the
-/// genesis state of `initial` at `origin`, then, at each height `x` whose `switch_target(x)` is
-/// `t`, the updates from the committee `signing(x)` names to committee `t`, and none elsewhere.
+/// genesis state of `initial` at `origin`, then one advance per height by the empty update list
+/// every height returns.
 pub fn replay_val_states(
-    schedule: &Schedule,
-    committees: &BTreeMap<u64, AuthenticatedCommittee>,
     (origin, initial): (u64, &CommitteeState),
     tip: u64,
-    signing: impl Fn(u64) -> u64,
 ) -> BTreeMap<u64, ValState> {
-    let powers =
-        |c: &CommitteeState| c.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>();
-    let mut states =
-        BTreeMap::from([(origin, ValState::genesis(origin, &powers(initial)).unwrap())]);
+    let powers = initial.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>();
+    let mut states = BTreeMap::from([(origin, ValState::genesis(origin, &powers).unwrap())]);
     for height in origin + 1..=tip {
-        let updates = schedule.switch_target(height).map_or_else(Vec::new, |target| {
-            abci::committee::validator_updates(
-                &committees[&signing(height)].state.members,
-                &committees[&target].state.members,
-            )
-        });
-        let next = states[&(height - 1)].advance(&updates).unwrap();
+        let next = states[&(height - 1)].advance(&[]).unwrap();
         states.insert(height, next);
     }
     states
@@ -226,7 +215,7 @@ fn state_with_queue(
     params: &ChainParams,
     entries: &[RegistryEntry],
     endpoint: (u64, B256, B256),
-    committees: &BTreeMap<u64, AuthenticatedCommittee>,
+    committees: &BTreeMap<u64, FixtureCommittee>,
     genesis: &GenesisRecord,
     queue: &Queue,
 ) -> State {
@@ -554,7 +543,7 @@ impl Fixture {
                 ck_prefix: public_key(&SigningKey::from_slice(&[seed; 32]).unwrap()).prefix(),
                 ck_x: public_key(&SigningKey::from_slice(&[seed; 32]).unwrap()).x(),
                 eff_stake: U256::from(if index == 0 { 3 } else { 1 }) * self.params.vp_unit,
-                active_from_l1: if index == 0 { 1 } else { 10 },
+                active_from_l1: 1,
                 exit_effective_l1: u64::MAX,
             })
             .collect()
@@ -608,7 +597,7 @@ impl Fixture {
 
     /// As [`Fixture::new`], with the forced inclusion entries and blocks of `plan`. Anchor `n` is
     /// at `n` s: L1 10 anchors every block of a genesis checkpoint; otherwise block 1 uses 10,
-    /// blocks 2 to 21 use 11 and blocks 22 (the switch height of epoch 1) onwards use 12.
+    /// blocks 2 to 21 use 11 and blocks 22 onwards use 12.
     pub fn with_forced(checkpoint: u64, tip: u64, plan: ForcedPlan) -> Self {
         Self::build(
             checkpoint,
@@ -709,7 +698,9 @@ impl Fixture {
                 ck_prefix: public_key(key).prefix(),
                 ck_x: public_key(key).x(),
                 eff_stake: U256::from(if index == 0 { 3 } else { 1 }) * params.vp_unit,
-                active_from_l1: if index == 0 { 1 } else { 10 },
+                // Both members are eligible at the genesis cutoff, so the initial set that
+                // signs every height holds both, at powers 3 and 1.
+                active_from_l1: 1,
                 exit_effective_l1: u64::MAX,
             })
             .collect::<Vec<_>>();
@@ -726,15 +717,9 @@ impl Fixture {
                 12
             };
             let (record, members) = derive(&snapshot, cutoff, epoch, &params).unwrap();
-            committees.insert(
-                epoch,
-                AuthenticatedCommittee::new(CommitteeState { record, members }).unwrap(),
-            );
+            committees.insert(epoch, FixtureCommittee::new(CommitteeState { record, members }));
         }
-        let val_states =
-            replay_val_states(&schedule, &committees, (0, &committees[&0].state), tip, |height| {
-                schedule.epoch_of(height)
-            });
+        let val_states = replay_val_states((0, &committees[&0].state), tip);
         let planted = plan.planted();
         let genesis_state = state_with_queue(
             &params,
@@ -803,11 +788,6 @@ impl Fixture {
             let witness = (forced || changing).then(|| AnchorWitness {
                 l1_header: raw.clone(),
                 inbox: states[&number].witness(params.inbox, &inbox::anchor_slots()),
-            });
-            let committee = schedule.switch_target(height).map(|target| CommitteeWitness {
-                record: committees[&target].state.record.clone(),
-                registry: states[&number].witness(params.registry, &snapshot_slots(0, false)),
-                entries: entries.clone(),
             });
             // The entry at the cursor, while the anchor's queue holds one: consumed with its
             // transaction at a planned height, otherwise peeked at.
@@ -892,10 +872,9 @@ impl Fixture {
                 EtnaEnvelope {
                     block: ExecutionBlock { header: el.clone(), transactions },
                     anchor: witness,
-                    committee,
                     forced: witness_forced,
                 },
-                &committees[&schedule.epoch_of(height)],
+                &committees[&0],
                 &keys,
                 blocks.get(&(height - 1)),
             );
@@ -903,12 +882,11 @@ impl Fixture {
                 pair.block.header.time =
                     tendermint::Time::from_unix_timestamp((1261 + height) as i64, 0).unwrap();
             }
-            pair.block.header.next_validators_hash =
-                committees[&schedule.epoch_of(height + 1)].validators.hash();
+            pair.block.header.next_validators_hash = committees[&0].validators.hash();
             // CONS-3.1-8: the app_hash the app returned for the parent, appHash of its EL hash
             // and the validator state after it.
             pair.block.header.app_hash = app_hash(parent.hash, &val_states[&(height - 1)]);
-            super::consensus::resign(&mut pair, &committees[&schedule.epoch_of(height)], &keys);
+            super::consensus::resign(&mut pair, &committees[&0], &keys);
             parent = ParentInfo {
                 number: height,
                 hash: el.hash_slow(),
@@ -1034,11 +1012,13 @@ impl LandingSource for Fixture {
     async fn parent_header(&self, snapshot: &LandingSnapshot) -> Result<ParentContext> {
         Ok(ParentContext {
             header: self.headers[&snapshot.checkpoint_height].clone(),
-            grandparent_timestamp: if snapshot.checkpoint_height == 0 {
-                0
-            } else {
-                self.headers[&(snapshot.checkpoint_height - 1)].timestamp
-            },
+            // The builder takes the grandparent from `execution_header`, so a fixture without it
+            // leaves that read to report it missing.
+            grandparent_timestamp: snapshot
+                .checkpoint_height
+                .checked_sub(1)
+                .and_then(|below| self.headers.get(&below))
+                .map_or(0, |header| header.timestamp),
         })
     }
     async fn execution_header(&self, number: u64) -> Result<Header> {
@@ -1260,22 +1240,7 @@ mod readiness {
             assert_eq!(observed.observation.decided_height, checkpoint);
             assert_eq!(observed.observation.publishable_blocks, 0);
             assert!(!observed.observation.force_back_pressure);
-            assert!(!observed.observation.force_epoch);
         }
-    }
-
-    #[tokio::test]
-    async fn epoch_first_height_has_no_publication_urgency() {
-        let mut fixture = Fixture::new(0, 12);
-        fixture.l1_headers.remove(&14);
-        fixture.mismatch_statement.store(true, Ordering::Relaxed);
-        let fixture = Arc::new(fixture);
-        let observed =
-            builder(fixture.clone(), limits(12)).observe(&fixture.snapshot).await.unwrap();
-        assert_eq!(observed.observation.decided_height, 12);
-        assert_eq!(observed.observation.publishable_blocks, 12);
-        assert!(!observed.observation.force_back_pressure);
-        assert!(!observed.observation.force_epoch);
     }
 
     #[tokio::test]
@@ -1288,7 +1253,6 @@ mod readiness {
         assert_eq!(observed.observation.publishable_blocks, 11);
         // U=20, tip=20, tip anchor CP=1: depth 19 forces publication despite latest CP=19.
         assert!(observed.observation.force_back_pressure);
-        assert!(!observed.observation.force_epoch);
     }
 
     #[tokio::test]
@@ -1302,18 +1266,17 @@ mod readiness {
         assert_eq!(observed.observation.decided_height, 16);
         assert_eq!(observed.observation.publishable_blocks, 10);
         assert!(!observed.observation.force_back_pressure);
-        assert!(!observed.observation.force_epoch);
     }
 
+    /// A prefix the blob bound cuts to one block lands that one block, without back-pressure.
     #[tokio::test]
-    async fn epoch_first_height_outside_blob_prefix_forces_publication_without_pressure() {
+    async fn a_one_block_prefix_lands_without_pressure() {
         let fixture = Arc::new(Fixture::with_calldata(18, 30, 70_000));
         let mut bound = limits(6);
         bound.max_blobs = 1;
         let observed = builder(fixture.clone(), bound).observe(&fixture.snapshot).await.unwrap();
         assert_eq!(observed.observation.decided_height, 30);
         assert_eq!(observed.observation.publishable_blocks, 1);
-        assert!(observed.observation.force_epoch); // h_first(1) is beyond the single-block prefix at 19.
         assert!(!observed.observation.force_back_pressure); // The tip anchor CP=18 gives depth 12 < 17.
         let request = builder(fixture.clone(), bound)
             .prepare(fixture.snapshot.clone())
@@ -1547,8 +1510,17 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
 
     const COUNT: usize = 301;
     const CHAIN_ID: &str = "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4";
-    let (params, seeded, keys) = committee(&[1; COUNT], 0);
-    let entries = seeded.provenance.unwrap().witness.entries;
+    let (params, _, keys) = committee(&[1; COUNT], 0);
+    let entries = keys
+        .iter()
+        .map(|key| RegistryEntry {
+            ck_prefix: public_key(key).prefix(),
+            ck_x: public_key(key).x(),
+            eff_stake: params.vp_unit,
+            active_from_l1: 1,
+            exit_effective_l1: u64::MAX,
+        })
+        .collect::<Vec<_>>();
     assert_eq!(entries.len(), COUNT);
     assert_eq!(keys.len(), COUNT);
     assert_eq!(
@@ -1587,8 +1559,7 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
     assert_eq!(members, expected_members);
     assert_eq!(members.len(), COUNT);
     assert_eq!(members.iter().map(|member| member.pubkey).collect::<BTreeSet<_>>().len(), COUNT);
-    let authenticated =
-        AuthenticatedCommittee::new(CommitteeState { record: verified_record, members }).unwrap();
+    let authenticated = FixtureCommittee::new(CommitteeState { record: verified_record, members });
     assert_eq!(authenticated.validators.validators().len(), COUNT);
     assert_eq!(authenticated.validators.total_voting_power(), 301);
 
@@ -1614,13 +1585,13 @@ fn authenticates_301_members_from_registry_proof_through_comet_certificate() {
         })
         .collect::<BTreeSet<_>>();
     assert_eq!(signer_addresses.len(), COUNT);
-    verify_commit(&block.commit, &block.block.header, &authenticated, CHAIN_ID).unwrap();
+    verify_commit(&block.commit, &block.block.header, &authenticated.validators, CHAIN_ID).unwrap();
     // With unit power, 201/301 is just above 2/3; 200/301 is below it.
     block.commit.signatures[201..].fill(CommitSig::BlockIdFlagAbsent);
-    verify_commit(&block.commit, &block.block.header, &authenticated, CHAIN_ID).unwrap();
+    verify_commit(&block.commit, &block.block.header, &authenticated.validators, CHAIN_ID).unwrap();
     block.commit.signatures[200] = CommitSig::BlockIdFlagAbsent;
     assert!(matches!(
-        verify_commit(&block.commit, &block.block.header, &authenticated, CHAIN_ID),
+        verify_commit(&block.commit, &block.block.header, &authenticated.validators, CHAIN_ID),
         Err(ValidationError::Certificate(message)) if message.contains("insufficient commit power 200/301")
     ));
 }

@@ -1,11 +1,12 @@
-//! Discovery of registry witnesses from L1 RPC, followed by independent pure verification.
+//! Discovery of the registry witness of a generation's initial committee from L1 RPC, followed
+//! by independent pure verification.
 //!
-//! Runtime discovery selects and proves at the committed parent anchor. Explicit-cutoff discovery
-//! serves genesis and authenticated host proof jobs. The proving block must cover the cutoff.
-//! Checkpoint binary search and historical entry reads are untrusted until their complete root
-//! verifies; entries may require archive state well before the proving block.
+//! Explicit-cutoff discovery serves the genesis builder, recovery acquisition and the lander's
+//! generation-zero committee; no block carries a committee witness. The proving block must cover
+//! the cutoff. Checkpoint binary search and historical entry reads are untrusted until their
+//! complete root verifies; entries may require archive state well before the proving block.
 
-use std::{collections::HashMap, future::Future, ops::Range, time::Duration};
+use std::{collections::HashMap, ops::Range};
 
 use alloy_primitives::{B256, U256};
 use futures::{StreamExt, TryStreamExt, stream};
@@ -17,8 +18,7 @@ use super::{
 use crate::{
     committee::{self, CommitteeError, Snapshot, snapshot_slots},
     config::ChainParams,
-    envelope::CommitteeWitness,
-    types::RegistryEntry,
+    types::{CommitteeWitness, RegistryEntry},
 };
 
 /// Registry entries read per `account_witness` call during discovery: one call for any
@@ -47,9 +47,6 @@ pub enum FetchError {
     /// An L1 read failed.
     #[error(transparent)]
     L1(#[from] L1Error),
-    /// An L1 read (named by the value) exceeded the per-read deadline.
-    #[error("{0} timed out")]
-    Timeout(&'static str),
     /// A registry storage word read during discovery is unusable; the value says how.
     #[error("registry discovery failed: {0}")]
     Registry(String),
@@ -58,23 +55,27 @@ pub enum FetchError {
     Committee(#[from] CommitteeError),
 }
 
-/// [`build_committee_witness_within`] without read deadlines.
+/// [`build_committee_witness_at_cutoff`] with the cutoff at the proving block `block`.
 #[cfg(test)]
 pub(crate) async fn build_committee_witness<L: L1Source + ?Sized>(
     l1: &L,
     params: &ChainParams,
-    parent_anchor: u64,
+    block: u64,
     target_epoch: u64,
 ) -> Result<CommitteeWitness, FetchError> {
-    Discovery { l1, params, cutoff: None, read_timeout: None }
-        .witness(parent_anchor, target_epoch)
-        .await
+    build_committee_witness_at_cutoff(l1, params, block, block, target_epoch).await
 }
 
 /// The committee witness for `target_epoch` with the given explicit historical `cutoff`, reading
-/// the node's own L1 without deadlines: the snapshot is the last checkpoint with
-/// `l1Block <= cutoff` (no lag, no grid), and every read [`build_committee_witness_within`] makes
-/// at the parent anchor is made at L1 block `block`.
+/// the node's own L1 without deadlines. In order:
+/// - the last registry checkpoint with `l1Block <= cutoff` (no lag, no grid), found by binary
+///   search at L1 block `block`;
+/// - the complete entries read at `block` or just before the successor checkpoint;
+/// - checkpoint and successor storage proofs at `block`.
+///
+/// Every result is independently checked by the pure committee verifier. Historical entry
+/// discovery needs the own L1 to serve historical state; an explicit historical snapshot is
+/// never advanced by its later proving block.
 ///
 /// This builds the genesis committee `e_0`'s witness, with `block = L1_0` and
 /// `cutoff = genesisCutoff`, as
@@ -93,70 +94,7 @@ pub async fn build_committee_witness_at_cutoff<L: L1Source + ?Sized>(
     cutoff: u64,
     target_epoch: u64,
 ) -> Result<CommitteeWitness, FetchError> {
-    Discovery { l1, params, cutoff: Some(cutoff), read_timeout: None }
-        .witness(block, target_epoch)
-        .await
-}
-
-/// Builds the committee witness for `target_epoch` against the parent anchor `parent_anchor`,
-/// bounding every single L1 read by `read_timeout` ([`FetchError::Timeout`] otherwise).
-///
-/// In order:
-/// - the supplied committed parent anchor number as the snapshot cutoff;
-/// - the last registry checkpoint at or before it, found by binary search;
-/// - the complete entries read at the proving block or just before the successor checkpoint;
-/// - checkpoint and successor storage proofs at the proving block.
-///
-/// Every result is independently checked by the pure committee verifier. Historical entry
-/// discovery needs the own L1 to serve historical state (SYNC-9-16); an explicit historical
-/// snapshot is never advanced by its later proving block.
-///
-/// Each call starts afresh: the app runs it once per switch context in the background, past any
-/// proposal deadline, and restarts a failed one from scratch after its backoff.
-pub(crate) async fn build_committee_witness_within<L: L1Source + ?Sized>(
-    l1: &L,
-    params: &ChainParams,
-    parent_anchor: u64,
-    target_epoch: u64,
-    read_timeout: Duration,
-) -> Result<CommitteeWitness, FetchError> {
-    Discovery { l1, params, cutoff: None, read_timeout: Some(read_timeout) }
-        .witness(parent_anchor, target_epoch)
-        .await
-}
-
-/// `base` re-proved under the state root of L1 block `block`: the same record and entries,
-/// with the registry account and [`snapshot_slots`] proofs read at `block`.
-///
-/// Registry checkpoints are append-only, so the snapshot `base` selected at its cutoff is the
-/// same at any proving block at or after that cutoff. Only the proofs depend on the block's
-/// root, plus whether a next checkpoint exists there. Two reads, each within `read_timeout`:
-/// `checkpoints.length`, then the proof. Like every discovery result, the witness is unverified.
-pub(crate) async fn reprove_committee_witness<L: L1Source + ?Sized>(
-    l1: &L,
-    params: &ChainParams,
-    base: &CommitteeWitness,
-    block: u64,
-    read_timeout: Duration,
-) -> Result<CommitteeWitness, FetchError> {
-    let discovery = Discovery {
-        l1,
-        params,
-        cutoff: Some(base.record.cutoff_l1_block),
-        read_timeout: Some(read_timeout),
-    };
-    let length = discovery.registry_word(registry::length_slot(), block).await?;
-    let index = base.record.checkpoint_index;
-    let has_next = U256::from(index) + U256::from(1) < length;
-    let slots = snapshot_slots(index, has_next);
-    let proof = discovery
-        .read("registry proof read", l1.account_witness(params.registry, &slots, block))
-        .await?;
-    Ok(CommitteeWitness {
-        record: base.record.clone(),
-        registry: proof,
-        entries: base.entries.clone(),
-    })
+    Discovery { l1, params, cutoff }.witness(block, target_epoch).await
 }
 
 /// One committee-witness discovery over an L1 source.
@@ -165,18 +103,16 @@ struct Discovery<'a, L: ?Sized> {
     l1: &'a L,
     /// The chain parameters (registry address and derivation parameters).
     params: &'a ChainParams,
-    /// Explicit snapshot cutoff for genesis/host jobs; `None` selects the supplied parent number.
-    cutoff: Option<u64>,
-    /// The deadline of each single L1 read; `None` waits indefinitely.
-    read_timeout: Option<Duration>,
+    /// The explicit snapshot cutoff.
+    cutoff: u64,
 }
 
 impl<L: L1Source + ?Sized> Discovery<'_, L> {
-    /// The committee witness for `target` against the parent anchor `n_p` (see
-    /// [`build_committee_witness_within`]).
+    /// The committee witness for `target` proven at L1 block `n_p` (see
+    /// [`build_committee_witness_at_cutoff`]).
     async fn witness(&self, n_p: u64, target: u64) -> Result<CommitteeWitness, FetchError> {
         let params = self.params;
-        let cutoff = self.cutoff.unwrap_or(n_p);
+        let cutoff = self.cutoff;
 
         if cutoff > n_p {
             return Err(CommitteeError::CutoffAfterAnchor { cutoff, anchor: n_p }.into());
@@ -219,9 +155,7 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         let entries = self.entries(count, entries_block).await?;
 
         let slots = snapshot_slots(index, next.is_some());
-        let proof = self
-            .read("registry proof read", self.l1.account_witness(params.registry, &slots, n_p))
-            .await?;
+        let proof = self.l1.account_witness(params.registry, &slots, n_p).await?;
         let snapshot = Snapshot { checkpoint_index: index, l1_block, entries };
         let (record, _) = committee::derive(&snapshot, cutoff, target, params)?;
         Ok(CommitteeWitness { record, registry: proof, entries: snapshot.entries })
@@ -267,12 +201,7 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
         block: u64,
     ) -> Result<Vec<RegistryEntry>, FetchError> {
         let slots: Vec<B256> = batch.flat_map(registry::entry_slots).collect();
-        let witness = self
-            .read(
-                "registry entries read",
-                self.l1.account_witness(self.params.registry, &slots, block),
-            )
-            .await?;
+        let witness = self.l1.account_witness(self.params.registry, &slots, block).await?;
         if !witness.storage.iter().map(|p| p.slot).eq(slots.iter().copied()) {
             return Err(FetchError::Registry(format!(
                 "the entries read at block {block} answered other slots than requested"
@@ -298,28 +227,14 @@ impl<L: L1Source + ?Sized> Discovery<'_, L> {
 
     /// The raw registry storage word at `slot` as of the parent anchor `n_p`.
     async fn registry_word(&self, slot: B256, n_p: u64) -> Result<U256, FetchError> {
-        self.read("registry storage read", self.l1.storage_at(self.params.registry, slot, n_p))
-            .await
-    }
-
-    /// Runs one L1 read, within the per-read deadline when one is set.
-    async fn read<T>(
-        &self,
-        what: &'static str,
-        fut: impl Future<Output = Result<T, L1Error>>,
-    ) -> Result<T, FetchError> {
-        match self.read_timeout {
-            None => Ok(fut.await?),
-            Some(limit) => match tokio::time::timeout(limit, fut).await {
-                Ok(result) => Ok(result?),
-                Err(_) => Err(FetchError::Timeout(what)),
-            },
-        }
+        Ok(self.l1.storage_at(self.params.registry, slot, n_p).await?)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
     use crate::{
         committee::{verify_committee_witness, verify_committee_witness_at_cutoff},
@@ -437,9 +352,9 @@ mod tests {
             .expect("the witness verifies at the parent anchor");
     }
 
-    /// Runtime discovery takes the actual parent number even when the genesis cutoff is older.
+    /// A cutoff at the proving block takes that block even when the genesis cutoff is older.
     #[tokio::test]
-    async fn runtime_snapshot_is_the_supplied_parent_number() {
+    async fn a_cutoff_at_the_proving_block_is_that_block() {
         let fx = Fixture::build(GenesisSpec::eligible_at_explicit_genesis_snapshot(2));
         let l1_0 = fx.genesis.l1_0;
         let witness =
@@ -452,7 +367,7 @@ mod tests {
         assert_eq!(members.len(), 2);
     }
 
-    /// An explicit historical snapshot is taken as is, independent of the runtime parent.
+    /// An explicit historical snapshot is taken as is, independent of the proving block.
     /// The parent-anchor reads are made at the given block, and the entries at the newest block
     /// that still holds the snapshot.
     #[tokio::test]
@@ -495,53 +410,6 @@ mod tests {
         assert_eq!(record, witness.record);
     }
 
-    /// A witness discovered at cutoff 61 is re-proved at later blocks with the checkpoint count
-    /// and one proof, equal to discovering it there: at 63 checkpoint 0 is still the last, and at
-    /// 64 checkpoint 1 (block 62) follows it.
-    #[tokio::test]
-    async fn a_reproved_witness_equals_the_discovery_at_its_block() {
-        let fx = Fixture::genesis(3);
-        let params = fx.params.clone();
-        let (old, new) = (sample_entries(3), sample_entries(4));
-        let first = RegistryStorage { checkpoints: vec![(60, old.clone())] };
-        let joined = RegistryStorage { checkpoints: vec![(60, old.clone()), (62, new)] };
-        let l1 = MockL1::new(64);
-        fx.plant_l1_block(&l1, 61, &fx.inbox, &first);
-        fx.plant_l1_block(&l1, 63, &fx.inbox, &first);
-        fx.plant_l1_block(&l1, 64, &fx.inbox, &joined);
-        let base = build_committee_witness_at_cutoff(&l1, &params, 61, 61, Schedule::E0)
-            .await
-            .expect("witness");
-
-        for (block, has_next) in [(63, false), (64, true)] {
-            l1.state().calls.clear();
-            let reproved =
-                reprove_committee_witness(&l1, &params, &base, block, Duration::from_secs(1))
-                    .await
-                    .expect("re-proved");
-            assert_eq!(
-                l1.calls(),
-                [
-                    L1Call::StorageAt {
-                        address: params.registry,
-                        slot: registry::length_slot(),
-                        block
-                    },
-                    L1Call::AccountWitness {
-                        address: params.registry,
-                        slots: snapshot_slots(0, has_next),
-                        block
-                    },
-                ]
-            );
-            let discovered =
-                build_committee_witness_at_cutoff(&l1, &params, block, 61, Schedule::E0)
-                    .await
-                    .expect("witness");
-            assert_eq!(reproved, discovered, "block {block}");
-        }
-    }
-
     /// A large registry is read in batches of [`ENTRY_BATCH`] entries per call.
     #[tokio::test]
     async fn entries_are_read_in_bounded_batches() {
@@ -569,8 +437,8 @@ mod tests {
     }
 
     /// Against the fixture's L1, discovery at the genesis cutoff rebuilds exactly the genesis
-    /// committee witness. Runtime-style discovery at `L1_0` instead carries its supplied parent
-    /// number, while preserving the same complete entries.
+    /// committee witness. Discovery with the cutoff at `L1_0` instead carries that number, while
+    /// preserving the same complete entries.
     #[tokio::test]
     async fn rebuilds_the_fixture_genesis_committee_witness() {
         let fx = Fixture::genesis(3);
@@ -592,18 +460,9 @@ mod tests {
             .expect("the fixture registry yields a witness");
         assert_eq!(anchored.record.cutoff_l1_block, l1_0);
         assert_eq!(
-            CommitteeWitness { record: fx.witness.committee.record.clone(), ..anchored.clone() },
+            CommitteeWitness { record: fx.witness.committee.record.clone(), ..anchored },
             fx.witness.committee
         );
-        let within = build_committee_witness_within(
-            &l1,
-            &fx.params,
-            l1_0,
-            Schedule::E0,
-            Duration::from_secs(1),
-        )
-        .await;
-        assert_eq!(within, Ok(anchored));
     }
 
     /// The entry batches are read concurrently, at most four at a time, and still yield the
@@ -620,31 +479,11 @@ mod tests {
         l1.state().delay = Some(Duration::from_secs(1));
 
         let start = tokio::time::Instant::now();
-        let witness =
-            build_committee_witness_within(&l1, &fx.params, 64, 1, Duration::from_secs(5))
-                .await
-                .expect("witness");
+        let witness = build_committee_witness(&l1, &fx.params, 64, 1).await.expect("witness");
         assert_eq!(witness.entries, entries);
         assert_eq!(l1.state().max_in_flight, bound);
         // checkpoints.length, the head, two waves of entry reads, the proof: 5 s instead of 10 s.
         assert_eq!(start.elapsed(), Duration::from_secs(5));
-    }
-
-    /// Every read is bounded on its own; the deadline names the read that stalled.
-    #[tokio::test(start_paused = true)]
-    async fn a_stalled_read_times_out() {
-        let fx = Fixture::genesis(1);
-        let l1 = fx.l1();
-        l1.state().delay = Some(Duration::from_secs(5));
-        let err = build_committee_witness_within(
-            &l1,
-            &fx.params,
-            fx.genesis.l1_0,
-            Schedule::E0,
-            Duration::from_secs(4),
-        )
-        .await;
-        assert_eq!(err, Err(FetchError::Timeout("registry storage read")));
     }
 
     /// The L1 state of a registry with one checkpoint (at L1 block 1) whose head claims `count`

@@ -7,11 +7,9 @@ use async_trait::async_trait;
 use std::{collections::BTreeMap, sync::Arc};
 
 use abci::{
-    AnchorState, EtnaEnvelope, ExecutionBlock, ForcedWitness, ParentInfo, Schedule,
-    committee::verify_committee_witness_at_cutoff,
+    AnchorState, EtnaEnvelope, ExecutionBlock, ForcedWitness, ParentInfo,
     envelope::AnchorWitness,
     l1::{
-        fetch::build_committee_witness_at_cutoff,
         layout::{inbox, word_u48},
         source::{L1Source, RpcL1Source},
         witness::verify_anchor_witness,
@@ -26,7 +24,7 @@ use alloy_provider::Provider;
 use anyhow::{Context, Result, ensure};
 use lander::{
     CertifiedBlock, LandingSnapshot, Limits, ProofRequest, SidecarMode,
-    committee::AuthenticatedCommittee,
+    committee::Validators,
     l1::{LandingSource, RpcLandingSource},
     validate::{EnvelopeContext, commit_hash, verify_commit, verify_envelope, verify_structure},
 };
@@ -61,12 +59,14 @@ pub struct FixtureChain {
     pub blocks: Vec<CertifiedBlock>,
     pub headers: Vec<Header>,
     pub anchors: Vec<AnchorState>,
-    pub committees: BTreeMap<u64, AuthenticatedCommittee>,
+    /// The genesis set, which signs every height.
+    pub validators: Validators,
     /// Exact admitted transaction bytes by queue index, carried whenever the anchor proves
     /// that entry pending; inclusion at position zero consumes it.
     pub forced_transactions: BTreeMap<u64, Bytes>,
     /// The validator state after each height, indexed by height: the genesis state at 0, then
-    /// each block's updates as abci's app applies them, which `/val_state/<height>` serves.
+    /// one advance per block by its empty update list, as abci's app applies them, which
+    /// `/val_state/<height>` serves.
     pub val_states: Vec<ValState>,
 }
 
@@ -80,10 +80,10 @@ impl FixtureChain {
             &AnchorWitness { l1_header: header, inbox: witness },
             fixture.inbox,
         )?;
-        let committee = AuthenticatedCommittee::new(fixture.committee.clone())?;
+        let validators = Validators::from_members(&fixture.committee.members)?;
         let genesis = ValState::genesis(
             0,
-            &committee.state.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>(),
+            &fixture.committee.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>(),
         )?;
         Ok(Self {
             chain_id: abci::domain::chain_id(&abci::domain::DeploymentDomain {
@@ -96,7 +96,7 @@ impl FixtureChain {
             blocks: Vec::new(),
             headers: vec![fixture.parent_header.clone()],
             anchors: vec![anchor],
-            committees: BTreeMap::from([(0, committee)]),
+            validators,
             forced_transactions: BTreeMap::new(),
             val_states: vec![genesis],
         })
@@ -105,13 +105,11 @@ impl FixtureChain {
     /// Append structurally valid blocks against actual finalized Inbox/registry state.
     pub async fn extend(&mut self, fixture: &ContractFixture, last: u64) -> Result<()> {
         let source = RpcL1Source::new(fixture.anvil.provider.clone());
-        let schedule = Schedule::from_genesis(&fixture.genesis);
         while self.blocks.len() < usize::try_from(last)? {
             let height = u64::try_from(self.blocks.len())? + 1;
             let parent = self.headers.last().expect("genesis header");
             let parent_anchor = self.anchors.last().expect("genesis anchor");
             let raw = source.header(source.finalized_number().await?).await?;
-            let switch = schedule.switch_target(height);
             let needs_anchor = height == 1 || raw.number() != parent_anchor.number;
             let witness = if needs_anchor {
                 Some(AnchorWitness {
@@ -150,34 +148,6 @@ impl FixtureChain {
                 None
             };
             let consumed = forced.as_ref().filter(|w| !w.tx.is_empty()).map(|w| w.index);
-            let committee = if let Some(target) = switch {
-                Some(
-                    build_committee_witness_at_cutoff(
-                        &source,
-                        &fixture.params,
-                        anchor.number,
-                        parent_anchor.number.max(fixture.genesis.l1_0),
-                        target,
-                    )
-                    .await?,
-                )
-            } else {
-                None
-            };
-            if let Some(w) = &committee {
-                let target = switch.expect("switch committee");
-                let (record, members) = verify_committee_witness_at_cutoff(
-                    anchor.state_root,
-                    parent_anchor.number.max(fixture.genesis.l1_0),
-                    &fixture.params,
-                    w,
-                    target,
-                )?;
-                self.committees.insert(
-                    target,
-                    AuthenticatedCommittee::new(abci::CommitteeState { record, members })?,
-                );
-            }
             let parent_info = ParentInfo {
                 number: parent.number,
                 hash: parent.hash_slow(),
@@ -228,30 +198,29 @@ impl FixtureChain {
             let envelope = EtnaEnvelope {
                 block: ExecutionBlock { header: header.clone(), transactions },
                 anchor: witness,
-                committee,
                 forced: forced.map(|mut w| {
                     w.tx = Bytes::new();
                     w
                 }),
             };
-            let current = &self.committees[&schedule.epoch_of(height)];
             let pair = signed_pair(
                 envelope.clone(),
-                current,
-                &self.committees[&schedule.epoch_of(height + 1)],
+                &self.validators,
+                &self.validators,
                 self.blocks.last(),
                 &self.chain_id,
                 &self.keys,
             );
-            verify_commit(&pair.commit, &pair.block.header, current, &self.chain_id)?;
+            verify_commit(&pair.commit, &pair.block.header, &self.validators, &self.chain_id)?;
             verify_structure(&pair, self.blocks.last(), height, parent.hash_slow())?;
+            let signers = self.validators.entries();
             let facts = verify_envelope(
                 envelope,
                 EnvelopeContext {
                     recovery: None,
                     bft_time_secs: time,
                     proposer: pair.block.header.proposer_address,
-                    committees: &self.committees,
+                    signers: &signers,
                     parent: &parent_info,
                     parent_anchor,
                     generation: 0,
@@ -267,17 +236,7 @@ impl FixtureChain {
                         .unwrap_or(abci::forced::ForcedDecision::Ordinary),
                 "forced inclusion at height {height}"
             );
-            if let Some(derived) = facts.derived {
-                let epoch = derived.record.target_epoch;
-                self.committees.insert(epoch, AuthenticatedCommittee::new(derived)?);
-            }
-            let updates = switch.map_or_else(Vec::new, |target| {
-                abci::committee::validator_updates(
-                    &self.committees[&schedule.epoch_of(height)].state.members,
-                    &self.committees[&target].state.members,
-                )
-            });
-            let val_state = self.val_states.last().expect("genesis state").advance(&updates)?;
+            let val_state = self.val_states.last().expect("genesis state").advance(&[])?;
             self.val_states.push(val_state);
             self.blocks.push(pair);
             self.headers.push(header);
@@ -363,7 +322,7 @@ impl FixtureChain {
             blocks: self.blocks[..last as usize].to_vec(),
             headers: self.headers[..=last as usize].to_vec(),
             anchors: self.anchors[..=last as usize].to_vec(),
-            committees: self.committees.clone(),
+            validators: self.validators.clone(),
             forced_transactions: self.forced_transactions.clone(),
             val_states: self.val_states[..=last as usize].to_vec(),
         });
@@ -399,8 +358,8 @@ fn merkle(items: &[Vec<u8>]) -> Hash {
 
 pub fn signed_pair(
     envelope: EtnaEnvelope,
-    committee: &AuthenticatedCommittee,
-    next: &AuthenticatedCommittee,
+    committee: &Validators,
+    next: &Validators,
     previous: Option<&CertifiedBlock>,
     chain_id: &str,
     keys: &[test_harness::ValidatorKey],
@@ -419,15 +378,15 @@ pub fn signed_pair(
         data_hash: Some(merkle(
             &data.iter().map(|tx| Sha256::digest(tx).to_vec()).collect::<Vec<_>>(),
         )),
-        validators_hash: committee.validators.hash(),
-        next_validators_hash: next.validators.hash(),
+        validators_hash: committee.hash(),
+        next_validators_hash: next.hash(),
         consensus_hash: Hash::Sha256([2; 32]),
         // appHash of the parent's EL hash (CONS-3.1-8), never the bare hash. The lander leaves it
         // unchecked (PROOF-6.2-42), so a zero validator-state hash stands in.
         app_hash: AppHash::try_from(abci::valstate::app_hash(parent, B256::ZERO).to_vec()).unwrap(),
         last_results_hash: None,
         evidence_hash: Some(merkle(&[])),
-        proposer_address: committee.validators.validators()[0].address,
+        proposer_address: committee.validators()[0].address,
     };
     let block = Block { header, data, last_commit: previous.map(|p| p.commit.clone()) };
     let mut raw = RawBlock {
@@ -452,7 +411,6 @@ pub fn signed_pair(
         signatures: vec![],
     };
     commit.signatures = committee
-        .validators
         .validators()
         .iter()
         .enumerate()

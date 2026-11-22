@@ -555,7 +555,7 @@ mod tests {
             crate::validate::verify_commit(
                 &pair.commit,
                 &pair.block.header,
-                &committee,
+                &committee.validators,
                 "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
             )
             .unwrap();
@@ -643,7 +643,7 @@ mod tests {
             let certificate = verify_commit(
                 &pair.commit,
                 &pair.block.header,
-                &committee,
+                &committee.validators,
                 "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4",
             );
             if pair.block.header.version.app == abci::app::APP_VERSION {

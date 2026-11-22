@@ -117,7 +117,7 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
     let mut chain = FixtureChain::new(&fixture).await?;
     chain.extend(&fixture, 6).await?;
     let first = chain.prepare(&fixture, 6, SidecarMode::Eip7594).await?;
-    assert_eq!(first.batch.committees.len(), 1);
+    assert_eq!(first.batch.input.activeCommitteeSnapshot, fixture.genesis.genesis_cutoff);
     fixture.expect_statement(first.batch.statement_hash).await?;
     let signed = sign(&fixture, &first).await?;
     assert_landed(&fixture, &first, &signed).await?;
@@ -154,49 +154,15 @@ async fn lander_actual_contract_blob_landing_and_cross_epoch() -> Result<()> {
         source.finalized_number().await? >= exit_block,
         "exit must be finalized before S is constructed"
     );
-    // A later prefix crosses the epoch boundary and lands in one batch.
-    let h = schedule.h_first(1);
+    // A later prefix past the global schedule's first epoch start lands in one batch, still
+    // signed by the genesis set: the exit changes no signing set.
     for last in [18, 24] {
         mine_l1_blocks(p, 3).await?;
         chain.extend(&fixture, last).await?;
         assert!(chain.anchors[usize::try_from(switch_height)?].number >= exit_block);
         let next = chain.prepare(&fixture, last, SidecarMode::Eip7594).await?;
         assert_eq!(next.batch.input.lastHeight, last);
-        assert_eq!(
-            next.batch.input.activeCommitteeSnapshot,
-            if last < h { fixture.genesis.genesis_cutoff } else { immutable_snapshot }
-        );
-        let incoming = next
-            .batch
-            .committee_witnesses
-            .iter()
-            .find(|c| c.witness.record.target_epoch == 1)
-            .context("incoming epoch")?;
-        assert_eq!(incoming.witness.record.cutoff_l1_block, immutable_snapshot);
-        assert_eq!(
-            incoming.derivation_parent.as_ref().context("D header")?.number,
-            derivation_height
-        );
-        if last == 18 {
-            assert_eq!(next.batch.snapshot.checkpoint_height, derivation_height);
-            let later_anchor = &chain.anchors[usize::try_from(switch_height)?];
-            assert_eq!(incoming.anchor.number, later_anchor.number);
-            assert_eq!(incoming.anchor.hash, later_anchor.hash);
-            assert!(incoming.anchor.number > immutable_snapshot);
-            let witness = &incoming.witness;
-            assert_eq!(
-                witness.registry.storage.iter().map(|word| word.slot).collect::<Vec<_>>(),
-                abci::committee::snapshot_slots(witness.record.checkpoint_index, true),
-                "historical snapshot retains selected checkpoint and successor trace proofs"
-            );
-            let storage = &witness.registry.storage;
-            let selected_l1 = abci::l1::layout::word_u48(storage[1].value, 0);
-            let next_l1 = abci::l1::layout::word_u48(storage[3].value, 0);
-            assert!(selected_l1 <= immutable_snapshot);
-            assert!(immutable_snapshot < next_l1);
-            assert!(next_l1 <= incoming.anchor.number);
-            assert!(storage[0].value > U256::from(witness.record.checkpoint_index) + U256::from(1));
-        }
+        assert_eq!(next.batch.input.activeCommitteeSnapshot, fixture.genesis.genesis_cutoff);
         fixture.expect_statement(next.batch.statement_hash).await?;
         assert_landed(&fixture, &next, &sign(&fixture, &next).await?).await?;
     }

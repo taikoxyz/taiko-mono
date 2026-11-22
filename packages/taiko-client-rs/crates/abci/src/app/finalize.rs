@@ -6,11 +6,12 @@
 //! derives the same response and state as one that voted. The one L1 read is for a block this
 //! node never judged whose envelope moves the anchor: its own L1 must have finalized that very
 //! header ([`App::confirm_anchor`]), so a block-synced history cannot carry a forged L1 header and
-//! with it a forged registry or Inbox checkpoint, and that anchor's `lastCheckpoint` must name a
-//! block of the local chain ([`App::confirm_checkpoint`]). A decided block that fails a
-//! deterministic check, whose anchor is off the own L1 chain or settles another history, that the
-//! EL rejects, or that contradicts a known committee is a safety halt: the process exits and an
-//! operator must investigate. The derived state stays pending until `Commit` persists it.
+//! with it a forged Inbox checkpoint, and that anchor's `lastCheckpoint` must name a block of the
+//! local chain ([`App::confirm_checkpoint`]). A decided block that fails a deterministic check,
+//! whose anchor is off the own L1 chain or settles another history, that the EL rejects, or whose
+//! `next_validators_hash` contradicts the validator-state replica is a safety halt: the process
+//! exits and an operator must investigate. The derived state stays pending until `Commit`
+//! persists it.
 
 use crate::wire::{request, response};
 use std::{fmt, future::Future, time::Duration};
@@ -30,7 +31,6 @@ use super::{
     validate::{Rejection, Validated, validate_block},
 };
 use crate::{
-    committee,
     engine::{Engine, EngineError, PayloadVerdict},
     envelope::{EtnaEnvelope, single_envelope},
     l1::{L1Source, OwnFinality, RawL1Header, own_finality},
@@ -81,13 +81,15 @@ impl<L: L1Source, E: Engine> App<L, E> {
             Some(verdict) => (verdict, false),
             None => (self.validate_cold(state, &req, height).await?, true),
         };
-        let (mut next, val_updates) = next_state(state, &validated, height)?;
-        let updates = val_updates.as_deref().unwrap_or_default();
+        let mut next = next_state(state, &validated, height);
+        // Every height returns an update list; the signing set does not change yet, so it is
+        // empty.
+        let updates: ValidatorUpdates = Vec::new();
         // CometBFT applies exactly the updates this response returns; a change set it would
         // refuse halts it, so the replica halts first.
         next.val_state = state
             .val_state
-            .advance(updates)
+            .advance(&updates)
             .map_err(|error| safety_halt(height, "validator_state", error))?;
         next.last_comet_hash = match req.hash {
             tendermint::Hash::Sha256(hash) => B256::from(hash),
@@ -105,13 +107,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let finalized = next.anchor.inbox.last_checkpoint_hash;
         self.settle(height, &validated, finalized).await?;
         self.store.save_execution_block(&validated.block)?;
-        self.decided_live = !cold;
 
         tracing::debug!(
             height,
             %hash,
             anchor = next.anchor.number,
             forced = ?validated.forced,
+            cold,
             validator_updates = validator_updates.len(),
             "block finalized"
         );
@@ -119,7 +121,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         // updates applied (CONS-3.1-8).
         let app_hash = app_hash(&next);
         self.pending = Some(next);
-        self.pending_val_updates = val_updates;
+        self.pending_val_updates = updates;
         Ok(response::FinalizeBlock {
             events: vec![],
             tx_results: vec![ExecTxResult { code: Code::Ok, ..Default::default() }],
@@ -232,16 +234,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// writing a new committed record or state.
     ///
     /// Clears the `ProcessProposal` cache, the proposal reads (but for the entry at the committed
-    /// cursor, whose authenticated bytes remain reusable) and the halt reason, drops a cached
-    /// committee witness or a running discovery the new committed state no longer needs, starts
-    /// a live decision's committee-witness prefetch, publishes the new head's gauges, and answers
-    /// `retain_height = 0` (no block pruning). When the new
+    /// cursor, whose authenticated bytes remain reusable) and the halt reason, publishes the new
+    /// head's gauges, and answers `retain_height = 0` (no block pruning). When the new
     /// state raises [`AppState::comet_history_floor`], the Comet block IDs below it are deleted
     /// after the state is durable; a failed deletion only logs, and the next raise retries it.
     /// Before the state, in the same barrier (SYNC-9-5c): at every height the validator state
-    /// is saved as an immutable checksummed record, and at a switch height the validator updates
-    /// `FinalizeBlock` returned, an empty list included (a corrupt record is set aside and
-    /// replaced; a well-formed one holding something else fails the Commit). The validator
+    /// and the validator updates `FinalizeBlock` returned, an empty list included, are saved as
+    /// immutable checksummed records (a corrupt record is set aside and replaced; a well-formed
+    /// one holding something else fails the Commit). The validator
     /// records follow the Comet block IDs' floor, the committed anchor's checkpoint s: they are
     /// kept from s − 1 on, the preimage an import package at s carries (DATA-5.4-3,
     /// DATA-5.4-8) and the base later states are recomputed from
@@ -261,9 +261,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         let pending = self.pending.as_ref().ok_or(AbciError::NothingToCommit)?;
         self.store.save_comet_hash(pending.last_height, pending.last_comet_hash)?;
         self.store.save_val_state(&pending.val_state)?;
-        if let Some(updates) = &self.pending_val_updates {
-            self.store.save_val_updates(pending.last_height, updates)?;
-        }
+        self.store.save_val_updates(pending.last_height, &self.pending_val_updates)?;
         self.store.save(pending)?;
         let floor = pending.comet_history_floor();
         if self.state.as_ref().is_none_or(|state| state.comet_history_floor() < floor) {
@@ -283,17 +281,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
             "block committed"
         );
         self.state = self.pending.take();
-        self.pending_val_updates = None;
+        self.pending_val_updates.clear();
         self.verdicts.clear();
         let state = self.state.as_ref().expect("just committed");
         self.prepare_next_height(state);
-        // The commit is durable either way; an own-L1 integrity failure the committee-witness
-        // discovery met halts once the commit's bookkeeping is done (SYNC-9-7).
-        let prefetched = if self.decided_live {
-            self.prefetch_committee_witness(state)
-        } else {
-            self.adopt_committee_prefetch(state)
-        };
         self.clear_halt();
         self.publish_state_metrics();
         let state = self.state.as_ref().expect("committed state");
@@ -301,7 +292,6 @@ impl<L: L1Source, E: Engine> App<L, E> {
         // The committed anchor's checkpoint is authenticated in the own finalized L1 view: one
         // above the last matched checkpoint is pending until compared (SYNC-9-6a).
         self.observe_anchor_checkpoint(&state.anchor);
-        prefetched?;
         Ok(response::Commit { data: Default::default(), retain_height: Height::from(0u32) })
     }
 
@@ -745,24 +735,13 @@ impl Backoff {
     }
 }
 
-/// The state after committing `v` at `height` on top of `state`, and the `(pubkey, power)`
-/// validator updates the height emits: `Some` exactly at a switch height, possibly empty, and
-/// `None` elsewhere.
+/// The state after committing `v` at `height` on top of `state`, before its validator state
+/// advances.
 ///
 /// The parent becomes the block's header summary (its grandparent timestamp the old parent's)
 /// and the anchor the block's; the forced inclusion cursor advances by one when the block
-/// consumes an entry ([`Validated::forced`]); the incoming committee derived at the switch is added
-/// before validator updates, a different record already known for its epoch being a
-/// [`AbciError::SafetyHalt`]. At the switch height to epoch `t`, `h_first(t) − 2` (CometBFT applies
-/// updates two heights later), updates compare the actually active set to set `t`. Pruning keeps
-/// that outgoing set, which signs S(t) + 1, even when it is the initial set because the switch
-/// into epoch `t − 1` preceded the Etna start S or a recovery's c
-/// ([`AppState::prune_committees`]); other heights emit none.
-fn next_state(
-    state: &AppState,
-    v: &Validated,
-    height: u64,
-) -> Result<(AppState, Option<ValidatorUpdates>), AbciError> {
+/// consumes an entry ([`Validated::forced`]).
+fn next_state(state: &AppState, v: &Validated, height: u64) -> AppState {
     let header = &v.block.header;
     let mut next = state.clone();
     next.last_height = height;
@@ -784,43 +763,15 @@ fn next_state(
         // anchor's `uint48` tail, so this cannot overflow.
         next.forced_cursor = state.forced_cursor + 1;
     }
-    if let Some((epoch, derived)) = &v.derived {
-        if let Some(known) = next.committees.get(epoch).filter(|known| *known != derived) {
-            return Err(safety_halt(
-                height,
-                "committee_conflict",
-                format!(
-                    "derived committee record {:?} for epoch {epoch} differs from the known {:?}",
-                    derived.record, known.record
-                ),
-            ));
-        }
-        next.committees.insert(*epoch, derived.clone());
-    }
-
-    let Some(t) = state.schedule().switch_target(height) else {
-        return Ok((next, None));
-    };
-    let set = |epoch: u64| {
-        next.committees.get(&epoch).ok_or_else(|| {
-            safety_halt(height, "committee_unknown", format!("no committee for epoch {epoch}"))
-        })
-    };
-    // `switch_target` only yields epochs >= 1.
-    let outgoing = state.committee_at(height).ok_or_else(|| {
-        safety_halt(height, "committee_unknown", format!("no active committee at height {height}"))
-    })?;
-    let updates = committee::validator_updates(&outgoing.members, &set(t)?.members);
-    next.prune_committees(t - 1);
-    Ok((next, Some(updates)))
+    next
 }
 
-/// The `(pubkey, power)` validator updates a switch height returns, in response order.
+/// The `(pubkey, power)` validator updates a height returns, in response order.
 type ValidatorUpdates = Vec<(crate::key::ConsensusKey, u64)>;
 
 /// The CometBFT validator update setting `pubkey`'s power to `power` (0 removes it).
 ///
-/// Committee derivation caps the total power far below CometBFT's `int64` range, so a power
+/// Every signing set caps the total power far below CometBFT's `int64` range, so a power
 /// outside it is a corrupt state: [`AbciError::SafetyHalt`].
 fn validator_update(
     height: u64,

@@ -16,14 +16,13 @@ use tendermint::{
 use super::*;
 use crate::{
     app::validate::{self, Rejection, Validated},
-    envelope::{AnchorWitness, CommitteeWitness, EtnaEnvelope, ForcedWitness},
-    forced::{ForcedEntry, ForcedError},
-    l1::{layout::registry, verify_anchor_witness},
+    envelope::{AnchorWitness, EtnaEnvelope, ForcedWitness},
+    forced::ForcedEntry,
+    l1::verify_anchor_witness,
     rules,
-    store::CommitteeState,
     test_utils::{
-        GenesisSpec, InboxStorage, L1Call, RegistryStorage, committed_block, sample_entries,
-        sample_transactions, simple_block,
+        GenesisSpec, InboxStorage, L1Call, committed_block, sample_entries, sample_transactions,
+        simple_block,
     },
     types::{AnchorState, ParentInfo},
 };
@@ -202,17 +201,12 @@ pub(super) async fn step(app: &mut App<MockL1, MockEngine>) -> EtnaEnvelope {
     env
 }
 
-/// Moves the committed state to height `last` with a synthetic parent block, `anchor` as the
-/// committed anchor, and `committees` added to the known ones. The parent is the
+/// Moves the committed state to height `last` with a synthetic parent block and `anchor` as the
+/// committed anchor. The parent is the
 /// [`committed_block`] at `last`, and the EL's canonical chain gains one below it at every height
 /// above genesis it does not hold yet, so anchored checkpoints of `Fixture::inbox_with` name the
 /// local chain. The validator state advances to `last` without updates.
-pub(super) fn jump(
-    app: &mut App<MockL1, MockEngine>,
-    last: u64,
-    anchor: AnchorState,
-    committees: &[(u64, CommitteeState)],
-) {
+pub(super) fn jump(app: &mut App<MockL1, MockEngine>, last: u64, anchor: AnchorState) {
     let genesis_height = app.state().expect("initialized").genesis.genesis_height;
     {
         let mut engine = app.engine().state();
@@ -234,7 +228,6 @@ pub(super) fn jump(
     };
     state.last_height = last;
     state.anchor = anchor;
-    state.committees.extend(committees.iter().cloned());
     while state.val_state.height < last {
         state.val_state = state.val_state.advance(&[]).expect("a nonempty set advances");
     }
@@ -265,18 +258,17 @@ pub(super) fn incompressible(len: usize) -> Bytes {
 pub(super) async fn mid_epoch(fx: &Fixture, dir: &Path, offset: u64) -> App<MockL1, MockEngine> {
     let mut app = initialized(fx, dir).await;
     let anchor = fx.anchor_state(app.l1(), fx.genesis.l1_0);
-    jump(&mut app, fx.genesis.genesis_height + offset, anchor, &[]);
+    jump(&mut app, fx.genesis.genesis_height + offset, anchor);
     app
 }
 
-/// The envelope an honest proposer would build for the next height with these witnesses: the
-/// header derived for the witnessed (or inherited) anchor, built by [`simple_block`].
+/// The envelope an honest proposer would build for the next height with this anchor witness:
+/// the header derived for the witnessed (or inherited) anchor, built by [`simple_block`].
 pub(super) fn hand_envelope(
     app: &App<MockL1, MockEngine>,
     anchor: Option<AnchorWitness>,
-    committee: Option<CommitteeWitness>,
 ) -> EtnaEnvelope {
-    hand_built(app, anchor, committee, None)
+    hand_built(app, anchor, None)
 }
 
 /// The forced inclusion block an honest proposer would build for the next height: as
@@ -285,11 +277,10 @@ pub(super) fn hand_envelope(
 pub(super) fn hand_forced_envelope(
     app: &App<MockL1, MockEngine>,
     anchor: Option<AnchorWitness>,
-    committee: Option<CommitteeWitness>,
     forced: ForcedWitness,
     tx_list: Bytes,
 ) -> EtnaEnvelope {
-    EtnaEnvelope { forced: Some(forced), ..hand_built(app, anchor, committee, Some(tx_list)) }
+    EtnaEnvelope { forced: Some(forced), ..hand_built(app, anchor, Some(tx_list)) }
 }
 
 /// The envelope of [`hand_envelope`] without a forced witness, its block built by
@@ -297,7 +288,6 @@ pub(super) fn hand_forced_envelope(
 fn hand_built(
     app: &App<MockL1, MockEngine>,
     anchor: Option<AnchorWitness>,
-    committee: Option<CommitteeWitness>,
     tx_list: Option<Bytes>,
 ) -> EtnaEnvelope {
     let state = app.state().expect("initialized");
@@ -317,7 +307,7 @@ fn hand_built(
     )
     .expect("derivable header");
     let attrs = rules::payload_attributes(&expected, anchor_state.hash, tx_list);
-    EtnaEnvelope { block: simple_block(state.parent.hash, &attrs), anchor, committee, forced: None }
+    EtnaEnvelope { block: simple_block(state.parent.hash, &attrs), anchor, forced: None }
 }
 
 /// The EL transaction list of the entry [`plant_due_entry`] plants: [`sample_transactions`].
@@ -400,7 +390,6 @@ async fn round_trip_at_h0_carries_only_the_anchor_witness() {
     let env = propose(&mut app).await;
     let anchor = env.anchor.as_ref().expect("H_0 carries an anchor witness");
     assert_eq!(anchor.l1_header, fx.witness.l1_header, "anchored at the finalized L1_0");
-    assert!(env.committee.is_none());
     assert_eq!(env.block.header.number, h0);
     assert_eq!(env.block.header.parent_hash, fx.genesis_hash());
 
@@ -413,7 +402,6 @@ async fn round_trip_at_h0_carries_only_the_anchor_witness() {
     assert!(v.executed);
     assert_eq!(v.block, env.block);
     assert_eq!(v.anchor.number, fx.genesis.l1_0, "H_0 re-proves the genesis anchor L1_0");
-    assert!(v.derived.is_none());
     assert!(
         validator.engine().calls().contains(&EngineCall::NewPayload(env.block.header.hash_slow()))
     );
@@ -421,52 +409,6 @@ async fn round_trip_at_h0_carries_only_the_anchor_witness() {
     let (resp, _) = judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept);
     assert_eq!(app.halt, None);
-}
-
-/// Genesis remains at explicit snapshot 63 while the runtime switch derives at parent 66.
-/// Both select the same entries, and proposer and validator agree on the runtime record.
-#[tokio::test]
-async fn switch_derives_the_next_committee_at_the_committed_parent() {
-    let fx = Fixture::build(GenesisSpec::eligible_at_explicit_genesis_snapshot(2));
-    let genesis_cutoff = fx.genesis.genesis_cutoff;
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let e0 = app.state().expect("initialized").committees[&0].clone();
-    assert_eq!(e0.record.cutoff_l1_block, genesis_cutoff);
-    assert_eq!(e0.members.len(), 2);
-
-    let switch = fx.schedule().h_first(1) - 2;
-    fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7), &fx.registry);
-    let parent = fx.anchor_state(app.l1(), 66);
-    jump(&mut app, switch - 1, parent.clone(), &[]);
-    let env = propose(&mut app).await;
-    let committee = env.committee.as_ref().expect("H(1)-2 carries the incoming committee");
-    assert_eq!(committee.record.target_epoch, 1);
-    assert_eq!(committee.record.cutoff_l1_block, 66);
-    assert_eq!(committee.record.checkpoint_index, 0);
-
-    let other_dir = tempfile::tempdir().unwrap();
-    let mut validator = initialized(&fx, other_dir.path()).await;
-    fx.advance_l1(validator.l1(), 66, &fx.inbox_with(switch - 7), &fx.registry);
-    jump(&mut validator, switch - 1, parent, &[]);
-    let (resp, req) = judge(&mut validator, &env).await;
-    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", validator.halt);
-    let (target, derived) = validator
-        .verdicts
-        .get(&req.hash)
-        .expect("the verdict is cached")
-        .derived
-        .clone()
-        .expect("committee 1 is derived");
-    assert_eq!(target, 1);
-    assert_eq!(derived.record, committee.record);
-    assert_eq!(derived.record.cutoff_l1_block, 66);
-    assert_eq!(derived.members, e0.members, "same snapshot, same members");
-
-    decide(&mut validator, &req).await;
-    let state = validator.state().expect("committed");
-    assert_eq!(state.last_height, switch);
-    assert_eq!(state.committees[&1], derived);
 }
 
 #[tokio::test]
@@ -478,7 +420,7 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
 
     // A plain height: the finalized L1 block has not moved, so no witness at all.
     let env = propose(&mut app).await;
-    assert_eq!((env.anchor.is_none(), env.committee.is_none()), (true, true));
+    assert!(env.anchor.is_none());
     app.l1().state().calls.clear();
     let (resp, req) = judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
@@ -493,7 +435,6 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     let env = propose(&mut app).await;
     let anchor = env.anchor.as_ref().expect("a moved anchor carries its witness");
     assert_eq!(anchor.l1_header, header);
-    assert!(env.committee.is_none());
     assert_eq!(rules::decode_extra_data(&env.block.header.extra_data).unwrap().anchor, 66);
     assert_eq!(env.block.header.parent_beacon_block_root, Some(header.state_root()));
 
@@ -506,143 +447,6 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     assert_eq!(v.anchor.inbox.last_checkpoint_height, fx.genesis.genesis_height + 1);
     decide(&mut app, &req).await;
     assert_eq!(app.state().unwrap().anchor.number, 66);
-}
-
-/// Switch 4 derives at parent 70 and authenticates the latest checkpoint (69) and all entries.
-#[tokio::test]
-async fn round_trip_at_a_switch_derives_the_parent_snapshot_committee() {
-    let fx = Fixture::genesis(3);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let schedule = app.state().unwrap().schedule();
-    let h_e = schedule.h_first(4) - 2;
-
-    // Checkpoints at L1 blocks 64 (genesis), 66 (a fourth validator joins) and 69 (a fifth).
-    // Only blocks 68 (the newest block still holding checkpoint 1's entries) and 70 (the
-    // anchor) are served: discovery needs no older state.
-    let l1_0 = fx.genesis.l1_0;
-    let at_66 =
-        RegistryStorage { checkpoints: vec![(l1_0, sample_entries(3)), (66, sample_entries(4))] };
-    let mut at_70 = at_66.clone();
-    at_70.checkpoints.push((69, sample_entries(5)));
-    let c3 = fx.committee(3);
-    let inbox = fx.inbox_with(h_e - 6);
-    fx.plant_l1_block(app.l1(), 68, &inbox, &at_66);
-    fx.advance_l1(app.l1(), 70, &inbox, &at_70);
-    let anchor = fx.anchor_state(app.l1(), 70);
-    jump(&mut app, h_e - 1, anchor, &[(3, c3)]);
-
-    let env = propose(&mut app).await;
-    assert!(env.anchor.is_none(), "the anchor stays at 70");
-    let committee = env.committee.as_ref().expect("switch 4 carries a committee");
-    // The parent snapshot 70 selects the latest registry checkpoint at 69.
-    assert_eq!(committee.record.target_epoch, 4);
-    assert_eq!(committee.record.cutoff_l1_block, 70);
-    assert_eq!(committee.record.checkpoint_index, 2);
-    assert_eq!(committee.entries, sample_entries(5));
-    assert_eq!(committee.registry.storage.len(), 3, "latest checkpoint needs no successor");
-    let entry_slots: Vec<B256> = (0..5).flat_map(registry::entry_slots).collect();
-    let entry_reads: Vec<L1Call> = app
-        .l1()
-        .calls()
-        .into_iter()
-        .filter(|c| matches!(c, L1Call::AccountWitness { slots, block: 70, .. } if slots == &entry_slots))
-        .collect();
-    assert_eq!(
-        entry_reads,
-        [L1Call::AccountWitness { address: fx.params.registry, slots: entry_slots, block: 70 }],
-        "all latest entries in one read at parent 70"
-    );
-    assert!(app.l1().calls().contains(&L1Call::StorageAt {
-        address: fx.params.registry,
-        slot: registry::length_slot(),
-        block: 70,
-    }));
-
-    let (resp, req) = judge(&mut app, &env).await;
-    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
-    let (target, derived) = app
-        .verdicts
-        .get(&req.hash)
-        .expect("the verdict is cached")
-        .derived
-        .clone()
-        .expect("derived");
-    assert_eq!(target, 4);
-    assert_eq!(derived.record, committee.record);
-    assert_eq!(derived.members.len(), 5);
-}
-
-/// Review Focus 1: a forced inclusion block at the switch height `H(t)-2` carries both the
-/// committee and the forced witness; both are required and both must verify.
-#[tokio::test]
-async fn switch_height_forced_block_carries_both_witnesses() {
-    let fx = Fixture::genesis(2);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let switch = fx.schedule().h_first(1) - 2;
-    let blob = plant_due_entry(&fx, app.l1(), 66, fx.inbox_with(switch - 7));
-    let parent = fx.anchor_state(app.l1(), 66);
-    jump(&mut app, switch - 1, parent, &[]);
-
-    // The proposer builds the honest forced block with both witnesses.
-    let proposed = propose(&mut app).await;
-    assert!(proposed.anchor.is_none(), "the anchor stays at 66");
-    assert_eq!(proposed.committee.as_ref().unwrap().record.target_epoch, 1);
-    let forced = fx.forced_witness(app.l1(), 66, 0, blob);
-    let env =
-        hand_forced_envelope(&app, None, proposed.committee.clone(), forced, sample_tx_list());
-    let mut expected = env.forced.clone();
-    expected.as_mut().unwrap().tx = Bytes::new();
-    assert_eq!(proposed.forced, expected);
-
-    let v = validate(&app, &env).expect("both witnesses verify");
-    assert_eq!(v.decision, crate::forced::ForcedDecision::Included(0));
-    assert_eq!(v.derived.as_ref().map(|(target, _)| *target), Some(1));
-
-    let mut missing = env.clone();
-    missing.committee = None;
-    assert_eq!(
-        validate(&app, &missing).map(|_| ()),
-        Err(Rejection::MissingWitness(validate::WitnessKind::Committee))
-    );
-    let mut bad_committee = env.clone();
-    bad_committee.committee.as_mut().unwrap().record.total_power += 1;
-    assert!(matches!(validate(&app, &bad_committee), Err(Rejection::Committee(_))));
-    let mut bad_forced = env.clone();
-    bad_forced.forced.as_mut().unwrap().entry.storage[0].value += U256::from(1);
-    assert!(matches!(validate(&app, &bad_forced), Err(Rejection::Forced(ForcedError::Entry(_)))));
-
-    let (resp, req) = judge(&mut app, &env).await;
-    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
-    decide(&mut app, &req).await;
-    let state = app.state().expect("committed");
-    assert_eq!(state.last_height, switch);
-    assert_eq!(state.forced_cursor, 1);
-    assert_eq!(state.committees[&1], v.derived.unwrap().1);
-}
-
-#[tokio::test]
-async fn committee_is_required_only_at_switch_without_l1_publication() {
-    let fx = Fixture::genesis(2);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let h0 = propose(&mut app).await;
-    assert!(h0.committee.is_none(), "H0 needs no runtime committee witness");
-    let switch = fx.schedule().h_first(1) - 2;
-    fx.advance_l1(app.l1(), 66, &fx.inbox_with(switch - 7), &fx.registry);
-    let anchor = fx.anchor_state(app.l1(), 66);
-    jump(&mut app, switch - 1, anchor, &[]);
-    let env = propose(&mut app).await;
-    assert!(env.anchor.is_none(), "switch does not force a stationary anchor proof");
-    assert_eq!(env.committee.as_ref().unwrap().record.target_epoch, 1);
-    assert!(validate(&app, &env).is_ok());
-    let mut missing = env.clone();
-    missing.committee = None;
-    assert_eq!(
-        validate(&app, &missing).map(|_| ()),
-        Err(Rejection::MissingWitness(validate::WitnessKind::Committee))
-    );
 }
 
 #[tokio::test]
@@ -662,24 +466,6 @@ async fn restart_rejects_a_changed_committee_config_opening() {
         ),
         Err(AbciError::StoredState(_))
     ));
-}
-
-#[tokio::test]
-async fn epoch_first_height_forbids_a_runtime_committee_witness() {
-    let fx = Fixture::genesis(2);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let h = fx.schedule().h_first(1);
-    fx.advance_l1(app.l1(), 68, &fx.inbox_with(h - 7), &fx.registry);
-    let parent = fx.anchor_state(app.l1(), 68);
-    jump(&mut app, h - 1, parent, &[(1, fx.committee(1))]);
-    let mut env = propose(&mut app).await;
-    assert!(env.committee.is_none());
-    env.committee = Some(fx.witness.committee.clone());
-    assert_eq!(
-        validate(&app, &env).map(|_| ()),
-        Err(Rejection::UnexpectedWitness(validate::WitnessKind::Committee))
-    );
 }
 
 #[test]
@@ -703,7 +489,7 @@ fn persisted_fixed_cutoff_config_is_rejected_without_migration() {
     assert_eq!(std::fs::read(file).unwrap(), before);
 }
 
-/// No handler may accept a proposer outside the authenticated committee.
+/// No handler may accept a proposer outside the set that signs the block.
 #[tokio::test]
 async fn proposal_unknown_certified_proposer_fails_closed() {
     let fx = Fixture::genesis(3);

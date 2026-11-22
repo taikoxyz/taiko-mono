@@ -12,7 +12,6 @@ use crate::{
 };
 
 mod admission_cache;
-mod committee_witness;
 mod execution_recovery;
 mod finalize;
 mod handle;

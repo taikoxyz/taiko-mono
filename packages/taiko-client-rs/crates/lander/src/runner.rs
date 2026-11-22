@@ -255,8 +255,7 @@ impl Runner {
                     (!exact &&
                         observation.publishable_blocks < self.config.batch_policy.min_blocks &&
                         elapsed < self.config.batch_policy.max_wait &&
-                        !observation.force_back_pressure &&
-                        !observation.force_epoch)
+                        !observation.force_back_pressure)
                 {
                     return Ok(StepOutcome::Waiting);
                 }
@@ -268,8 +267,7 @@ impl Runner {
                 if !exact &&
                     request.batch.blocks.len() < self.config.batch_policy.min_blocks &&
                     elapsed < self.config.batch_policy.max_wait &&
-                    !observation.force_back_pressure &&
-                    !observation.force_epoch
+                    !observation.force_back_pressure
                 {
                     // The decided tip can regress between observation and full construction.
                     return Ok(StepOutcome::Waiting);
@@ -278,8 +276,6 @@ impl Runner {
                     "land-to"
                 } else if observation.force_back_pressure {
                     "back-pressure"
-                } else if observation.force_epoch {
-                    "epoch"
                 } else if request.batch.blocks.len() >= self.config.batch_policy.min_blocks {
                     "minimum"
                 } else {

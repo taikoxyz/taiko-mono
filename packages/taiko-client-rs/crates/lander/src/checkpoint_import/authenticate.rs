@@ -178,13 +178,6 @@ where
             recovery_bootstrap: package.recovery_bootstrap.clone(),
         });
     }
-    let schedule = Schedule::from_genesis(&fixed.genesis);
-    let future =
-        future_epochs(&schedule, origin, fixed.committee.record.target_epoch, landing.height)?;
-    let mut expected_committees = BTreeMap::new();
-    if future.contains(&fixed.committee.record.target_epoch) {
-        expected_committees.insert(fixed.committee.record.target_epoch, fixed.committee.clone());
-    }
     let first = blocks
         .peek()
         .ok_or_else(|| unavailable("missing consensus window"))?
@@ -250,7 +243,7 @@ where
         // Check the publisher-supplied commits, sets and links before any block rule: the rules
         // below then read only content that the native hash chain can authenticate.
         let committee = historical_set(&frame.validators)?;
-        validate::verify_native_commit(
+        validate::verify_commit(
             &pair.commit,
             &pair.block.header,
             &committee,
@@ -266,7 +259,7 @@ where
                 .last_commit
                 .as_ref()
                 .ok_or_else(|| candidate("missing successor LastCommit"))?;
-            validate::verify_native_commit(
+            validate::verify_commit(
                 last,
                 &prior.header,
                 &prior.validators,
@@ -316,41 +309,10 @@ where
                     bft_time: pair.block.header.time,
                 },
             )?;
-            let mut derived = None;
-            if let Some(epoch) = schedule.switch_target(h) &&
-                future.contains(&epoch)
-            {
-                let witness = env
-                    .committee
-                    .as_ref()
-                    .ok_or_else(|| unavailable("required committee witness absent"))?;
-                let snapshot_number = if parent.number <= origin {
-                    state.anchor_floor()
-                } else {
-                    rules::decode_extra_data(&parent.extra_data)
-                        .map_err(candidate)?
-                        .anchor
-                        .max(state.anchor_floor())
-                };
-                if anchor.number < snapshot_number {
-                    return Err(ContentFault::Rule(
-                        "switch proof root predates derivation snapshot".into(),
-                    ));
-                }
-                let (record, members) = abci::committee::verify_committee_witness_at_cutoff(
-                    anchor.state_root,
-                    snapshot_number,
-                    params,
-                    witness,
-                    epoch,
-                )
-                .map_err(candidate)?;
-                derived = Some((epoch, CommitteeState { record, members }));
-            }
-            Ok((env, anchor, derived))
+            Ok((env, anchor))
         }
         .await;
-        let (env, anchor, derived) = match content {
+        let (env, anchor) = match content {
             Ok(content) => content,
             Err(ContentFault::Now(error)) => return Err(error),
             Err(fault) => {
@@ -360,9 +322,6 @@ where
         };
         if env.anchor.is_some() {
             latest_anchor_height = Some(h);
-        }
-        if let Some((epoch, committee)) = derived {
-            expected_committees.insert(epoch, committee);
         }
         heights.push((h, pair.block.header.time));
         if h >= keep_from {
@@ -403,27 +362,14 @@ where
         val_state_before.ok_or_else(|| unavailable("window ended before selected checkpoint"))?;
     let latest_anchor_height =
         latest_anchor_height.ok_or_else(|| unavailable("window omits latest anchor witness"))?;
-    let committee = |epoch: u64| {
-        expected_committees
-            .get(&epoch)
-            .ok_or_else(|| unavailable(format!("missing derived committee {epoch}")))
-    };
-    // DATA-5.4-3: one step of SYNC-9-5c's per-height arithmetic, with the updates block s's
-    // FinalizeBlock returns. Only a switch height returns any, as finalize does: from the
-    // committee active at s to the switch's authenticated target, which signs s + 2. With
-    // L >= 3 no switch at s - 1 exists, so the committee active at s still signs s + 1.
-    let updates = match schedule.switch_target(landing.height) {
-        Some(target) => abci::committee::validator_updates(
-            &committee(future[0])?.members,
-            &committee(target)?.members,
-        ),
-        None => Vec::new(),
-    };
-    let after = before.advance(&updates).map_err(safety)?;
-    for (epoch, set) in future.iter().zip([&after.current, &after.next]) {
-        if !same_powers(set, committee(*epoch)?) {
+    // One step of the per-height validator-state arithmetic, with the updates block s's
+    // FinalizeBlock returns: none, as every height returns an empty list. The generation's
+    // initial set therefore still signs s + 1 and s + 2.
+    let after = before.advance(&[]).map_err(safety)?;
+    for set in [&after.current, &after.next] {
+        if !same_powers(set, &fixed.committee) {
             return Err(safety(
-                "committed validator-state keys/powers contradict independently derived committee",
+                "committed validator-state keys/powers contradict the generation's initial set",
             ));
         }
     }
@@ -434,8 +380,6 @@ where
         super::window::WindowContext {
             origin,
             terminal: landing.height,
-            schedule: &schedule,
-            future: &future,
             latest_anchor: latest_anchor_height,
         },
     )?;
@@ -443,7 +387,6 @@ where
     state.last_comet_hash = landing.comet_hash;
     state.forced_cursor = landing.forced_cursor;
     state.val_state = after;
-    state.committees = expected_committees;
     state.anchor = latest_anchor.expect("terminal block has anchor");
     // The installed EL block at s that startup checks the own EL still serves with its state
     // (DATA-5.4-4, DATA-5.4-6). An origin import keeps none: InitChain starts that store.
@@ -715,22 +658,6 @@ fn verify_boundary(
     }
 }
 
-/// Signing epochs at s+1 and s+2, retaining duplicates for direct preimage-set comparison.
-fn future_epochs(
-    schedule: &Schedule,
-    origin: u64,
-    initial_epoch: u64,
-    height: u64,
-) -> Result<[u64; 2], ImportError> {
-    let get = |delta| {
-        height
-            .checked_add(delta)
-            .and_then(|h| schedule.active_committee_epoch_with_initial(h, origin, initial_epoch))
-            .ok_or_else(|| candidate("future committee height overflow"))
-    };
-    Ok([get(1)?, get(2)?])
-}
-
 /// Authenticate the ascending EL prefix through w, linked later by w+1. Older linked headers
 /// may supply the inherited finality fence outside the next block's required range.
 fn execution_prefix(
@@ -901,9 +828,6 @@ fn check_metadata(
         state.genesis.max_anchor_age,
     )
     .map_err(candidate)?;
-    if state.schedule().switch_target(height).is_some() != env.committee.is_some() {
-        return Err(candidate("committee witness presence violates switch schedule").into());
-    }
     abci::app::check_execution_size(&env.block).map_err(candidate)?;
     Ok(())
 }
@@ -1176,7 +1100,6 @@ mod tests {
             parent: parent_info(&fx.headers[&5], fx.headers[&4].timestamp).unwrap(),
             anchor: fx.anchors[&5].clone(),
             forced_cursor: 0,
-            committees: BTreeMap::new(),
             val_state: fx.val_states[&5].clone(),
             execution_floor: None,
         };

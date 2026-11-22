@@ -12,7 +12,7 @@ use crate::{
     config::ConfigError,
     engine::PayloadVerdict,
     rules::RuleViolation,
-    store::{CommitteeState, ExecutionFloor},
+    store::{ExecutionFloor, StoreError},
     test_utils::{EngineCall, MockEngine},
     types::ParentInfo,
 };
@@ -525,6 +525,43 @@ async fn app_new_rejects_a_changed_authenticated_unsettled_limit() {
     );
 }
 
+/// A state file of the previous schema is refused, never migrated: one in the previous shape (a
+/// `committees` map beside the validator state) does not even decode, and one in the current
+/// shape claiming schema 21 fails the schema check.
+#[test]
+fn schema_21_state_is_refused() {
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::volatile(dir.path().into());
+    let open = |store: &Store| {
+        App::new(
+            fx.l1(),
+            fx.engine(),
+            fx.params.clone(),
+            store.clone(),
+            crate::test_utils::test_options(),
+        )
+    };
+    assert_eq!(crate::store::STATE_SCHEMA_VERSION, 22);
+
+    let mut old = fx.expected_state();
+    old.schema_version = 21;
+    store.save(&old).unwrap();
+    let err = open(&store).expect_err("schema 21 is refused");
+    assert!(
+        matches!(&err, AbciError::StoredState(msg)
+            if msg == "unsupported app state schema 21 (expected 22)"),
+        "{err:?}"
+    );
+
+    let mut json = serde_json::to_value(&old).unwrap();
+    json.as_object_mut().unwrap().insert("committees".into(), serde_json::json!({}));
+    std::fs::write(dir.path().join(crate::store::STATE_FILE), serde_json::to_vec(&json).unwrap())
+        .unwrap();
+    let err = open(&store).expect_err("the schema-21 shape does not decode");
+    assert!(matches!(err, AbciError::Store(StoreError::Corrupt { .. })), "{err:?}");
+}
+
 #[tokio::test]
 async fn app_new_rejects_an_inconsistent_stored_state() {
     let fx = Fixture::genesis(1);
@@ -574,7 +611,6 @@ async fn status_query_reports_the_committed_head() {
         Status {
             execution_floor: None,
             head: fx.genesis.genesis_height,
-            epoch: 0,
             generation: 0,
             last_checkpoint_height: fx.genesis.genesis_height,
             anchor: fx.genesis.l1_0,
@@ -602,25 +638,12 @@ async fn status_query_before_init_chain_is_an_error() {
 }
 
 #[tokio::test]
-async fn committee_query_returns_a_known_committee() {
-    let fx = Fixture::genesis(3);
-    let dir = tempfile::tempdir().unwrap();
-    let mut app = initialized(&fx, dir.path()).await;
-    let resp = query(&mut app, "/committee/0").await;
-    assert_eq!(resp.code, Code::Ok, "{}", resp.log);
-    let committee: CommitteeState = serde_json::from_slice(&resp.value).expect("committee JSON");
-    assert_eq!(
-        committee,
-        CommitteeState { record: fx.record.clone(), members: fx.members.clone() }
-    );
-}
-
-#[tokio::test]
 async fn bad_queries_answer_code_one() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = initialized(&fx, dir.path()).await;
-    for path in ["/committee/1", "/committee/x", "/committee/", "/committee", "/nope", ""] {
+    // No committee is kept by epoch any more, so `/committee/<epoch>` is an unknown path.
+    for path in ["/committee/0", "/committee/1", "/committee/x", "/committee", "/nope", ""] {
         let resp = query(&mut app, path).await;
         assert_eq!(resp.code, Code::from(1), "{path:?}");
         assert!(!resp.log.is_empty(), "{path:?}");

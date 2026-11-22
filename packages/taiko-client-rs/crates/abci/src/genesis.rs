@@ -23,10 +23,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     committee::CommitteeError,
-    envelope::CommitteeWitness,
     l1::{FetchError, L1Error, WitnessError, header::RawL1Header, layout::inbox},
     schedule::ScheduleError,
-    types::AccountWitness,
+    types::{AccountWitness, CommitteeWitness},
     valstate::ValStateError,
 };
 

@@ -10,9 +10,9 @@
 //! The `types`, `config`, `schedule`, `envelope`, `l1::header`, `l1::layout`, `l1::mpt`,
 //! `l1::witness`, `committee`, `forced`, `rules`, `valstate` and `engine::convert` modules and
 //! the genesis `app_state` codec perform no I/O; `l1::source`, `l1::forced_tx`, `engine` and
-//! `elsync` hold the L1 and execution-engine adapters, `l1::fetch` and the genesis
-//! builder read L1 through them, `app` answers CometBFT's ABCI requests on top of them, and
-//! `server` serves the app on CometBFT's ABCI socket.
+//! `elsync` hold the L1 and execution-engine adapters, `l1::fetch` (the initial committee's
+//! registry witness) and the genesis builder read L1 through them, `app` answers CometBFT's ABCI
+//! requests on top of them, and `server` serves the app on CometBFT's ABCI socket.
 
 /// The ABCI++ application: request dispatch and the per-method handlers.
 pub mod app;
@@ -24,7 +24,7 @@ pub mod config;
 pub mod elsync;
 /// The execution-engine adapter (Engine API) and payload conversion for alethia-reth.
 pub mod engine;
-/// The CometBFT block envelope codec (`0x06 || rlp([block, anchor, committee, forced])`).
+/// The CometBFT block envelope codec (`0x06 || rlp([block, anchor, forced])`).
 pub mod envelope;
 /// Etna calldata forced inclusion: authenticated entry proofs and per-block classification.
 pub mod forced;
@@ -72,8 +72,8 @@ pub use engine::{
     Engine, EngineError, PayloadVerdict, RpcEngine, block_from_payload, payload_from_block,
 };
 pub use envelope::{
-    AnchorWitness, CommitteeWitness, ENVELOPE_VERSION, EnvelopeError, EtnaEnvelope, ExecutionBlock,
-    ForcedWitness, single_envelope,
+    AnchorWitness, ENVELOPE_VERSION, EnvelopeError, EtnaEnvelope, ExecutionBlock, ForcedWitness,
+    single_envelope,
 };
 pub use genesis::{
     AppStateJson, BootstrapWitness, CommitteeRecordError, GenesisCommitteeRecord, GenesisDoc,
@@ -98,6 +98,6 @@ pub use server::{
 pub use store::{AppState, CommitteeState, ExecutionFloor, Store, StoreError};
 pub use switch::{SwitchOrigin, l2_signal_service_address};
 pub use types::{
-    AccountWitness, AnchorState, CommitteeRecord, GenesisRecord, InboxFacts, Member, ParentInfo,
-    RegistryEntry, StorageProof,
+    AccountWitness, AnchorState, CommitteeRecord, CommitteeWitness, GenesisRecord, InboxFacts,
+    Member, ParentInfo, RegistryEntry, StorageProof,
 };

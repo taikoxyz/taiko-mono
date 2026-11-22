@@ -293,7 +293,6 @@ mod tests {
                 transactions: vec![noise.into()],
             },
             anchor: None,
-            committee: None,
             forced: None,
         }
     }

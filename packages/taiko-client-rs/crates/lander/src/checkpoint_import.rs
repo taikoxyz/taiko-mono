@@ -4,7 +4,7 @@
 //! execution engine is accepted, so verification cannot fetch a prefix or execute old blocks.
 
 use abci::{
-    ChainParams, CommitteeState, GenesisDoc, L1Source, ParentInfo, Schedule, store::AppState,
+    ChainParams, CommitteeState, GenesisDoc, L1Source, ParentInfo, store::AppState,
     valstate::ValState,
 };
 use alloy_consensus::Header;

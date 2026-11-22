@@ -117,16 +117,20 @@ async fn the_genesis_committee_is_derived_at_the_genesis_cutoff() {
     let mut app = fx.app(dir.path());
     let resp = init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
     assert!(resp.validators.is_empty());
-    assert_eq!(app.state().unwrap().committees[&0].members.len(), 2);
     let state = app.state().expect("initialized");
     assert_eq!(state, &fx.expected_state());
-    let e0 = &state.committees[&0];
-    assert_eq!(e0.record.cutoff_l1_block, genesis_cutoff);
-    let pubkeys: Vec<crate::key::ConsensusKey> = e0.members.iter().map(|m| m.pubkey).collect();
+    assert_eq!(fx.record.cutoff_l1_block, genesis_cutoff);
+    let mut pubkeys: Vec<crate::key::ConsensusKey> = fx.members.iter().map(|m| m.pubkey).collect();
     let mut expected: Vec<crate::key::ConsensusKey> =
         fx.registry.checkpoints[0].1.iter().map(|e| e.consensus_key().unwrap()).collect();
     expected.sort_by_key(|pubkey| committee::set_key(fx.params.l2_chain_id, *pubkey));
     assert_eq!(pubkeys, expected);
+    // The derived committee is the set that signs the first block.
+    let mut signing: Vec<crate::key::ConsensusKey> =
+        state.val_state.current.entries.iter().map(|e| e.key).collect();
+    signing.sort();
+    pubkeys.sort();
+    assert_eq!(signing, pubkeys);
 }
 
 /// The Inbox's `genesisCutoff` must lie before `L1_0`.
@@ -224,7 +228,7 @@ async fn re_sent_init_chain_after_a_crash_in_block_one_returns_the_same_app_hash
     let mut app = fx.app(dir.path());
     let first = init_chain(&mut app, fx.request.clone()).await.expect("InitChain succeeds");
 
-    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)), None);
+    let env = hand_envelope(&app, Some(fx.anchor_witness(app.l1(), fx.genesis.l1_0)));
     let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
     let decided = finalize(&mut app, finalize_req(&req)).await.expect("FinalizeBlock of block 1");
     let block_one = (fx.genesis.genesis_height + 1, env.block.header.clone());

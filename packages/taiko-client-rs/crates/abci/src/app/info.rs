@@ -226,11 +226,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Handles `Query`.
     ///
-    /// Paths: `/status` answers the JSON [`Status`](super::Status); `/committee/<epoch>` answers
-    /// the JSON [`CommitteeState`](crate::store::CommitteeState) of a known epoch;
-    /// `/val_state/<height>`, with a canonical decimal height, answers the raw validator-state
-    /// preimage of [`App::val_state_preimage`]. Anything else (an unknown path, epoch or height,
-    /// or any query before `InitChain`) answers code [`CODE_REJECTED`] with the reason in `log`.
+    /// Paths: `/trust` answers the JSON trust snapshot; `/status` answers the JSON
+    /// [`Status`](super::Status); `/val_state/<height>`, with a canonical decimal height, answers
+    /// the raw validator-state preimage of [`App::val_state_preimage`]. Anything else (an unknown
+    /// path or height, or any query but `/trust` before `InitChain`) answers code
+    /// [`CODE_REJECTED`] with the reason in `log`.
     /// `height` is the last committed height. Callers authenticate the answers themselves.
     pub(super) fn query(&self, req: crate::wire::request::Query) -> response::Query {
         let height =
@@ -251,25 +251,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if path == "/trust" {
             return serde_json::to_vec(&self.trust.snapshot()).map_err(|e| e.to_string());
         }
-        let state = self.state.as_ref().ok_or("the app is not initialized")?;
+        if self.state.is_none() {
+            return Err("the app is not initialized".into());
+        }
         if path == "/status" {
             let status = self.status().ok_or("the app is not initialized")?;
             return serde_json::to_vec(&status).map_err(|e| e.to_string());
         }
-        if let Some(height) = path.strip_prefix("/val_state/") {
-            let parsed = height.parse::<u64>().ok().filter(|h| h.to_string() == height);
-            let height = parsed.ok_or_else(|| format!("invalid height {height:?}"))?;
-            return self.val_state_preimage(height);
-        }
-        let Some(epoch) = path.strip_prefix("/committee/") else {
+        let Some(height) = path.strip_prefix("/val_state/") else {
             return Err(format!("unknown query path {path:?}"));
         };
-        let epoch: u64 = epoch.parse().map_err(|_| format!("invalid epoch {epoch:?}"))?;
-        let committee = state
-            .committees
-            .get(&epoch)
-            .ok_or_else(|| format!("no committee known for epoch {epoch}"))?;
-        serde_json::to_vec(committee).map_err(|e| e.to_string())
+        let parsed = height.parse::<u64>().ok().filter(|h| h.to_string() == height);
+        let height = parsed.ok_or_else(|| format!("invalid height {height:?}"))?;
+        self.val_state_preimage(height)
     }
 
     /// The validator-state preimage ([`ValState::encode`]) after the committed `height`: the
@@ -310,10 +304,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 return Err(reason);
             }
         };
-        let schedule = state.schedule();
-        match recompute_val_state(&self.store, state.origin_height(), height, |k| {
-            schedule.switch_target(k).is_some()
-        }) {
+        match recompute_val_state(&self.store, state.origin_height(), height) {
             Ok(recomputed) => {
                 tracing::warn!(
                     height,
@@ -356,8 +347,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
 /// Recomputes the validator state after `height` from the records in `store` (SYNC-9-5c), with
 /// CometBFT v0.40.0's per-height arithmetic ([`ValState::advance`], SYNC-9-5c 5c.c): from the
 /// newest record in `[origin, height)` that loads valid, one advance per height up to
-/// `height`, by the validator updates recorded at that height when `is_switch` says it is a
-/// switch height (an empty list included) and by none otherwise.
+/// `height`, by the validator updates recorded at that height (every height records them, an
+/// empty list included).
 ///
 /// `origin` is the current generation's origin height. A record below it is from an earlier
 /// generation and does not count (SYNC-9-5c). That bound alone cannot exclude an earlier
@@ -365,14 +356,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
 /// (`abci-recover install`), and saving a record that differs from a valid kept one fails with
 /// [`StoreError::ValStateConflict`].
 ///
-/// No valid record in that range, a switch height in between whose update record is missing
-/// or corrupt, an unreadable record or updates the arithmetic refuses are missing data
+/// No valid record in that range, a height in between whose update record is missing or
+/// corrupt, an unreadable record or updates the arithmetic refuses are missing data
 /// (SYNC-9-7): an error naming the cause. Range checks are the caller's.
 pub(super) fn recompute_val_state(
     store: &Store,
     origin: u64,
     height: u64,
-    is_switch: impl Fn(u64) -> bool,
 ) -> Result<ValState, String> {
     let unreadable = |error: StoreError| format!("cannot read the validator records: {error}");
     let mut base = None;
@@ -392,22 +382,16 @@ pub(super) fn recompute_val_state(
     })?;
     while state.height < height {
         let next = state.height + 1;
-        let updates = if is_switch(next) {
-            match store.load_val_updates(next).map_err(unreadable)? {
-                Record::Valid(updates) => updates,
-                Record::Missing => {
-                    return Err(format!(
-                        "the validator-update record of switch height {next} is missing"
-                    ));
-                }
-                Record::Corrupt(reason) => {
-                    return Err(format!(
-                        "the validator-update record of switch height {next} is corrupt: {reason}"
-                    ));
-                }
+        let updates = match store.load_val_updates(next).map_err(unreadable)? {
+            Record::Valid(updates) => updates,
+            Record::Missing => {
+                return Err(format!("the validator-update record of height {next} is missing"));
             }
-        } else {
-            vec![]
+            Record::Corrupt(reason) => {
+                return Err(format!(
+                    "the validator-update record of height {next} is corrupt: {reason}"
+                ));
+            }
         };
         state = state
             .advance(&updates)

@@ -107,7 +107,6 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
     } else {
         None
     };
-    let schedule = abci::Schedule::from_genesis(&fixed.genesis);
     let stage = tempfile::Builder::new()
         .prefix(&format!(".{}.export-", name.to_string_lossy()))
         .permissions(fs::Permissions::from_mode(0o700))
@@ -119,26 +118,8 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
     let mut w = height;
     let mut terminal_header = None;
     if height > origin {
-        let mut min_required = height;
-        for next in [height + 1, height + 2] {
-            let epoch = schedule
-                .active_committee_epoch_with_initial(
-                    next,
-                    origin,
-                    fixed.committee.record.target_epoch,
-                )
-                .ok_or_else(|| bad("invalid committee schedule"))?;
-            if epoch != fixed.committee.record.target_epoch {
-                let switch = schedule
-                    .checked_h_first(epoch)
-                    .and_then(|h| h.checked_sub(2))
-                    .ok_or_else(|| bad("invalid switch height"))?;
-                min_required = min_required.min(switch);
-                if let Some(d) = schedule.derivation_parent_height(epoch).filter(|d| *d > origin) {
-                    min_required = min_required.min(d)
-                }
-            }
-        }
+        // The window reaches the latest block at or below s carrying an anchor witness and every
+        // height still within an evidence age limit at s.
         let mut seen_anchor = false;
         let mut terminal_time = None;
         let mut cached = None;
@@ -146,10 +127,7 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
             if w == origin {
                 break
             }
-            if seen_anchor &&
-                w < min_required &&
-                height - w > abci::genesis::EVIDENCE_MAX_AGE_NUM_BLOCKS
-            {
+            if seen_anchor && height - w > abci::genesis::EVIDENCE_MAX_AGE_NUM_BLOCKS {
                 let h = comet.archive_header(w).await.map_err(source)?;
                 if evidence_expired(height, terminal_time.expect("read terminal first"), w, h.time)
                 {

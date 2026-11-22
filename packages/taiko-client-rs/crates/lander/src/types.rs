@@ -2,8 +2,7 @@
 
 use crate::native::{Block, Commit, RawBlock};
 use abci::{
-    AccountWitness, AnchorState, AnchorWitness, CommitteeState, CommitteeWitness, GenesisRecord,
-    RawL1Header,
+    AccountWitness, AnchorState, AnchorWitness, CommitteeState, GenesisRecord, RawL1Header,
 };
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256};
@@ -191,18 +190,6 @@ impl LandingSnapshot {
     }
 }
 
-/// One independently derived committee's authenticated registry witness provenance.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CommitteeContext {
-    /// Authenticated proving anchor whose number covers the derivation snapshot.
-    pub anchor: AnchorState,
-    /// Authenticated derivation parent; absent for the genesis cutoff or R initial committee.
-    pub derivation_parent: Option<Header>,
-    /// Registry proof and complete entries used to recompute this committee.
-    #[serde(with = "rlp_serde")]
-    pub witness: CommitteeWitness,
-}
-
 /// A complete CometBFT block paired with the decision certificate for that same height.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "CertifiedBlockWire", into = "CertifiedBlockWire")]
@@ -337,8 +324,6 @@ pub struct PreparedBatch {
     pub snapshot: LandingSnapshot,
     /// Public EL parent header, verified against the checkpoint height and hash.
     pub parent_header: Header,
-    /// Minimal descending EL ancestry rooted at the contract checkpoint hash.
-    pub execution_history: Vec<Header>,
     /// Timestamp of the parent's parent; zero when the parent is genesis.
     pub grandparent_timestamp: u64,
     /// Anchor consumed by the parent; genesis uses the initialization L1 block.
@@ -358,10 +343,6 @@ pub struct PreparedBatch {
     pub anchors: Vec<AnchorState>,
     /// Exact raw L1 headers, newest-to-oldest from reference through oldest consumed anchor.
     pub reference_headers: Vec<Bytes>,
-    /// All consulted committees in epoch order, including starting and newly derived contexts.
-    pub committees: Vec<CommitteeState>,
-    /// Registry witnesses deduplicated by epoch, with their authenticated proving roots.
-    pub committee_witnesses: Vec<CommitteeContext>,
     /// Eight canonical V1 ABI fields binding the original parent and the terminal EL and Comet
     /// identity, reference block, terminal forced cursor and active committee cutoff.
     #[serde(with = "crate::contracts::abi_serde")]
@@ -391,10 +372,9 @@ impl PreparedBatch {
     /// reference number, the statement hash, the blob payload against the retained blocks
     /// (PROOF-6.2-21/37) and the KZG sidecar (PROOF-6.2-35).
     ///
-    /// Proof witnesses (execution history, committees and their witnesses, anchors and the
-    /// starting Inbox witness) are not re-derived. A restored job is
-    /// at least Prepared, so its proof already exists and nothing reads them again; the builder
-    /// checked every one before proving.
+    /// Proof witnesses (anchors and the starting Inbox witness) are not re-derived. A restored job
+    /// is at least Prepared, so its proof already exists and nothing reads them again; the
+    /// builder checked every one before proving.
     pub fn verify_restored(&self) -> Result<()> {
         let u48 = |value: U256| {
             protocol_u48(value)
@@ -547,8 +527,6 @@ mod tests {
         original.batch.verify_restored().unwrap();
         let mut witnesses = original.batch.clone();
         witnesses.anchors.clear();
-        witnesses.execution_history.clear();
-        witnesses.committee_witnesses.clear();
         witnesses.verify_restored().unwrap();
 
         let reference =

@@ -12,14 +12,13 @@ use alloy_primitives::{Address, B256, U256, keccak256, ruint::UintTryFrom};
 
 use crate::{
     config::ChainParams,
-    envelope::CommitteeWitness,
     l1::{
         layout::{registry, word_u48},
         mpt::{MptError, verify_account_witness},
     },
     schedule::Schedule,
     store::CommitteeState,
-    types::{CommitteeRecord, Member, RegistryEntry},
+    types::{CommitteeRecord, CommitteeWitness, Member, RegistryEntry},
 };
 
 /// Upper bound on a committee's total voting power: CometBFT's `MaxTotalVotingPower`,
@@ -432,7 +431,7 @@ pub fn verify_committee_witness_at_cutoff(
 /// context: a node verifies every witness with its own fixed ones.
 ///
 /// ```compile_fail,E0451
-/// use abci::{committee::VerifiedWitness, envelope::CommitteeWitness, store::CommitteeState};
+/// use abci::{committee::VerifiedWitness, store::CommitteeState, types::CommitteeWitness};
 /// use alloy_primitives::B256;
 ///
 /// fn forge(witness: CommitteeWitness, committee: CommitteeState) -> VerifiedWitness {

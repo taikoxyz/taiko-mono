@@ -1,8 +1,9 @@
 //! Plain data shared across the `abci` modules. No I/O.
 //!
-//! The four witness-carried types ([`StorageProof`], [`AccountWitness`], [`RegistryEntry`],
-//! [`CommitteeRecord`]) travel inside the block envelope and therefore have an RLP encoding (each
-//! is an RLP list of its fields in declaration order). Everything here is also serde-serializable
+//! The witness-carried types ([`StorageProof`], [`AccountWitness`], [`RegistryEntry`],
+//! [`CommitteeRecord`], [`CommitteeWitness`]) travel inside block envelopes or the genesis and
+//! recovery witnesses and therefore have an RLP encoding (each is an RLP list of its fields in
+//! declaration order). Everything here is also serde-serializable
 //! so it can be persisted in `AppState` and exposed through ABCI queries.
 
 use alloy_primitives::{Address, B256, Bytes, U256};
@@ -103,6 +104,22 @@ pub struct CommitteeRecord {
     pub set_hash: B256,
     /// Sum of the members' voting power; at most `(2^63 - 1) / 8` (CometBFT's total-power cap).
     pub total_power: u64,
+}
+
+/// A registry witness of one committee: the record, the staking-registry proofs and the
+/// snapshot's entries. The genesis witness carries generation zero's initial committee in it and
+/// the recovery witness the committee R selects; no block envelope carries one.
+///
+/// RLP: `[record, registry, entries]`. The registry proofs verify against the state root of the
+/// witness's own L1 header.
+#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
+pub struct CommitteeWitness {
+    /// The committee record the witness opens.
+    pub record: CommitteeRecord,
+    /// EIP-1186 proof of the staking-registry account and its snapshot slots.
+    pub registry: AccountWitness,
+    /// The registry entries of the snapshot checkpoint, in index order.
+    pub entries: Vec<RegistryEntry>,
 }
 
 /// One committee member, derived from an eligible registry entry.

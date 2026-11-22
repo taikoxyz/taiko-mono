@@ -30,15 +30,15 @@ use alloy_trie::{
 
 use crate::{
     committee::{entries_root, snapshot_slots},
-    envelope::{AnchorWitness, CommitteeWitness},
+    envelope::AnchorWitness,
     forced::ForcedEntry,
     l1::{
         header::RawL1Header,
         layout::{inbox, registry},
     },
     types::{
-        AccountWitness, AnchorState, CommitteeRecord, GenesisRecord, InboxFacts, RegistryEntry,
-        StorageProof,
+        AccountWitness, AnchorState, CommitteeRecord, CommitteeWitness, GenesisRecord, InboxFacts,
+        RegistryEntry, StorageProof,
     },
 };
 

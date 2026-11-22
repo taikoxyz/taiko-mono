@@ -44,7 +44,6 @@ struct Control {
     decided_height: u64,
     publishable_blocks: usize,
     force_back_pressure: bool,
-    force_epoch: bool,
     /// The exact end the batch source reports (`--land-to`).
     land_to: Option<u64>,
     observation_error: bool,
@@ -83,7 +82,6 @@ impl Fixture {
             decided_height: 2,
             publishable_blocks: 2,
             force_back_pressure: false,
-            force_epoch: false,
             land_to: None,
             observation_error: false,
             checkpoint_error: false,
@@ -215,7 +213,6 @@ impl BatchSource for MockBatch {
             decided_height: control.decided_height,
             publishable_blocks: control.publishable_blocks,
             force_back_pressure: control.force_back_pressure,
-            force_epoch: control.force_epoch,
         }))
     }
     async fn prepare(&self, snapshot: LandingSnapshot) -> Result<Option<ProofRequest>> {
@@ -1067,21 +1064,15 @@ async fn checkpoint_identity_change_discards_wait_even_when_following_rpc_fails(
 }
 
 #[tokio::test(start_paused = true)]
-async fn consensus_pressure_and_epoch_progress_bypass_high_threshold_and_long_wait() {
-    for force_epoch in [false, true] {
-        let fixture = Fixture::new();
-        let policy = BatchPolicy { min_blocks: 100, max_wait: Duration::from_secs(3600) };
-        {
-            let mut control = fixture.control.lock().unwrap();
-            control.force_back_pressure = !force_epoch;
-            control.force_epoch = force_epoch;
-        }
-        let mut runner = fixture.with_policy(policy);
-        assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
-        assert!(matches!(runner.state(), JournalState::Prepared { .. }));
-        assert_eq!(fixture.control.lock().unwrap().proofs, 1);
-        assert!(waiting(&runner).is_none());
-    }
+async fn consensus_pressure_bypasses_high_threshold_and_long_wait() {
+    let fixture = Fixture::new();
+    let policy = BatchPolicy { min_blocks: 100, max_wait: Duration::from_secs(3600) };
+    fixture.control.lock().unwrap().force_back_pressure = true;
+    let mut runner = fixture.with_policy(policy);
+    assert_eq!(runner.step().await.unwrap(), StepOutcome::Progress);
+    assert!(matches!(runner.state(), JournalState::Prepared { .. }));
+    assert_eq!(fixture.control.lock().unwrap().proofs, 1);
+    assert!(waiting(&runner).is_none());
 }
 
 /// An exact end (`--land-to`) prepares at once below a threshold and wait it never reaches,

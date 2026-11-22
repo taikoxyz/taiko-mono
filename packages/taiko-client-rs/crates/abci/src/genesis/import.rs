@@ -1,7 +1,5 @@
 //! Pure bootstrap verification shared by `InitChain` and offline checkpoint import.
 
-use std::collections::BTreeMap;
-
 use alloy_primitives::{Address, B256};
 use tendermint::Time;
 
@@ -157,10 +155,6 @@ impl VerifiedGenesis {
             parent,
             anchor,
             forced_cursor: self.recovery.as_ref().map_or(0, |origin| origin.forced_cursor),
-            committees: BTreeMap::from([(
-                self.committee.record.target_epoch,
-                self.committee.clone(),
-            )]),
             val_state: ValState::genesis(height, &validators)?,
             execution_floor: None,
         })

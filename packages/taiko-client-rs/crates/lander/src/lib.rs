@@ -42,7 +42,7 @@ pub mod tx;
 pub mod batch;
 /// Bounded HTTP CometBFT source and read-only collector trait.
 pub mod comet;
-/// Reconstruction and authentication of full Etna committees.
+/// Authenticated CometBFT validator sets for certificate verification.
 pub mod committee;
 /// CometBFT certificate and exact block consistency validation.
 pub mod validate;
@@ -53,7 +53,7 @@ pub mod metrics;
 /// Polling and reconciliation of one durable job and outstanding nonce.
 pub mod runner;
 
-/// Pure checkpoint-bound execution ancestry and derivation snapshots.
+/// The encoded-size bound of retained execution headers.
 pub mod history;
 
 /// Lossless native stock-Comet certificates and key-bearing block evidence.

@@ -14,10 +14,9 @@ SUITE_IMAGES = {
     ("test-harness", "standalone_reth"): {"reth-image"},
     ("taiko-client", "lander_cli"): CONTRACT_IMAGES,
     NATIVE_SUITE: CONTRACT_IMAGES,
-    ("lander", "landing"): CONTRACT_IMAGES,
+    ("lander", "landing"): CONTRACT_IMAGES | {"comet-image"},
     ("lander", "recovery"): CONTRACT_IMAGES,
     ("lander", "native_acceptance"): CONTRACT_IMAGES | {"comet-image"},
-    ("lander", "staking"): CONTRACT_IMAGES | {"comet-image"},
     ("lander", "switch"): CONTRACT_IMAGES,
     ("lander", "collector"): DEVNET_IMAGES,
 }

@@ -20,7 +20,6 @@ use alloy_primitives::U256;
 fn fetch_error(error: FetchError) -> RecoveryError {
     match error {
         FetchError::L1(e) => e.into(),
-        FetchError::Timeout(_) => RecoveryError::Unavailable(error.to_string()),
         _ => invalid(error),
     }
 }
