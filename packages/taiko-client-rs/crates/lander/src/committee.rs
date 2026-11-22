@@ -63,7 +63,8 @@ impl Validators {
             })
             .collect::<Vec<_>>();
         validators.sort_by_key(|v| (std::cmp::Reverse(v.voting_power), v.address));
-        let hash = abci::wire::validators_hash(members)?;
+        let powers = members.iter().map(|member| (member.pubkey, member.power)).collect::<Vec<_>>();
+        let hash = abci::wire::validators_hash(&powers)?;
         let total = validators.iter().map(|v| v.voting_power).sum();
         Ok(Self { members: validators, hash: Hash::Sha256(hash.0), total })
     }
@@ -102,9 +103,10 @@ mod tests {
         assert_eq!(valid.validators.total_voting_power(), 9);
         let powers = valid.validators.validators().iter().map(|v| v.power()).collect::<Vec<_>>();
         assert_eq!(powers, [5, 3, 1]);
+        let members = valid.state.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>();
         assert_eq!(
             valid.validators.hash(),
-            tendermint::Hash::Sha256(abci::wire::validators_hash(&valid.state.members).unwrap().0)
+            tendermint::Hash::Sha256(abci::wire::validators_hash(&members).unwrap().0)
         );
     }
 }

@@ -24,7 +24,6 @@ alloy-sol-types = { workspace = true }
 alloy-trie = { workspace = true, features = ["std", "ethereum"] }
 
 # consensus
-base64 = { workspace = true }
 k256 = { workspace = true, features = ["ecdsa"] }
 prost = { workspace = true }
 tendermint = { workspace = true }
@@ -35,6 +34,7 @@ tower-abci = { workspace = true }
 # taiko
 alethia-reth-primitives = { workspace = true }
 bindings = { path = "../bindings" }
+etna-core = { path = "../etna-core" }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 

@@ -20,8 +20,6 @@ pub mod app;
 pub mod committee;
 /// Chain parameters (built-in per L2 chain id, optional TOML override).
 pub mod config;
-/// Complete deployment signing domain.
-pub mod domain;
 /// Execution-layer sync to a trusted head over devp2p.
 pub mod elsync;
 /// The execution-engine adapter (Engine API) and payload conversion for alethia-reth.
@@ -33,8 +31,6 @@ pub mod forced;
 /// The CometBFT genesis: the `app_state` genesis witness, its codec, and the builder of the
 /// whole `genesis.json` from L1.
 pub mod genesis;
-/// Native validated secp256k1eth consensus identities.
-pub mod key;
 /// L1 storage layout, EIP-1186 proof verification, Inbox witness decoding and the L1 source.
 pub mod l1;
 /// Prometheus metrics of the ABCI app.
@@ -55,9 +51,6 @@ pub mod store;
 pub mod switch;
 /// Plain data shared across modules (witnesses, committee records, anchor and parent facts).
 pub mod types;
-/// Stock CometBFT v0.40.0 validator-set arithmetic: the proposer priorities and stored proposers
-/// of `State.Validators` and `State.NextValidators`.
-pub mod valstate;
 /// Stock CometBFT transport with native secp256k1eth keys.
 pub mod wire;
 
@@ -66,6 +59,10 @@ pub(crate) mod test_utils;
 
 #[cfg(test)]
 mod proptests;
+
+/// The deployment signing domain, the validated secp256k1eth consensus identities and the
+/// stock CometBFT v0.40.0 validator-state arithmetic, from the portable Etna rules.
+pub use etna_core::{domain, key, valstate};
 
 pub use app::{AbciError, App, AppHashReport, AppOptions, Status};
 pub use committee::{CommitteeError, Snapshot, committee_config_hash};
