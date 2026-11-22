@@ -15,7 +15,7 @@ contract EtnaGenesisTest is Test {
 
     function test_buildGenesis_InstallsCanonicalSystemContracts() external {
         string memory genesis = _build();
-        assertEq(vm.parseJsonKeys(genesis, ".alloc").length, 6, "predeploys and system contracts");
+        assertEq(vm.parseJsonKeys(genesis, ".alloc").length, 11, "predeploys and system contracts");
         assertEq(
             sha256(_ROOTS.code),
             hex"cb7bd3e115730f7d57c15cd892880ed517ff4421bf43dfc7591198868fffe31d"

@@ -151,17 +151,21 @@ FOUNDRY_PROFILE=genesis forge test \
   --block-gas-limit 1000000000
 
 # The Etna genesis builder on real generator output (Etna SPEC 10 step 3). The default
-# configuration leaves the SignalService's checkpoint store open (usesBeaconRoots false), so the
-# builder must refuse its alloc, both as configured and with only the configuration JSON edited to an
-# Etna one; an alloc generated from the example Etna devnet configuration, data/genesis_config_etna.js
-# (usesBeaconRoots true, chain 167001, with the EtnaStaking and bridged TAIKO predeploys), must pass.
-# The generator itself must refuse an Etna configuration that breaks a staking parameter rule or the
-# devnet premint guard. A node started from the Etna genesis then runs TestGenerateEtnaGenesis.
+# configuration leaves the SignalService's checkpoint store open (usesBeaconRoots false) and has no
+# `etna` block, so the builder must refuse its alloc, both as configured and with only its
+# SignalService fields edited. An alloc generated from the example Etna devnet configuration,
+# data/genesis_config_etna.js (usesBeaconRoots true, chain 167001, with the EtnaStaking and bridged
+# TAIKO predeploys), must pass, and the same alloc generated with usesBeaconRoots false must be
+# refused by its bytecode with only the configuration JSON edited to true. The generator itself must
+# refuse an Etna configuration that breaks a staking parameter rule or the devnet premint guard. A
+# node started from the Etna genesis then runs TestGenerateEtnaGenesis.
 echo ""
 echo "Testing the Etna genesis builder on generated predeploys..."
 
 BUILDER="script/layer2/build_etna_genesis.py"
 L1_SIGNAL_SERVICE="0x00000000000000000000000000000000000100aa"
+L1_INBOX="0x00000000000000000000000000000000000100bb"
+L1_TAIKO_TOKEN="0x00000000000000000000000000000000000100cc"
 WORK="$(mktemp -d)"
 cp "$DIR/data/genesis_config.json" "$WORK/default_config.json"
 cp "$DIR/data/genesis_alloc.json" "$WORK/default_alloc.json"
@@ -181,7 +185,8 @@ BASE_GENESIS="$GENESIS_JSON"
 
 function buildEtnaGenesis {
   python3 "$BUILDER" --base "$BASE_GENESIS" --predeploys "$DIR/data/genesis_alloc.json" \
-    --predeploy-config "$1" --l1-signal-service "$L1_SIGNAL_SERVICE" --output "$WORK/genesis.json"
+    --predeploy-config "$1" --l1-signal-service "$L1_SIGNAL_SERVICE" --l1-inbox "$L1_INBOX" \
+    --l1-taiko-token "$L1_TAIKO_TOKEN" --output "$WORK/genesis.json"
 }
 
 function expectBuilderRejects {
@@ -206,7 +211,7 @@ config = json.load(open(sys.argv[1]))
 config.update(usesBeaconRoots=True, remoteSignalService=sys.argv[3])
 json.dump(config, open(sys.argv[2], "w"))
 EOF
-expectBuilderRejects "SignalServiceImpl usesBeaconRoots is 0x" "$WORK/edited_config.json"
+expectBuilderRejects "predeploy config: etna must be an object" "$WORK/edited_config.json"
 
 # Runs the generator on the example Etna configuration with the JavaScript in $2 applied to
 # `config`, and requires it to fail with the diagnostic $1 and write no alloc.
@@ -251,14 +256,21 @@ expectGeneratorRejects "etna.minStake * etna.nMax is below 10^27" \
 expectGeneratorRejects "etna.stakingOwner must be a non-zero address" \
   'delete config.etna.stakingOwner;'
 
-cat > "$WORK/etna_config.js" <<EOF
+# Generates the alloc of the example Etna configuration, with the test's L1 addresses and the
+# JavaScript in $1 applied to `config`.
+function generateEtnaGenesis {
+  cat > "$WORK/etna_config.js" <<EOF
 "use strict";
-module.exports = {
-  ...require("$DIR/data/genesis_config_etna.js"),
-  remoteSignalService: "$L1_SIGNAL_SERVICE",
-};
+const config = { ...require("$DIR/data/genesis_config_etna.js") };
+config.remoteSignalService = "$L1_SIGNAL_SERVICE";
+config.etna = { ...config.etna, inbox: "$L1_INBOX", l1TaikoToken: "$L1_TAIKO_TOKEN" };
+$1
+module.exports = config;
 EOF
-GENESIS_CONFIG="$WORK/etna_config.js" pnpm run genesis:gen
+  GENESIS_CONFIG="$WORK/etna_config.js" pnpm run genesis:gen
+}
+
+generateEtnaGenesis 'config.usesBeaconRoots = false;'
 
 # The Etna network's base genesis: the default node's chain configuration on the Etna chain id, with
 # no accounts but the generated ones.
@@ -270,6 +282,16 @@ base["alloc"] = {}
 json.dump(base, open(sys.argv[3], "w"))
 EOF
 BASE_GENESIS="$WORK/etna_base.json"
+
+python3 -I - "$DIR/data/genesis_config.json" "$WORK/edited_config.json" <<'EOF'
+import json, sys
+config = json.load(open(sys.argv[1]))
+config["usesBeaconRoots"] = True
+json.dump(config, open(sys.argv[2], "w"))
+EOF
+expectBuilderRejects "SignalServiceImpl usesBeaconRoots is 0x" "$WORK/edited_config.json"
+
+generateEtnaGenesis ''
 if ! buildEtnaGenesis "$DIR/data/genesis_config.json"; then
   echo "ERROR: the Etna genesis builder refused the Etna alloc"
   exit 1
