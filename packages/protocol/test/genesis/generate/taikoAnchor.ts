@@ -1,4 +1,4 @@
-import { Config, Result } from "./interface";
+import { Config, EtnaConfig, Result } from "./interface";
 const path = require("path");
 const { ethers } = require("ethers");
 // eslint-disable-next-line node/no-extraneous-require
@@ -55,6 +55,7 @@ export async function deployTaikoAnchor(
         config.contractAddresses,
         config.param1559,
         config.remoteSignalService,
+        config.etna,
     );
 
     const storageLayouts: any = {};
@@ -131,6 +132,7 @@ async function generateContractConfigs(
     hardCodedAddresses: any,
     param1559: any,
     remoteSignalService: string,
+    etna: EtnaConfig | undefined,
 ): Promise<any> {
     const contractArtifacts: any = {
         // ============ Contracts ============
@@ -399,16 +401,39 @@ async function generateContractConfigs(
             address: addressMap.ERC20Vault,
             deployedBytecode:
                 contractArtifacts.ERC20Vault.deployedBytecode.object,
-            variables: {
-                // EssentialContract
-                __reentry: 1, // _FALSE
-                __paused: 2, // _TRUE
-                // EssentialContract => UUPSUpgradeable => Initializable
-                _initialized: 1,
-                _initializing: false,
-                // EssentialContract => Ownable2StepUpgradeable
-                _owner: contractOwner,
-            },
+            variables: Object.assign(
+                {
+                    // EssentialContract
+                    __reentry: 1, // _FALSE
+                    __paused: 2, // _TRUE
+                    // EssentialContract => UUPSUpgradeable => Initializable
+                    _initialized: 1,
+                    _initializing: false,
+                    // EssentialContract => Ownable2StepUpgradeable
+                    _owner: contractOwner,
+                },
+                // ERC20Vault: on a new Etna network, TAIKO from L1 bridges to the bridged TAIKO
+                // predeploy, the staking token, instead of to a new BridgedERC20.
+                etna
+                    ? {
+                          bridgedToCanonical: {
+                              [hardCodedAddresses.BridgedTaikoToken]: {
+                                  chainId: l1ChainId,
+                                  addr: etna.l1TaikoToken,
+                                  decimals: 18,
+                                  symbol: "TAIKO",
+                                  name: "Taiko Token",
+                              },
+                          },
+                          canonicalToBridged: {
+                              [l1ChainId]: {
+                                  [etna.l1TaikoToken]:
+                                      hardCodedAddresses.BridgedTaikoToken,
+                              },
+                          },
+                      }
+                    : {},
+            ),
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.ERC20VaultImpl,
             },
@@ -778,7 +803,7 @@ function getLinkLibs(artifact: any, linkRefs: any, addressMap: any) {
     return result;
 }
 
-function getImmutableReference(
+export function getImmutableReference(
     contractName: string,
     immutableValueNames: Array<string>,
     artifactsPath = ARTIFACTS_PATH,
@@ -863,7 +888,7 @@ function getImmutableReference(
     return references;
 }
 
-function replaceImmutableValues(artifact: any, maps: Array<any>): any {
+export function replaceImmutableValues(artifact: any, maps: Array<any>): any {
     for (let i = 0; i < maps.length; i++) {
         artifact = replaceImmutableValue(artifact, maps[i].id, maps[i].value);
     }

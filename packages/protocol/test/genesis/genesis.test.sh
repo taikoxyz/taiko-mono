@@ -138,6 +138,8 @@ RPC_URL=http://localhost:18545
 waitTestNode "$RPC_URL"
 checkOsakaSupport "$RPC_URL"
 
+# TestGenerateEtnaGenesis checks the Etna predeploys, which the default genesis does not have; it runs
+# below against a node started from the Etna genesis.
 FOUNDRY_PROFILE=genesis forge test \
   -vvv \
   --gas-report \
@@ -145,12 +147,16 @@ FOUNDRY_PROFILE=genesis forge test \
   --fork-retry-backoff 120 \
   --no-storage-caching \
   --match-path test/genesis/GenerateGenesis.g.sol \
+  --no-match-contract TestGenerateEtnaGenesis \
   --block-gas-limit 1000000000
 
 # The Etna genesis builder on real generator output (Etna SPEC 10 step 3). The default
 # configuration leaves the SignalService's checkpoint store open (usesBeaconRoots false), so the
 # builder must refuse its alloc, both as configured and with only the configuration JSON edited to an
-# Etna one; an alloc generated from the Etna configuration (usesBeaconRoots true) must pass.
+# Etna one; an alloc generated from the example Etna devnet configuration, data/genesis_config_etna.js
+# (usesBeaconRoots true, chain 167001, with the EtnaStaking and bridged TAIKO predeploys), must pass.
+# The generator itself must refuse an Etna configuration that breaks a staking parameter rule or the
+# devnet premint guard. A node started from the Etna genesis then runs TestGenerateEtnaGenesis.
 echo ""
 echo "Testing the Etna genesis builder on generated predeploys..."
 
@@ -170,8 +176,11 @@ function restoreDefaultGenesis {
 }
 trap 'restoreDefaultGenesis; docker compose -f "$TESTNET_CONFIG" down -v' EXIT INT KILL ERR
 
+# The base genesis the builder overlays: the default node's until the Etna network's is written.
+BASE_GENESIS="$GENESIS_JSON"
+
 function buildEtnaGenesis {
-  python3 "$BUILDER" --base "$GENESIS_JSON" --predeploys "$DIR/data/genesis_alloc.json" \
+  python3 "$BUILDER" --base "$BASE_GENESIS" --predeploys "$DIR/data/genesis_alloc.json" \
     --predeploy-config "$1" --l1-signal-service "$L1_SIGNAL_SERVICE" --output "$WORK/genesis.json"
 }
 
@@ -199,16 +208,68 @@ json.dump(config, open(sys.argv[2], "w"))
 EOF
 expectBuilderRejects "SignalServiceImpl usesBeaconRoots is 0x" "$WORK/edited_config.json"
 
+# Runs the generator on the example Etna configuration with the JavaScript in $2 applied to
+# `config`, and requires it to fail with the diagnostic $1 and write no alloc.
+function expectGeneratorRejects {
+  local diagnostic="$1"
+  cat > "$WORK/refused_config.js" <<EOF
+"use strict";
+const config = { ...require("$DIR/data/genesis_config_etna.js") };
+config.etna = { ...config.etna };
+$2
+module.exports = config;
+EOF
+  rm -f "$DIR/data/genesis_alloc.json"
+  if GENESIS_CONFIG="$WORK/refused_config.js" pnpm run genesis:gen > "$WORK/generator.log" 2>&1; then
+    echo "ERROR: the genesis generator accepted an Etna configuration it must refuse"
+    cat "$WORK/generator.log"
+    return 1
+  fi
+  if ! grep -qF "$diagnostic" "$WORK/generator.log" || [ -e "$DIR/data/genesis_alloc.json" ]; then
+    echo "ERROR: the genesis generator failed without \"$diagnostic\" or wrote an alloc"
+    cat "$WORK/generator.log"
+    return 1
+  fi
+}
+
+echo ""
+echo "Testing the genesis generator's Etna configuration checks..."
+
+expectGeneratorRejects "etna.withdrawalDelay 302401 is below" \
+  'config.etna.withdrawalDelay = "302401";'
+expectGeneratorRejects "etna.premint needs etna.devnet true" 'config.etna.devnet = false;'
+expectGeneratorRejects "etna.devnet is refused on chain 167000" 'config.chainId = 167000;'
+expectGeneratorRejects "etna.premint totals 1000000000000000000000000001" \
+  'config.etna.premint = [
+    { "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39": "500000000000000000000000000" },
+    { "0x79fcdef22feed20eddacbb2587640e45491b757f": "500000000000000000000000001" },
+  ];'
+expectGeneratorRejects "etna.nMax 129 is not in [1, 128]" 'config.etna.nMax = "129";'
+# ceil(10^27 / 3) = 333...334, so one wei below it is refused where a floor would accept it.
+expectGeneratorRejects "etna.minStake * etna.nMax is below 10^27" \
+  'config.etna.nMax = "3"; config.etna.minStake = "333333333333333333333333333";'
+expectGeneratorRejects "etna.stakingOwner must be a non-zero address" \
+  'delete config.etna.stakingOwner;'
+
 cat > "$WORK/etna_config.js" <<EOF
 "use strict";
-const base = require("$DIR/data/genesis_config.js");
 module.exports = {
-  ...base,
-  usesBeaconRoots: true,
+  ...require("$DIR/data/genesis_config_etna.js"),
   remoteSignalService: "$L1_SIGNAL_SERVICE",
 };
 EOF
 GENESIS_CONFIG="$WORK/etna_config.js" pnpm run genesis:gen
+
+# The Etna network's base genesis: the default node's chain configuration on the Etna chain id, with
+# no accounts but the generated ones.
+python3 -I - "$GENESIS_JSON" "$DIR/data/genesis_config.json" "$WORK/etna_base.json" <<'EOF'
+import json, sys
+base = json.load(open(sys.argv[1]))
+base["config"]["chainId"] = json.load(open(sys.argv[2]))["chainId"]
+base["alloc"] = {}
+json.dump(base, open(sys.argv[3], "w"))
+EOF
+BASE_GENESIS="$WORK/etna_base.json"
 if ! buildEtnaGenesis "$DIR/data/genesis_config.json"; then
   echo "ERROR: the Etna genesis builder refused the Etna alloc"
   exit 1
@@ -220,5 +281,25 @@ for system in ("0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
                "0x0000f90827f1c53a10cb7a02335b175320002935"):
     assert alloc[system]["code"] != "0x", system
 EOF
-restoreDefaultGenesis
 echo "The Etna genesis builder accepts only the Etna alloc."
+
+echo ""
+echo "Restart docker compose network on the Etna genesis..."
+
+cp "$WORK/genesis.json" "$GENESIS_JSON"
+docker compose -f "$TESTNET_CONFIG" down -v --remove-orphans &> /dev/null
+docker compose -f "$TESTNET_CONFIG" up -d
+
+waitTestNode "$RPC_URL"
+checkOsakaSupport "$RPC_URL"
+
+FOUNDRY_PROFILE=genesis forge test \
+  -vvv \
+  --fork-url "$RPC_URL" \
+  --fork-retry-backoff 120 \
+  --no-storage-caching \
+  --match-path test/genesis/GenerateGenesis.g.sol \
+  --match-contract TestGenerateEtnaGenesis \
+  --block-gas-limit 1000000000
+
+restoreDefaultGenesis
