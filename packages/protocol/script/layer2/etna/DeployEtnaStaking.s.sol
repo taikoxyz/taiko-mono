@@ -42,9 +42,6 @@ contract DeployEtnaStaking is Script {
     /// 4-second blocks.
     uint256 public constant DEFAULT_UNSETTLED_LIMIT = 151_200;
 
-    /// @notice The largest U the Inbox accepts.
-    uint256 public constant MAX_UNSETTLED_LIMIT = 262_144;
-
     // ---------------------------------------------------------------
     // External & Public Functions
     // ---------------------------------------------------------------
@@ -114,10 +111,12 @@ contract DeployEtnaStaking is Script {
 
     /// @notice Deploys `EtnaStaking` in one broadcast call to the CREATE2 factory.
     /// @dev Reverts before broadcasting if `_owner` is zero, `_unsettledLimit` is outside
-    /// [1, `MAX_UNSETTLED_LIMIT`], `_evidenceWindowBlocks` is zero, `withdrawalDelay` is below
-    /// U + 2 + `_evidenceWindowBlocks` or the deployer already exists. The factory reverts without
-    /// data when a constructor reverts, so `DeploymentFailed` also covers a configuration that
-    /// `EtnaStaking`'s constructor refuses with `InvalidConfig`, and a missing factory.
+    /// [1, `LibEtnaStakingEnv.MAX_UNSETTLED_LIMIT`], `_evidenceWindowBlocks` is zero,
+    /// `withdrawalDelay` is below U + 2 + `_evidenceWindowBlocks` (these three are
+    /// `LibEtnaStakingEnv.checkWithdrawalDelay`'s) or the deployer already exists. The factory
+    /// reverts without data when a constructor reverts, so `DeploymentFailed` also covers a
+    /// configuration that `EtnaStaking`'s constructor refuses with `InvalidConfig`, and a missing
+    /// factory.
     /// @param _config The `EtnaStaking` configuration.
     /// @param _owner The proxy's owner, the DAO's execution address on L2.
     /// @param _salt The factory salt.
@@ -136,15 +135,8 @@ contract DeployEtnaStaking is Script {
         returns (address impl_, address proxy_)
     {
         require(_owner != address(0), ZeroOwner());
-        require(
-            _unsettledLimit != 0 && _unsettledLimit <= MAX_UNSETTLED_LIMIT, InvalidUnsettledLimit()
-        );
-        require(_evidenceWindowBlocks != 0, ZeroEvidenceWindow());
-        // U + 2 cannot overflow, being at most 262,146.
-        require(
-            _config.withdrawalDelay >= _unsettledLimit + 2
-                && _config.withdrawalDelay - _unsettledLimit - 2 >= _evidenceWindowBlocks,
-            WithdrawalDelayTooShort()
+        LibEtnaStakingEnv.checkWithdrawalDelay(
+            _config.withdrawalDelay, _unsettledLimit, _evidenceWindowBlocks
         );
         address deployer;
         (deployer, impl_, proxy_) = predict(_config, _owner, _salt);
@@ -192,9 +184,6 @@ contract DeployEtnaStaking is Script {
 
     error AlreadyDeployed();
     error DeploymentFailed();
-    error InvalidUnsettledLimit();
     error L2ChainIdMismatch();
-    error WithdrawalDelayTooShort();
-    error ZeroEvidenceWindow();
     error ZeroOwner();
 }

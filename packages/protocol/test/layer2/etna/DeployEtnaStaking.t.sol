@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import { EtnaStakingTestBase } from "./EtnaStakingTestBase.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { DeployEtnaStaking } from "script/layer2/etna/DeployEtnaStaking.s.sol";
+import { LibEtnaStakingEnv } from "script/layer2/etna/LibEtnaStakingEnv.sol";
 import { EtnaStaking } from "src/layer2/etna/EtnaStaking.sol";
 import { EtnaStakingDeployer } from "src/layer2/etna/EtnaStakingDeployer.sol";
 import { IEtnaStaking } from "src/layer2/etna/iface/IEtnaStaking.sol";
@@ -92,7 +93,7 @@ contract DeployEtnaStakingTest is EtnaStakingTestBase {
     function test_deploy_WithdrawalDelayBound() external {
         IEtnaStaking.Config memory cfg = _config();
         cfg.withdrawalDelay = 302_401;
-        vm.expectRevert(DeployEtnaStaking.WithdrawalDelayTooShort.selector);
+        vm.expectRevert(LibEtnaStakingEnv.WithdrawalDelayTooShort.selector);
         _script.deploy(cfg, STAKING_OWNER, _SALT, _UNSETTLED_LIMIT, _EVIDENCE_WINDOW);
 
         cfg.withdrawalDelay = 302_402;
@@ -105,11 +106,11 @@ contract DeployEtnaStakingTest is EtnaStakingTestBase {
     /// them, so no other test races it.
     function test_deploy_RevertWhen_InputsInvalid() external {
         IEtnaStaking.Config memory cfg = _config();
-        vm.expectRevert(DeployEtnaStaking.InvalidUnsettledLimit.selector);
+        vm.expectRevert(LibEtnaStakingEnv.InvalidUnsettledLimit.selector);
         _script.deploy(cfg, STAKING_OWNER, _SALT, 0, _EVIDENCE_WINDOW);
-        vm.expectRevert(DeployEtnaStaking.InvalidUnsettledLimit.selector);
+        vm.expectRevert(LibEtnaStakingEnv.InvalidUnsettledLimit.selector);
         _script.deploy(cfg, STAKING_OWNER, _SALT, 262_145, _EVIDENCE_WINDOW);
-        vm.expectRevert(DeployEtnaStaking.ZeroEvidenceWindow.selector);
+        vm.expectRevert(LibEtnaStakingEnv.ZeroEvidenceWindow.selector);
         _script.deploy(cfg, STAKING_OWNER, _SALT, _UNSETTLED_LIMIT, 0);
         vm.expectRevert(DeployEtnaStaking.ZeroOwner.selector);
         _script.deploy(cfg, address(0), _SALT, _UNSETTLED_LIMIT, _EVIDENCE_WINDOW);
@@ -126,7 +127,7 @@ contract DeployEtnaStakingTest is EtnaStakingTestBase {
         // An empty ETNA_UNSETTLED_LIMIT reads as 151,200: one block more of evidence window is too
         // much for the delay of 302,402, and the window of 151,200 fits.
         vm.setEnv("EVIDENCE_WINDOW_BLOCKS", vm.toString(_EVIDENCE_WINDOW + 1));
-        vm.expectRevert(DeployEtnaStaking.WithdrawalDelayTooShort.selector);
+        vm.expectRevert(LibEtnaStakingEnv.WithdrawalDelayTooShort.selector);
         _script.run();
         vm.setEnv("EVIDENCE_WINDOW_BLOCKS", vm.toString(_EVIDENCE_WINDOW));
 

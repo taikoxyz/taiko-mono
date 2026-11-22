@@ -133,9 +133,6 @@ contract BuildEtnaReadinessL2Message is Script {
     bytes32 private constant _IMPLEMENTATION_SLOT =
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
-    /// @dev The largest U the Etna Inbox accepts.
-    uint256 private constant _MAX_UNSETTLED_LIMIT = 262_144;
-
     function run() external {
         Inputs memory inputs = Inputs({
             guard: vm.envAddress("UPGRADE_GUARD"),
@@ -228,14 +225,10 @@ contract BuildEtnaReadinessL2Message is Script {
                 && EtnaStaking(proxy).pendingOwner() == address(0),
             EtnaStakingOwnerMismatch()
         );
-        uint256 limit = _inputs.unsettledLimit;
-        require(limit != 0 && limit <= _MAX_UNSETTLED_LIMIT, InvalidUnsettledLimit());
-        require(_inputs.evidenceWindowBlocks != 0, ZeroEvidenceWindow());
-        uint256 delay = _inputs.etnaStakingConfig.withdrawalDelay;
-        // U + 2 cannot overflow, being at most 262,146.
-        require(
-            delay >= limit + 2 && delay - limit - 2 >= _inputs.evidenceWindowBlocks,
-            WithdrawalDelayTooShort()
+        LibEtnaStakingEnv.checkWithdrawalDelay(
+            _inputs.etnaStakingConfig.withdrawalDelay,
+            _inputs.unsettledLimit,
+            _inputs.evidenceWindowBlocks
         );
         // The rebuilt code holds every immutable, so the delay checked above is the deployed one.
         require(
@@ -286,10 +279,7 @@ contract BuildEtnaReadinessL2Message is Script {
     error EtnaStakingImplementationMismatch();
     error EtnaStakingOwnerMismatch();
     error EtnaStakingProxyMismatch();
-    error InvalidUnsettledLimit();
     error PreEtnaImplementationMismatch();
     error SignalServiceImplementationMismatch();
     error UpgradeGuardMismatch();
-    error WithdrawalDelayTooShort();
-    error ZeroEvidenceWindow();
 }

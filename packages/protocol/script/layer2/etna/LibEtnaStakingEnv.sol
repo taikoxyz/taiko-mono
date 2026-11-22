@@ -6,7 +6,8 @@ import { IEtnaStaking } from "src/layer2/etna/iface/IEtnaStaking.sol";
 
 /// @title LibEtnaStakingEnv
 /// @notice Reads an `EtnaStaking` configuration from the environment, for the scripts that deploy
-/// the contract or check a deployment against it.
+/// the contract or check a deployment against it, and checks the withdrawal-delay bound that both
+/// apply.
 /// @dev Required: TAIKO_TOKEN (the bridged TAIKO token on L2), L1_CHAIN_ID, INBOX_PROXY (the Etna
 /// Inbox proxy on L1), ETNA_WITHDRAWAL_DELAY (L2 blocks), ETNA_SLASH_BOUNTY_BPS, ETNA_SLASH_SINK
 /// and ETNA_FORFEIT_BPS. Optional, with the reference value when unset or empty: ETNA_MIN_STAKE
@@ -32,6 +33,10 @@ library LibEtnaStakingEnv {
     /// @dev `missSlashBps` when ETNA_MISS_SLASH_BPS is unset or empty.
     uint256 internal constant DEFAULT_MISS_SLASH_BPS = 1000;
 
+    /// @dev The largest U, the Etna Inbox's maximum number of unsettled L2 blocks, that the Inbox
+    /// accepts.
+    uint256 internal constant MAX_UNSETTLED_LIMIT = 262_144;
+
     /// @dev The forge cheatcode address.
     Vm private constant _VM = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
@@ -52,6 +57,32 @@ library LibEtnaStakingEnv {
         config_.forfeitBps = _VM.envUint("ETNA_FORFEIT_BPS");
     }
 
+    /// @dev Checks that `_withdrawalDelay` is at least U + 2 + the evidence window. U is an Etna
+    /// Inbox value that no L2 contract holds, so neither `EtnaStaking` nor its constructor can
+    /// check this bound.
+    /// @param _withdrawalDelay The `EtnaStaking` withdrawal delay, in L2 blocks.
+    /// @param _unsettledLimit U, which must be in [1, `MAX_UNSETTLED_LIMIT`].
+    /// @param _evidenceWindowBlocks The double-sign evidence window, in L2 blocks; nonzero.
+    function checkWithdrawalDelay(
+        uint256 _withdrawalDelay,
+        uint256 _unsettledLimit,
+        uint256 _evidenceWindowBlocks
+    )
+        internal
+        pure
+    {
+        require(
+            _unsettledLimit != 0 && _unsettledLimit <= MAX_UNSETTLED_LIMIT, InvalidUnsettledLimit()
+        );
+        require(_evidenceWindowBlocks != 0, ZeroEvidenceWindow());
+        // U + 2 cannot overflow, being at most 262,146.
+        require(
+            _withdrawalDelay >= _unsettledLimit + 2
+                && _withdrawalDelay - _unsettledLimit - 2 >= _evidenceWindowBlocks,
+            WithdrawalDelayTooShort()
+        );
+    }
+
     /// @dev Reads an optional integer, `_default` when unset or empty. A malformed value reverts;
     /// `vm.envOr` would return the default for it.
     /// @param _name The variable name.
@@ -61,4 +92,12 @@ library LibEtnaStakingEnv {
         bool set = _VM.envExists(_name) && bytes(_VM.envString(_name)).length != 0;
         return set ? _VM.envUint(_name) : _default;
     }
+
+    // ---------------------------------------------------------------
+    // Custom Errors
+    // ---------------------------------------------------------------
+
+    error InvalidUnsettledLimit();
+    error WithdrawalDelayTooShort();
+    error ZeroEvidenceWindow();
 }

@@ -7,6 +7,7 @@ import {
     LibEtnaReadinessL2Message
 } from "script/layer2/etna/BuildEtnaReadinessL2Message.s.sol";
 import { DeployEtnaStaking } from "script/layer2/etna/DeployEtnaStaking.s.sol";
+import { LibEtnaStakingEnv } from "script/layer2/etna/LibEtnaStakingEnv.sol";
 import { Anchor } from "src/layer2/core/Anchor.sol";
 import { EtnaSignalServiceUpgradeGuard } from "src/layer2/etna/EtnaSignalServiceUpgradeGuard.sol";
 import { EtnaStaking } from "src/layer2/etna/EtnaStaking.sol";
@@ -272,21 +273,21 @@ contract EtnaSignalServiceUpgradeGuardTest is Layer2Test {
     function test_buildChecked_RevertWhen_EtnaStakingWithdrawalDelayIsBelowTheBound() external {
         BuildEtnaReadinessL2Message.Inputs memory inputs = _inputs();
         inputs.unsettledLimit = UNSETTLED_LIMIT + 1;
-        _expectBuilderRevert(inputs, BuildEtnaReadinessL2Message.WithdrawalDelayTooShort.selector);
+        _expectBuilderRevert(inputs, LibEtnaStakingEnv.WithdrawalDelayTooShort.selector);
 
         inputs = _inputs();
         inputs.evidenceWindowBlocks = EVIDENCE_WINDOW + 1;
-        _expectBuilderRevert(inputs, BuildEtnaReadinessL2Message.WithdrawalDelayTooShort.selector);
+        _expectBuilderRevert(inputs, LibEtnaStakingEnv.WithdrawalDelayTooShort.selector);
 
         inputs = _inputs();
         inputs.unsettledLimit = 0;
-        _expectBuilderRevert(inputs, BuildEtnaReadinessL2Message.InvalidUnsettledLimit.selector);
+        _expectBuilderRevert(inputs, LibEtnaStakingEnv.InvalidUnsettledLimit.selector);
         inputs.unsettledLimit = 262_145;
-        _expectBuilderRevert(inputs, BuildEtnaReadinessL2Message.InvalidUnsettledLimit.selector);
+        _expectBuilderRevert(inputs, LibEtnaStakingEnv.InvalidUnsettledLimit.selector);
 
         inputs = _inputs();
         inputs.evidenceWindowBlocks = 0;
-        _expectBuilderRevert(inputs, BuildEtnaReadinessL2Message.ZeroEvidenceWindow.selector);
+        _expectBuilderRevert(inputs, LibEtnaStakingEnv.ZeroEvidenceWindow.selector);
     }
 
     function test_beaconRootsCodeHash_IsTheCanonicalEip4788RuntimeHash() external view {
