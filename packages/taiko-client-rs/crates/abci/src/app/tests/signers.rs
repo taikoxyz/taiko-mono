@@ -623,3 +623,281 @@ async fn missing_list_waits_on_the_cold_path_with_trust_pending() {
     assert_eq!(pending.signer_sources, [SignerSource::Fallback; 2]);
     assert_eq!(app.trust.snapshot().phase, TrustPhase::CatchingUp);
 }
+
+/// The fallback key list an anchor proves is obtained before the block is decided: a proposal
+/// whose anchor proves a list this node does not hold makes `ProcessProposal` (and the proposer's
+/// `PrepareProposal`) fetch it from the own L1, so `FinalizeBlock` finds it. While it cannot be
+/// obtained the node waits, never rejecting; the committed state keeps only the lists the next
+/// decisions can need.
+mod fallback_prefetch {
+    use alloy_primitives::{Address, Bytes};
+    use alloy_sol_types::SolCall;
+
+    use super::*;
+    use crate::{
+        app::Rejection,
+        fallback::{FALLBACK_KEYS_UPDATED, getFallbackKeysCall},
+        l1::L1Error,
+    };
+
+    /// The fallback key list reads `app`'s own L1 answered: `getFallbackKeys()` calls and
+    /// `FallbackKeysUpdated` log queries.
+    fn list_reads(app: &App<MockL1, MockEngine>) -> Vec<L1Call> {
+        app.l1()
+            .calls()
+            .into_iter()
+            .filter(|call| matches!(call, L1Call::CallAt { .. } | L1Call::InboxLogs { .. }))
+            .collect()
+    }
+
+    /// The hashes of the fallback key lists `app`'s committed state holds, ascending.
+    fn held(app: &App<MockL1, MockEngine>) -> Vec<B256> {
+        app.state().expect("initialized").fallback_keys.keys().copied().collect()
+    }
+
+    /// `hashes` in ascending order, as [`held`] lists them.
+    fn ascending<const N: usize>(mut hashes: [B256; N]) -> Vec<B256> {
+        hashes.sort();
+        hashes.to_vec()
+    }
+
+    /// Serves the Inbox `inbox`'s `FallbackKeysUpdated` log of `keys` in L1 block `block`.
+    fn emit(l1: &MockL1, inbox: Address, block: u64, keys: &FallbackKeys) {
+        l1.insert_log(block, inbox, [FALLBACK_KEYS_UPDATED, keys.hash()], keys.abi_encode().into());
+    }
+
+    /// Plants L1 block `number` as `fx`'s finalized block, its Inbox proving `keys`' hash; the
+    /// list itself is not served.
+    fn anchor_proving(
+        fx: &Fixture,
+        app: &App<MockL1, MockEngine>,
+        number: u64,
+        keys: &FallbackKeys,
+    ) {
+        let inbox = InboxStorage {
+            fallback_keys_hash: keys.hash(),
+            ..fx.inbox_with(fx.genesis.genesis_height)
+        };
+        fx.advance_l1(app.l1(), number, &inbox);
+    }
+
+    /// The `ProcessProposal` request of a hand-built envelope for `app`'s next height carrying
+    /// the anchor witness of L1 block `number`.
+    fn anchored_request(
+        fx: &Fixture,
+        app: &App<MockL1, MockEngine>,
+        number: u64,
+    ) -> request::ProcessProposal {
+        let env =
+            super::super::proposal::hand_envelope(app, Some(fx.anchor_witness(app.l1(), number)));
+        process_req(app, next_height(app), bft_time(app), vec![env.encode()])
+    }
+
+    /// `ProcessProposal` of a block whose anchor proves a list this node does not hold fetches
+    /// that list from the own L1, pinned to the anchor's hash; `FinalizeBlock` then decides with
+    /// it without reading the L1 again, and the committed state keeps it.
+    #[tokio::test]
+    async fn new_anchor_hash_is_prefetched_in_process() {
+        let fx = Fixture::genesis(2);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        let other = fallback_list(&[5, 6, 7]);
+        serve_fallback_keys(app.l1(), fx.params.inbox, &other);
+        anchor_proving(&fx, &app, 66, &other);
+        let anchor_hash = fx.anchor_witness(app.l1(), 66).l1_header.hash();
+        let req = anchored_request(&fx, &app, 66);
+
+        assert_eq!(process(&mut app, req.clone()).await, response::ProcessProposal::Accept);
+        assert_eq!(
+            list_reads(&app),
+            [L1Call::CallAt {
+                address: fx.params.inbox,
+                input: Bytes::copy_from_slice(&getFallbackKeysCall::SELECTOR),
+                hash: anchor_hash,
+            }],
+            "one getFallbackKeys() call pinned to the anchor hash"
+        );
+
+        let resp = finalize(&mut app, finalize_req(&req)).await.expect("finalizes");
+        assert_eq!(list_reads(&app).len(), 1, "FinalizeBlock reads no list");
+        let mut expected: Vec<_> = fx.fallback_keys.keys().iter().map(|&key| (key, 0)).collect();
+        expected.extend(other.validator_set());
+        assert_eq!(updates_of(&resp), by_key(expected), "the prefetched list signs H + 2");
+        commit(&mut app).await.expect("commits");
+        assert_eq!(app.state().unwrap().fallback_keys.get(&other.hash()), Some(&other));
+    }
+
+    /// While the own L1 cannot give the list a proposal's anchor proves, whether a log query
+    /// fails or no log holds it, `ProcessProposal` waits, logging why, and never rejects;
+    /// `PrepareProposal` proposes nothing. Once the list is served the waiting proposal is
+    /// accepted, and the proposer builds on the list it now holds.
+    #[tokio::test(start_paused = true)]
+    async fn unobtainable_list_waits_in_process_and_placeholders_prepare() {
+        let fx = Fixture::genesis(2);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        let other = fallback_list(&[5, 6, 7]);
+        anchor_proving(&fx, &app, 66, &other);
+        app.l1().state().log_fail = Some(L1Error::Rpc("eth_getLogs rate limited".into()));
+        let logs = LogCapture::start();
+
+        let req = prepare_req(&app, next_height(&app), bft_time(&app));
+        assert!(prepare(&mut app, req).await.is_empty(), "a placeholder proposal");
+        assert_eq!(app.halt.as_deref(), Some("fallback_keys_unavailable"));
+
+        let req = anchored_request(&fx, &app, 66);
+        let l1 = app.l1.clone();
+        let resp = {
+            let fut = process(&mut app, req);
+            tokio::pin!(fut);
+            assert!(
+                tokio::time::timeout(Duration::from_secs(120), &mut fut).await.is_err(),
+                "it waits while the log query fails"
+            );
+            let warned = logs.at("WARN");
+            let named = |text: &str| {
+                warned
+                    .iter()
+                    .any(|line| line.contains(&other.hash().to_string()) && line.contains(text))
+            };
+            assert!(named("rate limited"), "the L1 failure is logged: {warned:?}");
+
+            l1.state().log_fail = None;
+            assert!(
+                tokio::time::timeout(Duration::from_secs(120), &mut fut).await.is_err(),
+                "it waits while no log holds the list"
+            );
+            serve_fallback_keys(&l1, fx.params.inbox, &other);
+            fut.await
+        };
+        assert_eq!(resp, response::ProcessProposal::Accept);
+
+        let calls = list_reads(&app).len();
+        let req = prepare_req(&app, next_height(&app), bft_time(&app));
+        assert_eq!(prepare(&mut app, req).await.len(), 1, "one envelope; halt = {:?}", app.halt);
+        assert_eq!(list_reads(&app).len(), calls, "the held list needs no read");
+    }
+
+    /// A list this node holds needs no L1 read: a later proposal of the same height whose anchor
+    /// proves a list an earlier proposal fetched, `FinalizeBlock` of it, and once committed a
+    /// block inheriting that anchor.
+    #[tokio::test]
+    async fn cached_list_needs_no_l1() {
+        let fx = Fixture::genesis(2);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        let other = fallback_list(&[5, 6, 7]);
+        serve_fallback_keys(app.l1(), fx.params.inbox, &other);
+        anchor_proving(&fx, &app, 66, &other);
+        let first = anchored_request(&fx, &app, 66);
+        assert_eq!(process(&mut app, first.clone()).await, response::ProcessProposal::Accept);
+        assert_eq!(list_reads(&app).len(), 1, "the first proposal fetches the list");
+
+        let mut later = first;
+        later.hash = tendermint::Hash::Sha256([0x77; 32]);
+        assert_eq!(process(&mut app, later.clone()).await, response::ProcessProposal::Accept);
+        finalize(&mut app, finalize_req(&later)).await.expect("finalizes");
+        commit(&mut app).await.expect("commits");
+        assert_eq!(list_reads(&app).len(), 1, "neither the later proposal nor its decision");
+
+        let env = super::super::proposal::hand_envelope(&app, None);
+        let req = process_req(&app, next_height(&app), bft_time(&app), vec![env.encode()]);
+        assert_eq!(process(&mut app, req.clone()).await, response::ProcessProposal::Accept);
+        finalize(&mut app, finalize_req(&req)).await.expect("finalizes");
+        commit(&mut app).await.expect("commits");
+        assert_eq!(list_reads(&app).len(), 1, "nor a block inheriting the anchor");
+    }
+
+    /// The committed state keeps the list its anchor proves and, after a recovery, the origin
+    /// record's list, which a restart checks; the list of an anchor no longer in play is
+    /// dropped. Generation 0's state records no origin hash, so its origin list stays only while
+    /// an anchor proves it.
+    #[tokio::test]
+    async fn cache_keeps_only_origin_and_anchor_hashes() {
+        let (a, b) = (fallback_list(&[5, 6]), fallback_list(&[7, 8, 9]));
+
+        let (fx, l1, engine, w) = recovery_fixture(1, 6, 1);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), test_options());
+        init_chain(&mut app, init_chain_request(&document(&fx, &w))).await.unwrap();
+        let origin = crate::test_utils::recovery_fallback_keys();
+        assert_eq!(held(&app), [origin.hash()]);
+        let mut inbox = fx.inbox_at_checkpoint(6, w.el_header.hash_slow());
+        inbox.recovery_generation = 1;
+        inbox.forced_inclusion_head = 3;
+        inbox.forced_inclusion_tail = 3;
+        for (number, keys, kept) in [
+            (111, &a, ascending([origin.hash(), a.hash()])),
+            (112, &b, ascending([origin.hash(), b.hash()])),
+            (113, &origin, vec![origin.hash()]),
+        ] {
+            serve_fallback_keys(app.l1(), fx.params.inbox, keys);
+            let inbox = InboxStorage { fallback_keys_hash: keys.hash(), ..inbox.clone() };
+            fx.advance_l1(app.l1(), number, &inbox);
+            step(&mut app, None).await;
+            assert_eq!(app.state().unwrap().anchor.number, number);
+            assert_eq!(held(&app), kept, "after the block anchored at L1 block {number}");
+        }
+
+        let fx = Fixture::genesis(2);
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = initialized(&fx, dir.path()).await;
+        let origin = fx.fallback_keys.clone();
+        assert_eq!(held(&app), [origin.hash()]);
+        for (number, keys) in [(66, &a), (67, &b), (68, &origin)] {
+            serve_fallback_keys(app.l1(), fx.params.inbox, keys);
+            anchor_proving(&fx, &app, number, keys);
+            step(&mut app, None).await;
+            assert_eq!(held(&app), [keys.hash()], "after the block anchored at L1 block {number}");
+        }
+    }
+
+    /// A fallback key list the node cannot obtain, and EL state it cannot read, are node-local
+    /// faults: a liveness pause, never a safety halt and never a rejection.
+    #[test]
+    fn unavailable_list_is_never_a_halt_or_a_reject() {
+        let list = Rejection::FallbackKeysUnavailable(B256::repeat_byte(7));
+        let state = Rejection::ElState("eth_getStorageAt answered JSON-RPC error -32000".into());
+        for (rejection, label) in
+            [(list, "fallback_keys_unavailable"), (state, "el_state_unavailable")]
+        {
+            assert!(!rejection.requires_dependency_repair(), "{rejection}");
+            assert!(rejection.retryable_dependency(), "{rejection}");
+            assert!(!rejection.logs_at_error(), "{rejection}");
+            assert_eq!(rejection.label(), label);
+        }
+    }
+
+    /// A list read gets a deadline long enough for one log query of the most blocks a scan asks
+    /// for, beyond the deadline of an ordinary L1 read: a log query answered after three times
+    /// that deadline completes, in `ProcessProposal` and in a cold `FinalizeBlock`.
+    #[tokio::test(start_paused = true)]
+    async fn a_slow_log_query_is_not_cut_at_the_l1_deadline() {
+        let fx = Fixture::genesis(2);
+        let other = fallback_list(&[5, 6, 7]);
+        let limit = Duration::from_secs(600);
+        let (dirs, mut req) = ([(); 2].map(|()| tempfile::tempdir().unwrap()), None);
+        for (dir, cold) in dirs.iter().zip([false, true]) {
+            let mut app = initialized(&fx, dir.path()).await;
+            anchor_proving(&fx, &app, 66, &other);
+            emit(app.l1(), fx.params.inbox, 66, &other);
+            let slow = app.opts.l1_timeout * 3;
+            app.l1().state().log_delay = Some(slow);
+            let logs = LogCapture::start();
+            let req = req.get_or_insert_with(|| anchored_request(&fx, &app, 66)).clone();
+            if cold {
+                tokio::time::timeout(limit, finalize(&mut app, finalize_req(&req)))
+                    .await
+                    .expect("the cold FinalizeBlock gets the list")
+                    .expect("finalizes");
+            } else {
+                let resp = tokio::time::timeout(limit, process(&mut app, req))
+                    .await
+                    .expect("ProcessProposal gets the list");
+                assert_eq!(resp, response::ProcessProposal::Accept);
+            }
+            assert_eq!(app.l1().log_ranges(), [(0, 66)], "one log query, answered after {slow:?}");
+            assert!(!logs.text().contains("timed out"), "{}", logs.text());
+        }
+    }
+}

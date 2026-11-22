@@ -97,9 +97,11 @@ impl AbciSubCommand {
             opts.engine_timeout,
         )?;
         engine.check_capabilities().await?;
+        // A fallback key list read has the longest deadline of any L1 read
+        // (`list_read_timeout`, at least `l1_timeout`); the transport must not cut it short.
         let l1 = RpcL1Source::new(connect_http_with_timeout(
             common.l1_http_endpoint.clone(),
-            http_timeout_for(opts.l1_timeout),
+            http_timeout_for(opts.list_read_timeout()),
         ));
         let store = Store::new(flags.data_dir.clone())
             .with_val_archive(flags.checkpoint_archive_dir.clone());

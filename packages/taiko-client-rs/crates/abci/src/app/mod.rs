@@ -106,6 +106,12 @@ pub const FINALIZE_RETRY_MAX: Duration = Duration::from_secs(5);
 /// finality, last far longer.
 pub const FINALIZE_RETRY_ESCALATE: Duration = Duration::from_secs(60);
 
+/// The least deadline of one own-L1 read that fetches a fallback key list
+/// ([`AppOptions::list_read_timeout`]): long enough for one `eth_getLogs` query over
+/// [`LOG_CHUNK_BLOCKS`](crate::fallback::LOG_CHUNK_BLOCKS) blocks, the most a backward log scan
+/// asks for at once, which the ordinary [`AppOptions::l1_timeout`] need not cover.
+pub const MIN_LIST_READ_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// How many `ProcessProposal` ACCEPT verdicts the app keeps for `FinalizeBlock` at one height.
 ///
 /// A height that takes many rounds (e.g. while more than a third of the voting power cannot see
@@ -150,6 +156,16 @@ impl Default for AppOptions {
             prepare_timeout: Duration::from_secs(2),
             anchor_hold: Duration::from_secs(12),
         }
+    }
+}
+
+impl AppOptions {
+    /// Deadline of each own-L1 read of a fallback key list fetch: `getFallbackKeys()` at the
+    /// anchor hash and every log query of the backward scan. The fetch as a whole has none, so a
+    /// scan for a list stored long ago completes. It is [`AppOptions::l1_timeout`], but never
+    /// below [`MIN_LIST_READ_TIMEOUT`]; the own L1's HTTP transport must allow it.
+    pub fn list_read_timeout(&self) -> Duration {
+        self.l1_timeout.max(MIN_LIST_READ_TIMEOUT)
     }
 }
 
@@ -315,7 +331,8 @@ pub struct App<L: L1Source, E: Engine> {
     /// and replay read no L1 state through it (blocks carry their L1 facts) but to confirm a
     /// block's anchor header when the block was never judged here ([`App::confirm_anchor`]) and
     /// to fetch a fallback key list the node does not hold, accepted only under the hash the
-    /// block's anchor proves.
+    /// block's anchor proves. `ProcessProposal` and `PrepareProposal` fetch that list first
+    /// ([`App::prefetch_fallback_keys`]), so a block judged here rarely needs that read.
     l1: Arc<OwnL1<L>>,
     /// The execution engine.
     engine: Arc<E>,
@@ -336,10 +353,12 @@ pub struct App<L: L1Source, E: Engine> {
     /// The latest `ProcessProposal` ACCEPT verdicts (at most [`MAX_VERDICTS`]) by CometBFT block
     /// hash, which `FinalizeBlock` reuses without validating again; cleared at `Commit`.
     verdicts: Verdicts,
-    /// Bounded completed anchor, forced proof and authenticated transaction reads. Each successful
-    /// stage survives an overall proposal timeout; root/hash keys prevent reuse for different
-    /// facts. These reads are proposer-independent; expected headers, builds and singleton
-    /// verdicts are derived anew for every request's certified proposer.
+    /// Bounded completed anchor, forced proof and authenticated transaction reads, and the
+    /// in-memory fallback key lists the height's proposals fetched by hash, which
+    /// `FinalizeBlock` decides with. Each successful stage survives an overall proposal timeout;
+    /// root/hash keys prevent reuse for different facts. These reads are proposer-independent;
+    /// expected headers, builds and singleton verdicts are derived anew for every request's
+    /// certified proposer.
     preparation_cache: Arc<Mutex<preparation_cache::PreparationCache>>,
     /// One context-bound Prepare parent replay surviving cancellation of its waiting round.
     execution_repair: Mutex<Option<execution_recovery::OwnedExecutionRepair>>,

@@ -16,13 +16,16 @@
 //!
 //! Once the block has executed and is the EL's head, its post-state and anchor decide the set
 //! that signs two heights later ([`App::decide_signers`]): the staking words are read at the
-//! block's own hash, and a fallback key list the node does not hold yet is taken from its own L1
-//! only under the hash the anchor proves. The response returns the validator updates from the
-//! set that signs the next height to that set. The derived state stays pending until `Commit`
+//! block's own hash, and the fallback key list comes from the committed state or from those
+//! `ProcessProposal` fetched for the height ([`App::prefetch_fallback_keys`]); only a block
+//! this node did not judge, or whose list it could not keep, takes it from its own L1 here,
+//! under the hash the anchor proves. The response returns the updates that turn the set
+//! signing the next height into the set the block decided. The derived state keeps the lists
+//! the next decisions can need ([`kept_fallback_keys`]) and stays pending until `Commit`
 //! persists it.
 
 use crate::wire::{request, response};
-use std::{fmt, future::Future, time::Duration};
+use std::{collections::BTreeMap, fmt, future::Future, time::Duration};
 
 use alloy_primitives::{B256, Bytes, U256};
 use etna_core::staking::StakingWords;
@@ -116,10 +119,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         // height + 2. CometBFT applies exactly the updates this response returns; a change set
         // it would refuse halts it, so the replica halts first. The set that signed this height
         // is the one the next block's LastCommit lists.
-        let (signers, fetched) = self.decide_signers(&next, height).await?;
-        if let Some(keys) = fetched {
-            next.fallback_keys.insert(keys.hash(), keys);
-        }
+        let (signers, anchored) = self.decide_signers(&next, height).await?;
+        next.fallback_keys = kept_fallback_keys(&next, anchored);
         let updates =
             committee::validator_updates(&state.val_state.next.members(), &signers.members);
         next.parent_signers = state.val_state.current.entries.clone();
@@ -253,35 +254,41 @@ impl<L: L1Source, E: Engine> App<L, E> {
     }
 
     /// The set that signs `height + 2`, decided once the block at `height` is the EL's head, and
-    /// the fallback key list fetched for it when `next`, the state after the block, held none
-    /// under the hash the block's anchor proves.
+    /// the fallback key list whose hash the block's anchor proves, when this node holds it or
+    /// had to fetch it.
     ///
     /// The candidate is the snapshot the block's block-start call stored, read from the
     /// block's post-state at its hash ([`App::decided_staking_words`]); it signs when it is
     /// usable under the minimum total stake the block's anchor proves
     /// ([`committee::usable_candidate`]). Otherwise the fallback key list whose hash that anchor
-    /// proves signs, each key at power 1: the one held under that hash, else the one the own L1
-    /// serves for it ([`App::decided_fallback_keys`]). The words serve this decision alone: the
-    /// empty records of a read that skipped them are never kept or shown as a seat table.
+    /// proves signs, each key at power 1: the one `next`, the state after the block, holds under
+    /// that hash, else one a proposal of this height fetched
+    /// ([`App::prefetched_fallback_keys`]), else the one the own L1 serves for it
+    /// ([`App::decided_fallback_keys`]), which only a usable candidate spares. The words serve
+    /// this decision alone: the empty records of a read that skipped them are never kept or
+    /// shown as a seat table.
     async fn decide_signers(
         &self,
         next: &AppState,
         height: u64,
     ) -> Result<(SignerSet, Option<FallbackKeys>), AbciError> {
         let facts = &next.anchor.inbox;
+        let hash = facts.fallback_keys_hash;
+        let held =
+            next.fallback_keys.get(&hash).cloned().or_else(|| self.prefetched_fallback_keys(hash));
         let words =
             self.decided_staking_words(next.parent.hash, height, facts.min_total_stake).await?;
         if let Some(members) = committee::usable_candidate(height, &words, facts.min_total_stake) {
-            return Ok((SignerSet { source: SignerSource::Candidate, members }, None));
+            return Ok((SignerSet { source: SignerSource::Candidate, members }, held));
         }
-        let (keys, fetched) = match next.fallback_keys.get(&facts.fallback_keys_hash) {
-            Some(keys) => (keys.validator_set(), None),
-            None => {
-                let keys = self.decided_fallback_keys(height, &next.anchor).await;
-                (keys.validator_set(), Some(keys))
-            }
+        let keys = match held {
+            Some(keys) => keys,
+            None => self.decided_fallback_keys(height, &next.anchor).await,
         };
-        Ok((SignerSet { source: SignerSource::Fallback, members: keys }, fetched))
+        Ok((
+            SignerSet { source: SignerSource::Fallback, members: keys.validator_set() },
+            Some(keys),
+        ))
     }
 
     /// The candidate snapshot in the post-state of the block `hash` at `height`, whose anchor
@@ -319,13 +326,14 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// The fallback key list whose hash `anchor`, the anchor of the block at `height`, proves,
     /// from the own L1 ([`fetch_fallback_keys`]): `getFallbackKeys()` at the anchor's hash, else
-    /// the Inbox's logs scanned down from the anchor, each L1 read within its own deadline.
-    /// While the list cannot be obtained, for want of a matching list or through any L1 error,
-    /// the block waits with the [`Backoff`] schedule, logging why: a node-local fault, never a
-    /// halt and never another set.
+    /// the Inbox's logs scanned down from the anchor, each L1 read within
+    /// [`AppOptions::list_read_timeout`](super::AppOptions::list_read_timeout) and the scan as a
+    /// whole unbounded. While the list cannot be obtained, for want of a matching list or
+    /// through any L1 error, the block waits with the [`Backoff`] schedule, logging why: a
+    /// node-local fault, never a halt and never another set.
     async fn decided_fallback_keys(&self, height: u64, anchor: &AnchorState) -> FallbackKeys {
         let hash = anchor.inbox.fallback_keys_hash;
-        let l1 = ReadBounded { l1: self.l1.clone(), limit: self.opts.l1_timeout };
+        let l1 = ReadBounded { l1: self.l1.clone(), limit: self.opts.list_read_timeout() };
         let mut backoff = Backoff::new(DECIDED_BLOCK, height);
         loop {
             match fetch_fallback_keys(&l1, self.params.inbox, hash, anchor.hash, anchor.number, 0)
@@ -923,6 +931,31 @@ fn next_state(state: &AppState, v: &Validated, height: u64) -> AppState {
         next.forced_cursor = state.forced_cursor + 1;
     }
     next
+}
+
+/// The fallback key lists the state `next` after a decided block keeps, given `anchored`, the
+/// list its anchor proves when this node holds it: that list, and the recovery origin record's,
+/// which a restart requires ([`App::new`](super::App::new)); every other is dropped. So the
+/// state holds at most two lists, and every decision the next block can make finds its list in
+/// it or brings an anchor of its own, whose list `ProcessProposal` fetches. Generation 0's state
+/// records no origin hash: its origin keys sign only its first two blocks, from the validator
+/// state, so its origin list stays only while an anchor proves it. The lists are node-local
+/// caches, outside the app hash.
+fn kept_fallback_keys(
+    next: &AppState,
+    anchored: Option<FallbackKeys>,
+) -> BTreeMap<B256, FallbackKeys> {
+    let origin = next.recovery.as_ref().map(|origin| origin.fallback_keys_hash);
+    let mut kept: BTreeMap<_, _> = next
+        .fallback_keys
+        .iter()
+        .filter(|&(hash, _)| Some(*hash) == origin)
+        .map(|(hash, keys)| (*hash, keys.clone()))
+        .collect();
+    if let Some(keys) = anchored {
+        kept.insert(keys.hash(), keys);
+    }
+    kept
 }
 
 /// The CometBFT validator update setting `pubkey`'s power to `power` (0 removes it).

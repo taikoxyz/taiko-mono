@@ -274,9 +274,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 )
                 .await?;
                 // A list stored long before R may come only from many log queries: each L1 read
-                // has its own deadline and the acquisition none, so a deep scan completes. A
-                // read that times out or fails is missing data, retried by InitChain.
-                let l1 = ReadBounded { l1: self.l1.clone(), limit: self.opts.l1_timeout };
+                // has its own deadline, long enough for one log query, and the acquisition none,
+                // so a deep scan completes. A read that times out or fails is missing data,
+                // retried by InitChain.
+                let l1 = ReadBounded { l1: self.l1.clone(), limit: self.opts.list_read_timeout() };
                 let keys = crate::recovery::origin_fallback_keys(&l1, &self.params, w).await?;
                 crate::recovery::bootstrap_from(&self.params, w, anchor, keys)?
             }

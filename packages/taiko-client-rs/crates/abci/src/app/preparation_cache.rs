@@ -3,22 +3,24 @@ use super::{App, Rejection};
 use crate::{
     engine::Engine,
     envelope::AnchorWitness,
+    fallback::{FallbackKeys, fetch_fallback_keys},
     forced::{self, ForcedEntry, ForcedError},
-    l1::{L1Error, L1Source, layout::inbox},
+    l1::{L1Error, L1Source, ReadBounded, layout::inbox},
     store::AppState,
     types::{AccountWitness, AnchorState},
 };
 use alloy_primitives::{Address, B256, Bytes, U256};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     future::Future,
     sync::{Arc, Mutex, MutexGuard, PoisonError},
     time::Duration,
 };
 use tokio::{sync::watch, task::JoinHandle};
 
-/// At most one anchor, entry proof and authenticated transaction for the pending proposal, and
-/// the key-to-seat words read for the committed parent's missing validators.
+/// At most one anchor, entry proof and authenticated transaction for the pending proposal, the
+/// key-to-seat words read for the committed parent's missing validators, and the fallback key
+/// lists the height's proposals needed.
 /// These raw reads are proposer-independent and retain only their authenticated root/entry keys.
 /// Headers, payload builds and singleton verdicts are never cached here: every preparation derives
 /// the certified proposer's expected header and rebuilds even when payout addresses are shared.
@@ -38,6 +40,16 @@ pub(super) struct PreparationCache {
     transaction: Option<(ForcedEntry, Bytes)>,
     /// One bounded event read keyed by the complete proven entry.
     transaction_flight: Option<FetchTask<ForcedEntry, Bytes>>,
+    /// The fallback key lists the height's proposals fetched because the committed state held
+    /// none under the hash their anchors prove, by that hash, each hashing to it: the
+    /// in-memory lists `FinalizeBlock` decides with. Only anchors final in the own L1 view
+    /// reach them, so they are at most one per distinct list those L1 blocks hold; `Commit`
+    /// drops them all, its state keeping the one the committed anchor proves.
+    fallback_keys: HashMap<B256, FallbackKeys>,
+    /// One list fetch, keyed by the list's hash, surviving cancellation of its waiting round
+    /// and `Commit` (a list's hash names it at every height): a deep log scan that outlasts one
+    /// proposal's budget completes for a later one.
+    fallback_flight: Option<FetchTask<B256, FallbackKeys>>,
 }
 
 /// Proven queue entry and its original storage witness.
@@ -60,6 +72,8 @@ enum FetchFailure {
     Forced(ForcedError),
     /// Bounded read expired.
     Timeout(&'static str),
+    /// The own L1 gave no fallback key list with this hash; the task logged why.
+    FallbackKeys(B256),
 }
 impl From<FetchFailure> for Rejection {
     /// Restores the handler's failure classification.
@@ -68,11 +82,13 @@ impl From<FetchFailure> for Rejection {
             FetchFailure::L1(e) => Self::L1(e),
             FetchFailure::Forced(e) => Self::Forced(e),
             FetchFailure::Timeout(e) => Self::Timeout(e),
+            FetchFailure::FallbackKeys(hash) => Self::FallbackKeysUnavailable(hash),
         }
     }
 }
 /// One bounded task whose result stays available if the round waiting for it is cancelled.
-/// Dropping it (context replacement, Commit or App drop) aborts unfinished I/O.
+/// Dropping it (context replacement, Commit for a read tied to the height, or App drop) aborts
+/// unfinished I/O.
 #[derive(Debug)]
 struct FetchTask<K, T> {
     /// Exact context under which the result is valid.
@@ -98,14 +114,27 @@ impl<K, T: Clone + Send + Sync + 'static> FetchTask<K, T> {
         what: &'static str,
         fetch: impl Future<Output = Result<T, FetchFailure>> + Send + 'static,
     ) -> Self {
+        Self::spawn_unbounded(key, async move {
+            tokio::time::timeout(after, fetch).await.unwrap_or(Err(FetchFailure::Timeout(what)))
+        })
+    }
+
+    /// Starts one fetch with no deadline of its own, for a fetch that bounds each of its reads
+    /// and may need many of them.
+    fn spawn_unbounded(
+        key: K,
+        fetch: impl Future<Output = Result<T, FetchFailure>> + Send + 'static,
+    ) -> Self {
         let (sender, result) = watch::channel(None);
         let task = tokio::spawn(async move {
-            let completed = tokio::time::timeout(after, fetch)
-                .await
-                .unwrap_or(Err(FetchFailure::Timeout(what)));
-            let _ = sender.send(Some(completed));
+            let _ = sender.send(Some(fetch.await));
         });
         Self { key, result, task }
+    }
+
+    /// The task's result, once it completed successfully.
+    fn succeeded(&self) -> Option<T> {
+        self.result.borrow().as_ref().and_then(|result| result.as_ref().ok().cloned())
     }
 }
 
@@ -142,8 +171,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     pub(super) fn preparation_cache(&self) -> MutexGuard<'_, PreparationCache> {
         lock(&self.preparation_cache)
     }
-    /// Clears proofs and seat words after commit while retaining only bytes for the
-    /// still-pending entry.
+    /// Clears proofs, seat words and fetched fallback key lists after commit while retaining
+    /// only bytes for the still-pending entry and any fallback key list fetch.
     pub(super) fn prepare_next_height(&self, state: &AppState) {
         let mut cache = self.preparation_cache();
         let transaction =
@@ -152,7 +181,75 @@ impl<L: L1Source, E: Engine> App<L, E> {
             .transaction_flight
             .take()
             .filter(|flight| flight.key.index == state.forced_cursor);
-        *cache = PreparationCache { transaction, transaction_flight, ..Default::default() };
+        let fallback_flight = cache.fallback_flight.take();
+        *cache = PreparationCache {
+            transaction,
+            transaction_flight,
+            fallback_flight,
+            ..Default::default()
+        };
+    }
+
+    /// Makes sure this node holds the fallback key list whose hash `anchor` proves before a
+    /// block on that anchor, which is final in the own L1 view, is decided on top of `state`.
+    ///
+    /// A list the committed state holds, or one a proposal of this height already fetched,
+    /// needs no read. Otherwise the own L1 serves it ([`fetch_fallback_keys`] at the anchor,
+    /// each read within [`AppOptions::list_read_timeout`](super::AppOptions::list_read_timeout)
+    /// and the scan as a whole unbounded) in one task that outlives a round that stops waiting
+    /// for it, and the list is kept for `FinalizeBlock`
+    /// ([`App::prefetched_fallback_keys`]). While the own L1 cannot give it, for want of a list
+    /// with that hash or through a failed read, the task logs why and this is
+    /// [`Rejection::FallbackKeysUnavailable`]: a liveness pause, never a verdict on the block.
+    pub(super) async fn prefetch_fallback_keys(
+        &self,
+        state: &AppState,
+        anchor: &AnchorState,
+    ) -> Result<(), Rejection> {
+        let hash = anchor.inbox.fallback_keys_hash;
+        if state.fallback_keys.contains_key(&hash) {
+            return Ok(());
+        }
+        let result = {
+            let mut cache = self.preparation_cache();
+            if cache.fallback_keys.contains_key(&hash) {
+                return Ok(());
+            }
+            if cache
+                .fallback_flight
+                .as_ref()
+                .is_none_or(|flight| flight.key != hash || flight.failed())
+            {
+                let l1 =
+                    ReadBounded { l1: Arc::clone(&self.l1), limit: self.opts.list_read_timeout() };
+                let (inbox, at, at_number) = (self.params.inbox, anchor.hash, anchor.number);
+                let fetch = async move {
+                    fetch_fallback_keys(&l1, inbox, hash, at, at_number, 0).await.map_err(|error| {
+                        tracing::warn!(%hash, %error, "the own L1 gives no fallback key list yet");
+                        FetchFailure::FallbackKeys(hash)
+                    })
+                };
+                cache.fallback_flight = Some(FetchTask::spawn_unbounded(hash, fetch));
+            }
+            cache.fallback_flight.as_ref().expect("task just initialized").result.clone()
+        };
+        let completed = wait_for_fetch(result).await;
+        let mut cache = self.preparation_cache();
+        if cache.fallback_flight.as_ref().is_some_and(|flight| flight.key == hash) {
+            cache.fallback_flight = None;
+        }
+        cache.fallback_keys.insert(hash, completed?);
+        Ok(())
+    }
+
+    /// The fallback key list with hash `hash` that a proposal of this height fetched
+    /// ([`App::prefetch_fallback_keys`]), if any: one kept, or the result of a completed fetch
+    /// no round waited for to the end.
+    pub(super) fn prefetched_fallback_keys(&self, hash: B256) -> Option<FallbackKeys> {
+        let cache = self.preparation_cache();
+        cache.fallback_keys.get(&hash).cloned().or_else(|| {
+            cache.fallback_flight.as_ref().filter(|flight| flight.key == hash)?.succeeded()
+        })
     }
     /// Reuses a verified proof, or one owned in-flight proof, for this exact root and cursor.
     /// Failed tasks are discarded so a later round can retry a recovered L1 endpoint.

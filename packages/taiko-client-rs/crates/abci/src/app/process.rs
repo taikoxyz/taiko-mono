@@ -28,8 +28,10 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// hash for `FinalizeBlock`. A rejection is recorded as the halt reason and logged; it is
     /// never an error. A proven later recovery generation sets the `superseded` status, after
     /// which every proposal is rejected. Missing initialization and own-node integrity failures
-    /// return errors; temporary dependencies wait without a false rejection. Hash-canonical
-    /// unsupported L1 header formats reject without a fatal latch; FinalizeBlock waits instead.
+    /// return errors; temporary dependencies wait without a false rejection, among them a
+    /// fallback key list the own L1 cannot give yet and EL state the own EL cannot serve yet.
+    /// Hash-canonical unsupported L1 header formats reject without a fatal latch; FinalizeBlock
+    /// waits instead.
     pub(super) async fn process_proposal(
         &mut self,
         req: request::ProcessProposal,
@@ -54,6 +56,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                             rejection,
                             Rejection::Timeout(_) |
                                 Rejection::Engine(_) |
+                                Rejection::ElState(_) |
                                 Rejection::ForcedBuild(
                                     crate::engine::forced::ForcedBuildError::Engine(_)
                                 )
@@ -102,8 +105,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// anchor witness must be final and canonical in the own L1 view (L1 is not called when it is
     /// absent), and its proven `lastCheckpoint` must name a block of the local chain
     /// ([`App::check_anchor_checkpoint`]); the shared checker must complete the authenticated
-    /// forced decision within the engine deadline; finally the EL must execute the ordinary
-    /// candidate payload as `VALID`.
+    /// forced decision within the engine deadline; the EL must execute the ordinary candidate
+    /// payload as `VALID`; finally this node must hold the fallback key list the block's anchor
+    /// proves, or obtain it from the own L1 ([`App::prefetch_fallback_keys`]), so that
+    /// `FinalizeBlock` finds it at hand. Only a block valid in every other respect waits for
+    /// its list, and a list the own L1 cannot give yet is
+    /// [`Rejection::FallbackKeysUnavailable`], on which `ProcessProposal` waits.
     ///
     /// Supersession is reported only after the supplied anchor is independently confirmed final
     /// and canonical, since a forged header could claim a later generation.
@@ -184,10 +191,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
         )
         .await?;
         match verdict {
-            PayloadVerdict::Valid => Ok(Validated { executed: true, ..validated }),
-            PayloadVerdict::Invalid(reason) => Err(Rejection::PayloadInvalid(reason)),
-            PayloadVerdict::Syncing => Err(Rejection::PayloadSyncing),
+            PayloadVerdict::Valid => {}
+            PayloadVerdict::Invalid(reason) => return Err(Rejection::PayloadInvalid(reason)),
+            PayloadVerdict::Syncing => return Err(Rejection::PayloadSyncing),
         }
+        self.prefetch_fallback_keys(state, &validated.anchor).await?;
+        Ok(Validated { executed: true, ..validated })
     }
 
     /// Distinguishes a canonical unsupported L1 header from a forged malformed witness.

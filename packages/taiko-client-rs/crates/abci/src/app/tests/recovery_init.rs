@@ -523,7 +523,7 @@ async fn recovery_init_waits_while_a_list_read_times_out() {
         keys.abi_encode().into(),
     );
     let opts = crate::test_utils::test_options();
-    l1.state().log_delay = Some(opts.l1_timeout + Duration::from_secs(1));
+    l1.state().log_delay = Some(opts.list_read_timeout() + Duration::from_secs(1));
     let dir = tempfile::tempdir().unwrap();
     let mut app = app_with(l1, engine, fx.params.clone(), dir.path(), opts);
     let trust = app.trust_handle();

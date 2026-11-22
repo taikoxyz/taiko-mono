@@ -42,10 +42,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// external call also keeps its own deadline), so the proposer answers before CometBFT's
     /// `timeout_propose` even when every call is slow but in time; a request queued behind it
     /// waits no longer. A failed mandatory build (I/O error, timeout, a failing pre-check,
-    /// unavailable forced admission bytes, an envelope above `max_tx_bytes` or one landing) is
-    /// recorded
-    /// as the halt reason and logged, and answers empty `txs`. The errors are a request before
-    /// `InitChain` and a failure that needs its dependency repaired
+    /// unavailable forced admission bytes, a fallback key list for the chosen anchor that the
+    /// own L1 cannot give yet, key-to-seat words the own EL cannot serve yet, an envelope above
+    /// `max_tx_bytes` or one landing) is recorded as the halt reason and logged, and answers
+    /// empty `txs`: a liveness pause, after which a later round proposes once the cause clears.
+    /// A list fetch that outlasts the budget keeps running for a later round. The errors are a
+    /// request before `InitChain` and a failure that needs its dependency repaired
     /// ([`Rejection::requires_dependency_repair`]: malformed own-L1 or EL replies, or execution
     /// state the EL does not know), a safety halt.
     pub(super) async fn prepare_proposal(
@@ -100,9 +102,12 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// Chooses `max(parent anchor, own finalized)` subject to the proposer's short hold
     /// ([`App::anchor_to_propose`]), authenticates a changed anchor or the forced H0 anchor,
     /// checks progress, generation, back-pressure and checkpoint ancestry (proposing nothing
-    /// when a moved anchor's checkpoint conflicts, see [`App::choose_anchor`]), derives
-    /// the header and checks that its timestamp keeps the anchor fresh (an anchor older than
-    /// `maxAnchorAge` proposes nothing until L1 finalizes a newer block). Then collects the queue
+    /// when a moved anchor's checkpoint conflicts, see [`App::choose_anchor`]), makes sure the
+    /// node holds the fallback key list the anchor proves, which every validator needs before
+    /// the block is decided ([`App::prefetch_fallback_keys`]; proposing nothing while the own
+    /// L1 cannot give it), derives the header and checks that its timestamp keeps the anchor
+    /// fresh (an anchor older than `maxAnchorAge` proposes nothing until L1 finalizes a newer
+    /// block). Then collects the queue
     /// entry proof and any due admission bytes, and encodes a mandatory-only block with any
     /// singleton skip evidence. It then tries to include
     /// optional transactions within the remaining budget. Both envelopes must fit the execution
@@ -134,6 +139,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 anchor_state.timestamp,
             ),
         )?;
+        self.prefetch_fallback_keys(state, &anchor_state).await?;
         let miss_bitmap = self.miss_bitmap(state, &committed).await?;
         let expected = expected_header(
             &state.chain_context(),

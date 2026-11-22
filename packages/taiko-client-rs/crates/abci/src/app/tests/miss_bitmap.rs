@@ -540,8 +540,8 @@ async fn seat_words_are_read_at_the_parent_hash_after_the_el_moved_past_it() {
 
 /// An EL that cannot answer the seat read, in transport or within the deadline, keeps
 /// `ProcessProposal` and `FinalizeBlock` waiting until it answers, and makes `PrepareProposal`
-/// propose nothing; the transport error's text, which carries the JSON-RPC code, names the
-/// refusal.
+/// propose nothing, its reason unavailable EL state; the transport error's text, which carries
+/// the JSON-RPC code, names the refusal.
 #[tokio::test(start_paused = true)]
 async fn unavailable_el_waits_in_process_and_placeholders_prepare() {
     let fx = fixture();
@@ -555,7 +555,7 @@ async fn unavailable_el_waits_in_process_and_placeholders_prepare() {
     let mut req = prepare_req(&proposer, next_height(&proposer), bft_time(&proposer));
     req.local_last_commit = Some(extended_commit_info(&flags));
     assert!(prepare(&mut proposer, req).await.is_empty(), "a placeholder proposal");
-    assert_eq!(proposer.halt.as_deref(), Some("engine_error"));
+    assert_eq!(proposer.halt.as_deref(), Some("el_state_unavailable"));
     let env = propose_with(&mut proposer, &flags).await;
     assert_eq!(bitmap_of(&env), 8);
 
@@ -566,9 +566,12 @@ async fn unavailable_el_waits_in_process_and_placeholders_prepare() {
         engine.storage_script.extend([Err(down()), Err(down())]);
     }
     let req = process_with(&validator, &env, &flags);
+    let logs = crate::test_utils::LogCapture::start();
     assert_eq!(process(&mut validator, req.clone()).await, response::ProcessProposal::Accept);
     // The mock records a read once its delay ends, so the timed-out one is not listed.
     assert_eq!(storage_reads(&validator).len(), 3, "down twice, then answered");
+    let warned = logs.at("WARN");
+    assert!(warned.iter().any(|line| line.contains("-32000")), "the cause is logged: {warned:?}");
 
     let mut cold = node(&fx, dirs[2].path(), &seat_3).await;
     cold.engine().state().storage_script.extend([Err(down()), Err(down())]);

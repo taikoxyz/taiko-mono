@@ -121,10 +121,11 @@ impl<L: L1Source, E: Engine> App<L, E> {
     /// ([`etna_core::miss::miss_bitmap`]). Nobody missing reads nothing; words already read at
     /// that hash are reused from the preparation cache.
     ///
-    /// Flags of another count than the parent signers are [`Rejection::LastCommit`]. A failed
-    /// read is the engine's [`Rejection`] ([`Rejection::Timeout`] past the deadline): a retryable
-    /// one waits in `ProcessProposal` and `FinalizeBlock` and proposes a placeholder in
-    /// `PrepareProposal`; a malformed reply needs repair.
+    /// Flags of another count than the parent signers are [`Rejection::LastCommit`]. A read
+    /// that fails with a retryable engine error, or misses the deadline, is
+    /// [`Rejection::ElState`], naming the parent hash and the cause: it waits in
+    /// `ProcessProposal` and `FinalizeBlock` and proposes a placeholder in `PrepareProposal`.
+    /// Any other failure is the engine's [`Rejection::Engine`]; a malformed reply needs repair.
     pub(super) async fn miss_bitmap(
         &self,
         state: &AppState,
@@ -149,12 +150,27 @@ impl<L: L1Source, E: Engine> App<L, E> {
             }
             (words, unread)
         };
-        let read = deadline(
+        let limit = self.opts.engine_timeout;
+        let read = match deadline(
             "seat word read",
-            self.opts.engine_timeout,
+            limit,
             seat_words(self.engine(), self.params.staking, parent, &unread),
         )
-        .await?;
+        .await
+        {
+            Ok(read) => read,
+            Err(Rejection::Engine(error)) if error.is_retryable() => {
+                return Err(Rejection::ElState(format!(
+                    "the key-to-seat words at the parent {parent}: {error}"
+                )));
+            }
+            Err(Rejection::Timeout(what)) => {
+                return Err(Rejection::ElState(format!(
+                    "{what} at the parent {parent} timed out after {limit:?}"
+                )));
+            }
+            Err(other) => return Err(other),
+        };
         self.preparation_cache()
             .seat_words
             .extend(read.iter().map(|(&address, &word)| ((parent, address), word)));

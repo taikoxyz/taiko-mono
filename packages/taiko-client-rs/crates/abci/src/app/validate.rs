@@ -129,11 +129,12 @@ impl fmt::Display for WitnessKind {
 /// [`Rejection::LastCommit`] (a safety halt in every handler) is a liveness matter for the node
 /// that observes it: the block is refused, the chain keeps rounding.
 /// [`validate_block`] yields only the deterministic variants on a decoded envelope; the ¹
-/// node-local ones (anchor finality, L1, engine, EL sync state, timeouts) and the handler-level
-/// ones ([`Rejection::Envelope`], [`Rejection::PlaceholderProposal`],
-/// [`Rejection::ChainSuperseded`], [`Rejection::PayloadInvalid`], [`Rejection::Oversize`],
-/// [`Rejection::BuiltHeader`], [`Rejection::BlockSizeBound`], [`Rejection::ForcedBuild`],
-/// [`Rejection::LastCommit`]) come from the handlers.
+/// node-local ones (anchor finality, L1, engine, EL sync and state, fallback key lists,
+/// timeouts) and the handler-level ones ([`Rejection::Envelope`],
+/// [`Rejection::PlaceholderProposal`], [`Rejection::ChainSuperseded`],
+/// [`Rejection::PayloadInvalid`], [`Rejection::Oversize`], [`Rejection::BuiltHeader`],
+/// [`Rejection::BlockSizeBound`], [`Rejection::ForcedBuild`], [`Rejection::LastCommit`]) come
+/// from the handlers.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Rejection {
     /// The block's transactions are not exactly one well-formed envelope.
@@ -210,6 +211,17 @@ pub enum Rejection {
     /// ¹ An external call exceeded its deadline.
     #[error("{0} timed out")]
     Timeout(&'static str),
+    /// ¹ The fallback key list whose hash the block's anchor proves, which this node does not
+    /// hold, cannot be obtained from the own L1 yet: no read gave a list with that hash, or a
+    /// read failed. A liveness pause, never a verdict on the block: the node waits and retries.
+    #[error("fallback key list {0} cannot be obtained from the own L1 yet")]
+    FallbackKeysUnavailable(B256),
+    /// ¹ The own EL cannot serve, or not within the engine deadline, the state a proposal check
+    /// reads at a committed block: the key-to-seat words in the committed parent's post-state.
+    /// A liveness pause: the node waits and retries. A malformed reply stays
+    /// [`Rejection::Engine`], which needs repair.
+    #[error("execution state unavailable: {0}")]
+    ElState(String),
     /// `PrepareProposal`: the envelope exceeds CometBFT's `max_tx_bytes`.
     #[error("envelope of {len} bytes exceeds max_tx_bytes {max}")]
     Oversize {
@@ -258,6 +270,8 @@ impl Rejection {
 
     /// Transient dependencies keep ProcessProposal pending; a canonical unsupported header
     /// rejects so Comet can rotate rounds. FinalizeBlock independently waits for parser support.
+    /// An unavailable fallback key list and unavailable EL state are transient: the node waits
+    /// for its own L1 or EL, and never rejects a block for them.
     pub(crate) fn retryable_dependency(&self) -> bool {
         match self {
             Self::Engine(error) => error.is_retryable(),
@@ -268,7 +282,11 @@ impl Rejection {
                 !error.is_integrity_failure() &&
                     !matches!(error, L1Error::UnsupportedHeaderFormat { .. })
             }
-            Self::Timeout(_) | Self::PayloadSyncing | Self::LocalBlockMissing(_) => true,
+            Self::Timeout(_) |
+            Self::PayloadSyncing |
+            Self::LocalBlockMissing(_) |
+            Self::FallbackKeysUnavailable(_) |
+            Self::ElState(_) => true,
             _ => false,
         }
     }
@@ -294,6 +312,8 @@ impl Rejection {
             Self::PayloadSyncing => "payload_syncing",
             Self::LocalBlockMissing(_) => "local_block_missing",
             Self::Timeout(_) => "timeout",
+            Self::FallbackKeysUnavailable(_) => "fallback_keys_unavailable",
+            Self::ElState(_) => "el_state_unavailable",
             Self::Oversize { .. } => "envelope_too_large",
             Self::BuiltHeader(_) => "built_header_mismatch",
             Self::Forced(_) => "forced_inclusion",

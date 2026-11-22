@@ -103,7 +103,10 @@ pub struct AppState {
     pub signer_sources: [SignerSource; 2],
     /// The fallback key lists the node holds, keyed by their hash, each hashing to its key, so
     /// a list is obtained from the own L1 once. Every generation starts with its origin record's
-    /// list. A required field: a state file without it is refused (no migration).
+    /// list. Each `FinalizeBlock` keeps only the list the block's anchor proves, when the node
+    /// holds it, and a recovery origin record's, which [`App::new`](crate::App::new) requires:
+    /// at most two. A node-local cache outside the app hash. A required field: a state file
+    /// without it is refused (no migration).
     pub fallback_keys: BTreeMap<B256, FallbackKeys>,
 }
 
