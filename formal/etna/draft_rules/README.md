@@ -80,3 +80,40 @@ environment: `python -m unittest discover -s formal/etna/tests -p
 'test_l2_staking_model.py'`. Repeat with `python -O` to check that explicit
 validation does not depend on assertions. Execution evidence is recorded by
 the review report, separately from this source description.
+
+## Quorum-constrained extension at178
+
+`quorum.py` and `quorum_source.json` separately qualify the20-file design
+increment to unmerged178d7a7a. The original source manifest and model above
+retain69 and their historical scope.
+
+`FlagVote`, `LastCommit` and `Availability` are frozen symbolic records.
+`committed_power` requires one keyed commit/nil/absent flag per parent member;
+only commit contributes power. `available_power` uses unique known eligible
+keys. Both use the selected members' authoritative weights and require
+3*contributing > 2*total. Keys in a raw global online list must be projected to
+this particular set before use; unknown/duplicate keys refuse. Origin and
+fallback sets carry unit powers; candidate sets may carry differing powers.
+
+`advance_with_quorum` checks a parent certificate against current_signers and
+current availability against next_signers, never pending_signers or a union.
+At the origin, parent and previous_available must both be None. For a temporal
+trace, the caller retains the last successfully admitted availability and
+supplies it as previous_available: parent commit/nil may then come only from
+that bound, while absent may also describe an omitted available vote. The
+stateless API cannot prove that a caller retained the actual previous input;
+without that input it offers only independent one-step power compatibility.
+
+Rejected quorums/domains/actions leave the complete predecessor unchanged;
+they execute no state advance and cannot skip a stalled height to reach future
+fallback signers. A failed modeled block-start call inside an admitted block
+still permits ordinary actions. The old call_succeeded bool is not an EVM
+no-code success oracle: that exact execution distinction is outside both models.
+
+Generation/height checks are not full chain-domain, round, BlockID or signature
+authentication. Keyed flag rows do not validate stock wire ordering. The
+availability bound states possible voting power, not which keys actually signed
+the committing round. Even continuous power-compatible traces establish no
+cryptographic validity, stock locking/message behavior, global reachability,
+unconditional liveness or production readiness. Actual results, exact finite
+bounds and independent reviews are in [the report](../L2_QUORUM_REVIEW.md).

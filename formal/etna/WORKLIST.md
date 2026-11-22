@@ -5,6 +5,29 @@ project. [Tracking issue #22355](https://github.com/taikoxyz/taiko-mono/issues/2
 is its GitHub entry point. Historical batch plans and reports retain their
 original measurements; they are not current completion checklists.
 
+## Current quorum-constrained draft review
+
+The user directly authorized continuation after the selected69 review. This
+round fixes source at unmerged PR22425/head
+`178d7a7a66b14305c2f6467ae77163f93dd677cf` with main360 unchanged.
+The [source/trace report](L2_QUORUM_REVIEW.md),
+[design](../../docs/superpowers/specs/2026-11-22-etna-quorum-feasible-traces-design.md)
+and [plan](../../docs/superpowers/plans/2026-11-22-etna-quorum-feasible-traces.md)
+keep its conditional evidence separate from the completed69 scope below.
+
+| Deliverable | Stage | Boundary |
+| --- | --- | --- |
+| L2Q-1 current source delta | COMPLETE selected source review |71 verified head blobs,20-file independent review,634 live/101 retired rule corpus; no blocking normal-model contradiction. |
+| L2Q-2 quorum-constrained traces | COMPLETE selected model | Parent/current weights, flags and availability; source-weight validation repaired and finder-rechecked;18 focused/11 independent normal and optimized, six semantic fault/restorations. |
+| L2Q-3 accumulated review/publication | COMPLETE local gates; external receipts after commit |804 regressions each360/f556, independent whole-diff review and old-byte preservation; existing draft head/body/CI readbacks are recorded separately after commit. |
+
+The new wrapper checks only power and generation/height domains around trusted
+symbolic state. Even a continuous retained-availability trace is not evidence
+of real signatures, stock rounds/locks, message delivery or actual liveness.
+The14 source360 runtime WAITING rows,19 archived INCONCLUSIVE searches and
+the broader30-obligation inventory retain their dispositions. The earlier
+model69 and accepted runtime bundles/classifiers are preserved.
+
 ## Current L2 staking draft review
 
 Direct continuation on2026-11-22 reviews unmerged PR22425 at

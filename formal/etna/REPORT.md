@@ -7792,3 +7792,40 @@ existing493 exact TLC run retains its historical regression scope; its
 models/configs and runner were not changed by this increment. Normal push,
 body preservation and new-head CI receipts are recorded externally after the
 immutable closing commit; no external result is predicted here.
+
+## L2 quorum-constrained draft continuation
+
+Direct continuation after the selected69 boundary round reviews unmerged
+PR22425/head178d7a7a. See [the source/trace report](L2_QUORUM_REVIEW.md).
+All71 head changes and20-file delta identities were verified. Independent
+source review found no blocking normal-model contradiction; the nonnormative
+INDEX summary omits the proof-origin two-slot exception. The current rule
+checker passed634 live/101 retired plus assets/links/tables; purity was SKIP.
+The old runtime classifier, claims and69 model are unchanged.
+
+The new power/domain projection received independent source and behavioral
+verification. Its first
+16 normal and16 optimized tests, including7380 listed flag/power combinations,
+passed before independent review found an omitted relation: fallback/origin
+tags require unit powers. Invalid-selection probes had varied candidate
+weights and shape but never combined a non-candidate source tag with differing
+positive weights. Root reproduced four helper false acceptances plus a queued
+pending-set bypass as five actual assertion failures, zero errors, in two
+tests. This is a new model input-validation defect, not a protocol defect;
+the already generated valid traces use unit weights for these sources.
+The fix adds source/power validation to both public gates and all three
+predecessor pipeline sets. The original finder rechecked it;18 normal/-O
+tests and11 independent normal/-O tests pass, six private semantic faults are
+detected and every exact restoration passes. Fresh ordinary suites pass804
+checks each360/f556 (618/166/20), with zero failures/errors/skips. The original
+919 tracked formal files are preserved except three intentional document
+append/insert edits;52 TLA/603 CFG inputs and all classifiers/claims are
+byte-identical. The corpus634/101 and arithmetic7380 counts are selected finite
+evidence. Actual runtime, crypto, EL/guest, resource and deployment claims are
+not established. Final publication receipts belong to the PR/monitor ledger
+after commit; this source does not predict a hosted CI result.
+
+Independent whole-stage review passed the nine-file candidate and evidence
+limits. Two non-blocking report summaries were clarified for switching-network
+deployment versus new-network genesis, and bitmap coverage through s inclusive.
+The original protocol source, old model and all runtime claims remain unchanged.
