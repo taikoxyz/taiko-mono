@@ -41,6 +41,9 @@ abstract contract EtnaStakingTestBase is CommonTest {
     /// @dev The `exitHeight` of a bond with no exit set.
     uint48 internal constant NO_EXIT = type(uint48).max;
 
+    /// @dev The only caller of `onBlockStart`.
+    address internal constant SYSTEM_CALLER = 0xffffFFFfFFffffffffffffffFfFFFfffFFFfFFfE;
+
     TestERC20 internal token;
     EtnaStaking internal staking;
 
@@ -115,6 +118,13 @@ abstract contract EtnaStakingTestBase is CommonTest {
     function _requestExit(uint256 _bondId) internal {
         vm.prank(staking.bondAt(_bondId).owner);
         staking.requestExit(_bondId);
+    }
+
+    /// @dev Rolls one block, then makes that block's block-start call from the system caller.
+    function _blockStart(uint48 _generation, uint128 _missBitmap) internal {
+        vm.roll(block.number + 1);
+        vm.prank(SYSTEM_CALLER);
+        staking.onBlockStart(_generation, _missBitmap);
     }
 
     /// @dev `keccak256(abi.encode(uint256(keccak256(_namespace)) - 1)) & ~0xff`.

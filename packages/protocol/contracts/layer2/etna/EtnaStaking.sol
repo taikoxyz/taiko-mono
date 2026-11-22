@@ -4,6 +4,8 @@ pragma solidity ^0.8.26;
 import { IEtnaStaking } from "./iface/IEtnaStaking.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { LibBit } from "solady/src/utils/LibBit.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibEtnaKeys } from "src/shared/etna/LibEtnaKeys.sol";
@@ -306,9 +308,17 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
     }
 
     /// @inheritdoc IEtnaStaking
-    /// @dev Not implemented yet: always reverts `NotSystemCaller`.
-    function onBlockStart(uint48, uint128) external pure {
-        revert NotSystemCaller();
+    /// @dev Three passes over the seats, in the interface's order: the miss counts, the penalties
+    /// and the snapshot. The penalties of the call reach slashSink in one transfer, made last.
+    function onBlockStart(uint48 _generation, uint128 _missBitmap) external nonReentrant {
+        require(msg.sender == SYSTEM_CALLER, NotSystemCaller());
+        StakingStorage storage $ = _stakingStorage();
+        $.lastGeneration = _generation;
+
+        _countMisses($, _missBitmap);
+        uint256 penalties = _penalize($);
+        _writeSnapshot($);
+        if (penalties != 0) IERC20(token).safeTransfer(slashSink, penalties);
     }
 
     /// @inheritdoc IEtnaStaking
@@ -514,6 +524,66 @@ contract EtnaStaking is EssentialContract, IEtnaStaking {
         delete $.missCounts[seat_];
         _bond.holdsSeat = false;
         _bond.seat = 0;
+    }
+
+    /// @dev Counts misses: raises the miss count of each occupied seat whose bit in `_missBitmap`
+    /// is set by one and resets the count of every other occupied seat to zero. Only occupied
+    /// seats, all below nMax, are visited, so the other bits change nothing.
+    /// @param $ The staking storage.
+    /// @param _missBitmap The block's missed-signature bitmap; bit s is seat s.
+    function _countMisses(StakingStorage storage $, uint128 _missBitmap) private {
+        for (uint256 seats = $.occupied; seats != 0; seats &= seats - 1) {
+            uint256 seat = LibBit.ffs(seats);
+            // A count that reaches missLimit is reset in the same call, so between calls every
+            // count is below missLimit <= 65,535 and the increment fits in 16 bits.
+            $.missCounts[seat] = ((_missBitmap >> seat) & 1) == 1 ? $.missCounts[seat] + 1 : 0;
+        }
+    }
+
+    /// @dev Penalizes each seated bond whose seat's miss count reached missLimit: deducts
+    /// ceil(effStake * missSlashBps / 10,000) from its effStake and resets the count to zero. A
+    /// bond that this leaves below minStake releases its seat, with no exit set and no event.
+    /// @param $ The staking storage.
+    /// @return total_ The sum of the penalties, owed to slashSink.
+    function _penalize(StakingStorage storage $) private returns (uint256 total_) {
+        for (uint256 seats = $.occupied; seats != 0; seats &= seats - 1) {
+            uint256 seat = LibBit.ffs(seats);
+            if ($.missCounts[seat] < missLimit) continue;
+            $.missCounts[seat] = 0;
+            Bond storage bond = $.bonds[$.seatBond[seat] - 1];
+            uint256 effStake = bond.effStake;
+            // missSlashBps <= 10,000, so the penalty never exceeds effStake.
+            uint256 penalty = Math.mulDiv(effStake, missSlashBps, _BPS, Math.Rounding.Up);
+            effStake -= penalty;
+            bond.effStake = effStake;
+            total_ += penalty;
+            if (effStake < minStake) _releaseSeat($, bond);
+        }
+    }
+
+    /// @dev Writes the candidate snapshot from the seat table: record s, for each s below nMax,
+    /// holds the key and power floor(effStake / vpUnit) of the bond in seat s, or zero for an
+    /// empty seat. Records at or above nMax are never written, so they stay zero. Then writes the
+    /// seated bonds' effStake total and the height. Reverts, failing the whole call, if a power
+    /// does not fit in 64 bits.
+    /// @param $ The staking storage.
+    function _writeSnapshot(StakingStorage storage $) private {
+        uint256 occupied = $.occupied;
+        uint256 totalStake;
+        for (uint256 seat; seat < nMax; ++seat) {
+            if (((occupied >> seat) & 1) == 0) {
+                delete $.records[seat];
+                continue;
+            }
+            Bond storage bond = $.bonds[$.seatBond[seat] - 1];
+            uint256 effStake = bond.effStake;
+            totalStake += effStake;
+            $.records[seat] = SnapshotRecord({
+                ckX: bond.ckX, ckPrefix: bond.ckPrefix, power: SafeCast.toUint64(effStake / vpUnit)
+            });
+        }
+        $.snapshotTotalStake = totalStake;
+        $.snapshotHeight = block.number;
     }
 
     /// @dev Returns a bond's consensus key address, decompressing its stored key. Registration

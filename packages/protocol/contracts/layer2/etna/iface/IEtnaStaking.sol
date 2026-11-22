@@ -311,11 +311,12 @@ interface IEtnaStaking {
     /// `lastGeneration()`, then, in order: counts misses, raising the count of each occupied seat
     /// s by one if bit s of `_missBitmap` is set and resetting it to zero otherwise (bits of empty
     /// seats and at or above nMax change nothing); penalizes each seat whose count reached
-    /// missLimit, deducting ceil(effStake * missSlashBps / 10000) for slashSink with no bounty,
-    /// resetting the count and releasing the seat, without setting an exit, if effStake falls
-    /// below minStake; and writes the 128 snapshot seat records, `snapshotTotalStake` and
-    /// `snapshotHeight` = block.number. Only this call writes the snapshot, and it emits no
-    /// events. If it reverts, nothing changes and the block stays valid.
+    /// missLimit: deducts ceil(effStake * missSlashBps / 10000) from the seated bond for
+    /// slashSink with no bounty and resets the count to zero, and a bond that this leaves below
+    /// minStake also releases its seat, without an exit being set; and writes the 128 snapshot
+    /// seat records, `snapshotTotalStake` and `snapshotHeight` = block.number, so the snapshot
+    /// already reflects this call's penalties. Only this call writes the snapshot, and it emits
+    /// no events. If it reverts, nothing changes and the block stays valid.
     /// @param _generation The block's recovery generation.
     /// @param _missBitmap The block's missed-signature bitmap; bit s is seat s.
     function onBlockStart(uint48 _generation, uint128 _missBitmap) external;
