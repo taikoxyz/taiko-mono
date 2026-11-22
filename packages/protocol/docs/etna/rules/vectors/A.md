@@ -520,26 +520,30 @@ _Reproduce 36a.b with Foundry's `cast`: `cast keccak $(cast abi-encode 'f(bytes3
 
 ## ENC-A-44
 
-| Vector      | Setup                                                             | Expected                         |
-| ----------- | ----------------------------------------------------------------- | -------------------------------- |
-| 44.a accept | fields in order: type, height, round, blockId, timestamp, chainId | matches                          |
-| 44.b reject | height is big-endian rather than 8-byte little-endian             | violates ENC-A-44 (height field) |
-| 44.c reject | the chainId field is omitted                                      | violates ENC-A-44                |
-| 44.d reject | blockId precedes round                                            | violates ENC-A-44 (order)        |
-| 44.e reject | type is 3 (not prevote 1 or precommit 2)                          | violates ENC-A-44 (type values)  |
+| Vector      | Setup                                                             | Expected                                                                                       |
+| ----------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 44.a accept | fields in order: type, height, round, blockId, timestamp, chainId | matches                                                                                        |
+| 44.b reject | height is big-endian rather than 8-byte little-endian             | violates ENC-A-44 (height field)                                                               |
+| 44.c reject | the chainId field is omitted                                      | violates ENC-A-44                                                                              |
+| 44.d reject | blockId precedes round                                            | violates ENC-A-44 (order)                                                                      |
+| 44.e reject | type is 3 (not prevote 1 or precommit 2)                          | violates ENC-A-44 (type values)                                                                |
+| 44.f accept | a nil vote: both hashes empty and total 0                         | the blockId field is omitted; `cv` holds the type, height, round, timestamp and chainId fields |
 
 ## ENC-A-45
 
-| Vector      | Setup                                                                          | Expected                                                                                                                                      |
-| ----------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| 45.a accept | fields shown in `[]` are omitted when zero or empty; `len` is a uvarint prefix | matches                                                                                                                                       |
-| 45.b reject | a zero field is written explicitly instead of omitted                          | violates ENC-A-45                                                                                                                             |
-| 45.c reject | an empty blockId is written with length 0 instead of omitted                   | violates ENC-A-45                                                                                                                             |
-| 45.d accept | timestamp is written even when zero                                            | "always written"                                                                                                                              |
-| 45.e reject | timestamp is omitted when zero                                                 | violates ENC-A-45                                                                                                                             |
-| 45.f reject | a length prefix is not a uvarint                                               | violates ENC-A-45                                                                                                                             |
-| 45.g accept | a vote timestamp of seconds = −1 and nanos = 0                                 | the seconds field is `08 ff ff ff ff ff ff ff ff ff 01` (ten varint bytes), and the timestamp field is `2a 0b` followed by those eleven bytes |
-| 45.h reject | seconds = −1 is written as a varint shorter than ten bytes                     | violates ENC-A-45                                                                                                                             |
+| Vector      | Setup                                                                                                      | Expected                                                                                                                                      |
+| ----------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 45.a accept | numeric fields shown in `[]` are omitted when zero, hash fields only when empty; `len` is a uvarint prefix | matches                                                                                                                                       |
+| 45.b reject | a zero numeric field is written explicitly instead of omitted                                              | violates ENC-A-45                                                                                                                             |
+| 45.c reject | the blockId of a nil vote is written with length 0 instead of omitted                                      | violates ENC-A-44 ("omitted for a nil vote")                                                                                                  |
+| 45.d accept | timestamp is written even when zero                                                                        | "always written"                                                                                                                              |
+| 45.e reject | timestamp is omitted when zero                                                                             | violates ENC-A-45                                                                                                                             |
+| 45.f reject | a length prefix is not a uvarint                                                                           | violates ENC-A-45                                                                                                                             |
+| 45.g accept | a vote timestamp of seconds = −1 and nanos = 0                                                             | the seconds field is `08 ff ff ff ff ff ff ff ff ff 01` (ten varint bytes), and the timestamp field is `2a 0b` followed by those eleven bytes |
+| 45.h reject | seconds = −1 is written as a varint shorter than ten bytes                                                 | violates ENC-A-45                                                                                                                             |
+| 45.i accept | a hash or partsHash field contains 32 zero bytes                                                           | the field is present with its tag, length 32 and all 32 zero bytes                                                                            |
+| 45.j reject | a present 32-byte zero hash is omitted as if empty                                                         | violates ENC-A-45                                                                                                                             |
+| 45.k accept | both hash fields contain 32 zero bytes and total = 0                                                       | the non-nil blockId is present; only the zero total is omitted                                                                                |
 
 ## ENC-A-46
 
