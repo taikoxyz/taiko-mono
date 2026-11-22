@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { LibEtnaVectors } from "./LibEtnaVectors.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { LibEntriesTree } from "src/layer1/etna/libs/LibEntriesTree.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
+import { LibEtnaVectors } from "test/shared/etna/LibEtnaVectors.sol";
 
 /// @dev Holds a tree in storage and exposes the library through external calls.
 contract LibEntriesTreeHarness {

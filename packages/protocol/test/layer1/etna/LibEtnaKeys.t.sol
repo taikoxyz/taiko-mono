@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { EtnaVectorReader, LibEtnaVectors } from "./LibEtnaVectors.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { LibEtnaKeys } from "src/layer1/etna/libs/LibEtnaKeys.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
+import { EtnaVectorReader, LibEtnaVectors } from "test/shared/etna/LibEtnaVectors.sol";
 
 /// @dev Exposes the library through external calls with calldata parameters.
 contract LibEtnaKeysHarness {
