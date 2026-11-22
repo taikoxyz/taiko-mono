@@ -114,6 +114,12 @@ jobs:
           FOUNDRY_INVARIANT_RUNS: 256
         run: pnpm test:l1 --match-contract 'Etna.*Invariant'
 
+      - name: Run Etna L2 staking invariant campaigns at 256 runs
+        working-directory: ./packages/protocol
+        env:
+          FOUNDRY_INVARIANT_RUNS: 256
+        run: pnpm test:l2 --match-contract 'EtnaStaking.*Invariant'
+
       - name: Test L1 contracts
         working-directory: ./packages/protocol
         run: pnpm snapshot:l1 && pnpm layout:l1
