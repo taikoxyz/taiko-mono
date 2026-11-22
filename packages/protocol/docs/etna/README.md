@@ -103,7 +103,10 @@ The Etna block-production and validation rules are in
   except after a verifier-failure rollback, a landed checkpoint covers the last
   block a bond's seat let its key sign before the stake leaves (4.1). While
   blocks are produced, a seated bond that misses `missLimit` consecutive blocks
-  loses `missSlashBps` basis points of its stake; a halt penalizes nobody (4.2). Bond ids are never reused, and forfeiture
+  loses `missSlashBps` basis points of its stake; a halt penalizes nobody (4.2).
+  A miss is a precommit absent from the next block's LastCommit, whatever the
+  reason: a signature that arrives too late counts like one never made
+  (section 12, items 24, 31 and 33). Bond ids are never reused, and forfeiture
   identifies an issued bond by that id alone. The launch checklist derives
   `minTotalStake` from an independent capital target and conservative price;
   below it the fallback key set signs, with no stake behind it, while funds on L1
@@ -120,9 +123,10 @@ The Etna block-production and validation rules are in
   stays; the unsettled suffix is discarded with the staking operations in it,
   and the new generation starts from a fixed, authenticated origin whose
   fallback key set signs its first two blocks. When a third or more of the
-  candidate's power is offline, the DAO raises `minTotalStake` and recovers in
-  one proposal, forfeits the offline bonds while the fallback key set signs and
-  then lowers the threshold again; when a third or more of the fallback key set
+  candidate's power is offline, the DAO sets `minTotalStake` to 2^256 − 1, which
+  forces the fallback key set, and recovers in one proposal, forfeits the
+  offline bonds while the fallback key set signs and then lowers the threshold
+  again; when a third or more of the fallback key set
   is offline, it replaces the keys and recovers (8). A verifier
   failure is not handled by `recover`: its
   settlement rollback runs in the same DAO upgrade that replaces the verifier.
@@ -139,7 +143,8 @@ The Etna block-production and validation rules are in
   scheduled time and restart through `recover`.
 - **Open design and acceptance:** deployment values for the capital target,
   reference price and forfeiture rate
-  (item 18) and `missLimit` (section 11) remain to be pinned before launch. The
+  (item 18), `missLimit` and `timeout_commit` (section 11) remain to be pinned
+  before launch. The
   proving capacity that lets one worst-case block be proven on its own
   (section 1), including a commit of up to 128 signatures at every block
   (item 32), is established by the checklist's resource acceptance, as are the
