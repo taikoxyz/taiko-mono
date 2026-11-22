@@ -21,15 +21,37 @@ import "src/shared/vault/ERC721Vault.sol";
 import { EtnaVoteKeys } from "test/layer2/etna/EtnaVoteKeys.sol";
 import { EtnaTestKeys } from "test/shared/etna/EtnaTestKeys.sol";
 
-contract TestGenerateGenesis is Test {
+/// @notice The generator output that both genesis suites read, and the helpers they share.
+abstract contract GenerateGenesisTestBase is Test {
     using stdJson for string;
 
-    string private configJSON =
+    string internal configJSON =
         vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_config.json"));
-    string private genesisAllocJSON =
+    string internal genesisAllocJSON =
         vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_alloc.json"));
-    address private contractOwner = configJSON.readAddress(".contractOwner");
-    uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
+    address internal contractOwner = configJSON.readAddress(".contractOwner");
+    uint256 internal l1ChainId = configJSON.readUint(".l1ChainId");
+
+    function getPredeployedContractAddress(string memory contractName)
+        internal
+        view
+        returns (address)
+    {
+        return configJSON.readAddress(string.concat(".contractAddresses.", contractName));
+    }
+
+    function checkDeployedCode(string memory contractName) internal view {
+        address contractAddress = getPredeployedContractAddress(contractName);
+        string memory deployedCode =
+            genesisAllocJSON.readString(string.concat(".", vm.toString(contractAddress), ".code"));
+
+        assertEq(address(contractAddress).code, vm.parseBytes(deployedCode));
+    }
+}
+
+contract TestGenerateGenesis is GenerateGenesisTestBase {
+    using stdJson for string;
+
     bool private usesBeaconRoots = configJSON.readBool(".usesBeaconRoots");
 
     function testSharedContractsDeployment() public {
@@ -351,22 +373,6 @@ contract TestGenerateGenesis is Test {
         assertEq(regularERC20.symbol(), "RGL");
     }
 
-    function getPredeployedContractAddress(string memory contractName)
-        private
-        view
-        returns (address)
-    {
-        return configJSON.readAddress(string.concat(".contractAddresses.", contractName));
-    }
-
-    function checkDeployedCode(string memory contractName) private view {
-        address contractAddress = getPredeployedContractAddress(contractName);
-        string memory deployedCode =
-            genesisAllocJSON.readString(string.concat(".", vm.toString(contractAddress), ".code"));
-
-        assertEq(address(contractAddress).code, vm.parseBytes(deployedCode));
-    }
-
     function checkProxyImplementation(string memory proxyName) private {
         return checkProxyImplementation(proxyName, contractOwner);
     }
@@ -402,7 +408,7 @@ contract TestGenerateGenesis is Test {
 /// configuration, `data/genesis_config_etna.js`, generates, on a node started from that genesis.
 /// `genesis.test.sh` runs this contract alone against that node, and the contract above against
 /// the default genesis.
-contract TestGenerateEtnaGenesis is Test {
+contract TestGenerateEtnaGenesis is GenerateGenesisTestBase {
     using stdJson for string;
 
     /// @dev The ERC-1967 implementation slot.
@@ -412,12 +418,11 @@ contract TestGenerateEtnaGenesis is Test {
     /// @dev The ERC-7201 base slot T of `taiko.etna.staking`.
     bytes32 private constant T = 0x5cfa9ae4fa3ccb6db5189dbaff84335bb566ebd2f7442638272a1d81ccb19e00;
 
-    string private configJSON =
-        vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_config.json"));
-    string private genesisAllocJSON =
-        vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_alloc.json"));
-    address private contractOwner = configJSON.readAddress(".contractOwner");
-    uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
+    /// @dev EssentialContract's flags slot and the word `init` leaves there: `__paused` 1 (not
+    /// paused) in byte 1, and byte 0, the deprecated `__reentry`, never written.
+    bytes32 private constant FLAGS_SLOT = bytes32(uint256(201));
+    bytes32 private constant INIT_FLAGS = bytes32(uint256(0x0100));
+
     EtnaStaking private staking = EtnaStaking(getPredeployedContractAddress("EtnaStaking"));
     BridgedTaikoToken private btoken =
         BridgedTaikoToken(getPredeployedContractAddress("BridgedTaikoToken"));
@@ -435,6 +440,7 @@ contract TestGenerateEtnaGenesis is Test {
 
         assertEq(staking.owner(), configJSON.readAddress(".etna.stakingOwner"));
         assertEq(staking.pendingOwner(), address(0));
+        assertEq(vm.load(address(staking), FLAGS_SLOT), INIT_FLAGS);
         assertFalse(staking.paused());
         assertEq(staking.resolver(), address(0));
 
@@ -507,6 +513,7 @@ contract TestGenerateEtnaGenesis is Test {
         checkDeployedCode("BridgedTaikoTokenImpl");
         assertEq(vm.load(address(btoken), IMPLEMENTATION_SLOT), bytes32(uint256(uint160(impl))));
         assertEq(btoken.owner(), contractOwner);
+        assertEq(vm.load(address(btoken), FLAGS_SLOT), INIT_FLAGS);
         assertFalse(btoken.paused());
         assertEq(btoken.erc20Vault(), vault);
         assertEq(btoken.name(), "Taiko Token");
@@ -628,21 +635,5 @@ contract TestGenerateEtnaGenesis is Test {
 
     function premintKey(uint256 _index) private pure returns (string memory) {
         return string.concat(".etna.premint[", vm.toString(_index), "]");
-    }
-
-    function getPredeployedContractAddress(string memory contractName)
-        private
-        view
-        returns (address)
-    {
-        return configJSON.readAddress(string.concat(".contractAddresses.", contractName));
-    }
-
-    function checkDeployedCode(string memory contractName) private view {
-        address contractAddress = getPredeployedContractAddress(contractName);
-        string memory deployedCode =
-            genesisAllocJSON.readString(string.concat(".", vm.toString(contractAddress), ".code"));
-
-        assertEq(address(contractAddress).code, vm.parseBytes(deployedCode));
     }
 }

@@ -299,9 +299,10 @@ export async function deployEtna(
         ] = word(params.premintTotal.shl(32));
     }
 
-    // EssentialContract's flags and the initializer state that `init` leaves in a proxy.
+    // The initializer state, owner and pause flag that `init` leaves in a proxy. `init` never
+    // writes the deprecated `__reentry` byte (the reentry lock is transient), so slot 201 holds
+    // only `__paused`: 0x0100.
     const initialized = (owner: string) => ({
-        __reentry: 1, // _FALSE
         __paused: 1, // _FALSE: not paused, unlike the ERC20Vault predeploy
         _initialized: 1,
         _initializing: false,
