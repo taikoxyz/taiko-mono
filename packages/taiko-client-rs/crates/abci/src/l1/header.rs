@@ -1,73 +1,17 @@
-//! The raw L1 header an anchor or genesis witness carries. No I/O.
+//! The owned raw L1 header an anchor or genesis witness carries. No I/O.
 //!
-//! An L1 header travels as its exact RLP bytes, never as a decoded struct: its hash is
-//! `keccak256(raw)`, and the node reads the few fields it uses by position from the RLP list
-//! (`parentHash` at 0, `stateRoot` at 3, `number` at 8, `timestamp` at 11). Every field after
-//! those is carried and hashed but otherwise ignored, so an L1 fork that appends header fields (a
-//! block-access-list hash, a slot number, ...) changes neither the decoding nor the hash. A
-//! decoded struct could not do that: a decoder that does not know the new fields rejects them,
-//! and re-encoding a struct drops them, so the re-encoding no longer hashes to the block hash.
+//! The shared [`L1HeaderView`] checks framing and reads the positional fields.
+//! The witness carries the exact received bytes, including appended fields.
 
 use alloy_consensus::Header;
-use alloy_primitives::{B256, Bytes, keccak256};
-use alloy_rlp::{BufMut, Decodable, Encodable, PayloadView};
+use alloy_primitives::{B256, Bytes};
+use alloy_rlp::{BufMut, Decodable, Encodable};
+use etna_core::l1_header::L1HeaderView;
 
-/// Position of `parentHash` in an L1 header's RLP list.
-pub const PARENT_HASH_INDEX: usize = 0;
-/// Position of `stateRoot` in an L1 header's RLP list.
-pub const STATE_ROOT_INDEX: usize = 3;
-/// Position of `number` in an L1 header's RLP list.
-pub const NUMBER_INDEX: usize = 8;
-/// Position of `timestamp` in an L1 header's RLP list.
-pub const TIMESTAMP_INDEX: usize = 11;
-/// Minimum positional fields needed through timestamp; later header fields remain opaque.
-pub const MIN_FIELDS: usize = 12;
-/// Maximum authenticated L1 header size, including its canonical RLP framing.
-pub const MAX_HEADER_BYTES: usize = 4096;
-
-/// Why bytes are not an L1 header.
-#[derive(Debug, thiserror::Error, Clone, Copy, PartialEq, Eq)]
-pub enum L1HeaderError {
-    /// The original header exceeds the consensus byte bound.
-    #[error("L1 header is {0} bytes, exceeding 4096")]
-    Oversize(usize),
-    /// The bytes are not one well-formed, canonical RLP list of well-formed items.
-    #[error("malformed L1 header RLP: {0}")]
-    Rlp(alloy_rlp::Error),
-    /// Bytes follow the header's RLP list; the value is how many.
-    #[error("{0} trailing bytes after the L1 header list")]
-    TrailingBytes(usize),
-    /// The list has fewer than [`MIN_FIELDS`] fields.
-    #[error("L1 header has {got} fields, at least {MIN_FIELDS} expected")]
-    TooFewFields {
-        /// The number of fields in the list.
-        got: usize,
-    },
-    /// A field the node reads does not decode as its type (a 32-byte hash or a `u64`).
-    #[error("L1 header field {name} (position {index}) is malformed: {error}")]
-    Field {
-        /// The field's position in the list.
-        index: usize,
-        /// The field's name.
-        name: &'static str,
-        /// Why it does not decode.
-        error: alloy_rlp::Error,
-    },
-}
-
-impl L1HeaderError {
-    /// The error as an [`alloy_rlp::Error`], for decoding a witness that carries the header: a
-    /// static message per variant, as [`alloy_rlp::Error::Custom`] holds no runtime detail.
-    const fn as_rlp_error(&self) -> alloy_rlp::Error {
-        alloy_rlp::Error::Custom(match self {
-            Self::Oversize(_) => "raw L1 header exceeds byte bound",
-            Self::Rlp(_) => "malformed raw L1 header RLP",
-            Self::TrailingBytes(_) => "trailing bytes after the raw L1 header",
-            Self::TooFewFields { .. } => "raw L1 header has too few fields",
-            Self::Field { .. } => "raw L1 header has a malformed field",
-        })
-    }
-}
+pub use etna_core::l1_header::{
+    L1HeaderError, MAX_HEADER_BYTES, MIN_FIELDS, NUMBER_INDEX, PARENT_HASH_INDEX, STATE_ROOT_INDEX,
+    TIMESTAMP_INDEX,
+};
 
 /// An L1 header as its exact RLP bytes, with the fields the node reads decoded by position.
 ///
@@ -97,30 +41,18 @@ impl RawL1Header {
     /// Rejects anything but one canonical RLP list ([`L1HeaderError::Rlp`]) followed by no other
     /// bytes ([`L1HeaderError::TrailingBytes`]) with at least [`MIN_FIELDS`] items
     /// ([`L1HeaderError::TooFewFields`]) whose `parentHash` and `stateRoot` are 32-byte strings
-    /// and whose `number` and `timestamp` are canonical `u64`s ([`L1HeaderError::Field`]). Fields
-    /// past the ones it reads are only checked to be well-formed RLP items.
+    /// and whose `number` and `timestamp` are canonical `u64`s ([`L1HeaderError::Field`]). The
+    /// other items' RLP framing is checked and their contents are opaque.
     pub fn from_raw(raw: Bytes) -> Result<Self, L1HeaderError> {
-        if raw.len() > MAX_HEADER_BYTES {
-            return Err(L1HeaderError::Oversize(raw.len()));
-        }
-        let mut buf = raw.as_ref();
-        let fields = match alloy_rlp::Header::decode_raw(&mut buf).map_err(L1HeaderError::Rlp)? {
-            PayloadView::List(fields) => fields,
-            PayloadView::String(_) => {
-                return Err(L1HeaderError::Rlp(alloy_rlp::Error::UnexpectedString));
-            }
-        };
-        if !buf.is_empty() {
-            return Err(L1HeaderError::TrailingBytes(buf.len()));
-        }
-        if fields.len() < MIN_FIELDS {
-            return Err(L1HeaderError::TooFewFields { got: fields.len() });
-        }
-        let parent_hash = field(&fields, PARENT_HASH_INDEX, "parentHash")?;
-        let state_root = field(&fields, STATE_ROOT_INDEX, "stateRoot")?;
-        let number = field(&fields, NUMBER_INDEX, "number")?;
-        let timestamp = field(&fields, TIMESTAMP_INDEX, "timestamp")?;
-        Ok(Self { hash: keccak256(&raw), raw, parent_hash, state_root, number, timestamp })
+        let view = L1HeaderView::from_raw(raw.as_ref())?;
+        Ok(Self {
+            hash: view.hash(),
+            parent_hash: view.parent_hash(),
+            state_root: view.state_root(),
+            number: view.number(),
+            timestamp: view.timestamp(),
+            raw,
+        })
     }
 
     /// The header's RLP list, exactly as received.
@@ -183,21 +115,11 @@ impl Decodable for RawL1Header {
     }
 }
 
-/// Decodes the item at `index` of `fields` (one complete RLP item) as a `T` named `name`.
-fn field<T: Decodable>(
-    fields: &[&[u8]],
-    index: usize,
-    name: &'static str,
-) -> Result<T, L1HeaderError> {
-    let mut item = fields[index];
-    T::decode(&mut item).map_err(|error| L1HeaderError::Field { index, name, error })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_utils::raw_with_future_fields;
-    use alloy_primitives::{Address, B64, Bloom, U64, U256, b256, hex};
+    use alloy_primitives::{Address, B64, Bloom, U64, U256, b256, hex, keccak256};
 
     /// A post-Prague header (21 fields) with distinct values in the positions the node reads.
     fn prague() -> Header {
