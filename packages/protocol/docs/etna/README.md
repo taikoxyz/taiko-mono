@@ -150,7 +150,7 @@ The Etna block-production and validation rules are in
   (item 32), is established by the checklist's resource acceptance, as are the
   real-guest, signer, recovery and launch checks. Gas acceptance covers the
   staking contract's entry points with every seat occupied and the block-start
-  staking call's worst case within its 30,000,000 gas limit.
+  staking call's worst case within the 30,000,000 gas its frame has.
 
 These points are reading aids. SPEC.md holds the validity rules, and
 ACCEPTANCE.md holds the acceptance and launch requirements.
