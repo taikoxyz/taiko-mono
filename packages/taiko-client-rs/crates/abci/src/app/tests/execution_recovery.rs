@@ -8,7 +8,10 @@ use super::{
     proposal::{bft_time, next_height, process, process_req, propose, step},
     *,
 };
-use crate::app::execution_recovery::SuffixRestore;
+use crate::{
+    app::execution_recovery::SuffixRestore,
+    store::{Record, SEGMENT_HEIGHTS},
+};
 
 /// Lose all execution blocks above the generation origin, retaining only that ancestor's state.
 fn lose_suffix(app: &App<MockL1, MockEngine>) {
@@ -82,11 +85,8 @@ async fn process_restores_committed_execution_suffix_without_canonicalizing_the_
 }
 
 /// Replace auxiliary bytes with a checksum-valid RLP block, simulating coherent local damage.
-fn replace_body(directory: &Path, block: &crate::ExecutionBlock) {
-    let body = alloy_rlp::encode(block);
-    let framed = [alloy_primitives::keccak256(&body).as_slice(), body.as_slice()].concat();
-    std::fs::write(directory.join(format!("execution-block-{}.bin", block.header.number)), framed)
-        .unwrap();
+fn replace_body(store: &Store, block: &crate::ExecutionBlock) {
+    store.execution_blocks().replace(block.header.number, &alloy_rlp::encode(block));
 }
 
 #[tokio::test(start_paused = true)]
@@ -101,11 +101,10 @@ async fn unavailable_execution_sidecars_keep_process_pending_without_false_rejec
         let envelope = propose(&mut app).await;
         let req = process_req(&app, next_height(&app), bft_time(&app), vec![envelope.encode()]);
         let committed = app.state().unwrap().clone();
-        let path = dir.path().join("execution-block-2.bin");
         if corrupt {
-            std::fs::write(path, b"damaged payload").unwrap();
+            app.store.execution_blocks().corrupt(2);
         } else {
-            std::fs::remove_file(path).unwrap();
+            app.store.execution_blocks().remove(2).expect("the body is retained");
         }
         lose_suffix(&app);
         assert!(
@@ -136,7 +135,7 @@ async fn coherent_execution_sidecar_hash_or_transaction_root_damage_halts_before
         } else {
             block.header.timestamp += 1;
         }
-        replace_body(dir.path(), &block);
+        replace_body(&app.store, &block);
         let committed = app.state().unwrap().clone();
         lose_suffix(&app);
         let error = app.restore_committed_execution(&committed).await.unwrap_err();
@@ -203,7 +202,7 @@ async fn execution_sidecar_write_failure_prevents_a_finalized_state_from_becomin
     let envelope = propose(&mut app).await;
     let (accepted, req) = super::proposal::judge(&mut app, &envelope).await;
     assert_eq!(accepted, response::ProcessProposal::Accept);
-    std::fs::create_dir(dir.path().join("execution-block-1.bin")).unwrap();
+    std::fs::create_dir(dir.path().join(format!("execution-block-{:020}.log", 0))).unwrap();
     let result = super::proposal::finalize(&mut app, super::proposal::finalize_req(&req)).await;
     assert!(matches!(result, Err(AbciError::Store(_))), "{result:?}");
     assert!(app.pending.is_none(), "failed payload durability prevents Commit acknowledgement");
@@ -282,6 +281,33 @@ async fn missing_origin_state_never_replays_the_available_generation_archive() {
     assert_eq!(app.state(), Some(&committed));
 }
 
+/// Commit prunes the execution bodies below the committed anchor's checkpoint, a segment at a
+/// time, with the other per-height records. An EL that lost its suffix down to below the
+/// checkpoint then finds the first body it needs missing: the restore reports that height as
+/// unavailable data and changes nothing, never a halt.
+#[tokio::test(start_paused = true)]
+async fn el_suffix_below_the_checkpoint_is_missing_not_a_halt() {
+    let fx = super::finalize::short_limit_at(SEGMENT_HEIGHTS - 4);
+    let dir = tempfile::tempdir().unwrap();
+    let (app, _) = super::finalize::multi_height_run(&fx, dir.path()).await;
+    let committed = app.state().unwrap().clone();
+    assert!(committed.comet_history_floor() > SEGMENT_HEIGHTS, "the checkpoint passed a segment");
+    assert_eq!(app.store.load_execution_block(SEGMENT_HEIGHTS - 1).unwrap(), Record::Missing);
+    assert!(matches!(app.store.load_execution_block(SEGMENT_HEIGHTS).unwrap(), Record::Valid(_)));
+    lose_suffix(&app);
+    assert_eq!(
+        app.restore_committed_execution(&committed).await.unwrap(),
+        SuffixRestore::Missing(SEGMENT_HEIGHTS - 1)
+    );
+    assert!(
+        !app.engine().calls().iter().any(|call| matches!(call, EngineCall::NewPayload(_))),
+        "nothing is re-fed before the whole suffix is authenticated"
+    );
+    assert!(app.halt.is_none());
+    assert!(app.store.fatal_evidence().unwrap().is_none());
+    assert_eq!(app.state(), Some(&committed));
+}
+
 #[tokio::test(start_paused = true)]
 async fn restart_ignores_execution_sidecars_above_the_committed_app_state() {
     let fx = Fixture::genesis(1);
@@ -294,7 +320,7 @@ async fn restart_ignores_execution_sidecars_above_the_committed_app_state() {
     let envelope = propose(&mut app).await;
     let (_, req) = super::proposal::judge(&mut app, &envelope).await;
     super::proposal::finalize(&mut app, super::proposal::finalize_req(&req)).await.unwrap();
-    assert!(dir.path().join("execution-block-4.bin").exists());
+    assert!(matches!(app.store.load_execution_block(4).unwrap(), Record::Valid(_)));
     lose_suffix(&app);
     let engine = Arc::clone(&app.engine);
     drop(app);
@@ -380,7 +406,7 @@ async fn prepare_parent_recovery_uses_the_same_total_proposal_timeout() {
     }
     let committed = app.state().unwrap().clone();
     lose_suffix(&app);
-    std::fs::remove_file(dir.path().join("execution-block-3.bin")).unwrap();
+    app.store.execution_blocks().remove(3).expect("the body is retained");
     app.engine().state().delay = Some(app.opts.prepare_timeout / 2);
     let request = super::proposal::prepare_req(&app, next_height(&app), bft_time(&app));
     let start = tokio::time::Instant::now();
@@ -603,13 +629,18 @@ async fn prepare_repairs_a_second_execution_crash_at_the_same_committed_parent()
     }
 }
 
+/// The first block of a [`delivered_execution_repair_failure`] run, the last height of its
+/// segment, so that its execution body alone can be made unreadable.
+const FIRST: u64 = SEGMENT_HEIGHTS - 1;
+
 /// Finishes a failed owned repair after its Prepare waiter times out, then restores the EL
 /// independently so subsequent handlers could otherwise discard the original delivered error.
+/// The repair fails on the execution body of [`FIRST`]: unreadable, or coherently damaged.
 async fn delivered_execution_repair_failure(
     directory: &Path,
     io_failure: bool,
 ) -> (App<MockL1, MockEngine>, request::ProcessProposal, crate::store::AppState) {
-    let fx = Fixture::genesis(1);
+    let fx = super::finalize::started_at(FIRST - 1, crate::test_utils::GenesisSpec::new(1));
     let mut app = initialized(&fx, directory).await;
     let mut first = step(&mut app).await.block;
     for _ in 0..2 {
@@ -622,13 +653,14 @@ async fn delivered_execution_repair_failure(
         let engine = app.engine().state();
         (engine.chain.clone(), engine.known.clone())
     };
+    assert_eq!(first.header.number, FIRST);
     if io_failure {
-        let path = directory.join("execution-block-1.bin");
+        let path = directory.join(format!("execution-block-{:020}.log", 0));
         std::fs::remove_file(&path).unwrap();
         std::fs::create_dir(path).unwrap();
     } else {
         first.header.timestamp += 1;
-        replace_body(directory, &first);
+        replace_body(&app.store, &first);
     }
     lose_suffix(&app);
     app.opts.prepare_timeout = Duration::from_secs(1);
@@ -678,15 +710,15 @@ async fn commit_harvests_delivered_repair_failure_before_publishing_any_new_stat
         .expect_err("Commit must return the delivered contradiction");
     assert!(matches!(error, AbciError::SafetyHalt(_)), "{error}");
     assert_eq!(app.state(), Some(&committed));
-    assert_eq!(app.store.load().unwrap(), Some(committed));
+    assert_eq!(app.store.load().unwrap(), Some(committed.clone()));
     assert!(
-        !dir.path().join("comet-hash-4.json").exists(),
+        app.store.load_comet_hash(committed.last_height + 1).unwrap().is_none(),
         "no new commit record precedes retirement"
     );
     assert!(
         std::fs::read_to_string(dir.path().join("fatal-evidence.txt"))
             .unwrap()
-            .contains("durable execution block at 1")
+            .contains(&format!("durable execution block at {FIRST} contradicts"))
     );
 }
 
@@ -710,7 +742,7 @@ async fn app_drop_preserves_fatal_evidence_from_a_delivered_repair_failure() {
     assert!(
         std::fs::read_to_string(dir.path().join("fatal-evidence.txt"))
             .unwrap()
-            .contains("durable execution block at 1")
+            .contains(&format!("durable execution block at {FIRST} contradicts"))
     );
 }
 

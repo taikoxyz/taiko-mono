@@ -616,7 +616,8 @@ async fn install_refuses_foreign_home_used_app_store_tampered_plan_or_registered
 
     // An app dir from an earlier generation keeps its latches and records: never reused
     // (RECOV-8-14/16; SYNC-9-5c: a record from an earlier generation does not count).
-    for latch in ["fatal-evidence.txt", "validator-supervisor.halted", "val-state-6.bin"] {
+    let snapshots = "val-state-00000000000000000000.log";
+    for latch in ["fatal-evidence.txt", "validator-supervisor.halted", snapshots] {
         let x = inputs(VALIDATOR_TEMPLATE);
         std::fs::create_dir(&x.app).unwrap();
         std::fs::write(x.app.join(latch), b"old generation").unwrap();

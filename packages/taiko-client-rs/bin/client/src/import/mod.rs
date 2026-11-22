@@ -329,7 +329,8 @@ pub async fn import(own: &Own, inputs: &Inputs, root: &Path) -> R<Value> {
     let store = abci::Store::new(ready.join("app"));
     let stored = if v.first_height().is_some() {
         // The authenticated preimage for s - 1 is a state the node holds exactly: keep it as the
-        // record of s - 1, which the retained `/val_state` range includes (SYNC-9-5c).
+        // snapshot of s - 1, which the retained `/val_state` range includes and retention keeps
+        // as its base while the checkpoint is s.
         v.val_state_before()
             .map_or(Ok(()), |before| store.save_val_state(before))
             .and_then(|()| store.install_import(v.state(), v.recovery_bootstrap()))

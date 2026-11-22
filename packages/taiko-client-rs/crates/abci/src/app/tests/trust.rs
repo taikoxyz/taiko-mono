@@ -1176,8 +1176,7 @@ async fn committed_comet_history_is_required_and_survives_restart() {
         crate::test_utils::test_options(),
     );
     target(&restarted, &fx, LANDED, el);
-    let path = dir.path().join(format!("comet-hash-{LANDED}.json"));
-    std::fs::remove_file(&path).unwrap();
+    restarted.store.comet_hashes().remove(LANDED).expect("LANDED is committed");
     restarted.refresh_trust().await.unwrap();
     assert!(!restarted.trust.snapshot().is_ready());
     assert!(restarted.trust.snapshot().reason.unwrap().contains("missing committed Comet"));
@@ -1253,8 +1252,9 @@ fn finalize_landing(app: &App<MockL1, MockEngine>, fx: &Fixture, number: u64, he
     fx.advance_l1(app.l1(), number, &landed(app, fx, height));
 }
 
-/// A checkpoint below the committed anchor's names pruned Comet history: while own finality
-/// lags there, trust stays closed, and it opens once finality reaches the committed anchor.
+/// A checkpoint below the committed anchor's names Comet history that trust never reads, since
+/// commits prune it, whether or not its segment is still on disk: while own finality lags
+/// there, trust stays closed, and it opens once finality reaches the committed anchor.
 #[tokio::test]
 async fn lagging_own_finality_waits_for_a_checkpoint_with_retained_comet_history() {
     let fx = Fixture::genesis(1);
@@ -1264,7 +1264,7 @@ async fn lagging_own_finality_waits_for_a_checkpoint_with_retained_comet_history
     finalize_landing(&app, &fx, 65, LANDED);
     finalize_landing(&app, &fx, 66, 2 * LANDED);
     commit_next(&mut app, &fx, Some(66)).await;
-    assert_eq!(app.store.load_comet_hash(LANDED).unwrap(), None, "below the anchored checkpoint");
+    assert!(app.state().unwrap().comet_history_floor() > LANDED, "below the anchored checkpoint");
 
     app.l1().set_finalized(65);
     app.refresh_trust().await.unwrap();
@@ -1277,8 +1277,9 @@ async fn lagging_own_finality_waits_for_a_checkpoint_with_retained_comet_history
     assert_eq!(snapshot.target.unwrap().height, 2 * LANDED);
 }
 
-/// A session target pinned before the committed anchor moved past it names pruned Comet
-/// history: the next attempt acquires a current checkpoint instead of stalling on it.
+/// A session target pinned before the committed anchor moved past it names Comet history that
+/// trust never reads, since commits prune it: the next attempt acquires a current checkpoint
+/// instead of stalling on it.
 #[tokio::test]
 async fn pinned_target_below_the_comet_history_floor_is_reacquired() {
     let fx = Fixture::genesis(1);
@@ -1300,7 +1301,7 @@ async fn pinned_target_below_the_comet_history_floor_is_reacquired() {
     commit_to(&mut app, &fx, 2 * LANDED).await;
     finalize_landing(&app, &fx, 66, 2 * LANDED);
     commit_next(&mut app, &fx, Some(66)).await;
-    assert_eq!(app.store.load_comet_hash(LANDED).unwrap(), None, "below the anchored checkpoint");
+    assert!(app.state().unwrap().comet_history_floor() > LANDED, "below the anchored checkpoint");
 
     app.refresh_trust().await.unwrap();
     let snapshot = app.trust.snapshot();

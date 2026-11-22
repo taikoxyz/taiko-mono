@@ -326,7 +326,7 @@ async fn recovery_init_future_target_requires_replay_and_both_committed_hashes()
     replay.refresh_trust().await.unwrap();
     assert!(replay.trust.snapshot().is_ready());
     replay.trust.begin_session();
-    std::fs::remove_file(replay_dir.path().join("comet-hash-12.json")).unwrap();
+    replay.store.comet_hashes().remove(12).expect("12 is committed");
     replay.state.as_mut().unwrap().last_comet_hash = B256::repeat_byte(0xff);
     assert!(matches!(replay.refresh_trust().await, Err(AbciError::SafetyHalt(_))));
     assert!(!replay.trust.snapshot().is_ready());
@@ -577,8 +577,8 @@ async fn old_generation_updates_are_discarded() {
         assert_eq!(state.last_height, height);
         assert_eq!(state.val_state.current.members(), origin.current.members(), "{height}");
         assert_eq!(
-            super::super::info::recompute_val_state(&app.store, 6, height).unwrap(),
-            state.val_state,
+            app.store.load_val_state(height).unwrap(),
+            crate::store::Record::Valid(state.val_state.clone()),
             "height {height}"
         );
     }

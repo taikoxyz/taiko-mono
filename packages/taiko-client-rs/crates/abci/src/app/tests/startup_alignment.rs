@@ -153,9 +153,8 @@ async fn startup_reports_the_missing_height_and_retries_without_serving() {
     };
     let (app, committed) = lagging_el(&fx, dir.path(), |s| s.last_height - 2, opts).await;
     let missing = committed.last_height - 1;
-    let body = dir.path().join(format!("execution-block-{missing}.bin"));
-    let saved = std::fs::read(&body).unwrap();
-    std::fs::remove_file(&body).unwrap();
+    let saved = app.store.execution_blocks().remove(missing).expect("the body is retained");
+    let store = app.store.clone();
     let trust = app.trust_handle();
     let port = free_port();
     let addr = format!("tcp://127.0.0.1:{port}");
@@ -177,7 +176,7 @@ async fn startup_reports_the_missing_height_and_retries_without_serving() {
     assert!(!dir.path().join("fatal-evidence.txt").exists());
 
     // The material is acquired: the next retry aligns and the socket opens.
-    std::fs::write(&body, saved).unwrap();
+    store.execution_blocks().append(missing, &saved).unwrap();
     let deadline = tokio::time::Instant::now() + WAIT;
     let mut stream = loop {
         if let Some(stream) = try_connect(port).await {

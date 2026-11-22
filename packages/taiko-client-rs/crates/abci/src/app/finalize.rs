@@ -51,7 +51,7 @@ use crate::{
     fallback::{FallbackKeys, fetch_fallback_keys},
     l1::{L1Source, OwnFinality, RawL1Header, ReadBounded, own_finality},
     metrics::AbciMetrics,
-    store::AppState,
+    store::{AppState, SEGMENT_HEIGHTS},
     types::{AnchorState, ParentInfo},
 };
 
@@ -393,17 +393,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// Clears the `ProcessProposal` cache, the proposal reads (but for the entry at the committed
     /// cursor, whose authenticated bytes remain reusable) and the halt reason, publishes the new
-    /// head's gauges, and answers `retain_height = 0` (no block pruning). When the new
-    /// state raises [`AppState::comet_history_floor`], the Comet block IDs below it are deleted
-    /// after the state is durable; a failed deletion only logs, and the next raise retries it.
-    /// Before the state, in the same barrier (SYNC-9-5c): at every height the validator state
-    /// and the validator updates `FinalizeBlock` returned, an empty list included, are saved as
-    /// immutable checksummed records (a corrupt record is set aside and replaced; a well-formed
-    /// one holding something else fails the Commit). The validator
-    /// records follow the Comet block IDs' floor, the committed anchor's checkpoint s: they are
-    /// kept from s − 1 on, the preimage an import package at s carries (DATA-5.4-3,
-    /// DATA-5.4-8) and the base later states are recomputed from
-    /// ([`Store::prune_val_records`](crate::store::Store::prune_val_records)).
+    /// head's gauges, and answers `retain_height = 0` (no block pruning).
+    ///
+    /// Before the state, in the same barrier, every height saves its Comet block ID
+    /// and the validator updates `FinalizeBlock` returned, an empty list included, and a height
+    /// divisible by [`SEGMENT_HEIGHTS`] also the full validator state, as immutable checksummed
+    /// records (a corrupt record is superseded; a valid one holding something else fails the
+    /// Commit). When the new state raises [`AppState::comet_history_floor`], the committed
+    /// anchor's checkpoint s, the records below it are deleted after the state is durable, a
+    /// segment at a time: the Comet block IDs and execution blocks below s, and the validator
+    /// records below the newest snapshot under s, the base the state at s − 1 (the preimage an
+    /// import package at s carries, 5.4) and later ones are recomputed from
+    /// ([`Store::prune_val_records`](crate::store::Store::prune_val_records)). A failed deletion
+    /// only logs, and the next raise retries it.
     /// Errors: [`AbciError::NothingToCommit`] without a pending state; [`AbciError::Store`]
     /// when it cannot be persisted (it then stays pending).
     pub(super) fn commit(&mut self) -> Result<response::Commit, AbciError> {
@@ -418,7 +420,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
         })?;
         let pending = self.pending.as_ref().ok_or(AbciError::NothingToCommit)?;
         self.store.save_comet_hash(pending.last_height, pending.last_comet_hash)?;
-        self.store.save_val_state(&pending.val_state)?;
+        if pending.last_height % SEGMENT_HEIGHTS == 0 {
+            self.store.save_val_state(&pending.val_state)?;
+        }
         self.store.save_val_updates(pending.last_height, &self.pending_val_updates)?;
         self.store.save(pending)?;
         let floor = pending.comet_history_floor();
@@ -428,6 +432,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
             }
             if let Err(error) = self.store.prune_val_records(floor) {
                 tracing::warn!(%error, floor, "could not prune committed validator records");
+            }
+            if let Err(error) = self.store.prune_execution_blocks(floor) {
+                tracing::warn!(%error, floor, "could not prune committed execution blocks");
             }
         }
         let report = super::AppHashReport::of(pending);

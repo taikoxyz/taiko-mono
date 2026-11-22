@@ -270,7 +270,7 @@ async fn re_sent_init_chain_after_a_crash_in_block_one_returns_the_same_app_hash
 }
 
 /// InitChain records the generation's genesis validator state at its origin as an immutable
-/// sidecar, the base later states are recomputed from (SYNC-9-5c). A re-sent InitChain at the
+/// snapshot, the base later states are recomputed from. A re-sent InitChain at the
 /// origin saves it again, unchanged, and writes it when it is missing, as over a store
 /// imported at the origin. A recovery InitChain records it at the recovery origin.
 #[tokio::test]
@@ -286,7 +286,7 @@ async fn init_chain_records_the_genesis_validator_state() {
     let genesis =
         Record::Valid(ValState::genesis(origin, &fx.fallback_keys.validator_set()).unwrap());
     assert_eq!(app.store.load_val_state(origin).unwrap(), genesis);
-    let path = dir.path().join(format!("val-state-{origin}.bin"));
+    let path = dir.path().join(format!("val-state-{origin:020}.log"));
     let recorded = std::fs::read(&path).unwrap();
 
     init_chain(&mut app, fx.request.clone()).await.expect("re-sent InitChain");

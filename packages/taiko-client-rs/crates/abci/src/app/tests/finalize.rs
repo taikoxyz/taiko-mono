@@ -26,7 +26,7 @@ use crate::{
     envelope::EtnaEnvelope,
     forced::ForcedError,
     l1::{L1Error, RawL1Header},
-    store::{AppState, Record},
+    store::{AppState, Record, SEGMENT_HEIGHTS},
     test_utils::{GenesisSpec, L1Call, LogCapture, l1_header},
     types::ParentInfo,
     valstate,
@@ -68,10 +68,11 @@ async fn anchor_moving(fx: &Fixture, dir: &Path) -> App<MockL1, MockEngine> {
 }
 
 /// Checkpoint trust never reads a Comet block ID below the committed anchor's checkpoint, so
-/// the commit that moves that checkpoint to `S + 3` deletes the IDs below it and keeps the rest.
+/// the commit that moves that checkpoint to `S + 3`, here the first height of a segment, deletes
+/// the segment of the IDs below it and keeps the rest.
 #[tokio::test]
 async fn commit_prunes_comet_history_below_the_committed_anchor_checkpoint() {
-    let fx = Fixture::genesis(2);
+    let fx = started_at(SEGMENT_HEIGHTS - 3, GenesisSpec::new(2));
     let dir = tempfile::tempdir().unwrap();
     let mut app = anchor_moving(&fx, dir.path()).await;
     let b = fx.genesis.genesis_height;
@@ -81,7 +82,7 @@ async fn commit_prunes_comet_history_below_the_committed_anchor_checkpoint() {
 
     step(&mut app).await;
 
-    assert_eq!(app.state().unwrap().anchor.inbox.last_checkpoint_height, b + 3);
+    assert_eq!(app.state().unwrap().anchor.inbox.last_checkpoint_height, SEGMENT_HEIGHTS);
     for height in b + 1..b + 3 {
         assert_eq!(app.store.load_comet_hash(height).unwrap(), None, "height {height}");
     }
@@ -1436,13 +1437,25 @@ async fn finalize_before_init_chain_is_an_error() {
     assert!(matches!(err, AbciError::Uninitialized("FinalizeBlock")), "{err:?}");
 }
 
-/// A genesis with `L = 4` and an unsettled limit of 1 (`D_MAX = 3`, `MARGIN_V = 2`).
 /// A three-validator fixture whose unsettled limit of 6 makes the checkpoint, and with it the
-/// retained validator records, rise during a [`multi_height_run`].
+/// retained records, rise during a [`multi_height_run`].
 pub(super) fn short_limit() -> Fixture {
+    short_limit_at(0)
+}
+
+/// [`short_limit`] with the Etna start S at `genesis_height`.
+pub(super) fn short_limit_at(genesis_height: u64) -> Fixture {
     let mut spec = GenesisSpec::new(3);
     spec.params.unsettled_limit = 6;
-    Fixture::build(spec)
+    started_at(genesis_height, spec)
+}
+
+/// The fixture `spec` describes with the Etna start S at `genesis_height`, its `InitChain`
+/// request starting the chain at S + 1.
+pub(super) fn started_at(genesis_height: u64, spec: GenesisSpec) -> Fixture {
+    let mut fx = Fixture::build(GenesisSpec { genesis_height, ..spec });
+    fx.request.initial_height = (genesis_height + 1).try_into().expect("a CometBFT height");
+    fx
 }
 
 /// The heights a [`multi_height_run`] decides.
@@ -1537,8 +1550,8 @@ async fn finalize_block_and_info_answer_the_app_hash_of_the_block_and_validator_
 
 /// Every height returns an update list and Commit records it at that height, an empty list
 /// included, so a recompute never has to tell a lost record from "no change": over a run the
-/// store holds `val-updates-{h}` for every committed height h, each the empty list FinalizeBlock
-/// returned, and the signing set stays the genesis one.
+/// store holds an update record for every committed height h, each the empty list
+/// FinalizeBlock returned, and the signing set stays the genesis one.
 #[tokio::test]
 async fn every_height_records_validator_updates() {
     let fx = Fixture::genesis(3);
@@ -1561,8 +1574,9 @@ async fn every_height_records_validator_updates() {
     let head = app.state().unwrap().last_height;
     for height in origin + 1..=head {
         assert_eq!(app.store.load_val_updates(height).unwrap(), Record::Valid(vec![]), "{height}");
-        assert!(dir.path().join(format!("val-updates-{height}.bin")).exists(), "{height}");
     }
+    let recorded = (origin + 1..=head).collect::<Vec<_>>();
+    assert_eq!(app.store.val_updates().heights().unwrap(), recorded);
 }
 
 /// Two fresh apps finalizing the same decided requests (cold: no `ProcessProposal`) give the

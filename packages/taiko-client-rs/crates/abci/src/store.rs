@@ -6,9 +6,14 @@
 //! with [`Store::save`]: the JSON is written to `abci-state.json.tmp`, fsynced, renamed over
 //! `abci-state.json` and the directory fsynced, so a crash leaves either the old or the new
 //! state, never a torn file.
+//!
+//! The per-height records written before that state (the committed Comet block IDs, the
+//! validator updates, the validator-state snapshots and the finalized execution blocks) live in
+//! append-only segment logs of [`SEGMENT_HEIGHTS`] heights per file ([`SegmentLog`]), pruned
+//! below the committed anchor's checkpoint, so the store holds a bounded number of files at any
+//! unsettled limit.
 
 use std::{
-    borrow::Cow,
     collections::BTreeMap,
     fmt,
     fs::{self, File},
@@ -16,7 +21,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use alloy_primitives::{Address, B256, keccak256};
+use alloy_primitives::{Address, B256};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -30,6 +35,10 @@ use crate::{
 
 /// Checksummed execution payloads retained for local EL crash recovery.
 mod execution;
+/// Append-only per-kind segment logs of the per-height records.
+mod segments;
+
+pub(crate) use segments::{SEGMENT_HEIGHTS, SegmentLog};
 
 /// File name of the persisted state inside the data directory.
 pub const STATE_FILE: &str = "abci-state.json";
@@ -176,6 +185,15 @@ pub enum StoreError {
     /// Replaying a committed height produced a different Comet block ID.
     #[error("conflicting durable Comet block hash at height {0}")]
     CometConflict(u64),
+    /// A committed Comet block ID record fails its checksum or holds no 32-byte hash. Unlike the
+    /// records a node recomputes, it is never read as absence.
+    #[error("corrupt durable Comet block hash at height {height}: {reason}")]
+    CometCorrupt {
+        /// The height of the record.
+        height: u64,
+        /// Why it does not load.
+        reason: String,
+    },
     /// Replaying a finalized height produced a different execution block.
     #[error("conflicting durable execution block at height {0}")]
     ExecutionConflict(u64),
@@ -198,11 +216,26 @@ pub enum StoreError {
 pub enum Record<T> {
     /// No record exists at that height.
     Missing,
-    /// A file exists but fails its checksum, decoding or height check; the text names why.
-    /// It is missing data to recompute (SYNC-9-7), never a contradiction.
+    /// A record exists but fails its checksum, decoding or height check, or a value derived from
+    /// records lacks one of them; the text names why. It is missing data to recompute, never a
+    /// contradiction.
     Corrupt(String),
     /// A well-formed record of that height.
     Valid(T),
+}
+
+impl Record<Vec<u8>> {
+    /// The record with its body decoded by `decode`; a failure is [`Record::Corrupt`] naming it.
+    fn decode<T, E: fmt::Display>(self, decode: impl FnOnce(&[u8]) -> Result<T, E>) -> Record<T> {
+        match self {
+            Record::Valid(body) => match decode(&body) {
+                Ok(value) => Record::Valid(value),
+                Err(error) => Record::Corrupt(error.to_string()),
+            },
+            Record::Missing => Record::Missing,
+            Record::Corrupt(reason) => Record::Corrupt(reason),
+        }
+    }
 }
 
 /// Decode one exact durable image of the single [`AppState`] schema, with no migration.
@@ -275,218 +308,188 @@ impl Store {
         Ok(Some(state))
     }
 
+    /// The segment log of the committed Comet block IDs: `comet-hash-<f>.log`.
+    pub(crate) fn comet_hashes(&self) -> SegmentLog {
+        self.log("comet-hash", StoreError::CometConflict)
+    }
+
+    /// The segment log of the validator-state snapshots: `val-state-<f>.log`.
+    pub(crate) fn val_states(&self) -> SegmentLog {
+        self.log("val-state", StoreError::ValStateConflict)
+    }
+
+    /// The segment log of every committed height's validator updates: `val-updates-<f>.log`.
+    pub(crate) fn val_updates(&self) -> SegmentLog {
+        self.log("val-updates", StoreError::ValUpdatesConflict)
+    }
+
+    /// The segment log of `kind` in the data directory, whose appends meet another body at a
+    /// height with `conflict`.
+    fn log(&self, kind: &'static str, conflict: fn(u64) -> StoreError) -> SegmentLog {
+        SegmentLog::new(self.dir.clone(), kind, self.durable, conflict)
+    }
+
     /// Reads committed Comet history. Absence keeps checkpoint trust closed until restored.
-    /// Entries above the committed AppState height are never evidence of a commit.
+    /// Entries above the committed AppState height are never evidence of a commit. A record that
+    /// fails its checksum or holds no 32-byte hash is [`StoreError::CometCorrupt`], never
+    /// absence.
     pub fn load_comet_hash(&self, height: u64) -> Result<Option<B256>, StoreError> {
-        let path = self.dir.join(COMET_HASH_FILE.name(height));
-        match fs::read(&path) {
-            Ok(bytes) => serde_json::from_slice(&bytes)
+        let corrupt = |reason| StoreError::CometCorrupt { height, reason };
+        match self.comet_hashes().read(height)? {
+            Record::Missing => Ok(None),
+            Record::Valid(body) => B256::try_from(body.as_slice())
                 .map(Some)
-                .map_err(|source| StoreError::Corrupt { path, source }),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
-            Err(source) => Err(StoreError::Io { op: "read", path, source }),
+                .map_err(|_| corrupt(format!("it holds {} bytes", body.len()))),
+            Record::Corrupt(reason) => Err(corrupt(reason)),
         }
     }
 
-    /// Durably records one immutable Comet block ID before publishing its committed AppState.
+    /// Durably records one immutable Comet block ID before publishing its committed AppState:
+    /// an equal record succeeds unchanged, another is [`StoreError::CometConflict`].
     pub fn save_comet_hash(&self, height: u64, hash: B256) -> Result<(), StoreError> {
-        if let Some(previous) = self.load_comet_hash(height)? {
-            return if previous == hash { Ok(()) } else { Err(StoreError::CometConflict(height)) };
-        }
-        let json = serde_json::to_vec(&hash).map_err(StoreError::Encode)?;
-        self.save_bytes(&json, &COMET_HASH_FILE.name(height), "comet-hash.tmp")
+        self.comet_hashes().append(height, hash.as_slice())
     }
 
-    /// Deletes the recorded Comet block IDs below `floor` and returns how many it removed. Only
-    /// canonical `comet-hash-{height}.json` names are touched. A deletion lost to a crash leaves
-    /// a correct immutable record behind, so the directory is not fsynced.
+    /// Deletes the Comet block ID segments wholly below `floor` and returns how many files it
+    /// removed ([`SegmentLog::prune_below`]).
     pub fn prune_comet_hashes(&self, floor: u64) -> Result<usize, StoreError> {
-        self.prune_below(floor, COMET_HASH_FILE)
+        self.comet_hashes().prune_below(floor)
     }
 
-    /// Reads the validator state recorded for the committed height `height` (SYNC-9-5c).
+    /// The validator state after the committed height `height`, recomputed from the
+    /// newest snapshot at or below it with CometBFT v0.40.0's per-height arithmetic
+    /// ([`ValState::advance`]): one advance per height above the snapshot, by the validator
+    /// updates recorded at that height (every height records them, an empty list included).
     ///
-    /// The record `val-state-{height}.bin` is framed: `keccak256(preimage) ‖ preimage`,
-    /// the preimage being [`ValState::encode`]. A file that fails the checksum, does not decode
-    /// ([`ValState::decode`], which checks every key and the set order) or holds another height
-    /// is [`Record::Corrupt`]: missing data to recompute (SYNC-9-7), never evidence against a
-    /// landing. Filesystem errors other than absence are [`StoreError::Io`].
+    /// The snapshots are the full states recorded at the generation's origin, at a checkpoint
+    /// import's s − 1 and s, and at every committed height divisible by [`SEGMENT_HEIGHTS`]; a
+    /// snapshot that fails its checksum, does not decode ([`ValState::decode`]) or holds another
+    /// height is skipped for an older one. No snapshot at or below `height` is
+    /// [`Record::Missing`]; a corrupt snapshot with no valid one below it, a missing or corrupt
+    /// update record between the snapshot and `height`, or updates the arithmetic refuses are
+    /// [`Record::Corrupt`] naming the cause: missing data, never evidence against a
+    /// landing. Each generation starts in an empty data directory, so every snapshot is this
+    /// generation's. Filesystem errors are [`StoreError::Io`].
     pub fn load_val_state(&self, height: u64) -> Result<Record<ValState>, StoreError> {
-        self.load_framed(VAL_STATE_FILE, height, |preimage| {
-            ValState::decode(preimage).map(|state| (state.height, state))
-        })
+        let mut base = None;
+        let mut corrupt = None;
+        for recorded in self.val_states().heights()?.into_iter().rev().filter(|&h| h <= height) {
+            match self.val_snapshot(recorded)? {
+                Record::Valid(state) => {
+                    base = Some(state);
+                    break;
+                }
+                Record::Corrupt(reason) => {
+                    corrupt.get_or_insert(format!(
+                        "the validator-state snapshot of height {recorded} is corrupt: {reason}"
+                    ));
+                }
+                Record::Missing => {}
+            }
+        }
+        let Some(mut state) = base else {
+            return Ok(corrupt.map_or(Record::Missing, Record::Corrupt));
+        };
+        while state.height < height {
+            let next = state.height + 1;
+            let updates = match self.load_val_updates(next)? {
+                Record::Valid(updates) => updates,
+                Record::Missing => {
+                    let reason = format!("the validator-update record of height {next} is missing");
+                    return Ok(Record::Corrupt(reason));
+                }
+                Record::Corrupt(reason) => {
+                    let reason = format!(
+                        "the validator-update record of height {next} is corrupt: {reason}"
+                    );
+                    return Ok(Record::Corrupt(reason));
+                }
+            };
+            state = match state.advance(&updates) {
+                Ok(state) => state,
+                Err(error) => {
+                    let reason = format!("cannot advance the validator state to {next}: {error}");
+                    return Ok(Record::Corrupt(reason));
+                }
+            };
+        }
+        Ok(Record::Valid(state))
     }
 
-    /// Durably records `state` as the immutable validator state of its height (`state.height`):
-    /// at InitChain the generation's origin state, at Commit every height's, before the
-    /// AppState of that height is published.
+    /// The validator-state snapshot recorded at exactly `height`: its body is the appendix A
+    /// preimage ([`ValState::encode`]), decoded with [`ValState::decode`] (which checks every key
+    /// and the set order) and required to hold `height`.
+    fn val_snapshot(&self, height: u64) -> Result<Record<ValState>, StoreError> {
+        Ok(self.val_states().read(height)?.decode(|preimage| {
+            let state = ValState::decode(preimage).map_err(|error| error.to_string())?;
+            if state.height == height {
+                Ok(state)
+            } else {
+                Err(format!("it holds height {}", state.height))
+            }
+        }))
+    }
+
+    /// Durably records `state` as the immutable validator-state snapshot of its height
+    /// (`state.height`): at InitChain the generation's origin state, at a checkpoint import the
+    /// states after s − 1 and s, and at Commit the state of every height divisible by
+    /// [`SEGMENT_HEIGHTS`], before the AppState of that height is published.
     ///
-    /// An equal valid record succeeds unchanged (a replay after a crash before the AppState was
-    /// saved); a valid record of another state is [`StoreError::ValStateConflict`] and is kept.
-    /// A corrupt record is renamed to `val-state-{height}.bin.corrupt`, replacing an earlier
-    /// one set aside at that height, and the record is then written.
+    /// An equal snapshot succeeds unchanged (a replay after a crash before the AppState was
+    /// saved); a valid snapshot of another state is [`StoreError::ValStateConflict`] and is kept.
+    /// A corrupt one is superseded.
     pub fn save_val_state(&self, state: &ValState) -> Result<(), StoreError> {
-        let found = self.load_val_state(state.height)?;
-        self.save_framed(VAL_STATE_RECORD, state.height, found, state, || Ok(state.encode()))
+        self.val_states().append(state.height, &state.encode())
     }
 
     /// Reads the validator updates recorded for the committed height `height`: the
-    /// `(key, power)` changes its `FinalizeBlock` returned, possibly none.
-    ///
-    /// The record `val-updates-{height}.bin` is framed like a validator-state record,
-    /// `keccak256(body) ‖ body`, the body the JSON object of its `height` and `updates` (no
-    /// other field). A file that fails the checksum, does not decode (a key included) or holds
-    /// another height is [`Record::Corrupt`]: missing data to recompute (SYNC-9-7).
-    /// Filesystem errors other than absence are [`StoreError::Io`].
+    /// `(key, power)` changes its `FinalizeBlock` returned, possibly none, as a JSON array of
+    /// `[key, power]` pairs. A record that fails its checksum or does not decode (a key
+    /// included) is [`Record::Corrupt`]: missing data to recompute. Filesystem errors
+    /// are [`StoreError::Io`].
     pub fn load_val_updates(
         &self,
         height: u64,
     ) -> Result<Record<Vec<(ConsensusKey, u64)>>, StoreError> {
-        self.load_framed(VAL_UPDATES_FILE, height, |body| {
-            serde_json::from_slice::<ValUpdates<'_>>(body)
-                .map(|record| (record.height, record.updates.into_owned()))
-        })
+        Ok(self.val_updates().read(height)?.decode(|body| serde_json::from_slice(body)))
     }
 
     /// Durably records `updates` as the immutable validator updates of the height `height`
     /// before the AppState of that height is published. Every height has one, an empty list
     /// included, so a lost record is missing data, never "no change".
     ///
-    /// An equal valid record succeeds unchanged; a valid record of other updates is
-    /// [`StoreError::ValUpdatesConflict`] and is kept. A corrupt record is renamed to
-    /// `val-updates-{height}.bin.corrupt`, replacing an earlier one set aside at that height,
-    /// and the record is then written.
+    /// An equal record succeeds unchanged; a valid record of other updates is
+    /// [`StoreError::ValUpdatesConflict`] and is kept. A corrupt one is superseded.
     pub fn save_val_updates(
         &self,
         height: u64,
         updates: &[(ConsensusKey, u64)],
     ) -> Result<(), StoreError> {
-        let found = self.load_val_updates(height)?;
-        self.save_framed(VAL_UPDATES_RECORD, height, found, updates, || {
-            serde_json::to_vec(&ValUpdates { height, updates: Cow::Borrowed(updates) })
-                .map_err(StoreError::Encode)
-        })
-    }
-
-    /// The heights of the canonical `val-state-{height}.bin` records, in ascending order,
-    /// whether they load valid or not.
-    pub fn val_state_heights(&self) -> Result<Vec<u64>, StoreError> {
-        self.heights(VAL_STATE_FILE)
+        let body = serde_json::to_vec(updates).map_err(StoreError::Encode)?;
+        self.val_updates().append(height, &body)
     }
 
     /// Retires the validator records below the Comet history `floor`, the committed anchor's
     /// checkpoint s, and returns how many files it removed (SYNC-9-5c).
     ///
-    /// The base is the newest validator state below `floor` that loads valid: with a record
-    /// at every committed height, s − 1's, the preimage an import package at s carries
-    /// (DATA-5.4-3, DATA-5.4-8). It is a state the node holds exactly, from which it recomputes
-    /// the state at any retained height with the update records above it. The validator states
-    /// below the base, the update records at or below it (the base already includes them) and
-    /// the corrupt records set aside below `floor` are deleted; everything else is kept.
-    /// Without a valid state below `floor` nothing is deleted. Only canonical names are
-    /// touched, and as for [`Store::prune_comet_hashes`] the directory is not fsynced: a
-    /// deletion lost to a crash leaves an immutable record behind, which the next pruning
-    /// removes.
+    /// The base is the newest validator-state snapshot below `floor` that loads valid: a state
+    /// the node holds exactly, from which it recomputes the state at s − 1, the preimage an
+    /// import package at s carries (5.4), and at every later height, with the
+    /// update records above it. The snapshot segments wholly below the base and the update
+    /// segments wholly at or below it (the base already includes them) are deleted; everything
+    /// else is kept. Without a valid snapshot below `floor` nothing is deleted.
     pub fn prune_val_records(&self, floor: u64) -> Result<usize, StoreError> {
+        let snapshots = self.val_states();
         let mut base = None;
-        for height in self.val_state_heights()?.into_iter().rev().filter(|&h| h < floor) {
-            if let Record::Valid(_) = self.load_val_state(height)? {
+        for height in snapshots.heights()?.into_iter().rev().filter(|&h| h < floor) {
+            if let Record::Valid(_) = self.val_snapshot(height)? {
                 base = Some(height);
                 break;
             }
         }
         let Some(base) = base else { return Ok(0) };
         // `base < floor`, so `base + 1` cannot overflow.
-        Ok(self.prune_below(base, VAL_STATE_FILE)? +
-            self.prune_below(base + 1, VAL_UPDATES_FILE)? +
-            self.prune_below(floor, VAL_STATE_SET_ASIDE)? +
-            self.prune_below(floor, VAL_UPDATES_SET_ASIDE)?)
-    }
-
-    /// Reads the [`frame`]d record of `kind` at `height` and decodes its body with `decode`
-    /// into the height it records and its value; a failed checksum, a failed decoding or
-    /// another height is [`Record::Corrupt`].
-    fn load_framed<T, E: fmt::Display>(
-        &self,
-        kind: HeightFile,
-        height: u64,
-        decode: impl FnOnce(&[u8]) -> Result<(u64, T), E>,
-    ) -> Result<Record<T>, StoreError> {
-        let path = self.dir.join(kind.name(height));
-        let bytes = match fs::read(&path) {
-            Ok(bytes) => bytes,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Record::Missing),
-            Err(source) => return Err(StoreError::Io { op: "read", path, source }),
-        };
-        let Some(body) = unframe(&bytes) else {
-            return Ok(Record::Corrupt("the checksum does not match".into()));
-        };
-        Ok(match decode(body) {
-            Err(error) => Record::Corrupt(error.to_string()),
-            Ok((recorded, _)) if recorded != height => {
-                Record::Corrupt(format!("it holds height {recorded}"))
-            }
-            Ok((_, value)) => Record::Valid(value),
-        })
-    }
-
-    /// Durably writes the [`frame`]d `body` as the immutable record of `kind` at `height`,
-    /// given the record `found` there: an equal valid one is kept and succeeds, another valid
-    /// one is `kind`'s conflict, and a corrupt one is set aside first.
-    fn save_framed<T: PartialEq<V>, V: ?Sized>(
-        &self,
-        kind: FramedRecord,
-        height: u64,
-        found: Record<T>,
-        value: &V,
-        body: impl FnOnce() -> Result<Vec<u8>, StoreError>,
-    ) -> Result<(), StoreError> {
-        let name = kind.file.name(height);
-        match found {
-            Record::Valid(previous) => {
-                return if previous == *value { Ok(()) } else { Err((kind.conflict)(height)) };
-            }
-            Record::Corrupt(reason) => {
-                let path = self.dir.join(&name);
-                let aside = self.dir.join(kind.set_aside.name(height));
-                tracing::warn!(height, file = %name, %reason, "setting a corrupt record aside");
-                // The directory fsync of the save below also makes this rename durable.
-                fs::rename(&path, &aside).map_err(|source| io_err("rename", &path, source))?;
-            }
-            Record::Missing => {}
-        }
-        self.save_bytes(&frame(&body()?), &name, kind.temporary)
-    }
-
-    /// The heights of the canonical names of `kind` in the directory, in ascending order.
-    fn heights(&self, kind: HeightFile) -> Result<Vec<u64>, StoreError> {
-        let entries = match fs::read_dir(&self.dir) {
-            Ok(entries) => entries,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(vec![]),
-            Err(source) => return Err(io_err("list", &self.dir, source)),
-        };
-        let mut heights = vec![];
-        for entry in entries {
-            let entry = entry.map_err(|source| io_err("list", &self.dir, source))?;
-            heights.extend(entry.file_name().to_str().and_then(|name| kind.height(name)));
-        }
-        heights.sort_unstable();
-        Ok(heights)
-    }
-
-    /// Deletes the per-height records named by `kind` below `floor` and returns how many it
-    /// removed; other names are never touched.
-    fn prune_below(&self, floor: u64, kind: HeightFile) -> Result<usize, StoreError> {
-        let mut removed = 0;
-        for height in self.heights(kind)?.into_iter().take_while(|&height| height < floor) {
-            let path = self.dir.join(kind.name(height));
-            match fs::remove_file(&path) {
-                Ok(()) => removed += 1,
-                Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-                Err(source) => return Err(io_err("remove", &path, source)),
-            }
-        }
-        Ok(removed)
+        Ok(snapshots.prune_below(base)? + self.val_updates().prune_below(base + 1)?)
     }
 
     /// Reads sticky fatal evidence. Its presence requires explicit operator repair before restart.
@@ -631,102 +634,6 @@ fn archive_preimage(archive: &Path, s: &AppState) -> Result<(), StoreError> {
     sync_dir(archive)
 }
 
-/// The `{prefix}{height}{suffix}` file names of one kind of per-height record.
-#[derive(Clone, Copy, Debug)]
-struct HeightFile {
-    /// The name before the decimal height.
-    prefix: &'static str,
-    /// The name after the decimal height.
-    suffix: &'static str,
-}
-
-/// The committed Comet block IDs: `comet-hash-{height}.json`.
-const COMET_HASH_FILE: HeightFile = HeightFile { prefix: "comet-hash-", suffix: ".json" };
-
-/// The [`frame`]d validator-state records (the origin, an import's s and every committed
-/// height): `val-state-{height}.bin`.
-const VAL_STATE_FILE: HeightFile = HeightFile { prefix: "val-state-", suffix: ".bin" };
-
-/// Corrupt validator-state records set aside by [`Store::save_val_state`]:
-/// `val-state-{height}.bin.corrupt`.
-const VAL_STATE_SET_ASIDE: HeightFile = HeightFile { prefix: "val-state-", suffix: ".bin.corrupt" };
-
-/// Every committed height's [`frame`]d validator-update records: `val-updates-{height}.bin`.
-const VAL_UPDATES_FILE: HeightFile = HeightFile { prefix: "val-updates-", suffix: ".bin" };
-
-/// Corrupt validator-update records set aside by [`Store::save_val_updates`]:
-/// `val-updates-{height}.bin.corrupt`.
-const VAL_UPDATES_SET_ASIDE: HeightFile =
-    HeightFile { prefix: "val-updates-", suffix: ".bin.corrupt" };
-
-/// One kind of immutable [`frame`]d per-height record, as [`Store::save_framed`] writes it.
-#[derive(Clone, Copy, Debug)]
-struct FramedRecord {
-    /// Its canonical names.
-    file: HeightFile,
-    /// The names a corrupt record is set aside under.
-    set_aside: HeightFile,
-    /// The name a save writes before renaming it.
-    temporary: &'static str,
-    /// The error of a save meeting a valid record that holds something else.
-    conflict: fn(u64) -> StoreError,
-}
-
-/// The validator-state records.
-const VAL_STATE_RECORD: FramedRecord = FramedRecord {
-    file: VAL_STATE_FILE,
-    set_aside: VAL_STATE_SET_ASIDE,
-    temporary: "val-state.tmp",
-    conflict: StoreError::ValStateConflict,
-};
-
-/// The validator-update records.
-const VAL_UPDATES_RECORD: FramedRecord = FramedRecord {
-    file: VAL_UPDATES_FILE,
-    set_aside: VAL_UPDATES_SET_ASIDE,
-    temporary: "val-updates.tmp",
-    conflict: StoreError::ValUpdatesConflict,
-};
-
-/// The body of a validator-update record: the height and the `(key, power)` updates its
-/// `FinalizeBlock` returned, in response order.
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ValUpdates<'a> {
-    /// The height.
-    height: u64,
-    /// The validator updates.
-    updates: Cow<'a, [(ConsensusKey, u64)]>,
-}
-
-/// A per-height record file: `keccak256(body) ‖ body`. For a validator-state record the body
-/// is the ENC-A-29a preimage, so the prefix is the record's own `valStateHash`; for an update
-/// record it is the JSON of [`ValUpdates`].
-fn frame(body: &[u8]) -> Vec<u8> {
-    [keccak256(body).as_slice(), body].concat()
-}
-
-/// The body of a [`frame`]d record, or `None` when it is shorter than the checksum or its
-/// checksum does not match.
-fn unframe(bytes: &[u8]) -> Option<&[u8]> {
-    let (checksum, body) = bytes.split_first_chunk::<32>()?;
-    (keccak256(body).0 == *checksum).then_some(body)
-}
-
-impl HeightFile {
-    /// The canonical file name of `height`.
-    fn name(self, height: u64) -> String {
-        format!("{}{height}{}", self.prefix, self.suffix)
-    }
-
-    /// The height a canonical file name of this kind records.
-    fn height(self, name: &str) -> Option<u64> {
-        let digits = name.strip_prefix(self.prefix)?.strip_suffix(self.suffix)?;
-        let height = digits.parse::<u64>().ok()?;
-        (height.to_string() == digits).then_some(height)
-    }
-}
-
 /// Builds a [`StoreError::Io`].
 fn io_err(op: &'static str, path: &Path, source: io::Error) -> StoreError {
     StoreError::Io { op, path: path.to_path_buf(), source }
@@ -814,7 +721,7 @@ mod tests {
     }
 
     /// The archive holds the preimage of every committed height, the origin's and those that
-    /// are not multiples of 6 included, since a package at any landed s needs s − 1's
+    /// are not snapshot heights included, since a package at any landed s needs s − 1's
     /// (DATA-5.4-8), and keeps it once retention has deleted the record.
     #[test]
     fn archived_preimage_survives_pruning() {
@@ -839,61 +746,63 @@ mod tests {
         assert_eq!(origin.origin_height(), 0);
         store.save(&origin).unwrap();
         assert_eq!(fs::read(archived(0)).unwrap(), origin.val_state.encode());
-        let s = at(107);
+        let s = at(SEGMENT_HEIGHTS + 76);
         store.save_val_state(&s.val_state).unwrap();
         store.save(&s).unwrap();
         assert_eq!(store.load().unwrap(), Some(s.clone()));
-        // 107 is the base below floor 114 until 113 replaces it.
-        assert_eq!(store.prune_val_records(114).unwrap(), 0);
-        store.save_val_state(&at(113).val_state).unwrap();
-        assert_eq!(store.prune_val_records(114).unwrap(), 1);
-        assert_eq!(store.load_val_state(107).unwrap(), Record::Missing);
-        assert_eq!(fs::read(archived(107)).unwrap(), s.val_state.encode());
+        // The snapshot of s is the base below the floor until the next segment's replaces it.
+        let floor = 2 * SEGMENT_HEIGHTS + 1;
+        assert_eq!(store.prune_val_records(floor).unwrap(), 0);
+        store.save_val_state(&at(2 * SEGMENT_HEIGHTS).val_state).unwrap();
+        assert_eq!(store.prune_val_records(floor).unwrap(), 1);
+        assert_eq!(store.load_val_state(s.last_height).unwrap(), Record::Missing);
+        assert_eq!(fs::read(archived(s.last_height)).unwrap(), s.val_state.encode());
         store.save(&s).unwrap();
-        fs::write(archived(107), b"conflict").unwrap();
+        fs::write(archived(s.last_height), b"conflict").unwrap();
         assert!(store.save(&s).is_err());
     }
 
-    /// A sidecar is `keccak256(preimage) ‖ preimage` (the record's own `valStateHash`, then the
-    /// ENC-A-29a preimage). A checksum, decoding or height failure is a corrupt record, which
-    /// the next save sets aside and replaces; only a well-formed record of the same height
-    /// holding another state conflicts (SYNC-9-5c, SYNC-9-7).
+    /// A snapshot record's body is the appendix A preimage, so its checksum is the record's own
+    /// `valStateHash`. A checksum failure, a body that does not decode and a well-formed state of
+    /// another height are corrupt, which the next save supersedes; only a valid record of the
+    /// same height holding another state conflicts.
     #[test]
-    fn val_state_records_are_checksummed_and_corruption_is_not_conflict() {
+    fn val_state_snapshots_are_checksummed_and_corruption_is_not_conflict() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().into());
         let mut s = state();
         s.val_state.height = 108;
         let pre = s.val_state.encode();
         store.save_val_state(&s.val_state).unwrap();
-        let path = dir.path().join("val-state-108.bin");
+        let path = dir.path().join("val-state-00000000000000000000.log");
         let framed = fs::read(&path).unwrap();
-        assert_eq!(framed, [alloy_primitives::keccak256(&pre).0.as_slice(), &pre].concat());
+        let len = u32::try_from(pre.len()).unwrap().to_be_bytes();
+        let checksum = alloy_primitives::keccak256(&pre);
+        assert_eq!(framed, [&108u64.to_be_bytes()[..], &len, checksum.as_slice(), &pre].concat());
         assert_eq!(store.load_val_state(108).unwrap(), Record::Valid(s.val_state.clone()));
 
-        // The last byte of the first entry's priority word (preimage word 10): the edited body
-        // is still a canonical preimage of height 108, so only the checksum catches it.
-        let mut flipped = framed.clone();
-        flipped[32 + 32 * 10 + 31] ^= 1;
-        assert!(ValState::decode(&flipped[32..]).is_ok_and(|v| v.height == 108));
-        fs::write(&path, &flipped).unwrap();
+        let snapshots = store.val_states();
+        snapshots.corrupt(108);
         assert!(matches!(store.load_val_state(108).unwrap(), Record::Corrupt(_)));
-        fs::write(&path, &framed[..40]).unwrap();
+        snapshots.replace(108, &pre[..40]);
         assert!(matches!(store.load_val_state(108).unwrap(), Record::Corrupt(_)));
-        // A valid record of 108 under the name of 114 holds the wrong height.
-        fs::write(dir.path().join("val-state-114.bin"), &framed).unwrap();
-        assert!(matches!(store.load_val_state(114).unwrap(), Record::Corrupt(_)));
+        let mut later = s.val_state.clone();
+        later.height = 114;
+        snapshots.replace(108, &later.encode());
+        let Record::Corrupt(reason) = store.load_val_state(108).unwrap() else { panic!() };
+        assert!(reason.contains("holds height 114"), "{reason}");
 
-        // Saving over the corrupt 108 sets it aside and writes the record.
+        // Saving over a corrupt snapshot supersedes it.
+        snapshots.corrupt(108);
         store.save_val_state(&s.val_state).unwrap();
-        assert_eq!(fs::read(dir.path().join("val-state-108.bin.corrupt")).unwrap(), &framed[..40]);
         assert_eq!(store.load_val_state(108).unwrap(), Record::Valid(s.val_state.clone()));
 
-        // A well-formed record with another priority at 108 is a conflict, never replaced.
+        // A well-formed snapshot with another priority at 108 is a conflict, never replaced.
+        let saved = fs::read(&path).unwrap();
         let mut other = s.val_state.clone();
         other.current.entries[0].priority += 1;
         assert!(matches!(store.save_val_state(&other), Err(StoreError::ValStateConflict(108))));
-        assert_eq!(fs::read(&path).unwrap(), framed);
+        assert_eq!(fs::read(&path).unwrap(), saved);
     }
 
     /// A checkpoint import installs an ordinary store (DATA-5.4-4, DATA-5.4-6): the Comet block
@@ -920,8 +829,8 @@ mod tests {
         let reopened = Store::new(dir.path().into());
         assert_eq!(reopened.load().unwrap(), Some(state.clone()));
         assert_eq!(reopened.load_comet_hash(12).unwrap(), Some(state.last_comet_hash));
-        assert_eq!(fs::read(dir.path().join("val-state-12.bin")).unwrap(), frame(&preimage));
-        assert_eq!(reopened.val_state_heights().unwrap(), [12]);
+        assert_eq!(reopened.val_states().read(12).unwrap(), Record::Valid(preimage.clone()));
+        assert_eq!(reopened.val_states().heights().unwrap(), [12]);
         assert_eq!(reopened.load_val_state(12).unwrap(), Record::Valid(state.val_state.clone()));
         let app = crate::App::new(
             fx.l1(),
@@ -1113,8 +1022,10 @@ mod tests {
 }
 
 #[cfg(test)]
-mod comet_history_tests {
+mod record_tests {
     use super::*;
+    use crate::{envelope::ExecutionBlock, test_utils::test_key};
+
     #[test]
     fn durable_comet_hashes_are_immutable_and_corruption_is_not_absence() {
         let dir = tempfile::tempdir().unwrap();
@@ -1129,44 +1040,56 @@ mod comet_history_tests {
             reopened.save_comet_hash(6, B256::repeat_byte(7)),
             Err(StoreError::CometConflict(6))
         ));
-        std::fs::write(dir.path().join("comet-hash-6.json"), b"invalid").unwrap();
-        assert!(matches!(reopened.load_comet_hash(6), Err(StoreError::Corrupt { .. })));
+        reopened.comet_hashes().corrupt(6);
+        assert!(matches!(
+            reopened.load_comet_hash(6),
+            Err(StoreError::CometCorrupt { height: 6, .. })
+        ));
+        reopened.comet_hashes().replace(6, b"short");
+        assert!(matches!(
+            reopened.load_comet_hash(6),
+            Err(StoreError::CometCorrupt { height: 6, .. })
+        ));
+        // A record whose checksum fails is superseded by the height's next save.
+        reopened.comet_hashes().corrupt(6);
+        reopened.save_comet_hash(6, hash).unwrap();
+        assert_eq!(reopened.load_comet_hash(6).unwrap(), Some(hash));
     }
 
+    /// Pruning deletes the Comet block ID segments wholly below the floor; the segment holding
+    /// the floor keeps every record in it.
     #[test]
-    fn pruning_removes_only_comet_hashes_below_the_floor() {
+    fn pruning_removes_only_comet_hash_segments_below_the_floor() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::volatile(dir.path().into());
-        for height in 1..=5 {
+        let heights = [5, SEGMENT_HEIGHTS - 1, SEGMENT_HEIGHTS, SEGMENT_HEIGHTS + 7];
+        for height in heights {
             store.save_comet_hash(height, B256::repeat_byte(height as u8)).unwrap();
         }
-        let unrelated = [STATE_FILE, "comet-hash.tmp", "comet-hash-01.json", "comet-hash-x.json"];
+        let unrelated = [STATE_FILE, "comet-hash-5.json", "comet-hash-0.log", "comet-hash-x.log"];
         for name in unrelated {
             std::fs::write(dir.path().join(name), b"kept").unwrap();
         }
 
-        assert_eq!(store.prune_comet_hashes(3).unwrap(), 2);
+        assert_eq!(store.prune_comet_hashes(SEGMENT_HEIGHTS + 3).unwrap(), 1);
 
-        for height in 1..=2 {
+        for height in [5, SEGMENT_HEIGHTS - 1] {
             assert_eq!(store.load_comet_hash(height).unwrap(), None, "height {height}");
         }
-        for height in 3..=5 {
-            assert_eq!(
-                store.load_comet_hash(height).unwrap(),
-                Some(B256::repeat_byte(height as u8)),
-                "height {height}"
-            );
+        for height in [SEGMENT_HEIGHTS, SEGMENT_HEIGHTS + 7] {
+            let hash = Some(B256::repeat_byte(height as u8));
+            assert_eq!(store.load_comet_hash(height).unwrap(), hash, "height {height}");
         }
         for name in unrelated {
             assert!(dir.path().join(name).exists(), "{name} is not committed Comet history");
         }
-        assert_eq!(store.prune_comet_hashes(3).unwrap(), 0, "pruning again finds nothing");
+        let again = store.prune_comet_hashes(SEGMENT_HEIGHTS + 3).unwrap();
+        assert_eq!(again, 0, "pruning again finds nothing");
     }
 
     /// CometBFT's genesis validator state at `height` of two validators, the first with
     /// `power`.
     fn val_state(height: u64, power: u64) -> ValState {
-        use crate::test_utils::test_key;
         ValState::genesis(height, &[(test_key(1), power), (test_key(2), 1)]).unwrap()
     }
 
@@ -1190,31 +1113,30 @@ mod comet_history_tests {
     /// Sample validator updates of `height`: power `height` for key 1 and the removal of key 3,
     /// so the records of different heights differ.
     fn updates(height: u64) -> Vec<(ConsensusKey, u64)> {
-        use crate::test_utils::test_key;
         vec![(test_key(1), height), (test_key(3), 0)]
     }
 
-    /// An update record is `keccak256(body) ‖ body`, the body the JSON of its height and
-    /// updates. Like a validator-state record it is immutable once valid, and a checksum,
-    /// decoding or height failure is a corrupt record (missing data, SYNC-9-7) that the next save
-    /// sets aside; only a valid record of other updates conflicts (SYNC-9-5c).
+    /// An update record's body is the JSON array of its `[key, power]` pairs. Like a snapshot it
+    /// is immutable once valid, and a checksum or decoding failure is a corrupt record (missing
+    /// data) that the next save supersedes; only a valid record of other updates
+    /// conflicts.
     #[test]
     fn val_update_records_are_immutable_and_checksummed() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().into());
         assert_eq!(store.load_val_updates(7).unwrap(), Record::Missing);
 
-        // Round trip, the empty list of a switch that changes nothing included.
+        // Round trip, the empty list of a height that changes nothing included.
         store.save_val_updates(3, &[]).unwrap();
         assert_eq!(store.load_val_updates(3).unwrap(), Record::Valid(vec![]));
         store.save_val_updates(7, &updates(7)).unwrap();
         let reopened = Store::new(dir.path().into());
         assert_eq!(reopened.load_val_updates(7).unwrap(), Record::Valid(updates(7)));
-        let path = dir.path().join("val-updates-7.bin");
+        let Record::Valid(body) = reopened.val_updates().read(7).unwrap() else { panic!() };
+        let json = serde_json::json!(updates(7));
+        assert_eq!(serde_json::from_slice::<serde_json::Value>(&body).unwrap(), json);
+        let path = dir.path().join("val-updates-00000000000000000000.log");
         let framed = std::fs::read(&path).unwrap();
-        let body = serde_json::json!({ "height": 7, "updates": updates(7) });
-        assert_eq!(serde_json::from_slice::<serde_json::Value>(&framed[32..]).unwrap(), body);
-        assert_eq!(framed[..32], keccak256(&framed[32..]).0);
 
         // An equal re-save succeeds unchanged; other updates conflict and are not written.
         reopened.save_val_updates(7, &updates(7)).unwrap();
@@ -1228,135 +1150,227 @@ mod comet_history_tests {
         ));
         assert_eq!(std::fs::read(&path).unwrap(), framed);
 
-        // A flipped body byte fails the checksum; a well-formed record of 7 under the name of
-        // 8 holds the wrong height; an unknown field or a bad key fails decoding.
-        let mut flipped = framed.clone();
-        *flipped.last_mut().unwrap() ^= 1;
-        std::fs::write(&path, &flipped).unwrap();
+        // A failed checksum; a body that is not an update list or holds a bad key.
+        reopened.val_updates().corrupt(7);
         assert!(matches!(reopened.load_val_updates(7).unwrap(), Record::Corrupt(_)));
-        std::fs::write(dir.path().join("val-updates-8.bin"), &framed).unwrap();
-        assert!(matches!(reopened.load_val_updates(8).unwrap(), Record::Corrupt(_)));
-        let unknown = serde_json::json!({ "height": 9, "updates": [], "extra": 1 });
-        let bad_key =
-            serde_json::json!({ "height": 9, "updates": [[format!("0x{}", "00".repeat(33)), 1]] });
+        let unknown = serde_json::json!({ "height": 3, "updates": [] });
+        let bad_key = serde_json::json!([[format!("0x{}", "00".repeat(33)), 1]]);
         for body in [unknown, bad_key] {
             let body = serde_json::to_vec(&body).unwrap();
-            std::fs::write(dir.path().join("val-updates-9.bin"), frame(&body)).unwrap();
-            let record = reopened.load_val_updates(9).unwrap();
+            reopened.val_updates().replace(3, &body);
+            let record = reopened.load_val_updates(3).unwrap();
             assert!(matches!(record, Record::Corrupt(_)), "{}", String::from_utf8_lossy(&body));
         }
 
-        // Saving over the corrupt 7 sets it aside and writes the record.
+        // Saving over the corrupt 7 supersedes it.
         reopened.save_val_updates(7, &updates(7)).unwrap();
-        assert_eq!(std::fs::read(dir.path().join("val-updates-7.bin.corrupt")).unwrap(), flipped);
-        assert_eq!(std::fs::read(&path).unwrap(), framed);
         assert_eq!(reopened.load_val_updates(7).unwrap(), Record::Valid(updates(7)));
     }
 
-    /// Retention keeps the newest sidecar below the floor that loads valid as the base the
-    /// states above it are recomputed from (SYNC-9-5c): it deletes the sidecars below the base,
-    /// the update records at or below it (the base already includes them) and the set-aside
-    /// corrupt records below the floor. Without a valid base below the floor nothing is deleted.
+    /// Retention keeps the newest snapshot below the floor that loads valid as the base the
+    /// states above it are recomputed from: it deletes the snapshot segments wholly
+    /// below the base and the update segments wholly at or below it. Without a valid base below
+    /// the floor nothing is deleted.
     #[test]
-    fn pruning_keeps_the_newest_valid_record_below_the_floor() {
-        let sidecars = |store: &Store| store.val_state_heights().unwrap();
-        let records = |dir: &Path| {
-            (0..=24)
-                .filter(|h| dir.join(format!("val-updates-{h}.bin")).exists())
-                .collect::<Vec<u64>>()
-        };
-        let unrelated = [
-            STATE_FILE,
-            "val-state.tmp",
-            "val-updates.tmp",
-            "val-state-06.bin",
-            "val-state-x.bin",
-            "val-state-6.json",
-            "val-updates-06.bin",
-            "val-updates-2.json",
-        ];
+    fn pruning_keeps_the_newest_valid_snapshot_below_the_floor() {
+        let k = SEGMENT_HEIGHTS;
+        let snapshots = |store: &Store| store.val_states().heights().unwrap();
+        let recorded = |store: &Store| store.val_updates().heights().unwrap();
         let setup = |corrupt: &[u64]| {
             let dir = tempfile::tempdir().unwrap();
             let store = Store::volatile(dir.path().into());
-            for height in [0, 6, 12, 18] {
+            for height in [0, k, 2 * k, 3 * k] {
                 store.save_val_state(&val_state(height, 1)).unwrap();
                 store.save_comet_hash(height, B256::repeat_byte(height as u8)).unwrap();
             }
-            for height in [2, 6, 10, 14, 20] {
+            for height in [5, k + 6, 2 * k + 2, 2 * k + 12, 3 * k + 8] {
                 store.save_val_updates(height, &updates(height)).unwrap();
             }
-            for name in unrelated
-                .into_iter()
-                .chain(["val-state-4.bin.corrupt", "val-updates-8.bin.corrupt"])
-                .chain(["val-state-14.bin.corrupt", "val-updates-13.bin.corrupt"])
-            {
-                std::fs::write(dir.path().join(name), b"kept").unwrap();
-            }
-            for height in corrupt {
-                std::fs::write(dir.path().join(format!("val-state-{height}.bin")), b"bad").unwrap();
+            for &height in corrupt {
+                store.val_states().corrupt(height);
             }
             (dir, store)
         };
 
-        // Base 12: sidecars 0 and 6, records 2, 6 and 10 and the set-aside 4 and 8 go.
-        let (dir, store) = setup(&[]);
-        assert_eq!(store.prune_val_records(13).unwrap(), 7);
-        assert_eq!(sidecars(&store), [12, 18]);
-        assert_eq!(records(dir.path()), [14, 20]);
-        assert_eq!(store.load_val_state(12).unwrap(), Record::Valid(val_state(12, 1)));
-        assert_eq!(store.load_val_updates(14).unwrap(), Record::Valid(updates(14)));
-        assert!(!dir.path().join("val-state-4.bin.corrupt").exists());
-        assert!(!dir.path().join("val-updates-8.bin.corrupt").exists());
-        for name in unrelated.into_iter().chain(["val-state-14.bin.corrupt"]) {
-            assert!(dir.path().join(name).exists(), "{name} is kept");
-        }
-        assert!(dir.path().join("val-updates-13.bin.corrupt").exists(), "13 is not below 13");
-        for height in [0, 6, 12, 18] {
+        // Base 2k: the snapshot segments of 0 and k and the update segments up to 2k go.
+        let (_dir, store) = setup(&[]);
+        assert_eq!(store.prune_val_records(2 * k + 1).unwrap(), 4);
+        assert_eq!(snapshots(&store), [2 * k, 3 * k]);
+        assert_eq!(recorded(&store), [2 * k + 2, 2 * k + 12, 3 * k + 8]);
+        assert_eq!(store.load_val_state(2 * k).unwrap(), Record::Valid(val_state(2 * k, 1)));
+        assert_eq!(store.load_val_updates(2 * k + 2).unwrap(), Record::Valid(updates(2 * k + 2)));
+        for height in [0, k, 2 * k, 3 * k] {
             assert!(store.load_comet_hash(height).unwrap().is_some(), "comet hash {height}");
         }
-        assert_eq!(store.prune_val_records(13).unwrap(), 0, "pruning again finds nothing");
+        assert_eq!(store.prune_val_records(2 * k + 1).unwrap(), 0, "pruning again finds nothing");
 
-        // A corrupt 12 is no base: base 6 keeps the corrupt 12 for its recompute.
-        let (dir, store) = setup(&[12]);
-        assert_eq!(store.prune_val_records(13).unwrap(), 5);
-        assert_eq!(sidecars(&store), [6, 12, 18]);
-        assert!(matches!(store.load_val_state(12).unwrap(), Record::Corrupt(_)));
-        assert_eq!(records(dir.path()), [10, 14, 20]);
+        // A corrupt 2k is no base: base k keeps the corrupt 2k for its recompute.
+        let (_dir, store) = setup(&[2 * k]);
+        assert_eq!(store.prune_val_records(2 * k + 1).unwrap(), 2);
+        assert_eq!(snapshots(&store), [k, 2 * k, 3 * k]);
+        assert!(matches!(store.val_states().read(2 * k).unwrap(), Record::Corrupt(_)));
+        assert_eq!(recorded(&store), [k + 6, 2 * k + 2, 2 * k + 12, 3 * k + 8]);
 
-        // A floor at a recorded height keeps that record; the base is the one below it.
-        let (dir, store) = setup(&[]);
-        assert_eq!(store.prune_val_records(12).unwrap(), 5);
-        assert_eq!(sidecars(&store), [6, 12, 18]);
-        assert_eq!(records(dir.path()), [10, 14, 20]);
-        assert_eq!(store.load_val_state(12).unwrap(), Record::Valid(val_state(12, 1)));
+        // A floor at a snapshot height keeps that snapshot; the base is the one below it.
+        let (_dir, store) = setup(&[]);
+        assert_eq!(store.prune_val_records(2 * k).unwrap(), 2);
+        assert_eq!(snapshots(&store), [k, 2 * k, 3 * k]);
+        assert_eq!(recorded(&store), [k + 6, 2 * k + 2, 2 * k + 12, 3 * k + 8]);
 
-        // No valid sidecar below the floor: nothing is deleted.
-        let (dir, store) = setup(&[0, 6, 12]);
-        assert_eq!(store.prune_val_records(13).unwrap(), 0);
-        assert_eq!(sidecars(&store), [0, 6, 12, 18]);
-        assert_eq!(records(dir.path()), [2, 6, 10, 14, 20]);
-        assert!(dir.path().join("val-state-4.bin.corrupt").exists());
-        let (dir, store) = setup(&[]);
+        // No valid snapshot below the floor: nothing is deleted.
+        let (_dir, store) = setup(&[0, k, 2 * k]);
+        assert_eq!(store.prune_val_records(2 * k + 1).unwrap(), 0);
+        assert_eq!(snapshots(&store), [0, k, 2 * k, 3 * k]);
+        let (_dir, store) = setup(&[]);
         assert_eq!(store.prune_val_records(0).unwrap(), 0);
-        assert_eq!(records(dir.path()), [2, 6, 10, 14, 20]);
-        assert_eq!(store.prune_comet_hashes(13).unwrap(), 3, "Comet history is pruned alone");
-        assert_eq!(sidecars(&store), [0, 6, 12, 18]);
+        assert_eq!(recorded(&store).len(), 5);
+        assert_eq!(
+            store.prune_comet_hashes(2 * k + 1).unwrap(),
+            2,
+            "Comet history is pruned alone"
+        );
+        assert_eq!(snapshots(&store), [0, k, 2 * k, 3 * k]);
     }
 
-    /// Only canonical `val-state-{height}.bin` names count, in ascending height order.
+    /// The finalized execution block of `height`, a bare header.
+    fn execution_block(height: u64) -> ExecutionBlock {
+        let header = alloy_consensus::Header { number: height, ..Default::default() };
+        ExecutionBlock { header, transactions: vec![] }
+    }
+
+    /// 5,000 committed heights, each with its Comet block ID, validator updates and execution
+    /// block, and a validator-state snapshot at the origin and every snapshot height, leave at
+    /// most `5,000 / SEGMENT_HEIGHTS + 2` files of each kind, all of them readable back.
     #[test]
-    fn val_state_heights_lists_canonical_sidecars() {
+    fn files_stay_bounded() {
+        const HEIGHTS: u64 = 5_000;
         let dir = tempfile::tempdir().unwrap();
-        let store = Store::volatile(dir.path().join("absent"));
-        assert_eq!(store.val_state_heights().unwrap(), Vec::<u64>::new());
         let store = Store::volatile(dir.path().into());
-        for height in [18, 0, 120, 6] {
-            store.save_val_state(&val_state(height, 1)).unwrap();
+        let origin = SEGMENT_HEIGHTS - 24;
+        let mut state = val_state(origin, 1);
+        store.save_val_state(&state).unwrap();
+        for height in origin + 1..=origin + HEIGHTS {
+            store.save_comet_hash(height, B256::with_last_byte(height as u8)).unwrap();
+            store.save_val_updates(height, &[]).unwrap();
+            store.save_execution_block(&execution_block(height)).unwrap();
+            state = state.advance(&[]).unwrap();
+            if height % SEGMENT_HEIGHTS == 0 {
+                store.save_val_state(&state).unwrap();
+            }
         }
-        for name in ["val-state-06.bin", "val-state-7.bin.corrupt", "val-updates-12.bin"] {
-            std::fs::write(dir.path().join(name), b"other").unwrap();
+        let names = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect::<Vec<_>>();
+        let bound = (HEIGHTS / SEGMENT_HEIGHTS + 2) as usize;
+        for kind in ["comet-hash-", "val-updates-", "val-state-", "execution-block-"] {
+            let files = names.iter().filter(|name| name.starts_with(kind)).count();
+            assert!((1..=bound).contains(&files), "{kind}: {files} files, bound {bound}");
         }
-        std::fs::write(dir.path().join("val-state-24.bin"), b"corrupt").unwrap();
-        assert_eq!(store.val_state_heights().unwrap(), [0, 6, 18, 24, 120]);
+        assert!(names.len() <= 4 * bound, "{names:?}");
+        let head = origin + HEIGHTS;
+        for height in [origin + 1, SEGMENT_HEIGHTS, 3_333, head] {
+            let hash = B256::with_last_byte(height as u8);
+            assert_eq!(store.load_comet_hash(height).unwrap(), Some(hash), "{height}");
+            assert_eq!(store.load_val_updates(height).unwrap(), Record::Valid(vec![]), "{height}");
+            let block = store.load_execution_block(height).unwrap();
+            assert_eq!(block, Record::Valid(execution_block(height)), "{height}");
+        }
+        assert_eq!(store.load_val_state(head).unwrap(), Record::Valid(state));
+    }
+
+    /// Between snapshots the validator state is recomputed from the newest valid snapshot at or
+    /// below the height and the update records above it, a non-empty update list included; a
+    /// corrupt snapshot falls back to an older one, and a lost update record on the way is
+    /// missing data naming its height.
+    #[test]
+    fn val_state_between_snapshots_is_recomputed() {
+        let k = SEGMENT_HEIGHTS;
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::volatile(dir.path().into());
+        let origin = k - 24;
+        let members = [(test_key(1), 10), (test_key(2), 20), (test_key(3), 30)];
+        let mut state = ValState::genesis(origin, &members).unwrap();
+        store.save_val_state(&state).unwrap();
+        let mut states = BTreeMap::from([(origin, state.clone())]);
+        for height in origin + 1..=3 * k + 5 {
+            let updates = match height {
+                1_500 => vec![(test_key(1), 0), (test_key(4), 40)],
+                2_100 => vec![(test_key(4), 7)],
+                _ => vec![],
+            };
+            store.save_val_updates(height, &updates).unwrap();
+            state = state.advance(&updates).unwrap();
+            if height % k == 0 {
+                store.save_val_state(&state).unwrap();
+            }
+            states.insert(height, state.clone());
+        }
+        assert_eq!(store.val_states().heights().unwrap(), [origin, k, 2 * k, 3 * k]);
+        let load = |height: u64| store.load_val_state(height).unwrap();
+        let sample =
+            [origin, origin + 1, k - 1, k, k + 1, 1_499, 1_500, 2 * k - 1, 2_100, 3 * k + 5];
+        for height in sample {
+            assert_eq!(load(height), Record::Valid(states[&height].clone()), "{height}");
+        }
+        let next = states[&2_100].next.entries.iter().map(|e| e.key).collect::<Vec<_>>();
+        assert!(next.contains(&test_key(4)) && !next.contains(&test_key(1)), "{next:?}");
+        assert_eq!(load(origin - 1), Record::Missing, "no snapshot at or below it");
+
+        // A corrupt snapshot is skipped for the newest valid one below it.
+        store.val_states().corrupt(2 * k);
+        assert_eq!(load(2_500), Record::Valid(states[&2_500].clone()));
+        // A lost update record between that snapshot and the height is missing data.
+        store.val_updates().remove(1_600);
+        let Record::Corrupt(reason) = load(2_500) else { panic!("an update record is lost") };
+        assert!(reason.contains("record of height 1600 is missing"), "{reason}");
+        assert_eq!(load(1_599), Record::Valid(states[&1_599].clone()));
+        assert_eq!(load(3 * k + 1), Record::Valid(states[&(3 * k + 1)].clone()));
+        // With every snapshot at or below the height corrupt, there is no base.
+        store.val_states().corrupt(k);
+        store.val_states().corrupt(origin);
+        let Record::Corrupt(reason) = load(1_500) else { panic!("no valid snapshot") };
+        assert!(reason.contains(&format!("snapshot of height {k} is corrupt")), "{reason}");
+    }
+
+    /// After a checkpoint import at s the node holds the authenticated preimage for s − 1 and the
+    /// state at s as snapshots. While the committed anchor's checkpoint is s, s − 1's preimage
+    /// is the base retention keeps, the state an import package at s carries,
+    /// whether or not s − 1 and s share a segment; once the checkpoint passes the next snapshot
+    /// height, that snapshot is the base.
+    #[test]
+    fn prune_keeps_the_import_preimage_base() {
+        let k = SEGMENT_HEIGHTS;
+        let fx = crate::test_utils::Fixture::genesis(1);
+        for s in [2 * k + 2, 2 * k] {
+            let dir = tempfile::tempdir().unwrap();
+            let store = Store::volatile(dir.path().into());
+            let (before, _) = fx.imported_state(s - 1, s - 1);
+            let (state, _) = fx.imported_state(s, s);
+            store.save_val_state(&before.val_state).unwrap();
+            store.install_import(&state, None).unwrap();
+            let mut head = state.val_state.clone();
+            let next = 3 * k;
+            for height in s + 1..=next + 10 {
+                store.save_val_updates(height, &[]).unwrap();
+                head = head.advance(&[]).unwrap();
+                if height % k == 0 {
+                    store.save_val_state(&head).unwrap();
+                }
+            }
+            assert_eq!(store.prune_val_records(s).unwrap(), 0, "s = {s}");
+            assert_eq!(store.load_val_state(s - 1).unwrap(), Record::Valid(before.val_state));
+            assert_eq!(store.load_val_state(s).unwrap(), Record::Valid(state.val_state.clone()));
+            let mut expected = state.val_state.clone();
+            for _ in s..s + 40 {
+                expected = expected.advance(&[]).unwrap();
+            }
+            assert_eq!(store.load_val_state(s + 40).unwrap(), Record::Valid(expected));
+
+            assert!(store.prune_val_records(next + 1).unwrap() > 0, "s = {s}");
+            assert_eq!(store.val_states().heights().unwrap(), [next]);
+            assert_eq!(store.load_val_state(s - 1).unwrap(), Record::Missing);
+            assert_eq!(store.load_val_state(next + 10).unwrap(), Record::Valid(head));
+        }
     }
 }

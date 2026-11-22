@@ -13,8 +13,7 @@ use super::{
 use crate::{
     engine::Engine,
     l1::L1Source,
-    store::{AppState, ExecutionFloor, Record, Store, StoreError},
-    valstate::ValState,
+    store::{AppState, ExecutionFloor, Record},
 };
 
 /// Response code of a rejected `CheckTx` and of a failed `Query`.
@@ -266,22 +265,20 @@ impl<L: L1Source, E: Engine> App<L, E> {
         self.val_state_preimage(height)
     }
 
-    /// The validator-state preimage ([`ValState::encode`]) after the committed `height`: the
-    /// head state's when `height` is the last committed height, else the record the node made
-    /// when it committed that height, or InitChain's at the generation origin (SYNC-9-5c).
+    /// The validator-state preimage
+    /// ([`ValState::encode`](crate::valstate::ValState::encode)) after the committed `height`: the
+    /// head state's when `height` is the last committed height, else the state the store
+    /// recomputes from its newest snapshot at or below `height` and the update records since
+    /// ([`Store::load_val_state`](crate::store::Store::load_val_state)). Stock CometBFT's stored
+    /// validator-set lookup is never a source.
     ///
     /// Every height in the retained range answers: from s − 1, where s is the committed
     /// anchor's checkpoint ([`AppState::comet_history_floor`]), but never below the generation
     /// origin, through `last_height`. s − 1's is the preimage an import package at s carries
-    /// (DATA-5.4-3, DATA-5.4-8). Any other height and a state not yet initialized are errors
-    /// naming the cause.
-    ///
-    /// A record that is missing or corrupt ([`Record::Corrupt`]: a failed checksum, a failed
-    /// decoding or another height) is recomputed with [`recompute_val_state`] from an earlier
-    /// record and the update records since, then recorded again (a corrupt file is set aside
-    /// first; a failed write only warns) and served. Stock CometBFT's stored validator-set
-    /// lookup is never a source. Without those inputs, or when the record cannot be read, the
-    /// state is missing data (SYNC-9-7): an error, logged as a warning.
+    /// (5.4). Any other height and a state not yet initialized are errors naming the cause. A
+    /// state the store cannot recompute (no snapshot, or a missing or corrupt record on the way)
+    /// or cannot read is missing data, which keeps the node retrying: an error naming the cause,
+    /// logged as a warning.
     pub fn val_state_preimage(&self, height: u64) -> Result<Vec<u8>, String> {
         let state = self.state.as_ref().ok_or("the app is not initialized")?;
         let floor = state.comet_history_floor().saturating_sub(1).max(state.origin_height());
@@ -294,43 +291,19 @@ impl<L: L1Source, E: Engine> App<L, E> {
         if height == last {
             return Ok(state.val_state.encode());
         }
-        let lost = match self.store.load_val_state(height) {
-            Ok(Record::Valid(recorded)) => return Ok(recorded.encode()),
-            Ok(Record::Missing) => "missing".to_string(),
-            Ok(Record::Corrupt(reason)) => format!("corrupt ({reason})"),
-            Err(error) => {
-                let reason = format!("cannot read the validator state at height {height}: {error}");
-                tracing::warn!(height, %reason, "validator state at {height} is missing data");
-                return Err(reason);
-            }
+        let reason = match self.store.load_val_state(height) {
+            Ok(Record::Valid(recomputed)) => return Ok(recomputed.encode()),
+            Ok(Record::Missing) => format!("no validator-state snapshot at or below {height}"),
+            Ok(Record::Corrupt(reason)) => reason,
+            Err(error) => format!("cannot read the validator records: {error}"),
         };
-        match recompute_val_state(&self.store, state.origin_height(), height) {
-            Ok(recomputed) => {
-                tracing::warn!(
-                    height,
-                    record = %lost,
-                    "recomputed the lost validator-state record at {height} from an earlier \
-                     record and the update records since (SYNC-9-5c)"
-                );
-                if let Err(error) = self.store.save_val_state(&recomputed) {
-                    tracing::warn!(height, %error, "cannot record the recomputed validator state");
-                }
-                Ok(recomputed.encode())
-            }
-            Err(reason) => {
-                tracing::warn!(
-                    height,
-                    record = %lost,
-                    %reason,
-                    "validator state at {height} is missing data; recomputing needs an earlier \
-                     record and the update records since (SYNC-9-5c)"
-                );
-                Err(format!(
-                    "the validator-state record of height {height} is {lost} and cannot be \
-                     recomputed: {reason}"
-                ))
-            }
-        }
+        tracing::warn!(
+            height,
+            %reason,
+            "validator state at {height} is missing data; recomputing needs a snapshot at or \
+             below it and the update records since"
+        );
+        Err(format!("the validator state at height {height} cannot be recomputed: {reason}"))
     }
 
     /// Handles `CheckTx`: rejects every transaction (the CometBFT mempool is `nop`; user
@@ -342,60 +315,4 @@ impl<L: L1Source, E: Engine> App<L, E> {
             ..Default::default()
         }
     }
-}
-
-/// Recomputes the validator state after `height` from the records in `store` (SYNC-9-5c), with
-/// CometBFT v0.40.0's per-height arithmetic ([`ValState::advance`], SYNC-9-5c 5c.c): from the
-/// newest record in `[origin, height)` that loads valid, one advance per height up to
-/// `height`, by the validator updates recorded at that height (every height records them, an
-/// empty list included).
-///
-/// `origin` is the current generation's origin height. A record below it is from an earlier
-/// generation and does not count (SYNC-9-5c). That bound alone cannot exclude an earlier
-/// generation's records above the origin: each generation starts in an empty app directory
-/// (`abci-recover install`), and saving a record that differs from a valid kept one fails with
-/// [`StoreError::ValStateConflict`].
-///
-/// No valid record in that range, a height in between whose update record is missing or
-/// corrupt, an unreadable record or updates the arithmetic refuses are missing data
-/// (SYNC-9-7): an error naming the cause. Range checks are the caller's.
-pub(super) fn recompute_val_state(
-    store: &Store,
-    origin: u64,
-    height: u64,
-) -> Result<ValState, String> {
-    let unreadable = |error: StoreError| format!("cannot read the validator records: {error}");
-    let mut base = None;
-    let heights = store.val_state_heights().map_err(unreadable)?;
-    for recorded in heights.into_iter().rev().filter(|recorded| (origin..height).contains(recorded))
-    {
-        if let Record::Valid(state) = store.load_val_state(recorded).map_err(unreadable)? {
-            base = Some(state);
-            break;
-        }
-    }
-    let mut state = base.ok_or_else(|| {
-        format!(
-            "no valid validator-state record below height {height} from the generation's \
-             origin {origin} on"
-        )
-    })?;
-    while state.height < height {
-        let next = state.height + 1;
-        let updates = match store.load_val_updates(next).map_err(unreadable)? {
-            Record::Valid(updates) => updates,
-            Record::Missing => {
-                return Err(format!("the validator-update record of height {next} is missing"));
-            }
-            Record::Corrupt(reason) => {
-                return Err(format!(
-                    "the validator-update record of height {next} is corrupt: {reason}"
-                ));
-            }
-        };
-        state = state
-            .advance(&updates)
-            .map_err(|error| format!("cannot advance the validator state to {next}: {error}"))?;
-    }
-    Ok(state)
 }

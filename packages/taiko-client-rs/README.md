@@ -86,23 +86,24 @@ Validators sign with stock CometBFT v0.40.0 `secp256k1eth` consensus keys; node 
 separate Ed25519 identities. The CometBFT chain ID is the 48-byte `etna-` deployment domain that
 `abci-genesis` writes.
 
-Never reset signed state or Comet history to force a start. The app writes
-`comet-hash-{height}.json`, the committed Comet block ID that checkpoint trust compares with a
-landed checkpoint, before each commit. Trust never reads one below the committed anchor's last
-checkpoint, so commits delete those; back-pressure keeps at most `unsettled_limit + 1` files.
-Do not delete the others by hand. At every committed height the app also writes
-`val-state-{height}.bin`, its record of the validator state CometBFT holds after that height;
-`InitChain` records the generation's start state the same way, and a checkpoint import at s the
-states after s − 1 and s. At every epoch switch height it writes `val-updates-{height}.bin`, the
-validator updates that height returned, an empty list included. Each record starts with the
-keccak256 checksum of the rest. The app keeps the state records from one height below the
-checkpoint its committed anchor proves; below that it keeps only the newest valid one, as the base
-to recompute from, and the update records above it. A missing record, or one that fails its
-checksum or decoding (set aside as `val-state-{height}.bin.corrupt`), is recomputed with
-CometBFT's per-height arithmetic from an earlier record and the update records since, and
-written again (spec SYNC-9-5c). Do not delete these by hand either: without those inputs the
-node cannot serve the state at that height to `abci-import export`, whose package at s carries
-the state after s − 1. `fatal-evidence.txt` survives
+Never reset signed state or Comet history to force a start. The app keeps its per-height
+records in append-only segment logs, `<kind>-<first height, 20 digits>.log`, each holding the
+records of 1,024 heights as `height ‖ length ‖ keccak256(body) ‖ body`, fsynced on append, so the
+store holds a bounded number of files at any `unsettled_limit` (at most about 150 per kind at
+U = 151,200). Before each commit it appends to `comet-hash-*.log` the committed Comet block ID
+that checkpoint trust compares with a landed checkpoint, and to `val-updates-*.log` the validator
+updates that height returned, an empty list included. `val-state-*.log` holds full snapshots of
+the validator state CometBFT holds after a height: at the generation's start (`InitChain`), at
+the states after s − 1 and s of a checkpoint import at s, and at every committed height divisible
+by 1,024. The state at any other height is recomputed with CometBFT's per-height arithmetic from
+the newest snapshot at or below it and the update records since (spec SYNC-9-5c). Commits delete
+whole segments below the checkpoint the committed anchor proves: the Comet block IDs and
+execution blocks below it, and the validator records below the newest snapshot under it, the
+base the state one height below the checkpoint is recomputed from. A record whose checksum fails
+is skipped as corrupt; a crash during an append leaves a torn tail, which the next append
+truncates. Do not delete or edit these files by hand: without them trust stays closed and the
+node cannot serve the state at a height to `abci-import export`, whose package at s carries the
+state after s − 1. `fatal-evidence.txt` survives
 restarts and records the first safety failure, such as an unknown-execution-state Engine error
 (`-38100`); repair its cause before restarting. An L1 header shape the node cannot parse makes
 `ProcessProposal` reject and `FinalizeBlock` wait, without a safety halt: upgrade the client.
@@ -111,13 +112,13 @@ The app fsyncs a checksummed RLP execution body before acknowledging each finali
 then publishes the committed AppState through the existing atomic barrier. After an EL restart,
 startup and proposal retries can re-feed a lost suffix from these local bodies without peers.
 Recovery authenticates the chain backward from the committed EL hash and replays forward with
-bounded memory; it never makes an uncommitted proposal canonical. Keep `execution-block-*.bin`
-alongside the app data. Bodies are retained for the full generation above its origin or imported
-execution floor: a landing alone does not prove the EL has flushed that checkpoint to disk.
-A fresh recovery or checkpoint import establishes a new boundary in a fresh app directory; keep
-older directories under the existing recovery retention policy. Missing or corrupt auxiliary
-bodies keep the request pending; missing state at the generation origin or import floor must be
-restored separately.
+bounded memory; it never makes an uncommitted proposal canonical. Keep `execution-block-*.log`
+alongside the app data. Bodies are retained from the segment of the checkpoint the committed
+anchor proves: an EL that lost blocks below it needs them from peers or a snapshot, since the
+local bodies are gone. A fresh recovery or checkpoint import establishes a new boundary in a
+fresh app directory; keep older directories under the existing recovery retention policy.
+Missing or corrupt auxiliary bodies keep the request pending; missing state at the generation
+origin or import floor must be restored separately.
 
 The `app_hash` the app returns for each height x is appHash(x) =
 keccak256(abi.encode(bytes32("ETNA_APP_HASH_V1"), ELHash(x), valStateHash(x))) (spec CONS-3.1-8,
@@ -950,14 +951,13 @@ committing those values to the Inbox.
   committed head. Commit, context replacement and app drop abort obsolete work. Retries are
   logged with backoff. `ProcessProposal` points forkchoice only at the trusted committed head;
   it never makes an undecided peer proposal canonical to repair missing history.
-- Every successful finalization fsyncs its exact checksum-framed RLP execution body to
-  `execution-block-<height>.bin` before its AppState can be committed. Preserve these files with
-  the app store. Recovery authenticates the suffix backward from the committed hash, then
+- Every successful finalization fsyncs its exact checksummed RLP execution body to the
+  `execution-block-*.log` segments before its AppState can be committed. Preserve these files
+  with the app store. Recovery authenticates the suffix backward from the committed hash, then
   re-feeds it in bounded memory from a surviving ancestor whose execution state is available.
-  The archive grows with this generation's execution history above its authenticated origin or
-  import floor; ordinary landings do not authorize pruning it, because even a recently landed
-  checkpoint may still be volatile in the EL. Reclaim history only across a separately installed
-  authenticated origin/import boundary with retained execution state.
+  Commits delete the segments below the committed anchor's checkpoint with the other per-height
+  records, so the archive stays bounded; a suffix that reaches below them is reported missing
+  (the request stays pending, never a halt) and must come from peers or a snapshot.
 - Existing stores without these auxiliary bodies keep the peer-sync path. Missing/corrupt bodies
   or unavailable origin/import state remain missing data, not permission to invent payloads or
   reset Comet/FilePV state. If no peer retains the data, restore a verified execution dataset and

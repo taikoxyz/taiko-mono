@@ -206,7 +206,7 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
     // Landing observes peer 0. The other three can decide a block before peer 3 has
     // executed it, so establish the offline validator's own durable baseline before stopping.
     let first_height = first.batch.input.lastHeight.to::<u64>();
-    let history = c.app_dir(3).join(format!("comet-hash-{first_height}.json"));
+    let history = abci::Store::new(c.app_dir(3));
     let hrs_path = c.signing_state_path(3);
     let (peer_head, signed_height) = wait_until(
         &format!("peer 3 to commit and sign the first landing at {first_height}"),
@@ -228,14 +228,12 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
         },
     )
     .await?;
-    let saved_history =
-        std::fs::read(&history).with_context(|| format!("read {}", history.display()))?;
-    let local_hash: B256 = serde_json::from_slice(&saved_history)
-        .with_context(|| format!("decode {}", history.display()))?;
+    let local_hash = history
+        .load_comet_hash(first_height)?
+        .with_context(|| format!("peer 3 holds no Comet block ID at {first_height}"))?;
     ensure!(
         local_hash == first.batch.input.lastCometHash,
-        "peer 3 {} holds {local_hash}, landing commits {}",
-        history.display(),
+        "peer 3 holds {local_hash} at {first_height}, landing commits {}",
         first.batch.input.lastCometHash
     );
     eprintln!(
@@ -247,10 +245,7 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
     let old_height = old_state["height"].as_str().context("HRS height")?.parse::<u64>()?;
     let key_path = f.signer_storage.path().join("3/key.json");
     let key = std::fs::read(&key_path).with_context(|| format!("read {}", key_path.display()))?;
-    assert_eq!(
-        std::fs::read(&history).with_context(|| format!("read stopped {}", history.display()))?,
-        saved_history
-    );
+    assert_eq!(history.load_comet_hash(first_height)?, Some(local_hash));
     let wal = c.comet_home(3).join("data/cs.wal/wal");
     ensure!(wal.is_file(), "Comet WAL must survive node stop");
     c.wait_for_height(old_height + 8).await?;
@@ -277,23 +272,20 @@ async fn four_validator_native_consensus_fees_fi_epoch_landing_and_restart() -> 
         key_path.display()
     );
     // Restart never rewrites a committed Comet block ID. Commits delete one only once the
-    // committed anchor's checkpoint has passed it, after saving that state, so read the file
-    // before the state.
-    match std::fs::read(&history) {
-        Ok(bytes) => assert_eq!(bytes, saved_history),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+    // committed anchor's checkpoint has passed its segment, after saving that state, so read the
+    // record before the state.
+    match history.load_comet_hash(first_height)? {
+        Some(hash) => assert_eq!(hash, local_hash),
+        None => {
             let state: abci::store::AppState = serde_json::from_slice(&std::fs::read(
                 c.app_dir(3).join(abci::store::STATE_FILE),
             )?)?;
             let floor = state.comet_history_floor();
             ensure!(floor > first.batch.input.lastHeight.to::<u64>(), "pruned at floor {floor}");
         }
-        Err(error) => return Err(error.into()),
     }
     ensure!(
-        abci::Store::new(c.app_dir(3))
-            .load_comet_hash(second.batch.input.lastHeight.to::<u64>())?
-            .is_some(),
+        history.load_comet_hash(second.batch.input.lastHeight.to::<u64>())?.is_some(),
         "the latest landed checkpoint keeps its Comet block ID"
     );
     assert!(c.signing_state(3)?["height"].as_str().unwrap().parse::<u64>()? >= old_height);

@@ -867,11 +867,12 @@ async fn registered_follow(
         later_round |= r > 0;
     }
     ensure!(later_round, "stock differential includes a genuine later-round proposer");
-    // Each committed height has a validator-state record (SYNC-9-5c).
-    ensure!(
-        fs::read(ready.join(format!("app/val-state-{new_height}.bin")))? ==
-            fs::read(c.app_dir(1).join(format!("val-state-{new_height}.bin")))?
-    );
+    // Both nodes recompute the same validator state at every committed height.
+    let val_state = |dir: PathBuf| match abci::Store::new(dir).load_val_state(new_height)? {
+        abci::store::Record::Valid(state) => Ok(state),
+        other => Err(anyhow::anyhow!("no validator state at {new_height}: {other:?}")),
+    };
+    ensure!(val_state(ready.join("app"))? == val_state(c.app_dir(1))?);
     let hrs = serde_json::from_slice::<Value>(&fs::read(&hrs)?)?["height"]
         .as_str()
         .context("imported HRS")?
