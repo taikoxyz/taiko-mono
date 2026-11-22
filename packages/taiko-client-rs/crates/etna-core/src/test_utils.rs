@@ -34,6 +34,8 @@ pub(crate) fn params() -> crate::params::ChainParams {
         registry: Address::from_slice(&alloy_primitives::hex!(
             "00000000000000000000000000000000e7a10002"
         )),
+        // The devnet's built-in EtnaStaking proxy on L2.
+        staking: alloy_primitives::address!("1670010000000000000000000000000000010003"),
         l1_chain_id: U256::from(1),
         unsettled_limit: 3600,
         fee_recipient: Address::ZERO,

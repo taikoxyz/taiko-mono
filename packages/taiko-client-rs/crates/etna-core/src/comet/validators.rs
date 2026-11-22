@@ -30,10 +30,11 @@ pub struct Validators {
     total: u64,
 }
 impl Validators {
-    /// Builds positive unique native slots with checked stock total-power bounds.
+    /// Builds positive unique native slots with checked stock total-power bounds, from 1 to
+    /// [`MAX_SET_MEMBERS`](crate::params::MAX_SET_MEMBERS) members.
     /// This validates keys/powers only, not registry provenance, stake mapping or epoch authority.
     pub fn from_members(members: &[crate::types::Member]) -> Result<Self, KeyError> {
-        if members.is_empty() {
+        if members.is_empty() || members.len() > crate::params::MAX_SET_MEMBERS {
             return Err(KeyError);
         }
         let mut addresses = BTreeSet::new();
@@ -70,5 +71,33 @@ impl Validators {
     /// Total voting power of all slots.
     pub fn total_voting_power(&self) -> u64 {
         self.total
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{params::MAX_SET_MEMBERS, types::Member};
+    use alloy_primitives::U256;
+
+    /// `n` members with distinct keys, each at power 1.
+    fn members(n: usize) -> Vec<Member> {
+        (0..n as u64)
+            .map(|seed| Member {
+                pubkey: crate::test_utils::test_key(seed),
+                eff_stake: U256::ZERO,
+                power: 1,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn from_members_rejects_129_and_zero_members() {
+        assert_eq!(Validators::from_members(&[]).unwrap_err(), KeyError);
+        assert_eq!(Validators::from_members(&members(MAX_SET_MEMBERS + 1)).unwrap_err(), KeyError);
+        let full = Validators::from_members(&members(MAX_SET_MEMBERS)).unwrap();
+        assert_eq!(full.validators().len(), 128);
+        assert_eq!(full.total_voting_power(), 128);
+        assert_eq!(Validators::from_members(&members(1)).unwrap().total_voting_power(), 1);
     }
 }

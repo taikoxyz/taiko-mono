@@ -1,10 +1,28 @@
 //! Canonical deployment parameters and pure validation.
 
-use alloy_primitives::{Address, U256};
+use crate::committee::{tag, word};
+use alloy_primitives::{Address, B256, U256, keccak256};
 use serde::Deserialize;
 
 /// The largest committee size accepted by the registry discovery and consensus bounds.
 pub const MAX_N_MAX: usize = 4096;
+
+/// The largest unsettled limit U, in L2 blocks: U is in `1..=MAX_UNSETTLED_LIMIT`.
+pub const MAX_UNSETTLED_LIMIT: u64 = 262_144;
+
+/// The most members any validator set has: a usable candidate and every fallback key list both
+/// have 1 to this many, whatever the staking contract's seat limit is.
+pub const MAX_SET_MEMBERS: usize = 128;
+
+/// `bytes32("ETNA_CONFIG_V1")`: domain tag of the configuration hash ([`config_hash`]).
+const CONFIG_TAG: B256 = tag(b"ETNA_CONFIG_V1");
+
+/// The configuration hash the Inbox stores at initialization and nodes and guests check:
+/// `keccak256(abi.encode(bytes32("ETNA_CONFIG_V1"), l2ChainId, staking, U))`, four words.
+/// `staking` is the address of the `EtnaStaking` proxy on L2.
+pub fn config_hash(l2_chain_id: u64, staking: Address, unsettled_limit: u64) -> B256 {
+    keccak256([CONFIG_TAG, word(l2_chain_id), staking.into_word(), word(unsettled_limit)].concat())
+}
 
 /// Deployment constants for authenticating an Unzen to Etna switch (SPEC PARAM-11-12a).
 /// Production networks compile these values into their chain parameters; private devnets may
@@ -21,6 +39,10 @@ pub struct SwitchConfig {
     /// Etna L2 SignalService implementation built into the client for the L2 chain id: the L2
     /// SignalService proxy's EIP-1967 slot holds it at S (SYNC-9-5a, PARAM-11-12a).
     pub signal_service_implementation: Address,
+    /// `EtnaStaking` implementation built into the client for the L2 chain id: the EIP-1967
+    /// implementation slot of the staking proxy that the configuration hash commits holds it at
+    /// the start, and a start where it does not is refused.
+    pub staking_implementation: Address,
 }
 
 /// Per-chain constants consumed by consensus.
@@ -32,6 +54,9 @@ pub struct ChainParams {
     pub inbox: Address,
     /// `ETNA_REGISTRY`: L1 address of the staking registry.
     pub registry: Address,
+    /// Address of the `EtnaStaking` proxy on L2, built into the client for the L2 chain id; the
+    /// configuration hash commits it.
+    pub staking: Address,
     /// Full L1 chain identifier used to bind the Comet signing domain.
     pub l1_chain_id: U256,
     /// Authenticated maximum unsettled depth U in L2 blocks, independent of epoch length.
@@ -56,15 +81,15 @@ pub struct ChainParams {
 /// Invalid consensus deployment parameters.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ParamsError {
-    /// A switch requires a nonzero Unzen Inbox, fork timestamp and L2 SignalService
-    /// implementation.
+    /// A switch requires a nonzero Unzen Inbox, fork timestamp, L2 SignalService implementation
+    /// and staking implementation.
     #[error(
-        "switch configuration requires nonzero Unzen Inbox, fork timestamp and L2 SignalService \
-         implementation"
+        "switch configuration requires nonzero Unzen Inbox, fork timestamp, L2 SignalService \
+         implementation and staking implementation"
     )]
     InvalidSwitch,
-    /// U must lie within the protocol unsettled-depth bounds (BACKP-6.4-2).
-    #[error("unsettled_limit must be in 1..=65536")]
+    /// U must lie within the protocol unsettled-depth bounds, `1..=`[`MAX_UNSETTLED_LIMIT`].
+    #[error("unsettled_limit must be in 1..={MAX_UNSETTLED_LIMIT}")]
     InvalidUnsettledLimit,
     /// Voting power units must respect the token-supply safety bound.
     #[error("vp_unit must be at least 867361738 base units")]
@@ -106,6 +131,11 @@ impl ChainParams {
         self.unsettled_limit
     }
 
+    /// The configuration hash of this chain's L2 chain id, staking proxy and U ([`config_hash`]).
+    pub fn config_hash(&self) -> B256 {
+        config_hash(self.l2_chain_id, self.staking, self.unsettled_limit)
+    }
+
     /// Checks the unsettled-depth bounds, token-supply voting-power safety, committee capacity,
     /// positive block gas limit, `min_stake >= vp_unit` and `4096 × min_stake > 10^27`
     /// (START-10-12). Returns the first invalid deployment
@@ -114,11 +144,12 @@ impl ChainParams {
         if self.switch.as_ref().is_some_and(|switch| {
             switch.unzen_inbox.is_zero() ||
                 switch.fork_timestamp == 0 ||
-                switch.signal_service_implementation.is_zero()
+                switch.signal_service_implementation.is_zero() ||
+                switch.staking_implementation.is_zero()
         }) {
             return Err(ParamsError::InvalidSwitch);
         }
-        if !(1..=65_536).contains(&self.unsettled_limit) {
+        if !(1..=MAX_UNSETTLED_LIMIT).contains(&self.unsettled_limit) {
             return Err(ParamsError::InvalidUnsettledLimit);
         }
         if self.vp_unit < U256::from(867_361_738) {
@@ -149,6 +180,7 @@ impl ChainParams {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloy_primitives::{address, b256};
 
     /// A switch configuration names the Etna L2 SignalService implementation; the replaced
     /// `anchor_implementation` key is unknown and refused, alone or beside the new key.
@@ -157,7 +189,9 @@ mod tests {
         let config = |keys: &str| {
             serde_json::from_str::<SwitchConfig>(&format!(
                 r#"{{"unzen_inbox": "0x0000000000000000000000000000000000000001",
-                    "fork_timestamp": 1800000000, {keys}}}"#
+                    "fork_timestamp": 1800000000,
+                    "staking_implementation": "0x0000000000000000000000000000000000000003",
+                    {keys}}}"#
             ))
         };
         let new_key =
@@ -173,25 +207,71 @@ mod tests {
         }
     }
 
-    /// BACKP-6.4-2, PARAM-11-8: U is any integer in 1..=65,536, not only a multiple of a grid
-    /// interval.
+    /// The configuration hash is four words, the tag, the L2 chain id, the staking proxy address
+    /// and U, and matches the appendix vector.
     #[test]
-    fn unsettled_limit_is_any_value_from_one_to_65536() {
+    fn config_hash_matches_the_appendix_vector() {
+        let staking = address!("1111111111111111111111111111111111111111");
+        let expected = b256!("78f4b267763e0c4b58a0606e29530287b1761bf4155630c82e79d3e1215fe3b6");
+        assert_eq!(config_hash(167_000, staking, 151_200), expected);
+        let params = ChainParams {
+            l2_chain_id: 167_000,
+            staking,
+            unsettled_limit: 151_200,
+            ..crate::test_utils::params()
+        };
+        assert_eq!(params.config_hash(), expected);
+        assert_ne!(config_hash(167_000, staking, 151_201), expected);
+        assert_ne!(config_hash(167_001, staking, 151_200), expected);
+        assert_ne!(config_hash(167_000, Address::with_last_byte(0x11), 151_200), expected);
+    }
+
+    /// U is any integer from 1 to 262,144, not only a multiple of a grid interval.
+    #[test]
+    fn unsettled_limit_is_any_value_from_one_to_262144() {
         let base = crate::test_utils::params();
-        for limit in [1, 5, 6, 7, 3600, 65_536] {
+        for limit in [1, 7, 65_536, 65_537, 151_200, MAX_UNSETTLED_LIMIT] {
             assert_eq!(
                 ChainParams { unsettled_limit: limit, ..base.clone() }.validate(),
                 Ok(()),
                 "U={limit}"
             );
         }
-        for limit in [0, 65_537, u64::MAX] {
+        assert_eq!(MAX_UNSETTLED_LIMIT, 262_144);
+        for limit in [0, 262_145, u64::MAX] {
             assert_eq!(
                 ChainParams { unsettled_limit: limit, ..base.clone() }.validate(),
                 Err(ParamsError::InvalidUnsettledLimit),
                 "U={limit}"
             );
         }
+    }
+
+    /// A switch names the staking implementation the proxy must hold at the start: the key is
+    /// required, and a zero address is an invalid switch.
+    #[test]
+    fn switch_requires_a_staking_implementation() {
+        let switch = SwitchConfig {
+            unzen_inbox: Address::with_last_byte(1),
+            fork_timestamp: 1_800_000_000,
+            signal_service_implementation: Address::with_last_byte(2),
+            staking_implementation: Address::with_last_byte(3),
+        };
+        let base = crate::test_utils::params();
+        assert_eq!(ChainParams { switch: Some(switch.clone()), ..base.clone() }.validate(), Ok(()));
+        let zero = SwitchConfig { staking_implementation: Address::ZERO, ..switch };
+        assert_eq!(
+            ChainParams { switch: Some(zero), ..base }.validate(),
+            Err(ParamsError::InvalidSwitch)
+        );
+
+        let missing = serde_json::from_str::<SwitchConfig>(
+            r#"{"unzen_inbox": "0x0000000000000000000000000000000000000001",
+                "fork_timestamp": 1800000000,
+                "signal_service_implementation": "0x0000000000000000000000000000000000000002"}"#,
+        )
+        .unwrap_err();
+        assert!(missing.to_string().contains("staking_implementation"), "{missing}");
     }
 
     /// START-10-12, COMM-4.3-3: `min_stake` is at least `vp_unit` and `4096 × min_stake`

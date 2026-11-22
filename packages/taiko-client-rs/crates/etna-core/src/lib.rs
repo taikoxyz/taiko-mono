@@ -28,6 +28,8 @@ pub mod comet;
 pub mod committee;
 /// Deployment and generation signing domain.
 pub mod domain;
+/// DAO fallback key set: the validated key list, its hash and its canonical ABI encoding.
+pub mod fallback;
 /// Validated consensus identities and stock key JSON.
 pub mod key;
 /// Canonical deployment data and pure parameter validation.
