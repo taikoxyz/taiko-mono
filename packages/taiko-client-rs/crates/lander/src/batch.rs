@@ -748,7 +748,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         } else {
             rules::decode_extra_data(&parent.header.extra_data)
                 .map_err(|e| LanderError::Safety(e.to_string()))?
-                .2
+                .anchor
         };
         if anchor.number != embedded_number ||
             !at_origin &&
@@ -791,7 +791,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                         .map_or(0, |header| header.timestamp),
                 };
                 let proving_anchor = self.l1.parent_anchor(snapshot, &switch).await?;
-                let (_, generation, number) =
+                let rules::ExtraData { generation, anchor: number, .. } =
                     rules::decode_extra_data(&switch.header.extra_data)
                         .map_err(|error| LanderError::Safety(error.to_string()))?;
                 if generation != snapshot.generation ||
@@ -2297,7 +2297,10 @@ mod tests {
         let switch = &fixture.headers[&11];
         assert_ne!(batch.parent_anchor.state_root, switch.parent_beacon_block_root.unwrap());
         assert_eq!(context.anchor.state_root, switch.parent_beacon_block_root.unwrap());
-        assert_eq!(context.anchor.number, rules::decode_extra_data(&switch.extra_data).unwrap().2);
+        assert_eq!(
+            context.anchor.number,
+            rules::decode_extra_data(&switch.extra_data).unwrap().anchor
+        );
         batch.verify_restored().unwrap();
     }
 
@@ -2344,7 +2347,13 @@ mod tests {
                 }
                 3 => {
                     fixture.headers.get_mut(&22).unwrap().extra_data =
-                        abci::rules::encode_extra_data(1, 11).unwrap()
+                        abci::rules::encode_extra_data(&abci::rules::ExtraData {
+                            basefee_sharing_pctg: abci::rules::BASEFEE_SHARING_PCTG,
+                            generation: 1,
+                            anchor: 11,
+                            miss_bitmap: 0,
+                        })
+                        .unwrap()
                 }
                 4 => {
                     fixture.headers.get_mut(&22).unwrap().parent_beacon_block_root =

@@ -142,7 +142,7 @@ async fn check_fees(
         .block(after)
         .await?;
     assert_eq!(root.len(), 32, "missing roots code cannot pass with empty return data");
-    let (_, _, anchor) = test_harness::extra_data_of(&l2, height).await?;
+    let anchor = test_harness::extra_data_of(&l2, height).await?.anchor;
     let l1 =
         d.l1().get_block_by_number(BlockNumberOrTag::Number(anchor)).await?.context("L1 anchor")?;
     assert_eq!(root.as_ref(), l1.header.state_root.as_slice());

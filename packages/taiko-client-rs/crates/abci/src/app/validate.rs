@@ -445,7 +445,7 @@ pub(crate) fn validate_proposal(
     }
     check_link(header, height, chain.parent.hash)?;
 
-    let (_, extra_generation, extra_anchor) = rules::decode_extra_data(&header.extra_data)?;
+    let extra = rules::decode_extra_data(&header.extra_data)?;
     let (facts, committee) = check_candidate(
         chain,
         params,
@@ -454,8 +454,8 @@ pub(crate) fn validate_proposal(
         &Candidate {
             anchor: env.anchor.as_ref(),
             committee: env.committee.as_ref(),
-            extra_generation,
-            extra_anchor,
+            extra_generation: extra.generation,
+            extra_anchor: extra.anchor,
         },
     )?;
 
@@ -517,6 +517,7 @@ pub(crate) fn expected_header(
         anchor,
         bft_time_secs: bft_secs,
         generation: chain.generation,
+        miss_bitmap: 0,
         params,
         min_base_fee: min_base_fee_for_chain(params.l2_chain_id),
         beneficiary: params.fee_recipient,

@@ -230,6 +230,7 @@ async fn generate(dir: &Path, s: u64, period: u64) {
             anchor: &a,
             bft_time_secs: time(h),
             generation: 0,
+            miss_bitmap: 0,
             params: &fx.params,
             min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(
                 fx.params.l2_chain_id,

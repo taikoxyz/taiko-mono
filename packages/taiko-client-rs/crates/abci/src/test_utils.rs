@@ -325,6 +325,18 @@ impl InboxStorage {
     }
 }
 
+/// The 29-byte `extraData` of an Etna block of `generation` anchored at L1 block `anchor`, with
+/// no missing signers.
+pub(crate) fn extra_data(generation: u64, anchor: u64) -> Bytes {
+    crate::rules::encode_extra_data(&crate::rules::ExtraData {
+        basefee_sharing_pctg: crate::rules::BASEFEE_SHARING_PCTG,
+        generation,
+        anchor,
+        miss_bitmap: 0,
+    })
+    .expect("fits uint48")
+}
+
 /// Two distinct signed transactions (a legacy and an EIP-1559 one) with a fixed, non-recoverable
 /// test signature: the manifest decoder does not recover senders.
 pub(crate) fn sample_transactions() -> Vec<TxEnvelope> {

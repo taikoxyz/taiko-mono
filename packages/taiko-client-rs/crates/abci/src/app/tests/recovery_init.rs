@@ -704,7 +704,7 @@ async fn recovery_init_never_trusts_an_old_generation_header_above_the_origin() 
     decide(&mut app, &req).await;
     // A coherent old suffix must not pass merely because it descends from the genuine origin.
     let mut old = env.block.header;
-    old.extra_data = crate::rules::encode_extra_data(0, 120).unwrap();
+    old.extra_data = crate::test_utils::extra_data(0, 120);
     app.state.as_mut().unwrap().parent.hash = old.hash_slow();
     app.engine.state().chain.insert(7, old);
     app.store.save(app.state().unwrap()).unwrap();

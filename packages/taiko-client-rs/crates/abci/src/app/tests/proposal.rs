@@ -494,8 +494,7 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     let anchor = env.anchor.as_ref().expect("a moved anchor carries its witness");
     assert_eq!(anchor.l1_header, header);
     assert!(env.committee.is_none());
-    let (_, _, extra_anchor) = rules::decode_extra_data(&env.block.header.extra_data).unwrap();
-    assert_eq!(extra_anchor, 66);
+    assert_eq!(rules::decode_extra_data(&env.block.header.extra_data).unwrap().anchor, 66);
     assert_eq!(env.block.header.parent_beacon_block_root, Some(header.state_root()));
 
     app.l1().state().calls.clear();

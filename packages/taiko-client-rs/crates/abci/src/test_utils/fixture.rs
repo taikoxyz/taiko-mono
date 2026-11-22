@@ -631,7 +631,7 @@ pub(crate) fn recovery_fixture_with_spec(
             timestamp: 1_760_000_072,
             base_fee_per_gas: Some(1),
             gas_limit: 30_000_000,
-            extra_data: crate::rules::encode_extra_data(0, 64).unwrap(),
+            extra_data: crate::test_utils::extra_data(0, 64),
             parent_beacon_block_root: Some(fx.witness.l1_header.state_root()),
             withdrawals_root: Some(alloy_consensus::constants::EMPTY_ROOT_HASH),
             blob_gas_used: Some(0),

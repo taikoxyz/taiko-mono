@@ -199,7 +199,7 @@ async fn epoch_switch_adds_the_joining_validator() -> anyhow::Result<()> {
         .get_block_by_number(alloy_eips::BlockNumberOrTag::Number(18))
         .await?
         .unwrap();
-    let (_, _, cutoff) = abci::rules::decode_extra_data(&parent.header.extra_data)?;
+    let cutoff = abci::rules::decode_extra_data(&parent.header.extra_data)?.anchor;
     assert_eq!(committee.record.cutoff_l1_block, cutoff, "D=18 commits the snapshot cutoff");
     eprintln!(
         "CANONICAL_H_PLUS_TWO D=18 S=19 outgoing=[19,20] H=21 incoming=[21,22] cutoff={cutoff}"

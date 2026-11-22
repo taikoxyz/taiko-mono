@@ -95,11 +95,10 @@ impl RecoveryBootstrap {
                 }
                 let anchor =
                     crate::l1::verify_anchor_witness(&evidence, params.inbox).map_err(invalid)?;
-                let (pctg, old_generation, number) =
+                let crate::rules::ExtraData { generation: old_generation, anchor: number, .. } =
                     crate::rules::decode_extra_data(&witness.el_header.extra_data)
                         .map_err(invalid)?;
-                if pctg != crate::rules::BASEFEE_SHARING_PCTG ||
-                    old_generation != landing_generation ||
+                if old_generation != landing_generation ||
                     anchor.inbox.recovery_generation != old_generation ||
                     anchor.number != number ||
                     anchor.number < context.genesis.l1_0 ||
@@ -107,7 +106,7 @@ impl RecoveryBootstrap {
                     witness.el_header.parent_beacon_block_root != Some(anchor.state_root)
                 {
                     return Err(invalid(format!(
-                        "historical c anchor contradicts authenticated EL header/landing: pctg={pctg}, header generation={old_generation}, landing generation={landing_generation}, anchor generation={}, number={number}/{}, L1_0={}, R={}, root={:?}/{}",
+                        "historical c anchor contradicts authenticated EL header/landing: header generation={old_generation}, landing generation={landing_generation}, anchor generation={}, number={number}/{}, L1_0={}, R={}, root={:?}/{}",
                         anchor.inbox.recovery_generation,
                         anchor.number,
                         context.genesis.l1_0,
@@ -170,8 +169,8 @@ pub(crate) async fn recovery_bootstrap<L: L1Source + ?Sized>(
     let anchor = if witness.el_header.number == start {
         None
     } else {
-        let (_, _, number) =
-            crate::rules::decode_extra_data(&witness.el_header.extra_data).map_err(invalid)?;
+        let number =
+            crate::rules::decode_extra_data(&witness.el_header.extra_data).map_err(invalid)?.anchor;
         let header = crate::l1::header_at(l1, number).await?;
         match own_finality(l1, number, header.hash()).await? {
             OwnFinality::Canonical => {}

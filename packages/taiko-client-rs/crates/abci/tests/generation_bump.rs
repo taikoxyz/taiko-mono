@@ -7,7 +7,7 @@
 
 use std::time::{Duration, Instant};
 
-use abci::l1::layout::inbox;
+use abci::{l1::layout::inbox, rules::ExtraData};
 use alloy_primitives::U256;
 use alloy_provider::Provider;
 use anyhow::Context;
@@ -65,7 +65,7 @@ async fn generation_bump_supersedes_the_chain() -> anyhow::Result<()> {
     let l2 = devnet.l2_provider(0);
     assert_eq!(l2.get_block_number().await?, stop, "the EL moved past CometBFT");
     for h in 1..=stop {
-        let (_, generation, anchor) = extra_data_of(&l2, h).await?;
+        let ExtraData { generation, anchor, .. } = extra_data_of(&l2, h).await?;
         assert_eq!(generation, 0, "block {h}: extraData generation");
         assert!(anchor < bump, "block {h}: anchor {anchor} carries the bump (L1 block {bump})");
     }

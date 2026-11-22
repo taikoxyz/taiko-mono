@@ -51,8 +51,8 @@ async fn first_switch_restart_and_state_loss_recover_on_one_devnet() -> anyhow::
         ))
         .await?
         .expect("committed derivation parent");
-    let anchor = abci::rules::decode_extra_data(&parent.header.inner.extra_data)?;
-    assert_eq!(committee.record.cutoff_l1_block, anchor.2);
+    let anchor = abci::rules::decode_extra_data(&parent.header.inner.extra_data)?.anchor;
+    assert_eq!(committee.record.cutoff_l1_block, anchor);
     assert_eq!(validator_set(&devnet, h).await?.len(), 1);
     // Slot 278 remains the immutable genesis hash; no epoch mapping exists or is written.
     let bootstrap = devnet

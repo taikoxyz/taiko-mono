@@ -681,7 +681,7 @@ mod tests {
     use super::*;
     use crate::{
         l1::mpt::verify_account_witness,
-        rules::{ExpectedHeader, encode_extra_data, payload_attributes},
+        rules::{ExpectedHeader, payload_attributes},
         test_utils::{l1_header, sample_transactions},
     };
 
@@ -695,7 +695,7 @@ mod tests {
             parent_hash: B256::repeat_byte(0x01),
             timestamp: 1_760_000_000,
             beneficiary: Address::repeat_byte(0x02),
-            extra_data: encode_extra_data(0, 9).unwrap(),
+            extra_data: crate::test_utils::extra_data(0, 9),
             parent_beacon_block_root: B256::repeat_byte(0x03),
             gas_limit: 45_000_000,
             base_fee: 10_000_000,

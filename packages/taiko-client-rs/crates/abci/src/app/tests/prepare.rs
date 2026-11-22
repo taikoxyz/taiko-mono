@@ -251,7 +251,7 @@ async fn proposer_holds_the_parent_anchor_briefly_after_finality_advances() {
         tokio::time::advance(Duration::from_secs(wait)).await;
         let env = propose(&mut app).await;
         assert!(env.anchor.is_none(), "{wait}: the parent's anchor is kept");
-        assert_eq!(decode_extra_data(&env.block.header.extra_data).unwrap().2, parent_anchor);
+        assert_eq!(decode_extra_data(&env.block.header.extra_data).unwrap().anchor, parent_anchor);
         let other = tempfile::tempdir().unwrap();
         let mut validator = mid_epoch(&fx, other.path(), 5).await;
         validator.l1().set_finalized(parent_anchor);
@@ -315,7 +315,7 @@ async fn the_anchor_hold_counts_from_the_own_l1_sighting_not_the_proposers_turn(
         tokio::time::advance(Duration::from_secs(wait)).await;
         let env = propose(&mut app).await;
         assert!(env.anchor.is_none(), "{wait}: within the hold of the first sighting");
-        assert_eq!(decode_extra_data(&env.block.header.extra_data).unwrap().2, parent_anchor);
+        assert_eq!(decode_extra_data(&env.block.header.extra_data).unwrap().anchor, parent_anchor);
     }
     tokio::time::advance(Duration::from_secs(1)).await;
     let env = propose(&mut app).await;
@@ -334,7 +334,7 @@ async fn proposer_never_anchors_below_the_parent() {
 
     let env = propose(&mut app).await;
     assert!(env.anchor.is_none());
-    assert_eq!(decode_extra_data(&env.block.header.extra_data).unwrap().2, 66);
+    assert_eq!(decode_extra_data(&env.block.header.extra_data).unwrap().anchor, 66);
     assert_eq!(
         app.l1().calls().last(),
         Some(&L1Call::Finalized),
@@ -377,7 +377,7 @@ async fn the_first_block_of_an_epoch_keeps_the_parent_anchor() {
     let env = propose(&mut app).await;
     assert_eq!(env.block.header.number, h_first);
     assert!(env.anchor.is_none());
-    assert_eq!(decode_extra_data(&env.block.header.extra_data).unwrap().2, 66);
+    assert_eq!(decode_extra_data(&env.block.header.extra_data).unwrap().anchor, 66);
     let (resp, _) = judge(&mut app, &env).await;
     assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
 }

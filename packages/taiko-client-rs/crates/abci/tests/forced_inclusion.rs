@@ -295,7 +295,7 @@ async fn stale_l1_finality_pauses_and_resumes_l2() -> anyhow::Result<()> {
     .await
     .inspect_err(|_| devnet.dump_logs())?;
     eprintln!("resumed {:?} after L1", resumed.elapsed());
-    let anchor = abci::rules::decode_extra_data(&block.header.extra_data)?.2;
+    let anchor = abci::rules::decode_extra_data(&block.header.extra_data)?.anchor;
     assert!(anchor > frozen, "block {} anchors at {anchor}, not above {frozen}", stalled_at + 3);
     assert_eq!(devnet.app_halt(0), None);
 

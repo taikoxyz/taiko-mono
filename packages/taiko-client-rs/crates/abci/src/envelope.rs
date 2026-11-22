@@ -272,7 +272,7 @@ pub(crate) fn undecodable_anchor(txs: &[Bytes]) -> Option<(u64, Bytes)> {
     }
     let mut fields = alloy_rlp::Header::decode_bytes(&mut encoded, true).ok()?;
     let block = ExecutionBlock::decode(&mut fields).ok()?;
-    let (_, _, number) = crate::rules::decode_extra_data(&block.header.extra_data).ok()?;
+    let number = crate::rules::decode_extra_data(&block.header.extra_data).ok()?.anchor;
     let mut optional = alloy_rlp::Header::decode_bytes(&mut fields, true).ok()?;
     let mut anchor = alloy_rlp::Header::decode_bytes(&mut optional, true).ok()?;
     if !optional.is_empty() {
@@ -307,8 +307,8 @@ mod tests {
             gas_limit: 45_000_000,
             gas_used: 42_000,
             timestamp: 1_760_000_000 + number,
-            // 100 | generation u48 | anchor u48: 13 bytes.
-            extra_data: bytes!("64000000000002000000000400"),
+            // 100 | generation u48 | anchor u48 | missBitmap u128: 29 bytes.
+            extra_data: bytes!("64000000000002000000000400" "00000000000000000000000000000000"),
             mix_hash: B256::repeat_byte(0x06),
             nonce: B64::ZERO,
             base_fee_per_gas: Some(10_000_000),

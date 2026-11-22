@@ -167,11 +167,12 @@ pub fn verify_at_origin(
         }
     }
     for header in headers.iter().filter(|h| h.number > origin) {
-        // Check only the deployment-core fields used here (START-10.1-2a): extraData's
-        // generation and anchor, and parentBeaconBlockRoot. The fee-sharing byte is ruleset 0's,
-        // and a later ruleset may change it.
-        let (_, generation, number) = rules::decode_extra_data(&header.extra_data)
-            .map_err(|e| LanderError::Safety(e.to_string()))?;
+        // Check only the deployment-core fields used here: extraData's fee-sharing byte (which
+        // the decoder refuses unless it is 100), generation and anchor, and
+        // parentBeaconBlockRoot.
+        let rules::ExtraData { generation, anchor: number, .. } =
+            rules::decode_extra_data(&header.extra_data)
+                .map_err(|e| LanderError::Safety(e.to_string()))?;
         if generation != input.generation ||
             number < input.recovery.map_or(input.schedule.l1_0, |r| r.l1_number) ||
             header.parent_beacon_block_root.is_none_or(|r| r.is_zero())
@@ -223,7 +224,7 @@ pub fn snapshot_number(parent: Option<&Header>, schedule: &Schedule) -> Result<u
         None => Ok(schedule.genesis_cutoff),
         Some(header) if header.number == 0 => Ok(schedule.l1_0),
         Some(header) => rules::decode_extra_data(&header.extra_data)
-            .map(|(_, _, n)| n)
+            .map(|extra| extra.anchor)
             .map_err(|e| LanderError::Safety(e.to_string())),
     }
 }
@@ -238,10 +239,12 @@ mod tests {
         let mut result = Vec::new();
         let mut parent = B256::repeat_byte(1);
         for number in 8..=15 {
-            let mut extra_data = rules::encode_extra_data(
-                if mutation == 1 && number == 8 { 1 } else { 0 },
-                if mutation == 2 && number == 8 { 9 } else { 11 },
-            )
+            let mut extra_data = rules::encode_extra_data(&rules::ExtraData {
+                basefee_sharing_pctg: rules::BASEFEE_SHARING_PCTG,
+                generation: if mutation == 1 && number == 8 { 1 } else { 0 },
+                anchor: if mutation == 2 && number == 8 { 9 } else { 11 },
+                miss_bitmap: 0,
+            })
             .unwrap()
             .to_vec();
             if mutation == 4 && number == 8 {
@@ -283,7 +286,13 @@ mod tests {
         assert_eq!(schedule.derivation_parent_height(1), Some(1));
         let parent = Header {
             number: 1,
-            extra_data: rules::encode_extra_data(0, 11).unwrap(),
+            extra_data: rules::encode_extra_data(&rules::ExtraData {
+                basefee_sharing_pctg: rules::BASEFEE_SHARING_PCTG,
+                generation: 0,
+                anchor: 11,
+                miss_bitmap: 0,
+            })
+            .unwrap(),
             ..Default::default()
         };
         assert_eq!(snapshot_number(Some(&parent), &schedule).unwrap(), 11);
@@ -334,12 +343,11 @@ mod tests {
         assert_eq!(derived[&1].as_ref().unwrap().number, 8);
         assert_eq!(snapshot_number(derived[&1].as_ref(), &schedule()).unwrap(), 11);
         assert_eq!(snapshot_number(None, &schedule()).unwrap(), 1);
-        for mutation in 1..=3 {
-            assert!(verify_headers(&headers(mutation)).is_err());
+        // A wrong generation, anchor, beacon root or fee-sharing byte; the sharing byte is
+        // deployment core like the other two extraData fields.
+        for mutation in 1..=4 {
+            assert!(verify_headers(&headers(mutation)).is_err(), "mutation {mutation}");
         }
-        // A later ruleset may change the fee-sharing byte; history reads only generation/anchor.
-        let derived = verify_headers(&headers(4)).unwrap();
-        assert_eq!(snapshot_number(derived[&1].as_ref(), &schedule()).unwrap(), 11);
         let mut changed = valid.clone();
         changed.swap(1, 2);
         assert!(verify_headers(&changed).is_err());

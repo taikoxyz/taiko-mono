@@ -585,8 +585,8 @@ async fn recovery_package(fx: &Fixture, height: u64) -> ImportPackage {
     let bytes = fx.snapshot.recovery_witness.as_ref().unwrap();
     let witness = abci::recovery::RecoveryWitness::decode(&mut bytes.as_ref()).unwrap();
     let origin = fx.snapshot.recovery.as_ref().unwrap();
-    let (_, _, anchor_height) =
-        abci::rules::decode_extra_data(&witness.el_header.extra_data).unwrap();
+    let anchor_height =
+        abci::rules::decode_extra_data(&witness.el_header.extra_data).unwrap().anchor;
     let anchor = abci::AnchorWitness {
         l1_header: fx.l1_headers[&anchor_height].clone(),
         inbox: fx.import_witness(
@@ -1683,7 +1683,13 @@ async fn review_self_signed_prefix_cannot_trigger_an_own_l1_exclusion_halt() {
     let first = fx.blocks.get_mut(&1).unwrap();
     let mut env = abci::EtnaEnvelope::decode(&first.block.data[0]).unwrap();
     env.anchor = None;
-    env.block.header.extra_data = abci::rules::encode_extra_data(0, 9).unwrap();
+    env.block.header.extra_data = abci::rules::encode_extra_data(&abci::rules::ExtraData {
+        basefee_sharing_pctg: abci::rules::BASEFEE_SHARING_PCTG,
+        generation: 0,
+        anchor: 9,
+        miss_bitmap: 0,
+    })
+    .unwrap();
     first.block.data[0] = env.encode().to_vec();
     first.block.header.data_hash = Some(crate::validate::data_hash(&first.block.data));
     let (_, attacker, keys) = committee(&[7], 0);

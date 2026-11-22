@@ -329,7 +329,7 @@ where
                 } else {
                     rules::decode_extra_data(&parent.extra_data)
                         .map_err(candidate)?
-                        .2
+                        .anchor
                         .max(state.anchor_floor())
                 };
                 if anchor.number < snapshot_number {
@@ -776,9 +776,9 @@ fn check_anchor_selection(
     parent: &Header,
     state: &AppState,
 ) -> Result<u64, ImportError> {
-    // Only extraData's generation and anchor fields are deployment core (START-10.1-2a); the
-    // fee-sharing byte is ruleset 0's and is checked after the ruleset refusal.
-    let (_, generation, number) =
+    // extraData's fee-sharing byte, generation and anchor are deployment core, so they are
+    // checked before the ruleset refusal: the decoder refuses a sharing byte other than 100.
+    let rules::ExtraData { generation, anchor: number, .. } =
         rules::decode_extra_data(&env.block.header.extra_data).map_err(candidate)?;
     if generation != state.generation {
         return Err(candidate("execution generation differs from the current generation"));
@@ -786,7 +786,7 @@ fn check_anchor_selection(
     let parent_number = if parent.number == state.origin_height() {
         state.anchor.number
     } else {
-        rules::decode_extra_data(&parent.extra_data).map_err(candidate)?.2
+        rules::decode_extra_data(&parent.extra_data).map_err(candidate)?.anchor
     };
     let first = parent.number == state.origin_height();
     if env.anchor.is_some() != (first || number != parent_number) {
@@ -890,13 +890,11 @@ fn check_metadata(
         rules::RuleViolation::UnsupportedRuleset { .. } => ContentFault::Unsupported(e.to_string()),
         _ => ContentFault::Rule(e.to_string()),
     })?;
-    // The checks above are deployment core (START-10.1-2a). The fixed EL header fields and the
-    // fee-sharing byte (CONS-3.2-5) are ruleset 0's and a later ruleset may change them, so
-    // check them after its refusal, as the live path's expected-header check does.
+    // The checks above are deployment core, as is extraData's fee-sharing byte, which anchor
+    // selection decoded. The fixed EL header fields are ruleset 0's and a later ruleset may
+    // change them, so check them after its refusal, as the live path's expected-header check
+    // does.
     rules::check_fixed_fields(&env.block.header).map_err(candidate)?;
-    if env.block.header.extra_data.first() != Some(&rules::BASEFEE_SHARING_PCTG) {
-        return Err(candidate("execution base-fee sharing differs from ruleset 0").into());
-    }
     rules::check_anchor_freshness(
         env.block.header.timestamp,
         anchor.timestamp,
@@ -1213,23 +1211,20 @@ mod tests {
         assert!(
             matches!(check(&env, &anchor), Err(ContentFault::Rule(ref message)) if message.contains("nonce"))
         );
-        // Likewise extraData's fee-sharing byte: anchor selection reads only the deployment-core
-        // generation and anchor fields, and ruleset 0's 100 is checked after the refusal.
+        // Unlike the nonce, extraData's fee-sharing byte is deployment core: anchor selection,
+        // which runs before the ruleset is known, refuses a value other than 100.
         env.block.header.nonce = alloy_primitives::B64::ZERO;
-        let mut extra = env.block.header.extra_data.to_vec();
-        extra[0] = 50;
-        env.block.header.extra_data = extra.into();
         assert_eq!(
             check_anchor_selection(&env, &fx.headers[&5], &state).unwrap(),
             fx.anchors[&6].number
         );
-        anchor.inbox.rules_schedule = unsupported;
+        let mut extra = env.block.header.extra_data.to_vec();
+        extra[0] = 50;
+        env.block.header.extra_data = extra.into();
         assert!(
-            matches!(check(&env, &anchor), Err(ContentFault::Unsupported(ref message)) if message.contains("ruleset"))
-        );
-        anchor.inbox.rules_schedule = U256::ZERO;
-        assert!(
-            matches!(check(&env, &anchor), Err(ContentFault::Rule(ref message)) if message.contains("sharing"))
+            matches!(check_anchor_selection(&env, &fx.headers[&5], &state), Err(ImportError::Candidate(ref message)) if message.contains("extra_data")),
+            "{:?}",
+            check_anchor_selection(&env, &fx.headers[&5], &state)
         );
     }
 

@@ -208,7 +208,7 @@ mod tests {
             gas_limit: 45_000_000,
             gas_used: 63_000,
             timestamp: 1_791_526_500,
-            extra_data: bytes!("64000000000002000000000007"),
+            extra_data: bytes!("64000000000002000000000007" "00000000000000000000000000000001"),
             mix_hash: B256::repeat_byte(0x07),
             nonce: B64::ZERO,
             base_fee_per_gas: Some(25_000_000),

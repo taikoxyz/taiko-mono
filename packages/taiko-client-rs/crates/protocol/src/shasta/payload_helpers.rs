@@ -1,7 +1,7 @@
 //! Shasta payload helper utilities.
 
 use alethia_reth_primitives::{
-    ETNA_EXTRA_DATA_LEN, SHASTA_EXTRA_DATA_LEN,
+    SHASTA_EXTRA_DATA_LEN,
     payload::{
         attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
         builder::payload_id_taiko,
@@ -18,11 +18,6 @@ use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
 /// Taiko keeps the V2 payload-ID discriminator for pre-Etna block builds.
 const PAYLOAD_ID_VERSION_V2: u8 = 2;
 
-use crate::shasta::error::{ProtocolError, Result};
-
-/// Largest value a 6-byte big-endian `uint48` `extraData` field can carry.
-const UINT48_MAX: u64 = (1 << 48) - 1;
-
 alloy::sol! {
     struct ShastaMixHashInput {
         bytes32 parentMixHash;
@@ -38,37 +33,6 @@ pub fn calculate_shasta_mix_hash(parent_mix_hash: B256, block_number: u64) -> B2
         blockNumber: U256::from(block_number),
     };
     B256::from(keccak256(params.abi_encode()))
-}
-
-/// Encode the 13-byte `extraData` of a non-genesis Etna block header:
-/// `[basefeeSharingPctg | generation(6) | anchorBlockNumber(6)]`, both numbers big-endian
-/// `uint48` (Etna spec 3.2).
-///
-/// The first 7 bytes keep the pre-Etna `[basefeeSharingPctg | proposalId]` layout: the 6-byte
-/// slot that holds the proposal id before Etna holds the recovery generation from Etna on. A
-/// `generation` or `anchor_block_number` above `uint48` is an error.
-pub fn encode_etna_extra_data(
-    basefee_sharing_pctg: u8,
-    generation: u64,
-    anchor_block_number: u64,
-) -> Result<Bytes> {
-    let mut data = [0u8; ETNA_EXTRA_DATA_LEN];
-    data[0] = basefee_sharing_pctg;
-    data[1..SHASTA_EXTRA_DATA_LEN].copy_from_slice(&uint48_be_bytes("generation", generation)?);
-    data[SHASTA_EXTRA_DATA_LEN..]
-        .copy_from_slice(&uint48_be_bytes("anchor_block_number", anchor_block_number)?);
-    Ok(Bytes::from(data.to_vec()))
-}
-
-/// Encode `value` as a 6-byte big-endian `uint48`, naming `field` when it does not fit.
-fn uint48_be_bytes(field: &'static str, value: u64) -> Result<[u8; 6]> {
-    if value > UINT48_MAX {
-        return Err(ProtocolError::EtnaExtraDataFieldOverflow { field, value });
-    }
-
-    let mut bytes = [0u8; 6];
-    bytes.copy_from_slice(&value.to_be_bytes()[2..]);
-    Ok(bytes)
 }
 
 /// Encode the extra data field for a Shasta block header.
@@ -108,7 +72,7 @@ pub struct PayloadAttributesInput {
     pub gas_limit: u64,
     /// Encoded transaction list, or `None` to let the engine build from its mempool.
     pub tx_list: Option<Bytes>,
-    /// Header `extraData`: the 7-byte pre-Etna or 13-byte Etna layout.
+    /// Header `extraData`: the 7-byte pre-Etna or 29-byte Etna layout.
     pub extra_data: Bytes,
     /// Base fee per gas for the block.
     pub base_fee_per_gas: U256,
@@ -192,46 +156,4 @@ pub fn build_payload_attributes_with_id(
     let payload_id = payload_id_taiko(parent_hash, &payload, PAYLOAD_ID_VERSION_V2);
     payload.l1_origin.build_payload_args_id = payload_id.0.0;
     payload
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{UINT48_MAX, encode_etna_extra_data};
-    use crate::shasta::ProtocolError;
-    use alethia_reth_primitives::decode_shasta_proposal_id;
-    use alloy::primitives::hex;
-
-    /// `[pctg | generation(6) | anchorBlockNumber(6)]`, both numbers big-endian `uint48`.
-    #[test]
-    fn etna_extra_data_encodes_the_13_byte_layout() {
-        let extra_data = encode_etna_extra_data(50, 7, 123_456).expect("fields fit uint48");
-
-        assert_eq!(extra_data.as_ref(), hex!("3200000000000700000001e240"));
-        assert_eq!(extra_data.len(), 13);
-        assert_eq!(decode_shasta_proposal_id(&extra_data), Some(7));
-        assert_eq!(&extra_data[7..13], hex!("00000001e240"));
-    }
-
-    #[test]
-    fn etna_extra_data_round_trips_the_largest_uint48_values() {
-        let extra_data =
-            encode_etna_extra_data(u8::MAX, UINT48_MAX, UINT48_MAX).expect("max uint48 fits");
-
-        assert_eq!(extra_data.as_ref(), hex!("ffffffffffffffffffffffffff"));
-        assert_eq!(decode_shasta_proposal_id(&extra_data), Some(UINT48_MAX));
-    }
-
-    #[test]
-    fn etna_extra_data_rejects_fields_beyond_uint48() {
-        assert!(matches!(
-            encode_etna_extra_data(50, UINT48_MAX + 1, 1),
-            Err(ProtocolError::EtnaExtraDataFieldOverflow { field: "generation", value })
-                if value == UINT48_MAX + 1
-        ));
-        assert!(matches!(
-            encode_etna_extra_data(50, 1, UINT48_MAX + 1),
-            Err(ProtocolError::EtnaExtraDataFieldOverflow { field: "anchor_block_number", value })
-                if value == UINT48_MAX + 1
-        ));
-    }
 }

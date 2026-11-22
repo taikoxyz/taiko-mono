@@ -187,7 +187,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
                 let trial = c.cmt.envelope(height).await?;
                 eprintln!(
                     "actual FI trial: L={epoch_len} height={height} anchor={}",
-                    abci::rules::decode_extra_data(&trial.block.header.extra_data)?.2
+                    abci::rules::decode_extra_data(&trial.block.header.extra_data)?.anchor
                 );
                 assert_eq!(
                     trial.block.transactions.first().map(|tx| tx.as_ref()),
@@ -366,6 +366,7 @@ async fn build_unpromoted_origin_candidate(
         anchor: &anchor,
         bft_time_secs: anchor.timestamp,
         generation: origin.generation,
+        miss_bitmap: 0,
         beneficiary: f.params.fee_recipient,
         params: &f.params,
         min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(f.params.l2_chain_id),

@@ -81,12 +81,24 @@ mod tests {
     };
 
     fn expected_header() -> ExpectedHeader {
+        expected_header_with_bitmap(0)
+    }
+
+    /// The candidate header at generation 7 and anchor 80 whose `extraData` carries
+    /// `miss_bitmap`.
+    fn expected_header_with_bitmap(miss_bitmap: u128) -> ExpectedHeader {
         ExpectedHeader {
             number: 42,
             parent_hash: B256::repeat_byte(0x11),
             timestamp: 1_000,
             beneficiary: Address::repeat_byte(0x22),
-            extra_data: rules::encode_extra_data(7, 80).unwrap(),
+            extra_data: rules::encode_extra_data(&rules::ExtraData {
+                basefee_sharing_pctg: rules::BASEFEE_SHARING_PCTG,
+                generation: 7,
+                anchor: 80,
+                miss_bitmap,
+            })
+            .unwrap(),
             parent_beacon_block_root: B256::repeat_byte(0x33),
             gas_limit: 30_000_000,
             base_fee: 123,
@@ -171,17 +183,30 @@ mod tests {
 
     #[tokio::test]
     async fn empty_singleton_consumes_the_index_and_preserves_all_attributes() {
+        // Seats 127 and 0 missed the parent: the highest and the lowest bit.
+        let miss_bitmap = (1 << 127) | 1;
         for tx in sample_transactions() {
             let engine = MockEngine::new();
             // A populated pool must never be selected or included in a singleton probe.
             engine.state().pool = sample_transactions();
-            let expected = expected_header();
+            let expected = expected_header_with_bitmap(miss_bitmap);
             let decision = ForcedDecision::NeedsSkip { index: 9, tx: tx.encoded_2718().into() };
             engine.state().build_script.push_back(Ok(empty_build(&expected)));
 
             let engine_ref: &dyn Engine = &engine;
             assert_eq!(verify_forced(engine_ref, context(&expected), &decision).await, Ok(Some(9)));
             assert_singleton_call(&engine, &expected, &decision);
+            // The singleton builds with the block's own 29-byte extraData, missBitmap included,
+            // so its block-start staking call sees the block's arguments.
+            let calls = engine.calls();
+            let [EngineCall::BuildBlock { attrs, .. }] = calls.as_slice() else {
+                panic!("one singleton build");
+            };
+            assert_eq!(attrs.block_metadata.extra_data, expected.extra_data);
+            assert_eq!(
+                rules::decode_extra_data(&attrs.block_metadata.extra_data).unwrap().miss_bitmap,
+                miss_bitmap
+            );
         }
     }
 

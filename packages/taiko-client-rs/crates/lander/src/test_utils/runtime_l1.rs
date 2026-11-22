@@ -814,37 +814,40 @@ async fn references_older_than_blockhash_window_require_actual_history_contract_
 }
 
 #[tokio::test]
-async fn checkpoint_anchor_rejects_malformed_extra_data_and_generation_but_not_sharing() {
+async fn checkpoint_anchor_rejects_malformed_extra_data_generation_and_sharing_before_rpc() {
     let fixture = crate::test_utils::consensus_mpt::Fixture::new(18, 30);
     let provider =
         rpc(|_| json!({"__rpc_error":{"code":-32603,"message":"unexpected anchor lookup"}})).await;
     let source =
         RpcLandingSource::new(provider.provider.clone(), provider.provider.clone(), fixture.params);
     let snapshot = fixture.snapshot;
-    let mut wrong_generation = vec![0; 13];
+    let mut well_formed = vec![0; abci::rules::EXTRA_DATA_LEN];
+    well_formed[0] = abci::rules::BASEFEE_SHARING_PCTG;
+    let mut wrong_generation = well_formed.clone();
     wrong_generation[1..7].copy_from_slice(&(snapshot.generation + 1).to_be_bytes()[2..]);
     let parent = |extra_data: &[u8]| crate::l1::ParentContext {
         header: Header { number: 1, extra_data: extra_data.to_vec().into(), ..Default::default() },
         grandparent_timestamp: 0,
     };
-    for extra_data in [vec![0; 12], vec![0; 14], wrong_generation] {
+    // The 13-byte layout, one byte short or long, the wrong generation, and every fee-sharing
+    // byte other than 100: the sharing byte is deployment core like the generation and anchor.
+    let mut malformed = vec![vec![0; 13], vec![0; 28], vec![0; 30], wrong_generation];
+    for sharing in [0, 1, 99, 101, 255] {
+        let mut extra_data = well_formed.clone();
+        extra_data[0] = sharing;
+        malformed.push(extra_data);
+    }
+    for extra_data in malformed {
         let error = source.parent_anchor(&snapshot, &parent(&extra_data)).await.unwrap_err();
         assert!(
             matches!(error, LanderError::Safety(_)),
             "malformed checkpoint {extra_data:?} must be rejected before RPC: {error}"
         );
     }
-    // The fee-sharing byte is ruleset 0's (START-10.1-2a): any value reaches the anchor lookup,
-    // which this provider fails, instead of being called an authenticated contradiction.
-    for sharing in [0, 1, 255] {
-        let mut extra_data = vec![0; 13];
-        extra_data[0] = sharing;
-        let error = source.parent_anchor(&snapshot, &parent(&extra_data)).await.unwrap_err();
-        assert!(
-            !matches!(error, LanderError::Safety(_)),
-            "sharing byte {sharing} must not decide the checkpoint: {error}"
-        );
-    }
+    // A well-formed one reaches the anchor lookup, which this provider fails, instead of being
+    // called an authenticated contradiction.
+    let error = source.parent_anchor(&snapshot, &parent(&well_formed)).await.unwrap_err();
+    assert!(!matches!(error, LanderError::Safety(_)), "{error}");
 }
 
 /// The deployment reads are the checked getters and `maxBatchBlocks` only, each pinned to the

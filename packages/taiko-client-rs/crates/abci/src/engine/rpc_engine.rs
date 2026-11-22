@@ -528,7 +528,7 @@ impl Engine for RpcEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rules::{ExpectedHeader, encode_extra_data, payload_attributes};
+    use crate::rules::{ExpectedHeader, payload_attributes};
     use alloy_primitives::U256;
     use alloy_provider::ProviderBuilder;
     use alloy_rpc_types_engine::ExecutionPayloadV3;
@@ -598,7 +598,7 @@ mod tests {
                 parent_hash: p.parent_hash,
                 timestamp: p.timestamp,
                 beneficiary: p.fee_recipient,
-                extra_data: encode_extra_data(0, 1).unwrap(),
+                extra_data: crate::test_utils::extra_data(0, 1),
                 parent_beacon_block_root: root,
                 gas_limit: p.gas_limit,
                 base_fee: u64::try_from(p.base_fee_per_gas).unwrap(),

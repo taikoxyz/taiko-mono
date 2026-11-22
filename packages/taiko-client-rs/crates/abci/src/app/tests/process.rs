@@ -19,7 +19,7 @@ use crate::{
     envelope::{EnvelopeError, EtnaEnvelope},
     forced::ForcedError,
     l1::L1Error,
-    rules::{RuleViolation, encode_extra_data},
+    rules::RuleViolation,
     test_utils::{edit_l1_header, sample_transactions},
 };
 
@@ -185,7 +185,7 @@ async fn generation_mismatch_is_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let (mut app, env) = plain(&fx, dir.path()).await;
     let mut bad = env.clone();
-    bad.block.header.extra_data = encode_extra_data(1, fx.genesis.l1_0).unwrap();
+    bad.block.header.extra_data = crate::test_utils::extra_data(1, fx.genesis.l1_0);
     assert_eq!(
         validate(&app, &bad),
         Err(Rejection::Rule(RuleViolation::GenerationMismatch { chain: 0, extra: 1 }))
@@ -234,7 +234,7 @@ async fn anchor_not_final_is_rejected() {
 /// bytes no `RawL1Header` accepts, and whose block claims `anchor` in its `extraData`.
 fn unparseable_anchor_envelope(env: &EtnaEnvelope, anchor: u64) -> Bytes {
     let mut block = env.block.clone();
-    block.header.extra_data = encode_extra_data(0, anchor).unwrap();
+    block.header.extra_data = crate::test_utils::extra_data(0, anchor);
     let raw = Bytes::from_static(&[0xc1, 0x80]);
     let item = |payload: Vec<u8>| {
         let mut out = Vec::new();

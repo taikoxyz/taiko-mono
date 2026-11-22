@@ -835,6 +835,7 @@ impl Fixture {
                 anchor: &a,
                 bft_time_secs: if max_anchor_age < 7200 { 1261 + height } else { 100 + height },
                 generation: 0,
+                miss_bitmap: 0,
                 params: &params,
                 min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(
                     params.l2_chain_id,
@@ -1060,8 +1061,9 @@ impl LandingSource for Fixture {
         let number = if parent.header.number == 0 {
             snapshot.genesis.l1_0
         } else {
-            let (_, generation, number) = rules::decode_extra_data(&parent.header.extra_data)
-                .map_err(|e| LanderError::Safety(e.to_string()))?;
+            let rules::ExtraData { generation, anchor: number, .. } =
+                rules::decode_extra_data(&parent.header.extra_data)
+                    .map_err(|e| LanderError::Safety(e.to_string()))?;
             if generation != snapshot.generation {
                 return Err(LanderError::Safety("anchor generation mismatch".into()));
             }

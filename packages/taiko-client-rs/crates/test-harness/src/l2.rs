@@ -1,6 +1,6 @@
 //! L2 (alethia-reth) helpers: transfers and the `extraData` of committed blocks.
 
-use abci::rules::decode_extra_data;
+use abci::rules::{ExtraData, decode_extra_data};
 use alloy::{
     consensus::{SignableTransaction, TxEip1559, TxEnvelope},
     signers::{SignerSync, local::PrivateKeySigner},
@@ -67,9 +67,9 @@ pub async fn sign_transfer(
     Ok(TxEnvelope::Eip1559(tx.into_signed(signature)))
 }
 
-/// `(basefee sharing pctg, generation, anchor L1 block number)` from the `extraData` of L2
-/// block `h`.
-pub async fn extra_data_of(l2: &RootProvider, h: u64) -> Result<(u8, u64, u64)> {
+/// The decoded `extraData` of L2 block `h`: generation, anchor L1 block number and
+/// `missBitmap`.
+pub async fn extra_data_of(l2: &RootProvider, h: u64) -> Result<ExtraData> {
     let block = l2
         .get_block_by_number(BlockNumberOrTag::Number(h))
         .await?
@@ -79,5 +79,5 @@ pub async fn extra_data_of(l2: &RootProvider, h: u64) -> Result<(u8, u64, u64)> 
 
 /// The anchor L1 block number in the `extraData` of L2 block `h`.
 pub async fn anchor_of(l2: &RootProvider, h: u64) -> Result<u64> {
-    Ok(extra_data_of(l2, h).await?.2)
+    Ok(extra_data_of(l2, h).await?.anchor)
 }

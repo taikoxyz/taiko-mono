@@ -471,12 +471,14 @@ fn registry_words(checkpoints: &[(u64, Vec<RegistryEntry>)]) -> BTreeMap<B256, U
     words
 }
 
-/// The 13-byte `extraData` `[fee share | generation (uint48) | anchor (uint48)]`; a value above
+/// The 29-byte `extraData` `[fee share | generation (uint48) | anchor (uint48) | missBitmap
+/// (uint128)]` with an empty `missBitmap`, as every signer of the parent signed; a value above
 /// `uint48` keeps its low 48 bits (no header can encode it).
 fn extra_data(fee_share: u8, generation: u64, anchor: u64) -> Bytes {
     let mut out = vec![fee_share];
     out.extend_from_slice(&generation.to_be_bytes()[2..]);
     out.extend_from_slice(&anchor.to_be_bytes()[2..]);
+    out.extend_from_slice(&0u128.to_be_bytes());
     out.into()
 }
 

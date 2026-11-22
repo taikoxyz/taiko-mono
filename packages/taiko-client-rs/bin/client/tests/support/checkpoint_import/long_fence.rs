@@ -40,7 +40,12 @@ async fn native_long_fence_restarts_and_executes_with_body_pruned_parents() -> R
             number: h,
             timestamp: zero.timestamp + 2 * h,
             parent_hash: headers.last().map_or(B256::repeat_byte(0x71), Header::hash_slow),
-            extra_data: rules::encode_extra_data(0, 10)?,
+            extra_data: rules::encode_extra_data(&rules::ExtraData {
+                basefee_sharing_pctg: rules::BASEFEE_SHARING_PCTG,
+                generation: 0,
+                anchor: 10,
+                miss_bitmap: 0,
+            })?,
             base_fee_per_gas: Some(10_000_000),
             gas_used: 30_000_000,
             gas_limit: 45_000_000,
@@ -175,6 +180,7 @@ async fn native_long_fence_restarts_and_executes_with_body_pruned_parents() -> R
                 anchor: &anchor,
                 bft_time_secs: parent.timestamp + 2,
                 generation: 0,
+                miss_bitmap: 0,
                 params: &params,
                 min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(167001),
             })?;

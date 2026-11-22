@@ -1173,7 +1173,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             if state.recovery.is_some() &&
                 number > state.origin_height() &&
                 crate::rules::decode_extra_data(&header.extra_data)
-                    .map_or(true, |(_, generation, _)| generation != state.generation)
+                    .map_or(true, |extra| extra.generation != state.generation)
             {
                 return Err(AbciError::SafetyHalt(
                     "old-generation header beyond recovery origin".into(),

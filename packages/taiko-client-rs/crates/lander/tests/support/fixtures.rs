@@ -200,6 +200,7 @@ impl FixtureChain {
                 anchor: &anchor,
                 bft_time_secs: time,
                 generation: 0,
+                miss_bitmap: 0,
                 params: &fixture.params,
                 min_base_fee: protocol::shasta::constants::min_base_fee_for_chain(L2_CHAIN_ID),
             })?;

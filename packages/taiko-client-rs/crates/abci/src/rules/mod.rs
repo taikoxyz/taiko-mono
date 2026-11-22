@@ -1,11 +1,11 @@
 //! Header derivation and block-validity predicates. No I/O.
 //!
 //! [`expected_header`] derives every consensus-chosen field of the L2 block at height `H` from
-//! the committed parent, the block's L1 anchor, the BFT time, the recovery generation and the
-//! chain constants. `PrepareProposal` builds with [`payload_attributes`] of that header;
-//! `ProcessProposal` and `FinalizeBlock` recompute it and compare with [`check_header`]. The
-//! remaining predicates cover anchor progress, anchor freshness, back-pressure, checkpoint
-//! ancestry, the generation triple and the CometBFT `chain_id`.
+//! the committed parent, the block's L1 anchor, the BFT time, the recovery generation, the
+//! block's `missBitmap` and the chain constants. `PrepareProposal` builds with
+//! [`payload_attributes`] of that header; `ProcessProposal` and `FinalizeBlock` recompute it and
+//! compare with [`check_header`]. The remaining predicates cover anchor progress, anchor freshness,
+//! back-pressure, checkpoint ancestry, the generation triple and the CometBFT `chain_id`.
 //!
 //! Execution results (state root, receipts root, transactions root, gas used and the zk gas in
 //! `difficulty`) are not checked here: `engine_newPayload` validates them.
@@ -19,9 +19,13 @@ use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_consensus::{EMPTY_OMMER_ROOT_HASH, EMPTY_ROOT_HASH, Header};
 use alloy_eips::eip7685::EMPTY_REQUESTS_HASH;
 use alloy_primitives::{Address, B64, B256, Bytes, U256};
+use etna_core::extra_data::ExtraDataError;
+/// The 29-byte block `extraData` codec of the portable Etna rules: [`encode_extra_data`] and
+/// [`decode_extra_data`] wrap it with this module's violations.
+pub use etna_core::extra_data::{BASEFEE_SHARING_PCTG, EXTRA_DATA_LEN, ExtraData};
 use protocol::shasta::{
-    PayloadAttributesInput, ProtocolError, build_payload_attributes, calculate_shasta_mix_hash,
-    constants::calculate_next_etna_block_eip4396_base_fee_for_parent, encode_etna_extra_data,
+    PayloadAttributesInput, build_payload_attributes, calculate_shasta_mix_hash,
+    constants::calculate_next_etna_block_eip4396_base_fee_for_parent,
 };
 
 use crate::{
@@ -32,12 +36,6 @@ use crate::{
 /// Deployment-core ruleset selection and planned-stop enforcement.
 mod upgrade;
 pub use upgrade::{check_rules_schedule, check_supported_rules};
-
-/// All base fees and tips accrue immediately to the execution beneficiary.
-pub const BASEFEE_SHARING_PCTG: u8 = 100;
-
-/// Length of an Etna `extraData`: `[pctg(1) | generation(6) | anchorNumber(6)]`.
-pub const EXTRA_DATA_LEN: usize = 13;
 
 /// CometBFT's `MaxChainIDLen`: the longest `chain_id` a genesis may carry, in bytes.
 #[cfg(test)]
@@ -57,6 +55,9 @@ pub struct HeaderInputs<'a> {
     pub bft_time_secs: u64,
     /// Recovery generation bound into the deployment chain-id digest.
     pub generation: u64,
+    /// The block's `missBitmap`: bit `s` set for each seat `s` of a parent signer that the
+    /// block's LastCommit marks missing; 0 for a generation's first block, which has none.
+    pub miss_bitmap: u128,
     /// Locally chosen beneficiary; validators accept the certified block's beneficiary.
     pub beneficiary: Address,
     /// Chain constants (block gas limit).
@@ -77,7 +78,8 @@ pub struct ExpectedHeader {
     pub timestamp: u64,
     /// Coinbase and suggested fee recipient chosen by the certified proposer.
     pub beneficiary: Address,
-    /// The 13-byte `[100 | generation | anchorNumber]` `extraData` ([`encode_extra_data`]).
+    /// The 29-byte `[100 | generation | anchorNumber | missBitmap]` `extraData`
+    /// ([`encode_extra_data`]).
     pub extra_data: Bytes,
     /// The anchor's L1 state root.
     pub parent_beacon_block_root: B256,
@@ -158,14 +160,11 @@ pub enum RuleViolation {
     /// A number does not fit its 6-byte `uint48` `extraData` slot.
     #[error("extraData field {field} value {value} does not fit in uint48")]
     ExtraDataOverflow {
-        /// The protocol field name: `generation` or `anchor_block_number`.
+        /// The [`ExtraData`] field name: `generation` or `anchor`.
         field: &'static str,
         /// The rejected value.
         value: u64,
     },
-    /// The shared protocol encoder failed for a reason other than a field-width bound.
-    #[error("extraData encoding failed: {0}")]
-    ExtraDataEncoding(String),
     /// The `extraData` is not exactly [`EXTRA_DATA_LEN`] bytes.
     #[error("extraData is {len} bytes, expected {EXTRA_DATA_LEN}")]
     ExtraDataLength {
@@ -259,6 +258,16 @@ pub enum RuleViolation {
     },
 }
 
+impl From<ExtraDataError> for RuleViolation {
+    /// [`RuleViolation::ExtraDataLength`] or [`RuleViolation::ExtraDataOverflow`].
+    fn from(error: ExtraDataError) -> Self {
+        match error {
+            ExtraDataError::Length(len) => Self::ExtraDataLength { len },
+            ExtraDataError::Overflow { field, value } => Self::ExtraDataOverflow { field, value },
+        }
+    }
+}
+
 impl RuleViolation {
     /// A [`RuleViolation::HeaderField`] for `field`, rendering `expected` and `got` with
     /// `Debug` but keeping at most [`HEADER_FIELD_DEBUG_MAX`] characters of each (a longer
@@ -275,7 +284,6 @@ impl RuleViolation {
             Self::PlannedStop { .. } => "planned_stop",
             Self::HeightMismatch { .. } => "height_mismatch",
             Self::HeaderField { .. } => "header_field",
-            Self::ExtraDataEncoding(_) => "extra_data_encoding",
             Self::ExtraDataOverflow { .. } => "extra_data_overflow",
             Self::ExtraDataLength { .. } => "extra_data_length",
             Self::BaseFeeUnavailable { .. } => "base_fee_unavailable",
@@ -307,37 +315,34 @@ pub fn block_timestamp(parent_ts: u64, bft_secs: u64, anchor_ts: u64) -> u64 {
     parent_ts.saturating_add(1).max(bft_secs).max(anchor_ts)
 }
 
-/// Encodes the 13-byte Etna `extraData`
-/// `[BASEFEE_SHARING_PCTG (100) | generation u48 BE | anchor u48 BE]`: the slot that held the
-/// proposal id before Etna carries the recovery generation, so the EL block hash an L1
-/// checkpoint pins commits to it.
+/// Encodes the 29-byte Etna `extraData`
+/// `[basefeeSharingPctg | generation u48 BE | anchor u48 BE | missBitmap u128 BE]`: the slot that
+/// held the proposal id before Etna carries the recovery generation, so the EL block hash an L1
+/// checkpoint pins commits to it, and the block-start staking call takes its generation and
+/// `missBitmap` arguments from it.
 ///
 /// Fails with [`RuleViolation::ExtraDataOverflow`] when `generation` or `anchor` exceeds
 /// `uint48`.
-pub fn encode_extra_data(generation: u64, anchor: u64) -> Result<Bytes, RuleViolation> {
-    encode_etna_extra_data(BASEFEE_SHARING_PCTG, generation, anchor).map_err(|error| match error {
-        ProtocolError::EtnaExtraDataFieldOverflow { field, value } => {
-            RuleViolation::ExtraDataOverflow { field, value }
-        }
-        other => RuleViolation::ExtraDataEncoding(other.to_string()),
-    })
+pub fn encode_extra_data(extra: &ExtraData) -> Result<Bytes, RuleViolation> {
+    Ok(Bytes::copy_from_slice(&extra.encode()?))
 }
 
-/// Decodes an Etna `extraData` into `(basefeeSharingPctg, generation, anchorNumber)`.
+/// Decodes an Etna `extraData`, the one decoder of every client path.
 ///
-/// The bytes must be exactly [`EXTRA_DATA_LEN`] long; the pctg byte is returned verbatim (the
-/// caller compares the whole field against [`encode_extra_data`]).
-pub fn decode_extra_data(b: &[u8]) -> Result<(u8, u64, u64), RuleViolation> {
-    let b: &[u8; EXTRA_DATA_LEN] =
-        b.try_into().map_err(|_| RuleViolation::ExtraDataLength { len: b.len() })?;
-    Ok((b[0], uint48_be(&b[1..7]), uint48_be(&b[7..13])))
-}
-
-/// Reads a 6-byte big-endian `uint48`.
-fn uint48_be(bytes: &[u8]) -> u64 {
-    let mut word = [0u8; 8];
-    word[2..].copy_from_slice(bytes);
-    u64::from_be_bytes(word)
+/// Fails with [`RuleViolation::ExtraDataLength`] unless the bytes are exactly
+/// [`EXTRA_DATA_LEN`] long, and with a [`RuleViolation::HeaderField`] of `extra_data` (expected
+/// and found sharing byte) when the first byte is not [`BASEFEE_SHARING_PCTG`]: every Etna block
+/// carries 100 there, so no other value is an Etna `extraData`.
+pub fn decode_extra_data(bytes: &[u8]) -> Result<ExtraData, RuleViolation> {
+    let extra = ExtraData::decode(bytes)?;
+    if extra.basefee_sharing_pctg != BASEFEE_SHARING_PCTG {
+        return Err(RuleViolation::header_field(
+            "extra_data",
+            &BASEFEE_SHARING_PCTG,
+            &extra.basefee_sharing_pctg,
+        ));
+    }
+    Ok(extra)
 }
 
 /// Checks that the certified proposer belongs to the active native committee.
@@ -375,7 +380,12 @@ pub fn expected_header(i: &HeaderInputs<'_>) -> Result<ExpectedHeader, RuleViola
         parent_hash: parent.hash,
         timestamp: block_timestamp(parent.timestamp, i.bft_time_secs, i.anchor.timestamp),
         beneficiary: i.beneficiary,
-        extra_data: encode_extra_data(i.generation, i.anchor.number)?,
+        extra_data: encode_extra_data(&ExtraData {
+            basefee_sharing_pctg: BASEFEE_SHARING_PCTG,
+            generation: i.generation,
+            anchor: i.anchor.number,
+            miss_bitmap: i.miss_bitmap,
+        })?,
         parent_beacon_block_root: i.anchor.state_root,
         gas_limit: i.params.block_gas_limit,
         base_fee,
@@ -483,14 +493,15 @@ impl fmt::Write for Bounded {
 ///
 /// # Panics
 ///
-/// If `e.extra_data` is not the 13-byte Etna layout, which [`expected_header`] guarantees.
+/// If `e.extra_data` is not a 29-byte Etna `extraData`, which [`expected_header`] guarantees.
 pub fn payload_attributes(
     e: &ExpectedHeader,
     anchor_hash: B256,
     tx_list: Option<Bytes>,
 ) -> TaikoPayloadAttributes {
-    let (_, _, anchor_number) = decode_extra_data(&e.extra_data)
-        .expect("ExpectedHeader::extra_data is the 13-byte Etna layout");
+    let anchor_number = decode_extra_data(&e.extra_data)
+        .expect("ExpectedHeader::extra_data is a 29-byte Etna extraData")
+        .anchor;
     let is_forced_inclusion = tx_list.is_some();
     let mut attrs = build_payload_attributes(PayloadAttributesInput {
         beneficiary: e.beneficiary,
