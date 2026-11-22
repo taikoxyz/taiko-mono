@@ -51,7 +51,7 @@ end Outer.Inner
             source_line = data['files'][row['file']]['text'].splitlines()[row['line']-1]
             self.assertIn(row['name'].rsplit('.',1)[-1],source_line)
             self.assertEqual(row['contract'],contract)
-        self.assertEqual(entries['Etna.Statements.Current.Premises']['profile'],'current')
+        self.assertEqual(entries['Etna.Statements.Current.Premises']['profile'],'historical')
         self.assertEqual(entries['Etna.Design.Staking.fraction_bounded']['profile'],'shared')
 
     def test_lean_string_cannot_escape_the_embedded_json(self):
@@ -112,21 +112,24 @@ end Outer.Inner
     def test_citations_use_each_authority_path_at_its_pinned_commit(self):
         module=generator()
         data=module.build_catalogue()
-        pins=json.loads((ROOT/'spec-coverage.json').read_text())
-        paths={path for _,_,path,_ in module.coverage.SOURCE_INPUTS}
-        self.assertEqual(set(data['authorities']),paths)
-        for key,_,path,_ in module.coverage.SOURCE_INPUTS:
-            self.assertEqual(data['authorities'][path].get('github_path'),path)
-            self.assertEqual(data['authorities'][path]['commit'],pins[key]['commit'])
-        self.assertEqual({c['path'] for c in data['clauses']},paths)
+        for profile, config in (('historical', module.coverage.HISTORICAL_CONFIG),
+                                ('current', module.coverage.CURRENT_CONFIG)):
+            pins=json.loads((ROOT/config).read_text())
+            paths={path for _,_,path,_ in module.coverage.SOURCE_INPUTS}
+            self.assertEqual(set(data['authorities'][profile]),paths)
+            for key,_,path,_ in module.coverage.SOURCE_INPUTS:
+                self.assertEqual(data['authorities'][profile][path].get('github_path'),path)
+                self.assertEqual(data['authorities'][profile][path]['commit'],pins[key]['commit'])
+            self.assertEqual({c['path'] for c in data['clauses'] if c['profile']==profile},paths)
 
     def test_citation_lines_keep_raw_offsets_when_rule_marker_lines_are_removed(self):
         module=generator()
         raw='one\n// [ENC-A-6]\n**[ENC-A-7]** two\n  // [ENC-A-8]\nthree\n'
         self.assertEqual(module.source_line_map(raw),[1,3,5])
         data=module.build_catalogue()
+        documents={profile:module.coverage.source_documents(profile=profile) for profile in data['authorities']}
         for clause in data['clauses']:
-            raw=(module.REPO/clause['path']).read_text()
+            _, _, raw=documents[clause['profile']][clause['path']]
             clean=module.coverage.strip_markers(raw).splitlines(keepends=True)
             excerpt=''.join(raw.splitlines(keepends=True)[clause['github_start_line']-1:clause['github_end_line']])
             expected=''.join(clean[clause['start_line']-1:clause['end_line']])

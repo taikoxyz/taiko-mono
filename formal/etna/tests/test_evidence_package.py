@@ -63,11 +63,13 @@ class EvidencePackageTests(unittest.TestCase):
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             hashes = json.loads((Path(tmp)/'coverage.json').read_text())['source_sha256']
-            for filename in ('SPEC.md', 'ACCEPTANCE.md', 'ANCHORLESS.md', 'SWITCH.md'):
+            for filename in ('SPEC.md', 'ACCEPTANCE.md', 'ANCHORLESS.md', 'SWITCH.md', 'rules/INDEX.md'):
                 path = 'packages/protocol/docs/etna/' + filename
                 with self.subTest(path=path):
                     expected = hashlib.sha256((coverage.REPO/path).read_bytes()).hexdigest()
                     self.assertEqual(hashes[path], expected)
+                    archival = coverage.archive_bytes(coverage.REPO, path, '3602629758beb653423a23608fd1960810efcfac')
+                    self.assertEqual(hashes['historical/'+path], hashlib.sha256(archival).hexdigest())
             self.assertNotIn('packages/protocol/docs/etna/sources/manifest.json', hashes)
 
     def test_generator_detects_stale_outputs(self):

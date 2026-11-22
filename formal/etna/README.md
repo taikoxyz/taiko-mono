@@ -1,20 +1,52 @@
 # Etna design verification
 
-The authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md` under
-`packages/protocol/docs/etna`, pinned to `994960561490b882558da7847a21a41a271350c5`
-(2026-11-20, PR #22422). This package contains only the current design; the archived 2026-10-30 model,
-its vectors and reports were removed and remain readable at formal revision
+The current authorities are `SPEC.md`, `ACCEPTANCE.md`, `ANCHORLESS.md` and `SWITCH.md`
+under `packages/protocol/docs/etna` at [PR #22425, `69e26df443`](https://github.com/taikoxyz/taiko-mono/pull/22425).
+The exact authority hashes and current rule evidence are recorded in
+[`current-coverage.json`](current-coverage.json) and [the rule coverage report](reports/current-rule-coverage.md).
+
+## L2 staking specification
+
+- [`L2Staking`](EtnaModel/L2Staking.lean) models immediate seat admission and exit, delayed
+  withdrawal, double-sign slashing, DAO forfeiture, consecutive misses and the post-penalty
+  snapshot. Token calls and signature verification are execution adapters.
+- [`PerBlockCommittee`](EtnaModel/PerBlockCommittee.lean) decodes the 29-byte header field
+  and the parent LastCommit miss bitmap. It validates all 128 candidate seat records, reads
+  the full snapshot height and selects either the candidate or the L1 fallback. The uint256
+  maximum forces fallback independently of L2 stake. The origin's fallback signs the first two
+  blocks, and block H determines the signers of H+2.
+- [`PerBlockGuest`](EtnaModel/PerBlockGuest.lean) models the decoded validator openings at a
+  landing's proof origin and checks the required commits at the terminal height and at
+  signing-set changes. L1, EL and Comet header authentication are adapter boundaries.
+- [`L2StakingProtocol`](EtnaModel/L2StakingProtocol.lean) connects the parent staking state and
+  block-start transition to validator updates. It models origin recording in plain recovery,
+  the new U range (1 to 262,144, target 151,200), the withdrawal-delay bound and strict quorum
+  overlap. The quorum lemma concerns voting power. Fallback signing power carries no guarantee
+  of slashable collateral.
+
+Cryptographic authentication, block-start gas and receipts, and refinement to the contracts,
+client or proof guests remain external. The current Lean modules cover decoded transitions and
+their local properties. An end-to-end landing, forced-inclusion, checkpoint or recoverability
+theorem over the complete L2 staking design remains open. The current specification treats
+unbacked L2 TAIKO and false landings separately. An accepted landing can still permit an
+unbacked token withdrawal through the bridge.
+
+## Historical L1 registry verification
+
+The remaining sections describe the historical H1–H4 machine and its reviewed proof and fixture
+suite. Lean declaration and fixture names retain their original `Current` names. Their evidence
+and assumptions refer to the [#22422 revision](https://github.com/taikoxyz/taiko-mono/pull/22422).
+The archived 2026-10-30 model is available at
 [`583bc2620`](https://github.com/taikoxyz/taiko-mono/tree/583bc2620258838e75ce353c11f9344616ac1020/formal/etna).
 
-Spec pull requests do not run the formal jobs, so a spec change never fails on these pins.
-When the spec moves, the next pull request that touches `formal/etna` fails on the pins until
-the model is re-aligned and re-pinned, and the nightly `etna-formal-full` job reports the
-drift.
+The authority checks read historical documents from the #22422 merge commit and current documents
+from the checkout. Use a clone with Git history available for these checks. Spec-only pull
+requests skip the formal jobs, and the nightly job reports drift against the current hashes.
 
-## What is proved, and what is not
+### Historical claims
 
-This package proves **conditional, design-level safety and recoverability** of the decoded
-Etna machine. Exact claims live in `EtnaStatements/Current.lean` (276 lines); composition is in
+The L1 registry proofs give **conditional, design-level safety and recoverability** for the
+decoded #22422 machine. Exact claims live in `EtnaStatements/Current.lean` (276 lines); composition is in
 `EtnaProofs/Headline/Current.lean`. Every claim holds for every reachable `Trace` from a
 fresh deployment under explicit premises: **H1 assumes the five fields of `FundPremises`;
 H2 and H3 assume all fifteen fields of `Premises`**, which extends `FundPremises`; **H4

@@ -14,23 +14,31 @@ from pathlib import Path
 import sys
 
 from audit_proofs import GRAPH, ROOT, load_shadow_allowlist, render_audit, validate_contract
-from check_spec_coverage import REPO, SOURCE_INPUTS, inventory
+from check_spec_coverage import (CURRENT_CONFIG, HISTORICAL_CONFIG, INDEX_PATH, REPO, archive_bytes,
+                                 current_inventory, inventory, source_documents)
 
 
 def artifacts(root=ROOT, repo=REPO):
     manifest = json.loads((root/'manifests/design.json').read_text())
     validate_contract(manifest,root)
-    rows = inventory(root, repo)
+    by_profile = {'current': current_inventory(root, repo), 'historical': inventory(root, repo)}
     shadows = load_shadow_allowlist(root)
-    paths = [root/name for name in ('lean-toolchain','lakefile.toml','lake-manifest.json','spec-coverage.json')]
+    paths = [root/name for name in ('lean-toolchain', 'lakefile.toml', 'lake-manifest.json',
+                                   CURRENT_CONFIG, HISTORICAL_CONFIG, 'rule-coverage.json')]
     paths += [p for library in GRAPH.LIBRARIES for p in GRAPH.library_files(root,library)]
     for directory, suffixes in [('manifests',{'.json'}),('scripts',{'.py','.lean'}),('tests',{'.py','.lean'})]:
         paths += [p for p in (root/directory).glob('*') if p.suffix in suffixes]
     hashes = {str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(set(paths))}
-    for _, _, path, _ in SOURCE_INPUTS:
+    for path in [*source_documents(root, repo, profile='current'), INDEX_PATH]:
         hashes[path] = hashlib.sha256((repo/path).read_bytes()).hexdigest()
+    for path, (_, _, text) in source_documents(root, repo).items():
+        hashes['historical/'+path] = hashlib.sha256(text.encode()).hexdigest()
+    index = json.loads((root/'rule-coverage.json').read_text())['index']
+    hashes['historical/'+INDEX_PATH] = hashlib.sha256(archive_bytes(repo, INDEX_PATH, index['commit'])).hexdigest()
     report = dict(generated=True,scope='source clauses are not atomic requirements or a coverage percentage',
-                  clauses=rows,statuses=dict(Counter(r['status'] for r in rows)),source_sha256=hashes,
+                  clauses=[r for rows in by_profile.values() for r in rows],
+                  statuses={profile:dict(Counter(r['status'] for r in rows)) for profile,rows in by_profile.items()},
+                  source_sha256=hashes,
                   source_sha256_scope='informational input fingerprints; not validated against a reviewed record')
     return {'Audit.lean':render_audit(manifest['theorems'],shadows=shadows),
             'coverage.json':json.dumps(report,ensure_ascii=False,indent=2)+'\n'}

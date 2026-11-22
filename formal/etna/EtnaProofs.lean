@@ -1,3 +1,7 @@
+import EtnaProofs.PerBlockGuest
+import EtnaProofs.L2Staking
+import EtnaProofs.PerBlockCommittee
+import EtnaProofs.L2StakingProtocol
 import EtnaProofs.CurrentBridge
 import EtnaProofs.CurrentCandidate
 import EtnaProofs.CurrentValidatorState

@@ -166,6 +166,31 @@
       "declaration": "Etna.Design.Current.Bridge.instReprState",
       "shadows": "Etna.Design.instReprState",
       "reason": "Derived Repr instance for Bridge.State; instances are found by type class resolution, not by this name."
+    },
+    {
+      "declaration": "Etna.Design.L2Staking.State",
+      "shadows": "Etna.Design.State",
+      "reason": "The staking ledger has its own state and imports only shared constants."
+    },
+    {
+      "declaration": "Etna.Design.L2Staking.instDecidableEqState",
+      "shadows": "Etna.Design.instDecidableEqState",
+      "reason": "Derived DecidableEq instance for the staking ledger state."
+    },
+    {
+      "declaration": "Etna.Design.L2Staking.instReprState",
+      "shadows": "Etna.Design.instReprState",
+      "reason": "Derived Repr instance for the staking ledger state."
+    },
+    {
+      "declaration": "Etna.Design.PerBlockCommittee.ExtraData.missBitmap",
+      "shadows": "Etna.Design.PerBlockCommittee.missBitmap",
+      "reason": "The extraData field holds the decoded bitmap value. The outer function computes the bitmap from LastCommit."
+    },
+    {
+      "declaration": "Etna.Design.PerBlockGuest.BlockId.hash",
+      "shadows": "hash",
+      "reason": "The block ID field holds the authenticated header hash."
     }
   ]
 }

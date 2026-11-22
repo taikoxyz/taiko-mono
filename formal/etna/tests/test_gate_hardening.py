@@ -855,7 +855,8 @@ class CoverageRoleTests(unittest.TestCase):
             root = repo/'formal/etna'
             root.mkdir(parents=True)
             shutil.copytree(ROOT/'manifests', root/'manifests')
-            shutil.copytree(COVERAGE.REPO/COVERAGE.SPEC_DIR, repo/COVERAGE.SPEC_DIR)
+            from authority_fixtures import copy_historical_authorities
+            copy_historical_authorities(COVERAGE, repo)
             spec = json.loads((ROOT/'spec-coverage.json').read_text())
             source = repo/COVERAGE.SPEC_PATH
             text = source.read_text()+'\nAudit duplicate clause.\n\nAudit duplicate clause.\n'
@@ -870,7 +871,7 @@ class CoverageRoleTests(unittest.TestCase):
                 duplicate[-1]['id'])
             (root/'manifests/design.json').write_text(json.dumps(manifest))
             with self.assertRaisesRegex(ValueError, duplicate[-1]['id']+' .*order-dependent'):
-                COVERAGE.inventory(root, repo)
+                COVERAGE.inventory(root, fixture=repo)
 
     def test_unsupported_domain_tag_edge_removed(self):
         # The domain-tag clause has no reviewed edge (the old ASCII-tag lemma does not support it).

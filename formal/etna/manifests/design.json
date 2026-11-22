@@ -8180,6 +8180,445 @@
       "role": "property",
       "sources": ["LIVE_EN-c2a4e4a3d3aa0823"],
       "scope": "Concrete CometBFT v0.40.0 decoded validator-state arithmetic and per-height replay. Exact result: replay_height. No Go implementation refinement, raw ABI/Keccak or appHash proof, or durable store proof; validator state is outside settlement and outside H1–H4."
+    },
+    {
+      "module": "EtnaProofs.L2Staking",
+      "declaration": "Etna.Design.L2Staking.rounded_penalty_ceiling",
+      "type": "∀ (balance bps : Nat),\n  balance * bps ≤ Etna.Design.L2Staking.roundedPenalty balance bps * 10000 ∧\n    Etna.Design.L2Staking.roundedPenalty balance bps * 10000 < balance * bps + 10000",
+      "assumptions": [
+        "Decoded staking state, EVM token-call results, and signature/PoP adapters where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-b59a863c1347f710",
+        "CURRENT_EN-9bb8afe14f52d64d"
+      ],
+      "scope": "The integer penalty is the ceiling of stake times basis points divided by 10,000."
+    },
+    {
+      "module": "EtnaProofs.L2Staking",
+      "declaration": "Etna.Design.L2Staking.rounded_penalty_bounded",
+      "type": "∀ (balance bps : Nat), bps ≤ 10000 → Etna.Design.L2Staking.roundedPenalty balance bps ≤ balance",
+      "assumptions": [
+        "Decoded staking state, EVM token-call results, and signature/PoP adapters where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-b59a863c1347f710",
+        "CURRENT_EN-9bb8afe14f52d64d"
+      ],
+      "scope": "A basis-point rate of at most 10,000 never deducts more than the bond balance."
+    },
+    {
+      "module": "EtnaProofs.L2Staking",
+      "declaration": "Etna.Design.L2Staking.failed_block_start_preserves_state",
+      "type": "∀ {s : Etna.Design.L2Staking.State} {height caller generation missBitmap : Nat} {systemSucceeded : Bool},\n  Etna.Design.L2Staking.blockStartTransition s height caller generation missBitmap systemSucceeded = Option.none →\n    Etna.Design.L2Staking.onBlockStart s height caller generation missBitmap systemSucceeded = s",
+      "assumptions": [
+        "Decoded staking state, EVM token-call results, and signature/PoP adapters where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-341b6a967979be28"
+      ],
+      "scope": "A failed decoded system call preserves all staking state."
+    },
+    {
+      "module": "EtnaProofs.L2Staking",
+      "declaration": "Etna.Design.L2Staking.successful_block_start_snapshot",
+      "type": "∀ {s : Etna.Design.L2Staking.State} {height caller generation missBitmap : Nat} {systemSucceeded : Bool}\n  {result : Etna.Design.L2Staking.Result},\n  Etna.Design.L2Staking.blockStartTransition s height caller generation missBitmap systemSucceeded =\n      Option.some result →\n    result.state.snapshot.height = height ∧ result.state.snapshot.seats.length = Etna.Design.L2Staking.seatLimit",
+      "assumptions": [
+        "Decoded staking state, EVM token-call results, and signature/PoP adapters where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-f0a96aa1ecb8edb7"
+      ],
+      "scope": "A successful call writes the current height and exactly 128 snapshot records."
+    },
+    {
+      "module": "EtnaProofs.L2Staking",
+      "declaration": "Etna.Design.L2Staking.transaction_preserves_snapshot",
+      "type": "∀ {s : Etna.Design.L2Staking.State} {adapters : Etna.Design.L2Staking.Adapters} {ctx : Etna.Design.L2Staking.Context}\n  {action : Etna.Design.L2Staking.Action} {result : Etna.Design.L2Staking.Result},\n  Etna.Design.L2Staking.execute s adapters ctx action = Option.some result →\n    result.state.snapshot = s.snapshot ∧ result.state.generation = s.generation",
+      "assumptions": [
+        "Decoded staking state, EVM token-call results, and signature/PoP adapters where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-100d1945e5ceede0",
+        "CURRENT_EN-a61bda8dba9304e3",
+        "CURRENT_EN-f0a96aa1ecb8edb7"
+      ],
+      "scope": "The supported staking transactions preserve both the block-start snapshot and stored generation."
+    },
+    {
+      "module": "EtnaProofs.PerBlockCommittee",
+      "declaration": "Etna.Design.PerBlockCommittee.candidateMembers_valid",
+      "type": "∀ {rules : Etna.Design.PerBlockCommittee.Rules} {seats : List Etna.Design.PerBlockCommittee.SnapshotSeat}\n  {members : List Etna.Design.PerBlockCommittee.Member},\n  Etna.Design.PerBlockCommittee.candidateMembers rules seats = Option.some members →\n    seats.length = Etna.Design.PerBlockCommittee.seatCount ∧\n      Etna.Design.PerBlockCommittee.validMembers rules members = Bool.true",
+      "assumptions": [
+        "Authenticated decoded L1 and L2 words, stock LastCommit ordering, and key/hash adapters where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-100d1945e5ceede0",
+        "CURRENT_EN-4b229ee51c820093",
+        "CURRENT_EN-3ae51e6da7b0077e"
+      ],
+      "scope": "A decoded candidate uses all 128 seat records and passes the validator-set checks."
+    },
+    {
+      "module": "EtnaProofs.PerBlockCommittee",
+      "declaration": "Etna.Design.PerBlockCommittee.usableCandidate_requirements",
+      "type": "∀ {rules : Etna.Design.PerBlockCommittee.Rules} {height threshold : Nat}\n  {snapshot : Etna.Design.PerBlockCommittee.Snapshot} {members : List Etna.Design.PerBlockCommittee.Member},\n  Etna.Design.PerBlockCommittee.usableCandidate rules height threshold snapshot = Option.some members →\n    snapshot.heightWord = height ∧\n      threshold ≠ Etna.Design.PerBlockCommittee.forceFallback ∧\n        threshold ≤ snapshot.totalStake ∧\n          snapshot.totalStake < Etna.Design.limit256 ∧\n            snapshot.seats.length = Etna.Design.PerBlockCommittee.seatCount ∧\n              Etna.Design.PerBlockCommittee.validMembers rules members = Bool.true",
+      "assumptions": [
+        "Authenticated decoded L1 and L2 words, stock LastCommit ordering, and key/hash adapters where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-ab045497c4fcde0d"
+      ],
+      "scope": "Acceptance requires this block’s whole height word, an enabled threshold, adequate stake and valid seats."
+    },
+    {
+      "module": "EtnaProofs.PerBlockCommittee",
+      "declaration": "Etna.Design.PerBlockCommittee.decision_forceFallback",
+      "type": "∀ (rules : Etna.Design.PerBlockCommittee.Rules) (height : Nat) (snapshot : Etna.Design.PerBlockCommittee.Snapshot)\n  (anchor : Etna.Design.PerBlockCommittee.Anchor) (keys : List Etna.Design.Hash),\n  height < Etna.Design.limit48 ∧\n      anchor.minTotalStake < Etna.Design.limit256 ∧ anchor.fallbackKeysHash < Etna.Design.limit256 →\n    anchor.minTotalStake = Etna.Design.PerBlockCommittee.forceFallback →\n      Etna.Design.PerBlockCommittee.decision rules height snapshot anchor keys =\n        Etna.Design.PerBlockCommittee.fallback rules anchor.fallbackKeysHash keys",
+      "assumptions": [
+        "Authenticated decoded L1 and L2 words, stock LastCommit ordering, and key/hash adapters where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-84e5bc97ec3cd9b9",
+        "CURRENT_EN-ab045497c4fcde0d"
+      ],
+      "scope": "The maximum uint256 threshold yields the anchored fallback independently of the L2 snapshot."
+    },
+    {
+      "module": "EtnaProofs.PerBlockCommittee",
+      "declaration": "Etna.Design.PerBlockCommittee.fallback_unitPower",
+      "type": "∀ {rules : Etna.Design.PerBlockCommittee.Rules} {expectedHash : Etna.Design.Hash} {keys : List Etna.Design.Hash}\n  {members : List Etna.Design.PerBlockCommittee.Member},\n  Etna.Design.PerBlockCommittee.fallback rules expectedHash keys = Option.some members →\n    rules.hashFallbackKeys keys = expectedHash ∧\n      Etna.Design.PerBlockCommittee.validFallbackKeys rules keys = Bool.true ∧\n        List.map Etna.Design.PerBlockCommittee.Member.key members = keys ∧\n          List.map Etna.Design.PerBlockCommittee.Member.power members = List.map (fun x => 1) keys",
+      "assumptions": [
+        "Authenticated decoded L1 and L2 words, stock LastCommit ordering, and key/hash adapters where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-b92478e83e852120"
+      ],
+      "scope": "The decoded fallback opens the committed hash and gives each supplied key power one."
+    },
+    {
+      "module": "EtnaProofs.PerBlockCommittee",
+      "declaration": "Etna.Design.PerBlockCommittee.signingSet_first_two",
+      "type": "∀ (rules : Etna.Design.PerBlockCommittee.Rules) (origin : Etna.Design.PerBlockCommittee.GenerationOrigin)\n  (originKeys : List Etna.Design.Hash) (inputAt : Nat → Option Etna.Design.PerBlockCommittee.DecisionInput),\n  Etna.Design.PerBlockCommittee.signingSet rules origin originKeys inputAt (origin.height + 1) =\n      Etna.Design.PerBlockCommittee.fallback rules origin.fallbackKeysHash originKeys ∧\n    Etna.Design.PerBlockCommittee.signingSet rules origin originKeys inputAt (origin.height + 2) =\n      Etna.Design.PerBlockCommittee.fallback rules origin.fallbackKeysHash originKeys",
+      "assumptions": [
+        "Authenticated decoded L1 and L2 words, stock LastCommit ordering, and key/hash adapters where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-d1e53f04c801f945",
+        "CURRENT_EN-b2c4056fb9a90a77",
+        "CURRENT_EN-5a9ec60d4802ed5e",
+        "CURRENT_EN-3be5e5decd47ae73"
+      ],
+      "scope": "The first two sets use the generation origin’s commitment, independent of later state."
+    },
+    {
+      "module": "EtnaProofs.PerBlockCommittee",
+      "declaration": "Etna.Design.PerBlockCommittee.signingSet_at_hplus2",
+      "type": "∀ (rules : Etna.Design.PerBlockCommittee.Rules) (origin : Etna.Design.PerBlockCommittee.GenerationOrigin)\n  (originKeys : List Etna.Design.Hash) (inputAt : Nat → Option Etna.Design.PerBlockCommittee.DecisionInput)\n  {height : Nat},\n  origin.height < height →\n    Etna.Design.PerBlockCommittee.signingSet rules origin originKeys inputAt (height + 2) =\n      (inputAt height).bind fun input =>\n        Etna.Design.PerBlockCommittee.decision rules height input.snapshot input.anchor input.fallbackKeys",
+      "assumptions": [
+        "Authenticated decoded L1 and L2 words, stock LastCommit ordering, and key/hash adapters where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-d1e53f04c801f945",
+        "CURRENT_EN-b2c4056fb9a90a77",
+        "CURRENT_EN-3be5e5decd47ae73"
+      ],
+      "scope": "A decision at H supplies the set at H plus two."
+    },
+    {
+      "module": "EtnaProofs.PerBlockCommittee",
+      "declaration": "Etna.Design.PerBlockCommittee.missBitmap_first",
+      "type": "∀ (parentAddresses flags : List Nat) (liveWord : Nat → Nat),\n  Etna.Design.PerBlockCommittee.missBitmap Bool.true parentAddresses flags liveWord = Option.some 0 ↔ flags = []",
+      "assumptions": [
+        "Authenticated decoded L1 and L2 words, stock LastCommit ordering, and key/hash adapters where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-55689b4d3597ab32",
+        "CURRENT_EN-28b86ed44a0bac77"
+      ],
+      "scope": "An empty first-block LastCommit produces a zero bitmap."
+    },
+    {
+      "module": "EtnaProofs.PerBlockCommittee",
+      "declaration": "Etna.Design.PerBlockCommittee.missBitmap_bit_iff",
+      "type": "∀ {parentAddresses flags : List Nat} {liveWord : Nat → Nat} {bitmap : Nat},\n  Etna.Design.PerBlockCommittee.missBitmap Bool.false parentAddresses flags liveWord = Option.some bitmap →\n    ∀ (seat : Nat),\n      bitmap.testBit seat = Bool.true ↔\n        ∃ address flag,\n          (address, flag) ∈ parentAddresses.zip flags ∧\n            flag ≠ Etna.Design.PerBlockCommittee.commitFlag ∧\n              Etna.Design.PerBlockCommittee.liveSeat (liveWord address) = Option.some seat",
+      "assumptions": [
+        "Authenticated decoded L1 and L2 words, stock LastCommit ordering, and key/hash adapters where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "CURRENT_EN-55689b4d3597ab32",
+        "CURRENT_EN-28b86ed44a0bac77"
+      ],
+      "scope": "Each bit records a non-commit flag attributed to an address mapped to that seat."
+    },
+    {
+      "module": "EtnaProofs.PerBlockCommittee",
+      "declaration": "Etna.Design.PerBlockCommittee.missBitmap_high_bits_clear",
+      "type": "∀ {parentAddresses flags : List Nat} {liveWord : Nat → Nat} {bitmap seat : Nat},\n  Etna.Design.PerBlockCommittee.missBitmap Bool.false parentAddresses flags liveWord = Option.some bitmap →\n    Etna.Design.PerBlockCommittee.seatCount ≤ seat → bitmap.testBit seat = Bool.false",
+      "assumptions": [
+        "Authenticated decoded L1 and L2 words, stock LastCommit ordering, and key/hash adapters where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "CURRENT_EN-55689b4d3597ab32",
+        "CURRENT_EN-28b86ed44a0bac77"
+      ],
+      "scope": "Every miss bit at or above seat 128 is clear."
+    },
+    {
+      "module": "EtnaProofs.L2StakingProtocol",
+      "declaration": "Etna.Design.L2StakingProtocol.bound_caps_unsettled",
+      "type": "∀ (unsettled checkpoint height : Nat),\n  Etna.Design.L2StakingProtocol.withinUnsettled unsettled checkpoint height = Bool.true →\n    height - checkpoint ≤ unsettled",
+      "assumptions": [
+        "Decoded inputs, authenticated L1 state, and key identity and stock validator-state arithmetic where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-476075ce4ddce439"
+      ],
+      "scope": "Height beyond an anchor-proven checkpoint is bounded by the decoded U."
+    },
+    {
+      "module": "EtnaProofs.L2StakingProtocol",
+      "declaration": "Etna.Design.L2StakingProtocol.target_unsettled_valid",
+      "type": "Etna.Design.L2StakingProtocol.validUnsettled Etna.Design.L2StakingProtocol.targetUnsettled = Bool.true",
+      "assumptions": [
+        "Decoded inputs, authenticated L1 state, and key identity and stock validator-state arithmetic where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "constant",
+      "sources": [
+        "CURRENT_EN-476075ce4ddce439"
+      ],
+      "scope": "The target 151,200 lies within the allowed deployment range."
+    },
+    {
+      "module": "EtnaProofs.L2StakingProtocol",
+      "declaration": "Etna.Design.L2StakingProtocol.delay_covers_unsettled_and_evidence",
+      "type": "∀ (config : Etna.Design.L2Staking.Config) (unsettled evidenceWindow : Nat),\n  config.valid unsettled evidenceWindow = Bool.true → unsettled + 2 + evidenceWindow ≤ config.withdrawalDelay",
+      "assumptions": [
+        "Decoded inputs, authenticated L1 state, and key identity and stock validator-state arithmetic where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-b3b6acd273d49472"
+      ],
+      "scope": "The delay covers U, two signing heights and the evidence window."
+    },
+    {
+      "module": "EtnaProofs.L2StakingProtocol",
+      "declaration": "Etna.Design.L2StakingProtocol.accepted_anchor_at_or_after_origin",
+      "type": "∀ (origin : Etna.Design.PerBlockCommittee.GenerationOrigin) (height anchorNumber : Nat) (carriesWitness : Bool),\n  Etna.Design.L2StakingProtocol.anchorFitsOrigin origin height anchorNumber carriesWitness = Bool.true →\n    origin.l1Block ≤ anchorNumber",
+      "assumptions": [
+        "Decoded inputs, authenticated L1 state, and key identity and stock validator-state arithmetic where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-8da31506138f2a44"
+      ],
+      "scope": "Anchors accepted by the origin check cannot predate the generation L1 block."
+    },
+    {
+      "module": "EtnaProofs.L2StakingProtocol",
+      "declaration": "Etna.Design.L2StakingProtocol.threshold_requires_owner",
+      "type": "∀ (owner caller : Nat) (settings next : Etna.Design.L2StakingProtocol.FallbackSettings) (value : Nat),\n  Etna.Design.L2StakingProtocol.setMinTotalStake owner caller settings value = Option.some next → caller = owner",
+      "assumptions": [
+        "Decoded inputs, authenticated L1 state, and key identity and stock validator-state arithmetic where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-79179d29401b2345"
+      ],
+      "scope": "An accepted threshold update comes from the Inbox owner."
+    },
+    {
+      "module": "EtnaProofs.L2StakingProtocol",
+      "declaration": "Etna.Design.L2StakingProtocol.recorded_origin_uses_fallback_hash",
+      "type": "∀ (inbox next : Etna.Design.L2StakingProtocol.Inbox) (generation height l1Block timestamp : Nat),\n  Etna.Design.L2StakingProtocol.recordOrigin inbox generation height l1Block timestamp = Option.some next →\n    Option.map Etna.Design.PerBlockCommittee.GenerationOrigin.fallbackKeysHash (next.originAt generation) =\n      Option.some inbox.settings.keysHash",
+      "assumptions": [
+        "Decoded inputs, authenticated L1 state, and key identity and stock validator-state arithmetic where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-848530f013165686"
+      ],
+      "scope": "The new origin stores the Inbox fallback hash present at the write."
+    },
+    {
+      "module": "EtnaProofs.L2StakingProtocol",
+      "declaration": "Etna.Design.L2StakingProtocol.recorded_origin_keeps_earlier",
+      "type": "∀ (inbox next : Etna.Design.L2StakingProtocol.Inbox) (generation old height l1Block timestamp : Nat),\n  old ≠ generation →\n    Etna.Design.L2StakingProtocol.recordOrigin inbox generation height l1Block timestamp = Option.some next →\n      next.originAt old = inbox.originAt old",
+      "assumptions": [
+        "Decoded inputs, authenticated L1 state, and key identity and stock validator-state arithmetic where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-848530f013165686"
+      ],
+      "scope": "Writing one generation origin keeps each other generation origin."
+    },
+    {
+      "module": "EtnaProofs.L2StakingProtocol",
+      "declaration": "Etna.Design.L2StakingProtocol.advance_preserves_next_height",
+      "type": "∀ (identity : Etna.Design.L2StakingProtocol.ValidatorIdentity)\n  (validators next : Etna.Design.Current.ValidatorState.CommitState)\n  (target : List Etna.Design.PerBlockCommittee.Member),\n  Etna.Design.L2StakingProtocol.advanceValidators identity validators target = Option.some next →\n    next.height = validators.height + 1 ∧ next.current = validators.next",
+      "assumptions": [
+        "Decoded inputs, authenticated L1 state, and key identity and stock validator-state arithmetic where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-2ccbaebc6cd5620b"
+      ],
+      "scope": "FinalizeBlock leaves the already scheduled next-height set in place."
+    },
+    {
+      "module": "EtnaProofs.L2StakingProtocol",
+      "declaration": "Etna.Design.L2StakingProtocol.strict_quorums_overlap",
+      "type": "∀ (members : List Etna.Design.PerBlockCommittee.Member) (a b : List Etna.Design.Hash),\n  2 * Etna.Design.L2StakingProtocol.totalPower members < 3 * Etna.Design.L2StakingProtocol.votingPower members a →\n    2 * Etna.Design.L2StakingProtocol.totalPower members < 3 * Etna.Design.L2StakingProtocol.votingPower members b →\n      Etna.Design.L2StakingProtocol.totalPower members <\n        3 * Etna.Design.L2StakingProtocol.votingPower members (List.filter b.contains a)",
+      "assumptions": [
+        "Decoded inputs, authenticated L1 state, and key identity and stock validator-state arithmetic where used"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "property",
+      "sources": [
+        "CURRENT_EN-0ba9f1db9d9ab96f"
+      ],
+      "scope": "Any two strict quorums under the same selected weighted set intersect in over one third of the power."
+    },
+    {
+      "module": "EtnaProofs.PerBlockGuest",
+      "declaration": "Etna.Design.PerBlockGuest.boundary_origin",
+      "type": "∀ (rules : Etna.Design.PerBlockGuest.BoundaryRules) (origin : Etna.Design.PerBlockCommittee.GenerationOrigin)\n  (originKeys : List Etna.Design.Hash) (p : Etna.Design.PerBlockGuest.ProofCheckpoint)\n  (openings : Etna.Design.PerBlockGuest.ValidatorOpenings),\n  p.height = origin.height →\n    Etna.Design.PerBlockGuest.boundarySets rules origin originKeys p openings =\n      Option.map (fun initial => { parent := Option.none, first := initial, second := initial })\n        (Etna.Design.PerBlockCommittee.fallback rules.committee origin.fallbackKeysHash originKeys)",
+      "assumptions": [
+        "Authenticated decoded headers, boundary state and signature adapters"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-3be5e5decd47ae73",
+        "CURRENT_EN-5a9ec60d4802ed5e"
+      ],
+      "scope": "A generation-origin checkpoint has no parent validator set and uses the fixed fallback set for the next two heights."
+    },
+    {
+      "module": "EtnaProofs.PerBlockGuest",
+      "declaration": "Etna.Design.PerBlockGuest.boundary_after_origin",
+      "type": "∀ {rules : Etna.Design.PerBlockGuest.BoundaryRules} {origin : Etna.Design.PerBlockCommittee.GenerationOrigin}\n  {originKeys : List Etna.Design.Hash} {p : Etna.Design.PerBlockGuest.ProofCheckpoint}\n  {openings : Etna.Design.PerBlockGuest.ValidatorOpenings} {sets : Etna.Design.PerBlockGuest.BoundarySets},\n  origin.height < p.height →\n    Etna.Design.PerBlockGuest.boundarySets rules origin originKeys p openings = Option.some sets →\n      ∃ header input parent,\n        rules.openCometHeader p.cometHash = Option.some header ∧\n          header.height = p.height ∧\n            Etna.Design.PerBlockGuest.openValidators rules header.validatorsHash openings.current = Option.some parent ∧\n              sets.parent = Option.some parent ∧\n                (if p.height = origin.height + 1 then\n                      Etna.Design.PerBlockCommittee.fallback rules.committee origin.fallbackKeysHash originKeys\n                    else Etna.Design.PerBlockGuest.openValidators rules header.nextValidatorsHash openings.next) =\n                    Option.some sets.first ∧\n                  rules.openParentDecision p.height p.elHash = Option.some input ∧\n                    Etna.Design.PerBlockCommittee.decision rules.committee p.height input.snapshot input.anchor\n                        input.fallbackKeys =\n                      Option.some sets.second",
+      "assumptions": [
+        "Authenticated decoded headers, boundary state and signature adapters"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-3be5e5decd47ae73",
+        "CURRENT_EN-cb4f6ca321456b2e"
+      ],
+      "scope": "At a non-origin checkpoint the parent and next signing sets open the authenticated header, or use the fixed origin set where it applies. The second successor uses the authenticated EL state and its anchor."
+    },
+    {
+      "module": "EtnaProofs.PerBlockGuest",
+      "declaration": "Etna.Design.PerBlockGuest.openValidators_checked",
+      "type": "∀ {rules : Etna.Design.PerBlockGuest.BoundaryRules} {expected : Etna.Design.Hash}\n  {members selected : List Etna.Design.PerBlockCommittee.Member},\n  Etna.Design.PerBlockGuest.openValidators rules expected members = Option.some selected →\n    selected = members ∧\n      rules.hashValidatorSet selected = expected ∧\n        Etna.Design.PerBlockCommittee.validMembers rules.committee selected = Bool.true",
+      "assumptions": [
+        "Authenticated decoded headers, boundary state and signature adapters"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-3be5e5decd47ae73"
+      ],
+      "scope": "Accepted supplied validator sets are valid and match the authenticated set commitment."
+    },
+    {
+      "module": "EtnaProofs.PerBlockGuest",
+      "declaration": "Etna.Design.PerBlockGuest.signingMembers_exact",
+      "type": "∀ (verify : Etna.Design.PerBlockGuest.VerifyVote) (chainId : String)\n  (members : List Etna.Design.PerBlockCommittee.Member) (commit : Etna.Design.PerBlockGuest.Commit)\n  (member : Etna.Design.PerBlockCommittee.Member),\n  member ∈ Etna.Design.PerBlockGuest.signingMembers verify chainId members commit ↔\n    member ∈ members ∧\n      ∃ vote,\n        vote ∈ commit.votes ∧\n          vote.key = member.key ∧\n            vote.voteType = 2 ∧\n              vote.height = commit.height ∧\n                vote.round = commit.round ∧ vote.blockId = Option.some commit.blockId ∧ verify chainId vote = Bool.true",
+      "assumptions": [
+        "Authenticated decoded headers, boundary state and signature adapters"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-0ba9f1db9d9ab96f"
+      ],
+      "scope": "Every counted key is a member with a valid precommit for the exact commit identity."
+    },
+    {
+      "module": "EtnaProofs.PerBlockGuest",
+      "declaration": "Etna.Design.PerBlockGuest.validCommit_quorum",
+      "type": "∀ {rules : Etna.Design.PerBlockCommittee.Rules} {verify : Etna.Design.PerBlockGuest.VerifyVote} {chainId : String}\n  {height : Nat} {headerHash : Etna.Design.Hash} {members : List Etna.Design.PerBlockCommittee.Member}\n  {commit : Etna.Design.PerBlockGuest.Commit},\n  Etna.Design.PerBlockGuest.validCommit rules verify chainId height headerHash members commit = Bool.true →\n    commit.height = height ∧\n      commit.blockId.hash = headerHash ∧\n        (List.map Etna.Design.PerBlockCommittee.Member.key\n              (Etna.Design.PerBlockGuest.signingMembers verify chainId members commit)).Nodup ∧\n          2 * Etna.Design.PerBlockGuest.votingPower members <\n            3 *\n              Etna.Design.PerBlockGuest.votingPower\n                (Etna.Design.PerBlockGuest.signingMembers verify chainId members commit)",
+      "assumptions": [
+        "Authenticated decoded headers, boundary state and signature adapters"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-0ba9f1db9d9ab96f"
+      ],
+      "scope": "Accepted commits exceed the strict two-thirds power threshold under the selected set."
+    },
+    {
+      "module": "EtnaProofs.PerBlockGuest",
+      "declaration": "Etna.Design.PerBlockGuest.sameSigningSet_iff",
+      "type": "∀ (current next : List Etna.Design.PerBlockCommittee.Member),\n  Etna.Design.PerBlockGuest.sameSigningSet current next = Bool.true ↔\n    ∀ (member : Etna.Design.PerBlockCommittee.Member), member ∈ current ↔ member ∈ next",
+      "assumptions": [
+        "Authenticated decoded headers, boundary state and signature adapters"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-0ba9f1db9d9ab96f",
+        "CURRENT_EN-3be5e5decd47ae73"
+      ],
+      "scope": "The signing set comparison uses the keys and their powers, independent of order."
+    },
+    {
+      "module": "EtnaProofs.PerBlockGuest",
+      "declaration": "Etna.Design.PerBlockGuest.requiredCommit_qualifies",
+      "type": "∀ {rules : Etna.Design.PerBlockCommittee.Rules} {verify : Etna.Design.PerBlockGuest.VerifyVote} {chainId : String}\n  {height : Nat} {headerHash : Etna.Design.Hash} {terminal : Bool}\n  {current next : List Etna.Design.PerBlockCommittee.Member} {proof : Option Etna.Design.PerBlockGuest.Commit},\n  terminal = Bool.true ∨ Etna.Design.PerBlockGuest.sameSigningSet current next = Bool.false →\n    Etna.Design.PerBlockGuest.checkRequiredCommit rules verify chainId height headerHash terminal current next proof =\n        Bool.true →\n      ∃ commit,\n        proof = Option.some commit ∧\n          Etna.Design.PerBlockGuest.validCommit rules verify chainId height headerHash current commit = Bool.true",
+      "assumptions": [
+        "Authenticated decoded headers, boundary state and signature adapters"
+      ],
+      "bridge_level": "spec-proved",
+      "role": "supporting",
+      "sources": [
+        "CURRENT_EN-0ba9f1db9d9ab96f",
+        "CURRENT_EN-3be5e5decd47ae73"
+      ],
+      "scope": "A successful boundary check of a required commit supplies an accepted decoded certificate."
     }
   ]
 }

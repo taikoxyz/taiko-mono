@@ -38,7 +38,8 @@ LOCK_PATH = 'formal/etna/review-surface.lock.json'
 GATE_PATHS = ('formal/etna/scripts', ':(glob)formal/etna/tests/*.py', ':(glob)formal/etna/tests/*.lean',
               ':(glob)formal/etna/*.py', 'formal/etna/manifests/design.json',
               'formal/etna/manifests/shadowing-allowlist.json', 'formal/etna/spec-coverage.json',
-              'formal/etna/rule-coverage.json', 'formal/etna/lakefile.toml',
+              'formal/etna/rule-coverage.json', 'formal/etna/current-coverage.json',
+              'formal/etna/lakefile.toml',
               'formal/etna/lean-toolchain', 'formal/etna/lake-manifest.json',
               ':(glob).github/workflows/formal--etna*.yml')
 # Without a historical lock, source changes cannot be classified as proof-only.
@@ -49,9 +50,20 @@ DEPLOYED_HEADLINES = ('Etna.Design.Current.Headlines.deployed_claims',
                       'Etna.Design.Current.Headlines.deployed_rollback_free',
                       'Etna.Design.Current.Headlines.deployed_recoverability')
 VALIDATOR_STATE_ROOTS = ('Etna.Design.Current.ValidatorState.hplus2',)
-SCOPE = ('Kernel terms of the headline/witness statements and of every Etna definition they use; '
-         'also the concrete validator-state arithmetic; theorem proofs are excluded. A change '
-         'here changes what H1-H4, the witnesses or the validator-state arithmetic mean.')
+CURRENT_MODEL_ROOTS = (
+    'Etna.Design.L2Staking.execute',
+    'Etna.Design.L2Staking.Config.valid',
+    'Etna.Design.PerBlockCommittee.decodeExtraData',
+    'Etna.Design.L2StakingProtocol.blockStart',
+    'Etna.Design.L2StakingProtocol.genesisValidators',
+    'Etna.Design.L2StakingProtocol.recoverWithFallback',
+    'Etna.Design.L2StakingProtocol.setFallbackKeys',
+    'Etna.Design.PerBlockGuest.boundarySets',
+    'Etna.Design.PerBlockGuest.checkRequiredCommit',
+)
+SCOPE = ('Kernel terms and Etna dependencies of the historical headlines, witnesses and '
+         'validator-state arithmetic, and of the current decoded model and audited statements. '
+         'Theorem proofs are excluded.')
 
 PROGRAM = r'''import Lean
 import EtnaModel
@@ -105,10 +117,14 @@ def _audit():
     return module
 
 
-def roots():
+def roots(root=ROOT):
     audit = _audit()
+    manifest = json.loads((root/'manifests/design.json').read_text())
+    current_proofs = [entry['declaration'] for entry in manifest['theorems']
+                      if any(source.startswith('CURRENT_') for source in entry['sources'])]
     return [audit.CURRENT_CLAIMS[0], *audit.CURRENT_HEADLINES, *DEPLOYED_HEADLINES,
-            audit.CURRENT_ACCEPTING_WITNESS, *audit.CURRENT_PROFILE_WITNESSES, *VALIDATOR_STATE_ROOTS]
+            audit.CURRENT_ACCEPTING_WITNESS, *audit.CURRENT_PROFILE_WITNESSES, *VALIDATOR_STATE_ROOTS,
+            *CURRENT_MODEL_ROOTS, *current_proofs]
 
 
 def lean_string(text):
@@ -117,7 +133,7 @@ def lean_string(text):
 
 def compute(root=ROOT):
     """The lock document for the built tree (requires `lake build`)."""
-    names = roots()
+    names = roots(root)
     work = root/'.scratch/generated'
     work.mkdir(parents=True, exist_ok=True)
     source, out = work/'ReviewSurface.lean', work/'review-surface.jsonl'

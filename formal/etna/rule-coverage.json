@@ -3,13 +3,13 @@
   "spec": {
     "path": "packages/protocol/docs/etna/SPEC.md",
     "revision": "2026-11-20",
-    "commit": "994960561490b882558da7847a21a41a271350c5",
+    "commit": "3602629758beb653423a23608fd1960810efcfac",
     "sha256": "383760a1e7df211a9c74835a4e2446db57a05bd21eb52f030980afd205748d3c"
   },
   "index": {
     "path": "packages/protocol/docs/etna/rules/INDEX.md",
     "revision": "2026-11-20",
-    "commit": "994960561490b882558da7847a21a41a271350c5",
+    "commit": "3602629758beb653423a23608fd1960810efcfac",
     "sha256": "e73d63b5990598dc8d158dea81fb4c1cbf4fd2b09014b1c25ebecb18d4e0b2e4"
   },
   "evidence": {

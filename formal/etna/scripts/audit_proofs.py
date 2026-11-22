@@ -372,12 +372,17 @@ def main():
                                  'a syntactic record for human review, not evidence that the induction is needed',
                            chains={name: ' -> '.join(chain) for name, chain in sorted(chains.items())})
         (generated/'derivation-chains.json').write_text(json.dumps(derivations,indent=2)+'\n')
-        result = dict(theorem_contracts=len(manifest['theorems']),compiler=version.strip(),
+        totals = {'current': 0, 'historical': 0}
+        for entry in manifest['theorems']:
+            profile = 'current' if COVERAGE.current_theorem(entry['declaration']) else 'historical'
+            totals[profile] += 1
+        result = dict(theorem_contracts=len(manifest['theorems']),authority_contracts=totals,
+                      compiler=version.strip(),
                       full_types='passed',roles='mechanically checked',
                       derivation_chains='.scratch/generated/derivation-chains.json',
                       kernel_replay=' '.join(GRAPH.declared_libraries())+' --fresh (whole import closure), '
                                     'generated Audit and '+', '.join(tests),
-                      headline=dict(claims=' : '.join(CURRENT_CLAIMS), theorems=CURRENT_HEADLINES,
+                      headline=dict(profile='historical', claims=' : '.join(CURRENT_CLAIMS), theorems=CURRENT_HEADLINES,
                                     accepting_witness=CURRENT_ACCEPTING_WITNESS,
                                     profile_witnesses=CURRENT_PROFILE_WITNESSES,
                                     premise_use=uses),
@@ -385,9 +390,11 @@ def main():
                       axioms=sorted(ALLOWED_AXIOMS),scope='conditional decoded specification only')
         (generated/'audit-result.json').write_text(json.dumps(result,indent=2)+'\n')
         print(f'Audited {len(manifest["theorems"])} full theorem contracts; source lint, fresh vectors, fresh kernel '
-              f'replay, exact types, mechanical roles, shadowing, library contents, headline claims and transitive '
+              f'replay, exact types, mechanical roles, shadowing, library contents, historical headline claims and transitive '
               f'axioms pass; {len(tests)} Lean regression modules replayed.')
-        print(f'Every one of the {len(uses)} premise fields and hypotheses is read by a headline proof: '
+        print(f'Contracts by authority: {totals["current"]} current (#22425), '
+              f'{totals["historical"]} historical (#22422).')
+        print(f'Every one of the {len(uses)} historical premise fields is read by a headline proof: '
               + '; '.join(f'{field} <- {", ".join(t.rsplit(".", 1)[1] for t in by)}' for field, by in uses.items()))
         print(f'Recorded {summarize_chains(chains)} in .scratch/generated/derivation-chains.json.')
         return 0

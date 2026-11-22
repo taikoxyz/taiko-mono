@@ -35,10 +35,15 @@
     node("a", { href: `#decl=${encodeURIComponent(name)}` }, label);
   const badge = (label, kind = "") =>
     node("span", { class: `badge ${kind}` }, label);
+  const profileLabels = {
+    current: "PR #22425",
+    historical: "PR #22422 · historical",
+    shared: "shared",
+  };
   const fileURL = (path) =>
     `${data.github}/blob/${data.branch}/formal/etna/${path.split("/").map(encodeURIComponent).join("/")}`;
   const authorityURL = (clause) => {
-    const pin = data.authorities[clause.path];
+    const pin = data.authorities[clause.profile][clause.path];
     return `${data.github}/blob/${pin.commit}/${pin.github_path}#L${clause.github_start_line}-L${clause.github_end_line}`;
   };
   const explanations = {
@@ -150,8 +155,8 @@
   ];
   const hypothesisFields = fieldsOf("Etna.Statements.Current.LiveAt");
   for (const [count, label] of [
-    [data.counts.current, "current named declarations"],
-    [premiseFields.length, "current premise fields"],
+    [data.counts.current || 0, "PR #22425 named declarations"],
+    [premiseFields.length, "PR #22422 headline premise fields"],
     [
       data.declarations.filter((entry) => entry.contract).length,
       "reviewed theorem contracts · all profiles",
@@ -183,7 +188,7 @@
     node(
       "p",
       {},
-      `Toolchain: ${data.toolchain}. ${Object.keys(data.files).length} source files embedded. Shared entries supply primitives imported by the current model; that label does not grant them rule evidence.`,
+      `Toolchain: ${data.toolchain}. ${Object.keys(data.files).length} source files embedded. Each rule edge belongs to its pinned revision.`,
     ),
   );
   for (const [path, digest] of Object.entries(data.fingerprints))
@@ -260,10 +265,7 @@
     $("source-name").textContent = entry.name;
     $("source-badges").replaceChildren(
       badge(entry.kind),
-      badge(
-        entry.profile === "current" ? "current" : "shared",
-        entry.profile,
-      ),
+      badge(profileLabels[entry.profile], entry.profile),
     );
     if (entry.contract)
       $("source-badges").append(
@@ -327,7 +329,7 @@
         node(
           "p",
           {},
-          "No exact current binding-rule edge. Module membership or clause citations do not supply one.",
+          "No reviewed exact binding-rule edge for this theorem.",
         ),
       );
     for (const rule of rules)
@@ -342,7 +344,7 @@
               target: "_blank",
               rel: "noopener noreferrer",
             },
-            `${rule.rule} · ${rule.status} ↗`,
+            `${rule.rule} · ${rule.status} · ${profileLabels[rule.profile]} ↗`,
           ),
           node("p", {}, rule.reason),
         ),
@@ -363,7 +365,7 @@
                 target: "_blank",
                 rel: "noopener noreferrer",
               },
-              `${clause.path.split("/").pop()}:${clause.github_start_line}–${clause.github_end_line} ↗`,
+              `${clause.path.split("/").pop()}:${clause.github_start_line}–${clause.github_end_line} · ${profileLabels[clause.profile]} ↗`,
             ),
             node("p", {}, clause.summary),
           ),
@@ -472,16 +474,17 @@
     const kind = $("kind").value;
     const module = $("module").value;
     const isRules = kind === "rules";
-    $("profile").disabled = isRules;
     $("module").disabled = isRules;
     let rows;
     if (isRules)
-      rows = data.rules.filter((rule) =>
-        query.every((word) =>
-          `${rule.rule} ${rule.title} ${rule.reason} ${rule.status} ${rule.type} ${rule.theorems.join(" ")}`
-            .toLowerCase()
-            .includes(word),
-        ),
+      rows = data.rules.filter(
+        (rule) =>
+          (profile === "all" || rule.profile === profile) &&
+          query.every((word) =>
+            `${rule.rule} ${rule.title} ${rule.reason} ${rule.status} ${rule.type} ${rule.theorems.join(" ")}`
+              .toLowerCase()
+              .includes(word),
+          ),
       );
     else
       rows = data.declarations.filter(
@@ -495,7 +498,7 @@
           query.every((word) => searchTexts.get(entry.name).includes(word)),
       );
     $("result-count").textContent =
-      `${rows.length.toLocaleString("en")} ${isRules ? "current rule / assumption rows" : "declarations"} · showing ${Math.min(limit, rows.length)}`;
+      `${rows.length.toLocaleString("en")} ${isRules ? "rule index rows" : "declarations"} · showing ${Math.min(limit, rows.length)}`;
     const fragment = document.createDocumentFragment();
     if (!rows.length)
       fragment.append(
@@ -514,25 +517,26 @@
             "div",
             { class: "result-top" },
             badge(row.status, row.status),
-            node(
-              "a",
-              {
-                class: "decl-link",
-                href: authorityURL(clause),
-                target: "_blank",
-                rel: "noopener noreferrer",
-              },
-              row.rule,
-            ),
+            clause
+              ? node(
+                  "a",
+                  {
+                    class: "decl-link",
+                    href: authorityURL(clause),
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                  },
+                  row.rule,
+                )
+              : node("span", { class: "decl-link" }, row.rule),
           ),
           node("p", {}, row.title),
+          row.reason ? node("p", {}, row.reason) : null,
           node(
-            "p",
-            {},
-            row.reason ||
-              "No reviewed exact theorem edge; this obligation is deferred.",
+            "div",
+            { class: "metadata" },
+            `${profileLabels[row.profile]} · ${row.type} · ${row.section}`,
           ),
-          node("div", { class: "metadata" }, `${row.type} · ${row.section}`),
         );
         for (const name of row.theorems)
           article.append(node("p", {}, declarationLink(name)));
@@ -601,5 +605,5 @@
   modules();
   render();
   if (location.hash.startsWith("#decl=")) selectFromHash();
-  else select("Etna.Statements.Current.Premises", false);
+  else select("Etna.Design.PerBlockCommittee.signingSet_at_hplus2", false);
 })();

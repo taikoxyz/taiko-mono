@@ -38,6 +38,8 @@ jobs:
         working-directory: formal/etna
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       # Before any Lean/Lake runs: no build-time code, foreign imports or extra targets.
       - name: Lint Lean sources and package configuration
         run: python3 scripts/lint_sources.py

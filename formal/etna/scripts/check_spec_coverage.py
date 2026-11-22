@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Check the pinned spec revision and explicit theorem/claim evidence edges.
+"""Check both pinned Etna revisions and explicit theorem/claim evidence edges.
 
-This is a traceability report and its consistency check, not the verification result. The
-results are the exact H1–H3 composition under `Etna.Statements.Current.Premises` and H4 under
+The proof audit checks verification results. The November 20 headline results are
+the exact H1–H3 composition under `Etna.Statements.Current.Premises` and H4 under
 `Etna.Statements.Current.RecoveryPremises` and `LiveAt` (README). A
 clause marked partial has an edge from some `property` or `constant` theorem; it is not proved.
 
@@ -15,13 +15,12 @@ or not derived) and `regression` edges never do.
 The role text is not trusted: the proof audit (scripts/EtnaAudit.lean, checkContract)
 checks each `property`/`supporting` role both ways against the kernel type and proof term.
 
-SPEC.md, ACCEPTANCE.md, ANCHORLESS.md and SWITCH.md are independently pinned in
-spec-coverage.json by source path, reviewed Git commit, revision date and SHA-256.
-No editor-export manifest is needed. Any edit to an authority's text fails this check
-until the clause links are reviewed against the new text and its pin is updated. The pin
-and the clauses cover the text with rule-reference markers removed (strip_markers).
+The November 20 authorities in spec-coverage.json are read from their pinned Git revision.
+Their LIVE_* clause IDs and historical proof edges retain their original meaning.
+The November 22 authorities in current-coverage.json are checked byte for byte in the
+working tree. Their CURRENT_* clause IDs can only be cited by the new model namespaces.
 
-Clauses use LIVE_* IDs. Only Etna.Design.Current declarations may cite them. Every
+Only Etna.Design.Current declarations may cite historical clauses. Every
 theorem cites at least one clause, except the reviewed plumbing in UNSOURCED, which cites
 none: it is audited like any theorem but is the obligation of no clause. UNSOURCED holds
 the current plumbing (scripts/current-plumbing.json) and SHARED: lemmas outside the
@@ -34,6 +33,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,6 +43,12 @@ SPEC_PATH = SPEC_DIR+'/SPEC.md'
 ACCEPTANCE_PATH = SPEC_DIR+'/ACCEPTANCE.md'
 ANCHORLESS_PATH = SPEC_DIR+'/ANCHORLESS.md'
 SWITCH_PATH = SPEC_DIR+'/SWITCH.md'
+INDEX_PATH = SPEC_DIR+'/rules/INDEX.md'
+HISTORICAL_CONFIG = 'spec-coverage.json'
+CURRENT_CONFIG = 'current-coverage.json'
+CURRENT_COMMIT = '69e26df443e9b5a0f05127d4179e4833fc95823c'
+CURRENT_NAMESPACES = ('Etna.Design.L2Staking.', 'Etna.Design.L2StakingProtocol.',
+                      'Etna.Design.PerBlockCommittee.', 'Etna.Design.PerBlockGuest.')
 SOURCE_INPUTS = (('source', 'spec', SPEC_PATH, 'live_en'),
                  ('acceptance_source', 'acceptance', ACCEPTANCE_PATH, 'live_acceptance'),
                  ('anchorless_source', 'anchorless', ANCHORLESS_PATH, 'live_anchorless'),
@@ -51,7 +57,7 @@ ROLES = {'property', 'constant', 'supporting', 'regression'}
 PARTIAL_ROLES = {'property', 'constant'}
 SCOPE = 'conditional decoded specification property only'
 # Theorems that back no clause (each must cite none): modelling plumbing, not a spec obligation.
-SHARED_REASON = ('Shared lemma outside the Current namespace, reused by current proofs; '
+SHARED_REASON = ('Shared lemma outside the Current namespace, reused by historical proofs; '
                  'its evidence is the Etna.Design.Current declarations that use it')
 UNSOURCED = {name: SHARED_REASON for name in (
     'Etna.Design.Consensus.election_valid_iff',
@@ -182,42 +188,76 @@ def content_key(identity):
     return '-'.join(identity.split('-')[:2])
 
 
-def source_rows(root=ROOT, repo=REPO):
-    """Read only the reviewed authority paths and validate each independent byte pin.
+def archive_bytes(repo, path, commit):
+    result = subprocess.run(['git', '-C', str(repo), 'show', f'{commit}:{path}'],
+                            capture_output=True)
+    if result.returncode:
+        raise ValueError(f'cannot read historical authority {commit}:{path}; '
+                         'fetch the pinned revision into this Git checkout')
+    return result.stdout
 
-    The inventory is the reviewed record: revision/commit metadata identifies the
-    source of the pinned bytes, rather than requiring an editor manifest or local
-    Git history (a source checkout or scratch-copy test is sufficient).
-    """
-    spec = json.loads((root/'spec-coverage.json').read_text())
-    result = []
+
+def pinned_text(repo, pin, path, label, *, profile, strip_for_pin=False, fixture=None):
+    if not isinstance(pin, dict):
+        raise ValueError(f'{label} reviewed source pin required')
+    if pin.get('path') != path:
+        raise ValueError(f'the {label} source must be '+path)
+    commit = pin.get('commit', '')
+    if not re.fullmatch(r'[0-9a-f]{40}', commit):
+        raise ValueError(f'the {label} source requires a full Git commit')
+    if not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', pin.get('revision', '')):
+        raise ValueError(f'the {label} source requires an ISO revision date')
+    if profile == 'current':
+        if commit != CURRENT_COMMIT or pin['revision'] != '2026-11-22':
+            raise ValueError(f'{label} source pin must identify reviewed PR #22425 ({CURRENT_COMMIT})')
+        data = (repo/path).read_bytes()
+    else:
+        data = (fixture/path).read_bytes() if fixture else archive_bytes(repo, path, commit)
+    text = data.decode()
+    if digest(strip_markers(text).encode() if strip_for_pin else data) != pin.get('sha256'):
+        raise ValueError(f'{label} digest mismatch: {path} differs from the reviewed revision '
+                         f'{pin["revision"]} ({commit}); review the source edges and pin')
+    return text
+
+
+def source_documents(root=ROOT, repo=REPO, *, profile='historical', fixture=None):
+    """Return the raw texts of the independently pinned clause authorities."""
+    config = CURRENT_CONFIG if profile == 'current' else HISTORICAL_CONFIG
+    spec = json.loads((root/config).read_text())
+    result = {}
     for key, label, path, language in SOURCE_INPUTS:
         source = spec.get(key)
-        if not isinstance(source, dict):
-            raise ValueError(f'{label} reviewed source pin required')
-        if source.get('path') != path:
-            raise ValueError(f'the {label} source must be '+path)
-        if not re.fullmatch(r'[0-9a-f]{40}', source.get('commit', '')):
-            raise ValueError(f'the {label} source requires a full Git commit')
-        if not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', source.get('revision', '')):
-            raise ValueError(f'the {label} source requires an ISO revision date')
-        text = strip_markers((repo/path).read_bytes().decode())
-        if digest(text.encode()) != source.get('sha256'):
-            raise ValueError(f'{label} digest mismatch: {path} differs from the reviewed revision '
-                             f'{source["revision"]} ({source["commit"]}); review the clause links '
-                             'against the new text, then update its pin in spec-coverage.json')
-        rows = clauses(text, language)
+        if profile == 'current':
+            label = 'current '+label
+            language = 'current_'+language.removeprefix('live_')
+        text = pinned_text(repo, source, path, label, profile=profile,
+                           strip_for_pin=profile == 'historical', fixture=fixture)
+        result[path] = (source, language, text)
+    if profile == 'current':
+        pinned_text(repo, spec.get('index_source'), INDEX_PATH, 'current index', profile=profile)
+    return result
+
+
+def source_rows(root=ROOT, repo=REPO, *, profile='historical', fixture=None):
+    result = []
+    for path, (source, language, text) in source_documents(root, repo, profile=profile, fixture=fixture).items():
+        rows = clauses(strip_markers(text), language)
         for row in rows:
-            row.update(path=path, source_commit=source['commit'])
+            row.update(path=path, source_commit=source['commit'], profile=profile)
         result.extend(rows)
     return result
 
 
-def inventory(root=ROOT, repo=REPO):
-    spec = json.loads((root/'spec-coverage.json').read_text())
+def current_theorem(name):
+    return name.startswith(CURRENT_NAMESPACES)
+
+
+def _inventory(root, repo, profile, fixture=None):
+    config = CURRENT_CONFIG if profile == 'current' else HISTORICAL_CONFIG
+    spec = json.loads((root/config).read_text())
     if spec.get('schema_version') != 4 or spec.get('scope') != SCOPE:
         raise ValueError('unsupported inventory schema/scope')
-    rows = source_rows(root, repo)
+    rows = source_rows(root, repo, profile=profile, fixture=fixture)
     ids = {r['id'] for r in rows}
     if len(ids) != len(rows):
         raise ValueError('duplicate content identity')
@@ -229,6 +269,11 @@ def inventory(root=ROOT, repo=REPO):
     roles = {}
     for entry in entries:
         name, role, sources = entry['declaration'], entry['role'], entry['sources']
+        if current_theorem(name) != (profile == 'current'):
+            for source in sources:
+                if source in ids:
+                    raise ValueError(f'theorem authority mismatch: {name} cites {source}')
+            continue
         if role not in ROLES:
             raise ValueError(f'unknown theorem role {role!r}: {name}')
         if len(sources) != len(set(sources)) or (not sources and name not in UNSOURCED):
@@ -239,7 +284,7 @@ def inventory(root=ROOT, repo=REPO):
         for source in sources:
             if source not in ids:
                 raise ValueError(f'unknown theorem source {source}: {name}')
-            if not name.startswith('Etna.Design.Current.'):
+            if profile == 'historical' and not name.startswith('Etna.Design.Current.'):
                 raise ValueError(f'theorem authority mismatch: {name} cites {source}')
         if not entry['scope'].strip():
             raise ValueError(f'theorem scope required: {name}')
@@ -295,18 +340,31 @@ def inventory(root=ROOT, repo=REPO):
     return rows
 
 
+def inventory(root=ROOT, repo=REPO, *, fixture=None):
+    """Validate the archived November 20 claims and evidence against their own authorities."""
+    return _inventory(root, repo, 'historical', fixture)
+
+
+def current_inventory(root=ROOT, repo=REPO):
+    """Validate the November 22 authorities and current-only claim and theorem edges."""
+    return _inventory(root, repo, 'current')
+
+
 def validate(root=ROOT, repo=REPO):
-    return len(inventory(root, repo))
+    return len(inventory(root, repo)) + len(current_inventory(root, repo))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,default=ROOT)
     parser.add_argument('--repo',type=Path,default=REPO)
+    parser.add_argument('--historical-fixture',type=Path,help=argparse.SUPPRESS)
     args = parser.parse_args()
     try:
-        rows = inventory(args.root, args.repo)
-        print(f'Validated {len(rows)} clauses (SPEC/ACCEPTANCE/ANCHORLESS/SWITCH): '+str(dict(Counter(r['status'] for r in rows))))
+        for label, rows in (('historical #22422', inventory(args.root, args.repo, fixture=args.historical_fixture)),
+                            ('current #22425', current_inventory(args.root, args.repo))):
+            print(f'Validated {len(rows)} {label} clauses (SPEC/ACCEPTANCE/ANCHORLESS/SWITCH): '
+                  +str(dict(Counter(r['status'] for r in rows))))
         return 0
     except (ValueError,KeyError,OSError,TypeError) as exc:
         print('spec coverage failed: '+str(exc),file=sys.stderr)

@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from authority_fixtures import copy_historical_authorities
+
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('coverage_current', ROOT/'scripts/check_spec_coverage.py')
 coverage = importlib.util.module_from_spec(spec)
@@ -13,13 +15,13 @@ spec.loader.exec_module(coverage)
 
 
 class CurrentAuthorityTests(unittest.TestCase):
-    def test_inventory_is_current_only(self):
+    def test_historical_inventory_stays_pinned(self):
         current = coverage.inventory()
         self.assertEqual(len(current), 579)
-        self.assertTrue(all('historical' not in r for r in current))
+        self.assertEqual({r['profile'] for r in current}, {'historical'})
         self.assertEqual({r['language'] for r in current},
                          {'live_en', 'live_acceptance', 'live_anchorless', 'live_switch'})
-        self.assertTrue(all(r['source_commit'] == '994960561490b882558da7847a21a41a271350c5' for r in current))
+        self.assertTrue(all(r['source_commit'] == '3602629758beb653423a23608fd1960810efcfac' for r in current))
         self.assertFalse(any(r['status'] == 'design-pending' for r in current))
         self.assertTrue(all(n.startswith('Etna.Design.Current.') for r in current for n in r['theorems']))
         self.assertTrue(any(r['status'] == 'partial' for r in current))
@@ -67,11 +69,8 @@ class AuthorityByteTests(unittest.TestCase):
                 root = repo/'formal/etna'
                 root.mkdir(parents=True)
                 shutil.copyfile(ROOT/'spec-coverage.json', root/'spec-coverage.json')
-                for _, _, source, _ in coverage.SOURCE_INPUTS:
-                    target = repo/source
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copyfile(coverage.REPO/source, target)
+                copy_historical_authorities(coverage, repo)
                 target = repo/path
                 target.write_text(target.read_text()+'\nChanged normative text.\n')
                 with self.assertRaisesRegex(ValueError, label+' digest mismatch'):
-                    coverage.source_rows(root, repo)
+                    coverage.source_rows(root, fixture=repo)

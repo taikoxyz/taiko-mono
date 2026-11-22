@@ -32,13 +32,12 @@
           <p class="eyebrow">FORMAL / ETNA / STATEMENTS</p>
           <h1>Etna, stated in Lean.</h1>
           <p class="lede">
-            Read the conditional safety and recoverability claims alongside
-            their definitions, assumptions and source code.
+            Browse Lean theorem contracts and rule citations for both Etna
+            specification revisions.
           </p>
           <p class="intro-note">
-            Select a Lean name to inspect its source. The catalogue includes
-            current declarations and a separate view of shared model
-            primitives they import. Everything needed to browse is embedded in this file.
+            Select a Lean name to inspect its source. The current profile follows
+            PR #22425 and the historical profile follows PR #22422.
           </p>
           <div class="ledger" id="ledger"></div>
           <div class="scope-note">
@@ -51,8 +50,8 @@
         </section>
         <section id="claims">
           <div class="section-heading">
-            <p class="eyebrow">01 / CURRENT CLAIMS</p>
-            <h2>Four claims, three premise records</h2>
+            <p class="eyebrow">01 / HISTORICAL CLAIMS</p>
+            <h2>PR #22422 proved four conditional headlines</h2>
           </div>
           <p>
             H1 quantifies over
@@ -194,7 +193,7 @@
         <section id="premises">
           <div class="section-heading">
             <p class="eyebrow">02 / ASSUMPTIONS</p>
-            <h2>The current premise records</h2>
+            <h2>PR #22422 premise records</h2>
           </div>
           <p>
             These are assumptions supplied to the headline proofs: H1's five
@@ -240,7 +239,8 @@
             <div class="filter-row">
               <label
                 >Profile<select id="profile">
-                  <option value="current">Current</option>
+                  <option value="current">Current · PR #22425</option>
+                  <option value="historical">Historical · PR #22422</option>
                   <option value="shared">Shared</option>
                   <option value="all">All</option>
                 </select></label
@@ -323,11 +323,11 @@
               <p>
                 Supporting lemmas and regression fixtures are distinct from
                 general properties. A narrow rule edge does not verify an entire
-                rule. All current ANCHORLESS and ACCEPTANCE clauses remain
-                deferred.
+                rule. Use the catalogue to see exact edges and open a rule's
+                pinned specification text.
               </p>
-              <a href="reports/latest-design-alignment.md"
-                >Read the alignment report ↗</a
+              <a href="reports/current-rule-coverage.md"
+                >Read the current rule inventory ↗</a
               >
             </article>
           </div>

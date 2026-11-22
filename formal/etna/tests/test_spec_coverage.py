@@ -7,6 +7,8 @@ import tempfile
 import unittest
 import importlib.util
 
+from authority_fixtures import copy_historical_authorities
+
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('coverage',ROOT/'scripts/check_spec_coverage.py')
 coverage = importlib.util.module_from_spec(spec)
@@ -26,15 +28,14 @@ class PinnedSourceTests(unittest.TestCase):
             repo = Path(tmp)
             root = repo/'formal/etna'
             root.mkdir(parents=True)
-            directory = 'packages/protocol/docs/etna'
-            shutil.copytree(coverage.REPO/directory, repo/directory)
+            copy_historical_authorities(coverage, repo)
             value = json.loads((ROOT/'spec-coverage.json').read_text())
             if mutate:
                 mutate(repo, value)
             (root/'spec-coverage.json').write_text(json.dumps(value))
-            return coverage.source_rows(root, repo)
+            return coverage.source_rows(root, fixture=repo)
 
-    def test_current_sources_need_no_external_manifest(self):
+    def test_historical_sources_need_no_external_manifest(self):
         rows = self.check_sources()
         for prefix in ('LIVE_EN-', 'LIVE_ACCEPTANCE-', 'LIVE_ANCHORLESS-', 'LIVE_SWITCH-'):
             self.assertTrue(any(r['id'].startswith(prefix) for r in rows), prefix)
@@ -121,9 +122,11 @@ class SpecCoverageTests(unittest.TestCase):
             root.mkdir(parents=True)
             shutil.copytree(ROOT/'manifests',root/'manifests')
             shutil.copyfile(ROOT/'spec-coverage.json',root/'spec-coverage.json')
-            shutil.copytree(coverage.REPO/coverage.SPEC_DIR,repo/coverage.SPEC_DIR)
+            shutil.copyfile(ROOT/coverage.CURRENT_CONFIG,root/coverage.CURRENT_CONFIG)
+            copy_historical_authorities(coverage, repo)
             if mutate: mutate(root)
-            return subprocess.run(['python3',str(ROOT/'scripts/check_spec_coverage.py'),'--root',str(root),'--repo',str(repo)],
+            return subprocess.run(['python3',str(ROOT/'scripts/check_spec_coverage.py'),'--root',str(root),
+                                   '--historical-fixture',str(repo)],
                                   capture_output=True,text=True)
 
     def edit(self,root,name,change):

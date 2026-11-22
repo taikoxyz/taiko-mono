@@ -4,15 +4,15 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
-import shutil
 import tempfile
 import unittest
+
+from authority_fixtures import copy_historical_authorities
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('rule_coverage', ROOT/'scripts/rule_coverage.py')
 rules = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rules)
-DOCS = 'packages/protocol/docs/etna'
 CONFIG = json.loads((ROOT/rules.CONFIG).read_text())
 
 
@@ -20,7 +20,7 @@ class RuleCoverageTests(unittest.TestCase):
     def rows(self, edit_docs=None, edit_config=None, repin=False):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
-            shutil.copytree(rules.REPO/DOCS, repo/DOCS)
+            copy_historical_authorities(rules.coverage, repo)
             if edit_docs:
                 edit_docs(repo)
             config = copy.deepcopy(CONFIG)
@@ -29,7 +29,7 @@ class RuleCoverageTests(unittest.TestCase):
                     config[key]['sha256'] = hashlib.sha256((repo/path).read_bytes()).hexdigest()
             if edit_config:
                 edit_config(config)
-            return rules.rule_rows(ROOT, repo, config)
+            return rules.rule_rows(ROOT, config=config, fixture=repo)
 
     def exact(self, config):
         config['schema_version'] = 2
@@ -211,7 +211,8 @@ class RuleCoverageTests(unittest.TestCase):
 
     def test_every_live_id_is_present_once(self):
         rows = self.rows()
-        index = rules.index_rows((rules.REPO/rules.INDEX_PATH).read_text())
+        pin = CONFIG['index']
+        index = rules.index_rows(rules.coverage.archive_bytes(rules.REPO, pin['path'], pin['commit']).decode())
         self.assertEqual(len(rows), len({r['rule'] for r in rows}))
         self.assertEqual({r['rule'] for r in rows}, {k for k,v in index.items() if v['type']!='retired'})
 

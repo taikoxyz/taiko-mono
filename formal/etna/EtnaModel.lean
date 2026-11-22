@@ -1,3 +1,7 @@
+import EtnaModel.PerBlockGuest
+import EtnaModel.PerBlockCommittee
+import EtnaModel.L2Staking
+import EtnaModel.L2StakingProtocol
 import EtnaModel.CurrentBridge
 import EtnaModel.CurrentRecovery
 import EtnaModel.CurrentValidatorState

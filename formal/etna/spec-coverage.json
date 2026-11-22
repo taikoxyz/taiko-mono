@@ -4,7 +4,7 @@
   "source": {
     "path": "packages/protocol/docs/etna/SPEC.md",
     "revision": "2026-11-20",
-    "commit": "994960561490b882558da7847a21a41a271350c5",
+    "commit": "3602629758beb653423a23608fd1960810efcfac",
     "sha256": "e5dafd7a60b0e4a4b0a41e61f406ccfdb482565a8d596d358523a6413c7fdaa1"
   },
   "boundaries": {
@@ -117,19 +117,19 @@
   "acceptance_source": {
     "path": "packages/protocol/docs/etna/ACCEPTANCE.md",
     "revision": "2026-11-20",
-    "commit": "994960561490b882558da7847a21a41a271350c5",
+    "commit": "3602629758beb653423a23608fd1960810efcfac",
     "sha256": "7283c47bec643d3054a41ec3266ead387431b82ae3caa4102c4866dfc8b39a7b"
   },
   "anchorless_source": {
     "path": "packages/protocol/docs/etna/ANCHORLESS.md",
     "revision": "2026-11-20",
-    "commit": "994960561490b882558da7847a21a41a271350c5",
+    "commit": "3602629758beb653423a23608fd1960810efcfac",
     "sha256": "9fc33e1157a03f4aeccf7905e75bcbd58be362c8ddfa45ec4ddfe6a904600249"
   },
   "switch_source": {
     "path": "packages/protocol/docs/etna/SWITCH.md",
     "revision": "2026-11-20",
-    "commit": "994960561490b882558da7847a21a41a271350c5",
+    "commit": "3602629758beb653423a23608fd1960810efcfac",
     "sha256": "a1652de6d0f57eae119bb26f6a5c63bab83f8dead41e6ad81021709a133d30d4"
   }
 }
