@@ -124,12 +124,6 @@ contract EtnaStakingOnBlockStartReleaseSeatsGasTest is EtnaStakingOnBlockStartGa
     }
 }
 
-/// @dev The `cool` cheatcode, which the pinned forge-std does not declare: it marks an account and
-/// its storage cold.
-interface ICoolCheatcode {
-    function cool(address _target) external;
-}
-
 /// @dev The snapshot groups of the six staking transactions, one file each.
 string constant REGISTER_GAS = "EtnaStakingRegisterGasTest";
 string constant TOP_UP_GAS = "EtnaStakingTopUpGasTest";
@@ -143,17 +137,15 @@ string constant FORFEIT_GAS = "EtnaStakingForfeitGasTest";
 /// 128 seats occupied, seats 0 to 127 by bonds 0 to 127 of m each, all owned by Bob. Each
 /// operation is measured on the seats as setUp leaves them and again after another operation
 /// changed them.
-/// @dev `setUp` seats the bonds and makes every earlier operation, and the measured test is a
-/// separate transaction, so the measured call pays for each write against the storage setUp
-/// committed. The test reads the staking contract to build its call, so it cools the proxy, the
-/// implementation and the token right before the measured call. A snapshot is the gas of the
-/// call's frame, before refunds, as `vm.snapshotGasLastCall` records it; it leaves out the
-/// transaction's intrinsic and calldata gas. Token transfers are those of the stand-in ERC-20.
+/// @dev `setUp` seats the bonds, makes every earlier operation and builds any calldata that reads
+/// the staking contract, such as a registration's proof of possession. The measured test is a
+/// separate transaction that touches no contract before the measured call, so that call finds
+/// the implementation, the token and every slot cold and pays for each write against the storage
+/// setUp committed. Cooling would not do instead: the `cool` cheatcode marks an account's storage
+/// cold but not the account. A snapshot is the gas of the call's frame, before refunds, as
+/// `vm.snapshotGasLastCall` records it; it leaves out the transaction's intrinsic and calldata
+/// gas. Token transfers are those of the stand-in ERC-20.
 abstract contract EtnaStakingOperationGasBase is EtnaStakingTestBase {
-    /// @dev The EIP-1967 implementation slot.
-    bytes32 private constant _IMPLEMENTATION_SLOT =
-        bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1);
-
     /// @dev The highest seat.
     uint8 internal constant LAST_SEAT = 127;
 
@@ -167,15 +159,14 @@ abstract contract EtnaStakingOperationGasBase is EtnaStakingTestBase {
     /// @dev The incident id the DAO publishes.
     bytes32 internal constant INCIDENT = keccak256("incident");
 
-    /// @dev The staking implementation behind the proxy.
-    address internal implementation;
+    /// @dev The measured registration's calldata, built in setUp.
+    bytes internal registerData;
 
     /// @dev Deploys a staking contract with `_missLimit` and seats bonds 0 to 127 of m each.
     function _seatEveryBond(uint256 _missLimit) internal {
         IEtnaStaking.Config memory cfg = _config();
         cfg.missLimit = _missLimit;
         staking = _deploy(cfg);
-        implementation = address(uint160(uint256(vm.load(address(staking), _IMPLEMENTATION_SLOT))));
         for (uint256 pk = 1; pk <= N_MAX; ++pk) {
             _register(pk, Bob, MIN_STAKE);
         }
@@ -189,7 +180,8 @@ abstract contract EtnaStakingOperationGasBase is EtnaStakingTestBase {
         token.approve(address(staking), _amount);
     }
 
-    /// @dev The call by which `_owner` registers the consensus key of `_pk` with m.
+    /// @dev The call by which `_owner` registers the consensus key of `_pk` with m. It reads the
+    /// staking contract, so only setUp builds it.
     function _registerCall(uint256 _pk, address _owner) internal returns (bytes memory) {
         bytes memory pop = EtnaVoteKeys.popSig(_pk, staking, _owner);
         return abi.encodeCall(IEtnaStaking.register, (EtnaTestKeys.publicKey(_pk), MIN_STAKE, pop));
@@ -251,8 +243,7 @@ abstract contract EtnaStakingOperationGasBase is EtnaStakingTestBase {
         assertEq(returnData, abi.encodeWithSelector(_error), _name);
     }
 
-    /// @dev Cools the proxy, the implementation and the token, makes the call and snapshots its
-    /// gas.
+    /// @dev Makes the call and snapshots its gas.
     function _measureCall(
         string memory _group,
         string memory _name,
@@ -263,9 +254,6 @@ abstract contract EtnaStakingOperationGasBase is EtnaStakingTestBase {
         returns (bool ok_, bytes memory returnData_)
     {
         address target = address(staking);
-        ICoolCheatcode(address(vm)).cool(target);
-        ICoolCheatcode(address(vm)).cool(implementation);
-        ICoolCheatcode(address(vm)).cool(address(token));
         vm.prank(_caller);
         (ok_, returnData_) = target.call(_data);
         uint256 gasUsed = vm.snapshotGasLastCall(_group, _name);
@@ -300,12 +288,11 @@ contract EtnaStakingRegisterGasTest is EtnaStakingOperationGasBase {
         _seatEveryBond(MISS_LIMIT);
         _requestExit(127);
         _fundExact(Carol, MIN_STAKE);
+        registerData = _registerCall(NEW_KEY, Carol);
     }
 
     function test_gas_register_TakesTheLastEmptySeat() external {
-        _measure(
-            REGISTER_GAS, "register_takes_last_empty_seat", Carol, _registerCall(NEW_KEY, Carol)
-        );
+        _measure(REGISTER_GAS, "register_takes_last_empty_seat", Carol, registerData);
 
         _assertSeatOfBond(128, true, LAST_SEAT, "the new bond in seat 127");
         _assertBondInSeat(LAST_SEAT, true, 128, "seat 127 taken");
@@ -319,6 +306,7 @@ contract EtnaStakingRegisterNoEmptySeatGasTest is EtnaStakingOperationGasBase {
         super.setUp();
         _seatEveryBond(MISS_LIMIT);
         _fundExact(Carol, MIN_STAKE);
+        registerData = _registerCall(NEW_KEY, Carol);
     }
 
     function test_gas_register_RevertWhen_NoEmptySeat() external {
@@ -326,7 +314,7 @@ contract EtnaStakingRegisterNoEmptySeatGasTest is EtnaStakingOperationGasBase {
             REGISTER_GAS,
             "register_reverts_no_empty_seat",
             Carol,
-            _registerCall(NEW_KEY, Carol),
+            registerData,
             IEtnaStaking.NoEmptySeat.selector
         );
 
@@ -346,12 +334,11 @@ contract EtnaStakingRegisterAfterSeatChangesGasTest is EtnaStakingOperationGasBa
         _register(NEW_KEY, Carol, MIN_STAKE);
         _slash(0);
         _fundExact(David, MIN_STAKE);
+        registerData = _registerCall(NEXT_KEY, David);
     }
 
     function test_gas_register_AfterSeatChanges() external {
-        _measure(
-            REGISTER_GAS, "register_after_seats_changed", David, _registerCall(NEXT_KEY, David)
-        );
+        _measure(REGISTER_GAS, "register_after_seats_changed", David, registerData);
 
         _assertSeatOfBond(129, true, 0, "the new bond in seat 0");
         _assertBondInSeat(LAST_SEAT, true, 128, "seat 127 kept");
