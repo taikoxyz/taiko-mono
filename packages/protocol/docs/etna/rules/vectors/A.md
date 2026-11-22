@@ -509,6 +509,24 @@ _Reproduce 36a.b with Foundry's `cast`: `cast keccak $(cast abi-encode 'f(bytes3
 | 36c.d reject | a node or guest takes the candidate from `snapshot()` instead of the snapshot seat records           | violates ENC-A-36c and COMM-4.3-3                                                                       |
 | 36c.e reject | `seat` or `power` is returned as a uint256                                                           | violates ENC-A-36c                                                                                      |
 
+## ENC-A-36d
+
+| Vector       | Setup                                                                                                                                  | Expected                                                                                                                                                                                              |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 36d.a accept | `setFallbackKeys` stores a list of one key (prefix 0x02, X)                                                                            | one log with topic0 `0xad67b35e197f2041d061711ea23ef099f669424769b341298aaa52161dd9f88c`, topic1 the list's `fallbackKeysHash` and 128 bytes of data: `0x20`, the length 1, the word 2 and the word X |
+| 36d.b accept | Inbox initialization stores a list of 128 keys                                                                                         | the same event with that list's hash as topic1 and 2 + 2 × 128 = 258 data words, the keys in their stored order                                                                                       |
+| 36d.c reject | `fallbackKeysHash` is written to the data instead of to topic1                                                                         | violates ENC-A-36d (`indexed`)                                                                                                                                                                        |
+| 36d.d reject | topic0 is computed over another signature, such as `FallbackKeysUpdated(bytes32,bytes)` or one that lists the key fields as two arrays | violates ENC-A-36d                                                                                                                                                                                    |
+| 36d.e accept | a node holds only `fallbackKeysHash` H                                                                                                 | it finds the list as the data of the `FallbackKeysUpdated` log whose topic1 is H (SYNC-9-16)                                                                                                          |
+
+## ENC-A-36e
+
+| Vector       | Setup                                                         | Expected                                                                                                                                          |
+| ------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 36e.a accept | `setMinTotalStake(2^256 − 1)`                                 | one log with the single topic `0xfd570c3cd5a2dd2e25a4647876d87fd36c533b77efb87ca66499f6cec64a25a1` and one data word `0xff…ff` (32 bytes of 0xff) |
+| 36e.b accept | Inbox initialization with `minTotalStake` = M                 | the same event with M as its data word                                                                                                            |
+| 36e.c reject | `value` is indexed, so the log has a second topic and no data | violates ENC-A-36e                                                                                                                                |
+
 ## ENC-A-43
 
 | Vector      | Setup                                                             | Expected                       |
@@ -606,10 +624,12 @@ _Reproduce 36a.b with Foundry's `cast`: `cast keccak $(cast abi-encode 'f(bytes3
 
 ## ENC-A-52
 
-| Vector      | Setup                                                                                                                 | Expected                             |
-| ----------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| 52.a accept | `invalidateRecoveryNonce` called by the Inbox owner                                                                   | conforms                             |
-| 52.b reject | `invalidateRecoveryNonce` called by the staking contract's owner or the DAO, when that address is not the Inbox owner | violates ENC-A-52 (Inbox owner only) |
+| Vector      | Setup                                                                                                                 | Expected                                                                                  |
+| ----------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 52.a accept | `invalidateRecoveryNonce` called by the Inbox owner                                                                   | conforms                                                                                  |
+| 52.b reject | `invalidateRecoveryNonce` called by the staking contract's owner or the DAO, when that address is not the Inbox owner | violates ENC-A-52 (Inbox owner only)                                                      |
+| 52.c accept | the Inbox owner calls `invalidateRecoveryNonce(n)` while the nonce is n                                               | the Inbox emits `RecoveryNonceInvalidated(n, n + 1)`, both values `uint256` (RECOV-8.3-9) |
+| 52.d reject | the staking contract emits `RecoveryNonceInvalidated`                                                                 | violates ENC-A-52 (an Inbox event)                                                        |
 
 ## ENC-A-53
 
@@ -630,19 +650,21 @@ _Reproduce 36a.b with Foundry's `cast`: `cast keccak $(cast abi-encode 'f(bytes3
 
 ## ENC-A-55
 
-| Vector      | Setup                                                                                                 | Expected                                                            |
-| ----------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| 55.a accept | the staking contract's owner forfeits an issued `bondId` once                                         | conforms                                                            |
-| 55.b reject | the Inbox owner, or any address other than the staking contract's owner, calls `forfeit`              | violates ENC-A-55 (owner only) and FORF-4.4-1                       |
-| 55.c reject | a second `forfeit` for the same lifetime `bondId`                                                     | violates ENC-A-55 (once per issued bondId)                          |
-| 55.d reject | any call that attempts to revoke or reset a forfeiture via a nonce                                    | violates ENC-A-55 (no forfeiture nonce or revocation)               |
-| 55.h accept | key K belongs to bond 0 in seat 0; query `bondForKey(ckAddr(K))`, `bondInSeat(0)` and `seatOfBond(0)` | each returns `(true, 0)` under the specified external-view ABI      |
-| 55.i accept | query an unused key, an empty seat or an unissued bond id through its corresponding lookup            | returns `(false, 0)`; the read does not issue a bond                |
-| 55.j accept | withdraw bond 0, then query its key and `seatOfBond(0)`                                               | key lookup returns `(true, 0)`; seat lookup returns `(false, 0)`    |
-| 55.k accept | `bondInSeat(n_max)` or a higher seat number is queried                                                | returns `(false, 0)` (ENC-A-55, STAKE-4.1-14d)                      |
-| 55.l reject | `bondInSeat(n_max)` reverts, or returns a bond                                                        | violates ENC-A-55 and STAKE-4.1-14d                                 |
-| 55.m accept | a top-up emits `TopUpDeposited(bondId, amount)` with two `uint256` values                             | conforms                                                            |
-| 55.n accept | `snapshot()` is called                                                                                | returns `(uint48 height, uint256 totalStake, SeatMember[] members)` |
+| Vector      | Setup                                                                                                 | Expected                                                               |
+| ----------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 55.a accept | the staking contract's owner forfeits an issued `bondId` once                                         | conforms                                                               |
+| 55.b reject | the Inbox owner, or any address other than the staking contract's owner, calls `forfeit`              | violates ENC-A-55 (owner only) and FORF-4.4-1                          |
+| 55.c reject | a second `forfeit` for the same lifetime `bondId`                                                     | violates ENC-A-55 (once per issued bondId)                             |
+| 55.d reject | any call that attempts to revoke or reset a forfeiture via a nonce                                    | violates ENC-A-55 (no forfeiture nonce or revocation)                  |
+| 55.h accept | key K belongs to bond 0 in seat 0; query `bondForKey(ckAddr(K))`, `bondInSeat(0)` and `seatOfBond(0)` | each returns `(true, 0)` under the specified external-view ABI         |
+| 55.i accept | query an unused key, an empty seat or an unissued bond id through its corresponding lookup            | returns `(false, 0)`; the read does not issue a bond                   |
+| 55.j accept | withdraw bond 0, then query its key and `seatOfBond(0)`                                               | key lookup returns `(true, 0)`; seat lookup returns `(false, 0)`       |
+| 55.k accept | `bondInSeat(n_max)` or a higher seat number is queried                                                | returns `(false, 0)` (ENC-A-55, STAKE-4.1-14d)                         |
+| 55.l reject | `bondInSeat(n_max)` reverts, or returns a bond                                                        | violates ENC-A-55 and STAKE-4.1-14d                                    |
+| 55.m accept | a top-up emits `TopUpDeposited(bondId, amount)` with two `uint256` values                             | conforms                                                               |
+| 55.n accept | `snapshot()` is called                                                                                | returns `(uint256 height, uint256 totalStake, SeatMember[] members)`   |
+| 55.o accept | the word at T has a bit at or above bit 48 set                                                        | `snapshot()` returns that whole word as `height`, unmasked (STOR-B-21) |
+| 55.p reject | `snapshot()` returns `height` as a `uint48`, or masks the word at T                                   | violates ENC-A-55 ("height is the whole word at T")                    |
 
 ## Not covered
 
