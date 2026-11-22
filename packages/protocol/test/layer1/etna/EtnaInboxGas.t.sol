@@ -5,6 +5,7 @@ import { EtnaInboxSwitchTestBase } from "./EtnaInboxSwitchTestBase.sol";
 import { EtnaInboxTestBase } from "./EtnaInboxTestBase.sol";
 import { EtnaLandTestBase } from "./EtnaLandTestBase.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { Test } from "forge-std/src/Test.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { MainnetDAOController } from "src/layer1/mainnet/MainnetDAOController.sol";
@@ -21,8 +22,8 @@ import { Controller } from "src/shared/governance/Controller.sol";
 /// statement.
 abstract contract EtnaInboxGasBase is EtnaLandTestBase {
     /// @dev Every measured call must stay below this, except those that store 128 fallback keys;
-    /// `EtnaFallbackRecoveryGasBase` checks the DAO transaction that does so against the
-    /// transaction gas cap.
+    /// the recovery and `init` transactions that do so are checked against the transaction gas
+    /// cap on the DAO path instead (`EtnaTxGasCapBase`).
     uint256 internal constant GAS_LIMIT = 3_000_000;
 
     /// @dev The checkpoint height when `setUp` bound the measured landing's statement.
@@ -166,6 +167,89 @@ contract EtnaInboxRecoverGasTest is EtnaInboxGasBase {
     }
 }
 
+/// @title EtnaTxGasCapBase
+/// @notice Checks an owner transaction of the Inbox against EIP-7825's per-transaction gas cap as
+/// the DAO sends it. The DAO reaches its controller only through its Aragon plugins, whose frames,
+/// storage and calldata add at most `DAO_PATH_EXTRA` to the controller-only transaction, so that
+/// transaction must fit the cap with `DAO_PATH_EXTRA` to spare.
+/// @dev A transaction fits when it succeeds with a 2^24 gas limit. A measured call gets exactly the
+/// execution gas such a limit leaves after the intrinsic cost (21,000 plus 4 gas per calldata
+/// token), so it also fails if a frame above the Inbox has to hold back too much of what it
+/// forwards (EIP-150's 63/64 rule). Its gas before refunds is that intrinsic cost plus the gas of
+/// the call's frame, or EIP-7623's floor of 21,000 plus 10 gas per token if that is higher. The
+/// mainnet-fork tests in `EtnaRecoveryDaoPathGas.t.sol` measure each DAO path step against the
+/// controller-only transaction and require the difference to stay within `DAO_PATH_EXTRA`, so the
+/// value the local tests add cannot silently go stale.
+abstract contract EtnaTxGasCapBase is Test {
+    /// @dev EIP-7825's per-transaction gas cap.
+    uint256 internal constant TX_GAS_CAP = 2 ** 24;
+
+    /// @dev The most gas a DAO path step adds to the controller-only transaction, rounded up from
+    /// the costliest step measured on the mainnet fork at block 26,460,000: the Emergency
+    /// Multisig's `execute` of the recovery with 16 blanks needs 14,334,289 gas, 7,158,116 more
+    /// than the live controller-only transaction's 7,176,173 and 7,163,187 more than the local
+    /// one's 7,171,102.
+    uint256 internal constant DAO_PATH_EXTRA = 7_250_000;
+
+    /// @dev The execution gas a 2^24 gas limit leaves a transaction with calldata `_data`.
+    function _executionBudget(bytes memory _data) internal pure returns (uint256) {
+        uint256 tokens = _tokens(_data);
+        require(21_000 + 10 * tokens <= TX_GAS_CAP, "calldata floor above 2^24");
+        return TX_GAS_CAP - 21_000 - 4 * tokens;
+    }
+
+    /// @dev The gas before refunds of the transaction with calldata `_data` whose call used
+    /// `_execution` gas in its frame.
+    function _txGas(bytes memory _data, uint256 _execution) internal pure returns (uint256) {
+        uint256 tokens = _tokens(_data);
+        uint256 standard = 21_000 + 4 * tokens + _execution;
+        uint256 floor = 21_000 + 10 * tokens;
+        return standard > floor ? standard : floor;
+    }
+
+    /// @dev Requires the transaction with calldata `_data`, whose call used `_execution` gas in its
+    /// frame, to fit 2^24 before refunds, and logs its gas and the headroom as `_label`.
+    /// @return txGas_ The transaction's gas before refunds.
+    function _assertFitsTxGasCap(
+        string memory _label,
+        bytes memory _data,
+        uint256 _execution
+    )
+        internal
+        returns (uint256 txGas_)
+    {
+        txGas_ = _txGas(_data, _execution);
+        emit log_named_uint(string.concat(_label, "_tx_gas"), txGas_);
+        assertLe(txGas_, TX_GAS_CAP, _label);
+        emit log_named_uint(string.concat(_label, "_headroom"), TX_GAS_CAP - txGas_);
+    }
+
+    /// @dev Requires the controller-only transaction with calldata `_data`, whose call used
+    /// `_execution` gas in its frame, to fit 2^24 before refunds with `DAO_PATH_EXTRA` added, and
+    /// logs its gas and the headroom left on the DAO path as `_label`.
+    function _assertFitsTxGasCapThroughTheDao(
+        string memory _label,
+        bytes memory _data,
+        uint256 _execution
+    )
+        internal
+    {
+        uint256 txGas = _txGas(_data, _execution);
+        emit log_named_uint(string.concat(_label, "_tx_gas"), txGas);
+        assertLe(txGas + DAO_PATH_EXTRA, TX_GAS_CAP, string.concat(_label, " on the DAO path"));
+        emit log_named_uint(
+            string.concat(_label, "_dao_path_headroom"), TX_GAS_CAP - txGas - DAO_PATH_EXTRA
+        );
+    }
+
+    /// @dev EIP-7623 calldata tokens: one per zero byte, four per nonzero byte.
+    function _tokens(bytes memory _data) private pure returns (uint256 tokens_) {
+        for (uint256 i; i < _data.length; ++i) {
+            tokens_ += _data[i] == 0 ? 1 : 4;
+        }
+    }
+}
+
 /// @title EtnaFallbackRecoveryGasBase
 /// @notice The DAO's recovery that first replaces the fallback key set, shared by
 /// `EtnaInboxFallbackRecoveryGasTest` below and the mainnet-fork DAO path tests in
@@ -174,18 +258,10 @@ contract EtnaInboxRecoverGasTest is EtnaInboxGasBase {
 /// recovers at c = 6, blanking either none or all of the `FI_TO_CLEAR_MEASURED` forced inclusions
 /// queued, the longest list measured. The complete transaction, with its calldata, call
 /// forwarding, key writes, blanking, origin write and events, must fit the per-transaction gas
-/// cap with either list.
-/// @dev A transaction fits when it succeeds with EIP-7825's 2^24 gas limit. The measured call gets
-/// exactly the execution gas such a limit leaves after the intrinsic cost (21,000 plus 4 gas per
-/// calldata token), so it also fails if a frame above the Inbox has to hold back too much of what
-/// it forwards (EIP-150's 63/64 rule). Its gas before refunds is that intrinsic cost plus the
-/// gas of the call's frame, or EIP-7623's floor of 21,000 plus 10 gas per token if that is
-/// higher. The queue and every calldata that reads the Inbox are built in `setUp`, so the measured
+/// cap with either list, on every DAO path.
+/// @dev The queue and every calldata that reads the Inbox are built in `setUp`, so the measured
 /// call, a separate transaction, finds every account and slot cold.
-abstract contract EtnaFallbackRecoveryGasBase is EtnaInboxGasBase {
-    /// @dev EIP-7825's per-transaction gas cap.
-    uint256 internal constant TX_GAS_CAP = 2 ** 24;
-
+abstract contract EtnaFallbackRecoveryGasBase is EtnaInboxGasBase, EtnaTxGasCapBase {
     /// @dev The longest blank list measured, and the number of forced inclusions queued.
     uint256 internal constant FI_TO_CLEAR_MEASURED = 16;
 
@@ -234,31 +310,6 @@ abstract contract EtnaFallbackRecoveryGasBase is EtnaInboxGasBase {
         });
     }
 
-    /// @dev The execution gas a 2^24 gas limit leaves a transaction with calldata `_data`.
-    function _executionBudget(bytes memory _data) internal pure returns (uint256) {
-        uint256 tokens = _tokens(_data);
-        require(21_000 + 10 * tokens <= TX_GAS_CAP, "calldata floor above 2^24");
-        return TX_GAS_CAP - 21_000 - 4 * tokens;
-    }
-
-    /// @dev Requires the transaction with calldata `_data`, whose call used `_execution` gas in its
-    /// frame, to fit 2^24 before refunds, and logs its gas and the headroom as `_label`.
-    function _assertFitsTxGasCap(
-        string memory _label,
-        bytes memory _data,
-        uint256 _execution
-    )
-        internal
-    {
-        uint256 tokens = _tokens(_data);
-        uint256 standard = 21_000 + 4 * tokens + _execution;
-        uint256 floor = 21_000 + 10 * tokens;
-        uint256 txGas = standard > floor ? standard : floor;
-        emit log_named_uint(string.concat(_label, "_tx_gas"), txGas);
-        assertLe(txGas, TX_GAS_CAP, _label);
-        emit log_named_uint(string.concat(_label, "_headroom"), TX_GAS_CAP - txGas);
-    }
-
     /// @dev Checks the recovery that blanked the first `_blanks` queued forced inclusions: the new
     /// generation, the 128 keys stored, the new origin recording their hash, and exactly the
     /// listed queue entries blanked.
@@ -278,22 +329,16 @@ abstract contract EtnaFallbackRecoveryGasBase is EtnaInboxGasBase {
             );
         }
     }
-
-    /// @dev EIP-7623 calldata tokens: one per zero byte, four per nonzero byte.
-    function _tokens(bytes memory _data) private pure returns (uint256 tokens_) {
-        for (uint256 i; i < _data.length; ++i) {
-            tokens_ += _data[i] == 0 ? 1 : 4;
-        }
-    }
 }
 
 /// @title EtnaInboxFallbackRecoveryGasTest
 /// @notice The recovery of `EtnaFallbackRecoveryGasBase` sent straight to a `MainnetDAOController`
 /// that owns the Inbox, with no blank and with `FI_TO_CLEAR_MEASURED`: a fast regression without a
-/// fork. The DAO reaches the controller only through its Aragon plugins, whose extra frames,
-/// storage and calldata `EtnaRecoveryDaoPathGas.t.sol` measures on a mainnet fork. A snapshot is
-/// the gas of the controller's frame, as `vm.snapshotGasLastCall` records it; the logged
-/// transaction gas adds the intrinsic cost.
+/// fork. The controller-only transaction must fit 2^24 with `DAO_PATH_EXTRA` added, the most the
+/// Aragon plugins' frames, storage and calldata add on any DAO path, which
+/// `EtnaRecoveryDaoPathGas.t.sol` measures on a mainnet fork. A snapshot is the gas of the
+/// controller's frame, as `vm.snapshotGasLastCall` records it; the logged transaction gas adds the
+/// intrinsic cost.
 contract EtnaInboxFallbackRecoveryGasTest is EtnaFallbackRecoveryGasBase {
     /// @dev The DAO executor that owns the Inbox.
     MainnetDAOController internal controller;
@@ -339,7 +384,8 @@ contract EtnaInboxFallbackRecoveryGasTest is EtnaFallbackRecoveryGasBase {
     }
 
     /// @dev Measures, as `_label`, the DAO's controller call `_data` with the execution gas of a
-    /// 2^24 gas limit, which must succeed and fit 2^24, and checks the recovery blanked `_blanks`.
+    /// 2^24 gas limit, which must succeed and fit 2^24 on the DAO path, and checks the recovery
+    /// blanked `_blanks`.
     function _measureRecovery(
         string memory _label,
         bytes memory _data,
@@ -354,7 +400,7 @@ contract EtnaInboxFallbackRecoveryGasTest is EtnaFallbackRecoveryGasBase {
 
         assertTrue(ok, "succeeds with a 2^24 gas limit");
         emit log_named_uint(_label, gasUsed);
-        _assertFitsTxGasCap(_label, _data, gasUsed);
+        _assertFitsTxGasCapThroughTheDao(_label, _data, gasUsed);
         _assertRecovered(_blanks);
     }
 }
@@ -583,9 +629,10 @@ contract EtnaInboxSetMinTotalStakeGasTest is EtnaInboxGasBase {
 /// @notice The owner's transaction that upgrades a new network's Inbox proxy from the bootstrap
 /// implementation to `EtnaInbox` and calls `init` with the 128 keys of private keys 1 to 128, the
 /// longest fallback key list; `init` also performs the start write and saves the block-0
-/// SignalService checkpoint. A snapshot is the gas of the proxy's frame, as
+/// SignalService checkpoint. A switch proposal runs this call through the DAO, so it must fit 2^24
+/// with `DAO_PATH_EXTRA` added. A snapshot is the gas of the proxy's frame, as
 /// `vm.snapshotGasLastCall` records it.
-contract EtnaInboxInit128KeysGasTest is EtnaInboxTestBase {
+contract EtnaInboxInit128KeysGasTest is EtnaInboxTestBase, EtnaTxGasCapBase {
     /// @dev The measured call, built in `setUp`, and the hash of its key list.
     bytes internal initData;
     bytes32 internal keysHash;
@@ -609,11 +656,13 @@ contract EtnaInboxInit128KeysGasTest is EtnaInboxTestBase {
     function test_gas_Init128Keys() external {
         address target = inboxProxy;
         bytes memory data = initData;
-        (bool ok,) = target.call(data);
+        uint256 budget = _executionBudget(data);
+        (bool ok,) = target.call{ gas: budget }(data);
         uint256 gasUsed = vm.snapshotGasLastCall("init_128_keys");
 
-        assertTrue(ok, "init_128_keys");
+        assertTrue(ok, "succeeds with a 2^24 gas limit");
         emit log_named_uint("init_128_keys", gasUsed);
+        _assertFitsTxGasCapThroughTheDao("init_128_keys", data, gasUsed);
         EtnaInbox inbox = EtnaInbox(inboxProxy);
         assertEq(inbox.fallbackKeysHash(), keysHash, "the 128 keys");
         assertEq(inbox.origins(0).fallbackKeysHash, keysHash, "the start write records them");

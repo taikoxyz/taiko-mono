@@ -117,7 +117,10 @@ interface IEtnaGasSignerList {
 /// `MainnetDAOController`, and the recovery is proposed and executed through the live Aragon DAO,
 /// its optimistic token voting plugin and the Standard and Emergency Multisigs on a mainnet fork.
 /// Each test sends one top-level transaction of a path, exactly as an operator sends it, prepared
-/// by `setUp`, so it starts cold, and requires it to fit the per-transaction gas cap.
+/// by `setUp`, so it starts cold, and requires it to fit the per-transaction gas cap. Each test
+/// also measures, first and from cold, the controller-only transaction the DAO itself would send,
+/// and requires the step to need at most `DAO_PATH_EXTRA` more: the value the local tests add to
+/// their controller-only transactions.
 /// The DAO can execute a recovery along two paths:
 /// - Standard: `Multisig.createProposal` stores the actions; the approval that reaches the
 ///   threshold forwards them to the plugin, which stores them again; after the veto period and the
@@ -186,6 +189,27 @@ abstract contract EtnaRecoveryDaoPathGasBase is EtnaFallbackRecoveryGasBase {
         _;
     }
 
+    /// @notice Calls `_to` with `_data` and exactly `_gas` as `_from`, then reverts with whether
+    /// the call succeeded and the gas of its frame.
+    /// @dev Called by this contract only. The revert undoes the call's state changes and the
+    /// accounts and slots it warmed, so the transaction measured after it still starts cold.
+    function probeCall(
+        address _from,
+        address _to,
+        bytes calldata _data,
+        uint256 _gas
+    )
+        external
+    {
+        require(msg.sender == address(this), "self only");
+        vm.prank(_from);
+        (bool ok,) = _to.call{ gas: _gas }(_data);
+        bytes memory outcome = abi.encode(ok, vm.lastCallGas().gasTotalUsed);
+        assembly ("memory-safe") {
+            revert(add(outcome, 32), mload(outcome))
+        }
+    }
+
     function setUp() public virtual override {
         string memory url = vm.envOr("L1_FORK_URL", string(""));
         if (bytes(url).length == 0) return;
@@ -200,6 +224,9 @@ abstract contract EtnaRecoveryDaoPathGasBase is EtnaFallbackRecoveryGasBase {
         EssentialContract(inboxProxy).transferOwnership(L1.DAO_CONTROLLER);
         MainnetDAOController(payable(L1.DAO_CONTROLLER)).acceptOwnershipOf(inboxProxy);
         assertEq(_inbox().owner(), L1.DAO_CONTROLLER, "the live controller owns the Inbox");
+        assertEq(
+            MainnetDAOController(payable(L1.DAO_CONTROLLER)).owner(), L1.DAO, "the DAO owns it"
+        );
 
         vm.roll(forkBlock + 1);
         vm.warp(forkTime + 12);
@@ -263,7 +290,10 @@ abstract contract EtnaRecoveryDaoPathGasBase is EtnaFallbackRecoveryGasBase {
 
     /// @dev Sends the measured transaction once, with exactly the execution gas a 2^24 gas limit
     /// leaves after its intrinsic cost, and requires it to succeed and fit 2^24 before refunds.
+    /// It must need at most `DAO_PATH_EXTRA` more gas than the controller-only transaction,
+    /// measured first and undone.
     function _assertStepFits(string memory _label) internal {
+        uint256 controllerTxGas = _controllerOnlyTxGas();
         (address from, address to, bytes memory data) = (txFrom, txTo, txData);
         uint256 budget = _executionBudget(data);
         vm.prank(from);
@@ -271,7 +301,25 @@ abstract contract EtnaRecoveryDaoPathGasBase is EtnaFallbackRecoveryGasBase {
         uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
 
         assertTrue(ok, "succeeds with a 2^24 gas limit");
-        _assertFitsTxGasCap(_label, data, gasUsed);
+        uint256 txGas = _assertFitsTxGasCap(_label, data, gasUsed);
+        emit log_named_uint(string.concat(_label, "_controller_only_tx_gas"), controllerTxGas);
+        uint256 extra = txGas > controllerTxGas ? txGas - controllerTxGas : 0;
+        emit log_named_uint(string.concat(_label, "_dao_path_extra"), extra);
+        assertLe(extra, DAO_PATH_EXTRA, "the DAO path adds at most DAO_PATH_EXTRA");
+    }
+
+    /// @dev The gas before refunds of the DAO's own controller-only transaction of `daoActions`,
+    /// sent with a 2^24 gas limit inside a probe that undoes it, which must succeed.
+    function _controllerOnlyTxGas() private returns (uint256 txGas_) {
+        bytes memory data = daoActions[0].data;
+        try this.probeCall(L1.DAO, L1.DAO_CONTROLLER, data, _executionBudget(data)) {
+            revert("probe returned");
+        } catch (bytes memory outcome) {
+            require(outcome.length == 64, "probe failed");
+            (bool ok, uint256 execution) = abi.decode(outcome, (bool, uint256));
+            require(ok, "the controller-only transaction reverts");
+            txGas_ = _txGas(data, execution);
+        }
     }
 
     /// @dev Collects the voting account of every seat listed at the census block, the block
