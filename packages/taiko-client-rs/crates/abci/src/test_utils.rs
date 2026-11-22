@@ -723,6 +723,49 @@ pub(crate) fn key_from_seed(seed: B256) -> crate::key::ConsensusKey {
         .unwrap()
 }
 
+/// An [`RpcL1Source`](crate::l1::RpcL1Source) whose L1 node answers one JSON-RPC request with
+/// the members of `result` (`result` or `error`); the handle yields the request it received.
+pub(crate) async fn json_rpc_server(
+    result: serde_json::Value,
+) -> (crate::l1::RpcL1Source, tokio::task::JoinHandle<serde_json::Value>) {
+    use alloy_provider::ProviderBuilder;
+    use serde_json::{Value, json};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap()).parse().unwrap();
+    let handle = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut request = Vec::new();
+        let body = loop {
+            let mut buf = [0u8; 4096];
+            let n = socket.read(&mut buf).await.unwrap();
+            assert_ne!(n, 0);
+            request.extend_from_slice(&buf[..n]);
+            if let Some(end) = request.windows(4).position(|w| w == b"\r\n\r\n") {
+                let head = String::from_utf8_lossy(&request[..end]).to_lowercase();
+                let len = head
+                    .lines()
+                    .find_map(|l| l.strip_prefix("content-length:"))
+                    .unwrap()
+                    .trim()
+                    .parse::<usize>()
+                    .unwrap();
+                if request.len() >= end + 4 + len {
+                    break serde_json::from_slice::<Value>(&request[end + 4..end + 4 + len])
+                        .unwrap();
+                }
+            }
+        };
+        let mut response = json!({"jsonrpc":"2.0", "id":body["id"]});
+        response.as_object_mut().unwrap().extend(result.as_object().unwrap().clone());
+        let response = response.to_string();
+        socket.write_all(format!("HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}", response.len(), response).as_bytes()).await.unwrap();
+        body
+    });
+    (crate::l1::RpcL1Source::new(ProviderBuilder::default().connect_http(url)), handle)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

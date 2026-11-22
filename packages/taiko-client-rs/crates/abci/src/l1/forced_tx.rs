@@ -4,24 +4,8 @@ use alloy_primitives::{Address, B256, Bytes, U64, U256, keccak256};
 use alloy_provider::{Provider, RootProvider};
 use serde_json::{Value, json};
 
-use super::L1Error;
+use super::{L1Error, source::RpcLog};
 use crate::forced::MAX_FORCED_TX_BYTES;
-
-/// The fields needed to bind an event to the exact requested queue entry and L1 block.
-#[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ForcedLog {
-    /// Contract that emitted the event.
-    address: Address,
-    /// Event signature and indexed queue index, with no additional indexed arguments.
-    topics: Vec<B256>,
-    /// ABI-encoded nonindexed transaction bytes and admission fee in wei.
-    data: Bytes,
-    /// Numeric canonical block selector used for acquisition.
-    block_number: U64,
-    /// Reorged logs cannot supply forced inclusion data.
-    removed: bool,
-}
 
 /// Acquires exactly one event for `index` from `inbox` in the proven `l1_block`.
 /// Missing, duplicate or inconsistent logs and noncanonical ABI are acquisition errors;
@@ -45,7 +29,7 @@ pub(crate) async fn fetch(
                 "eth_getLogs for forced index {index} at block {l1_block}: {error}"
             ))
         })?;
-    let mut logs: Vec<ForcedLog> = serde_json::from_value(response)
+    let mut logs: Vec<RpcLog> = serde_json::from_value(response)
         .map_err(|error| malformed(format!("event logs: {error}")))?;
     if logs.is_empty() {
         return Err(L1Error::DataUnavailable(format!("forced event {index} at block {l1_block}")));
@@ -90,11 +74,12 @@ fn malformed(message: impl Into<String>) -> L1Error {
 
 #[cfg(test)]
 mod tests {
-    use crate::l1::{L1Error, L1Source, RpcL1Source};
+    use crate::{
+        l1::{L1Error, L1Source},
+        test_utils::json_rpc_server,
+    };
     use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
-    use alloy_provider::ProviderBuilder;
     use serde_json::{Value, json};
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     const INBOX: Address = Address::repeat_byte(0x12);
     const INDEX: u64 = 42;
@@ -115,45 +100,10 @@ mod tests {
             "data": encoded(bytes) })
     }
 
-    async fn server(result: Value) -> (RpcL1Source, tokio::task::JoinHandle<Value>) {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let url = format!("http://{}", listener.local_addr().unwrap()).parse().unwrap();
-        let handle = tokio::spawn(async move {
-            let (mut socket, _) = listener.accept().await.unwrap();
-            let mut request = Vec::new();
-            let body = loop {
-                let mut buf = [0u8; 4096];
-                let n = socket.read(&mut buf).await.unwrap();
-                assert_ne!(n, 0);
-                request.extend_from_slice(&buf[..n]);
-                if let Some(end) = request.windows(4).position(|w| w == b"\r\n\r\n") {
-                    let head = String::from_utf8_lossy(&request[..end]).to_lowercase();
-                    let len = head
-                        .lines()
-                        .find_map(|l| l.strip_prefix("content-length:"))
-                        .unwrap()
-                        .trim()
-                        .parse::<usize>()
-                        .unwrap();
-                    if request.len() >= end + 4 + len {
-                        break serde_json::from_slice::<Value>(&request[end + 4..end + 4 + len])
-                            .unwrap();
-                    }
-                }
-            };
-            let mut response = json!({"jsonrpc":"2.0", "id":body["id"]});
-            response.as_object_mut().unwrap().extend(result.as_object().unwrap().clone());
-            let response = response.to_string();
-            socket.write_all(format!("HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}", response.len(), response).as_bytes()).await.unwrap();
-            body
-        });
-        (RpcL1Source::new(ProviderBuilder::default().connect_http(url)), handle)
-    }
-
     #[tokio::test]
     async fn forced_tx_requests_exact_block_address_and_index() {
         for tx in [vec![0x02, 0xab, 0xcd], vec![0x01; 8192]] {
-            let (source, request) = server(json!({"result":[log(&tx)]})).await;
+            let (source, request) = json_rpc_server(json!({"result":[log(&tx)]})).await;
             assert_eq!(
                 source.forced_transaction(INBOX, INDEX, BLOCK).await.unwrap(),
                 Bytes::from(tx)
@@ -199,7 +149,7 @@ mod tests {
             cases.push(json!([changed]));
         }
         for result in cases {
-            let (source, request) = server(json!({"result":result})).await;
+            let (source, request) = json_rpc_server(json!({"result":result})).await;
             let error = source.forced_transaction(INBOX, INDEX, BLOCK).await.unwrap_err();
             if result.as_array().is_some_and(Vec::is_empty) {
                 assert!(matches!(error, L1Error::DataUnavailable(_)), "{result}: {error}");
@@ -233,7 +183,7 @@ mod tests {
         ] {
             let mut event = log(&[2]);
             event["data"] = json!(Bytes::from(data));
-            let (source, request) = server(json!({"result":[event]})).await;
+            let (source, request) = json_rpc_server(json!({"result":[event]})).await;
             assert!(
                 matches!(
                     source.forced_transaction(INBOX, INDEX, BLOCK).await,
@@ -248,7 +198,7 @@ mod tests {
     #[tokio::test]
     async fn forced_tx_rpc_failures_stay_errors() {
         let (source, request) =
-            server(json!({"error":{"code":-32000,"message":"unavailable"}})).await;
+            json_rpc_server(json!({"error":{"code":-32000,"message":"unavailable"}})).await;
         assert!(
             matches!(source.forced_transaction(INBOX, INDEX, BLOCK).await, Err(L1Error::Rpc(message)) if message.contains("eth_getLogs"))
         );

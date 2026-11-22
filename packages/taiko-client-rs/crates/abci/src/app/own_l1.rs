@@ -121,6 +121,18 @@ impl<L: L1Source> L1Source for OwnL1<L> {
     }
 
     /// Passed through.
+    async fn inbox_logs(
+        &self,
+        inbox: Address,
+        topic0: B256,
+        topic1: B256,
+        from: u64,
+        to: u64,
+    ) -> Result<Vec<Bytes>, L1Error> {
+        self.inner.inbox_logs(inbox, topic0, topic1, from, to).await
+    }
+
+    /// Passed through.
     async fn forced_transaction(
         &self,
         inbox: Address,

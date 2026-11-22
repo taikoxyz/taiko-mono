@@ -1307,6 +1307,17 @@ impl<L: L1Source> L1Source for ReadBounded<L> {
         self.bound("L1 call", self.l1.call_at(address, input, hash)).await
     }
 
+    async fn inbox_logs(
+        &self,
+        inbox: Address,
+        topic0: B256,
+        topic1: B256,
+        from: u64,
+        to: u64,
+    ) -> Result<Vec<Bytes>, L1Error> {
+        self.bound("L1 logs", self.l1.inbox_logs(inbox, topic0, topic1, from, to)).await
+    }
+
     async fn forced_transaction(
         &self,
         inbox: Address,

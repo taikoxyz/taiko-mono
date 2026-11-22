@@ -168,6 +168,21 @@ pub trait L1Source: Send + Sync + 'static {
         Err(L1Error::Rpc("hash-pinned contract calls are unavailable".into()))
     }
 
+    /// The data of `inbox`'s logs whose first two topics are `topic0` and `topic1` in the L1
+    /// blocks `from..=to` of the node's canonical chain, in block order, from one log query.
+    /// Sources without log queries remain unavailable.
+    async fn inbox_logs(
+        &self,
+        inbox: Address,
+        topic0: B256,
+        topic1: B256,
+        from: u64,
+        to: u64,
+    ) -> Result<Vec<Bytes>, L1Error> {
+        let _ = (inbox, topic0, topic1, from, to);
+        Err(L1Error::Rpc("log queries are unavailable".into()))
+    }
+
     /// The calldata transaction emitted by exactly one `ForcedInclusionSaved` event from
     /// `inbox` for `index` in the proven L1 block `l1_block`. Acquisition failures are errors;
     /// callers must additionally authenticate the returned bytes against the proven hash.
@@ -183,6 +198,22 @@ pub trait L1Source: Send + Sync + 'static {
     /// `l1::fetch`, the Inbox's `migrationState` and genesis word in the genesis builder),
     /// whose proven values are then checked.
     async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error>;
+}
+
+/// One `eth_getLogs` entry: the members that bind it to the query's filter, and its data.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct RpcLog {
+    /// The contract that emitted the log.
+    pub(super) address: Address,
+    /// The event signature, then the indexed arguments.
+    pub(super) topics: Vec<B256>,
+    /// The ABI-encoded non-indexed arguments.
+    pub(super) data: Bytes,
+    /// The block the log is in.
+    pub(super) block_number: U64,
+    /// Whether a reorg removed the log; a log removed from the chain supplies no data.
+    pub(super) removed: bool,
 }
 
 /// [`L1Source`] over an alloy JSON-RPC provider pointing at the operator's own L1 node, which
@@ -401,6 +432,49 @@ impl L1Source for RpcL1Source {
             )
             .await
             .map_err(|error| L1Error::Rpc(format!("contract call at {hash}: {error}")))
+    }
+
+    /// One `eth_getLogs` filtered by `inbox`, both topics and the block numbers `from` and `to`;
+    /// never by block hash, which a block range excludes (EIP-234). An answer that is not a log
+    /// list, or holds a removed log or one outside the filter, is
+    /// [`L1Error::MalformedResponse`].
+    async fn inbox_logs(
+        &self,
+        inbox: Address,
+        topic0: B256,
+        topic1: B256,
+        from: u64,
+        to: u64,
+    ) -> Result<Vec<Bytes>, L1Error> {
+        let what = format!("eth_getLogs({inbox}, {topic0}, {topic1}) in L1 blocks {from}..={to}");
+        let filter = serde_json::json!({
+            "address": inbox,
+            "topics": [topic0, topic1],
+            "fromBlock": U64::from(from),
+            "toBlock": U64::from(to),
+        });
+        let response: Value = self
+            .provider
+            .raw_request("eth_getLogs".into(), (filter,))
+            .await
+            .map_err(|error| L1Error::Rpc(format!("{what}: {error}")))?;
+        let logs: Vec<RpcLog> = serde_json::from_value(response)
+            .map_err(|error| L1Error::MalformedResponse(format!("{what}: {error}")))?;
+        logs.into_iter()
+            .map(|log| {
+                let block = log.block_number.to::<u64>();
+                if log.removed ||
+                    log.address != inbox ||
+                    !log.topics.starts_with(&[topic0, topic1]) ||
+                    !(from..=to).contains(&block)
+                {
+                    return Err(L1Error::MalformedResponse(format!(
+                        "{what}: a removed log or one outside the filter, in block {block}"
+                    )));
+                }
+                Ok(log.data)
+            })
+            .collect()
     }
 
     /// Fetches and validates one exact-block calldata forced inclusion event.
@@ -851,6 +925,68 @@ mod tests {
             matches!(&err, L1Error::Rpc(msg) if msg.contains("eth_getProof") && msg.contains("missing trie node")),
             "{err:?}"
         );
+    }
+
+    /// One log of the Inbox `0x1b…1b` with topics 1 and 2, in block `block`, carrying `data`.
+    fn inbox_log(block: u64, data: &[u8]) -> Value {
+        json!({
+            "address": Address::repeat_byte(0x1b),
+            "topics": [B256::with_last_byte(1), B256::with_last_byte(2)],
+            "data": Bytes::copy_from_slice(data),
+            "blockNumber": U64::from(block),
+            "removed": false,
+        })
+    }
+
+    /// One `eth_getLogs` per call, filtered by address, both topics and a block-number range,
+    /// with no block hash; the logs' data comes back in order.
+    #[tokio::test]
+    async fn inbox_logs_query_one_block_number_range_by_both_topics() {
+        let (inbox, topics) = (Address::repeat_byte(0x1b), [1, 2].map(B256::with_last_byte));
+        let result = json!({ "result": [inbox_log(100, &[1]), inbox_log(10_099, &[2, 3])] });
+        let (l1, request) = crate::test_utils::json_rpc_server(result).await;
+        assert_eq!(
+            l1.inbox_logs(inbox, topics[0], topics[1], 100, 10_099).await,
+            Ok(vec![Bytes::from_static(&[1]), Bytes::from_static(&[2, 3])])
+        );
+        let request = request.await.unwrap();
+        assert_eq!(request["method"], "eth_getLogs");
+        let filter =
+            json!({ "address": inbox, "topics": topics, "fromBlock": "0x64", "toBlock": "0x2773" });
+        assert_eq!(request["params"], json!([filter]), "block numbers only, no block hash");
+    }
+
+    /// A log outside the filter or removed is a malformed answer; a failed query names the method.
+    #[tokio::test]
+    async fn inbox_logs_refuse_logs_outside_the_filter() {
+        let (inbox, topics) = (Address::repeat_byte(0x1b), [1, 2].map(B256::with_last_byte));
+        let mut outside = vec![inbox_log(99, &[]), inbox_log(201, &[]), Value::Null];
+        for (member, value) in [
+            ("address", json!(Address::ZERO)),
+            ("topics", json!([topics[0]])),
+            ("topics", json!([topics[1], topics[0]])),
+            ("removed", json!(true)),
+        ] {
+            let mut log = inbox_log(150, &[]);
+            log[member] = value;
+            outside.push(log);
+        }
+        for log in outside {
+            let (l1, request) =
+                crate::test_utils::json_rpc_server(json!({ "result": [log] })).await;
+            let result = l1.inbox_logs(inbox, topics[0], topics[1], 100, 200).await;
+            assert!(matches!(result, Err(L1Error::MalformedResponse(_))), "{log}: {result:?}");
+            request.await.unwrap();
+        }
+
+        let error = json!({ "code": -32005, "message": "query returned more than 10000 results" });
+        let (l1, request) = crate::test_utils::json_rpc_server(json!({ "error": error })).await;
+        let result = l1.inbox_logs(inbox, topics[0], topics[1], 100, 200).await;
+        assert!(
+            matches!(&result, Err(L1Error::Rpc(message)) if message.contains("eth_getLogs")),
+            "{result:?}"
+        );
+        request.await.unwrap();
     }
 
     /// The fallback knows every header field of alloy's [`Header`] (through Prague) and nothing

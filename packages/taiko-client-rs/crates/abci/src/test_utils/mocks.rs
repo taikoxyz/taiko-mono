@@ -40,6 +40,17 @@ pub(crate) enum L1Call {
     AccountWitness { address: Address, slots: Vec<B256>, block: u64 },
     StorageAt { address: Address, slot: B256, block: u64 },
     CallAt { address: Address, input: Bytes, hash: B256 },
+    InboxLogs { inbox: Address, topic0: B256, topic1: B256, from: u64, to: u64 },
+}
+
+/// One log a [`MockL1`] serves to `inbox_logs`: the emitting contract, its first two topics and
+/// its data, in L1 block `block`.
+#[derive(Debug)]
+pub(crate) struct MockLog {
+    pub(crate) block: u64,
+    pub(crate) address: Address,
+    pub(crate) topics: [B256; 2],
+    pub(crate) data: Bytes,
 }
 
 /// The scriptable state of a [`MockL1`].
@@ -89,6 +100,13 @@ pub(crate) struct MockL1State {
     pub(crate) etna_fork_time: Option<(Address, u64)>,
     /// `(contract, calldata) -> return data`: further `call_at` answers at any canonical hash.
     pub(crate) call_answers: BTreeMap<(Address, Bytes), Bytes>,
+    /// When set, every `call_at` fails with this error, as an L1 node that no longer holds the
+    /// state at the requested hash.
+    pub(crate) call_fail: Option<L1Error>,
+    /// The logs `inbox_logs` filters, in any order; it answers them in block order.
+    pub(crate) logs: Vec<MockLog>,
+    /// When set, every `inbox_logs` query fails with this error.
+    pub(crate) log_fail: Option<L1Error>,
     /// When set, every proof read whose slots include this slot fails with this error, as an
     /// L1 node that serves the anchor slots but not yet the slot 285 landing record.
     pub(crate) proof_fail_slot: Option<(B256, L1Error)>,
@@ -162,6 +180,23 @@ impl MockL1 {
     /// Every call so far, in order.
     pub(crate) fn calls(&self) -> Vec<L1Call> {
         self.state().calls.clone()
+    }
+
+    /// Serves a log of `address` with `topics` and `data` in L1 block `block`.
+    pub(crate) fn insert_log(&self, block: u64, address: Address, topics: [B256; 2], data: Bytes) {
+        self.state().logs.push(MockLog { block, address, topics, data });
+    }
+
+    /// The `(from, to)` block range of every `inbox_logs` query so far, in order.
+    pub(crate) fn log_ranges(&self) -> Vec<(u64, u64)> {
+        self.state()
+            .calls
+            .iter()
+            .filter_map(|call| match call {
+                L1Call::InboxLogs { from, to, .. } => Some((*from, *to)),
+                _ => None,
+            })
+            .collect()
     }
 
     /// Sleeps for the scripted `delay`, if any (the lock is not held while sleeping).
@@ -307,6 +342,9 @@ impl L1Source for MockL1 {
         let _call = InFlight::new(self);
         self.pause().await;
         let state = self.record(L1Call::CallAt { address, input: input.clone(), hash })?;
+        if let Some(error) = &state.call_fail {
+            return Err(error.clone());
+        }
         match state.etna_fork_time {
             Some((inbox, value))
                 if inbox == address && input[..] == crate::app::etnaForkTimeCall::SELECTOR[..] =>
@@ -319,6 +357,33 @@ impl L1Source for MockL1 {
                 .cloned()
                 .ok_or_else(|| L1Error::Rpc(format!("mock L1: no call answer from {address}"))),
         }
+    }
+
+    async fn inbox_logs(
+        &self,
+        inbox: Address,
+        topic0: B256,
+        topic1: B256,
+        from: u64,
+        to: u64,
+    ) -> Result<Vec<Bytes>, L1Error> {
+        let _call = InFlight::new(self);
+        self.pause().await;
+        let state = self.record(L1Call::InboxLogs { inbox, topic0, topic1, from, to })?;
+        if let Some(error) = &state.log_fail {
+            return Err(error.clone());
+        }
+        let mut logs: Vec<&MockLog> = state
+            .logs
+            .iter()
+            .filter(|log| {
+                log.address == inbox &&
+                    log.topics == [topic0, topic1] &&
+                    (from..=to).contains(&log.block)
+            })
+            .collect();
+        logs.sort_by_key(|log| log.block);
+        Ok(logs.into_iter().map(|log| log.data.clone()).collect())
     }
 
     async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error> {

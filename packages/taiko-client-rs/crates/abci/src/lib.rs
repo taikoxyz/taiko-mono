@@ -11,8 +11,9 @@
 //! `l1::witness`, `committee`, `forced`, `rules`, `valstate` and `engine::convert` modules and
 //! the genesis `app_state` codec perform no I/O; `l1::source`, `l1::forced_tx`, `engine` and
 //! `elsync` hold the L1 and execution-engine adapters, `l1::fetch` (the initial committee's
-//! registry witness) and the genesis builder read L1 through them, `app` answers CometBFT's ABCI
-//! requests on top of them, and `server` serves the app on CometBFT's ABCI socket.
+//! registry witness), `fallback` (fallback key lists by hash) and the genesis builder read L1
+//! through them, `app` answers CometBFT's ABCI requests on top of them, and `server` serves the
+//! app on CometBFT's ABCI socket.
 
 /// The ABCI++ application: request dispatch and the per-method handlers.
 pub mod app;
@@ -26,6 +27,8 @@ pub mod elsync;
 pub mod engine;
 /// The CometBFT block envelope codec (`0x06 || rlp([block, anchor, forced])`).
 pub mod envelope;
+/// Fallback key lists obtained by their hash from the own L1, and the Inbox ABI around them.
+pub mod fallback;
 /// Etna calldata forced inclusion: authenticated entry proofs and per-block classification.
 pub mod forced;
 /// The CometBFT genesis: the `app_state` genesis witness, its codec, and the builder of the

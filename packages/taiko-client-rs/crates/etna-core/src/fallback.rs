@@ -4,6 +4,10 @@
 //! is not usable, as one validator per key, each with voting power 1. Nodes and guests take a list
 //! as input and accept it only when its [`FallbackKeys::hash`](crate::fallback::FallbackKeys::hash)
 //! equals the hash that applies.
+//!
+//! This module also holds the one declaration of the Inbox ABI around the list: the
+//! [`FallbackKey`] entry, `getFallbackKeys()` ([`getFallbackKeysCall`]) and the
+//! [`FallbackKeysUpdated`] and [`MinTotalStakeUpdated`] events.
 
 use crate::{
     committee::{tag, word},
@@ -11,8 +15,37 @@ use crate::{
     params::MAX_SET_MEMBERS,
 };
 use alloc::vec::Vec;
-use alloy_primitives::{B256, keccak256};
+use alloy_primitives::{B256, b256, keccak256};
 use serde::{Deserialize, Serialize};
+
+alloy_sol_types::sol! {
+    #![sol(all_derives)]
+
+    /// One entry of the Inbox's fallback key list: the prefix byte and X coordinate of a
+    /// compressed secp256k1 public key.
+    struct FallbackKey {
+        /// The compressed key's prefix byte, `0x02` or `0x03`.
+        uint8 ckPrefix;
+        /// The key's X coordinate, big-endian.
+        bytes32 ckX;
+    }
+
+    /// The fallback key list the Inbox stores, whose hash slot 278 holds.
+    function getFallbackKeys() external view returns (FallbackKey[] keys);
+
+    /// Emitted by Inbox initialization and by `setFallbackKeys` when they store a list: the
+    /// list's hash as the one indexed topic and the list as the data.
+    event FallbackKeysUpdated(bytes32 indexed fallbackKeysHash, FallbackKey[] keys);
+
+    /// Emitted by Inbox initialization and by `setMinTotalStake` when they store
+    /// `minTotalStake`, the value slot 279 holds.
+    event MinTotalStakeUpdated(uint256 value);
+}
+
+/// `keccak256("FallbackKeysUpdated(bytes32,(uint8,bytes32)[])")`: topic0 of
+/// [`FallbackKeysUpdated`] logs.
+pub const FALLBACK_KEYS_UPDATED: B256 =
+    b256!("ad67b35e197f2041d061711ea23ef099f669424769b341298aaa52161dd9f88c");
 
 /// `bytes32("ETNA_FALLBACK_KEYS_V1")`: domain tag of the key list hash ([`FallbackKeys::hash`]).
 const FALLBACK_KEYS_TAG: B256 = tag(b"ETNA_FALLBACK_KEYS_V1");
