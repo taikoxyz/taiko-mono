@@ -1,6 +1,6 @@
 //! Real native helper and Engine API at a sparse checkpoint, independent of consensus generation.
 use super::*;
-use abci::{AnchorState, ChainParams, HeaderInputs, InboxFacts, ParentInfo, rules};
+use abci::{AnchorState, ChainParams, ChainParamsExt, HeaderInputs, InboxFacts, ParentInfo, rules};
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;

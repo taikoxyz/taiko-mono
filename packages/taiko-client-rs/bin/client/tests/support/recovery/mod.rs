@@ -150,8 +150,8 @@ impl Commands {
         write_private(
             &chain,
             format!(
-                "inbox = \"{}\"\nregistry = \"{}\"\nunsettled_limit = {}\nn_max = {}\nl1_chain_id = \"{}\"\n",
-                f.inbox, f.registry, f.params.unsettled_limit, f.params.n_max, f.params.l1_chain_id
+                "inbox = \"{}\"\nunsettled_limit = {}\nl1_chain_id = \"{}\"\n",
+                f.inbox, f.params.unsettled_limit, f.params.l1_chain_id
             ),
         )?;
         let key = base.join("account.hex");

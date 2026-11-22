@@ -129,8 +129,6 @@ struct CheckpointIdentity {
     l2_chain_id: u64,
     /// Inbox proxy authenticating the checkpoint and deployment commitments.
     inbox: Address,
-    /// Configured staking registry, which the statement still binds.
-    registry: Address,
     /// Recovery generation carried by the execution history and BFT chain id.
     generation: u64,
     /// Fixed origin facts verified independently of current checkpoint progress.
@@ -154,7 +152,6 @@ impl CheckpointIdentity {
             l1_chain_id: snapshot.l1_chain_id,
             l2_chain_id: snapshot.l2_chain_id,
             inbox: snapshot.inbox,
-            registry: snapshot.registry,
             generation: snapshot.generation,
             recovery: snapshot.recovery.clone(),
             height: snapshot.checkpoint_height,
@@ -385,7 +382,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
         crate::l1::authenticate_snapshot(snapshot, &self.params)?;
         if snapshot.l2_chain_id != self.params.l2_chain_id ||
             snapshot.inbox != self.params.inbox ||
-            snapshot.registry != self.params.registry ||
+            !snapshot.registry.is_zero() ||
             snapshot.genesis.genesis_hash.is_zero() ||
             snapshot.genesis.genesis_state_root.is_zero() ||
             snapshot.config_hash != self.params.config_hash() ||
@@ -438,7 +435,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 status.height, snapshot.checkpoint_height
             )));
         }
-        if status.height - snapshot.checkpoint_height > self.params.unsettled_limit() {
+        if status.height - snapshot.checkpoint_height > self.params.unsettled_limit {
             return Err(LanderError::Temporary(
                 "Comet tip exceeds this operational checkpoint's unsettled-block limit; refresh coherent Inbox snapshot".into(),
             ));
@@ -1210,7 +1207,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchSource for BatchBu
             decided_height: status.height,
             publishable_blocks: prefix.blocks.len(),
             force_back_pressure: status.height.saturating_sub(anchor.inbox.last_checkpoint_height) >=
-                self.params.unsettled_limit().saturating_sub(1),
+                self.params.unsettled_limit.saturating_sub(1),
         };
         Ok(BatchPreview {
             observation,
@@ -2707,7 +2704,7 @@ mod tests {
     #[tokio::test]
     async fn checkpoint_next_validator_hash_must_name_the_initial_set() {
         let mut fixture = Fixture::with_epoch(24, 30, 0, 24);
-        let (_, other, _) = crate::test_utils::consensus::committee(&[1], 0);
+        let (_, other, _) = crate::test_utils::consensus::committee(&[1]);
         assert_ne!(fixture.committees[&0].validators.hash(), other.validators.hash());
         let pair = fixture.blocks.get_mut(&24).unwrap();
         pair.block.header.next_validators_hash = other.validators.hash();

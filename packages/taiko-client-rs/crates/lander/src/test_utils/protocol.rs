@@ -43,7 +43,7 @@ pub(crate) fn request() -> ProofRequest {
                 l1_chain_id: U256::from(1),
                 l2_chain_id: 167001,
                 inbox: Address::repeat_byte(0x11),
-                registry: Address::repeat_byte(0x22),
+                registry: Address::ZERO,
                 recovery: None,
                 recovery_witness: None,
                 generation: 0,

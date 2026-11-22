@@ -396,12 +396,10 @@ impl Runner {
 
     /// The fresh source must preserve every configured statement identity.
     fn validate_identity(&self, snapshot: &LandingSnapshot) -> Result<()> {
-        let JournalIdentity { l1_chain_id, l2_chain_id, inbox, registry, .. } =
-            self.store.identity();
+        let JournalIdentity { l1_chain_id, l2_chain_id, inbox, .. } = self.store.identity();
         if snapshot.l1_chain_id != *l1_chain_id ||
             snapshot.l2_chain_id != *l2_chain_id ||
-            snapshot.inbox != *inbox ||
-            snapshot.registry != *registry
+            snapshot.inbox != *inbox
         {
             return Err(LanderError::Configuration(
                 "fresh RPC snapshot differs from journal chain/contract identities".into(),

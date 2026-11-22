@@ -214,7 +214,7 @@ pub fn verify_original_genesis(
         genesis_time: expected.genesis_time.to_rfc3339(),
         chain_id: expected.chain_id,
         initial_height: expected.initial_height.to_string(),
-        consensus_params: GenesisConsensusParams::etna(params.n_max),
+        consensus_params: GenesisConsensusParams::etna(),
         validators: expected
             .validators
             .iter()
@@ -248,7 +248,6 @@ mod tests {
             &fx.witness,
             fx.request.chain_id.clone(),
             &fx.fallback_keys.validator_set(),
-            fx.params.n_max,
         )
         .unwrap();
         doc.initial_height = "7".into();
@@ -274,7 +273,6 @@ mod tests {
             &fx.witness,
             fx.request.chain_id.clone(),
             &fx.fallback_keys.validator_set(),
-            fx.params.n_max,
         )
         .unwrap();
         assert_eq!(init_chain_request(&doc), fx.request);

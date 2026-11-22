@@ -135,7 +135,6 @@ impl LanderSubCommand {
             l1_chain_id: snapshot.l1_chain_id,
             l2_chain_id: snapshot.l2_chain_id,
             inbox: snapshot.inbox,
-            registry: snapshot.registry,
             sender: transactions.sender(),
         };
         let store = Store::open(&config.data_dir, identity)?;

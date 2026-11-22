@@ -484,7 +484,7 @@ mod tests {
 
     /// Genuinely signed consecutive blocks from height 1.
     fn chain(len: u64) -> Vec<CertifiedBlock> {
-        let (_, committee, keys) = consensus::committee(&[1, 1, 1, 1], 0);
+        let (_, committee, keys) = consensus::committee(&[1, 1, 1, 1]);
         let mut blocks: Vec<CertifiedBlock> = Vec::new();
         for height in 1..=len {
             let parent = blocks
@@ -501,7 +501,7 @@ mod tests {
 
     /// Consecutive blocks whose envelopes each carry one all-zero `size`-byte transaction.
     fn zero_heavy_chain(len: u64, size: usize) -> Vec<CertifiedBlock> {
-        let (_, committee, keys) = consensus::committee(&[1, 1, 1, 1], 0);
+        let (_, committee, keys) = consensus::committee(&[1, 1, 1, 1]);
         let mut blocks: Vec<CertifiedBlock> = Vec::new();
         for height in 1..=len {
             let envelope = abci::EtnaEnvelope {

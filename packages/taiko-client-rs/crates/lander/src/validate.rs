@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn v1_certificate_rejects_another_app_version_even_with_valid_native_signatures() {
-        let (_, committee, keys) = consensus::committee(&[1, 1, 1], 0);
+        let (_, committee, keys) = consensus::committee(&[1, 1, 1]);
         let mut pair = consensus::pair(1, B256::ZERO, &committee, &keys, None);
         pair.block.header.version.app = 0;
         consensus::resign(&mut pair, &committee, &keys);
@@ -414,7 +414,7 @@ mod tests {
 
     #[test]
     fn real_canonical_native_commits_require_strictly_more_than_two_thirds() {
-        let (_, committee, keys) = committee(&[1, 1, 1], 0);
+        let (_, committee, keys) = committee(&[1, 1, 1]);
         let mut block = pair(1, B256::repeat_byte(9), &committee, &keys, None);
         verify_commit(
             &block.commit,
@@ -437,7 +437,7 @@ mod tests {
 
     #[test]
     fn native_rejects_invalid_scalars_and_recovery_ids() {
-        let (_, committee, keys) = committee(&[1], 0);
+        let (_, committee, keys) = committee(&[1]);
         let original = pair(1, B256::ZERO, &committee, &keys, None);
         for mutation in 0..3 {
             let mut changed = original.clone();
@@ -477,7 +477,7 @@ mod tests {
 
     #[test]
     fn weighted_quorum_absent_and_nil_votes_do_not_count() {
-        let (_, committee, keys) = committee(&[3, 1], 0);
+        let (_, committee, keys) = committee(&[3, 1]);
         let mut block = pair(1, B256::ZERO, &committee, &keys, None);
         verify_commit(
             &block.commit,
@@ -527,7 +527,7 @@ mod tests {
 
     #[test]
     fn rejects_duplicate_signers_invalid_signatures_and_changed_sign_bytes() {
-        let (_, committee, keys) = committee(&[1, 1, 1], 0);
+        let (_, committee, keys) = committee(&[1, 1, 1]);
         let original = pair(1, B256::ZERO, &committee, &keys, None);
         let mut block = original.clone();
         block.commit.signatures[1] = block.commit.signatures[0].clone();
@@ -644,7 +644,7 @@ mod tests {
     #[test]
     fn commit_rule_counts_one_round_of_precommits_for_the_block_id() {
         const CHAIN: &str = "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4";
-        let (_, committee, keys) = committee(&[1, 1, 1], 0);
+        let (_, committee, keys) = committee(&[1, 1, 1]);
         let original = pair(1, B256::repeat_byte(9), &committee, &keys, None);
         let verify = |block: &CertifiedBlock| {
             verify_commit(&block.commit, &block.block.header, &committee.validators, CHAIN)
@@ -794,7 +794,7 @@ mod tests {
 
     #[test]
     fn committed_body_and_el_linkage_are_checked_independently() {
-        let (_, committee, keys) = committee(&[1], 0);
+        let (_, committee, keys) = committee(&[1]);
         let original = pair(1, B256::repeat_byte(3), &committee, &keys, None);
         verify_structure(&original, None, 1, B256::repeat_byte(3)).unwrap();
         let mut block = original.clone();
@@ -824,7 +824,7 @@ mod tests {
     }
     #[test]
     fn authenticates_initial_empty_commit_and_multi_part_blocks() {
-        let (_, committee, keys) = committee(&[1], 0);
+        let (_, committee, keys) = committee(&[1]);
         let mut original = pair(1, B256::ZERO, &committee, &keys, None);
         assert_eq!(original.block.header.last_commit_hash, Some(merkle(&[])));
         verify_structure(&original, None, 1, B256::ZERO).unwrap();

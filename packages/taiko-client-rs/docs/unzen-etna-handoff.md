@@ -15,17 +15,19 @@ present. Until the first landing, every EL behind `--l2.http` must serve proofs 
 ([below](#ss-state-until-the-first-landing)).
 
 The current built-in Etna parameters are devnet-only. Supply the usual devnet `--chain-config`
-with the correct Inbox, registry and consensus parameters and an additional table:
+with the correct Inbox, staking proxy and consensus parameters and an additional table:
 
 ```toml
 [switch]
 unzen_inbox = "0x0000000000000000000000000000000000000001"
 fork_timestamp = 1800000000
 signal_service_implementation = "0x0000000000000000000000000000000000000002"
+staking_implementation = "0x0000000000000000000000000000000000000003"
 ```
 
 Addresses and timestamp above are placeholders. `unzen_inbox` must equal `--shasta.inbox`;
-`signal_service_implementation` is the Etna L2 SignalService implementation, not the proxy. The
+`signal_service_implementation` is the Etna L2 SignalService implementation, not the proxy, and
+`staking_implementation` the `EtnaStaking` implementation, not the proxy. The
 configuration file does not authenticate S. While S is the latest landing checkpoint, the app
 verifies the L2 SignalService proxy's implementation proof at S, S's header timestamp below the
 fork time and its state root against the Inbox's start record, and that S is the last Unzen block

@@ -504,7 +504,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
         store: Store,
         opts: AppOptions,
     ) -> Result<Self, AbciError> {
-        params.validate()?;
+        params.validate().map_err(ConfigError::from)?;
         if let Some(reason) = store.fatal_evidence()? {
             return Err(AbciError::SafetyHalt(format!(
                 "persisted fatal evidence requires operator repair: {reason}"

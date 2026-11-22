@@ -262,7 +262,7 @@ async fn switch_start_write_is_permissionless_and_the_first_landing_reads_no_unz
     )
     .await?;
     transact(&p, f.admin, unzen, unproven.abi_encode()).await?;
-    let landed = land_first(&f, f.committee.record.cutoff_l1_block).await?;
+    let landed = land_first(&f, f.genesis_cutoff).await?;
     let event = landed.decoded_log::<EtnaInbox::Landed>().context("Landed")?;
     assert_eq!(event.data.parentHeight, U256::from(S));
     assert_eq!(f.checkpoint().await?, (S + 1, B256::repeat_byte(0x51)));

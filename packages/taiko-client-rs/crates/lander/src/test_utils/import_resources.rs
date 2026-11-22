@@ -163,10 +163,9 @@ async fn generate(dir: &Path, s: u64, period: u64) {
     let mut frames = BufWriter::new(File::create_new(dir.join("blocks.jsonl")).unwrap());
     let keys = [SigningKey::from_slice(&[1; 32]).unwrap()];
     let validators = fx.committees[&0]
-        .state
         .members
         .iter()
-        .map(|m| ImportValidator { key: m.pubkey, power: m.power })
+        .map(|(key, power)| ImportValidator { key: *key, power: *power })
         .collect::<Vec<_>>();
 
     let native_time = |h| tendermint::Time::from_unix_timestamp(time(h) as i64, 0).unwrap();
@@ -391,7 +390,6 @@ async fn verify(dir: &Path, s: u64, period: u64) {
             "frames": count,
             "el_prefix_headers": 1,
             "terminal_q": s-U,
-            "n_max": params.n_max,
         }),
     );
 }

@@ -39,7 +39,7 @@ use std::{
     time::Duration,
 };
 
-use alloy_primitives::{Address, B256, Bytes, U256};
+use alloy_primitives::{Address, B256};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Notify;
 
@@ -48,12 +48,12 @@ use crate::{
     engine::Engine,
     envelope::AnchorWitness,
     l1::{
-        L1Error, L1Source, OwnFinality, RawL1Header,
+        L1Source, OwnFinality, RawL1Header, ReadBounded,
         layout::{inbox, word_u48},
         own_finality, verify_account_witness, verify_anchor_witness,
     },
     store::AppState,
-    types::{AccountWitness, AnchorState},
+    types::AnchorState,
 };
 
 /// First pause of the latest-checkpoint reads of a ready session after one failed; it doubles
@@ -1248,90 +1248,6 @@ fn check_identity(state: &AppState, target: &CheckpointTarget) -> Result<(), Abc
 fn names_pruned_history(state: Option<&AppState>, height: u64) -> bool {
     state
         .is_some_and(|state| state.origin_height() < height && height < state.comet_history_floor())
-}
-
-/// The own L1 with every single read bounded by `limit`, the deadline of one L1 operation
-/// ([`AppOptions::l1_timeout`](super::AppOptions::l1_timeout)), for a check that makes several
-/// reads in sequence. An elapsed deadline is an [`L1Error::Rpc`]: missing data.
-pub(super) struct ReadBounded<L> {
-    /// The own L1.
-    pub(super) l1: Arc<L>,
-    /// The deadline of each read.
-    pub(super) limit: Duration,
-}
-
-impl<L> ReadBounded<L> {
-    /// Runs the L1 read `read`, named `what`, within the deadline.
-    async fn bound<T>(
-        &self,
-        what: &str,
-        read: impl Future<Output = Result<T, L1Error>>,
-    ) -> Result<T, L1Error> {
-        tokio::time::timeout(self.limit, read).await.unwrap_or_else(|_| {
-            Err(L1Error::Rpc(format!("{what} timed out after {:?}", self.limit)))
-        })
-    }
-}
-
-#[async_trait::async_trait]
-impl<L: L1Source> L1Source for ReadBounded<L> {
-    async fn finalized_number(&self) -> Result<u64, L1Error> {
-        self.bound("finalized L1 number", self.l1.finalized_number()).await
-    }
-
-    async fn canonical_hash(&self, number: u64) -> Result<B256, L1Error> {
-        self.bound("canonical L1 hash", self.l1.canonical_hash(number)).await
-    }
-
-    async fn header(&self, number: u64) -> Result<RawL1Header, L1Error> {
-        self.bound("L1 header", self.l1.header(number)).await
-    }
-
-    async fn account_witness(
-        &self,
-        address: Address,
-        slots: &[B256],
-        block: u64,
-    ) -> Result<AccountWitness, L1Error> {
-        self.bound("L1 account proof", self.l1.account_witness(address, slots, block)).await
-    }
-
-    async fn finalized_unzen_hash(
-        &self,
-        inbox: Address,
-        hash: B256,
-    ) -> Result<Option<B256>, L1Error> {
-        self.bound("Unzen finalized hash", self.l1.finalized_unzen_hash(inbox, hash)).await
-    }
-
-    async fn call_at(&self, address: Address, input: Bytes, hash: B256) -> Result<Bytes, L1Error> {
-        self.bound("L1 call", self.l1.call_at(address, input, hash)).await
-    }
-
-    async fn inbox_logs(
-        &self,
-        inbox: Address,
-        topic0: B256,
-        topic1: B256,
-        from: u64,
-        to: u64,
-    ) -> Result<Vec<Bytes>, L1Error> {
-        self.bound("L1 logs", self.l1.inbox_logs(inbox, topic0, topic1, from, to)).await
-    }
-
-    async fn forced_transaction(
-        &self,
-        inbox: Address,
-        index: u64,
-        l1_block: u64,
-    ) -> Result<Bytes, L1Error> {
-        self.bound("L1 forced transaction", self.l1.forced_transaction(inbox, index, l1_block))
-            .await
-    }
-
-    async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error> {
-        self.bound("L1 storage word", self.l1.storage_at(address, slot, block)).await
-    }
 }
 
 /// Revokes the independently cloned handle when its sole app owner is dropped.

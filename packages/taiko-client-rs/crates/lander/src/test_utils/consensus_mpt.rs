@@ -11,11 +11,11 @@ use crate::{
     types::{CertifiedBlock, LandingSnapshot},
 };
 use abci::{
-    AccountWitness, AnchorState, AnchorWitness, ChainParams, CommitteeState, EtnaEnvelope,
-    ExecutionBlock, ForcedWitness, GenesisRecord, InboxFacts, ParentInfo, RawL1Header,
-    StorageProof,
+    AccountWitness, AnchorState, AnchorWitness, ChainParams, EtnaEnvelope, ExecutionBlock,
+    ForcedWitness, GenesisRecord, InboxFacts, ParentInfo, RawL1Header, StorageProof,
     fallback::FallbackKeys,
     forced::ForcedEntry,
+    key::ConsensusKey,
     l1::layout::inbox,
     rules::{self, HeaderInputs},
     valstate::ValState,
@@ -175,14 +175,13 @@ pub fn app_hash(block_hash: B256, state: &ValState) -> tendermint::AppHash {
 }
 
 /// The validator states after heights `origin..=tip`, replayed as abci's app keeps them: the
-/// genesis state of `initial` at `origin`, then one advance per height by the empty update list
-/// every height returns.
+/// genesis state of `initial`, keys with their powers, at `origin`, then one advance per height
+/// by the empty update list every height returns.
 pub fn replay_val_states(
-    (origin, initial): (u64, &CommitteeState),
+    (origin, initial): (u64, &[(ConsensusKey, u64)]),
     tip: u64,
 ) -> BTreeMap<u64, ValState> {
-    let powers = initial.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>();
-    let mut states = BTreeMap::from([(origin, ValState::genesis(origin, &powers).unwrap())]);
+    let mut states = BTreeMap::from([(origin, ValState::genesis(origin, initial).unwrap())]);
     for height in origin + 1..=tip {
         let next = states[&(height - 1)].advance(&[]).unwrap();
         states.insert(height, next);
@@ -596,6 +595,7 @@ impl Fixture {
             EpochFixture { length: 24, advances: false, checkpoint_hash: None },
             7_200,
             &ForcedPlan::default(),
+            2,
         )
     }
 
@@ -608,6 +608,7 @@ impl Fixture {
             EpochFixture { length: epoch_len, advances: false, checkpoint_hash: None },
             7_200,
             &ForcedPlan::default(),
+            2,
         )
     }
 
@@ -621,6 +622,7 @@ impl Fixture {
             EpochFixture { length: 12, advances: true, checkpoint_hash: None },
             7_200,
             &ForcedPlan::default(),
+            2,
         )
     }
 
@@ -636,6 +638,7 @@ impl Fixture {
             EpochFixture { length: 24, advances: false, checkpoint_hash: None },
             7_200,
             &plan,
+            2,
         )
     }
 
@@ -651,6 +654,7 @@ impl Fixture {
             EpochFixture { length: 24, advances: false, checkpoint_hash: Some(hash) },
             7_200,
             &ForcedPlan::default(),
+            2,
         )
     }
 
@@ -666,12 +670,30 @@ impl Fixture {
             EpochFixture { length: 24, advances: false, checkpoint_hash: None },
             max_anchor_age,
             &ForcedPlan::default(),
+            2,
+        )
+    }
+
+    /// As [`Fixture::new`], with `count` origin fallback keys (seeds 1 to `count`), each at
+    /// power 1, signing every height.
+    pub fn with_origin_keys(checkpoint: u64, tip: u64, count: u8) -> Self {
+        Self::build(
+            checkpoint,
+            tip,
+            0,
+            false,
+            EpochFixture { length: 24, advances: false, checkpoint_hash: None },
+            7_200,
+            &ForcedPlan::default(),
+            count,
         )
     }
 
     /// Builds the decided chain up to `tip` over the genesis `maxAnchorAge` `max_anchor_age` and
-    /// the forced inclusion entries and blocks of `plan`; each block carries one transaction
-    /// with `bytes` of calldata (zeros if `zeros`) unless zero.
+    /// the forced inclusion entries and blocks of `plan`, signed by `origin_keys` origin fallback
+    /// keys; each block carries one transaction with `bytes` of calldata (zeros if `zeros`)
+    /// unless zero.
+    #[allow(clippy::too_many_arguments)]
     fn build(
         checkpoint: u64,
         tip: u64,
@@ -680,6 +702,7 @@ impl Fixture {
         epochs: EpochFixture,
         max_anchor_age: u64,
         plan: &ForcedPlan,
+        origin_keys: u8,
     ) -> Self {
         let epoch_len = epochs.length;
         assert!(checkpoint == 0 || checkpoint >= 6);
@@ -713,15 +736,14 @@ impl Fixture {
             forced_inclusion_delay: plan.delay,
             max_anchor_age,
         };
-        let keys = vec![
-            SigningKey::from_slice(&[1; 32]).unwrap(),
-            SigningKey::from_slice(&[2; 32]).unwrap(),
-        ];
-        // Both keys are generation 0's origin fallback keys, so the set that signs every height
-        // holds both, each at power 1.
+        let keys = (1..=origin_keys)
+            .map(|seed| SigningKey::from_slice(&[seed; 32]).unwrap())
+            .collect::<Vec<_>>();
+        // The keys are generation 0's origin fallback keys, so the set that signs every height
+        // holds them all, each at power 1.
         let origin_keys = fallback_keys(&keys);
         let committees = BTreeMap::from([(0, FixtureCommittee::fallback(&origin_keys))]);
-        let val_states = replay_val_states((0, &committees[&0].state), tip);
+        let val_states = replay_val_states((0, &committees[&0].members), tip);
         let planted = plan.planted();
         let genesis_state = state_with_queue(
             &params,
@@ -932,7 +954,7 @@ impl Fixture {
             l1_chain_id: U256::from(1),
             l2_chain_id: params.l2_chain_id,
             inbox: params.inbox,
-            registry: params.registry,
+            registry: Address::ZERO,
             recovery: None,
             recovery_witness: None,
             generation: 0,
@@ -1502,7 +1524,7 @@ fn authenticates_301_unit_power_members_through_comet_certificate() {
 
     const COUNT: usize = 301;
     const CHAIN_ID: &str = "etna-rFfVfgyjbP1zElufI3Hsqar8zT_q-s2n_fB74bWyvP4";
-    let (_, authenticated, keys) = committee(&[1; COUNT], 0);
+    let (_, authenticated, keys) = committee(&[1; COUNT]);
     assert_eq!(keys.len(), COUNT);
     assert_eq!(authenticated.validators.validators().len(), COUNT);
     assert_eq!(authenticated.validators.total_voting_power(), 301);
@@ -1560,7 +1582,7 @@ pub(crate) async fn import_package(
         .to_rfc3339(),
         chain_id: abci::rules::chain_id_for(&fx.params, 0).unwrap(),
         initial_height: "1".into(),
-        consensus_params: abci::genesis::GenesisConsensusParams::etna(fx.params.n_max),
+        consensus_params: abci::genesis::GenesisConsensusParams::etna(),
         validators: validators
             .iter()
             .map(|(key, power)| abci::genesis::GenesisValidator::new(*key, *power))

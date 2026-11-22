@@ -16,6 +16,9 @@ use std::{
 /// Maximum accepted plan size in bytes.
 const MAX_PLAN_BYTES: u64 = 16 * 1024 * 1024;
 
+/// The one [`RecoveryPlan`] schema; a plan of any other schema is refused, never migrated.
+pub const RECOVERY_PLAN_SCHEMA: u32 = 2;
+
 /// Exhaustive serializable ChainParams, validated through the consensus implementation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -24,8 +27,6 @@ pub struct Deployment {
     pub l2_chain_id: u64,
     /// Authenticated Inbox address.
     pub inbox: Address,
-    /// Authenticated registry address.
-    pub registry: Address,
     /// The `EtnaStaking` proxy on L2, which the configuration hash commits.
     pub staking: Address,
     /// Full 256-bit L1 chain identifier.
@@ -34,12 +35,6 @@ pub struct Deployment {
     pub unsettled_limit: u64,
     /// Local execution beneficiary.
     pub fee_recipient: Address,
-    /// Effective stake per unit of voting power.
-    pub vp_unit: U256,
-    /// Minimum eligible effective stake.
-    pub min_stake: U256,
-    /// Maximum committee membership.
-    pub n_max: usize,
     /// L2 block gas limit.
     pub block_gas_limit: u64,
 }
@@ -49,14 +44,10 @@ impl From<&ChainParams> for Deployment {
         Self {
             l2_chain_id: p.l2_chain_id,
             inbox: p.inbox,
-            registry: p.registry,
             staking: p.staking,
             l1_chain_id: p.l1_chain_id,
             unsettled_limit: p.unsettled_limit,
             fee_recipient: p.fee_recipient,
-            vp_unit: p.vp_unit,
-            min_stake: p.min_stake,
-            n_max: p.n_max,
             block_gas_limit: p.block_gas_limit,
         }
     }
@@ -68,14 +59,10 @@ impl Deployment {
             switch: None,
             l2_chain_id: self.l2_chain_id,
             inbox: self.inbox,
-            registry: self.registry,
             staking: self.staking,
             l1_chain_id: self.l1_chain_id,
             unsettled_limit: self.unsettled_limit,
             fee_recipient: self.fee_recipient,
-            vp_unit: self.vp_unit,
-            min_stake: self.min_stake,
-            n_max: self.n_max,
             block_gas_limit: self.block_gas_limit,
         };
         p.validate().map_err(|_| RecoveryCommandError::ConfigMismatch)?;
@@ -88,6 +75,8 @@ impl Deployment {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryPlan {
+    /// Always [`RECOVERY_PLAN_SCHEMA`].
+    pub schema_version: u32,
     /// Complete configured deployment identity.
     pub deployment: Deployment,
     /// Canonical RecoveryWitness RLP, including the latest authenticated observation.
@@ -100,13 +89,17 @@ pub struct RecoveryPlan {
 }
 
 impl RecoveryPlan {
-    /// Decodes the canonical witness and checks that the deployment, origin and genesis are
-    /// exactly what it proves: the genesis is the original document of the R
+    /// Refuses a plan of another schema ([`RECOVERY_PLAN_SCHEMA`]), then decodes the canonical
+    /// witness and checks that the deployment, origin and genesis are exactly what it proves:
+    /// the genesis is the original document of the R
     /// witness ([`abci::genesis::verify_original_genesis`]: chain_id of the generation,
     /// initial_height c+1, genesis_time R.timestamp, the keys of the list whose hash the origin
     /// record holds, each at power 1, and app_hash appHash(c) of ELHash(c) and their genesis
     /// validator state), for this plan's origin and witness.
     pub fn validate(&self) -> Result<RecoveryWitness, RecoveryCommandError> {
+        if self.schema_version != RECOVERY_PLAN_SCHEMA {
+            return Err(RecoveryCommandError::Parse("plan schema"));
+        }
         let params = self.deployment.params()?;
         let witness: RecoveryWitness = alloy_rlp::decode_exact(&self.witness)
             .map_err(|_| RecoveryCommandError::PlanMismatch)?;

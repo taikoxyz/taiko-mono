@@ -348,7 +348,7 @@ async fn failing_pre_checks_propose_nothing() {
 
     // Back-pressure: the checkpoint is a full unsettled limit behind the next height.
     let dir = tempfile::tempdir().unwrap();
-    let mut app = mid_epoch(&fx, dir.path(), fx.params.unsettled_limit()).await;
+    let mut app = mid_epoch(&fx, dir.path(), fx.params.unsettled_limit).await;
     assert_eq!(refused(&mut app).await, "back_pressure");
     assert!(app.engine().calls().iter().all(|c| !matches!(c, EngineCall::BuildBlock { .. })));
 

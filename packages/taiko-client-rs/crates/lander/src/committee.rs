@@ -1,7 +1,6 @@
 //! Authenticated CometBFT validator sets: the signature slots a certificate is verified against.
 
 use abci::{
-    Member,
     key::{ConsensusKey, KeyError},
     valstate::ValEntry,
 };
@@ -30,20 +29,13 @@ pub struct Validators {
     members: Vec<Validator>,
     /// Stock native protobuf validator Merkle commitment.
     hash: Hash,
-    /// Total power of the members, at most `MAX_TOTAL_POWER` for a derived committee.
+    /// Total power of the members, at most `MAX_TOTAL_POWER` for a decided set.
     total: u64,
 }
 impl Validators {
-    /// Build native commit slots from previously power-bounded members. Only keys/powers enter
-    /// this representation; callers authenticate it against each native header before use.
-    pub fn from_members(members: &[Member]) -> Result<Self, KeyError> {
-        Self::from_powers(
-            &members.iter().map(|member| (member.pubkey, member.power)).collect::<Vec<_>>(),
-        )
-    }
-
-    /// [`Validators::from_members`] of keys with their powers, such as a fallback key list's
-    /// keys, each at power 1.
+    /// Build native commit slots from previously power-bounded keys with their powers, such as
+    /// a fallback key list's keys, each at power 1. Only keys/powers enter this representation;
+    /// callers authenticate it against each native header before use.
     pub fn from_powers(powers: &[(ConsensusKey, u64)]) -> Result<Self, KeyError> {
         let mut validators = powers
             .iter()
@@ -90,23 +82,24 @@ mod tests {
 
     #[test]
     fn orders_validators_by_descending_power() {
-        let (_, valid, _) = committee(&[5, 3, 1], 0);
+        let (_, valid, _) = committee(&[5, 3, 1]);
         assert_eq!(valid.validators.total_voting_power(), 9);
         let powers = valid.validators.validators().iter().map(|v| v.power()).collect::<Vec<_>>();
         assert_eq!(powers, [5, 3, 1]);
-        let members = valid.state.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>();
         assert_eq!(
             valid.validators.hash(),
-            tendermint::Hash::Sha256(abci::wire::validators_hash(&members).unwrap().0)
+            tendermint::Hash::Sha256(abci::wire::validators_hash(&valid.members).unwrap().0)
         );
     }
 
     /// The entries keep the slot order and are the set `comet_order` builds from the members.
     #[test]
     fn entries_are_the_comet_order_of_the_members() {
-        let (_, valid, _) = committee(&[1, 5, 3], 0);
-        let members = valid.state.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>();
-        assert_eq!(valid.validators.entries(), abci::valstate::comet_order(&members).unwrap());
+        let (_, valid, _) = committee(&[1, 5, 3]);
+        assert_eq!(
+            valid.validators.entries(),
+            abci::valstate::comet_order(&valid.members).unwrap()
+        );
         let keys = valid.validators.validators().iter().map(|v| v.pub_key).collect::<Vec<_>>();
         assert_eq!(valid.validators.entries().iter().map(|e| e.key).collect::<Vec<_>>(), keys);
     }

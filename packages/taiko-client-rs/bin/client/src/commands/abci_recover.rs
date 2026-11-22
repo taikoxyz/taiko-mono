@@ -93,9 +93,11 @@ impl AbciRecoverSubCommand {
                     expected_l1,
                     rpc_chain_id(&endpoints.l1_http_endpoint, "l1.http").await?,
                 )?;
-                let l1 = abci::RpcL1Source::new(rpc::client::connect_http_with_timeout(
-                    endpoints.l1_http_endpoint.clone(),
-                    rpc::client::DEFAULT_HTTP_TIMEOUT,
+                let l1 = std::sync::Arc::new(abci::RpcL1Source::new(
+                    rpc::client::connect_http_with_timeout(
+                        endpoints.l1_http_endpoint.clone(),
+                        rpc::client::DEFAULT_HTTP_TIMEOUT,
+                    ),
                 ));
                 let engine = abci::RpcEngine::new(
                     endpoints.l2_http_endpoint.clone(),
@@ -104,7 +106,7 @@ impl AbciRecoverSubCommand {
                     rpc::client::DEFAULT_HTTP_TIMEOUT,
                 )
                 .map_err(|_| RecoveryCommandError::Missing("EL JWT configuration"))?;
-                let plan = prepare(&params, *generation, &l1, &engine).await?;
+                let plan = prepare(&params, *generation, l1, &engine).await?;
                 plan.write_new(out)?;
                 print(&status(&plan, None)?, *json)
             }

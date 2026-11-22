@@ -34,7 +34,7 @@ pub async fn build_recovery_genesis<L: L1Source + ?Sized, E: Engine + ?Sized>(
         genesis_time: genesis_time(origin.l1_timestamp).map_err(invalid)?.to_rfc3339(),
         chain_id: chain_id_for(params, generation).map_err(invalid)?,
         initial_height: (origin.height + 1).to_string(),
-        consensus_params: GenesisConsensusParams::etna(params.n_max),
+        consensus_params: GenesisConsensusParams::etna(),
         validators: fallback_keys.keys().iter().map(|key| GenesisValidator::new(*key, 1)).collect(),
         app_hash: crate::genesis::genesis_app_hash(
             origin.height,

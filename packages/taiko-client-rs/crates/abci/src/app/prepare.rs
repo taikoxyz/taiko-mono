@@ -330,7 +330,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             rules::check_back_pressure(
                 height,
                 parent.inbox.last_checkpoint_height,
-                self.params.unsettled_limit(),
+                self.params.unsettled_limit,
             )
             .is_ok();
         if usable && first_seen.elapsed() < self.opts.anchor_hold {

@@ -7,7 +7,7 @@
 //! block consumes travels in it; for a block the node never judged they only confirm that a moved
 //! anchor header is final and canonical in the own L1 ([`own_finality`]).
 
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, sync::Arc, time::Duration};
 
 use alloy_consensus::Header;
 use alloy_eips::{BlockId, BlockNumberOrTag};
@@ -194,10 +194,94 @@ pub trait L1Source: Send + Sync + 'static {
     ) -> Result<Bytes, L1Error>;
 
     /// The raw (unproven) storage word of `address` at `slot` as of block `block`; used only to
-    /// discover which proofs to read (the registry's `checkpoints` length and heads in
-    /// `l1::fetch`, the Inbox's `migrationState` and genesis word in the genesis builder),
-    /// whose proven values are then checked.
+    /// discover which proofs to read (such as a recovery's origin height), whose proven values
+    /// are then checked.
     async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error>;
+}
+
+/// The own L1 with every single read bounded by `limit`, the deadline of one L1 operation, for
+/// a check that makes several reads in sequence and bounds none of them as a whole, such as a
+/// backward log scan for a fallback key list stored long ago. An elapsed deadline is an
+/// [`L1Error::Rpc`]: missing data.
+pub struct ReadBounded<L> {
+    /// The own L1.
+    pub l1: Arc<L>,
+    /// The deadline of each read.
+    pub limit: Duration,
+}
+
+impl<L> ReadBounded<L> {
+    /// Runs the L1 read `read`, named `what`, within the deadline.
+    async fn bound<T>(
+        &self,
+        what: &str,
+        read: impl Future<Output = Result<T, L1Error>>,
+    ) -> Result<T, L1Error> {
+        tokio::time::timeout(self.limit, read).await.unwrap_or_else(|_| {
+            Err(L1Error::Rpc(format!("{what} timed out after {:?}", self.limit)))
+        })
+    }
+}
+
+#[async_trait]
+impl<L: L1Source> L1Source for ReadBounded<L> {
+    async fn finalized_number(&self) -> Result<u64, L1Error> {
+        self.bound("finalized L1 number", self.l1.finalized_number()).await
+    }
+
+    async fn canonical_hash(&self, number: u64) -> Result<B256, L1Error> {
+        self.bound("canonical L1 hash", self.l1.canonical_hash(number)).await
+    }
+
+    async fn header(&self, number: u64) -> Result<RawL1Header, L1Error> {
+        self.bound("L1 header", self.l1.header(number)).await
+    }
+
+    async fn account_witness(
+        &self,
+        address: Address,
+        slots: &[B256],
+        block: u64,
+    ) -> Result<AccountWitness, L1Error> {
+        self.bound("L1 account proof", self.l1.account_witness(address, slots, block)).await
+    }
+
+    async fn finalized_unzen_hash(
+        &self,
+        inbox: Address,
+        hash: B256,
+    ) -> Result<Option<B256>, L1Error> {
+        self.bound("Unzen finalized hash", self.l1.finalized_unzen_hash(inbox, hash)).await
+    }
+
+    async fn call_at(&self, address: Address, input: Bytes, hash: B256) -> Result<Bytes, L1Error> {
+        self.bound("L1 call", self.l1.call_at(address, input, hash)).await
+    }
+
+    async fn inbox_logs(
+        &self,
+        inbox: Address,
+        topic0: B256,
+        topic1: B256,
+        from: u64,
+        to: u64,
+    ) -> Result<Vec<Bytes>, L1Error> {
+        self.bound("L1 logs", self.l1.inbox_logs(inbox, topic0, topic1, from, to)).await
+    }
+
+    async fn forced_transaction(
+        &self,
+        inbox: Address,
+        index: u64,
+        l1_block: u64,
+    ) -> Result<Bytes, L1Error> {
+        self.bound("L1 forced transaction", self.l1.forced_transaction(inbox, index, l1_block))
+            .await
+    }
+
+    async fn storage_at(&self, address: Address, slot: B256, block: u64) -> Result<U256, L1Error> {
+        self.bound("L1 storage word", self.l1.storage_at(address, slot, block)).await
+    }
 }
 
 /// One `eth_getLogs` entry: the members that bind it to the query's filter, and its data.

@@ -518,7 +518,7 @@ impl LandingSource for RpcLandingSource {
         Ok(headers)
     }
 
-    /// Read the checked V1 getters and `maxBatchBlocks` at one canonical L1 block: six
+    /// Read the checked V1 getters and `maxBatchBlocks` at one canonical L1 block: five
     /// `eth_call`s and no code read, since no rule pins the implementation (PROOF-6.2-2).
     async fn deployment(&self, snapshot: &LandingSnapshot) -> Result<Deployment> {
         authenticate_snapshot(snapshot, &self.params)?;
@@ -542,12 +542,10 @@ impl LandingSource for RpcLandingSource {
         let version = read!(VERSIONCall);
         let initialized = read!(isInitializedCall);
         let chain = read!(l2ChainIdCall);
-        let registry = read!(stakingRegistryCall);
         let config = read!(committeeConfigHashCall);
         if version != 1 ||
             !initialized ||
             chain != snapshot.l2_chain_id ||
-            registry != snapshot.registry ||
             config != snapshot.config_hash
         {
             return Err(LanderError::Configuration(
@@ -760,7 +758,7 @@ pub(crate) fn decode_snapshot(
         l1_chain_id,
         l2_chain_id,
         inbox: params.inbox,
-        registry: params.registry,
+        registry: Address::ZERO,
         recovery: None,
         recovery_witness: None,
         generation: word_u64(word(inbox::RECOVERY_GENERATION), 0),

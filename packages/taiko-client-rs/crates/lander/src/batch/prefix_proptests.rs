@@ -4,7 +4,9 @@
 
 use std::sync::Arc;
 
-use abci::{AnchorState, AnchorWitness, ChainParams, RawL1Header, fallback::FallbackKeys};
+use abci::{
+    AnchorState, AnchorWitness, ChainParams, ChainParamsExt, RawL1Header, fallback::FallbackKeys,
+};
 use alloy_primitives::B256;
 use async_trait::async_trait;
 use proptest::{collection::vec, prelude::*};
@@ -115,7 +117,7 @@ fn unbounded() -> Limits {
 fn decided_chain() -> impl Strategy<Value = Vec<CertifiedBlock>> {
     let sized = prop_oneof![payload(150_000), payload(75_000), payload(37_500)];
     vec((envelope_with(vec(bytes(100), 1..=2)), sized), 6..=12).prop_map(|blocks| {
-        let (_, committee, keys) = consensus::committee(&[1], 0);
+        let (_, committee, keys) = consensus::committee(&[1]);
         let mut chain: Vec<CertifiedBlock> = Vec::new();
         for (height, (mut envelope, payload)) in (1..).zip(blocks) {
             envelope.block.header.number = height;

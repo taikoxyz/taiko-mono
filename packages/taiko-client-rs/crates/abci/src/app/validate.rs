@@ -462,7 +462,7 @@ pub(crate) fn check_candidate_anchor(
     rules::check_back_pressure(
         height,
         anchor.inbox.last_checkpoint_height,
-        params.unsettled_limit(),
+        params.unsettled_limit,
     )?;
     Ok(anchor)
 }

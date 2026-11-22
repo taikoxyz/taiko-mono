@@ -7,7 +7,7 @@ use alloy_consensus::Header;
 
 use super::{
     AbciError, App, ErrorClass, app_hash, at_generation_origin, classify, contradiction_halt,
-    finalize::Backoff, trust::ReadBounded, within,
+    finalize::Backoff, within,
 };
 use crate::{
     ChainParams,
@@ -18,7 +18,7 @@ use crate::{
         decode_bootstrap_state, named_fallback_keys, verify_bootstrap,
     },
     key::ConsensusKey,
-    l1::{L1Source, OwnFinality, own_finality},
+    l1::{L1Source, OwnFinality, ReadBounded, own_finality},
     recovery::{RecoveryBootstrap, RecoveryWitness, VerifiedBootstrap, recovery_parent},
     rules::RuleViolation,
     store::AppState,
@@ -381,7 +381,7 @@ fn check_request(
             expected: expected.genesis_time,
         });
     }
-    if req.consensus_params != GenesisConsensusParams::abci(params.n_max) {
+    if req.consensus_params != GenesisConsensusParams::abci() {
         return Err(AbciError::GenesisConsensusParamsMismatch);
     }
     if req.chain_id != expected.chain_id {

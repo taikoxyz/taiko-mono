@@ -3,7 +3,9 @@ use crate::{
     l1::{LandingSource, RpcLandingSource},
     types::LandingSnapshot,
 };
-use abci::{AnchorState, ChainParams, GenesisRecord, InboxFacts, l1::header::RawL1Header};
+use abci::{
+    AnchorState, ChainParams, ChainParamsExt, GenesisRecord, InboxFacts, l1::header::RawL1Header,
+};
 use alloy_consensus::Header;
 use alloy_primitives::{B256, U256};
 use serde_json::{Value, json};
@@ -197,7 +199,7 @@ fn snapshot(headers: &BTreeMap<u64, RawL1Header>) -> LandingSnapshot {
         l1_chain_id: U256::from(1),
         l2_chain_id: 167001,
         inbox: params.inbox,
-        registry: params.registry,
+        registry: alloy_primitives::Address::ZERO,
         recovery: None,
         recovery_witness: None,
         generation: 0,
@@ -881,7 +883,6 @@ async fn v1_deployment_reads_only_checked_getters_and_max_batch_blocks() {
     let mode = Arc::new(AtomicU8::new(0));
     let control = mode.clone();
     let config = fixture.snapshot.config_hash;
-    let registry = fixture.params.registry;
     let chain_id = fixture.params.l2_chain_id;
     let hash_a = fixture.snapshot.l1_block_hash;
     let hash_b = advanced.snapshot.l1_block_hash;
@@ -910,7 +911,6 @@ async fn v1_deployment_reads_only_checked_getters_and_max_batch_blocks() {
                 answer!(VERSIONCall, U256::from(if mode == 3 { 2 } else { 1 }));
                 answer!(isInitializedCall, true);
                 answer!(l2ChainIdCall, U256::from(chain_id));
-                answer!(stakingRegistryCall, registry);
                 answer!(committeeConfigHashCall, if mode == 5 { B256::ZERO } else { config });
                 answer!(maxBatchBlocksCall, U256::from(120));
                 // Even though this deployment can be paused, landing is not pause-gated.
@@ -933,7 +933,7 @@ async fn v1_deployment_reads_only_checked_getters_and_max_batch_blocks() {
             source.deployment(snapshot).await.unwrap(),
             crate::l1::Deployment { max_batch_blocks: 120 }
         );
-        assert_eq!(calls() - before, 6, "exactly the six checked getters, no eth_getCode");
+        assert_eq!(calls() - before, 5, "exactly the five checked getters, no eth_getCode");
     }
     assert!(server.requests.lock().unwrap().iter().all(|request| request["method"] == "eth_call"));
     for invalid in [3, 5] {

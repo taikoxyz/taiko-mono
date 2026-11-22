@@ -45,80 +45,6 @@ pub struct AccountWitness {
     pub storage: Vec<StorageProof>,
 }
 
-/// One staking-registry entry as captured by a registry checkpoint (layout in
-/// [`l1::layout::registry`](crate::l1::layout::registry)).
-///
-/// Entries are indexed by slot number, independently of permanent bond IDs. A registration
-/// takes the lowest-numbered empty slot (STAKE-4.1-14a), so a slot freed by a withdrawal can
-/// hold a later bond's entry; historical checkpoints retain the earlier occupant.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
-#[serde(deny_unknown_fields)]
-pub struct RegistryEntry {
-    /// SEC1 parity prefix; zero only for a released all-zero entry.
-    pub ck_prefix: u8,
-    /// Full 32-byte SEC1 X coordinate, preserving leading zeros.
-    pub ck_x: B256,
-    /// Effective stake in token base units.
-    pub eff_stake: U256,
-    /// First eligible L1 block, inclusive.
-    pub active_from_l1: u64,
-    /// First ineligible L1 block, exclusive end of activity.
-    pub exit_effective_l1: u64,
-}
-
-impl RegistryEntry {
-    /// Validates and returns the canonical compressed consensus key.
-    pub fn consensus_key(&self) -> Result<crate::key::ConsensusKey, crate::key::KeyError> {
-        let mut bytes = [0; 33];
-        bytes[0] = self.ck_prefix;
-        bytes[1..].copy_from_slice(self.ck_x.as_slice());
-        crate::key::ConsensusKey::from_slice(&bytes)
-    }
-
-    /// Whether this is an empty slot: every field zero (COMM-4.3-2, ENC-A-20). An occupied slot
-    /// holds a key with prefix 2 or 3, so it is never all zero.
-    pub fn is_empty_slot(&self) -> bool {
-        self.ck_prefix == 0 &&
-            self.ck_x.is_zero() &&
-            self.eff_stake.is_zero() &&
-            self.active_from_l1 == 0 &&
-            self.exit_effective_l1 == 0
-    }
-}
-
-/// The committee record for one target epoch, as a registry snapshot derived it. Nothing
-/// derives or verifies one any more; the registry types go with the registry.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RlpEncodable, RlpDecodable)]
-#[serde(deny_unknown_fields)]
-pub struct CommitteeRecord {
-    /// The epoch this committee signs.
-    pub target_epoch: u64,
-    /// Snapshot cutoff `C`, an L1 block number: the snapshot is the last registry checkpoint with
-    /// `l1Block <= C`.
-    pub cutoff_l1_block: u64,
-    /// Index `i` of that registry checkpoint in `checkpoints[]`.
-    pub checkpoint_index: u64,
-    /// Set hash over the members, with `l2ChainId` = the L2 EVM chain id.
-    pub set_hash: B256,
-    /// Sum of the members' voting power; at most `(2^63 - 1) / 8` (CometBFT's total-power cap).
-    pub total_power: u64,
-}
-
-/// One committee member, derived from an eligible registry entry.
-///
-/// Member lists are kept in set-key order: ascending by
-/// `keccak256(abi.encode(bytes32("ETNA_SET_KEY_V1"), l2ChainId, ckPrefix, ckX))`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Member {
-    /// The member's validated compressed secp256k1eth consensus key.
-    pub pubkey: crate::key::ConsensusKey,
-    /// Effective stake, in TAIKO base units.
-    pub eff_stake: U256,
-    /// CometBFT voting power: `floor(eff_stake / VP_UNIT)`, always >= 1 for a member.
-    pub power: u64,
-}
-
 /// Inbox facts proven by an anchor (or genesis) witness.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -191,7 +117,8 @@ pub struct ParentInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{address, b256, bytes};
+    use crate::config::ChainParamsExt;
+    use alloy_primitives::{address, bytes};
     use alloy_rlp::{Decodable, Encodable};
     use serde::de::DeserializeOwned;
 
@@ -264,34 +191,6 @@ mod tests {
     }
 
     #[test]
-    fn registry_entry_rlp_round_trips() {
-        rlp_round_trip(&RegistryEntry {
-            ck_prefix: crate::test_utils::key_from_seed(b256!(
-                "aa00000000000000000000000000000000000000000000000000000000000001"
-            ))
-            .prefix(),
-            ck_x: crate::test_utils::key_from_seed(b256!(
-                "aa00000000000000000000000000000000000000000000000000000000000001"
-            ))
-            .x(),
-            eff_stake: U256::from(10).pow(U256::from(24)),
-            active_from_l1: 12,
-            exit_effective_l1: u64::MAX,
-        });
-    }
-
-    #[test]
-    fn committee_record_rlp_round_trips() {
-        rlp_round_trip(&CommitteeRecord {
-            target_epoch: 1,
-            cutoff_l1_block: 64,
-            checkpoint_index: 3,
-            set_hash: B256::repeat_byte(0x44),
-            total_power: (i64::MAX as u64) / 8,
-        });
-    }
-
-    #[test]
     fn inbox_facts_json_round_trips() {
         json_round_trip(&inbox_facts());
     }
@@ -341,15 +240,6 @@ mod tests {
             base_fee: 10_000_000,
             difficulty: U256::from(123_456_789u64),
             grandparent_timestamp: 1_760_000_000,
-        });
-    }
-
-    #[test]
-    fn member_json_round_trips() {
-        json_round_trip(&Member {
-            pubkey: crate::test_utils::key_from_seed(B256::repeat_byte(0xcc)),
-            eff_stake: U256::from(5_000_000_000u64),
-            power: 5,
         });
     }
 }

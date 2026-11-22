@@ -29,7 +29,7 @@ use crate::{
 /// CometBFT's default `max_tx_bytes` for the fixture's `block.max_bytes`.
 pub(super) const MAX_TX_BYTES: i64 = 22_020_096;
 
-/// The authenticated first fixture registry key's CometBFT address.
+/// The CometBFT address of the fixture's first origin fallback key.
 pub(super) fn proposer() -> account::Id {
     account::Id::new(test_key(1).address().into_array())
 }

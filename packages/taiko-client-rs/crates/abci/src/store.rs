@@ -23,7 +23,7 @@ use crate::{
     fallback::FallbackKeys,
     key::ConsensusKey,
     recovery::RecoveryOrigin,
-    types::{AnchorState, CommitteeRecord, GenesisRecord, Member, ParentInfo},
+    types::{AnchorState, GenesisRecord, ParentInfo},
     valstate::ValState,
 };
 
@@ -36,16 +36,6 @@ pub const STATE_FILE: &str = "abci-state.json";
 /// File name [`Store::save`] writes before renaming it to [`STATE_FILE`]; a leftover one is an
 /// interrupted save and is discarded by [`Store::load`].
 pub const TMP_FILE: &str = "abci-state.json.tmp";
-
-/// A generation's initial committee: its record (as deterministically derived from a fixed L1
-/// snapshot) and members, as the genesis and recovery witnesses authenticate it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CommitteeState {
-    /// The committee record of the epoch.
-    pub record: CommitteeRecord,
-    /// The members, in set-key order; their powers are the CometBFT validator set.
-    pub members: Vec<Member>,
-}
 
 /// The one [`AppState`] schema; a state file of any other schema is refused, never migrated.
 pub const STATE_SCHEMA_VERSION: u32 = 22;
@@ -735,7 +725,7 @@ fn sync_dir(dir: &Path) -> Result<(), StoreError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::InboxFacts;
+    use crate::{config::ChainParamsExt, types::InboxFacts};
     use alloy_primitives::{B256, U256};
     use std::fs;
 

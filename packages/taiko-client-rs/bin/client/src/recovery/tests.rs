@@ -19,8 +19,16 @@ use std::{
     collections::VecDeque,
     os::unix::fs::{MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{Arc, Mutex},
+    time::Duration,
 };
+
+/// The fixture's `L1_0`, where Inbox initialization stored the origin fallback key list.
+const L1_0: u64 = 64;
+/// The fixture's R, 21 log queries of 10,000 blocks above block 0.
+const R: u64 = 200_000;
+/// The fixture's finalized L1 block.
+const FINALIZED: u64 = R + 10;
 
 /// A short canonical parent keeps Unix sockets usable on both macOS and Linux.
 fn short_temp_parent() -> PathBuf {
@@ -50,12 +58,26 @@ struct Account {
 struct Source {
     fixture: Fixture,
     finalized: Mutex<VecDeque<u64>>,
+    /// Whether `getFallbackKeys()` fails, as on an L1 without archive state at R: the origin
+    /// list then comes only from its `FallbackKeysUpdated` log at [`L1_0`].
+    pruned: bool,
+    /// How long each log query takes.
+    log_delay: Duration,
+    /// The block ranges of the log queries made, in order.
+    log_ranges: Mutex<Vec<(u64, u64)>>,
 }
 impl Source {
-    fn new() -> Self {
+    fn new() -> Arc<Self> {
+        Arc::new(Self::serving())
+    }
+    /// The fixture L1, whose `getFallbackKeys()` returns the origin list.
+    fn serving() -> Self {
         Self {
             fixture: serde_json::from_str(include_str!("testdata/recovery.json")).unwrap(),
             finalized: Mutex::new(VecDeque::new()),
+            pruned: false,
+            log_delay: Duration::ZERO,
+            log_ranges: Mutex::new(vec![]),
         }
     }
     fn witness(&self) -> RecoveryWitness {
@@ -87,7 +109,7 @@ impl Source {
 #[async_trait::async_trait]
 impl L1Source for Source {
     async fn finalized_number(&self) -> Result<u64, L1Error> {
-        Ok(self.finalized.lock().unwrap().pop_front().unwrap_or(110))
+        Ok(self.finalized.lock().unwrap().pop_front().unwrap_or(FINALIZED))
     }
     async fn canonical_hash(&self, n: u64) -> Result<B256, L1Error> {
         Ok(self.header(n).await?.hash())
@@ -134,7 +156,27 @@ impl L1Source for Source {
         {
             return Err(L1Error::Rpc("fixture answers getFallbackKeys() only".into()));
         }
+        if self.pruned {
+            return Err(L1Error::Rpc("missing trie node".into()));
+        }
         Ok(self.fixture.fallback_keys.abi_encode().into())
+    }
+    async fn inbox_logs(
+        &self,
+        inbox: Address,
+        topic0: B256,
+        topic1: B256,
+        from: u64,
+        to: u64,
+    ) -> Result<Vec<Bytes>, L1Error> {
+        tokio::time::sleep(self.log_delay).await;
+        self.log_ranges.lock().unwrap().push((from, to));
+        let keys = &self.fixture.fallback_keys;
+        let stored = inbox == self.params().inbox &&
+            topic0 == abci::fallback::FALLBACK_KEYS_UPDATED &&
+            topic1 == keys.hash() &&
+            (from..=to).contains(&L1_0);
+        Ok(if stored { vec![keys.abi_encode().into()] } else { vec![] })
     }
 }
 struct ReadEngine {
@@ -187,9 +229,9 @@ impl Engine for ReadEngine {
     }
 }
 
-/// The fixture's generation-one plan: c = 6, R = 100, later finalized observation at 12.
-async fn fixture_plan(source: &Source) -> RecoveryPlan {
-    prepare(&source.params(), 1, source, &ReadEngine::new(source)).await.unwrap()
+/// The fixture's generation-one plan: c = 6, R = [`R`], later finalized observation at 12.
+async fn fixture_plan(source: &Arc<Source>) -> RecoveryPlan {
+    prepare(&source.params(), 1, source.clone(), &ReadEngine::new(source)).await.unwrap()
 }
 
 fn mode(path: &Path) -> u32 {
@@ -251,8 +293,8 @@ async fn prepare_authenticates_fixed_origin_and_genesis() {
     let source = Source::new();
     let params = source.params();
     let engine = ReadEngine::new(&source);
-    let plan = prepare(&params, 1, &source, &engine).await.unwrap();
-    assert_eq!((plan.origin.generation, plan.origin.height, plan.origin.l1_number), (1, 6, 100));
+    let plan = prepare(&params, 1, source.clone(), &engine).await.unwrap();
+    assert_eq!((plan.origin.generation, plan.origin.height, plan.origin.l1_number), (1, 6, R));
     let doc: abci::GenesisDoc = serde_json::from_slice(&plan.genesis).unwrap();
     assert_eq!(doc.chain_id, abci::rules::chain_id_for(&params, 1).unwrap());
     assert_eq!(doc.chain_id.len(), 48);
@@ -290,11 +332,12 @@ async fn prepare_authenticates_fixed_origin_and_genesis() {
     assert_eq!(mode(&out) & 0o777, 0o600);
     assert!(plan.write_new(&out).is_err(), "never clobbers an existing plan");
     assert_eq!(RecoveryPlan::load(&out).unwrap(), plan);
-    // The plan never carries endpoints, a JWT path or credentials: these four fields only.
+    // The plan never carries endpoints, a JWT path or credentials: these five fields only.
     let value: serde_json::Value = serde_json::from_slice(&std::fs::read(&out).unwrap()).unwrap();
     let mut keys: Vec<_> = value.as_object().unwrap().keys().cloned().collect();
     keys.sort();
-    assert_eq!(keys, ["deployment", "genesis", "origin", "witness"]);
+    assert_eq!(keys, ["deployment", "genesis", "origin", "schema_version", "witness"]);
+    assert_eq!(value["schema_version"], 2);
     // A torn or edited file never loads.
     let torn = dir.path().join("torn.json");
     let bytes = std::fs::read(&out).unwrap();
@@ -312,9 +355,13 @@ async fn prepare_superseded_at_final_check_returns_no_plan() {
     for first_reads in [1, 5] {
         let source = Source::new();
         let engine = ReadEngine::new(&source);
-        source.finalized.lock().unwrap().extend(std::iter::repeat_n(110, first_reads).chain([130]));
+        source
+            .finalized
+            .lock()
+            .unwrap()
+            .extend(std::iter::repeat_n(FINALIZED, first_reads).chain([R + 30]));
         assert!(matches!(
-            prepare(&source.params(), 1, &source, &engine).await,
+            prepare(&source.params(), 1, source.clone(), &engine).await,
             Err(RecoveryCommandError::Superseded { requested: 1, current: 2 })
         ));
     }
@@ -325,9 +372,9 @@ async fn prepare_later_checkpoint_keeps_fixed_genesis() {
     // RECOV-8.4-15, SYNC-9-9: a later finalized observation never moves the genesis or origin.
     let source = Source::new();
     let engine = ReadEngine::new(&source);
-    let first = prepare(&source.params(), 1, &source, &engine).await.unwrap();
-    source.finalized.lock().unwrap().extend(std::iter::repeat_n(120, 20));
-    let later = prepare(&source.params(), 1, &source, &engine).await.unwrap();
+    let first = prepare(&source.params(), 1, source.clone(), &engine).await.unwrap();
+    source.finalized.lock().unwrap().extend(std::iter::repeat_n(R + 20, 20));
+    let later = prepare(&source.params(), 1, source.clone(), &engine).await.unwrap();
     assert_eq!(first.genesis, later.genesis);
     assert_eq!(first.origin, later.origin);
     assert_ne!(first.witness, later.witness, "the latest observation is still recorded");
@@ -340,12 +387,12 @@ async fn prepare_requires_el_state_at_origin() {
     let mut engine = ReadEngine::new(&source);
     engine.available = false;
     assert!(matches!(
-        prepare(&source.params(), 1, &source, &engine).await,
+        prepare(&source.params(), 1, source.clone(), &engine).await,
         Err(RecoveryCommandError::Missing(_))
     ));
     for generation in [0, 1 << 48] {
         assert!(matches!(
-            prepare(&source.params(), generation, &source, &ReadEngine::new(&source)).await,
+            prepare(&source.params(), generation, source.clone(), &ReadEngine::new(&source)).await,
             Err(RecoveryCommandError::Parse(_))
         ));
     }
@@ -361,7 +408,7 @@ async fn prepare_reports_an_el_without_the_settled_block_at_c_as_missing() {
     for headers in [vec![w.parent_headers[0].clone(), own], vec![w.parent_headers[0].clone()]] {
         let mut engine = ReadEngine::new(&source);
         engine.headers = headers;
-        let error = prepare(&source.params(), 1, &source, &engine).await.unwrap_err();
+        let error = prepare(&source.params(), 1, source.clone(), &engine).await.unwrap_err();
         let message = error.to_string();
         assert!(
             matches!(
@@ -380,6 +427,73 @@ async fn prepare_reports_an_el_without_the_settled_block_at_c_as_missing() {
         assert!(RUNBOOK.contains(&format!("```text\n{quoted}\n```")), "{quoted}");
     }
     assert!(RUNBOOK.contains("\n## Take the settled EL state at c\n"));
+}
+
+/// An L1 without archive state at R: `getFallbackKeys()` at R fails and the origin list was
+/// stored at `L1_0`, so it comes only from its log, 20 queries of 10,000 blocks below R. Each
+/// query takes 7 s, within the deadline of one read, and the 140 s scan completes: no deadline
+/// bounds the acquisition as a whole.
+#[tokio::test(start_paused = true)]
+async fn prepare_obtains_an_old_origin_list_from_logs_far_below_r() {
+    let source =
+        Arc::new(Source { pruned: true, log_delay: Duration::from_secs(7), ..Source::serving() });
+    let engine = ReadEngine::new(&source);
+    let start = tokio::time::Instant::now();
+    let plan = prepare(&source.params(), 1, source.clone(), &engine).await.unwrap();
+    assert!(start.elapsed() >= Duration::from_secs(140), "{:?}", start.elapsed());
+    let ranges = source.log_ranges.lock().unwrap().clone();
+    assert_eq!(ranges.len(), 20, "{ranges:?}");
+    assert_eq!(ranges[0], (R - 9_999, R));
+    assert_eq!(ranges.last(), Some(&(1, 10_000)));
+    let keys = &source.fixture.fallback_keys;
+    assert_eq!(plan.origin.fallback_keys_hash, keys.hash());
+    let doc: abci::GenesisDoc = serde_json::from_slice(&plan.genesis).unwrap();
+    let validators: Vec<_> =
+        doc.validators.iter().map(|v| (v.pub_key.0, v.power.as_str())).collect();
+    assert_eq!(validators, keys.keys().iter().map(|key| (*key, "1")).collect::<Vec<_>>());
+}
+
+/// A log query that outlasts the deadline of one L1 read fails the scan: the history is missing,
+/// and no plan is written.
+#[tokio::test(start_paused = true)]
+async fn prepare_reports_a_timed_out_list_read_as_missing() {
+    let source =
+        Arc::new(Source { pruned: true, log_delay: Duration::from_secs(31), ..Source::serving() });
+    let engine = ReadEngine::new(&source);
+    assert!(matches!(
+        prepare(&source.params(), 1, source.clone(), &engine).await,
+        Err(RecoveryCommandError::Missing(_))
+    ));
+    assert!(source.log_ranges.lock().unwrap().is_empty(), "the first query timed out");
+}
+
+/// The plan format is schema 2: a plan with another `schema_version`, or without one as the
+/// earlier format was written, is refused, never migrated.
+#[tokio::test]
+async fn plan_without_schema_2_is_refused() {
+    let source = Source::new();
+    let plan = fixture_plan(&source).await;
+    assert_eq!(plan.schema_version, 2);
+    plan.validate().unwrap();
+    for version in [0, 1, 3] {
+        assert!(matches!(
+            RecoveryPlan { schema_version: version, ..plan.clone() }.validate(),
+            Err(RecoveryCommandError::Parse("plan schema"))
+        ));
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let value = serde_json::to_value(&plan).unwrap();
+    let mut unversioned = value.clone();
+    unversioned.as_object_mut().unwrap().remove("schema_version");
+    let mut version_1 = value.clone();
+    version_1["schema_version"] = 1.into();
+    for (name, value) in
+        [("unversioned", unversioned), ("version-1", version_1), ("current", value)]
+    {
+        let path = dir.path().join(format!("{name}.json"));
+        std::fs::write(&path, serde_json::to_vec_pretty(&value).unwrap()).unwrap();
+        assert_eq!(RecoveryPlan::load(&path).is_ok(), name == "current", "{name}");
+    }
 }
 
 #[tokio::test]
@@ -598,7 +712,7 @@ async fn status_is_offline_and_reports_install_state() {
     let s = status(&plan, None).unwrap();
     assert_eq!(
         (s.generation, s.origin_height, s.recovery_l1_block, s.observed_checkpoint_height),
-        (1, 6, 100, 12)
+        (1, 6, R, 12)
     );
     assert_eq!(s.genesis_hash, keccak256(&plan.genesis));
     let doc: abci::GenesisDoc = serde_json::from_slice(&plan.genesis).unwrap();
@@ -636,7 +750,6 @@ fn recovery_errors_never_render_nested_provider_credentials() {
 #[tokio::test]
 async fn recovery_engine_reads_use_finalized_tag_and_exact_historical_hash() {
     use serde_json::{Value, json};
-    use std::sync::Arc;
     let block: Value = serde_json::from_str::<Value>(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../crates/abci/src/l1/testdata/anvil_get_proof.json"
@@ -753,7 +866,7 @@ async fn recovery_runbook_status_json_matches_actual_output() {
     let mut actual = serde_json::to_value(status(&plan, Some(&x.home)).unwrap()).unwrap();
     let example: serde_json::Value = serde_json::from_str(runbook_blocks("json")[0]).unwrap();
     // Illustrative values that depend on the real deployment and R.
-    for field in ["chain_id", "genesis_hash", "genesis_time"] {
+    for field in ["chain_id", "genesis_hash", "genesis_time", "recovery_l1_block"] {
         actual[field] = example[field].clone();
     }
     assert_eq!(actual, example);

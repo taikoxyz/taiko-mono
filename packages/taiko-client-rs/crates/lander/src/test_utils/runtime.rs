@@ -24,9 +24,8 @@ pub(crate) fn signer() -> PrivateKeySigner {
 
 pub(crate) fn request() -> ProofRequest {
     let mut request = super::protocol::request();
-    let (params, committee, keys) = super::consensus::committee(&[3, 3, 3], 0);
+    let (params, committee, keys) = super::consensus::committee(&[3, 3, 3]);
     request.batch.snapshot.inbox = params.inbox;
-    request.batch.snapshot.registry = params.registry;
     request.batch.snapshot.config_hash = params.config_hash();
     request.batch.snapshot.genesis.config_hash = request.batch.snapshot.config_hash;
     let mut blocks = Vec::new();

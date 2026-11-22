@@ -268,7 +268,7 @@ mod tests {
     /// A height-1 certified block whose envelope carries one pseudo-random `len`-byte
     /// transaction, which deflate cannot shrink.
     fn noisy_block(len: usize) -> crate::types::CertifiedBlock {
-        let (_, committee, keys) = crate::test_utils::consensus::committee(&[1, 1, 1, 1], 0);
+        let (_, committee, keys) = crate::test_utils::consensus::committee(&[1, 1, 1, 1]);
         crate::test_utils::consensus::pair_with_envelope(
             noisy_envelope(len),
             &committee,

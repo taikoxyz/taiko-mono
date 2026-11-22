@@ -19,7 +19,7 @@ async fn back_pressure_stops_at_the_unsettled_limit() -> anyhow::Result<()> {
     let started = Instant::now();
     let spec = DevnetSpec::default();
     let devnet = Devnet::start(spec.clone()).await?;
-    let limit = devnet.params().unsettled_limit();
+    let limit = devnet.params().unsettled_limit;
     assert_eq!(limit, spec.unsettled_limit);
     devnet.wait_for_height(0, 8, Duration::from_secs(60)).await?;
 

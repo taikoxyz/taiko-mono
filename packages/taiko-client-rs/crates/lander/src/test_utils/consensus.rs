@@ -1,12 +1,12 @@
 //! Genuine deterministic native secp256k1eth certificates used by consensus tests.
 
 use abci::{
-    ChainParams, CommitteeRecord, CommitteeState, EtnaEnvelope, ExecutionBlock, Member,
-    fallback::FallbackKeys, key::ConsensusKey,
+    ChainParams, ChainParamsExt, EtnaEnvelope, ExecutionBlock, fallback::FallbackKeys,
+    key::ConsensusKey,
 };
 pub use alloy::signers::k256::ecdsa::SigningKey;
 use alloy_consensus::Header;
-use alloy_primitives::{B256, U256};
+use alloy_primitives::B256;
 use prost::Message;
 use sha2::{Digest, Sha256};
 use tendermint::{
@@ -29,48 +29,30 @@ pub const BATCH_RECIPIENT: alloy_primitives::Address = alloy_primitives::Address
 pub fn parameters() -> ChainParams {
     let mut params = ChainParams::builtin(167001).unwrap();
     params.inbox = alloy_primitives::Address::repeat_byte(0x11);
-    params.registry = alloy_primitives::Address::repeat_byte(0x22);
-    // One voting power per 7,600,000 TAIKO, the devnet registry's minStake (START-10-12), so a
-    // fixture member's stake is its power in minStake units.
-    params.vp_unit = U256::from(7_600_000u64) * U256::from(10u64).pow(U256::from(18));
-    params.min_stake = params.vp_unit;
     params.unsettled_limit = 65532;
     params
 }
 
-/// A fixture's signing set: its members with their powers, and the validator set they sign as.
-/// The record carries nothing the lander checks.
+/// A fixture's signing set: its keys with their powers, and the validator set they sign as.
 #[derive(Clone, Debug)]
 pub struct FixtureCommittee {
-    /// A record and the members, in key order.
-    pub state: CommitteeState,
+    /// The keys with their powers, in key order.
+    pub members: Vec<(ConsensusKey, u64)>,
     /// The members' CometBFT validator set.
     pub validators: Validators,
 }
 
 impl FixtureCommittee {
-    /// The committee `state` with the validator set its members sign as.
-    pub fn new(state: CommitteeState) -> Self {
-        let validators = Validators::from_members(&state.members).unwrap();
-        Self { state, validators }
+    /// The keys `members` with their powers and the validator set they sign as.
+    pub fn new(members: Vec<(ConsensusKey, u64)>) -> Self {
+        let validators = Validators::from_powers(&members).unwrap();
+        Self { members, validators }
     }
 
     /// The set of the fallback key list `keys`: each key at power 1, as a generation's origin
     /// keys sign its first blocks.
     pub fn fallback(keys: &FallbackKeys) -> Self {
-        let members = keys
-            .keys()
-            .iter()
-            .map(|key| Member { pubkey: *key, eff_stake: U256::ZERO, power: 1 })
-            .collect::<Vec<_>>();
-        let record = CommitteeRecord {
-            target_epoch: 0,
-            cutoff_l1_block: 0,
-            checkpoint_index: 0,
-            set_hash: B256::ZERO,
-            total_power: members.len() as u64,
-        };
-        Self::new(CommitteeState { record, members })
+        Self::new(keys.validator_set())
     }
 }
 
@@ -81,9 +63,8 @@ pub fn fallback_keys(keys: &[SigningKey]) -> FallbackKeys {
     FallbackKeys::new(keys).unwrap()
 }
 
-/// A committee of one member per power, keyed by domain-separated full-width indices, its
-/// record at epoch `epoch` and cutoff L1 block 1.
-pub fn committee(powers: &[u64], epoch: u64) -> (ChainParams, FixtureCommittee, Vec<SigningKey>) {
+/// A signing set of one member per power, keyed by domain-separated full-width indices.
+pub fn committee(powers: &[u64]) -> (ChainParams, FixtureCommittee, Vec<SigningKey>) {
     let keys = powers
         .iter()
         .enumerate()
@@ -96,50 +77,29 @@ pub fn committee(powers: &[u64], epoch: u64) -> (ChainParams, FixtureCommittee, 
             SigningKey::from_bytes(&seed).unwrap()
         })
         .collect::<Vec<_>>();
-    committee_with_keys(powers, epoch, keys, false)
+    committee_with_keys(powers, keys)
 }
 
 /// Reproduce the fixed one-byte seeds of the checked-in stock-Go differential vectors.
 /// This bounded fixture convention is separate from the general full-width member builder.
-pub fn stock_go_committee(
-    powers: &[u64],
-    epoch: u64,
-) -> (ChainParams, FixtureCommittee, Vec<SigningKey>) {
+pub fn stock_go_committee(powers: &[u64]) -> (ChainParams, FixtureCommittee, Vec<SigningKey>) {
     assert!(powers.len() <= usize::from(u8::MAX), "stock-Go fixture seed range");
     let keys = (1..=powers.len())
         .map(|index| SigningKey::from_slice(&[u8::try_from(index).unwrap(); 32]).unwrap())
         .collect();
-    committee_with_keys(powers, epoch, keys, true)
+    committee_with_keys(powers, keys)
 }
 
-/// Build the same authenticated member structure for either deterministic test-key convention.
+/// Build the same signing set for either deterministic test-key convention: the key of each
+/// power, in key order.
 fn committee_with_keys(
     powers: &[u64],
-    epoch: u64,
     keys: Vec<SigningKey>,
-    _stock_go: bool,
 ) -> (ChainParams, FixtureCommittee, Vec<SigningKey>) {
-    let mut params = parameters();
-    params.n_max = params.n_max.max(powers.len());
-    let mut members = keys
-        .iter()
-        .zip(powers)
-        .map(|(key, power)| Member {
-            pubkey: public_key(key),
-            eff_stake: U256::from(*power) * params.vp_unit,
-            power: *power,
-        })
-        .collect::<Vec<_>>();
-    members.sort_by_key(|member| member.pubkey);
-    let record = CommitteeRecord {
-        target_epoch: epoch,
-        cutoff_l1_block: 1,
-        checkpoint_index: 0,
-        set_hash: B256::ZERO,
-        total_power: powers.iter().sum(),
-    };
-    let committee = FixtureCommittee::new(CommitteeState { record, members });
-    (params, committee, keys)
+    let mut members =
+        keys.iter().zip(powers).map(|(key, power)| (public_key(key), *power)).collect::<Vec<_>>();
+    members.sort_by_key(|(key, _)| *key);
+    (parameters(), FixtureCommittee::new(members), keys)
 }
 
 /// Canonical native identity corresponding to a deterministic fixture signer.
@@ -247,9 +207,7 @@ pub fn timed_pair(
         )),
         validators_hash: committee.validators.hash(),
         next_validators_hash: committee.validators.hash(),
-        consensus_hash: Hash::Sha256(
-            abci::genesis::GenesisConsensusParams::etna_hash(parameters().n_max).0,
-        ),
+        consensus_hash: Hash::Sha256(abci::genesis::GenesisConsensusParams::etna_hash().0),
         // appHash of the parent's EL hash (CONS-3.1-8), never the bare hash. These blocks carry
         // no validator-state replica, so its hash is a zero placeholder; fixtures that need the
         // real one replace it.
@@ -297,13 +255,14 @@ pub fn sign_commit(
     keys: &[SigningKey],
     timestamp: Time,
 ) {
+    let public_keys = keys.iter().map(public_key).collect::<Vec<_>>();
     commit.signatures = committee
         .validators
         .validators()
         .iter()
         .enumerate()
         .map(|(index, validator)| {
-            let key = keys.iter().find(|key| public_key(key) == validator.pub_key).unwrap();
+            let key = &keys[public_keys.iter().position(|key| *key == validator.pub_key).unwrap()];
             let vote = Vote {
                 vote_type: Type::Precommit,
                 height: commit.height,

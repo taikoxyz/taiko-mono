@@ -18,7 +18,7 @@
 pub mod app;
 /// The signing set decision and validator updates, from the portable Etna rules.
 pub mod committee;
-/// Chain parameters (built-in per L2 chain id, optional TOML override).
+/// Chain parameters: etna-core's definition, built in per L2 chain id, optional TOML override.
 pub mod config;
 /// Execution-layer sync to a trusted head over devp2p.
 pub mod elsync;
@@ -49,7 +49,7 @@ pub mod server;
 pub mod store;
 /// Own-finalized Unzen origin evidence handed from the complete derivation driver to the app.
 pub mod switch;
-/// Plain data shared across modules (witnesses, committee records, anchor and parent facts).
+/// Plain data shared across modules (witnesses, genesis records, anchor and parent facts).
 pub mod types;
 /// Stock CometBFT transport with native secp256k1eth keys.
 pub mod wire;
@@ -68,7 +68,7 @@ pub use etna_core::params::UINT48_MAX;
 pub use etna_core::{domain, key, valstate};
 
 pub use app::{AbciError, App, AppHashReport, AppOptions, Status};
-pub use config::{ChainParams, ConfigError, SwitchConfig};
+pub use config::{ChainParams, ChainParamsExt, ConfigError, ParamsError, SwitchConfig};
 pub use elsync::{ElSyncError, ensure_block};
 pub use engine::{
     Engine, EngineError, PayloadVerdict, RpcEngine, block_from_payload, payload_from_block,
@@ -95,9 +95,6 @@ pub use server::{
     AbciHandler, AppService, ConnectionEpoch, ExitProcess, HaltHook, ListenAddr,
     SAFETY_HALT_EXIT_CODE, ServerError, serve, serve_with,
 };
-pub use store::{AppState, CommitteeState, ExecutionFloor, Store, StoreError};
+pub use store::{AppState, ExecutionFloor, Store, StoreError};
 pub use switch::{SwitchOrigin, l2_signal_service_address};
-pub use types::{
-    AccountWitness, AnchorState, CommitteeRecord, GenesisRecord, InboxFacts, Member, ParentInfo,
-    RegistryEntry, StorageProof,
-};
+pub use types::{AccountWitness, AnchorState, GenesisRecord, InboxFacts, ParentInfo, StorageProof};

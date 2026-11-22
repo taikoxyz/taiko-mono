@@ -5,7 +5,7 @@
 
 use abci::{ChainParams, GenesisDoc, L1Source, ParentInfo, store::AppState, valstate::ValState};
 use alloy_consensus::Header;
-use alloy_primitives::{B256, Bytes, U256, keccak256};
+use alloy_primitives::{B256, Bytes, keccak256};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

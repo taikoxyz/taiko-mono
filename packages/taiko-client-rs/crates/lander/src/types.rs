@@ -141,7 +141,8 @@ pub struct LandingSnapshot {
     pub l2_chain_id: u64,
     /// Executing Inbox proxy identity.
     pub inbox: Address,
-    /// Configured staking-registry identity.
+    /// The statement's staking-registry word. The client configures no staking registry, so
+    /// it is zero.
     pub registry: Address,
     /// Recovery generation from the pinned Inbox state.
     pub generation: u64,

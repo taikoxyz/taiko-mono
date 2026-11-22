@@ -1,5 +1,5 @@
 use super::*;
-use crate::types::InboxFacts;
+use crate::{config::ChainParamsExt, types::InboxFacts};
 use alloy_primitives::{b256, hex};
 use protocol::shasta::constants::{TAIKO_DEVNET_CHAIN_ID, min_base_fee_for_chain};
 use std::collections::HashSet;

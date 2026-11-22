@@ -2,7 +2,7 @@
 
 use std::{io::IsTerminal, net::SocketAddr, path::Path};
 
-use ::abci::ChainParams;
+use ::abci::{ChainParams, ChainParamsExt, ConfigError};
 use alloy_primitives::U256;
 use async_trait::async_trait;
 use tracing::info;
@@ -33,12 +33,12 @@ pub fn load_chain_params(
         let toml = std::fs::read_to_string(path)
             .map_err(|source| CliError::ChainConfigRead { path: path.to_path_buf(), source })?;
         params = params.with_overrides(&toml)?;
-        let fields: toml::Table = toml::from_str(&toml).map_err(::abci::ConfigError::from)?;
+        let fields: toml::Table = toml::from_str(&toml).map_err(ConfigError::from)?;
         if fields.contains_key("l1_chain_id") {
             expected_l1 = Some(params.l1_chain_id);
         }
     }
-    params.validate()?;
+    params.validate().map_err(ConfigError::from)?;
     Ok((params, expected_l1))
 }
 

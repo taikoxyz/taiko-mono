@@ -311,7 +311,7 @@ async fn wrong_inbox_proof_is_rejected() {
 
     // A witness of another account.
     let mut bad = env.clone();
-    bad.anchor.as_mut().unwrap().inbox.address = fx.params.registry;
+    bad.anchor.as_mut().unwrap().inbox.address = Address::repeat_byte(0x22);
     assert_eq!(rejected(&mut app, &bad).await, "anchor_witness");
 }
 
@@ -496,7 +496,7 @@ async fn proposer_outside_the_replica_set_is_unknown() {
 #[tokio::test]
 async fn back_pressure_boundary() {
     let fx = Fixture::genesis(1);
-    let limit = fx.params.unsettled_limit();
+    let limit = fx.params.unsettled_limit;
     let dir = tempfile::tempdir().unwrap();
 
     // Depth exactly the limit (the anchored last checkpoint is the Etna start S).

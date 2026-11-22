@@ -163,7 +163,7 @@ async fn latest(f: &ContractFixture, c: &mut ContractConsensus, commands: &Comma
     let stock = base.join("stock-state");
     // Nothing has landed, so U holds the snapshot at or below U itself.
     let s = capture_stock_state(c, 5, &stock).await? + 1;
-    let unsettled = f.params.unsettled_limit();
+    let unsettled = f.params.unsettled_limit;
     if s > unsettled {
         // Release the hold up to s and no further.
         land(f, c, commands, s - unsettled).await?;

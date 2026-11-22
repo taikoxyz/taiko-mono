@@ -64,7 +64,6 @@ pub async fn build_genesis<L: L1Source + ?Sized>(
         &GenesisWitness { l1_header, inbox: inbox_witness },
         chain_id,
         &keys.validator_set(),
-        params.n_max,
     )
 }
 

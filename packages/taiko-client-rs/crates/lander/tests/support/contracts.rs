@@ -4,10 +4,7 @@
 // Current generated registry ABI includes an eight-field event constructor.
 #![allow(clippy::too_many_arguments)]
 
-use abci::{
-    ChainParams, CommitteeRecord, CommitteeState, GenesisRecord, Member, RegistryEntry,
-    fallback::FallbackKeys,
-};
+use abci::{ChainParams, ChainParamsExt, GenesisRecord, fallback::FallbackKeys};
 use alloy::{
     rpc::types::{TransactionReceipt, TransactionRequest},
     signers::{SignerSync, local::PrivateKeySigner},
@@ -39,11 +36,13 @@ sol!(
 sol!(TestERC20, "../../crates/lander/tests/fixtures/contracts/TestERC20.json");
 sol!(MockUnzenInbox, "../../crates/lander/tests/fixtures/contracts/MockUnzenInbox.json");
 
-/// Each fixture bond's stake and the registry's `minStake`: 7,600,000 TAIKO, the devnet
-/// default (`DEFAULT_REGISTRY_MIN_STAKE`) and the built-in `min_stake`. The registry constructor
-/// requires `4096 * minStake > 10^27` (more than 244,140.625 TAIKO). The default devnet power
-/// mapping gives each entry 7.6 * 10^15 voting power.
+/// Each fixture bond's stake and the pinned registry's `minStake`: 7,600,000 TAIKO, the pinned
+/// contracts' devnet default (`DEFAULT_REGISTRY_MIN_STAKE`). The pinned registry constructor
+/// requires `4096 * minStake > 10^27` (more than 244,140.625 TAIKO). The client reads no stake:
+/// the registered keys sign as fallback keys, each at power 1.
 pub const STAKE: u128 = 7_600_000 * 10u128.pow(18);
+/// The pinned Inbox's `vpUnit` initialization word, which the client no longer reads.
+pub const PINNED_VP_UNIT: u64 = 1_000_000_000;
 /// The Inbox's recovery capacity F: the devnet deployment default (`DEFAULT_RECOVERY_CAPACITY`),
 /// the measured largest exclusion count whose worst-case `recover` fits the L1 per-transaction gas
 /// cap. `init` requires `K = floor(10^27 / minStake) <= F` (START-10-14), 131 at [`STAKE`].
@@ -70,10 +69,11 @@ pub struct ContractFixture {
     pub params: ChainParams,
     pub genesis: GenesisRecord,
     pub parent_header: Header,
-    pub committee: CommitteeState,
+    /// The pinned Inbox's genesis cutoff, an L1 block, which its `activeCommitteeSnapshot` holds.
+    pub genesis_cutoff: u64,
     /// Generation 0's origin fallback key list, the registered keys: its hash is at slot 278.
+    /// Its keys sign every block, each at power 1.
     pub fallback_keys: FallbackKeys,
-    pub entry: RegistryEntry,
     pub keys: Vec<ValidatorKey>,
     pub signer_storage: tempfile::TempDir,
     /// On a switching deployment ([`ContractFixture::deploy_switching`]), the mock live Unzen
@@ -106,7 +106,8 @@ impl ContractFixture {
         Self::deploy_committee_config(count, unsettled_limit, epoch_len, 128).await
     }
 
-    /// Authenticates a bounded committee cap so registered standby keys can enter after recovery.
+    /// Initializes the pinned Inbox with the committee cap `n_max`, a word the client no longer
+    /// reads.
     pub async fn deploy_committee_config(
         count: usize,
         unsettled_limit: u64,
@@ -200,7 +201,6 @@ impl ContractFixture {
         let signer_storage = tempfile::Builder::new().prefix("etna-signer-").tempdir_in("/tmp")?;
         let binary = test_harness::signer_binary()?;
         let mut keys = Vec::new();
-        let mut entries = Vec::new();
         for i in 0..count {
             // An operator's bootstrap: the key, then the domains log. Consensus start runs
             // `init-state` once the genesis chain ID is known.
@@ -231,7 +231,7 @@ impl ContractFixture {
                 .output()?;
             ensure!(proof.status.success(), "registration PoP failed");
             let pop: serde_json::Value = serde_json::from_slice(&proof.stdout)?;
-            let registered = transact(
+            transact(
                 p,
                 owner,
                 registry,
@@ -243,15 +243,6 @@ impl ContractFixture {
                 .abi_encode(),
             )
             .await?;
-            let public_key = key.pubkey();
-            let bytes = public_key.as_bytes();
-            entries.push(RegistryEntry {
-                ck_prefix: bytes[0],
-                ck_x: B256::from_slice(&bytes[1..]),
-                eff_stake: U256::from(STAKE),
-                active_from_l1: registered.block_number.context("registration block")? + 1,
-                exit_effective_l1: (1u64 << 48) - 1,
-            });
             keys.push(key);
         }
         mine_l1_blocks(p, 3).await?;
@@ -281,10 +272,8 @@ impl ContractFixture {
         };
         let params = ChainParams {
             inbox,
-            registry,
             l1_chain_id,
             unsettled_limit,
-            n_max,
             fee_recipient: Address::repeat_byte(0x77),
             switch: switch.clone(),
             ..ChainParams::builtin(L2_CHAIN_ID)?
@@ -295,19 +284,6 @@ impl ContractFixture {
         let mut origin_keys: Vec<_> = keys.iter().map(|key| key.pubkey()).collect();
         origin_keys.sort();
         let fallback_keys = FallbackKeys::new(origin_keys)?;
-        let members: Vec<Member> = fallback_keys
-            .keys()
-            .iter()
-            .map(|key| Member { pubkey: *key, eff_stake: U256::ZERO, power: 1 })
-            .collect();
-        let record = CommitteeRecord {
-            target_epoch: 0,
-            cutoff_l1_block: cutoff,
-            checkpoint_index: 0,
-            set_hash: B256::ZERO,
-            total_power: members.len() as u64,
-        };
-        let committee = CommitteeState { record, members };
         let l2 = StandaloneReth::start().await?;
         let parent_header = l2
             .provider
@@ -383,8 +359,8 @@ impl ContractFixture {
             genesisCutoff: U256::from(cutoff),
             committeeRecordHash: fallback_keys.hash(),
             committeeConfig: IEtnaInbox::CommitteeConfig {
-                vpUnit: params.vp_unit,
-                nMax: U256::from(params.n_max),
+                vpUnit: U256::from(PINNED_VP_UNIT),
+                nMax: U256::from(n_max),
                 unsettledLimit: U256::from(params.unsettled_limit),
             },
             forcedInclusionDelay: U256::from(FORCED_INCLUSION_DELAY),
@@ -423,9 +399,8 @@ impl ContractFixture {
             params,
             genesis,
             parent_header,
-            committee,
+            genesis_cutoff: cutoff,
             fallback_keys,
-            entry: entries[0].clone(),
             keys,
             signer_storage,
             unzen,

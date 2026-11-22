@@ -1,7 +1,7 @@
 //! The production collector against stock CometBFT, independently of actual-contract landing.
 use std::time::Duration;
 
-use abci::{EtnaEnvelope, Member};
+use abci::EtnaEnvelope;
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::U256;
 use alloy_provider::Provider;
@@ -39,9 +39,9 @@ async fn lander_live_comet_collector_preserves_and_authenticates_certificates() 
         .validators(Some(1))
         .await?
         .into_iter()
-        .map(|v| Member { pubkey: v.pubkey, eff_stake: U256::ZERO, power: v.power })
+        .map(|v| (v.pubkey, v.power))
         .collect::<Vec<_>>();
-    let validators = Validators::from_members(&members)?;
+    let validators = Validators::from_powers(&members)?;
     let genesis = devnet
         .l2_provider(0)
         .get_block_by_number(BlockNumberOrTag::Number(0))

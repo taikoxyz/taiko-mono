@@ -27,6 +27,7 @@ use alloy_trie::{
 };
 
 use crate::{
+    config::ChainParamsExt,
     envelope::AnchorWitness,
     forced::ForcedEntry,
     l1::{header::RawL1Header, layout::inbox},
@@ -595,15 +596,6 @@ pub(crate) fn serve_fallback_keys(
         (inbox, crate::fallback::getFallbackKeysCall {}.abi_encode().into()),
         keys.abi_encode().into(),
     );
-}
-
-/// Maps arbitrary old test entropy to a valid native key, preserving deterministic identities.
-pub(crate) fn key_from_seed(seed: B256) -> crate::key::ConsensusKey {
-    use k256::elliptic_curve::sec1::ToEncodedPoint;
-    let scalar = keccak256(seed);
-    let key = k256::SecretKey::from_slice(scalar.as_slice()).unwrap();
-    crate::key::ConsensusKey::from_slice(key.public_key().to_encoded_point(true).as_bytes())
-        .unwrap()
 }
 
 /// An [`RpcL1Source`](crate::l1::RpcL1Source) whose L1 node answers one JSON-RPC request with

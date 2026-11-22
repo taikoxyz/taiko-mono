@@ -10,6 +10,7 @@ use super::{
     *,
 };
 use crate::{
+    config::ChainParamsExt,
     engine::PayloadVerdict,
     genesis::GenesisError,
     l1::{RawL1Header, witness::WitnessError},
@@ -597,8 +598,9 @@ async fn genesis_rejects_noncanonical_consensus_parameters() {
 }
 
 /// CometBFT's default evidence limits (100,000 blocks, 48 h), the earlier Etna parameters
-/// (22,020,096 block bytes, 900 blocks, 1 h, 1 MiB of evidence) and another committee cap's
-/// `block.max_bytes` are not START-10-21's for this deployment: old geneses are refused.
+/// (22,020,096 block bytes, 900 blocks, 1 h, 1 MiB of evidence) and the block sizes the earlier
+/// seat-limit formula gave for other seat limits (1,576,960 at one seat, 2,101,248 at 129,
+/// 18,350,080 at 4,096) are not the fixed values: old geneses are refused.
 #[tokio::test]
 async fn genesis_rejects_stock_default_and_earlier_consensus_limits() {
     use tendermint_proto::google::protobuf::Duration;
@@ -627,13 +629,9 @@ async fn genesis_rejects_stock_default_and_earlier_consensus_limits() {
                 evidence.max_bytes = 1_048_576;
             }),
         ),
-        (
-            "another n_max",
-            edit(&|p| {
-                p.block.as_mut().unwrap().max_bytes =
-                    crate::genesis::block_max_bytes(fx.params.n_max + 1)
-            }),
-        ),
+        ("1,576,960 bytes", edit(&|p| p.block.as_mut().unwrap().max_bytes = 1_576_960)),
+        ("2,101,248 bytes", edit(&|p| p.block.as_mut().unwrap().max_bytes = 2_101_248)),
+        ("18,350,080 bytes", edit(&|p| p.block.as_mut().unwrap().max_bytes = 18_350_080)),
     ];
     for (limit, params) in cases {
         let dir = tempfile::tempdir().unwrap();

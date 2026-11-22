@@ -9,7 +9,7 @@ use tendermint::abci::{Code, request::CheckTxKind};
 use super::*;
 use crate::{
     app::{APP_NAME, APP_VERSION, Status},
-    config::ConfigError,
+    config::{ConfigError, ParamsError},
     engine::PayloadVerdict,
     rules::RuleViolation,
     store::{ExecutionFloor, StoreError},
@@ -455,7 +455,7 @@ fn app_new_rejects_an_execution_floor_outside_the_committed_range() {
 fn app_new_rejects_invalid_parameters() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
-    let params = ChainParams { n_max: 0, ..fx.params.clone() };
+    let params = ChainParams { unsettled_limit: 0, ..fx.params.clone() };
     let err = App::new(
         fx.l1(),
         fx.engine(),
@@ -464,7 +464,10 @@ fn app_new_rejects_invalid_parameters() {
         crate::test_utils::test_options(),
     )
     .expect_err("invalid parameters");
-    assert!(matches!(err, AbciError::Config(ConfigError::ZeroNMax)), "{err:?}");
+    assert!(
+        matches!(err, AbciError::Config(ConfigError::Params(ParamsError::InvalidUnsettledLimit))),
+        "{err:?}"
+    );
 }
 
 #[tokio::test]

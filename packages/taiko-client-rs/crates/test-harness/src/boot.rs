@@ -8,7 +8,7 @@ use std::{
 };
 
 use abci::{
-    ChainParams, GenesisRecord, RpcL1Source, build_genesis, fallback::FallbackKeys,
+    ChainParams, ChainParamsExt, GenesisRecord, RpcL1Source, build_genesis, fallback::FallbackKeys,
     l1::layout::inbox::ETNA_ACTIVE,
 };
 use alloy_eips::BlockNumberOrTag;

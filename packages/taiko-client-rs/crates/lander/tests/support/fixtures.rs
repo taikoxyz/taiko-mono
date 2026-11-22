@@ -80,11 +80,9 @@ impl FixtureChain {
             &AnchorWitness { l1_header: header, inbox: witness },
             fixture.inbox,
         )?;
-        let validators = Validators::from_members(&fixture.committee.members)?;
-        let genesis = ValState::genesis(
-            0,
-            &fixture.committee.members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>(),
-        )?;
+        let members = fixture.fallback_keys.validator_set();
+        let validators = Validators::from_powers(&members)?;
+        let genesis = ValState::genesis(0, &members)?;
         Ok(Self {
             chain_id: abci::domain::chain_id(&abci::domain::DeploymentDomain {
                 l1_chain_id: fixture.params.l1_chain_id,

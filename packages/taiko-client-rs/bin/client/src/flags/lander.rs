@@ -307,14 +307,17 @@ mod tests {
         let _clear = clear_env();
         let c = parse(argv()).unwrap().lander_flags.config().unwrap();
         assert_eq!(c.limits.max_payload_bytes, 6 * 130_044);
-        assert_eq!(c.limits.max_message_bytes, 18_350_080);
-        assert_eq!(c.limits.max_decompressed_bytes, lander::codec::MAX_DECOMPRESSED_BYTES);
+        // The fixed CometBFT block size bounds each message; 16 blocks of it stay below the
+        // 64 MiB protocol ceiling.
+        assert_eq!(c.limits.max_message_bytes, 2_097_152);
+        assert_eq!(c.limits.max_decompressed_bytes, 16 * 2_097_152);
+        assert!(c.limits.max_decompressed_bytes < lander::codec::MAX_DECOMPRESSED_BYTES);
         let mut args = argv();
         let i = args.iter().position(|v| *v == "--max-blocks").unwrap();
         args[i + 1] = "1";
         let one = parse(args).unwrap().lander_flags.config().expect("a one-block batch is valid");
         assert_eq!(one.limits.max_blocks, 1);
-        assert_eq!(one.limits.max_decompressed_bytes, 18_350_080);
+        assert_eq!(one.limits.max_decompressed_bytes, 2_097_152);
     }
 
     #[test]

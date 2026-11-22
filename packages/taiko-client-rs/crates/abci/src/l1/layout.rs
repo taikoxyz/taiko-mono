@@ -1,4 +1,4 @@
-//! Normative L1 Inbox and staking-registry storage slots. No I/O.
+//! Normative L1 Inbox storage slots and, from etna-core, the L2 staking contract's. No I/O.
 //!
 //! Inbox activation authenticates status, generation, the start write, the configuration hash,
 //! the forced inclusion delay and maximum anchor age, and generation 0's origin record, whose
@@ -6,12 +6,12 @@
 //! prove generation, checkpoint height/hash, the fallback keys hash, the minimum total stake, the
 //! forced inclusion queue's head/tail and the rules schedule.
 //!
-//! Registry checkpoints must be strictly increasing and complete, with a checkpoint in every
-//! changing L1 block. Discovery reads historical entries before the next checkpoint and then
-//! verifies their authenticated root. Eligible consensus keys must be unique.
 //! Packed Solidity fields are decoded low-order-first.
 
 use alloy_primitives::U256;
+
+/// The L2 `EtnaStaking` storage layout: candidate snapshot slots and the key-to-seat decoder.
+pub use etna_core::staking;
 
 /// Inbox storage slots (contract address = chain constant `ETNA_INBOX`).
 pub mod inbox {
@@ -251,69 +251,6 @@ pub mod inbox {
     /// uint48 timestamp/L1 block.
     pub fn forced_inclusion_entry_slots(index: u64) -> [B256; 2] {
         mapping_words(FORCED_INCLUSION_QUEUE, index)
-    }
-}
-
-/// Staking-registry storage slots (contract address = chain constant `ETNA_REGISTRY`).
-///
-/// The registry keeps its state in an ERC-7201 namespace `taiko.etna.registry` whose first field
-/// is `checkpoints`, a dynamic array of two-word structs
-/// `{ uint48 l1Block; uint48 count; bytes32 entriesRoot; }`. The second field is `entries`,
-/// a dynamic array of three-word structs with a compressed key, uint256 stake and packed
-/// uint8 key prefix / uint48 activation / uint48 exit heights, indexed by slot number.
-///
-/// As the contract appends a checkpoint in every L1 block that changes any entry (see the
-/// contract obligations in the module docs), the entries read at block `checkpoints[i].l1Block`
-/// (or any later block before `checkpoints[i + 1].l1Block`) are checkpoint `i`'s snapshot. Entry
-/// reads are discovery only: a committee witness carries the entries and
-/// `committee::verify_snapshot` checks them against the proven `entriesRoot`.
-pub mod registry {
-    use alloy_primitives::{B256, U256, keccak256};
-
-    /// The ERC-7201 namespace identifier of the registry's storage.
-    pub const NAMESPACE: &str = "taiko.etna.registry";
-
-    /// The ERC-7201 base slot `R`:
-    /// `keccak256(abi.encode(uint256(keccak256(NAMESPACE)) - 1)) & ~bytes32(uint256(0xff))`.
-    pub fn base() -> B256 {
-        let namespace = U256::from_be_bytes(keccak256(NAMESPACE).0);
-        let mut base = keccak256(B256::from(namespace.wrapping_sub(U256::from(1))));
-        base.0[31] = 0;
-        base
-    }
-
-    /// The slot holding `checkpoints.length` (the array's own slot, `R`).
-    pub fn length_slot() -> B256 {
-        base()
-    }
-
-    /// The two slots of `checkpoints[i]`, as Solidity lays out dynamic-array elements:
-    /// `[keccak256(R) + 2i, keccak256(R) + 2i + 1]` (wrapping in U256).
-    ///
-    /// The first word packs `l1Block` (`uint48`, bits 0–47) and `count` (`uint48`, bits 48–95);
-    /// the second is `entriesRoot`.
-    pub fn checkpoint_slots(i: u64) -> [B256; 2] {
-        let data = U256::from_be_bytes(keccak256(base()).0);
-        let first = data.wrapping_add(U256::from(i) * U256::from(2));
-        [B256::from(first), B256::from(first.wrapping_add(U256::from(1)))]
-    }
-
-    /// The slot holding `entries.length` (the `entries` array's own slot, `R + 1`).
-    pub fn entries_length_slot() -> B256 {
-        B256::from(U256::from_be_bytes(base().0).wrapping_add(U256::from(1)))
-    }
-
-    /// The three words of `entries[j]`, at `keccak256(R + 1) + 3j` (wrapping in U256).
-    /// Words zero and one hold the key x coordinate and effective stake. Word two packs
-    /// key prefix (bits 0–7), activation (8–55) and exit (56–103).
-    pub fn entry_slots(j: u64) -> [B256; 3] {
-        let data = U256::from_be_bytes(keccak256(entries_length_slot()).0);
-        let first = data.wrapping_add(U256::from(j) * U256::from(3));
-        [
-            B256::from(first),
-            B256::from(first.wrapping_add(U256::from(1))),
-            B256::from(first.wrapping_add(U256::from(2))),
-        ]
     }
 }
 
@@ -623,79 +560,6 @@ mod tests {
         assert_eq!(word_u48(U256::MAX, 48), max);
         assert_eq!(word_u48(U256::MAX, 232), 0x00ff_ffff);
         assert_eq!(word_u48(U256::MAX, 256), 0);
-    }
-
-    /// The registry namespace, base, entries length slot and the checkpoint and entry slots
-    /// (including the last `u64` index) match the shared layout vectors, which the contracts
-    /// check against a deployed registry.
-    #[test]
-    fn registry_slots_match_the_shared_vectors() {
-        assert_eq!(registry::NAMESPACE, vectors::str_at("/layout/registry/namespace"));
-        assert_eq!(registry::base(), vectors::b256_at("/layout/registry/base"));
-        assert_eq!(registry::length_slot(), registry::base());
-        assert_eq!(
-            registry::entries_length_slot(),
-            vectors::b256_at("/layout/registry/entries_slot")
-        );
-        for k in 0..vectors::len_at("/layout/registry/checkpoint_slots") {
-            let p = format!("/layout/registry/checkpoint_slots/{k}");
-            let i = vectors::u64_at(&format!("{p}/index"));
-            let expected = vectors::b256s_at(&format!("{p}/slots"));
-            assert_eq!(registry::checkpoint_slots(i).to_vec(), expected, "checkpoint {i}");
-        }
-        for k in 0..vectors::len_at("/layout/registry/entry_slots") {
-            let p = format!("/layout/registry/entry_slots/{k}");
-            let j = vectors::u64_at(&format!("{p}/index"));
-            let expected = vectors::b256s_at(&format!("{p}/slots"));
-            assert_eq!(registry::entry_slots(j).to_vec(), expected, "entry {j}");
-        }
-    }
-
-    #[test]
-    fn registry_base_matches_manual_erc7201_derivation() {
-        let namespace_hash = keccak256(b"taiko.etna.registry");
-        // uint256(namespace_hash) - 1, big-endian, by hand: borrow through trailing zero bytes.
-        let mut preimage = namespace_hash.0;
-        for byte in preimage.iter_mut().rev() {
-            let (next, borrow) = byte.overflowing_sub(1);
-            *byte = next;
-            if !borrow {
-                break;
-            }
-        }
-        let mut expected = keccak256(preimage).0;
-        expected[31] = 0;
-        assert_eq!(registry::base(), B256::from(expected));
-    }
-
-    #[test]
-    fn registry_checkpoint_data_starts_at_keccak_of_base() {
-        assert_eq!(registry::checkpoint_slots(0)[0], keccak256(registry::base()));
-        // Element `i` is two words past element `i - 1`, wrapping in U256 at the last index.
-        let data = U256::from_be_bytes(keccak256(registry::base()).0);
-        let last = data.wrapping_add(U256::from(u64::MAX) * U256::from(2));
-        assert_eq!(registry::checkpoint_slots(u64::MAX)[0], B256::from(last));
-    }
-
-    #[test]
-    fn registry_entries_length_slot_is_base_plus_one() {
-        let base = U256::from_be_bytes(registry::base().0);
-        assert_eq!(registry::entries_length_slot(), B256::from(base + U256::from(1)));
-    }
-
-    #[test]
-    fn registry_entries_reject_the_obsolete_four_word_stride() {
-        let base = U256::from_be_bytes(keccak256(registry::entries_length_slot()).0);
-        assert_ne!(registry::entry_slots(1)[0], B256::from(base + U256::from(4)));
-        assert_eq!(registry::entry_slots(1)[0], B256::from(base + U256::from(3)));
-        assert_eq!(registry::entry_slots(0).len(), 3);
-    }
-
-    #[test]
-    fn registry_entry_data_starts_at_keccak_of_the_entries_slot() {
-        assert_eq!(registry::entry_slots(0)[0], keccak256(registry::entries_length_slot()));
-        // The entries array does not overlap the checkpoints array near index 0.
-        assert_ne!(registry::entry_slots(0)[0], registry::checkpoint_slots(0)[0]);
     }
 
     #[test]

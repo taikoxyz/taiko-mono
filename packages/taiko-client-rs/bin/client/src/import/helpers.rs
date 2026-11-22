@@ -70,15 +70,10 @@ fn check_comet(stdout: &[u8], expected: &CometReport, comet_hash: B256) -> R<()>
     Ok(())
 }
 
-/// The `etna-comet-import install` arguments for s > o, with `app_hash` as `--app-hash` and the
-/// authenticated committee cap as `--n-max`, which fixes the genesis `block.max_bytes`
-/// (START-10-21).
-fn comet_install_args(
-    home: &Path,
-    stock: &Path,
-    app_hash: B256,
-    n_max: usize,
-) -> Vec<std::ffi::OsString> {
+/// The `etna-comet-import install` arguments for s > o, with `app_hash` as `--app-hash`. The
+/// genesis consensus params are the same fixed values for every deployment, so nothing else
+/// selects them.
+fn comet_install_args(home: &Path, stock: &Path, app_hash: B256) -> Vec<std::ffi::OsString> {
     vec![
         "install".into(),
         "--home".into(),
@@ -87,27 +82,23 @@ fn comet_install_args(
         stock.into(),
         "--app-hash".into(),
         app_hash.to_string().into(),
-        "--n-max".into(),
-        n_max.to_string().into(),
     ]
 }
 
 /// Install the stock Comet stores for s > o into the absent `home` from the stock dir
 /// (DATA-5.4-3/4/5). The post-s AppHash is [`VerifiedImport::app_hash`], appHash(ELHash(s),
-/// valStateHash(s)) (CONS-3.1-8), as the app's Info reports it, and `n_max` the authenticated
-/// committee cap of `params`. Go checks nothing again: a nonzero exit or a receipt that differs
-/// from the authenticated window is unavailable, never a latch.
+/// valStateHash(s)), the app hash the app's Info reports. Go checks nothing again: a nonzero
+/// exit or a receipt that differs from the authenticated window is unavailable, never a latch.
 pub(super) async fn comet_install(
     lock: &File,
     helper: &Path,
     home: &Path,
     stock: &Path,
     v: &VerifiedImport,
-    params: &abci::ChainParams,
 ) -> R<()> {
     let expected = expected_comet(v)?;
     let mut command = helper_command(lock, helper);
-    command.args(comet_install_args(home, stock, v.app_hash(), params.n_max));
+    command.args(comet_install_args(home, stock, v.app_hash()));
     let output = run(command, "etna-comet-import").await?;
     if !output.status.success() {
         return Err(unavailable(format!(
@@ -329,7 +320,7 @@ mod tests {
                 "368f341ba9eb8b6d6cadbd5b944daed7ed417b273d1257911a7fd18320f2a81b"
             ),
         );
-        let args = comet_install_args(Path::new("/c/home"), Path::new("/c/stock"), app_hash, 128);
+        let args = comet_install_args(Path::new("/c/home"), Path::new("/c/stock"), app_hash);
         assert_eq!(
             args,
             [
@@ -340,8 +331,6 @@ mod tests {
                 "/c/stock",
                 "--app-hash",
                 "0x381ceb5a317bd34b0b19b9972191a994c384b4873a3694cfd46cb155c7d8b451",
-                "--n-max",
-                "128",
             ]
         );
         assert!(!args.contains(&el_hash.to_string().into()));

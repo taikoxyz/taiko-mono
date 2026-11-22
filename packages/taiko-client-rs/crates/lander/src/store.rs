@@ -27,8 +27,6 @@ pub struct JournalIdentity {
     pub l2_chain_id: u64,
     /// Executing Inbox proxy.
     pub inbox: Address,
-    /// Statement-bound staking registry.
-    pub registry: Address,
     /// Exclusive signing-account identity.
     pub sender: Address,
 }
@@ -206,8 +204,7 @@ impl Store {
         let snapshot = &job.request.batch.snapshot;
         if snapshot.l1_chain_id != self.identity.l1_chain_id ||
             snapshot.l2_chain_id != self.identity.l2_chain_id ||
-            snapshot.inbox != self.identity.inbox ||
-            snapshot.registry != self.identity.registry
+            snapshot.inbox != self.identity.inbox
         {
             return Err(LanderError::Journal("job chain/contract identity mismatch".into()));
         }
@@ -241,7 +238,6 @@ mod tests {
             l1_chain_id: U256::from(1),
             l2_chain_id: 2,
             inbox: Address::repeat_byte(3),
-            registry: Address::repeat_byte(4),
             sender: Address::repeat_byte(5),
         }
     }
@@ -256,7 +252,6 @@ mod tests {
             l1_chain_id: snapshot.l1_chain_id,
             l2_chain_id: snapshot.l2_chain_id,
             inbox: snapshot.inbox,
-            registry: snapshot.registry,
             sender: transaction.sender,
         };
         let directory = tempfile::tempdir().unwrap();
@@ -299,7 +294,6 @@ mod tests {
             l1_chain_id: snapshot.l1_chain_id,
             l2_chain_id: snapshot.l2_chain_id,
             inbox: snapshot.inbox,
-            registry: snapshot.registry,
             sender: Address::repeat_byte(5),
         };
         let directory = tempfile::tempdir().unwrap();
@@ -339,7 +333,6 @@ mod tests {
             l1_chain_id: request.batch.snapshot.l1_chain_id,
             l2_chain_id: request.batch.snapshot.l2_chain_id,
             inbox: request.batch.snapshot.inbox,
-            registry: request.batch.snapshot.registry,
             sender: transaction.sender,
         };
         let state =
@@ -387,7 +380,6 @@ mod tests {
             l1_chain_id: request.batch.snapshot.l1_chain_id,
             l2_chain_id: request.batch.snapshot.l2_chain_id,
             inbox: request.batch.snapshot.inbox,
-            registry: request.batch.snapshot.registry,
             sender: Address::repeat_byte(5),
         };
         let state = JournalState::Prepared {
@@ -423,7 +415,6 @@ mod tests {
                 l1_chain_id: snapshot.l1_chain_id,
                 l2_chain_id: snapshot.l2_chain_id,
                 inbox: snapshot.inbox,
-                registry: snapshot.registry,
                 sender: valid.sender,
             };
             let directory = tempfile::tempdir().unwrap();
@@ -463,7 +454,6 @@ mod tests {
                 l1_chain_id: snapshot.l1_chain_id,
                 l2_chain_id: snapshot.l2_chain_id,
                 inbox: snapshot.inbox,
-                registry: snapshot.registry,
                 sender: Address::repeat_byte(5),
             },
         )
@@ -503,7 +493,6 @@ mod tests {
             l1_chain_id: snapshot.l1_chain_id,
             l2_chain_id: snapshot.l2_chain_id,
             inbox: snapshot.inbox,
-            registry: snapshot.registry,
             sender: Address::repeat_byte(5),
         };
         let directory = tempfile::tempdir().unwrap();
@@ -535,7 +524,6 @@ mod tests {
             l1_chain_id: snapshot.l1_chain_id,
             l2_chain_id: snapshot.l2_chain_id,
             inbox: snapshot.inbox,
-            registry: snapshot.registry,
             sender: Address::repeat_byte(5),
         };
         let directory = tempfile::tempdir().unwrap();
@@ -607,7 +595,6 @@ mod tests {
                 l1_chain_id: snapshot.l1_chain_id,
                 l2_chain_id: snapshot.l2_chain_id,
                 inbox: snapshot.inbox,
-                registry: snapshot.registry,
                 sender: Address::repeat_byte(5),
             };
             let directory = tempfile::tempdir().unwrap();
@@ -617,7 +604,7 @@ mod tests {
             std::fs::metadata(directory.path().join("lander-state.json")).unwrap().len() as usize
         };
         let small = request();
-        let (_, committee, keys) = consensus::committee(&[3, 3, 3], 0);
+        let (_, committee, keys) = consensus::committee(&[3, 3, 3]);
         let mut blocks: Vec<crate::CertifiedBlock> = Vec::new();
         let mut parent_hash = small.batch.snapshot.checkpoint_hash;
         for height in 1..=12 {

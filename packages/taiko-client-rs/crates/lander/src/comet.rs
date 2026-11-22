@@ -543,7 +543,7 @@ mod tests {
     async fn authenticates_stock_go_duplicate_extended_nil_and_light_client_evidence() {
         let fixture: Value =
             serde_json::from_str(include_str!("../testdata/cometbft-v0.40/vectors.json")).unwrap();
-        let (_, committee, _) = crate::test_utils::consensus::stock_go_committee(&[10, 30], 0);
+        let (_, committee, _) = crate::test_utils::consensus::stock_go_committee(&[10, 30]);
         for vector in fixture["vectors"].as_array().unwrap() {
             let rpc = source(
                 vec![success(vector["block_rpc"].clone()), success(vector["commit_rpc"].clone())],
@@ -639,7 +639,7 @@ mod tests {
                 hex(&vector["commit_proto"]),
                 "{name}: commit"
             );
-            let (_, committee, _) = crate::test_utils::consensus::stock_go_committee(&powers, 0);
+            let (_, committee, _) = crate::test_utils::consensus::stock_go_committee(&powers);
             let certificate = verify_commit(
                 &pair.commit,
                 &pair.block.header,
@@ -697,7 +697,7 @@ mod tests {
                 height: 27
             }
         );
-        let (_, committee, keys) = committee(&[1], 0);
+        let (_, committee, keys) = committee(&[1]);
         let block = pair(1, B256::ZERO, &committee, &keys, None);
         let rpc=source(vec![success(json!({"block_id":block.commit.block_id,"block":block.block_proto().unwrap()})),success(json!({"signed_header":{"header":block.block.header,"commit":block.commit},"canonical":true}))],128*1024,Duration::from_secs(2)).await;
         assert_eq!(rpc.block(1).await.unwrap(), block);
@@ -705,7 +705,7 @@ mod tests {
 
     #[tokio::test]
     async fn rejects_requested_height_disagreement_and_reports_pruned_history() {
-        let (_, committee, keys) = committee(&[1], 0);
+        let (_, committee, keys) = committee(&[1]);
         let block = pair(1, B256::ZERO, &committee, &keys, None);
         let rpc = source(
             vec![

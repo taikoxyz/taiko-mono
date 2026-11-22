@@ -32,7 +32,7 @@ fn limits() -> Limits {
 /// A genuinely signed chain of consecutive blocks from height 1, one per envelope, each
 /// envelope's execution header numbered with its block's height.
 fn chain(envelopes: Vec<EtnaEnvelope>) -> Vec<CertifiedBlock> {
-    let (_, committee, keys) = consensus::committee(&[1], 0);
+    let (_, committee, keys) = consensus::committee(&[1]);
     let mut blocks: Vec<CertifiedBlock> = Vec::new();
     for (height, mut envelope) in (1..).zip(envelopes) {
         envelope.block.header.number = height;
@@ -71,7 +71,7 @@ fn frame(list: &[u8]) -> Vec<u8> {
 
 /// The published items of a real three-block chain, to edit.
 static REAL_ITEMS: LazyLock<Vec<Vec<u8>>> = LazyLock::new(|| {
-    let (_, committee, keys) = consensus::committee(&[1], 0);
+    let (_, committee, keys) = consensus::committee(&[1]);
     let mut blocks: Vec<CertifiedBlock> = Vec::new();
     for height in 1..=3u8 {
         let parent = blocks

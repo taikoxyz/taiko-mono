@@ -41,11 +41,8 @@ fn inputs(fixture: &ContractFixture, rpc: &FixtureRpc, root: &TempDir) -> Result
     std::fs::write(
         &chain_config,
         format!(
-            "inbox = \"{}\"\nregistry = \"{}\"\nunsettled_limit = {}\nl1_chain_id = \"{}\"\n",
-            fixture.inbox,
-            fixture.registry,
-            fixture.params.unsettled_limit,
-            fixture.params.l1_chain_id,
+            "inbox = \"{}\"\nunsettled_limit = {}\nl1_chain_id = \"{}\"\n",
+            fixture.inbox, fixture.params.unsettled_limit, fixture.params.l1_chain_id,
         ),
     )?;
     Ok(CliInputs {
@@ -207,7 +204,6 @@ async fn lander_cli_refuses_locks_corrupt_journals_and_invalid_caps_before_signi
             l1_chain_id: U256::from(31337),
             l2_chain_id: 167001,
             inbox: fixture.inbox,
-            registry: fixture.registry,
             sender,
         };
         let lock = Store::open(&args.data, identity)?;

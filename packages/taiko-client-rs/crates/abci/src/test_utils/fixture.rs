@@ -26,7 +26,7 @@ use super::{
 };
 use crate::{
     app::{App, AppOptions},
-    config::ChainParams,
+    config::{ChainParams, ChainParamsExt},
     envelope::{AnchorWitness, ForcedWitness},
     fallback::FallbackKeys,
     genesis::{GenesisWitness, encode_app_state},
@@ -147,7 +147,7 @@ impl Fixture {
             )
             .expect("valid genesis time"),
             chain_id: chain_id_for(&params, spec.recovery_generation).unwrap(),
-            consensus_params: consensus_params(params.n_max),
+            consensus_params: consensus_params(),
             validators: validator_updates(&fallback_keys.validator_set()),
             app_state_bytes: encode_app_state(&witness).into(),
             initial_height: Height::from(1u32),
@@ -438,9 +438,9 @@ pub(crate) fn init_chain_request(doc: &crate::GenesisDoc) -> InitChain {
     }
 }
 
-/// CometBFT consensus parameters as the genesis builder writes them for committee cap `n_max`.
-pub(crate) fn consensus_params(n_max: usize) -> tendermint_proto::v0_38::types::ConsensusParams {
-    crate::genesis::GenesisConsensusParams::abci(n_max)
+/// CometBFT consensus parameters as the genesis builder writes them.
+pub(crate) fn consensus_params() -> tendermint_proto::v0_38::types::ConsensusParams {
+    crate::genesis::GenesisConsensusParams::abci()
 }
 
 /// The ABCI consensus parameters CometBFT passes to InitChain for a genesis file's

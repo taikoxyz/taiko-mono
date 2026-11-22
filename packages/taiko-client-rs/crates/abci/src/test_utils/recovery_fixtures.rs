@@ -81,14 +81,19 @@ fn regenerate_cli_recovery_fixtures() {
     }
 }
 
-/// Rebuilds `recovery.json` from `recovery_fixture(1, 6, 1)` when a committed value or a proven
-/// slot list changes (the configuration hash, an origin record, the recovery or genesis slots).
-/// L1 blocks 64 (`L1_0`), 100 (R) and 110 (finalized) are the fixture's; 120 adds a later landing
-/// at 18 and 130 also raises the recovery generation to 2, both on the state of 110. Each
-/// account the state still holds keeps the slot list the old file proves, and the Inbox also
-/// proves the genesis, recovery and anchor slots, so every read the CLI tests make stays served;
-/// the proofs must cover the whole state. The file also carries the origin fallback key list,
-/// which the CLI tests' L1 answers `getFallbackKeys()` with.
+/// R of the CLI fixture: far enough above `L1_0` that a log scan from R down to block 0 takes
+/// 21 queries of [`LOG_CHUNK_BLOCKS`](crate::fallback::LOG_CHUNK_BLOCKS) blocks.
+const CLI_R: u64 = 200_000;
+
+/// Rebuilds `recovery.json` from `recovery_fixture_at(1, 6, 1, CLI_R)` when a committed value or
+/// a proven slot list changes (the configuration hash, an origin record, the recovery or genesis
+/// slots). L1 blocks 64 (`L1_0`), [`CLI_R`] (R) and R + 10 (finalized) are the fixture's; R + 20
+/// adds a later landing at 18 and R + 30 also raises the recovery generation to 2, both on the
+/// state of R + 10. Each account the state still holds keeps the slot list the old file proves
+/// for the block in the same position, and the Inbox also proves the genesis, recovery and
+/// anchor slots, so every read the CLI tests make stays served; the proofs must cover the whole
+/// state. The file also carries the origin fallback key list, which the CLI tests' L1 answers
+/// `getFallbackKeys()` with.
 #[test]
 #[ignore = "manual fixture regeneration"]
 fn rebuild_cli_recovery_fixture() {
@@ -96,9 +101,9 @@ fn rebuild_cli_recovery_fixture() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../bin/client/src/recovery/testdata/recovery.json");
     let old: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-    let (fx, l1, _engine, witness) = super::recovery_fixture(1, 6, 1);
+    let (fx, l1, _engine, witness) = super::recovery_fixture_at(1, 6, 1, CLI_R);
     let inbox_address = fx.params.inbox;
-    let base = l1.state().states[&110].clone();
+    let base = l1.state().states[&(CLI_R + 10)].clone();
     let later = base.with_storage(
         inbox_address,
         &[
@@ -108,19 +113,20 @@ fn rebuild_cli_recovery_fixture() {
     );
     let superseded = later
         .with_storage(inbox_address, &[(inbox::slot(inbox::RECOVERY_GENERATION), U256::from(2))]);
-    for (number, state) in [(120, later), (130, superseded)] {
+    for (number, state) in [(CLI_R + 20, later), (CLI_R + 30, superseded)] {
         l1.insert_block(super::l1_header(number, super::Fixture::l1_timestamp(number)), state);
     }
     let (headers, states) = {
         let state = l1.state();
         (state.headers.clone(), state.states.clone())
     };
-    let blocks: Vec<serde_json::Value> = old["blocks"]
-        .as_array()
-        .unwrap()
+    let numbers = [fx.genesis.l1_0, CLI_R, CLI_R + 10, CLI_R + 20, CLI_R + 30];
+    let old_blocks = old["blocks"].as_array().unwrap();
+    assert_eq!(old_blocks.len(), numbers.len(), "one old block per fixture block");
+    let blocks: Vec<serde_json::Value> = old_blocks
         .iter()
-        .map(|block| {
-            let number = block["number"].as_u64().unwrap();
+        .zip(numbers)
+        .map(|(block, number)| {
             let state = &states[&number];
             let mut specs = Vec::new();
             let accounts: Vec<serde_json::Value> = block["accounts"]
@@ -186,16 +192,12 @@ fn rebuild_cli_recovery_fixture() {
             "inbox": p.inbox,
             "l1_chain_id": p.l1_chain_id,
             "l2_chain_id": p.l2_chain_id,
-            "min_stake": p.min_stake,
-            "n_max": p.n_max,
-            "registry": p.registry,
             "staking": p.staking,
             "unsettled_limit": p.unsettled_limit,
-            "vp_unit": p.vp_unit,
         },
-        "provenance": "abci::test_utils::recovery_fixture(1,6,1) rebuilt by \
-            rebuild_cli_recovery_fixture; finality variants 120 (landing at 18) and 130 \
-            (generation 2) on the state of 110",
+        "provenance": "abci::test_utils::recovery_fixture_at(1,6,1,200000) rebuilt by \
+            rebuild_cli_recovery_fixture; finality variants 200020 (landing at 18) and 200030 \
+            (generation 2) on the state of 200010",
         "witness": Bytes::from(alloy_rlp::encode(&witness)),
     });
     std::fs::write(path, serde_json::to_string_pretty(&fixture).unwrap() + "\n").unwrap();

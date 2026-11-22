@@ -147,8 +147,13 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
             seen_anchor |= env.anchor.is_some();
             let hash = block.block.header.validators_hash;
             if cached.as_ref().is_none_or(|(h, _)| *h != hash) {
-                cached =
-                    Some((hash, comet.archive_validators(w, params.n_max).await.map_err(source)?));
+                cached = Some((
+                    hash,
+                    comet
+                        .archive_validators(w, abci::config::MAX_SET_MEMBERS)
+                        .await
+                        .map_err(source)?,
+                ));
             }
             let frame = WindowBlock {
                 block: block.raw_block,

@@ -8,7 +8,8 @@ use crate::{
     validate,
 };
 use abci::{
-    AnchorState, AnchorWitness, Member,
+    AnchorState, AnchorWitness,
+    config::MAX_SET_MEMBERS,
     l1::{
         OwnFinality,
         layout::{inbox, word_u48},
@@ -183,8 +184,8 @@ where
         .ok_or_else(|| unavailable("missing consensus window"))?
         .as_ref()
         .map_err(Clone::clone)?;
-    // START-10-21: no block of this deployment exceeds its fixed `block.max_bytes`.
-    let max_block_bytes = abci::genesis::block_max_bytes(params.n_max) as usize;
+    // No block exceeds the fixed `block.max_bytes`.
+    let max_block_bytes = abci::genesis::BLOCK_MAX_BYTES as usize;
     let (first_height, _) =
         check_header_projection(&first.block, &landing, &package.validator_state, max_block_bytes)?;
     let w = first_height
@@ -206,7 +207,7 @@ where
     let mut terminal = None;
     // The validator state after s - 1 that header(s)'s app_hash commits (DATA-5.4-3).
     let mut val_state_before = None;
-    let fixed_params_hash = abci::genesis::GenesisConsensusParams::etna_hash(params.n_max);
+    let fixed_params_hash = abci::genesis::GenesisConsensusParams::etna_hash();
     let mut rejected = None;
     for frame in blocks.by_ref() {
         // Cached local frames and already-ready L1 futures need not yield themselves. Give the
@@ -220,7 +221,9 @@ where
             max_block_bytes,
         )?;
         val_state_before = before.or(val_state_before);
-        if frame.commit.len() > 2_000_000 || frame.validators.len() > params.n_max {
+        // Every set that signs a block, a candidate or a fallback key list, has at most
+        // `MAX_SET_MEMBERS` members.
+        if frame.commit.len() > 2_000_000 || frame.validators.len() > MAX_SET_MEMBERS {
             return Err(candidate("native frame exceeds consensus resource bounds"));
         }
         let (pair, same_commit) = decode_frame(&frame, previous.as_ref().map(|p| &p.commit))?;
@@ -628,13 +631,8 @@ fn historical_set(entries: &[ImportValidator]) -> Result<Validators, ImportError
             .filter(|p| *p <= abci::committee::MAX_TOTAL_POWER)
             .ok_or_else(|| candidate("historical voting power exceeds stock bound"))?;
     }
-    Validators::from_members(
-        &entries
-            .iter()
-            .map(|v| Member { pubkey: v.key, eff_stake: U256::ZERO, power: v.power })
-            .collect::<Vec<_>>(),
-    )
-    .map_err(candidate)
+    Validators::from_powers(&entries.iter().map(|v| (v.key, v.power)).collect::<Vec<_>>())
+        .map_err(candidate)
 }
 
 /// Header-only framing never requires w's block, certificate, evidence or validator set.
@@ -802,12 +800,8 @@ fn check_metadata(
     }
     rules::check_checkpoint_height(parent.number, anchor.inbox.last_checkpoint_height)
         .map_err(candidate)?;
-    rules::check_back_pressure(
-        height,
-        anchor.inbox.last_checkpoint_height,
-        params.unsettled_limit(),
-    )
-    .map_err(candidate)?;
+    rules::check_back_pressure(height, anchor.inbox.last_checkpoint_height, params.unsettled_limit)
+        .map_err(candidate)?;
     rules::check_rules_schedule(
         anchor.inbox.rules_schedule,
         &parent_info(parent, 0)?,
@@ -1043,6 +1037,7 @@ fn check_header_projection(
 mod tests {
     use super::*;
     use crate::test_utils::consensus_mpt::Fixture;
+    use alloy_primitives::U256;
 
     #[tokio::test]
     async fn late_window_only_needs_linked_suffix_headers() {
@@ -1153,31 +1148,15 @@ mod tests {
         );
     }
 
-    /// `go run` of stock v0.40.0 `ConsensusParams.Hash` with START-10-21's
-    /// `max_bytes = 1,572,864 + 4,096 × n_max` and `max_gas = -1`, for n_max 1, 128 and 4096.
+    /// `go run` of stock v0.40.0 `ConsensusParams.Hash` with the fixed `max_bytes = 2,097,152`
+    /// and `max_gas = -1`.
     #[test]
     fn fixed_consensus_hash_matches_stock_v040_oracle() {
-        for (n_max, hash) in [
-            (
-                1,
-                alloy_primitives::b256!(
-                    "db0965d0b4a8f527df74e19dbd4ca7228ce5a19f21f73946eb44ba40de395c85"
-                ),
-            ),
-            (
-                128,
-                alloy_primitives::b256!(
-                    "5a5e769362014cf54a23352cd4537ed64b191852bf6fbb2f9a374a6891455fc7"
-                ),
-            ),
-            (
-                4096,
-                alloy_primitives::b256!(
-                    "8c4f1f175c0e7c3c45f5318e708387d0af2576f3d01b482f7e00eddbe1e1a33b"
-                ),
-            ),
-        ] {
-            assert_eq!(abci::genesis::GenesisConsensusParams::etna_hash(n_max), hash, "{n_max}");
-        }
+        assert_eq!(
+            abci::genesis::GenesisConsensusParams::etna_hash(),
+            alloy_primitives::b256!(
+                "5a5e769362014cf54a23352cd4537ed64b191852bf6fbb2f9a374a6891455fc7"
+            )
+        );
     }
 }

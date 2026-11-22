@@ -37,7 +37,7 @@ async fn an_epoch_boundary_does_not_wait_for_l1() -> anyhow::Result<()> {
         started.elapsed()
     );
     ensure!(status.head < boundary, "the chain reached the boundary before L1 paused");
-    let limit = devnet.params().unsettled_limit();
+    let limit = devnet.params().unsettled_limit;
     ensure!(
         status.last_checkpoint_height + limit > boundary,
         "back-pressure would stop the chain at {} before the boundary {boundary}",

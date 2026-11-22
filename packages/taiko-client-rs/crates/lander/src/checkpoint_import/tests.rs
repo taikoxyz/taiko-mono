@@ -98,8 +98,8 @@ fn commit_terminal(fx: &mut Fixture, s: u64, before: &abci::valstate::ValState, 
 }
 
 use crate::test_utils::consensus_mpt::{Fixture, import_package};
-use abci::{AccountWitness, L1Error, RawL1Header};
-use alloy_primitives::Address;
+use abci::{AccountWitness, L1Error, RawL1Header, config::MAX_SET_MEMBERS};
+use alloy_primitives::{Address, U256};
 use async_trait::async_trait;
 use prost::Message;
 
@@ -144,10 +144,9 @@ fn frames(fx: &Fixture, height: u64) -> Vec<Result<WindowBlock, ImportError>> {
                     .encode_to_vec()
                     .into(),
                 validators: committee
-                    .state
                     .members
                     .iter()
-                    .map(|m| ImportValidator { key: m.pubkey, power: m.power })
+                    .map(|(key, power)| ImportValidator { key: *key, power: *power })
                     .collect(),
             })
         })
@@ -261,12 +260,8 @@ async fn import_advances_s_once_with_no_updates() {
     assert_eq!(after, &fx.val_states[&12]);
     assert_eq!(after, &before.advance(&[]).unwrap());
     assert_eq!(after.current, before.next);
-    let initial = fx.committees[&0]
-        .state
-        .members
-        .iter()
-        .map(|m| (m.pubkey, m.power))
-        .collect::<std::collections::BTreeMap<_, _>>();
+    let initial =
+        fx.committees[&0].members.iter().copied().collect::<std::collections::BTreeMap<_, _>>();
     for (h, set) in [(13, &after.current), (14, &after.next)] {
         assert_eq!(
             set.entries
@@ -553,7 +548,7 @@ async fn recovery_package(fx: &Fixture, height: u64) -> ImportPackage {
             .to_rfc3339(),
         chain_id: abci::rules::chain_id_for(&fx.params, origin.generation).unwrap(),
         initial_height: (origin.height + 1).to_string(),
-        consensus_params: abci::genesis::GenesisConsensusParams::etna(fx.params.n_max),
+        consensus_params: abci::genesis::GenesisConsensusParams::etna(),
         validators: keys
             .keys()
             .iter()
@@ -984,7 +979,7 @@ async fn restores_landed_fi_cursor_without_historical_fi_acquisition_or_trials()
 fn metadata_and_frame_schemas_reject_unknown_fields() {
     let fixture = Fixture::new(0, 0);
     let mut validator = serde_json::to_value(ImportValidator {
-        key: fixture.committees[&0].state.members[0].pubkey,
+        key: fixture.committees[&0].members[0].0,
         power: 1,
     })
     .unwrap();
@@ -1307,6 +1302,48 @@ async fn frame_validators_must_match_the_header_validators_hash() {
             "{height}: {result:?}"
         );
     }
+}
+
+/// Every set that signs a block, a candidate or a fallback key list, has at most 128 members,
+/// whatever the staking contract's seat limit is: a frame naming 129 validators is refused for
+/// its size, while one naming 128 (here keys the block's certificate does not match) passes that
+/// bound and is refused only by a later check.
+#[tokio::test]
+async fn import_refuses_a_set_of_129() {
+    let fx = std::sync::Arc::new(Fixture::new(6, 6));
+    let package = import_package(&fx, 6).await;
+    let (_, set, _) = crate::test_utils::consensus::committee(&[1; 129]);
+    for (count, refused_for_size) in [(MAX_SET_MEMBERS, false), (MAX_SET_MEMBERS + 1, true)] {
+        let mut input = frames(&fx, 6);
+        input[2].as_mut().unwrap().validators = set.members[..count]
+            .iter()
+            .map(|(key, power)| ImportValidator { key: *key, power: *power })
+            .collect();
+        let err = authenticate_import(&package, input.into_iter(), &fx.params, &OwnL1(fx.clone()))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, ImportError::Candidate(_)), "{count} validators: {err}");
+        let sized = err.to_string().contains("resource bounds");
+        assert_eq!(sized, refused_for_size, "{count} validators: {err}");
+    }
+}
+
+/// A generation whose origin fallback key list holds 128 keys, the most a list holds, signs
+/// every height with all of them at power 1, and its checkpoint imports.
+#[tokio::test]
+async fn import_accepts_a_128_key_fallback_set() {
+    let fx = std::sync::Arc::new(Fixture::with_origin_keys(6, 6, 128));
+    assert_eq!(fx.origin_keys.keys().len(), MAX_SET_MEMBERS);
+    let package = import_package(&fx, 6).await;
+    let input = frames(&fx, 6);
+    assert!(input.iter().all(|frame| frame.as_ref().unwrap().validators.len() == 128));
+    let imported = authenticate_import(&package, input.into_iter(), &fx.params, &OwnL1(fx.clone()))
+        .await
+        .unwrap();
+    assert_eq!(imported.state().last_height, 6);
+    assert_eq!(imported.state().val_state, fx.val_states[&6]);
+    assert_eq!(imported.state().val_state.current.entries.len(), 128);
+    assert!(imported.state().val_state.current.entries.iter().all(|entry| entry.power == 1));
 }
 
 /// DATA-5.4-2: each window block's ValidatorsHash must equal its predecessor's NextValidatorsHash
@@ -1633,7 +1670,7 @@ async fn review_self_signed_prefix_cannot_trigger_an_own_l1_exclusion_halt() {
     .unwrap();
     first.block.data[0] = env.encode().to_vec();
     first.block.header.data_hash = Some(crate::validate::data_hash(&first.block.data));
-    let (_, attacker, keys) = committee(&[7], 0);
+    let (_, attacker, keys) = committee(&[7]);
     assert_ne!(attacker.validators.hash(), fx.committees[&0].validators.hash());
     first.block.header.validators_hash = attacker.validators.hash();
     first.block.header.proposer_address = attacker.validators.validators()[0].address;
@@ -1657,10 +1694,9 @@ async fn review_self_signed_prefix_cannot_trigger_an_own_l1_exclusion_halt() {
     .unwrap();
     let mut input = frames(&fx, 6);
     input[0].as_mut().unwrap().validators = attacker
-        .state
         .members
         .iter()
-        .map(|m| ImportValidator { key: m.pubkey, power: m.power })
+        .map(|(key, power)| ImportValidator { key: *key, power: *power })
         .collect();
     let err =
         authenticate_import(&package, input.into_iter(), &fx.params, &source).await.unwrap_err();
@@ -1699,7 +1735,7 @@ async fn review_ancillary_terminal_bytes_cannot_hide_proven_contradictions() {
         let mut inputs = frames(&fx, 6);
         let frame = inputs.last_mut().unwrap().as_mut().unwrap();
         if case.ends_with("validators") {
-            frame.validators.resize(fx.params.n_max + 1, frame.validators[0].clone());
+            frame.validators.resize(MAX_SET_MEMBERS + 1, frame.validators[0].clone());
         } else {
             frame.commit = Bytes::from_static(&[0xff]);
         }

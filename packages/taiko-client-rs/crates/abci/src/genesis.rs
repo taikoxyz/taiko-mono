@@ -37,10 +37,9 @@ pub(crate) use verify::{GenesisContext, verify_context, verify_deployment_contex
 
 pub use build::build_genesis;
 pub use doc::{
-    AbciParams, AuthorityParams, BlockParams, EVIDENCE_MAX_AGE_DURATION,
+    AbciParams, AuthorityParams, BLOCK_MAX_BYTES, BlockParams, EVIDENCE_MAX_AGE_DURATION,
     EVIDENCE_MAX_AGE_NUM_BLOCKS, EvidenceParams, GenesisConsensusParams, GenesisDoc,
-    GenesisValidator, MAX_BLOCK_MAX_BYTES, ValidatorParams, VersionParams, block_max_bytes,
-    genesis_app_hash, validator_address,
+    GenesisValidator, ValidatorParams, VersionParams, genesis_app_hash, validator_address,
 };
 
 /// Everything `InitChain` verifies to start the chain, carried in the genesis `app_state`.

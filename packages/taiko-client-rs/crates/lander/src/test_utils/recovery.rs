@@ -54,7 +54,7 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     for e in 0..=((tip + 1) / length).max(epoch + 2) {
         f.committees.insert(e, origin_set.clone());
     }
-    f.val_states = replay_val_states((6, &origin_set.state), tip);
+    f.val_states = replay_val_states((6, &origin_set.members), tip);
     f.fallback_lists.insert(keys.hash(), keys.clone());
     let state_at = |height: u64, hash: B256, comet: B256| {
         let base = state_with_queue(

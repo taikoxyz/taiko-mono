@@ -12,10 +12,9 @@ use crate::{
 /// Upper bound on configurable call deadlines, in seconds.
 pub const MAX_TIMEOUT_SECS: u64 = 3600;
 
-/// The largest CometBFT `block.max_bytes` of any Etna genesis (START-10-21 at n_max = 4096,
-/// 18,350,080), bounding one block's protobuf and so each published header and execution block
-/// before the deployment's own, smaller limit applies.
-pub const COMET_BLOCK_MAX_BYTES: usize = abci::genesis::MAX_BLOCK_MAX_BYTES as usize;
+/// The fixed CometBFT `block.max_bytes` of every Etna genesis, 2,097,152, bounding one block's
+/// protobuf and so each published header and execution block.
+pub const COMET_BLOCK_MAX_BYTES: usize = abci::genesis::BLOCK_MAX_BYTES as usize;
 
 /// Explicit transaction fee ceilings supplied by the operator, in wei.
 pub use crate::tx::FeeCaps;

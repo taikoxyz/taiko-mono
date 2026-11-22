@@ -49,9 +49,9 @@
 use std::{collections::BTreeMap, sync::OnceLock};
 
 use abci::{
-    AccountWitness, AnchorState, AnchorWitness, ChainParams, Engine, EngineError, EtnaEnvelope,
-    ExecutionBlock, ForcedWitness, GenesisRecord, InboxFacts, ParentInfo, RawL1Header,
-    StorageProof,
+    AccountWitness, AnchorState, AnchorWitness, ChainParams, ChainParamsExt, Engine, EngineError,
+    EtnaEnvelope, ExecutionBlock, ForcedWitness, GenesisRecord, InboxFacts, ParentInfo,
+    RawL1Header, StorageProof,
     app::{ChainContext, Rejection, validate_block},
     engine::{
         PayloadVerdict, PoolSelection,
@@ -489,7 +489,7 @@ impl BlockCase {
             l1_0: 100,
             max_anchor_age: 7200,
             delay: 3600,
-            unsettled: params().unsettled_limit(),
+            unsettled: params().unsettled_limit,
             parent_height: 4,
             parent_timestamp: anchor_timestamp - 2,
             parent_anchor: AnchorFacts::new(110, anchor_timestamp - 100, 2, 0),
