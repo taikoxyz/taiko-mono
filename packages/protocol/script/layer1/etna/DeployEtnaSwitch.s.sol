@@ -11,7 +11,6 @@ import { console2 } from "forge-std/src/Script.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { InboxWithEtnaCutoffs } from "src/layer1/core/impl/InboxWithEtnaCutoffs.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
-import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaInboxBootstrap } from "src/layer1/etna/impl/EtnaInboxBootstrap.sol";
 import { EtnaSwitchGuard } from "src/layer1/etna/switch/EtnaSwitchGuard.sol";
@@ -30,13 +29,14 @@ interface IEtnaVerifierIdentity {
 
 /// @title DeployEtnaSwitch
 /// @notice Prepares contracts for switching a live Unzen chain to Etna, without upgrading proxies.
-/// @dev Reuses the new-network registry and initialization parameters. Additional environment:
-/// UNZEN_INBOX, SIGNAL_SERVICE (the existing L1 proxy), ETNA_FORK_TIME, PROPOSE_MARGIN and
-/// FI_MARGIN. Export the deployed cutoff implementation as UNZEN_INBOX_IMPLEMENTATION before
-/// deployInbox. REMOTE_SIGNAL_SERVICE is the existing L2 proxy. GENESIS_BLOCK_HASH and
-/// GENESIS_STATE_ROOT are not read: the start remains unwritten until anyone calls `setOrigin`.
-/// Deploy the bootstrap, then its registry, dedicated verifiers, the three implementations and
-/// the switch guard. Every deployment entry point only creates contracts; the DAO batches that
+/// @dev Reuses the new-network initialization parameters. ETNA_STAKING is the `EtnaStaking` proxy
+/// that `DeployEtnaStaking` deploys on L2 at a CREATE2 address; it is taken as given and must be
+/// non-zero. Additional environment: UNZEN_INBOX, SIGNAL_SERVICE (the existing L1 proxy),
+/// ETNA_FORK_TIME, PROPOSE_MARGIN and FI_MARGIN. Export the deployed cutoff implementation as
+/// UNZEN_INBOX_IMPLEMENTATION before deployInbox. REMOTE_SIGNAL_SERVICE is the existing L2 proxy.
+/// GENESIS_BLOCK_HASH and GENESIS_STATE_ROOT are not read: the start remains unwritten until
+/// anyone calls `setOrigin`. Deploy the bootstrap, then dedicated verifiers, the three
+/// implementations and the switch guard. Every deployment entry point only creates contracts; the DAO batches that
 /// install them are built by `BuildEtnaSwitchProposals`, and `setOrigin` is permissionless. The
 /// live Unzen Inbox may be in either switch state (Etna SWITCH.md section 3): before the
 /// scheduling proposal executes it saves checkpoints in SIGNAL_SERVICE, after it through
@@ -65,7 +65,7 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         vm.stopBroadcast();
         console2.log("Etna Inbox bootstrap proxy:", proxy_);
         console2.log("Retained L1 SignalService proxy:", signalService_);
-        console2.log("Export INBOX_PROXY, then deploy and populate its registry.");
+        console2.log("Export INBOX_PROXY; deploy EtnaStaking on L2 with DeployEtnaStaking");
     }
 
     /// @notice Deploys the switching Etna implementation for the scheduling proposal or a
@@ -159,38 +159,27 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
         require(owner_ != address(0), ExplicitOwnerRequired());
     }
 
-    /// @dev Validates the target L1 and bootstrap before preparing a registry that fixes its Inbox.
-    /// @return config_ The unchanged new-network registry parameters for this switching proxy.
-    function _registryConfig()
-        internal
-        view
-        override
-        returns (IEtnaStakingRegistry.Config memory config_)
-    {
-        _liveUnzenConfig();
-        _etnaProxy();
-        return super._registryConfig();
-    }
-
     /// @dev Checks the switching identities and that every Etna verifier instance is isolated.
     /// @return config_ Etna configuration with all three switching immutables populated.
     function _inboxConfig() internal view override returns (IEtnaInbox.Config memory config_) {
         IInbox.Config memory cutoffConfig = _cutoffConfig();
         EtnaSwitchGuard.Schedule memory schedule = _schedule();
         config_ = super._inboxConfig();
-        address proxy = cutoffConfig.signalService;
-        _requireOwner(config_.stakingRegistry);
         config_.unzenInbox = vm.envAddress("UNZEN_INBOX");
         config_.etnaForkTime = schedule.etnaForkTime;
         _checkCutoffImplementation(
             vm.envAddress("UNZEN_INBOX_IMPLEMENTATION"), cutoffConfig, schedule
         );
-        require(
-            IEtnaStakingRegistry(config_.stakingRegistry).inbox() == proxy
-                && IEtnaStakingRegistry(config_.stakingRegistry).l2ChainId() == config_.l2ChainId,
-            SwitchIdentityMismatch()
-        );
         _checkVerifiers(config_.proofVerifier, cutoffConfig.proofVerifier, config_.l2ChainId);
+    }
+
+    /// @dev Reads ETNA_STAKING, the `EtnaStaking` proxy that `DeployEtnaStaking` deploys on L2 at a
+    /// CREATE2 address; on a switching network it is not the genesis generator's address, so only
+    /// a zero value is rejected.
+    /// @return staking_ The EtnaStaking proxy.
+    function _etnaStaking() internal view override returns (address staking_) {
+        staking_ = vm.envAddress("ETNA_STAKING");
+        require(staking_ != address(0), EtnaStakingMismatch());
     }
 
     /// @dev Opens the existing Unzen proxy and SignalService, never a fresh replacement store. The
@@ -324,7 +313,7 @@ contract DeployEtnaSwitch is DeployEtnaDevnet {
 
     /// @dev Requires installed ownership, with no in-flight transfer, on every mutable control
     /// surface the switch will rely on. Both proxy and verifier owners expose these selectors.
-    /// @param _controlled The Inbox, registry, SignalService or image-trusting verifier.
+    /// @param _controlled The Inbox, SignalService or image-trusting verifier.
     function _requireOwner(address _controlled) internal view {
         require(
             EssentialContract(_controlled).owner() == _owner(0)

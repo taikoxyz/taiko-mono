@@ -10,15 +10,14 @@ import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 
 /// @title EtnaLandTestBase
 /// @notice Lands batches on an Inbox set up like the Lean example chain
-/// (`Etna.Design.Examples`): genesis hash `bytes32(100)`, initialized at L1 block 2 with genesis
-/// cutoff 1, three forced inclusions saved, L1 at block 11 with reference block 10 hashing to
-/// `bytes32(999)`, and every landing proving snapshot 4.
+/// (`Etna.Design.Examples`): genesis hash `bytes32(100)`, initialized at L1 block 1, three forced
+/// inclusions saved, and L1 at block 11 with reference block 10 hashing to `bytes32(999)`.
 /// @dev The committed chain is the Lean `cutAt` table extended to every height: EL hash 100 + x,
 /// Comet hash 200 + x (0 at x = 0), forced inclusion cursor x / 6 and state root 300 + x. A suite
 /// that lands beyond height 18 must save enough forced inclusions or lower the input's head.
 /// `_statement` and `_cutHash` rebuild appendix A with `LibEtnaLandStatement`, independently of
-/// the contract; they read only the stored generation and committee configuration hash and the
-/// immutable L2 chain id and registry through the Inbox getters.
+/// the contract; they read only the stored generation and config hash and the immutable L2 chain
+/// id through the Inbox getters.
 abstract contract EtnaLandTestBase is EtnaInboxTestBase {
     /// @dev The committed chain consumes one forced inclusion every `K` blocks.
     uint256 internal constant K = 6;
@@ -32,9 +31,6 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
     /// @dev The Lean example's reference block and its hash.
     uint256 internal constant LEAN_REFERENCE_BLOCK = 10;
     bytes32 internal constant LEAN_REFERENCE_HASH = bytes32(uint256(999));
-
-    /// @dev The selection snapshot every Lean example landing proves.
-    uint256 internal constant LEAN_SNAPSHOT = 4;
 
     /// @dev The reference block of the inputs `_input` builds, and the hash `_statement` binds.
     uint256 internal l1ReferenceBlockNumber;
@@ -105,8 +101,7 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         }
     }
 
-    /// @dev The inputs landing the committed chain's `(_p, _h]` with the current reference block
-    /// and snapshot 4.
+    /// @dev The inputs landing the committed chain's `(_p, _h]` with the current reference block.
     function _input(
         uint256 _p,
         uint256 _h
@@ -123,8 +118,7 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
             lastCometHash: comet,
             lastStateRoot: _stateRoot(_h),
             l1ReferenceBlockNumber: l1ReferenceBlockNumber,
-            forcedInclusionHead: head,
-            activeCommitteeSnapshot: LEAN_SNAPSHOT
+            forcedInclusionHead: head
         });
     }
 
@@ -169,7 +163,7 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         );
     }
 
-    /// @dev The landing statement: keccak256 of the 21 appendix A words (672 bytes) that
+    /// @dev The landing statement: keccak256 of the 19 appendix A words (608 bytes) that
     /// `_statementPreimage` returns.
     function _statement(
         IEtnaInbox.LandInput memory _in,
@@ -181,11 +175,11 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         returns (bytes32)
     {
         bytes memory preimage = _statementPreimage(_in, _origin, _cutHashValue);
-        assertEq(preimage.length, 672, "21 statement words");
+        assertEq(preimage.length, 608, "19 statement words");
         return keccak256(preimage);
     }
 
-    /// @dev The 21 appendix A statement words, with parentHash, parentCometHash and headBefore
+    /// @dev The 19 appendix A statement words, with parentHash, parentCometHash and headBefore
     /// from `_origin`, the reference hash `l1ReferenceBlockHash` and the hash of `blobHashes`.
     function _statementPreimage(
         IEtnaInbox.LandInput memory _in,
@@ -200,9 +194,8 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
             LibEtnaLandStatement.Context({
                 l2ChainId: _inbox().l2ChainId(),
                 inbox: inboxProxy,
-                stakingRegistry: _inbox().stakingRegistry(),
                 generation: _inbox().recoveryGeneration(),
-                committeeConfigHash: _inbox().committeeConfigHash()
+                configHash: _inbox().configHash()
             }),
             _in,
             _origin,
@@ -229,7 +222,7 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
     }
 
     /// @dev Bob lands `_in` with `_leafList`, expecting `verifyProof(0, statement, PROOF)` with
-    /// the statement over `landings(p)` and `Landed(p, c, h, cutHash, snapshot, 1)` with `c` the
+    /// the statement over `landings(p)` and `Landed(p, c, h, cutHash, 1)` with `c` the
     /// checkpoint height before the call. The call expectation is not counted, so a suite may land
     /// the same transaction again after `vm.revertToState`.
     function _land(
@@ -249,15 +242,13 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
             abi.encodeCall(IProofVerifier.verifyProof, (0, statement_, PROOF))
         );
         vm.expectEmit(inboxProxy);
-        emit IEtnaInbox.Landed(
-            _in.parentHeight, c, _in.lastHeight, cutHash, _in.activeCommitteeSnapshot, 1
-        );
+        emit IEtnaInbox.Landed(_in.parentHeight, c, _in.lastHeight, cutHash, 1);
         vm.prank(Bob);
         _inbox().land(_in, _leafList, PROOF);
     }
 
     /// @dev Expects Bob's landing of `_in` with `_leafList` to revert with `_selector`, leaving
-    /// the generation, checkpoint, queue pointers, snapshot and `landings(h)` unchanged.
+    /// the generation, config hash, checkpoint, queue pointers and `landings(h)` unchanged.
     function _expectLandRevert(
         IEtnaInbox.LandInput memory _in,
         bytes32[] memory _leafList,
@@ -265,12 +256,12 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
     )
         internal
     {
-        bytes32[9] memory before = _landingState(_in.lastHeight);
+        bytes32[8] memory before = _landingState(_in.lastHeight);
         vm.blobhashes(blobHashes);
         vm.expectRevert(_selector);
         vm.prank(Bob);
         _inbox().land(_in, _leafList, PROOF);
-        bytes32[9] memory afterRevert = _landingState(_in.lastHeight);
+        bytes32[8] memory afterRevert = _landingState(_in.lastHeight);
         for (uint256 i; i < before.length; ++i) {
             assertEq(afterRevert[i], before[i], "no state change");
         }
@@ -281,7 +272,7 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
     // ---------------------------------------------------------------
 
     /// @dev The default genesis inputs with the committed chain's block-0 hash.
-    function _leanInitParams() internal view returns (IEtnaInbox.InitParams memory params_) {
+    function _leanInitParams() internal pure returns (IEtnaInbox.InitParams memory params_) {
         params_ = _defaultInitParams();
         (params_.genesisBlockHash,,) = _cut(0);
     }
@@ -322,11 +313,6 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
         IEtnaInbox.Config memory config = _defaultConfig();
         config.maxBatchBlocks = _maxBatchBlocks;
         _inbox().upgradeTo(address(_newInboxImpl(config)));
-    }
-
-    /// @dev An empty exclusion list.
-    function _noExclusions() internal pure returns (uint256[] memory) {
-        return new uint256[](0);
     }
 
     /// @dev Whether a recorded account access is a call or a create.
@@ -449,17 +435,16 @@ abstract contract EtnaLandTestBase is EtnaInboxTestBase {
     // Private helpers
     // ---------------------------------------------------------------
 
-    /// @dev Slots 268-271, 281, 284 and the three words of `landings[_height]`.
-    function _landingState(uint256 _height) private view returns (bytes32[9] memory words_) {
+    /// @dev Slots 268-271, 281 and the three words of `landings[_height]`.
+    function _landingState(uint256 _height) private view returns (bytes32[8] memory words_) {
         words_[0] = _inboxWord(RECOVERY_GENERATION_SLOT);
-        words_[1] = _inboxWord(COMMITTEE_CONFIG_HASH_SLOT);
+        words_[1] = _inboxWord(CONFIG_HASH_SLOT);
         words_[2] = _inboxWord(LAST_CHECKPOINT_HEIGHT_SLOT);
         words_[3] = _inboxWord(LAST_CHECKPOINT_HASH_SLOT);
         words_[4] = _inboxWord(FORCED_INCLUSION_HEAD_TAIL_SLOT);
-        words_[5] = _inboxWord(ACTIVE_COMMITTEE_SNAPSHOT_SLOT);
         uint256 slot = _landingSlot(_height);
-        words_[6] = _inboxWord(slot);
-        words_[7] = _inboxWord(slot + 1);
-        words_[8] = _inboxWord(slot + 2);
+        words_[5] = _inboxWord(slot);
+        words_[6] = _inboxWord(slot + 1);
+        words_[7] = _inboxWord(slot + 2);
     }
 }

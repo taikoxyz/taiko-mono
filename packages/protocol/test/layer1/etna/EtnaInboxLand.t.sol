@@ -163,27 +163,28 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         _assertCheckpoint(7, bytes32(uint256(107)));
     }
 
-    /// @dev The statement preimage is the 21 static ABI words of ENC-A-35 in order, 672 bytes, and
-    /// the Inbox verifies exactly its keccak256.
-    function test_statement_is672Bytes() external {
+    /// @dev The statement preimage is the 19 static ABI words of appendix A in order, 608 bytes:
+    /// tag, L1 chain id, L2 chain id, Inbox, generation, p, parentHash, parentCometHash, config
+    /// hash, h, lastBlockHash, lastCometHash, lastStateRoot, reference number and hash, blob hashes
+    /// hash, headBefore, headAfter and cutHash. The Inbox verifies exactly its keccak256.
+    function test_statement_is608Bytes() external {
         IEtnaInbox.LandInput memory input = _input(0, 3);
         bytes32[] memory leaves = _leaves(0, 3);
         bytes32 cutHash = _cutHash(input, leaves);
         IEtnaInbox.Landing memory origin = _inbox().landings(0);
         bytes memory preimage = _statementPreimage(input, origin, cutHash);
-        assertEq(preimage.length, 672, "672 bytes");
+        assertEq(preimage.length, 608, "608 bytes");
 
-        bytes32[21] memory words = [
+        bytes32[19] memory words = [
             bytes32("TAIKO_ETNA_LAND_V1"),
             bytes32(block.chainid),
             bytes32(uint256(L2_CHAIN_ID)),
             bytes32(uint256(uint160(inboxProxy))),
-            bytes32(uint256(uint160(address(registry)))),
             bytes32(0),
             bytes32(0),
             bytes32(uint256(100)),
             bytes32(0),
-            _inbox().committeeConfigHash(),
+            _inbox().configHash(),
             bytes32(uint256(3)),
             bytes32(uint256(103)),
             bytes32(uint256(203)),
@@ -193,7 +194,6 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
             keccak256(abi.encodePacked(blobHashes)),
             bytes32(0),
             bytes32(0),
-            bytes32(LEAN_SNAPSHOT),
             cutHash
         ];
         for (uint256 i; i < words.length; ++i) {
@@ -201,6 +201,54 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         }
 
         assertEq(_land(input, leaves), keccak256(preimage), "the Inbox verifies this statement");
+    }
+
+    /// @dev `land` takes the seven-field `LandInput` tuple.
+    function test_land_SelectorIsTheSevenFieldTuple() external pure {
+        assertEq(IEtnaInbox.land.selector, bytes4(0x5185fd7a), "selector");
+        assertEq(
+            IEtnaInbox.land.selector,
+            bytes4(
+                keccak256(
+                    "land((uint256,uint256,bytes32,bytes32,bytes32,uint256,uint256),bytes32[],bytes)"
+                )
+            ),
+            "signature"
+        );
+    }
+
+    /// @dev `Landed(uint256,uint256,uint256,bytes32,uint8)` is the Inbox's only log of a landing:
+    /// topics p, c and h, and data the cut hash and the statement version.
+    function test_land_EmitsLandedWithoutSnapshot() external {
+        _land(0, 6);
+        IEtnaInbox.LandInput memory input = _input(6, 12);
+        bytes32[] memory leaves = _leaves(6, 12);
+        bytes32 cutHash = _cutHash(input, leaves);
+
+        vm.blobhashes(blobHashes);
+        vm.recordLogs();
+        vm.prank(Bob);
+        _inbox().land(input, leaves, PROOF);
+        VmSafe.Log[] memory logs = vm.getRecordedLogs();
+
+        uint256 count;
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].emitter != inboxProxy) continue;
+            ++count;
+            VmSafe.Log memory entry = logs[i];
+            assertEq(entry.topics.length, 4, "three indexed topics");
+            assertEq(
+                entry.topics[0],
+                bytes32(0x4ae4201144e8035a88f4eb02cf3a48037a99c51b7f830a83aa9bcb5aa8bd7c04),
+                "topic0"
+            );
+            assertEq(entry.topics[0], keccak256("Landed(uint256,uint256,uint256,bytes32,uint8)"));
+            assertEq(entry.topics[1], bytes32(uint256(6)), "p");
+            assertEq(entry.topics[2], bytes32(uint256(6)), "c");
+            assertEq(entry.topics[3], bytes32(uint256(12)), "h");
+            assertEq(entry.data, abi.encode(cutHash, uint8(1)), "data");
+        }
+        assertEq(count, 1, "one Inbox log");
     }
 
     /// @dev `cutLeaf(x) = keccak256(abi.encode(x, blockHash, cometHash, forcedHead))`, four words,
@@ -246,7 +294,6 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         }
         _assertCheckpoint(0, bytes32(uint256(100)));
         _assertQueue(0, LEAN_FORCED_INCLUSIONS);
-        assertEq(_inbox().activeCommitteeSnapshot(), registryCheckpointBlock);
     }
 
     /// @dev The first batch writes the terminal record and retains the start record.
@@ -255,16 +302,13 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         bytes32[] memory leaves = _leaves(0, 6);
         assertEq(leaves.length, 5, "the leaves of 1 to 5");
         assertEq(_inbox().l2ChainId(), L2_CHAIN_ID, "statement L2 chain id");
-        assertEq(_inbox().stakingRegistry(), address(registry), "statement registry");
 
-        // `_land` expects `Landed(0, 0, 6, cutHash, 4, 1)` and one verifier call.
+        // `_land` expects `Landed(0, 0, 6, cutHash, 1)` and one verifier call.
         _land(input, leaves);
 
         _assertCheckpoint(6, bytes32(uint256(106)));
         _assertLanding(6, _record(0, 0, 1, 6));
         _assertLanding(0, _record(0, 0, 0, 0));
-        assertEq(_inbox().activeCommitteeSnapshot(), LEAN_SNAPSHOT, "snapshot");
-        assertEq(uint256(_inboxWord(ACTIVE_COMMITTEE_SNAPSHOT_SLOT)), LEAN_SNAPSHOT, "slot 284");
         _assertQueue(1, LEAN_FORCED_INCLUSIONS);
         assertEq(_inboxWord(RECOVERY_GENERATION_SLOT), 0, "generation");
         ICheckpointStore.Checkpoint memory saved = signalService.getCheckpoint(6);
@@ -300,44 +344,6 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
             address(landVerifier), abi.encodePacked(IProofVerifier.verifyProof.selector, uint256(0))
         );
         _land(0, 6);
-    }
-
-    /// @dev Spec 6.1 step 3 (STAKE-4.1-29): `activeCommitteeSnapshot` never decreases. A landing
-    /// proving a snapshot below the stored one reverts before the verifier is called, which
-    /// would reject it too; an equal snapshot lands, and the stored value moves only forward.
-    function test_land_RevertWhen_SnapshotRegresses() external {
-        uint256 stored = _inbox().activeCommitteeSnapshot();
-        assertGt(stored, 0, "the genesis cutoff");
-        IEtnaInbox.LandInput memory input = _input(0, 6);
-        input.activeCommitteeSnapshot = stored - 1;
-        // The verifier rejects every proof, so the snapshot error shows the check runs first.
-        landVerifier.setRejects(true);
-        _expectLandRevert(input, _leaves(0, 6), IEtnaInbox.CommitteeSnapshotRegressed.selector);
-        landVerifier.setRejects(false);
-
-        input.activeCommitteeSnapshot = stored;
-        _land(input, _leaves(0, 6));
-        assertEq(_inbox().activeCommitteeSnapshot(), stored, "equal snapshot lands");
-
-        input = _input(6, 12);
-        input.activeCommitteeSnapshot = 0;
-        _expectLandRevert(input, _leaves(6, 12), IEtnaInbox.CommitteeSnapshotRegressed.selector);
-    }
-
-    /// @dev Spec 6.1 step 7 stores the snapshot as proven: no bound applies above the stored one,
-    /// not even the reference block, which the proof binds instead.
-    function test_land_StoresAHigherProvenSnapshotWithoutUpperBound() external {
-        IEtnaInbox.LandInput memory input = _input(0, 6);
-        input.activeCommitteeSnapshot = type(uint256).max;
-        _land(input, _leaves(0, 6));
-        assertEq(
-            uint256(_inboxWord(ACTIVE_COMMITTEE_SNAPSHOT_SLOT)),
-            type(uint256).max,
-            "beyond the reference block"
-        );
-        // Every later landing must prove at least that snapshot.
-        input = _input(6, 12);
-        _expectLandRevert(input, _leaves(6, 12), IEtnaInbox.CommitteeSnapshotRegressed.selector);
     }
 
     /// @dev Lean `protocol_fee_is_preserved_by_landing`: with four entries saved, landing (0, 6]
@@ -463,7 +469,7 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         _assertCheckpoint(1000, bytes32(uint256(1100)));
     }
 
-    /// @dev PARAM-11-6: a landing at the cap of 12,951 blocks, with 12,950 leaves, six blobs and a
+    /// @dev A landing at the cap of 12,952 blocks, with 12,951 leaves, six blobs and a
     /// 4 KiB proof, fits one transaction under the EIP-7825 cap of 2^24 gas. Counting every
     /// calldata byte as non-zero, standard pricing (16 gas per byte) plus the measured execution
     /// stays below the EIP-7623 floor (40 gas per byte), so the floor sets the transaction's gas
@@ -798,7 +804,6 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
         _expectLandRevert(input, _leaves(0, 6), MockLandProofVerifier.ProofRejected.selector);
 
         _assertCheckpoint(0, bytes32(uint256(100)));
-        assertEq(_inbox().activeCommitteeSnapshot(), registryCheckpointBlock, "snapshot");
         _assertQueue(0, LEAN_FORCED_INCLUSIONS);
         _assertLanding(
             6,
@@ -891,11 +896,6 @@ contract EtnaInboxLandTest is EtnaLandTestBase {
                 seen |= 4;
             } else if (a.account == signalImpl) {
                 assertEq(uint8(a.kind), uint8(VmSafe.AccountAccessKind.DelegateCall), "signal impl");
-            } else if (a.account == address(registry)) {
-                assertEq(uint8(a.kind), uint8(VmSafe.AccountAccessKind.StaticCall));
-                assertEq(a.data, abi.encodeWithSignature("inNonReentrant()"));
-            } else if (a.account == registry.impl()) {
-                assertEq(uint8(a.kind), uint8(VmSafe.AccountAccessKind.DelegateCall));
             } else {
                 revert(string.concat("unexpected call to ", vm.toString(a.account)));
             }

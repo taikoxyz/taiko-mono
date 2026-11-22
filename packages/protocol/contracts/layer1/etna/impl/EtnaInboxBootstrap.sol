@@ -5,11 +5,10 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
 /// @title EtnaInboxBootstrap
 /// @notice The first implementation of the Etna Inbox proxy: it only sets the owner, so the proxy
-/// address exists before the registry that fixes it (spec 10 step 1).
+/// address exists before the L2 `EtnaStaking` proxy that fixes it (spec 10 step 1).
 /// @dev The owner later upgrades the proxy to `EtnaInbox` and calls its `init` in the same
-/// transaction. Until then the proxy reports itself uninitialized, which keeps the registry's
-/// exit confirmation and slashing closed. The storage is `EssentialContract`'s alone, so the Inbox
-/// slots stay zero.
+/// transaction. Until then the proxy reports itself uninitialized. The storage is
+/// `EssentialContract`'s alone, so the Inbox slots stay zero.
 /// @custom:security-contact security@taiko.xyz
 contract EtnaInboxBootstrap is EssentialContract {
     /// @notice Sets the owner of the proxy.

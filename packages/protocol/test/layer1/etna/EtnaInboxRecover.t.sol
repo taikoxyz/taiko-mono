@@ -5,60 +5,17 @@ import { MockLandProofVerifier } from "./EtnaInboxTestBase.sol";
 import { EtnaLandTestBase } from "./EtnaLandTestBase.sol";
 import { VmSafe } from "forge-std/src/Vm.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
-import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
-
-/// @notice A registry stand-in that records, while `recover` forces an exit, whether the Inbox
-/// holds its reentrancy lock and what re-entries into `land` and `recover` return.
-contract LockProbeRegistry {
-    function inNonReentrant() external pure returns (bool) {
-        return false;
-    }
-    bytes public landCall;
-    bytes public recoverCall;
-    uint256 public forceExits;
-    bool public lockHeld;
-    bool public landSucceeded;
-    bytes public landError;
-    bool public recoverSucceeded;
-    bytes public recoverError;
-
-    function setReentryCalls(
-        bytes calldata _landCall,
-        bytes calldata _recoverCall
-    )
-        external
-    {
-        landCall = _landCall;
-        recoverCall = _recoverCall;
-    }
-
-    /// @dev Large enough that every exclusion a test names is issued.
-    function bondCount() external pure returns (uint256) {
-        return type(uint256).max;
-    }
-
-    function forceExit(uint256) external {
-        ++forceExits;
-        lockHeld = EssentialContract(msg.sender).inNonReentrant();
-        (landSucceeded, landError) = msg.sender.call(landCall);
-        (recoverSucceeded, recoverError) = msg.sender.call(recoverCall);
-    }
-}
 
 /// @title EtnaInboxRecoverTest
 /// @notice Governance recovery (spec 8 steps 1-4, 8.3, 8.4) and landing across generations.
 /// @dev The Lean recovery examples (`Etna.Design.Examples`) run on this suite's state: `world`
-/// is the state after `setUp` (c = 0, queue head 0 and tail 3, Alice's bond 0 and Bob's bond 1)
-/// and `origin` is R = 11 at timestamp 61, the L1 block and time `setUp` ends at. Landings follow
-/// the base's committed chain up to the recovery origin 12; above it the chain is the one
-/// generation 1 rebuilds, whose blocks differ from the generation-0 suffix the recovery
-/// discards.
+/// is the state after `setUp` (c = 0, queue head 0 and tail 3) and `origin` is R = 11 at
+/// timestamp 61, the L1 block and time `setUp` ends at. Landings follow the base's committed
+/// chain up to the recovery origin 12; above it the chain is the one generation 1 rebuilds, whose
+/// blocks differ from the generation-0 suffix the recovery discards.
 contract EtnaInboxRecoverTest is EtnaLandTestBase {
-    /// @dev Bob's consensus private key; Alice registered `VALIDATOR_PK` before initialization.
-    uint256 private constant _BOB_PK = 0xB0B;
-
     /// @dev keccak256(""), the txHash of a blanked forced inclusion.
     bytes32 private constant _BLANK_TX_HASH =
         0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
@@ -73,16 +30,12 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     /// @dev The checkpoint the landing-after-recovery tests recover at.
     uint256 private constant _RECOVERY_C = 12;
 
-    /// @dev The registry's no-exit sentinel, 2^48 - 1.
-    uint256 private constant _NO_EXIT = 2 ** 48 - 1;
-
     uint256 private constant _TWO_POW_48 = 2 ** 48;
 
     function setUp() public override {
         super.setUp();
         assertEq(block.number, _LEAN_R, "setUp ends at R");
         vm.warp(_LEAN_R_TIMESTAMP);
-        assertEq(_registerValidator(registry, Bob, _BOB_PK), 1, "Bob's bond 1");
     }
 
     /// @dev Up to the recovery origin the base's committed chain; above it the chain generation 1
@@ -111,22 +64,21 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         vm.roll(50);
         vm.warp(1000);
 
-        // `_recover` expects `Recovered(1, 12, 50, 1000, [], [])`.
-        _recover(0, 12, _noExclusions(), _noIndices());
+        // `_recover` expects `Recovered(1, 12, 50, 1000, [])`.
+        _recover(0, 12, _noIndices());
 
         assertEq(_inbox().recoveryGeneration(), 1, "generation");
         assertEq(_inboxWord(RECOVERY_GENERATION_SLOT), bytes32(uint256(1)), "slot 268");
         _assertOrigin(1, 12, 50, 1000);
         assertEq(_inbox().generationStartHeight(), 12, "generationStartHeight");
-        assertEq(_inbox().recoverySnapshot(), 50, "recoverySnapshot");
         _assertOrigin(0, origin0.startHeight, origin0.l1BlockNumber, origin0.l1Timestamp);
         _assertOrigin(2, 0, 0, 0);
     }
 
-    /// @dev Lean `recovery_preserves_settled_prefix`: with an exclusion and a blanking, recovery
-    /// keeps the checkpoint, every landing record, the queue pointers, the snapshot, the
-    /// SignalService checkpoints, the genesis words and the Inbox's ETH. The only Inbox slots it
-    /// writes are 268, the nonce, origins(1), the blanked entry's txHash and the rules schedule.
+    /// @dev Lean `recovery_preserves_settled_prefix`: with a blanking, recovery keeps the
+    /// checkpoint, every landing record, the queue pointers, the SignalService checkpoints, the
+    /// genesis words and the Inbox's ETH. The only Inbox slots it writes are 268, the nonce,
+    /// origins(1), the blanked entry's txHash and the rules schedule.
     function test_recover_PreservesSettledState() external {
         _land(0, 6);
         _land(6, 12);
@@ -136,7 +88,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertGt(balance, 0, "the forced inclusion fees");
 
         vm.startStateDiffRecording();
-        _recover(0, 12, _exclusions(1), fiToClear);
+        _recover(0, 12, fiToClear);
         VmSafe.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
 
         bytes32[] memory settledAfter = _settledWords();
@@ -146,7 +98,6 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(inboxProxy.balance, balance, "ETH");
         _assertCheckpoint(12, bytes32(uint256(112)));
         _assertQueue(2, LEAN_FORCED_INCLUSIONS);
-        assertEq(_inbox().activeCommitteeSnapshot(), LEAN_SNAPSHOT, "snapshot");
 
         uint256 writes;
         for (uint256 i; i < accesses.length; ++i) {
@@ -168,62 +119,6 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(writes, 7, "seven Inbox writes including the nonce and the rules schedule");
     }
 
-    /// @dev Lean `exclusion_and_fi_clear_atomic`: excluding Bob and blanking entry 0 in one call.
-    /// Bob's exit moves to R = 11 with his stake, owner and activation kept and no confirmation;
-    /// entry 0's txHash becomes keccak256("") with its timestamp and L1 block kept; Alice and the
-    /// other entries are untouched. `Recovered` carries both complete lists.
-    function test_recover_ExcludesAndBlanksAtomically() external {
-        IEtnaStakingRegistry.Entry memory alice = registry.entryAt(0);
-        IEtnaStakingRegistry.Entry memory bob = registry.entryAt(1);
-        assertEq(bob.exitEffectiveL1, _NO_EXIT, "Bob has no exit");
-        IEtnaInbox.ForcedInclusion memory entry0 = _inbox().getForcedInclusion(0);
-        IEtnaInbox.ForcedInclusion memory entry1 = _inbox().getForcedInclusion(1);
-        IEtnaInbox.ForcedInclusion memory entry2 = _inbox().getForcedInclusion(2);
-        assertNotEq(entry0.txHash, _BLANK_TX_HASH, "entry 0 holds a transaction");
-        uint256 staked = taikoToken.balanceOf(address(registry));
-
-        vm.expectEmit(address(registry));
-        emit IEtnaStakingRegistry.ExitForced(1, uint48(_LEAN_R));
-        // `_recover` expects `Recovered(1, 0, 11, 61, [(1, Bob's key)], [0])`.
-        _recover(0, 0, _exclusions(1), _indices(0));
-
-        bob.exitEffectiveL1 = uint48(_LEAN_R);
-        _assertEntry(1, bob);
-        _assertEntry(0, alice);
-        assertEq(registry.ownerOf(1), Bob, "Bob's owner");
-        assertEq(registry.exitConfirmedAtL1(1), 0, "not confirmed");
-        assertEq(taikoToken.balanceOf(address(registry)), staked, "no stake moved");
-
-        IEtnaInbox.ForcedInclusion memory blanked = _inbox().getForcedInclusion(0);
-        assertEq(blanked.txHash, _BLANK_TX_HASH, "entry 0 blanked");
-        assertEq(blanked.txHash, keccak256(""), "keccak256 of the empty string");
-        assertEq(blanked.timestamp, entry0.timestamp, "entry 0 timestamp");
-        assertEq(blanked.l1Block, entry0.l1Block, "entry 0 L1 block");
-        assertEq(_inboxWord(_queueSlot(0)), _BLANK_TX_HASH, "slot 280 entry 0 word 1");
-        _assertForcedInclusion(1, entry1);
-        _assertForcedInclusion(2, entry2);
-        _assertQueue(0, LEAN_FORCED_INCLUSIONS);
-    }
-
-    /// @dev Lean `empty_election_is_not_an_inbox_check`: excluding every entry still executes,
-    /// leaving no entry eligible at R. Another recovery at the same c, with R = 12, can follow.
-    function test_recover_ExcludingEveryoneStillExecutes() external {
-        uint256[] memory everyone = new uint256[](2);
-        everyone[0] = 0;
-        everyone[1] = 1;
-
-        _recover(0, 0, everyone, _noIndices());
-        assertEq(registry.entryAt(0).exitEffectiveL1, _LEAN_R, "Alice exits at R");
-        assertEq(registry.entryAt(1).exitEffectiveL1, _LEAN_R, "Bob exits at R");
-        _assertOrigin(1, 0, _LEAN_R, _LEAN_R_TIMESTAMP);
-
-        vm.roll(_LEAN_R2);
-        vm.warp(_LEAN_R2_TIMESTAMP);
-        _recover(1, 0, _noExclusions(), _noIndices());
-        _assertOrigin(2, 0, _LEAN_R2, _LEAN_R2_TIMESTAMP);
-        assertEq(_inbox().recoveryGeneration(), 2, "generation 2");
-    }
-
     // ---------------------------------------------------------------
     // Authorization and replay
     // ---------------------------------------------------------------
@@ -234,22 +129,21 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     function test_recover_RevertWhen_NotOwner() external {
         bytes memory notOwner =
             abi.encodeWithSignature("Error(string)", "Ownable: caller is not the owner");
-        uint256[] memory none = _noExclusions();
         uint256[] memory noIndices = _noIndices();
 
-        _expectRecoverRevert(Bob, 0, 0, none, noIndices, notOwner);
-        _expectRecoverRevert(Alice, 0, 0, none, noIndices, notOwner);
-        _expectRecoverRevert(address(registry), 0, 0, none, noIndices, notOwner);
-        _expectRecoverRevert(Bob, 5, 7, _exclusions(1), _indices(9), notOwner);
+        _expectRecoverRevert(Bob, 0, 0, noIndices, notOwner);
+        _expectRecoverRevert(Alice, 0, 0, noIndices, notOwner);
+        _expectRecoverRevert(address(signalService), 0, 0, noIndices, notOwner);
+        _expectRecoverRevert(Bob, 5, 7, _indices(9), notOwner);
 
         _inbox().transferOwnership(Carol);
-        _expectRecoverRevert(Carol, 0, 0, none, noIndices, notOwner);
+        _expectRecoverRevert(Carol, 0, 0, noIndices, notOwner);
         vm.prank(Carol);
         _inbox().acceptOwnership();
-        _expectRecoverRevert(address(this), 0, 0, none, noIndices, notOwner);
+        _expectRecoverRevert(address(this), 0, 0, noIndices, notOwner);
 
         // `_recover` calls as the current owner, Carol.
-        _recover(0, 0, none, noIndices);
+        _recover(0, 0, noIndices);
         assertEq(_inbox().recoveryGeneration(), 1, "Carol recovered");
     }
 
@@ -257,33 +151,31 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     /// expected generation must equal the current one, below or above it, and is checked before
     /// the checkpoint.
     function test_recover_RevertWhen_ExpectedGenerationStale() external {
-        uint256[] memory none = _noExclusions();
         uint256[] memory noIndices = _noIndices();
         bytes4 mismatch = IEtnaInbox.GenerationMismatch.selector;
 
-        _expectRecoverRevert(1, 0, none, noIndices, mismatch);
-        _expectRecoverRevert(type(uint48).max, 0, none, noIndices, mismatch);
-        _expectRecoverRevert(1, 6, none, noIndices, mismatch);
+        _expectRecoverRevert(1, 0, noIndices, mismatch);
+        _expectRecoverRevert(type(uint48).max, 0, noIndices, mismatch);
+        _expectRecoverRevert(1, 6, noIndices, mismatch);
 
-        _recover(0, 0, none, noIndices);
-        _expectRecoverRevert(0, 0, none, noIndices, mismatch);
-        _expectRecoverRevert(2, 0, none, noIndices, mismatch);
+        _recover(0, 0, noIndices);
+        _expectRecoverRevert(0, 0, noIndices, mismatch);
+        _expectRecoverRevert(2, 0, noIndices, mismatch);
     }
 
     /// @dev Lean `landing_voids_old_authorization`: a recovery authorized at c = 0 cannot execute
     /// once a landing moves c to 6, nor can one naming a c above it; the checkpoint is checked
-    /// before the lists. An authorization at the new c executes.
+    /// before the list. An authorization at the new c executes.
     function test_recover_RevertWhen_LandingMovedCheckpoint() external {
-        uint256[] memory none = _noExclusions();
         uint256[] memory noIndices = _noIndices();
         bytes4 mismatch = IEtnaInbox.CheckpointMismatch.selector;
         _land(0, 6);
 
-        _expectRecoverRevert(0, 0, none, noIndices, mismatch);
-        _expectRecoverRevert(0, 12, none, noIndices, mismatch);
-        _expectRecoverRevert(0, 0, _unsortedExclusions(), _indices(2, 1), mismatch);
+        _expectRecoverRevert(0, 0, noIndices, mismatch);
+        _expectRecoverRevert(0, 12, noIndices, mismatch);
+        _expectRecoverRevert(0, 0, _indices(2, 1), mismatch);
 
-        _recover(0, 6, none, noIndices);
+        _recover(0, 6, noIndices);
         _assertOrigin(1, 6, _LEAN_R, _LEAN_R_TIMESTAMP);
     }
 
@@ -291,7 +183,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     /// then lands from it.
     function test_recover_acceptsAnyExpectedC() external {
         _land(0, 7);
-        _recover(0, 7, _noExclusions(), _noIndices());
+        _recover(0, 7, _noIndices());
         _assertOrigin(1, 7, _LEAN_R, _LEAN_R_TIMESTAMP);
         assertEq(_inbox().generationStartHeight(), 7, "start height");
 
@@ -303,130 +195,55 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     /// recovery fails on its stale generation; one authorized for generation 1 at the same c
     /// writes origins(2) and keeps origins(1).
     function test_recover_ReplayNeedsNewGeneration() external {
-        uint256[] memory none = _noExclusions();
         uint256[] memory noIndices = _noIndices();
 
-        _recover(0, 0, none, noIndices);
+        _recover(0, 0, noIndices);
         _assertOrigin(1, 0, _LEAN_R, _LEAN_R_TIMESTAMP);
 
         vm.roll(_LEAN_R2);
         vm.warp(_LEAN_R2_TIMESTAMP);
-        _expectRecoverRevert(0, 0, none, noIndices, IEtnaInbox.GenerationMismatch.selector);
+        _expectRecoverRevert(0, 0, noIndices, IEtnaInbox.GenerationMismatch.selector);
 
-        _recover(1, 0, none, noIndices);
+        _recover(1, 0, noIndices);
         assertEq(_inbox().recoveryGeneration(), 2, "generation 2");
         _assertOrigin(2, 0, _LEAN_R2, _LEAN_R2_TIMESTAMP);
         _assertOrigin(1, 0, _LEAN_R, _LEAN_R_TIMESTAMP);
         assertEq(_inbox().generationStartHeight(), 0, "same start height");
-        assertEq(_inbox().recoverySnapshot(), _LEAN_R2, "the latest R");
     }
 
     // ---------------------------------------------------------------
-    // Lists
+    // The forced inclusions to blank
     // ---------------------------------------------------------------
 
-    /// @dev Spec 8 RECOV-8-40a (vectors 40a.d-40a.g): every excluded id must be issued at
-    /// execution. Each rejected list starts with a valid exclusion of Alice and lists a blanking:
-    /// the whole call reverts before any exit, so Alice's exit, the queue entry and the generation
-    /// stay as they were. A withdrawn bond, still issued, is accepted and keeps its earlier exit.
-    function test_recover_RevertWhen_ExclusionUnissued() external {
-        uint256[] memory list = new uint256[](2);
-        list[0] = 0;
-
-        list[1] = 2;
-        _expectRecoverRevert(0, 0, list, _indices(0), IEtnaInbox.UnissuedExclusion.selector);
-        list[1] = type(uint256).max;
-        _expectRecoverRevert(0, 0, list, _indices(0), IEtnaInbox.UnissuedExclusion.selector);
-        _expectRecoverRevert(
-            0, 0, _exclusions(2), _noIndices(), IEtnaInbox.UnissuedExclusion.selector
-        );
-
-        // Bob exits, a landing's committee covers the exit, and he withdraws bond 1.
-        vm.prank(Bob);
-        registry.requestExit(1);
-        uint48 bobExit = registry.bondAt(1).entry.exitEffectiveL1;
-        IEtnaInbox.LandInput memory input = _input(0, 6);
-        input.activeCommitteeSnapshot = bobExit;
-        _land(input, _leaves(0, 6));
-        registry.confirmExit(1);
-        vm.roll(block.number + WITHDRAWAL_DELAY);
-        vm.prank(Bob);
-        registry.withdraw(1, Bob);
-        assertEq(registry.entryAt(1).ckPrefix, 0, "slot 1 emptied");
-
-        assertEq(registry.entryAt(0).exitEffectiveL1, _NO_EXIT, "Alice keeps no exit");
-        list[1] = 1;
-        _recover(0, 6, list, _indices(1));
-        assertEq(registry.entryAt(0).exitEffectiveL1, block.number, "Alice excluded");
-        assertEq(registry.bondAt(1).entry.exitEffectiveL1, bobExit, "Bob's earlier exit stands");
-    }
-
-    /// @dev RECOV-8-39: an unissued last id is caught before any exclusion reaches the registry.
-    function test_recover_RevertWhen_LaterExclusionInvalidBeforeAnyExit() external {
-        uint256[] memory list = new uint256[](2);
-        list[0] = 0;
-        list[1] = 2;
-
-        vm.expectCall(
-            address(registry), abi.encodePacked(IEtnaStakingRegistry.forceExit.selector), 0
-        );
-        _expectRecoverRevert(0, 0, list, _indices(0), IEtnaInbox.UnissuedExclusion.selector);
-    }
-
-    /// @dev Both lists must be strictly increasing: equal or descending neighbours, anywhere in
-    /// the list, revert before any exclusion reaches the registry. Exclusions are checked before
-    /// the indices, and an index list's order before its range.
-    function test_recover_RevertWhen_ListsNotStrictlySorted() external {
-        vm.expectCall(
-            address(registry), abi.encodePacked(IEtnaStakingRegistry.forceExit.selector), 0
-        );
-        uint256 alice = 0;
-        uint256 bob = 1;
-        uint256[] memory list = new uint256[](2);
-        bytes4 exclusionsNotSorted = IEtnaInbox.ExclusionsNotSorted.selector;
+    /// @dev The index list must be strictly increasing: equal or descending neighbours, anywhere
+    /// in the list, revert, and the order is checked before the range.
+    function test_recover_RevertWhen_ListNotStrictlySorted() external {
         bytes4 indicesNotSorted = IEtnaInbox.FiToClearNotSorted.selector;
-
-        (list[0], list[1]) = (alice, alice);
-        _expectRecoverRevert(0, 0, list, _noIndices(), exclusionsNotSorted);
-        (list[0], list[1]) = (bob, bob);
-        _expectRecoverRevert(0, 0, list, _noIndices(), exclusionsNotSorted);
-        _expectRecoverRevert(0, 0, _unsortedExclusions(), _noIndices(), exclusionsNotSorted);
-        uint256[] memory three = new uint256[](3);
-        (three[0], three[1], three[2]) = (alice, bob, bob);
-        _expectRecoverRevert(0, 0, three, _noIndices(), exclusionsNotSorted);
-
-        _expectRecoverRevert(0, 0, _noExclusions(), _indices(1, 1), indicesNotSorted);
-        _expectRecoverRevert(0, 0, _noExclusions(), _indices(2, 1), indicesNotSorted);
-        _expectRecoverRevert(0, 0, _noExclusions(), _indices(0, 2, 2), indicesNotSorted);
-        _expectRecoverRevert(0, 0, _noExclusions(), _indices(5, 3), indicesNotSorted);
-
-        _expectRecoverRevert(0, 0, _unsortedExclusions(), _indices(2, 1), exclusionsNotSorted);
-        _expectRecoverRevert(0, 0, three, _indices(3), exclusionsNotSorted);
+        _expectRecoverRevert(0, 0, _indices(1, 1), indicesNotSorted);
+        _expectRecoverRevert(0, 0, _indices(2, 1), indicesNotSorted);
+        _expectRecoverRevert(0, 0, _indices(0, 2, 2), indicesNotSorted);
+        _expectRecoverRevert(0, 0, _indices(5, 3), indicesNotSorted);
     }
 
     /// @dev Every index to blank must be pending, in [head, tail): the tail itself, indices far
-    /// beyond it and, once a landing consumed entry 0, that entry are rejected before any
-    /// exclusion reaches the registry. [head, tail - 1] is accepted.
+    /// beyond it and, once a landing consumed entry 0, that entry are rejected. [head, tail - 1]
+    /// is accepted.
     function test_recover_RevertWhen_FiIndexOutsideHeadTail() external {
-        vm.expectCall(
-            address(registry), abi.encodePacked(IEtnaStakingRegistry.forceExit.selector), 0
-        );
-        uint256[] memory bob = _exclusions(1);
         bytes4 outOfRange = IEtnaInbox.FiIndexOutOfRange.selector;
         _assertQueue(0, 3);
 
-        _expectRecoverRevert(0, 0, bob, _indices(3), outOfRange);
-        _expectRecoverRevert(0, 0, bob, _indices(0, 3), outOfRange);
-        _expectRecoverRevert(0, 0, bob, _indices(_TWO_POW_48), outOfRange);
-        _expectRecoverRevert(0, 0, bob, _indices(type(uint256).max), outOfRange);
+        _expectRecoverRevert(0, 0, _indices(3), outOfRange);
+        _expectRecoverRevert(0, 0, _indices(0, 3), outOfRange);
+        _expectRecoverRevert(0, 0, _indices(_TWO_POW_48), outOfRange);
+        _expectRecoverRevert(0, 0, _indices(type(uint256).max), outOfRange);
 
         _land(0, 6);
         _assertQueue(1, 3);
-        _expectRecoverRevert(0, 6, bob, _indices(0), outOfRange);
-        _expectRecoverRevert(0, 6, bob, _indices(0, 1), outOfRange);
+        _expectRecoverRevert(0, 6, _indices(0), outOfRange);
+        _expectRecoverRevert(0, 6, _indices(0, 1), outOfRange);
 
         IEtnaInbox.ForcedInclusion memory consumed = _inbox().getForcedInclusion(0);
-        _recover(0, 6, _noExclusions(), _indices(1, 2));
+        _recover(0, 6, _indices(1, 2));
         assertEq(_inbox().getForcedInclusion(1).txHash, _BLANK_TX_HASH, "entry 1 blanked");
         assertEq(_inbox().getForcedInclusion(2).txHash, _BLANK_TX_HASH, "entry 2 blanked");
         _assertForcedInclusion(0, consumed);
@@ -437,95 +254,73 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     // ---------------------------------------------------------------
 
     /// @dev The new generation must fit 48 bits: from 2^48 - 2 recovery reaches 2^48 - 1 and
-    /// writes its origin; from there it reverts, lists included, with nothing written.
+    /// writes its origin; from there it reverts, a blanking included, with nothing written.
     function test_recover_RevertWhen_GenerationWouldOverflow() external {
         uint48 last = type(uint48).max;
         _storeInboxWord(RECOVERY_GENERATION_SLOT, bytes32(uint256(last - 1)));
 
-        _recover(last - 1, 0, _noExclusions(), _noIndices());
+        _recover(last - 1, 0, _noIndices());
         assertEq(_inbox().recoveryGeneration(), last, "generation 2^48 - 1");
         _assertOrigin(last, 0, _LEAN_R, _LEAN_R_TIMESTAMP);
 
         bytes4 overflow = IEtnaInbox.ValueOverflow.selector;
-        _expectRecoverRevert(last, 0, _noExclusions(), _noIndices(), overflow);
-        _expectRecoverRevert(last, 0, _exclusions(1), _indices(0), overflow);
+        _expectRecoverRevert(last, 0, _noIndices(), overflow);
+        _expectRecoverRevert(last, 0, _indices(0), overflow);
         _assertOrigin(_TWO_POW_48, 0, 0, 0);
     }
 
     /// @dev RECOV-8.4-4: an origin record is written once. If an upgrade wrote the next
     /// generation's record without advancing the generation, recovery reverts with nothing
-    /// written, including the exclusion and the blanking it lists, and the record stays.
+    /// written, including the blanking it lists, and the record stays.
     function test_recover_RevertWhen_NextOriginAlreadyWritten() external {
         uint256 slot = _originSlot(1);
         _storeInboxWord(slot, bytes32(uint256(6)));
         _storeInboxWord(slot + 1, bytes32(uint256(7)));
         _storeInboxWord(slot + 2, bytes32(uint256(8)));
 
-        _expectRecoverRevert(
-            0, 0, _exclusions(1), _indices(0), IEtnaInbox.OriginAlreadyWritten.selector
-        );
+        _expectRecoverRevert(0, 0, _indices(0), IEtnaInbox.OriginAlreadyWritten.selector);
         assertEq(_inbox().recoveryGeneration(), 0, "generation kept");
-        assertEq(registry.entryAt(1).exitEffectiveL1, _NO_EXIT, "Bob keeps no exit");
         _assertOrigin(1, 6, 7, 8);
     }
 
     /// @dev Origin timestamps must fit 48 bits: at 2^48 recovery reverts with nothing written,
-    /// including the exclusion and the blanking it lists; at 2^48 - 1 it executes.
+    /// including the blanking it lists; at 2^48 - 1 it executes.
     function test_recover_RevertWhen_TimestampOverflows48Bits() external {
         vm.warp(_TWO_POW_48);
-        _expectRecoverRevert(0, 0, _exclusions(1), _indices(0), IEtnaInbox.ValueOverflow.selector);
-        assertEq(registry.entryAt(1).exitEffectiveL1, _NO_EXIT, "Bob keeps no exit");
+        _expectRecoverRevert(0, 0, _indices(0), IEtnaInbox.ValueOverflow.selector);
 
         vm.warp(_TWO_POW_48 - 1);
-        _recover(0, 0, _exclusions(1), _indices(0));
+        _recover(0, 0, _indices(0));
         _assertOrigin(1, 0, _LEAN_R, _TWO_POW_48 - 1);
     }
 
-    /// @dev R must fit 48 bits: at block 2^48 recovery reverts. At 2^48 - 1 its own bound passes,
-    /// but the registry stores no L1 block at its no-exit sentinel, so an exclusion reverts
-    /// `InvalidEventBlock` with nothing written; without one recovery executes.
+    /// @dev R must fit 48 bits: at block 2^48 recovery reverts with nothing written; at
+    /// 2^48 - 1 it executes.
     function test_recover_RevertWhen_L1BlockOverflows48Bits() external {
         vm.roll(_TWO_POW_48);
-        _expectRecoverRevert(0, 0, _noExclusions(), _indices(0), IEtnaInbox.ValueOverflow.selector);
+        _expectRecoverRevert(0, 0, _indices(0), IEtnaInbox.ValueOverflow.selector);
 
-        vm.roll(_NO_EXIT);
-        _expectRecoverRevert(
-            0, 0, _exclusions(1), _indices(0), IEtnaStakingRegistry.InvalidEventBlock.selector
-        );
-        _recover(0, 0, _noExclusions(), _indices(0));
-        _assertOrigin(1, 0, _NO_EXIT, _LEAN_R_TIMESTAMP);
+        vm.roll(_TWO_POW_48 - 1);
+        _recover(0, 0, _indices(0));
+        _assertOrigin(1, 0, _TWO_POW_48 - 1, _LEAN_R_TIMESTAMP);
     }
 
     /// @dev Before `init` the proxy on the `EtnaInbox` implementation rejects the owner's
-    /// recovery, lists included, and nothing is written in the Inbox or the registry.
+    /// recovery, a blanking included, and nothing is written.
     function test_recover_RevertWhen_NotInitialized() external {
         _deployFreshInbox(false);
         _inbox().upgradeTo(address(inboxImpl));
         assertFalse(_inbox().isInitialized(), "not initialized");
-        uint256 checkpoints = registry.checkpointCount();
-        bytes32 root = registry.entriesRoot();
 
         vm.expectRevert(IEtnaInbox.NotInitialized.selector);
         _inbox()
             .recover(
-                0,
-                0,
-                uint256(_inboxWord(RECOVERY_NONCE_SLOT)),
-                type(uint256).max,
-                _noExclusions(),
-                _noIndices(),
-                0
+                0, 0, uint256(_inboxWord(RECOVERY_NONCE_SLOT)), type(uint256).max, _noIndices(), 0
             );
         vm.expectRevert(IEtnaInbox.NotInitialized.selector);
         _inbox()
             .recover(
-                0,
-                0,
-                uint256(_inboxWord(RECOVERY_NONCE_SLOT)),
-                type(uint256).max,
-                _exclusions(0),
-                _indices(0),
-                0
+                0, 0, uint256(_inboxWord(RECOVERY_NONCE_SLOT)), type(uint256).max, _indices(0), 0
             );
 
         for (uint256 slot = 251; slot < 301; ++slot) {
@@ -534,71 +329,25 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         for (uint256 w; w < 3; ++w) {
             assertEq(_inboxWord(_originSlot(1) + w), 0, "origins(1)");
         }
-        assertEq(registry.entryAt(0).exitEffectiveL1, _NO_EXIT, "no exit forced");
-        assertEq(registry.checkpointCount(), checkpoints, "no checkpoint");
-        assertEq(registry.entriesRoot(), root, "root");
     }
 
     // ---------------------------------------------------------------
-    // Lock and calls
+    // Calls, selector and reserved storage
     // ---------------------------------------------------------------
 
-    /// @dev `recover` holds that lock while it calls the registry: a registry stand-in sees it held
-    /// and its re-entries into `land` and `recover` both revert `REENTRANT_CALL`. The stand-in is
-    /// made the owner, so it also starts the recovery and its re-entry into `recover` passes
-    /// `onlyOwner` and reaches the lock.
-    function test_recover_HoldsTheLockWhileCallingTheRegistry() external {
-        LockProbeRegistry probe = new LockProbeRegistry();
-        IEtnaInbox.Config memory config = _defaultConfig();
-        config.stakingRegistry = address(probe);
-        _inbox().upgradeTo(address(_newInboxImpl(config)));
-        _inbox().transferOwnership(address(probe));
-        vm.prank(address(probe));
-        _inbox().acceptOwnership();
-        probe.setReentryCalls(
-            abi.encodeCall(IEtnaInbox.land, (_input(0, 6), new bytes32[](0), PROOF)),
-            abi.encodeCall(
-                IEtnaInbox.recover, (0, 0, 0, type(uint256).max, _noExclusions(), _noIndices(), 0)
-            )
-        );
-
-        _recover(0, 0, _exclusions(0), _noIndices());
-
-        bytes memory reentrant = abi.encodeWithSelector(EssentialContract.REENTRANT_CALL.selector);
-        assertEq(probe.forceExits(), 1, "one exclusion");
-        assertTrue(probe.lockHeld(), "lock held while forcing the exit");
-        assertFalse(probe.landSucceeded(), "land re-entry rejected");
-        assertEq(probe.landError(), reentrant, "land: REENTRANT_CALL");
-        assertFalse(probe.recoverSucceeded(), "recover re-entry rejected");
-        assertEq(probe.recoverError(), reentrant, "recover: REENTRANT_CALL");
-        assertFalse(_inbox().inNonReentrant(), "released after the recovery");
-        assertEq(_inbox().recoveryGeneration(), 1, "one generation");
-    }
-
-    /// @dev `recover` reads the registry's bond count once, which shows every strictly increasing
-    /// exclusion issued, before forcing exits in list order. It sends no ETH and never calls the
-    /// SignalService or the verifier.
-    function test_recover_CallsOnlyTheRegistry() external {
-        uint256[] memory everyone = new uint256[](2);
-        everyone[0] = 0;
-        everyone[1] = 1;
-        address registryImpl = registry.impl();
+    /// @dev `recover` calls nothing: every call or creation the recording sees is the owner's call
+    /// into the Inbox proxy or the proxy's delegation to its implementation, and no ETH moves.
+    function test_recover_MakesNoExternalCall() external {
+        _land(0, 6);
+        uint256 nonce = _inbox().recoveryNonce();
+        uint256[] memory fiToClear = _indices(1, 2);
+        EtnaInbox target = _inbox();
 
         vm.startStateDiffRecording();
-        _inbox()
-            .recover(
-                0,
-                0,
-                uint256(_inboxWord(RECOVERY_NONCE_SLOT)),
-                type(uint256).max,
-                everyone,
-                _indices(0),
-                0
-            );
+        target.recover(0, 6, nonce, type(uint256).max, fiToClear, 0);
         VmSafe.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
 
-        uint256 validated;
-        uint256 forceExits;
+        uint256 calls;
         for (uint256 i; i < accesses.length; ++i) {
             VmSafe.AccountAccess memory a = accesses[i];
             if (!_isCall(a.kind) || a.account == address(vm)) continue;
@@ -608,36 +357,33 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
                 assertEq(a.accessor, address(this), "called by the owner");
             } else if (a.account == address(inboxImpl)) {
                 assertEq(uint8(a.kind), uint8(VmSafe.AccountAccessKind.DelegateCall), "Inbox impl");
-            } else if (a.account == address(registry)) {
-                assertEq(a.accessor, inboxProxy, "called by the Inbox");
-                if (a.kind == VmSafe.AccountAccessKind.StaticCall) {
-                    if (bytes4(a.data) == EssentialContract.inNonReentrant.selector) {
-                        continue;
-                    }
-                    assertEq(
-                        a.data,
-                        abi.encodeCall(IEtnaStakingRegistry.bondCount, ()),
-                        "one issuance read"
-                    );
-                    ++validated;
-                    continue;
-                }
-                assertEq(uint8(a.kind), uint8(VmSafe.AccountAccessKind.Call), "registry forceExit");
-                assertEq(validated, 1, "issuance read before forceExit");
-                assertEq(
-                    a.data,
-                    abi.encodeCall(IEtnaStakingRegistry.forceExit, (everyone[forceExits++])),
-                    "forceExit(bondId)"
-                );
-            } else if (a.account == registryImpl) {
-                assertEq(
-                    uint8(a.kind), uint8(VmSafe.AccountAccessKind.DelegateCall), "registry impl"
-                );
             } else {
                 revert(string.concat("unexpected call to ", vm.toString(a.account)));
             }
+            ++calls;
         }
-        assertEq(forceExits, 2, "one forceExit per exclusion");
+        assertEq(calls, 2, "the owner's call and its delegation");
+        assertEq(_inbox().recoveryGeneration(), 1, "recovered");
+    }
+
+    /// @dev `recover` takes six arguments: the generation, checkpoint and nonce it was authorized
+    /// for, the deadline, the forced inclusions to blank and the ruleset.
+    function test_recover_SelectorHasSixArguments() external pure {
+        assertEq(IEtnaInbox.recover.selector, bytes4(0x95e4b1e5), "selector");
+        assertEq(
+            IEtnaInbox.recover.selector,
+            bytes4(keccak256("recover(uint48,uint256,uint256,uint256,uint256[],uint48)")),
+            "signature"
+        );
+    }
+
+    /// @dev Slot 284 is reserved: `init`, a landing and a recovery all leave it zero.
+    function test_reservedSlot284_StaysZeroAfterInitLandAndRecover() external {
+        assertEq(vm.load(inboxProxy, bytes32(uint256(284))), 0, "after init");
+        _land(0, 6);
+        assertEq(vm.load(inboxProxy, bytes32(uint256(284))), 0, "after a landing");
+        _recover(0, 6, _indices(1));
+        assertEq(vm.load(inboxProxy, bytes32(uint256(284))), 0, "after a recovery");
     }
 
     // ---------------------------------------------------------------
@@ -655,7 +401,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         bytes32 generation0Statement =
             _statement(input, _inbox().landings(12), _cutHash(input, leaves));
 
-        _recover(0, 12, _noExclusions(), _noIndices());
+        _recover(0, 12, _noIndices());
         assertEq(_inbox().generationStartHeight(), 12, "start height");
 
         bytes32 cutHash = _cutHash(input, leaves);
@@ -693,7 +439,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     function test_land_AfterRecoveryOverlapsFromTheGenerationOrigin() external {
         _land(0, 6);
         _land(6, 12);
-        _recover(0, 12, _noExclusions(), _noIndices());
+        _recover(0, 12, _noIndices());
         _land(12, 18);
         // A fourth entry lets the head reach 24 / 6 = 4.
         _saveForcedInclusions(1);
@@ -736,7 +482,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         IEtnaInbox.LandInput memory full = _input(0, 18);
         bytes32[] memory fullLeaves = _leaves(0, 18);
 
-        _recover(0, 12, _noExclusions(), _noIndices());
+        _recover(0, 12, _noIndices());
         _expectLandRevert(full, fullLeaves, IEtnaInbox.InvalidRange.selector);
         _expectLandRevert(_input(6, 18), _leaves(6, 18), IEtnaInbox.InvalidRange.selector);
 
@@ -755,7 +501,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         bytes32 generation0Statement =
             _statement(input, _inbox().landings(12), _cutHash(input, leaves));
 
-        _recover(0, 12, _noExclusions(), _noIndices());
+        _recover(0, 12, _noIndices());
         bytes32 generation1Statement =
             _statement(input, _inbox().landings(12), _cutHash(input, leaves));
         assertNotEq(generation1Statement, generation0Statement, "statements differ");
@@ -776,7 +522,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(atOrigin.cometHash, bytes32(uint256(212)), "generation-0 Comet hash");
         _assertLanding(12, atOrigin);
 
-        _recover(0, 12, _noExclusions(), _noIndices());
+        _recover(0, 12, _noIndices());
         _assertLanding(12, atOrigin);
 
         _land(12, 18);
@@ -793,19 +539,10 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     // ---------------------------------------------------------------
 
     /// @dev The owner recovers with `_generation` and `_c` expected, expecting
-    /// `Recovered(_generation + 1, _c, block.number, block.timestamp, _exclusions, _fiToClear)`.
-    function _recover(
-        uint48 _generation,
-        uint256 _c,
-        uint256[] memory _exclusionList,
-        uint256[] memory _fiToClear
-    )
-        private
-    {
+    /// `Recovered(_generation + 1, _c, block.number, block.timestamp, _fiToClear)`.
+    function _recover(uint48 _generation, uint256 _c, uint256[] memory _fiToClear) private {
         vm.expectEmit(inboxProxy);
-        emit IEtnaInbox.Recovered(
-            _generation + 1, _c, block.number, block.timestamp, _exclusionList, _fiToClear
-        );
+        emit IEtnaInbox.Recovered(_generation + 1, _c, block.number, block.timestamp, _fiToClear);
         vm.prank(_inbox().owner());
         _inbox()
             .recover(
@@ -813,7 +550,6 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
                 _c,
                 uint256(_inboxWord(RECOVERY_NONCE_SLOT)),
                 type(uint256).max,
-                _exclusionList,
                 _fiToClear,
                 0
             );
@@ -823,31 +559,23 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     function _expectRecoverRevert(
         uint48 _generation,
         uint256 _c,
-        uint256[] memory _exclusionList,
         uint256[] memory _fiToClear,
         bytes4 _selector
     )
         private
     {
         _expectRecoverRevert(
-            _inbox().owner(),
-            _generation,
-            _c,
-            _exclusionList,
-            _fiToClear,
-            abi.encodeWithSelector(_selector)
+            _inbox().owner(), _generation, _c, _fiToClear, abi.encodeWithSelector(_selector)
         );
     }
 
     /// @dev Expects `_caller`'s recovery to revert with `_revertData`, leaving the generation,
-    /// nonce, rules schedule, checkpoint, queue, snapshot, the current and next origins, the
-    /// checkpoint's record, every queue entry's txHash and every registry exit and checkpoint
-    /// unchanged.
+    /// nonce, rules schedule, checkpoint, queue, the current and next origins, the checkpoint's
+    /// record and every queue entry's txHash unchanged.
     function _expectRecoverRevert(
         address _caller,
         uint48 _generation,
         uint256 _c,
-        uint256[] memory _exclusionList,
         uint256[] memory _fiToClear,
         bytes memory _revertData
     )
@@ -862,7 +590,6 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
                 _c,
                 uint256(_inboxWord(RECOVERY_NONCE_SLOT)),
                 type(uint256).max,
-                _exclusionList,
                 _fiToClear,
                 0
             );
@@ -878,8 +605,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         uint256 generation = _inbox().recoveryGeneration();
         uint256 c = _inbox().lastCheckpoint().height;
         (, uint48 tail) = _inbox().getForcedInclusionState();
-        uint256 bonds = registry.bondCount();
-        words_ = new bytes32[](19 + tail + bonds);
+        words_ = new bytes32[](16 + tail);
         uint256 n;
         words_[n++] = _inboxWord(RECOVERY_GENERATION_SLOT);
         words_[n++] = _inboxWord(RECOVERY_NONCE_SLOT);
@@ -887,7 +613,6 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         words_[n++] = _inboxWord(LAST_CHECKPOINT_HEIGHT_SLOT);
         words_[n++] = _inboxWord(LAST_CHECKPOINT_HASH_SLOT);
         words_[n++] = _inboxWord(FORCED_INCLUSION_HEAD_TAIL_SLOT);
-        words_[n++] = _inboxWord(ACTIVE_COMMITTEE_SNAPSHOT_SLOT);
         for (uint256 w; w < 3; ++w) {
             words_[n++] = _inboxWord(_originSlot(generation) + w);
             words_[n++] = _inboxWord(_originSlot(generation + 1) + w);
@@ -897,11 +622,6 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         for (uint256 i; i < tail; ++i) {
             words_[n++] = _inboxWord(_queueSlot(i));
         }
-        for (uint256 b; b < bonds; ++b) {
-            words_[n++] = bytes32(uint256(registry.bondAt(b).entry.exitEffectiveL1));
-        }
-        words_[n++] = bytes32(registry.checkpointCount());
-        words_[n++] = registry.entriesRoot();
     }
 
     /// @dev The settled state with the chain landed to 12: slots 258-284 except the generation,
@@ -909,11 +629,7 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
     function _settledWords() private view returns (bytes32[] memory words_) {
         words_ = new bytes32[](26 + 9 + 9 + 3);
         uint256 n;
-        for (
-            uint256 slot = INITIALIZATION_STATUS_SLOT;
-            slot <= ACTIVE_COMMITTEE_SNAPSHOT_SLOT;
-            ++slot
-        ) {
+        for (uint256 slot = INITIALIZATION_STATUS_SLOT; slot <= RESERVED_SLOT_284; ++slot) {
             if (slot != RECOVERY_GENERATION_SLOT) {
                 words_[n++] = _inboxWord(slot);
             }
@@ -969,32 +685,6 @@ contract EtnaInboxRecoverTest is EtnaLandTestBase {
         assertEq(entry.txHash, _expected.txHash, "entry txHash");
         assertEq(entry.timestamp, _expected.timestamp, "entry timestamp");
         assertEq(entry.l1Block, _expected.l1Block, "entry l1Block");
-    }
-
-    function _assertEntry(
-        uint256 _slot,
-        IEtnaStakingRegistry.Entry memory _expected
-    )
-        private
-        view
-    {
-        IEtnaStakingRegistry.Entry memory entry = registry.entryAt(_slot);
-        assertEq(entry.ckX, _expected.ckX, "ckX");
-        assertEq(entry.effStake, _expected.effStake, "effStake");
-        assertEq(entry.ckPrefix, _expected.ckPrefix, "ckPrefix");
-        assertEq(entry.activeFromL1, _expected.activeFromL1, "activeFromL1");
-        assertEq(entry.exitEffectiveL1, _expected.exitEffectiveL1, "exitEffectiveL1");
-    }
-
-    function _exclusions(uint256 _bondId) private pure returns (uint256[] memory list_) {
-        list_ = new uint256[](1);
-        list_[0] = _bondId;
-    }
-
-    /// @dev Bob's bond 1 before Alice's bond 0.
-    function _unsortedExclusions() private pure returns (uint256[] memory list_) {
-        list_ = new uint256[](2);
-        (list_[0], list_[1]) = (1, 0);
     }
 
     function _noIndices() private pure returns (uint256[] memory) {

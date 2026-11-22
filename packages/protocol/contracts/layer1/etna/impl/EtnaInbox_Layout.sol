@@ -22,16 +22,14 @@ pragma solidity ^0.8.26;
 //   _initStatus                    | uint8                                              | Slot: 258  | Offset: 0    | Bytes: 1   
 //   __reserved259                  | uint256[9]                                         | Slot: 259  | Offset: 0    | Bytes: 288 
 //   _recoveryGeneration            | uint48                                             | Slot: 268  | Offset: 0    | Bytes: 6   
-//   _committeeConfigHash           | bytes32                                            | Slot: 269  | Offset: 0    | Bytes: 32  
+//   _configHash                    | bytes32                                            | Slot: 269  | Offset: 0    | Bytes: 32  
 //   _lastCheckpoint                | struct IEtnaInbox.LandedCheckpoint                 | Slot: 270  | Offset: 0    | Bytes: 64  
 //   _genesis                       | struct IEtnaInbox.GenesisRecord                    | Slot: 272  | Offset: 0    | Bytes: 96  
 //   __reserved275                  | uint256[3]                                         | Slot: 275  | Offset: 0    | Bytes: 96  
-//   _genesisCommitteeRecordHash    | bytes32                                            | Slot: 278  | Offset: 0    | Bytes: 32  
-//   _genesisCutoff                 | uint48                                             | Slot: 279  | Offset: 0    | Bytes: 6   
+//   __reserved278                  | uint256[2]                                         | Slot: 278  | Offset: 0    | Bytes: 64  
 //   _forcedInclusions              | struct LibEtnaForcedInclusion.Storage              | Slot: 280  | Offset: 0    | Bytes: 64  
 //   _forcedInclusionConfig         | struct EtnaInbox.ForcedInclusionConfig             | Slot: 282  | Offset: 0    | Bytes: 32  
-//   __reserved283                  | uint256                                            | Slot: 283  | Offset: 0    | Bytes: 32  
-//   _activeCommitteeSnapshot       | uint256                                            | Slot: 284  | Offset: 0    | Bytes: 32  
+//   __reserved283                  | uint256[2]                                         | Slot: 283  | Offset: 0    | Bytes: 64  
 //   _landings                      | mapping(uint256 => struct IEtnaInbox.Landing)      | Slot: 285  | Offset: 0    | Bytes: 32  
 //   __reserved286                  | uint256[4]                                         | Slot: 286  | Offset: 0    | Bytes: 128 
 //   _origins                       | mapping(uint256 => struct IEtnaInbox.Origin)       | Slot: 290  | Offset: 0    | Bytes: 32  

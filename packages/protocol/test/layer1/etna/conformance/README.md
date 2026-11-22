@@ -2,14 +2,13 @@
 
 The historical vectors come from formal PR [#22292](https://github.com/taikoxyz/taiko-mono/pull/22292)
 at commit `4f38cfcc8cbcfad10ec159110f5a8f74ca3e7ea5`, translated to one leaf per height for
-[#22412](https://github.com/taikoxyz/taiko-mono/pull/22412). The current admission vectors are a
-byte-for-byte copy from formal commit `37e13173abadc41f30697549e36eb4365496a01d`.
+[#22412](https://github.com/taikoxyz/taiko-mono/pull/22412) and adapted by hand to the Inbox of
+L2 staking, which has no registry, committee snapshot or epoch length.
 
-| File                              | Cases | Model scope                                                                        | SHA-256                                                            |
-| --------------------------------- | ----- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `vectors/forced.json`             | 114   | Historical forced inclusion and fee sweeping                                       | `e044c8b85a900147d8dc85ec5153ae9d306ec7b8685877461f329f226986a01a` |
-| `vectors/land.json`               | 78    | Historical landing                                                                 | `ec0e5222613d2f68b5feb988f797553f397a771c21cd07521662683ef8a92a58` |
-| `vectors/registry_admission.json` | 7     | Current lowest-empty-slot registry admission, slashing and standard-token payments | `7d54bac813a3dca2fbbbc01ac85e427c9f1e54b8fbb713b10d9c6a07479b13cf` |
+| File                  | Cases | Model scope                                  | SHA-256                                                            |
+| --------------------- | ----- | -------------------------------------------- | ------------------------------------------------------------------ |
+| `vectors/forced.json` | 114   | Historical forced inclusion and fee sweeping | `c85c42abb27b874601ca6e77b8154c564c90c37b1d70a066930447551ae8858e` |
+| `vectors/land.json`   | 78    | Historical landing                           | `d20bc6d9787250883fc31e80bbe1a49ce6c24d38913e51168d1abb22d1bf4690` |
 
 ## Historical forced and land vectors
 
@@ -41,59 +40,32 @@ unchanged, and no expected decision or observable was edited.
 
 The kept vectors still cover the range, origin, generation, already-settled, batch size, FI
 head, reference block, blob, proof, frontier-leaf (wrong word, head, EL or Comet hash, height
-and swapped leaves) and unchecked interior-leaf cases. The harness deploys the registry with
-`MIN_STAKE` in place of the historical `minStake` of 10, which is below the current deployment
-bound (STAKE-4.1-14a); neither family reads a stake. It compares landing records and
+and swapped leaves) and unchecked interior-leaf cases. The harness compares landing records and
 SignalService checkpoints at every height up to the highest landed height. These families do
 not exercise validator-state hashes, which no landing carries any more, nor landings of one
 block or to a non-grid height; the dedicated landing tests cover those. Passing these two
 families does not establish conformance to the complete current specification.
 
-## Current registry admission vectors
+The staking contract moved to L2, so the Inbox no longer has a registry, committee snapshot,
+epoch length or recovery exclusions, and both files were then adapted by hand, editing lines
+and touching no other byte:
 
-`EtnaCurrentRegistryConformance.t.sol` consumes every case in the separate
-`etna-current-registry-admission-1` schema and reads the case count from the file. The file is
-copied byte for byte from formal commit `37e13173abadc41f30697549e36eb4365496a01d`, whose later
-commits do not change it. Its `authorityCommit` is `2e6763e21bc236cfcda6011d164b32040f9e0c8d`,
-the spec commit of #22412. It has no added provenance field. The seven cases cover the
-lowest-empty-slot rule: an empty last slot, the lowest of several empty slots, a full registry,
-a zero-balance slashed bond that keeps its slot, a withdrawn slot reused with a fresh id, a
-pending top-up that does not change the choice, and an amount below `minStake`. No case
-replaces a bond, so `oldBondId` and `oldBond` are null in every case.
+1. every landing's `activeCommitteeSnapshot` input is removed (10 in `forced.json`, 212 in
+   `land.json`), and so is every observed `snapshot` (114 and 78 lines);
+2. each deployment drops `activationDelay`, `bountyBps`, `exitDelay`, `forfeitBps`, `minStake`,
+   `registrySize` and `withdrawalDelay` (798 and 546 members); the harness passes `unsettled` to
+   the Inbox as its U, and the EtnaStaking proxy is the test constant;
+3. `constants` drops `registeredAt`, `genesisKey`, `genesisOwner`, `epochLenL2`, `vpUnit`,
+   `sMin` and `nMax` (7 lines each);
+4. `provenance.translation` records the adaptation.
 
-The harness deploys the registry with the file's `minStake` (250,000 TAIKO) and materializes
-the opening of `openingBonds` bonds (4 or 4,096) with valid keys and proofs of possession, the
-pending top-ups, the exit, confirmation and paid withdrawal of `vacancyLifecycle`, and the real
-double-sign slash of `slashLifecycle`: each model vote is signed by the bond's key under the
-deployment's chain id, and the reporter and slash sink receive the actual bounty and remainder.
-Caller 8 holds and approves 100 units of 25,000 TAIKO. The harness compares the listed bond,
-slot, checkpoint and payment observations, checks that slots are used in order, and checks
-that a rejected registration leaves the whole registry and token state unchanged. The model's
-receipt count means successful payment receipts, not the total number of Solidity events.
-
-The file predates the shrinking count of #22422 (STAKE-4.1-36: 0 or one plus the highest occupied
-slot) and states no count. The harness therefore expects 4,095 opening slots, not 4,096, after the
-`empty-last-slot` vacancy of slot 4095; the slot assignment and every listed observation are
-unchanged. The historical forced and land families still carry an independent `sMin` constant,
-which the harness checks as written but no longer passes to the Inbox: `init` takes the registry's
-`minStake` as the config hash's fifth word, and neither family reads a stake.
+No expected decision or other observable was edited. Every recovery in these files lists no
+exclusion; the harness checks that and sends the six-argument `recover`.
 
 ## Refresh and verify
 
-Regenerate the current admission file in a checkout of the formal branch, from `formal/etna`,
-with `CONTRACTS_CHECKOUT` set to the contract checkout's absolute path:
-
-```sh
-git rev-parse HEAD
-lake exe etna-vectors --write "$TMPDIR/etna-current"
-cp "$TMPDIR/etna-current/registry_admission.json" \
-  "$CONTRACTS_CHECKOUT/packages/protocol/test/layer1/etna/conformance/vectors/"
-```
-
-The generator also writes `validator_state.json`, which this harness does not read. Generate
-twice and compare the JSON bytes, then compare with the formal checkout's committed source file.
-Update the source commit, `authorityCommit` and checksum above when refreshing. Do not edit
-expected decisions by hand.
+The current formal tree no longer generates these families, so they cannot be regenerated;
+check the files against the checksums above with `sha256sum vectors/*.json`.
 
 In the contract checkout, using pnpm 9 as in repository CI:
 
@@ -104,6 +76,6 @@ FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/etna/conformance/*' 
 FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/etna/**' -vv
 ```
 
-The current vectors cover admission only. Current rules-schedule, switch, recovery,
-cryptography, token callbacks and full deployment conformance still require their
-own implementation tests and refinements.
+These vectors do not cover staking, the rules schedule, the switch, recovery authorization,
+cryptography or full deployment conformance, which still require their own implementation tests
+and refinements.

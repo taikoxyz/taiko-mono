@@ -2,20 +2,13 @@
   "schema": "etna-conformance-2",
   "family": "forced",
   "generator": "formal/etna: lake exe etna-vectors --write testdata/etna_conformance",
-  "provenance": {"formalCommit": "4f38cfcc8cbcfad10ec159110f5a8f74ca3e7ea5", "translation": "#22412: one leaf per height, see README.md"},
+  "provenance": {"formalCommit": "4f38cfcc8cbcfad10ec159110f5a8f74ca3e7ea5", "translation": "#22412: one leaf per height; L2 staking: no registry, committee snapshot or epoch fields; see README.md"},
   "constants": {
-    "registeredAt": 10,
     "initAt": 11,
     "timestampBase": 1700000000,
     "timestampStep": 12,
-    "genesisKey": 1,
-    "genesisOwner": 1,
-    "epochLenL2": 10,
     "forcedInclusionDelay": 3600,
     "maxAnchorAge": 7200,
-    "vpUnit": 1000000000,
-    "sMin": 1000000000,
-    "nMax": 128,
     "referenceHash": 7
   },
   "vectorCount": 114,
@@ -25,7 +18,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -41,7 +34,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 0,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 0,
             "feeGwei": 1,
@@ -64,7 +56,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -80,7 +72,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -105,7 +96,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -121,7 +112,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -146,7 +136,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -164,7 +154,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -189,7 +178,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -207,7 +196,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 3,
@@ -233,7 +221,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -251,7 +239,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 3,
@@ -277,7 +264,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -296,7 +283,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 3,
@@ -322,7 +308,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -341,7 +327,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 6000000000,
             "swept": 0,
             "feeGwei": 4,
@@ -368,7 +353,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -387,7 +372,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 6000000000,
             "swept": 0,
             "feeGwei": 4,
@@ -414,7 +398,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -434,7 +418,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 6000000000,
             "swept": 0,
             "feeGwei": 4,
@@ -461,7 +444,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -481,7 +464,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 10000000000,
             "swept": 0,
             "feeGwei": 5,
@@ -509,7 +491,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -529,7 +511,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 10000000000,
             "swept": 0,
             "feeGwei": 5,
@@ -557,7 +538,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -573,7 +554,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 0,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 0,
             "feeGwei": 1,
@@ -596,7 +576,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -612,7 +592,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -637,7 +616,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -653,7 +632,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -678,7 +656,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -696,7 +674,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -721,7 +698,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -739,7 +716,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -765,7 +741,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -783,7 +759,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -809,7 +784,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -828,7 +803,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -854,7 +828,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -873,7 +847,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 4000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -900,7 +873,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -919,7 +892,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 4000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -946,7 +918,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -966,7 +938,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 4000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -993,7 +964,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1013,7 +984,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 6000000000,
             "swept": 0,
             "feeGwei": 3,
@@ -1041,7 +1011,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1061,7 +1031,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 6000000000,
             "swept": 0,
             "feeGwei": 3,
@@ -1089,7 +1058,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -1105,7 +1074,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 0,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 0,
             "feeGwei": 1,
@@ -1128,7 +1096,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -1144,7 +1112,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -1169,7 +1136,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -1185,7 +1152,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -1210,7 +1176,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -1228,7 +1194,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -1253,7 +1218,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -1271,7 +1236,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -1297,7 +1261,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -1315,7 +1279,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -1341,7 +1304,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1360,7 +1323,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -1386,7 +1348,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1405,7 +1367,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -1432,7 +1393,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1451,7 +1412,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -1478,7 +1438,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1498,7 +1458,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -1525,7 +1484,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1545,7 +1504,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 5000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -1573,7 +1531,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -1593,7 +1551,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 5000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -1621,7 +1578,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -1637,7 +1594,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 0,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 0,
             "feeGwei": 3,
@@ -1660,7 +1616,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -1676,7 +1632,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 6,
@@ -1701,7 +1656,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -1717,7 +1672,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 6,
@@ -1742,7 +1696,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}}
@@ -1760,7 +1714,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 6,
@@ -1785,7 +1738,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}}
@@ -1803,7 +1756,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 9000000000,
             "swept": 0,
             "feeGwei": 9,
@@ -1829,7 +1781,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}}
@@ -1847,7 +1799,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 9000000000,
             "swept": 0,
             "feeGwei": 9,
@@ -1873,7 +1824,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -1892,7 +1843,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 9000000000,
             "swept": 0,
             "feeGwei": 9,
@@ -1918,7 +1868,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -1937,7 +1887,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 18000000000,
             "swept": 0,
             "feeGwei": 12,
@@ -1964,7 +1913,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -1983,7 +1932,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 18000000000,
             "swept": 0,
             "feeGwei": 12,
@@ -2010,7 +1958,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -2030,7 +1978,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 18000000000,
             "swept": 0,
             "feeGwei": 12,
@@ -2057,7 +2004,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -2077,7 +2024,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 30000000000,
             "swept": 0,
             "feeGwei": 15,
@@ -2105,7 +2051,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 1, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 1, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -2125,7 +2071,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 30000000000,
             "swept": 0,
             "feeGwei": 15,
@@ -2153,7 +2098,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -2169,7 +2114,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 0,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 0,
             "feeGwei": 3,
@@ -2192,7 +2136,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -2208,7 +2152,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 4,
@@ -2233,7 +2176,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -2249,7 +2192,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 4,
@@ -2274,7 +2216,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}}
@@ -2292,7 +2234,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 4,
@@ -2317,7 +2258,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}}
@@ -2335,7 +2276,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 7000000000,
             "swept": 0,
             "feeGwei": 6,
@@ -2361,7 +2301,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}}
@@ -2379,7 +2319,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 7000000000,
             "swept": 0,
             "feeGwei": 6,
@@ -2405,7 +2344,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -2424,7 +2363,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 7000000000,
             "swept": 0,
             "feeGwei": 6,
@@ -2450,7 +2388,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -2469,7 +2407,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 13000000000,
             "swept": 0,
             "feeGwei": 7,
@@ -2496,7 +2433,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -2515,7 +2452,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 13000000000,
             "swept": 0,
             "feeGwei": 7,
@@ -2542,7 +2478,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -2562,7 +2498,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 13000000000,
             "swept": 0,
             "feeGwei": 7,
@@ -2589,7 +2524,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -2609,7 +2544,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 20000000000,
             "swept": 0,
             "feeGwei": 9,
@@ -2637,7 +2571,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -2657,7 +2591,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 20000000000,
             "swept": 0,
             "feeGwei": 9,
@@ -2685,7 +2618,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -2701,7 +2634,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 0,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 0,
             "feeGwei": 3,
@@ -2724,7 +2656,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -2740,7 +2672,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 4,
@@ -2765,7 +2696,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -2781,7 +2712,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 4,
@@ -2806,7 +2736,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}}
@@ -2824,7 +2754,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 3000000000,
             "swept": 0,
             "feeGwei": 4,
@@ -2849,7 +2778,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}}
@@ -2867,7 +2796,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 7000000000,
             "swept": 0,
             "feeGwei": 5,
@@ -2893,7 +2821,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}}
@@ -2911,7 +2839,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 7000000000,
             "swept": 0,
             "feeGwei": 5,
@@ -2937,7 +2864,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -2956,7 +2883,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 7000000000,
             "swept": 0,
             "feeGwei": 5,
@@ -2982,7 +2908,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -3001,7 +2927,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 12000000000,
             "swept": 0,
             "feeGwei": 6,
@@ -3028,7 +2953,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -3047,7 +2972,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 12000000000,
             "swept": 0,
             "feeGwei": 6,
@@ -3074,7 +2998,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -3094,7 +3018,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 12000000000,
             "swept": 0,
             "feeGwei": 6,
@@ -3121,7 +3044,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -3141,7 +3064,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 18000000000,
             "swept": 0,
             "feeGwei": 7,
@@ -3169,7 +3091,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 3, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 3, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 3, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 3, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 3000000000, "refundOK": true}},
@@ -3189,7 +3111,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 18000000000,
             "swept": 0,
             "feeGwei": 7,
@@ -3217,7 +3138,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3235,7 +3156,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -3261,7 +3181,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3279,7 +3199,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -3305,7 +3224,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3323,7 +3242,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -3349,7 +3267,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3367,7 +3285,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -3392,7 +3309,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3410,7 +3327,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -3436,7 +3352,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3454,7 +3370,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -3480,7 +3395,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3498,7 +3413,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -3524,7 +3438,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3542,7 +3456,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -3567,7 +3480,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3585,7 +3498,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -3611,7 +3523,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3629,7 +3541,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -3655,7 +3566,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3673,7 +3584,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -3699,7 +3609,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3717,7 +3627,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -3742,7 +3651,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3760,7 +3669,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -3785,7 +3693,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3803,7 +3711,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -3828,7 +3735,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3846,7 +3753,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -3871,7 +3777,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -3889,7 +3795,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -3914,13 +3819,13 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 4,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 13, "timestamp": 1700000156, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 14, "timestamp": 1700000168, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
-          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
+          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 0, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
         ]
       },
       "call": {"block": 16, "timestamp": 1700000192, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1999999999, "refundOK": true}},
@@ -3935,7 +3840,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 4000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -3964,13 +3868,13 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 4,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 13, "timestamp": 1700000156, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 14, "timestamp": 1700000168, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
-          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 0, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
+          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 0, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
         ]
       },
       "call": {"block": 16, "timestamp": 1700000192, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
@@ -3985,7 +3889,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 6000000000,
             "swept": 0,
             "feeGwei": 3,
@@ -4015,13 +3918,13 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 4,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 13, "timestamp": 1700000156, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 14, "timestamp": 1700000168, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
-          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
+          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 1, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
         ]
       },
       "call": {"block": 16, "timestamp": 1700000192, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1999999999, "refundOK": true}},
@@ -4036,7 +3939,6 @@
             "recoveryNonce": 0,
             "head": 1,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 4000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -4065,13 +3967,13 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 4,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 13, "timestamp": 1700000156, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 14, "timestamp": 1700000168, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
-          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 1, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
+          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 1, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
         ]
       },
       "call": {"block": 16, "timestamp": 1700000192, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
@@ -4086,7 +3988,6 @@
             "recoveryNonce": 0,
             "head": 1,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 6000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -4116,13 +4017,13 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 4,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 13, "timestamp": 1700000156, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 14, "timestamp": 1700000168, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
-          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
+          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 2, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
         ]
       },
       "call": {"block": 16, "timestamp": 1700000192, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 999999999, "refundOK": true}},
@@ -4137,7 +4038,6 @@
             "recoveryNonce": 0,
             "head": 2,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 4000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -4166,13 +4066,13 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 4,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 13, "timestamp": 1700000156, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 14, "timestamp": 1700000168, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
-          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
+          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 2, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
         ]
       },
       "call": {"block": 16, "timestamp": 1700000192, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4187,7 +4087,6 @@
             "recoveryNonce": 0,
             "head": 2,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 5000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -4217,13 +4116,13 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 4,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 13, "timestamp": 1700000156, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 14, "timestamp": 1700000168, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
-          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
+          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 3, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
         ]
       },
       "call": {"block": 16, "timestamp": 1700000192, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 999999999, "refundOK": true}},
@@ -4238,7 +4137,6 @@
             "recoveryNonce": 0,
             "head": 3,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 4000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -4267,13 +4165,13 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 4,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 13, "timestamp": 1700000156, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 14, "timestamp": 1700000168, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
-          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 3, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
+          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 3, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
         ]
       },
       "call": {"block": 16, "timestamp": 1700000192, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4288,7 +4186,6 @@
             "recoveryNonce": 0,
             "head": 3,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 5000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -4318,7 +4215,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -4334,7 +4231,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 0,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 0,
             "feeGwei": 1,
@@ -4357,7 +4253,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": false, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": false, "threshold": 2, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -4373,7 +4269,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 0,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 0,
             "feeGwei": 1,
@@ -4396,7 +4291,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "forceETH", "args": {"amount": 5}}
@@ -4414,7 +4309,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 0,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 5,
             "feeGwei": 1,
@@ -4437,7 +4331,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": false, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": false, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "forceETH", "args": {"amount": 5}}
@@ -4455,7 +4349,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 0,
-            "snapshot": 10,
             "ethBalance": 5,
             "swept": 0,
             "feeGwei": 1,
@@ -4478,7 +4371,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4497,7 +4390,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 2000000000,
             "feeGwei": 2,
@@ -4523,7 +4415,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": false, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": false, "threshold": 2, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4542,7 +4434,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -4568,7 +4459,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4588,7 +4479,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 2000000005,
             "feeGwei": 2,
@@ -4614,7 +4504,7 @@
       "family": "forced",
       "source": "generated",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": false, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": false, "threshold": 2, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4634,7 +4524,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 2000000005,
             "swept": 0,
             "feeGwei": 2,
@@ -4661,12 +4550,12 @@
       "source": "handwritten",
       "spec": "spec L415",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 13, "timestamp": 1700000156, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
-          {"block": 14, "timestamp": 1700000168, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 13, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
+          {"block": 14, "timestamp": 1700000168, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 13, "forcedInclusionHead": 2, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
         ]
       },
       "call": {"block": 15, "timestamp": 1700000180, "fn": "sweepProtocolFees", "args": {"caller": 3}},
@@ -4681,7 +4570,6 @@
             "recoveryNonce": 0,
             "head": 2,
             "tail": 2,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 2000000000,
             "feeGwei": 1,
@@ -4710,7 +4598,7 @@
       "source": "handwritten",
       "spec": "spec L420",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 3,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4730,7 +4618,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 3,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 4000000000,
             "feeGwei": 2,
@@ -4758,7 +4645,7 @@
       "source": "handwritten",
       "spec": "spec L420",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 2,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4777,7 +4664,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 1000000000,
             "feeGwei": 1,
@@ -4803,7 +4689,7 @@
       "source": "handwritten",
       "spec": "spec L461",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -4819,7 +4705,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -4845,7 +4730,7 @@
       "source": "handwritten",
       "spec": "spec L415",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 1,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}}
@@ -4863,7 +4748,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -4889,13 +4773,13 @@
       "source": "handwritten",
       "spec": "spec L426",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 4,
         "calls": [
           {"block": 12, "timestamp": 1700000144, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 13, "timestamp": 1700000156, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
           {"block": 14, "timestamp": 1700000168, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 2000000000, "refundOK": true}},
-          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 2, "activeCommitteeSnapshot": 10, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
+          {"block": 15, "timestamp": 1700000180, "fn": "land", "args": {"parentHeight": 0, "lastHeight": 6, "lastBlockHash": 10006, "lastCometHash": 20006, "lastStateRoot": 30006, "l1ReferenceBlockNumber": 14, "forcedInclusionHead": 2, "refAvailable": true, "blobs": 1, "proofsOK": true, "leafCount": 5, "leaves": [{"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40001}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40002}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40003}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40004}, {"comet": 0, "cut": false, "el": 0, "head": 0, "height": 0, "word": 40005}]}}
         ]
       },
       "call": {"block": 16, "timestamp": 1700000192, "fn": "saveForcedInclusion", "args": {"caller": 2, "rawBytes": 32, "paid": 1000000000, "refundOK": true}},
@@ -4910,7 +4794,6 @@
             "recoveryNonce": 0,
             "head": 2,
             "tail": 4,
-            "snapshot": 10,
             "ethBalance": 5000000000,
             "swept": 0,
             "feeGwei": 2,
@@ -4941,7 +4824,7 @@
       "source": "handwritten",
       "spec": "spec L791",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -4957,7 +4840,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -4983,7 +4865,7 @@
       "source": "handwritten",
       "spec": "spec L791",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -4999,7 +4881,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 0,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 0,
             "feeGwei": 1,
@@ -5023,7 +4904,7 @@
       "source": "handwritten",
       "spec": "spec L791",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -5039,7 +4920,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 1,
-            "snapshot": 10,
             "ethBalance": 1000000000,
             "swept": 0,
             "feeGwei": 1,
@@ -5065,7 +4945,7 @@
       "source": "handwritten",
       "spec": "spec L791",
       "setup": {
-        "deployment": {"activationDelay": 10, "bountyBps": 1000, "exitDelay": 20, "feeGwei": 1, "forfeitBps": 1000, "initialized": true, "maxBatchBlocks": 18, "minStake": 10, "recoveryNonce": 0, "registrySize": 1, "recipientAccepts": true, "threshold": 2, "unsettled": 3600, "withdrawalDelay": 30},
+        "deployment": {"feeGwei": 1, "initialized": true, "maxBatchBlocks": 18, "recoveryNonce": 0, "recipientAccepts": true, "threshold": 2, "unsettled": 3600},
         "callCount": 0,
         "calls": []
       },
@@ -5081,7 +4961,6 @@
             "recoveryNonce": 0,
             "head": 0,
             "tail": 0,
-            "snapshot": 10,
             "ethBalance": 0,
             "swept": 0,
             "feeGwei": 1,

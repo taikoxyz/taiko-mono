@@ -9,13 +9,11 @@ import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 /// @title EtnaInboxInvariantTest
 /// @notice Landings, landing records, recovery generations, the fee balance, the forced
-/// inclusion queue, the active committee snapshot and the reserved slots under random sequences of
-/// saves, landings, recoveries, sweeps, force-sent ETH and L1 time.
+/// inclusion queue and the reserved slots under random sequences of saves, landings, recoveries,
+/// sweeps, force-sent ETH and L1 time.
 /// @dev Foundry runs a separate campaign per invariant function and asserts only that function
 /// in it, so every invariant also asserts that the handler saw no violation of any kind.
-/// The Inbox lands at most 64 blocks per batch, so landings reach back over
-/// several checkpoints; Bob and Carol register next to Alice so recoveries have three bonds to
-/// force out.
+/// The Inbox lands at most 64 blocks per batch, so landings reach back over several checkpoints.
 /// forge-config: default.invariant.depth = 50
 /// forge-config: default.invariant.fail_on_revert = true
 contract EtnaInboxInvariantTest is EtnaInboxTestBase {
@@ -30,9 +28,6 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
     /// @dev `maxBatchBlocks` of the campaign's Inbox.
     uint64 internal constant BATCH_LIMIT = 64;
 
-    uint256 internal constant BOB_PK = 0xB0B;
-    uint256 internal constant CAROL_PK = 0xCA401;
-
     bytes32 internal constant BLANK_TX_HASH = keccak256("");
 
     EtnaInbox internal inbox;
@@ -40,8 +35,6 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
 
     function setUp() public override {
         super.setUp();
-        _registerValidator(registry, Bob, BOB_PK);
-        _registerValidator(registry, Carol, CAROL_PK);
         vm.warp(block.timestamp + 12 * (L1_HEAD - block.number));
         vm.roll(L1_HEAD);
 
@@ -50,16 +43,14 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         _upgradeAndInit(_newInboxImpl(config), _defaultInitParams());
         inbox = EtnaInbox(inboxProxy);
 
-        // committeeConfigHash rebuilt from the init parameters (appendix A), not read back.
+        // The config hash rebuilt from the implementation's parameters (appendix A), not read
+        // back.
         bytes32 configHash = keccak256(
             abi.encode(
-                bytes32("ETNA_PARENT_ANCHOR_V1"),
+                bytes32("ETNA_CONFIG_V1"),
                 uint256(L2_CHAIN_ID),
-                address(registry),
-                VP_UNIT,
-                MIN_STAKE,
-                N_MAX,
-                UNSETTLED_LIMIT
+                ETNA_STAKING,
+                uint256(UNSETTLED_LIMIT)
             )
         );
         handler = new EtnaInboxHandler(
@@ -67,16 +58,14 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
                 inbox: inbox,
                 signalService: signalService,
                 verifier: landVerifier,
-                registry: registry,
                 owner: address(this),
                 l2ChainId: L2_CHAIN_ID,
                 maxBatchBlocks: BATCH_LIMIT,
                 forcedInclusionFeeInGwei: FORCED_INCLUSION_FEE_GWEI,
                 forcedInclusionFeeDoubleThreshold: FORCED_INCLUSION_FEE_DOUBLE_THRESHOLD,
-                committeeConfigHash: configHash,
+                configHash: configHash,
                 genesisBlockHash: GENESIS_BLOCK_HASH,
-                genesisStateRoot: GENESIS_STATE_ROOT,
-                genesisCutoff: registryCheckpointBlock
+                genesisStateRoot: GENESIS_STATE_ROOT
             })
         );
 
@@ -154,8 +143,7 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
 
     /// @notice 3. The generation counts the successful recoveries (slot 268); origins(g) is the
     /// model's for every g up to it and origins(generation + 1) is unwritten (slot 290 words);
-    /// the views read the current origin, whose start height is at most c; each excluded bond's
-    /// exit is min(existing, R) of its recoveries.
+    /// `generationStartHeight` reads the current origin, whose start height is at most c.
     function invariant_generationsAndOriginsAreWriteOnce() external view {
         _assertModelHeld();
         uint48 generation = inbox.recoveryGeneration();
@@ -171,12 +159,6 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         IEtnaInbox.Origin memory current = handler.originAt(generation);
         assertEq(inbox.generationStartHeight(), current.startHeight, "generationStartHeight");
         assertLe(inbox.generationStartHeight(), inbox.lastCheckpoint().height, "start <= c");
-        assertEq(inbox.recoverySnapshot(), current.l1BlockNumber, "recoverySnapshot");
-        for (uint256 b; b < handler.bondCount(); ++b) {
-            assertEq(
-                registry.entryAt(b).exitEffectiveL1, handler.ghostExit(b), "exit = min(existing, R)"
-            );
-        }
     }
 
     /// @notice 4. The Inbox holds the fees charged by successful saves plus the force-sent ETH
@@ -233,24 +215,14 @@ contract EtnaInboxInvariantTest is EtnaInboxTestBase {
         assertEq(inbox.getCurrentForcedInclusionFee(), fee, "fee follows the pending count");
     }
 
-    /// @notice 6. The active committee snapshot (slot 284) is the genesis cutoff until the first
-    /// landing and then the snapshot of the last successful landing; recoveries and failed
-    /// landings leave it.
-    function invariant_snapshotFollowsLandingsOnly() external view {
-        _assertModelHeld();
-        assertEq(inbox.activeCommitteeSnapshot(), handler.ghostSnapshot(), "snapshot");
-        assertEq(
-            uint256(_word(ACTIVE_COMMITTEE_SNAPSHOT_SLOT)), handler.ghostSnapshot(), "slot 284"
-        );
-    }
-
-    /// @notice 7. The reserved slots 251-257, 259-267, 275-277, 283, 286-289 and 291 stay zero.
+    /// @notice 6. The reserved slots 251-257, 259-267, 275-277, 283, 284, 286-289 and 291 stay
+    /// zero.
     function invariant_reservedSlotsStayZero() external view {
         _assertModelHeld();
         _assertZero(251, 257);
         _assertZero(259, 267);
         _assertZero(275, 277);
-        _assertZero(RESERVED_SLOT_283, RESERVED_SLOT_283);
+        _assertZero(RESERVED_SLOT_283, RESERVED_SLOT_284);
         _assertZero(RESERVED_SLOT_286, RESERVED_SLOT_289);
         _assertZero(RESERVED_SLOT_291, RESERVED_SLOT_291);
     }

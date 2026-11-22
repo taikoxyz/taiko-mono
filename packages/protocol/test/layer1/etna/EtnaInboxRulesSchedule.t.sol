@@ -155,7 +155,7 @@ contract EtnaInboxRulesScheduleTest is EtnaLandTestBase {
     /// generation 1, even though the schedule would admit cancelling (the stop is far ahead).
     function test_scheduleStop_RevertWhen_CancellationIsForAnEarlierGeneration() external {
         _plant([uint256(0), 0, 0, _NOW + 10 * _M]);
-        _inbox().recover(0, 0, 0, _NOW, _noExclusions(), new uint256[](0), 0);
+        _inbox().recover(0, 0, 0, _NOW, new uint256[](0), 0);
         _plant([uint256(0), 0, 0, _NOW + 10 * _M]);
         _expectScheduleStopRevert(0, IEtnaInbox.GenerationMismatch.selector);
         _expectScheduleRulesRevert(0, _MAX, IEtnaInbox.GenerationMismatch.selector);
@@ -269,7 +269,7 @@ contract EtnaInboxRulesScheduleTest is EtnaLandTestBase {
     function _recover(uint48 _rules, uint256[4] memory _expected) private {
         vm.expectEmit(inboxProxy);
         emit IEtnaInbox.RulesScheduleUpdated(_pack(_expected));
-        _inbox().recover(0, 0, 0, _NOW, _noExclusions(), new uint256[](0), _rules);
+        _inbox().recover(0, 0, 0, _NOW, new uint256[](0), _rules);
         assertEq(_inbox().recoveryGeneration(), 1, "recovered");
         _assertSchedule(_expected);
     }
@@ -277,7 +277,7 @@ contract EtnaInboxRulesScheduleTest is EtnaLandTestBase {
     function _expectRecoverRevert(uint48 _rules) private {
         bytes32 before = _inboxWord(RULES_SCHEDULE_SLOT);
         vm.expectRevert(IEtnaInbox.InvalidRules.selector);
-        _inbox().recover(0, 0, 0, _NOW, _noExclusions(), new uint256[](0), _rules);
+        _inbox().recover(0, 0, 0, _NOW, new uint256[](0), _rules);
         assertEq(_inboxWord(RULES_SCHEDULE_SLOT), before, "slot 293 unchanged");
         assertEq(_inbox().recoveryGeneration(), 0, "no recovery");
     }

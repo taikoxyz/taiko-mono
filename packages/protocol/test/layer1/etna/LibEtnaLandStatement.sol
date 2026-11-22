@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
 
 /// @title LibEtnaLandStatement
-/// @notice Rebuilds the appendix A landing hashes, the cut leaf, the cut hash and the 21-word
+/// @notice Rebuilds the appendix A landing hashes, the cut leaf, the cut hash and the 19-word
 /// landing statement, with flat `abi.encode` and independently of `EtnaInbox`.
 /// @dev Shared by `EtnaLandTestBase` and the invariant handler. The caller supplies every value the
 /// Inbox reads from storage or its immutables, so it decides whether they come from the Inbox's
@@ -15,9 +15,8 @@ library LibEtnaLandStatement {
     struct Context {
         uint256 l2ChainId;
         address inbox;
-        address stakingRegistry;
         uint256 generation;
-        bytes32 committeeConfigHash;
+        bytes32 configHash;
     }
 
     /// @dev `cutLeaf(x) = keccak256(abi.encode(uint256(x), blockHash(x), cometHash(x),
@@ -58,7 +57,7 @@ library LibEtnaLandStatement {
         );
     }
 
-    /// @dev The 672-byte statement preimage: the 21 appendix A words, with parentHash,
+    /// @dev The 608-byte statement preimage: the 19 appendix A words, with parentHash,
     /// parentCometHash and headBefore from `_origin`, the reference block hash `_referenceHash`
     /// and the hash of `_blobHashes`.
     function statement(
@@ -74,14 +73,14 @@ library LibEtnaLandStatement {
         returns (bytes memory)
     {
         return bytes.concat(
-            _words0To6(_ctx, _in),
-            _words7To13(_ctx, _in, _origin),
-            _words14To20(_in, _origin, _referenceHash, _blobHashes, _cutHash)
+            _words0To5(_ctx, _in),
+            _words6To12(_ctx, _in, _origin),
+            _words13To18(_in, _origin, _referenceHash, _blobHashes, _cutHash)
         );
     }
 
-    /// @dev Statement words 0-6: tag, L1 chain id, L2 chain id, Inbox, registry, generation, p.
-    function _words0To6(
+    /// @dev Statement words 0-5: tag, L1 chain id, L2 chain id, Inbox, generation, p.
+    function _words0To5(
         Context memory _ctx,
         IEtnaInbox.LandInput memory _in
     )
@@ -94,15 +93,14 @@ library LibEtnaLandStatement {
             block.chainid,
             _ctx.l2ChainId,
             _ctx.inbox,
-            _ctx.stakingRegistry,
             _ctx.generation,
             _in.parentHeight
         );
     }
 
-    /// @dev Statement words 7-13: parentHash, parentCometHash, committeeConfigHash, h,
-    /// lastBlockHash, lastCometHash, lastStateRoot.
-    function _words7To13(
+    /// @dev Statement words 6-12: parentHash, parentCometHash, configHash, h, lastBlockHash,
+    /// lastCometHash, lastStateRoot.
+    function _words6To12(
         Context memory _ctx,
         IEtnaInbox.LandInput memory _in,
         IEtnaInbox.Landing memory _origin
@@ -114,7 +112,7 @@ library LibEtnaLandStatement {
         return abi.encode(
             _origin.elHash,
             _origin.cometHash,
-            _ctx.committeeConfigHash,
+            _ctx.configHash,
             _in.lastHeight,
             _in.lastBlockHash,
             _in.lastCometHash,
@@ -122,9 +120,9 @@ library LibEtnaLandStatement {
         );
     }
 
-    /// @dev Statement words 14-20: reference number and hash, blob hashes hash, headBefore,
-    /// headAfter, activeCommitteeSnapshot, cutHash.
-    function _words14To20(
+    /// @dev Statement words 13-18: reference number and hash, blob hashes hash, headBefore,
+    /// headAfter, cutHash.
+    function _words13To18(
         IEtnaInbox.LandInput memory _in,
         IEtnaInbox.Landing memory _origin,
         bytes32 _referenceHash,
@@ -141,7 +139,6 @@ library LibEtnaLandStatement {
             keccak256(abi.encodePacked(_blobHashes)),
             uint256(_origin.head),
             _in.forcedInclusionHead,
-            _in.activeCommitteeSnapshot,
             _cutHash
         );
     }

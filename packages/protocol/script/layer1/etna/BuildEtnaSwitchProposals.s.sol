@@ -476,7 +476,7 @@ contract BuildEtnaSwitchProposals is DeployEtnaSwitch {
         config_ = IEtnaInbox.Config({
             proofVerifier: inbox.proofVerifier(),
             signalService: inbox.signalService(),
-            stakingRegistry: inbox.stakingRegistry(),
+            etnaStaking: inbox.etnaStaking(),
             l2ChainId: inbox.l2ChainId(),
             maxBatchBlocks: inbox.maxBatchBlocks(),
             forcedInclusionFeeInGwei: inbox.forcedInclusionFeeInGwei(),
@@ -484,7 +484,7 @@ contract BuildEtnaSwitchProposals is DeployEtnaSwitch {
             protocolFeeRecipient: inbox.protocolFeeRecipient(),
             unzenInbox: inbox.unzenInbox(),
             etnaForkTime: inbox.etnaForkTime(),
-            recoveryCapacity: inbox.recoveryCapacity()
+            unsettledLimit: inbox.unsettledLimit()
         });
     }
 

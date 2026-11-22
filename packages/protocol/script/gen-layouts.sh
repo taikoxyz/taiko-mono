@@ -32,7 +32,6 @@ contracts_layer1=(
 "contracts/layer1/core/impl/InboxWithEtnaCutoffs.sol:InboxWithEtnaCutoffs"
 "contracts/layer1/core/impl/ProverWhitelist.sol:ProverWhitelist"
 "contracts/layer1/etna/impl/EtnaInbox.sol:EtnaInbox"
-"contracts/layer1/etna/impl/EtnaStakingRegistry.sol:EtnaStakingRegistry"
 "contracts/layer1/mainnet/TaikoToken.sol:TaikoToken"
 "contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"
 "contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox"

@@ -22,14 +22,14 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
     // init (START-10-5, vector 5.k)
     // ---------------------------------------------------------------
 
-    /// @dev `init` stores L, the committee and FI parameters but no start: slots 270/271 and
-    /// 273/274, landings(0) and origins(0) stay zero, slot 272 holds only L, and no SignalService
+    /// @dev `init` stores the config hash and the forced inclusion parameters but no start:
+    /// slots 270-274, landings(0) and origins(0) stay zero, and no SignalService
     /// checkpoint is saved. Before the start write forced inclusion (5b.b), `land` and `recover`
     /// (RECOV-8.3-2) revert, and so do the views of the missing generation 0 origin (8.4 5.b);
     /// invalidating the recovery nonce and scheduling work.
     function test_init_SwitchingNetworkWritesNoStart() external {
         assertTrue(_inbox().isInitialized(), "initialized");
-        assertEq(uint256(_inboxWord(GENESIS_PACKED_SLOT)), EPOCH_LEN_L2 << 96, "272: L only");
+        assertEq(_inboxWord(GENESIS_PACKED_SLOT), 0, "272");
         assertEq(_inboxWord(GENESIS_BLOCK_HASH_SLOT), 0, "273");
         assertEq(_inboxWord(GENESIS_STATE_ROOT_SLOT), 0, "274");
         _assertCheckpoint(0, 0);
@@ -44,8 +44,6 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         signalService.getCheckpoint(0);
         vm.expectRevert(IEtnaInbox.StartNotWritten.selector);
         _inbox().generationStartHeight();
-        vm.expectRevert(IEtnaInbox.StartNotWritten.selector);
-        _inbox().recoverySnapshot();
 
         vm.deal(Alice, 1 ether);
         vm.expectRevert(IEtnaInbox.StartNotWritten.selector);
@@ -53,7 +51,7 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         _inbox().saveForcedInclusion{ value: 1 ether }(hex"c0");
         _expectLandRevert(_input(0, 6), _leaves(0, 6), IEtnaInbox.MissingOrigin.selector);
         vm.expectRevert(IEtnaInbox.StartNotWritten.selector);
-        _inbox().recover(0, 0, 0, type(uint256).max, _noExclusions(), new uint256[](0), 0);
+        _inbox().recover(0, 0, 0, type(uint256).max, new uint256[](0), 0);
 
         _inbox().invalidateRecoveryNonce(0);
         _inbox().scheduleStop(0, uint48(block.timestamp + MAX_ANCHOR_AGE));
@@ -104,7 +102,7 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
     /// @dev 5a.a, 8a.a, 5b.a, 5b.e, 5c.a: with the proposal set closed and fully proven (next ID
     /// 8, last finalized 7, tip H) and the checkpoint (H, R) at S, Carol, an unrelated caller,
     /// latches S at exactly `FORK_TIME` in L1 block B. The start write takes H and R from the
-    /// checkpoint and writes slot 272 = (1000, B, L), slots 273/274, origins(0) = (1000, B,
+    /// checkpoint and writes slot 272 = (1000, B), slots 273/274, origins(0) = (1000, B,
     /// FORK_TIME), the checkpoint (1000, H) and landings(1000) = (1000, 0, 0, H, 0); it leaves the
     /// SignalService checkpoint untouched and opens the forced inclusion queue at head 0.
     function test_setOrigin_LatchesTheFinalizedUnzenTip() external {
@@ -126,7 +124,7 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         vm.prank(Carol);
         _inbox().setOrigin(uint48(S));
 
-        assertEq(uint256(_inboxWord(GENESIS_PACKED_SLOT)), S | b << 48 | EPOCH_LEN_L2 << 96, "272");
+        assertEq(uint256(_inboxWord(GENESIS_PACKED_SLOT)), S | b << 48, "272");
         assertEq(_inboxWord(GENESIS_BLOCK_HASH_SLOT), _startHash(), "273");
         assertEq(_inboxWord(GENESIS_STATE_ROOT_SLOT), _startStateRoot(), "274");
         IEtnaInbox.Origin memory origin = _inbox().origins(0);
@@ -134,7 +132,6 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         assertEq(origin.l1BlockNumber, b, "L1_0");
         assertEq(origin.l1Timestamp, FORK_TIME, "origin timestamp");
         assertEq(_inbox().generationStartHeight(), S, "generationStartHeight");
-        assertEq(_inbox().recoverySnapshot(), b, "recoverySnapshot");
         _assertCheckpoint(S, _startHash());
         _assertLanding(S, _record(S, 0, 0, S));
         _assertStart(S, _startHash());
@@ -269,23 +266,6 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
         _inbox().saveForcedInclusion{ value: 1 ether }(hex"c0");
     }
 
-    /// @dev Every Inbox entry point refuses to run while the registry holds its lock (the shared
-    /// lock in the Etna README, beyond the entry points RECOV-8.3-19 lists): `init` and the start
-    /// write revert and write nothing.
-    function test_initAndSetOrigin_RevertWhen_RegistryLocked() external {
-        _finalizeUnzen();
-        vm.warp(FORK_TIME);
-        _mockRegistryLocked();
-        _expectSetOriginRevert(S, IEtnaInbox.RegistryLocked.selector);
-        _assertStart(0, 0);
-
-        // A fresh proxy, still on its bootstrap implementation, with a new registry.
-        _deployFreshInbox(_switchConfig(), _switchInitParams(), false);
-        _mockRegistryLocked();
-        vm.expectRevert(IEtnaInbox.RegistryLocked.selector);
-        _upgradeAndInit(inboxImpl, _switchInitParams());
-    }
-
     // ---------------------------------------------------------------
     // The Unzen checkpoint forwarder (START-10-5, vectors 5.n-5.r)
     // ---------------------------------------------------------------
@@ -335,10 +315,9 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
     }
 
     /// @dev 5.q: it reverts for no reason besides its own checks and the SignalService's: not
-    /// while paused, while the registry holds its lock or before `init`.
-    function test_saveCheckpoint_IgnoresPauseRegistryLockAndInitialization() external {
+    /// while paused or before `init`.
+    function test_saveCheckpoint_IgnoresPauseAndInitialization() external {
         EssentialContract(inboxProxy).pause();
-        _mockRegistryLocked();
         _forwardUnzenCheckpoint(S, _startHash(), _startStateRoot());
         _assertCheckpoint(S, _startHash(), _startStateRoot());
 
@@ -387,7 +366,7 @@ contract EtnaInboxSwitchTest is EtnaInboxSwitchTestBase {
             _inboxWord(GENESIS_BLOCK_HASH_SLOT),
             _inboxWord(GENESIS_STATE_ROOT_SLOT)
         ];
-        _inbox().recover(0, S, 0, type(uint256).max, _noExclusions(), new uint256[](0), 0);
+        _inbox().recover(0, S, 0, type(uint256).max, new uint256[](0), 0);
         assertEq(_inbox().generationStartHeight(), S, "generation 1 starts at S");
         unzen.setCoreState(9, 7, bytes32(uint256(1)));
         vm.expectCall(address(unzen), "", 0);

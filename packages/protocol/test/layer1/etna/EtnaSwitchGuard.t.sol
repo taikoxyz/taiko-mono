@@ -331,7 +331,7 @@ contract EtnaSwitchGuardTest is InboxTestBase {
             IEtnaInbox.Config({
                 proofVerifier: address(verifier),
                 signalService: address(signalService),
-                stakingRegistry: address(bondToken),
+                etnaStaking: 0x1670010000000000000000000000000000010003,
                 l2ChainId: 167_001,
                 maxBatchBlocks: 1000,
                 forcedInclusionFeeInGwei: 1,
@@ -339,7 +339,7 @@ contract EtnaSwitchGuardTest is InboxTestBase {
                 protocolFeeRecipient: Emma,
                 unzenInbox: _unzenInbox,
                 etnaForkTime: _forkTime,
-                recoveryCapacity: 131
+                unsettledLimit: 151_200
             })
         );
     }

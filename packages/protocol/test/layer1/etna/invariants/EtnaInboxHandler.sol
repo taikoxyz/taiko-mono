@@ -5,7 +5,6 @@ import { MockLandProofVerifier } from "../EtnaInboxTestBase.sol";
 import { LibEtnaLandStatement } from "../LibEtnaLandStatement.sol";
 import { CommonBase } from "forge-std/src/Base.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
-import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
@@ -30,8 +29,7 @@ contract EtnaInboxHandler is CommonBase {
         Records,
         Generations,
         Fees,
-        Queue,
-        Snapshot
+        Queue
     }
 
     /// @dev The deployment the handler drives and the model parameters it derives the expected
@@ -40,16 +38,14 @@ contract EtnaInboxHandler is CommonBase {
         EtnaInbox inbox;
         SignalService signalService;
         MockLandProofVerifier verifier;
-        IEtnaStakingRegistry registry;
         address owner;
         uint64 l2ChainId;
         uint64 maxBatchBlocks;
         uint64 forcedInclusionFeeInGwei;
         uint64 forcedInclusionFeeDoubleThreshold;
-        bytes32 committeeConfigHash;
+        bytes32 configHash;
         bytes32 genesisBlockHash;
         bytes32 genesisStateRoot;
-        uint256 genesisCutoff;
     }
 
     /// @dev The honest chain at a height: EL hash, Comet hash, forced inclusion cursor and state
@@ -93,7 +89,6 @@ contract EtnaInboxHandler is CommonBase {
         uint256 expectedC;
         uint256 expectedNonce;
         uint256 validUntil;
-        uint256[] exclusions;
         uint256[] fiToClear;
         bytes expectedError;
     }
@@ -126,13 +121,11 @@ contract EtnaInboxHandler is CommonBase {
     uint256 internal constant NOT_OWNER = 1;
     uint256 internal constant GENERATION_MISMATCH = 2;
     uint256 internal constant CHECKPOINT_MISMATCH = 3;
-    uint256 internal constant EXCLUSIONS_UNSORTED = 4;
-    uint256 internal constant FI_UNSORTED = 5;
-    uint256 internal constant FI_OUT_OF_RANGE = 6;
-    uint256 internal constant UNKNOWN_BOND = 7;
-    uint256 internal constant NONCE_MISMATCH = 8;
-    uint256 internal constant AUTHORIZATION_EXPIRED = 9;
-    uint256 internal constant RECOVERY_MODES = 10;
+    uint256 internal constant FI_UNSORTED = 4;
+    uint256 internal constant FI_OUT_OF_RANGE = 5;
+    uint256 internal constant NONCE_MISMATCH = 6;
+    uint256 internal constant AUTHORIZATION_EXPIRED = 7;
+    uint256 internal constant RECOVERY_MODES = 8;
 
     /// @dev The EIP-2935 history storage contract and its runtime code.
     address internal constant HISTORY_STORAGE = 0x0000F90827F1C53a10cb7A02335B175320002935;
@@ -154,20 +147,17 @@ contract EtnaInboxHandler is CommonBase {
     EtnaInbox public immutable inbox;
     SignalService public immutable signalService;
     MockLandProofVerifier public immutable verifier;
-    IEtnaStakingRegistry public immutable registry;
     address public immutable owner;
     uint64 public immutable l2ChainId;
     uint64 public immutable forcedInclusionFeeInGwei;
     uint64 public immutable forcedInclusionFeeDoubleThreshold;
-    bytes32 public immutable committeeConfigHash;
+    bytes32 public immutable configHash;
     /// @dev The longest `h - p`, `maxBatchBlocks`.
     uint256 public immutable maxSpan;
 
     address[] internal _senders;
     address[] internal _landers;
     address internal immutable _sweeper;
-    /// @dev The number of bonds registered before the campaign; ids 0 .. count - 1 are issued.
-    uint256 internal _bondCount;
 
     // ---------------------------------------------------------------
     // Ghost state
@@ -186,9 +176,6 @@ contract EtnaInboxHandler is CommonBase {
     uint48 public ghostHead;
     uint48 public ghostTail;
     mapping(uint256 index => SavedInclusion) internal _saved;
-
-    uint256 public ghostSnapshot;
-    mapping(uint256 bondId => uint256) public ghostExit;
 
     /// @dev Wei charged by successful saves, force-sent into the Inbox and swept to the treasury.
     uint256 public feesCharged;
@@ -214,7 +201,6 @@ contract EtnaInboxHandler is CommonBase {
     mapping(uint256 defect => uint256) public rejectedLandings;
     uint256 public recoveries;
     uint256 public blanked;
-    uint256 public exclusionsApplied;
     mapping(uint256 defect => uint256) public rejectedRecoveries;
     uint256 public sweeps;
     uint256 public forcedTransfers;
@@ -228,12 +214,11 @@ contract EtnaInboxHandler is CommonBase {
         inbox = _deployment.inbox;
         signalService = _deployment.signalService;
         verifier = _deployment.verifier;
-        registry = _deployment.registry;
         owner = _deployment.owner;
         l2ChainId = _deployment.l2ChainId;
         forcedInclusionFeeInGwei = _deployment.forcedInclusionFeeInGwei;
         forcedInclusionFeeDoubleThreshold = _deployment.forcedInclusionFeeDoubleThreshold;
-        committeeConfigHash = _deployment.committeeConfigHash;
+        configHash = _deployment.configHash;
         maxSpan = _deployment.maxBatchBlocks / K * K;
 
         for (uint256 i; i < 3; ++i) {
@@ -244,12 +229,6 @@ contract EtnaInboxHandler is CommonBase {
             _landers.push(vm.addr(0xe7a1a0 + i));
         }
         _sweeper = vm.addr(0xe7a5ee);
-
-        uint256 bonds = _deployment.registry.entryCount();
-        _bondCount = bonds;
-        for (uint256 b; b < bonds; ++b) {
-            ghostExit[b] = _deployment.registry.entryAt(b).exitEffectiveL1;
-        }
 
         _checkpoints.push(0);
         _records[0].elHash = _deployment.genesisBlockHash;
@@ -262,7 +241,6 @@ contract EtnaInboxHandler is CommonBase {
         _origins[0] = IEtnaInbox.Origin({
             startHeight: 0, l1BlockNumber: block.number, l1Timestamp: block.timestamp
         });
-        ghostSnapshot = _deployment.genesisCutoff;
     }
 
     // ---------------------------------------------------------------
@@ -310,9 +288,8 @@ contract EtnaInboxHandler is CommonBase {
         verifier.setExpectedStatementHash(0);
     }
 
-    /// @notice The owner recovers at the current generation and checkpoint, forcing out a subset
-    /// of the registered bonds and blanking a few pending forced inclusions. About two calls in
-    /// three are broken in exactly one way instead, which keeps generations long enough for
+    /// @notice The owner recovers at the current generation and checkpoint, blanking a few pending
+    /// forced inclusions. About two calls in three are broken in exactly one way instead, which keeps generations long enough for
     /// landings to reach back over several checkpoints.
     function recover(uint256 _seed) external {
         RecoveryAttempt memory attempt;
@@ -321,7 +298,6 @@ contract EtnaInboxHandler is CommonBase {
         attempt.expectedC = _checkpoints[_checkpoints.length - 1];
         attempt.expectedNonce = ghostRecoveryNonce;
         attempt.validUntil = block.timestamp;
-        attempt.exclusions = _validExclusions(_rand(_seed, "exclusions"));
         attempt.fiToClear = _validFiToClear(_rand(_seed, "fiToClear"));
         attempt.defect = _rand(_seed, "mode") % 3 != 0
             ? 1 + _rand(_seed, "defect") % (RECOVERY_MODES - 1)
@@ -338,7 +314,6 @@ contract EtnaInboxHandler is CommonBase {
             attempt.expectedC,
             attempt.expectedNonce,
             attempt.validUntil,
-            attempt.exclusions,
             attempt.fiToClear,
             0
         ) {
@@ -433,10 +408,6 @@ contract EtnaInboxHandler is CommonBase {
         return _saved[_index];
     }
 
-    function bondCount() external view returns (uint256) {
-        return _bondCount;
-    }
-
     // ---------------------------------------------------------------
     // Saves
     // ---------------------------------------------------------------
@@ -525,8 +496,7 @@ contract EtnaInboxHandler is CommonBase {
     // ---------------------------------------------------------------
 
     /// @dev Draws the honest landing: origin, terminal height, new queue head, the cuts of the
-    /// new heights (c, h], the leaves of (p, h), a planted reference block, the snapshot and
-    /// the blobs.
+    /// new heights (c, h], the leaves of (p, h), a planted reference block and the blobs.
     function _shapeLanding(LandAttempt memory _attempt, uint256 _seed) internal {
         uint256 c = _attempt.c;
         // A frontier leaf exists only below c; the head bound h - c differs from h - p only
@@ -566,8 +536,7 @@ contract EtnaInboxHandler is CommonBase {
             lastCometHash: last.cometHash,
             lastStateRoot: last.stateRoot,
             l1ReferenceBlockNumber: referenceNumber,
-            forcedInclusionHead: headAfter,
-            activeCommitteeSnapshot: _snapshot(referenceNumber, _rand(_seed, "snapshot"))
+            forcedInclusionHead: headAfter
         });
         _attempt.blobHashes = _blobHashes(1 + _rand(_seed, "blobs") % MAX_BLOBS, _seed);
     }
@@ -641,16 +610,15 @@ contract EtnaInboxHandler is CommonBase {
     }
 
     /// @dev The statement the honest landing proves, built from the model: the ghost generation,
-    /// the ghost record at p and the independently derived committee configuration hash.
+    /// the ghost record at p and the independently derived config hash.
     function _honestStatement(LandAttempt memory _attempt) internal returns (bytes32) {
         IEtnaInbox.LandInput memory input = _attempt.input;
         bytes memory preimage = LibEtnaLandStatement.statement(
             LibEtnaLandStatement.Context({
                 l2ChainId: l2ChainId,
                 inbox: address(inbox),
-                stakingRegistry: address(registry),
                 generation: ghostGeneration,
-                committeeConfigHash: committeeConfigHash
+                configHash: configHash
             }),
             input,
             _records[input.parentHeight],
@@ -660,7 +628,7 @@ contract EtnaInboxHandler is CommonBase {
                 ghostGeneration, input.parentHeight, input.lastHeight, _attempt.leaves
             )
         );
-        if (preimage.length != 672) _violate(Property.Checkpoint, "the statement is not 21 words");
+        if (preimage.length != 608) _violate(Property.Checkpoint, "the statement is not 19 words");
         return keccak256(preimage);
     }
 
@@ -864,12 +832,10 @@ contract EtnaInboxHandler is CommonBase {
         }
     }
 
-    /// @dev A public input other than the proven one: the state root, Comet hash or snapshot.
+    /// @dev A public input other than the proven one: the state root or the Comet hash.
     function _breakInput(IEtnaInbox.LandInput memory _input, uint256 _seed) internal pure {
-        uint256 mode = _seed % 3;
-        if (mode == 0) _input.lastStateRoot = keccak256(abi.encode(_input.lastStateRoot));
-        else if (mode == 1) _input.lastCometHash = keccak256(abi.encode(_input.lastCometHash));
-        else _input.activeCommitteeSnapshot += 1;
+        if (_seed % 2 == 0) _input.lastStateRoot = keccak256(abi.encode(_input.lastStateRoot));
+        else _input.lastCometHash = keccak256(abi.encode(_input.lastCometHash));
     }
 
     function _submitLanding(LandAttempt memory _attempt) internal {
@@ -891,8 +857,8 @@ contract EtnaInboxHandler is CommonBase {
         }
     }
 
-    /// @dev Keeps the landed cuts and the record at h, and moves the checkpoint, queue head and
-    /// snapshot as the landing did.
+    /// @dev Keeps the landed cuts and the record at h, and moves the checkpoint and queue head as
+    /// the landing did.
     function _recordLanding(LandAttempt memory _attempt) internal {
         IEtnaInbox.LandInput memory input = _attempt.input;
         uint256 p = input.parentHeight;
@@ -914,7 +880,6 @@ contract EtnaInboxHandler is CommonBase {
         });
         _checkpoints.push(input.lastHeight);
         ghostHead = uint48(input.forcedInclusionHead);
-        ghostSnapshot = input.activeCommitteeSnapshot;
         consumed += input.forcedInclusionHead - _attempt.head;
         ++landings;
     }
@@ -946,20 +911,6 @@ contract EtnaInboxHandler is CommonBase {
         }
     }
 
-    /// @dev A selection snapshot between the current one and the reference block; the Inbox only
-    /// binds it into the statement.
-    function _snapshot(
-        uint256 _referenceNumber,
-        uint256 _seed
-    )
-        internal
-        view
-        returns (uint256)
-    {
-        if (ghostSnapshot > _referenceNumber) return ghostSnapshot;
-        return ghostSnapshot + _seed % (_referenceNumber - ghostSnapshot + 1);
-    }
-
     /// @dev `_count` distinct versioned (0x01-prefixed) blob hashes.
     function _blobHashes(
         uint256 _count,
@@ -980,18 +931,6 @@ contract EtnaInboxHandler is CommonBase {
     // ---------------------------------------------------------------
     // Recoveries
     // ---------------------------------------------------------------
-
-    /// @dev A subset of the registered bonds' ids, strictly increasing.
-    function _validExclusions(uint256 _seed) internal view returns (uint256[] memory list_) {
-        uint256 bonds = _bondCount;
-        uint256 mask = _seed % (1 << bonds);
-        list_ = new uint256[](_popCount(mask));
-        uint256 n;
-        for (uint256 b; b < bonds; ++b) {
-            if (mask & (1 << b) == 0) continue;
-            list_[n++] = b;
-        }
-    }
 
     /// @dev Up to three strictly increasing pending queue indices; none about one call in four.
     function _validFiToClear(uint256 _seed) internal view returns (uint256[] memory list_) {
@@ -1045,43 +984,19 @@ contract EtnaInboxHandler is CommonBase {
         } else if (defect == AUTHORIZATION_EXPIRED) {
             _attempt.validUntil = block.timestamp - 1;
             selector = IEtnaInbox.AuthorizationExpired.selector;
-        } else if (defect == EXCLUSIONS_UNSORTED) {
-            _unsortExclusions(_attempt, _seed);
-            selector = IEtnaInbox.ExclusionsNotSorted.selector;
         } else if (defect == FI_UNSORTED) {
             if (ghostTail == ghostHead) return false;
             _unsortIndices(_attempt, _seed);
             selector = IEtnaInbox.FiToClearNotSorted.selector;
-        } else if (defect == FI_OUT_OF_RANGE) {
+        } else {
+            // FI_OUT_OF_RANGE, the last defect.
             _attempt.fiToClear = _seed % 2 == 0 && ghostHead != 0
                 ? _prepend(_attempt.fiToClear, (_seed >> 1) % ghostHead)
                 : _append(_attempt.fiToClear, ghostTail + (_seed >> 1) % 3);
             selector = IEtnaInbox.FiIndexOutOfRange.selector;
-        } else {
-            // UNKNOWN_BOND, the last defect: an id the registry has not issued (RECOV-8-40a).
-            _attempt.exclusions = _append(_attempt.exclusions, _bondCount + _seed % 3);
-            selector = IEtnaInbox.UnissuedExclusion.selector;
         }
         _attempt.expectedError = abi.encodeWithSelector(selector);
         return true;
-    }
-
-    /// @dev Swaps the first two exclusions, or lists one bond twice.
-    function _unsortExclusions(
-        RecoveryAttempt memory _attempt,
-        uint256 _seed
-    )
-        internal
-        view
-    {
-        uint256[] memory list = _attempt.exclusions;
-        if (list.length >= 2) {
-            (list[0], list[1]) = (list[1], list[0]);
-            return;
-        }
-        uint256 bondId = _seed % _bondCount;
-        _attempt.exclusions = new uint256[](2);
-        (_attempt.exclusions[0], _attempt.exclusions[1]) = (bondId, bondId);
     }
 
     /// @dev Swaps the first two indices, or lists one pending index twice.
@@ -1096,8 +1011,8 @@ contract EtnaInboxHandler is CommonBase {
         (_attempt.fiToClear[0], _attempt.fiToClear[1]) = (index, index);
     }
 
-    /// @dev Starts the next generation at c with origin (c, R, R's timestamp), blanks the listed
-    /// entries and moves each excluded bond's exit to min(existing, R).
+    /// @dev Starts the next generation at c with origin (c, R, R's timestamp) and blanks the listed
+    /// entries.
     function _recordRecovery(RecoveryAttempt memory _attempt) internal {
         uint48 generation = ghostGeneration + 1;
         _origins[generation] = IEtnaInbox.Origin({
@@ -1110,13 +1025,8 @@ contract EtnaInboxHandler is CommonBase {
         for (uint256 i; i < _attempt.fiToClear.length; ++i) {
             _saved[_attempt.fiToClear[i]].blanked = true;
         }
-        for (uint256 i; i < _attempt.exclusions.length; ++i) {
-            uint256 bondId = _attempt.exclusions[i];
-            if (block.number < ghostExit[bondId]) ghostExit[bondId] = block.number;
-        }
         ++recoveries;
         blanked += _attempt.fiToClear.length;
-        exclusionsApplied += _attempt.exclusions.length;
     }
 
     // ---------------------------------------------------------------
@@ -1154,8 +1064,7 @@ contract EtnaInboxHandler is CommonBase {
 
     function _violate(Property _property, string memory _reason) internal {
         if (violations[_property]++ != 0) return;
-        string[6] memory names =
-            ["checkpoint", "records", "generations", "fees", "queue", "snapshot"];
+        string[5] memory names = ["checkpoint", "records", "generations", "fees", "queue"];
         firstViolation[_property] = string.concat(names[uint8(_property)], ": ", _reason);
     }
 
@@ -1169,12 +1078,6 @@ contract EtnaInboxHandler is CommonBase {
 
     function _min(uint256 _a, uint256 _b) internal pure returns (uint256) {
         return _a < _b ? _a : _b;
-    }
-
-    function _popCount(uint256 _x) internal pure returns (uint256 count_) {
-        for (; _x != 0; _x &= _x - 1) {
-            ++count_;
-        }
     }
 
     function _append(

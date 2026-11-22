@@ -57,7 +57,7 @@ abstract contract EtnaInboxSwitchTestBase is EtnaLandTestBase {
     }
 
     /// @dev The default inputs without a genesis hash or state root.
-    function _switchInitParams() internal view returns (IEtnaInbox.InitParams memory params_) {
+    function _switchInitParams() internal pure returns (IEtnaInbox.InitParams memory params_) {
         params_ = _defaultInitParams();
         (params_.genesisBlockHash, params_.genesisStateRoot) = (0, 0);
     }

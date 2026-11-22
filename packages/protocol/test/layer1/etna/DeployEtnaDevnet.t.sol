@@ -7,10 +7,8 @@ import { LibEtnaLandStatement } from "./LibEtnaLandStatement.sol";
 import { VmSafe } from "forge-std/src/Vm.sol";
 import { DeployEtnaDevnet } from "script/layer1/etna/DeployEtnaDevnet.s.sol";
 import { IEtnaInbox } from "src/layer1/etna/iface/IEtnaInbox.sol";
-import { IEtnaStakingRegistry } from "src/layer1/etna/iface/IEtnaStakingRegistry.sol";
 import { EtnaInbox } from "src/layer1/etna/impl/EtnaInbox.sol";
 import { EtnaInboxBootstrap } from "src/layer1/etna/impl/EtnaInboxBootstrap.sol";
-import { EtnaStakingRegistry } from "src/layer1/etna/impl/EtnaStakingRegistry.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { LibL2HoodiAddrs } from "src/layer2/hoodi/LibL2HoodiAddrs.sol";
 import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
@@ -20,11 +18,9 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 
 /// @title DeployEtnaDevnetTest
 /// @notice Runs `DeployEtnaDevnet` in the owner-initialized order (spec 10 steps 1 and 5): the
-/// Inbox proxy on its bootstrap implementation with the SignalService authorizing it, the registry
-/// fixed to the proxy, a validator registration, then the Inbox implementation, with the proxy
-/// owner's upgrade-and-initialize call.
-/// @dev The base stack stays on its bootstrap implementation; only its registry is used, as a
-/// registry fixed to another Inbox.
+/// Inbox proxy on its bootstrap implementation with the SignalService authorizing it, then the
+/// Inbox implementation, with the proxy owner's upgrade-and-initialize call.
+/// @dev The base stack stays on its bootstrap implementation and is not used.
 contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     /// @dev The script's deployment key.
     uint256 private constant _DEPLOYER_PK = 0xe7aa;
@@ -52,8 +48,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
 
     /// @dev Environment variables are process-wide, so these script scenarios run serially in
     /// one test instead of racing each other in Foundry's parallel test executor. Together they
-    /// deploy the stack nine times, beyond one test's 80M block gas limit, so gas is not metered;
-    /// the gas suites measure the contracts.
+    /// deploy the stack about ten times, beyond one test's 80M block gas limit, so gas is not
+    /// metered; the gas suites measure the contracts.
     function test_deployment_OrderAndRejections() external {
         vm.pauseGasMetering();
         DeployEtnaSwitchScenarios switching = DeployEtnaSwitchScenarios(
@@ -62,11 +58,9 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         switching.setUp();
         switching.run();
         _deploysTheBootstrapProxyFirst();
-        _deploysTheRegistryFixedToTheProxy();
-        _registersThenOwnerInitializesAndLandsBlockSix();
+        _ownerInitializesAndLandsBlockSix();
         _nonOwnerDeployerLeavesInitToTheOwner();
-        _RevertWhen_RegistryFixedToAnotherInbox();
-        _RevertWhen_L2ChainIdDiffersFromTheRegistry();
+        _RevertWhen_EtnaStakingIsNotTheGeneratorAddress();
         _RevertWhen_L1ChainIdMismatch();
         _RevertWhen_ProxyStepOnAnotherL1OrRemote();
         _RevertWhen_ProofVerifierHasNoCode();
@@ -82,24 +76,17 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertTrue(vm.revertToState(snapshot));
     }
 
-    /// @dev Sets every variable the script reads. `REGISTRY_MIN_STAKE` is empty, which the script
-    /// reads as unset; `INBOX_PROXY`, `SIGNAL_SERVICE`, `STAKING_REGISTRY` and `GENESIS_CUTOFF` are
-    /// zero until a scenario deploys and registers.
+    /// @dev Sets every variable the script reads. `ETNA_UNSETTLED_LIMIT` is empty, which the
+    /// script reads as unset; `INBOX_PROXY` and `SIGNAL_SERVICE` are zero until a scenario
+    /// deploys the proxy.
     function _setEnvironment() private {
         vm.setEnv("PRIVATE_KEY", vm.toString(_DEPLOYER_PK));
         vm.setEnv("CONTRACT_OWNER", vm.toString(address(0)));
         vm.setEnv("INBOX_PROXY", vm.toString(address(0)));
         vm.setEnv("SIGNAL_SERVICE", vm.toString(address(0)));
-        vm.setEnv("TAIKO_TOKEN", vm.toString(address(taikoToken)));
-        vm.setEnv("REGISTRY_MIN_STAKE", "");
-        vm.setEnv("REGISTRY_ACTIVATION_DELAY", vm.toString(ACTIVATION_DELAY));
-        vm.setEnv("REGISTRY_EXIT_DELAY", vm.toString(EXIT_DELAY));
-        vm.setEnv("REGISTRY_WITHDRAWAL_DELAY", vm.toString(WITHDRAWAL_DELAY));
-        vm.setEnv("SLASH_BOUNTY_BPS", vm.toString(SLASH_BOUNTY_BPS));
-        vm.setEnv("REGISTRY_FORFEIT_BPS", vm.toString(FORFEIT_BPS));
-        vm.setEnv("SLASH_SINK", vm.toString(SLASH_SINK));
         vm.setEnv("L2_CHAIN_ID", vm.toString(L2_CHAIN_ID));
-        vm.setEnv("STAKING_REGISTRY", vm.toString(address(0)));
+        vm.setEnv("ETNA_STAKING", vm.toString(ETNA_STAKING));
+        vm.setEnv("ETNA_UNSETTLED_LIMIT", "");
         vm.setEnv("ETNA_PROOF_VERIFIER", vm.toString(address(landVerifier)));
         vm.setEnv(
             "REMOTE_SIGNAL_SERVICE", vm.toString(_deployment.l2SignalServiceAddress(L2_CHAIN_ID))
@@ -114,12 +101,6 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         vm.setEnv("PROTOCOL_FEE_RECIPIENT", vm.toString(PROTOCOL_FEE_RECIPIENT));
         vm.setEnv("GENESIS_BLOCK_HASH", vm.toString(GENESIS_BLOCK_HASH));
         vm.setEnv("GENESIS_STATE_ROOT", vm.toString(GENESIS_STATE_ROOT));
-        vm.setEnv("EPOCH_LEN_L2", vm.toString(EPOCH_LEN_L2));
-        vm.setEnv("GENESIS_CUTOFF", "0");
-        vm.setEnv("COMMITTEE_RECORD_HASH", vm.toString(COMMITTEE_RECORD_HASH));
-        vm.setEnv("ETNA_VP_UNIT", vm.toString(VP_UNIT));
-        vm.setEnv("ETNA_N_MAX", vm.toString(N_MAX));
-        vm.setEnv("ETNA_UNSETTLED_LIMIT", vm.toString(UNSETTLED_LIMIT));
         vm.setEnv("FORCED_INCLUSION_DELAY", vm.toString(FORCED_INCLUSION_DELAY));
         vm.setEnv("MAX_ANCHOR_AGE", vm.toString(MAX_ANCHOR_AGE));
     }
@@ -150,7 +131,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         SignalService(signals).saveCheckpoint(checkpoint);
         assertFalse(IEtnaInbox(proxy).isInitialized(), "bootstrap reports uninitialized");
         assertEq(vm.load(proxy, bytes32(INITIALIZATION_STATUS_SLOT)), 0, "slot 258 zero");
-        assertEq(vm.load(proxy, bytes32(COMMITTEE_CONFIG_HASH_SLOT)), 0, "slot 269 zero");
+        assertEq(vm.load(proxy, bytes32(CONFIG_HASH_SLOT)), 0, "slot 269 zero");
         vm.expectRevert("Initializable: contract is already initialized");
         EtnaInboxBootstrap(proxy).init(Alice);
 
@@ -160,46 +141,11 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(SignalService(defaultSignals).owner(), _scriptDeployer, "default owner");
     }
 
-    function _deploysTheRegistryFixedToTheProxy() private withEnvironment {
-        vm.setEnv("CONTRACT_OWNER", vm.toString(Bob));
-        (address proxy, EtnaStakingRegistry deployed) = _deployProxyAndRegistry();
-        assertEq(deployed.inbox(), proxy, "fixed to the bootstrap proxy");
-        assertFalse(IEtnaInbox(deployed.inbox()).isInitialized(), "Inbox not initialized yet");
-        assertEq(deployed.l2ChainId(), L2_CHAIN_ID, "L2 chain id");
-        assertEq(deployed.forfeitBps(), FORFEIT_BPS, "explicit forfeiture rate");
-        assertEq(_deployment.DEFAULT_REGISTRY_MIN_STAKE(), 7_600_000 ether, "devnet default");
-        // START-10-14: the default minimum stake bounds K at the default recovery capacity F.
-        assertEq(_deployment.DEFAULT_RECOVERY_CAPACITY(), 131, "default F");
-        assertEq(
-            uint256(10 ** 27) / _deployment.DEFAULT_REGISTRY_MIN_STAKE(),
-            _deployment.DEFAULT_RECOVERY_CAPACITY(),
-            "K = F"
-        );
-        assertEq(
-            deployed.minStake(), _deployment.DEFAULT_REGISTRY_MIN_STAKE(), "default minimum stake"
-        );
-        assertEq(address(deployed.token()), address(taikoToken), "stake token");
-        assertEq(deployed.activationDelay(), ACTIVATION_DELAY, "activation delay");
-        assertEq(deployed.exitDelay(), EXIT_DELAY, "exit delay");
-        assertEq(deployed.withdrawalDelay(), WITHDRAWAL_DELAY, "withdrawal delay");
-        assertEq(deployed.slashBountyBps(), SLASH_BOUNTY_BPS, "slash bounty");
-        assertEq(deployed.slashSink(), SLASH_SINK, "slash sink");
-        assertEq(deployed.owner(), Bob, "registry owner");
-        assertEq(deployed.checkpointCount(), 0, "fresh registry");
-        vm.expectRevert("Initializable: contract is already initialized");
-        deployed.init(Alice);
-
-        vm.setEnv("REGISTRY_MIN_STAKE", vm.toString(2 * MIN_STAKE));
-        EtnaStakingRegistry explicitStake = EtnaStakingRegistry(_deployment.deployRegistry());
-        assertEq(explicitStake.minStake(), 2 * MIN_STAKE, "explicit minimum stake");
-        assertEq(explicitStake.inbox(), proxy, "same proxy");
-    }
-
-    function _registersThenOwnerInitializesAndLandsBlockSix() private withEnvironment {
-        (address proxy, EtnaStakingRegistry deployedRegistry) = _deployProxyAndRegistry();
+    function _ownerInitializesAndLandsBlockSix() private withEnvironment {
+        address proxy = _deployProxy();
         address signals = vm.envAddress("SIGNAL_SERVICE");
-        uint256 cutoff = block.number;
-        _registerAndPickCutoff(deployedRegistry);
+        // The landing below references the block before the Inbox's.
+        vm.roll(block.number + 1);
 
         uint64 nonce = vm.getNonce(_scriptDeployer);
         address impl = _deployment.deployInbox();
@@ -211,17 +157,15 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(_implementation(proxy), impl, "proxy runs EtnaInbox");
         assertEq(inbox.owner(), _scriptDeployer, "owner kept");
         assertEq(SignalService(signals).owner(), _scriptDeployer, "SignalService owner");
-        _assertImmutables(inbox, signals, address(deployedRegistry));
-        _assertGenesis(inbox, SignalService(signals), cutoff);
-        _landBlockSix(inbox, SignalService(signals), cutoff);
+        _assertImmutables(inbox, signals);
+        _assertGenesis(inbox, SignalService(signals));
+        _landBlockSix(inbox, SignalService(signals));
     }
 
     function _nonOwnerDeployerLeavesInitToTheOwner() private withEnvironment {
         vm.setEnv("CONTRACT_OWNER", vm.toString(Bob));
-        (address proxy, EtnaStakingRegistry deployedRegistry) = _deployProxyAndRegistry();
+        address proxy = _deployProxy();
         address signals = vm.envAddress("SIGNAL_SERVICE");
-        uint256 cutoff = block.number;
-        uint256 bondId = _registerAndPickCutoff(deployedRegistry);
         address bootstrap = _implementation(proxy);
 
         uint64 nonce = vm.getNonce(_scriptDeployer);
@@ -230,16 +174,13 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertFalse(IEtnaInbox(proxy).isInitialized(), "proxy stays on the bootstrap");
         assertEq(_implementation(proxy), bootstrap, "bootstrap implementation kept");
         assertEq(SignalService(signals).owner(), Bob, "SignalService owner");
-        vm.expectRevert(IEtnaStakingRegistry.InboxNotInitialized.selector);
-        deployedRegistry.confirmExit(bondId);
 
         bytes memory ownerCall = _deployment.ownerInitCall(impl);
-        IEtnaInbox.InitParams memory params = _defaultInitParams();
-        params.genesisCutoff = cutoff;
         assertEq(
             ownerCall,
             abi.encodeCall(
-                EtnaInbox.upgradeToAndCall, (impl, abi.encodeCall(EtnaInbox.init, (params)))
+                EtnaInbox.upgradeToAndCall,
+                (impl, abi.encodeCall(EtnaInbox.init, (_defaultInitParams())))
             ),
             "logged call"
         );
@@ -253,35 +194,28 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
 
         assertTrue(IEtnaInbox(proxy).isInitialized(), "initialized by the owner");
         assertEq(_implementation(proxy), impl, "proxy runs EtnaInbox");
-        _assertImmutables(EtnaInbox(proxy), signals, address(deployedRegistry));
-        _assertGenesis(EtnaInbox(proxy), SignalService(signals), cutoff);
-        vm.expectRevert(IEtnaStakingRegistry.ExitNotSet.selector);
-        deployedRegistry.confirmExit(bondId);
+        _assertImmutables(EtnaInbox(proxy), signals);
+        _assertGenesis(EtnaInbox(proxy), SignalService(signals));
     }
 
-    function _RevertWhen_RegistryFixedToAnotherInbox() private withEnvironment {
-        (address proxy,) = _deployProxyAndRegistry();
-        // The base stack's registry is fixed to the base Inbox proxy and has Alice's checkpoint at
-        // `registryCheckpointBlock`, a valid cutoff for it.
-        assertNotEq(registry.inbox(), proxy, "another Inbox");
-        assertEq(registry.l2ChainId(), L2_CHAIN_ID, "same L2 chain id");
-        vm.setEnv("STAKING_REGISTRY", vm.toString(address(registry)));
-        vm.setEnv("GENESIS_CUTOFF", vm.toString(registryCheckpointBlock));
-        _expectInitRejected(proxy, IEtnaInbox.RegistryMismatch.selector);
-    }
+    /// @dev On a new network the EtnaStaking proxy is the genesis predeploy, so ETNA_STAKING must
+    /// be the generator's address for L2_CHAIN_ID: another chain's address, the zero address and
+    /// a changed L2_CHAIN_ID are all rejected before anything is broadcast.
+    function _RevertWhen_EtnaStakingIsNotTheGeneratorAddress() private withEnvironment {
+        address proxy = _deployProxy();
+        bytes4 mismatch = DeployEtnaDevnet.EtnaStakingMismatch.selector;
+        vm.setEnv("ETNA_STAKING", vm.toString(_deployment.l2EtnaStakingAddress(L2_CHAIN_ID + 1)));
+        _expectRejectedBeforeBroadcast(proxy, mismatch);
+        vm.setEnv("ETNA_STAKING", vm.toString(address(0)));
+        _expectRejectedBeforeBroadcast(proxy, mismatch);
 
-    /// @dev The Inbox takes `L2_CHAIN_ID` from the environment, not from the registry, so `init`
-    /// rejects a registry deployed for another L2 chain.
-    function _RevertWhen_L2ChainIdDiffersFromTheRegistry() private withEnvironment {
-        (address proxy, EtnaStakingRegistry deployedRegistry) = _deployProxyAndRegistry();
-        _registerAndPickCutoff(deployedRegistry);
+        vm.setEnv("ETNA_STAKING", vm.toString(ETNA_STAKING));
         vm.setEnv("L2_CHAIN_ID", vm.toString(L2_CHAIN_ID + 1));
-        _expectInitRejected(proxy, IEtnaInbox.RegistryMismatch.selector);
+        _expectRejectedBeforeBroadcast(proxy, mismatch);
     }
 
     function _RevertWhen_L1ChainIdMismatch() private withEnvironment {
-        (address proxy, EtnaStakingRegistry deployedRegistry) = _deployProxyAndRegistry();
-        _registerAndPickCutoff(deployedRegistry);
+        address proxy = _deployProxy();
         vm.setEnv("L1_CHAIN_ID", vm.toString(block.chainid + 1));
         _expectRejectedBeforeBroadcast(proxy, DeployEtnaDevnet.L1ChainIdMismatch.selector);
     }
@@ -328,37 +262,57 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         _deployment.l2SignalServiceAddress(0);
     }
 
+    /// @dev The EtnaStaking proxy address matches the genesis generator's
+    /// `getConstantAddress(chainId, 10003)`.
+    function test_l2EtnaStakingAddress_MatchesTheGenerator() external {
+        assertEq(
+            _deployment.l2EtnaStakingAddress(167_001),
+            0x1670010000000000000000000000000000010003,
+            "167001"
+        );
+        assertEq(
+            _deployment.l2EtnaStakingAddress(167_000),
+            0x1670000000000000000000000000000000010003,
+            "167000"
+        );
+        vm.expectRevert(DeployEtnaDevnet.EtnaStakingMismatch.selector);
+        _deployment.l2EtnaStakingAddress(0);
+    }
+
     function _RevertWhen_ProofVerifierHasNoCode() private withEnvironment {
-        (address proxy, EtnaStakingRegistry deployedRegistry) = _deployProxyAndRegistry();
-        _registerAndPickCutoff(deployedRegistry);
+        address proxy = _deployProxy();
         vm.setEnv("ETNA_PROOF_VERIFIER", vm.toString(Carol));
         _expectRejectedBeforeBroadcast(proxy, DeployEtnaDevnet.ProofVerifierHasNoCode.selector);
     }
 
     function _RevertWhen_SignalServiceHasNoCode() private withEnvironment {
-        (address proxy, EtnaStakingRegistry deployedRegistry) = _deployProxyAndRegistry();
-        _registerAndPickCutoff(deployedRegistry);
+        address proxy = _deployProxy();
         vm.setEnv("SIGNAL_SERVICE", vm.toString(Carol));
         _expectRejectedBeforeBroadcast(proxy, DeployEtnaDevnet.SignalServiceHasNoCode.selector);
     }
 
-    /// @dev U must be in [1, 65,536]; then 3,601, which is not a multiple of 6, initializes, so
-    /// the limit was the only fault.
+    /// @dev U defaults to 151,200 when ETNA_UNSETTLED_LIMIT is unset, empty or zero, and the
+    /// implementation's constructor rejects a set value above 262,144; then 3,601, which is not a
+    /// multiple of 6, initializes, so the limit was the only fault.
     function _RevertWhen_UnsettledLimitInvalid() private withEnvironment {
-        (address proxy, EtnaStakingRegistry deployedRegistry) = _deployProxyAndRegistry();
-        _registerAndPickCutoff(deployedRegistry);
+        assertEq(_deployment.DEFAULT_UNSETTLED_LIMIT(), 151_200, "default U");
+        address proxy = _deployProxy();
         vm.setEnv("ETNA_UNSETTLED_LIMIT", "0");
-        _expectInitRejected(proxy, IEtnaInbox.InvalidCommitteeConfig.selector);
-        vm.setEnv("ETNA_UNSETTLED_LIMIT", "65537");
-        _expectInitRejected(proxy, IEtnaInbox.InvalidCommitteeConfig.selector);
+        _deployment.deployInbox();
+        assertEq(EtnaInbox(proxy).unsettledLimit(), 151_200, "zero means the default");
+
+        proxy = _deployProxy();
+        vm.setEnv("ETNA_UNSETTLED_LIMIT", "262145");
+        _expectInitRejected(proxy, IEtnaInbox.InvalidUnsettledLimit.selector);
 
         vm.setEnv("ETNA_UNSETTLED_LIMIT", "3601");
         _deployment.deployInbox();
         assertTrue(IEtnaInbox(proxy).isInitialized(), "a valid limit initializes");
+        assertEq(EtnaInbox(proxy).unsettledLimit(), 3601, "explicit U");
     }
 
-    /// @dev A set but malformed CONTRACT_OWNER or REGISTRY_MIN_STAKE reverts before anything is
-    /// broadcast instead of falling back to the deployer or to the default minimum stake; an empty
+    /// @dev A set but malformed CONTRACT_OWNER or ETNA_UNSETTLED_LIMIT reverts before anything is
+    /// broadcast instead of falling back to the deployer or to the default U; an empty
     /// CONTRACT_OWNER still means the deployer.
     function _RevertWhen_OptionalVariableMalformed() private withEnvironment {
         vm.setEnv("CONTRACT_OWNER", "0xB0b");
@@ -371,9 +325,9 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         assertEq(EssentialContract(proxy).owner(), _scriptDeployer, "empty means the deployer");
 
         vm.setEnv("INBOX_PROXY", vm.toString(proxy));
-        vm.setEnv("REGISTRY_MIN_STAKE", "12abc");
+        vm.setEnv("ETNA_UNSETTLED_LIMIT", "12abc");
         _expectMalformedRejected(
-            abi.encodeCall(DeployEtnaDevnet.deployRegistry, ()), "REGISTRY_MIN_STAKE"
+            abi.encodeCall(DeployEtnaDevnet.deployInbox, ()), "ETNA_UNSETTLED_LIMIT"
         );
     }
 
@@ -381,30 +335,13 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     // Helpers
     // ---------------------------------------------------------------
 
-    /// @dev Runs the first two deployment steps, the Inbox proxy with its SignalService and then
-    /// the registry fixed to the proxy, and exports all three addresses.
-    function _deployProxyAndRegistry()
-        private
-        returns (address proxy_, EtnaStakingRegistry registry_)
-    {
+    /// @dev Runs the first deployment step, the Inbox proxy with its SignalService, and exports
+    /// both addresses.
+    function _deployProxy() private returns (address proxy_) {
         address signals;
         (proxy_, signals) = _deployment.deployInboxProxy();
         vm.setEnv("INBOX_PROXY", vm.toString(proxy_));
         vm.setEnv("SIGNAL_SERVICE", vm.toString(signals));
-        registry_ = EtnaStakingRegistry(_deployment.deployRegistry());
-        vm.setEnv("STAKING_REGISTRY", vm.toString(address(registry_)));
-    }
-
-    /// @dev Alice registers `VALIDATOR_PK` with its proof of possession; that block, the
-    /// registry's first checkpoint, becomes the genesis cutoff and L1 moves one block on.
-    function _registerAndPickCutoff(EtnaStakingRegistry _registry)
-        private
-        returns (uint256 bondId_)
-    {
-        bondId_ = _registerValidator(_registry, Alice, VALIDATOR_PK, _registry.minStake());
-        assertEq(_registry.checkpointAt(0).l1Block, block.number, "first registry checkpoint");
-        vm.setEnv("GENESIS_CUTOFF", vm.toString(block.number));
-        vm.roll(block.number + 1);
     }
 
     /// @dev Expects `deployInbox` to revert with `_error` before broadcasting anything.
@@ -441,8 +378,9 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         return abi.decode(_reason, (string));
     }
 
-    /// @dev Expects the owner's upgrade-and-initialize call, and so `deployInbox`, to revert with
-    /// `_error`, leaving the proxy on its bootstrap implementation.
+    /// @dev Expects `deployInbox`, the implementation's constructor or the owner's
+    /// upgrade-and-initialize call, to revert with `_error`, leaving the proxy on its bootstrap
+    /// implementation.
     function _expectInitRejected(address _proxy, bytes4 _error) private {
         address bootstrap = _implementation(_proxy);
         vm.expectRevert(_error);
@@ -454,17 +392,10 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
     }
 
     /// @dev Checks the Inbox implementation's immutables against the environment.
-    function _assertImmutables(
-        EtnaInbox _inbox,
-        address _signals,
-        address _registry
-    )
-        private
-        view
-    {
+    function _assertImmutables(EtnaInbox _inbox, address _signals) private view {
         assertEq(_inbox.proofVerifier(), address(landVerifier), "proof verifier");
         assertEq(_inbox.signalService(), _signals, "SignalService");
-        assertEq(_inbox.stakingRegistry(), _registry, "registry");
+        assertEq(_inbox.etnaStaking(), ETNA_STAKING, "EtnaStaking proxy");
         assertEq(_inbox.l2ChainId(), L2_CHAIN_ID, "L2 chain id");
         assertEq(_inbox.maxBatchBlocks(), MAX_BATCH_BLOCKS, "max batch blocks");
         assertEq(_inbox.forcedInclusionFeeInGwei(), FORCED_INCLUSION_FEE_GWEI, "fee");
@@ -474,38 +405,21 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
             "fee threshold"
         );
         assertEq(_inbox.protocolFeeRecipient(), PROTOCOL_FEE_RECIPIENT, "protocol fee recipient");
-        assertEq(
-            _inbox.recoveryCapacity(), _deployment.DEFAULT_RECOVERY_CAPACITY(), "recovery capacity"
-        );
+        assertEq(_inbox.unsettledLimit(), _deployment.DEFAULT_UNSETTLED_LIMIT(), "default U");
         // A new network: no switch from Unzen.
         assertEq(_inbox.unzenInbox(), address(0), "no Unzen Inbox");
         assertEq(_inbox.etnaForkTime(), 0, "no fork time");
     }
 
-    /// @dev Checks the initialized genesis state against the environment, with the committee
-    /// configuration hash rebuilt from the `ETNA_*` values.
-    function _assertGenesis(
-        EtnaInbox _inbox,
-        SignalService _signals,
-        uint256 _cutoff
-    )
-        private
-        view
-    {
+    /// @dev Checks the initialized genesis state against the environment, with the config hash
+    /// rebuilt from L2_CHAIN_ID, ETNA_STAKING and the default U.
+    function _assertGenesis(EtnaInbox _inbox, SignalService _signals) private view {
         IEtnaInbox.GenesisRecord memory record = _inbox.genesis();
         assertEq(record.genesisHeight, 0, "the start is block 0");
         assertEq(record.l1Block, block.number, "L1_0");
-        assertEq(record.epochLenL2, EPOCH_LEN_L2, "epoch length");
         assertEq(record.startBlockHash, GENESIS_BLOCK_HASH, "genesis hash");
         assertEq(record.startStateRoot, GENESIS_STATE_ROOT, "genesis state root");
-        assertEq(_inbox.genesisCutoff(), _cutoff, "genesis cutoff");
-        assertEq(_inbox.activeCommitteeSnapshot(), _cutoff, "snapshot starts at the cutoff");
-        assertEq(_inbox.genesisCommitteeRecordHash(), COMMITTEE_RECORD_HASH, "committee 0");
-        assertEq(
-            _inbox.committeeConfigHash(),
-            _committeeConfigHash(_inbox.stakingRegistry()),
-            "committee configuration"
-        );
+        assertEq(_inbox.configHash(), _configHash(), "config hash");
         assertEq(_inbox.forcedInclusionDelay(), FORCED_INCLUSION_DELAY, "forced inclusion delay");
         assertEq(_inbox.maxAnchorAge(), MAX_ANCHOR_AGE, "maximum anchor age");
         ICheckpointStore.Checkpoint memory checkpoint = _signals.getCheckpoint(0);
@@ -515,13 +429,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
 
     /// @dev Carol lands (0, 6] with five zero cut leaves and one blob; the mock verifier must
     /// receive the appendix A statement rebuilt from the environment.
-    function _landBlockSix(
-        EtnaInbox _inbox,
-        SignalService _signals,
-        uint256 _cutoff
-    )
-        private
-    {
+    function _landBlockSix(EtnaInbox _inbox, SignalService _signals) private {
         IEtnaInbox.LandInput memory input = IEtnaInbox.LandInput({
             parentHeight: 0,
             lastHeight: 6,
@@ -529,8 +437,7 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
             lastCometHash: keccak256("Etna Comet block 6"),
             lastStateRoot: keccak256("Etna L2 state 6"),
             l1ReferenceBlockNumber: block.number - 1,
-            forcedInclusionHead: 0,
-            activeCommitteeSnapshot: _cutoff
+            forcedInclusionHead: 0
         });
         bytes32[] memory blobs = new bytes32[](1);
         blobs[0] = bytes32((uint256(1) << 248) | 6);
@@ -570,9 +477,8 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
                 LibEtnaLandStatement.Context({
                     l2ChainId: L2_CHAIN_ID,
                     inbox: address(_inbox),
-                    stakingRegistry: _inbox.stakingRegistry(),
                     generation: 0,
-                    committeeConfigHash: _committeeConfigHash(_inbox.stakingRegistry())
+                    configHash: _configHash()
                 }),
                 _input,
                 _inbox.landings(0),
@@ -583,18 +489,15 @@ contract DeployEtnaDevnetTest is EtnaInboxTestBase {
         );
     }
 
-    /// @dev `committeeConfigHash` over the environment's L2 chain id and `ETNA_*` values for
-    /// `_registry`, whose immutable minStake is the fifth word (appendix A, ENC-A-36).
-    function _committeeConfigHash(address _registry) private view returns (bytes32) {
+    /// @dev The config hash over the environment's L2 chain id and EtnaStaking proxy and the
+    /// default U (appendix A).
+    function _configHash() private pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                bytes32("ETNA_PARENT_ANCHOR_V1"),
+                bytes32("ETNA_CONFIG_V1"),
                 uint256(L2_CHAIN_ID),
-                _registry,
-                VP_UNIT,
-                EtnaStakingRegistry(_registry).minStake(),
-                N_MAX,
-                UNSETTLED_LIMIT
+                ETNA_STAKING,
+                uint256(UNSETTLED_LIMIT)
             )
         );
     }
