@@ -171,6 +171,8 @@ async fn native_long_fence_restarts_and_executes_with_body_pruned_parents() -> R
                     last_checkpoint_hash: finalized,
                     forced_inclusion_head: 0,
                     forced_inclusion_tail: 0,
+                    fallback_keys_hash: B256::ZERO,
+                    min_total_stake: U256::ZERO,
                 },
             };
             let expected = rules::expected_header(&HeaderInputs {

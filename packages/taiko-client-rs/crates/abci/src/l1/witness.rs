@@ -81,6 +81,7 @@ pub enum WitnessError {
 ///
 /// Checks the configured Inbox account and exact slot order. Header number, hash, timestamp
 /// and state root come from the embedded raw header; canonicality/finality is checked separately.
+/// The fallback keys hash and the minimum total stake are whole words, taken verbatim.
 pub fn verify_anchor_witness(
     w: &AnchorWitness,
     inbox: Address,
@@ -100,6 +101,8 @@ pub fn verify_anchor_witness(
         last_checkpoint_hash: inbox_word(&storage, inbox::LAST_CHECKPOINT_HASH).into(),
         forced_inclusion_head: word_u48(head_tail, 0),
         forced_inclusion_tail: word_u48(head_tail, 48),
+        fallback_keys_hash: inbox_word(&storage, inbox::FALLBACK_KEYS_HASH).into(),
+        min_total_stake: inbox_word(&storage, inbox::MIN_TOTAL_STAKE),
     };
     Ok(anchor_state(header, facts))
 }
@@ -124,10 +127,11 @@ pub(crate) fn anchor_state(header: &RawL1Header, inbox: InboxFacts) -> AnchorSta
 /// returned facts take the last checkpoint from the genesis record (the Etna start block's
 /// number S and hash) and an empty forced inclusion queue (head = tail = 0: Etna
 /// starts with an empty queue, slot 281 is not part of the genesis witness, and the first block
-/// always carries its own anchor witness). Rejects, in this order: `status != ETNA_ACTIVE`, a
-/// set reserved bit above the fields of the status, generation, activation record, genesis
-/// cutoff or forced inclusion configuration slot, a generation-zero origin other than
-/// `(S, L1_0)`, a zero genesis hash, a zero bootstrap committee hash, a
+/// always carries its own anchor witness); their fallback keys hash and minimum total stake are
+/// the whole words of slots 278 and 279, which this witness proves too. Rejects, in this order:
+/// `status != ETNA_ACTIVE`, a set reserved bit above the fields of the status, generation,
+/// activation record, genesis cutoff or forced inclusion configuration slot, a generation-zero
+/// origin other than `(S, L1_0)`, a zero genesis hash, a zero bootstrap committee hash, a
 /// zero epoch length, `genesisCutoff >= L1_0`, and a forced inclusion configuration without a
 /// positive delay and a maximum anchor age of at least 1152 seconds. The remaining schedule
 /// bounds are checked by [`crate::Schedule::validate`].
@@ -206,6 +210,8 @@ pub fn verify_genesis_inbox(
         last_checkpoint_hash: genesis.genesis_hash,
         forced_inclusion_head: 0,
         forced_inclusion_tail: 0,
+        fallback_keys_hash: inbox_word(&storage, inbox::FALLBACK_KEYS_HASH).into(),
+        min_total_stake: inbox_word(&storage, inbox::MIN_TOTAL_STAKE),
     };
     Ok((genesis, facts, committee_record))
 }
@@ -261,6 +267,68 @@ mod tests {
 
     fn committee_e0() -> B256 {
         B256::repeat_byte(0xc0)
+    }
+
+    /// The L1 state of an Inbox holding [`live_storage`] with `words` written over it, each
+    /// `(plain slot, word)`, plus the filler accounts.
+    fn live_state_with(words: &[(u64, U256)]) -> TestState {
+        let mut account = crate::test_utils::inbox_account(INBOX, &live_storage());
+        account.4.extend(words.iter().map(|&(n, word)| (inbox::slot(n), word)));
+        let mut accounts = filler_accounts();
+        accounts.push(account);
+        TestState::new(accounts)
+    }
+
+    /// The anchor witness at L1 block 9 over [`live_state_with`]`(words)`.
+    fn live_witness_with(words: &[(u64, U256)]) -> AnchorWitness {
+        anchor_witness_in(&live_state_with(words), INBOX, l1_header(9, 99))
+    }
+
+    /// The anchor witness proves exactly these Inbox slots, in this order: the generation, the
+    /// last checkpoint's height and hash, the fallback keys hash, the minimum total stake, the
+    /// forced inclusion queue's head and tail, and the rules schedule. A witness proving them in
+    /// any other order is refused, though every proof in it is valid.
+    #[test]
+    fn anchor_slots_are_in_the_fixed_order() {
+        let fixed: Vec<B256> = [268u64, 270, 271, 278, 279, 281, 293].map(inbox::slot).to_vec();
+        assert_eq!(inbox::anchor_slots(), fixed);
+        assert_eq!(
+            (inbox::FALLBACK_KEYS_HASH, inbox::MIN_TOTAL_STAKE),
+            (278, 279),
+            "the anchor-side names of slots 278 and 279"
+        );
+
+        let state = live_state_with(&[]);
+        let witness = anchor_witness_in(&state, INBOX, l1_header(9, 99));
+        verify_anchor_witness(&witness, INBOX).unwrap();
+        // Checkpoint hash before height; minimum total stake before fallback keys hash.
+        for (a, b) in [(1, 2), (3, 4)] {
+            let mut order = fixed.clone();
+            order.swap(a, b);
+            let reordered = AnchorWitness {
+                l1_header: witness.l1_header.clone(),
+                inbox: state.witness(INBOX, &order),
+            };
+            assert_eq!(
+                verify_anchor_witness(&reordered, INBOX),
+                Err(WitnessError::Mpt(MptError::SlotSet { expected: fixed.clone(), got: order }))
+            );
+        }
+    }
+
+    /// Slot 278 is a whole `bytes32`: every bit of it reaches the facts, none is masked.
+    #[test]
+    fn fallback_keys_hash_is_a_full_word() {
+        for hash in [
+            B256::repeat_byte(0xff),
+            B256::from(U256::from(1) << 255),
+            B256::from(U256::from(1)),
+            B256::ZERO,
+        ] {
+            let witness = live_witness_with(&[(inbox::FALLBACK_KEYS_HASH, hash.into())]);
+            let facts = verify_anchor_witness(&witness, INBOX).unwrap().inbox;
+            assert_eq!(facts.fallback_keys_hash, hash);
+        }
     }
 
     /// Inbox words packed per the shared layout vectors (`testdata/etna_vectors`: the vector
@@ -357,14 +425,22 @@ mod tests {
                 last_checkpoint_hash: B256::repeat_byte(0xc4),
                 forced_inclusion_head: max48 - 1,
                 forced_inclusion_tail: max48,
+                // Slots 278 and 279, which the genesis witness reads as the bootstrap committee
+                // hash and the genesis cutoff.
+                fallback_keys_hash: B256::repeat_byte(0xa4),
+                min_total_stake: U256::from((1u64 << 48) - 5),
             }
         );
     }
 
     #[test]
     fn anchor_decodes_every_field() {
-        let storage = live_storage();
-        let (w, state) = anchor_witness(INBOX, &storage, l1_header(4_242, 1_760_000_123));
+        let min_total_stake = U256::from_be_bytes([0x9e; 32]);
+        let state = live_state_with(&[
+            (inbox::FALLBACK_KEYS_HASH, U256::from_be_bytes([0xfa; 32])),
+            (inbox::MIN_TOTAL_STAKE, min_total_stake),
+        ]);
+        let w = anchor_witness_in(&state, INBOX, l1_header(4_242, 1_760_000_123));
         let anchor = verify_anchor_witness(&w, INBOX).unwrap();
 
         assert_eq!(anchor.number, 4_242);
@@ -379,6 +455,8 @@ mod tests {
                 last_checkpoint_hash: B256::repeat_byte(0xc4),
                 forced_inclusion_head: 0x0000_8765_4321_0fed,
                 forced_inclusion_tail: 0x0000_ffff_ffff_fffe,
+                fallback_keys_hash: B256::repeat_byte(0xfa),
+                min_total_stake,
             }
         );
     }
@@ -461,12 +539,7 @@ mod tests {
             (U256::from(6) << 192, false),
             (U256::from(1) << 255, false),
         ] {
-            let mut accounts = filler_accounts();
-            let mut account = crate::test_utils::inbox_account(INBOX, &live_storage());
-            account.4.push((inbox::slot(inbox::RULES_SCHEDULE), word));
-            accounts.push(account);
-            let state = TestState::new(accounts);
-            let w = anchor_witness_in(&state, INBOX, l1_header(9, 99));
+            let w = live_witness_with(&[(inbox::RULES_SCHEDULE, word)]);
             match verify_anchor_witness(&w, INBOX) {
                 Ok(anchor) => {
                     assert!(accepted, "{word:#x} sets a reserved bit");
@@ -542,6 +615,8 @@ mod tests {
                 last_checkpoint_hash: genesis.genesis_hash,
                 forced_inclusion_head: 0,
                 forced_inclusion_tail: 0,
+                fallback_keys_hash: committee_e0(),
+                min_total_stake: U256::from(genesis.genesis_cutoff),
             }
         );
         assert_eq!(record, committee_e0());

@@ -425,6 +425,8 @@ pub(crate) fn anchor_at(number: u64, state_root: B256) -> AnchorState {
             last_checkpoint_hash: B256::ZERO,
             forced_inclusion_head: 0,
             forced_inclusion_tail: 0,
+            fallback_keys_hash: B256::ZERO,
+            min_total_stake: U256::ZERO,
         },
     }
 }

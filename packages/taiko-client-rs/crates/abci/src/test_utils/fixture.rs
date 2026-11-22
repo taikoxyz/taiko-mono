@@ -383,6 +383,8 @@ impl Fixture {
                     last_checkpoint_hash: self.genesis.genesis_hash,
                     forced_inclusion_head: 0,
                     forced_inclusion_tail: 0,
+                    fallback_keys_hash: self.inbox.genesis_committee_hash.unwrap_or_default(),
+                    min_total_stake: U256::from(self.genesis.genesis_cutoff),
                 },
             },
             forced_cursor: 0,

@@ -351,7 +351,29 @@ fn forced_transaction(index: u64) -> (Bytes, B256) {
     (tx, hash)
 }
 
-fn anchor(raw: &RawL1Header, height: u64, hash: B256, queue: &Queue) -> AnchorState {
+/// The words `(fallback keys hash, minimum total stake)` that anchor witnesses prove at slots 278
+/// and 279 of a [`state_with_queue`] state over `committees` and `genesis`: the bootstrap
+/// committee hash and the genesis cutoff it writes there.
+fn fallback_words(
+    params: &ChainParams,
+    committees: &BTreeMap<u64, FixtureCommittee>,
+    genesis: &GenesisRecord,
+) -> (B256, U256) {
+    (
+        record_hash(params.l2_chain_id, &committees[&0].state.record),
+        U256::from(genesis.genesis_cutoff),
+    )
+}
+
+/// The anchor a witness of `raw` proves: last checkpoint `(height, hash)`, the queue's head and
+/// tail, and the [`fallback_words`] of slots 278 and 279.
+fn anchor(
+    raw: &RawL1Header,
+    height: u64,
+    hash: B256,
+    queue: &Queue,
+    (fallback_keys_hash, min_total_stake): (B256, U256),
+) -> AnchorState {
     AnchorState {
         number: raw.number(),
         hash: raw.hash(),
@@ -364,6 +386,8 @@ fn anchor(raw: &RawL1Header, height: u64, hash: B256, queue: &Queue) -> AnchorSt
             last_checkpoint_hash: hash,
             forced_inclusion_head: queue.head,
             forced_inclusion_tail: queue.tail,
+            fallback_keys_hash,
+            min_total_stake,
         },
     }
 }
@@ -730,7 +754,8 @@ impl Fixture {
             &plan.queue(&planted, 10, 0),
         );
         let raw10 = l1_header(10, &genesis_state, B256::repeat_byte(9));
-        let anchor10 = anchor(&raw10, 0, genesis.genesis_hash, &plan.queue(&planted, 10, 0));
+        let words = fallback_words(&params, &committees, &genesis);
+        let anchor10 = anchor(&raw10, 0, genesis.genesis_hash, &plan.queue(&planted, 10, 0), words);
         let mut cursor = 0;
         let mut states = BTreeMap::from([(10, genesis_state)]);
         let mut l1_headers = BTreeMap::from([(10, raw10)]);
@@ -784,7 +809,7 @@ impl Fixture {
             let forced = height == 1;
             let changing = anchors[&(height - 1)].number != number;
             let raw = &l1_headers[&number];
-            let a = anchor(raw, cp, cp_hash, &plan.queue(&planted, number, cp));
+            let a = anchor(raw, cp, cp_hash, &plan.queue(&planted, number, cp), words);
             let witness = (forced || changing).then(|| AnchorWitness {
                 l1_header: raw.clone(),
                 inbox: states[&number].witness(params.inbox, &inbox::anchor_slots()),

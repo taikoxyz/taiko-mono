@@ -300,8 +300,10 @@ mod tests {
         B256::from(U256::from(n))
     }
 
-    /// The inbox with three non-zero slots and one zero-valued entry, an empty-storage account,
-    /// and filler accounts so the account proof walks through branch nodes.
+    /// The inbox holding five of the anchor slots (two of them full-width words), a zero-valued
+    /// entry and two slots outside the anchor slot set, with the rules schedule absent; an
+    /// empty-storage account; and filler accounts so the account proof walks through branch
+    /// nodes.
     fn state() -> TestState {
         let mut accounts: Vec<AccountSpec> = vec![
             (
@@ -314,6 +316,9 @@ mod tests {
                     (slot(268), U256::from(2u64)),
                     (slot(271), U256::from_be_bytes([0xab; 32])),
                     (slot(270), U256::ZERO),
+                    (slot(278), U256::MAX),
+                    (slot(279), U256::MAX),
+                    (slot(281), U256::from(4u64) | (U256::from(9u64) << 48)),
                     (slot(999), U256::from(1u64)),
                 ],
             ),
@@ -331,8 +336,9 @@ mod tests {
         TestState::new(accounts)
     }
 
+    /// The anchor witness's slots, in proof order: 268, 270, 271, 278, 279, 281, 293.
     fn anchor_slots() -> Vec<B256> {
-        [258u64, 268, 270, 271].map(slot).to_vec()
+        crate::l1::layout::inbox::anchor_slots()
     }
 
     #[test]
@@ -341,11 +347,16 @@ mod tests {
         let slots = anchor_slots();
         let witness = state.witness(INBOX, &slots);
         let verified = verify_account_witness(state.state_root(), &witness, &slots).unwrap();
-        assert_eq!(verified.get(slot(258)), Some(U256::from(3u64)));
         assert_eq!(verified.get(slot(268)), Some(U256::from(2u64)));
         assert_eq!(verified.get(slot(270)), Some(U256::ZERO));
         assert_eq!(verified.get(slot(271)), Some(U256::from_be_bytes([0xab; 32])));
-        assert_eq!(verified.get(slot(999)), None, "unrequested slots are not exposed");
+        assert_eq!(verified.get(slot(278)), Some(U256::MAX));
+        assert_eq!(verified.get(slot(279)), Some(U256::MAX));
+        assert_eq!(verified.get(slot(281)), Some(U256::from(4u64) | (U256::from(9u64) << 48)));
+        assert_eq!(verified.get(slot(293)), Some(U256::ZERO), "an absent slot reads zero");
+        for unrequested in [258, 999] {
+            assert_eq!(verified.get(slot(unrequested)), None, "unrequested slots are not exposed");
+        }
     }
 
     #[test]
@@ -374,7 +385,7 @@ mod tests {
         let witness = state.witness(EMPTY, &slots);
         assert_eq!(witness.storage_root, EMPTY_ROOT_HASH);
         let verified = verify_account_witness(state.state_root(), &witness, &slots).unwrap();
-        assert_eq!(verified.get(slot(258)), Some(U256::ZERO));
+        assert_eq!(verified.get(slot(268)), Some(U256::ZERO));
     }
 
     #[test]
@@ -418,7 +429,7 @@ mod tests {
         let state = state();
         let slots = anchor_slots();
         let mut witness = state.witness(INBOX, &slots);
-        witness.storage[1].value = U256::from(7u64);
+        witness.storage[0].value = U256::from(7u64);
         let err = verify_account_witness(state.state_root(), &witness, &slots).unwrap_err();
         assert!(matches!(err, MptError::Storage { slot: s, .. } if s == slot(268)), "{err:?}");
     }
@@ -428,9 +439,9 @@ mod tests {
         let state = state();
         let slots = anchor_slots();
         let mut witness = state.witness(INBOX, &slots);
-        witness.storage[0].value = U256::ZERO;
+        witness.storage[4].value = U256::ZERO;
         let err = verify_account_witness(state.state_root(), &witness, &slots).unwrap_err();
-        assert!(matches!(err, MptError::Storage { slot: s, .. } if s == slot(258)), "{err:?}");
+        assert!(matches!(err, MptError::Storage { slot: s, .. } if s == slot(279)), "{err:?}");
     }
 
     #[test]
@@ -438,7 +449,7 @@ mod tests {
         let state = state();
         let slots = anchor_slots();
         let mut witness = state.witness(INBOX, &slots);
-        witness.storage[2].value = U256::from(1u64);
+        witness.storage[1].value = U256::from(1u64);
         let err = verify_account_witness(state.state_root(), &witness, &slots).unwrap_err();
         assert!(matches!(err, MptError::Storage { slot: s, .. } if s == slot(270)), "{err:?}");
     }
@@ -452,7 +463,7 @@ mod tests {
         witness.storage[0].proof = witness.storage[1].proof.clone();
         witness.storage[1].proof = first;
         let err = verify_account_witness(state.state_root(), &witness, &slots).unwrap_err();
-        assert!(matches!(err, MptError::Storage { slot: s, .. } if s == slot(258)), "{err:?}");
+        assert!(matches!(err, MptError::Storage { slot: s, .. } if s == slot(268)), "{err:?}");
     }
 
     #[test]

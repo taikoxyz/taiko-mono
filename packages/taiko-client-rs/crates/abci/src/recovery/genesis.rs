@@ -123,21 +123,21 @@ impl RecoveryBootstrap {
     }
 }
 
-/// Authenticate R's anchor facts from the recovery witness's R observation.
+/// Authenticate R's anchor facts from the recovery witness's R observation, whose proofs of the
+/// anchor slots are taken in the anchor witness's order (the recovery witness proves them in
+/// its own).
 pub(crate) fn recovery_anchor(
     witness: &super::RecoveryWitness,
     params: &ChainParams,
 ) -> Result<crate::AnchorState, RecoveryError> {
-    let slots = crate::l1::layout::inbox::anchor_slots();
+    let proofs = &witness.recovery_inbox.storage;
     crate::l1::verify_anchor_witness(
         &crate::AnchorWitness {
             l1_header: witness.recovery_header.clone(),
             inbox: crate::AccountWitness {
-                storage: witness
-                    .recovery_inbox
-                    .storage
+                storage: crate::l1::layout::inbox::anchor_slots()
                     .iter()
-                    .filter(|p| slots.contains(&p.slot))
+                    .filter_map(|slot| proofs.iter().find(|p| p.slot == *slot))
                     .cloned()
                     .collect(),
                 ..witness.recovery_inbox.clone()

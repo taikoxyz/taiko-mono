@@ -449,6 +449,50 @@ async fn round_trips_through_a_plain_height_and_an_anchor_change() {
     assert_eq!(app.state().unwrap().anchor.number, 66);
 }
 
+/// The DAO's emergency setting, `minTotalStake` = 2^256 − 1, reaches the facts of the anchor
+/// that proves it in all 256 bits, as does an all-ones fallback keys hash; a block that keeps
+/// that anchor inherits both, and so does the committed state a restart reads back.
+#[tokio::test]
+async fn min_total_stake_max_is_decoded_unmasked_and_inherited() {
+    use crate::{
+        l1::layout::inbox,
+        test_utils::{TestState, anchor_witness_in, filler_accounts, inbox_account, l1_header},
+    };
+    let fx = Fixture::genesis(1);
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = mid_epoch(&fx, dir.path(), 6).await;
+    let mut account = inbox_account(fx.params.inbox, &fx.inbox);
+    account.4.extend([
+        (inbox::slot(inbox::FALLBACK_KEYS_HASH), U256::MAX),
+        (inbox::slot(inbox::MIN_TOTAL_STAKE), U256::MAX),
+    ]);
+    let mut accounts = filler_accounts();
+    accounts.push(account);
+    let state = TestState::new(accounts);
+    let header = l1_header(66, Fixture::l1_timestamp(66));
+    app.l1().insert_block(header.clone(), state.clone());
+    app.l1().set_finalized(66);
+    let witness = anchor_witness_in(&state, fx.params.inbox, header);
+    let anchor = verify_anchor_witness(&witness, fx.params.inbox).unwrap();
+    assert_eq!(anchor.inbox.min_total_stake, U256::MAX);
+    assert_eq!(anchor.inbox.fallback_keys_hash, B256::repeat_byte(0xff));
+
+    let env = hand_envelope(&app, Some(witness));
+    let (resp, req) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    decide(&mut app, &req).await;
+    assert_eq!(app.state().unwrap().anchor, anchor);
+
+    let env = hand_envelope(&app, None);
+    let (resp, req) = judge(&mut app, &env).await;
+    assert_eq!(resp, response::ProcessProposal::Accept, "halt = {:?}", app.halt);
+    assert_eq!(app.verdicts.get(&req.hash).expect("the verdict is cached").anchor, anchor);
+    decide(&mut app, &req).await;
+    assert_eq!(app.state().unwrap().anchor, anchor);
+    let stored = Store::volatile(dir.path().to_path_buf()).load().unwrap().expect("committed");
+    assert_eq!(stored.anchor, anchor);
+}
+
 #[tokio::test]
 async fn restart_rejects_a_changed_committee_config_opening() {
     let fx = Fixture::genesis(2);

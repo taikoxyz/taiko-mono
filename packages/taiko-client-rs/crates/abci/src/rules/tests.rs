@@ -33,6 +33,8 @@ fn anchor(number: u64, timestamp: u64) -> AnchorState {
             last_checkpoint_hash: B256::ZERO,
             forced_inclusion_head: 0,
             forced_inclusion_tail: 0,
+            fallback_keys_hash: B256::ZERO,
+            min_total_stake: alloy_primitives::U256::ZERO,
         },
     }
 }

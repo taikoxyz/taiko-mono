@@ -62,11 +62,6 @@ pub(crate) fn b256s_at(pointer: &str) -> Vec<B256> {
     (0..len_at(pointer)).map(|i| b256_at(&format!("{pointer}/{i}"))).collect()
 }
 
-/// The decimal integers of the array at `pointer`.
-pub(crate) fn u64s_at(pointer: &str) -> Vec<u64> {
-    (0..len_at(pointer)).map(|i| u64_at(&format!("{pointer}/{i}"))).collect()
-}
-
 /// Entry `index` of `registry_entries`.
 pub(crate) fn registry_entry(index: usize) -> RegistryEntry {
     let field = |name: &str| format!("/registry_entries/entries/{index}/{name}");

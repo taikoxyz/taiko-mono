@@ -141,7 +141,7 @@ pub struct Member {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InboxFacts {
-    /// Authenticated packed rules schedule (slot 293): five low-order uint48 fields.
+    /// Authenticated packed rules schedule (slot 293): four low-order uint48 fields.
     pub rules_schedule: U256,
     /// `recoveryGeneration` (slot 268); also bound into the CometBFT domain and the `extraData`
     /// generation of every block of that generation.
@@ -156,6 +156,13 @@ pub struct InboxFacts {
     /// The forced inclusion queue's `tail` (slot 281, `uint48` at bits 48–95): the next free
     /// index, so entries `head..tail` are stored. Zero at genesis.
     pub forced_inclusion_tail: u64,
+    /// `fallbackKeysHash` (slot 278), the whole word: the hash of the DAO's fallback key list,
+    /// whose keys sign at power 1 when the block's candidate is not usable.
+    pub fallback_keys_hash: B256,
+    /// `minTotalStake` (slot 279), the whole word, never masked: the least `snapshotTotalStake`
+    /// of a usable candidate. 2^256 − 1 makes no candidate usable, so the fallback keys sign
+    /// whatever L2 state holds.
+    pub min_total_stake: U256,
 }
 
 /// The Etna genesis record read from the Inbox (the compatibility `activation` slots 272–274), with
@@ -276,6 +283,9 @@ mod tests {
             last_checkpoint_hash: B256::repeat_byte(0x33),
             forced_inclusion_head: 4,
             forced_inclusion_tail: 7,
+            // Whole words: the JSON round trip keeps every bit.
+            fallback_keys_hash: B256::repeat_byte(0xff),
+            min_total_stake: U256::MAX,
         }
     }
 

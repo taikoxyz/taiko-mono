@@ -2,8 +2,9 @@
 //!
 //! Inbox activation authenticates status, generation, schedule, genesis cutoff, configuration
 //! hash, the single genesis committee hash and the forced inclusion delay and maximum anchor
-//! age. Runtime anchors prove generation, checkpoint height/hash, the forced inclusion
-//! queue's head/tail and the rules schedule; no future committee mapping exists.
+//! age. Runtime anchors prove generation, checkpoint height/hash, the fallback keys hash, the
+//! minimum total stake, the forced inclusion queue's head/tail and the rules schedule; no
+//! future committee mapping exists.
 //!
 //! Registry checkpoints must be strictly increasing and complete, with a checkpoint in every
 //! changing L1 block. Discovery reads historical entries before the next checkpoint and then
@@ -36,11 +37,20 @@ pub mod inbox {
     pub const START_STATE_ROOT: u64 = 274;
     /// Authenticated parent-anchor derivation configuration hash.
     pub const COMMITTEE_CONFIG_HASH: u64 = 269;
-    /// The single bootstrap committee record hash; future committees are never published.
-    pub const GENESIS_COMMITTEE_HASH: u64 = 278;
-    /// `genesisCutoff`: `uint48`, bits 0–47. The snapshot cutoff (an L1 block before `L1_0`) of
-    /// the genesis committee, set once by the genesis.
-    pub const GENESIS_CUTOFF: u64 = 279;
+    /// `fallbackKeysHash`, a whole `bytes32`: the hash of the DAO's fallback key list, set at
+    /// initialization and replaced only by `setFallbackKeys`. Every anchor witness proves it.
+    pub const FALLBACK_KEYS_HASH: u64 = 278;
+    /// `minTotalStake`, a whole `uint256` read without masking: the least `snapshotTotalStake` of
+    /// a usable candidate, set at initialization and replaced only by `setMinTotalStake`. Every
+    /// anchor witness proves it; 2^256 − 1 makes no candidate usable.
+    pub const MIN_TOTAL_STAKE: u64 = 279;
+    /// Slot [`FALLBACK_KEYS_HASH`] as the genesis witness still reads it: the single bootstrap
+    /// committee record hash.
+    pub const GENESIS_COMMITTEE_HASH: u64 = FALLBACK_KEYS_HASH;
+    /// Slot [`MIN_TOTAL_STAKE`] as the genesis witness still reads it: `genesisCutoff`,
+    /// `uint48`, bits 0–47, the snapshot cutoff (an L1 block before `L1_0`) of the genesis
+    /// committee.
+    pub const GENESIS_CUTOFF: u64 = MIN_TOTAL_STAKE;
     /// The forced inclusion `queue` mapping (`LibForcedInclusion.Storage.queue`), keyed by entry
     /// index; see [`forced_inclusion_entry_slots`].
     pub const FORCED_INCLUSION_QUEUE: u64 = 280;
@@ -182,13 +192,16 @@ pub mod inbox {
         B256::from(U256::from(n))
     }
 
-    /// The fixed slots authenticated by every per-block anchor witness: generation,
-    /// last checkpoint height and hash, the forced inclusion queue's head/tail and rules.
+    /// The fixed slots every per-block anchor witness proves, in this order: generation, last
+    /// checkpoint height and hash, fallback keys hash, minimum total stake, the forced inclusion
+    /// queue's head/tail and the rules schedule.
     pub fn anchor_slots() -> Vec<B256> {
         [
             RECOVERY_GENERATION,
             LAST_CHECKPOINT_HEIGHT,
             LAST_CHECKPOINT_HASH,
+            FALLBACK_KEYS_HASH,
+            MIN_TOTAL_STAKE,
             FORCED_INCLUSION_HEAD_TAIL,
             RULES_SCHEDULE,
         ]
@@ -328,20 +341,22 @@ mod tests {
             b256!("0000000000000000000000000000000000000000000000000000000000000102")
         );
         assert_eq!(
-            inbox::slot(inbox::GENESIS_COMMITTEE_HASH),
+            inbox::slot(inbox::FALLBACK_KEYS_HASH),
             b256!("0000000000000000000000000000000000000000000000000000000000000116")
         );
         assert_eq!(
-            inbox::slot(inbox::GENESIS_CUTOFF),
+            inbox::slot(inbox::MIN_TOTAL_STAKE),
             b256!("0000000000000000000000000000000000000000000000000000000000000117")
         );
         assert_eq!(inbox::slot(0), B256::ZERO);
         assert_eq!(inbox::slot(u64::MAX), B256::from(U256::from(u64::MAX)));
     }
 
-    /// Every plain Inbox slot, the active status and the anchor and genesis witness slot lists
-    /// (in proof order) match the shared layout vectors (`testdata/etna_vectors`), which the
-    /// contracts check against a deployed Inbox.
+    /// Every plain Inbox slot, the active status and the origin and landing slots match the
+    /// shared layout vectors (`testdata/etna_vectors`), which the contracts check against a
+    /// deployed Inbox. The anchor slot list is checked against the specification's own list
+    /// (`anchor_slots_are_in_the_fixed_order` in the witness tests): the shared vectors still list
+    /// the five slots of the anchor witness before it proved slots 278 and 279.
     #[test]
     fn inbox_slots_match_the_shared_vectors() {
         let slots = vectors::at("/layout/inbox/slots").as_object().expect("named slots");
@@ -375,10 +390,6 @@ mod tests {
             u64::from(inbox::ETNA_ACTIVE),
             vectors::u64_at("/layout/inbox/initialized_status")
         );
-        let listed = |pointer: &str| -> Vec<B256> {
-            vectors::u64s_at(pointer).into_iter().map(inbox::slot).collect()
-        };
-        assert_eq!(inbox::anchor_slots(), listed("/layout/inbox/anchor_slots"));
         assert!(!inbox::anchor_slots().contains(&inbox::slot(292)));
         let origin_slots: fn(u64) -> Vec<B256> =
             |generation| inbox::origin_slots(generation).into();

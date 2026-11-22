@@ -811,6 +811,8 @@ mod tests {
                     last_checkpoint_hash: B256::repeat_byte(0x33),
                     forced_inclusion_head: 2,
                     forced_inclusion_tail: 5,
+                    fallback_keys_hash: B256::repeat_byte(0x44),
+                    min_total_stake: U256::MAX,
                 },
             },
             forced_cursor: 3,

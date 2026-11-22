@@ -82,8 +82,14 @@ pub struct InboxValues {
     /// The genesis record (slots 272–274) with its `genesisCutoff` (slot 279) and forced
     /// inclusion configuration (slot 282).
     pub genesis: Option<GenesisRecord>,
-    /// The bootstrap committee record hash at plain slot 278.
+    /// The bootstrap committee record hash at plain slot 278, as the genesis witness reads it.
     pub genesis_committee_hash: Option<B256>,
+    /// `fallbackKeysHash` at slot 278, as anchor witnesses prove it; written after
+    /// `genesis_committee_hash`, so it wins when both are set.
+    pub fallback_keys_hash: Option<B256>,
+    /// `minTotalStake` at slot 279, the whole word, as anchor witnesses prove it; written after
+    /// the genesis record's `genesisCutoff`, so it wins when both are set.
+    pub min_total_stake: Option<U256>,
 }
 
 impl InboxValues {
@@ -123,6 +129,12 @@ impl InboxValues {
         }
         if let Some(hash) = self.genesis_committee_hash {
             w.push((slot(inbox::GENESIS_COMMITTEE_HASH), hash.into()));
+        }
+        if let Some(hash) = self.fallback_keys_hash {
+            w.push((slot(inbox::FALLBACK_KEYS_HASH), hash.into()));
+        }
+        if let Some(value) = self.min_total_stake {
+            w.push((slot(inbox::MIN_TOTAL_STAKE), value));
         }
         w
     }
@@ -495,6 +507,39 @@ mod tests {
         let v = InboxValues { recovery_generation: Some(0), ..Default::default() };
         assert_eq!(v.writes(), vec![(inbox::slot(inbox::RECOVERY_GENERATION), U256::ZERO)]);
         assert!(InboxValues::default().writes().is_empty());
+    }
+
+    /// The two words every anchor witness proves are written whole, after the genesis words of
+    /// the same slots, which they replace.
+    #[test]
+    fn inbox_values_write_the_anchor_words_whole_and_last() {
+        let v = InboxValues {
+            fallback_keys_hash: Some(B256::repeat_byte(0xff)),
+            min_total_stake: Some(U256::MAX),
+            ..Default::default()
+        };
+        assert_eq!(v.writes(), vec![(inbox::slot(278), U256::MAX), (inbox::slot(279), U256::MAX)]);
+        let genesis = GenesisRecord {
+            committee_config_hash: B256::repeat_byte(9),
+            genesis_height: 1,
+            l1_0: 2,
+            epoch_len: 3,
+            genesis_hash: B256::repeat_byte(5),
+            genesis_state_root: B256::repeat_byte(6),
+            genesis_cutoff: 7,
+            forced_inclusion_delay: 10,
+            max_anchor_age: 11,
+        };
+        let v = InboxValues {
+            genesis: Some(genesis),
+            genesis_committee_hash: Some(B256::repeat_byte(8)),
+            ..v
+        };
+        let writes = v.writes();
+        assert_eq!(
+            writes[writes.len() - 2..],
+            [(inbox::slot(278), U256::MAX), (inbox::slot(279), U256::MAX)]
+        );
     }
 
     #[test]

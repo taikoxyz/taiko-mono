@@ -124,7 +124,8 @@ fn observe(fx: &mut Fixture, n: u64, time: u64, endpoint: (u64, B256, B256)) -> 
         .into(),
     )
     .unwrap();
-    let a = anchor(&raw, endpoint.0, endpoint.1, &queue);
+    let words = fallback_words(&fx.params, &fx.committees, &fx.snapshot.genesis);
+    let a = anchor(&raw, endpoint.0, endpoint.1, &queue, words);
     fx.states.insert(n, state);
     fx.l1_headers.insert(n, raw);
     a

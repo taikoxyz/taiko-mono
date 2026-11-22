@@ -37,6 +37,8 @@ fn fixture(tx: Bytes) -> (AnchorState, ForcedWitness) {
             last_checkpoint_hash: B256::ZERO,
             forced_inclusion_head: 0,
             forced_inclusion_tail: INDEX + 1,
+            fallback_keys_hash: B256::ZERO,
+            min_total_stake: alloy_primitives::U256::ZERO,
         },
     };
     let w = ForcedWitness { index: INDEX, entry: state.witness(INBOX, &slots), tx };

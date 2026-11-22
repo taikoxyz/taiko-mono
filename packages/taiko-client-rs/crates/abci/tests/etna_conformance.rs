@@ -383,12 +383,15 @@ impl AnchorFacts {
     }
 
     /// The L1 state at this anchor: the Inbox's anchor slots and queue, and the registry with
-    /// the proposer's single checkpoint ([`proposer_registry`]).
+    /// the proposer's single checkpoint ([`proposer_registry`]). The fallback keys hash and the
+    /// minimum total stake use every bit of their words; the rules the vectors vary read neither.
     fn l1_state(&self) -> L1State {
         let mut words = BTreeMap::from([
             (inbox::slot(inbox::RECOVERY_GENERATION), U256::from(self.generation)),
             (inbox::slot(inbox::LAST_CHECKPOINT_HEIGHT), U256::from(self.checkpoint_height)),
             (inbox::slot(inbox::LAST_CHECKPOINT_HASH), U256::from_be_bytes([0x0c; 32])),
+            (inbox::slot(inbox::FALLBACK_KEYS_HASH), U256::from_be_bytes([0x0f; 32])),
+            (inbox::slot(inbox::MIN_TOTAL_STAKE), U256::MAX),
             (inbox::slot(inbox::FORCED_INCLUSION_HEAD_TAIL), U256::from(self.tail) << 48),
         ]);
         for (index, (hash, timestamp, l1_block)) in &self.queue {
@@ -435,6 +438,8 @@ impl AnchorFacts {
                 last_checkpoint_hash: B256::repeat_byte(0x0c),
                 forced_inclusion_head: 0,
                 forced_inclusion_tail: self.tail,
+                fallback_keys_hash: B256::repeat_byte(0x0f),
+                min_total_stake: U256::MAX,
             },
         }
     }

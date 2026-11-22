@@ -165,6 +165,8 @@ fn anchor(header: &RawL1Header) -> AnchorState {
             last_checkpoint_hash: B256::repeat_byte(1),
             forced_inclusion_head: 0,
             forced_inclusion_tail: 0,
+            fallback_keys_hash: B256::ZERO,
+            min_total_stake: alloy_primitives::U256::ZERO,
         },
     }
 }

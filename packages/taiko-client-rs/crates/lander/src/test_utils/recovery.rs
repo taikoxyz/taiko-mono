@@ -97,8 +97,9 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     };
     let r_state = state_at(6, old_el.hash_slow(), old_comet);
     let r_header = l1_header(20, &r_state, B256::repeat_byte(19));
-    let mut r_anchor =
-        anchor(&r_header, 6, old_el.hash_slow(), &Queue { head: 0, tail: 0, entries: vec![] });
+    let empty = Queue { head: 0, tail: 0, entries: vec![] };
+    let words = fallback_words(&f.params, &old_committees, &genesis);
+    let mut r_anchor = anchor(&r_header, 6, old_el.hash_slow(), &empty, words);
     r_anchor.inbox.recovery_generation = 2;
     let witness = abci::recovery::RecoveryWitness {
         version: 1,
@@ -118,8 +119,7 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     };
     let origin = abci::recovery::verify_recovery_witness(&witness, &f.params).unwrap();
     let next_header = l1_header(21, &r_state, r_header.hash());
-    let mut next_anchor =
-        anchor(&next_header, 6, old_el.hash_slow(), &Queue { head: 0, tail: 0, entries: vec![] });
+    let mut next_anchor = anchor(&next_header, 6, old_el.hash_slow(), &empty, words);
     next_anchor.inbox.recovery_generation = 2;
     let keys =
         vec![SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()];
