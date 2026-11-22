@@ -2,7 +2,8 @@
 //!
 //! The set signs the first two blocks of every generation, and every later block whose candidate
 //! is not usable, as one validator per key, each with voting power 1. Nodes and guests take a list
-//! as input and accept it only when its [`FallbackKeys::hash`] equals the hash that applies.
+//! as input and accept it only when its [`FallbackKeys::hash`](crate::fallback::FallbackKeys::hash)
+//! equals the hash that applies.
 
 use crate::{
     committee::{tag, word},

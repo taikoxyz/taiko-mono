@@ -1,6 +1,6 @@
 //! Native CometBFT wire codecs, ordered validator slots, QC and body commitments.
 //!
-//! These checks do not authenticate a registry committee or execute an Etna envelope.
+//! These checks do not decide or authenticate the set that signs, or execute an Etna envelope.
 /// Canonical native protobuf/domain conversion.
 pub mod codec;
 /// Lossless native signature, block and evidence representations.

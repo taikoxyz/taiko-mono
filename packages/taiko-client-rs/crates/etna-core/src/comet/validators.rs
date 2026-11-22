@@ -1,4 +1,4 @@
-//! Structurally validated native validator order and power, without registry authority.
+//! Structurally validated native validator order and power, without signing set authority.
 use crate::key::{ConsensusKey, KeyError};
 use alloc::{collections::BTreeSet, vec::Vec};
 use tendermint::{Hash, account::Id};
@@ -10,7 +10,7 @@ pub struct Validator {
     pub address: Id,
     /// Authorized native key, validated by the core key type.
     pub pub_key: ConsensusKey,
-    /// Positive voting power admitted by the committee record.
+    /// Positive voting power of the key in the set that signs.
     voting_power: u64,
 }
 impl Validator {
@@ -19,41 +19,42 @@ impl Validator {
         self.voting_power
     }
 }
-/// Structurally checked native slots; registry and epoch authorization remain caller obligations.
+/// Structurally checked native slots; deciding and authenticating the set remain caller
+/// obligations.
 #[derive(Clone, Debug)]
 pub struct Validators {
     /// Validators in descending power and ascending Ethereum-address order.
     members: Vec<Validator>,
     /// Stock native protobuf validator Merkle commitment.
     hash: Hash,
-    /// Total power of the members, at most `MAX_TOTAL_POWER` for a derived committee.
+    /// Total power of the members, at most `MAX_TOTAL_POWER`.
     total: u64,
 }
 impl Validators {
-    /// Builds positive unique native slots with checked stock total-power bounds, from 1 to
-    /// [`MAX_SET_MEMBERS`](crate::params::MAX_SET_MEMBERS) members.
-    /// This validates keys/powers only, not registry provenance, stake mapping or epoch authority.
-    pub fn from_members(members: &[crate::types::Member]) -> Result<Self, KeyError> {
+    /// Builds positive unique native slots with checked stock total-power bounds from 1 to
+    /// [`MAX_SET_MEMBERS`](crate::params::MAX_SET_MEMBERS) keys and their powers, in any order.
+    /// This validates keys/powers only, not where the set comes from or whether it signs.
+    pub fn from_members(members: &[(ConsensusKey, u64)]) -> Result<Self, KeyError> {
         if members.is_empty() || members.len() > crate::params::MAX_SET_MEMBERS {
             return Err(KeyError);
         }
         let mut addresses = BTreeSet::new();
         let mut total = 0u64;
-        for member in members {
-            if member.power == 0 || !addresses.insert(member.pubkey.address()) {
+        for (key, power) in members {
+            if *power == 0 || !addresses.insert(key.address()) {
                 return Err(KeyError);
             }
             total = total
-                .checked_add(member.power)
-                .filter(|power| *power <= crate::committee::MAX_TOTAL_POWER)
+                .checked_add(*power)
+                .filter(|total| *total <= crate::committee::MAX_TOTAL_POWER)
                 .ok_or(KeyError)?;
         }
         let mut validators = members
             .iter()
-            .map(|member| Validator {
-                address: Id::new(member.pubkey.address().into_array()),
-                pub_key: member.pubkey,
-                voting_power: member.power,
+            .map(|(key, power)| Validator {
+                address: Id::new(key.address().into_array()),
+                pub_key: *key,
+                voting_power: *power,
             })
             .collect::<Vec<_>>();
         validators.sort_by_key(|v| (core::cmp::Reverse(v.voting_power), v.address));
@@ -77,18 +78,11 @@ impl Validators {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{params::MAX_SET_MEMBERS, types::Member};
-    use alloy_primitives::U256;
+    use crate::params::MAX_SET_MEMBERS;
 
     /// `n` members with distinct keys, each at power 1.
-    fn members(n: usize) -> Vec<Member> {
-        (0..n as u64)
-            .map(|seed| Member {
-                pubkey: crate::test_utils::test_key(seed),
-                eff_stake: U256::ZERO,
-                power: 1,
-            })
-            .collect()
+    fn members(n: usize) -> Vec<(ConsensusKey, u64)> {
+        (0..n as u64).map(|seed| (crate::test_utils::test_key(seed), 1)).collect()
     }
 
     #[test]

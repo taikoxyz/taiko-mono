@@ -2627,10 +2627,10 @@ name = "etna-core"
 version = "2.3.0"
 dependencies = [
  "alloy-primitives",
- "alloy-rlp",
  "alloy-sol-types",
  "base64",
  "k256",
+ "proptest",
  "prost 0.13.5",
  "serde",
  "serde_json",

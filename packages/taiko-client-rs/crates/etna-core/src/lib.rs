@@ -1,17 +1,16 @@
-//! Portable Etna consensus primitives for Raiko2.
-//!
-//! This independent port is based on the Taiko client at
-//! `ea74662169262dc8ab6ada7028d2ef54137088d2`. The node continues to use its existing ABCI and
-//! lander implementations. Client adoption is a separate migration step.
+//! Portable Etna consensus primitives: the pure rules that nodes, the lander and the Raiko2
+//! guests share.
 //!
 //! The crate tests check compatibility with the stock CometBFT v0.40.0 wire and validator-state
 //! vectors copied from that baseline.
 //!
-//! [`committee::derive`] computes a candidate committee from snapshot data.
-//! [`comet::validators::Validators::from_members`] checks validator identities and power.
-//! Consumers separately authenticate the committee for the applicable epoch and generation.
-//! [`committee::verify_committee_at_cutoff`] is available for verifying registry witnesses
-//! against an authenticated L1 state root.
+//! [`committee::decide`] decides at each block H the set that signs H + 2: the candidate snapshot
+//! that H's block-start call stored in the L2 staking contract ([`staking`]) when it is usable,
+//! otherwise the DAO fallback key set ([`fallback`]), each key at power 1.
+//! [`committee::validator_updates`] turns two consecutive sets into CometBFT validator updates,
+//! and [`comet::validators::Validators::from_members`] checks a set's identities and powers.
+//! Consumers read the staking words from H's post-state and the minimum total stake and fallback
+//! key list from H's anchor, and authenticate them; this crate proves nothing about its inputs.
 //!
 //! The Comet certificate and body helpers verify individual consensus commitments. Consumers
 //! compose these checks with generation and range validation, execution and forced inclusion
@@ -24,7 +23,8 @@ extern crate alloc;
 extern crate std;
 /// Native Comet codecs, QC and original body commitments.
 pub mod comet;
-/// Complete committee authentication, derivation and commitments.
+/// The signing set decision, from the candidate snapshot or the fallback keys, and validator
+/// updates.
 pub mod committee;
 /// Deployment and generation signing domain.
 pub mod domain;
@@ -34,15 +34,11 @@ pub mod fallback;
 pub mod key;
 /// Canonical deployment data and pure parameter validation.
 pub mod params;
-/// Registry storage layout without a proof-engine dependency.
-pub mod registry;
-/// Epoch schedule and H+2 activation arithmetic.
-pub mod schedule;
 /// L2 staking contract storage layout: candidate snapshot slots and the key-to-seat decoder.
 pub mod staking;
 #[cfg(test)]
 mod test_utils;
-/// Canonical shared committee and generation-start records.
+/// Canonical genesis and generation origin records.
 pub mod types;
 /// Stock native validator protobuf and commitments.
 pub mod validator;

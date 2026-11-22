@@ -29,7 +29,7 @@ pub enum DomainError {
 
 /// Returns the canonical 48-byte `etna-` chain id for the full deployment domain.
 pub fn chain_id(domain: &DeploymentDomain) -> Result<String, DomainError> {
-    if domain.generation > crate::schedule::UINT48_MAX {
+    if domain.generation > crate::params::UINT48_MAX {
         return Err(DomainError::Generation(domain.generation));
     }
     let mut tag = [0u8; 32];

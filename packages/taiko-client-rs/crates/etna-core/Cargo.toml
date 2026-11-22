@@ -7,8 +7,7 @@ publish = false
 rust-version = "1.91"
 
 [dependencies]
-alloy-primitives = { workspace = true, features = ["serde", "rlp"] }
-alloy-rlp = { workspace = true, features = ["derive"] }
+alloy-primitives = { workspace = true, features = ["serde"] }
 base64 = { version = "0.22", default-features = false, features = ["alloc"] }
 k256 = { workspace = true, features = ["ecdsa"] }
 prost = { version = "0.13", default-features = false, features = ["derive"] }
@@ -20,4 +19,5 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 alloy-sol-types = { workspace = true }
+proptest = { workspace = true }
 serde_json = { workspace = true }

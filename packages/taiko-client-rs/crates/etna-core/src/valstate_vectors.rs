@@ -14,7 +14,6 @@ use crate::{
     committee,
     key::ConsensusKey,
     test_utils::{test_key, vectors::at},
-    types::Member,
     validator::ValidatorUpdate,
 };
 
@@ -87,19 +86,12 @@ fn abi_preimage(state: &ValState) -> Vec<u8> {
     ))
 }
 
-fn members(set: &ValSet) -> Vec<Member> {
-    set.entries
-        .iter()
-        .map(|entry| Member {
-            pubkey: entry.key,
-            power: entry.power.try_into().unwrap(),
-            eff_stake: U256::ZERO,
-        })
-        .collect()
+fn members(set: &ValSet) -> Vec<(ConsensusKey, u64)> {
+    set.entries.iter().map(|entry| (entry.key, entry.power.try_into().unwrap())).collect()
 }
 
-// Apply the actual committee update builder and native ABCI key/power codec. Both the stock
-// inputs and the ABCI list are the difference from the set in force (COMM-4.3-13).
+// Apply the actual validator update builder and native ABCI key/power codec. Both the stock
+// inputs and the ABCI list are the difference from the set in force.
 fn abci_updates(previous: &ValSet, recorded: &ValSet) -> Vec<(ConsensusKey, u64)> {
     committee::validator_updates(&members(previous), &members(recorded))
         .into_iter()

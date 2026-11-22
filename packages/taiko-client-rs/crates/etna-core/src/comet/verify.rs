@@ -79,8 +79,8 @@ pub fn header_hash(header: &tendermint::block::Header) -> Hash {
 }
 
 /// Verify the native certificate against keys/powers bound by this header, independently of
-/// whether the registry switch choosing the historical set is inside the import window.
-/// The caller must independently authorize the supplied set for this epoch and generation.
+/// where the historical set comes from.
+/// The caller must independently authorize the supplied set for this height and generation.
 ///
 /// A landing proof of (p,h] needs this only for the commit of h and of each block in (p,h)
 /// whose successor a different committee signs; the last_block_id links of the other blocks
@@ -287,7 +287,7 @@ pub fn verify_body_at_origin<'a>(
 /// Verifies one body's commitments plus its BFT ancestry against the preceding certificate.
 ///
 /// A previous pair may be absent only at origin + 1. Certificate verification remains a
-/// separate operation using the independently authenticated epoch committee.
+/// separate operation using the independently authenticated set that signs.
 pub fn verify_structure<'a>(
     pair: CertifiedBlockRef<'a>,
     previous: Option<CertifiedBlockRef<'_>>,

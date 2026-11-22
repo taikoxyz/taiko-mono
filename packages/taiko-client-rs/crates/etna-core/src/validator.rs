@@ -85,13 +85,14 @@ mod tests {
     }
 }
 
-/// Computes the stock Comet validator-set Merkle hash in voting-power/address order.
+/// Computes the stock Comet validator-set Merkle hash of keys and powers in any order, hashing
+/// them in voting-power/address order.
 pub fn validators_hash(
-    members: &[crate::types::Member],
+    members: &[(ConsensusKey, u64)],
 ) -> Result<alloy_primitives::B256, KeyError> {
-    let mut sorted = members.iter().collect::<Vec<_>>();
-    sorted.sort_by_key(|m| (core::cmp::Reverse(m.power), m.pubkey.address()));
-    validators_hash_in_order(sorted.into_iter().map(|member| (member.pubkey, member.power)))
+    let mut sorted = members.to_vec();
+    sorted.sort_by_cached_key(|(key, power)| (core::cmp::Reverse(*power), key.address()));
+    validators_hash_in_order(sorted)
 }
 
 /// Hashes native keys/powers already in stock power-descending, address-ascending order.
@@ -121,24 +122,20 @@ mod validator_hash_tests {
             .as_array()
             .unwrap()
             .iter()
-            .map(|m| crate::types::Member {
-                pubkey: ConsensusKey::from_slice(
-                    &alloy_primitives::hex::decode(m["key"].as_str().unwrap()).unwrap(),
-                )
-                .unwrap(),
-                power: m["power"].as_u64().unwrap(),
-                eff_stake: alloy_primitives::U256::ZERO,
+            .map(|m| {
+                let key = alloy_primitives::hex::decode(m["key"].as_str().unwrap()).unwrap();
+                (ConsensusKey::from_slice(&key).unwrap(), m["power"].as_u64().unwrap())
             })
             .collect::<Vec<_>>();
         let expected =
             oracle["validators_hash"].as_str().unwrap().parse::<alloy_primitives::B256>().unwrap();
         // This API accepts arbitrary member order, unlike ValSet's already canonical entries.
         for order in [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]] {
-            let permuted = order.map(|index| members[index].clone());
+            let permuted = order.map(|index| members[index]);
             assert_eq!(validators_hash(&permuted).unwrap(), expected, "order {order:?}");
         }
         let mut invalid = members;
-        invalid[0].power = 1_u64 << 63;
+        invalid[0].1 = 1_u64 << 63;
         assert!(validators_hash(&invalid).is_err());
     }
 

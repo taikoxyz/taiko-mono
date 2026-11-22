@@ -7,10 +7,8 @@
 
 use std::sync::OnceLock;
 
-use alloy_primitives::{B256, U256};
+use alloy_primitives::B256;
 use serde_json::Value;
-
-use crate::types::RegistryEntry;
 
 /// The vectors document, parsed once.
 pub(crate) fn vectors() -> &'static Value {
@@ -46,30 +44,7 @@ pub(crate) fn usize_at(pointer: &str) -> usize {
     str_at(pointer).parse().unwrap_or_else(|e| panic!("Etna vector {pointer}: {e}"))
 }
 
-/// The decimal integer at `pointer`.
-pub(crate) fn u256_at(pointer: &str) -> U256 {
-    U256::from_str_radix(str_at(pointer), 10)
-        .unwrap_or_else(|e| panic!("Etna vector {pointer}: {e}"))
-}
-
 /// The 32-byte hex word at `pointer`.
 pub(crate) fn b256_at(pointer: &str) -> B256 {
     str_at(pointer).parse().unwrap_or_else(|e| panic!("Etna vector {pointer}: {e}"))
-}
-
-/// Entry `index` of `registry_entries`.
-pub(crate) fn registry_entry(index: usize) -> RegistryEntry {
-    let field = |name: &str| format!("/registry_entries/entries/{index}/{name}");
-    RegistryEntry {
-        ck_prefix: u64_at(&field("ck_prefix")) as u8,
-        ck_x: b256_at(&field("ck_x")),
-        eff_stake: u256_at(&field("eff_stake")),
-        active_from_l1: u64_at(&field("active_from_l1")),
-        exit_effective_l1: u64_at(&field("exit_effective_l1")),
-    }
-}
-
-/// Every entry of `registry_entries`.
-pub(crate) fn registry_entries() -> Vec<RegistryEntry> {
-    (0..len_at("/registry_entries/entries")).map(registry_entry).collect()
 }

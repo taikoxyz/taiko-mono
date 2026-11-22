@@ -1,16 +1,10 @@
 //! Public native Comet verification boundary regressions.
-use alloy_primitives::{U256, hex};
-use etna_core::{comet::validators::Validators, key::ConsensusKey, types::Member};
+use alloy_primitives::hex;
+use etna_core::{comet::validators::Validators, key::ConsensusKey};
 
-fn member(power: u64) -> Member {
-    Member {
-        pubkey: ConsensusKey::from_slice(&hex!(
-            "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
-        ))
-        .unwrap(),
-        eff_stake: U256::ZERO,
-        power,
-    }
+fn member(power: u64) -> (ConsensusKey, u64) {
+    let key = hex!("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+    (ConsensusKey::from_slice(&key).unwrap(), power)
 }
 
 #[test]
@@ -70,11 +64,9 @@ fn fixture(v: &serde_json::Value) -> (Vec<u8>, Block, Commit, Validators, Vec<Si
     let members: Vec<_> = keys
         .iter()
         .zip(powers)
-        .map(|(key, power)| Member {
-            pubkey: ConsensusKey::from_slice(key.verifying_key().to_encoded_point(true).as_bytes())
-                .unwrap(),
-            power,
-            eff_stake: U256::ZERO,
+        .map(|(key, power)| {
+            let public = key.verifying_key().to_encoded_point(true);
+            (ConsensusKey::from_slice(public.as_bytes()).unwrap(), power)
         })
         .collect();
     (raw, block, commit, Validators::from_members(&members).unwrap(), keys)
@@ -331,11 +323,9 @@ fn part_sets_use_exact_65536_byte_boundary_and_empty_input_is_typed_error() {
 #[test]
 fn native_quorum_is_strictly_power_weighted_and_nil_votes_never_add_power() {
     let (_, mut block, mut commit, _, keys) = fixture(&fixtures()[0]);
-    let make = |power, key: &SigningKey| Member {
-        pubkey: ConsensusKey::from_slice(key.verifying_key().to_encoded_point(true).as_bytes())
-            .unwrap(),
-        power,
-        eff_stake: U256::ZERO,
+    let make = |power, key: &SigningKey| {
+        let public = key.verifying_key().to_encoded_point(true);
+        (ConsensusKey::from_slice(public.as_bytes()).unwrap(), power)
     };
     let validators = Validators::from_members(&[make(20, &keys[0]), make(10, &keys[1])]).unwrap();
     block.header.validators_hash = validators.hash();
