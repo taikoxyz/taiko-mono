@@ -99,6 +99,26 @@ fn heal(l1: &MockL1) {
     l1.delay = None;
 }
 
+/// A trusted recovery generation's snapshot names, in its recovery origin, the
+/// `fallbackKeysHash` its origin record holds, whose keys sign c + 1 and c + 2; the wire has no
+/// committee hash.
+#[tokio::test]
+async fn recovery_origin_reports_the_origin_hash() {
+    let dir = tempfile::tempdir().unwrap();
+    let (fx, w, app) = trusted(dir.path()).await;
+    let origin = crate::recovery::verify_recovery_witness(&w, &fx.params).unwrap();
+    let snapshot = app.trust.snapshot();
+    let reported = snapshot.recovery_origin.as_ref().expect("a recovery origin");
+    assert_eq!(reported.fallback_keys_hash, origin.fallback_keys_hash);
+    assert_eq!(reported.fallback_keys_hash, crate::test_utils::recovery_fallback_keys().hash());
+    let wire = serde_json::to_value(&snapshot).unwrap();
+    assert_eq!(
+        wire["recovery_origin"]["fallback_keys_hash"],
+        serde_json::to_value(origin.fallback_keys_hash).unwrap()
+    );
+    assert!(wire["recovery_origin"].get("committee_hash").is_none());
+}
+
 /// SYNC-9-6a 6a.g, RECOV-8-5: a ready recovery generation whose own L1 fails, times out or lags
 /// on any read keeps its matched result: signing stays open in the same session and nothing
 /// halts. Each read fails while a newer finalized block is to be followed.
