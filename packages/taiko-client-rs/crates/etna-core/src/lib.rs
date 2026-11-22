@@ -36,6 +36,8 @@ pub mod params;
 pub mod registry;
 /// Epoch schedule and H+2 activation arithmetic.
 pub mod schedule;
+/// L2 staking contract storage layout: candidate snapshot slots and the key-to-seat decoder.
+pub mod staking;
 #[cfg(test)]
 mod test_utils;
 /// Canonical shared committee and generation-start records.
