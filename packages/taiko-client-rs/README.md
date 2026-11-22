@@ -86,26 +86,27 @@ Validators sign with stock CometBFT v0.40.0 `secp256k1eth` consensus keys; node 
 separate Ed25519 identities. The CometBFT chain ID is the 48-byte `etna-` deployment domain that
 `abci-genesis` writes.
 
-Never reset signed state or Comet history to force a start. The app keeps its per-height
-records in append-only segment logs, `<kind>-<first height, 20 digits>.log`, each holding the
-records of 1,024 heights as `height ‖ length ‖ keccak256(body) ‖ body`, fsynced on append, so the
+Never reset signed state or Comet history to force a start. The app keeps its per-height records in
+append-only segment logs, `<kind>-<first height, 20 digits>.log`, each holding the records of 1,024
+heights as `height ‖ length ‖ keccak256(body) ‖ header check ‖ body`, fsynced on append, so the
 store holds a bounded number of files at any `unsettled_limit` (at most about 150 per kind at
-U = 151,200). Before each commit it appends to `comet-hash-*.log` the committed Comet block ID
-that checkpoint trust compares with a landed checkpoint, and to `val-updates-*.log` the validator
-updates that height returned, an empty list included. `val-state-*.log` holds full snapshots of
-the validator state CometBFT holds after a height: at the generation's start (`InitChain`), at
-the states after s − 1 and s of a checkpoint import at s, and at every committed height divisible
-by 1,024. The state at any other height is recomputed with CometBFT's per-height arithmetic from
-the newest snapshot at or below it and the update records since (spec SYNC-9-5c). Commits delete
-whole segments below the checkpoint the committed anchor proves: the Comet block IDs and
-execution blocks below it, and the validator records below the newest snapshot under it, the
-base the state one height below the checkpoint is recomputed from. A record whose checksum fails
-is skipped as corrupt; a crash during an append leaves a torn tail, which the next append
-truncates. Do not delete or edit these files by hand: without them trust stays closed and the
-node cannot serve the state at a height to `abci-import export`, whose package at s carries the
-state after s − 1. `fatal-evidence.txt` survives
-restarts and records the first safety failure, such as an unknown-execution-state Engine error
-(`-38100`); repair its cause before restarting. An L1 header shape the node cannot parse makes
+U = 151,200). Before each commit it appends to `comet-hash-*.log` the committed Comet block ID that
+checkpoint trust compares with a landed checkpoint, and to `val-updates-*.log` the validator updates
+that height returned, an empty list included. `val-state-*.log` holds full snapshots of the
+validator state CometBFT holds after a height: at the generation's start (`InitChain`), at the
+states after s − 1 and s of a checkpoint import at s, and at every committed height divisible by
+1,024. The state at any other height is recomputed with CometBFT's per-height arithmetic from the
+newest snapshot at or below it and the update records since (spec SYNC-9-5c). Commits delete whole
+segments below the checkpoint the committed anchor proves: the Comet block IDs and execution blocks
+below it, and the validator records below the newest snapshot under it, the base the state one
+height below the checkpoint is recomputed from. A crash during an append can leave only a cut last
+record, which the next append truncates. A record whose body fails its hash is corrupt; a damaged
+header elsewhere is kept, the records after it stay readable, and any height that segment holds no
+valid record of reads as corrupt, never as absent. Do not delete or edit these files by hand:
+without them trust stays closed and the node cannot serve the state at a height to
+`abci-import export`, whose package at s carries the state after s − 1. `fatal-evidence.txt`
+survives restarts and records the first safety failure, such as an unknown-execution-state Engine
+error (`-38100`); repair its cause before restarting. An L1 header shape the node cannot parse makes
 `ProcessProposal` reject and `FinalizeBlock` wait, without a safety halt: upgrade the client.
 
 The app fsyncs a checksummed RLP execution body before acknowledging each finalized block,

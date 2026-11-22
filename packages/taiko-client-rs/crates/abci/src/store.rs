@@ -185,8 +185,9 @@ pub enum StoreError {
     /// Replaying a committed height produced a different Comet block ID.
     #[error("conflicting durable Comet block hash at height {0}")]
     CometConflict(u64),
-    /// A committed Comet block ID record fails its checksum or holds no 32-byte hash. Unlike the
-    /// records a node recomputes, it is never read as absence.
+    /// A committed Comet block ID record fails its hash, holds no 32-byte hash or may lie in a
+    /// damaged region of its segment. Unlike the records a node recomputes, it is never read as
+    /// absence.
     #[error("corrupt durable Comet block hash at height {height}: {reason}")]
     CometCorrupt {
         /// The height of the record.
@@ -331,8 +332,8 @@ impl Store {
 
     /// Reads committed Comet history. Absence keeps checkpoint trust closed until restored.
     /// Entries above the committed AppState height are never evidence of a commit. A record that
-    /// fails its checksum or holds no 32-byte hash is [`StoreError::CometCorrupt`], never
-    /// absence.
+    /// fails its hash or holds no 32-byte hash, and a height whose segment holds a damaged
+    /// region but no valid record of it, are [`StoreError::CometCorrupt`], never absence.
     pub fn load_comet_hash(&self, height: u64) -> Result<Option<B256>, StoreError> {
         let corrupt = |reason| StoreError::CometCorrupt { height, reason };
         match self.comet_hashes().read(height)? {
@@ -364,12 +365,12 @@ impl Store {
     /// The snapshots are the full states recorded at the generation's origin, at a checkpoint
     /// import's s − 1 and s, and at every committed height divisible by [`SEGMENT_HEIGHTS`]; a
     /// snapshot that fails its checksum, does not decode ([`ValState::decode`]) or holds another
-    /// height is skipped for an older one. No snapshot at or below `height` is
-    /// [`Record::Missing`]; a corrupt snapshot with no valid one below it, a missing or corrupt
-    /// update record between the snapshot and `height`, or updates the arithmetic refuses are
-    /// [`Record::Corrupt`] naming the cause: missing data, never evidence against a
-    /// landing. Each generation starts in an empty data directory, so every snapshot is this
-    /// generation's. Filesystem errors are [`StoreError::Io`].
+    /// height is skipped for an older one. No snapshot at or below `height` in intact segments
+    /// is [`Record::Missing`]; a corrupt snapshot or a damaged segment with no valid snapshot
+    /// below it, a missing or corrupt update record between the snapshot and `height`, or
+    /// updates the arithmetic refuses are [`Record::Corrupt`] naming the cause: missing data, never
+    /// evidence against a landing. Each generation starts in an empty data directory, so every
+    /// snapshot is this generation's. Filesystem errors are [`StoreError::Io`].
     pub fn load_val_state(&self, height: u64) -> Result<Record<ValState>, StoreError> {
         let mut base = None;
         let mut corrupt = None;
@@ -388,7 +389,15 @@ impl Store {
             }
         }
         let Some(mut state) = base else {
-            return Ok(corrupt.map_or(Record::Missing, Record::Corrupt));
+            if let Some(reason) = corrupt {
+                return Ok(Record::Corrupt(reason));
+            }
+            return Ok(match self.val_states().damaged_at_or_below(height)? {
+                Some((first, offset)) => Record::Corrupt(format!(
+                    "the validator-state segment of {first} is damaged at byte {offset}"
+                )),
+                None => Record::Missing,
+            });
         };
         while state.height < height {
             let next = state.height + 1;
@@ -762,10 +771,11 @@ mod tests {
         assert!(store.save(&s).is_err());
     }
 
-    /// A snapshot record's body is the appendix A preimage, so its checksum is the record's own
-    /// `valStateHash`. A checksum failure, a body that does not decode and a well-formed state of
-    /// another height are corrupt, which the next save supersedes; only a valid record of the
-    /// same height holding another state conflicts.
+    /// A snapshot record's body is the appendix A preimage, so its body hash is the record's own
+    /// `valStateHash`, and its header check covers the height, length and body hash. A body hash
+    /// failure, a body that does not decode and a well-formed state of another height are
+    /// corrupt, which the next save supersedes; only a valid record of the same height holding
+    /// another state conflicts.
     #[test]
     fn val_state_snapshots_are_checksummed_and_corruption_is_not_conflict() {
         let dir = tempfile::tempdir().unwrap();
@@ -777,8 +787,11 @@ mod tests {
         let path = dir.path().join("val-state-00000000000000000000.log");
         let framed = fs::read(&path).unwrap();
         let len = u32::try_from(pre.len()).unwrap().to_be_bytes();
-        let checksum = alloy_primitives::keccak256(&pre);
-        assert_eq!(framed, [&108u64.to_be_bytes()[..], &len, checksum.as_slice(), &pre].concat());
+        let header =
+            [&108u64.to_be_bytes()[..], &len, alloy_primitives::keccak256(&pre).as_slice()]
+                .concat();
+        assert_eq!(framed[..header.len()], header);
+        assert_eq!(framed[header.len() + 8..], pre);
         assert_eq!(store.load_val_state(108).unwrap(), Record::Valid(s.val_state.clone()));
 
         let snapshots = store.val_states();
@@ -1050,10 +1063,55 @@ mod record_tests {
             reopened.load_comet_hash(6),
             Err(StoreError::CometCorrupt { height: 6, .. })
         ));
-        // A record whose checksum fails is superseded by the height's next save.
+        // A record whose body fails its hash is superseded by the height's next save.
         reopened.comet_hashes().corrupt(6);
         reopened.save_comet_hash(6, hash).unwrap();
         assert_eq!(reopened.load_comet_hash(6).unwrap(), Some(hash));
+    }
+
+    /// The header check covers a record's height: a record whose header height byte flipped is
+    /// corruption at its own height, never the value of the height it now names, and a height
+    /// its damaged segment may hold is never read as absent. The records after it stay readable,
+    /// and later saves keep the damaged bytes.
+    #[test]
+    fn flipped_header_height_is_corruption_not_another_heights_value() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into());
+        let comet = dir.path().join("comet-hash-00000000000000000000.log");
+        let updates_log = dir.path().join("val-updates-00000000000000000000.log");
+        let flip_seven = |path: &Path, at: usize| {
+            let mut bytes = fs::read(path).unwrap();
+            assert_eq!(bytes[at + 7], 7);
+            bytes[at + 7] = 6;
+            fs::write(path, bytes).unwrap();
+        };
+
+        store.save_comet_hash(6, B256::repeat_byte(6)).unwrap();
+        let at = fs::read(&comet).unwrap().len();
+        store.save_comet_hash(7, B256::repeat_byte(7)).unwrap();
+        store.save_comet_hash(8, B256::repeat_byte(8)).unwrap();
+        store.save_val_updates(6, &updates(6)).unwrap();
+        let updates_at = fs::read(&updates_log).unwrap().len();
+        store.save_val_updates(7, &updates(7)).unwrap();
+        store.save_val_updates(8, &updates(8)).unwrap();
+        flip_seven(&comet, at);
+        flip_seven(&updates_log, updates_at);
+
+        assert_eq!(store.load_comet_hash(6).unwrap(), Some(B256::repeat_byte(6)));
+        let error = store.load_comet_hash(7).unwrap_err();
+        assert!(matches!(error, StoreError::CometCorrupt { height: 7, .. }), "{error:?}");
+        assert_eq!(store.load_comet_hash(8).unwrap(), Some(B256::repeat_byte(8)));
+        let error = store.load_comet_hash(9).unwrap_err();
+        assert!(matches!(error, StoreError::CometCorrupt { height: 9, .. }), "{error:?}");
+        assert_eq!(store.load_val_updates(6).unwrap(), Record::Valid(updates(6)));
+        assert!(matches!(store.load_val_updates(7).unwrap(), Record::Corrupt(_)));
+        assert_eq!(store.load_val_updates(8).unwrap(), Record::Valid(updates(8)));
+
+        let damaged = fs::read(&comet).unwrap();
+        store.save_comet_hash(9, B256::repeat_byte(9)).unwrap();
+        assert!(fs::read(&comet).unwrap().starts_with(&damaged), "nothing is truncated");
+        assert_eq!(store.load_comet_hash(9).unwrap(), Some(B256::repeat_byte(9)));
+        assert_eq!(store.load_comet_hash(8).unwrap(), Some(B256::repeat_byte(8)));
     }
 
     /// Pruning deletes the Comet block ID segments wholly below the floor; the segment holding
