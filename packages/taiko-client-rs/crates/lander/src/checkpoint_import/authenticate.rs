@@ -390,6 +390,8 @@ where
     state.last_height = landing.height;
     state.last_comet_hash = landing.comet_hash;
     state.forced_cursor = landing.forced_cursor;
+    // s + 1's LastCommit lists the set that signs s, the current set after s - 1.
+    state.parent_signers = before.current.entries.clone();
     state.val_state = after;
     state.anchor = latest_anchor.expect("terminal block has anchor");
     // The installed EL block at s that startup checks the own EL still serves with its state
@@ -1097,6 +1099,7 @@ mod tests {
             anchor: fx.anchors[&5].clone(),
             forced_cursor: 0,
             val_state: fx.val_states[&5].clone(),
+            parent_signers: fx.val_states[&4].current.entries.clone(),
             fallback_keys: Default::default(),
             execution_floor: None,
         };

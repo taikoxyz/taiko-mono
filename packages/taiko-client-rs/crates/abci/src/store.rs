@@ -24,7 +24,7 @@ use crate::{
     key::ConsensusKey,
     recovery::RecoveryOrigin,
     types::{AnchorState, GenesisRecord, ParentInfo},
-    valstate::ValState,
+    valstate::{ValEntry, ValState},
 };
 
 /// Checksummed execution payloads retained for local EL crash recovery.
@@ -89,6 +89,11 @@ pub struct AppState {
     /// generation's genesis state, advanced by every committed height's validator updates. A
     /// required field: a state file without it is refused (no migration).
     pub val_state: ValState,
+    /// The set that signs `last_height`, in CometBFT order: the validators the next block's
+    /// LastCommit lists. `FinalizeBlock` sets it to the replica's current set before advancing
+    /// [`AppState::val_state`]; it is empty at a generation's origin, whose first block has no
+    /// LastCommit. A required field: a state file without it is refused (no migration).
+    pub parent_signers: Vec<ValEntry>,
     /// The fallback key lists the node holds, keyed by their hash, each hashing to its key, so
     /// a list is obtained from the own L1 once. Every generation starts with its origin record's
     /// list. A required field: a state file without it is refused (no migration).
@@ -785,6 +790,10 @@ mod tests {
                 &crate::test_utils::fallback_list(&[1, 2, 3]).validator_set(),
             )
             .unwrap(),
+            parent_signers: crate::valstate::comet_order(
+                &crate::test_utils::fallback_list(&[1, 2, 3]).validator_set(),
+            )
+            .unwrap(),
             fallback_keys: [crate::test_utils::fallback_list(&[1, 2])]
                 .into_iter()
                 .map(|keys| (keys.hash(), keys))
@@ -1001,6 +1010,7 @@ mod tests {
             ("/val_state/current/entries/0", "key"),
             ("", "forced_cursor"),
             ("", "val_state"),
+            ("", "parent_signers"),
             ("", "fallback_keys"),
             ("/genesis", "forced_inclusion_delay"),
             ("/genesis", "max_anchor_age"),

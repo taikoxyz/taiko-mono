@@ -226,6 +226,16 @@ pub enum RuleViolation {
         /// The Inbox `recoveryGeneration` proven at the anchor.
         inbox: u64,
     },
+    /// The `extraData` `missBitmap` differs from the one the block's LastCommit gives: bit `s`
+    /// set exactly for each seat `s` that a validator missing from it holds in the parent's
+    /// post-state.
+    #[error("extraData missBitmap is {got:#x}, expected {expected:#x}")]
+    MissBitmap {
+        /// The bitmap the block's LastCommit and the parent's key-to-seat words give.
+        expected: u128,
+        /// The bitmap in the block's `extraData`.
+        got: u128,
+    },
     /// The CometBFT chain ID does not match this deployment domain.
     #[error("chain_id {chain_id:?} does not match the deployment domain for L2 {l2_chain_id}")]
     InvalidChainId {
@@ -293,6 +303,7 @@ impl RuleViolation {
             Self::BackPressure { .. } => "back_pressure",
             Self::GenerationMismatch { .. } => "generation_mismatch",
             Self::GenerationAhead { .. } => "generation_ahead",
+            Self::MissBitmap { .. } => "miss_bitmap",
             Self::InvalidChainId { .. } => "invalid_chain_id",
             Self::CheckpointAboveParent { .. } => "checkpoint_above_parent",
             Self::CheckpointConflict { .. } => "checkpoint_conflict",

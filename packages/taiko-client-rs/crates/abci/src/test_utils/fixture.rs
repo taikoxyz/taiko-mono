@@ -18,7 +18,14 @@ use std::path::Path;
 
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256};
-use tendermint::{Time, block::Height, vote};
+use tendermint::{
+    Time,
+    abci::types::{
+        BlockSignatureInfo, CommitInfo, ExtendedCommitInfo, ExtendedVoteInfo, Validator, VoteInfo,
+    },
+    block::{BlockIdFlag, Height, Round},
+    vote,
+};
 
 use super::{
     InboxStorage, MockEngine, MockL1, TestState, fallback_list, filler_accounts, inbox_account,
@@ -35,7 +42,7 @@ use crate::{
     rules::chain_id_for,
     store::{AppState, Store},
     types::{AnchorState, GenesisRecord, InboxFacts, ParentInfo},
-    valstate::ValState,
+    valstate::{ValEntry, ValState},
 };
 
 /// The knobs of a [`Fixture`]; [`GenesisSpec::new`] gives a valid default.
@@ -334,6 +341,7 @@ impl Fixture {
                 &self.fallback_keys.validator_set(),
             )
             .expect("the origin keys are a CometBFT validator set"),
+            parent_signers: Vec::new(),
             fallback_keys: [(self.fallback_keys.hash(), self.fallback_keys.clone())].into(),
             execution_floor: None,
         }
@@ -343,7 +351,7 @@ impl Fixture {
     /// committed up to `head` (`floor <= head`), and the EL chain serving it: the fixture chain
     /// up to the Etna start S, then a [`committed_block`] at every later height up to `head`. The
     /// execution floor names that chain's block at `floor`; the validator state advances
-    /// without updates.
+    /// without updates, its parent signers the set that signs `head`.
     pub(crate) fn imported_state(&self, floor: u64, head: u64) -> (AppState, Vec<Header>) {
         let mut chain = self.el_chain.clone();
         chain.extend((self.genesis.genesis_height + 1..=head).map(committed_block));
@@ -356,6 +364,7 @@ impl Fixture {
         state.last_height = head;
         state.last_comet_hash = B256::repeat_byte(0xc0);
         while state.val_state.height < head {
+            state.parent_signers = state.val_state.current.entries.clone();
             state.val_state = state.val_state.advance(&[]).expect("a nonempty set advances");
         }
         state.execution_floor =
@@ -382,6 +391,41 @@ pub(crate) fn validator_updates(
             power: vote::Power::try_from(*power).expect("power fits i64"),
         })
         .collect()
+}
+
+/// The LastCommit CometBFT hands `ProcessProposal` and `FinalizeBlock` for a parent signed by
+/// `signers`, in CometBFT order: the i-th entry names `signers[i]` with its address and power and
+/// carries `flags[i]`.
+pub(crate) fn commit_info(signers: &[ValEntry], flags: &[BlockIdFlag]) -> CommitInfo {
+    assert_eq!(signers.len(), flags.len(), "one flag per signer");
+    let votes = signers
+        .iter()
+        .zip(flags)
+        .map(|(entry, &flag)| VoteInfo {
+            validator: Validator {
+                address: entry.key.address().into_array(),
+                power: vote::Power::try_from(entry.power).expect("a positive power"),
+            },
+            sig_info: BlockSignatureInfo::Flag(flag),
+        })
+        .collect();
+    CommitInfo { round: Round::default(), votes }
+}
+
+/// `commit` as the `local_last_commit` CometBFT hands `PrepareProposal`, without vote
+/// extensions.
+pub(crate) fn extended_commit_info(commit: &CommitInfo) -> ExtendedCommitInfo {
+    let votes = commit
+        .votes
+        .iter()
+        .map(|vote| ExtendedVoteInfo {
+            validator: vote.validator.clone(),
+            sig_info: vote.sig_info,
+            vote_extension: Default::default(),
+            extension_signature: None,
+        })
+        .collect();
+    ExtendedCommitInfo { round: commit.round, votes }
 }
 
 /// A stand-in for the local chain's committed EL block `number` above genesis, for tests that

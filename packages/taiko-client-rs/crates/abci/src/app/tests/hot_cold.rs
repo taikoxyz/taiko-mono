@@ -241,6 +241,7 @@ impl Run {
             height,
             block.bft,
             super::proposal::proposer(),
+            0,
         )
         .map_err(|e| fail(format!("height {height}: generated block invalid: {e}")))?;
         prop_assert_eq!(&verdict.decision, &block.decision, "height {}: decision", height);
@@ -467,6 +468,7 @@ fn envelope(
         &anchor_state,
         bft_time(app),
         super::proposal::proposer(),
+        0,
     )
     .expect("derivable header");
     let tx_list = protocol::shasta::encode_transactions(txs);

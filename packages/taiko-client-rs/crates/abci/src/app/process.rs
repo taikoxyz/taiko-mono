@@ -6,7 +6,9 @@ use crate::wire::{request, response};
 use alloy_primitives::Bytes;
 
 use super::{
-    AbciError, App, deadline, unix_secs,
+    AbciError, App, deadline,
+    last_commit::committed_flags,
+    unix_secs,
     validate::{Rejection, Validated, validate_block},
 };
 use crate::{
@@ -89,9 +91,13 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
     /// Judges one proposal on top of `state`.
     ///
-    /// In order: a superseded chain rejects everything; no transaction at all is an
-    /// [`Rejection::PlaceholderProposal`]; the transactions must be exactly one envelope;
-    /// [`validate_block`] with the request's BFT time, whose first check is the block size bound
+    /// In order: the proposed block's LastCommit must list the replica's set that signs the
+    /// parent ([`committed_flags`]; otherwise [`Rejection::LastCommit`], a safety halt); a
+    /// superseded chain rejects everything; no transaction at all is an
+    /// [`Rejection::PlaceholderProposal`]; the transactions must be exactly one envelope; the
+    /// LastCommit's `missBitmap`, from the key-to-seat words of its missing validators in the
+    /// committed parent's post-state ([`App::miss_bitmap`]); [`validate_block`] with the
+    /// request's BFT time and that bitmap, whose first check is the block size bound
     /// ([`check_execution_size`](super::validate::check_execution_size)); a present
     /// anchor witness must be final and canonical in the own L1 view (L1 is not called when it is
     /// absent), and its proven `lastCheckpoint` must name a block of the local chain
@@ -110,6 +116,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
         state: &AppState,
         req: &request::ProcessProposal,
     ) -> Result<Validated, Rejection> {
+        let votes = req.proposed_last_commit.as_ref().map_or(&[][..], |commit| &commit.votes);
+        let committed = committed_flags(&state.parent_signers, votes)?;
         if self.superseded {
             return Err(Rejection::ChainSuperseded);
         }
@@ -129,6 +137,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             }
         };
         let (height, bft_secs) = (req.height.value(), unix_secs(req.time));
+        let miss_bitmap = self.miss_bitmap(state, &committed).await?;
         let mut validated = match validate_block(
             &state.chain_context(),
             &self.params,
@@ -136,6 +145,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             height,
             bft_secs,
             req.proposer_address,
+            miss_bitmap,
         ) {
             Err(l1_fact @ Rejection::Superseded { .. }) => {
                 // Without a witness the facts are the committed parent's, already trusted.

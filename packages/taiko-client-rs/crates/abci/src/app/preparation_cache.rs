@@ -8,20 +8,26 @@ use crate::{
     store::AppState,
     types::{AccountWitness, AnchorState},
 };
-use alloy_primitives::{B256, Bytes};
+use alloy_primitives::{Address, B256, Bytes, U256};
 use std::{
+    collections::BTreeMap,
     future::Future,
     sync::{Arc, Mutex, MutexGuard, PoisonError},
     time::Duration,
 };
 use tokio::{sync::watch, task::JoinHandle};
 
-/// At most one anchor, entry proof and authenticated transaction for the pending proposal.
+/// At most one anchor, entry proof and authenticated transaction for the pending proposal, and
+/// the key-to-seat words read for the committed parent's missing validators.
 /// These raw reads are proposer-independent and retain only their authenticated root/entry keys.
 /// Headers, payload builds and singleton verdicts are never cached here: every preparation derives
 /// the certified proposer's expected header and rebuilds even when payout addresses are shared.
 #[derive(Debug, Default)]
 pub(super) struct PreparationCache {
+    /// Whole key-to-seat words by the parent hash whose post-state holds them and the address
+    /// they belong to; a word at a fixed block hash never changes, so every handler of the
+    /// height reuses it.
+    pub(super) seat_words: BTreeMap<(B256, Address), U256>,
     /// Anchor proof; reuse requires a freshly matching header hash.
     pub(super) anchor: Option<AnchorWitness>,
     /// Entry proof bound to its state root and queue index.
@@ -136,7 +142,8 @@ impl<L: L1Source, E: Engine> App<L, E> {
     pub(super) fn preparation_cache(&self) -> MutexGuard<'_, PreparationCache> {
         lock(&self.preparation_cache)
     }
-    /// Clears proofs after commit while retaining only bytes for the still-pending entry.
+    /// Clears proofs and seat words after commit while retaining only bytes for the
+    /// still-pending entry.
     pub(super) fn prepare_next_height(&self, state: &AppState) {
         let mut cache = self.preparation_cache();
         let transaction =

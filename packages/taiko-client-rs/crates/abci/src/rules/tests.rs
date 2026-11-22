@@ -783,6 +783,7 @@ fn every_violation() -> Vec<RuleViolation> {
         RuleViolation::BackPressure { depth: 11, limit: 10 },
         RuleViolation::GenerationMismatch { chain: 1, extra: 2 },
         RuleViolation::GenerationAhead { chain: 2, inbox: 1 },
+        RuleViolation::MissBitmap { expected: 8, got: 0 },
         RuleViolation::InvalidChainId { chain_id: "x".into(), l2_chain_id: 1 },
         RuleViolation::CheckpointAboveParent { checkpoint: 2, parent: 1 },
         RuleViolation::CheckpointConflict {
@@ -806,6 +807,7 @@ fn every_violation() -> Vec<RuleViolation> {
             RuleViolation::BackPressure { .. } |
             RuleViolation::GenerationMismatch { .. } |
             RuleViolation::GenerationAhead { .. } |
+            RuleViolation::MissBitmap { .. } |
             RuleViolation::InvalidChainId { .. } |
             RuleViolation::CheckpointAboveParent { .. } |
             RuleViolation::CheckpointConflict { .. } => {}

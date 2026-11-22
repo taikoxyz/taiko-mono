@@ -23,9 +23,12 @@ use std::{
 };
 use tendermint::{
     Hash, Time,
-    abci::types::CommitInfo,
+    abci::types::{
+        BlockSignatureInfo, CommitInfo, ExtendedCommitInfo, ExtendedVoteInfo, Validator, VoteInfo,
+    },
     account,
-    block::{Height, Round},
+    block::{BlockIdFlag, Height, Round},
+    vote::Power,
 };
 use test_harness::{Devnet, dev_signer, send_transfer, wait_until};
 
@@ -102,6 +105,22 @@ pub fn now() -> Time {
     )
     .unwrap()
 }
+/// The LastCommit of the block after `parent` in which every validator of the set that signs
+/// `parent` committed, as CometBFT lists it.
+pub fn full_commit(parent: &AppState) -> CommitInfo {
+    let votes = parent
+        .parent_signers
+        .iter()
+        .map(|entry| VoteInfo {
+            validator: Validator {
+                address: entry.key.address().into_array(),
+                power: Power::try_from(entry.power).expect("a positive power"),
+            },
+            sig_info: BlockSignatureInfo::Flag(BlockIdFlag::Commit),
+        })
+        .collect();
+    CommitInfo { round: Round::default(), votes }
+}
 pub fn process_request(
     env: &EtnaEnvelope,
     time: Time,
@@ -109,7 +128,7 @@ pub fn process_request(
 ) -> request::ProcessProposal {
     request::ProcessProposal {
         txs: vec![env.encode().0],
-        proposed_last_commit: None,
+        proposed_last_commit: Some(full_commit(parent)),
         misbehavior: vec![],
         hash: Hash::Sha256(keccak256(env.encode()).0),
         height: Height::try_from(env.block.header.number).unwrap(),
@@ -124,7 +143,7 @@ pub fn finalize_request(env: &EtnaEnvelope, time: Time, parent: &AppState) -> Re
     let p = process_request(env, time, parent);
     Request::FinalizeBlock(request::FinalizeBlock {
         txs: p.txs,
-        decided_last_commit: CommitInfo { round: Round::default(), votes: vec![] },
+        decided_last_commit: full_commit(parent),
         misbehavior: vec![],
         hash: p.hash,
         height: p.height,
@@ -139,7 +158,19 @@ pub async fn prepare<E: Engine>(app: &mut App<RpcL1Source, E>, time: Time) -> Re
     let r = request::PrepareProposal {
         max_tx_bytes: 22_020_096,
         txs: vec![],
-        local_last_commit: None,
+        local_last_commit: Some(ExtendedCommitInfo {
+            round: Round::default(),
+            votes: full_commit(parent)
+                .votes
+                .into_iter()
+                .map(|vote| ExtendedVoteInfo {
+                    validator: vote.validator,
+                    sig_info: vote.sig_info,
+                    vote_extension: Default::default(),
+                    extension_signature: None,
+                })
+                .collect(),
+        }),
         misbehavior: vec![],
         height: Height::try_from(height)?,
         time,

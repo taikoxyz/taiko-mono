@@ -592,6 +592,8 @@ impl BlockCase {
             anchor: &parent_anchor,
             forced_cursor: self.cursor,
             signers: &signers,
+            // No case varies the parent's LastCommit: it misses nobody, so the bitmap is 0.
+            parent_signers: &[],
         };
         let env = EtnaEnvelope {
             block: ExecutionBlock {
@@ -602,7 +604,7 @@ impl BlockCase {
             forced: self.forced.clone(),
         };
         let proposer = tendermint::account::Id::new(proposer_key().address().into_array());
-        validate_block(&chain, &params, &env, self.height, self.bft, proposer)
+        validate_block(&chain, &params, &env, self.height, self.bft, proposer, 0)
     }
 }
 

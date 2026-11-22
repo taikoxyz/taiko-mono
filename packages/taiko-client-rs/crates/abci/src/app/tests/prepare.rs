@@ -22,7 +22,7 @@ use crate::{
 
 /// Prepares the next height of `app`, expects no transactions and returns the halt label.
 async fn refused(app: &mut App<MockL1, MockEngine>) -> String {
-    let txs = prepare(app, prepare_req(next_height(app), bft_time(app))).await;
+    let txs = prepare(app, prepare_req(app, next_height(app), bft_time(app))).await;
     assert!(txs.is_empty(), "no proposal expected");
     app.halt.clone().expect("a refused proposal records its label")
 }
@@ -106,14 +106,14 @@ async fn envelope_above_max_tx_bytes_is_not_proposed() {
     let fx = Fixture::genesis(1);
     let dir = tempfile::tempdir().unwrap();
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
-    let mut req = prepare_req(next_height(&app), bft_time(&app));
+    let mut req = prepare_req(&app, next_height(&app), bft_time(&app));
     req.max_tx_bytes = 100;
     assert!(prepare(&mut app, req).await.is_empty());
     assert_eq!(app.halt.as_deref(), Some("envelope_too_large"));
 
     // Exactly the envelope's size fits.
     let len = propose(&mut app).await.encode().len();
-    let mut req = prepare_req(next_height(&app), bft_time(&app));
+    let mut req = prepare_req(&app, next_height(&app), bft_time(&app));
     req.max_tx_bytes = i64::try_from(len).unwrap();
     assert_eq!(prepare(&mut app, req).await.len(), 1);
 }
@@ -131,7 +131,7 @@ async fn proposal_fallback_survives_optional_candidate_above_comet_limit() {
     app.engine().state().build_script.extend([Ok(minimum.block.clone()), Ok(optional)]);
 
     let bytes = minimum.encode();
-    let mut req = prepare_req(next_height(&app), bft_time(&app));
+    let mut req = prepare_req(&app, next_height(&app), bft_time(&app));
     req.max_tx_bytes = i64::try_from(bytes.len()).unwrap();
     assert_eq!(prepare(&mut app, req).await, [bytes]);
     accept_and_commit(&mut app, &minimum).await;
@@ -219,7 +219,7 @@ async fn proposer_proposes_nothing_on_a_finalized_checkpoint_off_the_local_chain
         assert_eq!(app.state().unwrap().last_height, 5);
         fx.advance_l1(app.l1(), 66, &inbox);
         let logs = crate::test_utils::LogCapture::start();
-        let req = prepare_req(next_height(&app), bft_time(&app));
+        let req = prepare_req(&app, next_height(&app), bft_time(&app));
         let txs = prepare(&mut app, req).await;
         assert!(txs.is_empty(), "{label}: a placeholder proposal");
         assert_eq!(app.halt.as_deref(), Some(label));
@@ -390,7 +390,7 @@ async fn a_header_of_another_l1_block_is_not_proposed_on() {
     let other = crate::test_utils::edit_l1_header(&header, |h| h.number = 67);
     app.l1().state().headers.insert(66, other);
 
-    let req = prepare_req(next_height(&app), bft_time(&app));
+    let req = prepare_req(&app, next_height(&app), bft_time(&app));
     assert!(matches!(
         app.handle(Request::PrepareProposal(req)).await,
         Err(AbciError::SafetyHalt(_))
@@ -588,7 +588,8 @@ async fn unavailable_admission_bytes_block_only_due_proposals() {
             }
             if due {
                 let time = bft_time(&app);
-                assert!(prepare(&mut app, prepare_req(6, time)).await.is_empty());
+                let req = prepare_req(&app, 6, time);
+                assert!(prepare(&mut app, req).await.is_empty());
                 assert!(!built_any(&app));
             } else {
                 let env = propose(&mut app).await;
@@ -791,7 +792,7 @@ async fn preparation_proposer_change_rebuilds_for_payout_and_reuses_raw_proofs()
         assert_eq!(env.block.header.beneficiary, fx.params.fee_recipient);
         app.l1().state().calls.clear();
         let before = app.engine().calls().len();
-        let mut req = prepare_req(next_height(&app), bft_time(&app));
+        let mut req = prepare_req(&app, next_height(&app), bft_time(&app));
         req.proposer_address = tendermint::account::Id::new(test_key(2).address().into_array());
         let txs = prepare(&mut app, req).await;
         assert_eq!(txs.len(), 1);
@@ -852,7 +853,7 @@ async fn preparation_proposer_change_reuses_cancelled_authenticated_io() {
     tokio::task::yield_now().await;
     app.l1().state().delay = None;
     app.l1().state().calls.clear();
-    let mut req = prepare_req(next_height(&app), bft_time(&app));
+    let mut req = prepare_req(&app, next_height(&app), bft_time(&app));
     req.proposer_address = tendermint::account::Id::new(test_key(2).address().into_array());
     let txs = prepare(&mut app, req).await;
     assert_eq!(txs.len(), 1);
@@ -883,7 +884,7 @@ async fn review_own_l1_invalid_mpt_proof_halts_durably() {
     let mut proof = fx.anchor_witness(app.l1(), 66).inbox;
     proof.storage[0].value += alloy_primitives::U256::from(1);
     app.l1().state().proof_override = Some(proof);
-    let request = prepare_req(next_height(&app), bft_time(&app));
+    let request = prepare_req(&app, next_height(&app), bft_time(&app));
     let result = app.handle(Request::PrepareProposal(request)).await;
     assert!(matches!(result, Err(AbciError::SafetyHalt(_))), "{result:?}");
     assert!(!app.trust.snapshot().is_ready());
@@ -908,7 +909,7 @@ async fn slow_pool_build_falls_back_to_a_valid_empty_execution_envelope() {
     let mut app = mid_epoch(&fx, dir.path(), 5).await;
     app.engine().state().ordinary_build_delay = Some(Duration::from_millis(2500));
     let started = tokio::time::Instant::now();
-    let req = prepare_req(6, bft_time(&app));
+    let req = prepare_req(&app, 6, bft_time(&app));
     let txs = prepare(&mut app, req).await;
     assert_eq!(txs.len(), 1, "resource pressure must still yield an execution envelope");
     assert!(started.elapsed() <= app.opts.prepare_timeout);
@@ -929,7 +930,7 @@ async fn slow_forced_pool_selection_falls_back_to_a_valid_singleton() {
     plant_input(&fx, &app, tx.clone(), true);
     app.engine().state().pool_selection_delay = Some(Duration::from_millis(2500));
     let started = tokio::time::Instant::now();
-    let req = prepare_req(6, bft_time(&app));
+    let req = prepare_req(&app, 6, bft_time(&app));
     let txs = prepare(&mut app, req).await;
     assert_eq!(txs.len(), 1, "optional work must not starve due forced inclusion");
     assert!(started.elapsed() <= app.opts.prepare_timeout);
@@ -953,7 +954,7 @@ async fn slow_pool_after_a_legal_skip_returns_the_completed_singleton() {
     app.engine().state().build_script.extend([Ok(empty.clone()), Ok(empty)]);
     app.engine().state().ordinary_build_delay = Some(Duration::from_millis(2500));
     let started = tokio::time::Instant::now();
-    let req = prepare_req(6, bft_time(&app));
+    let req = prepare_req(&app, 6, bft_time(&app));
     let txs = prepare(&mut app, req).await;
     assert_eq!(txs.len(), 1, "a completed legal skip must survive optional build timeout");
     assert!(started.elapsed() <= app.opts.prepare_timeout);

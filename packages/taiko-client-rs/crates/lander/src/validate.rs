@@ -333,7 +333,9 @@ pub struct EnvelopeContext<'a> {
 }
 
 /// Validates the envelope with the ABCI app's own block rules ([`abci::app::validate_block`])
-/// on the authenticated parent and chain context.
+/// on the authenticated parent and chain context. The `missBitmap` check compares the header's
+/// own bitmap with itself: the lander does not derive the bitmap from the block's LastCommit
+/// yet, so the set that signs the parent stays empty here.
 ///
 /// The forced inclusion rule runs last, on the parent's cursor and the block's anchor: it
 /// verifies the entry proof and checks the block's first transaction, or the carried skip
@@ -350,7 +352,11 @@ pub fn verify_envelope(
         anchor: context.parent_anchor,
         forced_cursor: context.forced_cursor,
         signers: context.signers,
+        parent_signers: &[],
     };
+    // A header whose extraData does not decode fails validation before the bitmap is compared.
+    let miss_bitmap = rules::decode_extra_data(&envelope.block.header.extra_data)
+        .map_or(0, |extra| extra.miss_bitmap);
     let validated = abci::app::validate_block(
         &chain,
         context.params,
@@ -358,6 +364,7 @@ pub fn verify_envelope(
         envelope.block.header.number,
         context.bft_time_secs,
         context.proposer,
+        miss_bitmap,
     )
     .map_err(|e| match e {
         abci::app::Rejection::Rule(rules::RuleViolation::UnsupportedRuleset { rules }) => {

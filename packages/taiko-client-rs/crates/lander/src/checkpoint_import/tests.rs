@@ -189,6 +189,8 @@ async fn import_accepts_preimage_for_s_minus_1() {
     assert_eq!(imported.val_state_before(), Some(&fx.val_states[&5]));
     assert_eq!(imported.state().val_state, fx.val_states[&6]);
     assert_eq!(imported.state().last_height, 6);
+    // s + 1's LastCommit lists the set that signs s, the current set after s - 1.
+    assert_eq!(imported.state().parent_signers, fx.val_states[&5].current.entries);
 }
 
 /// A package of schema 2, whose generation-zero genesis carried a registry committee, is

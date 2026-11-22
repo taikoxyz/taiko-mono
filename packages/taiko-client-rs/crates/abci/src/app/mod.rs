@@ -45,6 +45,8 @@ mod finalize;
 mod info;
 /// The `InitChain` handler.
 mod init;
+/// A block's LastCommit against the validator-state replica, and the `missBitmap` it gives.
+mod last_commit;
 /// The own L1 source, noting when its finalized head first showed each number.
 mod own_l1;
 /// Completed proposal reads retained across timed-out rounds at the same height.
@@ -67,6 +69,7 @@ mod tests;
 pub(crate) use switch::etnaForkTimeCall;
 
 pub use info::{CHECK_TX_LOG, CODE_REJECTED};
+pub use last_commit::LastCommitError;
 pub use own_l1::OwnL1;
 pub use validate::{
     ChainContext, Rejection, Validated, WitnessKind, check_execution_size, validate_block,
