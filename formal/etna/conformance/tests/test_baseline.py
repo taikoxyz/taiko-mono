@@ -53,6 +53,7 @@ class BaselineTests(unittest.TestCase):
         if sha256 in {
             'b331b3af7b42a4645ebe3e2b4f42e912e33508893a091c3c3c289c8fdbd53a70',
             '6f7150d65ff7c4a8b46b719d2ed48e665a60e47a6d013a2994229e8119ff24a7',
+            '383760a1e7df211a9c74835a4e2446db57a05bd21eb52f030980afd205748d3c',
         }:
             with self.assertRaisesRegex(ValueError, 'workspace SPEC bytes have no reviewed correspondence'):
                 AUTHORITY.verify_workspace_spec(current, pins['spec'], ledger)

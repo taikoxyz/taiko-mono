@@ -68,6 +68,23 @@
         "gitBlob": "00f31974304ad68c0e3c4d2a1c3d40e2b0d15792",
         "sha256": "c33db855c674b1907480403a8ad54497e05fb1ca32d9772a15d97e2ffc61e14e"
       }
+    },
+    "3602629758beb653423a23608fd1960810efcfac": {
+      "packages/protocol/docs/etna/SPEC.md": {
+        "bytes": 284625,
+        "gitBlob": "0b7f70096dc6250861a01209f30be7d23a7e234b",
+        "sha256": "383760a1e7df211a9c74835a4e2446db57a05bd21eb52f030980afd205748d3c"
+      },
+      "packages/protocol/docs/etna/ACCEPTANCE.md": {
+        "bytes": 60050,
+        "gitBlob": "95d9569fc0954b9ba97abbddfe184c197811827a",
+        "sha256": "7283c47bec643d3054a41ec3266ead387431b82ae3caa4102c4866dfc8b39a7b"
+      },
+      "packages/protocol/docs/etna/SWITCH.md": {
+        "bytes": 25483,
+        "gitBlob": "b8ff8e16b9b19614f6f8a572cda13c0192f5b2d8",
+        "sha256": "a1652de6d0f57eae119bb26f6a5c63bab83f8dead41e6ad81021709a133d30d4"
+      }
     }
   },
   "claims": {
