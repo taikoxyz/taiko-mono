@@ -5,6 +5,23 @@ project. [Tracking issue #22355](https://github.com/taikoxyz/taiko-mono/issues/2
 is its GitHub entry point. Historical batch plans and reports retain their
 original measurements; they are not current completion checklists.
 
+## Current L2 committee and recovery TLA stage
+
+Direct user continuation now targets latest-source whole-protocol TLA/property
+verification. [Coverage and estimate](PROTOCOL_COVERAGE.md) records approximately
+30percent (25–35 judgement range), not a case-count metric. The52 historical TLA
+files are not evidence for source178's new L2 staking composition.
+
+| Deliverable | Stage | Boundary |
+| --- | --- | --- |
+| L2CR-1 source contract and literal histories | COMPLETE selected source scope | Independent corev2 oracle and reviewedv3 supplement, exact finite denomination/readiness;3Q/4Q oracle error and NoCode scope mismatch corrected with preserved evidence. |
+| L2CR-2 committee/halt/recovery TLA product | MODEL AND CONDITIONAL HISTORIES VERIFIED; FREE OPEN | Ten scheduled histories reached on corrected6de kernel, including budget-exhausted stale refusal. Free height14 remains OPEN after three pre-fix and one corrected45s timeout; defaults503 exclude it. |
+| L2CR-3 independent verification/publication | LOCAL GATES VERIFIED; POST-COMMIT RECEIPTS IN MONITOR | Real TLC outputs, raw literal-history readback, semantic faults/restorations, old-byte audit, full regressions/review and exact new-head publication/CI. |
+
+[Stage report](L2_COMMITTEE_RECOVERY.md) keeps recovery without max, threshold-only
+stall, stale-snapshot delay after revert and suffix rollback as distinct required histories.
+No current runtime WAITING or archived INCONCLUSIVE row is closed by this stage.
+
 ## Current unsigned vote wire conformance
 
 Direct user continuation selects an unsigned stock-library comparison at the
@@ -17,7 +34,7 @@ preserve the completed quorum and earlier stages below.
 | --- | --- | --- |
 | VW-1 independent source and corpus | COMPLETE selected source scope |29 hand-derived raw byte vectors/29 native expectations frozen before implementation; stock source and full787-file timestamp dependency identified. |
 | VW-2 encoder and unsigned native lane | SELECTED BEHAVIOR VERIFIED |29 literal raw wires; actual unsigned smoke/full23 bytes/2 panics after timestamp rejection/4 rejection-only (six rejections total);13 focused normal/-O, independent29/29/73 and six semantic faults/restorations. Independent actual29-row readback and331 row/event refusal controls per mode passed. |
-| VW-3 accumulated review/publication | IN PROGRESS | Independent source/whole-stage review and817 ordinary checks each360/f556 passed. Existing draft/new-head CI/artifact readbacks remain; completion is recorded in the monitor ledger after immutable commit. |
+| VW-3 accumulated review/publication | COMPLETE at5abc1748c | Independent source/whole-stage review,817 ordinary checks each360/f556 and exactCI45020780439 officialdigests/all493raw/817tests audit passed; owned PR/issue body/head readbacks recorded. |
 
 This lane distinguishes raw encoding from native Timestamp representation,
 BlockID shape, vote admission, signatures and real consensus. It adds no runtime

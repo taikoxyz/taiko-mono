@@ -7855,3 +7855,29 @@ row/event mutations in each mode pass. Independent whole-stage review passed
 all15 files; its non-blocking timestamp count wording was clarified. External
 publication/CI receipts belong to the monitor ledger after immutable commit.
 No keys, signatures, node/EL engines or deployed protocol were exercised.
+
+## Latest L2 committee and recovery TLA: conditional evidence, Free still open
+
+At design178/main360 and baseline5abc, the new finite L2 committee/recovery
+model reaches ten scheduled histories, including max+recovery, rollback,
+miss/exit ordering and stale authorization. Independent review found and fixed
+a model budget guard that suppressed a stale refusal; an actual reachability
+RED preceded the corrected GREEN. Eight source mutations have actual named
+safety detections and byte-exact passing restorations. A separate two-state
+VIEW corruption remains visible despite its identical operational projection.
+
+**Free height14 exhaustive safety is not established.** Three pre-fix searches
+and one corrected-kernel search timed out at45seconds; four raw logs and exact
+identities are retained. Default503=unchangedold493+tenconditionalwitnesses
+excludes the unchanged separate EXPECT PASS Free config. Default CI success
+must not be read as a Free safety or full-protocol result. No protocol defect
+was confirmed; several verification assumptions, oracle errors and the missing
+refusal transition were corrected. Whole-protocol progress is approximately
+30percent(25–35 judgement range), not a measured ratio.
+
+See [current stage report](L2_COMMITTEE_RECOVERY.md),
+[coverage](PROTOCOL_COVERAGE.md), [open search](inconclusive/README.md) and
+[actual verification digests](draft_rules/l2_committee_recovery_verification.json).
+Final independent/publication/exact-head CI receipts are maintained after the
+immutable commit in the monitor ledger.14runtimeWAITING/19historicalINCONCLUSIVE,
+full lifecycle, anchor lag, no-code/repair, fairness and implementation remain.

@@ -1,0 +1,110 @@
+{
+  "schema": "etna-l2-committee-recovery-source-1",
+  "design": "178d7a7a66b14305c2f6467ae77163f93dd677cf",
+  "main": "3602629758beb653423a23608fd1960810efcfac",
+  "runtimeAdmission": false,
+  "oldModelsPromoted": false,
+  "scope": "finite certificate-level L2 committee/halt/recovery; no stock BFT or implementation proof",
+  "sourceManifest": "draft_rules/quorum_source.json",
+  "sourceManifestSha256": "fa8433997416f4bdb8905cb360a62bbf4066bab030e1642d647c3f02a43502d4",
+  "files": {
+    "draft_rules/l2_committee_recovery_oracle.json": "78dec930b9331159708ff658d412b4ebac4a5e2d497222197ce9c335aeef9944",
+    "L2_COMMITTEE_RECOVERY_CONTRACT.md": "9f9550d4a6dbb5107ec3425533ed74685ed3cd00004159d1e5160b45759419aa",
+    "draft_rules/l2_committee_recovery_errata.md": "2a43c8d8b040fc1409f10f3bd0af1a6dd70942fff6ded06819aea74e8e0fee87",
+    "draft_rules/l2_committee_recovery_scope_errata.md": "5061b75fc00e30964dc807ec2439fd2aa9b7cb5767f3d07fb703a51f01c7247e",
+    "draft_rules/l2_committee_recovery_budget_oracle.json": "7c2ccd11a02307082ea8478f5e9965e719d55068a758b94c790637bcd8b031b0",
+    "draft_rules/l2_committee_recovery_verification.json": "41dc59f41c460cade3bcab48c64962cd6870ed52b3ba0dbc8d176314c2050296"
+  },
+  "parameters": {
+    "Q_base_units": "250000000000000000000000000",
+    "total_supply_q": 4,
+    "min_stake_q": 1,
+    "vp_unit_q": 1,
+    "n_max": 4,
+    "miss_limit": 2,
+    "miss_slash_bps": 10000,
+    "forfeit_bps": 10000,
+    "initial_M_q": 3,
+    "final_M_q": 2,
+    "disabled_M": "uint256_max",
+    "U_minimum_for_selected_path": 6,
+    "rules": 0
+  },
+  "actualOrigin": 10,
+  "freeAbsoluteHeightBound": 14,
+  "witnessAbsoluteHeightBound": 19,
+  "maxGeneration": 1,
+  "timeoutSeconds": 45,
+  "heapMiB": 512,
+  "workers": 1,
+  "seed": 1,
+  "inputAlphabet": {
+    "freeMaxOrdinaryCalls": 1,
+    "witnessPairForfeitAllowed": true,
+    "callOutcomes": [
+      "Effects",
+      "Revert"
+    ],
+    "maxPersistentAvailabilityLosses": 1,
+    "maxOfflineStakeKeys": 2,
+    "fallbacksAlwaysOnline": true,
+    "optionalFallbackRotationLists": 2,
+    "maxFallbackRotations": 1,
+    "maxThresholdChangesPerGeneration": 2,
+    "thresholdValues": [
+      2,
+      3,
+      "uint256_max"
+    ],
+    "maxLandsPerGeneration": 2,
+    "maxAuthorizationsPerGeneration": 1,
+    "maxRecoveries": 1,
+    "backpressureU": 6,
+    "certificateChoices": "all online current members, optionally omit one; strict quorum required",
+    "parentFlags": "persisted same-height same-generation certificate",
+    "witnessObserversAuthorizeActions": false
+  },
+  "codeAvailability": "staking proxy code present throughout; no-code/repair unmodeled",
+  "anchorAdoption": "every committed block adopts latest authenticated finalized modeled threshold/fallback/landing; no lag",
+  "temporalScope": "finite safety and existential selected witnesses only; no fairness or leads-to checked",
+  "oracleProvenance": "core frozen before authoring v2; supplemental v3 corrected after static review before full execution",
+  "freeSafetyProjection": {
+    "operator": "SafetyView",
+    "proof": "L2_COMMITTEE_SAFETY_PROJECTION.md",
+    "proofSha256": "4dc4650403ded0eb8f9e63de658dd21ef9dacd74366418609b1f7c282a0850bc",
+    "retained": "current operational chain without parentCert/missBitmap/updates; saved checkpoint height/ledger/snapshot/storedGeneration; all env; actual six safety predicates",
+    "scope": "first safety violation from reachable six-good prefixes; not liveness or witness equivalence",
+    "originalUnviewedStatus": "INCONCLUSIVE_45_SECONDS",
+    "sameInputsAndHeightBound": true,
+    "viewOnlyStatus": "INCONCLUSIVE_45_SECONDS"
+  },
+  "freeSafetySymmetry": {
+    "operator": "StakePermutations",
+    "configuration": "inconclusive/configs/l2cr-safety.cfg",
+    "atoms": [
+      "a",
+      "b",
+      "c",
+      "d"
+    ],
+    "encoding": "Free-only field-directed bond/seat and stake-key bijection; missed-seat support set instead of integer bitmap",
+    "scope": "same finite instance and transitions; six first safety failures up to relabeling, not liveness",
+    "canonicalization": "pinned TLC canonicalizes complete raw state before applying SafetyView; no ideal-orbit or speed factor claim",
+    "witnessChanges": "unused SymmetricBonds empty-set config binding only; concrete operations, schedules and witnesses unchanged",
+    "independentStaticReview": "PASS_98acab1f_module_b026127a_cfg_d4007da5_proof",
+    "correctedKernelReview": "PASS_6de842a3_original_finder_rechecked_guard_equivariance_and_first_failure"
+  },
+  "freeSafetyStatus": "OPEN_THREE_PRE_FIX_PLUS_ONE_CORRECTED_45_SECOND_ATTEMPTS",
+  "searchEvidence": {
+    "path": "inconclusive/results.json",
+    "sha256": "c2d592fb5c552331835b61f302235c301244f57a3b2df61e36f282f34169b202"
+  },
+  "defaultBank": {
+    "old_configurations": 493,
+    "new_scheduled_witnesses": 10,
+    "total": 503,
+    "includes_free_safety": false
+  },
+  "currentModuleSha256": "6de842a3ac059b2644c8c66a9ad8f6eda9841d95e29e3d3f7d1bbb0d289357ee",
+  "budgetOracleProvenance": "independently source-derived after gap discovery, before inspecting corrected kernel; main v3 unchanged"
+}
