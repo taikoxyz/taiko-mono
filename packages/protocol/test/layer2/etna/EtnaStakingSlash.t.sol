@@ -357,6 +357,47 @@ contract EtnaStakingSlashTest is EtnaStakingTestBase {
         _assertBondForKey(EtnaTestKeys.ckAddr(_CK_A), true, 0, "key registration kept");
     }
 
+    /// @dev A zero-balance withdrawal names the zero address, not the recipient the caller passes,
+    /// and pays nothing. Carol, a stranger, and Alice, the owner, each withdraw the slashed bond
+    /// to themselves from the same state: the only log is `Withdrawn(0, address(0), 0)` and no
+    /// `Transfer` is emitted.
+    function test_withdraw_ZeroBalanceNamesNoRecipientWhateverTheCallerPasses() external {
+        vm.roll(50);
+        (IEtnaStaking.Vote memory a, IEtnaStaking.Vote memory b) = _conflict(_CK_A);
+        _slash(0, a, b);
+        vm.roll(50 + WITHDRAWAL_DELAY);
+        uint256 heldBefore = token.balanceOf(address(staking));
+
+        address[2] memory callers = [Carol, Alice];
+        for (uint256 i; i < callers.length; ++i) {
+            uint256 snapshot = vm.snapshotState();
+            address caller = callers[i];
+            uint256 callerBefore = token.balanceOf(caller);
+
+            vm.expectEmit(address(staking));
+            emit IEtnaStaking.Withdrawn(0, address(0), 0);
+            vm.recordLogs();
+            vm.prank(caller);
+            staking.withdraw(0, caller);
+
+            Vm.Log[] memory logs = vm.getRecordedLogs();
+            assertEq(logs.length, 1, "one log");
+            assertEq(logs[0].emitter, address(staking), "from the staking contract");
+            assertEq(logs[0].topics.length, 3, "two indexed fields");
+            assertEq(logs[0].topics[0], IEtnaStaking.Withdrawn.selector, "Withdrawn");
+            assertEq(logs[0].topics[1], bytes32(0), "bond 0");
+            assertEq(logs[0].topics[2], bytes32(0), "names the zero address, not the caller's");
+            assertEq(logs[0].data, abi.encode(uint256(0)), "amount zero");
+            for (uint256 j; j < logs.length; ++j) {
+                assertTrue(logs[j].topics[0] != IERC20.Transfer.selector, "no Transfer");
+            }
+            assertEq(token.balanceOf(caller), callerBefore, "nothing to the caller");
+            assertEq(token.balanceOf(address(staking)), heldBefore, "nothing paid out");
+            assertTrue(staking.bondAt(0).withdrawn, "withdrawn");
+            vm.revertToState(snapshot);
+        }
+    }
+
     // ---------------------------------------------------------------
     // Rejected evidence
     // ---------------------------------------------------------------
