@@ -53,7 +53,7 @@ pub(crate) mod vectors;
 
 pub(crate) use fixture::{
     Fixture, GenesisSpec, abci_consensus_params, answer_registry_config, committed_block,
-    init_chain_request, powers, recovery_fixture, recovery_fixture_with_spec, test_options,
+    init_chain_request, powers, recovery_fallback_keys, recovery_fixture, test_options,
     validator_updates,
 };
 pub(crate) use mocks::{EngineCall, L1Call, MockEngine, MockL1, simple_block};
@@ -712,6 +712,26 @@ pub(crate) fn test_key(seed: u64) -> crate::key::ConsensusKey {
     use k256::elliptic_curve::sec1::ToEncodedPoint;
     crate::key::ConsensusKey::from_slice(key.public_key().to_encoded_point(true).as_bytes())
         .unwrap()
+}
+
+/// The fallback key list of the [`test_key`]s of `seeds`, in ascending order.
+pub(crate) fn fallback_list(seeds: &[u64]) -> crate::fallback::FallbackKeys {
+    let mut keys: Vec<_> = seeds.iter().map(|seed| test_key(*seed)).collect();
+    keys.sort();
+    crate::fallback::FallbackKeys::new(keys).expect("distinct test keys form a list")
+}
+
+/// Makes the Inbox `inbox` of `l1` answer `getFallbackKeys()` with `keys` at every block hash.
+pub(crate) fn serve_fallback_keys(
+    l1: &MockL1,
+    inbox: Address,
+    keys: &crate::fallback::FallbackKeys,
+) {
+    use alloy_sol_types::SolCall;
+    l1.state().call_answers.insert(
+        (inbox, crate::fallback::getFallbackKeysCall {}.abi_encode().into()),
+        keys.abi_encode().into(),
+    );
 }
 
 /// Maps arbitrary old test entropy to a valid native key, preserving deterministic identities.

@@ -517,6 +517,15 @@ impl LandingSource for FixtureLanding {
     ) -> lander::error::Result<abci::CommitteeWitness> {
         self.rpc.committee_witness(anchor, snapshot_number, epoch).await
     }
+    async fn fallback_keys(
+        &self,
+        hash: alloy_primitives::B256,
+        at: alloy_primitives::B256,
+        at_number: u64,
+        from_block: u64,
+    ) -> lander::error::Result<abci::fallback::FallbackKeys> {
+        self.rpc.fallback_keys(hash, at, at_number, from_block).await
+    }
     async fn reference(
         &self,
         snapshot: &LandingSnapshot,

@@ -30,7 +30,9 @@ pub struct GenesisDoc {
     pub initial_height: String,
     /// The consensus parameters ([`GenesisConsensusParams::etna`]).
     pub consensus_params: GenesisConsensusParams,
-    /// Initial committee in set-key order, derived at genesis cutoff or recovery R.
+    /// The generation's initial set: generation zero's committee in set-key order, derived at
+    /// the genesis cutoff; a recovery generation's origin fallback keys in list order, each at
+    /// power 1.
     pub validators: Vec<GenesisValidator>,
     /// appHash(o) of the origin o (CONS-3.1-8, ENC-A-29b.e): the start hash or ELHash(c) with the
     /// genesis validator state of `validators` at o, uppercase hex for stock Comet JSON
@@ -219,14 +221,19 @@ pub struct GenesisValidator {
 }
 
 impl GenesisValidator {
-    /// The genesis validator of committee member `m`: its native key and mapped power.
-    pub fn from_member(m: &Member) -> Self {
+    /// The genesis validator of `pubkey` at voting power `power`.
+    pub fn new(pubkey: ConsensusKey, power: u64) -> Self {
         Self {
-            address: validator_address(m.pubkey),
-            pub_key: CometPublicKey(m.pubkey),
-            power: m.power.to_string(),
+            address: validator_address(pubkey),
+            pub_key: CometPublicKey(pubkey),
+            power: power.to_string(),
             name: String::new(),
         }
+    }
+
+    /// The genesis validator of committee member `m`: its native key and mapped power.
+    pub fn from_member(m: &Member) -> Self {
+        Self::new(m.pubkey, m.power)
     }
 }
 
@@ -236,15 +243,14 @@ pub fn validator_address(pubkey: ConsensusKey) -> String {
 }
 
 /// A genesis document's `app_hash`, appHash(o) (CONS-3.1-8, ENC-A-29b.e) as uppercase hex: the
-/// origin's EL hash `el_hash` with CometBFT's genesis validator state of the committee `members`
-/// at the origin height `height`. Fails exactly where CometBFT refuses that set.
+/// origin's EL hash `el_hash` with CometBFT's genesis validator state of `validators`, keys with
+/// their powers, at the origin height `height`. Fails exactly where CometBFT refuses that set.
 pub fn genesis_app_hash(
     height: u64,
     el_hash: B256,
-    members: &[Member],
+    validators: &[(ConsensusKey, u64)],
 ) -> Result<String, ValStateError> {
-    let validators: Vec<_> = members.iter().map(|m| (m.pubkey, m.power)).collect();
-    let val_state = ValState::genesis(height, &validators)?;
+    let val_state = ValState::genesis(height, validators)?;
     Ok(alloy_primitives::hex::encode_upper(app_hash(el_hash, val_state.hash())))
 }
 
@@ -280,7 +286,11 @@ impl GenesisDoc {
             initial_height: (start_height + 1).to_string(),
             consensus_params: GenesisConsensusParams::etna(n_max),
             validators: members.iter().map(GenesisValidator::from_member).collect(),
-            app_hash: genesis_app_hash(start_height, start_hash, members)?,
+            app_hash: genesis_app_hash(
+                start_height,
+                start_hash,
+                &members.iter().map(|m| (m.pubkey, m.power)).collect::<Vec<_>>(),
+            )?,
             app_state: AppStateJson::from(w),
         })
     }

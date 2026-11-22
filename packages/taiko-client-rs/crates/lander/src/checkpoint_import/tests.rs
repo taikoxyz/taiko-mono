@@ -516,7 +516,15 @@ async fn recovery_package(fx: &Fixture, height: u64) -> ImportPackage {
             anchor_height,
         ),
     };
-    let bootstrap = serde_json::from_value(serde_json::json!({"version":1,"witness":bytes,"anchor":Bytes::from(alloy_rlp::encode(anchor))})).unwrap();
+    let keys = crate::test_utils::consensus_mpt::recovery::origin_keys();
+    assert_eq!(keys.hash(), origin.fallback_keys_hash);
+    let bootstrap = serde_json::from_value(serde_json::json!({
+        "version": abci::recovery::RECOVERY_BOOTSTRAP_VERSION,
+        "witness": bytes,
+        "anchor": Bytes::from(alloy_rlp::encode(anchor)),
+        "fallback_keys": keys,
+    }))
+    .unwrap();
     let genesis = GenesisDoc {
         genesis_time: tendermint::Time::from_unix_timestamp(origin.l1_timestamp as i64, 0)
             .unwrap()
@@ -524,16 +532,15 @@ async fn recovery_package(fx: &Fixture, height: u64) -> ImportPackage {
         chain_id: abci::rules::chain_id_for(&fx.params, origin.generation).unwrap(),
         initial_height: (origin.height + 1).to_string(),
         consensus_params: abci::genesis::GenesisConsensusParams::etna(fx.params.n_max),
-        validators: origin
-            .committee
-            .members
+        validators: keys
+            .keys()
             .iter()
-            .map(abci::genesis::GenesisValidator::from_member)
+            .map(|key| abci::genesis::GenesisValidator::new(*key, 1))
             .collect(),
         app_hash: abci::genesis::genesis_app_hash(
             origin.height,
             origin.el_hash,
-            &origin.committee.members,
+            &keys.validator_set(),
         )
         .unwrap(),
         app_state: abci::genesis::AppStateJson::from(&witness),

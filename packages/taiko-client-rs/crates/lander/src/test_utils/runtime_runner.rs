@@ -275,6 +275,15 @@ impl LandingSource for MockL1 {
     ) -> Result<abci::CommitteeWitness> {
         unreachable!("runner mock never derives a committee")
     }
+    async fn fallback_keys(
+        &self,
+        _: B256,
+        _: B256,
+        _: u64,
+        _: u64,
+    ) -> Result<abci::fallback::FallbackKeys> {
+        unreachable!("runner mock never reads a fallback key list")
+    }
     async fn reference(&self, _: &LandingSnapshot, _: &[AnchorState]) -> Result<Vec<RawL1Header>> {
         Ok(vec![])
     }

@@ -150,13 +150,14 @@ pub struct RecoveryTrustOrigin {
     pub comet_hash: B256,
     /// Authenticated forced-inclusion cursor at c.
     pub forced_cursor: u64,
-    /// Initial independently derived committee set hash (ENC-A-39a).
-    pub committee_hash: B256,
+    /// The `fallbackKeysHash` of the generation's origin record: the keys of the list with this
+    /// hash sign c + 1 and c + 2, each at power 1.
+    pub fallback_keys_hash: B256,
 }
 
 /// The one private trust-control wire version, for generation zero and recovery alike.
 /// Requests carrying any other version are refused; every snapshot carries this version.
-pub const CONTROL_SCHEMA_VERSION: u32 = 1;
+pub const CONTROL_SCHEMA_VERSION: u32 = 2;
 
 /// Versioned read-only signing/readiness snapshot. Null identity is always closed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -824,7 +825,7 @@ impl<L: L1Source, E: Engine> App<L, E> {
             el_hash: origin.el_hash,
             comet_hash: origin.comet_hash,
             forced_cursor: origin.forced_cursor,
-            committee_hash: origin.committee.record.set_hash,
+            fallback_keys_hash: origin.fallback_keys_hash,
         });
         let l1 = ReadBounded { l1: self.l1.clone(), limit: self.opts.l1_timeout };
         crate::recovery::check_recovery_canonicality(&l1, &self.params, &witness)

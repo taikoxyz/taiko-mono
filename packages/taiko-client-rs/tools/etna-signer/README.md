@@ -266,7 +266,7 @@ override and Comet argv flag, moves a pinned setting; see the package README's R
 Every transport connection opens a fresh closed trust session (SYNC-9-4), which lasts for that
 connection only. Every signature, including a cached same-HRS retry, checks that private session
 again over its own bounded connection (SYNC-9-10). PubKey (for the served chain ID) and Ping
-remain available while closed. Private trust control has one schema, 1, and the signer reads
+remain available while closed. Private trust control has one schema, 2, and the signer reads
 only `schema_version`, `session_id`, `chain_id`, `phase` and `eligible_height` from it: it signs
 only when the reply is for the transport's current session, names the served chain ID, reports
 phase `ready` and names the request's height as `eligible_height`. That height is the only one

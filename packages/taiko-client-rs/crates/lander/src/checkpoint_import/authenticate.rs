@@ -366,8 +366,9 @@ where
     // FinalizeBlock returns: none, as every height returns an empty list. The generation's
     // initial set therefore still signs s + 1 and s + 2.
     let after = before.advance(&[]).map_err(safety)?;
+    let initial = fixed.initial_set().map_err(candidate)?;
     for set in [&after.current, &after.next] {
-        if !same_powers(set, &fixed.committee) {
+        if !same_powers(set, &initial) {
             return Err(safety(
                 "committed validator-state keys/powers contradict the generation's initial set",
             ));
@@ -832,11 +833,11 @@ fn check_metadata(
     Ok(())
 }
 
-/// Compare independent committees ignoring priority, which only header(s)'s app_hash
-/// authenticates.
-fn same_powers(set: &abci::valstate::ValSet, committee: &CommitteeState) -> bool {
+/// Compare a validator set with independently derived keys and powers, ignoring priority, which
+/// only header(s)'s app_hash authenticates.
+fn same_powers(set: &abci::valstate::ValSet, powers: &[(abci::key::ConsensusKey, u64)]) -> bool {
     set.entries.iter().map(|e| (e.key, e.power as u64)).collect::<BTreeMap<_, _>>() ==
-        committee.members.iter().map(|m| (m.pubkey, m.power)).collect::<BTreeMap<_, _>>()
+        powers.iter().copied().collect::<BTreeMap<_, _>>()
 }
 
 /// Contradictory replies obtained from the own source are safety failures, unlike a peer fork.
@@ -1101,6 +1102,7 @@ mod tests {
             anchor: fx.anchors[&5].clone(),
             forced_cursor: 0,
             val_state: fx.val_states[&5].clone(),
+            fallback_keys: Default::default(),
             execution_floor: None,
         };
         let check = |env: &abci::EtnaEnvelope, anchor: &AnchorState| {

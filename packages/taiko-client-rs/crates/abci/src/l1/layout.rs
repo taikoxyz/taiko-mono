@@ -66,7 +66,8 @@ pub mod inbox {
     /// Checkpoint landing records, keyed by endpoint height, three words each (STOR-B-9); see
     /// [`landing_record_slots`] and [`LandingRecord`].
     pub const LANDINGS: u64 = 285;
-    /// Immutable generation origins, keyed by generation, three words each.
+    /// Immutable generation origin records, keyed by generation, four words each; see
+    /// [`origin_slots`] and [`decode_origin_record`].
     pub const ORIGINS: u64 = 290;
     /// Four packed uint48 fields: active rules, next rules, rules time and stop time
     /// (STOR-B-15a); see [`RulesSchedule`].
@@ -164,21 +165,45 @@ pub mod inbox {
         }
     }
 
-    /// Fixed start height, L1 block number and L1 timestamp for a generation.
-    pub fn origin_slots(generation: u64) -> [B256; 3] {
+    /// The four words of `generation`'s fixed origin record at slot 290: start height, L1 block
+    /// number, L1 timestamp and `fallbackKeysHash`. [`decode_origin_record`] decodes them.
+    pub fn origin_slots(generation: u64) -> [B256; 4] {
         mapping_words(ORIGINS, generation)
     }
 
-    /// Exact slot order for a recovery observation, including immutable deployment facts,
-    /// current checkpoint/queue observations, fixed generation origin and retained landing.
+    /// Decodes the words at [`origin_slots`], in order, or `None` when one of the first three,
+    /// each a `uint48`, sets a bit from 48 up. The fourth word, `fallbackKeysHash`, is a whole
+    /// `bytes32`. A zero word decodes as zero: rejecting a missing record is the reader's job.
+    pub fn decode_origin_record(
+        [height, number, timestamp, fallback_keys_hash]: [U256; 4],
+    ) -> Option<etna_core::types::OriginRecord> {
+        let limit = U256::from(1u64 << 48);
+        (height < limit && number < limit && timestamp < limit).then(|| {
+            etna_core::types::OriginRecord {
+                start_height: height.to::<u64>(),
+                l1_number: number.to::<u64>(),
+                l1_timestamp: timestamp.to::<u64>(),
+                fallback_keys_hash: fallback_keys_hash.into(),
+            }
+        })
+    }
+
+    /// The words Inbox initialization fixes for good, which every recovery observation must still
+    /// show as the proof at `L1_0` does: the genesis slots ([`genesis_slots`]) except the
+    /// generation, which recovery advances, and `fallbackKeysHash` and `minTotalStake`, which
+    /// `setFallbackKeys` and `setMinTotalStake` replace at any time.
+    pub fn deployment_slots() -> Vec<B256> {
+        let mutable = [RECOVERY_GENERATION, FALLBACK_KEYS_HASH, MIN_TOTAL_STAKE].map(slot);
+        genesis_slots().into_iter().filter(|word| !mutable.contains(word)).collect()
+    }
+
+    /// Exact slot order for a recovery observation: the deployment facts
+    /// ([`deployment_slots`]), the anchor slots ([`anchor_slots`], from which R's anchor is
+    /// projected, so `fallbackKeysHash` and `minTotalStake` are read there as R's values), the
+    /// generation's fixed origin record and the retained landing at `height`.
     pub fn recovery_slots(generation: u64, height: u64) -> Vec<B256> {
-        let mut slots = genesis_slots();
-        slots.extend([
-            slot(LAST_CHECKPOINT_HEIGHT),
-            slot(LAST_CHECKPOINT_HASH),
-            slot(FORCED_INCLUSION_HEAD_TAIL),
-            slot(RULES_SCHEDULE),
-        ]);
+        let mut slots = deployment_slots();
+        slots.extend(anchor_slots());
         slots.extend(origin_slots(generation));
         slots.extend(landing_record_slots(height));
         slots
@@ -209,8 +234,8 @@ pub mod inbox {
         .to_vec()
     }
 
-    /// Genesis status, generation, schedule, cutoff, bootstrap committee, configuration, and
-    /// forced inclusion configuration.
+    /// Genesis status, generation, schedule, cutoff, bootstrap committee, configuration, forced
+    /// inclusion configuration and generation 0's four-word origin record.
     pub fn genesis_slots() -> Vec<B256> {
         let mut slots = [
             STATUS,
@@ -391,8 +416,11 @@ mod tests {
             vectors::u64_at("/layout/inbox/initialized_status")
         );
         assert!(!inbox::anchor_slots().contains(&inbox::slot(292)));
+        // The shared vectors still list the three-word origin record; its fourth word,
+        // `fallbackKeysHash`, is checked against the specification in
+        // `origin_record_is_four_consecutive_words`.
         let origin_slots: fn(u64) -> Vec<B256> =
-            |generation| inbox::origin_slots(generation).into();
+            |generation| inbox::origin_slots(generation)[..3].into();
         let landing_slots: fn(u64) -> Vec<B256> =
             |height| inbox::landing_record_slots(height).into();
         for (table, key, slots_fn) in [
@@ -410,6 +438,67 @@ mod tests {
                 assert_eq!(slots_fn(index), expected, "{table} {index}");
             }
         }
+    }
+
+    /// Slot 290 holds four consecutive words per generation from its mapping element base: start
+    /// height, L1 block number, L1 timestamp and `fallbackKeysHash`.
+    #[test]
+    fn origin_record_is_four_consecutive_words() {
+        for (generation, base) in [
+            (0, b256!("67c2238b85f1221355128cce4fe559243be9c53682cf7b4c8b4cb08961267650")),
+            (1, b256!("861f99c61ede1958e2da3e2c0f9306340c58e162066b67475ed47ffedf76c3ae")),
+        ] {
+            let base = U256::from_be_bytes(base.0);
+            let expected = [0u64, 1, 2, 3].map(|i| B256::from(base + U256::from(i)));
+            assert_eq!(inbox::origin_slots(generation), expected, "generation {generation}");
+        }
+        assert_eq!(
+            inbox::origin_slots(1)[3],
+            b256!("861f99c61ede1958e2da3e2c0f9306340c58e162066b67475ed47ffedf76c3b1")
+        );
+    }
+
+    /// The origin record's first three words are `uint48`s and its fourth a whole `bytes32`.
+    #[test]
+    fn origin_record_decodes_three_uint48_words_and_a_whole_hash() {
+        let max48 = U256::from((1u64 << 48) - 1);
+        let hash = U256::MAX;
+        assert_eq!(
+            inbox::decode_origin_record([max48, U256::from(9), U256::from(10), hash]),
+            Some(etna_core::types::OriginRecord {
+                start_height: (1 << 48) - 1,
+                l1_number: 9,
+                l1_timestamp: 10,
+                fallback_keys_hash: B256::repeat_byte(0xff),
+            })
+        );
+        for index in 0..3 {
+            let mut words = [U256::from(1); 4];
+            words[index] = U256::from(1) << 48;
+            assert_eq!(inbox::decode_origin_record(words), None, "word {index}");
+        }
+    }
+
+    /// A recovery observation proves the deployment facts, then the anchor slots, the
+    /// generation's origin record and the retained landing. The generation and slots 278 and 279
+    /// are mutable: they are anchor slots and never deployment facts, which recovery compares
+    /// with the proof at `L1_0`.
+    #[test]
+    fn recovery_slots_keep_the_mutable_words_out_of_the_deployment_facts() {
+        let deployment = inbox::deployment_slots();
+        for mutable in
+            [inbox::RECOVERY_GENERATION, inbox::FALLBACK_KEYS_HASH, inbox::MIN_TOTAL_STAKE]
+        {
+            assert!(!deployment.contains(&inbox::slot(mutable)), "{mutable}");
+            assert!(inbox::anchor_slots().contains(&inbox::slot(mutable)), "{mutable}");
+        }
+        assert!(deployment.iter().all(|word| inbox::genesis_slots().contains(word)));
+        assert!(deployment.contains(&inbox::origin_slots(0)[3]));
+        let mut expected = deployment;
+        expected.extend(inbox::anchor_slots());
+        expected.extend(inbox::origin_slots(2));
+        expected.extend(inbox::landing_record_slots(6));
+        assert_eq!(inbox::recovery_slots(2, 6), expected);
     }
 
     /// STOR-B-9, STOR-B-23/24: slot 285's record is three words; word 1 packs parent height,

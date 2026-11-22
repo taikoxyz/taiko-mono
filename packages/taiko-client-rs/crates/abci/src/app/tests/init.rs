@@ -287,7 +287,11 @@ async fn init_chain_records_the_genesis_validator_state() {
     init_chain(&mut app, req.clone()).await.expect("recovery InitChain");
     let origin = verify_recovery_witness(&w, &fx.params).unwrap();
     assert_eq!(app.state().unwrap().origin_height(), origin.height);
-    let genesis = ValState::genesis(origin.height, &powers(&origin.committee.members)).unwrap();
+    let genesis = ValState::genesis(
+        origin.height,
+        &crate::test_utils::recovery_fallback_keys().validator_set(),
+    )
+    .unwrap();
     assert_eq!(app.store.load_val_state(origin.height).unwrap(), Record::Valid(genesis.clone()));
     init_chain(&mut app, req).await.expect("re-sent at the recovery origin");
     assert_eq!(app.store.load_val_state(origin.height).unwrap(), Record::Valid(genesis));

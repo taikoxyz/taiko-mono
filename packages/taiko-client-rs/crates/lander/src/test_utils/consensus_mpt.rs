@@ -30,7 +30,7 @@ use alloy_trie::{
 use async_trait::async_trait;
 use std::{
     collections::BTreeMap,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 /// A state trie of accounts with storage, whose EIP-1186 witnesses verify under `root`.
@@ -157,6 +157,11 @@ pub struct Fixture {
     pub val_states: BTreeMap<u64, ValState>,
     /// Answers that replace the replica's at their heights: `None` is a rejected query.
     pub val_state_answers: BTreeMap<u64, Option<Vec<u8>>>,
+    /// The fallback key lists the fixture's L1 serves, by their hash; any other hash is
+    /// unavailable.
+    pub fallback_lists: BTreeMap<B256, abci::fallback::FallbackKeys>,
+    /// How many fallback key lists the fixture's L1 has served.
+    pub fallback_reads: AtomicUsize,
     states: BTreeMap<u64, State>,
 }
 
@@ -995,6 +1000,8 @@ impl Fixture {
             parent_anchor_override: None,
             val_states,
             val_state_answers: BTreeMap::new(),
+            fallback_lists: BTreeMap::new(),
+            fallback_reads: AtomicUsize::new(0),
             states,
         }
     }
@@ -1127,6 +1134,21 @@ impl LandingSource for Fixture {
             _ => {}
         }
         Ok(witness)
+    }
+    /// The served list with hash `hash`, at an L1 block of the fixture's.
+    async fn fallback_keys(
+        &self,
+        hash: B256,
+        at: B256,
+        at_number: u64,
+        _from_block: u64,
+    ) -> Result<abci::fallback::FallbackKeys> {
+        assert_eq!(self.l1_headers.get(&at_number).map(RawL1Header::hash), Some(at));
+        self.fallback_reads.fetch_add(1, Ordering::SeqCst);
+        self.fallback_lists
+            .get(&hash)
+            .cloned()
+            .ok_or_else(|| LanderError::Temporary(format!("fallback key list {hash} unavailable")))
     }
     async fn reference(
         &self,
@@ -1662,7 +1684,12 @@ pub(crate) async fn import_package(
         app_hash: abci::genesis::genesis_app_hash(
             0,
             fx.snapshot.genesis.genesis_hash,
-            &fx.committees[&0].state.members,
+            &fx.committees[&0]
+                .state
+                .members
+                .iter()
+                .map(|m| (m.pubkey, m.power))
+                .collect::<Vec<_>>(),
         )
         .unwrap(),
         app_state: abci::genesis::AppStateJson::from(&witness),

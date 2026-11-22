@@ -88,7 +88,8 @@ pub struct RecoveryPlan {
     pub deployment: Deployment,
     /// Canonical RecoveryWitness RLP, including the latest authenticated observation.
     pub witness: Bytes,
-    /// Independently verified fixed generation boundary (c, R and the reselected committee).
+    /// Independently verified fixed generation boundary (c, R and the `fallbackKeysHash` of its
+    /// origin record).
     pub origin: RecoveryOrigin,
     /// Exact deterministic Comet genesis JSON bytes.
     pub genesis: Bytes,
@@ -96,9 +97,11 @@ pub struct RecoveryPlan {
 
 impl RecoveryPlan {
     /// Decodes the canonical witness and checks that the deployment, origin and genesis are
-    /// exactly what it proves (RECOV-8.4-7..10): chain_id of the generation, initial_height
-    /// c+1, genesis_time R.timestamp, app_hash appHash(c) of ELHash(c) and the R committee's
-    /// genesis validator state, the R committee and the R witness.
+    /// exactly what it proves: the genesis is the original document of the R
+    /// witness ([`abci::genesis::verify_original_genesis`]: chain_id of the generation,
+    /// initial_height c+1, genesis_time R.timestamp, the keys of the list whose hash the origin
+    /// record holds, each at power 1, and app_hash appHash(c) of ELHash(c) and their genesis
+    /// validator state), for this plan's origin and witness.
     pub fn validate(&self) -> Result<RecoveryWitness, RecoveryCommandError> {
         let params = self.deployment.params()?;
         let witness: RecoveryWitness = alloy_rlp::decode_exact(&self.witness)
@@ -116,32 +119,9 @@ impl RecoveryPlan {
         let mut fixed = witness.clone();
         fixed.finalized_header = fixed.recovery_header.clone();
         fixed.finalized_inbox = fixed.recovery_inbox.clone();
-        let expected_time = tendermint::Time::from_unix_timestamp(
-            self.origin.l1_timestamp.try_into().map_err(|_| RecoveryCommandError::PlanMismatch)?,
-            0,
-        )
-        .map_err(|_| RecoveryCommandError::PlanMismatch)?
-        .to_rfc3339();
-        if doc.genesis_time != expected_time ||
-            doc.chain_id !=
-                abci::rules::chain_id_for(&params, self.origin.generation)
-                    .map_err(|_| RecoveryCommandError::PlanMismatch)? ||
-            doc.initial_height != (self.origin.height + 1).to_string() ||
-            doc.app_hash !=
-                abci::genesis::genesis_app_hash(
-                    self.origin.height,
-                    self.origin.el_hash,
-                    &self.origin.committee.members,
-                )
-                .map_err(|_| RecoveryCommandError::PlanMismatch)? ||
-            doc.consensus_params != abci::genesis::GenesisConsensusParams::etna(params.n_max) ||
-            doc.validators !=
-                self.origin
-                    .committee
-                    .members
-                    .iter()
-                    .map(abci::genesis::GenesisValidator::from_member)
-                    .collect::<Vec<_>>() ||
+        let verified = abci::genesis::verify_original_genesis(&doc, &params)
+            .map_err(|_| RecoveryCommandError::PlanMismatch)?;
+        if verified.recovery.as_ref() != Some(&self.origin) ||
             doc.app_state != abci::genesis::AppStateJson::from(&fixed)
         {
             return Err(RecoveryCommandError::PlanMismatch);

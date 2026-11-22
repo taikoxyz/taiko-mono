@@ -32,6 +32,9 @@ struct Fixture {
     params: Deployment,
     witness: Bytes,
     blocks: Vec<Block>,
+    /// The list whose hash the origin record holds, which the Inbox answers
+    /// `getFallbackKeys()` with.
+    fallback_keys: abci::fallback::FallbackKeys,
 }
 #[derive(Deserialize)]
 struct Block {
@@ -60,6 +63,9 @@ impl Source {
     }
     fn params(&self) -> ChainParams {
         self.fixture.params.params().unwrap()
+    }
+    fn header_hash(&self, block: &Block) -> B256 {
+        alloy_rlp::decode_exact::<RawL1Header>(&block.header).unwrap().hash()
     }
     fn block(&self, n: u64) -> Result<&Block, L1Error> {
         self.fixture
@@ -119,6 +125,16 @@ impl L1Source for Source {
     }
     async fn forced_transaction(&self, _: Address, _: u64, _: u64) -> Result<Bytes, L1Error> {
         panic!("prepare must not request forced transaction bytes")
+    }
+    async fn call_at(&self, address: Address, input: Bytes, hash: B256) -> Result<Bytes, L1Error> {
+        use alloy::sol_types::SolCall;
+        assert!(self.fixture.blocks.iter().any(|b| self.header_hash(b) == hash));
+        if address != self.params().inbox ||
+            input[..] != abci::fallback::getFallbackKeysCall::SELECTOR[..]
+        {
+            return Err(L1Error::Rpc("fixture answers getFallbackKeys() only".into()));
+        }
+        Ok(self.fixture.fallback_keys.abi_encode().into())
     }
 }
 struct ReadEngine {
@@ -241,10 +257,12 @@ async fn prepare_authenticates_fixed_origin_and_genesis() {
     assert_eq!(doc.chain_id, abci::rules::chain_id_for(&params, 1).unwrap());
     assert_eq!(doc.chain_id.len(), 48);
     assert_eq!(doc.initial_height, "7"); // c + 1
-    // appHash(c): ELHash(c) with the R committee's genesis validator state at c.
-    let members: Vec<_> =
-        plan.origin.committee.members.iter().map(|m| (m.pubkey, m.power)).collect();
-    let val_state = abci::valstate::ValState::genesis(plan.origin.height, &members).unwrap();
+    // appHash(c): ELHash(c) with the origin fallback keys' genesis validator state at c, each
+    // key at power 1.
+    let keys = &source.fixture.fallback_keys;
+    assert_eq!(keys.hash(), plan.origin.fallback_keys_hash);
+    let val_state =
+        abci::valstate::ValState::genesis(plan.origin.height, &keys.validator_set()).unwrap();
     assert_eq!(
         doc.app_hash,
         alloy_primitives::hex::encode_upper(abci::valstate::app_hash(
@@ -258,7 +276,9 @@ async fn prepare_authenticates_fixed_origin_and_genesis() {
             .unwrap()
             .to_rfc3339()
     );
-    assert_eq!(doc.validators.len(), plan.origin.committee.members.len());
+    let validators: Vec<_> =
+        doc.validators.iter().map(|v| (v.pub_key.0, v.power.as_str())).collect();
+    assert_eq!(validators, keys.keys().iter().map(|key| (*key, "1")).collect::<Vec<_>>());
     // The only EL state read is the exact origin c; no build, payload or forkchoice.
     assert!(
         engine.calls.lock().unwrap().contains(&format!("state:{}", plan.origin.el_hash)),
@@ -586,7 +606,7 @@ async fn status_is_offline_and_reports_install_state() {
         (s.chain_id.as_str(), s.genesis_time.as_str()),
         (&*doc.chain_id, &*doc.genesis_time)
     );
-    assert_eq!(s.validators, plan.origin.committee.members.len());
+    assert_eq!(s.validators, source.fixture.fallback_keys.keys().len());
     assert_eq!(s.installed, None);
     assert_eq!(status(&plan, Some(&x.home)).unwrap().installed, Some(false));
     assert!(!x.home.exists(), "status never writes");

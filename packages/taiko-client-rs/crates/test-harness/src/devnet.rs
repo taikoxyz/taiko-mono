@@ -325,7 +325,7 @@ impl Devnet {
         tokio::time::timeout(Duration::from_secs(2), async {
             let mut stream = tokio::net::UnixStream::connect(socket).await?;
             let request =
-                serde_json::json!({"schema_version":1,"op":"check_session","session_id":session});
+                serde_json::json!({"schema_version":2,"op":"check_session","session_id":session});
             stream.write_all(format!("{request}\n").as_bytes()).await?;
             let mut line = String::new();
             BufReader::new(stream).read_line(&mut line).await?;

@@ -147,7 +147,7 @@ with tempfile.TemporaryDirectory(prefix="etna-image-") as directory:
                 request = json.loads(peer.makefile("rb").readline())
                 if request["op"] == "begin_session":
                     sessions.append(len(sessions) + 1)
-                response = dict(schema_version=1, session_id=f"closed-{len(sessions)}",
+                response = dict(schema_version=2, session_id=f"closed-{len(sessions)}",
                                 chain_id=chain, generation=0, phase="acquiring", target=None,
                                 committed_head=None, trusted_consensus_head=None,
                                 reason="image smoke denies signing", recovery_origin=None)

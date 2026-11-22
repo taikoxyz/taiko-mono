@@ -171,7 +171,9 @@ pub fn verify_genesis_inbox(
         forced_inclusion_delay: word_u48(forced_config, 0),
         max_anchor_age: word_u48(forced_config, 48),
     };
-    let [start, number, timestamp] = inbox::origin_slots(0).map(|slot| word(&storage, slot));
+    // The record's fourth word, `fallbackKeysHash`, is proven with it; the bootstrap committee
+    // of generation zero does not depend on it.
+    let [start, number, timestamp, _] = inbox::origin_slots(0).map(|slot| word(&storage, slot));
     // Generation zero's origin is the start the start write recorded, written once
     // (START-10-5b/5c).
     if start != U256::from(genesis.genesis_height) ||

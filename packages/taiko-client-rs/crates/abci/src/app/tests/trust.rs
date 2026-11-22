@@ -72,7 +72,7 @@ async fn trust_query_is_closed_and_available_before_init() {
     let response = query(&mut app, "/trust").await;
     assert!(response.code.is_ok(), "trust status must be available before init");
     let value: serde_json::Value = serde_json::from_slice(&response.value).unwrap();
-    assert_eq!(value["schema_version"], 1);
+    assert_eq!(value["schema_version"], 2);
     assert_eq!(value["phase"], "acquiring");
     // The phase is the only readiness field: no second flag can disagree with it.
     let keys = value.as_object().unwrap().keys().map(String::as_str).collect();

@@ -1,9 +1,7 @@
 //! Serializable, immutable contexts. Contract-independent facts remain separate from ABI types.
 
 use crate::native::{Block, Commit, RawBlock};
-use abci::{
-    AccountWitness, AnchorState, AnchorWitness, CommitteeState, GenesisRecord, RawL1Header,
-};
+use abci::{AccountWitness, AnchorState, AnchorWitness, GenesisRecord, RawL1Header};
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256};
 use prost::Message;
@@ -147,7 +145,8 @@ pub struct LandingSnapshot {
     pub registry: Address,
     /// Recovery generation from the pinned Inbox state.
     pub generation: u64,
-    /// Independently verified fixed recovery origin; absent for generation zero.
+    /// Independently verified fixed recovery origin, with the `fallbackKeysHash` whose list signs
+    /// the generation's first two blocks; absent for generation zero.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery: Option<abci::recovery::RecoveryOrigin>,
     /// Canonical RLP recovery evidence retained with the immutable proof request.
@@ -183,10 +182,6 @@ impl LandingSnapshot {
     /// Global boundary preceding the first block of this generation.
     pub fn origin_height(&self) -> u64 {
         self.recovery.as_ref().map_or(self.genesis.genesis_height, |r| r.height)
-    }
-    /// R-selected initial committee, independent of the old parent execution header.
-    pub fn initial_committee(&self) -> Option<&CommitteeState> {
-        self.recovery.as_ref().map(|r| &r.committee)
     }
 }
 

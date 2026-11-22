@@ -1,7 +1,7 @@
 //! Nonmutating recovery discovery and retained-evidence reauthentication against own L1.
 
 use super::{
-    RecoveryError, RecoveryWitness,
+    RECOVERY_WITNESS_VERSION, RecoveryError, RecoveryWitness,
     verify::{LIMIT, check_current_generation, check_generation, invalid, observation},
     verify_recovery_witness,
 };
@@ -116,10 +116,9 @@ where
     let genesis = GenesisWitness { l1_header, inbox: genesis_inbox, committee: genesis_committee };
     // Authenticate current generation and fixed R before fetching its history or EL headers.
     let mut w = RecoveryWitness {
-        version: 1,
+        version: RECOVERY_WITNESS_VERSION,
         generation,
         recovery_inbox: finalized_inbox.clone(),
-        committee: genesis.committee.clone(),
         genesis,
         finalized_header: finalized_header.clone(),
         finalized_inbox,
@@ -128,25 +127,13 @@ where
         parent_headers: vec![],
     };
     let origin = observation(&w.finalized_header, &w.finalized_inbox, &w, params)?;
-    if origin.number > finalized {
-        return Err(RecoveryError::Unavailable(format!(
-            "R {} is not final at {finalized}",
-            origin.number
-        )));
+    let r = origin.record.l1_number;
+    if r > finalized {
+        return Err(RecoveryError::Unavailable(format!("R {r} is not final at {finalized}")));
     }
-    w.recovery_header = header_at(l1, origin.number).await?;
-    w.recovery_inbox = l1
-        .account_witness(params.inbox, &inbox::recovery_slots(generation, c), origin.number)
-        .await?;
-    w.committee = build_committee_witness_at_cutoff(
-        l1,
-        params,
-        origin.number,
-        origin.number,
-        c / context.genesis.epoch_len,
-    )
-    .await
-    .map_err(fetch_error)?;
+    w.recovery_header = header_at(l1, r).await?;
+    w.recovery_inbox =
+        l1.account_witness(params.inbox, &inbox::recovery_slots(generation, c), r).await?;
     // The landing's EL hash at c is authenticated above. Another block at c, or none, is the
     // reader's own chain, not evidence against the landing.
     w.el_header = header(c)

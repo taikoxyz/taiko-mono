@@ -4,7 +4,9 @@
 
 use std::sync::Arc;
 
-use abci::{AnchorState, AnchorWitness, ChainParams, CommitteeWitness, RawL1Header};
+use abci::{
+    AnchorState, AnchorWitness, ChainParams, CommitteeWitness, RawL1Header, fallback::FallbackKeys,
+};
 use alloy_primitives::B256;
 use async_trait::async_trait;
 use proptest::{collection::vec, prelude::*};
@@ -73,6 +75,10 @@ impl LandingSource for Decided {
     }
 
     async fn committee_witness(&self, _: &AnchorState, _: u64, _: u64) -> Result<CommitteeWitness> {
+        Err(unread("L1"))
+    }
+
+    async fn fallback_keys(&self, _: B256, _: B256, _: u64, _: u64) -> Result<FallbackKeys> {
         Err(unread("L1"))
     }
 

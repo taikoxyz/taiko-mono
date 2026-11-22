@@ -23,8 +23,9 @@ import (
 
 const maxControlFrame = 16 * 1024
 
-// controlSchema is the app's one private trust-control wire version.
-const controlSchema = 1
+// controlSchema is the app's one private trust-control wire version. Version 2's recovery
+// origin carries fallback_keys_hash; the app refuses version 1 and so does the gate.
+const controlSchema = 2
 
 // trustResponse is the part of the app's trust snapshot that the gate reads: the session, the
 // chain ID, which binds the generation (RECOV-8.2-5), the phase, the app's only readiness

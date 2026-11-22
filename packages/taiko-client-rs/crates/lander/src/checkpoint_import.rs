@@ -3,10 +3,7 @@
 //! The iterator supplies ascending native block frames exactly once. No consensus source or
 //! execution engine is accepted, so verification cannot fetch a prefix or execute old blocks.
 
-use abci::{
-    ChainParams, CommitteeState, GenesisDoc, L1Source, ParentInfo, store::AppState,
-    valstate::ValState,
-};
+use abci::{ChainParams, GenesisDoc, L1Source, ParentInfo, store::AppState, valstate::ValState};
 use alloy_consensus::Header;
 use alloy_primitives::{B256, Bytes, U256, keccak256};
 use serde::{Deserialize, Serialize};

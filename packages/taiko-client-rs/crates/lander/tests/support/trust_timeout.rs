@@ -24,7 +24,7 @@ pub struct TrustTimeout {
 
 pub async fn observe(path: &Path) -> Result<serde_json::Value> {
     let mut peer = UnixStream::connect(path).await?;
-    peer.write_all(b"{\"schema_version\":1,\"op\":\"observe\"}\n").await?;
+    peer.write_all(b"{\"schema_version\":2,\"op\":\"observe\"}\n").await?;
     let mut line = String::new();
     BufReader::new(peer).read_line(&mut line).await?;
     Ok(serde_json::from_str(&line)?)

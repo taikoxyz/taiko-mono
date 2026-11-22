@@ -81,12 +81,14 @@ fn regenerate_cli_recovery_fixtures() {
     }
 }
 
-/// Rebuilds `recovery.json` from `recovery_fixture(1, 6, 1)` when a committed value changes
-/// (a committee record or set hash, the registry minimum or the stakes). L1 blocks 64 (`L1_0`),
-/// 100 (R) and 110 (finalized) are the fixture's; 120 adds a later landing at 18 and 130 also
-/// raises the recovery generation to 2, both on the state of 110. Each account keeps the slot
-/// list the old file proves, so every read the CLI tests make stays served, and the proofs must
-/// cover the whole state.
+/// Rebuilds `recovery.json` from `recovery_fixture(1, 6, 1)` when a committed value or a proven
+/// slot list changes (a committee record or set hash, the registry minimum, the stakes, the
+/// recovery or genesis slots). L1 blocks 64 (`L1_0`), 100 (R) and 110 (finalized) are the
+/// fixture's; 120 adds a later landing at 18 and 130 also raises the recovery generation to 2,
+/// both on the state of 110. Each account keeps the slot list the old file proves, and the Inbox
+/// also proves the genesis, recovery and anchor slots, so every read the CLI tests make stays
+/// served; the proofs must cover the whole state. The file also carries the origin fallback key
+/// list, which the CLI tests' L1 answers `getFallbackKeys()` with.
 #[test]
 #[ignore = "manual fixture regeneration"]
 fn rebuild_cli_recovery_fixture() {
@@ -130,7 +132,19 @@ fn rebuild_cli_recovery_fixture() {
                         serde_json::from_value(account["address"].clone()).unwrap();
                     let bytes: Bytes = serde_json::from_value(account["proof"].clone()).unwrap();
                     let old_proof: AccountWitness = alloy_rlp::decode_exact(&bytes).unwrap();
-                    let slots: Vec<B256> = old_proof.storage.iter().map(|word| word.slot).collect();
+                    let mut slots: Vec<B256> =
+                        old_proof.storage.iter().map(|word| word.slot).collect();
+                    if address == inbox_address {
+                        for slot in inbox::genesis_slots()
+                            .into_iter()
+                            .chain(inbox::recovery_slots(1, 6))
+                            .chain(inbox::anchor_slots())
+                        {
+                            if !slots.contains(&slot) {
+                                slots.push(slot);
+                            }
+                        }
+                    }
                     let proof = state.witness(address, &slots);
                     specs.push((
                         proof.address,
@@ -160,6 +174,7 @@ fn rebuild_cli_recovery_fixture() {
     let p = &fx.params;
     let fixture = serde_json::json!({
         "blocks": blocks,
+        "fallback_keys": super::recovery_fallback_keys(),
         "params": {
             "block_gas_limit": p.block_gas_limit,
             "fee_recipient": p.fee_recipient,

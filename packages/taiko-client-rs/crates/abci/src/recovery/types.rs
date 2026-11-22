@@ -1,18 +1,21 @@
 //! Versioned recovery evidence and its authenticated fixed origin.
 
-use crate::{
-    AccountWitness, CommitteeState, CommitteeWitness, EngineError, GenesisWitness, L1Error,
-    RawL1Header,
-};
+use crate::{AccountWitness, EngineError, GenesisWitness, L1Error, RawL1Header};
 use alloy_consensus::Header;
 use alloy_primitives::B256;
 use alloy_rlp::{RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 
-/// Complete version-one evidence; headers require independent own-L1 canonicality/finality.
+/// The one [`RecoveryWitness`] encoding version; any other is refused.
+pub const RECOVERY_WITNESS_VERSION: u64 = 2;
+
+/// Complete recovery evidence; headers require independent own-L1 canonicality/finality.
+///
+/// It proves the origin record's `fallbackKeysHash` and no key list: the keys that sign c + 1
+/// and c + 2 are the list with that hash, obtained by it from the own L1.
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable, RlpDecodable)]
 pub struct RecoveryWitness {
-    /// Encoding version; only one is supported.
+    /// Encoding version; only [`RECOVERY_WITNESS_VERSION`] is supported.
     pub version: u64,
     /// Explicit requested nonzero deployment generation, bounded to 48 bits.
     pub generation: u64,
@@ -26,8 +29,6 @@ pub struct RecoveryWitness {
     pub recovery_header: RawL1Header,
     /// Exact recovery-slot proof at the end of R.
     pub recovery_inbox: AccountWitness,
-    /// Complete registry snapshot at the end of R for epoch floor(c/L).
-    pub committee: CommitteeWitness,
     /// EL header at the fixed retained checkpoint c, authenticated by its landing hash.
     pub el_header: Header,
     /// Exactly one hash-linked parent when c > 0; empty at c = 0.
@@ -54,8 +55,10 @@ pub struct RecoveryOrigin {
     pub comet_hash: B256,
     /// FI queue cursor from the retained landing at c.
     pub forced_cursor: u64,
-    /// Initial committee derived independently from the complete R registry snapshot.
-    pub committee: CommitteeState,
+    /// The `fallbackKeysHash` of the generation's origin record (its fourth word), slot 278 as
+    /// `recover` wrote the record: the keys of the list with this hash sign c + 1 and c + 2,
+    /// each at power 1, whatever the Inbox's list is later. Never zero.
+    pub fallback_keys_hash: B256,
 }
 
 /// Recovery failures retain the distinction between unavailable evidence and contradictions.

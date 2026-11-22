@@ -410,7 +410,7 @@ impl Commands {
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
         let mut stream =
             tokio::net::UnixStream::connect(installed.app.join("checkpoint-trust.sock")).await?;
-        stream.write_all(b"{\"schema_version\":1,\"op\":\"observe\"}\n").await?;
+        stream.write_all(b"{\"schema_version\":2,\"op\":\"observe\"}\n").await?;
         let mut line = String::new();
         tokio::io::BufReader::new(stream).read_line(&mut line).await?;
         Ok(serde_json::from_str(&line)?)

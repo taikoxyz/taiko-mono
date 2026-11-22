@@ -88,7 +88,7 @@ class TrustPeer:
                 request = json.loads(peer.makefile("rb").readline())
                 self.ops.append(request["op"])
                 self.requests.append(request)
-                response = dict(schema_version=1, session_id=self.session, chain_id=self.chain,
+                response = dict(schema_version=2, session_id=self.session, chain_id=self.chain,
                                 generation=self.generation, phase=self.phase, target=None,
                                 committed_head=None, trusted_consensus_head=None, reason=None,
                                 recovery_origin=self.origin if self.ready else None)
@@ -512,7 +512,7 @@ class SupervisorLifecycle(TrustPeer):
         spec.loader.exec_module(module)
         runtime = object.__new__(module.Supervisor)
         runtime.chain = self.chain
-        ready = dict(schema_version=1, session_id=self.session, chain_id=self.chain,
+        ready = dict(schema_version=2, session_id=self.session, chain_id=self.chain,
                      generation=self.generation, recovery_origin=self.origin, phase="ready",
                      target=None, committed_head=None, trusted_consensus_head=None, reason=None)
         self.assertTrue(runtime.ready(ready))
@@ -2023,6 +2023,35 @@ class LauncherPathTests(unittest.TestCase):
 
 
 class SupervisorUnitTests(unittest.TestCase):
+    def test_observation_in_control_schema_1_is_refused(self):
+        """The trust-control wire is version 2, whose recovery origin carries fallback_keys_hash
+        in place of version 1's committee hash: the supervisor asks in version 2 and refuses a
+        version-1 reply."""
+        runtime = object.__new__(supervisor_module("etna_control_schema").Supervisor)
+        requests = []
+        with tempfile.TemporaryDirectory() as directory, socket.socket(socket.AF_UNIX) as server:
+            runtime.store = Path(directory)
+            server.bind(str(runtime.store / "checkpoint-trust.sock"))
+            server.listen()
+
+            def answer(version):
+                peer, _ = server.accept()
+                with peer:
+                    requests.append(json.loads(peer.makefile("rb").readline()))
+                    reply = dict(schema_version=version, session_id="session", recovery_origin=None)
+                    peer.sendall((json.dumps(reply) + "\n").encode())
+
+            for version in (2, 1):
+                thread = threading.Thread(target=answer, args=(version,))
+                thread.start()
+                if version == 2:
+                    self.assertEqual(runtime.observe()["schema_version"], 2)
+                else:
+                    with self.assertRaisesRegex(ValueError, "schema"):
+                        runtime.observe()
+                thread.join()
+        self.assertEqual([request["schema_version"] for request in requests], [2, 2])
+
     def supersession_with_children(self, directory, signer_status):
         """Create a superseded app store and real children with controlled exit status."""
         spec = importlib.util.spec_from_file_location("etna_supersession_stop", ROOT / "script/etna_validator.py")
@@ -2074,7 +2103,7 @@ class SupervisorUnitTests(unittest.TestCase):
             runtime, preserved = self.supersession_with_children(directory, 0)
             runtime.events, runtime.prior_observation = runtime.store / "absent-denial.json", None
             runtime.observe = lambda: dict(
-                schema_version=1, session_id="old-session", phase="halted", chain_id="old-chain",
+                schema_version=2, session_id="old-session", phase="halted", chain_id="old-chain",
                 generation=0, reason="recovery generation 0 superseded by 1", recovery_origin=None)
             runtime.tick()
             reason = b"terminal app trust or deployment identity\n"

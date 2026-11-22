@@ -85,8 +85,9 @@ SIGNER_SOCKET_PREFIX = "signer-"
 SIGNER_SOCKET_SUFFIX = ".sock"
 MAX_UNIX_SOCKET_PATH = 103  # macOS sun_path holds 104 bytes with the terminating NUL
 # The app's one private trust-control version. Every response carries recovery_origin:
-# null for generation zero, the authenticated origin after recovery.
-CONTROL_SCHEMA = 1
+# null for generation zero, the authenticated origin after recovery, whose fallback_keys_hash
+# replaced version 1's committee hash.
+CONTROL_SCHEMA = 2
 # The signer's exit status for lost or uncertain signing state (RECOV-8.2-3). It, a retained
 # fence and a signer the supervisor had to SIGKILL latch; every other exit restarts the pair,
 # up to SIGNER_CRASH_LIMIT exits within SIGNER_CRASH_WINDOW seconds (SYNC-9-14).

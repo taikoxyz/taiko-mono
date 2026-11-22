@@ -180,7 +180,7 @@ func snapshot(ready bool) map[string]any {
 
 // snapshotAt is snapshot with the eligible height the app reports.
 func snapshotAt(ready bool, eligible uint64) map[string]any {
-	return map[string]any{"schema_version": 1, "session_id": "test:7", "chain_id": chain, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "eligible_height": eligible, "reason": nil, "recovery_origin": nil}
+	return map[string]any{"schema_version": controlSchema, "session_id": "test:7", "chain_id": chain, "phase": map[bool]string{true: "ready", false: "catching_up"}[ready], "eligible_height": eligible, "reason": nil, "recovery_origin": nil}
 }
 
 // filePV is one validator initialized as an operator does: a stock native key, then
@@ -225,7 +225,7 @@ func recoveredSnapshot(g uint64) map[string]any {
 	value["target"] = map[string]any{"l1_number": 10, "l1_hash": "0x" + strings.Repeat("a", 64), "height": 6, "hash": hash, "comet_hash": comet, "generation": g, "inbox": "0x" + strings.Repeat("1", 40)}
 	value["committed_head"] = map[string]any{"height": 6, "hash": hash}
 	value["trusted_consensus_head"] = map[string]any{"height": 6, "hash": hash}
-	value["recovery_origin"] = map[string]any{"generation": g, "height": 6, "l1_number": 9, "l1_hash": "0x" + strings.Repeat("a", 64), "l1_timestamp": 100, "el_hash": hash, "comet_hash": comet, "forced_cursor": 0, "committee_hash": "0x" + strings.Repeat("d", 64)}
+	value["recovery_origin"] = map[string]any{"generation": g, "height": 6, "l1_number": 9, "l1_hash": "0x" + strings.Repeat("a", 64), "l1_timestamp": 100, "el_hash": hash, "comet_hash": comet, "forced_cursor": 0, "fallback_keys_hash": "0x" + strings.Repeat("d", 64)}
 	return value
 }
 
@@ -364,7 +364,7 @@ func TestGateChecksOnlySessionChainAndPhase(t *testing.T) {
 		{"duplicate-phase", func(r map[string]any) string {
 			return strings.Replace(line(r), `"phase":"ready"`, `"phase":"catching_up","phase":"ready"`, 1)
 		}, false},
-		{"other-schema", set("schema_version", 2), false},
+		{"other-schema", set("schema_version", 3), false},
 		{"empty-chain", set("chain_id", ""), false},
 		// Keys are exact: a case-folded duplicate after the real key never overrides it.
 		{"case-folded-phase", func(r map[string]any) string {
@@ -409,6 +409,45 @@ func TestGateChecksOnlySessionChainAndPhase(t *testing.T) {
 	}
 }
 
+// The trust-control wire is version 2, whose recovery origin carries fallback_keys_hash in
+// place of version 1's committee hash. The gate asks in version 2 only, and a version-1 reply,
+// even a ready one for this chain, session and height, denies before FilePV.
+func TestControlSchema1IsRefused(t *testing.T) {
+	if controlSchema != 2 {
+		t.Fatalf("control schema %d", controlSchema)
+	}
+	var mu sync.Mutex
+	var asked []any
+	path := control(t, func(req map[string]any) any {
+		mu.Lock()
+		asked = append(asked, req["schema_version"])
+		mu.Unlock()
+		r := snapshot(true)
+		r["schema_version"] = 1
+		return r
+	})
+	g := armed(path)
+	backend, _, state := filePV(t)
+	signer := &recordingPV{guardedPV: backend}
+	before, _ := os.ReadFile(state)
+	if res, err := g.handle(signer, voteRequest(tm.PrevoteType, 0, false), chain); err == nil || res.GetSignedVoteResponse().Error == nil {
+		t.Fatal("signed on a version-1 reply")
+	}
+	if after, _ := os.ReadFile(state); signer.calls.Load() != 0 || !bytes.Equal(before, after) {
+		t.Fatal("denial reached FilePV")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(asked) == 0 {
+		t.Fatal("no trust query")
+	}
+	for _, version := range asked {
+		if version != float64(2) {
+			t.Fatalf("asked in version %v", version)
+		}
+	}
+}
+
 // Before InitChain the app's snapshot carries chain_id null. begin_session still arms the
 // transport's session, so Comet's startup PubKey connects, and signing on it denies.
 func TestBeginArmsSessionBeforeInitChain(t *testing.T) {
@@ -442,7 +481,7 @@ func TestControlFailuresDeny(t *testing.T) {
 				r := snapshot(true)
 				switch test {
 				case "version":
-					r["schema_version"] = 2
+					r["schema_version"] = 3
 				case "null_version":
 					r["schema_version"] = nil
 				case "session":

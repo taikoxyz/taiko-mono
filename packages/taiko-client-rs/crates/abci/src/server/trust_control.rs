@@ -159,24 +159,24 @@ mod tests {
         assert_eq!(std::fs::metadata(dir.path()).unwrap().permissions().mode() & 0o777, 0o700);
         let task = tokio::spawn(run(listener, trust.clone()));
         let first =
-            exchange(&path, b"{\"schema_version\":1,\"op\":\"begin_session\"}\n").await.unwrap();
+            exchange(&path, b"{\"schema_version\":2,\"op\":\"begin_session\"}\n").await.unwrap();
         let second =
-            exchange(&path, b"{\"schema_version\":1,\"op\":\"begin_session\"}\n").await.unwrap();
+            exchange(&path, b"{\"schema_version\":2,\"op\":\"begin_session\"}\n").await.unwrap();
         assert_ne!(first.session_id, second.session_id);
         assert_eq!(second.phase, TrustPhase::Acquiring);
         let request = format!(
-            "{{\"schema_version\":1,\"op\":\"check_session\",\"session_id\":\"{}\"}}\n",
+            "{{\"schema_version\":2,\"op\":\"check_session\",\"session_id\":\"{}\"}}\n",
             first.session_id
         );
         let stale = exchange(&path, request.as_bytes()).await.unwrap();
         assert_eq!(stale.session_id, second.session_id);
         assert_eq!(stale.phase, TrustPhase::Acquiring);
         for invalid in [
-            b"{\"schema_version\":2,\"op\":\"begin_session\"}\n".as_slice(),
+            b"{\"schema_version\":1,\"op\":\"begin_session\"}\n".as_slice(),
             b"{\"schema_version\":3,\"op\":\"begin_session\"}\n",
-            b"{\"schema_version\":1,\"op\":\"begin_session\",\"extra\":true}\n",
-            b"{\"schema_version\":1,\"op\":\"reset\"}\n",
-            b"{\"schema_version\":1,\"op\":\"check_session\",\"session_id\":1}\n",
+            b"{\"schema_version\":2,\"op\":\"begin_session\",\"extra\":true}\n",
+            b"{\"schema_version\":2,\"op\":\"reset\"}\n",
+            b"{\"schema_version\":2,\"op\":\"check_session\",\"session_id\":1}\n",
         ] {
             assert!(exchange(&path, invalid).await.is_err());
         }
@@ -203,11 +203,11 @@ mod tests {
         let path = app.trust_control_path();
         let listener = bind(&path).await.unwrap();
         let task = tokio::spawn(run(listener, app.trust_handle()));
-        let begin = b"{\"schema_version\":1,\"op\":\"begin_session\"}\n";
+        let begin = b"{\"schema_version\":2,\"op\":\"begin_session\"}\n";
         let old = exchange_wire(&path, begin).await;
         let current = exchange_wire(&path, begin).await;
         let check = |session: &serde_json::Value| {
-            format!("{{\"schema_version\":1,\"op\":\"check_session\",\"session_id\":{session}}}\n")
+            format!("{{\"schema_version\":2,\"op\":\"check_session\",\"session_id\":{session}}}\n")
         };
         let checked = exchange_wire(&path, check(&current["session_id"]).as_bytes()).await;
         let stale = exchange_wire(&path, check(&old["session_id"]).as_bytes()).await;
@@ -244,7 +244,7 @@ mod tests {
         let listener = bind(&path).await.unwrap();
         let task = tokio::spawn(run(listener, app.trust_handle()));
         let mut stream = UnixStream::connect(&path).await.unwrap();
-        stream.write_all(b"{\"schema_version\":1,\"op\":\"observe\"}\n").await.unwrap();
+        stream.write_all(b"{\"schema_version\":2,\"op\":\"observe\"}\n").await.unwrap();
         let mut line = Vec::new();
         BufReader::new(stream).read_until(b'\n', &mut line).await.unwrap();
         let wire: serde_json::Value = serde_json::from_slice(&line).unwrap();
@@ -252,7 +252,29 @@ mod tests {
         // Generation zero carries the key too: `null`, never an omitted field.
         assert!(wire.as_object().unwrap().contains_key("recovery_origin"));
         assert!(wire["recovery_origin"].is_null());
-        assert!(exchange(&path, b"{\"schema_version\":2,\"op\":\"observe\"}\n").await.is_err());
+        assert!(exchange(&path, b"{\"schema_version\":3,\"op\":\"observe\"}\n").await.is_err());
+        task.abort();
+    }
+
+    /// The wire is version 2, whose recovery origin carries `fallback_keys_hash`: every request
+    /// naming version 1, whose origin carried a committee hash, is refused without an answer.
+    #[tokio::test]
+    async fn control_version_1_is_refused() {
+        let dir = tempfile::Builder::new().prefix("etna-t-").tempdir_in("/tmp").unwrap();
+        let app = Fixture::genesis(1).app(dir.path());
+        let path = app.trust_control_path();
+        let listener = bind(&path).await.unwrap();
+        let task = tokio::spawn(run(listener, app.trust_handle()));
+        assert_eq!(CONTROL_SCHEMA_VERSION, 2);
+        for request in [
+            b"{\"schema_version\":1,\"op\":\"observe\"}\n".as_slice(),
+            b"{\"schema_version\":1,\"op\":\"begin_session\"}\n",
+            b"{\"schema_version\":1,\"op\":\"check_session\",\"session_id\":\"x\"}\n",
+        ] {
+            assert!(exchange(&path, request).await.is_err());
+        }
+        let current = exchange(&path, b"{\"schema_version\":2,\"op\":\"observe\"}\n").await;
+        assert_eq!(current.unwrap().schema_version, 2);
         task.abort();
     }
 
@@ -265,7 +287,7 @@ mod tests {
         let listener = bind(&path).await.unwrap();
         let task = tokio::spawn(run(listener, trust.clone()));
         let before = trust.snapshot();
-        let observed = exchange(&path, b"{\"schema_version\":1,\"op\":\"observe\"}\n")
+        let observed = exchange(&path, b"{\"schema_version\":2,\"op\":\"observe\"}\n")
             .await
             .expect("private observation must be available without a signing session");
         assert_eq!(observed, before);
@@ -291,13 +313,13 @@ mod tests {
         .unwrap();
         let response = tokio::time::timeout(
             Duration::from_millis(200),
-            exchange(&path, b"{\"schema_version\":1,\"op\":\"begin_session\"}\n"),
+            exchange(&path, b"{\"schema_version\":2,\"op\":\"begin_session\"}\n"),
         )
         .await
         .unwrap()
         .unwrap();
         let request = format!(
-            "{{\"schema_version\":1,\"op\":\"check_session\",\"session_id\":\"{}\"}}\n",
+            "{{\"schema_version\":2,\"op\":\"check_session\",\"session_id\":\"{}\"}}\n",
             response.session_id
         );
         let checked =

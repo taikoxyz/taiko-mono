@@ -3,6 +3,7 @@
 use abci::{
     AccountWitness, AnchorState, ChainParams, CommitteeWitness, GenesisRecord, Schedule,
     envelope::AnchorWitness,
+    fallback::{FallbackKeys, fetch_fallback_keys},
     l1::{
         fetch::build_committee_witness_at_cutoff,
         header::RawL1Header,
@@ -110,6 +111,18 @@ pub trait LandingSource: Send + Sync {
         snapshot_number: u64,
         epoch: u64,
     ) -> Result<CommitteeWitness>;
+    /// The fallback key list whose hash is `hash`, as the Inbox stored it, read at the L1 block
+    /// with hash `at` and number `at_number`, the block that stored it or a later one; the log
+    /// scan reaches down to `from_block` ([`abci::fallback::fetch_fallback_keys`]). The list
+    /// hashes to `hash`. One the L1 cannot give, or a failed read, is
+    /// [`LanderError::Temporary`], never `Safety`: the fault is the node's own L1.
+    async fn fallback_keys(
+        &self,
+        hash: B256,
+        at: B256,
+        at_number: u64,
+        from_block: u64,
+    ) -> Result<FallbackKeys>;
     /// Fetch the descending raw L1 headers from the reference tip, the finalized block below
     /// the snapshot, down to the oldest consumed anchor: `Safety` for an empty anchor slice,
     /// `Temporary` while finality is behind the newest anchor, `Capacity` above
@@ -482,6 +495,21 @@ impl LandingSource for RpcLandingSource {
             }
             error => LanderError::Temporary(format!("committee discovery: {error}")),
         })
+    }
+
+    /// Runs [`fetch_fallback_keys`] on the own L1 endpoint. Its failures are the node's own L1:
+    /// [`LanderError::Temporary`], naming only the hash, as RPC errors can carry endpoint
+    /// credentials.
+    async fn fallback_keys(
+        &self,
+        hash: B256,
+        at: B256,
+        at_number: u64,
+        from_block: u64,
+    ) -> Result<FallbackKeys> {
+        fetch_fallback_keys(&self.anchors, self.params.inbox, hash, at, at_number, from_block)
+            .await
+            .map_err(|_| LanderError::Temporary(format!("fallback key list {hash} unavailable")))
     }
 
     async fn reference(

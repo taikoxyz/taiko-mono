@@ -59,6 +59,42 @@ async fn committee_discovery_errors_never_render_wrapped_rpc_credentials() {
     }
 }
 
+/// A fallback key list the L1 endpoint cannot give, as `getFallbackKeys()` fails on pruned
+/// state and no log holds it or the log query fails, is the node's own L1 fault:
+/// [`LanderError::Temporary`], never `Safety`, and it renders no endpoint detail.
+#[tokio::test]
+async fn unavailable_origin_list_is_temporary() {
+    let secret = "https://alice:password@example.invalid/api_key=secret";
+    for logs in [json!([]), json!({"__rpc_error":{"code":-32005,"message":secret}})] {
+        let provider = rpc(move |request| match request["method"].as_str().unwrap() {
+            "eth_call" => json!({"__rpc_error":{"code":-32000,"message":secret}}),
+            "eth_getLogs" => logs.clone(),
+            other => panic!("unexpected {other}"),
+        })
+        .await;
+        let fixture = crate::test_utils::consensus_mpt::Fixture::new(18, 30);
+        let source = RpcLandingSource::new(
+            provider.provider.clone(),
+            provider.provider.clone(),
+            fixture.params,
+        );
+        let error = source
+            .fallback_keys(B256::repeat_byte(7), B256::repeat_byte(8), 100, 0)
+            .await
+            .unwrap_err();
+        assert!(matches!(error, LanderError::Temporary(_)), "{error}");
+        assert!(!error.to_string().contains("password"), "{error}");
+        let methods: Vec<_> = provider
+            .requests
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|request| request["method"].as_str().unwrap().to_owned())
+            .collect();
+        assert_eq!(methods, ["eth_call", "eth_getLogs"]);
+    }
+}
+
 pub(crate) struct RpcFixture {
     pub(crate) provider: alloy_provider::RootProvider,
     pub(crate) requests: Arc<Mutex<Vec<Value>>>,
@@ -424,7 +460,9 @@ async fn snapshot_reorg_retries_with_coherent_hash_pinned_header_and_proof() {
                 json!({"blockHash": snapshot.l1_block_hash, "requireCanonical": true})
             );
             // The fixed slots alone, or with the checkpoint's three-word landing record.
-            assert!(matches!(call["params"][1].as_array().unwrap().len(), 16 | 19));
+            let fixed = crate::l1::snapshot_slots().len();
+            assert_eq!(fixed, 17);
+            assert!([fixed, fixed + 3].contains(&call["params"][1].as_array().unwrap().len()));
         }
         let raw =
             calls.iter().filter(|call| call["method"] == "debug_getRawHeader").collect::<Vec<_>>();

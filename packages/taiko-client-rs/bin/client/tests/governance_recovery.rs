@@ -151,7 +151,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
             wait_committed(&c.cmt, 7, &mut node).await?;
             node.running()?;
             let private_trust = commands.private_trust(&installed).await?;
-            assert_eq!(private_trust["schema_version"], 1);
+            assert_eq!(private_trust["schema_version"], 2);
             assert_eq!(private_trust["generation"], 1);
             assert_eq!(private_trust["phase"], "ready");
             assert_eq!(private_trust["recovery_origin"]["height"], 6);
@@ -222,9 +222,7 @@ async fn checkpoint_roundtrip(epoch_len: u64, clear_fi: bool, with_import: bool)
             assert_eq!(landed.generation, 1);
             assert!(landed.checkpoint_height > 6);
             let origin = landed.recovery.as_ref().context("authenticated recovery origin")?;
-            assert_eq!(origin.committee.record.target_epoch, 6 / epoch_len);
-            assert_eq!(origin.committee.record.cutoff_l1_block, origin.l1_number);
-            assert_eq!(origin.committee.members, f.committee.members);
+            assert_ne!(origin.fallback_keys_hash, alloy_primitives::B256::ZERO);
             assert_eq!(origin.forced_cursor, 0);
             if first_fi.is_some() {
                 assert_eq!(
@@ -560,123 +558,6 @@ async fn governance_recovery_linux_comet_uid_reads_p2p_and_cannot_read_registere
         commands.diagnostics();
     }
     drop(runtime);
-    c.stop().await?;
-    result
-}
-
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "docker"]
-async fn governance_recovery_exclusion_activates_standby_and_cancels_old_pending_committee()
--> Result<()> {
-    standby_recovery(false).await
-}
-
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "docker"]
-async fn governance_recovery_combined_lists_activate_standby() -> Result<()> {
-    standby_recovery(true).await
-}
-
-async fn standby_recovery(clear_fi: bool) -> Result<()> {
-    test_harness::init_tracing();
-    let f = ContractFixture::deploy_committee_config(2, 120, 14, 1).await?;
-    let active = f
-        .keys
-        .iter()
-        .position(|key| key.pubkey() == f.committee.members[0].pubkey)
-        .context("original active key")?;
-    let standby = 1 - active;
-    set_interval_mining(&f.anvil.provider, 1).await?;
-    let dirs = (0..2).map(|i| f.signer_storage.path().join(i.to_string())).collect();
-    let mut c =
-        ContractConsensus::start_native(f.anvil.http.clone(), &f.l2, f.params.clone(), dirs)
-            .await?;
-    let commands = Commands::for_node(&f, &c, standby)?;
-    let peer = c.peers[standby].clone();
-    let (http, _) = c.execution_endpoints(standby, &f.l2);
-    let provider = rpc::client::connect_http_with_timeout(http, std::time::Duration::from_secs(30));
-    let result: Result<()> = async {
-        c.wait_for_height(6).await?;
-        let mut lander = commands.old_lander(&f, &c.cmt)?;
-        wait_checkpoint(&f, &mut lander, 6).await?;
-        lander.stop().await?;
-        c.wait_for_height(13).await?;
-        // Blockstore publication precedes ABCI Commit: wait until the app has durably committed
-        // 13, not merely published that block.
-        let committed = test_harness::wait_until(
-            "old app committed height 13",
-            std::time::Duration::from_secs(120),
-            std::time::Duration::from_millis(100),
-            || async {
-                let status = c.cmt.abci_status().await?;
-                Ok((status.head >= 13).then_some(status.head))
-            },
-        )
-        .await?;
-        ensure!(committed < 15, "the old chain moved past the fixture's isolation height");
-        for index in 0..2 {
-            c.stop_node(index).await?;
-        }
-        let retained: abci::store::AppState =
-            serde_json::from_slice(&fs::read(c.app_dir(0).join(abci::store::STATE_FILE))?)?;
-        ensure!((13..15).contains(&retained.last_height), "old fixture height changed");
-        let archives = (0..2)
-            .map(|i| {
-                let path = c.signing_state_path(i);
-                Ok((path.clone(), fs::read(path)?))
-            })
-            .collect::<Result<Vec<_>>>()?;
-        if clear_fi {
-            f.save_forced_inclusion(&[0xc0]).await?;
-        }
-        recover_with_lists(
-            &f,
-            0,
-            6,
-            vec![alloy_primitives::U256::from(active)],
-            if clear_fi { vec![alloy_primitives::U256::ZERO] } else { vec![] },
-        )
-        .await?;
-        let plan = commands.prepare_command(1).await?;
-        let installed = commands.install_command(&plan, "standby").await?;
-        let mut node = commands.start_recovered(&installed, "standby").await?;
-        wait_committed(&peer, 7, &mut node).await?;
-        let validators = peer.validators(Some(7)).await?;
-        assert_eq!(validators.len(), 1);
-        assert_eq!(validators[0].pubkey, f.keys[standby].pubkey());
-        wait_checkpoint(&f, &mut node, 12).await?;
-        mine_l1_blocks(&f.anvil.provider, 3).await?;
-        use lander::l1::LandingSource;
-        let snapshot = lander::l1::RpcLandingSource::new(
-            f.anvil.provider.clone(),
-            provider.clone(),
-            f.params.clone(),
-        )
-        .snapshot()
-        .await?;
-        let origin = snapshot.recovery.context("recovered R committee")?;
-        assert_eq!(origin.committee.members.len(), 1);
-        assert_eq!(origin.committee.members[0].pubkey, f.keys[standby].pubkey());
-        assert_eq!(origin.committee.record.cutoff_l1_block, origin.l1_number);
-        // The excluded key is outside the recovered generation's validator set, in Comet at c+1
-        // and in the landed R committee, so the new chain_id never asks it to sign.
-        let excluded = f.keys[active].pubkey();
-        assert!(
-            validators.iter().all(|v| v.pubkey != excluded) &&
-                origin.committee.members.iter().all(|m| m.pubkey != excluded),
-            "the excluded key is in the recovered generation's validator set"
-        );
-        assert!(snapshot.checkpoint_height > 6);
-        node.stop().await?;
-        for (path, bytes) in archives {
-            assert_eq!(fs::read(path)?, bytes);
-        }
-        Ok(())
-    }
-    .await;
-    if result.is_err() {
-        commands.diagnostics();
-    }
     c.stop().await?;
     result
 }

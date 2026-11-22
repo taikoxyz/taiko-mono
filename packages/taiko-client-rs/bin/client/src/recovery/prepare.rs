@@ -24,7 +24,8 @@ const UNAVAILABLE: RecoveryCommandError =
 /// Authenticates generation `generation` on the node's own finalized L1 and returns its plan.
 ///
 /// In order (RECOV-8.2-4, RECOV-8.4-2/7..9): authenticate the new generation, c, R and the
-/// committee reselected on R's registry snapshot, and build the fixed genesis; verify the
+/// `fallbackKeysHash` of its origin record, and build the fixed genesis on the list with that
+/// hash, obtained by it from the own L1; verify the
 /// witness; require readable EL state at c (SYNC-9-16, RECOV-8.4-8); recheck own finality and
 /// the current generation (RECOV-8-14); validate the plan. It writes nothing, starts nothing and
 /// makes no Engine build, payload or forkchoice call. InitChain repeats every check.

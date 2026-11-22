@@ -874,11 +874,17 @@ fn check_stored_state(state: &AppState, params: &ChainParams) -> Result<(), Abci
                 origin.generation != state.generation ||
                 origin.height > state.last_height ||
                 origin.l1_number < state.genesis.l1_0 ||
-                origin.committee.record.cutoff_l1_block != origin.l1_number =>
+                !state.fallback_keys.contains_key(&origin.fallback_keys_hash) =>
         {
             return Err(AbciError::StoredState("inconsistent recovery origin".into()));
         }
         _ => {}
+    }
+    if let Some(hash) = state.fallback_keys.iter().find(|(hash, keys)| keys.hash() != **hash) {
+        return Err(AbciError::StoredState(format!(
+            "the fallback key list stored under {} hashes elsewhere",
+            hash.0
+        )));
     }
     check_chain_id(&state.chain_id, params, state.generation)?;
     if state.genesis.committee_config_hash != crate::committee::committee_config_hash(params) {

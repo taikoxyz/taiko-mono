@@ -107,8 +107,8 @@ pub struct CommitteeRecord {
 }
 
 /// A registry witness of one committee: the record, the staking-registry proofs and the
-/// snapshot's entries. The genesis witness carries generation zero's initial committee in it and
-/// the recovery witness the committee R selects; no block envelope carries one.
+/// snapshot's entries. The genesis witness carries generation zero's initial committee in it; no
+/// recovery witness or block envelope carries one.
 ///
 /// RLP: `[record, registry, entries]`. The registry proofs verify against the state root of the
 /// witness's own L1 header.

@@ -87,7 +87,7 @@ pub fn decode_bootstrap_state(bytes: &[u8]) -> Result<BootstrapWitness, GenesisE
     let witness = if buf.first() == Some(&1) {
         buf = &buf[1..];
         let recovery = crate::recovery::RecoveryWitness::decode(&mut buf)?;
-        if recovery.version != 1 {
+        if recovery.version != crate::recovery::RECOVERY_WITNESS_VERSION {
             return Err(GenesisError::UnsupportedRecovery("unsupported witness version".into()));
         }
         BootstrapWitness::Recovery(recovery)
@@ -201,10 +201,23 @@ pub enum GenesisError {
     /// The `L1_0` timestamp (Unix seconds) is not a valid CometBFT genesis time.
     #[error("L1_0 timestamp {0} is not a valid genesis time")]
     GenesisTime(u64),
-    /// The initial committee is not a set CometBFT accepts, so it has no genesis validator state
-    /// for the genesis `app_hash` to commit.
-    #[error("the genesis committee is not a CometBFT validator set: {0}")]
+    /// The initial set is not a set CometBFT accepts, so it has no genesis validator state for
+    /// the genesis `app_hash` to commit.
+    #[error("the genesis validators are not a CometBFT validator set: {0}")]
     ValidatorSet(#[from] ValStateError),
+    /// A recovery generation's fallback key list hashes to another value than the
+    /// `fallbackKeysHash` of its origin record.
+    #[error("fallback key list hashes to {got}, the origin record holds {expected}")]
+    FallbackKeysMismatch {
+        /// The supplied list's hash.
+        got: B256,
+        /// The origin record's `fallbackKeysHash`.
+        expected: B256,
+    },
+    /// A recovery generation's initial set was asked for before its origin fallback key list,
+    /// the one with this hash, was supplied.
+    #[error("the origin fallback key list {0} has not been obtained")]
+    FallbackKeysUnavailable(B256),
     /// Recovery bootstrap evidence is unavailable, superseded or invalid; it keeps its own
     /// class, so `InitChain` retries or halts on it as on any recovery evidence.
     #[error(transparent)]

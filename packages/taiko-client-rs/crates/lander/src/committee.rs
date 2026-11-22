@@ -37,17 +37,24 @@ impl Validators {
     /// Build native commit slots from previously power-bounded members. Only keys/powers enter
     /// this representation; callers authenticate it against each native header before use.
     pub fn from_members(members: &[Member]) -> Result<Self, KeyError> {
-        let mut validators = members
+        Self::from_powers(
+            &members.iter().map(|member| (member.pubkey, member.power)).collect::<Vec<_>>(),
+        )
+    }
+
+    /// [`Validators::from_members`] of keys with their powers, such as a fallback key list's
+    /// keys, each at power 1.
+    pub fn from_powers(powers: &[(ConsensusKey, u64)]) -> Result<Self, KeyError> {
+        let mut validators = powers
             .iter()
-            .map(|member| Validator {
-                address: Id::new(member.pubkey.address().into_array()),
-                pub_key: member.pubkey,
-                voting_power: member.power,
+            .map(|(key, power)| Validator {
+                address: Id::new(key.address().into_array()),
+                pub_key: *key,
+                voting_power: *power,
             })
             .collect::<Vec<_>>();
         validators.sort_by_key(|v| (std::cmp::Reverse(v.voting_power), v.address));
-        let powers = members.iter().map(|member| (member.pubkey, member.power)).collect::<Vec<_>>();
-        let hash = abci::wire::validators_hash(&powers)?;
+        let hash = abci::wire::validators_hash(powers)?;
         let total = validators.iter().map(|v| v.voting_power).sum();
         Ok(Self { members: validators, hash: Hash::Sha256(hash.0), total })
     }

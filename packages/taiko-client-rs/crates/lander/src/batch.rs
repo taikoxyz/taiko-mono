@@ -9,6 +9,7 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 use abci::{
     AnchorState, ChainParams, ParentInfo, Schedule,
     committee::{record_hash, verify_committee_witness_at_cutoff},
+    fallback::FallbackKeys,
     rules,
 };
 use alloy_primitives::{Address, B256, U256, aliases::U48};
@@ -325,6 +326,8 @@ pub struct BatchBuilder<C: ?Sized, L: ?Sized> {
     /// The last tip whose anchor [`BatchBuilder::tip_anchor`] authenticated, so a later
     /// observation reads only the blocks decided since.
     tip_anchor: Mutex<Option<TipAnchor>>,
+    /// The fallback key lists obtained from the L1, by their hash, so each is read once.
+    fallback_lists: Mutex<BTreeMap<B256, FallbackKeys>>,
     /// The exact end of every batch ([`BatchBuilder::with_land_to`]).
     land_to: Option<u64>,
 }
@@ -357,6 +360,7 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
             deflate_budget: MAX_SELECTION_DEFLATE_BYTES,
             checkpoint_cache: Mutex::new(None),
             tip_anchor: Mutex::new(None),
+            fallback_lists: Mutex::new(BTreeMap::new()),
             land_to: None,
         })
     }
@@ -560,46 +564,81 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     }
 
     /// The generation's initial set, which signs every height until per-height set decisions
-    /// land, and the L1 cutoff of its snapshot. A recovery generation's set is the committee R
-    /// selected, which the snapshot's recovery evidence authenticates. Generation zero's is the
-    /// bootstrap committee, derived from its registry witness at the genesis cutoff under
-    /// `anchor`'s root and checked against the bootstrap record hash.
+    /// land, and the L1 block it is fixed at. A recovery generation's set is the keys of the
+    /// fallback key list whose hash its origin record holds, each at power 1, fixed at R: the
+    /// batch's starting proof `starting`, under `anchor`, proves that hash, which must be the
+    /// snapshot's authenticated origin's, and the list is obtained by it at R
+    /// ([`BatchBuilder::fallback_list`]). So no root but the batch's own anchors authenticates
+    /// the set. Generation zero's is the bootstrap committee, derived from its registry witness
+    /// at the genesis cutoff under `anchor`'s root and checked against the bootstrap record hash.
     async fn initial_set(
         &self,
         snapshot: &LandingSnapshot,
         anchor: &AnchorState,
+        starting: &abci::AnchorWitness,
     ) -> Result<(Validators, u64)> {
-        let committee = match snapshot.initial_committee() {
-            Some(committee) => committee.clone(),
-            None => {
-                let cutoff = snapshot.genesis.genesis_cutoff;
-                if anchor.number < cutoff {
-                    return Err(LanderError::Safety(
-                        "committee proving root predates authenticated derivation snapshot".into(),
-                    ));
-                }
-                let witness = self.l1.committee_witness(anchor, cutoff, Schedule::E0).await?;
-                let (record, members) = verify_committee_witness_at_cutoff(
-                    anchor.state_root,
-                    cutoff,
-                    &self.params,
-                    &witness,
-                    Schedule::E0,
-                )
-                .map_err(|e| LanderError::Safety(e.to_string()))?;
-                if record_hash(self.params.l2_chain_id, &record) !=
-                    snapshot.genesis_committee_record_hash
-                {
-                    return Err(LanderError::Safety(
-                        "derived genesis committee differs from bootstrap".into(),
-                    ));
-                }
-                abci::CommitteeState { record, members }
+        if let Some(origin) = &snapshot.recovery {
+            let slot = abci::l1::layout::inbox::origin_slots(origin.generation)[3];
+            let proven = starting
+                .inbox
+                .storage
+                .iter()
+                .find(|proof| proof.slot == slot)
+                .map(|proof| B256::from(proof.value));
+            if proven != Some(origin.fallback_keys_hash) {
+                return Err(LanderError::Safety(
+                    "starting proof's origin fallbackKeysHash contradicts the recovery origin"
+                        .into(),
+                ));
             }
-        };
-        let validators = Validators::from_members(&committee.members)
-            .map_err(|e| LanderError::Safety(e.to_string()))?;
-        Ok((validators, committee.record.cutoff_l1_block))
+            let r = recovery_anchor(snapshot)?;
+            let keys = self.fallback_list(origin.fallback_keys_hash, r.hash, r.number).await?;
+            let validators = Validators::from_powers(&keys.validator_set())
+                .map_err(|e| LanderError::Safety(e.to_string()))?;
+            return Ok((validators, origin.l1_number));
+        }
+        let cutoff = snapshot.genesis.genesis_cutoff;
+        if anchor.number < cutoff {
+            return Err(LanderError::Safety(
+                "committee proving root predates authenticated derivation snapshot".into(),
+            ));
+        }
+        let witness = self.l1.committee_witness(anchor, cutoff, Schedule::E0).await?;
+        let (record, members) = verify_committee_witness_at_cutoff(
+            anchor.state_root,
+            cutoff,
+            &self.params,
+            &witness,
+            Schedule::E0,
+        )
+        .map_err(|e| LanderError::Safety(e.to_string()))?;
+        if record_hash(self.params.l2_chain_id, &record) != snapshot.genesis_committee_record_hash {
+            return Err(LanderError::Safety(
+                "derived genesis committee differs from bootstrap".into(),
+            ));
+        }
+        let validators =
+            Validators::from_members(&members).map_err(|e| LanderError::Safety(e.to_string()))?;
+        Ok((validators, record.cutoff_l1_block))
+    }
+
+    /// The fallback key list whose hash is `hash`, from the cache of lists already obtained or
+    /// from the L1 at the block with hash `at` and number `at_number`, the block that stored it
+    /// or a later one ([`LandingSource::fallback_keys`], whose log scan reaches block 0). A list
+    /// the L1 cannot give is [`LanderError::Temporary`]; one that hashes elsewhere is refused.
+    async fn fallback_list(&self, hash: B256, at: B256, at_number: u64) -> Result<FallbackKeys> {
+        if let Some(keys) = self.fallback_lists.lock().await.get(&hash) {
+            return Ok(keys.clone());
+        }
+        let keys = self.l1.fallback_keys(hash, at, at_number, 0).await?;
+        if keys.hash() != hash {
+            return Err(LanderError::Safety(format!(
+                "L1 source answered the fallback key list {hash} with {}",
+                keys.hash()
+            )));
+        }
+        self.fallback_lists.lock().await.insert(hash, keys.clone());
+        Ok(keys)
     }
 
     /// Reuse only a fully authenticated checkpoint whose source parent and proving root remain
@@ -719,7 +758,8 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
                 "starting genesis/config proof contradicts snapshot".into(),
             ));
         }
-        let (validators, initial_cutoff) = self.initial_set(snapshot, &anchor).await?;
+        let (validators, initial_cutoff) =
+            self.initial_set(snapshot, &anchor, &starting_inbox_witness).await?;
         if at_origin {
             let (hash, root) = snapshot.recovery.as_ref().map_or(
                 (snapshot.genesis.genesis_hash, snapshot.genesis.genesis_state_root),
@@ -1497,6 +1537,16 @@ mod tests {
             self.fixture().committee_witness(anchor, snapshot_number, epoch).await
         }
 
+        async fn fallback_keys(
+            &self,
+            hash: B256,
+            at: B256,
+            at_number: u64,
+            from_block: u64,
+        ) -> Result<abci::fallback::FallbackKeys> {
+            self.fixture().fallback_keys(hash, at, at_number, from_block).await
+        }
+
         async fn reference(
             &self,
             snapshot: &LandingSnapshot,
@@ -1778,6 +1828,55 @@ mod tests {
         assert_eq!(start.validators.hash(), source.fixture().committees[&0].validators.hash());
         assert_eq!(start.initial_cutoff, snapshot.genesis.genesis_cutoff);
         assert_eq!(source.committee_reads.load(Ordering::Relaxed), 1);
+    }
+
+    /// A recovery generation's initial set is the origin record's fallback keys, each at power
+    /// 1, obtained once by the origin's hash: building the start again reads no list.
+    #[tokio::test]
+    async fn origin_list_is_read_once_by_its_hash() {
+        let recovered = crate::test_utils::consensus_mpt::recovery::fixture(8, 12, 18).await;
+        let source = TrackingSource::new(recovered);
+        let b = source.builder(18);
+        let snapshot = source.fixture().snapshot.clone();
+        let keys = crate::test_utils::consensus_mpt::recovery::origin_keys();
+        let expected = Validators::from_powers(&keys.validator_set()).unwrap();
+        let start = b.checkpoint(&snapshot).await.unwrap();
+        assert_eq!(start.validators.hash(), expected.hash());
+        assert_eq!(start.initial_cutoff, snapshot.recovery.as_ref().unwrap().l1_number);
+        *b.checkpoint_cache.lock().await = None;
+        let rebuilt = b.checkpoint(&snapshot).await.unwrap();
+        assert_eq!(rebuilt.validators.hash(), expected.hash());
+        assert_eq!(source.fixture().fallback_reads.load(Ordering::SeqCst), 1);
+    }
+
+    /// The origin hash comes from the origin record the batch's own starting proof carries, so
+    /// no root but the batch's anchors authenticates the set: a snapshot naming another hash is
+    /// refused before any list is read.
+    #[tokio::test]
+    async fn the_starting_proof_binds_the_origin_list_hash() {
+        let recovered = crate::test_utils::consensus_mpt::recovery::fixture(8, 12, 18).await;
+        let source = TrackingSource::new(recovered);
+        let mut snapshot = source.fixture().snapshot.clone();
+        snapshot.recovery.as_mut().unwrap().fallback_keys_hash = B256::repeat_byte(0x99);
+        let result = source.builder(18).checkpoint(&snapshot).await;
+        assert!(
+            matches!(&result, Err(LanderError::Safety(message)) if message.contains("fallbackKeysHash")),
+            "{:?}",
+            result.err()
+        );
+        assert_eq!(source.fixture().fallback_reads.load(Ordering::SeqCst), 0);
+    }
+
+    /// An origin list the L1 cannot give leaves the batch temporarily unbuildable, never a
+    /// safety fault.
+    #[tokio::test]
+    async fn an_unavailable_origin_list_leaves_the_start_temporary() {
+        let mut recovered = crate::test_utils::consensus_mpt::recovery::fixture(8, 12, 18).await;
+        recovered.fallback_lists.clear();
+        let source = TrackingSource::new(recovered);
+        let snapshot = source.fixture().snapshot.clone();
+        let result = source.builder(18).checkpoint(&snapshot).await;
+        assert!(matches!(result, Err(LanderError::Temporary(_))), "{:?}", result.err());
     }
 
     /// A later observation resolves the tip's anchor from the tip an earlier one resolved, so

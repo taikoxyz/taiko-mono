@@ -12,9 +12,12 @@ mod verify;
 pub use fetch::{
     authenticate_recovery, authenticate_recovery_with_headers, check_recovery_canonicality,
 };
-pub use genesis::{RecoveryBootstrap, VerifiedBootstrap, build_recovery_genesis, recovery_parent};
+pub use genesis::{
+    RECOVERY_BOOTSTRAP_VERSION, RecoveryBootstrap, VerifiedBootstrap, build_recovery_genesis,
+    recovery_parent,
+};
 pub(crate) use genesis::{recovery_anchor, recovery_bootstrap};
-pub use types::{RecoveryError, RecoveryOrigin, RecoveryWitness};
+pub use types::{RECOVERY_WITNESS_VERSION, RecoveryError, RecoveryOrigin, RecoveryWitness};
 pub(crate) use verify::{VerifiedRecovery, verify_recovery};
 pub use verify::{verify_recovery_deployment, verify_recovery_witness};
 
@@ -23,20 +26,40 @@ mod tests {
     use super::*;
     use crate::{
         l1::{RawL1Header, layout::inbox},
-        test_utils::{EngineCall, L1Call, l1_header, recovery_fixture as fixture},
+        test_utils::{
+            EngineCall, L1Call, l1_header, recovery_fallback_keys, recovery_fixture as fixture,
+        },
     };
     use alloy_primitives::{B256, U256};
 
     #[test]
-    fn recovery_witness_binds_fixed_origin_and_r_snapshot() {
+    fn recovery_witness_binds_fixed_origin_and_its_fallback_keys_hash() {
         let (fx, _, _, witness) = fixture(1, 6, 1);
         let origin = verify_recovery_witness(&witness, &fx.params).unwrap();
         assert_eq!((origin.generation, origin.height, origin.l1_number), (1, 6, 100));
         assert_eq!(origin.forced_cursor, 3);
-        assert_eq!(origin.committee.record.cutoff_l1_block, 100);
-        assert_eq!(origin.committee.record.target_epoch, 0);
+        assert_eq!(origin.fallback_keys_hash, recovery_fallback_keys().hash());
         assert_eq!(origin.state_root, B256::repeat_byte(0x55));
         assert_eq!(origin.comet_hash, B256::repeat_byte(0xcc));
+    }
+
+    /// Only the current witness version verifies or decodes from a genesis `app_state`; a
+    /// version-1 witness, which carried R's registry committee, is refused.
+    #[test]
+    fn recovery_witness_version_1_is_refused() {
+        let (fx, _, _, mut w) = fixture(1, 6, 1);
+        assert_eq!(w.version, RECOVERY_WITNESS_VERSION);
+        assert_eq!(RECOVERY_WITNESS_VERSION, 2);
+        w.version = 1;
+        assert!(matches!(
+            verify_recovery_witness(&w, &fx.params),
+            Err(RecoveryError::Invalid(message)) if message.contains("version")
+        ));
+        let app_state = serde_json::to_vec(&crate::AppStateJson::from(&w)).unwrap();
+        assert!(matches!(
+            crate::decode_bootstrap_state(&app_state),
+            Err(crate::GenesisError::UnsupportedRecovery(_))
+        ));
     }
 
     /// RECOV-8.1-6: expectedC is the c that landers settled, and a landing may end at any
@@ -64,17 +87,15 @@ mod tests {
     }
 
     #[test]
-    fn recovery_rejects_headers_committee_config_and_domain_tampering() {
+    fn recovery_rejects_headers_config_and_domain_tampering() {
         let (fx, _, _, w) = fixture(1, 6, 1);
-        let mut variants = vec![w.clone(); 8];
+        let mut variants = vec![w.clone(); 6];
         variants[0].recovery_header = RawL1Header::from(&l1_header(100, 1));
-        variants[1].committee.registry.storage_root = B256::ZERO;
-        variants[2].committee.record.target_epoch = 1;
-        variants[3].el_header.state_root = B256::ZERO;
-        variants[4].parent_headers[0].timestamp += 1;
-        variants[5].version = 2;
-        variants[6].generation = 0;
-        variants[7].parent_headers.clear();
+        variants[1].el_header.state_root = B256::ZERO;
+        variants[2].parent_headers[0].timestamp += 1;
+        variants[3].version = RECOVERY_WITNESS_VERSION + 1;
+        variants[4].generation = 0;
+        variants[5].parent_headers.clear();
         for bad in variants {
             assert!(verify_recovery_witness(&bad, &fx.params).is_err());
         }
@@ -84,9 +105,6 @@ mod tests {
             verify_recovery_witness(&w, &params),
             Err(RecoveryError::ConfigMismatch { .. })
         ));
-        params = fx.params.clone();
-        params.registry = alloy_primitives::Address::ZERO;
-        assert!(verify_recovery_witness(&w, &params).is_err());
     }
 
     #[test]
@@ -95,7 +113,7 @@ mod tests {
             let (fx, _, _, w) = fixture(generation, c, generation);
             let origin = verify_recovery_witness(&w, &fx.params).unwrap();
             assert_eq!(origin.height, c);
-            assert_eq!(origin.committee.record.target_epoch, c / 20);
+            assert_eq!(origin.fallback_keys_hash, recovery_fallback_keys().hash());
         }
     }
 
@@ -216,8 +234,6 @@ mod tests {
         w.recovery_header =
             edit_l1_header(&w.recovery_header, |h| h.state_root = state.state_root());
         w.recovery_inbox = state.witness(fx.params.inbox, &inbox::recovery_slots(1, 0));
-        let registry_slots: Vec<_> = w.committee.registry.storage.iter().map(|p| p.slot).collect();
-        w.committee.registry = state.witness(fx.params.registry, &registry_slots);
         assert!(matches!(
             verify_recovery_witness(&w, &fx.params),
             Err(RecoveryError::Unavailable(message)) if message.contains("ruleset 1")
@@ -260,6 +276,80 @@ mod tests {
                 Err(RecoveryError::Invalid(_))
             ));
         }
+    }
+
+    /// Replaces the state of both of `w`'s observations, R and the finalized one, with
+    /// `state`, proving the recovery slots again.
+    fn observe_both(
+        fx: &crate::test_utils::Fixture,
+        w: &mut RecoveryWitness,
+        state: &crate::test_utils::TestState,
+    ) {
+        use crate::test_utils::edit_l1_header;
+        let slots = inbox::recovery_slots(w.generation, w.el_header.number);
+        for (header, proof) in [
+            (&mut w.recovery_header, &mut w.recovery_inbox),
+            (&mut w.finalized_header, &mut w.finalized_inbox),
+        ] {
+            *header = edit_l1_header(header, |h| h.state_root = state.state_root());
+            *proof = state.witness(fx.params.inbox, &slots);
+        }
+    }
+
+    /// The origin record's fourth word is the `fallbackKeysHash` whose list signs c + 1 and
+    /// c + 2. It is read from the same proof as the rest of the record, at R and at the
+    /// finalized observation alike, so the two must agree; a zero word is a missing record, as
+    /// `recover` writes the hash of a list of at least one key.
+    #[test]
+    fn origin_word_4_is_read_from_the_same_proof_and_must_be_nonzero() {
+        use crate::test_utils::edit_l1_header;
+        let (fx, _, _, w) = fixture(1, 6, 1);
+        let word = inbox::origin_slots(1)[3];
+        let proven = w.recovery_inbox.storage.iter().find(|p| p.slot == word).unwrap().value;
+        let origin = verify_recovery_witness(&w, &fx.params).unwrap();
+        assert_eq!(origin.fallback_keys_hash, B256::from(proven));
+        assert_ne!(origin.fallback_keys_hash, B256::ZERO);
+
+        let other = changed_state(&fx, &w, &[(word, U256::from(7))]);
+        let mut bad = w.clone();
+        bad.finalized_header =
+            edit_l1_header(&w.finalized_header, |h| h.state_root = other.state_root());
+        bad.finalized_inbox = other.witness(fx.params.inbox, &inbox::recovery_slots(1, 6));
+        assert!(matches!(
+            verify_recovery_witness(&bad, &fx.params),
+            Err(RecoveryError::Invalid(message)) if message.contains("does not bind")
+        ));
+
+        let mut bad = w.clone();
+        observe_both(&fx, &mut bad, &changed_state(&fx, &w, &[(word, U256::ZERO)]));
+        assert!(matches!(
+            verify_recovery_witness(&bad, &fx.params),
+            Err(RecoveryError::Invalid(message)) if message.contains("missing or inconsistent")
+        ));
+    }
+
+    /// `setFallbackKeys` and `setMinTotalStake` replace slots 278 and 279 at any time, so they
+    /// are not deployment facts: a recovery whose observations show other words there than the
+    /// proof at `L1_0` still verifies, its origin keeps the hash the origin record holds, and
+    /// R's anchor reports the words R holds.
+    #[test]
+    fn fallback_keys_and_min_total_stake_changed_after_initialization_keep_the_recovery() {
+        let (fx, _, _, mut w) = fixture(1, 6, 1);
+        let original = verify_recovery_witness(&w, &fx.params).unwrap();
+        let replaced = B256::repeat_byte(0x78);
+        let state = changed_state(
+            &fx,
+            &w,
+            &[
+                (inbox::slot(inbox::FALLBACK_KEYS_HASH), replaced.into()),
+                (inbox::slot(inbox::MIN_TOTAL_STAKE), U256::MAX),
+            ],
+        );
+        observe_both(&fx, &mut w, &state);
+        assert_eq!(verify_recovery_witness(&w, &fx.params).unwrap(), original);
+        let anchor = recovery_anchor(&w, &fx.params).unwrap();
+        assert_eq!(anchor.inbox.fallback_keys_hash, replaced);
+        assert_eq!(anchor.inbox.min_total_stake, U256::MAX);
     }
 
     #[test]
@@ -367,8 +457,6 @@ mod tests {
         w.genesis.committee.registry = state.witness(fx.params.registry, &registry_slots);
         w.recovery_header = w.genesis.l1_header.clone();
         w.recovery_inbox = state.witness(fx.params.inbox, &inbox::recovery_slots(1, 0));
-        w.committee.record.cutoff_l1_block = 64;
-        w.committee.registry = state.witness(fx.params.registry, &registry_slots);
         w.finalized_header =
             edit_l1_header(&w.finalized_header, |h| h.state_root = state.state_root());
         l1.insert_header(w.finalized_header.clone());
@@ -383,10 +471,7 @@ mod tests {
         let fetched = authenticate_recovery(&l1, &engine, &fx.params, 1).await.unwrap();
         assert_eq!(verify_recovery_witness(&fetched, &fx.params).unwrap(), origin);
         let doc = build_recovery_genesis(&l1, &engine, &fx.params, 1).await.unwrap();
-        let mut request = fx.request.clone();
-        request.chain_id = doc.chain_id;
-        request.time = doc.genesis_time.parse().unwrap();
-        request.app_state_bytes = serde_json::to_vec(&doc.app_state).unwrap().into();
+        let request = crate::test_utils::init_chain_request(&doc);
         let dir = tempfile::tempdir().unwrap();
         let mut app = crate::App::new(
             l1,
@@ -402,32 +487,6 @@ mod tests {
         assert_eq!(app.state().unwrap().generation, 1);
     }
 
-    #[test]
-    fn recovery_initial_committee_applies_exclusions_at_end_of_r() {
-        use crate::{
-            committee::{Snapshot, derive},
-            test_utils::{committee_witness, edit_l1_header},
-        };
-        let (mut fx, _, _, mut w) = fixture(1, 6, 1);
-        let mut entries = fx.registry.checkpoints[0].1.clone();
-        entries[0].exit_effective_l1 = 100;
-        fx.registry.checkpoints.push((100, entries.clone()));
-        let state = changed_state(&fx, &w, &[]);
-        w.recovery_header =
-            edit_l1_header(&w.recovery_header, |h| h.state_root = state.state_root());
-        w.finalized_header =
-            edit_l1_header(&w.finalized_header, |h| h.state_root = state.state_root());
-        w.recovery_inbox = state.witness(fx.params.inbox, &inbox::recovery_slots(1, 6));
-        w.finalized_inbox = w.recovery_inbox.clone();
-        let (record, _) =
-            derive(&Snapshot { checkpoint_index: 1, l1_block: 100, entries }, 100, 0, &fx.params)
-                .unwrap();
-        w.committee = committee_witness(&state, fx.params.registry, &fx.registry, 1, record);
-        let origin = verify_recovery_witness(&w, &fx.params).unwrap();
-        assert_eq!(origin.committee.members.len(), 1);
-        assert_eq!(origin.committee.record.checkpoint_index, 1);
-        assert_eq!(origin.committee.record.cutoff_l1_block, 100);
-    }
     #[tokio::test]
     async fn recovery_fetch_reports_supersession_before_unavailable_genesis_history() {
         let (fx, l1, engine, _) = fixture(2, 6, 2);
@@ -455,8 +514,6 @@ mod tests {
             edit_l1_header(&w.recovery_header, |h| h.state_root = state.state_root());
         w.finalized_inbox = state.witness(fx.params.inbox, &inbox::recovery_slots(1, 0));
         w.recovery_inbox = w.finalized_inbox.clone();
-        let slots: Vec<_> = w.committee.registry.storage.iter().map(|p| p.slot).collect();
-        w.committee.registry = state.witness(fx.params.registry, &slots);
         assert!(matches!(verify_recovery_witness(&w, &fx.params), Err(RecoveryError::Invalid(_))));
     }
 

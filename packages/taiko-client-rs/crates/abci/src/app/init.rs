@@ -13,16 +13,16 @@ use super::{
 use crate::{
     ChainParams,
     engine::Engine,
+    fallback::FallbackKeys,
     genesis::{
-        BootstrapWitness, GenesisConsensusParams, GenesisExpectation, decode_bootstrap_state,
-        verify_bootstrap,
+        BootstrapWitness, GenesisConsensusParams, GenesisError, GenesisExpectation,
+        decode_bootstrap_state, verify_bootstrap,
     },
     l1::{L1Source, OwnFinality, own_finality},
     recovery::{RecoveryBootstrap, RecoveryWitness, VerifiedBootstrap, recovery_parent},
     rules::RuleViolation,
     store::AppState,
     types::{GenesisRecord, Member, ParentInfo},
-    valstate::ValStateError,
 };
 
 impl<L: L1Source, E: Engine> App<L, E> {
@@ -100,20 +100,23 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// In order: decodes the `app_state` witness; verifies it once with [`verify_bootstrap`]
     /// (generation zero: the Inbox witness at `L1_0`, the schedule and the `e_0` committee at
-    /// `genesisCutoff` with its record hash; recovery: the fixed origin, R's observation and
-    /// committee and the deployment context, embedding R as the finalized observation); requires
-    /// the request's time, canonical consensus parameters, `chain_id`, initial height and
+    /// `genesisCutoff` with its record hash; recovery: the fixed origin, R's observation and the
+    /// deployment context, embedding R as the finalized observation); requires the request's
+    /// time, canonical consensus parameters, `chain_id`, initial height and, at generation zero,
     /// validators to be exactly the ones that evidence determines ([`check_request`]); then
     /// acquires the inputs the evidence leaves to the own L1 and EL. At generation zero: the
     /// `L1_0` header must be final and canonical in the own L1 view, and the EL must serve the
     /// Etna start block with the start hash and the start state root (EL sync if needed). For a
-    /// recovery, the inputs come from [`App::recovery_inputs`], retried here while unavailable.
-    /// The state is
+    /// recovery, the inputs come from [`App::recovery_inputs`], retried here while unavailable,
+    /// and include the fallback key list whose hash the origin record holds: the request's
+    /// validators must be exactly its keys, each at power 1 ([`check_fallback_validators`]). The
+    /// state is
     /// [`VerifiedGenesis::origin_state`](crate::genesis::VerifiedGenesis::origin_state), as for
     /// an import at the origin: `last = (S, start hash)` with the `L1_0` anchor, or c with its
-    /// historical anchor; the origin's forced inclusion cursor; and CometBFT's genesis validator
-    /// state of the initial committee at the origin height. A recovery's immutable bootstrap
-    /// sidecar is durable before this returns, so before the state is published.
+    /// historical anchor; the origin's forced inclusion cursor; CometBFT's genesis validator
+    /// state of the initial set at the origin height; and a recovery's origin key list. A
+    /// recovery's immutable bootstrap sidecar is durable before this returns, so before the
+    /// state is published.
     async fn verify_genesis(&self, req: &request::InitChain) -> Result<AppState, AbciError> {
         let witness = decode_bootstrap_state(&req.app_state_bytes)?;
         let (verified, expected) = verify_bootstrap(&witness, &self.params)?;
@@ -157,7 +160,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
                 }
             }
         };
+        check_fallback_validators(&req.validators, &history.fallback_keys)?;
         let state = verified
+            .with_fallback_keys(history.fallback_keys)?
             .origin_state(chain_id, recovery_parent(w), history.anchor)
             .map_err(not_a_validator_set)?;
         self.store.save_recovery_bootstrap(&bootstrap)?;
@@ -191,8 +196,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
     ///
     /// Reauthenticates the retained headers, the current generation and the fixed origin in
     /// the own finalized L1 view ([`check_recovery_canonicality`]); takes the historical anchor
-    /// from the immutable sidecar a previous attempt stored (which must retain `w` exactly, with
-    /// its anchor still final and canonical) or fetches it from the own L1
+    /// and the origin fallback key list from the immutable sidecar a previous attempt stored
+    /// (which must retain `w` exactly, with its anchor still final and canonical, and the list
+    /// whose hash the origin record holds) or fetches both from the own L1
     /// ([`recovery_bootstrap`]); then points the EL at c's authenticated hash
     /// ([`App::sync_el_to`]) and requires it to serve c and its parent exactly as `w`
     /// authenticates them, and c's state. Returns the sidecar to store and what its verification
@@ -336,7 +342,9 @@ impl<L: L1Source, E: Engine> App<L, E> {
 
 /// Requires the request's representable fields to be exactly the ones its bootstrap evidence
 /// determines (START-10-20/21, RECOV-8.4-7/9), in this order: the genesis time, the canonical
-/// consensus parameters, the `chain_id`, the initial height and the validators.
+/// consensus parameters, the `chain_id`, the initial height and, when the evidence determines
+/// them (generation zero's committee), the validators. A recovery generation's validators are
+/// checked once its origin fallback key list is obtained ([`check_fallback_validators`]).
 fn check_request(
     req: &request::InitChain,
     expected: &GenesisExpectation,
@@ -364,7 +372,10 @@ fn check_request(
             expected: expected.initial_height,
         });
     }
-    check_validators(&req.validators, &expected.validators)
+    match &expected.validators {
+        Some(members) => check_validators(&req.validators, members),
+        None => Ok(()),
+    }
 }
 
 /// Requires the genesis validators to be exactly `members`: the same native secp256k1eth keys with
@@ -399,8 +410,51 @@ fn check_validators(
     }
 }
 
-/// The error of an initial committee that is not a CometBFT validator set: CometBFT refuses a
-/// genesis set it cannot build, so neither can the app.
-fn not_a_validator_set(error: ValStateError) -> AbciError {
-    AbciError::GenesisValidatorsMismatch(format!("not a CometBFT validator set: {error}"))
+/// Requires a recovery generation's genesis validators to be exactly the fallback key list
+/// `keys` whose hash its origin record holds: every validator at voting power 1, no key listed
+/// twice, and their keys, in ascending order, the list's keys.
+pub(crate) fn check_fallback_validators(
+    validators: &[crate::wire::ValidatorUpdate],
+    keys: &FallbackKeys,
+) -> Result<(), AbciError> {
+    let mismatch = AbciError::GenesisValidatorsMismatch;
+    let mut listed = Vec::with_capacity(validators.len());
+    for v in validators {
+        if v.power.value() != 1 {
+            return Err(mismatch(format!(
+                "validator {} has power {}, a fallback key has power 1",
+                v.pub_key,
+                v.power.value()
+            )));
+        }
+        listed.push(v.pub_key);
+    }
+    listed.sort();
+    if let Some(pair) = listed.windows(2).find(|pair| pair[0] == pair[1]) {
+        return Err(mismatch(format!("validator {} is listed twice", pair[0])));
+    }
+    if let Some(missing) = keys.keys().iter().find(|key| listed.binary_search(key).is_err()) {
+        return Err(mismatch(format!(
+            "fallback key {missing} of the origin list {} is missing",
+            keys.hash()
+        )));
+    }
+    if let Some(extra) = listed.iter().find(|key| keys.keys().binary_search(key).is_err()) {
+        return Err(mismatch(format!(
+            "validator {extra} is not in the origin fallback key list {}",
+            keys.hash()
+        )));
+    }
+    Ok(())
+}
+
+/// The error of an initial set that is not a CometBFT validator set: CometBFT refuses a genesis
+/// set it cannot build, so neither can the app. Any other error keeps its own class.
+fn not_a_validator_set(error: GenesisError) -> AbciError {
+    match error {
+        GenesisError::ValidatorSet(error) => {
+            AbciError::GenesisValidatorsMismatch(format!("not a CometBFT validator set: {error}"))
+        }
+        other => other.into(),
+    }
 }

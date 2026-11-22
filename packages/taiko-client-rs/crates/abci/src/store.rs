@@ -9,6 +9,7 @@
 
 use std::{
     borrow::Cow,
+    collections::BTreeMap,
     fmt,
     fs::{self, File},
     io::{self, Write},
@@ -19,6 +20,7 @@ use alloy_primitives::{Address, B256, keccak256};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    fallback::FallbackKeys,
     key::ConsensusKey,
     recovery::RecoveryOrigin,
     schedule::Schedule,
@@ -98,6 +100,10 @@ pub struct AppState {
     /// generation's genesis state, advanced by every committed height's validator updates. A
     /// required field: a state file without it is refused (no migration).
     pub val_state: ValState,
+    /// The fallback key lists the node holds, keyed by their hash, each hashing to its key, so
+    /// a list is obtained from the own L1 once. A recovery generation starts with its origin
+    /// record's list. A required field: a state file without it is refused (no migration).
+    pub fallback_keys: BTreeMap<B256, FallbackKeys>,
 }
 
 /// The oldest EL block a checkpoint-imported store holds with its state: the landed checkpoint
@@ -818,6 +824,10 @@ mod tests {
             forced_cursor: 3,
             val_state: ValState::genesis(105, &crate::test_utils::powers(&committee(0).members))
                 .unwrap(),
+            fallback_keys: [crate::test_utils::fallback_list(&[1, 2])]
+                .into_iter()
+                .map(|keys| (keys.hash(), keys))
+                .collect(),
             execution_floor: None,
         }
     }
@@ -1004,6 +1014,17 @@ mod tests {
         assert_eq!(store.load().expect("loads"), Some(s));
     }
 
+    /// The fallback key lists are a JSON object keyed by their hashes, each list the array of its
+    /// keys.
+    #[test]
+    fn fallback_key_lists_are_saved_by_their_hash() {
+        let s = state();
+        let json = serde_json::to_value(&s).unwrap();
+        let (hash, keys) = s.fallback_keys.first_key_value().unwrap();
+        assert_eq!(json["fallback_keys"][hash.to_string()], serde_json::to_value(keys).unwrap());
+        assert_eq!(serde_json::from_value::<AppState>(json).unwrap(), s);
+    }
+
     #[test]
     fn load_rejects_a_state_missing_a_required_field() {
         let dir = tempfile::tempdir().unwrap();
@@ -1019,6 +1040,7 @@ mod tests {
             ("/val_state/current/entries/0", "key"),
             ("", "forced_cursor"),
             ("", "val_state"),
+            ("", "fallback_keys"),
             ("/genesis", "forced_inclusion_delay"),
             ("/genesis", "max_anchor_age"),
             ("/anchor/inbox", "forced_inclusion_head"),

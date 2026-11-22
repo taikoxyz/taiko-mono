@@ -390,6 +390,7 @@ impl Fixture {
             forced_cursor: 0,
             val_state: ValState::genesis(self.genesis.genesis_height, &powers(&self.members))
                 .expect("the e_0 committee is a CometBFT validator set"),
+            fallback_keys: Default::default(),
             execution_floor: None,
         }
     }
@@ -575,29 +576,26 @@ pub(crate) fn abci_consensus_params(
     }
 }
 
-/// A proof-backed recovery with retained old-generation landing and a later checkpoint.
+/// The fallback key list the origin record of every [`recovery_fixture`] holds the hash of: the
+/// keys of the fixture's two registry entries, so the fixture's proposer is one of them.
+pub(crate) fn recovery_fallback_keys() -> crate::fallback::FallbackKeys {
+    super::fallback_list(&[1, 2])
+}
+
+/// A proof-backed recovery with retained old-generation landing and a later checkpoint. The
+/// origin record holds the hash of [`recovery_fallback_keys`], which the L1's
+/// `getFallbackKeys()` returns.
 pub(crate) fn recovery_fixture(
     generation: u64,
     c: u64,
     r_generation: u64,
 ) -> (Fixture, MockL1, MockEngine, crate::recovery::RecoveryWitness) {
-    recovery_fixture_with_spec(GenesisSpec::new(2), generation, c, r_generation)
-}
-
-/// Recovery evidence over a caller-selected immutable deployment schedule.
-pub(crate) fn recovery_fixture_with_spec(
-    spec: GenesisSpec,
-    generation: u64,
-    c: u64,
-    r_generation: u64,
-) -> (Fixture, MockL1, MockEngine, crate::recovery::RecoveryWitness) {
     use super::registry_account;
-    use crate::{
-        committee::{Snapshot, derive},
-        recovery::RecoveryWitness,
-    };
-    let fx = Fixture::build(spec);
+    use crate::recovery::{RECOVERY_WITNESS_VERSION, RecoveryWitness};
+    let fx = Fixture::build(GenesisSpec::new(2));
     let l1 = fx.l1();
+    let keys = recovery_fallback_keys();
+    super::serve_fallback_keys(&l1, fx.params.inbox, &keys);
     let parent =
         Header { number: c.saturating_sub(1), timestamp: 1_760_000_060, ..Header::default() };
     let el = if c == 0 {
@@ -634,6 +632,7 @@ pub(crate) fn recovery_fixture_with_spec(
         U256::from(c),
         U256::from(100),
         U256::from(Fixture::l1_timestamp(100)),
+        keys.hash().into(),
     ]));
     words.extend(inbox::landing_record_slots(c).into_iter().zip([
         U256::from(if c == 0 { 0 } else { 3 }) << 96,
@@ -657,16 +656,8 @@ pub(crate) fn recovery_fixture_with_spec(
     let finalized_header =
         l1.insert_block(l1_header(110, Fixture::l1_timestamp(110)), final_state.clone());
     l1.set_finalized(110);
-    let entries = fx.registry.checkpoints[0].1.clone();
-    let (record, _) = derive(
-        &Snapshot { checkpoint_index: 0, l1_block: 63, entries },
-        100,
-        c / fx.genesis.epoch_len,
-        &fx.params,
-    )
-    .unwrap();
     let witness = RecoveryWitness {
-        version: 1,
+        version: RECOVERY_WITNESS_VERSION,
         generation,
         genesis: fx.witness.clone(),
         finalized_header,
@@ -674,7 +665,6 @@ pub(crate) fn recovery_fixture_with_spec(
             .witness(fx.params.inbox, &inbox::recovery_slots(generation, c)),
         recovery_header,
         recovery_inbox: r_state.witness(fx.params.inbox, &inbox::recovery_slots(generation, c)),
-        committee: committee_witness(&r_state, fx.params.registry, &fx.registry, 0, record),
         el_header: el,
         parent_headers: if c == 0 { vec![] } else { vec![parent] },
     };

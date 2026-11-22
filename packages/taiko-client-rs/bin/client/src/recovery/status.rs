@@ -21,7 +21,7 @@ pub struct RecoveryStatus {
     pub genesis_time: String,
     /// keccak256 of the exact genesis.json bytes; equal across honest operators.
     pub genesis_hash: B256,
-    /// Size of the committee reselected on R's registry snapshot.
+    /// How many genesis validators the plan lists: the keys of the origin fallback key list.
     pub validators: usize,
     /// Latest checkpoint height `prepare` observed on own finalized L1; not a runtime fact.
     pub observed_checkpoint_height: u64,

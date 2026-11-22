@@ -28,6 +28,14 @@ fn builder(f: Arc<Fixture>) -> BatchBuilder<Fixture, Fixture> {
     .unwrap()
 }
 
+/// The fallback key list generation two's origin record holds the hash of: the keys of the
+/// fixture's two signers, which sign every height of the generation, each at power 1.
+pub(crate) fn origin_keys() -> abci::fallback::FallbackKeys {
+    let mut keys = [1u8, 2].map(|seed| public_key(&SigningKey::from_slice(&[seed; 32]).unwrap()));
+    keys.sort();
+    abci::fallback::FallbackKeys::new(keys.to_vec()).unwrap()
+}
+
 /// Retains generation-zero c=6 and starts generation two at c+1, using R=20.
 pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     let mut f = Fixture::with_epoch(6, 6, 0, length);
@@ -44,23 +52,29 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     let old_comet = f.snapshot.checkpoint_comet_hash;
     let epoch = 6 / length;
     let old_committees = f.committees.clone();
-    for e in epoch..=schedule.epoch_of(tip + 2).max(epoch + 2) {
-        let cutoff = if e == epoch || schedule.derivation_parent_height(e).is_none_or(|h| h <= 7) {
-            20
-        } else {
-            21
-        };
-        let (record, members) = derive(
-            &Snapshot { checkpoint_index: 0, l1_block: 1, entries: entries.clone() },
-            cutoff,
-            e,
-            &f.params,
-        )
-        .unwrap();
-        f.committees.insert(e, FixtureCommittee::new(CommitteeState { record, members }));
+    // The origin keys, each at power 1, sign every height after c. The set takes every slot
+    // the fixture's committees are keyed by, so every committee the tests index is the set that
+    // signs the generation; its record only fills the fixture type, as no rule reads a record of
+    // a recovery set.
+    let keys = origin_keys();
+    let (record, _) = derive(
+        &Snapshot { checkpoint_index: 0, l1_block: 1, entries: entries.clone() },
+        20,
+        epoch,
+        &f.params,
+    )
+    .unwrap();
+    let members = keys
+        .keys()
+        .iter()
+        .map(|key| abci::Member { pubkey: *key, eff_stake: U256::ZERO, power: 1 })
+        .collect();
+    let origin_set = FixtureCommittee::new(CommitteeState { record, members });
+    for e in 0..=schedule.epoch_of(tip + 2).max(epoch + 2) {
+        f.committees.insert(e, origin_set.clone());
     }
-    // R's committee, the generation's initial set, signs every height after c.
-    f.val_states = replay_val_states((6, &f.committees[&epoch].state), tip);
+    f.val_states = replay_val_states((6, &origin_set.state), tip);
+    f.fallback_lists.insert(keys.hash(), keys.clone());
     let state_at = |height: u64, hash: B256, comet: B256| {
         let base = state_with_queue(
             &f.params,
@@ -81,6 +95,7 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
             U256::from(6),
             U256::from(20),
             U256::from(20),
+            keys.hash().into(),
         ]));
         slots.extend(inbox::landing_record_slots(6).into_iter().zip([
             U256::ZERO,
@@ -102,18 +117,13 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     let mut r_anchor = anchor(&r_header, 6, old_el.hash_slow(), &empty, words);
     r_anchor.inbox.recovery_generation = 2;
     let witness = abci::recovery::RecoveryWitness {
-        version: 1,
+        version: abci::recovery::RECOVERY_WITNESS_VERSION,
         generation: 2,
         genesis: genesis_witness,
         finalized_header: r_header.clone(),
         finalized_inbox: r_state.witness(f.params.inbox, &inbox::recovery_slots(2, 6)),
         recovery_header: r_header.clone(),
         recovery_inbox: r_state.witness(f.params.inbox, &inbox::recovery_slots(2, 6)),
-        committee: CommitteeWitness {
-            record: f.committees[&epoch].state.record.clone(),
-            registry: r_state.witness(f.params.registry, &snapshot_slots(0, false)),
-            entries: entries.clone(),
-        },
         el_header: old_el.clone(),
         parent_headers: vec![f.headers[&5].clone()],
     };
@@ -222,17 +232,17 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
 }
 
 /// From the recovery origin c = 6 the batch to 12 reports R (20) as the active committee
-/// snapshot: R's committee signs every height of the generation.
+/// snapshot: the origin record's fallback keys, each at power 1, sign every height of the
+/// generation.
 #[tokio::test]
-async fn recovery_origin_uses_retained_boundary_and_r_committee() {
+async fn recovery_origin_uses_retained_boundary_and_the_origin_keys() {
     for length in [6, 7, 8] {
         let f = Arc::new(fixture(length, 6, 12).await);
         let snapshot = &f.snapshot;
-        let r_committee = &snapshot.recovery.as_ref().unwrap().committee;
         let old_landing_comet_hash = snapshot.checkpoint_comet_hash;
         assert_eq!(snapshot.origin_height(), 6);
         assert_eq!(snapshot.recovery.as_ref().unwrap().comet_hash, old_landing_comet_hash);
-        assert_eq!(snapshot.initial_committee(), Some(r_committee));
+        assert_eq!(snapshot.recovery.as_ref().unwrap().fallback_keys_hash, origin_keys().hash());
         let prepared = builder(f.clone()).prepare(snapshot.clone()).await.unwrap().unwrap();
         prepared.batch.verify_restored().unwrap();
         assert_eq!(prepared.batch.input.activeCommitteeSnapshot, U256::from(20));
@@ -276,10 +286,10 @@ async fn recovered_origin_binds_the_stored_parent_words() {
     }
 }
 
-/// A later checkpoint keeps the authenticated origin, and R's committee stays the active one
-/// through the heights the global schedule called switches.
+/// A later checkpoint keeps the authenticated origin, and the origin keys stay the set that
+/// signs through the heights the global schedule called switches.
 #[tokio::test]
-async fn recovery_later_checkpoint_keeps_authenticated_origin_and_r_committee() {
+async fn recovery_later_checkpoint_keeps_authenticated_origin_and_the_origin_keys() {
     let mut terminal_leaves = BTreeMap::new();
     for (length, checkpoint) in [6, 7, 8].into_iter().flat_map(|l| [6, 12].map(|p| (l, p))) {
         let f = Arc::new(fixture(length, checkpoint, 18).await);
@@ -364,7 +374,15 @@ async fn starting_witness_authenticates_the_generation_origin_record() {
     let record = slots.map(|slot| {
         witness.inbox.storage.iter().find(|p| p.slot == slot).expect("origin slot is proven").value
     });
-    assert_eq!(record, [origin.height, origin.l1_number, origin.l1_timestamp].map(U256::from));
+    assert_eq!(
+        record,
+        [
+            U256::from(origin.height),
+            U256::from(origin.l1_number),
+            U256::from(origin.l1_timestamp),
+            origin.fallback_keys_hash.into(),
+        ]
+    );
 
     let mut without_origin = witness.clone();
     without_origin.inbox.storage.retain(|p| !slots.contains(&p.slot));
@@ -382,7 +400,7 @@ async fn recovery_requires_origin_evidence_pair_and_rejects_tampering() {
             0 => bad.recovery = None,
             1 => bad.recovery_witness = None,
             2 => bad.recovery.as_mut().unwrap().l1_number += 1,
-            3 => bad.recovery.as_mut().unwrap().committee.record.target_epoch += 1,
+            3 => bad.recovery.as_mut().unwrap().fallback_keys_hash = B256::repeat_byte(3),
             4 => bad.recovery.as_mut().unwrap().comet_hash = B256::ZERO,
             5 => bad.generation = 0,
             6 => {

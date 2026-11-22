@@ -20,12 +20,13 @@ builds the same genesis (RECOV-8.4-7..9):
 - `initial_height = c+1` and `genesis_time = R.timestamp`;
 - InitChain returns `app_hash` = appHash of ELHash(c) and the genesis validator state
   (CONS-3.1-8), and the EL state must match c's authenticated hash and state root;
-- the validators are the committee selected on R's registry snapshot for epoch `floor(c/L)`.
+- the validators are the keys of the fallback key list whose hash the new origin record holds,
+  each at power 1, obtained by that hash from the node's own L1.
 
 The first block uses stock genesis's empty LastBlockID/LastCommit (RECOV-8.4-10). The FI cursor
 starts at the authenticated origin head (RECOV-8.4-11). Every anchor and L1 root the new
-generation uses is at or after R (RECOV-8.4-12/13). The global epoch schedule continues
-unchanged, and old pending committee updates are discarded. Votes in different
+generation uses is at or after R (RECOV-8.4-12/13). Validator updates the old generation
+returned that had not taken effect are discarded. Votes in different
 generations use different signing domains and are not double signs; the new generation keeps
 its own HRS state from c+1 (RECOV-8.2-5/6). The app's InitChain repeats every check `prepare`
 makes, against its own L1 and EL.
@@ -72,8 +73,9 @@ the app uses. The plan file must not exist yet.
 taiko-client abci-recover prepare --l1.http http://127.0.0.1:8545 --l2.http http://127.0.0.1:8546 --l2.auth http://127.0.0.1:8551 --jwt.secret /var/lib/taiko/private/jwt.hex --chain-config /etc/taiko/chain.toml --generation 1 --out /var/lib/taiko/recovery/plan-g1.json --json
 ```
 
-`prepare` checks the L1 and L2 chain IDs, authenticates generation N, c, R and the reselected
-committee on own finalized L1 (RECOV-8.2-4), checks the EL state at c, rechecks own finality and
+`prepare` checks the L1 and L2 chain IDs, authenticates generation N, c, R and the
+`fallbackKeysHash` of the new origin record on own finalized L1 (RECOV-8.2-4), obtains the list
+with that hash, checks the EL state at c, rechecks own finality and
 the current generation, and only then writes the plan with mode 0600. A newer generation on own
 L1 fails with `superseded`. The plan holds the deployment parameters, the canonical witness, the
 origin and the exact genesis bytes; it holds no endpoint, path or credential.
