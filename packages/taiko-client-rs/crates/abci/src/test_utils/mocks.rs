@@ -413,6 +413,7 @@ pub(crate) enum EngineCall {
     HeaderByNumber(u64),
     FinalizedHeader,
     HistoricalState(B256),
+    StorageAt { address: Address, slots: Vec<B256>, hash: B256 },
 }
 
 /// The scriptable state of a [`MockEngine`].
@@ -448,6 +449,11 @@ pub(crate) struct MockEngineState {
     pub(crate) backfill: BTreeMap<u64, Header>,
     /// `(proxy, implementation)`: the proven implementation, answered only for that proxy.
     pub(crate) proxy_implementation: Option<(Address, Address)>,
+    /// Storage words by block hash, then account and slot, served by `storage_at` for a block
+    /// listed here or on the canonical `chain`; a slot not listed reads zero.
+    pub(crate) storage: BTreeMap<B256, BTreeMap<(Address, B256), U256>>,
+    /// Scripted `storage_at` answers (before falling back to `storage`).
+    pub(crate) storage_script: VecDeque<Result<Vec<U256>, EngineError>>,
     /// Scripted `header_by_number` answers (before falling back to `chain`).
     pub(crate) header_script: VecDeque<Result<Option<Header>, EngineError>>,
     /// Scripted `build_block` answers (an empty queue builds [`simple_block`]).
@@ -564,8 +570,14 @@ impl MockEngine {
             let mut state = engine.state();
             state.chain = old.chain.clone();
             state.known = old.known.clone();
+            state.storage = old.storage.clone();
         }
         engine
+    }
+
+    /// Sets the word at `slot` of `address` in the post-state of block `hash`.
+    pub(crate) fn set_storage(&self, hash: B256, address: Address, slot: B256, value: U256) {
+        self.state().storage.entry(hash).or_default().insert((address, slot), value);
     }
 
     /// Adds `header` to the known (not canonical) blocks.
@@ -730,6 +742,33 @@ impl Engine for MockEngine {
             return Err(error.clone());
         }
         Ok(state.historical_state.contains(&hash))
+    }
+
+    /// Pops `storage_script`; when empty, a block listed in `storage` or canonical in `chain`
+    /// answers its words, and any other block, known off the canonical chain or not at all, is
+    /// unavailable, as for the hash-pinned canonical read of a real EL.
+    async fn storage_at(
+        &self,
+        address: Address,
+        slots: &[B256],
+        hash: B256,
+    ) -> Result<Vec<U256>, EngineError> {
+        self.pause().await;
+        let mut state = self.state();
+        state.calls.push(EngineCall::StorageAt { address, slots: slots.to_vec(), hash });
+        if let Some(scripted) = state.storage_script.pop_front() {
+            return scripted;
+        }
+        let words = state.storage.get(&hash);
+        if words.is_none() && !state.chain.values().any(|header| header.hash_slow() == hash) {
+            return Err(EngineError::Transport(format!("mock EL holds no canonical block {hash}")));
+        }
+        Ok(slots
+            .iter()
+            .map(|slot| {
+                words.and_then(|words| words.get(&(address, *slot))).copied().unwrap_or_default()
+            })
+            .collect())
     }
 
     /// Pops `header_script`, falling back to the canonical `chain`.

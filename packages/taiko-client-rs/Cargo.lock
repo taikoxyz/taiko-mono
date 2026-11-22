@@ -10,6 +10,7 @@ dependencies = [
  "alloy",
  "alloy-consensus",
  "alloy-eips",
+ "alloy-json-rpc",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rlp",

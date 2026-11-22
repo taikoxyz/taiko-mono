@@ -1,12 +1,13 @@
 //! [`RpcEngine`]: the [`Engine`] trait over alethia-reth's JWT-authenticated Engine API endpoint
 //! (through [`rpc::auth::EngineClient`]) and its public JSON-RPC endpoint (for headers).
 
-use std::{path::Path, time::Duration};
+use std::{collections::HashMap, path::Path, time::Duration};
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_consensus::{Header, TxEnvelope};
 use alloy_eips::{BlockId, BlockNumberOrTag};
-use alloy_primitives::{Address, B256, Bytes};
+use alloy_json_rpc::{Id, RequestPacket, Response, ResponsePacket, ResponsePayload};
+use alloy_primitives::{Address, B256, Bytes, U256};
 use alloy_provider::{
     Provider, RootProvider,
     transport::{RpcError, TransportError},
@@ -23,6 +24,7 @@ use rpc::{
         build_jwt_http_provider, connect_http_with_timeout, http_timeout_for, read_jwt_secret,
     },
 };
+use tower::{Service, ServiceExt};
 use url::Url;
 
 use super::{Engine, EngineError, PayloadVerdict, block_from_payload, payload_from_block};
@@ -482,6 +484,82 @@ impl Engine for RpcEngine {
         Ok(Some(Address::from_word(B256::from(value))))
     }
 
+    /// One `eth_getStorageAt` per slot, all in a single JSON-RPC batch on the public endpoint,
+    /// each at `{blockHash: hash, requireCanonical: true}`. Answers are matched to slots by
+    /// request id and must be one 32-byte word per request; anything else is
+    /// [`EngineError::BadReply`]. A JSON-RPC error, for one request or for the whole batch (an
+    /// unknown block among them), and a transport failure are [`EngineError::Transport`].
+    async fn storage_at(
+        &self,
+        address: Address,
+        slots: &[B256],
+        hash: B256,
+    ) -> Result<Vec<U256>, EngineError> {
+        if slots.is_empty() {
+            return Ok(Vec::new());
+        }
+        let call = format!("eth_getStorageAt at {}", self.l2_endpoint);
+        let client = self.l2.client();
+        let at = BlockId::hash_canonical(hash);
+        let requests = slots
+            .iter()
+            .map(|slot| client.make_request("eth_getStorageAt", (address, *slot, at)).serialize())
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| EngineError::BadReply(format!("{call}: {error}")))?;
+        let ids: Vec<Id> = requests.iter().map(|request| request.id().clone()).collect();
+        let mut transport = client.transport().clone();
+        let reply = async { transport.ready().await?.call(RequestPacket::Batch(requests)).await }
+            .await
+            .map_err(|error| transport_error(call.clone(), error))?;
+        let replies = match reply {
+            ResponsePacket::Batch(replies) => replies,
+            ResponsePacket::Single(Response {
+                payload: ResponsePayload::Failure(error), ..
+            }) => {
+                return Err(EngineError::Transport(format!(
+                    "{call}: the batch at {hash} answered JSON-RPC error {}: {}",
+                    error.code, error.message
+                )))
+            }
+            ResponsePacket::Single(_) => {
+                return Err(EngineError::BadReply(format!(
+                    "{call}: one reply for a batch of {}",
+                    ids.len()
+                )))
+            }
+        };
+        if replies.len() != ids.len() {
+            return Err(EngineError::BadReply(format!(
+                "{call}: {} replies for {} requests",
+                replies.len(),
+                ids.len()
+            )));
+        }
+        let mut by_id = HashMap::with_capacity(replies.len());
+        for reply in replies {
+            if by_id.insert(reply.id, reply.payload).is_some() {
+                return Err(EngineError::BadReply(format!("{call}: two replies share an id")));
+            }
+        }
+        ids.iter()
+            .zip(slots)
+            .map(|(id, slot)| match by_id.remove(id) {
+                Some(ResponsePayload::Success(value)) => serde_json::from_str::<B256>(value.get())
+                    .map(|word| U256::from_be_bytes(word.0))
+                    .map_err(|error| {
+                        EngineError::BadReply(format!(
+                            "{call}: slot {slot} is no 32-byte word: {error}"
+                        ))
+                    }),
+                Some(ResponsePayload::Failure(error)) => Err(EngineError::Transport(format!(
+                    "{call}: slot {slot} at {hash} answered JSON-RPC error {}: {}",
+                    error.code, error.message
+                ))),
+                None => Err(EngineError::BadReply(format!("{call}: no reply for slot {slot}"))),
+            })
+            .collect()
+    }
+
     /// `eth_getBlockByNumber(number)` on the public endpoint; the header must hash to the reported
     /// hash ([`EngineError::HeaderHashMismatch`]) and be block `number`
     /// ([`EngineError::HeaderNumberMismatch`]).
@@ -708,6 +786,14 @@ mod tests {
     }
 
     async fn record_rpc(result: Value) -> (Url, tokio::task::JoinHandle<Value>) {
+        answer_rpc(move |body| json!({"jsonrpc":"2.0","id":body["id"],"result":result})).await
+    }
+
+    /// Accepts one JSON-RPC request on a local port and answers it with the body `answer` gives
+    /// for it; returns the endpoint and the request body.
+    async fn answer_rpc(
+        answer: impl FnOnce(&Value) -> Value + Send + 'static,
+    ) -> (Url, tokio::task::JoinHandle<Value>) {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = Url::parse(&format!("http://{}/", listener.local_addr().unwrap())).unwrap();
@@ -734,7 +820,7 @@ mod tests {
                     }
                 }
             };
-            let response = json!({"jsonrpc":"2.0","id":body["id"],"result":result}).to_string();
+            let response = answer(&body).to_string();
             socket.write_all(format!("HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",response.len(),response).as_bytes()).await.unwrap();
             body
         });
@@ -762,6 +848,148 @@ mod tests {
                 1_000_000
             ])
         );
+    }
+
+    /// The word a test EL stores at `slot`: the slot with its top byte set, so every bit of the
+    /// word is significant.
+    fn word_at(slot: B256) -> B256 {
+        let mut word = slot;
+        word.0[0] = 0xff;
+        word
+    }
+
+    /// Answers each request of a batch with [`word_at`] its slot, in reverse order.
+    fn reversed_words(batch: &Value) -> Vec<Value> {
+        batch
+            .as_array()
+            .expect("a batch")
+            .iter()
+            .rev()
+            .map(|request| {
+                let slot: B256 = serde_json::from_value(request["params"][1].clone()).unwrap();
+                json!({"jsonrpc":"2.0","id":request["id"],"result":word_at(slot)})
+            })
+            .collect()
+    }
+
+    const STORAGE_ACCOUNT: Address = Address::repeat_byte(0x5a);
+    const STORAGE_HASH: B256 = B256::repeat_byte(0x77);
+
+    fn storage_slots() -> [B256; 3] {
+        [B256::with_last_byte(1), B256::with_last_byte(2), B256::repeat_byte(0xee)]
+    }
+
+    /// One batch of `eth_getStorageAt`, every request at the block hash with the canonical flag
+    /// and never a tag; the answers are matched to the slots by request id, whatever order the
+    /// EL sends them in, and keep all 256 bits. No slot sends nothing.
+    #[tokio::test]
+    async fn storage_reads_are_one_batch_pinned_to_the_hash() {
+        let (url, request) = answer_rpc(|batch| Value::Array(reversed_words(batch))).await;
+        let slots = storage_slots();
+        let words = over_http(&url).storage_at(STORAGE_ACCOUNT, &slots, STORAGE_HASH).await;
+        assert_eq!(words, Ok(slots.map(|slot| U256::from_be_bytes(word_at(slot).0)).to_vec()));
+
+        let batch = request.await.unwrap();
+        let batch = batch.as_array().expect("one batch");
+        assert_eq!(batch.len(), slots.len());
+        for (request, slot) in batch.iter().zip(slots) {
+            assert_eq!(request["method"], "eth_getStorageAt");
+            assert_eq!(
+                request["params"],
+                json!([STORAGE_ACCOUNT, slot, {"blockHash": STORAGE_HASH, "requireCanonical": true}])
+            );
+        }
+
+        let m = mocked();
+        assert_eq!(m.engine.storage_at(STORAGE_ACCOUNT, &[], STORAGE_HASH).await, Ok(vec![]));
+    }
+
+    /// A batch answer that is not one well-formed word per request is a malformed reply, not a
+    /// value and not a reason to retry: a missing, extra, repeated or foreign reply, a single
+    /// reply for the batch, or a value that is not a 32-byte word.
+    #[tokio::test]
+    async fn storage_replies_of_the_wrong_count_or_shape_are_bad_replies() {
+        type Answer = fn(&Value) -> Value;
+        let cases: [(&str, Answer); 7] = [
+            ("a missing reply", |b| {
+                let mut replies = reversed_words(b);
+                replies.pop();
+                Value::Array(replies)
+            }),
+            ("an extra reply", |b| {
+                let mut replies = reversed_words(b);
+                replies.push(json!({"jsonrpc":"2.0","id":99,"result":B256::ZERO}));
+                Value::Array(replies)
+            }),
+            ("a repeated reply", |b| {
+                let mut replies = reversed_words(b);
+                replies[2] = replies[0].clone();
+                Value::Array(replies)
+            }),
+            ("a foreign reply id", |b| {
+                let mut replies = reversed_words(b);
+                replies[1]["id"] = json!(99);
+                Value::Array(replies)
+            }),
+            ("one reply for the batch", |b| reversed_words(b).remove(0)),
+            ("a short word", |b| {
+                let mut replies = reversed_words(b);
+                replies[0]["result"] = json!("0x1");
+                Value::Array(replies)
+            }),
+            ("a null word", |b| {
+                let mut replies = reversed_words(b);
+                replies[1]["result"] = Value::Null;
+                Value::Array(replies)
+            }),
+        ];
+        for (case, answer) in cases {
+            let (url, _) = answer_rpc(answer).await;
+            let err = over_http(&url)
+                .storage_at(STORAGE_ACCOUNT, &storage_slots(), STORAGE_HASH)
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(&err, EngineError::BadReply(msg) if msg.contains("eth_getStorageAt")),
+                "{case}: {err:?}"
+            );
+            assert!(!err.is_retryable(), "{case}");
+        }
+    }
+
+    /// Any error the EL answers, such as a block it does not hold, and any transport failure is
+    /// a node-local fault a retry may cure, never a value.
+    #[tokio::test]
+    async fn storage_read_errors_are_retryable() {
+        let m = mocked();
+        m.l2.push_success(&B256::ZERO);
+        m.l2.push(alloy_transport::mock::MockResponse::Failure(
+            serde_json::from_value(json!({"code": -32001, "message": "block not found"})).unwrap(),
+        ));
+        m.l2.push_success(&B256::ZERO);
+        let err =
+            m.engine.storage_at(STORAGE_ACCOUNT, &storage_slots(), STORAGE_HASH).await.unwrap_err();
+        assert!(
+            matches!(&err, EngineError::Transport(msg)
+                if msg.contains("eth_getStorageAt") && msg.contains("-32001")),
+            "{err:?}"
+        );
+        assert!(err.is_retryable());
+
+        let (url, _) = answer_rpc(|_| {
+            json!({"jsonrpc":"2.0","id":null,"error":{"code":-32010,"message":"batch too large"}})
+        })
+        .await;
+        let html = http_200("text/html", "<html><body>Sign in</body></html>").await;
+        let unreachable = mocked();
+        for engine in [over_http(&url), over_http(&html), unreachable.engine] {
+            let err = engine
+                .storage_at(STORAGE_ACCOUNT, &storage_slots(), STORAGE_HASH)
+                .await
+                .unwrap_err();
+            assert!(matches!(&err, EngineError::Transport(_)), "{err:?}");
+            assert!(err.is_retryable(), "{err:?}");
+        }
     }
 
     #[tokio::test]

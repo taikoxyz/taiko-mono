@@ -4,7 +4,8 @@
 //!
 //! alethia-reth is driven through `engine_forkchoiceUpdatedV3`, `engine_getPayloadV5` and
 //! `engine_newPayloadV4` only. [`convert`] maps a built payload to the full EL header
-//! the envelope carries and back.
+//! the envelope carries and back. [`staking`] reads the staking contract's words through
+//! [`Engine::storage_at`], pinned to a block hash.
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_consensus::{Header, TxEnvelope};
@@ -19,6 +20,8 @@ pub mod convert;
 pub mod forced;
 /// [`Engine`] over the `rpc` crate's Engine API wrappers and an L2 JSON-RPC provider.
 pub mod rpc_engine;
+/// Hash-pinned reads of the `EtnaStaking` candidate snapshot and key-to-seat words.
+pub mod staking;
 
 pub use convert::{block_from_payload, payload_from_block};
 pub use rpc::auth::PoolSelection;
@@ -105,6 +108,22 @@ pub trait Engine: Send + Sync + 'static {
         let _ = (proxy, hash, state_root);
         Ok(None)
     }
+
+    /// The words at `slots` of `address` in the post-state of EL block `hash`, one per slot in
+    /// `slots` order, each the whole 256-bit word (an unset slot reads zero); no slot reads
+    /// nothing.
+    ///
+    /// The read names `hash` and asks for it as canonical, never a tag or a number, so a replay
+    /// reads the same post-state wherever the EL head has moved. Only the node's own EL answers;
+    /// nothing is proven. A block the EL does not hold, or not on its canonical chain, and any
+    /// error the EL answers are node-local faults, a retryable [`EngineError::Transport`] and
+    /// never a value; an answer of another count or shape is [`EngineError::BadReply`].
+    async fn storage_at(
+        &self,
+        address: Address,
+        slots: &[B256],
+        hash: B256,
+    ) -> Result<Vec<U256>, EngineError>;
 
     /// Performs a bounded hash-pinned historical state read. A successful read is preliminary
     /// evidence only, not proof that a stateful build will succeed. RPC failure remains an error.

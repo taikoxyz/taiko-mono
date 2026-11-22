@@ -11,7 +11,7 @@ use alloy::{
     consensus::{Header, TxEnvelope},
     signers::local::PrivateKeySigner,
 };
-use alloy_primitives::{B256, Bytes, U256, b256, keccak256};
+use alloy_primitives::{Address, B256, Bytes, U256, b256, keccak256};
 use alloy_provider::Provider;
 use anyhow::{Context, Result, ensure};
 use std::{
@@ -259,6 +259,14 @@ impl Engine for ObservedEngine {
     }
     async fn historical_state_available(&self, hash: B256) -> Result<bool, EngineError> {
         self.inner.historical_state_available(hash).await
+    }
+    async fn storage_at(
+        &self,
+        address: Address,
+        slots: &[B256],
+        hash: B256,
+    ) -> Result<Vec<U256>, EngineError> {
+        self.inner.storage_at(address, slots, hash).await
     }
     async fn header_by_number(&self, n: u64) -> Result<Option<Header>, EngineError> {
         self.inner.header_by_number(n).await

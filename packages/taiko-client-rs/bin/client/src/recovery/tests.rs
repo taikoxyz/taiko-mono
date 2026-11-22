@@ -223,6 +223,9 @@ impl Engine for ReadEngine {
         self.calls.lock().unwrap().push(format!("state:{h}"));
         Ok(self.available)
     }
+    async fn storage_at(&self, _: Address, _: &[B256], _: B256) -> Result<Vec<U256>, EngineError> {
+        panic!("prepare reads no contract storage")
+    }
     async fn header_by_number(&self, n: u64) -> Result<Option<Header>, EngineError> {
         self.calls.lock().unwrap().push(format!("header:{n}"));
         Ok(self.headers.iter().find(|h| h.number == n).cloned())

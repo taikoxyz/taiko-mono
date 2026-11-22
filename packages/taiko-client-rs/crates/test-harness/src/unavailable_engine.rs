@@ -5,7 +5,7 @@ use abci::{
 };
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::consensus::{Header, TxEnvelope};
-use alloy_primitives::B256;
+use alloy_primitives::{Address, B256, U256};
 #[derive(Debug)]
 pub struct UnavailableEngine;
 fn unavailable() -> EngineError {
@@ -45,6 +45,9 @@ impl Engine for UnavailableEngine {
     }
     async fn historical_state_available(&self, _: B256) -> Result<bool, EngineError> {
         Err(EngineError::Setup("fixture has no historical state".into()))
+    }
+    async fn storage_at(&self, _: Address, _: &[B256], _: B256) -> Result<Vec<U256>, EngineError> {
+        Err(unavailable())
     }
     async fn header_by_number(&self, _number: u64) -> Result<Option<Header>, EngineError> {
         Err(unavailable())
@@ -88,6 +91,9 @@ impl Engine for ProbeEngine {
     }
     async fn historical_state_available(&self, _: B256) -> Result<bool, EngineError> {
         Err(EngineError::Setup("fixture has no historical state".into()))
+    }
+    async fn storage_at(&self, _: Address, _: &[B256], _: B256) -> Result<Vec<U256>, EngineError> {
+        Err(unavailable())
     }
     async fn header_by_number(&self, number: u64) -> Result<Option<Header>, EngineError> {
         self.parent_reply

@@ -8,7 +8,7 @@ use alloy::{
     signers::SignerSync,
 };
 use alloy_eips::eip2718::Encodable2718;
-use alloy_primitives::{Address, B256, TxKind};
+use alloy_primitives::{Address, B256, TxKind, U256};
 use alloy_provider::Provider;
 use prost::Message;
 use tendermint_proto::v0_38::abci as pb;
@@ -64,6 +64,14 @@ impl Engine for MissingParent {
         // parent's singleton reply is decisive, so its state is never probed.
         assert_ne!(hash, self.parent, "singleton reply is decisive");
         self.headers.historical_state_available(hash).await
+    }
+    async fn storage_at(
+        &self,
+        address: Address,
+        slots: &[B256],
+        hash: B256,
+    ) -> Result<Vec<U256>, EngineError> {
+        self.headers.storage_at(address, slots, hash).await
     }
 }
 
