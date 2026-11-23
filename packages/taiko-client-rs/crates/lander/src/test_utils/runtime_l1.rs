@@ -7,7 +7,7 @@ use abci::{
     AnchorState, ChainParams, ChainParamsExt, GenesisRecord, InboxFacts, l1::header::RawL1Header,
 };
 use alloy_consensus::Header;
-use alloy_primitives::{B256, U256};
+use alloy_primitives::{Address, B256, U256};
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
@@ -1226,4 +1226,274 @@ async fn start_checkpoint_halts_on_a_contradicting_checkpoint() {
         let error = super::verify_start_checkpoint(&source, &params, &snapshot).await.unwrap_err();
         assert!(matches!(error, LanderError::Safety(_)), "{error}");
     }
+}
+
+/// Staking words that use every bit of their slots: a `snapshotHeight` with bit 255 set above
+/// the height, a total stake of 2^256 − 1, seat 0's packed word with bit 72 set above its power,
+/// and the first origin key's key-to-seat word with bit 16 set.
+fn full_width_staking_words(height: u64, keys: &abci::fallback::FallbackKeys) -> Vec<(B256, U256)> {
+    use abci::staking::{
+        key_to_seat_slot, record_slots, snapshot_height_slot, snapshot_total_stake_slot,
+    };
+    let mut words = crate::test_utils::consensus_mpt::staking_words(height, keys);
+    let packed = words.iter().find(|(slot, _)| *slot == record_slots(0)[1]).unwrap().1;
+    words.extend([
+        (snapshot_height_slot(), U256::from(height) | U256::from(1) << 255),
+        (snapshot_total_stake_slot(), U256::MAX),
+        (record_slots(0)[1], packed | U256::from(1) << 72),
+        (key_to_seat_slot(keys.keys()[0].address()), U256::from(0x10001)),
+    ]);
+    words
+}
+
+/// The snapshot and key-to-seat words of `missing` that the planted `(slot, word)` pairs hold,
+/// read straight from the pairs rather than through any proof.
+fn planted(
+    words: Vec<(B256, U256)>,
+    missing: &[Address],
+) -> (abci::staking::StakingWords, BTreeMap<Address, U256>) {
+    let words = words.into_iter().collect::<BTreeMap<_, _>>();
+    let word = |slot: B256| words.get(&slot).copied().unwrap_or_default();
+    let values = abci::staking::snapshot_slots().map(word);
+    (
+        abci::staking::StakingWords::from_snapshot_values(&values).unwrap(),
+        missing.iter().map(|a| (*a, word(abci::staking::key_to_seat_slot(*a)))).collect(),
+    )
+}
+
+/// The addresses whose key-to-seat words the staking tests read: the fixture's two origin keys,
+/// which hold seats 0 and 1, then an address that holds no seat.
+fn missing_addresses(fixture: &crate::test_utils::consensus_mpt::Fixture) -> Vec<Address> {
+    let mut missing =
+        fixture.origin_keys.keys().iter().map(|key| key.address()).collect::<Vec<_>>();
+    missing.push(Address::repeat_byte(0x99));
+    missing
+}
+
+/// The L2 endpoint answers `eth_getProof` of the staking proxy pinned to a block's canonical hash
+/// with the proofs of exactly the requested slots, and the words they prove are taken whole from
+/// that block's post-state: they verify under the state root of the EL header with that hash and
+/// under no other height's root.
+#[tokio::test]
+async fn staking_witness_verifies_against_the_header_state_root() {
+    use crate::l1::{staking_slots, verify_staking_witness};
+    let fixture = crate::test_utils::consensus_mpt::Fixture::with_staking_script(
+        0,
+        8,
+        full_width_staking_words,
+    );
+    let params = fixture.params.clone();
+    let states = fixture
+        .headers
+        .iter()
+        .map(|(height, header)| (header.hash_slow(), fixture.l2_states[height].clone()))
+        .collect::<BTreeMap<_, _>>();
+    let staking = params.staking;
+    let l2 = rpc(move |request| {
+        assert_eq!(request["method"], "eth_getProof");
+        assert_eq!(request["params"][0], json!(staking));
+        let hash: B256 = serde_json::from_value(request["params"][2]["blockHash"].clone()).unwrap();
+        assert_eq!(request["params"][2], json!({"blockHash": hash, "requireCanonical": true}));
+        let slots: Vec<B256> = serde_json::from_value(request["params"][1].clone()).unwrap();
+        proof_json(&states[&hash].witness(staking, &slots))
+    })
+    .await;
+    let source = RpcLandingSource::new(l2.provider.clone(), l2.provider.clone(), params);
+    let missing = missing_addresses(&fixture);
+    let slots = staking_slots(&missing);
+    assert_eq!(slots.len(), abci::staking::SNAPSHOT_SLOT_COUNT + missing.len());
+    for height in [1, 5, 8] {
+        let header = &fixture.headers[&height];
+        let witness = source.staking_witness(header.hash_slow(), &slots).await.unwrap();
+        let request = l2.requests.lock().unwrap().last().unwrap().clone();
+        assert_eq!(request["params"][1], json!(slots), "the exact slot list, in order");
+        let proven =
+            verify_staking_witness(header.state_root, staking, &witness, height, &missing).unwrap();
+        let expected = planted(full_width_staking_words(height, &fixture.origin_keys), &missing);
+        assert_eq!(proven, expected, "height {height}");
+        assert_eq!(proven.0.snapshot_height, U256::from(height) | U256::from(1) << 255);
+        assert_eq!(proven.0.total_stake, U256::MAX);
+        assert_eq!(proven.1[&missing[0]], U256::from(0x10001));
+        assert_eq!(proven.1[&missing[2]], U256::ZERO, "an address holding no seat");
+        let other = &fixture.headers[&(height - 1)];
+        let error = verify_staking_witness(other.state_root, staking, &witness, height, &missing)
+            .unwrap_err();
+        assert!(matches!(error, LanderError::Safety(_)), "{error}");
+    }
+}
+
+/// A staking proof carrying any word other than the one its root holds is a safety error: a
+/// snapshot header word, a seat record word, a key-to-seat word and a word proven absent.
+#[test]
+fn tampered_value_is_safety() {
+    use crate::l1::{staking_slots, verify_staking_witness};
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 4);
+    let missing = missing_addresses(&fixture);
+    let slots = staking_slots(&missing);
+    let (root, staking) = (fixture.headers[&3].state_root, fixture.params.staking);
+    let honest = fixture.l2_states[&3].witness(staking, &slots);
+    verify_staking_witness(root, staking, &honest, 3, &missing).unwrap();
+    // snapshotHeight, seat 0's packed power word, seat 1's `ckX`, the first key-to-seat word,
+    // an empty seat's `ckX`, proven absent, and the absent key-to-seat word of the address that
+    // holds no seat.
+    for index in [0, 3, 4, 258, 10, slots.len() - 1] {
+        let mut tampered = honest.clone();
+        tampered.storage[index].value ^= U256::from(1);
+        let error = verify_staking_witness(root, staking, &tampered, 3, &missing).unwrap_err();
+        assert!(matches!(error, LanderError::Safety(_)), "slot {index}: {error}");
+    }
+}
+
+/// A staking proof that leaves out a requested slot, answers fewer key-to-seat words than
+/// addresses asked for, or proves the slots in another order is a safety error.
+#[test]
+fn missing_slot_is_safety() {
+    use crate::l1::{staking_slots, verify_staking_witness};
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 4);
+    let missing = missing_addresses(&fixture);
+    let slots = staking_slots(&missing);
+    let (root, staking) = (fixture.headers[&3].state_root, fixture.params.staking);
+    let honest = fixture.l2_states[&3].witness(staking, &slots);
+    for index in [0, 1, 100, 257, 258, slots.len() - 1] {
+        let mut short = honest.clone();
+        short.storage.remove(index);
+        let error = verify_staking_witness(root, staking, &short, 3, &missing).unwrap_err();
+        assert!(matches!(error, LanderError::Safety(_)), "slot {index}: {error}");
+    }
+    let fewer = fixture.l2_states[&3].witness(staking, &staking_slots(&missing[..1]));
+    let error = verify_staking_witness(root, staking, &fewer, 3, &missing).unwrap_err();
+    assert!(matches!(error, LanderError::Safety(_)), "{error}");
+    let mut reordered = honest;
+    reordered.storage.swap(258, 259);
+    let error = verify_staking_witness(root, staking, &reordered, 3, &missing).unwrap_err();
+    assert!(matches!(error, LanderError::Safety(_)), "{error}");
+}
+
+/// A genuine proof of another account under the same root, holding exactly the staking proxy's
+/// storage, is a safety error, as is that proof relabeled with the proxy's address.
+#[test]
+fn wrong_account_is_safety() {
+    use crate::{
+        l1::{staking_slots, verify_staking_witness},
+        test_utils::consensus_mpt::{Fixture, State, staking_words},
+    };
+    let fixture = Fixture::new(0, 4);
+    let staking = fixture.params.staking;
+    let other = Address::repeat_byte(0x55);
+    let words = staking_words(3, &fixture.origin_keys);
+    let state = State::new(vec![(staking, words.clone()), (other, words)]);
+    let missing = missing_addresses(&fixture);
+    let slots = staking_slots(&missing);
+    verify_staking_witness(state.root, staking, &state.witness(staking, &slots), 3, &missing)
+        .unwrap();
+    let decoy = state.witness(other, &slots);
+    abci::l1::mpt::verify_account_witness(state.root, &decoy, &slots)
+        .expect("the other account's own proof verifies under the root");
+    let error = verify_staking_witness(state.root, staking, &decoy, 3, &missing).unwrap_err();
+    assert!(matches!(error, LanderError::Safety(_)), "{error}");
+    let mut relabeled = decoy;
+    relabeled.address = staking;
+    let error = verify_staking_witness(state.root, staking, &relabeled, 3, &missing).unwrap_err();
+    assert!(matches!(error, LanderError::Safety(_)), "{error}");
+}
+
+/// A staking proof the L2 endpoint does not give, as for pruned state or an unknown hash, or
+/// answers with `null`, is the endpoint's own fault: [`LanderError::Temporary`], rendering no
+/// endpoint detail, never a value.
+#[tokio::test]
+async fn unavailable_proof_is_temporary() {
+    let secret = "https://alice:password@example.invalid/api_key=secret";
+    let fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 4);
+    for answer in [
+        json!({"__rpc_error":{"code":-32000,"message":format!("missing trie node {secret}")}}),
+        json!({"__rpc_error":{"code":-32001,"message":"header not found","data":secret}}),
+        json!(null),
+    ] {
+        let l2 = rpc(move |request| {
+            assert_eq!(request["method"], "eth_getProof");
+            answer.clone()
+        })
+        .await;
+        let source =
+            RpcLandingSource::new(l2.provider.clone(), l2.provider.clone(), fixture.params.clone());
+        let error = source
+            .staking_witness(fixture.headers[&3].hash_slow(), &crate::l1::staking_slots(&[]))
+            .await
+            .unwrap_err();
+        assert!(matches!(error, LanderError::Temporary(_)), "{error}");
+        for part in ["alice", "password", "api_key", "secret"] {
+            assert!(!error.to_string().contains(part), "{error}");
+        }
+    }
+}
+
+/// The lists a batch's decisions fall back to are read once per distinct `fallbackKeysHash`
+/// among the anchors of the heights it checks, at the first anchor proving it. Lists already
+/// known are not read again, the start height's anchor is never read, a list that hashes
+/// elsewhere is refused and one the L1 cannot give is temporary.
+#[tokio::test]
+async fn anchor_lists_are_fetched_once_per_distinct_hash() {
+    use crate::{
+        l1::anchor_fallback_lists,
+        test_utils::consensus::{SigningKey, fallback_keys},
+    };
+    use std::sync::atomic::Ordering;
+    let list = |seeds: &[u8]| {
+        let keys = seeds.iter().map(|seed| SigningKey::from_slice(&[*seed; 32]).unwrap());
+        fallback_keys(&keys.collect::<Vec<_>>())
+    };
+    let (a, b, c) = (list(&[3]), list(&[4, 5]), list(&[6, 7, 8]));
+    let mut fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 12);
+    for keys in [&a, &b, &c] {
+        fixture.fallback_lists.insert(keys.hash(), keys.clone());
+    }
+    let reads = |fixture: &crate::test_utils::consensus_mpt::Fixture| {
+        fixture.fallback_reads.load(Ordering::SeqCst)
+    };
+    // The anchors of heights 0 to 9; the start height's proves a hash the L1 never serves.
+    let unserved = B256::repeat_byte(0xee);
+    let hashes = [unserved, a.hash(), a.hash(), b.hash(), b.hash(), a.hash(), c.hash()]
+        .into_iter()
+        .chain([c.hash(), a.hash(), b.hash()]);
+    let anchors = (0..10)
+        .zip(hashes)
+        .map(|(height, hash)| {
+            let mut anchor = fixture.anchors[&height].clone();
+            anchor.inbox.fallback_keys_hash = hash;
+            anchor
+        })
+        .collect::<Vec<_>>();
+    let mut known = BTreeMap::new();
+    let lists = anchor_fallback_lists(&fixture, 0, 0, &anchors, &mut known).await.unwrap();
+    assert_eq!(reads(&fixture), 3);
+    let expected = BTreeMap::from([(a.hash(), a), (b.hash(), b.clone()), (c.hash(), c)]);
+    assert_eq!(lists, expected);
+    assert_eq!(known, expected);
+    // A later batch reads none of the lists already obtained.
+    let again = anchor_fallback_lists(&fixture, 0, 4, &anchors[4..], &mut known).await.unwrap();
+    assert_eq!(again, expected);
+    assert_eq!(reads(&fixture), 3);
+    // Above the start height, the proof origin's own anchor decides and is read.
+    let mut fresh = BTreeMap::new();
+    let at_p = anchor_fallback_lists(&fixture, 0, 3, &anchors[3..4], &mut fresh).await.unwrap();
+    assert_eq!(at_p, BTreeMap::from([(b.hash(), b.clone())]));
+    assert_eq!(reads(&fixture), 4);
+    // At a later generation start, the start height's anchor decides nothing whatever it proves.
+    let at_origin =
+        anchor_fallback_lists(&fixture, 3, 3, &anchors[3..4], &mut BTreeMap::new()).await.unwrap();
+    assert!(at_origin.is_empty());
+    assert_eq!(reads(&fixture), 4);
+    // A list answered under another list's hash is refused.
+    let forged = B256::repeat_byte(0xdd);
+    fixture.fallback_lists.insert(forged, b);
+    let mut anchor = anchors[1..2].to_vec();
+    anchor[0].inbox.fallback_keys_hash = forged;
+    let error =
+        anchor_fallback_lists(&fixture, 0, 1, &anchor, &mut BTreeMap::new()).await.unwrap_err();
+    assert!(matches!(error, LanderError::Safety(_)), "{error}");
+    // A list the L1 cannot give is temporary.
+    anchor[0].inbox.fallback_keys_hash = unserved;
+    let error =
+        anchor_fallback_lists(&fixture, 0, 1, &anchor, &mut BTreeMap::new()).await.unwrap_err();
+    assert!(matches!(error, LanderError::Temporary(_)), "{error}");
 }

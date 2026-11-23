@@ -1432,6 +1432,13 @@ mod tests {
             self.val_state_reads.fetch_add(1, Ordering::Relaxed);
             self.fixture().val_state(height).await
         }
+
+        async fn archive_validators(
+            &self,
+            height: u64,
+        ) -> Result<Vec<(abci::key::ConsensusKey, u64)>> {
+            self.fixture().archive_validators(height).await
+        }
     }
 
     #[async_trait]
@@ -1479,6 +1486,14 @@ mod tests {
         ) -> Result<abci::fallback::FallbackKeys> {
             self.list_reads.fetch_add(1, Ordering::Relaxed);
             self.fixture().fallback_keys(hash, at, at_number, from_block).await
+        }
+
+        async fn staking_witness(
+            &self,
+            block_hash: B256,
+            slots: &[B256],
+        ) -> Result<abci::AccountWitness> {
+            self.fixture().staking_witness(block_hash, slots).await
         }
 
         async fn reference(

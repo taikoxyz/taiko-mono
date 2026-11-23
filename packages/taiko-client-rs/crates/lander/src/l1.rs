@@ -11,6 +11,7 @@ use abci::{
         source::{L1Source as AnchorSource, RpcL1Source},
         witness::{WitnessError, verify_anchor_witness, verify_genesis_inbox},
     },
+    staking::{self, StakingWords},
 };
 use alloy::sol_types::SolCall;
 use alloy_consensus::Header;
@@ -20,7 +21,7 @@ use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_types::TransactionRequest;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
+use std::{collections::BTreeMap, time::Duration};
 
 use crate::{
     contracts::IEtnaInbox,
@@ -116,6 +117,12 @@ pub trait LandingSource: Send + Sync {
         at_number: u64,
         from_block: u64,
     ) -> Result<FallbackKeys>;
+    /// The `EtnaStaking` proxy's account proof and its storage proofs of `slots` in the
+    /// post-state of the L2 block whose hash is `block_hash`, read pinned to that canonical hash
+    /// and unverified: [`verify_staking_witness`] checks them under that block's state root. A
+    /// read the L2 refuses or fails, such as one of state it has pruned, is
+    /// [`LanderError::Temporary`].
+    async fn staking_witness(&self, block_hash: B256, slots: &[B256]) -> Result<AccountWitness>;
     /// Fetch the descending raw L1 headers from the reference tip, the finalized block below
     /// the snapshot, down to the oldest consumed anchor: `Safety` for an empty anchor slice,
     /// `Temporary` while finality is behind the newest anchor, `Capacity` above
@@ -391,23 +398,7 @@ impl LandingSource for RpcLandingSource {
             .block_id(BlockId::hash_canonical(snapshot.genesis.genesis_hash))
             .await
             .map_err(rpc_error)?;
-        let witness = AccountWitness {
-            address: response.address,
-            nonce: response.nonce,
-            balance: response.balance,
-            storage_root: response.storage_hash,
-            code_hash: response.code_hash,
-            account_proof: response.account_proof,
-            storage: response
-                .storage_proof
-                .into_iter()
-                .map(|proof| abci::StorageProof {
-                    slot: proof.key.as_b256(),
-                    value: proof.value,
-                    proof: proof.proof,
-                })
-                .collect(),
-        };
+        let witness = account_witness(response);
         let parent = self.parent_header(snapshot).await?;
         crate::types::verify_start_signal_service_witness(
             snapshot,
@@ -482,6 +473,18 @@ impl LandingSource for RpcLandingSource {
         fetch_fallback_keys(&self.anchors, self.params.inbox, hash, at, at_number, from_block)
             .await
             .map_err(|_| LanderError::Temporary(format!("fallback key list {hash} unavailable")))
+    }
+
+    /// One EIP-1186 read of the built-in staking proxy on the public L2 endpoint, pinned with
+    /// EIP-1898's canonical hash selector.
+    async fn staking_witness(&self, block_hash: B256, slots: &[B256]) -> Result<AccountWitness> {
+        let response = self
+            .l2
+            .get_proof(self.params.staking, slots.to_vec())
+            .block_id(BlockId::hash_canonical(block_hash))
+            .await
+            .map_err(rpc_error)?;
+        Ok(account_witness(response))
     }
 
     async fn reference(
@@ -818,6 +821,114 @@ pub fn verify_starting_inbox(
         return Err(LanderError::Safety("starting proof contradicts consumed parent anchor".into()));
     }
     Ok((genesis, origin_hash))
+}
+
+/// The slots of one staking read at an L2 height: the candidate snapshot's words in
+/// [`staking::snapshot_slots`] order, then the live key-to-seat word of each address of
+/// `missing`, in its order.
+pub fn staking_slots(missing: &[Address]) -> Vec<B256> {
+    staking::snapshot_slots()
+        .into_iter()
+        .chain(missing.iter().map(|address| staking::key_to_seat_slot(*address)))
+        .collect()
+}
+
+/// Verifies `witness`, the staking proxy `staking`'s proofs at [`staking_slots`]`(missing)` in
+/// the post-state of L2 block `height`, under that block's state root `state_root`, and returns
+/// the candidate snapshot it proves and the live key-to-seat word of each address of `missing`.
+///
+/// Every word is returned whole, never masked: the caller decides with them
+/// ([`abci::committee::decide`], [`staking::decode_seat`]). The account must exist under the
+/// root. A witness that names another account or another slot list, or whose account or storage
+/// proofs do not verify, is [`LanderError::Safety`]: the caller authenticated the root.
+pub fn verify_staking_witness(
+    state_root: B256,
+    staking: Address,
+    witness: &AccountWitness,
+    height: u64,
+    missing: &[Address],
+) -> Result<(StakingWords, BTreeMap<Address, U256>)> {
+    if witness.address != staking {
+        return Err(LanderError::Safety(format!(
+            "staking proof at L2 {height} names {}, not the staking proxy {staking}",
+            witness.address
+        )));
+    }
+    let storage = verify_account_witness(state_root, witness, &staking_slots(missing))
+        .map_err(|e| LanderError::Safety(format!("staking proof at L2 {height}: {e}")))?;
+    let values = staking::snapshot_slots().map(|slot| storage.get(slot).expect("verified slot"));
+    let words = StakingWords::from_snapshot_values(&values).expect("every snapshot slot");
+    let seats = missing
+        .iter()
+        .map(|address| {
+            (*address, storage.get(staking::key_to_seat_slot(*address)).expect("verified slot"))
+        })
+        .collect();
+    Ok((words, seats))
+}
+
+/// The fallback key lists the signing-set decisions of a batch from the proof origin `p` fall
+/// back to, by hash: `anchors[i]` is the anchor of height `p + i`, for the heights whose
+/// decisions the batch checks, each proving the `fallbackKeysHash` of the list its decision falls
+/// back to.
+///
+/// A list `known` holds is reused; each other distinct hash is obtained once
+/// ([`LandingSource::fallback_keys`]), at the first anchor proving it, with the log scan reaching
+/// block 0, and added to `known`. The generation's start height `origin` decides nothing, as the
+/// origin record's list signs its next two blocks, so its anchor's words are never read. A list
+/// the L1 cannot give is [`LanderError::Temporary`]; one that hashes elsewhere is refused as
+/// `Safety`.
+pub async fn anchor_fallback_lists<L: LandingSource + ?Sized>(
+    l1: &L,
+    origin: u64,
+    p: u64,
+    anchors: &[AnchorState],
+    known: &mut BTreeMap<B256, FallbackKeys>,
+) -> Result<BTreeMap<B256, FallbackKeys>> {
+    let mut lists = BTreeMap::new();
+    for (height, anchor) in (p..).zip(anchors) {
+        let hash = anchor.inbox.fallback_keys_hash;
+        if height <= origin || lists.contains_key(&hash) {
+            continue;
+        }
+        let keys = match known.get(&hash) {
+            Some(keys) => keys.clone(),
+            None => {
+                let keys = l1.fallback_keys(hash, anchor.hash, anchor.number, 0).await?;
+                if keys.hash() != hash {
+                    return Err(LanderError::Safety(format!(
+                        "L1 source answered the fallback key list {hash} with {}",
+                        keys.hash()
+                    )));
+                }
+                known.insert(hash, keys.clone());
+                keys
+            }
+        };
+        lists.insert(hash, keys);
+    }
+    Ok(lists)
+}
+
+/// Converts an EIP-1186 response into the witness the MPT verifier checks, keeping every node.
+fn account_witness(response: alloy_rpc_types::EIP1186AccountProofResponse) -> AccountWitness {
+    AccountWitness {
+        address: response.address,
+        nonce: response.nonce,
+        balance: response.balance,
+        storage_root: response.storage_hash,
+        code_hash: response.code_hash,
+        account_proof: response.account_proof,
+        storage: response
+            .storage_proof
+            .into_iter()
+            .map(|proof| abci::StorageProof {
+                slot: proof.key.as_b256(),
+                value: proof.value,
+                proof: proof.proof,
+            })
+            .collect(),
+    }
 }
 
 /// Project a previously authenticated complete proof in exactly the verifier's required order.

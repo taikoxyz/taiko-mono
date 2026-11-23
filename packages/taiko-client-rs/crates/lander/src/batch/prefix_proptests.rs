@@ -5,7 +5,8 @@
 use std::sync::Arc;
 
 use abci::{
-    AnchorState, AnchorWitness, ChainParams, ChainParamsExt, RawL1Header, fallback::FallbackKeys,
+    AccountWitness, AnchorState, AnchorWitness, ChainParams, ChainParamsExt, RawL1Header,
+    fallback::FallbackKeys, key::ConsensusKey,
 };
 use alloy_primitives::B256;
 use async_trait::async_trait;
@@ -50,6 +51,10 @@ impl CometSource for Decided {
     async fn val_state(&self, _: u64) -> Result<Vec<u8>> {
         Err(unread("the validator state"))
     }
+
+    async fn archive_validators(&self, _: u64) -> Result<Vec<(ConsensusKey, u64)>> {
+        Err(unread("a validator set"))
+    }
 }
 
 #[async_trait]
@@ -76,6 +81,10 @@ impl LandingSource for Decided {
 
     async fn fallback_keys(&self, _: B256, _: B256, _: u64, _: u64) -> Result<FallbackKeys> {
         Err(unread("L1"))
+    }
+
+    async fn staking_witness(&self, _: B256, _: &[B256]) -> Result<AccountWitness> {
+        Err(unread("L2"))
     }
 
     async fn reference(&self, _: &LandingSnapshot, _: &[AnchorState]) -> Result<Vec<RawL1Header>> {

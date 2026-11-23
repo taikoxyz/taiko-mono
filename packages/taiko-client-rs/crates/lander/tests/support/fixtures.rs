@@ -461,6 +461,16 @@ impl lander::comet::CometSource for FixtureChain {
                 ))
             })
     }
+    /// As stock CometBFT answers `/validators`: the one set that signs every fixture height.
+    async fn archive_validators(
+        &self,
+        height: u64,
+    ) -> lander::error::Result<Vec<(abci::key::ConsensusKey, u64)>> {
+        self.blocks
+            .get(height as usize - 1)
+            .map(|_| self.validators.validators().iter().map(|v| (v.pub_key, v.power())).collect())
+            .ok_or_else(|| lander::error::LanderError::Unavailable("fixture validators".into()))
+    }
 }
 
 struct FixtureLanding {
@@ -510,6 +520,13 @@ impl LandingSource for FixtureLanding {
         from_block: u64,
     ) -> lander::error::Result<abci::fallback::FallbackKeys> {
         self.rpc.fallback_keys(hash, at, at_number, from_block).await
+    }
+    async fn staking_witness(
+        &self,
+        block_hash: B256,
+        slots: &[B256],
+    ) -> lander::error::Result<abci::AccountWitness> {
+        self.rpc.staking_witness(block_hash, slots).await
     }
     async fn reference(
         &self,

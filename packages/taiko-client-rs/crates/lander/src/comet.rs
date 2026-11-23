@@ -3,6 +3,7 @@
 use std::time::Duration;
 
 use crate::native::{Commit, RawBlock};
+use abci::{config::MAX_SET_MEMBERS, key::ConsensusKey};
 use async_trait::async_trait;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use futures::StreamExt;
@@ -37,6 +38,11 @@ pub trait CometSource: Send + Sync {
     /// height it retains (`/val_state/<height>`), unauthenticated. A rejected query or an
     /// unreachable node is [`LanderError::Temporary`].
     async fn val_state(&self, height: u64) -> Result<Vec<u8>>;
+    /// Reads the validator set, keys and powers in the node's order, that the node stored for
+    /// `height` (`/validators`), unauthenticated: the caller checks it against the hash a header
+    /// commits. An answer of more than [`MAX_SET_MEMBERS`] members, which no signing set holds,
+    /// is refused as [`LanderError::Encoding`], as is a malformed page.
+    async fn archive_validators(&self, height: u64) -> Result<Vec<(ConsensusKey, u64)>>;
 }
 
 /// A typed HTTP adapter that bounds the complete response body before JSON decoding.
@@ -161,6 +167,9 @@ struct QueryResult {
 
 /// The most characters of a remote app's refusal log an error carries ([`HttpCometSource::echo`]).
 const MAX_ECHOED_LOG_CHARS: usize = 256;
+
+/// The most validators stock CometBFT's `/validators` returns per page.
+const VALIDATORS_PER_PAGE: usize = 100;
 
 /// Avoids assuming the `/block` and `/commit` calls referred to identical headers.
 #[derive(Deserialize)]
@@ -348,6 +357,57 @@ impl CometSource for HttpCometSource {
             ))
         })
     }
+
+    /// Reads only the paginated original signing keys and powers. Never infer landed priorities
+    /// or the stored proposer from a reconstructed stock RPC response.
+    async fn archive_validators(&self, height: u64) -> Result<Vec<(ConsensusKey, u64)>> {
+        #[derive(Deserialize)]
+        struct Row {
+            /// Native stock public key, including its algorithm discriminator.
+            pub_key: abci::key::CometPublicKey,
+            /// Comet int64 encoded as decimal text.
+            voting_power: String,
+        }
+        #[derive(Deserialize)]
+        struct Page {
+            /// Height selected by stock state store.
+            block_height: String,
+            /// Complete number of validators on all pages.
+            total: String,
+            /// Exactly this ordered page.
+            validators: Vec<Row>,
+        }
+        let invalid = || LanderError::Encoding("invalid archive validators page".into());
+        let mut out = Vec::new();
+        let mut page = 1;
+        let mut expected = None;
+        let per_page = VALIDATORS_PER_PAGE.to_string();
+        loop {
+            let result: Page = self
+                .rpc(
+                    "validators",
+                    json!({"height":height.to_string(),"page":page.to_string(),"per_page":per_page}),
+                )
+                .await?;
+            let total = result.total.parse::<usize>().map_err(|_| invalid())?;
+            if result.block_height != height.to_string() ||
+                total == 0 ||
+                total > MAX_SET_MEMBERS ||
+                expected.replace(total).is_some_and(|v| v != total) ||
+                result.validators.len() !=
+                    VALIDATORS_PER_PAGE.min(total.saturating_sub(out.len()))
+            {
+                return Err(invalid())
+            }
+            for r in result.validators {
+                out.push((r.pub_key.0, r.voting_power.parse().map_err(|_| invalid())?))
+            }
+            if out.len() == total {
+                return Ok(out)
+            }
+            page += 1;
+        }
+    }
 }
 
 /// Keeps missing/pruned history actionable even when the remote error omitted its height.
@@ -375,62 +435,6 @@ impl HttpCometSource {
             return Err(LanderError::Encoding("archive header height mismatch".into()))
         }
         Ok(res.header)
-    }
-
-    /// Read only paginated original signing keys and powers. Never infer landed priorities
-    /// or the stored proposer from a reconstructed stock RPC response.
-    pub async fn archive_validators(
-        &self,
-        height: u64,
-        limit: usize,
-    ) -> Result<Vec<crate::checkpoint_import::ImportValidator>> {
-        #[derive(Deserialize)]
-        struct Row {
-            /// Native stock public key, including its algorithm discriminator.
-            pub_key: abci::key::CometPublicKey,
-            /// Comet int64 encoded as decimal text.
-            voting_power: String,
-        }
-        #[derive(Deserialize)]
-        struct Page {
-            /// Height selected by stock state store.
-            block_height: String,
-            /// Complete number of validators on all pages.
-            total: String,
-            /// Exactly this ordered page.
-            validators: Vec<Row>,
-        }
-        let invalid = || LanderError::Encoding("invalid archive validators page".into());
-        let mut out = Vec::new();
-        let mut page = 1;
-        let mut expected = None;
-        loop {
-            let result: Page = self
-                .rpc(
-                    "validators",
-                    json!({"height":height.to_string(),"page":page.to_string(),"per_page":"100"}),
-                )
-                .await?;
-            let total = result.total.parse::<usize>().map_err(|_| invalid())?;
-            if result.block_height != height.to_string() ||
-                total == 0 ||
-                total > limit ||
-                expected.replace(total).is_some_and(|v| v != total) ||
-                result.validators.len() != 100.min(total.saturating_sub(out.len()))
-            {
-                return Err(invalid())
-            }
-            for r in result.validators {
-                out.push(crate::checkpoint_import::ImportValidator {
-                    key: r.pub_key.0,
-                    power: r.voting_power.parse().map_err(|_| invalid())?,
-                })
-            }
-            if out.len() == total {
-                return Ok(out)
-            }
-            page += 1;
-        }
     }
 }
 
@@ -762,6 +766,58 @@ mod tests {
             error.ends_with("with code 1: sidecar of retained height 12 is missing"),
             "{error}"
         );
+    }
+
+    /// `/validators` pages of a set, as stock CometBFT serves them 100 at a time.
+    fn validator_pages(height: u64, total: usize, members: &[(ConsensusKey, u64)]) -> Vec<Value> {
+        members
+            .chunks(VALIDATORS_PER_PAGE)
+            .map(|page| {
+                json!({
+                    "block_height": height.to_string(),
+                    "total": total.to_string(),
+                    "count": page.len().to_string(),
+                    "validators": page.iter().map(|(key, power)| json!({
+                        "address": key.address(),
+                        "pub_key": abci::key::CometPublicKey(*key),
+                        "voting_power": power.to_string(),
+                        "proposer_priority": "0",
+                    })).collect::<Vec<_>>(),
+                })
+            })
+            .collect()
+    }
+
+    /// A set of 128 members, the most any signing set holds, reads in full across two pages, in
+    /// the node's order; an answer that names 129 members is refused from its first page, and
+    /// so is a page whose total changes or whose rows fall short of it.
+    #[tokio::test]
+    async fn validators_answer_above_128_is_refused() {
+        let (_, set, _) = committee(&[1; 129]);
+        let members = set.members;
+        let full = &members[..MAX_SET_MEMBERS];
+        let pages = validator_pages(12, full.len(), full);
+        let rpc =
+            source(pages.into_iter().map(success).collect(), 1 << 20, Duration::from_secs(2)).await;
+        assert_eq!(rpc.archive_validators(12).await.unwrap(), full);
+        let pages = validator_pages(12, members.len(), &members);
+        let rpc =
+            source(pages.into_iter().map(success).collect(), 1 << 20, Duration::from_secs(2)).await;
+        let error = rpc.archive_validators(12).await.unwrap_err();
+        assert!(matches!(error, LanderError::Encoding(_)), "{error}");
+        let mut changed = validator_pages(12, full.len(), full);
+        changed[1]["total"] = json!("129");
+        let mut short = validator_pages(12, full.len(), full);
+        short[1]["validators"].as_array_mut().unwrap().pop();
+        let mut wrong_height = validator_pages(12, full.len(), full);
+        wrong_height[0]["block_height"] = json!("11");
+        for pages in [changed, short, wrong_height] {
+            let rpc =
+                source(pages.into_iter().map(success).collect(), 1 << 20, Duration::from_secs(2))
+                    .await;
+            let error = rpc.archive_validators(12).await.unwrap_err();
+            assert!(matches!(error, LanderError::Encoding(_)), "{error}");
+        }
     }
 
     /// A refusal log reaches the error bounded and in printable ASCII, and never when it names

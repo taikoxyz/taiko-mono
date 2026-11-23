@@ -111,6 +111,9 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
     let next_header = l1_header(21, &r_state, r_header.hash());
     let mut next_anchor = anchor(&next_header, 6, old_el.hash_slow(), &empty, words);
     next_anchor.inbox.recovery_generation = 2;
+    for height in 7..=tip {
+        f.l2_states.insert(height, l2_state(&f.params, staking_words(height, &keys)));
+    }
     let keys =
         vec![SigningKey::from_slice(&[1; 32]).unwrap(), SigningKey::from_slice(&[2; 32]).unwrap()];
     f.blocks.clear();
@@ -143,7 +146,7 @@ pub(crate) async fn fixture(length: u64, checkpoint: u64, tip: u64) -> Fixture {
         let el = Header {
             number: height,
             parent_hash: expected.parent_hash,
-            state_root: B256::from(U256::from(height + 200)),
+            state_root: f.l2_states[&height].root,
             timestamp: expected.timestamp,
             beneficiary: expected.beneficiary,
             extra_data: expected.extra_data,

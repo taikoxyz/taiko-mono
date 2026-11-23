@@ -1,5 +1,6 @@
 //! Genuine trie/proof fixtures for immutable batch assembly, signed by the generation's origin
-//! fallback keys, each at power 1, at every height.
+//! fallback keys, each at power 1, at every height, over L2 post-states whose staking proxy holds
+//! scripted staking words.
 
 use super::consensus::{
     FixtureCommittee, SigningKey, fallback_keys, pair_with_envelope, parameters,
@@ -165,6 +166,42 @@ pub struct Fixture {
     /// How many fallback key lists the fixture's L1 has served.
     pub fallback_reads: AtomicUsize,
     states: BTreeMap<u64, State>,
+    /// The L2 post-state after each height of the decided chain: the staking proxy holding its
+    /// [`StakingScript`] words of that height. Each EL header's state root is its height's root,
+    /// so a staking proof of a height verifies under that header.
+    pub l2_states: BTreeMap<u64, State>,
+}
+
+/// The `EtnaStaking` words a fixture's L2 post-state holds after a height, given the height and
+/// the origin fallback key list: `(slot, word)` pairs, every other word zero.
+pub type StakingScript = fn(u64, &FallbackKeys) -> Vec<(B256, U256)>;
+
+/// The default [`StakingScript`]: after `height`, a candidate snapshot taken at `height` with a
+/// total stake of `1000 + height`, whose seat `i` holds origin key `i` at power `i + 1`, and each
+/// origin key's live key-to-seat word naming its seat. Every fixture anchor proves a minimum total
+/// stake of 2^256 − 1, so the candidate never signs and the origin keys sign every height.
+pub fn staking_words(height: u64, keys: &FallbackKeys) -> Vec<(B256, U256)> {
+    use abci::staking::{
+        key_to_seat_slot, record_slots, snapshot_height_slot, snapshot_total_stake_slot,
+    };
+    let mut words = vec![
+        (snapshot_height_slot(), U256::from(height)),
+        (snapshot_total_stake_slot(), U256::from(1000 + height)),
+    ];
+    for (seat, key) in (0u8..).zip(keys.keys()) {
+        let [x, packed] = record_slots(seat);
+        words.extend([
+            (x, U256::from_be_bytes(key.x().0)),
+            (packed, U256::from(key.prefix()) | U256::from(u64::from(seat) + 1) << 8),
+            (key_to_seat_slot(key.address()), U256::from(1) | U256::from(seat) << 8),
+        ]);
+    }
+    words
+}
+
+/// The L2 post-state whose staking proxy `params.staking` holds `words`.
+pub(crate) fn l2_state(params: &ChainParams, words: Vec<(B256, U256)>) -> State {
+    State::new(vec![(params.staking, words)])
 }
 
 /// A header's `app_hash` field holding appHash (ENC-A-29b) of the EL hash `block_hash` and
@@ -596,6 +633,7 @@ impl Fixture {
             7_200,
             &ForcedPlan::default(),
             2,
+            staking_words,
         )
     }
 
@@ -609,6 +647,7 @@ impl Fixture {
             7_200,
             &ForcedPlan::default(),
             2,
+            staking_words,
         )
     }
 
@@ -623,6 +662,7 @@ impl Fixture {
             7_200,
             &ForcedPlan::default(),
             2,
+            staking_words,
         )
     }
 
@@ -639,6 +679,7 @@ impl Fixture {
             7_200,
             &plan,
             2,
+            staking_words,
         )
     }
 
@@ -655,6 +696,7 @@ impl Fixture {
             7_200,
             &ForcedPlan::default(),
             2,
+            staking_words,
         )
     }
 
@@ -671,6 +713,7 @@ impl Fixture {
             max_anchor_age,
             &ForcedPlan::default(),
             2,
+            staking_words,
         )
     }
 
@@ -686,13 +729,30 @@ impl Fixture {
             7_200,
             &ForcedPlan::default(),
             count,
+            staking_words,
+        )
+    }
+
+    /// As [`Fixture::new`], with the L2 post-state after each height holding the staking words
+    /// `script` gives for it.
+    pub fn with_staking_script(checkpoint: u64, tip: u64, script: StakingScript) -> Self {
+        Self::build(
+            checkpoint,
+            tip,
+            0,
+            false,
+            EpochFixture { length: 24, advances: false, checkpoint_hash: None },
+            7_200,
+            &ForcedPlan::default(),
+            2,
+            script,
         )
     }
 
     /// Builds the decided chain up to `tip` over the genesis `maxAnchorAge` `max_anchor_age` and
     /// the forced inclusion entries and blocks of `plan`, signed by `origin_keys` origin fallback
     /// keys; each block carries one transaction with `bytes` of calldata (zeros if `zeros`)
-    /// unless zero.
+    /// unless zero, and each height's L2 post-state holds the staking words `staking` gives.
     #[allow(clippy::too_many_arguments)]
     fn build(
         checkpoint: u64,
@@ -703,6 +763,7 @@ impl Fixture {
         max_anchor_age: u64,
         plan: &ForcedPlan,
         origin_keys: u8,
+        staking: StakingScript,
     ) -> Self {
         let epoch_len = epochs.length;
         assert!(checkpoint == 0 || checkpoint >= 6);
@@ -719,9 +780,18 @@ impl Fixture {
         };
         let mut params = parameters();
         params.unsettled_limit = 18;
+        let keys = (1..=origin_keys)
+            .map(|seed| SigningKey::from_slice(&[seed; 32]).unwrap())
+            .collect::<Vec<_>>();
+        // The keys are generation 0's origin fallback keys, so the set that signs every height
+        // holds them all, each at power 1.
+        let origin_keys = fallback_keys(&keys);
+        let l2_states = (0..=tip)
+            .map(|height| (height, l2_state(&params, staking(height, &origin_keys))))
+            .collect::<BTreeMap<_, _>>();
         let genesis_header = Header {
             number: 0,
-            state_root: B256::repeat_byte(7),
+            state_root: l2_states[&0].root,
             timestamp: 100,
             gas_limit: params.block_gas_limit,
             base_fee_per_gas: Some(1_000_000),
@@ -736,12 +806,6 @@ impl Fixture {
             forced_inclusion_delay: plan.delay,
             max_anchor_age,
         };
-        let keys = (1..=origin_keys)
-            .map(|seed| SigningKey::from_slice(&[seed; 32]).unwrap())
-            .collect::<Vec<_>>();
-        // The keys are generation 0's origin fallback keys, so the set that signs every height
-        // holds them all, each at power 1.
-        let origin_keys = fallback_keys(&keys);
         let committees = BTreeMap::from([(0, FixtureCommittee::fallback(&origin_keys))]);
         let val_states = replay_val_states((0, &committees[&0].members), tip);
         let planted = plan.planted();
@@ -876,7 +940,7 @@ impl Fixture {
                 transactions_root: alloy_trie::root::ordered_trie_root_encoded(&transactions),
                 number: height,
                 parent_hash: expected.parent_hash,
-                state_root: B256::from(U256::from(height + 100)),
+                state_root: l2_states[&height].root,
                 timestamp: expected.timestamp,
                 beneficiary: expected.beneficiary,
                 extra_data: expected.extra_data,
@@ -990,6 +1054,7 @@ impl Fixture {
             val_state_answers: BTreeMap::new(),
             fallback_reads: AtomicUsize::new(0),
             states,
+            l2_states,
         }
     }
 }
@@ -1021,6 +1086,16 @@ impl CometSource for Fixture {
         answer.ok_or_else(|| {
             LanderError::Temporary(format!("the app rejects the validator state query at {height}"))
         })
+    }
+    /// As stock CometBFT answers `/validators` at a decided height: the set whose hash the
+    /// height's header names as `validators_hash`.
+    async fn archive_validators(&self, height: u64) -> Result<Vec<(ConsensusKey, u64)>> {
+        let block = self.block(height).await?;
+        self.committees
+            .values()
+            .find(|committee| committee.validators.hash() == block.block.header.validators_hash)
+            .map(|committee| committee.members.clone())
+            .ok_or_else(|| LanderError::Unavailable(format!("validators of height {height}")))
     }
 }
 #[async_trait]
@@ -1115,6 +1190,16 @@ impl LandingSource for Fixture {
             .get(&hash)
             .cloned()
             .ok_or_else(|| LanderError::Temporary(format!("fallback key list {hash} unavailable")))
+    }
+    /// The staking proxy's proofs in the L2 post-state of the fixture block with hash
+    /// `block_hash`; any other hash is unavailable, as for an L2 that never had the block.
+    async fn staking_witness(&self, block_hash: B256, slots: &[B256]) -> Result<AccountWitness> {
+        self.headers
+            .iter()
+            .find(|(_, header)| header.hash_slow() == block_hash)
+            .and_then(|(height, _)| self.l2_states.get(height))
+            .map(|state| state.witness(self.params.staking, slots))
+            .ok_or_else(|| LanderError::Temporary(format!("L2 block {block_hash} unavailable")))
     }
     async fn reference(
         &self,

@@ -275,6 +275,9 @@ impl LandingSource for MockL1 {
     ) -> Result<abci::fallback::FallbackKeys> {
         unreachable!("runner mock never reads a fallback key list")
     }
+    async fn staking_witness(&self, _: B256, _: &[B256]) -> Result<abci::AccountWitness> {
+        unreachable!("runner mock never reads a staking proof")
+    }
     async fn reference(&self, _: &LandingSnapshot, _: &[AnchorState]) -> Result<Vec<RawL1Header>> {
         Ok(vec![])
     }

@@ -6,7 +6,7 @@ use alloy_primitives::{U256, hex};
 use alloy_provider::Provider;
 use lander::{
     checkpoint_import::{
-        IMPORT_SCHEMA, ImportPackage, WindowBlock, evidence_expired, header_floor,
+        IMPORT_SCHEMA, ImportPackage, ImportValidator, WindowBlock, evidence_expired, header_floor,
     },
     comet::{CometSource, HttpCometSource},
 };
@@ -147,12 +147,13 @@ pub async fn run(own: &Own, request: &Request) -> R<Value> {
             seen_anchor |= env.anchor.is_some();
             let hash = block.block.header.validators_hash;
             if cached.as_ref().is_none_or(|(h, _)| *h != hash) {
+                let validators = comet.archive_validators(w).await.map_err(source)?;
                 cached = Some((
                     hash,
-                    comet
-                        .archive_validators(w, abci::config::MAX_SET_MEMBERS)
-                        .await
-                        .map_err(source)?,
+                    validators
+                        .into_iter()
+                        .map(|(key, power)| ImportValidator { key, power })
+                        .collect::<Vec<_>>(),
                 ));
             }
             let frame = WindowBlock {
@@ -324,6 +325,12 @@ mod tests {
         async fn val_state(&self, height: u64) -> lander::Result<Vec<u8>> {
             self.0.lock().unwrap().push(height);
             Ok(height.to_be_bytes().to_vec())
+        }
+        async fn archive_validators(
+            &self,
+            _: u64,
+        ) -> lander::Result<Vec<(abci::key::ConsensusKey, u64)>> {
+            unreachable!("the preimage read needs no validator set")
         }
     }
 

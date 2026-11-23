@@ -63,9 +63,10 @@ mod proptests;
 /// `type(uint48).max`: the largest generation, L2 height and anchor L1 block number the
 /// protocol encodes.
 pub use etna_core::params::UINT48_MAX;
-/// The deployment signing domain, the validated secp256k1eth consensus identities and the
-/// stock CometBFT v0.40.0 validator-state arithmetic, from the portable Etna rules.
-pub use etna_core::{domain, key, valstate};
+/// The deployment signing domain, the validated secp256k1eth consensus identities, the
+/// `EtnaStaking` storage layout and the stock CometBFT v0.40.0 validator-state arithmetic,
+/// from the portable Etna rules.
+pub use etna_core::{domain, key, staking, valstate};
 
 pub use app::{AbciError, App, AppHashReport, AppOptions, Status};
 pub use config::{ChainParams, ChainParamsExt, ConfigError, ParamsError, SwitchConfig};
