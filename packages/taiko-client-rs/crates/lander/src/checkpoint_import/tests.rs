@@ -1076,6 +1076,37 @@ async fn committed_preimage_contradicting_header_validator_hashes_halts() {
     }
 }
 
+/// The EL helper's manifest as [`write_el_manifest`] writes it is byte for byte the fixture the
+/// helper's own tests parse and verify, so the writer and the helper's streaming parser agree.
+#[test]
+fn el_manifest_is_the_helpers_parsed_fixture() {
+    let mut headers: Vec<Header> = Vec::new();
+    for number in 600..=602 {
+        headers.push(Header {
+            number,
+            parent_hash: headers.last().map_or(B256::repeat_byte(0x12), Header::hash_slow),
+            timestamp: 1_700_000_000 + number,
+            state_root: B256::repeat_byte(0x13),
+            gas_limit: 45_000_000,
+            base_fee_per_gas: Some(10_000_000),
+            extra_data: vec![0x5a; 29].into(),
+            withdrawals_root: Some(B256::repeat_byte(0x25)),
+            blob_gas_used: Some(0),
+            excess_blob_gas: Some(0),
+            parent_beacon_block_root: Some(B256::repeat_byte(0x26)),
+            requests_hash: Some(B256::repeat_byte(0x27)),
+            ..Default::default()
+        });
+    }
+    let mut written = Vec::new();
+    write_el_manifest(&mut written, 167001, 600, headers[0].hash_slow(), &headers).unwrap();
+    let fixture = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tools/etna-el-import/testdata/manifest.jsonl"
+    ));
+    assert_eq!(String::from_utf8(written).unwrap(), String::from_utf8(fixture.to_vec()).unwrap());
+}
+
 #[test]
 fn header_floor_covers_blockhash_and_the_inherited_fence() {
     assert_eq!(header_floor(0, 900, 300), 601); // next block must prove q >= s-U+1

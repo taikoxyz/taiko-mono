@@ -5,16 +5,6 @@ use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
 
-/// The helper's header manifest: the inherited fence q and the context ending at s.
-#[derive(serde::Serialize)]
-struct Manifest<'a> {
-    schema: u32,
-    chain_id: u64,
-    finalized_height: u64,
-    finalized_hash: B256,
-    headers: &'a [Header],
-}
-
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "docker"]
 async fn native_long_fence_restarts_and_executes_with_body_pruned_parents() -> Result<()> {
@@ -56,16 +46,16 @@ async fn native_long_fence_restarts_and_executes_with_body_pruned_parents() -> R
     let finalized = headers[(q - 601) as usize].hash_slow();
     let terminal = headers.last().unwrap();
     let head = terminal.hash_slow();
-    // U = 300: the context starts at s - U + 1 = 601, the caller's header floor.
-    let manifest = Manifest {
-        schema: 1,
-        chain_id: 167001,
-        finalized_height: q,
-        finalized_hash: finalized,
-        headers: &headers,
-    };
-    let path = base.join("manifest.json");
-    fs::write(&path, serde_json::to_vec(&manifest)?)?;
+    // U = 300: the context starts at s - U + 1 = 601, the caller's header floor. The helper's
+    // manifest holds the inherited fence q and the context ending at s, written as import does.
+    let path = base.join("manifest.jsonl");
+    lander::checkpoint_import::write_el_manifest(
+        fs::File::create_new(&path)?,
+        167001,
+        q,
+        finalized,
+        &headers,
+    )?;
     let installed = std::process::Command::new(binary("ETNA_EL_IMPORT_BIN", "etna-el-import")?)
         .arg("install")
         .arg("--source")

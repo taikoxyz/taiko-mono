@@ -388,6 +388,28 @@ fn manifest_lines_are_bounded_and_round_trip() {
     assert!(schema_one.verify(&trust).is_err(), "schema 1 is refused");
 }
 
+/// The manifest the client's one writer produces (pinned byte for byte by the lander's tests)
+/// streams through this parser, verifies, and writes back unchanged.
+#[test]
+fn client_written_manifest_is_read_and_verified() {
+    let bytes = include_bytes!("../testdata/manifest.jsonl");
+    let manifest = super::HeaderManifest::read(&bytes[..]).unwrap();
+    assert_eq!((manifest.schema, manifest.chain_id, manifest.headers.len()), (2, 167001, 3));
+    let terminal = manifest.headers.last().unwrap();
+    let trust = super::ElTrust {
+        chain_id: 167001,
+        genesis_hash: B256::repeat_byte(0x14),
+        terminal_hash: terminal.hash_slow(),
+        state_root: terminal.state_root,
+    };
+    let verified = manifest.verify(&trust).unwrap();
+    assert_eq!(verified.finalized(), (600, manifest.headers[0].hash_slow()));
+    assert_eq!(verified.terminal().number, 602);
+    let mut written = Vec::new();
+    manifest.write(&mut written).unwrap();
+    assert_eq!(written, bytes);
+}
+
 #[test]
 fn retains_a_finalized_ancestor_more_than_255_headers_behind_the_import() {
     let (manifest, trust) = header_manifest();

@@ -345,16 +345,6 @@ async fn generate(dir: &Path, s: u64, period: u64, u: u64) {
     );
 }
 
-/// The first line of the EL helper's header manifest (`etna-el-import install --manifest`);
-/// one header per line follows it.
-#[derive(Serialize)]
-struct ManifestHead {
-    schema: u32,
-    chain_id: u64,
-    finalized_height: u64,
-    finalized_hash: B256,
-}
-
 async fn verify(dir: &Path, s: u64, period: u64, u: u64) {
     let own: OwnFinality = read_json(&dir.join("own-l1.json"));
     let params = profile_parameters(u);
@@ -402,16 +392,14 @@ async fn verify(dir: &Path, s: u64, period: u64, u: u64) {
     // so nothing below the window is read.
     assert!(calls.iter().any(|(tag, n, _)| tag == "canonical" && *n == 12));
     assert!(!calls.iter().any(|(_, n, _)| *n == 11));
-    let head = ManifestHead {
-        schema: 2,
-        chain_id: params.l2_chain_id,
-        finalized_height: s - u,
-        finalized_hash: headers[0].hash_slow(),
-    };
-    let mut manifest = BufWriter::new(File::create_new(dir.join("headers.jsonl")).unwrap());
-    write_lines(&mut manifest, [head]);
-    write_lines(&mut manifest, headers);
-    manifest.flush().unwrap();
+    crate::checkpoint_import::write_el_manifest(
+        File::create_new(dir.join("headers.jsonl")).unwrap(),
+        params.l2_chain_id,
+        s - u,
+        headers[0].hash_slow(),
+        headers,
+    )
+    .unwrap();
     let parts = v.block_id().unwrap().part_set_header;
     write_json(
         &dir.join("verified.json"),

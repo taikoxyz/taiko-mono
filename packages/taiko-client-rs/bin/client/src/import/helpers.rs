@@ -3,7 +3,7 @@
 //! chain identity without opening stores; every receipt is checked before publication.
 use super::*;
 use alloy_consensus::Header;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::process::Output;
 
 /// Run a helper to completion and keep its output.
@@ -109,21 +109,17 @@ pub(super) async fn comet_install(
     check_comet(&output.stdout, &expected, v.landing().comet_hash)
 }
 
-/// The EL helper's header manifest (`etna-el-import install --manifest`), JSON Lines: these
-/// fields on the first line, then one header per line.
-#[derive(Debug, Serialize)]
+/// The EL helper's header manifest (`etna-el-import install --manifest`), written by
+/// [`lander::checkpoint_import::write_el_manifest`].
+#[derive(Debug)]
 pub(super) struct Manifest<'a> {
-    /// Helper input schema.
-    schema: u32,
     /// Runtime EL chain id.
     chain_id: u64,
     /// The inherited post-s checkpoint q.
     finalized_height: u64,
     /// The authenticated hash at q, for the post-install forkchoice.
     finalized_hash: B256,
-    /// The authenticated, parent-linked headers from the header floor through s, each on its own
-    /// line after the first.
-    #[serde(skip)]
+    /// The authenticated, parent-linked headers from the header floor through s.
     headers: &'a [Header],
 }
 
@@ -151,7 +147,6 @@ impl<'a> Manifest<'a> {
             &v.state().anchor
         };
         Ok(Self {
-            schema: 2,
             chain_id: p.l2_chain_id,
             finalized_height: anchor.inbox.last_checkpoint_height,
             finalized_hash: anchor.inbox.last_checkpoint_hash,
@@ -159,12 +154,16 @@ impl<'a> Manifest<'a> {
         })
     }
 
-    /// Write the manifest to the new file `path`, one line at a time.
+    /// Write the manifest to the new file `path`.
     fn write(&self, path: &Path) -> R<()> {
-        let mut out = std::io::BufWriter::new(create(path)?);
-        write_lines(&mut out, [self])?;
-        write_lines(&mut out, self.headers)?;
-        out.flush().map_err(io)
+        lander::checkpoint_import::write_el_manifest(
+            create(path)?,
+            self.chain_id,
+            self.finalized_height,
+            self.finalized_hash,
+            self.headers,
+        )
+        .map_err(io)
     }
 }
 

@@ -26,6 +26,46 @@ pub fn header_floor(origin: u64, height: u64, unsettled_limit: u64) -> u64 {
         .min(origin.max(height.saturating_sub(unsettled_limit.saturating_sub(1))))
 }
 
+/// The `etna-el-import install --manifest` schema [`write_el_manifest`] writes: JSON Lines.
+pub const EL_MANIFEST_SCHEMA: u32 = 2;
+
+/// The first line of the EL helper's header manifest; one header per line follows it.
+#[derive(Serialize)]
+struct ElManifestHead {
+    /// [`EL_MANIFEST_SCHEMA`].
+    schema: u32,
+    /// Runtime EL chain id.
+    chain_id: u64,
+    /// The inherited checkpoint q.
+    finalized_height: u64,
+    /// The authenticated hash at q.
+    finalized_hash: B256,
+}
+
+/// Write the EL helper's header manifest (`etna-el-import install --manifest`) to `out`, the one
+/// writer of that format: the schema, chain id and the inherited checkpoint q with its hash on
+/// the first line, then each of `headers`, the ascending context ending at s, on its own line.
+/// The helper streams it one bounded line at a time.
+pub fn write_el_manifest(
+    out: impl std::io::Write,
+    chain_id: u64,
+    finalized_height: u64,
+    finalized_hash: B256,
+    headers: &[Header],
+) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut out = std::io::BufWriter::new(out);
+    let head =
+        ElManifestHead { schema: EL_MANIFEST_SCHEMA, chain_id, finalized_height, finalized_hash };
+    serde_json::to_writer(&mut out, &head)?;
+    out.write_all(b"\n")?;
+    for header in headers {
+        serde_json::to_writer(&mut out, header)?;
+        out.write_all(b"\n")?;
+    }
+    out.flush()
+}
+
 /// Import failures keep publisher faults distinct from authenticated contradictions.
 #[derive(Clone, Debug, thiserror::Error, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "class", content = "detail", rename_all = "snake_case")]
