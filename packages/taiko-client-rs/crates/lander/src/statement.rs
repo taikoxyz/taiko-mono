@@ -4,7 +4,7 @@ use crate::{contracts::IEtnaInbox::LandInput, types::LandingSnapshot};
 use alloy_primitives::{B256, U256, keccak256};
 
 /// Byte length of the static nineteen-word public statement preimage.
-pub const PREIMAGE_BYTES: usize = 19 * 32;
+pub(crate) const PREIMAGE_BYTES: usize = 19 * 32;
 
 /// Hash Solidity's packed ordered bytes32 blob list, with no array offset or length words.
 pub fn blob_hashes_hash(hashes: &[B256]) -> B256 {

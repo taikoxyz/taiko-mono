@@ -1538,73 +1538,28 @@ async fn unavailable_proof_is_temporary() {
     }
 }
 
-/// The lists a batch's decisions fall back to are read once per distinct `fallbackKeysHash`
-/// among the anchors of the heights it checks, at the first anchor proving it. Lists already
-/// known are not read again, the start height's anchor is never read, a list that hashes
-/// elsewhere is refused and one the L1 cannot give is temporary.
+/// A fallback key list is accepted only under its own hash: one the L1 answers under another
+/// list's hash is refused as `Safety`, and one the L1 cannot give is temporary.
 #[tokio::test]
-async fn anchor_lists_are_fetched_once_per_distinct_hash() {
+async fn fallback_list_is_accepted_only_under_its_own_hash() {
     use crate::{
-        l1::anchor_fallback_lists,
+        l1::obtain_fallback_list,
         test_utils::consensus::{SigningKey, fallback_keys},
     };
-    use std::sync::atomic::Ordering;
     let list = |seeds: &[u8]| {
         let keys = seeds.iter().map(|seed| SigningKey::from_slice(&[*seed; 32]).unwrap());
         fallback_keys(&keys.collect::<Vec<_>>())
     };
-    let (a, b, c) = (list(&[3]), list(&[4, 5]), list(&[6, 7, 8]));
-    let mut fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 12);
-    for keys in [&a, &b, &c] {
-        fixture.fallback_lists.insert(keys.hash(), keys.clone());
-    }
-    let reads = |fixture: &crate::test_utils::consensus_mpt::Fixture| {
-        fixture.fallback_reads.load(Ordering::SeqCst)
-    };
-    // The anchors of heights 0 to 9; the start height's proves a hash the L1 never serves.
-    let unserved = B256::repeat_byte(0xee);
-    let hashes = [unserved, a.hash(), a.hash(), b.hash(), b.hash(), a.hash(), c.hash()]
-        .into_iter()
-        .chain([c.hash(), a.hash(), b.hash()]);
-    let anchors = (0..10)
-        .zip(hashes)
-        .map(|(height, hash)| {
-            let mut anchor = fixture.anchors[&height].clone();
-            anchor.inbox.fallback_keys_hash = hash;
-            anchor
-        })
-        .collect::<Vec<_>>();
-    let mut known = BTreeMap::new();
-    let lists = anchor_fallback_lists(&fixture, 0, 0, &anchors, &mut known).await.unwrap();
-    assert_eq!(reads(&fixture), 3);
-    let expected = BTreeMap::from([(a.hash(), a), (b.hash(), b.clone()), (c.hash(), c)]);
-    assert_eq!(lists, expected);
-    assert_eq!(known, expected);
-    // A later batch reads none of the lists already obtained.
-    let again = anchor_fallback_lists(&fixture, 0, 4, &anchors[4..], &mut known).await.unwrap();
-    assert_eq!(again, expected);
-    assert_eq!(reads(&fixture), 3);
-    // Above the start height, the proof origin's own anchor decides and is read.
-    let mut fresh = BTreeMap::new();
-    let at_p = anchor_fallback_lists(&fixture, 0, 3, &anchors[3..4], &mut fresh).await.unwrap();
-    assert_eq!(at_p, BTreeMap::from([(b.hash(), b.clone())]));
-    assert_eq!(reads(&fixture), 4);
-    // At a later generation start, the start height's anchor decides nothing whatever it proves.
-    let at_origin =
-        anchor_fallback_lists(&fixture, 3, 3, &anchors[3..4], &mut BTreeMap::new()).await.unwrap();
-    assert!(at_origin.is_empty());
-    assert_eq!(reads(&fixture), 4);
-    // A list answered under another list's hash is refused.
+    let (a, b) = (list(&[3]), list(&[4, 5]));
     let forged = B256::repeat_byte(0xdd);
+    let mut fixture = crate::test_utils::consensus_mpt::Fixture::new(0, 12);
+    fixture.fallback_lists.insert(a.hash(), a.clone());
     fixture.fallback_lists.insert(forged, b);
-    let mut anchor = anchors[1..2].to_vec();
-    anchor[0].inbox.fallback_keys_hash = forged;
-    let error =
-        anchor_fallback_lists(&fixture, 0, 1, &anchor, &mut BTreeMap::new()).await.unwrap_err();
+    let anchor = fixture.anchors[&1].clone();
+    let obtain = |hash| obtain_fallback_list(&fixture, hash, anchor.hash, anchor.number);
+    assert_eq!(obtain(a.hash()).await.unwrap(), a);
+    let error = obtain(forged).await.unwrap_err();
     assert!(matches!(error, LanderError::Safety(_)), "{error}");
-    // A list the L1 cannot give is temporary.
-    anchor[0].inbox.fallback_keys_hash = unserved;
-    let error =
-        anchor_fallback_lists(&fixture, 0, 1, &anchor, &mut BTreeMap::new()).await.unwrap_err();
+    let error = obtain(B256::repeat_byte(0xee)).await.unwrap_err();
     assert!(matches!(error, LanderError::Temporary(_)), "{error}");
 }

@@ -1,7 +1,10 @@
 //! Serializable, immutable contexts. Contract-independent facts remain separate from ABI types.
 
 use crate::native::{Block, Commit, RawBlock};
-use abci::{AccountWitness, AnchorState, AnchorWitness, GenesisRecord, RawL1Header};
+use abci::{
+    AccountWitness, AnchorState, AnchorWitness, GenesisRecord, RawL1Header, fallback::FallbackKeys,
+    key::ConsensusKey,
+};
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256};
 use prost::Message;
@@ -355,6 +358,23 @@ pub struct PreparedBatch {
     /// for the set that signs p + 2.
     #[serde(with = "rlp_serde_option")]
     pub p_anchor_witness: Option<AnchorWitness>,
+    /// The fallback key list whose hash the generation's origin record holds: its keys, each at
+    /// power 1, sign o + 1 and o + 2.
+    pub origin_fallback_keys: FallbackKeys,
+    /// The set that signs p, keys and powers in CometBFT's order, which header(p)'s
+    /// `validators_hash` commits and p + 1's LastCommit lists; present exactly when p is above
+    /// the generation's start o, as o + 1 has no LastCommit.
+    pub validators_p: Option<Vec<(ConsensusKey, u64)>>,
+    /// The set that signs p + 1, keys and powers in CometBFT's order, which header(p)'s
+    /// `next_validators_hash` commits; present exactly when p + 1 is above o + 2, as the origin
+    /// list signs o + 1 and o + 2.
+    pub validators_p1: Option<Vec<(ConsensusKey, u64)>>,
+    /// Raw EIP-1186 proof of the `EtnaStaking` proxy's candidate snapshot slots and the
+    /// key-to-seat slot of each validator p + 1's LastCommit lacks, in p's post-state under the
+    /// state root of p's EL header; present exactly when p is above o. Its snapshot, with the
+    /// `minTotalStake` and `fallbackKeysHash` p's anchor proves, decides the set that signs
+    /// p + 2, and its seats give p + 1's `missBitmap`.
+    pub staking_at_p: Option<AccountWitness>,
     /// Raw EIP-1186 proof of the L2 SignalService proxy's EIP-1967 implementation slot under S's
     /// state root, retained only for a switching batch whose parent is S. A real proof backend
     /// must verify this private input: the slot holds the built-in SignalService implementation.
@@ -369,6 +389,12 @@ pub struct PreparedBatch {
     pub blocks: Vec<CertifiedBlock>,
     /// Each block's own authenticated L1 anchor, in matching block order.
     pub anchors: Vec<AnchorState>,
+    /// The staking words of every height H in (p, h − 1] that the signing-set rules read from
+    /// H's post-state, in increasing height order: the proof's own execution reads them there.
+    pub staking_reads: Vec<HeightReads>,
+    /// Each fallback key list a decision at a height of [p, h − 1] above o fell back to, once, in
+    /// ascending order of hash; each decision's anchor proves the hash of the list it used.
+    pub fallback_key_lists: Vec<FallbackKeys>,
     /// Exact raw L1 headers, newest-to-oldest from reference through oldest consumed anchor.
     pub reference_headers: Vec<Bytes>,
     /// The seven canonical V1 ABI fields binding the original parent and the terminal EL and
@@ -387,6 +413,22 @@ pub struct PreparedBatch {
     pub blobs: PreparedBlobs,
     /// Identity of this job: the exact V1 public statement hash.
     pub statement_hash: B256,
+}
+
+/// The staking words of one height H's post-state that the signing-set rules read, as the
+/// builder verified them from the staking proof of H's post-state under H's EL state root.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeightReads {
+    /// The height H.
+    pub height: u64,
+    /// The candidate snapshot, whole and unmasked, in [`abci::staking::snapshot_slots`] order:
+    /// `snapshotHeight`, `snapshotTotalStake`, then each seat record's two words, 258 words. With
+    /// the `minTotalStake` and `fallbackKeysHash` H's anchor proves, it decides the set that
+    /// signs H + 2.
+    pub values: Vec<U256>,
+    /// The key-to-seat word of each validator H + 1's LastCommit lacks, by its address, in the
+    /// CometBFT order of the set that signs H: they give H + 1's `missBitmap`.
+    pub seat_words: Vec<(Address, U256)>,
 }
 
 /// Fixed bounds for decoding a restored job's blobs, independent of operator limits: the journal
@@ -408,9 +450,10 @@ impl PreparedBatch {
     /// The commit heights, which the statement does not bind, must still have the shape the
     /// builder gives them: strictly ascending inside (p, h] and ending at h.
     ///
-    /// Proof witnesses (anchors, p's anchor witness and the starting Inbox witness) are not
-    /// re-derived. A restored job is at least Prepared, so its proof already exists and nothing
-    /// reads them again; the builder checked every one before proving.
+    /// Proof witnesses (anchors, p's anchor witness, the starting Inbox witness, the sets of p and
+    /// p + 1, the origin and fallback key lists, p's staking proof and the per-height staking
+    /// reads) are not re-derived. A restored job is at least Prepared, so its proof already
+    /// exists and nothing reads them again; the builder checked every one before proving.
     pub fn verify_restored(&self) -> Result<()> {
         let u48 = |value: U256| {
             protocol_u48(value)
@@ -589,15 +632,33 @@ mod tests {
     /// terminal Comet hash, the reference, the statement hash, the blob payload and its KZG
     /// sidecar, and the shape of the commit heights, which nothing binds. It does not re-derive
     /// proof witnesses: a restored job's proof already exists, and the builder checked them all
-    /// before proving.
+    /// before proving. The anchors, p's anchor witness, the sets of p and p + 1, the origin
+    /// list, the fallback key lists, p's staking proof and the per-height staking reads may each
+    /// be dropped or replaced by values no proof would accept.
     #[test]
     fn restore_rechecks_the_statement_shape_and_blob_binding_but_not_proof_witnesses() {
-        use crate::test_utils::runtime::{limits, rebind, request};
+        use crate::test_utils::{
+            consensus::{fallback_keys, public_key},
+            consensus_mpt::seed_key,
+            runtime::{limits, rebind, request},
+        };
         use alloy_eips::eip7594::BlobTransactionSidecarVariant;
         let original = request();
         original.batch.verify_restored().unwrap();
+        let other = fallback_keys(&[seed_key(0x51)]);
         let mut witnesses = original.batch.clone();
         witnesses.anchors.clear();
+        witnesses.p_anchor_witness = Some(witnesses.starting_inbox_witness.clone());
+        witnesses.validators_p = Some(Vec::new());
+        witnesses.validators_p1 = Some(vec![(public_key(&seed_key(0x52)), 0)]);
+        witnesses.origin_fallback_keys = other.clone();
+        witnesses.fallback_key_lists = vec![other.clone(), other];
+        witnesses.staking_at_p = Some(witnesses.snapshot.inbox_witness.clone());
+        witnesses.staking_reads = vec![HeightReads {
+            height: 99,
+            values: Vec::new(),
+            seat_words: vec![(Address::ZERO, U256::MAX)],
+        }];
         witnesses.verify_restored().unwrap();
 
         let reference =
@@ -663,6 +724,79 @@ mod tests {
             assert!(matches!(error, LanderError::Journal(_)), "{expected}: {error}");
             assert!(error.to_string().contains(expected), "{expected}: {error}");
         }
+    }
+
+    /// A request of 300 blocks, the average batch of the 4 s block and 20 min landing operating
+    /// targets, journals within the journal bound with every per-height witness at its largest:
+    /// 128 seat words at each height of (p, h), a 128-key fallback key list for each of the 300
+    /// decisions, 128-member sets of p and p + 1, and p's staking proof of the 258 snapshot and
+    /// 128 seat slots, each proof a path of 65 full branch nodes. The bound holds with the
+    /// private block and commit witnesses at the whole budget the codec reserves for them.
+    #[test]
+    fn request_of_300_blocks_stays_under_the_journal_bound() {
+        use crate::{
+            store::MAX_JOURNAL_BYTES,
+            test_utils::{
+                consensus::{committee, fallback_keys, pair},
+                consensus_mpt::seed_key,
+                protocol::request,
+                runtime::leaves,
+            },
+        };
+        const BLOCKS: u64 = 300;
+        let mut request = request();
+        let batch = &mut request.batch;
+        let (_, signers, keys) = committee(&[3, 3, 3]);
+        let mut parent = batch.snapshot.checkpoint_hash;
+        for height in 1..=BLOCKS {
+            let block = pair(height, parent, &signers, &keys, batch.blocks.last());
+            parent =
+                abci::EtnaEnvelope::decode(&block.block.data[0]).unwrap().block.header.hash_slow();
+            batch.blocks.push(block);
+        }
+        batch.leaves = leaves(&batch.blocks);
+        batch.anchors = vec![batch.parent_anchor.clone(); BLOCKS as usize];
+        batch.commit_heights = (1..=BLOCKS).collect();
+        batch.input.lastHeight = U256::from(BLOCKS);
+
+        let list = fallback_keys(&(1..=128).map(seed_key).collect::<Vec<_>>());
+        let power = abci::committee::MAX_TOTAL_POWER / 128;
+        let set = list.keys().iter().map(|key| (*key, power)).collect::<Vec<_>>();
+        // A full branch node: 16 child hashes and an empty value under a three-byte list header.
+        let path = vec![Bytes::from(vec![0xff; 532]); 65];
+        let seats = [Address::repeat_byte(0xff); 128];
+        batch.staking_at_p = Some(AccountWitness {
+            address: Address::repeat_byte(0xff),
+            nonce: u64::MAX,
+            balance: U256::MAX,
+            storage_root: B256::repeat_byte(0xff),
+            code_hash: B256::repeat_byte(0xff),
+            account_proof: path.clone(),
+            storage: crate::l1::staking_slots(&seats)
+                .into_iter()
+                .map(|slot| abci::StorageProof { slot, value: U256::MAX, proof: path.clone() })
+                .collect(),
+        });
+        batch.staking_reads = (1..BLOCKS)
+            .map(|height| HeightReads {
+                height,
+                values: vec![U256::MAX; abci::staking::SNAPSHOT_SLOT_COUNT],
+                seat_words: seats.iter().map(|address| (*address, U256::MAX)).collect(),
+            })
+            .collect();
+        batch.fallback_key_lists = vec![list.clone(); BLOCKS as usize];
+        batch.origin_fallback_keys = list;
+        batch.validators_p = Some(set.clone());
+        batch.validators_p1 = Some(set);
+
+        let bytes = serde_json::to_vec(&request).unwrap().len() as u64;
+        // The blocks above are small; the codec admits up to a quarter of the bound of block and
+        // commit protobufs, which journal as base64.
+        let block_budget = (MAX_JOURNAL_BYTES / 4).div_ceil(3) * 4;
+        assert!(
+            bytes + block_budget < MAX_JOURNAL_BYTES,
+            "a 300-block request journals {bytes} bytes"
+        );
     }
 
     /// The Etna start S of the switching start-witness tests, and their fork time.

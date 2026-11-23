@@ -818,7 +818,7 @@ pub fn verify_starting_inbox(
 /// hash the checkpoint's slot 285 record holds, so authenticates the root under which p's anchor
 /// proves its `minTotalStake` and `fallbackKeysHash`, with no L1 ancestry. Every failure is
 /// `Safety`.
-pub fn verify_checkpoint_anchor(
+pub(crate) fn verify_checkpoint_anchor(
     witness: &AnchorWitness,
     header: &Header,
     generation: u64,
@@ -856,7 +856,7 @@ pub fn verify_checkpoint_anchor(
 /// The current generation's origin record as the snapshot authenticates it: a recovery
 /// generation's authenticated origin, or generation 0's record from the snapshot's own genesis
 /// proof under its header.
-pub fn snapshot_origin(snapshot: &LandingSnapshot) -> Result<OriginRecord> {
+pub(crate) fn snapshot_origin(snapshot: &LandingSnapshot) -> Result<OriginRecord> {
     match &snapshot.recovery {
         Some(origin) => Ok(OriginRecord {
             start_height: origin.height,
@@ -960,41 +960,6 @@ pub(crate) async fn obtain_fallback_list<L: LandingSource + ?Sized>(
         )));
     }
     Ok(keys)
-}
-
-/// The fallback key lists the signing-set decisions of a batch from the proof origin `p` fall
-/// back to, by hash: `anchors[i]` is the anchor of height `p + i`, for the heights whose
-/// decisions the batch checks, each proving the `fallbackKeysHash` of the list its decision falls
-/// back to.
-///
-/// A list `known` holds is reused; each other distinct hash is obtained once, at the first anchor
-/// proving it ([`obtain_fallback_list`]), and added to `known`. The generation's start height
-/// `origin` decides nothing, as the origin record's list signs its next two blocks, so its
-/// anchor's words are never read.
-pub async fn anchor_fallback_lists<L: LandingSource + ?Sized>(
-    l1: &L,
-    origin: u64,
-    p: u64,
-    anchors: &[AnchorState],
-    known: &mut BTreeMap<B256, FallbackKeys>,
-) -> Result<BTreeMap<B256, FallbackKeys>> {
-    let mut lists = BTreeMap::new();
-    for (height, anchor) in (p..).zip(anchors) {
-        let hash = anchor.inbox.fallback_keys_hash;
-        if height <= origin || lists.contains_key(&hash) {
-            continue;
-        }
-        let keys = match known.get(&hash) {
-            Some(keys) => keys.clone(),
-            None => {
-                let keys = obtain_fallback_list(l1, hash, anchor.hash, anchor.number).await?;
-                known.insert(hash, keys.clone());
-                keys
-            }
-        };
-        lists.insert(hash, keys);
-    }
-    Ok(lists)
 }
 
 /// Converts an EIP-1186 response into the witness the MPT verifier checks, keeping every node.

@@ -81,6 +81,10 @@ impl Validators {
     pub fn total_voting_power(&self) -> u64 {
         self.total
     }
+    /// The members' keys and powers, in CometBFT's order.
+    pub(crate) fn members(&self) -> Vec<(ConsensusKey, u64)> {
+        self.members.iter().map(|v| (v.pub_key, v.voting_power)).collect()
+    }
     /// The set as CometBFT entries in its order, each at proposer priority 0 (the order
     /// `NewValidatorSet` holds them in): the signers a block's certified proposer is looked up in.
     pub fn entries(&self) -> Vec<ValEntry> {
