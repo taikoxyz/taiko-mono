@@ -289,6 +289,14 @@ impl ContractConsensus {
         self.apps[i].launch().await?;
         self.signers[i].start()
     }
+    /// Fails with a [`Fatal`](crate::Fatal) error, which ends a [`wait_until`] at once, when an
+    /// app halted or stopped on its own.
+    pub fn check_apps(&self) -> Result<()> {
+        for app in &self.apps {
+            check_app_running(app.halt(), app.exited())?;
+        }
+        Ok(())
+    }
     /// Waits for the first validator while surfacing terminal app failures.
     pub async fn wait_for_height(&self, height: u64) -> Result<()> {
         wait_until(
@@ -296,9 +304,7 @@ impl ContractConsensus {
             Duration::from_secs(120),
             Duration::from_millis(100),
             || async {
-                for app in &self.apps {
-                    check_app_running(app.halt(), app.exited())?;
-                }
+                self.check_apps()?;
                 Ok((self.cmt.latest_height().await? >= height).then_some(()))
             },
         )

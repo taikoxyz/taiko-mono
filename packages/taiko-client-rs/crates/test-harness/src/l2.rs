@@ -91,21 +91,28 @@ pub async fn anchor_of(l2: &RootProvider, h: u64) -> Result<u64> {
 
 /// The first height above `from` whose anchor, carried or inherited, is L1 block `l1` or later:
 /// heights are read in order once `cmt` has committed their successor, from `l2`. Fails after
-/// `timeout`, naming the height it stopped at and the last error, if any.
+/// `timeout`, naming the height it stopped at and the last error, if any, and at once when
+/// `apps_running` fails with a [`Fatal`](crate::wait::Fatal) error, as
+/// [`Devnet::check_apps`](crate::Devnet::check_apps) and
+/// [`ContractConsensus::check_apps`](crate::ContractConsensus::check_apps) do for an app that
+/// halted or stopped on its own.
 pub async fn first_anchored_at(
     cmt: &CmtClient,
     l2: &RootProvider,
     from: u64,
     l1: u64,
     timeout: Duration,
+    apps_running: impl Fn() -> Result<()>,
 ) -> Result<u64> {
     let next = AtomicU64::new(from + 1);
     let next = &next;
+    let apps_running = &apps_running;
     wait_until(
         &format!("a block above {from} anchored at L1 block {l1} or later"),
         timeout,
         Duration::from_millis(250),
         || async move {
+            apps_running()?;
             let h = next.load(Ordering::Relaxed);
             if cmt.latest_height().await? <= h {
                 return Ok(None);
@@ -120,4 +127,34 @@ pub async fn first_anchored_at(
     )
     .await
     .with_context(|| format!("stopped at height {}", next.load(Ordering::Relaxed)))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Instant;
+
+    use anyhow::anyhow;
+    use rpc::client::connect_http_with_timeout;
+    use url::Url;
+
+    use super::*;
+    use crate::wait::Fatal;
+
+    #[tokio::test]
+    async fn a_halted_app_ends_the_anchor_wait_at_once() {
+        // Nothing serves this address; the halt is seen before any read.
+        let unused: Url = "http://127.0.0.1:9".parse().expect("a valid URL");
+        let cmt = CmtClient::new(unused.clone());
+        let l2 = connect_http_with_timeout(unused, Duration::from_secs(1));
+        let started = Instant::now();
+        let err = first_anchored_at(&cmt, &l2, 5, 100, Duration::from_secs(60), || {
+            Err(Fatal(anyhow!("app 0 halted: boom")).into())
+        })
+        .await
+        .expect_err("a halted app fails the wait");
+        assert!(started.elapsed() < Duration::from_secs(5), "waited {:?}", started.elapsed());
+        let message = format!("{err:#}");
+        assert!(message.contains("app 0 halted: boom"), "{message}");
+        assert!(message.contains("stopped at height 6"), "{message}");
+    }
 }

@@ -367,7 +367,10 @@ async fn across_switch(
     // The DAO hands the chain back to the fallback keys, past s.
     let from = c.cmt.latest_height().await?;
     let l1 = f.set_min_total_stake(U256::MAX).await?;
-    let h = first_anchored_at(&c.cmt, &f.l2.provider, from, l1, Duration::from_secs(120)).await?;
+    let h = first_anchored_at(&c.cmt, &f.l2.provider, from, l1, Duration::from_secs(120), || {
+        c.check_apps()
+    })
+    .await?;
     c.wait_for_height(h + 3).await?;
     ensure!(c.cmt.signing_set(h + 1).await? == candidate, "the candidate signs H + 1");
     ensure!(c.cmt.signing_set(h + 2).await? == fallback, "the fallback keys sign H + 2");

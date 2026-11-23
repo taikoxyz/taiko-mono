@@ -214,7 +214,10 @@ async fn max_min_total_stake_forces_fallback() -> Result<()> {
     let t = take_over().await?;
     let from = t.devnet.cmt(0).latest_height().await?;
     let l1 = plant_min_total_stake(&t.devnet, U256::MAX).await?;
-    let h = first_anchored_at(t.devnet.cmt(0), &t.devnet.l2_provider(0), from, l1, WAIT).await?;
+    let h = first_anchored_at(t.devnet.cmt(0), &t.devnet.l2_provider(0), from, l1, WAIT, || {
+        t.devnet.check_apps()
+    })
+    .await?;
     eprintln!("minTotalStake 2^256 - 1 in L1 block {l1}, first anchored at L2 {h}");
     t.devnet.wait_for_height(0, h + 3, WAIT).await?;
 
@@ -277,7 +280,10 @@ async fn take_over() -> Result<Takeover> {
     }
     let from = devnet.cmt(0).latest_height().await?;
     let l1 = plant_min_total_stake(&devnet, minimum).await?;
-    let proved = first_anchored_at(devnet.cmt(0), &devnet.l2_provider(0), from, l1, WAIT).await?;
+    let proved = first_anchored_at(devnet.cmt(0), &devnet.l2_provider(0), from, l1, WAIT, || {
+        devnet.check_apps()
+    })
+    .await?;
     eprintln!("minTotalStake {minimum} in L1 block {l1}, first anchored at L2 {proved}");
 
     let registrations: Vec<_> = CANDIDATE_KEYS

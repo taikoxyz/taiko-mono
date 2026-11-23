@@ -435,21 +435,28 @@ impl Devnet {
         set_interval_mining(&self.l1, 1).await
     }
 
+    /// Fails with a [`Fatal`] error, which ends a [`wait_until`] at once, when an app halted or
+    /// its thread exited on its own (an app the test stopped with [`Devnet::app_stop`] does not
+    /// count).
+    pub fn check_apps(&self) -> Result<()> {
+        for (j, app) in self.apps.iter().enumerate() {
+            if let Some(reason) = app.halt() {
+                return Err(Fatal(anyhow!("app {j} halted: {reason}")).into());
+            }
+            if app.exited() {
+                return Err(Fatal(anyhow!("app {j} stopped on its own")).into());
+            }
+        }
+        Ok(())
+    }
+
     /// Waits until CometBFT node `i` committed height `h`; returns the height reached. Fails on
-    /// timeout, or at once when an app halts or its thread exits on its own (an app the test
-    /// stopped with [`Devnet::app_stop`] does not count); on failure it first prints each app's
-    /// halt reason and the tail of every container's log.
+    /// timeout, or at once when [`Devnet::check_apps`] fails; on failure it first prints each
+    /// app's halt reason and the tail of every container's log.
     pub async fn wait_for_height(&self, i: usize, h: u64, timeout: Duration) -> Result<u64> {
         let what = format!("CometBFT node {i} at height {h}");
         wait_until(&what, timeout, POLL, || async move {
-            for (j, app) in self.apps.iter().enumerate() {
-                if let Some(reason) = app.halt() {
-                    return Err(Fatal(anyhow!("app {j} halted: {reason}")).into());
-                }
-                if app.exited() {
-                    return Err(Fatal(anyhow!("app {j} stopped on its own")).into());
-                }
-            }
+            self.check_apps()?;
             let height = self.cmt[i].latest_height().await?;
             Ok((height >= h).then_some(height))
         })
