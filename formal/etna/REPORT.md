@@ -7886,3 +7886,33 @@ full lifecycle, anchor lag, no-code/repair, fairness and implementation remain.
 ## Source178 Free operational-view follow-up
 
 See [current evidence](L2_FREE_VIEW_REVIEW.md). Added a reviewed wrapper and exact12-class cover over byte-identical kernel6de. All12 nonempty class histories, fullcandidate,11 projection paths and6normal/6fault/6restored controls independently verified. Stronger monolithic45.060s and all12 class45s safety attempts INCONCLUSIVE; no Free safety or protocol-defect claim. Default516=old503+13named witnesses excludes all exploratory safety configs.817 regressions each360/f556 pass; independent whole-stage review and exact-head hosted/publication receipts are recorded separately in monitor ledger. Previous archived results, source classifications,14WAITING/19historicalINCONCLUSIVE remain unchanged.
+
+
+## Source178 anchor, immutable proof and recovery
+
+At design178/main360 and formal baselinef5ca, the restricted two-slot Micro graph
+exhausted 607 states. The normal Main pressure config produced a genuine
+AnchorFenceSafe RED at model779a and 144 exhausted states at repaired model4118
+using byte-identical CFG274bba. Of 15 public outcomes, one exhausted and 14
+violated their specified invariant. Current default531 = old516 + 15, with
+134 PASS and 397 named. The proof/landing, trust and recovery witnesses use
+actual dispatch and declared source premises. Larger histories are conditional.
+
+Independent readbacks cover 31 private witnesses and all 11 isolated
+control/restoration outcomes. The missing second stale-short offer leaves an
+exhausted graph and fails its coverage witness, which returns after exact
+restoration. Two setup parse failures and two readback/adapter failures are
+retained separately from behavioral evidence. Both ordinary cohorts each pass
+817 checks. No protocol defect was confirmed within the exercised scope.
+
+See [stage report](ANCHOR_PROOF_RECOVERY.md) and
+[local evidence](anchor_proof/evidence.json). Closing independent review,
+publication and exact-head hosted receipts belong to the PR and monitor.
+The approximately 30percent (25–35 judgement) estimate, Free height14 with
+0/12 exhausted, isolated proof-generation sensitivity, 14 runtime WAITING
+and 19 archived INCONCLUSIVE retain their recorded scope.
+
+The [Main identity erratum](anchor_proof/MAIN_IDENTITIES.md) binds the actual
+DirectLong and ShortFirst Z141100 records, H15 anchors, proof references and
+new statements. Dependent display labels admit consistent per-run renaming.
+The checked finite properties do not establish cross-history replay isolation.

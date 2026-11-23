@@ -1,0 +1,6 @@
+---------------- MODULE EtnaAPRProbe2 ----------------
+EXTENDS EtnaAnchorProofRecovery
+
+NoProbe == ~(s.l1.number=600 /\ At(s.history,500).offer="idle" /\ At(s.history,600).offer="s")
+ProbeView == <<StateView,NoProbe>>
+=============================================================================

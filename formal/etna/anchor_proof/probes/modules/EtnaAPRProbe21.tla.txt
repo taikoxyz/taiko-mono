@@ -1,0 +1,11 @@
+---------------- MODULE EtnaAPRProbe21 ----------------
+EXTENDS EtnaAnchorProofRecovery
+ProbeInputs == SubSeq(Script("POnly"),1,Len(Script("POnly"))-2) \o <<Local("Capture","pQueue")>>
+ProbeInit == Init /\ s.script="POnly"
+ProbeNext == /\ cursor<Len(ProbeInputs)
+             /\ Take(ProbeInputs[cursor+1],cursor+1)
+ProbeSpec == ProbeInit /\ [][ProbeNext]_vars
+
+NoProbe == ~(cursor=Len(ProbeInputs) /\ Ev="Capture" /\ Arg="pQueue" /\ Result="invalid")
+ProbeView == <<StateView,NoProbe>>
+=============================================================================

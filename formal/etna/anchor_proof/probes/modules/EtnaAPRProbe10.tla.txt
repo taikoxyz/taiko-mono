@@ -1,0 +1,19 @@
+---------------- MODULE EtnaAPRProbe10 ----------------
+EXTENDS EtnaAnchorProofRecovery
+
+VARIABLE probe
+ProbeStep(k) ==
+    CASE k=0 -> receipt'.event="Slot" /\ receipt'.input.arg="s" /\ receipt'.input.at=500 /\ receipt'.outcome="accepted"
+      [] k=1 -> receipt'.event="Learn" /\ receipt'.input.at=500 /\ s'.node.target=11 /\ ~s'.node.trust
+      [] k=2 -> receipt'.event="EL" /\ receipt'.outcome="elMatched"
+      [] k=3 -> receipt'.event="FailedRead" /\ receipt'.outcome="unavailable"
+      [] k=4 -> receipt'.event="Slot" /\ receipt'.input.at=600 /\ receipt'.input.arg \in {"idle","s"}
+      [] k=5 -> receipt'.event="Learn" /\ receipt'.input.at=600 /\ s'.node.pin=500 /\ s'.node.stage="EL"
+      [] k=6 -> receipt'.event="Comet" /\ receipt'.outcome="matched" /\ s'.node.pin=500 /\ s'.node.own=600
+      [] OTHER -> FALSE
+ProbeInit == Init /\ probe=0
+ProbeNext == Next /\ probe'=IF ProbeStep(probe) THEN probe+1 ELSE probe
+ProbeSpec == ProbeInit /\ [][ProbeNext]_<<s,receipt,cursor,probe>>
+NoProbe == ~(probe=7)
+ProbeView == <<StateView,probe,NoProbe>>
+=============================================================================

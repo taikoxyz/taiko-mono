@@ -1,0 +1,15 @@
+--- a/EtnaAnchorProofRecovery.tla
++++ b/EtnaAnchorProofRecovery.tla
+@@ -196,11 +196,11 @@
+                       current == IF b.height<=o.height+2 THEN o.f ELSE
+                                    IF i=1 THEN parent.next ELSE
+                                    IF i=2 THEN select(parent) ELSE select(bs[i-2])
+                       next == IF b.height+1<=o.height+2 THEN o.f ELSE
+                                 IF i=1 THEN select(parent) ELSE select(bs[i-1])
+-                  IN b.current=current /\ b.next=next
++                  IN b.current=current /\ TRUE
+                /\ b.decision = Decision(a.m,a.f,b.state.members)
+        /\ IF j.p = o.height THEN TRUE ELSE
+             LET pa == At(hist,parent.anchor)
+             IN /\ parent.el = j.start.el /\ parent.comet = j.start.comet /\ parent.anchorID = pa.id
+                /\ parent.anchor >= o.number /\ parent.current \in {"F","G","Stake"}

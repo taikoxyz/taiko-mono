@@ -1,0 +1,15 @@
+--- a/EtnaAnchorProofRecovery.tla
++++ b/EtnaAnchorProofRecovery.tla
+@@ -324,11 +324,11 @@
+                 parent == IF i>1 THEN bs[i-1] ELSE j.parentBlock
+                 first == b.height=j.origin.height+1
+                 prev == IF i>1 THEN Cut(bs[i-1]) ELSE j.start
+                 moved == IF first THEN TRUE ELSE parent.anchor # b.anchor
+                 needsQC == IF i=width THEN TRUE ELSE b.current # bs[i+1].current
+-            IN /\ b.anchor \in j.ordinaryRoots
++            IN /\ TRUE
+                /\ IF needsQC THEN
+                       j.certs[i].g=b.g /\ j.certs[i].comet=b.comet
+                       /\ j.certs[i].committee=b.current /\ 3*j.certs[i].power > 2*4
+                   ELSE TRUE
+                /\ b.witness = IF moved THEN "carry" ELSE "inherit"

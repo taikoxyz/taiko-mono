@@ -1,0 +1,11 @@
+---------------- MODULE EtnaAPRProbe24 ----------------
+EXTENDS EtnaAnchorProofRecovery
+ProbeInputs == SubSeq(Prefix,1,Len(Prefix)-2) \o <<Local("Comet","wrongComet")>>
+ProbeInit == Init /\ s.script="ShortFirst"
+ProbeNext == /\ cursor<Len(ProbeInputs)
+             /\ Take(ProbeInputs[cursor+1],cursor+1)
+ProbeSpec == ProbeInit /\ [][ProbeNext]_vars
+
+NoProbe == ~(cursor=Len(ProbeInputs) /\ Ev="Comet" /\ Arg="wrongComet" /\ Result="mismatch")
+ProbeView == <<StateView,NoProbe>>
+=============================================================================

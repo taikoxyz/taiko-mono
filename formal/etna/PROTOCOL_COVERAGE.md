@@ -4,6 +4,31 @@ Assessment2026-11-23, current design unmerged PR22425 at178d7a7a, main360262975.
 The existing draft verification branch's stage baseline is03cdafc9. This is a source-
 qualified roadmap, not a proof that every protocol obligation is implemented.
 
+## Current anchor, immutable proof and recovery composition
+
+The [current stage report](ANCHOR_PROOF_RECOVERY.md) records the design178 and
+main360 composition over baselinef5ca. The complete restricted Micro graph
+exhausts 607 distinct states and the independent readers observe all nine
+ordered input pairs with actual state and refusal fields. Immutable full-range
+proofs, actual-c cuts and FI suffixes, pending trust, and source-conditional H14
+recovery are exercised in the larger named families. Their results establish
+finite conditional histories. Same-CFG pressure calibration, four
+source faults with exact restorations, and the missing-offer coverage fault
+supply independent sensitivity checks. Main's new block and proof labels
+are scoped by their actual anchor and reference. The two recordings have
+different checkpoint storage and new statements despite identical printed H15
+labels. Cross-history identity and replay remain outside the checked family.
+[Finite lifting and evidence](anchor_proof/MAIN_IDENTITIES.md).
+
+The current default bank is 531 cases (old516 plus 15), with 134 PASS and 397
+named outcomes and 55 TLA files in the formal tree. The 31 private witnesses and 11 control
+outcomes are off-bank. The whole-protocol estimate remains approximately
+30percent (25–35 judgement). Free height14 remains OPEN with 0/12 exhausted.
+Isolated proof-generation sensitivity remains OPEN. Generation-1
+post-origin trust comparison at target 15 and arbitrary caller-supplied fresh
+recovery authorization inputs remain outside the exercised histories. The 14
+runtime WAITING and 19 archived INCONCLUSIVE items retain their recorded scopes.
+
 ## Progress judgement and completion meaning
 
 For latest-source protocol specification plus TLA/property/composition validation,

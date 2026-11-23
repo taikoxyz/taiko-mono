@@ -1,0 +1,15 @@
+--- a/EtnaAnchorProofRecovery.tla
++++ b/EtnaAnchorProofRecovery.tla
+@@ -521,11 +521,11 @@
+                          [] n.stage="EL" -> {Unit("Comet"),Unit("Gate"),Unit("FailedRead")}
+                          [] OTHER -> {}
+         available == {a \in Elems(x.history) : a.number > n.own /\ a.number \in {320,500,600}}
+     IN props \cup phase \cup replay \cup comparisons
+        \cup {LearnAt(a.number) : a \in available}
+-       \cup IF num < 600 THEN {I("Slot",q,slot) : q \in {"idle","s","l"}} ELSE {}
++       \cup IF num < 600 THEN {I("Slot",q,slot) : q \in ({"idle","s","l"} \ (IF num=500 /\ x.l1.c=11 THEN {"s"} ELSE {}))} ELSE {}
+ Next ==
+     IF Scenario="Micro" THEN \E e \in MicroOffers(s) : Take(e,0)
+     ELSE LET seq == Script(s.script)
+          IN /\ cursor < Len(seq) /\ Take(seq[cursor+1],cursor+1)
+ Spec == Init /\ [][Next]_vars

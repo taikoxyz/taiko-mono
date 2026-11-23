@@ -1,0 +1,250 @@
+[
+  {
+    "case": "apr-probe-pair-idle-idle",
+    "module": "EtnaAPRProbe1",
+    "mode": "micro:idle:idle",
+    "invariant": "NoProbe",
+    "moduleSha256": "22c18c56b045c21ef47f5b38bf99746b3b27899643cd45b6351793a1959e040e",
+    "configSha256": "07fb440fe0cee113be6a9d40f35f07bd7b199ad0e07896762b0de8d21a7e614f"
+  },
+  {
+    "case": "apr-probe-pair-idle-s",
+    "module": "EtnaAPRProbe2",
+    "mode": "micro:idle:s",
+    "invariant": "NoProbe",
+    "moduleSha256": "2c83f35f1ac0a6e7d000b8c1746df61ef192ab2ff251f805093af2a6ad39b3ee",
+    "configSha256": "794e7a82d1e0c96124b516a0fa1a7a1ed5f54aae8fead4bf06134380d872a2fb"
+  },
+  {
+    "case": "apr-probe-pair-idle-l",
+    "module": "EtnaAPRProbe3",
+    "mode": "micro:idle:l",
+    "invariant": "NoProbe",
+    "moduleSha256": "b54e1db753430ca469b7d2c46117598cfb3174dcd61626e2f4f433a842009a04",
+    "configSha256": "f26d4b0baa4a953d14d55b8df8e10a8305379eb4dc969e1b0172b102a68e2026"
+  },
+  {
+    "case": "apr-probe-pair-s-idle",
+    "module": "EtnaAPRProbe4",
+    "mode": "micro:s:idle",
+    "invariant": "NoProbe",
+    "moduleSha256": "693d801247ff8e343e845c7b662126178a3ef3ea464fd1c1528e2f8109bb2960",
+    "configSha256": "78a4549a397462d2589fbed0fb9d2b9a3484887d5ad9cd80a03b640810762d4a"
+  },
+  {
+    "case": "apr-probe-pair-s-s",
+    "module": "EtnaAPRProbe5",
+    "mode": "micro:s:s",
+    "invariant": "NoProbe",
+    "moduleSha256": "310fd9c8b7dd2cd115112cea20439370673b39b861f8a0a7111171e249e35ad5",
+    "configSha256": "c7d4064a69ba00bb027f570dd327e701758ea3d3da71b661754f8d3842cedfe0"
+  },
+  {
+    "case": "apr-probe-pair-s-l",
+    "module": "EtnaAPRProbe6",
+    "mode": "micro:s:l",
+    "invariant": "NoProbe",
+    "moduleSha256": "34f659788347531b4eac5a0e4c2dbe0cc216858f1b411231c56ea49553b854e4",
+    "configSha256": "c462bfded0bba6b70eff03b2335c19c9e703e00ce29cd34b7e89a012699ac8c0"
+  },
+  {
+    "case": "apr-probe-pair-l-idle",
+    "module": "EtnaAPRProbe7",
+    "mode": "micro:l:idle",
+    "invariant": "NoProbe",
+    "moduleSha256": "0441c1746446bcf657e0cd411e28f177f5d6c5d265fd6b54a0f3b0246553c08b",
+    "configSha256": "c8e613ca12dc4b464df3acd057187213d7d2735b8715e4730cfdfeb8e07e9f53"
+  },
+  {
+    "case": "apr-probe-pair-l-s",
+    "module": "EtnaAPRProbe8",
+    "mode": "micro:l:s",
+    "invariant": "NoProbe",
+    "moduleSha256": "0fa5fcd3f5e3387e4c73251ffde781af2774b4f6cfb396e94272111cdad1a7ad",
+    "configSha256": "d3c032e82f818e5605668e2ba0dca836b9e3c0fe4af80edc16c9b84d7a67f621"
+  },
+  {
+    "case": "apr-probe-pair-l-l",
+    "module": "EtnaAPRProbe9",
+    "mode": "micro:l:l",
+    "invariant": "NoProbe",
+    "moduleSha256": "1df03972d4fadcce4e4e144f25c9847aeeefb5c96ddabe2a9a6a90715a66e7c4",
+    "configSha256": "3293be898e7d26e0e6721695a363a7d8415b7428344c28ac79144d791417f5b5"
+  },
+  {
+    "case": "apr-probe-pin",
+    "module": "EtnaAPRProbe10",
+    "mode": "pin",
+    "invariant": "NoProbe",
+    "moduleSha256": "f274b04cd1d0148c3c1e5e6368a75296b497da6bbe2e9249823e331ad3d42304",
+    "configSha256": "a304eecdcc332b6fb9935fbade8496476bced32de2d90fcafddb309833bf64aa"
+  },
+  {
+    "case": "apr-probe-remote-gate",
+    "module": "EtnaAPRProbe11",
+    "mode": "remote-gate",
+    "invariant": "NoProbe",
+    "moduleSha256": "1ae44341b19b6a716fdc93e72108bb8a7fe525eaec0a1c8cdb438169658d6fe6",
+    "configSha256": "3c636677bbcccccb6afdc7a27c5930c6ea1924dc07d7949d7a32b0a7057842d0"
+  },
+  {
+    "case": "apr-probe-twin",
+    "module": "EtnaAPRProbe12",
+    "mode": "twin",
+    "invariant": "NoProbe",
+    "moduleSha256": "9a9af78d738ec08776ac93abe4cfb47aaf8d0f10f90a451cc96ae6326a389e40",
+    "configSha256": "f0fbaa0d3a5370c584187f9451bcda5b7d45acbef472f4eade0c24a1fc5398a9"
+  },
+  {
+    "case": "apr-probe-full-short",
+    "module": "EtnaAPRProbe13",
+    "mode": "old-jobs",
+    "invariant": "NoProbe",
+    "moduleSha256": "e47a131009410f2009806fba1cf18035d8cbd319e39e95f29eef4ceaba6753ae",
+    "configSha256": "4bb416fceca485a81db6d7083c68efc4ffe2cadfeb52a91682e6098b571c2f33"
+  },
+  {
+    "case": "apr-probe-capture-trimLong",
+    "module": "EtnaAPRProbe14",
+    "mode": "capture-invalid:trimLong",
+    "invariant": "NoProbe",
+    "moduleSha256": "d6b152abc709213b8cb20ad928f8b2dd8417af6db22b67e60cf82bd7809af201",
+    "configSha256": "2a8b0d2e085f74e61149fecc375deadb4f231993c2592106ad51583de14d689e"
+  },
+  {
+    "case": "apr-probe-capture-noInheritedRoot",
+    "module": "EtnaAPRProbe15",
+    "mode": "capture-invalid:noInheritedRoot",
+    "invariant": "NoProbe",
+    "moduleSha256": "8ffc3614116400b96fdccb616faf314c2dbdf05ad97c96c8e4d02982e1f82507",
+    "configSha256": "f84dc011c0729408ad0351bd037e55d3ab93e3485ac708bc4a6a93e2f537c8a5"
+  },
+  {
+    "case": "apr-probe-capture-recordAtB",
+    "module": "EtnaAPRProbe16",
+    "mode": "capture-invalid:recordAtB",
+    "invariant": "NoProbe",
+    "moduleSha256": "1d856e87ae59e157a2c027855e2b079daaf86233c3346aa2d6d5e0507e4b8a42",
+    "configSha256": "40c571f48ae341c7a694958cddf7f4a1083b7210dcc9cae91008e0fbfa4447fc"
+  },
+  {
+    "case": "apr-probe-capture-wrongOriginNext",
+    "module": "EtnaAPRProbe17",
+    "mode": "capture-invalid:wrongOriginNext",
+    "invariant": "NoProbe",
+    "moduleSha256": "f60209c0b869ea658e3e7e0adeb27aa3f2bc1a78b31ba2d7cd4fc86b9694c03f",
+    "configSha256": "4543eaf6180e00f482299b353e5d36ddfaec9295aac7c5943ea47ef49bdf2b09"
+  },
+  {
+    "case": "apr-probe-capture-wrongTerminalNext",
+    "module": "EtnaAPRProbe18",
+    "mode": "capture-invalid:wrongTerminalNext",
+    "invariant": "NoProbe",
+    "moduleSha256": "afef4f0c1e54ad5193caa483da2478c4b1ed51bc450348910faef366105cbdc6",
+    "configSha256": "f1f33a6e4a86497a968fbd0f870f5ffd962eb878ae486595e0e7f9dc034be33a"
+  },
+  {
+    "case": "apr-probe-capture-pConfig",
+    "module": "EtnaAPRProbe19",
+    "mode": "capture-invalid:pConfig",
+    "invariant": "NoProbe",
+    "moduleSha256": "c94eca3c0cbf233ba8d6f29194ab3a4cd1af362f7dc77d560d8cf51a08c05d3d",
+    "configSha256": "064adc06b3f3a669c8dba5b30a81376e038931b58063424c700a75b21193029a"
+  },
+  {
+    "case": "apr-probe-capture-pRecord",
+    "module": "EtnaAPRProbe20",
+    "mode": "capture-invalid:pRecord",
+    "invariant": "NoProbe",
+    "moduleSha256": "3b0ccd386061bd1cb697f2c661dad2d9aeab6de25344ece1593ef9c3fefd854e",
+    "configSha256": "e6a4be2891a5436b9a104e58a775025ecc5518c1af006d76f06d902e2f509164"
+  },
+  {
+    "case": "apr-probe-capture-pQueue",
+    "module": "EtnaAPRProbe21",
+    "mode": "capture-invalid:pQueue",
+    "invariant": "NoProbe",
+    "moduleSha256": "a62e15d75d11780cbfb06d92df60e11109ee06c4559cc338efbdc55f1da5b713",
+    "configSha256": "57758e8c3532e7a060f7697a4f8271a7dc0488cad1ad2612087a7b8b6e5b4b50"
+  },
+  {
+    "case": "apr-probe-early-el",
+    "module": "EtnaAPRProbe22",
+    "mode": "early-el",
+    "invariant": "NoProbe",
+    "moduleSha256": "302f3b8fc871acdb14f808a18b1c5f68278c51718e74fbec3e6a88bbbc76c982",
+    "configSha256": "d6700bfdb403345764414e2dbc46ebe5ea7d3f9347b1126defb0cebf613e9d6b"
+  },
+  {
+    "case": "apr-probe-record-el",
+    "module": "EtnaAPRProbe23",
+    "mode": "record-el",
+    "invariant": "NoProbe",
+    "moduleSha256": "b6bd3241a7033fae288a8244033db6be34f1bfff08fd70b4cf8742e28605c664",
+    "configSha256": "f95b46558287ea3c4a41bb20ec0724a68b76c2375a389ab4ba5b0e3add51591a"
+  },
+  {
+    "case": "apr-probe-record-comet",
+    "module": "EtnaAPRProbe24",
+    "mode": "record-comet",
+    "invariant": "NoProbe",
+    "moduleSha256": "0009aa7c0df01acd26bbdc46ea805fe62c3a63cb9b2b9233bb3f8beb27358dec",
+    "configSha256": "c7b16cb32d01f08d650242be035e3f6616aff6d1db9c0826042ecbb0997c64b8"
+  },
+  {
+    "case": "apr-probe-rebuild-wrongArchiveEL",
+    "module": "EtnaAPRProbe25",
+    "mode": "restore-refusal:wrongArchiveEL",
+    "invariant": "NoProbe",
+    "moduleSha256": "77912c9c4d23b11ee1f33dd24d5a95c503a833bf640667aedcc07c0043e2186c",
+    "configSha256": "776237d7736c70852255a5221d93dbc121cd20cbfdb1caf40de57b3d1fea10fd"
+  },
+  {
+    "case": "apr-probe-rebuild-wrongArchiveRoot",
+    "module": "EtnaAPRProbe26",
+    "mode": "restore-refusal:wrongArchiveRoot",
+    "invariant": "NoProbe",
+    "moduleSha256": "4b678748304f5c8084ad1964d5eb4ad834e896fe1d7b46725bf600bdeb37a3e2",
+    "configSha256": "1e69f38c25fb450e0e5901b9feb6d7e5028a09f3e930053870dee98c1268252b"
+  },
+  {
+    "case": "apr-probe-rebuild-noStateAuth",
+    "module": "EtnaAPRProbe27",
+    "mode": "restore-refusal:noStateAuth",
+    "invariant": "NoProbe",
+    "moduleSha256": "d85ac8baf1acced846591cdfa6aa8138224b4181e25e0d6986c07e05a749acf4",
+    "configSha256": "c86a9772c3661c583829e04e4b7ce51cd3e760c47590a9cc98680706405cf2f7"
+  },
+  {
+    "case": "apr-probe-rebuild-noOriginAuth",
+    "module": "EtnaAPRProbe28",
+    "mode": "restore-refusal:noOriginAuth",
+    "invariant": "NoProbe",
+    "moduleSha256": "ab306b6d50a048c5f3a5418b7dcd56c87c557d5f0054d4c4c250b653fabf6d1d",
+    "configSha256": "8662efdece87a820fa3645883b01930ccadcad03294bbbf7e5be8856520bbba4"
+  },
+  {
+    "case": "apr-probe-rebuild-noGenesisAuth",
+    "module": "EtnaAPRProbe29",
+    "mode": "restore-refusal:noGenesisAuth",
+    "invariant": "NoProbe",
+    "moduleSha256": "f35ab494e130c9a6c6607bdecc41e670a5157461fbb6396fc498912d6d3b4ddb",
+    "configSha256": "c337fd720b1a4994ce0d3515232f270c97a3921fae1b35201e5ff0c83eb206a7"
+  },
+  {
+    "case": "apr-probe-rebuild-noSessionAuth",
+    "module": "EtnaAPRProbe30",
+    "mode": "restore-refusal:noSessionAuth",
+    "invariant": "NoProbe",
+    "moduleSha256": "b321df2cdb0476fcb8b722224e167b6fdd772a45db6f86e539bed8ac522164e2",
+    "configSha256": "29523b5bb5c5c167b3f81cab7539276282a773dcad03f1dc85a5c96d3e280830"
+  },
+  {
+    "case": "apr-probe-recover-unavailable",
+    "module": "EtnaAPRProbe31",
+    "mode": "recover-unavailable",
+    "invariant": "NoProbe",
+    "moduleSha256": "65ad8fe21bccdd149671a7e89c583a791d1abfb5282d8f096124a1f740b32051",
+    "configSha256": "7430ad8fe5b4afa39ee110953d50aa93217d3d40443439806d7daf9071dbe515"
+  }
+]

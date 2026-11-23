@@ -5,6 +5,25 @@ project. [Tracking issue #22355](https://github.com/taikoxyz/taiko-mono/issues/2
 is its GitHub entry point. Historical batch plans and reports retain their
 original measurements; they are not current completion checklists.
 
+## Current anchor, immutable proof and recovery stage
+
+The [stage report](ANCHOR_PROOF_RECOVERY.md) binds design178/main360 to the
+reviewed finite model, exact local receipts, and independent typed readbacks.
+
+| Deliverable | Stage | Boundary |
+| --- | --- | --- |
+| APR-1 source interface and frozen histories | SOURCE CONTRACT REVIEWED | Distinguishes actual L1, retained anchors, immutable full proof ranges, actual-c cuts, pinned trust, and conditional recovery. |
+| APR-2 composed finite product | LOCAL TLC OUTCOMES RECORDED | Micro exhausted 607 states, normal pressure RED and same-CFG GREEN exhausted 144 states; all 15 public outcomes qualified. Larger Main/Twin/POnly histories are conditional. |
+| APR-3 independent readbacks, controls and regressions | LOCAL EVIDENCE PACKAGED | 31 private witnesses, 11 control/restoration outcomes, and 817 ordinary checks each360/f556. Closing review, publication and exact-head hosted receipts are external to this report. |
+
+Default531 = old516 + 15 (134 PASS, 397 named). Free height14 is OPEN with
+0/12 classes exhausted. Isolated generation sensitivity remains OPEN after
+compound old-job rejection. Main's post-recovery identity correspondence
+holds within each immutable script. Cross-history replay isolation remains
+open. [Identity scope and dual-trace evidence](anchor_proof/MAIN_IDENTITIES.md).
+The approximately 30percent (25–35 judgement)
+estimate, 14 runtime WAITING and 19 archived INCONCLUSIVE retain their scope.
+
 ## Current Free operational-view stage
 
 [Evidence report](L2_FREE_VIEW_REVIEW.md) records the selected source178 stage.

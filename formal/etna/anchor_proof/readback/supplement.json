@@ -1,0 +1,90 @@
+{
+  "schema": "Independent literal expectations v1",
+  "head": "178d7a7a66b14305c2f6467ae77163f93dd677cf",
+  "base": "3602629758beb653423a23608fd1960810efcfac",
+  "frozenParentOracleSHA256": "fee6c783b113f4aa3c1388745e2df66af7ec24b2f54ad4b46ef1cf1b65bd9cbe",
+  "frozenParentReportSHA256": "5f4ffbf7b41a2553720a54d70e7456c0094d3d50dd11519cf767e03fc4eac98c",
+  "micro": {
+    "scope": "Two canonical remote blocks, one generation, at most one transaction offered in each of two L1 slots. The landing rows enumerate every pair of offers in this deliberately restricted alphabet. Node observation, replay and trust have independent event order. The larger protocol remains outside this instance.",
+    "parameters": {"S":10,"U":3,"maxBatchBlocks":2,"maxAnchorAgeSeconds":86400,"g":0,"Q":"250000000000000000000000000","F":["f1","f2","f3","f4"],"Stake":["bondA","bondB","bondC","bondD"]},
+    "initial": {"head":10,"localAnchor":null,"localDomain":0,"actualC":10,"ownKnownTarget":10,"ownGeneration":0,"boundSigner":true,"knownAuthenticatedGenesis":true,"checkpointComparison":"origin EL matched","pending":false,"signingOpen":true,"nextEligibleHeight":11,"fiHead":0,"fiTail":0,"nonce":0,"oldGenerationRecords":false,"startCut":[10,"mE10","ZERO",0],"slot285":[10,0,0,"mE10","ZERO"],"slot290":[10,100,1700001200,"hashF"],"bootstrap":"Valid switching initialization, c=S, authenticated full origin/genesis and slot274/start EL state across the transition. All stake, key-list, vote, timing, proof and record prerequisites assumed valid."},
+    "anchorFields":["L1number","checkpointHeight","checkpointEL","M","fallback","fiHead","fiTail"],
+    "anchors":{"O":[100,10,"mE10","3Q","F",0,0],"A":[200,10,"mE10","3Q","F",0,0],"B":[320,10,"mE10","Disabled","F",0,0]},
+    "ledgerFields":["height","domain","principalInQ_ABCD","seats_ABCD","exitDates_ABCD","misses_ABCD","snapshotHeight","snapshotMembers","snapshotTotalInQ"],
+    "ledgers":[
+      [10,0,[1,1,1,1],[0,1,2,3],[null,null,null,null],[0,0,0,0],0,[],0],
+      [11,0,[1,1,1,1],[0,1,2,3],[null,null,null,null],[0,0,0,0],11,["bondA","bondB","bondC","bondD"],4],
+      [12,0,[1,1,1,1],[0,1,2,3],[null,null,null,null],[0,0,0,0],12,["bondA","bondB","bondC","bondD"],4]
+    ],
+    "ledgerPremises":"Pre-fork four Q-principal seated bonds and no prior block-start snapshot write in this fixture. All four seats retained, full votes when applicable, no transaction touches staking or FI. Set from origin independent of the chosen initial pre-fork snapshot.",
+    "blockFields":["height","anchor","witness","parentEL","EL","parentCometID","Comet","root","fi","currentSet","nextSet","decidesSetAtHeightPlus2"],
+    "blocks":[
+      [11,"A","carry","mE10","mE11","EMPTY","mK11","mRoot11",0,"F","F","Stake"],
+      [12,"B","carry","mE11","mE12","mK11","mK12","mRoot12",0,"F","Stake","F"]
+    ],
+    "retainedProposal":"First H11/A proposed with local finalized A and ordinary witness. B finalizes later, c10 unchanged. Retain the original proposal in an authorized Comet reproposal, still fresh at its own candidate timestamp, local target already matched. Its decision is (H13,Stake) despite finalized B/M=Disabled. H12 carries B, giving (H14,F). H11 own BFT time is genesis time, and its EL timestamp includes A.timestamp. Both anchors satisfy height/age/generation/trust checks. Outside the fixed two-block graph a fresh H12 may also retain A, yielding different H12 identity and H14=Stake.",
+    "proofsFields":["p","h","ref","covered","originCut","orderedInterior","terminalCut","terminalRoot","blobs","pair"],
+    "proofs":{
+      "s":[10,11,450,[11],[10,"mE10","ZERO",0],[],[11,"mE11","mK11",0],"mRoot11",["mBs"],["mSzk","mSsecond"]],
+      "l":[10,12,450,[11,12],[10,"mE10","ZERO",0],[[11,"mE11","mK11",0]],[12,"mE12","mK12",0],"mRoot12",["mBl"],["mLzk","mLsecond"]]
+    },
+    "jobPremises":"Both jobs have globally decided material before any submission. Reference450 authenticates the ordinary roots used, the origin and required Inbox reads. The same pair, blobs, calldata, generation, reference and cut list survive across either inclusion opportunity. Remote proof readiness requires certified execution and witnesses; it is independent of this tracked node's local replay height/gate. Finished proofs have no implicit local-adoption side effect.",
+    "stateFields":["actualC","retainedRecentSlot285sAs_parentGenerationHeadELComet","newSignalCheckpointsAs_heightELRoot"],
+    "states":{
+      "I":[10,[],[]],
+      "S":[11,[[10,0,0,"mE11","mK11"]],[[11,"mE11","mRoot11"]]],
+      "D":[12,[[10,0,0,"mE12","mK12"]],[[12,"mE12","mRoot12"]]],
+      "SL":[12,[[10,0,0,"mE11","mK11"],[11,0,0,"mE12","mK12"]],[[11,"mE11","mRoot11"],[12,"mE12","mRoot12"]]]
+    },
+    "offerTraceFields":["N500","result500","state500","N600","result600","state600"],
+    "allOffers":[
+      ["idle","idle","I","idle","idle","I"],
+      ["idle","idle","I","s","acceptedSuffix11","S"],
+      ["idle","idle","I","l","acceptedSuffix11and12","D"],
+      ["s","acceptedSuffix11","S","idle","idle","S"],
+      ["s","acceptedSuffix11","S","s","alreadySettled","S"],
+      ["s","acceptedSuffix11","S","l","acceptedSuffix12","SL"],
+      ["l","acceptedSuffix11and12","D","idle","idle","D"],
+      ["l","acceptedSuffix11and12","D","s","alreadySettled","D"],
+      ["l","acceptedSuffix11and12","D","l","alreadySettled","D"]
+    ],
+    "transitionChecks":"Both accepted targets save the terminal state root to SignalService, and actual parent to the slot285 record. S->SL compares all of [11,mE11,mK11,0]; S->S replay and D->D both replays fail range without mutation. o,p and g fixed, FI head and tail zero in all states.",
+    "remoteNodeExampleFields":["event","localHeight","actualC","matchedHeight","ownTarget","comparison","signingOpen"],
+    "remoteNodeExample":[
+      ["initial",10,10,10,10,"origin EL and genesis OK",true],
+      ["remote long at500",10,12,10,10,"older own finalized view unchanged",true],
+      ["own finalized reports c12",10,12,10,12,"target above local",false],
+      ["non-signing certified replay H11/A",11,12,10,12,"target above local",false],
+      ["non-signing certified replay H12/B",12,12,10,12,"target available",false],
+      ["compare E12",12,12,10,12,"mE12 matches, slot285 pending",false],
+      ["compare mK12 and current generation",12,12,12,12,"both match",true]
+    ],
+    "remoteNodeAlternative":"If local H12 already exists before s lands at500, later learn c11 and compare mE11,mK11 against the local ancestor at11, while local tip stays12. If the node learns the later finalized c12 directly it may go straight from matched10 to pending12. No requirement to match every intermediate L1 inclusion before the latest observed finalized target."
+  },
+  "pOnlyPositive": {
+    "commonPrefix":"Use the frozen main prefix through the landing of P10->12 at600. Stop old-domain production at H12 before any H13 decision. Retain p12=(E12,K12,head0), E12 committed B anchor number=320 and B root; fixed domain0 origin O=100. No governance recovery, no old H13 certificate, no conflicting lock and no later landing before the new H13/H14 job. Healthy ready committees and checked active rules.",
+    "newState":"The owner restores M=3Q before V=141100. F remains live and origin fallback is F. V authenticates g0, c12,E12, M3Q, hashF, FI head0 and tail2; V's root includes the continuous original queue. A non-signing or restarted node obtains O and latest c12 in its own finalized view and fully matches E12/K12; signing is admitted only once matched. All signers for the continuation are available.",
+    "privateAndOrdinaryInputs":{"reference":141200,"inclusion":141300,"widestReferenceWindow":8191,"minReadableAtInclusion":133109,"K":131072,"B":320,"V":141100,"refMinusB":140880,"minReadableMinusB":132789,"refMinusV":100,"refMinusO":141100,"selectedRefAgeAtInclusion":100},
+    "ordinaryReads":"Authenticate fixed slot290 O record, retained slot285 at12, constants and config under a recent authorized root. Reading the origin record is a storage read, and does not require authenticating a header chain from O to ref. All newly used block roots V are within the chosen budget. Authenticating B by ordinary L1 ancestry is impossible here, including at the earliest readable reference. B is needed only for M/fallbackKeysHash at p under p's authenticated EL header for p+2; p+1 advances from B to V, so no new block uses B.",
+    "FI":"Entry0 enqueued by B and entry1 by C600. Both still pending from head0 in L1 at V and both due under delay86400. Entries, bytes, storage proofs, nonce/balance/base-fee/zk-fit and executable tx0 inclusion are assumed checked. H13 includes exact entry0 at transaction 0, H14 entry1 at transaction 0. Every included tx fits both budgets and leaves staking unaffected; no omission or skip.",
+    "time":{"formula":"T(n)=1700000000+12*n; initial timestamps consistent with prefix. Time values below are abstract choices of authenticated stock single-round, full-power commit medians, not free proposer inputs.","h13BFT":"T(400) from H12 commit; > H12 BFT, while V is finalized before H13","h13EL":"T(141100) from V","h13AnchorAge":0,"h14BFT":"T(141170) from the H13 commit which took place after V finalized","h14EL":"T(141170)","h14AnchorAge":840,"maxAnchorAge":86400,"H13gap":1,"H14gap":2},
+    "blockFields":["height","anchor","witness","EL","parentEL","Comet","parentComet","stateRoot","fiCursor","seatSnapshotHeight","signs","headerNext","decidesHeightPlus2"],
+    "blocks":[
+      [13,"V","carry","vE13","E12","vK13","K12","vRoot13",1,13,"Stake","F","Stake"],
+      [14,"V","inherit","vE14","vE13","vK14","vK13","vRoot14",2,14,"F","Stake","Stake"]
+    ],
+    "validatorBinding":"p12>o10: p12.validators_hash=F for H13's miss-bitmap, p12.next_validators_hash=Stake signs H13; p12 post-state with B/Disabled/hashF selects F for H14. V plus H13's valid 4Q snapshot selects Stake for H15. All actual parent votes in LastCommit are present so misses are zero. Check H13 commit (>2/3 Stake) because H14's set changes, and H14 terminal commit (>2/3 F). Both signed sets and next hashes follow the same rule; next H15 has no execution obligation in this proof.",
+    "fullFrozenProof":{"p":12,"h":14,"origin":[12,"E12","K12",0],"interiors":[[13,"vE13","vK13",1]],"terminal":[14,"vE14","vK14",2],"terminalRoot":"vRoot14","ref":141200,"coveredHeights":[13,14],"blobHashes":["vBlob"],"proofs":["vZK","vSecond"],"landAt141300FromActual12":{"slot285":[12,0,2,"vE14","vK14"],"signal":[14,"vE14","vRoot14"],"head":2}},
+    "negativeNeighbours":["Replacing p12's B/Disabled by V/3Q incorrectly selects Stake for H14.","Requiring ordinary B ancestry rejects this otherwise valid isolated use.","Using the B-only alternative for O's storage record, FI, config, or a new H13/H14 anchor fails.","A distinct H13 inheriting B would have to authenticate B ordinarily for H13 even with the same p-only witness. Such an ordinary chain is out of budget at all currently readable references; the unprocessed due items also cannot be omitted at V."]
+  },
+  "independentCutContracts": {
+    "classification":"Conditional certified-history interface test under the separate >1/3 double-sign premise explicitly acknowledged in SPEC 6.3 and SYNC-9-6a. No normal quorum assumption or reachable deployed defect is claimed. The fixture supplies opaque independent, sound guest acceptances as inputs. It does not construct or verify certificates, signatures or guest proofs. The guest omission of stock app_hash reconstruction by itself does not produce two certificates.",
+    "sharedOrigin":[10,"forkE10","ZERO",0],
+    "interfaceInputs":[
+      {"certificateClass":"alpha","proofRange":[10,11],"terminal":[11,"forkE11","forkK11a",0],"terminalRoot":"forkRoot11","expectedStandaloneAtC10":"accept on assumed independent certified and guest-checked alpha inputs"},
+      {"certificateClass":"beta","proofRange":[10,12],"interiors":[[11,"forkE11","forkK11b",0]],"terminal":[12,"forkE12b","forkK12b",0],"terminalRoot":"forkRoot12b","expectedStandaloneAtC10":"accept on assumed independent certified and guest-checked beta inputs"}
+    ],
+    "checks":["EL and FI at11 agree, K11a and K11b are distinct certified Comet block identities. Both branches individually obey the stated guest contract and all other checks by premise.","Land alpha from actual10, obtaining slot285[11]=[10,0,0,forkE11,forkK11a]. Then offer unchanged beta. Its current-c leaf commits [11,forkE11,forkK11b,0]; equality fails. No settlement, head advance, saved parent, or SignalService change.","Distinct Comet hashes in this control do not imply that the same proof can be rewritten or that an arbitrary different hash authenticates. Ordinary unmutated short-first and direct-long micro histories are the positive neighbours. Exact cut equality already exists in the draft."],
+    "sourceIDs":["LAND-6.1-8","LAND-6.1-10","PROOF-6.2-15","PROOF-6.2-17","PROOF-6.2-39","PROOF-6.2-42","SYNC-9-6a","RECOV-8.1-7"]
+  }
+}

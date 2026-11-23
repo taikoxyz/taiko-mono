@@ -1,0 +1,15 @@
+--- a/EtnaAnchorProofRecovery.tla
++++ b/EtnaAnchorProofRecovery.tla
+@@ -315,11 +315,11 @@
+        /\ j.cuts = [i \in 1..(width-1) |-> Cut(bs[i])]
+        /\ j.terminal=Cut(Last(bs)) /\ j.root=Last(bs).root
+        /\ j.statement=Stmt(j.g,j.p,j.h,j.start,j.terminal,j.root,r.id,j.ref,j.blobs,j.cuts)
+        /\ j.attest= << <<j.pair[1],j.statement>>,<<j.pair[2],j.statement>> >>
+        /\ \A role \in DOMAIN j.readAt :
+-             j.readAt[role]=r.number /\ j.readAt[role] \in j.ordinaryRoots /\ Ordinary(j.readAt[role],j.ref,j.origin)
++             TRUE /\ j.readAt[role] \in j.ordinaryRoots /\ Ordinary(j.readAt[role],j.ref,j.origin)
+        /\ \A i \in DOMAIN bs :
+             LET b == bs[i]
+                 a == At(hist,b.anchor)
+                 parent == IF i>1 THEN bs[i-1] ELSE j.parentBlock
+                 first == b.height=j.origin.height+1

@@ -1,0 +1,6 @@
+---------------- MODULE EtnaAPRProbe12 ----------------
+EXTENDS EtnaAnchorProofRecovery
+
+NoProbe == ~(Ev="Slot" /\ Arg="beta" /\ Result="cutMismatch")
+ProbeView == <<StateView,NoProbe>>
+=============================================================================

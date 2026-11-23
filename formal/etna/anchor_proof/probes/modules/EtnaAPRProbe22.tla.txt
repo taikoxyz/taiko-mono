@@ -1,0 +1,11 @@
+---------------- MODULE EtnaAPRProbe22 ----------------
+EXTENDS EtnaAnchorProofRecovery
+ProbeInputs == SubSeq(Prefix,1,13) \o <<I("Learn","wrongEL",600)>>
+ProbeInit == Init /\ s.script="ShortFirst"
+ProbeNext == /\ cursor<Len(ProbeInputs)
+             /\ Take(ProbeInputs[cursor+1],cursor+1)
+ProbeSpec == ProbeInit /\ [][ProbeNext]_vars
+
+NoProbe == ~(cursor=Len(ProbeInputs) /\ Ev="Learn" /\ Arg="wrongEL" /\ Result="learned")
+ProbeView == <<StateView,NoProbe>>
+=============================================================================
