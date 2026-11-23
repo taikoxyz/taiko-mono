@@ -150,6 +150,15 @@ impl TestState {
             .unwrap_or_default()
     }
 
+    /// The account proof `eth_getProof` returns for `address`: the nodes on the path to
+    /// `keccak256(address)`, root first, an exclusion proof when `address` is not part of the
+    /// state.
+    pub(crate) fn account_proof(&self, address: Address) -> Vec<Bytes> {
+        let key = keccak256(address);
+        let (_, nodes) = build_trie(&account_leaves(&self.accounts), vec![Nibbles::unpack(key)]);
+        proof_for(&nodes, key)
+    }
+
     /// An EIP-1186 witness for `address` and `slots` (in the given order), as `eth_getProof`
     /// would return it. Panics if `address` is not part of the state.
     pub(crate) fn witness(&self, address: Address, slots: &[B256]) -> AccountWitness {

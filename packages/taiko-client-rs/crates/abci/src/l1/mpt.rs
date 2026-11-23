@@ -10,7 +10,7 @@ use std::{
     panic::{self, AssertUnwindSafe},
 };
 
-use alloy_primitives::{B256, Bytes, U256, keccak256};
+use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
 use alloy_rlp::{Decodable, EMPTY_STRING_CODE, Header, PayloadView};
 use alloy_trie::{
     EMPTY_ROOT_HASH, Nibbles, TrieAccount,
@@ -128,6 +128,32 @@ pub fn verify_account_witness(
     // caught panic.
     panic::catch_unwind(AssertUnwindSafe(|| verify_witness(state_root, w, expected_slots)))
         .unwrap_or(Err(MptError::MalformedProof))
+}
+
+/// Verifies that `account_proof` proves that no account exists at `address` under `state_root`:
+/// a complete exclusion proof of `keccak256(address)`, under the same rules as a zero storage
+/// value (one that ends where the trie diverges from the key). An account that exists, or a proof
+/// that stops before the divergence, is [`MptError::Account`]. Never panics, as
+/// [`verify_account_witness`].
+pub fn verify_account_absence(
+    state_root: B256,
+    address: Address,
+    account_proof: &[Bytes],
+) -> Result<(), MptError> {
+    panic::catch_unwind(AssertUnwindSafe(|| {
+        let key = Nibbles::unpack(keccak256(address));
+        verify_nodes(state_root, key, None, account_proof).map_err(MptError::Account)?;
+        if proves_absence(state_root, &key, account_proof) {
+            Ok(())
+        } else {
+            Err(MptError::Account(ProofVerificationError::ValueMismatch {
+                path: key,
+                got: account_proof.last().cloned(),
+                expected: None,
+            }))
+        }
+    }))
+    .unwrap_or(Err(MptError::MalformedProof))
 }
 
 /// [`verify_account_witness`] without the panic boundary.
@@ -840,6 +866,40 @@ mod tests {
                     assert_eq!(err, MptError::MalformedProof, "{name}, value {value}");
                 }
             }
+        }
+    }
+
+    /// An address outside the state is proven absent by its exclusion proof, and an empty state
+    /// by no proof nodes; an account that exists, a proof of another root and every truncation of
+    /// an exclusion proof are refused.
+    #[test]
+    fn account_absence_needs_a_complete_exclusion_proof() {
+        let state = state();
+        let absent = Address::repeat_byte(0xee);
+        assert!(!state.has_account(absent));
+        let proof = state.account_proof(absent);
+        verify_account_absence(state.state_root(), absent, &proof).unwrap();
+        verify_account_absence(EMPTY_ROOT_HASH, absent, &[]).unwrap();
+        let err = verify_account_absence(B256::repeat_byte(1), absent, &proof).unwrap_err();
+        assert!(matches!(err, MptError::Account(_)), "{err:?}");
+        for len in 0..proof.len() {
+            let err = verify_account_absence(state.state_root(), absent, &proof[..len]);
+            assert!(matches!(err, Err(MptError::Account(_))), "{len} nodes: {err:?}");
+        }
+        for present in [INBOX, EMPTY, Address::repeat_byte(1)] {
+            let proof = state.account_proof(present);
+            for len in 0..=proof.len() {
+                let err = verify_account_absence(state.state_root(), present, &proof[..len]);
+                assert!(matches!(err, Err(MptError::Account(_))), "{present} {len}: {err:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn account_absence_rejects_malformed_proofs_without_panicking() {
+        for (name, proof, _) in malformed_proofs(keccak256(INBOX)) {
+            let state_root = keccak256(&proof[0]);
+            assert!(verify_account_absence(state_root, INBOX, &proof).is_err(), "{name}");
         }
     }
 

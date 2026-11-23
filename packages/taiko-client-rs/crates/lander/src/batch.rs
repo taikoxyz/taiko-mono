@@ -577,20 +577,13 @@ impl<C: CometSource + ?Sized, L: LandingSource + ?Sized> BatchBuilder<C, L> {
     }
 
     /// The fallback key list whose hash is `hash`, from the cache of lists already obtained or
-    /// from the L1 at the block with hash `at` and number `at_number`, the block that stored it
-    /// or a later one ([`LandingSource::fallback_keys`], whose log scan reaches block 0). A list
-    /// the L1 cannot give is [`LanderError::Temporary`]; one that hashes elsewhere is refused.
+    /// from the L1 at the block with hash `at` and number `at_number`
+    /// ([`crate::l1::obtain_fallback_list`]).
     async fn fallback_list(&self, hash: B256, at: B256, at_number: u64) -> Result<FallbackKeys> {
         if let Some(keys) = self.fallback_lists.lock().await.get(&hash) {
             return Ok(keys.clone());
         }
-        let keys = self.l1.fallback_keys(hash, at, at_number, 0).await?;
-        if keys.hash() != hash {
-            return Err(LanderError::Safety(format!(
-                "L1 source answered the fallback key list {hash} with {}",
-                keys.hash()
-            )));
-        }
+        let keys = crate::l1::obtain_fallback_list(self.l1.as_ref(), hash, at, at_number).await?;
         self.fallback_lists.lock().await.insert(hash, keys.clone());
         Ok(keys)
     }

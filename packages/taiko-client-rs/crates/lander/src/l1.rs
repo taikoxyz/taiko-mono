@@ -7,7 +7,7 @@ use abci::{
     l1::{
         header::RawL1Header,
         layout::{inbox, word_u48, word_u64},
-        mpt::verify_account_witness,
+        mpt::{verify_account_absence, verify_account_witness},
         source::{L1Source as AnchorSource, RpcL1Source},
         witness::{WitnessError, verify_anchor_witness, verify_genesis_inbox},
     },
@@ -838,9 +838,13 @@ pub fn staking_slots(missing: &[Address]) -> Vec<B256> {
 /// the candidate snapshot it proves and the live key-to-seat word of each address of `missing`.
 ///
 /// Every word is returned whole, never masked: the caller decides with them
-/// ([`abci::committee::decide`], [`staking::decode_seat`]). The account must exist under the
-/// root. A witness that names another account or another slot list, or whose account or storage
-/// proofs do not verify, is [`LanderError::Safety`]: the caller authenticated the root.
+/// ([`abci::committee::decide`], [`staking::decode_seat`]). An address without an account holds
+/// no storage, as one without code holds no snapshot: when the account proof is a complete
+/// exclusion proof under the root, every word is zero, so the snapshot is not the height's own and
+/// the fallback keys sign. The witness must then claim the requested slots with zero values, as
+/// `eth_getProof` answers for an absent account. A witness that names another account or another
+/// slot list, claims a word the proofs do not give, or whose account or storage proofs do not
+/// verify, is [`LanderError::Safety`]: the caller authenticated the root.
 pub fn verify_staking_witness(
     state_root: B256,
     staking: Address,
@@ -854,17 +858,51 @@ pub fn verify_staking_witness(
             witness.address
         )));
     }
-    let storage = verify_account_witness(state_root, witness, &staking_slots(missing))
-        .map_err(|e| LanderError::Safety(format!("staking proof at L2 {height}: {e}")))?;
-    let values = staking::snapshot_slots().map(|slot| storage.get(slot).expect("verified slot"));
-    let words = StakingWords::from_snapshot_values(&values).expect("every snapshot slot");
+    let slots = staking_slots(missing);
+    let storage = if verify_account_absence(state_root, staking, &witness.account_proof).is_ok() {
+        if !witness.storage.iter().map(|proof| proof.slot).eq(slots.iter().copied()) ||
+            witness.storage.iter().any(|proof| !proof.value.is_zero())
+        {
+            return Err(LanderError::Safety(format!(
+                "staking proof at L2 {height} proves no staking account but claims other slots \
+                 or nonzero words"
+            )));
+        }
+        None
+    } else {
+        Some(
+            verify_account_witness(state_root, witness, &slots)
+                .map_err(|e| LanderError::Safety(format!("staking proof at L2 {height}: {e}")))?,
+        )
+    };
+    let word = |slot| storage.as_ref().map_or(U256::ZERO, |s| s.get(slot).expect("verified slot"));
+    let words = StakingWords::from_snapshot_values(&staking::snapshot_slots().map(word))
+        .expect("every snapshot slot");
     let seats = missing
         .iter()
-        .map(|address| {
-            (*address, storage.get(staking::key_to_seat_slot(*address)).expect("verified slot"))
-        })
+        .map(|address| (*address, word(staking::key_to_seat_slot(*address))))
         .collect();
     Ok((words, seats))
+}
+
+/// The fallback key list whose hash is `hash`, read from `l1` at the block with hash `at` and
+/// number `at_number`, the block that stored it or a later one ([`LandingSource::fallback_keys`],
+/// whose log scan reaches block 0). A list the L1 cannot give is [`LanderError::Temporary`]; one
+/// that hashes elsewhere is refused as `Safety`.
+pub async fn obtain_fallback_list<L: LandingSource + ?Sized>(
+    l1: &L,
+    hash: B256,
+    at: B256,
+    at_number: u64,
+) -> Result<FallbackKeys> {
+    let keys = l1.fallback_keys(hash, at, at_number, 0).await?;
+    if keys.hash() != hash {
+        return Err(LanderError::Safety(format!(
+            "L1 source answered the fallback key list {hash} with {}",
+            keys.hash()
+        )));
+    }
+    Ok(keys)
 }
 
 /// The fallback key lists the signing-set decisions of a batch from the proof origin `p` fall
@@ -872,12 +910,10 @@ pub fn verify_staking_witness(
 /// decisions the batch checks, each proving the `fallbackKeysHash` of the list its decision falls
 /// back to.
 ///
-/// A list `known` holds is reused; each other distinct hash is obtained once
-/// ([`LandingSource::fallback_keys`]), at the first anchor proving it, with the log scan reaching
-/// block 0, and added to `known`. The generation's start height `origin` decides nothing, as the
-/// origin record's list signs its next two blocks, so its anchor's words are never read. A list
-/// the L1 cannot give is [`LanderError::Temporary`]; one that hashes elsewhere is refused as
-/// `Safety`.
+/// A list `known` holds is reused; each other distinct hash is obtained once, at the first anchor
+/// proving it ([`obtain_fallback_list`]), and added to `known`. The generation's start height
+/// `origin` decides nothing, as the origin record's list signs its next two blocks, so its
+/// anchor's words are never read.
 pub async fn anchor_fallback_lists<L: LandingSource + ?Sized>(
     l1: &L,
     origin: u64,
@@ -894,13 +930,7 @@ pub async fn anchor_fallback_lists<L: LandingSource + ?Sized>(
         let keys = match known.get(&hash) {
             Some(keys) => keys.clone(),
             None => {
-                let keys = l1.fallback_keys(hash, anchor.hash, anchor.number, 0).await?;
-                if keys.hash() != hash {
-                    return Err(LanderError::Safety(format!(
-                        "L1 source answered the fallback key list {hash} with {}",
-                        keys.hash()
-                    )));
-                }
+                let keys = obtain_fallback_list(l1, hash, anchor.hash, anchor.number).await?;
                 known.insert(hash, keys.clone());
                 keys
             }

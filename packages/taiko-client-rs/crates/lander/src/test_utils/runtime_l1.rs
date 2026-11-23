@@ -1397,6 +1397,81 @@ fn wrong_account_is_safety() {
     assert!(matches!(error, LanderError::Safety(_)), "{error}");
 }
 
+/// An L2 state without the staking proxy's account holds no snapshot: a complete exclusion
+/// proof of the account reads every word zero, so the fallback keys sign, whether the endpoint
+/// reports the absent account's code hash as `keccak256("")` or as zero, and in an empty state.
+#[test]
+fn absent_staking_account_reads_zero_words() {
+    use crate::{
+        l1::{staking_slots, verify_staking_witness},
+        test_utils::consensus_mpt::{Fixture, State, staking_words},
+    };
+    let fixture = Fixture::new(0, 4);
+    let staking = fixture.params.staking;
+    let missing = missing_addresses(&fixture);
+    let slots = staking_slots(&missing);
+    let state =
+        State::new(vec![(Address::repeat_byte(0x55), staking_words(5, &fixture.origin_keys))]);
+    let empty = State::new(vec![]);
+    assert_eq!(empty.root, alloy_trie::EMPTY_ROOT_HASH);
+    let zero = (
+        abci::staking::StakingWords::header_only(U256::ZERO, U256::ZERO),
+        missing.iter().map(|address| (*address, U256::ZERO)).collect::<BTreeMap<_, _>>(),
+    );
+    for state in [state, empty] {
+        let mut witness = state.witness(staking, &slots);
+        for code_hash in [alloy_primitives::KECCAK256_EMPTY, B256::ZERO] {
+            witness.code_hash = code_hash;
+            let proven =
+                verify_staking_witness(state.root, staking, &witness, 5, &missing).unwrap();
+            assert_eq!(proven, zero);
+            let decided = abci::committee::decide(5, &proven.0, U256::ZERO, &fixture.origin_keys);
+            assert_eq!(decided.source, abci::committee::SignerSource::Fallback);
+        }
+    }
+}
+
+/// A claim that the staking proxy's account is absent from a root that holds it is a safety
+/// error: an exclusion proof from another state, every truncation of the account's own proof,
+/// and, under a root that does lack it, a nonzero word or another slot list claimed beside a
+/// genuine exclusion proof.
+#[test]
+fn forged_absence_is_safety() {
+    use crate::{
+        l1::{staking_slots, verify_staking_witness},
+        test_utils::consensus_mpt::{Fixture, State, staking_words},
+    };
+    let fixture = Fixture::new(0, 4);
+    let staking = fixture.params.staking;
+    let missing = missing_addresses(&fixture);
+    let slots = staking_slots(&missing);
+    let root = fixture.headers[&3].state_root;
+    let present = fixture.l2_states[&3].witness(staking, &slots);
+    let other =
+        State::new(vec![(Address::repeat_byte(0x55), staking_words(3, &fixture.origin_keys))]);
+    let absent = other.witness(staking, &slots);
+    verify_staking_witness(other.root, staking, &absent, 3, &missing).unwrap();
+    let mut forgeries = vec![absent.clone()];
+    for len in 0..present.account_proof.len() {
+        let mut truncated = absent.clone();
+        truncated.account_proof = present.account_proof[..len].to_vec();
+        forgeries.push(truncated);
+    }
+    for (index, forged) in forgeries.iter().enumerate() {
+        let error = verify_staking_witness(root, staking, forged, 3, &missing).unwrap_err();
+        assert!(matches!(error, LanderError::Safety(_)), "forgery {index}: {error}");
+    }
+    for index in [0, 258, slots.len() - 1] {
+        let mut claimed = absent.clone();
+        claimed.storage[index].value = U256::from(1);
+        let error = verify_staking_witness(other.root, staking, &claimed, 3, &missing).unwrap_err();
+        assert!(matches!(error, LanderError::Safety(_)), "slot {index}: {error}");
+    }
+    let fewer = other.witness(staking, &staking_slots(&missing[..1]));
+    let error = verify_staking_witness(other.root, staking, &fewer, 3, &missing).unwrap_err();
+    assert!(matches!(error, LanderError::Safety(_)), "{error}");
+}
+
 /// A staking proof the L2 endpoint does not give, as for pruned state or an unknown hash, or
 /// answers with `null`, is the endpoint's own fault: [`LanderError::Temporary`], rendering no
 /// endpoint detail, never a value.

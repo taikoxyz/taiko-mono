@@ -107,11 +107,26 @@ impl State {
             })
             .collect()
     }
-    /// An exact-slot witness of `address`, as `eth_getProof` returns it.
+    /// An exact-slot witness of `address`, as `eth_getProof` returns it. For an address without
+    /// an account that is its exclusion proof with empty account fields and every requested word
+    /// zero, each with no storage proof nodes.
     pub(crate) fn witness(&self, address: Address, slots: &[B256]) -> AccountWitness {
-        let (storage, root) = &self.accounts[&address];
         let (_, account_proofs) =
             trie(Self::leaves(&self.accounts), vec![Nibbles::unpack(keccak256(address))]);
+        let Some((storage, root)) = self.accounts.get(&address) else {
+            return AccountWitness {
+                address,
+                nonce: 0,
+                balance: U256::ZERO,
+                storage_root: EMPTY_ROOT_HASH,
+                code_hash: alloy_primitives::KECCAK256_EMPTY,
+                account_proof: nodes(&account_proofs, keccak256(address)),
+                storage: slots
+                    .iter()
+                    .map(|slot| StorageProof { slot: *slot, value: U256::ZERO, proof: vec![] })
+                    .collect(),
+            };
+        };
         let (_, storage_proofs) = trie(
             storage
                 .iter()
